@@ -1,0 +1,21 @@
+{
+  "name": "devkit-core",
+  "version": "0.1.0",
+  "description": "Stack-agnostic dev workflow: research, plan, implement, review, ship, debug and test.",
+  "author": {
+    "name": "kaue rodrigues dos santos",
+    "url": "https://github.com/chacal88"
+  },
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "planning",
+    "code-review",
+    "tdd",
+    "debugging",
+    "testing",
+    "git"
+  ],
+  "homepage": "https://github.com/chacal88/devkit",
+  "repository": "https://github.com/chacal88/devkit"
+}

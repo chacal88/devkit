@@ -1,0 +1,22 @@
+{
+  "name": "devkit-stack",
+  "version": "0.1.0",
+  "description": "Technology references: Postgres, Neon, React performance, Vitest, multi-tenant SaaS and threat modeling.",
+  "author": {
+    "name": "kaue rodrigues dos santos",
+    "url": "https://github.com/chacal88"
+  },
+  "license": "MIT",
+  "keywords": [
+    "postgres",
+    "neon",
+    "react",
+    "nextjs",
+    "vitest",
+    "multi-tenant",
+    "security",
+    "threat-model"
+  ],
+  "homepage": "https://github.com/chacal88/devkit",
+  "repository": "https://github.com/chacal88/devkit"
+}

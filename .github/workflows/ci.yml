@@ -1,0 +1,30 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Catalog is up to date
+        run: python3 scripts/gen-catalog.py --check
+      - name: Names, descriptions, links, language
+        run: python3 scripts/check.py
+      - name: Hook tests
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          node --test plugins/openspec/hooks/guard.test.mjs
+      - name: Schemas validate against the OpenSpec CLI
+        run: |
+          npm i -g @fission-ai/openspec@latest
+          tmp="$(mktemp -d)" && cd "$tmp" && git init -q
+          openspec init --tools none --no-animation . >/dev/null
+          bash "$GITHUB_WORKSPACE/plugins/openspec/skills/openspec-setup/scripts/install-schemas.sh" .
+          openspec schema validate devkit
+          openspec schema validate devkit-lite

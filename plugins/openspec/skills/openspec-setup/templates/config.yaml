@@ -1,0 +1,35 @@
+schema: devkit
+# Small changes with no spec-level behavior change:
+#   openspec new change <name> --schema devkit-lite
+
+# Shown to the agent in every artifact and in apply. Fill in for this project.
+context: |
+  Stack: <languages, frameworks, database>
+  Test command: <e.g. npm test | pytest | go test ./...>
+  Lint / typecheck: <commands, or "none">
+  ADRs: <docs/adr/ | docs/decisions/ | none>
+  Default branch: <main>
+  Conventions: <commit format, ticket keys, code language>
+
+rules:
+  requirements:
+    - Ask the owner; never answer your own grill questions
+  proposal:
+    - Keep it under two pages; the how belongs in design.md
+  design:
+    - Record any decision that changes an ADR as a proposal for a new ADR, not as a silent deviation
+  tasks:
+    - One "## N." group per phase, each ending with a gate task that names the test command
+    - Every acceptance criterion id appears in at least one task
+  readiness:
+    - Written only by the plan-readiness-reviewer agent, never by the plan's author
+
+operations:
+  apply:
+    guidance:
+      - One phase at a time, each dispatched to the devkit-core:tdd-implementer agent; stop at the phase gate
+      - After the last phase, run review-change for this change (each reviewer writes reviews/<reviewer>.md), then dispatch devkit-core:pr-verifier (writes evidence.md)
+      - Open the PR with the commit-and-pr agent; the merge is the owner's
+  archive:
+    guidance:
+      - Run the retro skill and propose doc or rule updates to the owner before archiving

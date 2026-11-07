@@ -1,0 +1,20 @@
+{
+  "name": "devkit-design",
+  "version": "0.1.0",
+  "description": "Greenfield design in four DDD phases: business discovery, domain model, architecture and implementation plan.",
+  "author": {
+    "name": "kaue rodrigues dos santos",
+    "url": "https://github.com/chacal88"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ddd",
+    "domain-driven-design",
+    "architecture",
+    "adr",
+    "bounded-context",
+    "design"
+  ],
+  "homepage": "https://github.com/chacal88/devkit",
+  "repository": "https://github.com/chacal88/devkit"
+}

@@ -1,0 +1,21 @@
+{
+  "name": "devkit-ai-engineering",
+  "version": "0.1.0",
+  "description": "Building with LLMs: evaluation, multi-agent patterns, agent tool and CLI design, context compression and skill vetting.",
+  "author": {
+    "name": "kaue rodrigues dos santos",
+    "url": "https://github.com/chacal88"
+  },
+  "license": "MIT",
+  "keywords": [
+    "llm",
+    "evaluation",
+    "multi-agent",
+    "tool-design",
+    "context-engineering",
+    "agents",
+    "security"
+  ],
+  "homepage": "https://github.com/chacal88/devkit",
+  "repository": "https://github.com/chacal88/devkit"
+}
