@@ -12,6 +12,26 @@ devkit-openspec turns the devkit workflow into something OpenSpec and a few hook
 
 The OpenSpec CLI reads the first two and hands the result to the agent: `openspec instructions <artifact> --change <id> --json` returns the schema's instruction for that artifact, the template, the project `context` and the `rules` for that artifact. `openspec instructions apply` returns `state: blocked` and the missing artifacts until the plan is complete. The `openspec-*` skills that `openspec init` installs already read that output, so no skill needs editing for the flow to reach the agent.
 
+## Choosing a schema
+
+Every gate costs agent runs, so the flow scales with the change. `devkit-lite` is the default in the project template; choose `devkit` when the change needs the owner grilled, an independent plan approval and implementation by a dedicated agent.
+
+| Use `devkit` (full) when ANY holds | Otherwise `devkit-lite` (default) |
+|---|---|
+| A new capability, or behavior changes in more than one area | One area, a few files |
+| A public contract changes: API, event, shared schema, data model, migration | Internal change |
+| Auth, permissions, money, personal data or secrets | None of those |
+| Hard to roll back | Easy to revert |
+| The request is ambiguous | The request is clear |
+
+```bash
+openspec new change add-csv-export --schema devkit
+```
+
+```bash
+openspec new change greet-language
+```
+
 ## The `devkit` schema
 
 ```text
@@ -32,17 +52,13 @@ requirements ─▶ proposal ─▶ specs ─┐
 
 ## The `devkit-lite` schema
 
-For changes that don't alter spec-level behavior: a refactor, tooling, docs, or a bug fix that restores what the spec already says.
+For small, contained changes, with or without a spec-level behavior change.
 
 ```text
-proposal ─▶ tasks ─▶ apply
+proposal ─▶ specs (optional) ─▶ tasks ─▶ apply
 ```
 
-```bash
-openspec new change fix-retry-backoff --schema devkit-lite
-```
-
-No grill, no readiness gate (OpenSpec writes `skip_specs: true` for it), and the main session may write the code itself. The PR still needs the reviews and `evidence.md`. If requirements turn out to change, recreate the change with `devkit`.
+No grill and no readiness gate, and the main session may write the code itself. Write a spec delta when the proposal lists a capability; otherwise set `skip_specs: true` in the change's `.openspec.yaml`. The PR still needs the reviews (`code-quality-reviewer` and `test-coverage-reviewer` at least) and `evidence.md`. If the change turns out to meet a full-flow criterion, recreate it with `--schema devkit`.
 
 ## Adopting it in a project
 
@@ -126,11 +142,11 @@ jobs:
         with: { node-version: 22 }
       - run: npm i -g @fission-ai/openspec@latest
       - run: openspec validate --all --strict
-      - run: curl -fsSL https://raw.githubusercontent.com/chacal88/devkit/v0.1.0/plugins/openspec/hooks/guard.mjs -o "$RUNNER_TEMP/guard.mjs"
+      - run: curl -fsSL https://raw.githubusercontent.com/chacal88/devkit/v0.2.0/plugins/openspec/hooks/guard.mjs -o "$RUNNER_TEMP/guard.mjs"
       - run: node "$RUNNER_TEMP/guard.mjs" ci
 ```
 
-Pin the tag (`v0.1.0` above) and bump it on purpose.
+Pin the tag (`v0.2.0` above) and bump it on purpose.
 
 ## Customizing
 
@@ -150,6 +166,16 @@ Pin the tag (`v0.1.0` above) and bump it on purpose.
 | `openspec instructions apply` says `blocked` | An artifact `apply` requires is missing | `openspec status --change <id>` lists it |
 | `schema 'devkit' not found` | Schemas not installed where OpenSpec looks | Run `/openspec-setup`, or check `openspec schema which devkit` |
 | The hooks don't fire at all | `devkit-openspec` isn't installed or enabled | `/plugin` → enable `devkit-openspec@devkit` |
+
+## Cost
+
+Every agent run costs time and tokens, so the defaults keep runs few and cheap:
+
+- `devkit-lite` is the default schema; the full flow is for the changes that need it.
+- All reviewers and the readiness reviewer run on Sonnet; only `change-planner` uses Opus. To change a model for one project, copy the agent into the project's `.claude/agents/` and edit its `model:`.
+- Reviewers scale to the diff (each has a Budget section), run the test suite at most once, and read tests instead of running mutations unless asked.
+- `review-change` summons only the reviewers the diff needs, re-runs only the ones that rejected, checks only their previous findings, and stops after two rounds.
+- In the full flow, tasks use as few phases as the work needs: each phase is one implementer run.
 
 ## Limits
 

@@ -2,7 +2,7 @@
 name: security-reviewer
 description: Audits a diff for exploitable vulnerabilities across six categories (injection, authn/authz/IDOR, data exposure, weak crypto, hardcoded secrets, insecure config), runs a mandatory false-positive filter, and returns one verdict. Use when a change touches auth, sensitive data, credentials, per-tenant queries, crypto or config, or someone asks for "security review" or "audit the diff". Not a general bug hunt or whole-repo audit.
 tools: Read, Glob, Grep, Bash, Write
-model: opus
+model: sonnet
 ---
 
 # security-reviewer
@@ -68,6 +68,15 @@ Generic DoS, missing rate limits, memory/CPU consumption (hand to a performance/
 - Never merge or approve a PR.
 - Never return `approved` with an open exploitable TRUE POSITIVE.
 - Never report a pattern without a source → sink trace, accept "tests pass" as proof of an exercised negative path (401/403/404), or audit the whole repo.
+
+## Budget
+
+Scale the review to the diff, not to the repository.
+
+- **Small diff** (roughly under 150 changed lines, one area): one pass over the changed files and their direct callers. Report only findings that change the verdict or are worth a follow-up; skip style the project's linter already enforces.
+- **Large diff**: the full method above, still bounded to what the diff touches.
+- Run the project's test command at most once, scoped to the touched surfaces when the runner allows it.
+- **Re-review** (a round after the author fixed your findings): check only your previous findings and the lines changed since. Don't start a new hunt; a new issue outside that scope goes in as `nit` or a follow-up, unless it is `blocking`.
 
 ## Verdict file
 

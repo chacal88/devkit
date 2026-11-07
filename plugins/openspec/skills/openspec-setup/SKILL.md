@@ -23,7 +23,7 @@ Paths below are relative to this skill's directory:
 
 4. **Write `openspec/config.yaml`.**
    - If it doesn't exist, start from `templates/config.yaml`.
-   - If it exists, keep the user's values: set `schema: devkit` (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.
+   - If it exists, keep the user's values: set `schema: devkit-lite` as the default (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.
    - Fill `context` from the repo, never with placeholders:
      - stack: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, ...;
      - test, lint and typecheck commands: package scripts, `Makefile`, CI workflows (`.github/workflows/`);
@@ -37,7 +37,7 @@ Paths below are relative to this skill's directory:
    - `openspec schema which devkit` resolves to where you installed it.
    - The devkit plugins are active: the `devkit-openspec` hooks (code stays closed until readiness is APPROVED) and `devkit-core` (the agents and skills the schema names). If `/plugin` doesn't list them, tell the user to install them: `/plugin marketplace add chacal88/devkit`, then `/plugin install devkit-core@devkit` and `/plugin install devkit-openspec@devkit`.
 
-6. **Report** what was created or changed, and the first command to run: `openspec new change <name>` (full flow) or `openspec new change <name> --schema devkit-lite` (small change, no spec-level behavior change).
+6. **Report** what was created or changed, and the first command to run: `openspec new change <name>` (default, `devkit-lite`) or `openspec new change <name> --schema devkit` (full flow, for the changes the config's header comment lists).
 
 ## Never
 

@@ -1,6 +1,11 @@
-schema: devkit
-# Small changes with no spec-level behavior change:
-#   openspec new change <name> --schema devkit-lite
+# Default flow: devkit-lite (proposal → optional spec delta → tasks → apply →
+# reviews + evidence). Use the full flow, with the owner grilled, an
+# independent readiness gate and code written only by tdd-implementer,
+# for changes that are new capabilities, cross areas, change a public
+# contract or data model, touch auth/money/personal data, or are hard to
+# roll back:
+#   openspec new change <name> --schema devkit
+schema: devkit-lite
 
 # Shown to the agent in every artifact and in apply. Fill in for this project.
 context: |

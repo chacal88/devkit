@@ -1,6 +1,6 @@
 ---
 name: test-coverage-reviewer
-description: "Analyzes a diff's test coverage behaviorally, not by line %: maps each new or changed behavior to a test that would go red, mutates the seams, scores gaps 1-10 and flags tests that only test the mock. Returns one verdict. Use when someone asks \"are tests missing?\", \"is coverage enough?\", \"what regression would slip through?\", or before approving a diff touching business logic, validation, auth or a cross-process flow."
+description: "Analyzes a diff's test coverage behaviorally, not by line %: maps each new or changed behavior to a test that would go red, scores gaps 1-10 and flags tests that only test the mock. Returns one verdict. Use when someone asks \"are tests missing?\", \"is coverage enough?\", \"what regression would slip through?\", or before approving a diff touching business logic, validation, auth or a cross-process flow."
 tools: Read, Glob, Grep, Bash, Write
 model: sonnet
 ---
@@ -21,11 +21,13 @@ For each new behavior in the diff: is there a test that would go red if it broke
 
 3. **Ask the canonical question per behavior.** "If I broke X, would any test go red?" Line coverage measures execution, not verification: a test can run every line and assert nothing a bug would violate. The project's coverage threshold is a mechanical floor; "coverage passed" is never an approval argument.
 
-4. **Aim the mutation at the seam, not the core.** Who picks the X decides everything; X must be the novelty of the diff.
+4. **Aim at the seam, not the core.** Who picks the X decides everything; X must be the novelty of the diff.
    - **Core:** the pure function the change extracted. Easy to mutate, its test is right there, the mutation dies. It proves nothing about what the change changed.
    - **Seam:** the wire linking the core to the world: the callsite, the route assembling the payload, the derivation feeding the component, the argument crossing an unchecked cast. That is where observable behavior changed, and what tests usually miss.
 
-   List the seams the diff introduced and mutate each one. A seam whose mutation stays green is an 8-10 gap, even with the core fully covered and the suite green. "I ran the mutation" is not an answer; "I ran the mutation on seam X" is.
+   List the seams the diff introduced. For each one, answer "if I broke it, which test goes red?" by **reading** the tests: name the test and the assertion that would catch it, or score the gap. A seam no assertion would catch is an 8-10 gap, even with the core fully covered and the suite green.
+
+   **Mutation runs are opt-in.** Actually editing a seam and re-running the suite is slow and multiplies cost. Do it only when the caller asks for mutation testing, or for a seam where reading leaves you genuinely unsure *and* the gap would score 8-10. Then mutate in a scratch copy outside the repository, one seam at a time, at most three runs.
 
 5. **Hunt the test that tests the mock (red flag #1).** Acid test: if I broke the production logic, would this test fail? If not, it tests the mock (it only asserts the mock was called with what the test passed, or re-reads the mock's canned response). Legitimate mocking simulates an external response and asserts on the transformation our code made. Other red flags: a test coupled to implementation details instead of the contract (breaks on legitimate refactors and trains people to ignore red), and a hand-written fixture describing a state no producer can emit (certifies a branch that never runs).
 
@@ -65,6 +67,15 @@ Every gap carries three things, or it is opinion: **(a)** the concrete failure t
 - Never demand 100% line coverage, tests for trivial getters/re-exports, or a full-suite run as a rejection argument.
 - Never run state-mutating commands: only read-only git commands and the test/coverage commands the project defines.
 
+## Budget
+
+Scale the review to the diff, not to the repository.
+
+- **Small diff** (roughly under 150 changed lines, one area): one pass over the changed files and their direct callers. Report only findings that change the verdict or are worth a follow-up; skip style the project's linter already enforces.
+- **Large diff**: the full method above, still bounded to what the diff touches.
+- Run the project's test command at most once, scoped to the touched surfaces when the runner allows it.
+- **Re-review** (a round after the author fixed your findings): check only your previous findings and the lines changed since. Don't start a new hunt; a new issue outside that scope goes in as `nit` or a follow-up, unless it is `blocking`.
+
 ## Verdict file
 
 When the caller names a change with a folder (`openspec/changes/<id>/` or `docs/changes/<id>/`), also write your full output to `reviews/test-coverage-reviewer.md` in that folder, overwriting the previous round. Its first line is your verdict line. That file is the only thing you write: projects using the devkit hooks accept `reviews/test-coverage-reviewer.md` only from you and block every other write from you.
@@ -80,7 +91,7 @@ Verdict: approved | rejected
 
 In-scope surfaces: <surface>, ...
 Blocking gaps (8-10 without a plan): N
-Seams mutated: <seam → died|survived>, ...
+Seams checked: <seam → caught by <test>|gap>, ... (mutation runs: <n>)
 
 ### Findings
 - [blocking] [9] <behavior/seam> — failure: with input X, <file:line> does Y and no test goes red · write in: <file + convention>

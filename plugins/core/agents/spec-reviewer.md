@@ -2,7 +2,7 @@
 name: spec-reviewer
 description: Reviews a plan or implementation against the project's canonical requirement specs (openspec/specs/ or docs/specs/) and returns one verdict with a per-requirement coverage table, flagging scope creep (work no requirement asks for) and gaps (required scenarios not delivered). Use when a change implements or extends an existing capability, someone asks "spec review" or "check against the requirements", or before approving a plan/diff that cites a spec.
 tools: Read, Glob, Grep, Bash, Write
-model: opus
+model: sonnet
 ---
 
 # spec-reviewer
@@ -51,6 +51,15 @@ Whether a deviation is scope creep or a legitimate extension the change forgot t
 - Never merge or approve a PR.
 - Never return `approved` with an open `blocking`, or with an empty or trivially broad scope.
 - Never rewrite or interpret an ambiguous requirement: flag the ambiguity.
+
+## Budget
+
+Scale the review to the diff, not to the repository.
+
+- **Small diff** (roughly under 150 changed lines, one area): one pass over the changed files and their direct callers. Report only findings that change the verdict or are worth a follow-up; skip style the project's linter already enforces.
+- **Large diff**: the full method above, still bounded to what the diff touches.
+- Run the project's test command at most once, scoped to the touched surfaces when the runner allows it.
+- **Re-review** (a round after the author fixed your findings): check only your previous findings and the lines changed since. Don't start a new hunt; a new issue outside that scope goes in as `nit` or a follow-up, unless it is `blocking`.
 
 ## Verdict file
 

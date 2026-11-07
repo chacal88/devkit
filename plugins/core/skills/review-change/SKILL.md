@@ -22,6 +22,10 @@ One of:
 
 If the target can't be resolved, stop and ask.
 
+## Cost
+
+Reviewers are the most expensive step of a change. Summon only the reviewers the matrix selects: a small diff that touches no contract, auth, ADR area or spec gets `code-quality-reviewer` and `test-coverage-reviewer` only. Never re-run a reviewer that already approved the current diff.
+
 ## Process
 
 ### 1. Capture the surface
@@ -83,7 +87,8 @@ Read each reviewer's verdict line and normalize it:
 
 Rounds:
 
-- Round 1 FAIL → list the blockers; the author fixes; round 2 re-summons **only** the reviewers that failed.
+- Round 1 FAIL → list the blockers; the author fixes; round 2 re-summons **only** the reviewers that failed, each with its previous verdict, to check **only** those findings and the lines changed since (see each reviewer's Budget section).
+- Only `blocking` findings, and `important` ones without a rebuttal, trigger a round. `nit` and follow-up items go into the report and never cause a re-review.
 - No convergence after 2 rounds → stop and escalate to the human with the disputed points. No automatic third round.
 - A finding that contradicts an ADR is never routed around: it becomes a proposal for a new ADR and goes to the human.
 

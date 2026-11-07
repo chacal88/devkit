@@ -288,7 +288,9 @@ artifacts:
 
       Reference specs for what needs to be built, design for how to build it.
       devkit: each "## N." group is one phase that a tdd-implementer agent
-      can run on its own. End each group with a gate task, e.g.
+      can run on its own. Use as few phases as the work needs: every phase
+      is a separate agent run. Split only where one part must be green
+      before the next can start. End each group with a gate task, e.g.
       `- [ ] N.9 Gate: <test command> green; reference the AC ids covered`.
       Every acceptance criterion id from requirements.md is covered by at
       least one task.

@@ -14,7 +14,7 @@ Then, in the project: `/openspec-setup`. The full guide is [docs/openspec-flow.m
 | Piece | Role |
 |---|---|
 | [`schemas/devkit/`](schemas/devkit/schema.yaml) | The flow: `requirements` → `proposal` → `specs` + `design` → `tasks` → `readiness` → apply. `apply` requires `readiness`, so `openspec instructions apply` answers `blocked` until it exists. Each artifact's instruction names the devkit-core skill or agent that produces it |
-| [`schemas/devkit-lite/`](schemas/devkit-lite/schema.yaml) | Small changes with no spec-level behavior change: `proposal` → `tasks` → apply. No grill, no readiness gate |
+| [`schemas/devkit-lite/`](schemas/devkit-lite/schema.yaml) | The default, for small, contained changes: `proposal` → optional spec delta → `tasks` → apply. No grill, no readiness gate; reviews and evidence still required. See [choosing a schema](../../docs/openspec-flow.md#choosing-a-schema) |
 | [`hooks/`](hooks/guard.mjs) | The gates OpenSpec can't see, because it only checks that a file exists (see below) |
 | `openspec-setup` skill | Initializes OpenSpec, installs the schemas, writes `openspec/config.yaml` from the real repo |
 | `openspec-validator` agent | Structure-only check of a change |
