@@ -35,9 +35,37 @@ Tests are in `plugins/openspec/hooks/guard.test.mjs` and `deliver-check.test.mjs
 | AC-11 | ADR 0001 exists, README cites it, config names `docs/adr/` | `docs/adr/0001-coordination-without-a-harness.md` exists; `README.md` line 48 links it; `openspec/config.yaml` line 15: `ADRs: docs/adr/ (0001 coordination without a harness)`; check.py (link check) green. | pass |
 | AC-12 | Test command passes, covering deliver-check and ship parsing | Gates table: 187 tests green, including `deliver-check.test.mjs` suites and `parseShip` tests; check.py green. | pass |
 
+### Live run against PR #3
+
+Run at local HEAD `f1c8d2c43fb81418e52882d480c47b9488fda119` (commits after the Commit line's `c5da155` touch only `openspec/`), against the real PR https://github.com/chacal88/devkit/pull/3 through the real `gh`.
+
+| Command | Result |
+|---------|--------|
+| `node plugins/openspec/hooks/deliver-check.mjs ship-modes` | exit 1 (by design below 8/8). Header: `schema devkit, ship plan, host app, head f1c8d2c`. Summary `7/8 met: in progress: item 3`; `next: stop-plan-mode: ship mode for devkit is plan; follow the usual apply flow` |
+| `node plugins/openspec/hooks/deliver-check.mjs ship-modes --json` | exit 1. `version: 1`, `pr: {number: 3, url: .../pull/3}`, `met: 7`, `summary: "in progress: item 3"`, `next.step: stop-plan-mode` |
+| `gh pr checks 3` | exit 0. One check: `check  pass  28s` (GitHub Actions run 42529941493) |
+| `gh api graphql` for `pullRequest(number:3)` with `comments{nodes{authorAssociation}}`, `reviews{nodes{authorAssociation state}}`, `reviewThreads{nodes{isResolved comments{nodes{authorAssociation}}}}` | exit 0, no GraphQL errors. Payload: `comments.nodes: []`, `reviews.nodes: []`, `reviewThreads.nodes: []` |
+
+Items 5-8 from the real payloads:
+
+| Item | Status | Reason printed | Detail from `--json` |
+|------|--------|----------------|----------------------|
+| 5 PR open at local head | met | `PR #3 open at f1c8d2c` | `ahead: false`, `uncommitted: []` |
+| 6 required checks green | met | `1 checks green` | `required: false`, `failing: []`, `pending: []`; agrees with `gh pr checks 3` (1 check, pass) |
+| 7 conversation answered | met | `every thread and request is answered` | `threads`, `comments`, `changesRequested`, `waiting` all `[]` |
+| 8 PR body complete | met | `PR body names the change, its criteria and the evidence` | `missing: []` |
+
+Other items in the same run: 1, 2 and 4 met; item 3 open (the `test-coverage-reviewer` `[6] Real gh contract not exercised` finding has no accepted disposition yet; unchanged from the Observations below).
+
+Limits of this run, stated plainly:
+
+- The PR has no comments, reviews or review threads yet. `authorAssociation` values were therefore not observed on real nodes. What the run shows is only that GitHub's schema accepts a query that selects `authorAssociation` on comments, reviews and review-thread comments (exit 0, no errors). Item 7's parsing of real thread, comment and association data is still proven by the fake-`gh` tests alone.
+- Item 6 is met with `required: false`: the check is green, but this run does not show it is a branch-protection required check.
+- The query above was written for this run and is not the checker's own query text; it shows schema acceptance of the field, not that the checker's query is accepted byte for byte. The checker returning item 7 as met without a `gh` error suggests its own query succeeded.
+
 ## Observations (not blocking, nothing fixed)
 
 - Resolved by c5da155: `plugins/core/agents/pr-verifier.md` now says `Commit:` goes first, before the first heading; `deliver-check` outside a git repo now exits 3 with a clear message ("... is not a git repository: deliver-check reads commits and the working tree"), checked live in a scratch directory without git. Three tests were added (184 to 187).
 - Reviewer agents' Output blocks may still have the same "near the top" wording gap for their `Commit:` lines (not checked in this round).
 - `deliver-check ship-modes` at c5da155 reports 3/8 met; item 3 (findings disposed) is open: `test-coverage-reviewer` finding `[important] [6] Real gh contract not exercised` (carried from round 1) has no `fixed in <sha>` / `refuted:` disposition the parser accepts. Items 5-8 need the PR.
-- No live `gh` run was made: that is a follow-up after the PR opens.
+- No live `gh` run was made at c5da155 (the PR did not exist). The follow-up now exists: see "Live run against PR #3" above.

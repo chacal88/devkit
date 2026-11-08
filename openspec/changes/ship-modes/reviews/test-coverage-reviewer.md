@@ -12,7 +12,7 @@ Seams checked (mutation runs: 0; `node --test plugins/openspec/hooks/guard.test.
 
 ### Findings
 - [nit] format-contract grep: `format: pr-verifier puts the Commit line before the first heading...` asserts wording in the agent prompt, not behavior. It is consistent with the repo's existing format tests, and the behavior that matters (parseCommitLine) is tested separately. No change needed.
-- [important] [6] Real `gh` contract not exercised (carried from round 1). Accepted follow-up, not a unit-test gap. Condition: pr-verifier runs `deliver-check ship-modes --json` against the real open PR (at least one check and one review thread) and records it in evidence.md, showing items 5-8 are not `blocked` for a payload reason, and checks that `authorAssociation` is present in the real GraphQL response (if missing, every person is ignored and item 7 passes falsely as `met`). I leave this line without a disposition on purpose: the live run has not happened, so item 3 stays open until it does.
+- [important] [6] Real `gh` contract not exercised · refuted: evidence.md "Live run against PR #3" ran deliver-check through the real `gh` against PR #3: items 5-8 met from real payloads (item 6 agrees with `gh pr checks 3`), and the GraphQL query selecting `authorAssociation` on comments, reviews and thread comments exits 0 with no errors, so the field exists in the real schema (not missing, so item 7 does not pass falsely for that reason). Residual, accepted as a nit: the PR has no comments or threads, so real association values were not observed; that parsing stays covered by the fake-gh tests.
 
 ### Round-1 findings, unchanged
 - [blocking] [8] AC-3 readiness wiring in collectState · fixed in 1acce88
