@@ -54,6 +54,7 @@ Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (gri
 | Skill | What it does / when to use |
 |---|---|
 | [`openspec-setup`](../plugins/openspec/skills/openspec-setup/SKILL.md) | Sets up a project to run the devkit flow on OpenSpec - runs openspec init, installs the devkit and devkit-lite schemas, writes openspec/config.yaml with the project's real context (stack, test command, ADRs, conventions). Use when the user says "set up devkit", "set up openspec with devkit", "adopt the devkit flow here", or a project has no openspec/ folder and wants the flow. |
+| [`ship-change`](../plugins/openspec/skills/ship-change/SKILL.md) | Drives one approved change to a ready pull request when the project's openspec/config.yaml sets ship to pr for its schema - implements phase by phase, reviews, verifies, opens the PR, answers its conversation and waits for checks, always asking `deliver-check` what is next. Never merges. Use when the owner says "ship this change", "apply and ship <id>", "/ship-change <id>", or when Auto-fix wakes the session about that change's PR. |
 
 ## devkit-design
 

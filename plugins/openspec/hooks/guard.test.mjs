@@ -1,12 +1,14 @@
 // node --test plugins/openspec/hooks/guard.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap } from './guard.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir } from './guard.mjs';
+
+import './deliver-check.test.mjs'; // ship-modes tests ride on the same command
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -305,4 +307,34 @@ test('an unreadable roadmap prints nothing and keeps the change report', () => {
   assert.equal(r.code, 0);
   assert.match(r.out, /Active OpenSpec change: x/);
   assert.doesNotMatch(r.out, /Roadmap/);
+});
+
+// ---------------------------------------------------------------- direct execution (ship-modes D3)
+
+test('guard run through a symlinked path still gates code (exit 2)', () => {
+  const root = repo({ changes: { feat: { ...approved } } });
+  const link = join(mkdtempSync(join(tmpdir(), 'devkit-link-')), 'guard.mjs');
+  symlinkSync(guard, link);
+  const input = { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'src/a.ts') } };
+  const r = spawnSync('node', [link, 'edit'], { cwd: root, input: JSON.stringify(input), encoding: 'utf8', env: { ...process.env, ...clean } });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /tdd-implementer/);
+});
+
+test('importing guard.mjs runs no mode: no exit, no output, even with DEVKIT_BYPASS=1 and argv ci', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-import-'));
+  const script = join(dir, 'importer.mjs');
+  writeFileSync(script, "await import(process.env.GUARD_URL);\nconsole.log('alive');\n");
+  const r = spawnSync('node', [script, 'ci'], { cwd: dir, encoding: 'utf8',
+    env: { ...process.env, ...clean, DEVKIT_BYPASS: '1', GUARD_URL: pathToFileURL(guard).href } });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, 'alive\n');
+  assert.equal(r.stderr, '');
+});
+
+test('guard exports findRoot, changeSchema and changeDir', () => {
+  const root = repo({ changes: { feat: { ...lite } } });
+  assert.equal(findRoot(join(root, 'openspec', 'changes')), root);
+  assert.equal(changeSchema(root, 'feat'), 'devkit-lite');
+  assert.equal(changeDir(root, 'feat'), join(root, 'openspec', 'changes', 'feat'));
 });

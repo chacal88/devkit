@@ -80,7 +80,7 @@ Scale the review to the diff, not to the repository.
 
 ## Verdict file
 
-When the caller names a change with a folder (`openspec/changes/<id>/` or `docs/changes/<id>/`), also write your full output to `reviews/security-reviewer.md` in that folder, overwriting the previous round. Its first line is your verdict line. That file is the only thing you write: projects using the devkit hooks accept `reviews/security-reviewer.md` only from you and block every other write from you.
+When the caller names a change with a folder (`openspec/changes/<id>/` or `docs/changes/<id>/`), also write your full output to `reviews/security-reviewer.md` in that folder, overwriting the previous round. Its first line is your verdict line. Its second line is `Commit: <sha>`: the full `git rev-parse HEAD` of the code you reviewed, followed by ` (uncommitted changes)` when the reviewed diff included uncommitted work outside `openspec/`. Nothing else goes between the two lines. On a re-review, list every previous `[blocking]` and `[important]` finding again with ` · fixed in <sha>` (the commit that fixed it) or ` · refuted: <evidence>`; a finding still open keeps its severity tag and gets no disposition. That file is the only thing you write: projects using the devkit hooks accept `reviews/security-reviewer.md` only from you and block every other write from you.
 
 ## Output
 
@@ -88,6 +88,7 @@ Exactly one verdict. The first line is parseable.
 
 ```
 Verdict: approved | rejected | declined
+Commit: <sha>[ (uncommitted changes)]
 
 ## Security audit — <change> (round N)
 
@@ -96,10 +97,11 @@ Categories walked: injection, authn/authz/IDOR, exposure, crypto, secret, config
 Discarded false positives: <category — one-line reason>; ...
 
 ### Findings (TRUE POSITIVE)
+- [blocking] <previous finding, re-review only> · fixed in <sha> | · refuted: <evidence>
 - [blocking] [<category>] <file:line> — <vuln in 1 sentence>
   - Exploitability: <concrete input/path/impact; source → sink trace>
   - Fix: <1 sentence>
 - [important] [<category>] <file:line> — <real but not directly exploitable in this diff, e.g. a pre-existing issue>
 ```
 
-Exploitable TRUE POSITIVEs are always `blocking`. When declining, the whole output is: `Verdict: declined` followed by "the diff does not touch auth, data, credentials, crypto or config." A declined review is non-blocking.
+Exploitable TRUE POSITIVEs are always `blocking`. When declining, the whole output is: `Verdict: declined`, then the `Commit: <sha>` line, then "the diff does not touch auth, data, credentials, crypto or config." A declined review is non-blocking.
