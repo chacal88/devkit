@@ -3,7 +3,7 @@ Commit: c5da1553d4afe9be984cb4d1056c8acf3bb9d405
 
 ## ADR review — ship-modes (round 3, stale-only re-review of 1acce88..HEAD)
 
-ADRs reviewed: [ADR 0001](../../../../docs/adr/0001-coordination-without-a-harness.md)
+ADRs reviewed: [ADR 0001](../../../../../docs/adr/0001-coordination-without-a-harness.md)
 
 ### Findings
 No findings.

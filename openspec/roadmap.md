@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Round 1: ready PR without the owner in between
-- [ ] ship-modes
+- [x] ship-modes
 
 ## Round 2: auto-merge for devkit-lite
 - [ ] auto-merge (after: ship-modes)
