@@ -1,36 +1,27 @@
-Verdict: rejected
-Commit: c15ff9b5443255278571f6b9b90b385219998c2e
+Verdict: approved
+Commit: 1acce88ed3366a841c5c97dab4f0e615d09a3537
 
-## Coverage analysis — ship-modes (28a83b9..c15ff9b), round 1
+## Coverage analysis — ship-modes (c15ff9b..1acce88), round 2
 
-In-scope surfaces: plugins/openspec/hooks (deliver-check.mjs, guard.mjs exports), agent/skill markdown contracts
-Blocking gaps (8-10 without a plan): 1
-Seams checked (mutation runs: 0; the suite is green, 173/173 via `node --test plugins/openspec/hooks/guard.test.mjs`):
-- ship config -> shipMode -> collectState -> stop-plan-mode: caught by `CLI: a plan-mode project reports stop-plan-mode` (deliver-check.test.mjs:1448) and the AC-1 guard test (:140)
-- merge rejected -> CLI exit 3 + JSON error: caught by :1425 (AC-10)
-- git staleness -> reviews/evidence `current` -> nextStep review/verify, real repos: caught by the resume tests :1260-1350 (AC-5, AC-7)
-- gh -> items 5/6/7/8 (fake `gh` on PATH, per-call fixtures): caught by :727-1000
-- --watch capped, single, required flag: caught by :1495-1545 (AC-9)
-- collectState -> `needsReadiness` / `readiness` -> stop-not-approved (AC-3): GAP
-- collectState -> `branchOk` -> stop-branch: GAP
-- real `gh` payload shapes (pr view, pr checks --json, api graphql with `{owner}/{repo}` placeholders): GAP (cross-process, real evidence)
+In-scope surfaces: plugins/openspec/hooks (deliver-check.mjs, deliver-check.test.mjs)
+Blocking gaps (8-10 without a plan): 0
+Seams checked (mutation runs: 0; `node --test plugins/openspec/hooks/guard.test.mjs` is green, 184/184):
+- collectState -> needsReadiness/readiness -> stop-not-approved (AC-3): caught by `AC-3: a devkit change without readiness.md...` (asserts needsReadiness true, readiness null, step, reason /missing/), `...Status is not APPROVED` (BLOCKED, NEEDS_CHANGES, "APPROVED | BLOCKED"), the APPROVED pass-through, the devkit-lite negative, and the CLI `--json` case. `devkitRepo()` writes `openspec/schemas/devkit/schema.yaml` with a `readiness` artifact, so `schemaHasArtifact` is really exercised.
+- collectState -> branchOk -> stop-branch: caught by `branchOk: ...` (main, unrelated branch, own branch) and `currentBranch: DEVKIT_BRANCH wins over GITHUB_HEAD_REF...` (precedence, default branch named by env).
+- item 7 authorAssociation filter -> comments/reviews/threads/CHANGES_REQUESTED: caught by the OWNER/MEMBER/COLLABORATOR vs CONTRIBUTOR/NONE/FIRST_TIME_*/MANNEQUIN/missing loop, covering all four paths, and by the query assertion (3 occurrences of authorAssociation).
+- item 7 answered model (thread replies do not answer): caught by the two new tests.
+- real gh payloads: not a unit test, see below.
 
-### Findings
-- [blocking] [8] AC-3 seam, readiness wiring in collectState — failure: for a `devkit` change with `ship: devkit: pr` and `readiness.md` at `Status: NEEDS-REVISION` or missing, `deliver-check.mjs:708-717` computes `needsReadiness = schemaHasArtifact(root, schema, 'readiness')` and `readiness = readValue(...)`. Break either (wrong artifact id, wrong file path, `needsReadiness` always false) and the flow starts implementing an unapproved plan, the one human gate the change promises to keep. The only test is `nextStep row 3` (deliver-check.test.mjs:1050), which hand-builds `needsReadiness: true, readiness: 'NEEDS-REVISION'` in a synthetic state and so never touches the derivation. No test calls `collectState` or the CLI with `schema: devkit`. Every shipRepo/CLI test is `devkit-lite`, and `schemaHasArtifact` returns false unless `openspec/schemas/devkit/schema.yaml` exists (guard.mjs:109-121), which no fixture creates. A real `stop-not-approved` can never fire in the suite. · write in: deliver-check.test.mjs, next to `shipRepo()` (:1240). Add a `devkit` fixture with `openspec/schemas/devkit/schema.yaml` declaring `- id: readiness`. Assert `nextStep(collectState(...)).step === 'stop-not-approved'` for missing and non-APPROVED status, and that APPROVED proceeds past it. Add a CLI `--json` case (`next.step`).
-- [important] [6] `branchOk` derivation — failure: `deliver-check.mjs:715` (`selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch)`) is only tested in its "true" direction (every walkthrough runs on `ship/feat`). With `branchOk` forced true, or the default-branch exclusion dropped, a run on `main` or on a branch unrelated to the change is not stopped, and the hooks will not select the change for the subagents. `stop-branch` (:1046) is tested only against a synthetic `branchOk: false`. Also untested: the `DEVKIT_BRANCH` / `GITHUB_HEAD_REF` precedence in `currentBranch` (:668), and `origin/HEAD` as a default branch. · write in: deliver-check.test.mjs, on the `shipRepo()` convention. Run `collectState` on `main`, on `other/branch`, and with `DEVKIT_BRANCH=ship/feat` set; assert `stop-branch` in the first two.
-- [important] [6] Real `gh` contract, not exercised anywhere — failure: the fake `gh` answers fixtures that the author wrote by hand, so the field names (`headRefOid`, `mergeable`, `bucket`), the `-F owner={owner} -F name={repo}` placeholders, the GraphQL shape (`viewer`, `reviewThreads`, `comments(last:100)`) and the exit codes 8/1 of `gh pr checks` are not checked against a real repo. A wrong field makes item 5/6/7 `blocked` on every real PR. This flow chooses the next automated action (push, fix-checks, answer), and a unit test can't cover it. · write in: not a unit test. Record one real run in the change's `evidence.md` or the PR: `node plugins/openspec/hooks/deliver-check.mjs ship-modes --json` against a real open PR with at least one check and one review thread, and show that items 5-8 are not `blocked` for a reason about the payload.
-- [important] [5] Item 7 time-based "answered" model — failure: `conversationItem` (:524-541) treats everything older than the viewer's latest word anywhere on the PR as answered. A person's comment A on thread X, then the viewer replying only on thread Y, hides A. Tests (:927-960) cover single-comment cases, not one reply that covers an older comment elsewhere. This is a design choice; at least one test should pin it so a change is deliberate. · write in: deliver-check.test.mjs next to :927 (`conversation()` fixture).
-- [nit] implementation-coupled: deliver-check.test.mjs:737 asserts the exact `--json` field list passed to `gh pr view` (PR_FIELDS). A legitimate extra field breaks the test, though the contract is "the fields we read exist".
-- [nit] format-contract tests (:1565-1650) grep the agent/skill markdown. They are intentional and guard real parsing coupling (Output block order, `· fixed in <sha>`), but they pass on wording rather than behavior; keep them narrow.
-- [nit] `describeNext` and the human `renderHuman` strings for `fix-checks`, `edit-pr-body` and `blocked` are only matched by regex on the `implement` line (:1359-1370). Low risk.
+### Findings (round 1 re-listed)
+- [blocking] [8] AC-3 readiness wiring in collectState · fixed in 1acce88. The new tests go through `collectState` and the CLI with schema devkit. Breaking the artifact id, the file path or `needsReadiness` turns them red.
+- [important] [6] branchOk derivation and currentBranch precedence · fixed in 1acce88. Both directions are tested, plus env precedence.
+- [important] [5] Item 7 answered model · fixed in 1acce88. `spoke` is now top-level only; the tests pin "thread reply does not answer" and "later top-level answers".
+- [important] [6] Real `gh` contract not exercised · open as an evidence item, not as a gap. I accept the disposition "refuted as a unit test": my round-1 plan was already a recorded real run, not a unit test. Not blocking. Condition: pr-verifier must run `deliver-check ship-modes --json` against the real open PR (with at least one check and one review thread) and record it in evidence.md, showing items 5-8 are not `blocked` for a payload reason. Until then it is a pending follow-up. Because the run now depends on `authorAssociation`, check that field in the real GraphQL response too: if it is missing, every person is ignored and item 7 passes falsely as `met`.
+- [nit] still open from round 1: the exact `--json` field list assertion for `gh pr view` (PR_FIELDS), the grep-style format-contract tests, and the loose `describeNext` strings. No change needed.
+- [nit] [3] New: `.`/`..` change ids now exit 3 (tested). Fine.
+- [nit] [3] Fail-closed on a missing `authorAssociation` is pinned by a test, but the fixtures only exercise it through hand-written payloads. This is the same real-payload follow-up as above.
 
 ### Well covered
-- Contract items 1-4: unticked tasks, gate sub-commands split on `&&`, `AC-1` vs `AC-12` prefix collision, fail beside pass, "no proof" blocked, stale/missing evidence (:358-618).
-- Staleness (AC-7): openspec-only commits current, product commit, mixed commit, merge from base, unresolvable/non-ancestor sha, dirty tree, untracked `.claude/` (:182-272), on real temporary git repos, not mocks.
-- Item 2 re-run only the stale reviewers, and the round 1/2 transitions plus the deadlock stop, including resume after the owner's own commit (:1103-1130, :1336).
-- End-to-end walkthrough devkit-lite to ready with the exact step sequence (AC-2) and resume without redoing phases (AC-5), (:1260-1340).
-- Item 5/6/7 error paths: gh missing/unauthenticated, CLOSED/MERGED/CONFLICTING, no PR is open not blocked, exit 8 and 1 with a parseable list, 100+ threads blocked, CHANGES_REQUESTED open then blocked then cleared.
-- guard.mjs import safety and symlinked execution (guard.test.mjs:313-340), which protect the existing hooks against the refactor.
-- `--watch`: one watch, cap kills it, never watches before a PR or when a commit is due (:1495-1545).
-
-Blocking: the AC-3 derivation seam. Close it (and preferably the `branchOk` one) and re-run this review as round 2. No contract change or scope widening is needed.
+- AC-3 and stop-branch, now through the real derivation, on a temporary git repo, in the CLI too.
+- Item 7 trust filter across comments, review bodies, threads and CHANGES_REQUESTED, with each outsider association.
+- Round-1 coverage (contract items 1-4, staleness, resume, gh error paths, --watch) is unchanged and still green.

@@ -1548,6 +1548,16 @@ test('CLI: exit 3 for an unknown change, a missing id, no openspec/ and an archi
   assert.match(r.err, /openspec/);
 });
 
+test('CLI: openspec/ without a git repo is a clear usage error, not a raw git fatal', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-nogit-'));
+  mkdirSync(join(dir, 'openspec/changes/feat'), { recursive: true });
+  writeFileSync(join(dir, 'openspec/config.yaml'), 'schema: devkit\n');
+  const r = spawnSync(process.execPath, [join(here, 'deliver-check.mjs'), 'feat'], { cwd: dir, encoding: 'utf8', env: { ...process.env, GIT_CEILING_DIRECTORIES: dirname(dir) } });
+  assert.equal(r.status, 3);
+  assert.match(r.stderr, /not a git repository/i);
+  assert.doesNotMatch(r.stderr, /fatal:/);
+});
+
 test('CLI: runs from a subdirectory of the repo', () => {
   const t = shipRepo();
   assert.equal(runCli(t, ['feat'], { cwd: join(t.root, 'src') }).code, 1);
@@ -1724,6 +1734,18 @@ test('format: pr-verifier names the Commit line, the Gates table and the per-AC 
   assert.match(md, /split on `&&`/);
   assert.match(md, /no proof: <reason>/);
   assert.match(md, /\bpass\b[\s\S]*\bfail\b/);
+});
+
+test('format: pr-verifier puts the Commit line before the first heading of evidence.md, where parseCommitLine reads it', () => {
+  const md = coreAgent('pr-verifier');
+  assert.match(md, /before the first (markdown )?heading/i);
+  assert.doesNotMatch(md, /Near the top/);
+});
+
+test('format: every reviewer agent puts Commit on the second line of its verdict file', () => {
+  for (const name of ['adr-reviewer', 'architecture-reviewer', 'code-quality-reviewer', 'security-reviewer', 'spec-reviewer', 'test-coverage-reviewer']) {
+    assert.match(coreAgent(name), /Its second line is `Commit: <sha>`/, name);
+  }
 });
 
 test('format: commit-and-pr names commit-only, an open PR, and the PR body contents', () => {

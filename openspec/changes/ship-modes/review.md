@@ -34,3 +34,27 @@ Consensus: FAIL (round 1/2)
 
 ## Next
 Fix the blocker and the important items through `tdd-implementer`, commit, then re-run review-change round 2. Every reviewer whose `Commit:` goes stale with the fix commit re-runs (owner decision 5).
+
+---
+
+# Round 2
+
+Commit: 1acce88ed3366a841c5c97dab4f0e615d09a3537 (fix range c15ff9b..1acce88)
+
+| Reviewer | Verdict | Blocking | Important open |
+|---|---|---|---|
+| adr-reviewer | PASS (stale re-review) | 0 | 0 |
+| architecture-reviewer | PASS (stale re-review) | 0 | 0 |
+| security-reviewer | PASS (stale re-review) | 0 | 0 |
+| code-quality-reviewer | PASS (round 2) | 0 | 0 |
+| test-coverage-reviewer | PASS (round 2) | 0 | 1 accepted follow-up |
+
+Consensus: PASS (round 2/2)
+
+- All round-1 blockers and important findings fixed in 1acce88, or refuted/deferred with the reviewers' acceptance.
+- CI `reviewConsensus` divergence recorded in `openspec/roadmap.md` round 2 (architecture-reviewer's condition).
+- Follow-up for `pr-verifier`: run `deliver-check ship-modes --json` against the real open PR (a check and a review thread) and confirm `authorAssociation` is present in the real GraphQL response; record it in `evidence.md`.
+- New nits (no re-review): a thread opened by a trusted person whose last comment is an outsider drops out of item 7; trust rule spread across several predicates; `.`/`..` checked after `changeDir`.
+
+## Next
+`pr-verifier` (evidence.md), then `commit-and-pr` (push and open the PR). The merge is the owner's.

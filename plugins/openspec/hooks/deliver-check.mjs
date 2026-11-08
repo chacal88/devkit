@@ -822,6 +822,7 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     opts = parseArgs(argv);
     const root = findRoot(cwd);
     if (!root) throw new UsageError(`no openspec/ folder found from ${cwd}`);
+    if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
     const dir = changeDir(root, opts.id);
     if (!/^[\w.-]+$/.test(opts.id) || opts.id === '.' || opts.id === '..' || opts.id === 'archive' || !existsSync(dir) || !statSync(dir).isDirectory()) {
       throw new UsageError(`unknown change "${opts.id}": no openspec/changes/${opts.id}/ (archived changes do not count)`);
