@@ -1,0 +1,41 @@
+# Default flow: devkit-lite (proposal → optional spec delta → tasks → apply →
+# reviews + evidence). Use the full flow, with the owner grilled, an
+# independent readiness gate and code written only by tdd-implementer,
+# for changes that are new capabilities, cross areas, change a public
+# contract or data model, touch auth/money/personal data, or are hard to
+# roll back:
+#   openspec new change <name> --schema devkit
+schema: devkit-lite
+
+# Shown to the agent in every artifact and in apply. Fill in for this project.
+context: |
+  Stack: Claude Code plugin marketplace - Markdown agents/skills, OpenSpec schemas (YAML), Node.js hooks (plugins/openspec/hooks/guard.mjs), Python scripts
+  Test command: node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py
+  Lint / typecheck: claude plugin validate . ; python3 scripts/gen-catalog.py must leave no diff
+  ADRs: none
+  Default branch: main
+  Conventions: conventional commits; docs and assets in English; bump the version of each changed pack in plugin.json and marketplace.json, plus a CHANGELOG line
+
+rules:
+  requirements:
+    - Ask the owner; never answer your own grill questions
+  proposal:
+    - Keep it under two pages; the how belongs in design.md
+  design:
+    - Record any decision that changes an ADR as a proposal for a new ADR, not as a silent deviation
+  tasks:
+    - One "## N." group per phase, each ending with a gate task that names the test command
+    - Every acceptance criterion id appears in at least one task
+  readiness:
+    - Written only by the plan-readiness-reviewer agent, never by the plan's author
+
+operations:
+  apply:
+    guidance:
+      - One phase at a time, each dispatched to the devkit-core:tdd-implementer agent; stop at the phase gate
+      - After the last phase, run review-change for this change (each reviewer writes reviews/<reviewer>.md), then dispatch devkit-core:pr-verifier (writes evidence.md)
+      - Open the PR with the commit-and-pr agent; the merge is the owner's
+  archive:
+    guidance:
+      - Run the retro skill and propose doc or rule updates to the owner before archiving
+      - If openspec/roadmap.md lists the change, tick its line after archiving

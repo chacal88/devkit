@@ -102,9 +102,40 @@ Then tell Claude what you want ("continue the change add-csv-export"). At any po
 openspec status --change add-csv-export
 ```
 
-shows what's done and what's next. A new session starts by printing the same, from the session hook.
+shows what's done and what's next. A new session starts by printing the same, from the session hook, plus the current round of `openspec/roadmap.md` if the project has one (see [Grouping changes](#grouping-changes-the-roadmap)).
 
 Name the branch after the change: the hooks use it to know which change you're working on.
+
+## Grouping changes: the roadmap
+
+OpenSpec lists changes flat. To keep rounds, the order between them and "where are we in the plan", write `openspec/roadmap.md`:
+
+```markdown
+# Roadmap
+
+## Round 1: auth
+- [x] auth-scopes
+
+## Round 2: exports
+- [ ] add-csv-export (after: auth-scopes)
+- [ ] export-audit-log
+```
+
+- Each `## ` heading is a round; each `- [ ] <change-id>` line is a change, optionally with `(after: a, b)`. Anything else in the file is ignored.
+- The current round is the first one with an unticked line.
+- At session start, after the active change, the hook prints the current round, `done/total`, and the state of each unticked change, read from disk:
+
+  | State | Means |
+  |---|---|
+  | `archived, tick it` | The change is only in `openspec/changes/archive/`; tick its line |
+  | `waiting on <ids>` | A change in its `after:` list is not ticked yet |
+  | `open` | The change folder exists |
+  | `not started` | No folder under `openspec/changes/` yet |
+
+  When more than one applies, the first row wins: an open change whose dependency isn't ticked shows as `waiting on`.
+
+- It is printed with one active change, several, or none, so a fresh session on `main` sees the plan too.
+- It only reports. Nothing is gated by it, and the hook never writes it: tick a line by hand (or let the agent do it) when the change is archived. Run each change of a round in its own session and branch; the roadmap is the shared checklist between them.
 
 ## The gates
 
@@ -142,11 +173,11 @@ jobs:
         with: { node-version: 22 }
       - run: npm i -g @fission-ai/openspec@latest
       - run: openspec validate --all --strict
-      - run: curl -fsSL https://raw.githubusercontent.com/chacal88/devkit/v0.2.0/plugins/openspec/hooks/guard.mjs -o "$RUNNER_TEMP/guard.mjs"
+      - run: curl -fsSL https://raw.githubusercontent.com/chacal88/devkit/v0.3.0/plugins/openspec/hooks/guard.mjs -o "$RUNNER_TEMP/guard.mjs"
       - run: node "$RUNNER_TEMP/guard.mjs" ci
 ```
 
-Pin the tag (`v0.2.0` above) and bump it on purpose.
+Pin the tag (`v0.3.0` above) and bump it on purpose.
 
 ## Customizing
 
@@ -179,6 +210,7 @@ Every agent run costs time and tokens, so the defaults keep runs few and cheap:
 
 ## Limits
 
+- `openspec/roadmap.md` reports the order between changes; it does not enforce it. A change can be started before the ones it is `after:`.
 - Hooks can veto an action; they can't make a step happen. The guarantee is "no code before an independently approved plan, no PR without approved reviews and evidence", not "the review was thorough".
 - Shell writes are detected from the command (`>`, `>>`, `tee`, `sed -i`, `cp`, `mv`, `install`, `touch`, `truncate`). A path built from a variable (`"$TMP"/x`) or a script that writes from inside an interpreter (`python -c`, `node -e`) is not resolved, so it isn't gated; CI is the backstop.
 - OpenSpec's schema commands are marked experimental by the CLI and may change between versions. The schemas here are validated against OpenSpec 1.16.

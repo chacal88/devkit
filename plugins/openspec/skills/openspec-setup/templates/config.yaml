@@ -38,3 +38,4 @@ operations:
   archive:
     guidance:
       - Run the retro skill and propose doc or rule updates to the owner before archiving
+      - If openspec/roadmap.md lists the change, tick its line after archiving
