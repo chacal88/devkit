@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 — rounds without an orchestrator
+
+- **devkit-openspec**: optional `openspec/roadmap.md` groups changes into rounds (`## ` headings, `- [ ] <change-id> (after: ...)` lines). The session hook prints the current round, `done/total` and each pending change's state (`not started`, `open`, `waiting on ...`, `archived, tick it`), with or without an active change. It reports only; no gate reads it. The setup template's archive guidance now ticks the line.
+
 ## 0.2.0 — lighter by default
 
 A full-flow run on a one-function change took over an hour, mostly in review loops on Opus with mutation testing. Now:

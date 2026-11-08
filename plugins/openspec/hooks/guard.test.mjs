@@ -6,13 +6,13 @@ import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus } from './guard.mjs';
+import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap } from './guard.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
 const schemas = join(here, '..', 'schemas');
 
-function repo({ changes = {}, branch = 'main' } = {}) {
+function repo({ changes = {}, branch = 'main', roadmap, archived = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'devkit-guard-'));
   execFileSync('git', ['init', '-q', '-b', branch, root]);
   mkdirSync(join(root, 'openspec', 'changes', 'archive'), { recursive: true });
@@ -26,6 +26,8 @@ function repo({ changes = {}, branch = 'main' } = {}) {
     }
     mkdirSync(dir, { recursive: true });
   }
+  for (const a of archived) mkdirSync(join(root, 'openspec', 'changes', 'archive', `2026-01-01-${a}`), { recursive: true });
+  if (roadmap !== undefined) writeFileSync(join(root, 'openspec', 'roadmap.md'), roadmap);
   return root;
 }
 
@@ -206,4 +208,101 @@ test('ci mode checks the branch change and ignores bypass', () => {
   assert.equal(ci(), 0);
   writeFileSync(join(root, 'openspec/changes/feat/readiness.md'), '- Status: BLOCKED\n');
   assert.equal(ci({ DEVKIT_BYPASS: '1' }), 1);
+});
+
+// ---------------------------------------------------------------- roadmap
+
+const session = (root, env) => run('session', { cwd: root }, env);
+const ROADMAP = `# Roadmap
+
+## Round 1: auth
+- [x] auth-scopes
+
+## Round 2: exports
+- [x] export-csv-base
+- [ ] add-csv-export (after: auth-scopes, export-csv-base)
+- [ ] export-audit-log
+- [ ] export-pdf (after: export-audit-log)
+- [ ] export-json
+
+## Round 3: later
+- [ ] something-else
+`;
+
+test('readRoadmap parses rounds, ticks and dependencies, skipping junk', () => {
+  const root = repo({ roadmap: '# R\nintro text\n- [ ] orphan-before-any-round\n## Round A\n- [X] a\n- [ ] b (after: a)\nnot a line\n- [ ]\n* [ ] c\n' });
+  assert.deepEqual(readRoadmap(root), [{ title: 'Round A', items: [
+    { id: 'a', done: true, after: [] },
+    { id: 'b', done: false, after: ['a'] },
+    { id: 'c', done: false, after: [] },
+  ] }]);
+  assert.equal(readRoadmap(repo()), null, 'no roadmap file');
+});
+
+test('session prints the current round with one state per pending change (AC-1)', () => {
+  const root = repo({ roadmap: ROADMAP, changes: { 'export-audit-log': lite }, archived: ['export-json'] });
+  const { code, out } = session(root);
+  assert.equal(code, 0);
+  assert.match(out, /Roadmap: Round 2: exports \(1\/5 done\)/);
+  assert.match(out, /add-csv-export: not started/);
+  assert.match(out, /export-audit-log: open/);
+  assert.match(out, /export-pdf: waiting on export-audit-log/);
+  assert.match(out, /export-json: archived, tick it/);
+  assert.doesNotMatch(out, /something-else|auth-scopes:/, 'only the current round, only pending lines');
+});
+
+test('a pending change waiting on a dependency is reported as waiting, even if open', () => {
+  const root = repo({ roadmap: '## R\n- [ ] a\n- [ ] b (after: a)\n', changes: { a: lite, b: lite } });
+  const { out } = session(root, { DEVKIT_CHANGE: 'b' });
+  assert.match(out, /b: waiting on a/);
+  assert.match(out, /a: open/);
+});
+
+test('roadmap is printed with no change, one change, or several (AC-1)', () => {
+  const rm = '## Only\n- [ ] x\n';
+  assert.match(session(repo({ roadmap: rm })).out, /Roadmap: Only \(0\/1 done\)/);
+  assert.match(session(repo({ roadmap: rm, changes: { x: lite } })).out, /Active OpenSpec change: x[\s\S]*Roadmap: Only/);
+  const several = session(repo({ roadmap: rm, changes: { x: lite, y: lite } })).out;
+  assert.match(several, /Open OpenSpec changes: x, y/);
+  assert.match(several, /Roadmap: Only/);
+});
+
+test('without a roadmap the session output is unchanged; all ticked adds one line (AC-2)', () => {
+  const root = repo({ changes: { x: lite } });
+  const before = session(root).out;
+  assert.doesNotMatch(before, /Roadmap/);
+  writeFileSync(join(root, 'openspec', 'roadmap.md'), '## A\n- [x] x\n## B\n- [x] y\n');
+  assert.equal(session(root).out, `${before}[devkit] Roadmap: all rounds done.\n`);
+  assert.equal(session(repo()).out, '', 'no change, no roadmap: silent');
+});
+
+test('the roadmap never blocks and never breaks the hook (AC-3)', () => {
+  for (const roadmap of [undefined, ROADMAP, '', 'garbage\n- [ ] (after: )\n## \n- [ ] x (after: nope, )\n', '\u0000\u00ff## ]]\n']) {
+    const root = repo({ roadmap, changes: { feat: { ...devkit } } });
+    assert.equal(session(root).code, 0, `session with ${JSON.stringify(roadmap)}`);
+    assert.equal(edit(root, 'src/a.ts', 'tdd-implementer').code, 2, 'code still gated by readiness');
+    assert.equal(edit(root, 'openspec/roadmap.md').code, 0, 'roadmap stays editable');
+    assert.equal(bash(root, 'git push --force').code, 2);
+    assert.equal(bash(root, 'git status').code, 0);
+    const ci = spawnSync('node', [guard, 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean } }).status;
+    assert.equal(ci, 1, 'ci verdict unchanged');
+  }
+});
+
+test('archived means the exact id after the date prefix, never a suffix match', () => {
+  const root = repo({ roadmap: '## R\n- [ ] csv-export\n- [ ] json\n- [ ] add-csv-export\n', archived: ['add-csv-export', 'big-json'] });
+  mkdirSync(join(root, 'openspec', 'changes', 'archive', 'json'), { recursive: true });
+  const { out } = session(root);
+  assert.match(out, /csv-export: not started/);
+  assert.match(out, /json: not started/, 'undated archive folder is not an archive');
+  assert.match(out, /add-csv-export: archived, tick it/);
+});
+
+test('an unreadable roadmap prints nothing and keeps the change report', () => {
+  const root = repo({ changes: { x: lite } });
+  mkdirSync(join(root, 'openspec', 'roadmap.md'));
+  const r = session(root);
+  assert.equal(r.code, 0);
+  assert.match(r.out, /Active OpenSpec change: x/);
+  assert.doesNotMatch(r.out, /Roadmap/);
 });

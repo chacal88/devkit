@@ -3,7 +3,8 @@
 //
 //   node guard.mjs edit     PreToolUse on Edit|Write|MultiEdit|NotebookEdit
 //   node guard.mjs bash     PreToolUse on Bash
-//   node guard.mjs session  SessionStart: prints where the active change stands
+//   node guard.mjs session  SessionStart: prints where the active change stands,
+//                           and the current round of openspec/roadmap.md if any
 //   node guard.mjs ci       CI: the same gates for the branch's change (exit 1)
 //
 // It only vetoes (exit 2 + reason on stderr). The flow lives in the OpenSpec
@@ -313,9 +314,63 @@ function guardBash(input) {
   }
 }
 
+// ---------------------------------------------------------------- roadmap
+
+// openspec/roadmap.md groups changes into rounds ("## " headings) of checklist
+// lines ("- [ ] <change-id> (after: a, b)"). It is read for the session report
+// only: it never gates anything and this file never writes it. Lines it does
+// not recognise are skipped. Returns [{ title, items: [{ id, done, after }] }]
+// or null when there is no roadmap.
+export function readRoadmap(root) {
+  const file = join(root, 'openspec', 'roadmap.md');
+  if (!existsSync(file)) return null;
+  const rounds = [];
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const h = line.match(/^##\s+(\S.*?)\s*$/);
+    if (h) { rounds.push({ title: h[1], items: [] }); continue; }
+    const m = line.match(/^\s*[-*]\s+\[([ xX])\]\s+([A-Za-z0-9][\w.-]*)(?:\s+\(after:\s*([^)]*)\))?/);
+    if (!m || rounds.length === 0) continue;
+    const after = (m[3] || '').split(',').map((d) => d.trim()).filter((d) => /^[A-Za-z0-9][\w.-]*$/.test(d));
+    rounds[rounds.length - 1].items.push({ id: m[2], done: m[1] !== ' ', after });
+  }
+  return rounds;
+}
+
+function roadmapReport(root) {
+  const rounds = readRoadmap(root);
+  if (!rounds) return '';
+  const all = rounds.flatMap((r) => r.items);
+  if (all.length === 0) return '';
+  const done = new Set(all.filter((i) => i.done).map((i) => i.id));
+  const current = rounds.find((r) => r.items.some((i) => !i.done));
+  if (!current) return '[devkit] Roadmap: all rounds done.\n';
+  const open = new Set(activeChanges(root));
+  const archiveDir = join(root, 'openspec', 'changes', 'archive');
+  // `openspec archive` moves a change to archive/YYYY-MM-DD-<id>.
+  const archived = new Set((existsSync(archiveDir) ? readdirSync(archiveDir) : [])
+    .map((a) => a.match(/^\d{4}-\d{2}-\d{2}-(.+)$/)?.[1]).filter(Boolean));
+  const state = (i) => {
+    if (!open.has(i.id) && archived.has(i.id)) return 'archived, tick it';
+    const waiting = i.after.filter((d) => !done.has(d));
+    if (waiting.length) return `waiting on ${waiting.join(', ')}`;
+    return open.has(i.id) ? 'open' : 'not started';
+  };
+  const n = current.items.filter((i) => i.done).length;
+  return `[devkit] Roadmap: ${current.title} (${n}/${current.items.length} done). Pending:\n`
+    + current.items.filter((i) => !i.done).map((i) => `  - ${i.id}: ${state(i)}\n`).join('')
+    + 'openspec/roadmap.md only reports; it gates nothing. Tick a change there once it is archived.\n';
+}
+
 function session(input) {
   const root = findRoot(input.cwd);
   if (!root) return;
+  sessionChange(root);
+  let report = '';
+  try { report = roadmapReport(root); } catch { /* a broken roadmap never breaks the hook */ }
+  process.stdout.write(report);
+}
+
+function sessionChange(root) {
   const ch = resolveChange(root);
   if (!ch) return;
   if (ch.ambiguous) {

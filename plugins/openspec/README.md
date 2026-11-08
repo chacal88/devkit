@@ -25,7 +25,7 @@ The `openspec-*` skills (propose, explore, apply, archive, ...) are not in this 
 
 | When | Rule |
 |---|---|
-| Session start | Prints the active change and its `openspec status`, so a new session picks up where the last one stopped |
+| Session start | Prints the active change and its `openspec status`, so a new session picks up where the last one stopped; with an `openspec/roadmap.md`, also the current round and the state of each pending change (report only, never a gate) |
 | Edit / Write (and shell writes: `>`, `tee`, `sed -i`, `cp`, `mv`) | Each gate file has one writer (table below). In the `devkit` schema, product code is closed until `readiness.md` says `- Status: APPROVED`, and then only the `tdd-implementer` agent writes it |
 | `gh pr create` | Blocked unless the active change has `reviews/code-quality-reviewer.md` and `reviews/test-coverage-reviewer.md`, every review in `reviews/` says `Verdict: approved` (or `declined`), and `evidence.md` has content |
 | Any Bash command | Refuses force push (`--force-with-lease` is allowed), `--no-verify`, `reset --hard`, `clean -f`, `branch -D`, `checkout -- .`, `git add -A` / `git add .`, `gh pr merge --admin`. Text inside heredocs and quotes is not treated as a command |
