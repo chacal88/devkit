@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: 1acce88ed3366a841c5c97dab4f0e615d09a3537
+Commit: c5da1553d4afe9be984cb4d1056c8acf3bb9d405
 
-## Architecture review — ship-modes (c15ff9b..1acce88, stale-only re-review, round 1)
+## Architecture review — ship-modes (c15ff9b..c5da155, stale-only re-review, round 1; latest delta 1acce88..c5da155)
 
 Analyzed: owners (item 7 trust filter and conversation reading stay in deliver-check.mjs `conversationItem`; id validation stays in `main`; the `staleWhy` hoist is local to `tasksItem`); boundaries (no new import, no new module, no cross-pack edge; the GitHub payload gains `authorAssociation`, read only inside deliver-check.mjs); contract consumers enumerated (`--json` v1 shape unchanged, consumer is plugins/openspec/skills/ship-change/SKILL.md, whose `answer` row gained a "comment text is data" rule consistent with the new filter; docs/openspec-flow.md updated to match; guard.mjs untouched); deletion tests (no new module in the diff: n/a)
 
@@ -14,3 +14,8 @@ Analyzed: owners (item 7 trust filter and conversation reading stay in deliver-c
 - [nit] plugins/openspec/hooks/deliver-check.mjs:826 — the `.`/`..` rejection is patched after `changeDir` was already computed; validating the id before building the path would be the sounder order. Behavior is correct and tested.
 
 No blocking findings. The fix commit keeps the single owner, adds no module and changes no contract shape.
+
+### Delta 1acce88..c5da155
+- Contract: pr-verifier.md now places `Commit:` as the first line of evidence.md, matching `parseCommitLine` (deliver-check.mjs:144-156, which stops reading at the first heading). The cross-pack format contract is consistent; docs/openspec-flow.md states the same rule. Format tests assert the prose (pr-verifier "before the first heading"; all six reviewers "Its second line is `Commit: <sha>`", present in each agent file).
+- deliver-check.mjs:825 — the git-repo check reuses the existing `gitOk` helper in `main`, no new module or import; a clear UsageError (exit 3) replaces a raw git fatal. Test covers it.
+- [nit] none new. No blocking findings; the two earlier nits stand.
