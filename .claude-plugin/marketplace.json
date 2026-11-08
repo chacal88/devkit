@@ -6,21 +6,21 @@
   },
   "metadata": {
     "description": "Reusable Claude Code agents, skills and an OpenSpec-based workflow, split into packs you install per project.",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "plugins": [
     {
       "name": "devkit-core",
       "source": "./plugins/core",
       "description": "Stack-agnostic dev workflow: research, plan, implement, review, ship, debug and test.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "category": "development"
     },
     {
       "name": "devkit-openspec",
       "source": "./plugins/openspec",
       "description": "Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (grill → plan → readiness → TDD → review → evidence) and hooks that keep product code closed until readiness is APPROVED and refuse a PR without an approved review and evidence.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "category": "development"
     },
     {

@@ -16,6 +16,8 @@ Then, in the project: `/openspec-setup`. The full guide is [docs/openspec-flow.m
 | [`schemas/devkit/`](schemas/devkit/schema.yaml) | The flow: `requirements` → `proposal` → `specs` + `design` → `tasks` → `readiness` → apply. `apply` requires `readiness`, so `openspec instructions apply` answers `blocked` until it exists. Each artifact's instruction names the devkit-core skill or agent that produces it |
 | [`schemas/devkit-lite/`](schemas/devkit-lite/schema.yaml) | The default, for small, contained changes: `proposal` → optional spec delta → `tasks` → apply. No grill, no readiness gate; reviews and evidence still required. See [choosing a schema](../../docs/openspec-flow.md#choosing-a-schema) |
 | [`hooks/`](hooks/guard.mjs) | The gates OpenSpec can't see, because it only checks that a file exists (see below) |
+| [`hooks/deliver-check.mjs`](hooks/deliver-check.mjs) | Answers "is this change a ready PR?" with eight items, exit codes and a versioned JSON, from files, git and `gh`. Read-only. See [the delivery contract](../../docs/openspec-flow.md#the-delivery-contract) |
+| `ship-change` skill | With `ship: pr` in `openspec/config.yaml`, drives an approved change to a ready PR by following `deliver-check`'s next step; never merges. See [ship modes](../../docs/openspec-flow.md#shipping-a-change-ship-modes) |
 | `openspec-setup` skill | Initializes OpenSpec, installs the schemas, writes `openspec/config.yaml` from the real repo |
 | `openspec-validator` agent | Structure-only check of a change |
 
@@ -63,4 +65,5 @@ Hooks veto; they can't make a step happen. The flow's guarantee is that code doe
 | Skill | What it does / when to use |
 |---|---|
 | [`openspec-setup`](skills/openspec-setup/SKILL.md) | Sets up a project to run the devkit flow on OpenSpec - runs openspec init, installs the devkit and devkit-lite schemas, writes openspec/config.yaml with the project's real context (stack, test command, ADRs, conventions). Use when the user says "set up devkit", "set up openspec with devkit", "adopt the devkit flow here", or a project has no openspec/ folder and wants the flow. |
+| [`ship-change`](skills/ship-change/SKILL.md) | Drives one approved change to a ready pull request when the project's openspec/config.yaml sets ship to pr for its schema - implements phase by phase, reviews, verifies, opens the PR, answers its conversation and waits for checks, always asking `deliver-check` what is next. Never merges. Use when the owner says "ship this change", "apply and ship <id>", "/ship-change <id>", or when Auto-fix wakes the session about that change's PR. |
 <!-- catalog:end -->

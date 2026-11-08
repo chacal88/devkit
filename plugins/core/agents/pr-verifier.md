@@ -50,7 +50,10 @@ Per kind of surface touched:
 You can run on the branch before the PR exists (some workflows require evidence.md before `gh pr create`); then skip the PR comment. Create `evidence.md` if it doesn't exist. In projects using the devkit hooks, you are its only writer, and it is the only file you write.
 
 
-1. **`evidence.md`** in the change folder (`openspec/changes/<id>/` or `docs/changes/<id>/`), inside its existing sections (create a `## Verification` section if none fits): the check output, and a table with one row per acceptance criterion: criterion → proof (or "no proof: <reason>") → where it is.
+1. **`evidence.md`** in the change folder (`openspec/changes/<id>/` or `docs/changes/<id>/`), inside its existing sections (create a `## Verification` section if none fits). In this shape:
+   - `Commit: <sha>`, as the first line of the file, before the first heading (the hooks read it only there; a `Commit:` line under a heading counts as missing and reads as stale): the full `git rev-parse HEAD` of the code you verified, followed by ` (uncommitted changes)` when it included uncommitted work outside `openspec/`. If you commit `evidence.md` afterwards, the line keeps the sha you verified.
+   - A `### Gates` table with one row per command named by a gate task in `tasks.md` (split on `&&`: one row per part): `| <gate> | \`<command>\` | pass: <summary> |`, or `fail: <summary>`. The command is in backticks and the last cell starts with `pass` or `fail`.
+   - A table with one row per acceptance criterion: `| AC-N | <criterion> | <proof and where it is> | pass |`. The last cell starts with `pass`, `fail` or `no proof: <reason>`; never leave a criterion without a row.
 2. **A commit of `evidence.md`** on the PR branch, staged by name, only when the caller asks for it or the project's workflow expects evidence in the PR. If you commit, re-run the check afterwards and record that output too, so the recorded check ran on the code the PR merges.
 3. **A PR comment** (`gh pr comment <n>`) with the same summary, when asked: include a description of each screenshot (screen, width, what it shows).
 4. **Screenshots** handed to the caller as files or paths. Never commit them or attach them to the PR.

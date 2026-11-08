@@ -45,6 +45,8 @@ Earlier attempts orchestrated changes with a coordinator session driving a state
 
 Edit an artifact by hand, use another agent, or pick the lighter `devkit-lite` schema for small changes; the flow still holds.
 
+Coordination is allowed; a harness is not. The `ship-change` skill drives one approved change to a ready PR from your own session, re-reading the files and GitHub each time it runs, and stops with a reason. No long-running process, no state outside the repository and GitHub. See [ADR 0001](docs/adr/0001-coordination-without-a-harness.md).
+
 ## Documentation
 
 - [Getting started](docs/getting-started.md): install, pick packs, first change

@@ -14,12 +14,14 @@ You ship work that was already written, reviewed and validated. Your job is to c
 - The files to ship (by name), or permission to derive them from `git status`.
 - Optionally, a 1–2 sentence summary of the *why* for the commit body; otherwise derive it from the diff and the change's `proposal.md`.
 - Optionally, the change id this PR closes.
+- Optionally, a **commit-only** call: commit and push, open no PR. The caller says so, and says the commit comes before review.
+- Optionally, a statement that the reviews are current at HEAD, from a coordinating skill that checked them.
 
 ## Preconditions (check without mutating)
 
 1. **Not on the default branch** (`main`/`master` or the repo's default). Refuse otherwise.
 2. **There is something to ship**: uncommitted or unpushed changes. Refuse if clean.
-3. **Review ran since the last edit** (for example via the review-change skill). If you can't tell, or it didn't, ask the caller whether to ship unreviewed work. Don't ship it without acknowledgment.
+3. **Review ran since the last edit** (for example via the review-change skill). The caller's statement that the reviews are current at HEAD satisfies this; so does a commit-only call, where the caller says review comes next and the precondition is waived. Otherwise, if you can't tell, or it didn't, ask the caller whether to ship unreviewed work. Don't ship it without acknowledgment.
 4. **The branch name matches the change id** when the caller names one.
 
 ## Method
@@ -30,12 +32,12 @@ You ship work that was already written, reviewed and validated. Your job is to c
    - Title `type(scope): description`, under 70 characters. `type` from the diff (feat, fix, refactor, docs, test, chore); `scope` from the change id or the area.
    - Body: the *why*, and the artifacts touched.
    - Add the attribution/co-author lines the environment or the user requires; add none of your own.
-4. **Push**: `git push -u origin <branch>` on first push, plain `git push` afterwards. `--force-with-lease` only if the caller says the branch was rewritten; never a force push to the default branch.
-5. **Open the PR** with `gh pr create`, body via HEREDOC:
+4. **Push**: `git push -u origin <branch>` on first push, plain `git push` afterwards. `--force-with-lease` only if the caller says the branch was rewritten; never a force push to the default branch. On a commit-only call, stop here: report `PR: none (commit only)`.
+5. **Open the PR** with `gh pr create`, body via HEREDOC. If the branch already has an open PR (`gh pr view --json url,state`), don't create another: the push already updated it, so stop at its URL.
    - Summary (1–3 bullets).
    - Linked artifacts: the change plan, ADRs touched, specs changed.
    - Test plan: checked items for what was verified, unchecked for what the human still does.
-   - "Closes change `<id>`" when it closes one.
+   - "Closes change `<id>`" when it closes one. Then the body also names the change id, lists each acceptance criterion id with its text (from `proposal.md`), and links the change's `evidence.md` (`openspec/changes/<id>/evidence.md`).
    - The attribution footer the environment or the user requires.
    If the repo has a PR template (`.github/pull_request_template.md`), follow it.
 6. **Stop at the PR URL.** Don't poll CI, don't merge, don't open follow-ups.
@@ -50,7 +52,7 @@ You ship work that was already written, reviewed and validated. Your job is to c
 
 ```
 Commit: <sha> <title>
-PR: <url>
+PR: <url> | none (commit only)
 Outcome: shipped | refused — <reason>
 ```
 

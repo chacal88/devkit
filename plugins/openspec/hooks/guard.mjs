@@ -30,10 +30,11 @@
 // Bypass: start Claude Code with DEVKIT_BYPASS=1 (a prefix inside the command
 // string does not reach this process). CI ignores it.
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import { join, resolve, relative, dirname, isAbsolute, sep, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 const mode = process.argv[2];
 
@@ -55,7 +56,7 @@ export function role(input) {
   return String(input.agent_type || '').split(':').pop();
 }
 
-function findRoot(start) {
+export function findRoot(start) {
   let dir = resolve(start || process.cwd());
   for (;;) {
     if (existsSync(join(dir, 'openspec', 'changes'))) return dir;
@@ -96,7 +97,7 @@ export function resolveChange(root, env = process.env,
   return { ambiguous: changes };
 }
 
-function changeSchema(root, name) {
+export function changeSchema(root, name) {
   for (const f of [join(root, 'openspec', 'changes', name, '.openspec.yaml'), join(root, 'openspec', 'config.yaml')]) {
     if (!existsSync(f)) continue;
     const m = readFileSync(f, 'utf8').match(/^schema:\s*["']?([\w.-]+)/m);
@@ -132,7 +133,7 @@ export function readValue(file, key) {
   return v.split(/\s+/)[0].replace(/[.,;:]$/, '').toUpperCase();
 }
 
-function changeDir(root, name) { return join(root, 'openspec', 'changes', name); }
+export function changeDir(root, name) { return join(root, 'openspec', 'changes', name); }
 
 // Consensus from reviews/<reviewer>.md, each written by that reviewer.
 export function reviewConsensus(dir) {
@@ -405,8 +406,17 @@ function ci() {
   if (!process.exitCode) console.log(`devkit ci: ${ch.name} passed readiness, review and evidence`);
 }
 
-if (mode === 'ci') { ci(); process.exit(process.exitCode || 0); }
-if (process.env.DEVKIT_BYPASS === '1') process.exit(0);
-if (mode === 'edit') guardEdit(readStdin());
-else if (mode === 'bash') guardBash(readStdin());
-else if (mode === 'session') session(readStdin());
+// Run a mode only when executed directly, so other scripts can import the
+// helpers above without inheriting the dispatch (or DEVKIT_BYPASS's exit 0).
+// Symlinked paths (plugin caches) are resolved before comparing.
+function isMain() {
+  try { return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url); } catch { return false; }
+}
+
+if (isMain()) {
+  if (mode === 'ci') { ci(); process.exit(process.exitCode || 0); }
+  if (process.env.DEVKIT_BYPASS === '1') process.exit(0);
+  if (mode === 'edit') guardEdit(readStdin());
+  else if (mode === 'bash') guardBash(readStdin());
+  else if (mode === 'session') session(readStdin());
+}

@@ -18,13 +18,14 @@ Orchestrates a bench of isolated reviewer agents against a change and decides PA
 One of:
 
 - a change id, with artifacts in `openspec/changes/<id>/` (OpenSpec repos) or `docs/changes/<id>/` (or wherever the project keeps change packages);
+  - optionally a **scoped call** from a coordinating skill: only the named reviewers, each with its previous verdict file and the range `<its Commit>..HEAD`, at a stated round. See "Scoped calls" below;
 - `--diff`: the uncommitted work (`git diff` + `git diff --cached`), or the branch diff against its base (`git diff <base>...HEAD`).
 
 If the target can't be resolved, stop and ask.
 
 ## Cost
 
-Reviewers are the most expensive step of a change. Summon only the reviewers the matrix selects: a small diff that touches no contract, auth, ADR area or spec gets `code-quality-reviewer` and `test-coverage-reviewer` only. Never re-run a reviewer that already approved the current diff.
+Reviewers are the most expensive step of a change. Summon only the reviewers the matrix selects: a small diff that touches no contract, auth, ADR area or spec gets `code-quality-reviewer` and `test-coverage-reviewer` only. Never re-run a reviewer that already approved the current diff: a review is current when its `Commit:` line (the second line of its verdict file) names the commit being shipped, or an ancestor of it with only `openspec/` changes since.
 
 ## Process
 
@@ -87,10 +88,27 @@ Read each reviewer's verdict line and normalize it:
 
 Rounds:
 
+- Rounds count reject-and-fix cycles, nothing else. A call made only because reviewers' `Commit:` lines went stale (after a CI fix, an evidence fix, an answered comment) starts at round 1 and consumes no round budget.
 - Round 1 FAIL → list the blockers; the author fixes; round 2 re-summons **only** the reviewers that failed, each with its previous verdict, to check **only** those findings and the lines changed since (see each reviewer's Budget section).
 - Only `blocking` findings, and `important` ones without a rebuttal, trigger a round. `nit` and follow-up items go into the report and never cause a re-review.
 - No convergence after 2 rounds → stop and escalate to the human with the disputed points. No automatic third round.
 - A finding that contradicts an ADR is never routed around: it becomes a proposal for a new ADR and goes to the human.
+
+### Finding dispositions
+
+On a re-review, each reviewer re-lists every previous `[blocking]` and `[important]` finding with its outcome at the end of the line, ` · fixed in <sha>` or ` · refuted: <evidence>`:
+
+```
+- [blocking] src/a.ts:12 — <finding> · fixed in 3f2a9c1
+- [important] src/b.ts:40 — <finding> · refuted: <evidence: code, test or output>
+- [blocking] src/c.ts:7 — <finding that is still open>
+```
+
+A finding still open keeps its severity tag and has no disposition, and keeps the verdict `rejected`. `nit` and `praise` need none. A caller that fixes findings tells the reviewer the fixing commit; the reviewer verifies it before writing `fixed in`.
+
+### Scoped calls
+
+When the caller names reviewers (and a round), summon exactly those, in parallel, each with its previous verdict file and the range `<its Commit>..HEAD` so it re-checks only its previous findings and what changed since. Skip the matrix; the caller already chose the bench. The structural check still runs. Write the stated round into `review.md`; without a stated round, the first review of a change is round 1 and a re-review after a round-1 FAIL is round 2.
 
 ## Output
 
@@ -119,10 +137,10 @@ Below the table, each reviewer's findings stay in that reviewer's own format. Th
 
 **When the target is a change with a folder** (`openspec/changes/<id>/` or `docs/changes/<id>/`):
 
-- Dispatch each reviewer with the Agent tool (`subagent_type: devkit-core:<reviewer>`) and pass the change id. Each reviewer writes its own verdict to `reviews/<reviewer>.md` in the change folder; first line `Verdict: approved`, `rejected` or (security only) `declined`.
+- Dispatch each reviewer with the Agent tool (`subagent_type: devkit-core:<reviewer>`) and pass the change id. Each reviewer writes its own verdict to `reviews/<reviewer>.md` in the change folder; first line `Verdict: approved`, `rejected` or (security only) `declined`, second line `Commit: <sha>`.
 - Don't write those files yourself, and don't copy a verdict into them. Projects using the devkit hooks accept `reviews/<reviewer>.md` only from that reviewer, and `gh pr create` requires `code-quality-reviewer` and `test-coverage-reviewer` plus every other review present to be approved.
 - Write this skill's consolidated report to `review.md` in the same folder, for people to read. The gate doesn't read it.
-- Any code edit after a review makes it stale: re-run the reviewers that the edit concerns.
+- Any code edit after a review makes it stale. Stale means the reviewer's `Commit:` line is not the commit being shipped, or a commit after it touched anything outside `openspec/`. Re-run the reviewers that the edit concerns.
 
 For a bare `--diff` with no change folder, create no file.
 

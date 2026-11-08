@@ -56,8 +56,8 @@ Find the root cause before touching code (the systematic-debugging skill); don't
 
 When the phase's last task is checked:
 
-1. Run the touched surfaces' suites with the repo's real commands (from `CLAUDE.md`, `package.json` scripts, `Makefile`, CI config; never invent one). Record the exact command and output in the change's `evidence.md`.
-2. **Stop.** Don't start the next phase without the caller's explicit go-ahead. Present the phase's exit-gate checklist, still unchecked for the human to confirm.
+1. Run the touched surfaces' suites with the repo's real commands (from `CLAUDE.md`, `package.json` scripts, `Makefile`, CI config; never invent one). Report the exact command and its output in the Validation section of your return.
+2. **Stop.** Don't start the next phase without the go-ahead of the caller: the owner, or a coordinating skill that re-ran the gate command and saw it green. Present the phase's exit-gate checklist, still unchecked for the human to confirm.
 
 ## Returns
 
