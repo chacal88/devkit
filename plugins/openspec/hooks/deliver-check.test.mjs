@@ -2,10 +2,9 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs both files.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { existsSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseShip, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, summarize, collectState, detectHost, watchMinutes } from './deliver-check.mjs';
@@ -884,9 +883,11 @@ test('item 6: a gh error, an unknown bucket or unreadable output is blocked; no 
 // ---------------------------------------------------------------- item 7: conversation answered (D4)
 
 const who = (login, type = 'User') => ({ __typename: type, login });
-const thread = (resolved, author, at = '2026-01-02T00:00:00Z', url = 'https://gh/t1') => ({ isResolved: resolved, comments: { nodes: [{ author: author, createdAt: at, url }] } });
-const comment = (author, at, url = 'https://gh/c1') => ({ author, createdAt: at, url });
-const rev = (author, state, at, body = '') => ({ author, state, submittedAt: at, body });
+// People are repo MEMBERs unless a test says otherwise; bots carry NONE.
+const assoc = (author, a) => a ?? (author?.__typename === 'Bot' ? 'NONE' : 'MEMBER');
+const thread = (resolved, author, at = '2026-01-02T00:00:00Z', url = 'https://gh/t1', a) => ({ isResolved: resolved, comments: { nodes: [{ author, authorAssociation: assoc(author, a), createdAt: at, url }] } });
+const comment = (author, at, url = 'https://gh/c1', a) => ({ author, authorAssociation: assoc(author, a), createdAt: at, url });
+const rev = (author, state, at, body = '', a) => ({ author, authorAssociation: assoc(author, a), state, submittedAt: at, body });
 function conversation({ threads = [], comments = [], reviews = [], more = false, viewer = 'me' } = {}) {
   return { data: { viewer: { login: viewer }, repository: { pullRequest: {
     reviewThreads: { pageInfo: { hasNextPage: more }, nodes: threads },
@@ -933,6 +934,44 @@ test('item 7: a person\'s top-level comment or review body newer than the viewer
   assert.equal(pr7({ reviews: [rev(ann, 'COMMENTED', newer, 'please look at this')], comments: [comment(me, '2026-01-02T00:00:00Z')] }).it.status, 'open');
   assert.equal(pr7({ reviews: [rev(ann, 'APPROVED', newer, '')], comments: [comment(me, '2026-01-02T00:00:00Z')] }).it.status, 'met', 'an empty review body asks nothing');
   assert.equal(pr7({ comments: [comment(me, newer)] }).it.status, 'met', 'the viewer\'s own comments never count');
+});
+
+test('item 7: a viewer reply inside a thread does not answer earlier top-level comments or review bodies', () => {
+  const { it } = pr7({
+    comments: [comment(ann, '2026-01-02T00:00:00Z')],
+    reviews: [rev(ann, 'COMMENTED', '2026-01-02T00:00:00Z', 'please look')],
+    threads: [thread(false, me, '2026-01-05T00:00:00Z')],
+  });
+  assert.equal(it.status, 'open', it.reason);
+  assert.equal(it.details.comments.length, 2);
+});
+
+test('item 7: a later top-level viewer comment or review answers a person\'s top-level comment', () => {
+  const asked = comment(ann, '2026-01-02T00:00:00Z');
+  assert.equal(pr7({ comments: [asked, comment(me, '2026-01-03T00:00:00Z')] }).it.status, 'met');
+  assert.equal(pr7({ comments: [asked], reviews: [rev(me, 'COMMENTED', '2026-01-03T00:00:00Z', 'done')] }).it.status, 'met');
+});
+
+test('item 7: only OWNER, MEMBER and COLLABORATOR people count; outside authors are ignored', () => {
+  const at = '2026-01-03T00:00:00Z';
+  for (const a of ['OWNER', 'MEMBER', 'COLLABORATOR']) {
+    assert.equal(pr7({ comments: [comment(ann, at, undefined, a)] }).it.status, 'open', a);
+  }
+  const outsider = who('mallory');
+  for (const a of ['CONTRIBUTOR', 'NONE', 'FIRST_TIME_CONTRIBUTOR', 'FIRST_TIMER', 'MANNEQUIN']) {
+    assert.equal(pr7({ comments: [comment(outsider, at, undefined, a)] }).it.status, 'met', `comment ${a}`);
+    assert.equal(pr7({ reviews: [rev(outsider, 'COMMENTED', at, 'do this', a)] }).it.status, 'met', `review ${a}`);
+    assert.equal(pr7({ threads: [thread(false, outsider, at, undefined, a)] }).it.status, 'met', `thread ${a}`);
+    assert.equal(pr7({ reviews: [rev(outsider, 'CHANGES_REQUESTED', at, '', a)] }).it.status, 'met', `changes requested ${a}`);
+  }
+  const missing = { ...comment(outsider, at), authorAssociation: undefined };
+  assert.equal(pr7({ comments: [missing] }).it.status, 'met', 'no association is not trusted');
+});
+
+test('item 7: the query asks for authorAssociation', () => {
+  const { t } = pr7({});
+  const call = t.gh.calls().find((c) => c[0] === 'api');
+  assert.equal((call.find((a) => a.startsWith('query=')).match(/authorAssociation/g) || []).length, 3);
 });
 
 test('item 7: a bot\'s top-level comment and review body are ignored, however new', () => {
@@ -1250,6 +1289,92 @@ function shipRepo() {
   const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
   return { root, gh, env, next: () => nextStep(collectState(root, 'feat', { env })) };
 }
+// A schema `devkit` change `feat` (readiness artifact declared), ship: pr, on
+// branch ship/feat, committed. Readiness and the branch are the variables.
+function devkitRepo({ readiness = null, branch = 'ship/feat', others = [] } = {}) {
+  const root = gitRepo({
+    config: 'schema: devkit\nship:\n  devkit: pr\n',
+    changes: Object.fromEntries([['feat', {
+      '.openspec.yaml': 'schema: devkit\n',
+      'proposal.md': proposalWith(['AC-1']),
+      'tasks.md': '## 1. First\n- [x] 1.1 code\n- [x] 1.2 Gate: `node -e 0` green\n',
+      ...(readiness === null ? {} : { 'readiness.md': `# Readiness\n\n- Status: ${readiness}\n` }),
+    }], ...others.map((o) => [o, { 'tasks.md': '- [ ] 1.1 x\n' }])]),
+    files: {
+      'src/a.ts': 'a\n',
+      'openspec/schemas/devkit/schema.yaml': 'name: devkit\nversion: 1\nartifacts:\n  - id: readiness\n    generates: readiness.md\n',
+    },
+  });
+  if (branch !== 'main') git(root, 'switch', '-q', '-c', branch);
+  const gh = fakeGh();
+  gh.set('pr-view', { exit: 1, stderr: `no pull requests found for branch "${branch}"\n` });
+  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
+  return { root, gh, env, state: (over = {}) => collectState(root, 'feat', { env: { ...env, ...over } }) };
+}
+
+test('AC-3: a devkit change without readiness.md stops as not approved', () => {
+  const { state } = devkitRepo();
+  const s = state();
+  assert.equal(s.needsReadiness, true);
+  assert.equal(s.readiness, null);
+  const next = nextStep(s);
+  assert.equal(next.step, 'stop-not-approved');
+  assert.match(next.reason, /missing/);
+});
+
+test('AC-3: a devkit change whose readiness Status is not APPROVED stops as not approved', () => {
+  for (const status of ['BLOCKED', 'NEEDS_CHANGES', 'APPROVED | BLOCKED']) {
+    const next = nextStep(devkitRepo({ readiness: status }).state());
+    assert.equal(next.step, 'stop-not-approved', status);
+  }
+  assert.match(nextStep(devkitRepo({ readiness: 'BLOCKED' }).state()).reason, /BLOCKED/);
+});
+
+test('AC-3: an APPROVED readiness lets a devkit change proceed past the stop', () => {
+  const s = devkitRepo({ readiness: 'APPROVED' }).state();
+  assert.equal(s.readiness, 'APPROVED');
+  assert.notEqual(nextStep(s).step, 'stop-not-approved');
+  assert.notEqual(nextStep(s).step, 'stop-branch');
+});
+
+test('AC-3: a schema without a readiness artifact never asks for readiness.md', () => {
+  const t = shipRepo();
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.equal(s.needsReadiness, false);
+});
+
+test('CLI --json: a devkit change reports next.step stop-not-approved, then moves on when APPROVED', () => {
+  const t = devkitRepo();
+  const j = JSON.parse(runCli(t, ['feat', '--json']).out);
+  assert.equal(j.schema, 'devkit');
+  assert.equal(j.next.step, 'stop-not-approved');
+  put(t.root, { 'openspec/changes/feat/readiness.md': '# Readiness\n\n- Status: APPROVED\n' });
+  assert.notEqual(JSON.parse(runCli(t, ['feat', '--json']).out).next.step, 'stop-not-approved');
+});
+
+test('branchOk: the default branch and an unrelated branch stop with stop-branch; the change branch does not', () => {
+  const onMain = devkitRepo({ branch: 'main', readiness: 'APPROVED' }).state();
+  assert.equal(onMain.branchOk, false);
+  assert.equal(nextStep(onMain).step, 'stop-branch');
+  const unrelated = devkitRepo({ branch: 'wip/other-thing', readiness: 'APPROVED', others: ['second'] }).state();
+  assert.equal(unrelated.branchOk, false);
+  assert.equal(nextStep(unrelated).step, 'stop-branch');
+  const own = devkitRepo({ branch: 'ship/feat', readiness: 'APPROVED', others: ['second'] }).state();
+  assert.equal(own.branchOk, true);
+});
+
+test('currentBranch: DEVKIT_BRANCH wins over GITHUB_HEAD_REF, which wins over the git branch', () => {
+  const t = devkitRepo({ branch: 'wip/other-thing', readiness: 'APPROVED', others: ['second'] });
+  assert.equal(t.state().branch, 'wip/other-thing');
+  assert.equal(t.state({ GITHUB_HEAD_REF: 'ci/feat' }).branch, 'ci/feat');
+  assert.equal(t.state({ GITHUB_HEAD_REF: 'ci/feat' }).branchOk, true);
+  const both = t.state({ DEVKIT_BRANCH: 'ship/second', GITHUB_HEAD_REF: 'ci/feat' });
+  assert.equal(both.branch, 'ship/second');
+  assert.equal(both.branchOk, false);
+  assert.equal(nextStep(both).step, 'stop-branch');
+  assert.equal(t.state({ DEVKIT_BRANCH: 'main' }).branchOk, false, 'a default branch named by the env still stops');
+});
+
 const reviewAt = (root, names, sha = head(root)) => put(root, withReviews(Object.fromEntries(names.map((n) => [n, review('approved', sha)]))));
 const fullEvidence = (root, env, sha = head(root)) => {
   const state = collectState(root, 'feat', { env });
@@ -1409,6 +1534,12 @@ test('CLI: exit 3 for an unknown change, a missing id, no openspec/ and an archi
   assert.equal(runCli(t, ['nope']).code, 3);
   assert.match(runCli(t, ['nope']).err, /nope/);
   assert.equal(runCli(t, []).code, 3);
+  for (const dots of ['.', '..']) {
+    const r = runCli(t, [dots]);
+    assert.equal(r.code, 3, dots);
+    assert.match(r.err, /unknown change/, dots);
+    assert.equal(runCli(t, [dots, '--json']).code, 3, dots);
+  }
   mkdirSync(join(t.root, 'openspec/changes/archive/2026-01-01-gone'), { recursive: true });
   assert.equal(runCli(t, ['gone']).code, 3);
   const bare = mkdtempSync(join(tmpdir(), 'devkit-bare-'));

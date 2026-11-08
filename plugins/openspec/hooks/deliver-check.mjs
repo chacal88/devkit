@@ -4,9 +4,8 @@
 // Imports its helpers from guard.mjs, which runs a mode only when executed
 // directly, so importing it here has no side effects.
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { statSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { changeDir, changeSchema, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
@@ -259,7 +258,8 @@ export function tasksItem(root, id, facts = gitFacts(root)) {
   const evFile = join(dir, 'evidence.md');
   const text = existsSync(evFile) ? readFileSync(evFile, 'utf8') : null;
   let evidence = 'missing';
-  if (text !== null) evidence = staleness(root, parseCommitLine(text), facts) ? 'stale' : 'current';
+  const staleWhy = text === null ? null : staleness(root, parseCommitLine(text), facts);
+  if (text !== null) evidence = staleWhy ? 'stale' : 'current';
   const passing = text === null ? [] : tableRows(text).filter((cells) => /^pass/i.test(cells.at(-1) || ''));
   const missingGates = commands.filter((c) => !passing.some((cells) => cells.some((cell) => cell.includes(`\`${c}\``))));
   const details = { unticked, missingGates, evidence };
@@ -269,7 +269,7 @@ export function tasksItem(root, id, facts = gitFacts(root)) {
   const reasons = [
     unticked.length ? `unticked tasks: ${unticked.join(', ')}` : '',
     evidence === 'missing' ? 'evidence.md is missing' : '',
-    evidence === 'stale' ? `evidence.md is stale (${staleness(root, parseCommitLine(text), facts)})` : '',
+    evidence === 'stale' ? `evidence.md is stale (${staleWhy})` : '',
     ...missingGates.map((c) => `no passing row in evidence.md for \`${c}\``),
   ].filter(Boolean);
   if (reasons.length) return item(1, 'tasks', 'open', reasons.join('; '), details);
@@ -483,20 +483,23 @@ const CONVERSATION_QUERY = `query($owner: String!, $name: String!, $number: Int!
     pullRequest(number: $number) {
       reviewThreads(first: 100) {
         pageInfo { hasNextPage }
-        nodes { isResolved comments(last: 1) { nodes { author { __typename login } createdAt url } } }
+        nodes { isResolved comments(last: 1) { nodes { author { __typename login } authorAssociation createdAt url } } }
       }
-      comments(last: 100) { nodes { author { __typename login } createdAt url } }
-      reviews(last: 100) { nodes { author { __typename login } state body submittedAt } }
+      comments(last: 100) { nodes { author { __typename login } authorAssociation createdAt url } }
+      reviews(last: 100) { nodes { author { __typename login } authorAssociation state body submittedAt } }
     }
   }
 }`;
 
 const when = (iso) => Date.parse(iso) || 0;
+const TRUSTED_ASSOCIATIONS = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 
 // Item 7: every review thread and outstanding "changes requested" answered or
 // resolved; people's top-level comments and review bodies answered. A bot's
 // top-level comments and review bodies (CI, coverage and deploy summaries)
 // ask nothing and are ignored; its review threads and CHANGES_REQUESTED count.
+// A person counts only when GitHub says they are the repo's OWNER, MEMBER or
+// COLLABORATOR: anyone else's words are not instructions for the agent.
 export function conversationItem(fetched, gh) {
   const name = 'conversation';
   if (fetched.error) return item(7, name, 'blocked', `cannot read the PR: ${fetched.error}`, {});
@@ -514,35 +517,37 @@ export function conversationItem(fetched, gh) {
     return item(7, name, 'blocked', 'more than 100 review threads; cannot tell which are answered', details);
   }
   const mine = (a) => a?.login === viewer;
-  const person = (a) => a?.__typename !== 'Bot';
+  const trusted = (n) => TRUSTED_ASSOCIATIONS.includes(n.authorAssociation);
+  const bots = (n) => n.author?.__typename === 'Bot';
+  const person = (n) => !bots(n) && trusted(n);
   const threads = prData.reviewThreads.nodes || [];
   const comments = prData.comments.nodes || [];
   const reviews = prData.reviews.nodes || [];
   const lastOf = (t) => (t.comments.nodes || []).at(-1);
 
-  // The viewer's latest word anywhere on the PR.
+  // The viewer's latest top-level comment or review (thread replies answer
+  // their own thread, not the conversation).
   const spoke = [
     ...comments.filter((c) => mine(c.author)).map((c) => when(c.createdAt)),
     ...reviews.filter((v) => mine(v.author)).map((v) => when(v.submittedAt)),
-    ...threads.filter((t) => mine(lastOf(t)?.author)).map((t) => when(lastOf(t).createdAt)),
   ];
   const latest = spoke.length ? Math.max(...spoke) : -Infinity;
 
   for (const t of threads) {
     const last = lastOf(t);
-    if (!t.isResolved && !mine(last?.author)) details.threads.push(last?.url || '(thread)');
+    if (last && !t.isResolved && !mine(last.author) && (bots(last) || trusted(last))) details.threads.push(last?.url || '(thread)');
   }
   for (const c of comments) {
-    if (person(c.author) && !mine(c.author) && when(c.createdAt) > latest) details.comments.push(c.url || `comment by ${c.author?.login}`);
+    if (person(c) && !mine(c.author) && when(c.createdAt) > latest) details.comments.push(c.url || `comment by ${c.author?.login}`);
   }
   for (const v of reviews) {
-    if (person(v.author) && !mine(v.author) && (v.body || '').trim() && when(v.submittedAt) > latest) {
+    if (person(v) && !mine(v.author) && (v.body || '').trim() && when(v.submittedAt) > latest) {
       details.comments.push(`review by ${v.author?.login}`);
     }
   }
   const stance = new Map();
   for (const v of [...reviews].sort((a, b) => when(a.submittedAt) - when(b.submittedAt))) {
-    if (!v.author || mine(v.author)) continue;
+    if (!v.author || mine(v.author) || !(bots(v) || trusted(v))) continue;
     if (['CHANGES_REQUESTED', 'APPROVED', 'DISMISSED'].includes(v.state)) stance.set(v.author.login, v);
   }
   for (const [login, v] of stance) {
@@ -818,7 +823,7 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     const root = findRoot(cwd);
     if (!root) throw new UsageError(`no openspec/ folder found from ${cwd}`);
     const dir = changeDir(root, opts.id);
-    if (!/^[\w.-]+$/.test(opts.id) || opts.id === 'archive' || !existsSync(dir) || !statSync(dir).isDirectory()) {
+    if (!/^[\w.-]+$/.test(opts.id) || opts.id === '.' || opts.id === '..' || opts.id === 'archive' || !existsSync(dir) || !statSync(dir).isDirectory()) {
       throw new UsageError(`unknown change "${opts.id}": no openspec/changes/${opts.id}/ (archived changes do not count)`);
     }
     const gh = makeGh(root, env);

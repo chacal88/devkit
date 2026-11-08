@@ -179,6 +179,8 @@ Run it from anywhere inside the repository. It prints one line per item (`met`, 
 
 For item 7, a bot's top-level comments and review bodies (deploy previews, coverage and CI summaries) ask nothing and are ignored. A bot's unresolved review thread and its `CHANGES_REQUESTED` count like a person's.
 
+For item 7, a person counts only when GitHub reports their `authorAssociation` as `OWNER`, `MEMBER` or `COLLABORATOR`. Comments, review bodies, review threads and "changes requested" from anyone else (`CONTRIBUTOR`, `NONE`, first-timers) are ignored, so an outside commenter cannot hand the agent work. "Answered" for a top-level comment or review body means newer than the viewer's latest top-level comment or review; a reply inside a review thread answers only that thread.
+
 The rule goes by author type, not by intent: the checker cannot tell whether a bot's top-level comment asks for something, so it ignores every bot top-level comment and review body. A bot that wants a change must say it in an inline review thread or a "changes requested" review.
 
 **Exit codes.** `0` only when all eight are met; `1` when something is open and nothing is blocked; `2` when something is blocked; `3` for a usage or preflight error (unknown change, no `openspec/`, or an invalid `ship` setting, including `merge`, which arrives in a later round).
