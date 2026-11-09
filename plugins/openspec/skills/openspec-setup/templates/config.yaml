@@ -48,5 +48,6 @@ operations:
       - Open the PR with the commit-and-pr agent; the merge is the owner's in `plan` and `pr` mode, GitHub's in `merge` mode (ship-change enables auto-merge)
   archive:
     guidance:
+      - In `pr` and `merge` ship modes `ship-change` runs the archive steps after the merge (retro, the owner's answer per proposal, `openspec archive`, roadmap tick, approved proposals, archive PR on `chore/archive-<id>`)
       - Run the retro skill and propose doc or rule updates to the owner before archiving
       - If openspec/roadmap.md lists the change, tick its line after archiving

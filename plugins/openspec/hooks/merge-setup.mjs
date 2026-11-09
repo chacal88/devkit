@@ -87,10 +87,10 @@ function committedAtHead(root, path) {
 }
 
 // The merge-mode preflight (AC-6, design D4): { ok, missing[], defaultBranch, error? }.
+// `read` is the readRepoSettings answer when the caller already has it (one call per run).
 // Read-only; any read error fails closed, never passes.
-export function mergeSetup(gh, root, method) {
+export function mergeSetup(gh, root, method, read = readRepoSettings(gh)) {
   const fail = (why) => { const error = unreadable(why); return { ok: false, missing: [error + POINTER], error }; };
-  const read = readRepoSettings(gh);
   if (read.error) return fail(read.error);
   const { settings } = read;
   const defaultBranch = settings?.default_branch;

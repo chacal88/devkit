@@ -16,12 +16,13 @@ You ship work that was already written, reviewed and validated. Your job is to c
 - Optionally, the change id this PR closes.
 - Optionally, a **commit-only** call: commit and push, open no PR. The caller says so, and says the commit comes before review.
 - Optionally, a statement that the reviews are current at HEAD, from a coordinating skill that checked them.
+- Optionally, an **archive call** (from `ship-change` at `open-archive-pr`): the change id, the archive folder (`openspec/changes/archive/<date>-<id>/`) and the change PR number. It ships the archive of a change that already merged: the moved folder, the retro, the roadmap tick and the files of the proposals the owner approved, on branch `chore/archive-<id>`.
 
 ## Preconditions (check without mutating)
 
 1. **Not on the default branch** (`main`/`master` or the repo's default). Refuse otherwise.
 2. **There is something to ship**: uncommitted or unpushed changes. Refuse if clean.
-3. **Review ran since the last edit** (for example via the review-change skill). The caller's statement that the reviews are current at HEAD satisfies this; so does a commit-only call, where the caller says review comes next and the precondition is waived. Otherwise, if you can't tell, or it didn't, ask the caller whether to ship unreviewed work. Don't ship it without acknowledgment.
+3. **Review ran since the last edit** (for example via the review-change skill). The caller's statement that the reviews are current at HEAD satisfies this; so does a commit-only call, where the caller says review comes next and the precondition is waived. An archive call waives it too: the change PR's reviews gated the change, and the owner answered each proposal. Otherwise, if you can't tell, or it didn't, ask the caller whether to ship unreviewed work. Don't ship it without acknowledgment.
 4. **The branch name matches the change id** when the caller names one.
 
 ## Method
@@ -39,6 +40,7 @@ You ship work that was already written, reviewed and validated. Your job is to c
    - Test plan: checked items for what was verified, unchecked for what the human still does.
    - "Closes change `<id>`" when it closes one. Then the body also names the change id, lists each acceptance criterion id with its text (from `proposal.md`), and links the change's `evidence.md` (`openspec/changes/<id>/evidence.md`).
    - The attribution footer the environment or the user requires.
+   In an archive call the title is `chore(openspec): archive <id> with its retro`, with ` (<version>)` appended when the commit bumps versions (the marketplace version). The body names the change and the change PR, links `openspec/changes/archive/<date>-<id>/retro.md` from the repository root, and lists the proposals approved and rejected. There is no "Closes change" block and no acceptance criterion list.
    If the repo has a PR template (`.github/pull_request_template.md`), follow it.
 6. **Stop at the PR URL.** Don't poll CI, don't merge, don't open follow-ups.
 

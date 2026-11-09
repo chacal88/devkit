@@ -1,12 +1,12 @@
 // node --test plugins/openspec/hooks/guard.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir } from './guard.mjs';
+import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange } from './guard.mjs';
 
 import { gitRepo, put, commitAll, git as gitIn } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
 import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
@@ -403,4 +403,65 @@ test('guard exports findRoot, changeSchema and changeDir', () => {
   assert.equal(findRoot(join(root, 'openspec', 'changes')), root);
   assert.equal(changeSchema(root, 'feat'), 'devkit-lite');
   assert.equal(changeDir(root, 'feat'), join(root, 'openspec', 'changes', 'feat'));
+});
+
+// ---------------------------------------------------------------- the archive branch (archive-after-merge D2)
+
+test('archiveBranchChange: chore/archive-<x> names x while x is active or archived, an exact suffix only', () => {
+  const root = repo({ changes: { x: devkit, merge: devkit }, archived: ['old'] });
+  assert.equal(archiveBranchChange(root, 'chore/archive-x'), 'x');
+  assert.equal(archiveBranchChange(root, 'chore/archive-old'), 'old', 'archived: the id after the date prefix');
+  assert.equal(archiveBranchChange(root, 'chore/archive-ol'), null, 'not a suffix match');
+  assert.equal(archiveBranchChange(root, 'chore/archive-y'), null, 'unknown change');
+  assert.equal(archiveBranchChange(root, 'archive-x'), null, 'only the chore/ form');
+  assert.equal(archiveBranchChange(root, 'feat/x'), null);
+  assert.equal(archiveBranchChange(root, ''), null);
+  const dated = repo({ archived: ['xx'] });
+  assert.equal(archiveBranchChange(dated, 'chore/archive-x'), null, 'archive/2026-01-01-xx is not x');
+});
+
+test('resolveChange on an archive branch: the change while active, null once it moved, never another change', () => {
+  const active = repo({ changes: { x: devkit, merge: devkit } });
+  assert.deepEqual(resolveChange(active, {}, 'chore/archive-x'), { name: 'x' });
+  const moved = repo({ changes: { merge: devkit }, archived: ['x'] });
+  assert.equal(resolveChange(moved, {}, 'chore/archive-x'), null, 'no only-open-change fallback');
+  const contained = repo({ changes: { merge: devkit, other: devkit }, archived: ['auto-merge'] });
+  assert.equal(resolveChange(contained, {}, 'chore/archive-auto-merge'), null, 'no contained-name rule');
+  const unknown = repo({ changes: { only: devkit } });
+  assert.deepEqual(resolveChange(unknown, {}, 'chore/archive-y'), { name: 'only' }, 'unknown y resolves as today');
+  assert.equal(resolveChange(moved, { DEVKIT_CHANGE: 'merge' }, 'chore/archive-x').name, 'merge', 'DEVKIT_CHANGE wins');
+});
+
+test('hooks on an archive branch: another open change gates neither gh pr create nor product edits (AC-7)', () => {
+  const root = repo({ branch: 'chore/archive-x', changes: { merge: approved }, archived: ['x'] });
+  assert.equal(bash(root, 'gh pr create --title t --body b').code, 0, 'merge is unreviewed but not selected');
+  assert.equal(edit(root, 'CONTRIBUTING.md').code, 0, 'merge readiness does not gate product files here');
+  assert.equal(edit(root, 'src/a.ts').code, 0);
+});
+
+test('before the move, the archive branch still gates its change: product code to tdd-implementer, gh pr create to reviews (AC-7)', () => {
+  const root = repo({ branch: 'chore/archive-x', changes: { x: approved } });
+  assert.equal(edit(root, 'src/a.ts').code, 2, 'main session cannot write code');
+  assert.equal(edit(root, 'src/a.ts', 'tdd-implementer').code, 0);
+  assert.equal(bash(root, 'gh pr create --title t --body b').code, 2, 'the archive PR goes through gh pr create, not around it');
+});
+
+test('ADR 0003 exists with Status: accepted, ADR 0002 points to it and has no "until round 3", and the places that list ADRs name it (3.6, 3.7, AC-8)', () => {
+  const root = join(here, '..', '..', '..');
+  const read = (...p) => readFileSync(join(root, ...p), 'utf8');
+  const adr = join(root, 'docs', 'adr', '0003-auto-merge-the-archive-pr.md');
+  assert.ok(existsSync(adr), 'ADR 0003 file');
+  const body = readFileSync(adr, 'utf8');
+  assert.match(body, /^- Status: accepted$/m);
+  assert.match(body, /^# ADR 0003: Auto-merge the archive PR/m);
+  for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) assert.ok(body.includes(h), h);
+  for (const f of [['README.md'], ['docs', 'openspec-flow.md'], ['openspec', 'config.yaml'], ['CONTRIBUTING.md']]) {
+    assert.match(read(...f), /0003/, `${f.join('/')} names ADR 0003`);
+  }
+  assert.match(read('openspec', 'config.yaml'), /0003 auto-merge the archive PR/);
+  assert.match(read('docs', 'openspec-flow.md'), /adr\/0003-auto-merge-the-archive-pr\.md/);
+  const adr2 = read('docs', 'adr', '0002-merge-without-the-owner-opt-in.md');
+  assert.doesNotMatch(adr2, /until round 3/);
+  assert.match(adr2, /0003-auto-merge-the-archive-pr\.md/);
+  assert.match(adr2, /^- Status: accepted$/m);
 });

@@ -8,11 +8,11 @@ import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'n
 import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { mergeSetup, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
+import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
 
 // The shared gh runner (merge-setup.mjs), kept importable from here.
 export { makeGh };
-import { changeDir, changeSchema, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
+import { archiveBranchChange, changeDir, changeSchema, changeSchemaAt, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -207,6 +207,27 @@ export function staleness(root, recorded, facts = gitFacts(root)) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------- locating a change (archive-after-merge D3)
+
+const ARCHIVED = /^(\d{4}-\d{2}-\d{2})-(.+)$/;
+
+// Where change `id` lives in this checkout: { dir, archived: false } for
+// openspec/changes/<id>/, { dir, archived: true } for the newest
+// openspec/changes/archive/<YYYY-MM-DD>-<id>/ (exact id), else null.
+export function locateChange(root, id) {
+  if (!/^[\w.-]+$/.test(id) || id === '.' || id === '..' || id === 'archive') return null;
+  const live = changeDir(root, id);
+  if (existsSync(live) && statSync(live).isDirectory()) return { dir: live, archived: false };
+  const archive = join(root, 'openspec', 'changes', 'archive');
+  if (!existsSync(archive)) return null;
+  const dated = readdirSync(archive).map((n) => ARCHIVED.exec(n)).filter((m) => m && m[2] === id).map((m) => m[0]).sort();
+  const newest = dated.at(-1);
+  return newest && statSync(join(archive, newest)).isDirectory() ? { dir: join(archive, newest), archived: true } : null;
+}
+
+// The schema of a located change.
+export const schemaOf = (root, located) => changeSchemaAt(root, located.dir);
 
 // ---------------------------------------------------------------- items
 
@@ -407,12 +428,13 @@ function parsePr(r) {
 // auto-merge and the merge state, and is looked up by its number once known; when
 // the branch no longer finds it (it was merged and the branch deleted), by head
 // branch among open, merged and closed PRs (design D6, readiness carry-over).
-export function fetchPr(gh, { merge = false, number = null, branch = '' } = {}) {
+// `list: true` allows that fallback in pr mode too (archive-after-merge D4).
+export function fetchPr(gh, { merge = false, number = null, branch = '', list: lookup = merge } = {}) {
   const fields = merge ? MERGE_FIELDS : PR_FIELDS;
   const r = gh(['pr', 'view', ...(merge && number ? [String(number)] : []), '--json', fields]);
   if (r.status === 0) return parsePr(r);
   if (!r.missing && /no pull requests? found/i.test(r.stderr)) {
-    if (!merge || !branch) return { none: true };
+    if (!lookup || !branch) return { none: true };
     const l = gh(['pr', 'list', '--head', branch, '--state', 'all', '--limit', '10', '--json', fields]);
     if (l.status !== 0) return { error: ghError(l) };
     let list;
@@ -424,6 +446,40 @@ export function fetchPr(gh, { merge = false, number = null, branch = '' } = {}) 
 }
 
 const NO_PR = 'no pull request for this branch yet';
+
+// The branches the archive PR of change `id` is opened from: never the change branch.
+const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
+
+// The change's PR, whichever branch the checkout is on (archive-after-merge D4):
+// { pr, via } | { none: true } | { error }. `via` is 'branch' when the current
+// branch is the change's own, 'list' when found among the merged PRs.
+//  1. plan mode, a known number, or the change branch: fetchPr as before (the
+//     head-branch fallback also runs in pr mode);
+//  2. otherwise, in pr and merge modes: the newest merged PR whose body links
+//     the change's evidence.md, else the newest whose head's last segment is the
+//     id. Archive heads are dropped first and there is no "contains" match.
+export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = process.env, number = null } = {}) {
+  const merge = ship === 'merge';
+  const selected = resolveChange(root, env, branch);
+  const own = selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch) && !archiveHeads(id).includes(branch);
+  if (ship === 'plan' || number || own) {
+    const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan' });
+    return r.pr ? { ...r, via: 'branch' } : r;
+  }
+  const fields = `${merge ? MERGE_FIELDS : PR_FIELDS},headRefName,mergedAt`;
+  const l = gh(['pr', 'list', '--state', 'merged', '--limit', '100', '--json', fields]);
+  if (l.status !== 0) return { error: ghError(l) };
+  let list;
+  try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
+  if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
+  const heads = archiveHeads(id);
+  const rest = list.filter((p) => !heads.includes(p.headRefName));
+  const newest = (prs) => [...prs].sort((a, b) => when(b.mergedAt) - when(a.mergedAt))[0];
+  const link = `openspec/changes/${id}/evidence.md`;
+  const found = newest(rest.filter((p) => (p.body || '').includes(link)))
+    ?? newest(rest.filter((p) => String(p.headRefName).split('/').pop() === id));
+  return found ? { pr: found, via: 'list' } : { none: true };
+}
 
 // Paths git sees as changed (tracked or untracked) under a pathspec.
 function changedUnder(root, pathspec) {
@@ -619,6 +675,161 @@ export function bodyItem(id, fetched, acIds) {
   return item(8, name, 'met', 'PR body names the change, its criteria and the evidence', { missing });
 }
 
+// ---------------------------------------------------------------- the archive steps (archive-after-merge D4, D6)
+
+// retro.md (design D6): { exists, readable, proposals: [{ n, targets, kind, answer, applied }] }.
+// A proposal is a `### ` heading under `## Proposed updates`; its targets are the
+// backticked paths on the heading line, or `user memory`; the kind is the
+// trailing parentheses. The last `- Answer:` line (approved | rejected[: why]) and
+// the last `- Applied:` line of a block count; any other text is no answer.
+export function readRetro(file) {
+  if (!existsSync(file)) return { exists: false, readable: false, proposals: [] };
+  const proposals = [];
+  let inside = false;
+  let readable = false;
+  let current = null;
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    if (/^##\s+Proposed updates\s*$/i.test(line)) { inside = true; readable = true; current = null; continue; }
+    if (/^##\s/.test(line)) { inside = false; current = null; continue; }
+    if (!inside) continue;
+    const h = line.match(/^###\s+(.*)$/);
+    if (h) {
+      const heading = h[1];
+      const paths = [...heading.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+      current = {
+        n: proposals.length + 1,
+        targets: paths.length ? paths : (/\buser memory\b/i.test(heading) ? ['user memory'] : []),
+        kind: heading.match(/\(([^()]*)\)\s*$/)?.[1] ?? '',
+        answer: null,
+        applied: false,
+      };
+      proposals.push(current);
+      continue;
+    }
+    if (!current) continue;
+    const a = line.match(/^\s*[-*]\s+Answer\s*:\s*(.*?)\s*$/);
+    if (a) current.answer = /^approved$/i.test(a[1]) ? 'approved' : /^rejected(?::|$)/i.test(a[1]) ? 'rejected' : null;
+    const d = line.match(/^\s*[-*]\s+Applied\s*:\s*(.*?)\s*$/);
+    if (d) current.applied = /^yes$/i.test(d[1]);
+  }
+  return { exists: true, readable, proposals };
+}
+
+// Every path git sees as changed in the working tree, tracked or untracked
+// (openspec/ included, .claude/ left out).
+function changedInTree(root) {
+  const entries = git(root, ['status', '--porcelain', '-z', '-uall']).split('\0').filter(Boolean);
+  const paths = [];
+  for (let i = 0; i < entries.length; i++) {
+    const xy = entries[i].slice(0, 2);
+    paths.push(entries[i].slice(3));
+    if (/[RC]/.test(xy)) paths.push(entries[++i]);
+  }
+  return paths.filter((p) => !p.startsWith('.claude/'));
+}
+
+// The paths the archive branch changes against origin/<base>, committed or not:
+// { paths } | { missing: true } when origin/<base> does not resolve.
+function archiveChanges(root, base) {
+  const ref = `origin/${base}`;
+  if (!gitOk(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])) return { missing: true };
+  let mergeBase;
+  try { mergeBase = git(root, ['merge-base', ref, 'HEAD']).trim(); } catch { return { missing: true }; }
+  const committed = git(root, ['diff', '--name-only', '-z', '--no-renames', `${mergeBase}..HEAD`]).split('\0').filter(Boolean);
+  return { paths: [...new Set([...committed, ...changedInTree(root)])].sort() };
+}
+
+const normalizePath = (p) => p.replace(/^(\.\/)+/, '');
+// Files a version bump or a regenerated catalog changes without a proposal naming them (design D8).
+const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
+
+// The changed paths outside openspec/ that no approved proposal names exactly (AC-3):
+// no directory, prefix or glob matching.
+export function unnamedFiles(paths, proposals) {
+  const named = new Set(proposals.filter((p) => p.answer === 'approved').flatMap((p) => p.targets.map(normalizePath)));
+  return paths.filter((p) => !isOpenspec(p) && !RELEASE_FILE.test(p) && !named.has(p));
+}
+
+const ARCHIVE_NAME = (id) => new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${id.replace(/[.]/g, '\\.')}$`);
+
+// The roadmap line of `id`: { listed, ticked, line }.
+function roadmapFacts(root, id) {
+  const file = join(root, 'openspec', 'roadmap.md');
+  const none = { listed: false, ticked: false, line: null };
+  if (!existsSync(file)) return none;
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*[-*]\s+\[([ xX])\]\s+([A-Za-z0-9][\w.-]*)/);
+    if (m && m[2] === id) return { listed: true, ticked: m[1] !== ' ', line };
+  }
+  return none;
+}
+
+// Reads one GitHub contents path on `base`: { json } | { notFound: true } | { error }.
+function readContents(gh, path, base) {
+  const r = gh(['api', `repos/{owner}/{repo}/contents/${path}?ref=${encodeURIComponent(base)}`]);
+  if (r.status !== 0) return !r.missing && !r.timedOut && /HTTP 404\b/.test(r.stderr) ? { notFound: true } : { error: ghError(r) };
+  try { return { json: JSON.parse(r.stdout) }; } catch { return { error: `${path} returned unreadable JSON` }; }
+}
+
+// The archive PR of the branch: the OPEN one, else the newest MERGED, else the newest CLOSED.
+function archivePrFacts(gh, root, id, base, facts) {
+  const branch = `chore/archive-${id}`;
+  const l = gh(['pr', 'list', '--head', branch, '--state', 'all', '--limit', '10', '--json', 'number,url,state,headRefOid,mergeable,autoMergeRequest,mergeStateStatus']);
+  if (l.status !== 0) return { error: ghError(l) };
+  let list;
+  try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
+  if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
+  const pr = ['OPEN', 'MERGED', 'CLOSED'].map((st) => list.find((p) => p.state === st)).find(Boolean);
+  if (!pr) return { pr: null };
+  const out = {
+    number: pr.number, url: pr.url, state: pr.state, mergeable: pr.mergeable ?? null,
+    autoMerge: pr.autoMergeRequest != null, mergeStateStatus: pr.mergeStateStatus ?? null, headRefOid: pr.headRefOid,
+    headRel: pr.headRefOid === facts.head ? 'same' : (facts.head && inHistory(root, pr.headRefOid, facts.head) ? 'ahead' : 'foreign'),
+    checks: { failing: [], pending: [], error: null },
+  };
+  if (pr.state === 'OPEN') {
+    const c = checksItem({ pr: { number: pr.number } }, gh);
+    out.checks = { failing: c.details.failing, pending: c.details.pending, error: c.status === 'blocked' ? c.reason : null };
+  }
+  return { pr: out };
+}
+
+// Everything the post-merge rows read (design D4, D7): the default branch and
+// the archive PR from GitHub, the rest from the working tree.
+function archiveFacts(gh, root, id, { located, repo, facts, changePr, branch, env }) {
+  const archiveBranch = `chore/archive-${id}`;
+  const stop = (archiveStep, reason) => ({ stop: { archiveStep, reason } });
+  const base = repo?.settings?.default_branch;
+  const common = {
+    branch: archiveBranch,
+    changePr: changePr ? { number: changePr.number, url: changePr.url } : null,
+    local: located.archived ? 'archived' : 'active',
+    retro: readRetro(join(located.dir, 'retro.md')),
+    roadmap: roadmapFacts(root, id),
+    branchExists: gitOk(root, ['rev-parse', '--verify', '-q', `refs/heads/${archiveBranch}`]),
+    dirty: changedInTree(root),
+    pr: null,
+    folder: located.archived ? basename(located.dir) : null,
+    waitingFor: null,
+  };
+  if (!base) return { ...common, base: null, onDefault: null, ...stop('read-default-branch', `cannot read the default branch on GitHub: ${repo?.error ?? 'the answer has no default branch'}`) };
+  const here = { ...common, base };
+  const unreadable = (e) => ({ ...here, onDefault: null, ...stop('read-default-branch', `cannot read ${base} on GitHub: ${e}`) });
+
+  const listing = readContents(gh, 'openspec/changes/archive', base);
+  if (listing.error) return unreadable(listing.error);
+  const wanted = ARCHIVE_NAME(id);
+  const archived = Array.isArray(listing.json) ? listing.json.map((e) => e?.name).filter((n) => typeof n === 'string' && wanted.test(n)).sort().at(-1) : null;
+  if (archived) return { ...here, onDefault: 'archived', folder: archived };
+  const live = readContents(gh, `openspec/changes/${id}`, base);
+  if (live.error) return unreadable(live.error);
+  const onDefault = live.notFound ? 'absent' : 'active';
+
+  const prs = archivePrFacts(gh, root, id, base, facts);
+  if (prs.error) return { ...here, onDefault, ...stop('archive-pr', `cannot read the archive PR: ${prs.error}`) };
+  return { ...here, onDefault, pr: prs.pr, changed: located.archived ? archiveChanges(root, base) : null };
+}
+
 // ---------------------------------------------------------------- next step and summary
 
 // { met, summary }: "ready" at 8/8, else the lowest blocked item, else the
@@ -642,6 +853,64 @@ export function waitingFor(status) {
   return `GitHub (mergeStateStatus ${status})`;
 }
 
+// The post-merge rows P0-P14 (archive-after-merge D7), first match wins. Runs
+// when the change PR is merged or the change is archived locally; every item
+// is met, so the rows read `state.archive`, not the eight items.
+function archiveNext(state) {
+  const a = state.archive;
+  const merge = state.ship === 'merge';
+  const step = (name, reason, extra = {}) => ({ step: name, reason, ...extra });
+  const stopArchive = (archiveStep, reason) => step('stop-archive', reason, { archiveStep });
+
+  if (a.onDefault === 'archived') return step('archived', `${a.folder} is on ${a.base}`, { folder: a.folder });
+  if (a.stop) return stopArchive(a.stop.archiveStep, a.stop.reason);
+  const five = state.items[4];
+  if (five.status === 'blocked') return step('blocked', five.reason, { item: 5 });
+  if (merge && state.setup && !state.setup.ok) {
+    return step('stop-merge-setup', `merge mode needs the repository prepared: ${state.setup.missing.join('; ')}`, { missing: state.setup.missing });
+  }
+
+  const pr = a.pr;
+  if (pr?.state === 'OPEN') {
+    const conflicts = pr.mergeable === 'CONFLICTING';
+    const failing = pr.checks.failing.length > 0 || pr.checks.error != null;
+    const uncommitted = a.dirty.length > 0;
+    if (merge && pr.autoMerge && (conflicts || failing || pr.headRel !== 'same' || uncommitted)) {
+      return step('disable-auto-merge', `auto-merge is on but the archive PR #${pr.number} no longer qualifies`, { number: pr.number });
+    }
+    if (conflicts) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`);
+    if (pr.headRel === 'foreign') return stopArchive('archive-pr', `PR #${pr.number} head ${String(pr.headRefOid).slice(0, 7)} is not in local history (someone else pushed?)`);
+    if (pr.headRel === 'ahead' || uncommitted) {
+      return step('open-archive-pr', `${pr.headRel === 'ahead' ? `local is ahead of PR head ${String(pr.headRefOid).slice(0, 7)}` : `uncommitted files: ${a.dirty.slice(0, 3).join(', ')}`}; commit and push`, { branch: a.branch, number: pr.number });
+    }
+    if (failing) {
+      const f = pr.checks.failing.map((c) => `${c.name} (${c.link})`).join(', ');
+      return stopArchive('archive-pr', pr.checks.error ? `cannot read the checks: ${pr.checks.error}` : `failing ${f}`);
+    }
+    if (merge && pr.mergeStateStatus === 'BEHIND') return step('update-branch', `archive PR #${pr.number} is behind ${a.base}; update it`, { number: pr.number });
+    if (!merge) return step('archive-pr-ready', `archive PR #${pr.number} is open; merge it, then run again`, { number: pr.number, url: pr.url });
+    if (!pr.autoMerge) return step('enable-auto-merge', `archive PR #${pr.number} qualifies`, { number: pr.number, method: state.mergeMethod, head: state.head });
+    return step('wait-merge', 'auto-merge is on; GitHub merges once its rules pass', { number: pr.number, head: pr.headRefOid, waitingFor: waitingFor(pr.mergeStateStatus) });
+  }
+  if (pr?.state === 'MERGED') return stopArchive('archive-pr', `PR #${pr.number} is merged but ${a.base} still has openspec/changes/${state.id}/; run again`);
+  if (pr?.state === 'CLOSED') return stopArchive('archive-pr', `PR #${pr.number} was closed without merging; reopen it (the flow opens no second archive PR)`);
+
+  if (!a.retro.exists) return step('retro', 'the change PR is merged; run the retro', { number: a.changePr?.number ?? null, base: a.base });
+  if (!a.retro.readable) return stopArchive('retro', 'retro.md has no "## Proposed updates" section');
+  const brief = (ps) => ps.map(({ n, targets, kind }) => ({ n, targets, kind }));
+  const unanswered = a.retro.proposals.filter((p) => p.answer === null);
+  if (unanswered.length) return step('stop-retro-answers', `${unanswered.length} retro proposal${unanswered.length > 1 ? 's' : ''} waiting for the owner's answer`, { proposals: brief(unanswered) });
+  if (a.local === 'active') return step('archive', 'archive the change on its own branch', { branch: a.branch, base: a.base, create: !a.branchExists });
+  if (state.branch !== a.branch) return stopArchive('archive', `the change is archived in the working tree of ${state.branch || '(detached)'}, not on ${a.branch}`);
+  if (a.roadmap.listed && !a.roadmap.ticked) return step('tick-roadmap', 'openspec/roadmap.md lists the change unticked', { line: a.roadmap.line });
+  const toApply = a.retro.proposals.filter((p) => p.answer === 'approved' && !p.applied);
+  if (toApply.length) return step('apply-proposals', `${toApply.length} approved proposal${toApply.length > 1 ? 's' : ''} not applied yet`, { proposals: brief(toApply) });
+  if (a.changed?.missing) return stopArchive('archive', `origin/${a.base} is not available; git fetch origin ${a.base}`);
+  const offending = unnamedFiles(a.changed?.paths ?? [], a.retro.proposals);
+  if (offending.length) return stopArchive('apply-proposals', `files no approved proposal names: ${offending.join(', ')}`);
+  return step('open-archive-pr', 'commit the archive and open its pull request', { branch: a.branch, base: a.base, title: `chore(openspec): archive ${state.id} with its retro` });
+}
+
 // The one step to take now, computed from facts only (see design D4, first
 // match wins). `state` is what collectState builds.
 export function nextStep(state) {
@@ -650,12 +919,12 @@ export function nextStep(state) {
 
   const merge = state.ship === 'merge';
   const allMet = state.items.every((i) => i.status === 'met');
-  if (merge && it(5).details.merged) return step('merged', `PR #${state.pr.number} is merged`, { number: state.pr.number });
   // Auto-merge is disabled before any stop or push once the contract drops below 8/8.
   if (merge && state.pr?.state === 'OPEN' && state.pr.autoMerge && !allMet) {
     return step('disable-auto-merge', `auto-merge is on but the contract is no longer met (${state.items.find((i) => i.status !== 'met').reason})`, { number: state.pr.number });
   }
   if (state.ship === 'plan') return step('stop-plan-mode', `ship mode for ${state.schema} is plan; follow the usual apply flow`);
+  if (state.archive) return archiveNext(state);
   if (!state.branchOk) return step('stop-branch', `the current branch does not select change ${state.id} for the hooks; create or switch to a branch named after it`);
   if (state.needsReadiness && state.readiness !== 'APPROVED') {
     return step('stop-not-approved', `readiness.md Status is ${state.readiness || 'missing'}, expected APPROVED; the plan needs its approval first`);
@@ -728,7 +997,7 @@ export function nextStep(state) {
   const left = state.items.find((i) => i.status !== 'met');
   if (left) return step('blocked', left.reason, { item: left.id });
   if (!merge) return step('ready', 'all eight items are met');
-  if (state.pr.autoMerge) return step('wait-merge', 'auto-merge is on; GitHub merges once its rules pass', { number: state.pr.number, waitingFor: waitingFor(state.pr.mergeStateStatus) });
+  if (state.pr.autoMerge) return step('wait-merge', 'auto-merge is on; GitHub merges once its rules pass', { number: state.pr.number, head: state.pr.headRefOid, waitingFor: waitingFor(state.pr.mergeStateStatus) });
   return step('enable-auto-merge', 'all eight items are met', { number: state.pr.number, method: state.mergeMethod, head: state.head });
 }
 
@@ -757,14 +1026,60 @@ export function readReviewMd(file) {
 // behind the step choice. Reads files, git and (through gh) GitHub; writes nothing.
 export function collectState(root, id, { env = process.env, gh = makeGh(root, env), prNumber = null } = {}) {
   const facts = gitFacts(root);
-  const dir = changeDir(root, id);
-  const schema = changeSchema(root, id);
+  const located = locateChange(root, id) ?? { dir: changeDir(root, id), archived: false };
+  const dir = located.dir;
+  const schema = schemaOf(root, located);
   const { ship, mergeMethod } = shipConfig(root, schema);
   const branch = currentBranch(root, env);
   const selected = resolveChange(root, env, branch);
   const merge = ship === 'merge';
-  const fetched = fetchPr(gh, { merge, number: prNumber, branch });
-  const merged = merge && fetched.pr?.state === 'MERGED' && fetched.pr.headRefOid === facts.head;
+  const fetched = findChangePr(gh, root, id, { ship, branch, env, number: prNumber });
+  // The post-merge phase: the change PR is merged, or the folder already moved (design D4).
+  const postMerge = ship !== 'plan' && (located.archived || fetched.pr?.state === 'MERGED');
+  const repo = merge || postMerge ? readRepoSettings(gh) : null;
+  const common = {
+    id,
+    schema,
+    ship,
+    mergeMethod,
+    branch,
+    head: facts.head,
+    dirty: facts.dirty,
+    ...(merge ? { setup: mergeSetup(gh, root, mergeMethod, repo) } : {}),
+  };
+  const prFacts = (f) => (f.pr
+    ? { number: f.pr.number, url: f.pr.url, ...(merge ? { autoMerge: f.pr.autoMergeRequest != null, state: f.pr.state, mergeStateStatus: f.pr.mergeStateStatus ?? null, headRefOid: f.pr.headRefOid } : {}) }
+    : null);
+
+  if (postMerge) {
+    const pr = fetched.pr;
+    const checked = (n, name, details) => item(n, name, 'met', pr ? `checked before PR #${pr.number} merged` : 'checked before the change was archived', details);
+    const five = pr?.state === 'MERGED' && fetched.via === 'branch'
+      ? prItem(root, id, fetched, facts, { merge: true })
+      : item(5, 'pr', 'met', pr ? `PR #${pr.number} merged` : 'change archived; no merged PR found', { pr: pr ? { number: pr.number, url: pr.url } : null, merged: Boolean(pr) });
+    return {
+      ...common,
+      branchOk: true,
+      needsReadiness: false,
+      readiness: null,
+      phases: [],
+      reviewMd: null,
+      reviews: [],
+      pr: prFacts(fetched),
+      archive: archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env }),
+      items: [
+        checked(1, 'tasks', { unticked: [], missingGates: [], evidence: 'current' }),
+        checked(2, 'reviews', { stale: [], rejected: [], missing: [] }),
+        checked(3, 'findings', { fixed: 0, refuted: 0, undisposed: [] }),
+        checked(4, 'acceptance', { ids: [], proven: [], missing: [], defects: [], noProof: [], evidence: 'current' }),
+        five,
+        checked(6, 'checks', { required: false, failing: [], pending: [] }),
+        checked(7, 'conversation', { threads: [], comments: [], changesRequested: [], waiting: [] }),
+        checked(8, 'body', { missing: [] }),
+      ],
+    };
+  }
+
   const acceptance = acceptanceItem(root, id, facts);
   const items = [
     tasksItem(root, id, facts),
@@ -772,30 +1087,20 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     findingsItem(root, id, facts),
     acceptance,
     prItem(root, id, fetched, facts, { merge }),
-    // A PR merged at the local head has nothing left to check or answer (no gh call).
-    merged ? item(6, 'checks', 'met', 'PR merged', { required: false, failing: [], pending: [] }) : checksItem(fetched, gh),
-    merged ? item(7, 'conversation', 'met', 'PR merged', { threads: [], comments: [], changesRequested: [] }) : conversationItem(fetched, gh),
+    checksItem(fetched, gh),
+    conversationItem(fetched, gh),
     bodyItem(id, fetched, acceptance.details.ids),
   ];
   const needsReadiness = schemaHasArtifact(root, schema, 'readiness');
   return {
-    id,
-    schema,
-    ship,
-    mergeMethod,
-    branch,
-    head: facts.head,
+    ...common,
     branchOk: selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch),
     needsReadiness,
     readiness: needsReadiness ? readValue(join(dir, 'readiness.md'), 'Status') : null,
     phases: readPhases(join(dir, 'tasks.md')),
-    dirty: facts.dirty,
     reviewMd: readReviewMd(join(dir, 'review.md')),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
-    pr: fetched.pr
-      ? { number: fetched.pr.number, url: fetched.pr.url, ...(merge ? { autoMerge: fetched.pr.autoMergeRequest != null, state: fetched.pr.state, mergeStateStatus: fetched.pr.mergeStateStatus ?? null, headRefOid: fetched.pr.headRefOid } : {}) }
-      : null,
-    ...(merge ? { setup: mergeSetup(gh, root, mergeMethod) } : {}),
+    pr: prFacts(fetched),
     items,
   };
 }
@@ -816,12 +1121,7 @@ export function buildReport(state, env = process.env) {
   const { met, summary: itemsSummary } = summarize(state.items);
   const next = nextStep(state);
   const merge = state.ship === 'merge';
-  // Merge mode names its own end states; every other summary is the items' (design D6).
-  const summary = !merge ? itemsSummary
-    : next.step === 'merged' ? 'merged'
-      : next.step === 'stop-merge-setup' ? 'blocked: merge setup'
-        : next.step === 'wait-merge' ? `auto-merge on: waiting for ${next.waitingFor}`
-          : itemsSummary;
+  const summary = summaryOf(state, next, itemsSummary);
   return {
     version: 1,
     change: state.id,
@@ -845,6 +1145,44 @@ export function buildReport(state, env = process.env) {
         waitingFor: next.step === 'wait-merge' ? next.waitingFor : null,
       },
     } : {}),
+    ...(state.archive ? { archive: archiveReport(state.archive, next) } : {}),
+  };
+}
+
+// The summary line (design D6, D7). Merge mode and the archive steps name their own
+// end states; every other summary is the items'.
+function summaryOf(state, next, itemsSummary) {
+  if (state.archive) {
+    switch (next.step) {
+      case 'archived': return 'archived';
+      case 'wait-merge': return `archive PR open: waiting for ${next.waitingFor}`;
+      case 'archive-pr-ready': return 'archive PR ready';
+      case 'stop-retro-answers': return "archive: waiting for the owner's answers";
+      case 'stop-archive': return `blocked: archive (${next.archiveStep})`;
+      case 'stop-merge-setup': return 'blocked: merge setup';
+      case 'blocked': return itemsSummary;
+      default: return `merged: archive step ${next.step}`;
+    }
+  }
+  if (state.ship !== 'merge') return itemsSummary;
+  if (next.step === 'stop-merge-setup') return 'blocked: merge setup';
+  if (next.step === 'wait-merge') return `auto-merge on: waiting for ${next.waitingFor}`;
+  return itemsSummary;
+}
+
+// The `archive` object of the JSON report, present only after the merge (design D7).
+function archiveReport(a, next) {
+  return {
+    base: a.base,
+    branch: a.branch,
+    changePr: a.changePr,
+    onDefault: a.onDefault,
+    folder: a.folder,
+    local: a.local,
+    retro: a.retro,
+    roadmap: { listed: a.roadmap.listed, ticked: a.roadmap.ticked },
+    pr: a.pr && { number: a.pr.number, url: a.pr.url, state: a.pr.state, autoMerge: a.pr.autoMerge, mergeStateStatus: a.pr.mergeStateStatus, headRefOid: a.pr.headRefOid },
+    waitingFor: next.step === 'wait-merge' ? next.waitingFor : null,
   };
 }
 
@@ -862,7 +1200,8 @@ function describeNext(n) {
     'update-branch': `PR #${n.number}`,
     'enable-auto-merge': `PR #${n.number} with --${n.method} at ${String(n.head).slice(0, 7)}`,
     'wait-merge': `waiting for ${n.waitingFor}`,
-    merged: `PR #${n.number}`,
+    retro: n.number ? `PR #${n.number}` : '',
+    'open-archive-pr': n.branch,
   }[n.step];
   return detail ? `${n.step} ${detail}` : n.step === 'ready' ? 'ready' : `${n.step}: ${n.reason}`;
 }
@@ -977,7 +1316,12 @@ function selectCiChange(root, id, env, branch) {
     }
     return { name: wanted };
   }
-  if (branch) {
+  // An archive branch (chore/archive-<id>) selects <id> while it is active, and no
+  // change by name once it moved: the PR diff decides, and an archive PR touches none.
+  const archiving = archiveBranchChange(root, branch);
+  if (archiving) {
+    if (active.includes(archiving)) return { name: archiving };
+  } else if (branch) {
     const exact = active.filter((c) => c === branch.split('/').pop());
     if (exact.length === 1) return { name: exact[0] };
     const contained = active.filter((c) => branch.includes(c));
@@ -990,6 +1334,7 @@ function selectCiChange(root, id, env, branch) {
     if (touched.length > 1) throw new CiFailure(`several changes are touched by this PR (${touched.join(', ')}); name the branch after one`);
     return { none: true };
   }
+  if (archiving) return { none: true };
   if (active.length === 1) return { name: active[0] };
   if (active.length > 1) throw new CiFailure(`several open changes (${active.join(', ')}); name the branch after one, or set DEVKIT_CHANGE`);
   return { none: true };
@@ -1065,27 +1410,27 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     const root = findRoot(cwd);
     if (!root) throw new UsageError(`no openspec/ folder found from ${cwd}`);
     if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
-    const dir = changeDir(root, opts.id);
-    if (!/^[\w.-]+$/.test(opts.id) || opts.id === '.' || opts.id === '..' || opts.id === 'archive' || !existsSync(dir) || !statSync(dir).isDirectory()) {
-      throw new UsageError(`unknown change "${opts.id}": no openspec/changes/${opts.id}/ (archived changes do not count)`);
+    if (!locateChange(root, opts.id)) {
+      throw new UsageError(`unknown change "${opts.id}": no openspec/changes/${opts.id}/ and no openspec/changes/archive/<date>-${opts.id}/ in this checkout; switch to the default branch and pull, or to the change's branch`);
     }
     const gh = makeGh(root, env);
     let state = collectState(root, opts.id, { env, gh });
     let watch = null;
-    const step = opts.watch !== null && state.pr ? nextStep(state).step : null;
-    if (step === 'wait-checks') {
+    const next = opts.watch !== null ? nextStep(state) : null;
+    if (next?.step === 'wait-checks' && state.pr) {
       // One capped watch; the contract is computed again afterwards, whatever happened.
       const args = ['pr', 'checks', String(state.pr.number), '--watch', '--interval', '30', ...(state.items[5].details.required ? ['--required'] : [])];
       const r = gh(args, { timeout: opts.watch * 60000, killSignal: 'SIGTERM' });
       watch = { minutes: opts.watch, timedOut: r.timedOut };
       state = collectState(root, opts.id, { env, gh });
-    } else if (step === 'wait-merge') {
-      watch = waitForMerge(gh, state.pr, opts.watch, env);
-      state = collectState(root, opts.id, { env, gh, prNumber: state.pr.number });
+    } else if (next?.step === 'wait-merge') {
+      // The PR waited on is next.number: the change PR, or the archive PR after the merge.
+      watch = waitForMerge(gh, { number: next.number, headRefOid: next.head }, opts.watch, env);
+      state = collectState(root, opts.id, { env, gh, prNumber: state.archive ? null : state.pr.number });
     }
     const report = buildReport(state, env);
     if (watch) report.watch = watch;
-    const code = report.summary === 'blocked: merge setup' || report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 ? 0 : 1;
+    const code = report.summary.startsWith('blocked') || report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 ? 0 : 1;
     return { code, stdout: opts.json ? `${JSON.stringify(report, null, 2)}\n` : renderHuman(report), stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

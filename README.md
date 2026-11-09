@@ -47,7 +47,7 @@ Edit an artifact by hand, use another agent, or pick the lighter `devkit-lite` s
 
 Coordination is allowed; a harness is not. The `ship-change` skill drives one approved change to a ready PR from your own session, re-reading the files and GitHub each time it runs, and stops with a reason. No long-running process, no state outside the repository and GitHub. See [ADR 0001](docs/adr/0001-coordination-without-a-harness.md).
 
-The merge stays the owner's unless a repository opts in, per schema, to GitHub merging a change on its own once the `devkit-reviews` check passes at the PR head; the opt-in is a rule with a review trigger, not a default. See [ADR 0002](docs/adr/0002-merge-without-the-owner-opt-in.md).
+The merge stays the owner's unless a repository opts in, per schema, to GitHub merging a change on its own once the `devkit-reviews` check passes at the PR head; the opt-in is a rule with a review trigger, not a default. See [ADR 0002](docs/adr/0002-merge-without-the-owner-opt-in.md). After the merge, `ship-change` archives the change through a PR that GitHub merges in `merge` mode; see [ADR 0003](docs/adr/0003-auto-merge-the-archive-pr.md).
 
 ## Documentation
 
