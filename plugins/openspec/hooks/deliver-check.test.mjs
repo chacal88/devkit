@@ -2,12 +2,12 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs both files.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parseShip, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, summarize, collectState, detectHost, watchMinutes } from './deliver-check.mjs';
+import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes } from './deliver-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemas = join(here, '..', 'schemas');
@@ -93,13 +93,40 @@ test('parseShip: tolerates CRLF line endings', () => {
   assert.deepEqual(parseShip('ship:\r\n  devkit-lite: pr\r\n'), { 'devkit-lite': 'pr' });
 });
 
-test('parseShip: merge is rejected with the round-2 message (AC-10)', () => {
-  assert.throws(() => parseShip('ship:\n  devkit-lite: merge\n'), (e) => {
-    assert.ok(e instanceof ShipConfigError);
-    assert.equal(e.message, 'openspec/config.yaml: ship.devkit-lite: merge arrives in a later round (round 2, auto-merge); use plan or pr');
-    return true;
-  });
-  assert.throws(() => parseShip('ship: { devkit: merge }\n'), /ship\.devkit: merge arrives in a later round \(round 2, auto-merge\)/);
+test('parseShip: merge is a mode now, in block and flow maps, for both schemas (AC-1)', () => {
+  assert.deepEqual(SHIP_MODES, ['plan', 'pr', 'merge']);
+  assert.deepEqual(parseShip('ship:\n  devkit-lite: merge\n'), { 'devkit-lite': 'merge' });
+  assert.deepEqual(parseShip('ship: { devkit-lite: merge }\n'), { 'devkit-lite': 'merge' });
+  assert.deepEqual(parseShip('ship:\n  devkit: merge\n'), { devkit: 'merge' });
+  assert.deepEqual(parseShip('ship: {devkit: merge, devkit-lite: pr}\n'), { devkit: 'merge', 'devkit-lite': 'pr' });
+});
+
+test('parseMergeMethod: no key or an empty one is squash; the three methods are read with quotes and comments (AC-8)', () => {
+  assert.equal(parseMergeMethod(''), 'squash');
+  assert.equal(parseMergeMethod('schema: devkit\n'), 'squash');
+  assert.equal(parseMergeMethod('merge_method:\n'), 'squash');
+  assert.equal(parseMergeMethod('merge_method:   # default\ncontext: x\n'), 'squash');
+  assert.equal(parseMergeMethod('merge_method: squash\n'), 'squash');
+  assert.equal(parseMergeMethod('merge_method: merge\n'), 'merge');
+  assert.equal(parseMergeMethod('merge_method: "rebase"  # linear\n'), 'rebase');
+  assert.equal(parseMergeMethod("schema: devkit\nmerge_method: 'merge'\r\nship:\n"), 'merge');
+  assert.equal(parseMergeMethod('context: |\n  merge_method: fast\n'), 'squash', 'an indented line is not the top-level key');
+});
+
+test('parseMergeMethod: an unknown value or a nested value is a ShipConfigError naming the key (AC-1)', () => {
+  for (const text of ['merge_method: fast\n', 'merge_method: Squash\n', 'merge_method:\n  squash: yes\n', 'merge_method:\n  - squash\n', 'merge_method: { a: b }\n', 'merge_method: [squash]\n']) {
+    assert.throws(() => parseMergeMethod(text), (e) => e instanceof ShipConfigError && e.message.startsWith('openspec/config.yaml: merge_method:') && /squash, merge or rebase/.test(e.message), text);
+  }
+  assert.throws(() => parseMergeMethod('merge_method: fast\n'), /merge_method: unknown value "fast"; use squash, merge or rebase/);
+});
+
+test('shipConfig: reads the mode for the schema and the method, and validates both keys whatever the schema (design D2)', () => {
+  const ok = gitRepo({ config: 'schema: devkit\nship:\n  devkit: merge\nmerge_method: rebase\n' });
+  assert.deepEqual(shipConfig(ok, 'devkit'), { ship: 'merge', mergeMethod: 'rebase' });
+  assert.deepEqual(shipConfig(ok, 'devkit-lite'), { ship: 'plan', mergeMethod: 'rebase' });
+  assert.deepEqual(shipConfig(gitRepo({ config: null }), 'devkit'), { ship: 'plan', mergeMethod: 'squash' });
+  const bad = gitRepo({ config: 'ship:\n  devkit: plan\nmerge_method: fast\n' });
+  assert.throws(() => shipConfig(bad, 'devkit'), /merge_method: unknown value "fast"/, 'invalid even when the mode is plan');
 });
 
 test('parseShip: unknown mode names the key and the allowed values', () => {
@@ -130,8 +157,8 @@ test('shipMode: reads the mode for the schema', () => {
 });
 
 test('shipMode: an invalid entry fails the whole config, whatever the schema asked for', () => {
-  const root = gitRepo({ config: 'ship:\n  devkit-lite: pr\n  devkit: merge\n' });
-  assert.throws(() => shipMode(root, 'devkit-lite'), /ship\.devkit: merge arrives in a later round/);
+  const root = gitRepo({ config: 'ship:\n  devkit-lite: pr\n  devkit: auto\n' });
+  assert.throws(() => shipMode(root, 'devkit-lite'), /ship\.devkit: unknown mode "auto"; use plan, pr or merge/);
 });
 
 // ---------------------------------------------------------------- guard ignores ship (AC-1)
@@ -141,7 +168,7 @@ test('guard session, edit, bash and ci behave identically with and without ship 
   const root = gitRepo({ config: 'schema: devkit\n', changes: {
     feat: { '.openspec.yaml': 'schema: devkit\n', 'readiness.md': '- Status: APPROVED\n' },
   } });
-  const env = { ...process.env, DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '' };
+  const env = { ...process.env, DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
   const agent = (a) => (a ? { agent_type: `devkit-core:${a}`, agent_id: 'x' } : {});
   const calls = [
     ['session', { cwd: root }],
@@ -630,7 +657,14 @@ const fs = require('fs');
 const path = require('path');
 const dir = process.env.FAKE_GH_DIR;
 const args = process.argv.slice(2);
-const key = args[0] === 'api' ? 'api-' + args[1] : args[0] + '-' + args[1] + (args.includes('--watch') ? '-watch' : '');
+const apiKey = () => {
+  if (args[1] === 'graphql') return 'api-graphql';
+  const x = args.indexOf('-X');
+  const method = x >= 0 ? args[x + 1] : 'GET';
+  const route = args.slice(1).find((a, i, all) => !a.startsWith('-') && all[i - 1] !== '-X' && all[i - 1] !== '-F' && all[i - 1] !== '-f' && all[i - 1] !== '--jq' && all[i - 1] !== '--input');
+  return 'api-' + method + '-' + String(route).replace(/[\\/{}?]/g, '_');
+};
+const key = args[0] === 'api' ? apiKey() : args[0] + '-' + args[1] + (args.includes('--watch') ? '-watch' : '');
 fs.appendFileSync(path.join(dir, 'calls.log'), JSON.stringify(args) + '\\n');
 const counter = path.join(dir, key + '.count');
 const n = (fs.existsSync(counter) ? Number(fs.readFileSync(counter, 'utf8')) : 0) + 1;
@@ -703,6 +737,26 @@ test('fake gh: a missing fixture fails loudly (exit 99, names the key)', () => {
   assert.match(w.stderr, /no fixture for "pr-checks-watch"/);
 });
 
+test('fake gh: api fixtures are keyed by method and path with / { } ? replaced by _ (auto-merge 2.1)', () => {
+  const gh = fakeGh();
+  gh.set('api-GET-repos__owner___repo__rules_branches_main', { stdout: '[]' });
+  gh.set('api-PATCH-repos__owner___repo_', { stdout: '{}' });
+  gh.set('api-GET-repos__owner___repo__contents_x.yml_ref=main', { stdout: 'q' });
+  assert.equal(callGh(gh, 'api', 'repos/{owner}/{repo}/rules/branches/main').stdout, '[]');
+  assert.equal(callGh(gh, 'api', '-X', 'PATCH', 'repos/{owner}/{repo}', '-F', 'allow_auto_merge=true').stdout, '{}');
+  assert.equal(callGh(gh, 'api', 'repos/{owner}/{repo}/contents/x.yml?ref=main').stdout, 'q', '? becomes _');
+  assert.deepEqual(gh.calls()[1], ['api', '-X', 'PATCH', 'repos/{owner}/{repo}', '-F', 'allow_auto_merge=true'], 'the log keeps the full args');
+});
+
+test('fake gh: api graphql keeps its key, and a missing api fixture fails loudly naming the key (auto-merge 2.1)', () => {
+  const gh = fakeGh();
+  gh.set('api-graphql', { stdout: 'g' });
+  assert.equal(callGh(gh, 'api', 'graphql', '-f', 'query=x').stdout, 'g');
+  const r = callGh(gh, 'api', 'repos/{owner}/{repo}');
+  assert.equal(r.status, 99);
+  assert.match(r.stderr, /no fixture for "api-GET-repos__owner___repo_"/);
+});
+
 test('fake gh: sleep delays the answer', () => {
   const gh = fakeGh();
   gh.set('pr-view', { stdout: 'ok', sleep: 300 });
@@ -714,7 +768,7 @@ test('fake gh: sleep delays the answer', () => {
 // ---------------------------------------------------------------- item 5: PR open at local head (D4)
 
 const PR_FIELDS = 'number,url,state,headRefOid,baseRefName,mergeable,body';
-const prJson = (over = {}) => ({ number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN', headRefOid: '', baseRefName: 'main', mergeable: 'MERGEABLE', body: '', ...over });
+const prJson = (over = {}) => ({ number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN', headRefOid: '', baseRefName: 'main', mergeable: 'MERGEABLE', body: '', autoMergeRequest: null, mergeStateStatus: 'CLEAN', ...over });
 // A repo with the change and a fake gh answering `pr view` with `over` (headRefOid defaults to HEAD).
 function withPr(over, { root = base() } = {}) {
   const gh = fakeGh();
@@ -1082,6 +1136,11 @@ test('nextStep row 1: a schema whose ship mode is plan stops, before anything el
   assert.match(n.reason, /plan/);
 });
 
+test('nextStep row 1: a merge-mode change does not stop as plan mode (design D2)', () => {
+  assert.equal(nextStep(state({ ship: 'merge' })).step, 'enable-auto-merge', 'at 8/8 merge mode enables auto-merge instead of reporting ready (row 21a)');
+  assert.equal(nextStep(state({ ship: 'merge', dirty: ['src/a.ts'] })).step, 'commit');
+});
+
 test('nextStep row 2: a branch that does not select the change stops', () => {
   assert.equal(nextStep(state({ branchOk: false })).step, 'stop-branch');
 });
@@ -1276,24 +1335,31 @@ const tick = (root, ...ids) => {
   for (const id of ids) text = text.replace(`- [ ] ${id} `, `- [x] ${id} `);
   writeFileSync(f, text);
 };
+// The fake gh answers of a repository ready for merge mode (auto-merge allowed, devkit-reviews required).
+function presetSetup(gh, { repo = {}, rules = [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }] } = {}) {
+  gh.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main', allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true, ...repo } });
+  gh.set('api-GET-repos__owner___repo__rules_branches_main', { stdout: rules });
+  gh.set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' });
+}
 // A devkit-lite change `feat` with ship: pr, on branch ship/feat, committed.
-function shipRepo() {
+function shipRepo({ ship = 'pr', method = '' } = {}) {
   const root = gitRepo({
-    config: 'schema: devkit-lite\nship:\n  devkit-lite: pr\n',
+    config: `schema: devkit-lite\nship:\n  devkit-lite: ${ship}\n${method ? `merge_method: ${method}\n` : ''}`,
     changes: { feat: { '.openspec.yaml': 'schema: devkit-lite\n', 'proposal.md': proposalWith(['AC-1', 'AC-2']), 'tasks.md': TASKS } },
-    files: { 'src/a.ts': 'a\n' },
+    files: { 'src/a.ts': 'a\n', ...(ship === 'merge' ? { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' } : {}) },
   });
   git(root, 'switch', '-q', '-c', 'ship/feat');
   const gh = fakeGh();
+  if (ship === 'merge') { presetSetup(gh); gh.set('pr-list', { stdout: [] }); }
   gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
   const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
   return { root, gh, env, next: () => nextStep(collectState(root, 'feat', { env })) };
 }
 // A schema `devkit` change `feat` (readiness artifact declared), ship: pr, on
 // branch ship/feat, committed. Readiness and the branch are the variables.
-function devkitRepo({ readiness = null, branch = 'ship/feat', others = [] } = {}) {
+function devkitRepo({ readiness = null, branch = 'ship/feat', others = [], ship = 'pr' } = {}) {
   const root = gitRepo({
-    config: 'schema: devkit\nship:\n  devkit: pr\n',
+    config: `schema: devkit\nship:\n  devkit: ${ship}\n`,
     changes: Object.fromEntries([['feat', {
       '.openspec.yaml': 'schema: devkit\n',
       'proposal.md': proposalWith(['AC-1']),
@@ -1302,12 +1368,14 @@ function devkitRepo({ readiness = null, branch = 'ship/feat', others = [] } = {}
     }], ...others.map((o) => [o, { 'tasks.md': '- [ ] 1.1 x\n' }])]),
     files: {
       'src/a.ts': 'a\n',
+      ...(ship === 'merge' ? { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' } : {}),
       'openspec/schemas/devkit/schema.yaml': 'name: devkit\nversion: 1\nartifacts:\n  - id: readiness\n    generates: readiness.md\n',
     },
   });
   if (branch !== 'main') git(root, 'switch', '-q', '-c', branch);
   const gh = fakeGh();
   gh.set('pr-view', { exit: 1, stderr: `no pull requests found for branch "${branch}"\n` });
+  if (ship === 'merge') { presetSetup(gh); gh.set('pr-list', { stdout: [] }); }
   const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
   return { root, gh, env, state: (over = {}) => collectState(root, 'feat', { env: { ...env, ...over } }) };
 }
@@ -1421,10 +1489,11 @@ test('resume: reviews and evidence current and no PR opens the PR (AC-5)', () =>
   assert.equal(n.step, 'open-pr', n.reason);
 });
 
+const PR_BODY = 'feat\n- AC-1\n- AC-2\nopenspec/changes/feat/evidence.md\n';
 // Applies each step's effect until ready; returns the steps taken.
 function driveToReady(t) {
   const taken = [];
-  const prBody = 'feat\n- AC-1\n- AC-2\nopenspec/changes/feat/evidence.md\n';
+  const prBody = PR_BODY;
   const setPr = () => {
     t.gh.set('pr-view', { stdout: prJson({ headRefOid: head(t.root), body: prBody }) });
     t.gh.set('pr-checks', { stdout: [check('build', 'pass')] });
@@ -1434,7 +1503,7 @@ function driveToReady(t) {
     const state = collectState(t.root, 'feat', { env: t.env });
     const n = nextStep(state);
     taken.push(n.step);
-    if (n.step === 'ready') break;
+    if (['ready', 'enable-auto-merge'].includes(n.step)) break;
     assert.ok(!n.step.startsWith('stop-') && n.step !== 'blocked', `${n.step}: ${n.reason}`);
     switch (n.step) {
       case 'implement': {
@@ -1471,6 +1540,484 @@ test('resume: a round-2 deadlock on disk stops while current and re-reviews as r
   n = t.next();
   assert.deepEqual([n.step, n.round], ['review', 1]);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
+});
+
+// ---------------------------------------------------------------- merge mode: facts and items (auto-merge 2.3, design D6)
+
+const MERGE_FIELDS = `${PR_FIELDS},autoMergeRequest,mergeStateStatus`;
+const prM = (t, opts = { merge: true }) => prItem(t.root, 'feat', fetchPr(t.run, opts), gitFacts(t.root), opts);
+
+test('merge facts: fetchPr asks for autoMergeRequest and mergeStateStatus only in merge mode', () => {
+  const t = withPr({});
+  fetchPr(t.run, { merge: true });
+  fetchPr(t.run);
+  assert.deepEqual(t.gh.calls(), [['pr', 'view', '--json', MERGE_FIELDS], ['pr', 'view', '--json', PR_FIELDS]]);
+});
+
+test('item 5 (merge): a MERGED PR at the local head is met; at another head it is blocked naming both shas', () => {
+  const met = prM(withPr({ state: 'MERGED' }));
+  assert.equal(met.status, 'met', met.reason);
+  assert.match(met.reason, /PR #12 merged/);
+  assert.equal(met.details.merged, true);
+  const t = withPr({ state: 'MERGED', headRefOid: '0123456789abcdef0123456789abcdef01234567' });
+  const blocked = prM(t);
+  assert.equal(blocked.status, 'blocked');
+  assert.equal(blocked.reason, `PR #12 merged at 0123456; local head ${head(t.root).slice(0, 7)} differs`);
+});
+
+test('item 5 (merge): OPEN and BEHIND is open with details.behind; in pr mode BEHIND is not read and MERGED stays blocked', () => {
+  const behind = prM(withPr({ mergeStateStatus: 'BEHIND' }));
+  assert.equal(behind.status, 'open');
+  assert.equal(behind.details.behind, true);
+  assert.match(behind.reason, /branch is behind main; update it/);
+  assert.equal(prM(withPr({ mergeStateStatus: 'CLEAN' })).details.behind, false);
+  assert.equal(pr5(withPr({ mergeStateStatus: 'BEHIND' })).status, 'met', 'pr mode ignores BEHIND');
+  assert.equal(pr5(withPr({ state: 'MERGED' })).status, 'blocked', 'pr mode: MERGED is blocked as in 0.4.0');
+  assert.equal(prM(withPr({ state: 'CLOSED' })).status, 'blocked');
+});
+
+test('merge mode through the collector: a MERGED PR at the head meets items 5, 6 and 7 and asks gh for neither checks nor the conversation', () => {
+  const t = shipRepo({ ship: 'merge' });
+  driveToReady(t);
+  t.gh.set('pr-view', { stdout: prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY }) });
+  const before = t.gh.calls().length;
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.deepEqual(s.items.map((i) => i.status), Array(8).fill('met'));
+  assert.match(s.items[5].reason, /merged/);
+  assert.match(s.items[6].reason, /merged/);
+  const asked = t.gh.calls().slice(before).map((c) => c.slice(0, 2).join(' '));
+  assert.ok(asked.includes('pr view'), 'asks for the PR');
+  assert.ok(!asked.includes('pr checks') && !asked.includes('api graphql'), asked.join(', '));
+});
+
+test('plan and pr modes: the PR is asked with the 0.4.0 fields, no settings are read and the JSON has no merge facts (design D6)', () => {
+  for (const ship of ['plan', 'pr']) {
+    const t = shipRepo({ ship: 'pr' });
+    driveToReady(t);
+    if (ship === 'plan') writeFileSync(join(t.root, 'openspec/config.yaml'), 'schema: devkit-lite\nship:\n  devkit-lite: plan\n');
+    const state = collectState(t.root, 'feat', { env: t.env });
+    const views = t.gh.calls().filter((c) => c[0] === 'pr' && c[1] === 'view');
+    assert.ok(views.length > 0 && views.every((c) => c.join(' ') === `pr view --json ${PR_FIELDS}`), ship);
+    assert.ok(!t.gh.calls().some((c) => c[0] === 'api' && c[1] !== 'graphql'), `${ship}: no settings read`);
+    assert.equal(state.setup, undefined, ship);
+    assert.deepEqual(Object.keys(buildReport(state)), ['version', 'change', 'schema', 'ship', 'host', 'head', 'pr', 'phases', 'items', 'met', 'summary', 'next'], ship);
+    assert.deepEqual(Object.keys(buildReport(state).pr), ['number', 'url'], ship);
+  }
+});
+
+test('merge mode through the collector: the settings are read and state carries setup, method and the PR merge facts', () => {
+  const t = shipRepo({ ship: 'merge', method: 'rebase' });
+  driveToReady(t);
+  t.gh.set('pr-view', { stdout: prJson({ headRefOid: head(t.root), body: PR_BODY, autoMergeRequest: { enabledAt: 'x' }, mergeStateStatus: 'BLOCKED' }) });
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.equal(s.mergeMethod, 'rebase');
+  assert.deepEqual(s.setup, { ok: true, missing: [], defaultBranch: 'main' });
+  assert.deepEqual([s.pr.autoMerge, s.pr.state, s.pr.mergeStateStatus], [true, 'OPEN', 'BLOCKED']);
+});
+
+// ---------------------------------------------------------------- merge mode: next-step rows (auto-merge 2.4, design D6)
+
+const SHA = 'a'.repeat(40);
+const itemOf = (id, name, details = {}, status = 'met') => ({ id, name, status, reason: `item ${id} ${status}`, details });
+// A merge-mode state at 8/8, PR open and clean, auto-merge off. `over` replaces top-level facts.
+function metState(over = {}) {
+  return {
+    id: 'feat', schema: 'devkit-lite', ship: 'merge', mergeMethod: 'squash', branch: 'ship/feat', branchOk: true,
+    needsReadiness: false, readiness: null, phases: [], dirty: [], reviewMd: null, reviews: [], head: SHA,
+    pr: { number: 12, url: 'https://github.com/o/r/pull/12', autoMerge: false, state: 'OPEN', mergeStateStatus: 'CLEAN', headRefOid: SHA },
+    setup: { ok: true, missing: [], defaultBranch: 'main' },
+    items: [
+      itemOf(1, 'tasks', { evidence: 'current', missingGates: [] }),
+      itemOf(2, 'reviews', { missing: [], stale: [] }),
+      itemOf(3, 'findings', { undisposed: [] }),
+      itemOf(4, 'acceptance', { defects: [], ids: ['AC-1'], evidence: 'current', missing: [], noProof: [] }),
+      itemOf(5, 'pr', { none: false, ahead: false, behind: false, uncommitted: [] }),
+      itemOf(6, 'checks', { required: true, failing: [], pending: [] }),
+      itemOf(7, 'conversation', { threads: [], comments: [], changesRequested: [] }),
+      itemOf(8, 'body', { missing: [] }),
+    ],
+    ...over,
+  };
+}
+// metState with one item replaced (status and details merged into the default details).
+function withItem(n, status, details = {}, over = {}) {
+  const s = metState(over);
+  s.items = s.items.map((i) => (i.id === n ? { ...i, status, details: { ...i.details, ...details } } : i));
+  return s;
+}
+const autoOn = { autoMerge: true };
+const prOf = (extra) => ({ ...metState().pr, ...extra });
+
+test('nextStep row 0a: a PR merged at the local head is merged, before every other row (AC-4)', () => {
+  const s = withItem(5, 'met', { merged: true }, { pr: prOf({ state: 'MERGED' }), dirty: ['src/a.ts'] });
+  assert.equal(nextStep(s).step, 'merged');
+});
+
+test('nextStep row 0b: auto-merge on and any item not met disables it first, ahead of every stop and of push (AC-3)', () => {
+  const on = { pr: prOf(autoOn) };
+  const cases = {
+    'a stale review': withItem(2, 'open', { stale: ['code-quality-reviewer'] }, on),
+    'a push the PR lacks': withItem(5, 'open', { ahead: true }, on),
+    'a new comment': withItem(7, 'open', { comments: [{ url: 'u' }] }, on),
+    'a re-run pending': withItem(6, 'open', { pending: ['build'] }, on),
+    'behind the base': withItem(5, 'open', { behind: true }, on),
+    'a stop: not approved': withItem(2, 'open', { stale: ['x'] }, { ...on, needsReadiness: true, readiness: 'BLOCKED' }),
+    'a stop: wrong branch': withItem(2, 'open', { stale: ['x'] }, { ...on, branchOk: false }),
+    'a stop: setup missing': withItem(2, 'open', { stale: ['x'] }, { ...on, setup: { ok: false, missing: ['m'] } }),
+    'dirty files': withItem(1, 'open', {}, { ...on, dirty: ['src/a.ts'] }),
+  };
+  for (const [label, state] of Object.entries(cases)) {
+    const n = nextStep(state);
+    assert.deepEqual([n.step, n.number], ['disable-auto-merge', 12], label);
+  }
+});
+
+test('nextStep row 0b: auto-merge on at 8/8 waits; auto-merge off never disables; a closed PR does not disable', () => {
+  assert.equal(nextStep(metState({ pr: prOf(autoOn) })).step, 'wait-merge');
+  assert.notEqual(nextStep(withItem(2, 'open', { stale: ['x'] })).step, 'disable-auto-merge');
+  assert.notEqual(nextStep(withItem(5, 'blocked', {}, { pr: prOf({ autoMerge: true, state: 'CLOSED' }) })).step, 'disable-auto-merge');
+});
+
+test('nextStep row 0b: outside merge mode the auto-merge flag is never read', () => {
+  const s = withItem(2, 'open', { stale: ['x'] }, { ship: 'pr', pr: prOf(autoOn) });
+  assert.equal(nextStep(s).step, 'review');
+});
+
+test('nextStep row 3a: merge setup missing stops after the approval stops and before any work (AC-6)', () => {
+  const missing = ['auto-merge is not allowed (allow_auto_merge); run the openspec-setup skill (GitHub step) to configure it'];
+  const setup = { ok: false, missing };
+  const n = nextStep(withItem(1, 'open', {}, { setup, phases: [{ n: 1, open: ['1.1'], gate: null }] }));
+  assert.deepEqual([n.step, n.missing], ['stop-merge-setup', missing]);
+  assert.match(n.reason, /openspec-setup/);
+  assert.equal(nextStep(metState({ setup, branchOk: false })).step, 'stop-branch');
+  assert.equal(nextStep(metState({ setup, needsReadiness: true, readiness: null })).step, 'stop-not-approved');
+  assert.equal(nextStep(metState({ setup, ship: 'pr' })).step, 'ready', 'outside merge mode the setup is not read');
+});
+
+test('nextStep row 15a: behind the base, and nothing else open, updates the branch; ahead as well pushes first', () => {
+  const n = nextStep(withItem(5, 'open', { behind: true }));
+  assert.deepEqual([n.step, n.number], ['update-branch', 12]);
+  assert.equal(nextStep(withItem(5, 'open', { behind: true, ahead: true })).step, 'push');
+  assert.equal(nextStep(withItem(5, 'open', { behind: true, uncommitted: ['openspec/changes/feat/x.md'] })).step, 'push');
+});
+
+test('nextStep row 17a: devkit-reviews failing while items 1-4 are met stops as blocked item 6, in every mode (R-7)', () => {
+  const failing = [{ name: 'devkit-reviews', link: 'https://ci/devkit-reviews' }];
+  for (const ship of ['pr', 'merge']) {
+    const n = nextStep(withItem(6, 'open', { failing }, { ship }));
+    assert.deepEqual([n.step, n.item], ['blocked', 6], ship);
+    assert.match(n.reason, /devkit-reviews fails in CI while items 1-4 are met locally: https:\/\/ci\/devkit-reviews/, ship);
+  }
+  const other = nextStep(withItem(6, 'open', { failing: [{ name: 'build', link: 'u' }] }));
+  assert.equal(other.step, 'fix-checks', 'another failing check still goes to a fix');
+  const both = nextStep(withItem(6, 'open', { failing: [...failing, { name: 'build', link: 'u' }] }));
+  assert.equal(both.step, 'blocked');
+});
+
+test('nextStep rows 21, 21a, 21b: ready for pr; enable-auto-merge with number, method and head; wait-merge with what it waits for (AC-2, AC-8)', () => {
+  assert.equal(nextStep(metState({ ship: 'pr' })).step, 'ready');
+  const n = nextStep(metState({ mergeMethod: 'rebase' }));
+  assert.deepEqual([n.step, n.number, n.method, n.head], ['enable-auto-merge', 12, 'rebase', SHA]);
+  assert.equal(nextStep(metState()).method, 'squash');
+  const w = nextStep(metState({ pr: prOf({ autoMerge: true, mergeStateStatus: 'BLOCKED' }) }));
+  assert.equal(w.step, 'wait-merge');
+  assert.match(w.waitingFor, /branch rules outside the delivery contract/);
+});
+
+test('waitingFor: the wait text per mergeStateStatus (design D6)', () => {
+  for (const v of ['CLEAN', 'HAS_HOOKS', 'UNSTABLE']) assert.equal(waitingFor(v), 'GitHub to merge', v);
+  assert.equal(waitingFor('BLOCKED'), 'branch rules outside the delivery contract (for example a required approval)');
+  assert.equal(waitingFor('UNKNOWN'), 'GitHub to compute mergeability');
+  assert.equal(waitingFor('DIRTY'), 'GitHub (mergeStateStatus DIRTY)');
+  assert.equal(waitingFor(undefined), 'GitHub (mergeStateStatus undefined)');
+});
+
+test('AC-2: with any one of items 1-8 open or blocked and the other seven met, auto-merge is never enabled', () => {
+  for (let n = 1; n <= 8; n++) {
+    for (const status of ['open', 'blocked']) {
+      const step = nextStep(withItem(n, status)).step;
+      assert.notEqual(step, 'enable-auto-merge', `item ${n} ${status} -> ${step}`);
+      assert.notEqual(step, 'wait-merge', `item ${n} ${status} -> ${step}`);
+    }
+  }
+  assert.equal(nextStep(metState()).step, 'enable-auto-merge', 'the control: 8/8 enables');
+});
+
+// ---------------------------------------------------------------- merge mode: the stops and the summary through the real collector (auto-merge 2.5, 2.6)
+
+const noMergeCall = (t) => t.gh.calls().filter((c) => c[0] === 'pr' && c[1] === 'merge');
+
+test('merge setup stops: each missing piece goes through collectState and the CLI to stop-merge-setup, exit 2, and gh pr merge is never called (AC-6)', () => {
+  const cases = [
+    ['auto-merge off', (t) => presetSetup(t.gh, { repo: { allow_auto_merge: false } }), /auto-merge is not allowed \(allow_auto_merge\)/],
+    ['no rule', (t) => presetSetup(t.gh, { rules: [] }), /no active rule requires the devkit-reviews check on main/],
+    ['a rule for another check only', (t) => presetSetup(t.gh, { rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }] } }] }), /no active rule requires/],
+    ['workflow not committed', (t) => { git(t.root, 'rm', '-q', '.github/workflows/devkit-reviews.yml'); commitAll(t.root, 'drop the workflow'); }, /devkit-reviews\.yml is not committed/],
+  ];
+  for (const [label, arrange, text] of cases) {
+    const t = shipRepo({ ship: 'merge' });
+    arrange(t);
+    const n = nextStep(collectState(t.root, 'feat', { env: t.env }));
+    assert.equal(n.step, 'stop-merge-setup', label);
+    assert.match(n.missing.join(' '), text, label);
+    const human = runCli(t, ['feat']);
+    assert.equal(human.code, 2, label);
+    assert.match(human.out, /^\d\/8 met: blocked: merge setup$/m, label);
+    assert.match(human.out, /^next: stop-merge-setup: /m, label);
+    const j = JSON.parse(runCli(t, ['feat', '--json']).out);
+    assert.deepEqual([j.summary, j.next.step], ['blocked: merge setup', 'stop-merge-setup'], label);
+    assert.equal(j.merge.setup.ok, false, label);
+    assert.match(j.merge.setup.missing.join(' '), text, label);
+    assert.deepEqual(noMergeCall(t), [], label);
+  }
+});
+
+test('merge setup stops: an unreadable repository fails closed as a stop, not as a pass (AC-6)', () => {
+  const t = shipRepo({ ship: 'merge' });
+  t.gh.set('api-GET-repos__owner___repo_', { exit: 1, stderr: 'gh: connection reset\n' });
+  const n = nextStep(collectState(t.root, 'feat', { env: t.env }));
+  assert.equal(n.step, 'stop-merge-setup');
+  assert.match(n.missing[0], /^cannot read the repository settings: gh: connection reset/);
+});
+
+test('merge mode keeps the human plan gate: a devkit change without APPROVED readiness stops as not approved, even with a prepared repository (AC-3 of round 1)', () => {
+  for (const readiness of [null, 'BLOCKED']) {
+    const t = devkitRepo({ ship: 'merge', readiness });
+    assert.equal(nextStep(t.state()).step, 'stop-not-approved', String(readiness));
+    presetSetup(t.gh, { rules: [] });
+    assert.equal(nextStep(t.state()).step, 'stop-not-approved', 'the approval stop comes before the setup stop');
+  }
+  const approved = devkitRepo({ ship: 'merge', readiness: 'APPROVED' });
+  assert.notEqual(nextStep(approved.state()).step, 'stop-not-approved');
+});
+
+// A merge-mode repo at 8/8 with the PR open and clean.
+function mergeReady(over = {}) {
+  const t = shipRepo({ ship: 'merge' });
+  driveToReady(t);
+  t.gh.set('pr-view', { stdout: prJson({ headRefOid: head(t.root), body: PR_BODY, ...over }) });
+  return t;
+}
+
+test('merge mode: 8/8 with auto-merge off is exit 0, step enable-auto-merge, summary ready, and the merge object (AC-2, AC-8)', () => {
+  const t = mergeReady();
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 0);
+  const j = JSON.parse(r.out);
+  assert.equal(j.version, 1);
+  assert.deepEqual([j.met, j.summary, j.next.step], [8, 'ready', 'enable-auto-merge']);
+  assert.deepEqual(j.next, { step: 'enable-auto-merge', reason: j.next.reason, number: 12, method: 'squash', head: head(t.root) });
+  assert.deepEqual(j.merge, { method: 'squash', setup: { ok: true, missing: [] }, autoMerge: false, state: 'OPEN', mergeStateStatus: 'CLEAN', waitingFor: null });
+  assert.deepEqual(j.pr, { number: 12, url: 'https://github.com/o/r/pull/12' });
+  assert.match(runCli(t, ['feat']).out, /^next: enable-auto-merge PR #12 with --squash at [0-9a-f]{7}$/m);
+});
+
+test('merge mode: merge_method rebase reaches the step (AC-8)', () => {
+  const t = shipRepo({ ship: 'merge', method: 'rebase' });
+  driveToReady(t);
+  const j = JSON.parse(runCli(t, ['feat', '--json']).out);
+  assert.equal(j.next.method, 'rebase');
+  assert.equal(j.merge.method, 'rebase');
+});
+
+test('merge mode: 8/8 with auto-merge on is exit 0 and "auto-merge on: waiting for ..." with the reason from mergeStateStatus (AC-4)', () => {
+  const t = mergeReady({ autoMergeRequest: { enabledAt: '2026-11-09T00:00:00Z' }, mergeStateStatus: 'BLOCKED' });
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 0);
+  const j = JSON.parse(r.out);
+  assert.equal(j.summary, 'auto-merge on: waiting for branch rules outside the delivery contract (for example a required approval)');
+  assert.equal(j.next.step, 'wait-merge');
+  assert.deepEqual([j.merge.autoMerge, j.merge.waitingFor], [true, j.next.waitingFor]);
+  assert.match(runCli(t, ['feat']).out, /^8\/8 met: auto-merge on: waiting for branch rules/m);
+});
+
+test('merge mode: a MERGED PR is "merged", exit 0, and the merge object says so (AC-4)', () => {
+  const t = mergeReady({ state: 'MERGED' });
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 0);
+  const j = JSON.parse(r.out);
+  assert.deepEqual([j.met, j.summary, j.next.step, j.merge.state], [8, 'merged', 'merged', 'MERGED']);
+  assert.match(runCli(t, ['feat']).out, /^8\/8 met: merged$/m);
+});
+
+test('merge mode: a PR behind its base is update-branch with the item 5 reason', () => {
+  const t = mergeReady({ mergeStateStatus: 'BEHIND' });
+  const j = JSON.parse(runCli(t, ['feat', '--json']).out);
+  assert.deepEqual([j.next.step, j.next.number], ['update-branch', 12]);
+  assert.match(j.items[4].reason, /behind main/);
+});
+
+// ---- carry-over from the readiness review: a PR merged right after enable-auto-merge must still be found
+
+test('carry-over: after an immediate merge the branch no longer finds the PR; merge mode looks it up by head branch among merged PRs and reports merged (AC-4)', () => {
+  const t = mergeReady();
+  const merged = prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY });
+  t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
+  t.gh.set('pr-list', { stdout: [merged] });
+  const j = JSON.parse(runCli(t, ['feat', '--json']).out);
+  assert.deepEqual([j.summary, j.next.step, j.pr.number], ['merged', 'merged', 12]);
+  assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head') && c.includes('ship/feat') && c.includes('all')), 'the lookup includes merged and closed states');
+});
+
+test('carry-over: the head-branch lookup prefers an open PR over an older merged or closed one', () => {
+  const t = mergeReady();
+  const old = prJson({ number: 3, state: 'MERGED', headRefOid: '0123456789abcdef0123456789abcdef01234567' });
+  const open = prJson({ number: 12, headRefOid: head(t.root), body: PR_BODY });
+  t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
+  t.gh.set('pr-list', { stdout: [old, open] });
+  assert.equal(collectState(t.root, 'feat', { env: t.env }).pr.number, 12);
+  t.gh.set('pr-list', { stdout: [] });
+  assert.equal(collectState(t.root, 'feat', { env: t.env }).pr, null, 'no PR at all stays "no pull request yet"');
+  t.gh.set('pr-list', { exit: 1, stderr: 'boom\n' });
+  assert.equal(collectState(t.root, 'feat', { env: t.env }).items[4].status, 'blocked', 'a lookup error is a blocked item, never a silent none');
+});
+
+test('carry-over: once the number is known the PR is read by number, so a changed or deleted branch cannot hide it', () => {
+  const t = mergeReady();
+  const before = t.gh.calls().length;
+  const s = collectState(t.root, 'feat', { env: t.env, prNumber: 12 });
+  assert.equal(s.pr.number, 12);
+  assert.deepEqual(t.gh.calls().slice(before).find((c) => c[1] === 'view'), ['pr', 'view', '12', '--json', MERGE_FIELDS]);
+});
+
+test('carry-over: pr mode still reports a MERGED PR as blocked item 5 and plan mode stops, and neither looks the PR up by branch', () => {
+  const t = shipRepo({ ship: 'pr' });
+  driveToReady(t);
+  t.gh.set('pr-view', { stdout: prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY }) });
+  let j = JSON.parse(runCli(t, ['feat', '--json']).out);
+  assert.equal(runCli(t, ['feat']).code, 2);
+  assert.deepEqual([j.summary, j.next.step], ['blocked: item 5', 'blocked']);
+  assert.match(j.items[4].reason, /is merged/);
+  t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
+  j = JSON.parse(runCli(t, ['feat', '--json']).out);
+  assert.equal(j.items[4].details.none, true, 'as in 0.4.0: no PR found is open');
+  writeFileSync(join(t.root, 'openspec/config.yaml'), 'schema: devkit-lite\nship:\n  devkit-lite: plan\n');
+  j = JSON.parse(runCli(t, ['feat', '--json']).out);
+  assert.equal(j.next.step, 'stop-plan-mode');
+  assert.ok(!t.gh.calls().some((c) => c[1] === 'list'), 'no pr list outside merge mode');
+});
+
+// ---- the wait: --watch at wait-merge (AC-4)
+
+const POLL = ['pr', 'view', '12', '--json', 'state,autoMergeRequest,mergeStateStatus,headRefOid'];
+const on = { autoMergeRequest: { enabledAt: 'x' } };
+const polls = (t) => t.gh.calls().filter((c) => c.join(' ') === POLL.join(' '));
+// 8/8, auto-merge on, with DEVKIT_POLL_SECONDS=0.
+function waiting(over = {}) {
+  const t = mergeReady({ ...on, ...over });
+  t.pr = (extra) => prJson({ headRefOid: head(t.root), body: PR_BODY, ...extra });
+  t.run = (watch = '--watch=1') => runCli(t, ['feat', '--json', watch], { env: { DEVKIT_POLL_SECONDS: '0' } });
+  t.gh.resetCount('pr-view');
+  return t;
+}
+
+test('--watch at wait-merge: polls gh pr view <n> until MERGED, then collects again and reports merged (AC-4)', () => {
+  const t = waiting();
+  t.gh.set('pr-view', { stdout: t.pr(on) }, 1);
+  t.gh.set('pr-view', { stdout: t.pr(on) }, 2);
+  t.gh.set('pr-view', { stdout: t.pr({ state: 'MERGED' }) });
+  const r = t.run();
+  assert.equal(r.code, 0, r.out + r.err);
+  const j = JSON.parse(r.out);
+  assert.deepEqual([j.summary, j.next.step], ['merged', 'merged']);
+  assert.equal(polls(t).length, 2, 'one open poll, one merged poll');
+  assert.ok(t.gh.calls().some((c) => c.join(' ') === `pr view 12 --json ${MERGE_FIELDS}`), 'the final collect reads the PR by number');
+});
+
+test('--watch at wait-merge: the cap ends the wait with "auto-merge on: waiting for ..." (AC-4)', () => {
+  const t = waiting();
+  t.gh.set('pr-view', { stdout: t.pr(on) });
+  const started = Date.now();
+  const r = t.run('--watch=0.02');
+  assert.ok(Date.now() - started < 20000);
+  const j = JSON.parse(r.out);
+  assert.equal(j.summary, 'auto-merge on: waiting for GitHub to merge');
+  assert.ok(polls(t).length >= 1);
+  assert.deepEqual(j.watch, { minutes: 0.02, timedOut: true });
+});
+
+test('--watch at wait-merge: stops early when auto-merge goes off, and the next step is enable-auto-merge again', () => {
+  const t = waiting();
+  t.gh.set('pr-view', { stdout: t.pr(on) }, 1);
+  t.gh.set('pr-view', { stdout: t.pr({ autoMergeRequest: null }) });
+  const j = JSON.parse(t.run().out);
+  assert.equal(j.next.step, 'enable-auto-merge');
+  assert.equal(polls(t).length, 1);
+});
+
+test('--watch at wait-merge: stops early when the PR head changes (a push), and item 5 is no longer met', () => {
+  const t = waiting();
+  t.gh.set('pr-view', { stdout: t.pr(on) }, 1);
+  t.gh.set('pr-view', { stdout: t.pr({ ...on, headRefOid: '0123456789abcdef0123456789abcdef01234567' }) });
+  const j = JSON.parse(t.run().out);
+  assert.equal(polls(t).length, 1);
+  assert.notEqual(j.items[4].status, 'met');
+  assert.notEqual(j.next.step, 'wait-merge');
+});
+
+test('--watch at wait-merge: a gh error while polling stops the wait and the state is collected again', () => {
+  const t = waiting();
+  t.gh.set('pr-view', { stdout: t.pr(on) }, 1);
+  t.gh.set('pr-view', { exit: 1, stderr: 'gh: network down\n' });
+  const j = JSON.parse(t.run().out);
+  assert.equal(polls(t).length, 1);
+  assert.equal(j.items[4].status, 'blocked');
+  assert.match(j.items[4].reason, /network down/);
+});
+
+test('--watch outside wait-merge never polls (enable-auto-merge, and no --watch at all)', () => {
+  const t = mergeReady();
+  runCli(t, ['feat', '--json', '--watch=1'], { env: { DEVKIT_POLL_SECONDS: '0' } });
+  assert.equal(polls(t).length, 0);
+  const u = waiting();
+  u.gh.set('pr-view', { stdout: u.pr(on) });
+  runCli(u, ['feat', '--json'], { env: { DEVKIT_POLL_SECONDS: '0' } });
+  assert.equal(polls(u).length, 0, 'without --watch there is no wait');
+});
+
+// ---------------------------------------------------------------- the merge walkthrough (auto-merge 2.7: AC-2, AC-3, AC-4)
+
+test('walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then merged', () => {
+  const t = shipRepo({ ship: 'merge' });
+  const taken = driveToReady(t);
+  assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'review', 'verify', 'open-pr', 'enable-auto-merge']);
+
+  const pr = (extra = {}, sha = head(t.root)) => t.gh.set('pr-view', { stdout: prJson({ headRefOid: sha, body: PR_BODY, ...extra }) });
+  const step = () => nextStep(collectState(t.root, 'feat', { env: t.env }));
+  const prHead = head(t.root);
+  const seen = [step().step];
+
+  pr(on); // the skill ran gh pr merge --auto and GitHub accepted it
+  seen.push(step().step);
+
+  put(t.root, { 'src/a.ts': 'changed after auto-merge was enabled\n' });
+  commitAll(t.root, 'product change');
+  let n = step();
+  seen.push(n.step);
+  assert.equal(n.number, 12);
+  pr({ autoMergeRequest: null }, prHead); // the skill ran gh pr merge --disable-auto
+
+  n = step();
+  seen.push(n.step);
+  assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
+  reviewAt(t.root, n.reviewers);
+  seen.push(step().step);
+  fullEvidence(t.root, t.env);
+  seen.push(step().step);
+
+  commitAll(t.root, 'ship change files'); // the push
+  pr({}, head(t.root));
+  n = step();
+  seen.push(n.step);
+  assert.deepEqual([n.number, n.method, n.head], [12, 'squash', head(t.root)]);
+
+  pr(on, head(t.root));
+  seen.push(step().step);
+  pr({ state: 'MERGED' }, head(t.root));
+  seen.push(step().step);
+
+  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'review', 'verify', 'push', 'enable-auto-merge', 'wait-merge', 'merged']);
+  assert.deepEqual(noMergeCall(t), [], 'deliver-check never merges; the skill runs gh pr merge');
 });
 
 // ---------------------------------------------------------------- CLI (D4, AC-6, AC-10)
@@ -1563,19 +2110,34 @@ test('CLI: runs from a subdirectory of the repo', () => {
   assert.equal(runCli(t, ['feat'], { cwd: join(t.root, 'src') }).code, 1);
 });
 
-test('CLI: an invalid ship config is exit 3 with the AC-10 message, and { version, error } in JSON', () => {
+test('CLI: an invalid ship or merge_method is exit 3 with the key named, and { version, error } in JSON (AC-1)', () => {
   const t = shipRepo();
-  writeFileSync(join(t.root, 'openspec/config.yaml'), 'schema: devkit-lite\nship: { devkit-lite: merge }\n');
-  const r = runCli(t, ['feat']);
-  assert.equal(r.code, 3);
-  assert.match(r.err, /merge arrives in a later round \(round 2, auto-merge\)/);
-  assert.equal(r.out, '');
-  const j = runCli(t, ['feat', '--json']);
-  assert.equal(j.code, 3);
-  const parsed = JSON.parse(j.out);
-  assert.equal(parsed.version, 1);
-  assert.match(parsed.error, /merge arrives in a later round/);
-  assert.deepEqual(Object.keys(parsed).sort(), ['error', 'version']);
+  for (const [config, pattern] of [
+    ['schema: devkit-lite\nship: { devkit-lite: auto }\n', /ship\.devkit-lite: unknown mode "auto"; use plan, pr or merge/],
+    ['schema: devkit-lite\nship: { devkit-lite: pr }\nmerge_method: fast\n', /^openspec\/config\.yaml: merge_method: unknown value "fast"/],
+  ]) {
+    writeFileSync(join(t.root, 'openspec/config.yaml'), config);
+    const r = runCli(t, ['feat']);
+    assert.equal(r.code, 3);
+    assert.match(r.err.replace(/^deliver-check: /, ''), pattern);
+    assert.equal(r.out, '');
+    const j = runCli(t, ['feat', '--json']);
+    assert.equal(j.code, 3);
+    const parsed = JSON.parse(j.out);
+    assert.equal(parsed.version, 1);
+    assert.match(parsed.error, pattern);
+    assert.deepEqual(Object.keys(parsed).sort(), ['error', 'version']);
+  }
+});
+
+test('CLI: ship merge no longer exits 3 and does not stop as plan mode (AC-1, design D2 row 1)', () => {
+  const t = shipRepo({ ship: 'merge', method: 'rebase' }); // a prepared repository: merge mode reads the settings now (2.3)
+  const r = runCli(t, ['feat', '--json']);
+  assert.notEqual(r.code, 3, r.err);
+  const j = JSON.parse(r.out);
+  assert.equal(j.ship, 'merge');
+  assert.equal(j.next.step, 'implement');
+  assert.equal(collectState(t.root, 'feat', { env: t.env }).mergeMethod, 'rebase');
 });
 
 test('CLI: DEVKIT_BYPASS=1 changes nothing', () => {
@@ -1792,6 +2354,331 @@ test('format: ship-change skill exists, says "Use when", and its deliver-check p
 
 test('format: ship-change names every next.step the checker can return', () => {
   const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
-  const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready'];
+  const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready',
+    'stop-merge-setup', 'disable-auto-merge', 'update-branch', 'enable-auto-merge', 'wait-merge', 'merged'];
   for (const s of steps) assert.ok(md.includes(`\`${s}\``), `names step ${s}`);
+  // whatever nextStep can emit has a row in the table, so a new step cannot ship without the skill
+  const src = readFileSync(join(repoRoot, 'plugins', 'openspec', 'hooks', 'deliver-check.mjs'), 'utf8');
+  const emitted = [...new Set([...src.matchAll(/\bstep\('([a-z-]+)'/g)].map((m) => m[1]))];
+  assert.ok(emitted.length >= steps.length, 'found the steps in nextStep');
+  for (const s of emitted) assert.match(md, new RegExp(`^\\|[^|]*\`${s}\`[^|]*\\|`, 'm'), `a table row for ${s}`);
+});
+
+test('format: ship-change enables auto-merge with one exact command, only at enable-auto-merge, and disables it at disable-auto-merge (AC-2, AC-3, AC-8)', () => {
+  const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  assert.ok(md.includes('gh pr merge <next.number> --auto --<next.method> --match-head-commit <next.head>'), 'the enable command, verbatim');
+  const row = (step) => md.split('\n').find((l) => l.startsWith(`| \`${step}\``)) ?? '';
+  assert.match(row('disable-auto-merge'), /gh pr merge <next\.number> --disable-auto/);
+  assert.match(row('enable-auto-merge'), /--match-head-commit <next\.head>/);
+  assert.match(row('update-branch'), /gh pr update-branch <next\.number>/);
+  assert.match(row('stop-merge-setup'), /blocked: merge setup/);
+  assert.match(row('wait-merge'), /--watch/);
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /`gh pr merge` except at `enable-auto-merge` \(`--auto`\) and `disable-auto-merge` \(`--disable-auto`\)/);
+  assert.match(never, /--admin/);
+  assert.match(md, /`merge`/);
+  assert.doesNotMatch(md, /`merge` is not available yet/);
+  for (const report of ['merged', 'auto-merge on: waiting for', 'blocked: merge setup']) assert.ok(md.includes(report), `Report names ${report}`);
+});
+
+// ---------------------------------------------------------------- --ci: the devkit-reviews check (auto-merge D5)
+
+const CI_TASKS = '## 1. First\n- [x] 1.1 code\n- [x] 1.2 Gate: `node -e 0` green\n';
+const CI_ENV = { DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '' };
+function runCi(root, args = [], env = {}) {
+  const r = spawnSync(process.execPath, [cli, '--ci', ...args], { cwd: root, encoding: 'utf8', env: { ...process.env, ...CI_ENV, ...env } });
+  return { code: r.status, out: r.stdout, err: r.stderr, json: () => JSON.parse(r.stdout) };
+}
+const ciGate = (cmd = 'node -e 0') => `${gateRow(cmd, 'pass: ok')}`;
+// Reviews and evidence for `name` at the current head, committed (an openspec/-only commit).
+function ciProve(root, name = 'feat', { rows = ciGate(), acs = ['AC-1'], ac = (id) => acRow(id, 'pass: t') } = {}) {
+  const sha = head(root);
+  const dir = `openspec/changes/${name}`;
+  put(root, {
+    [`${dir}/reviews/code-quality-reviewer.md`]: review('approved', sha),
+    [`${dir}/reviews/test-coverage-reviewer.md`]: review('approved', sha),
+    [`${dir}/evidence.md`]: `Commit: ${sha}\n\n# Evidence\n\n### Gates\n| gate | command | result |\n|---|---|---|\n${rows}\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n${acs.map(ac).join('')}`,
+  });
+  commitAll(root, `prove ${name}`);
+}
+function changeFilesOf() {
+  return { '.openspec.yaml': 'schema: devkit-lite\n', 'proposal.md': proposalWith(['AC-1']), 'tasks.md': CI_TASKS };
+}
+// A repo on `branch` with the given changes (default: one complete change `feat`, proven at head).
+function ciRepo({ branch = 'ship/feat', names = ['feat'], config = 'schema: devkit-lite\n', prove = true } = {}) {
+  const root = gitRepo({ config, changes: Object.fromEntries(names.map((n) => [n, changeFilesOf()])), files: { 'src/a.ts': 'a\n' } });
+  if (branch !== 'main') git(root, 'switch', '-q', '-c', branch);
+  if (prove) for (const n of names) ciProve(root, n);
+  return root;
+}
+
+test('--ci: passes at the head when items 1 to 4 are met, with the D5 human output (AC-5)', () => {
+  const root = ciRepo();
+  const r = runCi(root);
+  assert.equal(r.code, 0, r.out + r.err);
+  const lines = r.out.trimEnd().split('\n');
+  assert.match(lines[0], /^devkit-reviews: feat \(schema devkit-lite, head [0-9a-f]{7}\)$/);
+  assert.equal(lines.filter((l) => /^ {2}[1-4] met\s+\S/.test(l)).length, 4, r.out);
+  assert.equal(lines.at(-1), 'pass');
+  assert.doesNotMatch(r.out, /readiness/, 'devkit-lite has no readiness artifact');
+});
+
+test('--ci --json: version 1, mode ci, change, schema, head, readiness, items 1 to 4 and pass (design D5)', () => {
+  const root = ciRepo();
+  const j = runCi(root, ['--json']).json();
+  assert.deepEqual(Object.keys(j).sort(), ['change', 'head', 'items', 'mode', 'pass', 'readiness', 'schema', 'version']);
+  assert.deepEqual([j.version, j.mode, j.change, j.schema, j.pass], [1, 'ci', 'feat', 'devkit-lite', true]);
+  assert.equal(j.head, head(root));
+  assert.deepEqual(j.items.map((i) => [i.id, i.status]), [[1, 'met'], [2, 'met'], [3, 'met'], [4, 'met']]);
+  assert.deepEqual(j.readiness, { status: null, met: true });
+});
+
+test('--ci: a product commit after the reviews makes them stale and fails with exit 1 (AC-5)', () => {
+  const root = ciRepo();
+  put(root, { 'src/a.ts': 'changed\n' });
+  commitAll(root, 'later product commit');
+  const r = runCi(root);
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^ {2}2 open\s+reviews at head: .*stale code-quality-reviewer/m);
+  assert.match(r.out, /^fail: item 1, item 2, item 4$/m, 'evidence is stale too');
+  assert.equal(runCi(root, ['--json']).json().pass, false);
+});
+
+test('--ci: fails for each of an undisposed blocking finding, an AC without a pass row, a no proof AC and a gate without a passing row (AC-5)', () => {
+  const cases = [
+    ['finding', (root) => { put(root, { 'openspec/changes/feat/reviews/code-quality-reviewer.md': `${review('approved', head(root))}- [blocking] src/a.ts:1 broken\n` }); commitAll(root, 'finding'); }, /^ {2}3 open\s+findings disposed: undisposed/m, 'item 3'],
+    ['missing AC row', (root) => ciProve(root, 'feat', { acs: [] }), /^ {2}4 open\s+acceptance criteria proven: no proof row for AC-1/m, 'item 4'],
+    ['no proof', (root) => ciProve(root, 'feat', { ac: (id) => acRow(id, 'no proof: later') }), /^ {2}4 blocked\s+acceptance criteria proven: no proof for AC-1/m, 'item 4'],
+    ['gate row', (root) => ciProve(root, 'feat', { rows: gateRow('node -e 0', 'fail: red') }), /^ {2}1 open\s+tasks and gates: .*no passing row in evidence\.md for `node -e 0`/m, 'item 1'],
+  ];
+  for (const [label, arrange, pattern, failed] of cases) {
+    const root = ciRepo();
+    arrange(root);
+    const r = runCi(root);
+    assert.equal(r.code, 1, `${label}: ${r.out}${r.err}`);
+    assert.match(r.out, pattern, label);
+    assert.match(r.out, new RegExp(`^fail: ${failed}$`, 'm'), label);
+  }
+});
+
+test('--ci: a devkit change whose readiness is not APPROVED fails; APPROVED passes (AC-5)', () => {
+  const devkitFiles = { '.openspec.yaml': 'schema: devkit\n', 'proposal.md': proposalWith(['AC-1']), 'tasks.md': CI_TASKS };
+  const make = (readiness) => {
+    const root = gitRepo({
+      config: 'schema: devkit\n',
+      changes: { feat: { ...devkitFiles, ...(readiness ? { 'readiness.md': `# Readiness\n\n- Status: ${readiness}\n` } : {}) } },
+      files: { 'src/a.ts': 'a\n', 'openspec/schemas/devkit/schema.yaml': 'name: devkit\nversion: 1\nartifacts:\n  - id: readiness\n    generates: readiness.md\n' },
+    });
+    git(root, 'switch', '-q', '-c', 'ship/feat');
+    ciProve(root);
+    return root;
+  };
+  for (const readiness of ['NEEDS-REVISION', null]) {
+    const r = runCi(make(readiness));
+    assert.equal(r.code, 1, String(readiness));
+    assert.match(r.out, new RegExp(`^ {2}readiness open\\s+Status: ${readiness || 'missing'}`, 'm'));
+    assert.match(r.out, /^fail: readiness$/m);
+  }
+  const ok = runCi(make('APPROVED'), ['--json']);
+  assert.equal(ok.code, 0);
+  assert.deepEqual(ok.json().readiness, { status: 'APPROVED', met: true });
+});
+
+test('--ci: ship and merge_method are not read, so a typo there does not fail the check (design D2, D5)', () => {
+  const root = ciRepo({ config: 'schema: devkit-lite\nship: { devkit-lite: auto }\nmerge_method: fast\n' });
+  const r = runCi(root);
+  assert.equal(r.code, 0, r.out + r.err);
+});
+
+test('--ci: DEVKIT_BYPASS=1 changes nothing', () => {
+  const root = ciRepo();
+  put(root, { 'src/a.ts': 'changed\n' });
+  commitAll(root, 'later');
+  assert.equal(runCi(root, [], { DEVKIT_BYPASS: '1' }).code, 1);
+  assert.equal(runCi(root, ['--json'], { DEVKIT_BYPASS: '1' }).out, runCi(root, ['--json']).out);
+});
+
+test('--ci --watch is a usage error (exit 3)', () => {
+  const r = runCi(ciRepo(), ['--watch']);
+  assert.equal(r.code, 3);
+  assert.match(r.err, /--ci cannot be combined with --watch/);
+  assert.equal(runCi(ciRepo(), ['--watch=5', '--json']).code, 3);
+});
+
+test('--ci: a repo without openspec/ passes with a note, like guard.mjs ci; a repo that has not adopted OpenSpec is never broken (R-3)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-noopenspec-'));
+  git(dir, 'init', '-q', '-b', 'main');
+  const r = runCi(dir);
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /devkit-reviews: no openspec\/ folder; nothing to check/);
+  const j = runCi(dir, ['--json']).json();
+  assert.deepEqual([j.version, j.mode, j.change, j.pass], [1, 'ci', null, true]);
+  assert.match(j.note, /no openspec\/ folder/);
+  // The non-CI mode keeps its exit 3 in the same repo.
+  assert.equal(spawnSync(process.execPath, [cli, 'feat'], { cwd: dir, encoding: 'utf8' }).status, 3);
+});
+
+test('--ci: openspec/ without a git repository is exit 3', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-nogit-ci-'));
+  mkdirSync(join(dir, 'openspec/changes/feat'), { recursive: true });
+  const r = spawnSync(process.execPath, [cli, '--ci'], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...CI_ENV, GIT_CEILING_DIRECTORIES: dirname(dir) } });
+  assert.equal(r.status, 3);
+  assert.match(r.stderr, /not a git repository/i);
+});
+
+// ---- change selection (design D5, 1.2)
+
+test('--ci selection 1: <change-id> and DEVKIT_CHANGE select; an unknown or archived change is exit 3', () => {
+  const root = ciRepo({ branch: 'main', names: ['feat', 'other'] });
+  assert.equal(runCi(root, ['other', '--json']).json().change, 'other');
+  assert.equal(runCi(root, ['--json'], { DEVKIT_CHANGE: 'feat' }).json().change, 'feat');
+  assert.equal(runCi(root, ['nope']).code, 3);
+  assert.match(runCi(root, ['nope']).err, /unknown change "nope"/);
+  assert.equal(runCi(root, [], { DEVKIT_CHANGE: 'nope' }).code, 3);
+  mkdirSync(join(root, 'openspec/changes/archive/2026-01-01-gone'), { recursive: true });
+  assert.equal(runCi(root, ['gone']).code, 3);
+  assert.equal(runCi(root, ['archive']).code, 3);
+  assert.equal(runCi(root, ['..']).code, 3);
+});
+
+test('--ci selection 2: the branch tail, or the single change the branch contains, selects; several contained fail', () => {
+  const root = ciRepo({ branch: 'main', names: ['feat', 'other'] });
+  const on = (b, env = {}) => runCi(root, ['--json'], { DEVKIT_BRANCH: b, ...env });
+  assert.equal(on('ship/other').json().change, 'other');
+  assert.equal(on('user-feat-work').json().change, 'feat');
+  assert.equal(on('', { GITHUB_HEAD_REF: 'ci/feat' }).json().change, 'feat', 'GITHUB_HEAD_REF');
+  const several = on('feat-and-other');
+  assert.equal(several.code, 1);
+  assert.match(several.err, /several changes match branch feat-and-other; name the branch after one/);
+  assert.equal(several.json().pass, false);
+});
+
+test('--ci selection 3: with GITHUB_BASE_REF the one active change the PR diff touches is selected, two fail (R-3)', () => {
+  const root = ciRepo({ branch: 'main', names: ['feat', 'other'] });
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(root, 'switch', '-q', '-c', 'chore/tidy');
+  put(root, { 'openspec/changes/other/notes.md': 'n\n' });
+  commitAll(root, 'touch other');
+  const env = { GITHUB_BASE_REF: 'main' };
+  const one = runCi(root, ['--json'], env);
+  assert.equal(one.json().change, 'other');
+  put(root, { 'openspec/changes/feat/notes.md': 'n\n', 'openspec/changes/archive/2026-01-01-old/x.md': 'x\n' });
+  commitAll(root, 'touch feat');
+  const two = runCi(root, [], env);
+  assert.equal(two.code, 1);
+  assert.match(two.err, /several changes are touched by this PR \(feat, other\); name the branch after one/);
+});
+
+test('--ci selection 3: a squash-merged change still active on the base and untouched by the PR is not checked; the run passes with a note (AC-5, R-3)', () => {
+  // `merged` has reviews recorded at a commit that is not an ancestor of HEAD, as after a squash merge.
+  const root = ciRepo({ branch: 'main', names: ['merged'], prove: false });
+  put(root, { 'openspec/changes/merged/reviews/code-quality-reviewer.md': review('approved', 'a'.repeat(40)) });
+  commitAll(root, 'merged change stays active');
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(root, 'switch', '-q', '-c', 'chore/docs');
+  put(root, { 'README.md': 'docs\n' });
+  commitAll(root, 'docs only');
+  const r = runCi(root, [], { GITHUB_BASE_REF: 'main' });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.match(r.out, /devkit-reviews: no change selected by branch chore\/docs or touched by this PR; nothing to check/);
+  const j = runCi(root, ['--json'], { GITHUB_BASE_REF: 'main' }).json();
+  assert.deepEqual([j.change, j.pass], [null, true]);
+  assert.match(j.note, /nothing to check/);
+  // The same repo run locally (no GITHUB_BASE_REF) falls back to the only open change and fails on it.
+  assert.equal(runCi(root).code, 1);
+});
+
+test('--ci selection 3: GITHUB_BASE_REF without an origin/<base> ref is exit 3 naming the ref', () => {
+  const root = ciRepo({ branch: 'main', names: ['feat'] });
+  const r = runCi(root, [], { GITHUB_BASE_REF: 'main' });
+  assert.equal(r.code, 3);
+  assert.match(r.err, /origin\/main/);
+});
+
+test('--ci selection 4: without GITHUB_BASE_REF the only open change is checked; several are ambiguous (exit 1)', () => {
+  const one = ciRepo({ branch: 'main', names: ['feat'] });
+  assert.equal(runCi(one, ['--json']).json().change, 'feat');
+  const two = ciRepo({ branch: 'main', names: ['feat', 'other'] });
+  const r = runCi(two);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /several open changes \(feat, other\); name the branch after one/);
+  const n = runCi(gitRepo({ branch: 'main' }));
+  assert.equal(n.code, 0);
+  assert.match(n.out, /nothing to check/);
+});
+
+// ---- checkout preflight (design D5)
+
+test('--ci preflight: a shallow clone is exit 3 naming fetch-depth: 0', () => {
+  const root = ciRepo();
+  put(root, { 'src/b.ts': 'b\n' });
+  commitAll(root, 'second');
+  const clone = join(mkdtempSync(join(tmpdir(), 'devkit-shallow-')), 'c');
+  execFileSync('git', ['clone', '-q', '--depth', '1', `file://${root}`, clone], { env: GIT_ENV });
+  assert.equal(git(clone, 'rev-parse', '--is-shallow-repository'), 'true');
+  const r = runCi(clone);
+  assert.equal(r.code, 3);
+  assert.match(r.err, /fetch the full history \(actions\/checkout with fetch-depth: 0\)/);
+  assert.match(runCi(clone, ['--json']).json().error, /fetch-depth: 0/);
+});
+
+test('--ci preflight: a PR head sha that is not HEAD is exit 3 naming the ref: fix; the matching sha passes', () => {
+  const root = ciRepo();
+  const event = join(mkdtempSync(join(tmpdir(), 'devkit-event-')), 'event.json');
+  writeFileSync(event, JSON.stringify({ pull_request: { head: { sha: 'b'.repeat(40) } } }));
+  const r = runCi(root, [], { GITHUB_EVENT_PATH: event });
+  assert.equal(r.code, 3);
+  assert.match(r.err, /check out the PR head \(actions\/checkout with ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}\), not the merge commit/);
+  writeFileSync(event, JSON.stringify({ pull_request: { head: { sha: head(root) } } }));
+  assert.equal(runCi(root, [], { GITHUB_EVENT_PATH: event }).code, 0);
+  writeFileSync(event, JSON.stringify({ push: true }));
+  assert.equal(runCi(root, [], { GITHUB_EVENT_PATH: event }).code, 0, 'an event without a pull_request is not checked');
+  writeFileSync(event, 'not json');
+  assert.equal(runCi(root, [], { GITHUB_EVENT_PATH: event }).code, 0, 'an unreadable event is not checked');
+});
+
+// Docs sweep (AC-9): ship mode no longer means "the owner always merges".
+function sweepFiles() {
+  const repo = join(here, '..', '..', '..');
+  const out = [];
+  const add = (p) => { if (existsSync(p)) out.push(p); };
+  add(join(repo, 'README.md'));
+  for (const f of readdirSync(join(repo, 'docs'))) if (f.endsWith('.md')) add(join(repo, 'docs', f));
+  add(join(repo, 'plugins', 'openspec', 'README.md'));
+  add(join(repo, 'plugins', 'core', 'README.md'));
+  add(join(repo, 'plugins', 'core', 'skills', 'review-change', 'SKILL.md'));
+  const skills = join(repo, 'plugins', 'openspec', 'skills');
+  for (const d of readdirSync(skills)) add(join(skills, d, 'SKILL.md'));
+  return out;
+}
+
+test('docs sweep: "never merges" and "the merge is the owner\'s" lines name a ship mode or are about commit-and-pr', () => {
+  const claim = /never merges|merge is (always )?(the owner's|the human's|yours)/i;
+  const names = /`(plan|pr|merge)`[^.\n]*\bmode\b|\bship mode\b|commit-and-pr/i;
+  const bad = [];
+  for (const file of sweepFiles()) {
+    readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+      if (claim.test(line) && !names.test(line)) bad.push(`${file}:${i + 1}: ${line.slice(0, 120)}`);
+    });
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('ADR 0002 exists, is cited by README and docs/openspec-flow.md, and says Status: accepted', () => {
+  const repo = join(here, '..', '..', '..');
+  const adr = join(repo, 'docs', 'adr', '0002-merge-without-the-owner-opt-in.md');
+  assert.ok(existsSync(adr), 'ADR 0002 file');
+  assert.match(readFileSync(adr, 'utf8'), /^- Status: accepted$/m);
+  for (const f of ['README.md', join('docs', 'openspec-flow.md')]) {
+    assert.match(readFileSync(join(repo, f), 'utf8'), /adr\/0002-merge-without-the-owner-opt-in\.md/, f);
+  }
+});
+
+test('the tag pinned in docs/openspec-flow.md is v + the devkit-openspec version (R-10)', () => {
+  const repo = join(here, '..', '..', '..');
+  const v = JSON.parse(readFileSync(join(here, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version;
+  const doc = readFileSync(join(repo, 'docs', 'openspec-flow.md'), 'utf8');
+  const pins = [...doc.matchAll(/chacal88\/devkit\/(v\d+\.\d+\.\d+)\//g)].map((m) => m[1]);
+  assert.ok(pins.length > 0);
+  assert.deepEqual([...new Set(pins)], [`v${v}`]);
 });

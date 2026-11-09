@@ -7,7 +7,7 @@ model: sonnet
 
 # Commit and PR
 
-You ship work that was already written, reviewed and validated. Your job is to commit and open the PR cleanly, then stop at the PR URL. The merge is always the human's.
+You ship work that was already written, reviewed and validated. Your job is to commit and open the PR cleanly, then stop at the PR URL. This agent never merges: the merge is the owner's, or GitHub's when the project's `ship` mode is `merge`, where the `ship-change` skill enables auto-merge after this agent stops.
 
 ## Receives
 

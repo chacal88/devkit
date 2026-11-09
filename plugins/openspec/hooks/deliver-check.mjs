@@ -8,11 +8,13 @@ import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'n
 import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { mergeSetup, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
 import { changeDir, changeSchema, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
-export const SHIP_MODES = ['plan', 'pr'];
+export const SHIP_MODES = ['plan', 'pr', 'merge'];
+export const MERGE_METHOD_VALUES = ['squash', 'merge', 'rebase'];
 const CONFIG = 'openspec/config.yaml';
 
 export class ShipConfigError extends Error {
@@ -43,14 +45,11 @@ function unquote(text) {
 function setMode(map, schema, raw) {
   if (Object.hasOwn(map, schema)) throw new ShipConfigError(`ship.${schema}: duplicate key`);
   const value = unquote(raw);
-  if (value === 'merge') {
-    throw new ShipConfigError(`ship.${schema}: merge arrives in a later round (round 2, auto-merge); use ${SHIP_MODES.join(' or ')}`);
-  }
   if (value === '' || /[{}[\]]/.test(value)) {
     throw new ShipConfigError(`ship.${schema}: expected one of ${SHIP_MODES.join(', ')}, not a nested map or list`);
   }
   if (!SHIP_MODES.includes(value)) {
-    throw new ShipConfigError(`ship.${schema}: unknown mode "${value}"; use ${SHIP_MODES.join(' or ')}`);
+    throw new ShipConfigError(`ship.${schema}: unknown mode "${value}"; use ${SHIP_MODES.slice(0, -1).join(', ')} or ${SHIP_MODES.at(-1)}`);
   }
   map[schema] = value;
 }
@@ -94,11 +93,39 @@ export function parseShip(text) {
   return map;
 }
 
-// 'plan' | 'pr' for a schema in the project's config; plan when unset.
+// The top-level `merge_method:` of openspec/config.yaml: squash (no key or an
+// empty one), merge or rebase. Anything else, a nested map or a list included,
+// throws ShipConfigError.
+export function parseMergeMethod(text) {
+  const lines = String(text).split(/\r?\n/);
+  const at = lines.findIndex((l) => /^merge_method\s*:/.test(l));
+  if (at < 0) return 'squash';
+  const expected = `use ${MERGE_METHOD_VALUES.slice(0, -1).join(', ')} or ${MERGE_METHOD_VALUES.at(-1)}`;
+  const rest = stripComment(lines[at].replace(/^merge_method\s*:/, '')).trim();
+  if (rest === '') {
+    const next = lines.slice(at + 1).map(stripComment).find((l) => l.trim() !== '');
+    if (next !== undefined && (/^\s/.test(next) || /^-/.test(next))) throw new ShipConfigError(`merge_method: expected one value, not a nested map or list; ${expected}`);
+    return 'squash';
+  }
+  const value = unquote(rest);
+  if (/[{}[\]]/.test(value) || !MERGE_METHOD_VALUES.includes(value)) throw new ShipConfigError(`merge_method: unknown value "${value}"; ${expected}`);
+  return value;
+}
+
+// 'plan' | 'pr' | 'merge' for a schema in the project's config; plan when unset.
 export function shipMode(root, schema) {
   const file = join(root, CONFIG);
   const map = existsSync(file) ? parseShip(readFileSync(file, 'utf8')) : {};
   return map[schema] ?? 'plan';
+}
+
+// { ship, mergeMethod } for a schema. Both keys are validated on every run,
+// whatever the schema's mode (design D2); the method is used only in merge mode.
+export function shipConfig(root, schema) {
+  const file = join(root, CONFIG);
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const map = parseShip(text);
+  return { ship: map[schema] ?? 'plan', mergeMethod: parseMergeMethod(text) };
 }
 
 // ---------------------------------------------------------------- git facts and staleness
@@ -384,14 +411,30 @@ const ghError = (r) => (r.missing ? 'gh is not installed or not on PATH'
   : (r.stderr.trim().split('\n')[0] || `gh exited ${r.status}`));
 
 const PR_FIELDS = 'number,url,state,headRefOid,baseRefName,mergeable,body';
+const MERGE_FIELDS = `${PR_FIELDS},autoMergeRequest,mergeStateStatus`;
+
+function parsePr(r) {
+  try { return { pr: JSON.parse(r.stdout) }; } catch { return { error: 'gh pr view returned unreadable JSON' }; }
+}
 
 // The PR of the current branch: { pr } | { none: true } | { error }.
-export function fetchPr(gh) {
-  const r = gh(['pr', 'view', '--json', PR_FIELDS]);
-  if (r.status === 0) {
-    try { return { pr: JSON.parse(r.stdout) }; } catch { return { error: 'gh pr view returned unreadable JSON' }; }
+// Plan and pr modes ask exactly as 0.4.0 did. In merge mode the PR also reports
+// auto-merge and the merge state, and is looked up by its number once known; when
+// the branch no longer finds it (it was merged and the branch deleted), by head
+// branch among open, merged and closed PRs (design D6, readiness carry-over).
+export function fetchPr(gh, { merge = false, number = null, branch = '' } = {}) {
+  const fields = merge ? MERGE_FIELDS : PR_FIELDS;
+  const r = gh(['pr', 'view', ...(merge && number ? [String(number)] : []), '--json', fields]);
+  if (r.status === 0) return parsePr(r);
+  if (!r.missing && /no pull requests? found/i.test(r.stderr)) {
+    if (!merge || !branch) return { none: true };
+    const l = gh(['pr', 'list', '--head', branch, '--state', 'all', '--limit', '10', '--json', fields]);
+    if (l.status !== 0) return { error: ghError(l) };
+    let list;
+    try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
+    const found = Array.isArray(list) ? (list.find((p) => p.state === 'OPEN') ?? list[0]) : null;
+    return found ? { pr: found } : { none: true };
   }
-  if (!r.missing && /no pull requests? found/i.test(r.stderr)) return { none: true };
   return { error: ghError(r) };
 }
 
@@ -409,15 +452,22 @@ function changedUnder(root, pathspec) {
 }
 
 // Item 5: the PR is open and its head is the local head.
-export function prItem(root, id, fetched, facts = gitFacts(root)) {
+// In merge mode (`merge: true`) a PR merged at the local head is met and a PR
+// that fell behind its base is open with details.behind.
+export function prItem(root, id, fetched, facts = gitFacts(root), { merge = false } = {}) {
   const name = 'pr';
   if (fetched.error) return item(5, name, 'blocked', `cannot read the PR: ${fetched.error}`, {});
   if (fetched.none) return item(5, name, 'open', NO_PR, { none: true });
   const pr = fetched.pr;
   const ref = { number: pr.number, url: pr.url };
+  if (merge && pr.state === 'MERGED') {
+    if (pr.headRefOid === facts.head) return item(5, name, 'met', `PR #${pr.number} merged`, { pr: ref, merged: true });
+    return item(5, name, 'blocked', `PR #${pr.number} merged at ${String(pr.headRefOid).slice(0, 7)}; local head ${String(facts.head).slice(0, 7)} differs`, { pr: ref });
+  }
   if (pr.state !== 'OPEN') return item(5, name, 'blocked', `PR #${pr.number} is ${String(pr.state).toLowerCase()}`, { pr: ref });
   if (pr.mergeable === 'CONFLICTING') return item(5, name, 'blocked', `PR #${pr.number} has merge conflicts with ${pr.baseRefName}`, { pr: ref });
   const details = { pr: ref, ahead: false, uncommitted: [] };
+  if (merge) details.behind = pr.mergeStateStatus === 'BEHIND';
   const reasons = [];
   if (pr.headRefOid !== facts.head) {
     if (!facts.head || !inHistory(root, pr.headRefOid, facts.head)) {
@@ -428,6 +478,7 @@ export function prItem(root, id, fetched, facts = gitFacts(root)) {
   }
   details.uncommitted = changedUnder(root, `openspec/changes/${id}`);
   if (details.uncommitted.length) reasons.push(`uncommitted files in the change folder: ${details.uncommitted.join(', ')}`);
+  if (details.behind) reasons.push(`branch is behind ${pr.baseRefName}; update it`);
   if (reasons.length) return item(5, name, 'open', reasons.join('; '), details);
   return item(5, name, 'met', `PR #${pr.number} open at ${facts.head.slice(0, 7)}`, details);
 }
@@ -598,16 +649,34 @@ export function summarize(items) {
 const approved = (verdict) => verdict === 'APPROVED' || verdict === 'DECLINED';
 const uniq = (list) => [...new Set(list)];
 
+// What GitHub is waiting for, from the PR's mergeStateStatus (design D6).
+export function waitingFor(status) {
+  if (['CLEAN', 'HAS_HOOKS', 'UNSTABLE'].includes(status)) return 'GitHub to merge';
+  if (status === 'BLOCKED') return 'branch rules outside the delivery contract (for example a required approval)';
+  if (status === 'UNKNOWN') return 'GitHub to compute mergeability';
+  return `GitHub (mergeStateStatus ${status})`;
+}
+
 // The one step to take now, computed from facts only (see design D4, first
 // match wins). `state` is what collectState builds.
 export function nextStep(state) {
   const it = (n) => state.items[n - 1];
   const step = (name, reason, extra = {}) => ({ step: name, reason, ...extra });
 
-  if (state.ship !== 'pr') return step('stop-plan-mode', `ship mode for ${state.schema} is plan; follow the usual apply flow`);
+  const merge = state.ship === 'merge';
+  const allMet = state.items.every((i) => i.status === 'met');
+  if (merge && it(5).details.merged) return step('merged', `PR #${state.pr.number} is merged`, { number: state.pr.number });
+  // Auto-merge is disabled before any stop or push once the contract drops below 8/8.
+  if (merge && state.pr?.state === 'OPEN' && state.pr.autoMerge && !allMet) {
+    return step('disable-auto-merge', `auto-merge is on but the contract is no longer met (${state.items.find((i) => i.status !== 'met').reason})`, { number: state.pr.number });
+  }
+  if (state.ship === 'plan') return step('stop-plan-mode', `ship mode for ${state.schema} is plan; follow the usual apply flow`);
   if (!state.branchOk) return step('stop-branch', `the current branch does not select change ${state.id} for the hooks; create or switch to a branch named after it`);
   if (state.needsReadiness && state.readiness !== 'APPROVED') {
     return step('stop-not-approved', `readiness.md Status is ${state.readiness || 'missing'}, expected APPROVED; the plan needs its approval first`);
+  }
+  if (merge && state.setup && !state.setup.ok) {
+    return step('stop-merge-setup', `merge mode needs the repository prepared: ${state.setup.missing.join('; ')}`, { missing: state.setup.missing });
   }
   for (const p of state.phases) {
     if (p.open.length) return step('implement', `phase ${p.n} has unticked tasks: ${p.open.join(', ')}`, { phase: p.n });
@@ -651,8 +720,16 @@ export function nextStep(state) {
 
   if (it(5).details.none) return step('open-pr', 'no pull request yet');
   if (it(5).status === 'blocked') return step('blocked', it(5).reason, { item: 5 });
+  const five = it(5).details;
+  if (merge && it(5).status === 'open' && five.behind && !five.ahead && !five.uncommitted.length) {
+    return step('update-branch', it(5).reason, { number: state.pr.number });
+  }
   if (it(5).status === 'open') return step('push', it(5).reason);
   if (it(8).status === 'open') return step('edit-pr-body', it(8).reason, { missing: it(8).details.missing });
+  const reviewsCheck = it(6).details.failing.find((f) => f.name === DEVKIT_REVIEWS_CHECK);
+  if (reviewsCheck && [1, 2, 3, 4].every((n) => it(n).status === 'met')) {
+    return step('blocked', `${DEVKIT_REVIEWS_CHECK} fails in CI while items 1-4 are met locally: ${reviewsCheck.link}`, { item: 6 });
+  }
   if (it(6).details.failing.length) {
     return step('fix-checks', it(6).reason, { failing: it(6).details.failing });
   }
@@ -665,7 +742,9 @@ export function nextStep(state) {
   if (it(6).details.pending.length) return step('wait-checks', it(6).reason, { pending: it(6).details.pending });
   const left = state.items.find((i) => i.status !== 'met');
   if (left) return step('blocked', left.reason, { item: left.id });
-  return step('ready', 'all eight items are met');
+  if (!merge) return step('ready', 'all eight items are met');
+  if (state.pr.autoMerge) return step('wait-merge', 'auto-merge is on; GitHub merges once its rules pass', { number: state.pr.number, waitingFor: waitingFor(state.pr.mergeStateStatus) });
+  return step('enable-auto-merge', 'all eight items are met', { number: state.pr.number, method: state.mergeMethod, head: state.head });
 }
 
 // ---------------------------------------------------------------- collecting the facts
@@ -691,23 +770,26 @@ export function readReviewMd(file) {
 
 // Everything nextStep and the report need: the eight items and the facts
 // behind the step choice. Reads files, git and (through gh) GitHub; writes nothing.
-export function collectState(root, id, { env = process.env, gh = makeGh(root, env) } = {}) {
+export function collectState(root, id, { env = process.env, gh = makeGh(root, env), prNumber = null } = {}) {
   const facts = gitFacts(root);
   const dir = changeDir(root, id);
   const schema = changeSchema(root, id);
-  const ship = shipMode(root, schema);
+  const { ship, mergeMethod } = shipConfig(root, schema);
   const branch = currentBranch(root, env);
   const selected = resolveChange(root, env, branch);
-  const fetched = fetchPr(gh);
+  const merge = ship === 'merge';
+  const fetched = fetchPr(gh, { merge, number: prNumber, branch });
+  const merged = merge && fetched.pr?.state === 'MERGED' && fetched.pr.headRefOid === facts.head;
   const acceptance = acceptanceItem(root, id, facts);
   const items = [
     tasksItem(root, id, facts),
     reviewsItem(root, id, facts),
     findingsItem(root, id, facts),
     acceptance,
-    prItem(root, id, fetched, facts),
-    checksItem(fetched, gh),
-    conversationItem(fetched, gh),
+    prItem(root, id, fetched, facts, { merge }),
+    // A PR merged at the local head has nothing left to check or answer (no gh call).
+    merged ? item(6, 'checks', 'met', 'PR merged', { required: false, failing: [], pending: [] }) : checksItem(fetched, gh),
+    merged ? item(7, 'conversation', 'met', 'PR merged', { threads: [], comments: [], changesRequested: [] }) : conversationItem(fetched, gh),
     bodyItem(id, fetched, acceptance.details.ids),
   ];
   const needsReadiness = schemaHasArtifact(root, schema, 'readiness');
@@ -715,6 +797,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     id,
     schema,
     ship,
+    mergeMethod,
     branch,
     head: facts.head,
     branchOk: selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch),
@@ -724,7 +807,10 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     dirty: facts.dirty,
     reviewMd: readReviewMd(join(dir, 'review.md')),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
-    pr: fetched.pr ? { number: fetched.pr.number, url: fetched.pr.url } : null,
+    pr: fetched.pr
+      ? { number: fetched.pr.number, url: fetched.pr.url, ...(merge ? { autoMerge: fetched.pr.autoMergeRequest != null, state: fetched.pr.state, mergeStateStatus: fetched.pr.mergeStateStatus ?? null, headRefOid: fetched.pr.headRefOid } : {}) }
+      : null,
+    ...(merge ? { setup: mergeSetup(gh, root, mergeMethod) } : {}),
     items,
   };
 }
@@ -742,7 +828,15 @@ const LABELS = ['tasks and gates', 'reviews at head', 'findings disposed', 'acce
 
 // The JSON form (version 1) of a collected state.
 export function buildReport(state, env = process.env) {
-  const { met, summary } = summarize(state.items);
+  const { met, summary: itemsSummary } = summarize(state.items);
+  const next = nextStep(state);
+  const merge = state.ship === 'merge';
+  // Merge mode names its own end states; every other summary is the items' (design D6).
+  const summary = !merge ? itemsSummary
+    : next.step === 'merged' ? 'merged'
+      : next.step === 'stop-merge-setup' ? 'blocked: merge setup'
+        : next.step === 'wait-merge' ? `auto-merge on: waiting for ${next.waitingFor}`
+          : itemsSummary;
   return {
     version: 1,
     change: state.id,
@@ -750,12 +844,22 @@ export function buildReport(state, env = process.env) {
     ship: state.ship,
     host: detectHost(env),
     head: state.head,
-    pr: state.pr,
+    pr: state.pr && { number: state.pr.number, url: state.pr.url },
     phases: state.phases,
     items: state.items.map(({ id, name, status, reason, details }) => ({ id, name, status, reason, details })),
     met,
     summary,
-    next: nextStep(state),
+    next,
+    ...(merge ? {
+      merge: {
+        method: state.mergeMethod,
+        setup: { ok: state.setup.ok, missing: state.setup.missing },
+        autoMerge: state.pr?.autoMerge ?? false,
+        state: state.pr?.state ?? null,
+        mergeStateStatus: state.pr?.mergeStateStatus ?? null,
+        waitingFor: next.step === 'wait-merge' ? next.waitingFor : null,
+      },
+    } : {}),
   };
 }
 
@@ -769,6 +873,11 @@ function describeNext(n) {
     'fix-checks': (n.failing || []).map((f) => f.name).join(', '),
     'edit-pr-body': `add ${(n.missing || []).join(', ')}`,
     blocked: `item ${n.item}: ${n.reason}`,
+    'disable-auto-merge': `PR #${n.number}: ${n.reason}`,
+    'update-branch': `PR #${n.number}`,
+    'enable-auto-merge': `PR #${n.number} with --${n.method} at ${String(n.head).slice(0, 7)}`,
+    'wait-merge': `waiting for ${n.waitingFor}`,
+    merged: `PR #${n.number}`,
   }[n.step];
   return detail ? `${n.step} ${detail}` : n.step === 'ready' ? 'ready' : `${n.step}: ${n.reason}`;
 }
@@ -796,21 +905,164 @@ export function watchMinutes(value) {
   return Math.min(n, WATCH_MAX_MINUTES);
 }
 
+// Seconds between polls of the merge wait: DEVKIT_POLL_SECONDS, default 30 (tests use 0).
+function pollSeconds(env) {
+  const n = Number(env.DEVKIT_POLL_SECONDS);
+  return env.DEVKIT_POLL_SECONDS !== undefined && env.DEVKIT_POLL_SECONDS !== '' && n >= 0 ? n : 30;
+}
+
+function sleepSync(ms) {
+  if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// The capped wait at `wait-merge` (design D6): polls `gh pr view <n>` until the PR
+// is no longer OPEN, auto-merge goes off, the head changes, gh fails or the cap
+// is reached. Returns { minutes, timedOut }; the caller collects the state again.
+function waitForMerge(gh, pr, minutes, env) {
+  const every = pollSeconds(env) * 1000;
+  const deadline = Date.now() + minutes * 60000;
+  while (Date.now() < deadline) {
+    const r = gh(['pr', 'view', String(pr.number), '--json', 'state,autoMergeRequest,mergeStateStatus,headRefOid']);
+    if (r.status !== 0) return { minutes, timedOut: false };
+    let now;
+    try { now = JSON.parse(r.stdout); } catch { return { minutes, timedOut: false }; }
+    if (now.state !== 'OPEN' || now.autoMergeRequest == null || now.headRefOid !== pr.headRefOid) return { minutes, timedOut: false };
+    sleepSync(Math.min(every, Math.max(0, deadline - Date.now())));
+  }
+  return { minutes, timedOut: true };
+}
+
 export class UsageError extends Error {
   constructor(message) { super(message); this.name = 'UsageError'; }
 }
 
 function parseArgs(argv) {
-  const opts = { id: null, json: false, watch: null };
+  const opts = { id: null, json: false, watch: null, ci: false };
   for (const a of argv) {
     if (a === '--json') opts.json = true;
+    else if (a === '--ci') opts.ci = true;
     else if (a === '--watch' || a.startsWith('--watch=')) opts.watch = watchMinutes(a.includes('=') ? a.slice(a.indexOf('=') + 1) : undefined);
     else if (a.startsWith('-')) throw new UsageError(`unknown option ${a}`);
     else if (opts.id === null) opts.id = a;
     else throw new UsageError(`unexpected argument ${a}`);
   }
-  if (!opts.id) throw new UsageError('usage: deliver-check <change-id> [--json]');
+  if (opts.ci && opts.watch !== null) throw new UsageError('--ci cannot be combined with --watch: the CI check reads the checkout and never waits');
+  if (!opts.id && !opts.ci) throw new UsageError('usage: deliver-check <change-id> [--json] | deliver-check --ci [<change-id>] [--json]');
   return opts;
+}
+
+// ---------------------------------------------------------------- --ci: the devkit-reviews check (design D5)
+
+// The CI check could not choose or accept a change: exit 1, a message, no state.
+class CiFailure extends Error {
+  constructor(message) { super(message); this.name = 'CiFailure'; }
+}
+
+function activeChangeNames(root) {
+  const dir = join(root, 'openspec', 'changes');
+  return readdirSync(dir).filter((n) => n !== 'archive' && !n.startsWith('.') && statSync(join(dir, n)).isDirectory());
+}
+
+// The active changes whose folder the PR diff (base...HEAD) touches.
+function touchedChanges(root, base, active) {
+  const ref = `origin/${base}`;
+  if (!gitOk(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])) {
+    throw new UsageError(`GITHUB_BASE_REF is ${base} but ${ref} is not available; fetch the full history (actions/checkout with fetch-depth: 0)`);
+  }
+  let mergeBase;
+  try { mergeBase = git(root, ['merge-base', ref, 'HEAD']).trim(); } catch { throw new UsageError(`${ref} and HEAD share no history; fetch the full history (actions/checkout with fetch-depth: 0)`); }
+  const paths = git(root, ['diff', '--name-only', '-z', `${mergeBase}..HEAD`, '--', 'openspec/changes/']).split('\0').filter(Boolean);
+  const names = paths.map((f) => f.split('/')[2]).filter((n) => active.includes(n));
+  return [...new Set(names)].sort();
+}
+
+// { name } | { none: true }; throws UsageError (exit 3) or CiFailure (exit 1).
+// First match wins: the argument or DEVKIT_CHANGE, the branch, the folders the
+// PR touches (with GITHUB_BASE_REF), the only open change (local runs).
+function selectCiChange(root, id, env, branch) {
+  const active = activeChangeNames(root);
+  const wanted = id || env.DEVKIT_CHANGE;
+  if (wanted) {
+    if (!/^[\w.-]+$/.test(wanted) || !active.includes(wanted)) {
+      throw new UsageError(`unknown change "${wanted}": no active openspec/changes/${wanted}/ (archived changes do not count)`);
+    }
+    return { name: wanted };
+  }
+  if (branch) {
+    const exact = active.filter((c) => c === branch.split('/').pop());
+    if (exact.length === 1) return { name: exact[0] };
+    const contained = active.filter((c) => branch.includes(c));
+    if (contained.length === 1) return { name: contained[0] };
+    if (contained.length > 1) throw new CiFailure(`several changes match branch ${branch}; name the branch after one`);
+  }
+  if (env.GITHUB_BASE_REF) {
+    const touched = touchedChanges(root, env.GITHUB_BASE_REF, active);
+    if (touched.length === 1) return { name: touched[0] };
+    if (touched.length > 1) throw new CiFailure(`several changes are touched by this PR (${touched.join(', ')}); name the branch after one`);
+    return { none: true };
+  }
+  if (active.length === 1) return { name: active[0] };
+  if (active.length > 1) throw new CiFailure(`several open changes (${active.join(', ')}); name the branch after one, or set DEVKIT_CHANGE`);
+  return { none: true };
+}
+
+// A shallow clone, or a checkout of something other than the PR head, would
+// make every recorded Commit: read as stale: refuse both (exit 3).
+function ciPreflight(root, env, head) {
+  if (git(root, ['rev-parse', '--is-shallow-repository']).trim() === 'true') {
+    throw new UsageError('fetch the full history (actions/checkout with fetch-depth: 0): reviews and evidence are checked against every commit since they were recorded');
+  }
+  if (!env.GITHUB_EVENT_PATH) return;
+  let sha;
+  try { sha = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'))?.pull_request?.head?.sha; } catch { return; }
+  if (typeof sha === 'string' && head && sha.toLowerCase() !== head.toLowerCase()) {
+    throw new UsageError('check out the PR head (actions/checkout with ref: ${{ github.event.pull_request.head.sha }}), not the merge commit');
+  }
+}
+
+// Runs the devkit-reviews check: { code, stdout, stderr }. 0 pass, 1 fail,
+// 3 setup or usage error. Does not read `ship` or `merge_method`, and ignores DEVKIT_BYPASS.
+function runCi(opts, env, cwd) {
+  const root = findRoot(cwd);
+  const finish = (code, report, text) => ({ code, stdout: opts.json ? `${JSON.stringify(report)}\n` : text, stderr: '' });
+  if (!root) {
+    // A repository that has not adopted OpenSpec is never broken by this check (R-3), as guard.mjs ci.
+    const note = 'no openspec/ folder; nothing to check';
+    return finish(0, { version: 1, mode: 'ci', change: null, pass: true, note }, `devkit-reviews: ${note}\n`);
+  }
+  if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
+  const facts = gitFacts(root);
+  ciPreflight(root, env, facts.head);
+  let selected;
+  try { selected = selectCiChange(root, opts.id, env, currentBranch(root, env)); } catch (e) {
+    if (!(e instanceof CiFailure)) throw e;
+    return { code: 1, stdout: opts.json ? `${JSON.stringify({ version: 1, mode: 'ci', pass: false, error: e.message })}\n` : '', stderr: `deliver-check: ${e.message}\n` };
+  }
+  if (selected.none) {
+    const note = `no change selected by branch ${currentBranch(root, env) || '(detached)'} or touched by this PR; nothing to check`;
+    return finish(0, { version: 1, mode: 'ci', change: null, pass: true, note }, `devkit-reviews: ${note}\n`);
+  }
+  const id = selected.name;
+  const schema = changeSchema(root, id);
+  const needsReadiness = schemaHasArtifact(root, schema, 'readiness');
+  const status = needsReadiness ? readValue(join(changeDir(root, id), 'readiness.md'), 'Status') : null;
+  const readinessMet = !needsReadiness || status === 'APPROVED';
+  const items = [tasksItem(root, id, facts), reviewsItem(root, id, facts), findingsItem(root, id, facts), acceptanceItem(root, id, facts)];
+  const pass = readinessMet && items.every((i) => i.status === 'met');
+  const report = {
+    version: 1, mode: 'ci', change: id, schema, head: facts.head,
+    readiness: { status, met: readinessMet },
+    items: items.map(({ id: n, name, status: st, reason, details }) => ({ id: n, name, status: st, reason, details })),
+    pass,
+  };
+  const failed = [...(readinessMet ? [] : ['readiness']), ...items.filter((i) => i.status !== 'met').map((i) => `item ${i.id}`)];
+  const text = [
+    `devkit-reviews: ${id} (schema ${schema}, head ${facts.head ? facts.head.slice(0, 7) : 'none'})`,
+    ...(needsReadiness ? [`  readiness ${(readinessMet ? 'met' : 'open').padEnd(9)}Status: ${status || 'missing'}`] : []),
+    ...items.map((i) => `  ${i.id} ${i.status.padEnd(9)}${LABELS[i.id - 1]}: ${i.reason}`),
+    pass ? 'pass' : `fail: ${failed.join(', ')}`,
+  ].join('\n') + '\n';
+  return finish(pass ? 0 : 1, report, text);
 }
 
 // Runs the checker: { code, stdout, stderr }. Exit 0 only when 8/8 are met,
@@ -820,6 +1072,7 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
   let opts = { json: argv.includes('--json') };
   try {
     opts = parseArgs(argv);
+    if (opts.ci) return runCi(opts, env, cwd);
     const root = findRoot(cwd);
     if (!root) throw new UsageError(`no openspec/ folder found from ${cwd}`);
     if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
@@ -836,15 +1089,23 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
       const r = gh(args, { timeout: opts.watch * 60000, killSignal: 'SIGTERM' });
       watch = { minutes: opts.watch, timedOut: r.timedOut };
       state = collectState(root, opts.id, { env, gh });
+    } else if (opts.watch !== null && state.pr && nextStep(state).step === 'wait-merge') {
+      watch = waitForMerge(gh, state.pr, opts.watch, env);
+      state = collectState(root, opts.id, { env, gh, prNumber: state.pr.number });
     }
     const report = buildReport(state, env);
     if (watch) report.watch = watch;
-    const code = report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 ? 0 : 1;
+    const code = report.summary === 'blocked: merge setup' || report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 ? 0 : 1;
     return { code, stdout: opts.json ? `${JSON.stringify(report, null, 2)}\n` : renderHuman(report), stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return { code: 3, stdout: opts.json ? `${JSON.stringify({ version: 1, error: message })}\n` : '', stderr: `deliver-check: ${message}\n` };
   }
+}
+
+// The devkit-reviews check for `guard.mjs ci`: same as `deliver-check --ci ...args`.
+export function ciMain(args = [], env = process.env, cwd = process.cwd()) {
+  return main(['--ci', ...args.filter((a) => a !== '--ci')], env, cwd);
 }
 
 function isMain() {

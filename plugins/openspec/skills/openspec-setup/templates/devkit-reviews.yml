@@ -1,0 +1,22 @@
+name: devkit-reviews
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  devkit-reviews:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Download the checker (outside the workspace, so no review goes stale)
+        run: |
+          base=https://raw.githubusercontent.com/chacal88/devkit/{{ref}}/plugins/openspec/hooks
+          curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
+          curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
+          curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
+      - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci

@@ -11,7 +11,7 @@ Orchestrates a bench of isolated reviewer agents against a change and decides PA
 
 - **Use** after a plan is written (gate it before implementing), before committing implementation code, or whenever the user asks to review, audit or gate a change.
 - **Don't use** to fix findings. This skill reports; the author or the user fixes.
-- **Don't use** as a substitute for the human merge. Approving here never merges anything.
+- **Don't use** as a substitute for the human merge. Approving here merges nothing, in any ship mode.
 
 ## Input
 
@@ -147,7 +147,7 @@ For a bare `--diff` with no change folder, create no file.
 ## Never
 
 - Edit code or docs based on findings.
-- Approve, merge or ship. With PASS, the next step is the commit-and-pr agent; the merge is the human's.
+- Approve, merge or ship. With PASS, the next step is the commit-and-pr agent; the merge is the owner's, or GitHub's in `merge` ship mode (the `ship-change` skill enables auto-merge).
 - Dispatch reviewers before the structural check passes, or skip a reviewer the matrix selected.
 - Dispatch reviewers one after another.
 - Declare PASS with an open blocking finding.

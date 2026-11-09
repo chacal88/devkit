@@ -7,6 +7,17 @@
 #   openspec new change <name> --schema devkit
 schema: devkit-lite
 
+# Who merges, per schema (read by the ship-change skill; none set means plan):
+#   plan  - the flow stops before any PR work; the merge is the owner's
+#   pr    - ship-change takes the change to a ready PR; the merge is the owner's
+#   merge - ship-change also enables GitHub auto-merge at 8/8; GitHub merges
+# `merge` needs the GitHub step of the openspec-setup skill first (workflow,
+# auto-merge allowed, a ruleset that requires devkit-reviews). Uncomment to opt in:
+# ship:
+#   devkit-lite: merge
+#   devkit: merge
+# merge_method: squash   # squash | merge | rebase
+
 # Shown to the agent in every artifact and in apply. Fill in for this project.
 context: |
   Stack: <languages, frameworks, database>
@@ -34,7 +45,7 @@ operations:
     guidance:
       - One phase at a time, each dispatched to the devkit-core:tdd-implementer agent; stop at the phase gate
       - After the last phase, run review-change for this change (each reviewer writes reviews/<reviewer>.md), then dispatch devkit-core:pr-verifier (writes evidence.md)
-      - Open the PR with the commit-and-pr agent; the merge is the owner's
+      - Open the PR with the commit-and-pr agent; the merge is the owner's in `plan` and `pr` mode, GitHub's in `merge` mode (ship-change enables auto-merge)
   archive:
     guidance:
       - Run the retro skill and propose doc or rule updates to the owner before archiving
