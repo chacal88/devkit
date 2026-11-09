@@ -3376,6 +3376,34 @@ test('P3j: an open archive PR with an unanswered proposal is stop-retro-answers,
   assert.deepEqual(merges(t).concat(merges(rejected)), []);
 });
 
+test('P3j: an open archive PR whose folder is not archived locally, or whose archived retro is unreadable, never reaches enable-auto-merge (review round 2, security)', () => {
+  const cases = {
+    'folder still active locally': () => {
+      const t = pm({ ship: 'merge', branch: 'chore/archive-feat', archivePrs: [], onDefault: 'active' });
+      commitAll(t.root, 'work');
+      return [t, 'archive'];
+    },
+    'archived folder, retro without the proposals section': () => {
+      const t = onArchiveBranch();
+      put(t.root, { [retroPath(true)]: '# Retro: feat\n\nno section here\n' });
+      commitAll(t.root, 'break the retro');
+      return [t, 'retro'];
+    },
+  };
+  for (const [label, arrange] of Object.entries(cases)) {
+    const [t, archiveStep] = arrange();
+    t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root) })] });
+    const n = t.next();
+    assert.deepEqual([n.step, n.archiveStep], ['stop-archive', archiveStep], `${label}: ${n.reason}`);
+    assert.match(n.reason, /#13/, label);
+    assert.equal(runCli(t, ['feat']).code, 2, label);
+    t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root), autoMergeRequest: { enabledAt: 'x' } })] });
+    const on = t.next();
+    assert.deepEqual([on.step, on.number], ['disable-auto-merge', 13], `${label}: auto-merge on`);
+    assert.deepEqual(merges(t), [], label);
+  }
+});
+
 test('P3f, P3g, P3h: merge mode — BEHIND updates the branch, clean enables auto-merge with method and head, auto-merge on waits (AC-5)', () => {
   const t = onArchiveBranch();
   const h = head(t.root);

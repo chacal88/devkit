@@ -893,8 +893,12 @@ function archiveNext(state) {
   if (pr?.state === 'OPEN') {
     // The answers and the file check hold while the PR is open too (D8): nothing a
     // proposal does not name may reach auto-merge. Without an archived folder or a
-    // readable retro there is nothing to check them against.
-    const held = a.local === 'archived' && a.retro.readable ? (unanswered.length ? answersStop() : filesStop()) : null;
+    // readable retro there is nothing to check them against, so that state is a
+    // stop, never a pass.
+    let held;
+    if (a.local !== 'archived') held = stopArchive('archive', `archive PR #${pr.number} is open but ${state.id} is not archived in this working tree; the answers and files cannot be checked`);
+    else if (!a.retro.readable) held = stopArchive('retro', `archive PR #${pr.number} is open but retro.md has no "## Proposed updates" section; the answers and files cannot be checked`);
+    else held = unanswered.length ? answersStop() : filesStop();
     const conflicts = pr.mergeable === 'CONFLICTING';
     const failing = pr.checks.failing.length > 0 || pr.checks.error != null;
     const uncommitted = a.dirty.length > 0;

@@ -1,24 +1,23 @@
-Verdict: rejected
-Commit: e497cc29002c8cda9fdddbe2c945f7ed95e65479
+Verdict: approved
+Commit: d50ffb134c0486372e7b44e2888c211b099bfe99
 
-## Quality review — archive-after-merge (round 1)
+## Quality review — archive-after-merge (round 2, scoped)
 
-Range dac9784..e497cc2. Suite result taken from the caller (371/371, check.py, catalog, validate green); not re-run.
-Probes run by me: `gh api .../rulesets/26859494 --jq .bypass_actors` -> `[]` (AC-8 holds);
-`deliver-check auto-merge --json` -> exit path reports PR #5, "checked before PR #5 merged" (AC-6 smoke, change PR not the archive PR #6);
-`deliver-check archive-after-merge --json` -> summary "in progress: item 1", next.step `review`, no `archive` object (pre-merge shape unchanged);
-`gh pr list --state merged --limit 100 --json number,body,headRefName,mergedAt` here is 10 KB for the current history.
+Range e497cc2..d50ffb1. Suite result taken from the caller (380/380, check.py, catalog, validate green); not re-run. I ran only the 20 tests of deliver-check.test.mjs matching list/buffer: 20 pass, 0 fail.
 
 ### Findings
-- [important] plugins/openspec/hooks/deliver-check.mjs (findChangePr, the `gh pr list --state merged --limit 100 --json <fields>,body` call) with plugins/openspec/hooks/merge-setup.mjs:29 (`makeGh` passes no `maxBuffer`) — `spawnSync` caps stdout at 1 MiB by default and returns `status: null`, `error.code: 'ENOBUFS'` beyond it (reproduced: 2 MB output -> `null ENOBUFS 1114112`). The post-merge lookup pulls the `body` of 100 merged PRs on every run from `main` or `chore/archive-<id>`; this project's PR bodies carry AC lists and evidence, so a repository with ~100 merged PRs of 5-10 KB crosses the cap. `ghError` then answers "gh exited null" (merge-setup.mjs:42-46), `findChangePr` returns `{ error }`, item 5 goes `blocked: cannot read the PR: gh exited null`, and the archive flow can never start. Nothing in the tests covers a large or truncated list. · fix: ask the list for light fields only (number, headRefName, mergedAt, state) and `gh pr view <n> --json body` just for the heads/candidates that need the link check, or search by the evidence path; at minimum set `maxBuffer` in `makeGh` and make `ghError` name ENOBUFS; add a test with a >1 MiB fake list.
-- [nit] plugins/openspec/hooks/deliver-check.mjs (findChangePr `--limit 100`) — a change PR older than the 100 newest merged PRs is not found; `fetched.none` then skips the post-merge phase and the run on `main` stops at `stop-branch` with no hint that the lookup was truncated. · fix: when the list returns exactly 100 and nothing matches, say so in the reason.
-- [nit] plugins/openspec/hooks/deliver-check.mjs (archiveFacts, `readContents(gh, 'openspec/changes/archive', base)`) — each run downloads the whole archive directory listing, which grows with every archived change, and the GitHub contents API truncates a directory at 1000 entries, after which `archived` would never be detected. Reading `openspec/changes/archive/<date>-<id>` is not possible without the date, so keep the listing, but note the limit (or use the git tree API with `recursive=0` on the `archive` path). Not a blocker today.
-- [nit] cost per run, for the record. Post-merge, one `collectState` costs: pr view or pr list (change PR) + repo settings (shared with `mergeSetup`, correctly one call, merge-setup.mjs:92) + 2 contents reads + 1 archive `pr list` + checks (only while the archive PR is OPEN) = about 5-6 sequential `gh` calls, plus the mergeSetup reads in merge mode. `--watch` at `wait-merge` collects twice (before and after) so a run is about 12 calls. Acceptable, but worst case is 60 s x calls; every call goes through `makeGh` (timeout 60 s default, merge-setup.mjs:29) and `waitForMerge` caps each poll at `min(GH_TIMEOUT_MS, left)` (deliver-check.mjs:1252), so I found no `gh` call without a timeout (the `gh api`, `pr list`, `pr view`, `pr checks --watch` calls all use the runner).
-- [nit] tasks.md 1.5 and 2.10 say the smoke outputs are pasted "in the phase report"; none is in the change folder (no `evidence.md` yet). Acceptance with real output for AC-1/AC-5/AC-9 must come from `pr-verifier`; this round only confirmed AC-6 (auto-merge archived locally, change PR #5) and AC-8 (bypass_actors `[]`) with my own output.
-- [praise] plugins/openspec/hooks/deliver-check.mjs:~710-760 (`unnamedFiles`, `RELEASE_FILE`) — the AC-3 guard is exact-path matching only (no directory, prefix or glob), with an explicit allow-list of release files, and it fails closed when `origin/<base>` is missing; the rejected-proposal and prefix cases are named in tasks 2.7.
-- [praise] deliver-check.mjs `archiveNext` — one ordered row table, every step derived from disk and GitHub facts, `disable-auto-merge` placed before any stop so auto-merge never stays on a PR that no longer qualifies; and `mergeSetup(gh, root, method, read)` reusing the single repo-settings read instead of a second call.
-- [praise] plugins/openspec/skills/ship-change/SKILL.md "Never" additions — "push to the default branch", "record an answer the owner did not give" back the contract with a rule the loop table repeats row by row.
+- [important] plugins/openspec/hooks/deliver-check.mjs (findChangePr, merged-PR list overflowing spawnSync's 1 MiB buffer, "gh exited null") · fixed in d50ffb1. Verified in the code:
+  - The list asks for light fields only (`body` stripped from MERGE_FIELDS/PR_FIELDS, deliver-check.mjs:469-472).
+  - Bodies are read with `gh pr view <n> --json body`, newest first, stopping at the first PR whose body holds the evidence link (:481-486). A failing or unreadable view is an `{ error }`, never a silent none.
+  - `makeGh` passes `maxBuffer: GH_MAX_BUFFER` (64 MiB), and `overflowed` is set from `ENOBUFS` (merge-setup.mjs:27-39).
+  - `ghError` names it: "gh output too large to read (ENOBUFS)" (:48).
+  - Tests: the findChangePr test builds a list whose full JSON is above 1 MiB (asserted in the test) and still finds the PR. The makeGh/ghError test forces `maxBuffer: 4` and asserts `overflowed`. Both pass here.
+  - The other `pr list` calls (`--head <branch> --limit 10`, `archivePrFacts`) are bounded and carry no unbounded bodies.
+- [nit] deliver-check.mjs:481 — worst case (the change PR is not among the newest few) is up to 100 sequential `gh pr view` calls, each capped at 60 s. This is bounded and only reached when no PR links the evidence path. Optional: cap the body reads (say the 30 newest) or use `gh pr list --search "<link> in:body"`.
+- [nit] (carried from round 1, still open, non-blocking) `--limit 100` truncation is not named in the reason, and the contents-API listing of `openspec/changes/archive` is limited to 1000 entries.
+- [praise] deliver-check.mjs:466-486 — the fix removes the cause (payload size), not only the symptom: the cap and the named error are defense in depth, and the lookup keeps the original precedence (link in body, then branch name, newest first).
+- [praise] deliver-check.mjs `archiveNext` (`held`, `filesStop`, `answersStop`) — one shared check serves both the open-PR and the post-merge paths, and `disable-auto-merge` fires before any stop when the answer or file check fails. `archivePrCheck` fails closed when `origin/<base>` is missing.
 
 ### Summary
-- 5 findings (0 blocking, 1 important, 4 nit) + 3 praise
-- Justification: scope matches the proposal, no locked-ADR conflict seen (ADR 0003/0002 edits consistent with AC-8, verified live), all `gh` calls are time-boxed, and the per-run call count is bounded. One latent defect stands: the unbounded-body PR list overflows `spawnSync`'s default 1 MiB buffer as history grows, turning the new post-merge lookup into a permanent, undiagnosable `blocked: item 5`. An open `important` without a fix means `rejected`; the fix is small.
+- 2 open findings (0 blocking, 0 important, 2 nit) + 2 praise; the round-1 important is fixed
+- Justification: the only previous blocking/important finding is fixed and verified in code and in the two new tests. The range's other changes (open-PR answer and file checks, CI archive check, `isArchiveRecord`) are consistent with the design and add no defect I could find. `unnamedFiles` now treats only `openspec/changes/` and `openspec/roadmap.md` as free, which tightens AC-3. No open blocking or important item remains.

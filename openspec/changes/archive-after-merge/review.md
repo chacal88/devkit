@@ -29,3 +29,26 @@ Consensus: FAIL (round 1/2)
 ## Next
 
 Fix the blockers through `tdd-implementer`; round 2 re-summons code-quality-reviewer, security-reviewer and test-coverage-reviewer.
+
+---
+
+# Round 2/2 at `d50ffb134c0486372e7b44e2888c211b099bfe99` (range `e497cc2..d50ffb1`)
+
+| Reviewer | Verdict | Open important |
+|---|---|---|
+| adr-reviewer | approved | 1 |
+| architecture-reviewer | approved | 0 |
+| code-quality-reviewer | approved | 0 |
+| security-reviewer | approved | 1 |
+| test-coverage-reviewer | approved | 0 |
+
+Round-1 blockers: all fixed in `d50ffb1` (verified by each reviewer).
+
+Consensus: FAIL by rule (two `important` findings without a rebuttal) after round 2 → escalated to the owner.
+
+## Escalated to the owner
+
+- adr-reviewer — `docs/adr/0003-auto-merge-the-archive-pr.md` — its Consequences say `devkit-reviews` gates nothing on an archive PR and its file rule says "outside `openspec/`"; since `d50ffb1` CI checks archive PRs and only `openspec/changes/**` and `openspec/roadmap.md` are exempt. Stricter than the ADR; the text is stale.
+- security-reviewer — `plugins/openspec/hooks/deliver-check.mjs` `archiveNext` — the local file/answer check runs only when the folder is archived locally; an open archive PR whose folder never moved can reach `enable-auto-merge` locally (CI staleness backstops it; needs push access).
+
+Owner decision (2026-11-09, in Portuguese: "Corrigir os dois"): fix both through `tdd-implementer`, then a short round 3 with adr-reviewer and security-reviewer only, authorized by the owner.

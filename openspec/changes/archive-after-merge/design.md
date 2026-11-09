@@ -239,9 +239,9 @@ This ADR builds on ADR 0001 and ADR 0002 and leaves both decisions unchanged. Un
 each of its proposals, `openspec archive`, the roadmap tick and the approved proposals land in
 one archive PR on `chore/archive-<id>`. The `devkit` ruleset refuses direct pushes to the default
 branch for everyone, and the owner ruled out a bypass. An archive PR has no delivery contract:
-no tasks, no reviews, no acceptance criteria. `devkit-reviews` selects no change on it and passes
-with a note. Yet it can change product files, because approved proposals edit docs, agents and
-tests.
+no tasks, no reviews, no acceptance criteria. `devkit-reviews` selects no change on it and runs
+only the archive check described under Consequences. Yet it can change product files, because
+approved proposals edit docs, agents and tests.
 
 ## Decision
 
@@ -249,9 +249,9 @@ In `merge` ship mode, `ship-change` enables GitHub's auto-merge on the archive P
 project's `merge_method`, pinned to the head `deliver-check` checked (`--match-head-commit`),
 when `deliver-check` reports that PR open with no merge conflict, no failing or cancelled
 check, its head equal to the local head, nothing uncommitted, not behind its base, and no
-changed file outside `openspec/` that an owner-approved retro proposal does not name (version
-manifests, CHANGELOG and the generated catalog excepted). It disables auto-merge as soon as one
-of those stops holding. The gate for that PR is the owner's explicit answer to each proposal,
+changed file that an owner-approved retro proposal does not name (exempt:
+`openspec/changes/**`, `openspec/roadmap.md`, the version manifests, CHANGELOG and the
+generated catalog). It disables auto-merge as soon as one of those stops holding. The gate for that PR is the owner's explicit answer to each proposal,
 recorded in `retro.md` before the PR exists, together with the ruleset's required checks.
 GitHub performs the merge; nothing pushes to the default branch. In `pr` mode the owner
 merges the archive PR. In `plan` mode no change reaches a PR, so there is nothing to archive.
@@ -262,8 +262,10 @@ merges the archive PR. In `plan` mode no change reaches a PR, so there is nothin
   bypass exists for anyone; every archive commit is a reviewable PR on GitHub.
 - Negative: approved proposals land without a code review (Accepted: the owner approved each
   one by name and the file check refuses anything else; `check` runs the suite on the PR).
-  `devkit-reviews` gates nothing on an archive PR (Accepted: it has no change to check; the
-  hooks and CI never select another change from an archive branch). The owner's answers live
+  `devkit-reviews --ci` checks archive PRs (detected by the archived folder in the diff)
+  against the archived `retro.md` and fails on a missing retro, an unanswered proposal or a
+  file no approved proposal names, so the required check backs the local file check (the hooks
+  and CI never select another change from an archive branch). The owner's answers live
   uncommitted in `retro.md` until the archive PR, so a lost checkout means asking again
   (Accepted by the owner). Between skill runs GitHub merges on required checks alone
   (Mitigated, as in ADR 0002: the skill disables auto-merge when a condition drops).
