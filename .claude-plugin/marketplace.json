@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Reusable Claude Code agents, skills and an OpenSpec-based workflow, split into packs you install per project.",
-    "version": "0.5.0"
+    "version": "0.5.1"
   },
   "plugins": [
     {
       "name": "devkit-core",
       "source": "./plugins/core",
       "description": "Stack-agnostic dev workflow: research, plan, implement, review, ship, debug and test.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "category": "development"
     },
     {

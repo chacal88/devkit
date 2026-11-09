@@ -4,7 +4,7 @@
 - [x] ship-modes
 
 ## Round 2: auto-merge, opt-in per repository
-- [ ] auto-merge (after: ship-modes)
+- [x] auto-merge (after: ship-modes)
 
 Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now runs `deliver-check --ci`, which shares `readReviews`): CI's `reviewConsensus` (`guard.mjs`) has no staleness check while `deliver-check`'s `reviewsItem` does; the `devkit-reviews` CI check should share `readReviews` so both agree on "approved".
 

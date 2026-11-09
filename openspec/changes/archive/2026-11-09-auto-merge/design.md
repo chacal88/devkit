@@ -1,6 +1,6 @@
 # Design
 
-Change: `auto-merge` · Date: 2026-11-08 · Owner: kaue rodrigues dos santos · Inputs: [requirements.md](requirements.md), [proposal.md](proposal.md) · PRD / tech spec: n/a · Decisions: [ADR 0001](../../../docs/adr/0001-coordination-without-a-harness.md), ADR 0002 (drafted in D10)
+Change: `auto-merge` · Date: 2026-11-08 · Owner: kaue rodrigues dos santos · Inputs: [requirements.md](requirements.md), [proposal.md](proposal.md) · PRD / tech spec: n/a · Decisions: [ADR 0001](../../../../docs/adr/0001-coordination-without-a-harness.md), ADR 0002 (drafted in D10)
 
 ## Context
 

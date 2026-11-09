@@ -8,6 +8,8 @@ This repository ships in `merge` mode ([ADR 0002](docs/adr/0002-merge-without-th
 
 When a change edits an agent's output format, dispatch that change's agents with the repo's `plugins/<pack>/agents/<name>.md` as the format source: the installed plugins follow the old format until the release is installed.
 
+When an implementer resolves a readiness note in a way the design does not say, amend `design.md` in the same phase.
+
 ## Adding or changing an asset
 
 1. Read [docs/conventions.md](docs/conventions.md): naming, frontmatter, and what an agent or skill body must contain.
