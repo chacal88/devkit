@@ -8,7 +8,9 @@ This repository ships in `merge` mode ([ADR 0002](docs/adr/0002-merge-without-th
 
 When a change edits an agent's output format, dispatch that change's agents with the repo's `plugins/<pack>/agents/<name>.md` as the format source: the installed plugins follow the old format until the release is installed.
 
-When an implementer resolves a readiness note in a way the design does not say, amend `design.md` in the same phase.
+When an implementer resolves a readiness note in a way the design does not say, amend `design.md` in the same phase. When a check guards an action (auto-merge, a push, a merge), the design lists every step path that reaches that action, open and resumed states included, and each path gets the check and a test.
+
+When a fix changes behaviour that an ADR or `design.md` written in the same change describes, update that text in the same fix commit; a stale ADR found by review costs another round.
 
 ## Adding or changing an asset
 
@@ -28,6 +30,8 @@ When an implementer resolves a readiness note in a way the design does not say, 
    ```bash
    node --test plugins/openspec/hooks/guard.test.mjs
    ```
+
+   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs` and `github-setup.test.mjs`, so this one command runs every hook test (about 6 minutes); give reviewers its result instead of having them re-run it.
 
    ```bash
    claude plugin validate .
