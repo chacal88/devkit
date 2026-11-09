@@ -50,11 +50,11 @@ Phases 1 to 4 are each one `devkit-core:tdd-implementer` run; tests come first i
 
 ## 5. Dogfood on chacal88/devkit (main session, after reviews, first evidence and the open PR)
 
-- [ ] 5.1 Confirm the precondition: the PR for `auto-merge` is open and `gh pr checks <n> --json name` lists both `check` and `devkit-reviews` (any result). Run `node plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs` against chacal88/devkit and show the owner the full plan, including that `main` will refuse direct pushes from everyone (AC-7, AC-10)
-- [ ] 5.2 For each item not `ok` (`auto-merge`, `delete-branch`, `ruleset`), ask the owner, then run `--apply <that item>` only after a yes; run the plan again and record it all `ok`; record `gh api repos/chacal88/devkit --jq '{allow_auto_merge,delete_branch_on_merge}'` and `gh api repos/chacal88/devkit/rules/branches/main` in `openspec/changes/auto-merge/dogfood.md` (AC-10)
-- [ ] 5.3 With the owner's go-ahead, add `ship:` with `devkit-lite: merge` and `devkit: merge` and `merge_method: squash` to `openspec/config.yaml` (design R-9); `node plugins/openspec/hooks/deliver-check.mjs auto-merge --json` shows `ship: "merge"`, `merge.setup.ok: true` and no exit 3; output appended to `dogfood.md` (AC-1, AC-6, AC-10)
-- [ ] 5.4 `git status` shows changes only under `openspec/`, so every review `Commit:` stays current (`deliver-check` item 2 met)
-- [ ] 5.5 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-10 (pre-merge part), AC-11
+- [x] 5.1 Confirm the precondition: the PR for `auto-merge` is open and `gh pr checks <n> --json name` lists both `check` and `devkit-reviews` (any result). Run `node plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs` against chacal88/devkit and show the owner the full plan, including that `main` will refuse direct pushes from everyone (AC-7, AC-10)
+- [x] 5.2 For each item not `ok` (`auto-merge`, `delete-branch`, `ruleset`), ask the owner, then run `--apply <that item>` only after a yes; run the plan again and record it all `ok`; record `gh api repos/chacal88/devkit --jq '{allow_auto_merge,delete_branch_on_merge}'` and `gh api repos/chacal88/devkit/rules/branches/main` in `openspec/changes/auto-merge/dogfood.md` (AC-10)
+- [x] 5.3 With the owner's go-ahead, add `ship:` with `devkit-lite: merge` and `devkit: merge` and `merge_method: squash` to `openspec/config.yaml` (design R-9); `node plugins/openspec/hooks/deliver-check.mjs auto-merge --json` shows `ship: "merge"`, `merge.setup.ok: true` and no exit 3; output appended to `dogfood.md` (AC-1, AC-6, AC-10)
+- [x] 5.4 `git status` shows changes only under `openspec/`, so every review `Commit:` stays current (`deliver-check` item 2 met)
+- [x] 5.5 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-10 (pre-merge part), AC-11
 
 ## Workflow follow-up
 

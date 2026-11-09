@@ -7,6 +7,13 @@
 #   openspec new change <name> --schema devkit
 schema: devkit-lite
 
+# How far ship-change takes an approved change, per schema (plan | pr | merge).
+# merge: GitHub's auto-merge, enabled only when deliver-check reports 8/8 (ADR 0002).
+ship:
+  devkit-lite: merge
+  devkit: merge
+merge_method: squash
+
 # Shown to the agent in every artifact and in apply. Fill in for this project.
 context: |
   Stack: Claude Code plugin marketplace - Markdown agents/skills, OpenSpec schemas (YAML), Node.js hooks (plugins/openspec/hooks/guard.mjs), Python scripts

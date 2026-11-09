@@ -1,8 +1,8 @@
-Commit: cba2f4484a9452a95615ee6eba015bb21ecc1f98
+Commit: faf6a726b6a101f452d7a2e11e75460156f0f2f7
 
 # Evidence: auto-merge
 
-Verified on branch `auto-merge` at the commit above. The working tree also had uncommitted edits only under `openspec/changes/auto-merge/` (`review.md`, `reviews/*.md`) and an untracked `.claude/`; nothing outside `openspec/`. No PR exists yet, so there is no PR comment. Phase 5 (tasks 5.1 to 5.5, the dogfood on chacal88/devkit) has not run: no GitHub setting was changed and `gh pr merge` was never called.
+Re-verified on branch `auto-merge` at the commit above (PR #5 is open: https://github.com/chacal88/devkit/pull/5). The working tree also had uncommitted edits only under `openspec/` (`openspec/changes/auto-merge/tasks.md`, `dogfood.md`, `openspec/config.yaml`) and an untracked `.claude/`; nothing outside `openspec/`. Phase 5 (tasks 5.1 to 5.5, the dogfood on chacal88/devkit) was done in the main session with the owner's confirmation per setting; I changed no GitHub setting and never called `gh pr merge`. The phase 1 to 4 gate rows and AC-1 to AC-9, AC-11 below are from the earlier verification at `cba2f44`; no product file changed since (only `openspec/` files), and the phase 5 gate re-ran the full suite.
 
 ## Verification
 
@@ -16,8 +16,10 @@ Every gate ran as its own command; the exit code decided.
 | check | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
 | catalog | `python3 scripts/gen-catalog.py --check` | pass: exit 0, no output (catalog is current) |
 | validate | `claude plugin validate .` | pass: exit 0, "Validation passed" (marketplace manifest) |
+| tests (phase 5 gate, task 5.5) | `node --test plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 305 tests, 305 pass, 0 fail, 0 skipped, re-run at faf6a72 after the dogfood |
+| check (phase 5 gate, task 5.5) | `python3 scripts/check.py` | pass: exit 0, "all checks passed", re-run at faf6a72 after the dogfood |
 
-The phase 5 gate (task 5.5) is the first two commands again after the dogfood; it is not run yet. Tasks 5.1 to 5.5 are unticked.
+The phase 5 gate (task 5.5) is the two `phase 5` rows above: the first two commands again after the dogfood, each run on its own with its exit code deciding. Tasks 5.1 to 5.5 are ticked.
 
 ### Acceptance criteria
 
@@ -32,7 +34,7 @@ The phase 5 gate (task 5.5) is the first two commands again after the dogfood; i
 | AC-7 | `openspec-setup` GitHub step lists ruleset, `allow_auto_merge`, `delete_branch_on_merge`, workflow; applies nothing unconfirmed; idempotent | Live dry run, `node plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs` against chacal88/devkit, exit 0, no `--apply`: `workflow ok .github/workflows/devkit-reviews.yml runs deliver-check --ci`; `auto-merge update allow_auto_merge is off` with the payload `gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true`; `delete-branch update delete_branch_on_merge is off` with its PATCH payload; `ruleset deferred devkit-reviews has not reported yet; merge the workflow first`; contexts found on main: `check`. `git status` afterwards shows no file written outside `openspec/`. Tests: `plan (no --apply): four items with state and payload, no -X call, no file written`; `--apply auto-merge applies only that item`; `--apply on a deferred ruleset applies nothing`; `a second --apply run is all ok with no -X call (AC-7 idempotent)`; `format: openspec-setup has the GitHub step: ... one confirmation per item, nothing applied unconfirmed`. Limit: a `GH_DEBUG=api` run showed no request lines because the script captures gh's stderr, so "no PATCH/POST/PUT on the real repo" rests on the fake-gh call-log test, not on the debug log. The apply on the real repo is phase 5 | pass |
 | AC-8 | Merge method follows `merge_method`, default `squash` | Tests: `parseMergeMethod: no key or an empty one is squash; the three methods are read with quotes and comments`; `merge mode: merge_method rebase reaches the step`; `mergeSetup: the merge method must be allowed, per method`; `merge setup stops: merge_method rebase with rebase merges off ... naming the method`; github-setup output above reports "merge method squash" for the repo; live config `merge_method: rebase` accepted (exit 2, no exit 3) | pass |
 | AC-9 | ADR 0002 exists and is cited; no doc says ship mode never merges without naming the mode | `docs/adr/0002-merge-without-the-owner-opt-in.md` exists; `README.md:50` and `docs/openspec-flow.md:232` link it. Tests: `ADR 0002 exists, is cited by README and docs/openspec-flow.md, and says Status: accepted`; `docs sweep: "never merges" and "the merge is the owner's" lines name a ship mode or are about commit-and-pr`; `python3 scripts/check.py` passes (links) | pass |
-| AC-10 | chacal88/devkit has the ruleset, auto-merge, branch deletion and the workflow, and this PR is merged by GitHub's auto-merge after 8/8 | no proof: dogfood runs after the PR opens (phase 5 plus the auto-merge itself). Observed now: `allow_auto_merge` off, `delete_branch_on_merge` off, no `devkit-reviews` rule on main, ruleset deferred; only the workflow file exists | no proof: dogfood runs after the PR opens |
+| AC-10 | chacal88/devkit has the ruleset, auto-merge, branch deletion and the workflow, and this PR is merged by GitHub's auto-merge after 8/8 | Pre-merge part, read live by me (read-only, no setting changed): `gh api repos/chacal88/devkit --jq '{allow_auto_merge,delete_branch_on_merge}'` gives `{"allow_auto_merge":true,"delete_branch_on_merge":true}`; `gh api repos/chacal88/devkit/rules/branches/main` returns ruleset #26859494 (source chacal88/devkit) with rules `pull_request`, `required_status_checks` (contexts `check` and `devkit-reviews`, strict policy on) and `non_fast_forward`; `node plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs` (no `--apply`) exit 0 with `workflow`, `auto-merge`, `delete-branch` and `ruleset` all `ok`; `node plugins/openspec/hooks/deliver-check.mjs auto-merge --json` shows `"ship": "merge"` and `merge.setup.ok: true`, `missing: []`, `method: squash`, `autoMerge: false`, state OPEN (exit 2 at the time because of the open items listed below, not 3). `dogfood.md` records the owner-confirmed apply and the idempotent re-run. The merge itself (state, mergedAt, mergedBy, autoMergeRequest, timeline) cannot exist before it happens and is recorded in `retro.md` after it happens (design R-5); this row proves the pre-merge conditions only | pass: pre-merge conditions proven; the merge is recorded in retro.md after it happens (R-5) |
 | AC-11 | The test command passes, with tests covering `merge` parsing, enable/disable rules, MERGED state, the preflight block and CI items 1-4 | `node --test plugins/openspec/hooks/guard.test.mjs` exit 0 (305 pass) and `python3 scripts/check.py` exit 0; coverage by the named tests under AC-1 to AC-6 | pass |
 
 ### Smoke (retro lesson: checkers on real input)
@@ -45,6 +47,6 @@ None found. Observations that are not defects: the `github-setup.mjs` debug-log 
 
 ### What remains open
 
-- Phase 5 (tasks 5.1 to 5.5) and its gate row: item 1 of the delivery contract stays open until they are ticked.
-- AC-10: item 4 stays open until its row passes, which needs the dogfood proof from `dogfood.md` after the PR opens and the auto-merge.
-- AC-7's apply on the real repo, and the owner's confirmation per setting, come in phase 5.
+- The merge itself: enable auto-merge only when `deliver-check` reports 8/8, then record `gh pr view 5 --json state,mergedAt,mergedBy,autoMergeRequest` and the timeline in `retro.md` (R-5).
+- Delivery items 5 and 6 at the time of this run: item 5 (pr) was open because `tasks.md`, `dogfood.md` and `config.yaml` are uncommitted (and this file); item 6 (checks) showed `devkit-reviews` failing on the PR's remote head, which does not yet have the phase 5 commit, evidence or tick. Both resolve by committing and pushing these files; they are the owner's or the main session's step, not mine.
+- The owner weighs the evidence; I approved nothing.
