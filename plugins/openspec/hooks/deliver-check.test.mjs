@@ -2,13 +2,14 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs both files.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync, readdirSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ghError } from './merge-setup.mjs';
-import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes } from './deliver-check.mjs';
+import { archiveBranchChange, resolveChange } from './guard.mjs';
+import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro } from './deliver-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemas = join(here, '..', 'schemas');
@@ -665,12 +666,32 @@ const apiKey = () => {
   const route = args.slice(1).find((a, i, all) => !a.startsWith('-') && all[i - 1] !== '-X' && all[i - 1] !== '-F' && all[i - 1] !== '-f' && all[i - 1] !== '--jq' && all[i - 1] !== '--input');
   return 'api-' + method + '-' + String(route).replace(/[\\/{}?]/g, '_');
 };
-const key = args[0] === 'api' ? apiKey() : args[0] + '-' + args[1] + (args.includes('--watch') ? '-watch' : '');
+const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
+// pr list: the most specific fixture wins (--head, then --state), then plain pr-list.
+const keys = args[0] === 'api' ? [apiKey()] : args[0] === 'pr' && args[1] === 'list'
+  ? [...(opt('--head') ? ['pr-list-head-' + opt('--head').replace(/[\\/{}?]/g, '_')] : []), ...(opt('--state') ? ['pr-list-state-' + opt('--state')] : []), 'pr-list']
+  : [args[0] + '-' + args[1] + (args.includes('--watch') ? '-watch' : '')];
+// A view of a PR by number may have its own fixture (pr-view-<n>.json), ahead of the plain pr-view ones.
+const own = args[0] === 'pr' && args[1] === 'view' && /^[0-9]+$/.test(args[2] || '') ? path.join(dir, 'pr-view-' + args[2] + '.json') : null;
+const key = keys[0];
 fs.appendFileSync(path.join(dir, 'calls.log'), JSON.stringify(args) + '\\n');
+// A body read of a merged PR in the list is answered from it, and is not counted as a plain pr-view call.
+const fields = (opt('--json') || '').split(',');
+const merged = path.join(dir, 'pr-list-state-merged.json');
+const project = (o) => Object.fromEntries(fields.filter((f) => f in o).map((f) => [f, o[f]]));
+if (own && !fs.existsSync(own) && fs.existsSync(merged) && opt('--json') === 'body') {
+  const hit = (JSON.parse(fs.readFileSync(merged, 'utf8')).stdout || []).find((p) => String(p.number) === args[2]);
+  if (hit) { process.stdout.write(JSON.stringify(project(hit))); process.exit(0); }
+}
 const counter = path.join(dir, key + '.count');
 const n = (fs.existsSync(counter) ? Number(fs.readFileSync(counter, 'utf8')) : 0) + 1;
 fs.writeFileSync(counter, String(n));
-const file = [key + '.' + n + '.json', key + '.json'].map((f) => path.join(dir, f)).find((f) => fs.existsSync(f));
+const file = [own, ...keys.flatMap((k) => [k + '.' + n + '.json', k + '.json']).map((f) => path.join(dir, f))].filter(Boolean).find((f) => fs.existsSync(f));
+// Like gh, answer only the JSON fields asked for: a merged-PR list carries a body only on request.
+if (args[0] === 'pr' && args[1] === 'list' && opt('--state') === 'merged' && file === merged) {
+  const fx = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (Array.isArray(fx.stdout)) { process.stdout.write(JSON.stringify(fx.stdout.map(project))); process.exit(fx.exit === undefined ? 0 : fx.exit); }
+}
 if (!file) {
   process.stderr.write('fake gh: no fixture for "' + key + '" (call ' + n + '): ' + args.join(' ') + '\\n');
   process.exit(99);
@@ -758,12 +779,58 @@ test('fake gh: api graphql keeps its key, and a missing api fixture fails loudly
   assert.match(r.stderr, /no fixture for "api-GET-repos__owner___repo_"/);
 });
 
+test('fake gh: pr list calls get their own keys by --head and --state, and an existing pr-list fixture still answers them (archive-after-merge 2.1)', () => {
+  const gh = fakeGh();
+  gh.set('pr-list', { stdout: 'any' });
+  assert.equal(callGh(gh, 'pr', 'list', '--head', 'ship/feat', '--state', 'all').stdout, 'any', 'the old fixture answers a call with --head');
+  assert.equal(callGh(gh, 'pr', 'list', '--state', 'merged', '--limit', '100').stdout, 'any', 'and a call without --head');
+  gh.set('pr-list-head-chore_archive-x', { stdout: 'archive' });
+  gh.set('pr-list-state-merged', { stdout: 'merged' });
+  assert.equal(callGh(gh, 'pr', 'list', '--head', 'chore/archive-x', '--state', 'all').stdout, 'archive', '/ becomes _ in the head');
+  assert.equal(callGh(gh, 'pr', 'list', '--state', 'merged').stdout, 'merged');
+  assert.equal(callGh(gh, 'pr', 'list', '--head', 'ship/feat', '--state', 'all').stdout, 'any', 'another head falls back to pr-list');
+  assert.equal(callGh(gh, 'pr', 'view').status, 99, 'pr view is untouched by the pr-list keys');
+});
+
+test('fake gh: a pr list call with no fixture fails loudly naming its most specific key (archive-after-merge 2.1)', () => {
+  const gh = fakeGh();
+  const r = callGh(gh, 'pr', 'list', '--head', 'chore/archive-x', '--state', 'all');
+  assert.equal(r.status, 99);
+  assert.match(r.stderr, /no fixture for "pr-list-head-chore_archive-x"/);
+  const s = callGh(gh, 'pr', 'list', '--state', 'merged');
+  assert.match(s.stderr, /no fixture for "pr-list-state-merged"/);
+  assert.match(callGh(gh, 'pr', 'list').stderr, /no fixture for "pr-list"/);
+});
+
 test('fake gh: sleep delays the answer', () => {
   const gh = fakeGh();
   gh.set('pr-view', { stdout: 'ok', sleep: 300 });
   const t = Date.now();
   assert.equal(callGh(gh, 'pr', 'view').stdout, 'ok');
   assert.ok(Date.now() - t >= 250);
+});
+
+// ---------------------------------------------------------------- locating a change, active or archived (archive-after-merge 2.2, D3)
+
+test('locateChange: active folder, newest dated archive folder with the exact id, or null (D3)', () => {
+  const root = gitRepo({ changes: { live: { 'tasks.md': 'x\n' } } });
+  for (const d of ['archive/2026-01-02-x', 'archive/2026-03-04-x', 'archive/2026-05-06-xx', 'archive/2026-03-04-y']) {
+    put(root, { [`openspec/changes/${d}/proposal.md`]: 'p\n' });
+  }
+  assert.deepEqual(locateChange(root, 'live'), { dir: join(root, 'openspec/changes/live'), archived: false });
+  assert.deepEqual(locateChange(root, 'x'), { dir: join(root, 'openspec/changes/archive/2026-03-04-x'), archived: true }, 'the newest date wins and xx is not x');
+  assert.equal(locateChange(root, 'nope'), null);
+  assert.equal(locateChange(root, 'archive'), null, 'the archive folder is not a change');
+  put(root, { 'openspec/changes/x/proposal.md': 'p\n' });
+  assert.equal(locateChange(root, 'x').archived, false, 'an active folder wins over an archived one');
+});
+
+test('schemaOf: an archived change reads its own .openspec.yaml, so a devkit change in a devkit-lite project keeps ship.devkit (D3)', () => {
+  const root = gitRepo({ config: 'schema: devkit-lite\nship:\n  devkit: merge\n  devkit-lite: pr\n', changes: { live: { '.openspec.yaml': 'schema: devkit\n' } } });
+  put(root, { 'openspec/changes/archive/2026-11-09-x/.openspec.yaml': 'schema: devkit\n', 'openspec/changes/archive/2026-11-09-bare/proposal.md': 'p\n' });
+  assert.equal(schemaOf(root, locateChange(root, 'live')), 'devkit');
+  assert.equal(schemaOf(root, locateChange(root, 'x')), 'devkit');
+  assert.equal(schemaOf(root, locateChange(root, 'bare')), 'devkit-lite', 'no file in the folder: the project default');
 });
 
 // ---------------------------------------------------------------- item 5: PR open at local head (D4)
@@ -1351,7 +1418,8 @@ function shipRepo({ ship = 'pr', method = '' } = {}) {
   });
   git(root, 'switch', '-q', '-c', 'ship/feat');
   const gh = fakeGh();
-  if (ship === 'merge') { presetSetup(gh); gh.set('pr-list', { stdout: [] }); }
+  if (ship === 'merge') presetSetup(gh);
+  if (ship !== 'plan') gh.set('pr-list', { stdout: [] });
   gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
   const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
   return { root, gh, env, next: () => nextStep(collectState(root, 'feat', { env })) };
@@ -1376,7 +1444,8 @@ function devkitRepo({ readiness = null, branch = 'ship/feat', others = [], ship 
   if (branch !== 'main') git(root, 'switch', '-q', '-c', branch);
   const gh = fakeGh();
   gh.set('pr-view', { exit: 1, stderr: `no pull requests found for branch "${branch}"\n` });
-  if (ship === 'merge') { presetSetup(gh); gh.set('pr-list', { stdout: [] }); }
+  if (ship === 'merge') presetSetup(gh);
+  if (ship !== 'plan') gh.set('pr-list', { stdout: [] });
   const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
   return { root, gh, env, state: (over = {}) => collectState(root, 'feat', { env: { ...env, ...over } }) };
 }
@@ -1649,9 +1718,10 @@ function withItem(n, status, details = {}, over = {}) {
 const autoOn = { autoMerge: true };
 const prOf = (extra) => ({ ...metState().pr, ...extra });
 
-test('nextStep row 0a: a PR merged at the local head is merged, before every other row (AC-4)', () => {
-  const s = withItem(5, 'met', { merged: true }, { pr: prOf({ state: 'MERGED' }), dirty: ['src/a.ts'] });
-  assert.equal(nextStep(s).step, 'merged');
+test('nextStep: a merged PR leads to the archive steps and never to a final "merged" step, before every other row (archive-after-merge R-9)', () => {
+  const archive = { base: 'main', branch: 'chore/archive-feat', onDefault: 'active', retro: { exists: false, readable: false, proposals: [] }, roadmap: { listed: false, ticked: false, line: null }, dirty: [], pr: null, local: 'active', changePr: { number: 12, url: 'u' } };
+  const s = withItem(5, 'met', { merged: true }, { pr: prOf({ state: 'MERGED' }), dirty: ['src/a.ts'], archive });
+  assert.deepEqual([nextStep(s).step, nextStep(s).number], ['retro', 12]);
 });
 
 test('nextStep row 0b: auto-merge on and any item not met disables it first, ahead of every stop and of push (AC-3)', () => {
@@ -1842,14 +1912,22 @@ test('merge mode: 8/8 with auto-merge on is exit 0 and "auto-merge on: waiting f
   assert.match(runCli(t, ['feat']).out, /^8\/8 met: auto-merge on: waiting for branch rules/m);
 });
 
-test('merge mode: a MERGED PR is "merged", exit 0, and the merge object says so (AC-4)', () => {
+test('merge mode: a MERGED PR is the first archive step (retro), exit 0, and the merge object says so (AC-1)', () => {
   const t = mergeReady({ state: 'MERGED' });
+  presetArchiveReads(t);
   const r = runCli(t, ['feat', '--json']);
   assert.equal(r.code, 0);
   const j = JSON.parse(r.out);
-  assert.deepEqual([j.met, j.summary, j.next.step, j.merge.state], [8, 'merged', 'merged', 'MERGED']);
-  assert.match(runCli(t, ['feat']).out, /^8\/8 met: merged$/m);
+  assert.deepEqual([j.met, j.summary, j.next.step, j.merge.state], [8, 'merged: archive step retro', 'retro', 'MERGED']);
+  assert.match(runCli(t, ['feat']).out, /^8\/8 met: merged: archive step retro$/m);
 });
+
+// The GitHub reads of the post-merge phase for a change whose folder is still on main and has no archive PR.
+function presetArchiveReads(t) {
+  t.gh.set(ARCHIVE_LISTING, { stdout: [] });
+  t.gh.set(ACTIVE_ON_MAIN, { stdout: {} });
+  t.gh.set(ARCHIVE_PRS, { stdout: [] });
+}
 
 test('merge mode: a PR behind its base is update-branch with the item 5 reason', () => {
   const t = mergeReady({ mergeStateStatus: 'BEHIND' });
@@ -1860,13 +1938,14 @@ test('merge mode: a PR behind its base is update-branch with the item 5 reason',
 
 // ---- carry-over from the readiness review: a PR merged right after enable-auto-merge must still be found
 
-test('carry-over: after an immediate merge the branch no longer finds the PR; merge mode looks it up by head branch among merged PRs and reports merged (AC-4)', () => {
+test('carry-over: after an immediate merge the branch no longer finds the PR; it is looked up by head branch among merged PRs and leads to the retro (AC-4, AC-1)', () => {
   const t = mergeReady();
+  presetArchiveReads(t);
   const merged = prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY });
   t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
   t.gh.set('pr-list', { stdout: [merged] });
   const j = JSON.parse(runCli(t, ['feat', '--json']).out);
-  assert.deepEqual([j.summary, j.next.step, j.pr.number], ['merged', 'merged', 12]);
+  assert.deepEqual([j.summary, j.next.step, j.pr.number], ['merged: archive step retro', 'retro', 12]);
   assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head') && c.includes('ship/feat') && c.includes('all')), 'the lookup includes merged and closed states');
 });
 
@@ -1891,21 +1970,24 @@ test('carry-over: once the number is known the PR is read by number, so a change
   assert.deepEqual(t.gh.calls().slice(before).find((c) => c[1] === 'view'), ['pr', 'view', '12', '--json', MERGE_FIELDS]);
 });
 
-test('carry-over: pr mode still reports a MERGED PR as blocked item 5 and plan mode stops, and neither looks the PR up by branch', () => {
+test('carry-over: pr mode with a MERGED PR leads to the archive steps (R-3), plan mode still stops, and plan mode never looks the PR up by branch', () => {
   const t = shipRepo({ ship: 'pr' });
   driveToReady(t);
+  presetSetup(t.gh);
+  presetArchiveReads(t);
   t.gh.set('pr-view', { stdout: prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY }) });
   let j = JSON.parse(runCli(t, ['feat', '--json']).out);
-  assert.equal(runCli(t, ['feat']).code, 2);
-  assert.deepEqual([j.summary, j.next.step], ['blocked: item 5', 'blocked']);
-  assert.match(j.items[4].reason, /is merged/);
+  assert.equal(runCli(t, ['feat']).code, 0);
+  assert.deepEqual([j.summary, j.next.step], ['merged: archive step retro', 'retro']);
+  assert.match(j.items[4].reason, /PR #12 merged/);
   t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
   j = JSON.parse(runCli(t, ['feat', '--json']).out);
   assert.equal(j.items[4].details.none, true, 'as in 0.4.0: no PR found is open');
+  const before = t.gh.calls().length;
   writeFileSync(join(t.root, 'openspec/config.yaml'), 'schema: devkit-lite\nship:\n  devkit-lite: plan\n');
   j = JSON.parse(runCli(t, ['feat', '--json']).out);
   assert.equal(j.next.step, 'stop-plan-mode');
-  assert.ok(!t.gh.calls().some((c) => c[1] === 'list'), 'no pr list outside merge mode');
+  assert.ok(!t.gh.calls().slice(before).some((c) => c[1] === 'list'), 'no pr list in plan mode');
 });
 
 // Items 6, 7 and 8 through the real collector in merge mode: nothing enables auto-merge over open work.
@@ -1955,15 +2037,16 @@ function waiting(over = {}) {
   return t;
 }
 
-test('--watch at wait-merge: polls gh pr view <n> until MERGED, then collects again and reports merged (AC-4)', () => {
+test('--watch at wait-merge: polls gh pr view <n> until MERGED, then collects again and goes on to the retro (AC-4, AC-1)', () => {
   const t = waiting();
+  presetArchiveReads(t);
   t.gh.set('pr-view', { stdout: t.pr(on) }, 1);
   t.gh.set('pr-view', { stdout: t.pr(on) }, 2);
   t.gh.set('pr-view', { stdout: t.pr({ state: 'MERGED' }) });
   const r = t.run();
   assert.equal(r.code, 0, r.out + r.err);
   const j = JSON.parse(r.out);
-  assert.deepEqual([j.summary, j.next.step], ['merged', 'merged']);
+  assert.deepEqual([j.summary, j.next.step], ['merged: archive step retro', 'retro']);
   assert.equal(polls(t).length, 2, 'one open poll, one merged poll');
   assert.ok(t.gh.calls().some((c) => c.join(' ') === `pr view 12 --json ${MERGE_FIELDS}`), 'the final collect reads the PR by number');
 });
@@ -2051,7 +2134,7 @@ test('--watch outside wait-merge never polls (enable-auto-merge, and no --watch 
 
 // ---------------------------------------------------------------- the merge walkthrough (auto-merge 2.7: AC-2, AC-3, AC-4)
 
-test('walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then merged', () => {
+test('walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then the retro', () => {
   const t = shipRepo({ ship: 'merge' });
   const taken = driveToReady(t);
   assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'review', 'verify', 'open-pr', 'enable-auto-merge']);
@@ -2088,9 +2171,10 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
   pr(on, head(t.root));
   seen.push(step().step);
   pr({ state: 'MERGED' }, head(t.root));
+  presetArchiveReads(t);
   seen.push(step().step);
 
-  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'review', 'verify', 'push', 'enable-auto-merge', 'wait-merge', 'merged']);
+  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'review', 'verify', 'push', 'enable-auto-merge', 'wait-merge', 'retro']);
   assert.deepEqual(noMergeCall(t), [], 'deliver-check never merges; the skill runs gh pr merge');
 });
 
@@ -2162,7 +2246,8 @@ test('CLI: exit 3 for an unknown change, a missing id, no openspec/ and an archi
     assert.equal(runCli(t, [dots, '--json']).code, 3, dots);
   }
   mkdirSync(join(t.root, 'openspec/changes/archive/2026-01-01-gone'), { recursive: true });
-  assert.equal(runCli(t, ['gone']).code, 3);
+  assert.notEqual(runCli(t, ['gone']).code, 3, 'an archived change answers (archive-after-merge D3)');
+  assert.equal(runCli(t, ['neverexisted']).code, 3);
   const bare = mkdtempSync(join(tmpdir(), 'devkit-bare-'));
   const r = runCli(t, ['feat'], { cwd: bare });
   assert.equal(r.code, 3);
@@ -2429,12 +2514,14 @@ test('format: ship-change skill exists, says "Use when", and its deliver-check p
 test('format: ship-change names every next.step the checker can return', () => {
   const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
   const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready',
-    'stop-merge-setup', 'disable-auto-merge', 'update-branch', 'enable-auto-merge', 'wait-merge', 'merged'];
+    'stop-merge-setup', 'disable-auto-merge', 'update-branch', 'enable-auto-merge', 'wait-merge',
+    'retro', 'stop-retro-answers', 'archive', 'tick-roadmap', 'apply-proposals', 'open-archive-pr', 'archive-pr-ready', 'stop-archive', 'archived'];
   for (const s of steps) assert.ok(md.includes(`\`${s}\``), `names step ${s}`);
+  assert.ok(!steps.includes('merged') && !/^\|[^|]*`merged`[^|]*\|/m.test(md), 'no `merged` row: it is a state now, not an end (D7)');
   // whatever nextStep can emit has a row in the table, so a new step cannot ship without the skill
   const src = readFileSync(join(repoRoot, 'plugins', 'openspec', 'hooks', 'deliver-check.mjs'), 'utf8');
   const emitted = [...new Set([...src.matchAll(/\bstep\('([a-z-]+)'/g)].map((m) => m[1]))];
-  assert.ok(emitted.length >= steps.length, 'found the steps in nextStep');
+  assert.ok(emitted.length >= steps.length - 1, 'found the steps in nextStep');
   for (const s of emitted) assert.match(md, new RegExp(`^\\|[^|]*\`${s}\`[^|]*\\|`, 'm'), `a table row for ${s}`);
 });
 
@@ -2452,7 +2539,7 @@ test('format: ship-change enables auto-merge with one exact command, only at ena
   assert.match(never, /--admin/);
   assert.match(md, /`merge`/);
   assert.doesNotMatch(md, /`merge` is not available yet/);
-  for (const report of ['merged', 'auto-merge on: waiting for', 'blocked: merge setup']) assert.ok(md.includes(report), `Report names ${report}`);
+  for (const report of ['archived', 'archive PR open: waiting for', 'archive PR ready', 'archive: waiting for the owner', 'blocked: archive (', 'auto-merge on: waiting for', 'blocked: merge setup']) assert.ok(md.includes(report), `Report names ${report}`);
 });
 
 // ---------------------------------------------------------------- --ci: the devkit-reviews check (auto-merge D5)
@@ -2662,6 +2749,94 @@ test('--ci selection 3: a squash-merged change still active on the base and unto
   assert.equal(runCi(root).code, 1);
 });
 
+// A base where `x` was squash-merged (still active, unproven) next to the `others`, and a PR branch that archives it.
+// The retro approves `src/a.ts` by default; `retro` and `files` override what the PR carries.
+const X_RETRO = '## Proposed updates\n\n### `src/a.ts` (process-friction)\nSummary.\n- Answer: approved\n- Applied: yes\n';
+function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {} } = {}) {
+  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, changeFilesOf()])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n' } });
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(root, 'switch', '-q', '-c', branch);
+  git(root, 'mv', 'openspec/changes/x', 'openspec/changes/archive/2026-11-09-x');
+  put(root, { ...(retro === null ? {} : { 'openspec/changes/archive/2026-11-09-x/retro.md': retro }), 'openspec/roadmap.md': '## R\n- [x] x\n', 'src/a.ts': 'changed\n', ...files });
+  commitAll(root, 'archive x');
+  return root;
+}
+
+test('--ci on an archive branch: the PR that moves a squash-merged change passes when every file is named and every proposal answered, even beside an open change `merge` (archive-after-merge D2, AC-9)', () => {
+  const env = { GITHUB_BASE_REF: 'main' };
+  for (const [branch, others] of [['chore/archive-x', []], ['chore/archive-x', ['merge']], ['archive-x', []]]) {
+    const root = archivePrRepo({ branch, others });
+    const r = runCi(root, [], env);
+    assert.equal(r.code, 0, `${branch} + ${others}: ${r.out}${r.err}`);
+    assert.match(r.out, /archive.*2026-11-09-x/);
+    assert.equal(r.out.trimEnd().split('\n').at(-1), 'pass');
+    const j = runCi(root, ['--json'], env).json();
+    assert.deepEqual([j.change, j.pass, j.archive.unnamed, j.archive.unanswered], [null, true, [], []]);
+  }
+});
+
+test('--ci on an archive branch: a changed file no approved proposal names fails the check, naming it (review blocker 3)', () => {
+  const env = { GITHUB_BASE_REF: 'main' };
+  for (const [label, opts, unnamed] of [
+    ['an extra product file', { files: { 'src/other.ts': 'o\n' } }, ['src/other.ts']],
+    ['openspec/config.yaml', { files: { 'openspec/config.yaml': 'schema: x\n' } }, ['openspec/config.yaml']],
+    ['a file only a rejected proposal names', { retro: '## Proposed updates\n\n### `src/a.ts` (process-friction)\n- Answer: rejected: no\n' }, ['src/a.ts']],
+    ['a file under a directory a proposal names', { retro: X_RETRO.replace('`src/a.ts`', '`src/`'), files: { 'src/b.ts': 'b\n' } }, ['src/a.ts', 'src/b.ts']],
+  ]) {
+    const root = archivePrRepo(opts);
+    const r = runCi(root, [], env);
+    assert.equal(r.code, 1, `${label}: ${r.out}${r.err}`);
+    for (const p of unnamed) assert.ok(r.out.includes(p), `${label}: names ${p}`);
+    assert.match(r.out.trimEnd().split('\n').at(-1), /^fail: files no approved proposal names/, label);
+    const j = runCi(root, ['--json'], env).json();
+    assert.deepEqual([j.pass, j.archive.unnamed], [false, unnamed], label);
+  }
+});
+
+test('--ci on an archive branch: an unanswered proposal, a retro without the section and a missing retro fail the check (review blocker 3)', () => {
+  const env = { GITHUB_BASE_REF: 'main' };
+  const unanswered = archivePrRepo({ retro: X_RETRO.replace('- Answer: approved\n', '') });
+  const u = runCi(unanswered, [], env);
+  assert.equal(u.code, 1, u.out + u.err);
+  assert.match(u.out, /unanswered proposals: 1/);
+  assert.deepEqual(runCi(unanswered, ['--json'], env).json().archive.unanswered, [1]);
+  for (const retro of ['# Retro\n', null]) {
+    const r = runCi(archivePrRepo({ retro }), [], env);
+    assert.equal(r.code, 1, `${retro}: ${r.out}${r.err}`);
+    assert.match(r.out, /retro\.md.*(missing|no "## Proposed updates")/);
+  }
+});
+
+test('--ci: a PR that archives nothing, or a run without GITHUB_BASE_REF, keeps the "nothing to check" note (review blocker 3)', () => {
+  const root = gitRepo({ branch: 'main', changes: { x: changeFilesOf() }, files: { 'src/a.ts': 'a\n' } });
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(root, 'switch', '-q', '-c', 'chore/docs');
+  put(root, { 'src/a.ts': 'changed\n' });
+  commitAll(root, 'docs');
+  const r = runCi(root, [], { GITHUB_BASE_REF: 'main' });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.match(r.out, /nothing to check/);
+  const local = archivePrRepo({ files: { 'src/other.ts': 'o\n' } });
+  assert.match(runCi(local).out, /nothing to check/, 'no base to compare with');
+});
+
+test('--ci on an archive branch never takes a contained open change, and a PR touching an active change\'s folder still selects it', () => {
+  // `auto-merge` archived on chore/archive-auto-merge while `merge` is open: the contained-name rule must not pick `merge`.
+  const root = gitRepo({ branch: 'main', changes: { 'auto-merge': changeFilesOf(), merge: changeFilesOf() } });
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(root, 'switch', '-q', '-c', 'chore/archive-auto-merge');
+  git(root, 'mv', 'openspec/changes/auto-merge', 'openspec/changes/archive/2026-11-09-auto-merge');
+  put(root, { 'openspec/changes/archive/2026-11-09-auto-merge/retro.md': '## Proposed updates\n\nNone.\n' });
+  commitAll(root, 'archive');
+  const r = runCi(root, [], { GITHUB_BASE_REF: 'main' });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.equal(r.out.trimEnd().split('\n').at(-1), 'pass');
+  // Touching an active change's folder still selects it, archive branch or not.
+  put(root, { 'openspec/changes/merge/notes.md': 'n\n' });
+  commitAll(root, 'touch merge');
+  assert.equal(runCi(root, ['--json'], { GITHUB_BASE_REF: 'main' }).json().change, 'merge');
+});
+
 test('--ci selection 3: GITHUB_BASE_REF without an origin/<base> ref is exit 3 naming the ref', () => {
   const root = ciRepo({ branch: 'main', names: ['feat'] });
   const r = runCi(root, [], { GITHUB_BASE_REF: 'main' });
@@ -2756,4 +2931,983 @@ test('the pin in docs/openspec-flow.md is the commit sha of v + the devkit-opens
   assert.ok(pins.length > 0);
   assert.deepEqual([...new Set(pins)], [`<commit sha of v${v}>`]);
   assert.match(doc, new RegExp(`# .*v${v.replaceAll('.', '\\.')}`), 'a comment in the snippet names the tag');
+});
+
+// ================================================================ after the merge: the archive steps (archive-after-merge phase 2)
+
+const EVIDENCE_LINK = 'openspec/changes/feat/evidence.md';
+const mergedPr = (over = {}) => ({
+  number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefName: 'ship/feat', headRefOid: 'b'.repeat(40), baseRefName: 'main',
+  mergeable: 'UNKNOWN', mergedAt: '2026-11-09T14:56:00Z', body: `feat\n${EVIDENCE_LINK}\n`, autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', ...over,
+});
+const archivePrJson = (over = {}) => ({
+  number: 13, url: 'https://github.com/o/r/pull/13', state: 'OPEN', headRefOid: 'c'.repeat(40), baseRefName: 'main',
+  mergeable: 'MERGEABLE', autoMergeRequest: null, mergeStateStatus: 'CLEAN', ...over,
+});
+const ARCHIVE_LISTING = 'api-GET-repos__owner___repo__contents_openspec_changes_archive_ref=main';
+const ACTIVE_ON_MAIN = 'api-GET-repos__owner___repo__contents_openspec_changes_feat_ref=main';
+const ARCHIVE_PRS = 'pr-list-head-chore_archive-feat';
+const ARCHIVED_DIR = 'openspec/changes/archive/2026-11-09-feat';
+const NOT_FOUND = { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' };
+
+const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
+const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
+  `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
+const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
+const retroPath = (archived) => (archived ? `${ARCHIVED_DIR}/retro.md` : 'openspec/changes/feat/retro.md');
+const writeRetro = (t, md, archived = false) => put(t.root, { [retroPath(archived)]: md });
+// What `openspec archive feat --yes` does to the working tree.
+const archiveFolder = (t) => renameSync(join(t.root, 'openspec/changes/feat'), join(t.root, ARCHIVED_DIR));
+const ticked = '## Round 3\n- [x] feat\n';
+
+// A repository after the change PR was merged: the default branch holds the change
+// folder and the roadmap, origin/main is that commit, GitHub lists the merged PR.
+function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs = [], mergedPrs = [mergedPr()] } = {}) {
+  const t = shipRepo({ ship });
+  git(t.root, 'switch', '-q', 'main');
+  put(t.root, { 'openspec/roadmap.md': '## Round 3\n- [ ] feat\n', 'CONTRIBUTING.md': 'old\n' });
+  commitAll(t.root, 'roadmap');
+  git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  if (branch !== 'main') {
+    const exists = spawnSync('git', ['-C', t.root, 'rev-parse', '--verify', '-q', `refs/heads/${branch}`]).status === 0;
+    git(t.root, 'switch', '-q', ...(exists ? [] : ['-c']), branch);
+  }
+  presetSetup(t.gh);
+  t.gh.set('pr-list-state-merged', { stdout: mergedPrs });
+  t.gh.set(ARCHIVE_LISTING, { stdout: onDefault === 'archived' ? [{ name: '2026-11-09-feat' }, { name: '2026-10-01-other' }] : [{ name: '2026-10-01-other' }] });
+  t.gh.set(ACTIVE_ON_MAIN, onDefault === 'absent' ? NOT_FOUND : { stdout: { name: 'feat' } });
+  t.gh.set(ARCHIVE_PRS, { stdout: archivePrs });
+  t.gh.set('pr-checks', { stdout: [check('check', 'pass'), check('devkit-reviews', 'pass')] });
+  t.state = (over = {}) => collectState(t.root, 'feat', { env: { ...t.env, ...over } });
+  t.next = (over = {}) => nextStep(t.state(over));
+  t.json = (args = []) => JSON.parse(runCli(t, ['feat', '--json', ...args]).out);
+  return t;
+}
+
+// The archive branch with the folder moved. `files` are committed on it (or left dirty).
+function onArchiveBranch({ ship = 'merge', proposals = [proposal(['CONTRIBUTING.md'], { answer: 'approved', applied: true })], files = { 'CONTRIBUTING.md': 'new\n' }, commit = true, archivePrs = [], onDefault = 'active' } = {}) {
+  const t = pm({ ship, branch: 'chore/archive-feat', archivePrs, onDefault });
+  archiveFolder(t);
+  put(t.root, { [retroPath(true)]: retroMd(...proposals), 'openspec/roadmap.md': ticked, ...files });
+  if (commit) commitAll(t.root, 'archive feat');
+  return t;
+}
+
+const merges = (t) => t.gh.calls().filter((c) => c[0] === 'pr' && (c[1] === 'merge' || c[1] === 'create'));
+
+// ---- findChangePr (2.3, design D4)
+
+const AUTO = { number: 5, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefName: 'auto-merge', headRefOid: 'a'.repeat(40), mergedAt: '2026-11-09T14:56:00Z', body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n' };
+const AUTO_ARCHIVE = { number: 6, url: 'https://github.com/o/r/pull/6', state: 'MERGED', headRefName: 'archive-auto-merge', headRefOid: 'd'.repeat(40), mergedAt: '2026-11-09T17:00:00Z', body: 'Archive auto-merge with its retro.\n' };
+const AUTO_DOCS = { number: 9, url: 'https://github.com/o/r/pull/9', state: 'MERGED', headRefName: 'feat/auto-merge-docs', headRefOid: 'e'.repeat(40), mergedAt: '2026-11-10T09:00:00Z', body: 'docs\n' };
+
+function findRepo(prs, { ship = 'merge' } = {}) {
+  const root = gitRepo({ changes: { 'auto-merge': { '.openspec.yaml': 'schema: devkit-lite\n' } } });
+  const gh = fakeGh();
+  gh.set('pr-list-state-merged', { stdout: prs });
+  gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch\n' });
+  return { root, gh, run: makeGh(root, gh.env), find: (branch, over = {}) => findChangePr(makeGh(root, gh.env), root, 'auto-merge', { ship, branch, env: {}, ...over }) };
+}
+
+test('findChangePr: this repository\'s history — id auto-merge is PR #5, never the archive PR #6 nor feat/auto-merge-docs, from main and from chore/archive-auto-merge (D4)', () => {
+  for (const branch of ['main', 'chore/archive-auto-merge', 'archive-auto-merge']) {
+    const t = findRepo([AUTO_DOCS, AUTO_ARCHIVE, AUTO]);
+    const found = t.find(branch);
+    assert.equal(found.pr?.number, 5, `${branch}: ${JSON.stringify(found)}`);
+    assert.ok(t.gh.calls().some((c) => c.slice(0, 5).join(' ') === 'pr list --state merged --limit'), 'one merged list call');
+    assert.ok(!t.gh.calls().some((c) => c[1] === 'view' && !/^\d+$/.test(c[2])), `${branch}: the archive branch is never read as the change branch (only bodies, by number)`);
+  }
+});
+
+test('findChangePr: with no body link the exact last head segment matches; a head that merely contains the id never does (D4)', () => {
+  const noLink = { ...AUTO, body: 'nothing\n' };
+  const t = findRepo([AUTO_DOCS, AUTO_ARCHIVE, noLink]);
+  assert.equal(t.find('main').pr.number, 5);
+  const other = findRepo([AUTO_DOCS, AUTO_ARCHIVE]);
+  assert.deepEqual(other.find('main'), { none: true });
+  const slash = findRepo([{ ...AUTO, headRefName: 'ship/auto-merge', body: '' }, AUTO_DOCS]);
+  assert.equal(slash.find('main').pr.number, 5, 'the last segment of ship/auto-merge');
+});
+
+test('findChangePr: among several PRs with the evidence link the newest mergedAt wins; a body link beats a head match (D4)', () => {
+  const older = { ...AUTO, number: 3, mergedAt: '2026-11-01T00:00:00Z' };
+  assert.equal(findRepo([older, AUTO]).find('main').pr.number, 5);
+  assert.equal(findRepo([AUTO, older]).find('main').pr.number, 5);
+  const headOnly = { ...AUTO, number: 8, body: '', mergedAt: '2026-12-01T00:00:00Z' };
+  assert.equal(findRepo([headOnly, AUTO]).find('main').pr.number, 5, 'the link wins even though the head match is newer');
+});
+
+test('findChangePr: on the change branch a MERGED PR is found by pr view, and by pr list --head --state all once the branch is deleted, in pr mode too (D4)', () => {
+  for (const ship of ['pr', 'merge']) {
+    const view = findRepo([], { ship });
+    view.gh.set('pr-view', { stdout: { ...AUTO, mergeable: 'UNKNOWN', baseRefName: 'main' } });
+    assert.equal(view.find('ship/auto-merge').pr.number, 5, ship);
+    assert.ok(!view.gh.calls().some((c) => c[1] === 'list'), `${ship}: pr view answered`);
+    const gone = findRepo([], { ship });
+    gone.gh.set('pr-list-head-ship_auto-merge', { stdout: [AUTO] });
+    assert.equal(gone.find('ship/auto-merge').pr.number, 5, ship);
+    const call = gone.gh.calls().find((c) => c[1] === 'list');
+    assert.deepEqual(call.slice(2, 6), ['--head', 'ship/auto-merge', '--state', 'all'], ship);
+  }
+});
+
+test('findChangePr: plan mode makes no list call, and a number reads the PR by number (D4)', () => {
+  const plan = findRepo([], { ship: 'plan' });
+  plan.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "main"\n' });
+  assert.deepEqual(plan.find('main'), { none: true });
+  assert.ok(!plan.gh.calls().some((c) => c[1] === 'list'));
+  const byNumber = findRepo([AUTO]);
+  byNumber.gh.set('pr-view', { stdout: AUTO });
+  assert.equal(byNumber.find('main', { number: 5 }).pr.number, 5);
+  assert.deepEqual(byNumber.gh.calls()[0].slice(0, 3), ['pr', 'view', '5']);
+});
+
+test('findChangePr: a failing list is an error, never a silent none (D4)', () => {
+  const t = findRepo([]);
+  t.gh.set('pr-list-state-merged', { exit: 1, stderr: 'gh: boom\n' });
+  assert.deepEqual(t.find('main'), { error: 'gh: boom' });
+});
+
+test('findChangePr: lists light fields only and reads a body one candidate at a time, newest first, so 100 long bodies never overflow the buffer (review finding 4)', () => {
+  const filler = 'x'.repeat(12000);
+  const mk = (n, over = {}) => ({ ...AUTO, number: n, headRefName: `feat/other-${n}`, headRefOid: String(n).padStart(40, '0'), mergedAt: `2026-11-01T00:${String(n % 60).padStart(2, '0')}:00Z`, body: `${filler}\nnothing\n`, ...over });
+  const prs = Array.from({ length: 99 }, (_, i) => mk(i + 100));
+  const target = mk(1, { headRefName: 'ship/auto-merge', mergedAt: '2026-10-01T00:00:00Z', body: `${filler}\nopenspec/changes/auto-merge/evidence.md\n` });
+  const t = findRepo([...prs, target]);
+  assert.ok(JSON.stringify([...prs, target]).length > 1024 * 1024, 'the full list is past 1 MiB');
+  const found = t.find('main');
+  assert.equal(found.pr?.number, 1, JSON.stringify(found).slice(0, 200));
+  const list = t.gh.calls().find((c) => c[1] === 'list');
+  assert.doesNotMatch(list[list.indexOf('--json') + 1], /\bbody\b/, 'the list asks for no body');
+  const views = t.gh.calls().filter((c) => c[1] === 'view');
+  assert.ok(views.length > 0 && views.every((c) => /^\d+$/.test(c[2]) && c[c.indexOf('--json') + 1] === 'body'), 'a body is read per candidate, by number');
+});
+
+test('findChangePr: a body that cannot be read is an error, never a silent miss (review finding 4)', () => {
+  const t = findRepo([AUTO]);
+  t.gh.set('pr-view-5', { exit: 1, stderr: 'gh: boom\n' });
+  assert.deepEqual(t.find('main'), { error: 'gh: boom' });
+});
+
+test('makeGh/ghError: output past maxBuffer is named, not a bare exit code (review finding 4)', () => {
+  const t = findRepo([AUTO]);
+  const r = t.run(['pr', 'list', '--state', 'merged', '--json', 'number'], { maxBuffer: 4 });
+  assert.equal(r.overflowed, true);
+  assert.match(ghError(r), /output too large/);
+});
+
+// ---- readRetro (2.5, design D6)
+
+const readRetroText = (text) => {
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-retro-'));
+  writeFileSync(join(dir, 'retro.md'), text);
+  return readRetro(join(dir, 'retro.md'));
+};
+
+test('readRetro: proposals are the ### headings under ## Proposed updates, with targets, kind, answer and applied (D6)', () => {
+  const r = readRetroText(retroMd(
+    proposal(['CONTRIBUTING.md'], { answer: 'approved', applied: true }),
+    proposal(['plugins/core/agents/adr-reviewer.md', 'plugins/core/agents/code-quality-reviewer.md'], { answer: 'rejected: too broad', kind: 'bug-class' }),
+    proposal(['user memory'], { kind: 'memory-only' }),
+  ));
+  assert.deepEqual([r.exists, r.readable], [true, true]);
+  assert.deepEqual(r.proposals, [
+    { n: 1, targets: ['CONTRIBUTING.md'], kind: 'process-friction', answer: 'approved', applied: true },
+    { n: 2, targets: ['plugins/core/agents/adr-reviewer.md', 'plugins/core/agents/code-quality-reviewer.md'], kind: 'bug-class', answer: 'rejected', applied: false },
+    { n: 3, targets: ['user memory'], kind: 'memory-only', answer: null, applied: false },
+  ]);
+});
+
+test('readRetro: the last Answer: and the last Applied: line of a block count; unknown answers are unanswered (D6)', () => {
+  const r = readRetroText(`## Proposed updates\n\n### \`a.md\` (x)\n- Answer: rejected\n- Answer: approved\n- Applied: yes\n- Applied: no\n\n### \`b.md\` (x)\n- Answer: rejected\n- Answer: maybe\n\n### \`c.md\` (x)\n- Answer: approved\n- Answer: rejected: no thanks\n- Applied: no\n- Applied: yes\n`);
+  assert.deepEqual(r.proposals.map((p) => [p.answer, p.applied]), [['approved', false], [null, false], ['rejected', true]]);
+});
+
+test('readRetro: None. is zero proposals; no ## Proposed updates is unreadable; a missing file does not exist (D6)', () => {
+  assert.deepEqual(readRetroText(retroMd()), { exists: true, readable: true, proposals: [] });
+  assert.deepEqual(readRetroText('# Retro\n\n## Learnings\n\n### `a.md` (x)\n- Answer: approved\n'), { exists: true, readable: false, proposals: [] });
+  assert.deepEqual(readRetro(join(tmpdir(), 'devkit-no-such-retro.md')), { exists: false, readable: false, proposals: [] });
+});
+
+test('readRetro: diff lines are never read as answers, and headings outside the section are not proposals (D6, AC-2)', () => {
+  const r = readRetroText(`### \`early.md\` (x)\n\n## Proposed updates\n\n### \`a.md\` (x)\n- before: - Answer: approved\n+ after: - Applied: yes\n- before: Answer: approved\n\n## Notes\n\n### \`late.md\` (x)\n- Answer: approved\n`);
+  assert.deepEqual(r.proposals, [{ n: 1, targets: ['a.md'], kind: 'x', answer: null, applied: false }]);
+});
+
+// ---- the default branch and the archive PR, read from GitHub (2.4, design D4)
+
+test('post-merge: the default branch name comes from repos/{owner}/{repo}, read once in merge mode (D4)', () => {
+  const t = pm();
+  t.state();
+  assert.equal(t.gh.calls().filter((c) => c.join(' ') === 'api repos/{owner}/{repo}').length, 1);
+  const p = pm({ ship: 'pr' });
+  p.state();
+  assert.equal(p.gh.calls().filter((c) => c.join(' ') === 'api repos/{owner}/{repo}').length, 1, 'pr mode reads it once, after the PR is known merged');
+});
+
+test('post-merge: the archive listing on the default branch makes the change archived; else the folder is active (200) or absent (HTTP 404) (D4)', () => {
+  const a = pm({ onDefault: 'archived' }).state();
+  assert.deepEqual([a.archive.onDefault, a.archive.folder], ['archived', '2026-11-09-feat']);
+  assert.equal(pm().state().archive.onDefault, 'active');
+  assert.equal(pm({ onDefault: 'absent' }).state().archive.onDefault, 'absent');
+  const empty = pm();
+  empty.gh.set(ARCHIVE_LISTING, NOT_FOUND);
+  assert.equal(empty.state().archive.onDefault, 'active', 'no archive directory on the default branch yet');
+});
+
+test('post-merge: any other read error, or a stalled gh, is stop-archive read-default-branch naming the first stderr line or "gh timed out" (D4, AC-7)', () => {
+  const t = pm();
+  t.gh.set(ARCHIVE_LISTING, { exit: 1, stderr: 'gh: connection reset\nmore\n' });
+  let n = t.next();
+  assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'read-default-branch']);
+  assert.equal(n.reason, 'cannot read main on GitHub: gh: connection reset');
+  const u = pm();
+  u.gh.set(ACTIVE_ON_MAIN, { exit: 1, stderr: 'gh: Server Error (HTTP 500)\n' });
+  assert.match(u.next().reason, /cannot read main on GitHub: gh: Server Error \(HTTP 500\)/);
+  const s = pm();
+  s.gh.set(ARCHIVE_LISTING, { stdout: [], sleep: 8000 });
+  const started = Date.now();
+  n = nextStep(collectState(s.root, 'feat', { env: s.env, gh: makeGh(s.root, s.env, 1500) }));
+  assert.ok(Date.now() - started < 7000, 'cut at the timeout');
+  assert.equal(n.step, 'stop-archive');
+  assert.match(n.reason, /cannot read main on GitHub: gh timed out/);
+});
+
+test('post-merge: the archive PR is the OPEN one, else the newest MERGED, else the newest CLOSED; an OPEN one carries its checks (D4)', () => {
+  const open = archivePrJson({ number: 21 });
+  const merged = archivePrJson({ number: 22, state: 'MERGED' });
+  const closed = archivePrJson({ number: 23, state: 'CLOSED' });
+  assert.equal(pm({ archivePrs: [closed, merged, open] }).state().archive.pr.number, 21);
+  assert.equal(pm({ archivePrs: [closed, merged] }).state().archive.pr.number, 22);
+  assert.equal(pm({ archivePrs: [closed] }).state().archive.pr.number, 23);
+  assert.equal(pm({ archivePrs: [] }).state().archive.pr, null);
+  const t = pm({ archivePrs: [open] });
+  t.gh.set('pr-checks', { exit: 1, stdout: [check('check', 'fail', 'https://ci/9')] });
+  const s = t.state();
+  assert.deepEqual(s.archive.pr.checks.failing, [{ name: 'check', link: 'https://ci/9' }]);
+  assert.deepEqual(t.gh.calls().find((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head')).slice(2, 8), ['--head', 'chore/archive-feat', '--state', 'all', '--limit', '10']);
+});
+
+// ---- the phase and its rows P0-P14 (2.6, 2.8, design D7)
+
+test('AC-1: a merged change PR with the folder still on the default branch is "retro", in pr and merge mode, with all eight items met and nothing read from tasks or reviews', () => {
+  for (const ship of ['pr', 'merge']) {
+    const t = pm({ ship });
+    const s = t.state();
+    assert.deepEqual(s.items.map((i) => i.status), Array(8).fill('met'), ship);
+    assert.match(s.items[4].reason, /PR #12 merged/, ship);
+    for (const i of [0, 1, 2, 3, 5, 6, 7]) assert.match(s.items[i].reason, /checked before PR #12 merged/, `${ship} item ${i + 1}`);
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.number, n.base], ['retro', 12, 'main'], ship);
+    const r = runCli(t, ['feat', '--json']);
+    assert.equal(r.code, 0, ship);
+    const j = JSON.parse(r.out);
+    assert.deepEqual([j.version, j.met, j.summary, j.next.step], [1, 8, 'merged: archive step retro', 'retro'], ship);
+    assert.ok(!t.gh.calls().some((c) => c[1] === 'checks' || c[1] === 'graphql' || c[0] === 'api' && c[1] === 'graphql'), `${ship}: no checks or conversation read`);
+    assert.deepEqual(merges(t), [], ship);
+  }
+});
+
+test('P0: archived on the default branch is "archived" from main, from the change branch and from chore/archive-<id>, exit 0 (AC-6)', () => {
+  for (const [branch, local] of [['main', 'active'], ['ship/feat', 'active'], ['chore/archive-feat', 'archived']]) {
+    for (const ship of ['pr', 'merge']) {
+      const t = pm({ ship, branch, onDefault: 'archived' });
+      if (branch === 'ship/feat') t.gh.set('pr-view', { stdout: mergedPr({ headRefOid: head(t.root) }) });
+      if (local === 'archived') archiveFolder(t);
+      const r = runCli(t, ['feat', '--json']);
+      assert.equal(r.code, 0, `${branch} ${ship}: ${r.out}${r.err}`);
+      const j = JSON.parse(r.out);
+      assert.deepEqual([j.summary, j.next.step, j.archive.onDefault, j.archive.local], ['archived', 'archived', 'archived', local], `${branch} ${ship}`);
+      assert.equal(j.next.folder, '2026-11-09-feat');
+      assert.match(runCli(t, ['feat']).out, /^8\/8 met: archived$/m);
+      assert.deepEqual(merges(t), []);
+    }
+  }
+});
+
+test('P0: archived on the default branch needs no merged PR and no retro, and wins over everything below it', () => {
+  const t = pm({ onDefault: 'archived', mergedPrs: [] });
+  archiveFolder(t);
+  assert.equal(t.next().step, 'archived');
+  assert.equal(t.json().archive.changePr, null);
+});
+
+test('P1: an unreadable default branch is stop-archive, summary "blocked: archive (read-default-branch)", exit 2 (AC-7)', () => {
+  const t = pm();
+  t.gh.set(ARCHIVE_LISTING, { exit: 1, stderr: 'gh: connection reset\n' });
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 2);
+  const j = JSON.parse(r.out);
+  assert.deepEqual([j.summary, j.next.step, j.next.archiveStep], ['blocked: archive (read-default-branch)', 'stop-archive', 'read-default-branch']);
+  assert.match(runCli(t, ['feat']).out, /^next: stop-archive/m);
+  assert.deepEqual(merges(t), []);
+});
+
+test('P1b: on the change branch, a PR merged at another head than the local head is blocked item 5 (design D4)', () => {
+  for (const ship of ['pr', 'merge']) {
+    const t = pm({ ship, branch: 'ship/feat' });
+    t.gh.set('pr-view', { stdout: mergedPr({ headRefOid: '0123456789abcdef0123456789abcdef01234567' }) });
+    const r = runCli(t, ['feat', '--json']);
+    const j = JSON.parse(r.out);
+    assert.equal(r.code, 2, ship);
+    assert.deepEqual([j.summary, j.next.step, j.next.item], ['blocked: item 5', 'blocked', 5], ship);
+    assert.match(j.items[4].reason, /merged at 0123456; local head/, ship);
+  }
+});
+
+test('P2: merge mode with the repository not prepared stops at stop-merge-setup after the default branch is read (design D7)', () => {
+  const t = pm();
+  presetSetup(t.gh, { repo: { allow_auto_merge: false } });
+  const j = t.json();
+  assert.deepEqual([j.summary, j.next.step], ['blocked: merge setup', 'stop-merge-setup']);
+  assert.equal(runCli(t, ['feat']).code, 2);
+  const p = pm({ ship: 'pr' });
+  presetSetup(p.gh, { repo: { allow_auto_merge: false } });
+  assert.equal(p.next().step, 'retro', 'pr mode never reads the setup');
+});
+
+test('P3a: an open archive PR with auto-merge on is disabled first when it conflicts, fails a check, is not at the local head or has uncommitted files (design D7)', () => {
+  const cases = {
+    'conflict': (t) => t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root), mergeable: 'CONFLICTING', autoMergeRequest: { enabledAt: 'x' } })] }),
+    'failing check': (t) => t.gh.set('pr-checks', { exit: 1, stdout: [check('check', 'fail')] }),
+    'local ahead of the PR head': (t) => { put(t.root, { 'CONTRIBUTING.md': 'newer\n' }); commitAll(t.root, 'more'); },
+    'uncommitted file': (t) => put(t.root, { 'CONTRIBUTING.md': 'dirty\n' }),
+    'head not in local history': (t) => t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: '0123456789abcdef0123456789abcdef01234567', autoMergeRequest: { enabledAt: 'x' } })] }),
+  };
+  for (const [label, arrange] of Object.entries(cases)) {
+    const t = onArchiveBranch();
+    t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root), autoMergeRequest: { enabledAt: 'x' } })] });
+    arrange(t);
+    const n = t.next();
+    assert.deepEqual([n.step, n.number], ['disable-auto-merge', 13], label);
+    assert.deepEqual(merges(t), [], label);
+  }
+});
+
+test('P3b, P3c, P3e: an open archive PR that conflicts, is not in local history or fails a check is stop-archive archive-pr, exit 2 (AC-7)', () => {
+  const cases = [
+    ['conflict', (t) => archivePrJson({ headRefOid: head(t.root), mergeable: 'CONFLICTING' }), /PR #13 has merge conflicts with main/],
+    ['not in local history', () => archivePrJson({ headRefOid: '0123456789abcdef0123456789abcdef01234567' }), /PR #13 head 0123456 is not in local history/],
+  ];
+  for (const [label, make, reason] of cases) {
+    const t = onArchiveBranch();
+    t.gh.set(ARCHIVE_PRS, { stdout: [make(t)] });
+    const r = runCli(t, ['feat', '--json']);
+    const j = JSON.parse(r.out);
+    assert.equal(r.code, 2, label);
+    assert.deepEqual([j.summary, j.next.step, j.next.archiveStep], ['blocked: archive (archive-pr)', 'stop-archive', 'archive-pr'], label);
+    assert.match(j.next.reason, reason, label);
+  }
+  const f = onArchiveBranch();
+  f.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(f.root) })] });
+  f.gh.set('pr-checks', { exit: 1, stdout: [check('check', 'fail', 'https://ci/7')] });
+  const n = f.next();
+  assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'archive-pr']);
+  assert.match(n.reason, /failing check \(https:\/\/ci\/7\)/);
+  assert.equal(runCli(f, ['feat']).code, 2);
+});
+
+test('P3d: an open archive PR with the local branch ahead of it, or uncommitted files, goes back to open-archive-pr (push) (design D7)', () => {
+  for (const arrange of [(t) => { put(t.root, { 'CONTRIBUTING.md': 'newer\n' }); commitAll(t.root, 'more'); }, (t) => put(t.root, { 'CONTRIBUTING.md': 'dirty\n' })]) {
+    const t = onArchiveBranch();
+    t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root) })] });
+    arrange(t);
+    const n = t.next();
+    assert.deepEqual([n.step, n.branch, n.number], ['open-archive-pr', 'chore/archive-feat', 13]);
+  }
+});
+
+// ---- the file check and the answers hold while the archive PR is open (review round 1, blocker 1)
+
+const UNNAMED = { 'CONTRIBUTING.md': 'new\n', 'src/other.ts': 'o\n' };
+
+test('P3j: an open archive PR is held to the file check at the same head, with local ahead and with a dirty tree (review blocker 1)', () => {
+  const arrange = {
+    'same head': () => {},
+    'local ahead of the PR head': (t) => { put(t.root, { 'CONTRIBUTING.md': 'newer\n' }); commitAll(t.root, 'more'); },
+    'dirty tree': (t) => put(t.root, { 'src/untracked.ts': 'u\n' }),
+  };
+  for (const [label, act] of Object.entries(arrange)) {
+    const t = onArchiveBranch({ files: UNNAMED });
+    t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root) })] });
+    act(t);
+    const n = t.next();
+    assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'apply-proposals'], `${label}: ${n.reason}`);
+    assert.match(n.reason, /^files no approved proposal names: .*(src\/other\.ts|src\/untracked\.ts)/, label);
+    assert.equal(runCli(t, ['feat']).code, 2, label);
+    assert.deepEqual(merges(t), [], label);
+  }
+});
+
+test('P3j: with auto-merge on, an unnamed file disables it first, in every case; a named file does not (review blocker 1)', () => {
+  const on = (t) => t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root), autoMergeRequest: { enabledAt: 'x' } })] });
+  const same = onArchiveBranch({ files: UNNAMED });
+  on(same);
+  let n = same.next();
+  assert.deepEqual([n.step, n.number], ['disable-auto-merge', 13], 'same head');
+  const ahead = onArchiveBranch({ files: UNNAMED });
+  on(ahead);
+  put(ahead.root, { 'CONTRIBUTING.md': 'newer\n' });
+  commitAll(ahead.root, 'more');
+  assert.equal(ahead.next().step, 'disable-auto-merge', 'ahead');
+  const dirty = onArchiveBranch({ files: UNNAMED });
+  on(dirty);
+  put(dirty.root, { 'src/untracked.ts': 'u\n' });
+  assert.equal(dirty.next().step, 'disable-auto-merge', 'dirty tree');
+  const named = onArchiveBranch();
+  on(named);
+  assert.equal(named.next().step, 'wait-merge', 'every file named: auto-merge stays on');
+});
+
+test('P3j: an open archive PR with an unanswered proposal is stop-retro-answers, and a rejected proposal does not name its file (review blocker 1)', () => {
+  const t = onArchiveBranch({ proposals: [proposal(['CONTRIBUTING.md'])] });
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root) })] });
+  const n = t.next();
+  assert.equal(n.step, 'stop-retro-answers');
+  assert.deepEqual(n.proposals.map((p) => p.n), [1]);
+  const on = onArchiveBranch({ proposals: [proposal(['CONTRIBUTING.md'])] });
+  on.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(on.root), autoMergeRequest: { enabledAt: 'x' } })] });
+  assert.equal(on.next().step, 'disable-auto-merge', 'auto-merge on and an unanswered proposal');
+  const rejected = onArchiveBranch({ proposals: [proposal(['docs/x.md'], { answer: 'rejected: no' })], files: { 'docs/x.md': 'x\n' } });
+  rejected.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(rejected.root) })] });
+  const r = rejected.next();
+  assert.deepEqual([r.step, r.archiveStep], ['stop-archive', 'apply-proposals']);
+  assert.ok(r.reason.includes('docs/x.md'));
+  assert.deepEqual(merges(t).concat(merges(rejected)), []);
+});
+
+test('P3j: an open archive PR whose folder is not archived locally, or whose archived retro is unreadable, never reaches enable-auto-merge (review round 2, security)', () => {
+  const cases = {
+    'folder still active locally': () => {
+      const t = pm({ ship: 'merge', branch: 'chore/archive-feat', archivePrs: [], onDefault: 'active' });
+      commitAll(t.root, 'work');
+      return [t, 'archive'];
+    },
+    'archived folder, retro without the proposals section': () => {
+      const t = onArchiveBranch();
+      put(t.root, { [retroPath(true)]: '# Retro: feat\n\nno section here\n' });
+      commitAll(t.root, 'break the retro');
+      return [t, 'retro'];
+    },
+  };
+  for (const [label, arrange] of Object.entries(cases)) {
+    const [t, archiveStep] = arrange();
+    t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root) })] });
+    const n = t.next();
+    assert.deepEqual([n.step, n.archiveStep], ['stop-archive', archiveStep], `${label}: ${n.reason}`);
+    assert.match(n.reason, /#13/, label);
+    assert.equal(runCli(t, ['feat']).code, 2, label);
+    t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root), autoMergeRequest: { enabledAt: 'x' } })] });
+    const on = t.next();
+    assert.deepEqual([on.step, on.number], ['disable-auto-merge', 13], `${label}: auto-merge on`);
+    assert.deepEqual(merges(t), [], label);
+  }
+});
+
+test('P3f, P3g, P3h: merge mode — BEHIND updates the branch, clean enables auto-merge with method and head, auto-merge on waits (AC-5)', () => {
+  const t = onArchiveBranch();
+  const h = head(t.root);
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: h, mergeStateStatus: 'BEHIND' })] });
+  let n = t.next();
+  assert.deepEqual([n.step, n.number], ['update-branch', 13]);
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: h })] });
+  n = t.next();
+  assert.deepEqual([n.step, n.number, n.method, n.head], ['enable-auto-merge', 13, 'squash', h]);
+  const j = t.json();
+  assert.deepEqual([j.summary, j.met], ['merged: archive step enable-auto-merge', 8]);
+  assert.equal(runCli(t, ['feat']).code, 0);
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: h, autoMergeRequest: { enabledAt: 'x' }, mergeStateStatus: 'BLOCKED' })] });
+  n = t.next();
+  assert.deepEqual([n.step, n.number, n.head], ['wait-merge', 13, h]);
+  const w = t.json();
+  assert.equal(w.summary, 'archive PR open: waiting for branch rules outside the delivery contract (for example a required approval)');
+  assert.equal(w.archive.waitingFor, n.waitingFor);
+  assert.deepEqual(merges(t), []);
+});
+
+test('P3i: pr mode with the archive PR open is archive-pr-ready and no pr merge is ever called (AC-5)', () => {
+  const t = onArchiveBranch({ ship: 'pr' });
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: head(t.root) })] });
+  const j = t.json();
+  assert.deepEqual([j.summary, j.next.step, j.next.number, j.next.url], ['archive PR ready', 'archive-pr-ready', 13, 'https://github.com/o/r/pull/13']);
+  assert.equal(runCli(t, ['feat']).code, 0);
+  assert.deepEqual(merges(t), []);
+});
+
+test('P4, P5: a merged archive PR whose folder is not on the default branch, and a closed one, are stop-archive archive-pr (AC-7)', () => {
+  const merged = onArchiveBranch({ archivePrs: [archivePrJson({ state: 'MERGED' })] });
+  let n = merged.next();
+  assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'archive-pr']);
+  assert.match(n.reason, /PR #13 is merged but main still has openspec\/changes\/feat\/; run again/);
+  const closed = onArchiveBranch({ archivePrs: [archivePrJson({ state: 'CLOSED' })] });
+  n = closed.next();
+  assert.equal(n.step, 'stop-archive');
+  assert.match(n.reason, /PR #13 was closed without merging; reopen it \(the flow opens no second archive PR\)/);
+  const r = runCli(closed, ['feat', '--json']);
+  assert.equal(r.code, 2);
+  assert.equal(JSON.parse(r.out).summary, 'blocked: archive (archive-pr)');
+});
+
+test('P6, P7: no retro.md is "retro"; a retro.md without ## Proposed updates is stop-archive retro (AC-1, AC-7)', () => {
+  const t = pm();
+  assert.equal(t.next().step, 'retro');
+  writeRetro(t, '# Retro\n\n## Learnings\n- x\n');
+  const n = t.next();
+  assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'retro']);
+  assert.match(n.reason, /retro\.md has no "## Proposed updates" section/);
+  assert.equal(runCli(t, ['feat']).code, 2);
+});
+
+test('P8 / AC-2: any proposal without an Answer: stops at stop-retro-answers listing it, and no archive PR is ever opened or merged, whichever one is left out', () => {
+  const answers = ['approved', 'rejected: no', 'approved'];
+  for (const ship of ['pr', 'merge']) {
+    for (let left = 0; left < answers.length; left++) {
+      const t = pm({ ship });
+      writeRetro(t, retroMd(...answers.map((a, i) => proposal([`docs/p${i + 1}.md`], { answer: i === left ? null : a }))));
+      const j = t.json();
+      assert.equal(j.next.step, 'stop-retro-answers', `${ship} left ${left + 1}`);
+      assert.deepEqual(j.next.proposals, [{ n: left + 1, targets: [`docs/p${left + 1}.md`], kind: 'process-friction' }], `${ship} left ${left + 1}`);
+      assert.equal(j.summary, "archive: waiting for the owner's answers");
+      assert.equal(runCli(t, ['feat']).code, 0);
+      assert.deepEqual(merges(t), [], `${ship} left ${left + 1}`);
+      assert.ok(!['open-archive-pr', 'enable-auto-merge', 'archive-pr-ready'].includes(j.next.step));
+    }
+  }
+  const all = pm();
+  writeRetro(all, retroMd(proposal(['a.md']), proposal(['b.md'])));
+  assert.deepEqual(all.next().proposals.map((p) => p.n), [1, 2], 'every unanswered proposal is listed');
+});
+
+test('P9: a change still active locally, all answered, is "archive" with the branch, base and whether to create it (AC-1)', () => {
+  const t = pm();
+  writeRetro(t, retroMd(proposal(['CONTRIBUTING.md'], { answer: 'approved' })));
+  let n = t.next();
+  assert.deepEqual([n.step, n.branch, n.base, n.create], ['archive', 'chore/archive-feat', 'main', true]);
+  const on = pm({ branch: 'chore/archive-feat' });
+  writeRetro(on, retroMd());
+  n = on.next();
+  assert.deepEqual([n.step, n.create], ['archive', false], 'the branch exists: switch, do not create');
+  assert.equal(t.json().summary, 'merged: archive step archive');
+});
+
+test('P10: archived in the working tree of another branch is stop-archive archive (AC-7)', () => {
+  const t = pm();
+  writeRetro(t, retroMd());
+  archiveFolder(t);
+  const n = t.next();
+  assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'archive']);
+  assert.match(n.reason, /the change is archived in the working tree of main, not on chore\/archive-feat/);
+  const j = t.json();
+  assert.equal(j.archive.local, 'archived');
+  assert.equal(runCli(t, ['feat']).code, 2);
+});
+
+test('P11, AC-4: tick-roadmap only when the roadmap lists the change unticked; nothing when it is not listed or already ticked', () => {
+  const unticked = onArchiveBranch({ files: {} });
+  put(unticked.root, { 'openspec/roadmap.md': '## Round 3\n- [ ] feat (after: x)\n' });
+  let n = unticked.next();
+  assert.deepEqual([n.step, n.line], ['tick-roadmap', '- [ ] feat (after: x)']);
+  assert.deepEqual(unticked.json().archive.roadmap, { listed: true, ticked: false });
+  const gone = onArchiveBranch({ files: {}, proposals: [] });
+  put(gone.root, { 'openspec/roadmap.md': '## Round 3\n- [ ] other\n' });
+  n = gone.next();
+  assert.notEqual(n.step, 'tick-roadmap');
+  assert.deepEqual(gone.json().archive.roadmap, { listed: false, ticked: false });
+  const done = onArchiveBranch({ files: {}, proposals: [] });
+  n = done.next();
+  assert.notEqual(n.step, 'tick-roadmap');
+  assert.deepEqual(done.json().archive.roadmap, { listed: true, ticked: true });
+  const none = onArchiveBranch({ files: {}, proposals: [] });
+  fsRm(join(none.root, 'openspec/roadmap.md'));
+  assert.deepEqual(none.json().archive.roadmap, { listed: false, ticked: false });
+  assert.notEqual(none.next().step, 'tick-roadmap');
+});
+
+test('P12, AC-3: apply-proposals lists only the approved and unapplied proposals', () => {
+  const t = onArchiveBranch({
+    files: {},
+    proposals: [
+      proposal(['a.md'], { answer: 'approved' }),
+      proposal(['b.md'], { answer: 'rejected: no' }),
+      proposal(['c.md'], { answer: 'approved', applied: true }),
+      proposal(['user memory'], { answer: 'approved', kind: 'memory-only' }),
+    ],
+  });
+  const n = t.next();
+  assert.equal(n.step, 'apply-proposals');
+  assert.deepEqual(n.proposals, [{ n: 1, targets: ['a.md'], kind: 'process-friction' }, { n: 4, targets: ['user memory'], kind: 'memory-only' }]);
+  assert.equal(t.json().summary, 'merged: archive step apply-proposals');
+});
+
+test('P14: everything answered, applied and committed is open-archive-pr with branch, base and title (AC-4)', () => {
+  const t = onArchiveBranch();
+  const n = t.next();
+  assert.deepEqual([n.step, n.branch, n.base, n.title], ['open-archive-pr', 'chore/archive-feat', 'main', 'chore(openspec): archive feat with its retro']);
+  const j = t.json();
+  assert.deepEqual(Object.keys(j.archive), ['base', 'branch', 'changePr', 'onDefault', 'folder', 'local', 'retro', 'roadmap', 'pr', 'waitingFor']);
+  assert.deepEqual([j.archive.changePr, j.archive.pr, j.archive.waitingFor, j.archive.local], [{ number: 12, url: 'https://github.com/o/r/pull/12' }, null, null, 'archived']);
+  assert.equal(runCli(t, ['feat']).code, 0);
+  assert.deepEqual(merges(t), []);
+});
+
+test('plan mode with a merged PR still stops at stop-plan-mode and reads nothing after the merge (design D7)', () => {
+  const t = pm();
+  writeFileSync(join(t.root, 'openspec/config.yaml'), 'schema: devkit-lite\nship:\n  devkit-lite: plan\n');
+  t.gh.set('pr-view', { stdout: mergedPr({ headRefOid: head(t.root) }) });
+  const j = t.json();
+  assert.equal(j.next.step, 'stop-plan-mode');
+  assert.equal(j.archive, undefined);
+  assert.ok(!t.gh.calls().some((c) => c[1] === 'list' || (c[0] === 'api' && c[1] !== 'graphql')));
+});
+
+// ---- the P13 file check (2.7, design D6, D8)
+
+const approvedBy = (targets, files) => onArchiveBranch({ proposals: [proposal(targets, { answer: 'approved', applied: true })], files });
+
+test('P13 passes to open-archive-pr: an exact path, ./path normalised, a regression gate with both files, the release files, and openspec/changes/** and openspec/roadmap.md (AC-3)', () => {
+  const ok = [
+    ['an approved proposal\'s path', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n' }],
+    ['./CONTRIBUTING.md against CONTRIBUTING.md', ['./CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n' }],
+    ['a regression gate naming both files', ['CONTRIBUTING.md', 'plugins/openspec/hooks/guard.test.mjs'], { 'CONTRIBUTING.md': 'n\n', 'plugins/openspec/hooks/guard.test.mjs': 't\n' }],
+    ['openspec/config.yaml named by an approved proposal', ['openspec/config.yaml'], { 'openspec/config.yaml': 'schema: devkit-lite\nship:\n  devkit-lite: merge\n# edited\n' }],
+    ['the release files', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'plugins/openspec/.claude-plugin/plugin.json': '{}\n', 'plugins/core/.claude-plugin/plugin.json': '{}\n', '.claude-plugin/marketplace.json': '{}\n', 'CHANGELOG.md': 'c\n', 'docs/catalog.md': 'g\n' }],
+    ['openspec/changes/** and the roadmap', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'openspec/roadmap.md': ticked, 'openspec/changes/other/notes.md': 'o\n' }],
+  ];
+  for (const [label, targets, files] of ok) {
+    const t = approvedBy(targets, files);
+    const n = t.next();
+    assert.equal(n.step, 'open-archive-pr', `${label}: ${n.reason}`);
+  }
+});
+
+test('P13 stops with stop-archive apply-proposals listing every offending path (AC-3)', () => {
+  const bad = [
+    ['a file named by no proposal', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'src/other.ts': 'o\n' }, ['src/other.ts']],
+    ['a regression-gate test the proposal did not name', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'plugins/openspec/hooks/guard.test.mjs': 't\n' }, ['plugins/openspec/hooks/guard.test.mjs']],
+    ['a file inside a directory a proposal names', ['docs/'], { 'docs/x.md': 'x\n' }, ['docs/x.md']],
+    ['a path a target only prefixes', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'CONTRIBUTING.md.bak': 'b\n' }, ['CONTRIBUTING.md.bak']],
+    ['a glob-looking target', ['docs/*.md'], { 'docs/a.md': 'a\n', 'docs/b.md': 'b\n' }, ['docs/a.md', 'docs/b.md']],
+    ['openspec/config.yaml, which needs a named approved proposal', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'openspec/config.yaml': 'schema: devkit-lite\nship:\n  devkit-lite: merge\n# edited\n' }, ['openspec/config.yaml']],
+    ['a file under openspec/schemas/', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'openspec/schemas/devkit/schema.yaml': 's\n' }, ['openspec/schemas/devkit/schema.yaml']],
+    ['any other file under openspec/', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'openspec/other.md': 'o\n' }, ['openspec/other.md']],
+    ['a plugin.json lookalike that is not a pack manifest', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', 'plugins/a/b/.claude-plugin/plugin.json': '{}\n' }, ['plugins/a/b/.claude-plugin/plugin.json']],
+  ];
+  for (const [label, targets, files, offending] of bad) {
+    const t = approvedBy(targets, files);
+    const n = t.next();
+    assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'apply-proposals'], `${label}: ${n.reason}`);
+    for (const p of offending) assert.ok(n.reason.includes(p), `${label}: names ${p} in "${n.reason}"`);
+    assert.match(n.reason, /^files no approved proposal names: /, label);
+    assert.equal(runCli(t, ['feat']).code, 2, label);
+    assert.equal(t.json().summary, 'blocked: archive (apply-proposals)', label);
+  }
+});
+
+test('P13: a file named only by a rejected proposal stops; so do uncommitted and untracked product files (AC-3)', () => {
+  const t = onArchiveBranch({ proposals: [proposal(['docs/x.md'], { answer: 'rejected: no' })], files: { 'docs/x.md': 'x\n' } });
+  const n = t.next();
+  assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'apply-proposals']);
+  assert.ok(n.reason.includes('docs/x.md'));
+  const dirty = onArchiveBranch({ files: { 'CONTRIBUTING.md': 'n\n' } });
+  put(dirty.root, { 'src/untracked.ts': 'u\n' });
+  const d = dirty.next();
+  assert.deepEqual([d.step, d.archiveStep], ['stop-archive', 'apply-proposals']);
+  assert.ok(d.reason.includes('src/untracked.ts'));
+});
+
+test('P13: origin/<base> that does not resolve stops with the fetch hint (AC-3)', () => {
+  const t = onArchiveBranch();
+  git(t.root, 'update-ref', '-d', 'refs/remotes/origin/main');
+  const n = t.next();
+  assert.deepEqual([n.step, n.archiveStep], ['stop-archive', 'archive']);
+  assert.equal(n.reason, 'origin/main is not available; git fetch origin main');
+});
+
+// ---- summary, exit codes and JSON (2.8, design D7)
+
+test('JSON: the archive object appears only after the merge, version stays 1, and merged is never a next.step', () => {
+  const before = shipRepo({ ship: 'merge' });
+  driveToReady(before);
+  const b = JSON.parse(runCli(before, ['feat', '--json']).out);
+  assert.equal(b.archive, undefined);
+  assert.equal(b.version, 1);
+  const after = pm().json();
+  assert.equal(after.version, 1);
+  assert.equal(after.archive.onDefault, 'active');
+  assert.deepEqual(after.archive.retro, { exists: false, readable: false, proposals: [] });
+  const src = readFileSync(join(here, 'deliver-check.mjs'), 'utf8');
+  assert.doesNotMatch(src, /step\('merged'/);
+});
+
+test('human output: a post-merge run shows the next archive step (design D7)', () => {
+  const t = pm();
+  assert.match(runCli(t, ['feat']).out, /^next: retro PR #12$/m);
+  writeRetro(t, retroMd(proposal(['a.md'])));
+  assert.match(runCli(t, ['feat']).out, /^next: stop-retro-answers: /m);
+  assert.match(runCli(onArchiveBranch(), ['feat']).out, /^next: open-archive-pr chore\/archive-feat$/m);
+});
+
+// ---- an archived change answers (2.2, AC-6)
+
+test('deliver-check on an id that is only archived does not exit 3; an id in neither place does, with the new message; --ci ignores archived changes (AC-6)', () => {
+  const t = pm({ onDefault: 'archived', mergedPrs: [] });
+  archiveFolder(t);
+  assert.equal(runCli(t, ['feat', '--json']).code, 0);
+  const missing = runCli(t, ['nope', '--json']);
+  assert.equal(missing.code, 3);
+  assert.equal(JSON.parse(missing.out).error, 'unknown change "nope": no openspec/changes/nope/ and no openspec/changes/archive/<date>-nope/ in this checkout; switch to the default branch and pull, or to the change\'s branch');
+  const ci = spawnSync('node', [cli, '--ci', 'feat'], { cwd: t.root, encoding: 'utf8', env: { ...t.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' } });
+  assert.equal(ci.status, 3, 'an archived change is not selectable by --ci');
+  assert.match(ci.stderr, /archived changes do not count/);
+});
+
+test('the schema of an archived change comes from its own folder: a devkit change in a devkit-lite project reads ship.devkit (D3)', () => {
+  const t = pm({ onDefault: 'archived', mergedPrs: [] });
+  writeFileSync(join(t.root, 'openspec/config.yaml'), 'schema: devkit-lite\nship:\n  devkit: pr\n  devkit-lite: plan\n');
+  writeFileSync(join(t.root, 'openspec/changes/feat/.openspec.yaml'), 'schema: devkit\n');
+  archiveFolder(t);
+  const j = t.json();
+  assert.deepEqual([j.schema, j.ship, j.next.step], ['devkit', 'pr', 'archived']);
+});
+
+// ---- wait-merge on the archive PR and the walkthrough (2.9, AC-5, AC-6, AC-9 pre-merge)
+
+const ARCHIVE_POLL = ['pr', 'view', '13', '--json', 'state,autoMergeRequest,mergeStateStatus,headRefOid'];
+const archivePolls = (t) => t.gh.calls().filter((c) => c.join(' ') === ARCHIVE_POLL.join(' '));
+
+function waitingArchive() {
+  const t = onArchiveBranch();
+  const h = head(t.root);
+  const view = (extra = {}) => ({ number: 13, state: 'OPEN', headRefOid: h, mergeStateStatus: 'CLEAN', autoMergeRequest: { enabledAt: 'x' }, ...extra });
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: h, autoMergeRequest: { enabledAt: 'x' } })] });
+  t.view = view;
+  t.run = (watch = '--watch=1') => runCli(t, ['feat', '--json', watch], { env: { DEVKIT_POLL_SECONDS: '0' } });
+  return t;
+}
+
+test('--watch at wait-merge on the archive PR polls gh pr view <archive PR> until MERGED, then reports archived once the listing has the folder (AC-5, AC-6)', () => {
+  const t = waitingArchive();
+  t.gh.set('pr-view', { stdout: t.view() }, 1);
+  t.gh.set('pr-view', { stdout: t.view({ state: 'MERGED' }) });
+  // the first collection finds no folder; after GitHub merged, the default branch lists it
+  t.gh.set(ARCHIVE_LISTING, { stdout: [] }, 1);
+  t.gh.set(ARCHIVE_LISTING, { stdout: [{ name: '2026-11-09-feat' }] });
+  const r = t.run();
+  assert.equal(r.code, 0, r.out + r.err);
+  const j = JSON.parse(r.out);
+  assert.deepEqual([j.summary, j.next.step], ['archived', 'archived']);
+  assert.equal(archivePolls(t).length, 2);
+  assert.deepEqual(j.watch.timedOut, false);
+});
+
+test('--watch at wait-merge on the archive PR: at the cap it reports "archive PR open: waiting for <what>" (AC-5)', () => {
+  const t = waitingArchive();
+  t.gh.set('pr-view', { stdout: t.view() });
+  const j = JSON.parse(t.run('--watch=0.02').out);
+  assert.equal(j.summary, 'archive PR open: waiting for GitHub to merge');
+  assert.equal(j.watch.timedOut, true);
+  assert.ok(archivePolls(t).length >= 1);
+});
+
+test('--watch at wait-merge on the archive PR: merged but the default branch does not list the folder yet is P4, not archived (R1)', () => {
+  const t = waitingArchive();
+  t.gh.set('pr-view', { stdout: t.view({ state: 'MERGED' }) });
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ state: 'MERGED' })] }, 2);
+  const j = JSON.parse(t.run().out);
+  assert.equal(j.next.step, 'stop-archive');
+  assert.match(j.next.reason, /is merged but main still has/);
+});
+
+// A full run of a devkit-lite change in merge mode, each step's effect applied the way ship-change does.
+test('walkthrough (merge): enable at 8/8, merged, retro, owner answers, archive, tick, apply, open the archive PR, enable, wait, archived (AC-1..AC-7, AC-9 pre-merge)', () => {
+  const t = shipRepo({ ship: 'merge' });
+  const taken = driveToReady(t);
+  assert.equal(taken.at(-1), 'enable-auto-merge');
+
+  // the change PR merges; the default branch gets the change folder and the roadmap
+  git(t.root, 'switch', '-q', 'main');
+  git(t.root, 'merge', '-q', '--ff-only', 'ship/feat');
+  put(t.root, { 'openspec/roadmap.md': '## Round 3\n- [ ] feat\n', 'CONTRIBUTING.md': 'old\n' });
+  commitAll(t.root, 'roadmap');
+  git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "main"\n' });
+  t.gh.set('pr-list-state-merged', { stdout: [mergedPr()] });
+  t.gh.set(ARCHIVE_LISTING, { stdout: [] });
+  t.gh.set(ACTIVE_ON_MAIN, { stdout: {} });
+  t.gh.set(ARCHIVE_PRS, { stdout: [] });
+  t.gh.set('pr-checks', { stdout: [check('check', 'pass')] });
+  const next = () => nextStep(collectState(t.root, 'feat', { env: t.env }));
+  const seen = [];
+  const take = () => { const n = next(); seen.push(n.step); return n; };
+
+  let n = take();
+  assert.deepEqual([n.step, n.number], ['retro', 12]);
+  writeRetro(t, retroMd(proposal(['CONTRIBUTING.md']), proposal(['docs/extra.md'])));
+  n = take();
+  assert.equal(n.step, 'stop-retro-answers');
+  assert.equal(n.proposals.length, 2);
+  writeRetro(t, retroMd(proposal(['CONTRIBUTING.md'], { answer: 'approved' }), proposal(['docs/extra.md'], { answer: 'rejected: not now' })));
+  n = take();
+  assert.deepEqual([n.step, n.branch, n.create], ['archive', 'chore/archive-feat', true]);
+  git(t.root, 'switch', '-q', '-c', n.branch);
+  archiveFolder(t);
+  n = take();
+  assert.deepEqual([n.step, n.line], ['tick-roadmap', '- [ ] feat']);
+  put(t.root, { 'openspec/roadmap.md': ticked });
+  n = take();
+  assert.equal(n.step, 'apply-proposals');
+  assert.deepEqual(n.proposals.map((p) => p.targets), [['CONTRIBUTING.md']], 'only the approved one');
+  put(t.root, { 'CONTRIBUTING.md': 'new\n' });
+  writeRetro(t, readFileSync(join(t.root, retroPath(true)), 'utf8').replace('- Answer: approved\n', '- Answer: approved\n- Applied: yes\n'), true);
+  n = take();
+  assert.deepEqual([n.step, n.title], ['open-archive-pr', 'chore(openspec): archive feat with its retro']);
+  const archiveHead = commitAll(t.root, 'archive feat');
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: archiveHead })] });
+  n = take();
+  assert.deepEqual([n.step, n.number, n.method, n.head], ['enable-auto-merge', 13, 'squash', archiveHead]);
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: archiveHead, autoMergeRequest: { enabledAt: 'x' } })] });
+  n = take();
+  assert.equal(n.step, 'wait-merge');
+  // GitHub merges the archive PR
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: archiveHead, state: 'MERGED' })] });
+  t.gh.set(ARCHIVE_LISTING, { stdout: [{ name: '2026-11-09-feat' }] });
+  n = take();
+  assert.deepEqual([n.step, n.folder], ['archived', '2026-11-09-feat']);
+
+  assert.deepEqual(seen, ['retro', 'stop-retro-answers', 'archive', 'tick-roadmap', 'apply-proposals', 'open-archive-pr', 'enable-auto-merge', 'wait-merge', 'archived']);
+  assert.deepEqual(t.gh.calls().filter((c) => c[0] === 'pr' && c[1] === 'create'), []);
+  assert.deepEqual(t.gh.calls().filter((c) => c[0] === 'pr' && c[1] === 'merge'), [], 'deliver-check never merges');
+  assert.ok(!t.gh.calls().some((c) => c.join(' ').includes('push')), 'nothing is pushed');
+});
+
+test('walkthrough (pr): the same run ends at archive-pr-ready, then archived after the owner merges it (AC-5, AC-6)', () => {
+  const t = onArchiveBranch({ ship: 'pr' });
+  const h = head(t.root);
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: h })] });
+  assert.equal(t.next().step, 'archive-pr-ready');
+  t.gh.set(ARCHIVE_PRS, { stdout: [archivePrJson({ headRefOid: h, state: 'MERGED' })] });
+  t.gh.set(ARCHIVE_LISTING, { stdout: [{ name: '2026-11-09-feat' }] });
+  assert.equal(t.next().step, 'archived');
+  assert.deepEqual(merges(t), []);
+});
+
+// ================================================================ skills, agents and docs of the archive steps (archive-after-merge phase 3)
+
+const shipSkill = () => readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+const skillRow = (md, step) => md.split('\n').find((l) => l.startsWith(`| \`${step}\``)) ?? '';
+
+test('format: ship-change archive rows name the commands and the owner-answer rule (3.1, AC-2, AC-3, AC-4)', () => {
+  const md = shipSkill();
+  assert.match(skillRow(md, 'archive'), /openspec archive <id> --yes/);
+  assert.match(skillRow(md, 'archive'), /git switch -c <next\.branch> origin\/<next\.base>/);
+  assert.match(skillRow(md, 'stop-retro-answers'), /owner's own message/);
+  assert.match(skillRow(md, 'stop-retro-answers'), /Never answer for the owner/);
+  assert.match(skillRow(md, 'tick-roadmap'), /- \[x\] <id>/);
+  assert.match(skillRow(md, 'apply-proposals'), /exactly these approved retro proposals/);
+  assert.match(skillRow(md, 'apply-proposals'), /Applied: yes/);
+  assert.match(skillRow(md, 'open-archive-pr'), /devkit-core:commit-and-pr/);
+  assert.match(skillRow(md, 'open-archive-pr'), /next\.title/);
+  assert.match(skillRow(md, 'retro'), /devkit-core:retro/);
+  assert.match(skillRow(md, 'archive-pr-ready'), /archive PR ready/);
+  assert.match(skillRow(md, 'stop-archive'), /blocked: archive \(<next\.archiveStep>\)/);
+  assert.match(skillRow(md, 'archived'), /archived/);
+});
+
+test('format: ship-change reused merge rows say next.number is the archive PR after the merge, and the enable command stays verbatim (3.1, AC-5)', () => {
+  const md = shipSkill();
+  assert.ok(md.includes('gh pr merge <next.number> --auto --<next.method> --match-head-commit <next.head>'));
+  for (const step of ['disable-auto-merge', 'update-branch', 'enable-auto-merge', 'wait-merge']) {
+    assert.match(skillRow(md, step), /archive PR/, `${step} names the archive PR`);
+  }
+});
+
+test('format: ship-change Start takes the id from a chore/archive-<id> branch, Stops, Never and Hosts cover the archive (3.1, AC-6, AC-7)', () => {
+  const md = shipSkill();
+  const start = md.slice(md.indexOf('## Start'), md.indexOf('## Go-ahead'));
+  assert.match(start, /chore\/archive-<id>/);
+  assert.match(start, /no argument|else/);
+  const stops = md.slice(md.indexOf('## Stops'), md.indexOf('## Resume'));
+  assert.match(stops, /blocked: archive \(<step>\)/);
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Push to the default branch, or commit on it/);
+  assert.match(never, /chore\/archive-<id>/);
+  assert.match(never, /Apply a retro proposal the owner did not approve, or record an answer the owner did not give/);
+  const hosts = md.slice(md.indexOf('## Hosts'), md.indexOf('## Report'));
+  assert.match(hosts, /archive PR/);
+  assert.match(hosts, /two|twice/);
+  assert.match(md.slice(0, md.indexOf('## Start')), /archive/i, 'description and intro mention the archive');
+  assert.match(md.split('\n')[2], /archive/, 'the description mentions the archive');
+});
+
+test('round trip: on chore/archive-x with x moved, archiveBranchChange finds x, resolveChange returns null, and deliver-check x answers (3.1, AC-6)', () => {
+  const t = onArchiveBranch();
+  assert.equal(archiveBranchChange(t.root, 'chore/archive-feat'), 'feat');
+  assert.equal(resolveChange(t.root, {}, 'chore/archive-feat'), null);
+  const r = runCli(t, ['feat', '--json']);
+  assert.notEqual(r.code, 3, r.err);
+  assert.equal(JSON.parse(r.out).change, 'feat');
+});
+
+const fencedBlocks = (md, from) => [...md.slice(md.indexOf(from)).matchAll(/```[^\n]*\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+const retroSkill = () => readFileSync(join(repoRoot, 'plugins', 'core', 'skills', 'retro', 'SKILL.md'), 'utf8');
+function parseExample(block) {
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-retro-'));
+  const file = join(dir, 'retro.md');
+  writeFileSync(file, block);
+  return readRetro(file);
+}
+
+test('format: the retro Output example, parsed by readRetro, yields the proposals, targets, kinds, answers and applied flags it shows (3.2, AC-2, AC-3)', () => {
+  const md = retroSkill();
+  const blocks = fencedBlocks(md, '\n## Output');
+  const produced = parseExample(blocks[0]);
+  assert.equal(produced.readable, true);
+  assert.ok(produced.proposals.length >= 2);
+  assert.ok(produced.proposals.every((p) => p.answer === null && p.applied === false), 'the retro writes no Answer and no Applied');
+  assert.ok(produced.proposals.every((p) => p.targets.length > 0 && p.kind), 'every proposal has targets and a kind');
+  assert.ok(produced.proposals.some((p) => p.targets.includes('user memory')), 'shows a user memory proposal');
+  assert.ok(produced.proposals.some((p) => p.targets.length > 1), 'shows a proposal that changes two files');
+  const answered = parseExample(blocks[1]);
+  assert.deepEqual(answered.proposals.map((p) => p.targets), produced.proposals.map((p) => p.targets));
+  assert.ok(answered.proposals.some((p) => p.answer === 'approved' && p.applied === true), 'approved and applied');
+  assert.ok(answered.proposals.some((p) => p.answer === 'rejected' && p.applied === false), 'rejected');
+  assert.match(md, /^\s*`None\.`|`None\.`|\bNone\.\s*$/m, 'names the empty case');
+  assert.equal(parseExample('## Proposed updates\n\nNone.\n').proposals.length, 0);
+});
+
+test('format: retro says every changed file is a proposal target, the caller writes Answer, whoever applies writes Applied, and names ship-change (3.2)', () => {
+  const md = retroSkill();
+  assert.match(md, /exact backticked repo-relative path/);
+  assert.match(md, /regression gate'?s test file/i);
+  assert.match(md, /`user memory`/);
+  assert.match(md, /- Answer:/);
+  assert.match(md, /- Applied: yes/);
+  assert.match(md.slice(md.indexOf('## When to use'), md.indexOf('## Process')), /ship-change/);
+  const never = md.slice(md.indexOf('## Never'), md.indexOf('## Related'));
+  assert.match(never, /write an `Answer:` line yourself/);
+});
+
+test('format: commit-and-pr has an archive call: precondition 1 kept, 3 waived, the title form and the body contents (3.3, AC-4, AC-7)', () => {
+  const md = coreAgent('commit-and-pr');
+  assert.match(md, /archive call/i);
+  assert.match(md, /`chore\(openspec\): archive <id> with its retro`/);
+  assert.match(md, /` \(<version>\)`|\(<version>\)/);
+  assert.match(md, /openspec\/changes\/archive\/<date>-<id>\/retro\.md/);
+  assert.match(md, /approved and rejected/i);
+  const pre = md.slice(md.indexOf('## Preconditions'), md.indexOf('## Method'));
+  assert.match(pre, /1\. \*\*Not on the default branch\*\*/);
+  assert.match(pre, /archive call[^\n]*waive|waive[^\n]*archive call/i);
+  assert.doesNotMatch(pre.slice(pre.indexOf('1.'), pre.indexOf('2.')), /archive call/, 'precondition 1 has no archive exception');
+  assert.match(md, /Merge the PR, or enable auto-merge/, 'Never stays');
+});
+
+test('format: tdd-implementer has an apply-proposals call: exactly the approved proposals, Applied: yes, no phase and no tasks.md (3.4, AC-3)', () => {
+  const md = coreAgent('tdd-implementer');
+  assert.match(md, /apply-proposals call/);
+  assert.match(md, /exactly/i);
+  assert.match(md, /- Applied: yes/);
+  assert.match(md, /no phase/i);
+  assert.match(md, /tasks\.md/);
+  assert.match(md, /CHANGELOG/);
+  assert.match(md, /test-first|test first/i);
 });

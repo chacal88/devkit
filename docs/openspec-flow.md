@@ -152,7 +152,7 @@ Planning files under `openspec/`, anything under `.claude/`, and anything outsid
 
 **How roles work.** When a subagent calls a tool, Claude Code passes its type (for example `devkit-core:tdd-implementer`) to the hook; the main session has none. The guard compares that with the file's owner. A subagent can still be given a misleading prompt, so each reviewer is told to ignore verdicts suggested by its caller; the separation makes self-approval impossible by accident and visible on purpose, not impossible.
 
-**Which change is active.** `DEVKIT_CHANGE` if set; else the open change whose name the branch ends with, or contains; else the only open change. With several open changes and no branch match, code edits are blocked until you name the branch. With no open change, nothing is gated.
+**Which change is active.** `DEVKIT_CHANGE` if set; else, on a branch `chore/archive-<id>` for a known change `<id>`, that change while it is open (and none once it moved to `openspec/changes/archive/`); else the open change whose name the branch ends with, or contains; else the only open change. With several open changes and no branch match, code edits are blocked until you name the branch. With no open change, nothing is gated. On an archive branch whose change has moved, the hooks gate nothing, even while other changes are open: the archive PR is never held to another change's readiness or reviews.
 
 **Bypass.** Start Claude Code with `DEVKIT_BYPASS=1` in its environment. A prefix inside a command (`DEVKIT_BYPASS=1 git push --force`) does not work, so the agent can't bypass on its own.
 
@@ -172,7 +172,7 @@ Run it from anywhere inside the repository. It prints one line per item (`met`, 
 | 2 | Reviews approved at head | `reviews/*.md` | a required reviewer missing, `rejected`, or its `Commit:` stale | none |
 | 3 | Findings disposed | `reviews/*.md` | a `[blocking]` or `[important]` line without `· fixed in <sha>` or `· refuted: <evidence>` | none |
 | 4 | Acceptance criteria proven | `proposal.md` (else `requirements.md`), `evidence.md` | evidence missing or stale; a criterion without a `pass`/`verified` row; a `fail`/`defect` row | a criterion with only `no proof` rows; no criteria ids at all |
-| 5 | PR open at local head | `gh pr view`, git | no PR yet; local commits not pushed; uncommitted files in the change folder | PR closed or merged; its head not in local history; a merge conflict; `gh` missing or failing |
+| 5 | PR open at local head | `gh pr view`, git | no PR yet; local commits not pushed; uncommitted files in the change folder | PR closed; its head not in local history; a merge conflict; `gh` missing or failing (a PR merged at your local head is not blocked: it leads to the archive steps, below) |
 | 6 | Required checks green | `gh pr checks` (`--required`, else all checks) | a check pending, failing or cancelled | `gh` error; an unknown check state |
 | 7 | Conversation answered | `gh api graphql` | an unresolved review thread, a person's newer comment, or a `CHANGES_REQUESTED` not yet replied to | a `CHANGES_REQUESTED` already replied to; more than 100 threads |
 | 8 | PR body complete | the PR body | the change id, an acceptance criterion id or the `evidence.md` link is missing | none |
@@ -183,17 +183,17 @@ For item 7, a person counts only when GitHub reports their `authorAssociation` a
 
 The rule goes by author type, not by intent: the checker cannot tell whether a bot's top-level comment asks for something, so it ignores every bot top-level comment and review body. A bot that wants a change must say it in an inline review thread or a "changes requested" review.
 
-**Exit codes.** `0` only when all eight are met (in `merge` mode also when the PR is merged); `1` when something is open and nothing is blocked; `2` when something is blocked (in `merge` mode also `blocked: merge setup`); `3` for a usage or preflight error (unknown change, no `openspec/`, or an invalid `ship` or `merge_method` setting).
+**Exit codes.** `0` only when all eight are met (after the merge the eight items are met by definition, see below); `1` when something is open and nothing is blocked; `2` when something is blocked (also `blocked: merge setup` in `merge` mode, and any `blocked: archive (<step>)` after the merge); `3` for a usage or preflight error (an id found neither in `openspec/changes/` nor in `openspec/changes/archive/`, no `openspec/`, or an invalid `ship` or `merge_method` setting).
 
-**JSON.** `--json` prints `{ "version": 1, "change", "schema", "ship", "host", "head", "pr", "phases", "items", "met", "summary", "next" }`. `version` changes only when a field is removed or changes meaning. On exit 3 it prints `{ "version": 1, "error": "<message>" }`. `host` is `app` in the Claude desktop app and `cli` otherwise (`DEVKIT_HOST=app|cli` overrides it). In `merge` mode only, the report also has a `merge` object (below); `version` stays `1` because the field is additive.
+**JSON.** `--json` prints `{ "version": 1, "change", "schema", "ship", "host", "head", "pr", "phases", "items", "met", "summary", "next" }`. `version` changes only when a field is removed or changes meaning. On exit 3 it prints `{ "version": 1, "error": "<message>" }`. `host` is `app` in the Claude desktop app and `cli` otherwise (`DEVKIT_HOST=app|cli` overrides it). In `merge` mode only, the report also has a `merge` object (below), and after the merge an `archive` object (below); `version` stays `1` because both fields are additive.
 
 **The `Commit:` staleness rule.** A reviewer's verdict file and `evidence.md` start with a `Commit: <sha>` line, placed before the first markdown heading (a line under a heading is not read). It is current when the sha resolves, is an ancestor of `HEAD`, every later commit touches only `openspec/`, the line has no `(uncommitted changes)` marker, and the working tree has no change outside `openspec/` and `.claude/`. A later commit to product code (or to a path such as `openspecx/`) makes it stale, and only the reviews or evidence that carry that sha are redone.
 
 **Waiting.** `--watch[=<minutes>]` runs one `gh pr checks <n> --watch --interval 30` (default 9 minutes, at most 30) when the next step is waiting for checks, then computes the contract again. A watch that outlives the cap is stopped and the result is `in progress: item 6`.
 
-**Merge mode.** With `ship: merge` the contract ends differently: GitHub merges the PR, so a merged PR is the final state and the repository must be prepared first. Plan and pr modes are unchanged: they ask `gh pr view` for the same fields as before, and a merged PR is still `blocked` at item 5 there.
+**Merge mode.** With `ship: merge` the contract ends differently: GitHub merges the PR, and the repository must be prepared first. A merged PR is not the end in `pr` or `merge` mode: it leads to the archive steps ("After the merge", below). `plan` mode is unchanged: it asks `gh pr view` for the same fields as before and stops at `stop-plan-mode` whatever the PR says.
 
-- **Items.** `merge` mode also reads `autoMergeRequest` and `mergeStateStatus`. Item 5 is `met` for a PR merged at the local head (`PR #n merged`) and `blocked` for one merged at another head. An open PR whose `mergeStateStatus` is `BEHIND` is `open` (`branch is behind <base>; update it`). When the PR is merged at the local head, items 6 and 7 are `met` without calling `gh`. The PR is found by its number once known, else by the branch; when the branch no longer finds it (merged, branch deleted) `gh pr list --head <branch> --state all` finds it among open, merged and closed PRs, preferring an open one.
+- **Items.** `merge` mode also reads `autoMergeRequest` and `mergeStateStatus`. Item 5 is `met` for a PR merged at the local head (`PR #n merged`) and `blocked` for one merged at another head. An open PR whose `mergeStateStatus` is `BEHIND` is `open` (`branch is behind <base>; update it`). Once the PR is merged, the archive steps take over and items 6 and 7 are `met` without calling `gh`. The PR is found by its number once known, else by the branch; when the branch no longer finds it (merged, branch deleted) `gh pr list --head <branch> --state all` finds it among open, merged and closed PRs, preferring an open one. That lookup now runs in `pr` mode too.
 - **Preflight (read-only).** Before any work, merge mode checks that the repository can merge on its own. A missing piece is `blocked: merge setup (...)`, never a silent downgrade to `pr`, and the reason names the `openspec-setup` skill (GitHub step).
 
   | Fact | Read with | Missing when |
@@ -204,10 +204,63 @@ The rule goes by author type, not by intent: the checker cannot tell whether a b
   | The workflow is committed | `git cat-file -e HEAD:.github/workflows/devkit-reviews.yml` | absent at `HEAD` (a file only in the working tree does not count) |
 
   "Required" means a rule that is active on the default branch (the rules endpoint lists only active rules, repository and organization rulesets alike) or classic branch protection; an `evaluate`-mode or disabled ruleset does not count. A 404 or 403 from classic protection means none. Any other `gh` error is `cannot read the repository settings: ...` and also blocks: the preflight fails closed.
-- **Steps** (`next.step`, merge mode only): `merged`; `disable-auto-merge` (auto-merge is on and an item is no longer met; ahead of every stop and of `push`); `stop-merge-setup` (`missing` lists what the preflight found); `update-branch` (item 5 is open only because the PR is behind its base); `enable-auto-merge` (all eight met and auto-merge off; carries `number`, `method` from `merge_method`, default `squash`, and `head`, the commit that was checked); `wait-merge` (all eight met and auto-merge on; carries `waitingFor`). In every mode, `devkit-reviews` failing in CI while items 1-4 are met locally is `blocked: item 6`, because no code fix applies.
-- **Summaries.** `merged`; `auto-merge on: waiting for <what>` (`GitHub to merge`, `branch rules outside the delivery contract (for example a required approval)`, `GitHub to compute mergeability`, or `GitHub (mergeStateStatus <value>)`); `blocked: merge setup`. Otherwise the summary is the usual one, including `ready` at 8/8 with auto-merge off.
+- **Steps** (`next.step`, merge mode only): `disable-auto-merge` (auto-merge is on and an item is no longer met; ahead of every stop and of `push`); `stop-merge-setup` (`missing` lists what the preflight found); `update-branch` (item 5 is open only because the PR is behind its base); `enable-auto-merge` (all eight met and auto-merge off; carries `number`, `method` from `merge_method`, default `squash`, and `head`, the commit that was checked); `wait-merge` (all eight met and auto-merge on; carries `waitingFor`). In every mode, `devkit-reviews` failing in CI while items 1-4 are met locally is `blocked: item 6`, because no code fix applies.
+- **Summaries.** `auto-merge on: waiting for <what>` (`GitHub to merge`, `branch rules outside the delivery contract (for example a required approval)`, `GitHub to compute mergeability`, or `GitHub (mergeStateStatus <value>)`); `blocked: merge setup`. Otherwise the summary is the usual one, including `ready` at 8/8 with auto-merge off.
 - **`merge` object.** `{ "method", "setup": { "ok", "missing" }, "autoMerge", "state", "mergeStateStatus", "waitingFor" }`, present only when `ship` is `merge`.
-- **The wait.** With `--watch[=<minutes>]` at `wait-merge`, the checker polls `gh pr view <n>` every `DEVKIT_POLL_SECONDS` (default 30) until the PR is not open, auto-merge goes off, the head changes, `gh` fails or the cap (default 9 minutes, at most 30) is reached, then computes the contract again: the result is `merged` or `auto-merge on: waiting for <what>`.
+- **The wait.** With `--watch[=<minutes>]` at `wait-merge`, the checker polls `gh pr view <n>` every `DEVKIT_POLL_SECONDS` (default 30) until the PR is not open, auto-merge goes off, the head changes, `gh` fails or the cap (default 9 minutes, at most 30) is reached, then computes the contract again: the result is the first archive step (the retro) once GitHub merged, or `auto-merge on: waiting for <what>`.
+
+### After the merge: the archive steps
+
+A change whose PR merged is not done: its retro, the owner's answers, `openspec archive` and the roadmap tick still have to land, and they land through a pull request, because the ruleset refuses pushes to the default branch. `deliver-check` leads that work in `pr` and `merge` mode (never in `plan` mode, which stops at `stop-plan-mode`). It adds no state: it recomputes the step from the working tree, the default branch as GitHub serves it, and the archive PR.
+
+**The post-merge phase** starts when the change PR is `MERGED` or the change folder is already archived in the working tree. All eight items are then `met` (item 5 reads `PR #n merged`, the others `checked before PR #n merged`), and none of them reads files or `gh`: the staleness rule cannot hold after a squash merge and `tasks.md` may have moved. The one exception: on the change's own branch, a PR merged at a head other than the local head is `blocked: item 5`, because local commits would be lost.
+
+**Finding the change PR.** On the change branch, as before (`gh pr view`, then `gh pr list --head <branch> --state all` once the branch was deleted). From the default branch or an archive branch: `gh pr list --state merged --limit 100`, dropping the archive heads (`chore/archive-<id>` and `archive-<id>`), then the newest PR whose body contains `openspec/changes/<id>/evidence.md`, and only if none has it the newest whose head's last segment equals `<id>`. A head that merely contains the id never matches (id `auto-merge` is contained in `archive-auto-merge`). The list asks for light fields, and a body is read with `gh pr view <n> --json body` one PR at a time (newest first) until one matches. The 100 is the cap: a change merged more than 100 merged PRs ago is not found.
+
+**The default branch is read from GitHub**, never from the local checkout or `origin/<base>`: the local one is behind whenever GitHub merged on its own, and `deliver-check` does not fetch. The branch name is `default_branch` from `gh api repos/{owner}/{repo}` (the same call `merge` mode already makes for its preflight). Then `gh api repos/{owner}/{repo}/contents/openspec/changes/archive?ref=<base>`: an entry named `<YYYY-MM-DD>-<id>` means the change is `archived`. Otherwise `.../contents/openspec/changes/<id>?ref=<base>` is `active` (200) or `absent` (`HTTP 404`). Any other error, or a `gh` that stalls past 60 seconds, is `stop-archive` (`read-default-branch`): the check fails closed. The contents API lists at most 1,000 entries per directory.
+
+**Rows**, in order, first match wins (the steps `ship-change` runs are in "Shipping a change"):
+
+| # | Condition | `next.step` | Fields |
+|---|---|---|---|
+| P0 | the default branch has the archived folder | `archived` | `folder` |
+| P1 | the default branch is unreadable | `stop-archive` | `archiveStep: read-default-branch`, `reason` |
+| P1b | item 5 blocked (merged at another head, on the change branch) | `blocked` | `item: 5` |
+| P2 | `merge` mode and the repository setup is missing | `stop-merge-setup` | `missing` |
+| P3a | archive PR open, auto-merge on, and a conflict, a failing check, a PR head that is not the local head, uncommitted files, an unanswered proposal or an unnamed file | `disable-auto-merge` | `number` |
+| P3b | archive PR open, merge conflict | `stop-archive` | `archive-pr` |
+| P3c | archive PR open, head not in local history | `stop-archive` | `archive-pr` |
+| P3d | archive PR open, local ahead of it or uncommitted files | `open-archive-pr` | `branch`, `number` |
+| P3e | archive PR open, a check failing or cancelled (or unreadable) | `stop-archive` | `archive-pr` |
+| P3f | `merge`, archive PR behind its base | `update-branch` | `number` |
+| P3g | `merge`, auto-merge off | `enable-auto-merge` | `number`, `method`, `head` |
+| P3h | `merge`, auto-merge on | `wait-merge` | `number`, `head`, `waitingFor` |
+| P3i | `pr` | `archive-pr-ready` | `number`, `url` |
+| P4 | archive PR merged, the default branch still has the active folder | `stop-archive` | `archive-pr` |
+| P5 | archive PR closed, none open | `stop-archive` | `archive-pr` |
+| P6 | no `retro.md` in the change folder | `retro` | `number` (the change PR), `base` |
+| P7 | `retro.md` without `## Proposed updates` | `stop-archive` | `retro` |
+| P8 | a proposal without an `Answer:` line | `stop-retro-answers` | `proposals` |
+| P9 | the folder is still active locally | `archive` | `branch: chore/archive-<id>`, `base`, `create` |
+| P10 | the folder is archived, but this is not `chore/archive-<id>` | `stop-archive` | `archive` |
+| P11 | `openspec/roadmap.md` lists the change unticked | `tick-roadmap` | `line` |
+| P12 | an approved proposal without `Applied: yes` | `apply-proposals` | `proposals` (approved and unapplied only) |
+| P13 | a changed file that no approved proposal names (`openspec/changes/**`, `openspec/roadmap.md` and the release files are exempt; `openspec/config.yaml` and `openspec/schemas/**` are not). Also checked, with the answers, while the archive PR is open | `stop-archive` | `apply-proposals` |
+| P14 | otherwise | `open-archive-pr` | `branch`, `base`, `title` |
+
+No archive PR can exist before every proposal is answered: the only rows that open one sit after P8. `merged` is no longer a `next.step`: it is a state now, and the first archive step takes its place.
+
+**The owner's answers** live in the change's `retro.md`, one `- Answer: approved` or `- Answer: rejected[: why]` line under each proposal (`### ` heading under `## Proposed updates`, targets as backticked repository paths or `user memory`, and `None.` when there are no proposals). They stay uncommitted until the archive PR, so a session killed and resumed in the same checkout does not ask again; if the checkout itself is lost, the retro runs again and the owner is asked again. `deliver-check` reads the last `- Answer:` and the last `- Applied:` line of each block, and never a `- before:` or `+ after:` diff line.
+
+**The file check (P13, AC-3).** Changed paths are `git diff --name-only <merge-base of origin/<base> and HEAD>` plus `git status --porcelain -uall`, except `openspec/changes/**` and `openspec/roadmap.md` (the archive's own record; `openspec/config.yaml` and `openspec/schemas/` are checked). Each must equal, as a repository-relative path with a leading `./` removed, a target of an approved proposal, or be a release file: `plugins/<pack>/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/catalog.md`. There is no directory, prefix or glob matching, so `docs/` does not cover `docs/x.md` and `docs/*.md` matches nothing. A regression gate's test file that its proposal did not name stops the run too. The fix is to amend the proposal's targets in `retro.md` and answer again; the checker never guesses. If `origin/<base>` does not resolve, the run stops with `git fetch origin <base>`. While the archive PR is open the check also runs, and an open archive PR whose folder is not archived in the working tree, or whose archived `retro.md` is unreadable, is a `stop-archive` (and `disable-auto-merge` first if auto-merge is on), never `enable-auto-merge`.
+
+**Summaries and exit codes.** `archived` (0); `archive PR open: waiting for <what>` (0); `archive PR ready` (0); `archive: waiting for the owner's answers` (0); `blocked: archive (<archiveStep>)` for every `stop-archive` (2); `blocked: merge setup` (2); `blocked: item 5` (2); otherwise `merged: archive step <step>` (0).
+
+**`archive` object** (JSON, present only after the merge): `{ "base", "branch", "changePr": { "number", "url" }, "onDefault": "active" | "archived" | "absent", "folder", "local": "active" | "archived", "retro": { "exists", "readable", "proposals": [{ "n", "targets", "kind", "answer", "applied" }] }, "roadmap": { "listed", "ticked" }, "pr": { "number", "url", "state", "autoMerge", "mergeStateStatus", "headRefOid" } | null, "waitingFor" }`. In the post-merge phase `next.number` of `disable-auto-merge`, `update-branch`, `enable-auto-merge` and `wait-merge` is the archive PR.
+
+**The wait on the archive PR.** `--watch[=<minutes>]` at `wait-merge` polls `gh pr view <archive PR>` as it does for the change PR (same defaults and cap), then reads the state again: `archived` once the default branch lists the folder, else `archive PR open: waiting for <what>`. A `merge`-mode run may therefore wait twice, once for each PR, each capped.
+
+**Why the archive PR can auto-merge without 8/8:** the owner answered each proposal by name, the file check refuses any file they did not approve (locally, also while the archive PR is open, and again in the required `devkit-reviews` check), and the ruleset's required checks still run. The decision and its review trigger are recorded in [ADR 0003](adr/0003-auto-merge-the-archive-pr.md).
 
 ## Shipping a change: ship modes
 
@@ -229,11 +282,11 @@ ship: { devkit-lite: pr }
 | `pr` | The `ship-change` skill takes the change to a PR that `deliver-check` reports as `ready`, and stops there; in `pr` mode the merge is yours |
 | `merge` | The skill takes the change to 8/8, then enables GitHub auto-merge (`gh pr merge <n> --auto --<merge_method> --match-head-commit <head>`) and GitHub merges once its rules pass. `merge_method` is `squash` (default), `merge` or `rebase`, written next to `ship`. The repository has to be prepared first (below), or the run stops with `blocked: merge setup` |
 
-Why `merge` exists, what it costs and when to revisit it: [ADR 0002](adr/0002-merge-without-the-owner-opt-in.md).
+Why `merge` exists, what it costs and when to revisit it: [ADR 0002](adr/0002-merge-without-the-owner-opt-in.md). Why the archive PR that follows a merge is auto-merged without 8/8: [ADR 0003](adr/0003-auto-merge-the-archive-pr.md).
 
 Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key is also an error that names the key. The hooks do not read `ship`: with or without it, every gate behaves the same.
 
-**What `ship-change` runs.** `/ship-change <id>` (or "ship this change") loops on `deliver-check --json` and does the step it names: `tdd-implementer` per phase, the phase gate command itself, `commit-and-pr` for a commit, `review-change` for only the reviewers that went stale, `pr-verifier`, the PR, then answering the PR's review threads and waiting for checks. It holds no state: a killed session starts again from the files and GitHub, so resuming is just running it again. It reports `ready` (`pr` mode) only when `deliver-check` exits 0, else `in progress: item N` or `blocked: item N`; in `merge` mode it reports `merged`, `auto-merge on: waiting for <what>` or `blocked: merge setup`. Fixes always go through `tdd-implementer`. It never merges directly and never uses `--admin`: it runs `gh pr merge` at exactly two steps, `enable-auto-merge` (`--auto`, only at 8/8) and `disable-auto-merge` (`--disable-auto`, as soon as the contract drops below 8/8: a push, a stale review, a new comment, a pending re-run).
+**What `ship-change` runs.** `/ship-change <id>` (or "ship this change") loops on `deliver-check --json` and does the step it names: `tdd-implementer` per phase, the phase gate command itself, `commit-and-pr` for a commit, `review-change` for only the reviewers that went stale, `pr-verifier`, the PR, then answering the PR's review threads and waiting for checks. It holds no state: a killed session starts again from the files and GitHub, so resuming is just running it again. It reports `ready` (`pr` mode) only when `deliver-check` exits 0, else `in progress: item N` or `blocked: item N`; in `merge` mode it reports `auto-merge on: waiting for <what>`, `blocked: merge setup` or, after the archive, `archived`. After the change PR merges it goes on to the archive steps (below): `pr` mode ends at `archive PR ready` (you merge the archive PR; run it again to see `archived`), `merge` mode at `archived`. `merged` is no longer a final report. Fixes always go through `tdd-implementer`. It never merges directly and never uses `--admin`: it runs `gh pr merge` at exactly two steps, `enable-auto-merge` (`--auto`, only at 8/8) and `disable-auto-merge` (`--disable-auto`, as soon as the contract drops below 8/8: a push, a stale review, a new comment, a pending re-run).
 
 **What the skill runs in `merge` mode.** The same loop, with these steps added (`next.step` of `deliver-check --json`):
 
@@ -243,8 +296,16 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 | `disable-auto-merge` | `gh pr merge <n> --disable-auto`, then continues |
 | `update-branch` | `gh pr update-branch <n>`, then `git pull --ff-only`. The ruleset requires the branch to be up to date, so a PR behind its base waits; the update brings base commits, which makes older reviews stale and re-runs them |
 | `enable-auto-merge` | `gh pr merge <n> --auto --<method> --match-head-commit <head>`: GitHub refuses it if the head moved since the check |
-| `wait-merge` | One capped `deliver-check <id> --json --watch`, then reports `merged` or `auto-merge on: waiting for <what>` |
-| `merged` | Reports `merged` |
+| `wait-merge` | One capped `deliver-check <id> --json --watch`, then reports `archived` or `auto-merge on: waiting for <what>` (`archive PR open: waiting for <what>` for the archive PR) |
+| `retro` | Runs the `retro` skill on the merged PR and writes `retro.md` in the change folder |
+| `stop-retro-answers` | Stops and asks the owner to approve or reject each proposal; writes each `Answer:` from the owner's own message, never its own |
+| `archive` | `git switch -c chore/archive-<id> origin/<base>`, then `openspec archive <id> --yes` |
+| `tick-roadmap` | Ticks the change's line in `openspec/roadmap.md` |
+| `apply-proposals` | `tdd-implementer` applies exactly the approved proposals (test-first for a regression gate, version bump, CHANGELOG), writes `Applied: yes` |
+| `open-archive-pr` | `commit-and-pr` (archive call) commits the moved folder, the roadmap and the applied files, and opens the archive PR |
+| `archive-pr-ready` | Reports `archive PR ready` (`pr` mode): you merge it |
+| `stop-archive` | Stops: `blocked: archive (<step>): <reason>` |
+| `archived` | Reports `archived` |
 
 **Preparing the repository (setup order).** In the project, run the GitHub step of `/openspec-setup` (`scripts/github-setup.mjs`). It prints a plan of four items (`workflow`, `auto-merge`, `delete-branch`, `ruleset`), applies nothing until you confirm each one, and is safe to run again.
 
@@ -263,7 +324,7 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 
 ## CI
 
-Hooks run only inside Claude Code. To make the gates independent of the agent, run them in CI as well. The `devkit-reviews` workflow runs `deliver-check --ci`: it checks readiness (in `devkit`) and the first four items of the delivery contract (tasks and gates, reviews current at head, findings disposed, acceptance criteria proven) for the change the PR is about. Unlike the review consensus `guard.mjs ci` checked before 0.5.0, it applies the same staleness rule as `deliver-check` and the agent: a review or `evidence.md` recorded before a later product commit fails the job. It ignores `DEVKIT_BYPASS` and does not read `ship` or `merge_method`.
+Hooks run only inside Claude Code. To make the gates independent of the agent, run them in CI as well. The `devkit-reviews` workflow runs `deliver-check --ci`: it checks readiness (in `devkit`) and the first four items of the delivery contract (tasks and gates, reviews current at head, findings disposed, acceptance criteria proven) for the change the PR is about. Unlike the review consensus `guard.mjs ci` checked before 0.5.0, it applies the same staleness rule as `deliver-check` and the agent: a review or `evidence.md` recorded before a later product commit fails the job. It ignores `DEVKIT_BYPASS` and does not read `ship` or `merge_method`. A change is never selected through an archive branch (`chore/archive-<id>`) once its folder has moved, so an archive PR is never held to another change's reviews even while other changes are open. It is checked as an archive PR instead: when the PR (against `GITHUB_BASE_REF`) brings an `openspec/changes/archive/<date>-<id>/` folder, `devkit-reviews` runs the same exact-path file check as P13 on the PR's changed files, and requires its `retro.md` to be readable with every proposal answered. A file no approved proposal names, an unanswered proposal or a missing retro fails the job. A PR that archives nothing passes with the "nothing to check" note.
 
 ```yaml
 # .github/workflows/devkit-reviews.yml (templates/devkit-reviews.yml in the openspec-setup skill)
@@ -284,15 +345,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.5.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.5.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.6.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.6.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.5.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.5.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.6.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.6.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@latest` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -317,7 +378,7 @@ jobs:
 2. The branch (`GITHUB_HEAD_REF`, else the git branch): the active change the branch name ends with, else the only one it contains. Several contained: the job fails (`several changes match branch ...`).
 3. With `GITHUB_BASE_REF` (always set on a `pull_request` run): the one active change whose folder the PR changes (`openspec/changes/<id>/`, the archive excluded). Two or more: the job fails (`several changes are touched by this PR ...`).
 4. Without `GITHUB_BASE_REF` (a local run): the only open change. Several: the job fails.
-5. Otherwise there is nothing to check and the job passes with a note (`no change selected by branch ... or touched by this PR; nothing to check`).
+5. Otherwise (a PR that brings an archived folder was checked as an archive PR before this, see above) there is nothing to check and the job passes with a note (`no change selected by branch ... or touched by this PR; nothing to check`).
 
 A change that was squash-merged but not archived yet is therefore not checked by an unrelated PR: its reviews point at commits that are not in the base's history. A repository without an `openspec/` folder passes too (`no openspec/ folder; nothing to check`), so adding the workflow never breaks a project that has not adopted OpenSpec. Locally, `deliver-check <id>` (without `--ci`) still exits 3 there.
 
@@ -355,7 +416,11 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | `blocked: merge setup (...)` | `ship: merge`, but the repository lacks a piece: auto-merge or the merge method not allowed, no active rule requiring `devkit-reviews` on the default branch, or the workflow not committed (the message lists which) | Run the GitHub step of `/openspec-setup` and confirm the items; commit the workflow |
 | `auto-merge on: waiting for <what>` | All eight items are met and auto-merge is enabled; GitHub has not merged yet (`GitHub to merge`, `branch rules outside the delivery contract (for example a required approval)`, `GitHub to compute mergeability`) | Run `deliver-check <id> --watch` or `ship-change` again; if the wait is a rule outside the contract, satisfy it or adjust the ruleset |
 | `blocked: item 6` with `devkit-reviews fails in CI while items 1-4 are met locally` | The CI check and the local view disagree: a file not pushed, or a checkout that is not the PR head | Read the CI log of `devkit-reviews`; push what is missing or fix the checkout (see the two `--ci` exit 3 rows) |
-| `blocked: item 5` | The PR has a merge conflict, was closed or merged, or its head isn't in your history | Resolve the conflict (or reopen) and run it again; the flow never resolves conflicts |
+| `blocked: item 5` | The PR has a merge conflict, was closed, or its head isn't in your history (or it was merged at a head other than your local one) | Resolve the conflict (or reopen) and run it again; the flow never resolves conflicts |
+| `blocked: archive (<step>)` | An archive step cannot go on: the default branch could not be read (`read-default-branch`), the archive PR conflicts, has a failing check, was closed or is not in your history (`archive-pr`), `retro.md` has no `## Proposed updates` (`retro`), the change is archived on another branch or `origin/<base>` is missing (`archive`), or a changed file is named by no approved proposal (`apply-proposals`) | Read the reason after the step name; fix it and run it again. The flow opens no second archive PR |
+| `archive: waiting for the owner's answers` | Every retro proposal needs an `- Answer:` line in `retro.md` before the archive PR exists | Approve or reject each proposal listed, then run `ship-change` again |
+| `archive PR open: waiting for <what>` | The archive PR has auto-merge on and GitHub has not merged yet | Run `deliver-check <id> --watch` or `ship-change` again |
+| `deliver-check` exits 3: `no openspec/changes/<id>/ and no openspec/changes/archive/<date>-<id>/` | The id is in neither place in this checkout | Switch to the default branch and pull, or to the change's branch |
 | `in progress: item 6` | Required checks are still running, or failing | Run `deliver-check <id> --watch` or `ship-change` again; a failing check is fixed through `tdd-implementer` |
 | The hooks don't fire at all | `devkit-openspec` isn't installed or enabled | `/plugin` → enable `devkit-openspec@devkit` |
 

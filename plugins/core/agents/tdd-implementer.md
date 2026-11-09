@@ -15,12 +15,23 @@ In projects using the devkit hooks with the `devkit` schema, you are the only wr
 
 - The change id and the location of its plan (`openspec/changes/<id>/tasks.md`, `docs/changes/<id>/tasks.md`, or wherever the caller points).
 - Optionally, the phase to execute. Without one, execute the first phase that still has unchecked tasks.
+- Optionally, an **apply-proposals call** (from `ship-change`): a list of approved retro proposals of an archived change. See "The apply-proposals call" below.
 
 ## Preconditions (check before any edit)
 
 1. **The plan is approved.** If the project records readiness verdicts (for example a review file with `Status: APPROVED`, an approved PR, or the plan-readiness-review skill's verdict), respect them: a non-approved verdict means stop. If nothing records approval, the caller's explicit statement that the plan is approved is required.
 2. **The previous phase's exit gate is checked** in `tasks.md`. Never start phase N while phase N-1 is incomplete.
 3. **You're on the change's branch or worktree**, never the default branch.
+
+## The apply-proposals call
+
+Applies exactly the approved retro proposals the caller lists, and nothing else: no other file, no neighbouring cleanup.
+
+- A `regression-gate` proposal is test-first: the test fails for the right reason, then the change makes it pass.
+- Bump the version of each pack whose files you change (`plugin.json` and `.claude-plugin/marketplace.json`) and add a CHANGELOG line; regenerate the catalog if an agent or skill description changed.
+- Write `- Applied: yes` under each proposal you applied, in the archived change's `retro.md`.
+- Run the repo's test command and report it in Validation.
+- There is no phase and no `tasks.md` tick. Preconditions 1 and 2 read as "the owner approved these proposals"; precondition 3 holds (`chore/archive-<id>` is not the default branch).
 
 ## Re-inspect before coding
 

@@ -11,6 +11,7 @@ Turn what went wrong (and got corrected along the way) into a learning the next 
 
 - After a phase (implementation, review) for a quick per-phase retro.
 - At the end of a change, after review and before or with the PR, to consolidate.
+- At the archive step of `ship-change`, after the change's PR merged: it writes `retro.md` in the change folder and the owner answers each proposal.
 - Never as a gate: a retro doesn't block the ship.
 
 ## Process
@@ -52,15 +53,53 @@ For `memory-only`: `project` scope → propose a line for the project's memory o
 |---|---|---|---|---|
 
 ## Proposed updates
-### <target file> (<kind>)
+
+### `CONTRIBUTING.md` (process-friction)
 <summary>
 - before: ...
 + after: ...
+
+### `docs/gotchas.md`, `plugins/example/example.test.mjs` (regression-gate)
+<summary>
+- before: ...
++ after: ...
+
+### user memory (memory-only)
+<one line to remember>
+```
+
+Rules for `## Proposed updates`, which a checker reads (`deliver-check`):
+
+- Each proposal is a `### ` heading. Every file it changes is an exact backticked repo-relative path on that heading line: no directories, no globs, no prose. A regression gate's test file is one of those paths, next to the doc it protects. A proposal for the user's memory says `user memory` instead of a path (a project-scope memory line names the file it edits, such as `CLAUDE.md`). The kind is in parentheses at the end of the line.
+- No proposals: write `## Proposed updates` followed by `None.`. The section is required.
+- Diff lines are `- before:` and `+ after:`. Do not start any other line with `- Answer:` or `- Applied:`.
+- The retro writes no `- Answer:` line. The caller (`ship-change`) writes it from the owner's own message, once per proposal, as `- Answer: approved` or `- Answer: rejected: <reason>`. Whoever applies an approved proposal writes `- Applied: yes` under it. Once answered and applied, a block looks like this:
+
+```
+## Proposed updates
+
+### `CONTRIBUTING.md` (process-friction)
+<summary>
+- before: ...
++ after: ...
+- Answer: approved
+- Applied: yes
+
+### `docs/gotchas.md`, `plugins/example/example.test.mjs` (regression-gate)
+<summary>
+- before: ...
++ after: ...
+- Answer: rejected: out of scope
+
+### user memory (memory-only)
+<one line to remember>
+- Answer: approved
 ```
 
 ## Never
 
 - Edit docs, rules, memory or tests directly. Every update is a proposal.
+- Do not write an `Answer:` line yourself: only the owner's own message answers a proposal.
 - Put secrets, credentials, sensitive paths or code snippets in a "remember" line: one line, the class only.
 - Inflate a local learning into a global rule.
 - Block the ship on a retro.

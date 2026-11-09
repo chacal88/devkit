@@ -20,13 +20,15 @@ export const MERGE_METHODS = {
 const POINTER = '; run the openspec-setup skill (GitHub step) to configure it';
 
 // The one `gh` runner of the three scripts: a function running `gh <args>` in `cwd`,
-// { status, stdout, stderr, missing, timedOut, signal }. Every call is cut after
+// { status, stdout, stderr, missing, timedOut, overflowed, signal }. Every call is cut after
 // `timeoutMs` (default 60 s) so a stalled gh never hangs a check; `opts` may
 // carry `input`, or its own `timeout` for the long watch.
 export const GH_TIMEOUT_MS = 60000;
+// spawnSync's default (1 MiB) cuts a long `gh` answer with ENOBUFS; 64 MiB is generous and still bounded.
+export const GH_MAX_BUFFER = 64 * 1024 * 1024;
 export function makeGh(cwd, env = process.env, timeoutMs = GH_TIMEOUT_MS) {
   return (args, opts = {}) => {
-    const r = spawnSync('gh', args, { cwd, env, encoding: 'utf8', timeout: timeoutMs, ...opts });
+    const r = spawnSync('gh', args, { cwd, env, encoding: 'utf8', timeout: timeoutMs, maxBuffer: GH_MAX_BUFFER, ...opts });
     return {
       status: r.status,
       signal: r.signal,
@@ -34,6 +36,7 @@ export function makeGh(cwd, env = process.env, timeoutMs = GH_TIMEOUT_MS) {
       stderr: r.stderr || '',
       missing: r.error?.code === 'ENOENT',
       timedOut: r.error?.code === 'ETIMEDOUT',
+      overflowed: r.error?.code === 'ENOBUFS',
     };
   };
 }
@@ -42,6 +45,7 @@ export function makeGh(cwd, env = process.env, timeoutMs = GH_TIMEOUT_MS) {
 export const ghError = (r) => {
   if (r.missing) return 'gh is not installed or not on PATH';
   if (r.timedOut) return 'gh timed out';
+  if (r.overflowed) return 'gh output too large to read (ENOBUFS)';
   return r.stderr.trim().split('\n')[0] || `gh exited ${r.status}`;
 };
 const unreadable = (why) => `cannot read the repository settings: ${why}`;
@@ -87,10 +91,10 @@ function committedAtHead(root, path) {
 }
 
 // The merge-mode preflight (AC-6, design D4): { ok, missing[], defaultBranch, error? }.
+// `read` is the readRepoSettings answer when the caller already has it (one call per run).
 // Read-only; any read error fails closed, never passes.
-export function mergeSetup(gh, root, method) {
+export function mergeSetup(gh, root, method, read = readRepoSettings(gh)) {
   const fail = (why) => { const error = unreadable(why); return { ok: false, missing: [error + POINTER], error }; };
-  const read = readRepoSettings(gh);
   if (read.error) return fail(read.error);
   const { settings } = read;
   const defaultBranch = settings?.default_branch;

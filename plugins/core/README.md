@@ -25,7 +25,7 @@ retro ◀── commit-and-pr ◀── pr-verifier ◀── review-change ◀�
 | Review | `review-change` skill | Picks reviewers from what the diff touches and runs them in parallel; each writes `reviews/<reviewer>.md` with its `Verdict:` |
 | Prove it works | `pr-verifier` agent | `evidence.md`: one row of proof per acceptance criterion |
 | Ship | `commit-and-pr` agent | Commit by file name, push, PR. This agent never merges; the merge is the owner's, or GitHub's in `merge` ship mode (`ship-change` enables auto-merge) |
-| Learn | `retro` skill | Proposed doc and rule updates, for the owner to approve |
+| Learn | `retro` skill | Proposed doc and rule updates, for the owner to approve: the owner answers each proposal, and `ship-change` applies the approved ones in the archive step |
 
 Each step is usable on its own: ask for "review this diff" and `review-change` runs; ask "where is X handled?" and `codebase-researcher` answers with `file:line`.
 

@@ -1,18 +1,18 @@
 ---
 name: ship-change
-description: Drives one approved change to a ready pull request (ship pr) or, with ship merge in the project's openspec/config.yaml, to a PR that GitHub merges once the delivery contract is 8/8 - implements phase by phase, reviews, verifies, opens the PR, answers its conversation and waits for checks, always asking `deliver-check` what is next. Enables auto-merge only at the step that says so (`merge` ship mode); never merges directly. Use when the owner says "ship this change", "apply and ship <id>", "/ship-change <id>", or when Auto-fix wakes the session about that change's PR.
+description: Drives one approved change to a ready pull request (ship pr) or, with ship merge in the project's openspec/config.yaml, to a PR that GitHub merges once the delivery contract is 8/8, and on to its archive after the merge (retro, the owner's answer to each proposal, `openspec archive`, an archive PR) - implements phase by phase, reviews, verifies, opens the PR, answers its conversation and waits for checks, always asking `deliver-check` what is next. Enables auto-merge only at the step that says so (`merge` ship mode); never merges directly. Use when the owner says "ship this change", "apply and ship <id>", "/ship-change <id>", or when Auto-fix wakes the session about that change's PR.
 ---
 
 # Ship a change
 
-Takes one change from "approved" to "PR ready for the owner to merge" (`pr` mode) or to "auto-merge enabled on a PR at 8/8, merged by GitHub" (`merge` mode). It keeps no state of its own: every run asks `deliver-check` what is true on disk and on GitHub, does exactly the step it names, and asks again. Who merges depends on the mode: the owner in `pr`, GitHub in `merge`.
+Takes one change from "approved" to "PR ready for the owner to merge" (`pr` mode) or to "auto-merge enabled on a PR at 8/8, merged by GitHub" (`merge` mode), and then through its archive: the retro, the owner's answer to each proposal, `openspec archive`, the roadmap tick, the approved proposals, and an archive PR on `chore/archive-<id>`. In `pr` mode it stops at `ready` and, after the owner's merge, at `archive PR ready`; in `merge` mode it ends at `archived`. It keeps no state of its own: every run asks `deliver-check` what is true on disk and on GitHub, does exactly the step it names, and asks again. Who merges depends on the mode: the owner in `pr`, GitHub in `merge`.
 
 Path used below, relative to this skill's directory: `../../hooks/deliver-check.mjs`.
 
 ## Start
 
-1. Resolve the change id: the argument, else the change the current branch selects.
-2. Run `node <skill-dir>/../../hooks/deliver-check.mjs <id> --json`. Exit 3 (unknown change, no `openspec/`, invalid `ship` in `openspec/config.yaml`) means print the `error` and stop; fix the config or the id first.
+1. Resolve the change id: the argument, else the change the current branch selects, else, on a branch `chore/archive-<id>` (the archive branch, whose change has already moved to `openspec/changes/archive/`), the `<id>` in its name. With none of these, ask for the id.
+2. Run `node <skill-dir>/../../hooks/deliver-check.mjs <id> --json`. Exit 3 (unknown change, no `openspec/`, an id found neither active nor archived, invalid `ship` in `openspec/config.yaml`) means print the `error` and stop; fix the config or the id first.
 3. Read `next.step` from the JSON. The `ship` mode and the `schema` are in it too.
 
 ## Go-ahead
@@ -48,17 +48,26 @@ Repeat: run `deliver-check <id> --json`; do exactly the step `next.step` names; 
 | `blocked` | Stop and report `blocked: item <next.item>` with the reason. |
 | `ready` | Report ready (`pr` mode). |
 | `stop-merge-setup` | Stop and report `blocked: merge setup (<next.missing>)`, and that the GitHub step of the `openspec-setup` skill configures it. |
-| `disable-auto-merge` | `gh pr merge <next.number> --disable-auto`, then continue the loop. Auto-merge was on while the contract fell below 8/8 (a push, a stale review, a new comment, a pending re-run). |
-| `update-branch` | `gh pr update-branch <next.number>`, then `git pull --ff-only`, then continue the loop. An error stops as `blocked: item 5`. |
-| `enable-auto-merge` | `gh pr merge <next.number> --auto --<next.method> --match-head-commit <next.head>`, exactly this command, then continue the loop. GitHub refuses it if the head moved since the check; the next run sees the new head. |
-| `wait-merge` | See Hosts: one `deliver-check <id> --json --watch`, then report. |
-| `merged` | Report `merged`. |
+| `disable-auto-merge` | `gh pr merge <next.number> --disable-auto`, then continue the loop. Auto-merge was on while the contract fell below 8/8 (a push, a stale review, a new comment, a pending re-run), or, after the merge, while the archive PR stopped being mergeable. After the merge `next.number` is the archive PR. |
+| `update-branch` | `gh pr update-branch <next.number>`, then `git pull --ff-only`, then continue the loop. An error stops as `blocked: item 5`. After the merge `next.number` is the archive PR. |
+| `enable-auto-merge` | `gh pr merge <next.number> --auto --<next.method> --match-head-commit <next.head>`, exactly this command, then continue the loop. GitHub refuses it if the head moved since the check; the next run sees the new head. After the merge `next.number` is the archive PR. |
+| `wait-merge` | See Hosts: one `deliver-check <id> --json --watch`, then report. After the merge it waits on the archive PR (`next.number`). |
+| `retro` | Run the `devkit-core:retro` skill for change <id>, on the change PR #`next.number` (`gh pr diff <n>`, the reviews, `evidence.md`), writing `retro.md` in the change folder in the format of its Output section, with no `Answer:` lines. |
+| `stop-retro-answers` | Stop. Show every proposal in `next.proposals` with its targets, kind, summary and diff, and ask the owner to approve or reject each one. When the owner answers (in the owner's own message), write `- Answer: approved` or `- Answer: rejected: <reason>` under each proposal in `retro.md`, then run the loop again. Never answer for the owner. |
+| `archive` | `git fetch origin <next.base>`; `git switch -c <next.branch> origin/<next.base>` (`git switch <next.branch>` when `next.create` is false); `openspec archive <id> --yes`. A non-zero exit stops as `blocked: archive (archive): <stderr's first line>`. |
+| `tick-roadmap` | In `openspec/roadmap.md`, change `- [ ] <id>` to `- [x] <id>` on `next.line`. |
+| `apply-proposals` | Dispatch `devkit-core:tdd-implementer`: "Apply exactly these approved retro proposals of change <id> (archived at <folder>): <next.proposals>. A regression-gate proposal is test-first. Bump the version of each pack whose files you change (`plugin.json` and `.claude-plugin/marketplace.json`) with a CHANGELOG line, regenerate the catalog if an agent or skill description changed, run the test command, and write `- Applied: yes` under each proposal you applied. Nothing else." A proposal whose target is `user memory` is applied by this session to the owner's memory and never touches the repository. `Outcome: failure` stops as `blocked: archive (apply-proposals): <reason>`. |
+| `open-archive-pr` | Dispatch `devkit-core:commit-and-pr` with an archive call: "Archive change <id>: stage by name the moved folder (both paths), `openspec/roadmap.md` and the applied files; commit and open the PR titled `next.title`; push `next.branch`, or reuse its open PR." |
+| `archive-pr-ready` | Report `archive PR ready` with the PR URL (`pr` mode): the owner merges it, and the next run reports `archived`. |
+| `stop-archive` | Stop and report `blocked: archive (<next.archiveStep>): <next.reason>`. |
+| `archived` | Report `archived`. |
 
 ## Stops
 
 Stop the run, saying why and which step stopped it, when:
 
 - a gate command is red;
+- an archive step's command or agent fails: `blocked: archive (<step>): <reason>`;
 - `tdd-implementer` returns `Outcome: failure`;
 - `next.step` is a `stop-*` or `blocked`;
 - the same `next` comes back twice in a row after its step ran ("no progress after <step>");
@@ -70,9 +79,9 @@ Nothing is remembered between runs; a killed or woken session starts over from `
 
 ## Hosts
 
-`host` in the JSON is `app` (Claude Code desktop) or `cli`. At `wait-checks` and `wait-merge` run one `node <skill-dir>/../../hooks/deliver-check.mjs <id> --json --watch` (default 9 minutes, maximum 30; it stays under the Bash tool's 10-minute limit), which waits once (on `gh pr checks --watch` for `wait-checks`; for `wait-merge`, polling the PR until it merges, auto-merge goes off or the head changes) and recomputes the contract. In the app a merge does not wake the session, so this single wait is the only observation of it.
+`host` in the JSON is `app` (Claude Code desktop) or `cli`. At `wait-checks` and `wait-merge` run one `node <skill-dir>/../../hooks/deliver-check.mjs <id> --json --watch` (default 9 minutes, maximum 30; it stays under the Bash tool's 10-minute limit), which waits once (on `gh pr checks --watch` for `wait-checks`; for `wait-merge`, polling the PR until it merges, auto-merge goes off or the head changes) and recomputes the contract. The same wait covers the archive PR, so in `merge` mode one run can wait twice: once for the change PR, once for the archive PR. Each wait is capped. In the app a merge does not wake the session, so this single wait is the only observation of it.
 
-- `cli`: after the watch, report `ready`, `merged`, `auto-merge on: waiting for <what>` or the state and stop. A red check is fixed on the next invocation.
+- `cli`: after the watch, report `ready`, `archived`, `archive PR open: waiting for <what>`, `auto-merge on: waiting for <what>` or the state and stop. A red check is fixed on the next invocation.
 - `app`: same single watch, but a red check afterwards is fixed in the same run (`fix-checks`, `push`, scoped re-review, `verify`, one more watch), within the stops above. When the run ends `in progress`, say that the app's Auto-fix wakes this session on a CI failure, merge conflict or review comment, and that the session then runs `ship-change` again. A merge conflict is reported `blocked: item 5`. Auto-fix does not wake on green checks, which is why one capped watch runs.
 
 Nothing here starts another session, schedules a wake-up or runs in the background.
@@ -81,18 +90,24 @@ Nothing here starts another session, schedules a wake-up or runs in the backgrou
 
 End with exactly one of:
 
-- `merged` only when `next.step` is `merged`;
+- `archived` only when `next.step` is `archived`;
+- `archive PR open: waiting for <what>` (the `summary`) when the archive PR is open and GitHub has not merged it yet;
+- `archive PR ready` (`pr` mode), when the archive PR is open for the owner to merge;
+- `archive: waiting for the owner's answers` at `stop-retro-answers`;
+- `blocked: archive (<step>)` at `stop-archive`;
 - `auto-merge on: waiting for <what>` (the `summary`) when auto-merge is on at 8/8 and GitHub has not merged yet;
 - `ready` only in `pr` mode, when `deliver-check` exited 0 (8/8);
 - `in progress: item N`;
 - `blocked: item N` or `blocked: merge setup`;
 
-plus the reason and the last step run. Never call a change ready or merged from your own reading of the state.
+plus the reason and the last step run. Never call a change ready or archived from your own reading of the state.
 
 ## Never
 
 - Edit product code in the main session: every fix goes through `tdd-implementer`, even in `devkit-lite` where the hook would allow the edit.
 - Write `readiness.md`, `reviews/*` or `evidence.md`; they belong to their agents.
+- Push to the default branch, or commit on it: every archive commit goes through `chore/archive-<id>` and a PR.
+- Apply a retro proposal the owner did not approve, or record an answer the owner did not give.
 - Merge directly, use `--admin`, or run `gh pr merge` except at `enable-auto-merge` (`--auto`) and `disable-auto-merge` (`--disable-auto`).
 - Run two phases at once, or start or drive another session.
 - Answer an owner decision on a PR.

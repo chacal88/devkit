@@ -1,6 +1,6 @@
 {
   "name": "devkit-core",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Stack-agnostic dev workflow: research, plan, implement, review, ship, debug and test.",
   "author": {
     "name": "kaue rodrigues dos santos",

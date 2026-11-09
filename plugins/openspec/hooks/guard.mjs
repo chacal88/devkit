@@ -80,6 +80,20 @@ function gitBranch(root) {
   } catch { return ''; }
 }
 
+function archivedIds(root) {
+  const dir = join(root, 'openspec', 'changes', 'archive');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).map((a) => a.match(/^\d{4}-\d{2}-\d{2}-(.+)$/)?.[1]).filter(Boolean);
+}
+
+// The change a `chore/archive-<id>` branch is for: <id> when it is a known
+// change, active or archived (exact id after the date prefix), else null.
+export function archiveBranchChange(root, branch) {
+  const id = /^chore\/archive-(.+)$/.exec(branch || '')?.[1];
+  if (!id) return null;
+  return activeChanges(root).includes(id) || archivedIds(root).includes(id) ? id : null;
+}
+
 // Returns { name } | { ambiguous: [...] } | null
 export function resolveChange(root, env = process.env,
   branch = env.DEVKIT_BRANCH || env.GITHUB_HEAD_REF || gitBranch(root)) {
@@ -88,6 +102,8 @@ export function resolveChange(root, env = process.env,
   if (env.DEVKIT_CHANGE) {
     return changes.includes(env.DEVKIT_CHANGE) ? { name: env.DEVKIT_CHANGE } : null;
   }
+  const archiving = archiveBranchChange(root, branch);
+  if (archiving) return changes.includes(archiving) ? { name: archiving } : null;
   const tail = branch.split('/').pop();
   const exact = changes.filter((c) => c === tail);
   if (exact.length === 1) return { name: exact[0] };
@@ -98,7 +114,13 @@ export function resolveChange(root, env = process.env,
 }
 
 export function changeSchema(root, name) {
-  for (const f of [join(root, 'openspec', 'changes', name, '.openspec.yaml'), join(root, 'openspec', 'config.yaml')]) {
+  return changeSchemaAt(root, join(root, 'openspec', 'changes', name));
+}
+
+// The schema of the change whose folder is `dir` (active or archived): its
+// own .openspec.yaml, else the project's default.
+export function changeSchemaAt(root, dir) {
+  for (const f of [join(dir, '.openspec.yaml'), join(root, 'openspec', 'config.yaml')]) {
     if (!existsSync(f)) continue;
     const m = readFileSync(f, 'utf8').match(/^schema:\s*["']?([\w.-]+)/m);
     if (m) return m[1];

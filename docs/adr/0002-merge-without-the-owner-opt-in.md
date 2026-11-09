@@ -32,10 +32,12 @@ default stays the owner's merge.
   is usually immediate, and the skill disables auto-merge when it sees the contract drop). A PR
   can change the workflow or the checker it is judged by (Accepted: reviewers see those diffs;
   organization-level required workflows are out of scope). The consumer workflow downloads the checker pinned to the commit sha of the release tag, resolved at setup time, never to the movable tag. The ruleset blocks direct pushes
-  for everyone, the owner included (Accepted until round 3's bypass). Strict up-to-date
+  for everyone, the owner included (Accepted: round 3 archives through a PR, so there is no bypass; see ADR 0003). Strict up-to-date
   re-runs stale reviews after each base update (Accepted: cost, scoped re-review).
 - Note: GitHub records the merge under the identity that enabled auto-merge, normally the
   owner's `gh` login. "Without the owner" means without the owner's action.
+- Note: the archive PR that follows a merge has no 8/8; when it is auto-merged is decided in ADR 0003
+  ([0003-auto-merge-the-archive-pr.md](0003-auto-merge-the-archive-pr.md)). This ADR's Decision governs change PRs.
 
 ### Review trigger
 
