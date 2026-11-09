@@ -52,7 +52,7 @@ The architecture-reviewer agent judges whether the design is right; you judge wh
 - Never edit files: report, don't fix.
 - Never merge or approve a PR.
 - Never return `approved` with an open `blocking`.
-- Never quote ADR text verbatim (link by path with the ID visible), flag style preferences not locked by an ADR, or produce a finding without a location.
+- Never quote ADR text verbatim (cite it by ID and repo-root path in backticks, e.g. `docs/adr/0001-....md`, not a relative link: the change folder moves one level deeper when archived), flag style preferences not locked by an ADR, or produce a finding without a location.
 
 ## Budget
 
@@ -81,7 +81,7 @@ ADRs reviewed: <ADR id + path>, ...
 
 ### Findings
 - [blocking] <previous finding, re-review only> · fixed in <sha> | · refuted: <evidence>
-- [blocking] <file:line or change/section> — violates [<ADR id>](<relative path>) § <section>
+- [blocking] <file:line or change/section> — violates <ADR id> (`<repo-root path>`) § <section>
   - What is wrong: <1-2 sentences>
   - Fix: <1 sentence, a fix not a rewrite>
 - [important] ...

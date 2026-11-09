@@ -34,6 +34,8 @@ default stays the owner's merge.
   organization-level required workflows are out of scope). The consumer workflow downloads the checker pinned to the commit sha of the release tag, resolved at setup time, never to the movable tag. The ruleset blocks direct pushes
   for everyone, the owner included (Accepted until round 3's bypass). Strict up-to-date
   re-runs stale reviews after each base update (Accepted: cost, scoped re-review).
+- Note: GitHub records the merge under the identity that enabled auto-merge, normally the
+  owner's `gh` login. "Without the owner" means without the owner's action.
 
 ### Review trigger
 
