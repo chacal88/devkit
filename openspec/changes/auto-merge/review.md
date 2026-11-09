@@ -50,3 +50,29 @@ without an evidence-backed rebuttal.
 
 Fix the findings above (tdd-implementer), then round 2 re-summons only the reviewers with
 open findings: code-quality, architecture, security, test-coverage.
+
+---
+
+# Round 2
+
+Commit reviewed: cba2f4484a9452a95615ee6eba015bb21ecc1f98 (55722bf..cba2f44)
+
+| Reviewer | Verdict | Blocking | Important (open) |
+|---|---|---|---|
+| adr-reviewer (stale only) | PASS | 0 | 0 |
+| architecture-reviewer | PASS | 0 | 0 (1 fixed) |
+| security-reviewer | PASS | 0 | 0 (1 fixed) |
+| code-quality-reviewer | PASS | 0 | 0 (3 fixed, 1 refuted) |
+| test-coverage-reviewer | PASS | 0 | 0 (2 fixed) |
+
+Consensus: PASS (round 2/2). `deliver-check --ci auto-merge`: item 2 met (5 reviews at head),
+item 3 met (7 fixed, 1 refuted). The adr-reviewer's broken link is fixed; `check.py` passes.
+
+Nits left for later (no round): branch name with a slash not asserted; `waitForMerge` stall
+with time left untested; R-7 and row 0a fixtures hand-built; `noMergeCall` asserts cannot go
+red; `export { makeGh }` between imports; `runGh` builds a runner per call.
+
+## Next
+
+`pr-verifier` writes evidence.md (AC-10 recorded as `no proof: dogfood runs after the PR
+opens`), then `commit-and-pr` opens the PR, then phase 5 in the main session.
