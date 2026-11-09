@@ -52,3 +52,21 @@ Consensus: FAIL by rule (two `important` findings without a rebuttal) after roun
 - security-reviewer — `plugins/openspec/hooks/deliver-check.mjs` `archiveNext` — the local file/answer check runs only when the folder is archived locally; an open archive PR whose folder never moved can reach `enable-auto-merge` locally (CI staleness backstops it; needs push access).
 
 Owner decision (2026-11-09, in Portuguese: "Corrigir os dois"): fix both through `tdd-implementer`, then a short round 3 with adr-reviewer and security-reviewer only, authorized by the owner.
+
+---
+
+# Round 3 at `1286cfb50d6b8269bf6eea653be6bdc52fbc5f96` (range `d50ffb1..1286cfb`, owner-authorized)
+
+| Reviewer | Verdict | Open blocking / important |
+|---|---|---|
+| adr-reviewer | approved | 0 (ADR 0003 text: fixed in `1286cfb`) |
+| security-reviewer | approved | 0 (open archive PR without a local archived folder: fixed in `1286cfb`) |
+| architecture-reviewer | approved (staleness re-check) | 0 |
+| code-quality-reviewer | approved (staleness re-check) | 0 |
+| test-coverage-reviewer | approved (staleness re-check) | 0 |
+
+Consensus: PASS. Open nits only (long lines in ADR 0003 and design.md, regex text pins in `plugins/openspec/hooks/guard.test.mjs`, the archive-folder pattern repeated across `guard.mjs` and `deliver-check.mjs`).
+
+## Next
+
+`devkit-core:pr-verifier` writes `evidence.md`; then `devkit-core:commit-and-pr` opens the PR.

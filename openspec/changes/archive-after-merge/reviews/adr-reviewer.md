@@ -1,21 +1,18 @@
 Verdict: approved
-Commit: d50ffb134c0486372e7b44e2888c211b099bfe99
+Commit: 1286cfb50d6b8269bf6eea653be6bdc52fbc5f96
 
-## ADR review — archive-after-merge (re-review, range e497cc2..HEAD)
+## ADR review — archive-after-merge (re-review, round 3, range d50ffb1..1286cfb)
 
-ADRs reviewed: ADR 0001 (`docs/adr/0001-coordination-without-a-harness.md`), ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`), ADR 0003 (`docs/adr/0003-auto-merge-the-archive-pr.md`). ADR files untouched in the range.
+ADRs reviewed: ADR 0001 (`docs/adr/0001-coordination-without-a-harness.md`), ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`), ADR 0003 (`docs/adr/0003-auto-merge-the-archive-pr.md`). Suite not re-run (green at 1286cfb, 381/381, per the caller).
 
 ### Findings
-- [important] `docs/adr/0003-auto-merge-the-archive-pr.md` § Consequences — the text no longer matches the behaviour.
-  - What is wrong: the ADR records as accepted that `devkit-reviews` gates nothing on an archive PR. Since d50ffb1, `deliver-check --ci` (`plugins/openspec/hooks/deliver-check.mjs`) detects an archive PR by its archived folder and fails on a missing retro, an unanswered proposal or an unnamed file. The Decision section's file rule says "outside `openspec/`"; the implementation exempts only `openspec/changes/**`, `openspec/roadmap.md` and the release files, so `openspec/config.yaml` and `openspec/schemas/**` now need a named proposal. Both changes are stricter than the ADR, so the decision is not violated.
-  - Fix: the owner decides whether to amend or supersede ADR 0003 so the Negative consequence and the file rule match. Until then, `docs/openspec-flow.md` and design D8 (which already describe the new behaviour) are ahead of the ADR. This is not blocking.
+- [important] `docs/adr/0003-auto-merge-the-archive-pr.md` § Consequences and § Decision — text stale against the CI archive check and the exempt paths · fixed in 1286cfb50d6b8269bf6eea653be6bdc52fbc5f96
 
-### Conformance checks
-- ADR 0003: the auto-merge conditions are unchanged and are now enforced earlier and in CI, which is the intent of the owner-answer and file-check gate. `--match-head-commit` pinning and disable-on-drop are kept (P3a now also covers unanswered proposals and unnamed files). Nothing pushes to the default branch.
-- ADR 0003 review trigger ("an archive PR merges a file the owner did not approve"): the new CI check lowers the chance of this.
-- ADR 0001: no new coordinator, daemon, hook-driven loop or state outside the repo and GitHub. The CI check derives everything from the PR's changed paths and the retro file. The `gh pr view` body reads and `maxBuffer` are stateless.
-- ADR 0002: unchanged in the range, and nothing in the range touches the owner opt-in rules.
-- Open decisions: none touched.
+### Verification of the fix
+- Context and Consequences now state that `devkit-reviews --ci` checks archive PRs, detected by the archived folder in the diff, and fails on a missing retro, an unanswered proposal or an unnamed file. This matches `archivePrCheck` and the `runCi` problems list in `plugins/openspec/hooks/deliver-check.mjs` (folders from `openspec/changes/archive/<date>-<id>/`; `noRetro`, `unanswered`, `unnamed`; exit 1 on any).
+- The Decision's exempt list (`openspec/changes/**`, `openspec/roadmap.md`, version manifests, CHANGELOG, generated catalog) matches `isArchiveRecord` and `RELEASE_FILE`. The old "outside `openspec/`" wording is gone; `openspec/config.yaml` and `openspec/schemas/**` are no longer exempt, in both the ADR and the code.
+- The auto-merge conditions (open, no conflict, no failing check, head equal to local head, clean tree, not behind, `--match-head-commit`, disable on drop) agree with the `archiveNext` description in design D8/D10. ADR 0003 and design D10 are consistent.
+- ADR 0001 and ADR 0002 are untouched in the range. No new coordinator or state outside the repo and GitHub. No open decisions touched.
 
 ### Summary
-- 1 finding (0 blocking, 1 important, 0 nit)
+- 1 finding (0 blocking, 1 important, 0 nit); the important one is fixed. No open findings.
