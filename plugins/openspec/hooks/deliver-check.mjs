@@ -466,19 +466,26 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
     const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan' });
     return r.pr ? { ...r, via: 'branch' } : r;
   }
-  const fields = `${merge ? MERGE_FIELDS : PR_FIELDS},headRefName,mergedAt`;
-  const l = gh(['pr', 'list', '--state', 'merged', '--limit', '100', '--json', fields]);
+  // Light fields only: 100 PRs with their bodies can pass spawnSync's buffer. A body is read,
+  // by number and newest first, only while no PR has been found by its link.
+  const light = `${(merge ? MERGE_FIELDS : PR_FIELDS).replace(',body', '')},headRefName,mergedAt`;
+  const l = gh(['pr', 'list', '--state', 'merged', '--limit', '100', '--json', light]);
   if (l.status !== 0) return { error: ghError(l) };
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
   if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
   const heads = archiveHeads(id);
-  const rest = list.filter((p) => !heads.includes(p.headRefName));
-  const newest = (prs) => [...prs].sort((a, b) => when(b.mergedAt) - when(a.mergedAt))[0];
+  const rest = list.filter((p) => !heads.includes(p.headRefName)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
   const link = `openspec/changes/${id}/evidence.md`;
-  const found = newest(rest.filter((p) => (p.body || '').includes(link)))
-    ?? newest(rest.filter((p) => String(p.headRefName).split('/').pop() === id));
-  return found ? { pr: found, via: 'list' } : { none: true };
+  for (const p of rest) {
+    const b = gh(['pr', 'view', String(p.number), '--json', 'body']);
+    if (b.status !== 0) return { error: ghError(b) };
+    let body;
+    try { body = JSON.parse(b.stdout)?.body; } catch { return { error: 'gh pr view returned unreadable JSON' }; }
+    if (String(body ?? '').includes(link)) return { pr: { ...p, body }, via: 'list' };
+  }
+  const byHead = rest.find((p) => String(p.headRefName).split('/').pop() === id);
+  return byHead ? { pr: byHead, via: 'list' } : { none: true };
 }
 
 // Paths git sees as changed (tracked or untracked) under a pathspec.
@@ -739,15 +746,18 @@ function archiveChanges(root, base) {
   return { paths: [...new Set([...committed, ...changedInTree(root)])].sort() };
 }
 
+// What an archive always changes without a proposal: the change folders (the move) and the
+// roadmap tick. Everything else under openspec/ (config.yaml, schemas/) needs a named proposal.
+const isArchiveRecord = (p) => p.startsWith('openspec/changes/') || p === 'openspec/roadmap.md';
 const normalizePath = (p) => p.replace(/^(\.\/)+/, '');
 // Files a version bump or a regenerated catalog changes without a proposal naming them (design D8).
 const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
 
-// The changed paths outside openspec/ that no approved proposal names exactly (AC-3):
+// The changed paths that no approved proposal names exactly (AC-3):
 // no directory, prefix or glob matching.
 export function unnamedFiles(paths, proposals) {
   const named = new Set(proposals.filter((p) => p.answer === 'approved').flatMap((p) => p.targets.map(normalizePath)));
-  return paths.filter((p) => !isOpenspec(p) && !RELEASE_FILE.test(p) && !named.has(p));
+  return paths.filter((p) => !isArchiveRecord(p) && !RELEASE_FILE.test(p) && !named.has(p));
 }
 
 const ARCHIVE_NAME = (id) => new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${id.replace(/[.]/g, '\\.')}$`);
@@ -827,7 +837,7 @@ function archiveFacts(gh, root, id, { located, repo, facts, changePr, branch, en
 
   const prs = archivePrFacts(gh, root, id, base, facts);
   if (prs.error) return { ...here, onDefault, ...stop('archive-pr', `cannot read the archive PR: ${prs.error}`) };
-  return { ...here, onDefault, pr: prs.pr, changed: located.archived ? archiveChanges(root, base) : null };
+  return { ...here, onDefault, pr: prs.pr, changed: located.archived || prs.pr ? archiveChanges(root, base) : null };
 }
 
 // ---------------------------------------------------------------- next step and summary
@@ -871,13 +881,27 @@ function archiveNext(state) {
   }
 
   const pr = a.pr;
+  const brief = (ps) => ps.map(({ n, targets, kind }) => ({ n, targets, kind }));
+  const unanswered = a.retro.proposals.filter((p) => p.answer === null);
+  const answersStop = () => step('stop-retro-answers', `${unanswered.length} retro proposal${unanswered.length > 1 ? 's' : ''} waiting for the owner's answer`, { proposals: brief(unanswered) });
+  const filesStop = () => {
+    if (a.changed?.missing) return stopArchive('archive', `origin/${a.base} is not available; git fetch origin ${a.base}`);
+    const offending = unnamedFiles(a.changed?.paths ?? [], a.retro.proposals);
+    return offending.length ? stopArchive('apply-proposals', `files no approved proposal names: ${offending.join(', ')}`) : null;
+  };
+
   if (pr?.state === 'OPEN') {
+    // The answers and the file check hold while the PR is open too (D8): nothing a
+    // proposal does not name may reach auto-merge. Without an archived folder or a
+    // readable retro there is nothing to check them against.
+    const held = a.local === 'archived' && a.retro.readable ? (unanswered.length ? answersStop() : filesStop()) : null;
     const conflicts = pr.mergeable === 'CONFLICTING';
     const failing = pr.checks.failing.length > 0 || pr.checks.error != null;
     const uncommitted = a.dirty.length > 0;
-    if (merge && pr.autoMerge && (conflicts || failing || pr.headRel !== 'same' || uncommitted)) {
+    if (merge && pr.autoMerge && (held || conflicts || failing || pr.headRel !== 'same' || uncommitted)) {
       return step('disable-auto-merge', `auto-merge is on but the archive PR #${pr.number} no longer qualifies`, { number: pr.number });
     }
+    if (held) return held;
     if (conflicts) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`);
     if (pr.headRel === 'foreign') return stopArchive('archive-pr', `PR #${pr.number} head ${String(pr.headRefOid).slice(0, 7)} is not in local history (someone else pushed?)`);
     if (pr.headRel === 'ahead' || uncommitted) {
@@ -897,17 +921,14 @@ function archiveNext(state) {
 
   if (!a.retro.exists) return step('retro', 'the change PR is merged; run the retro', { number: a.changePr?.number ?? null, base: a.base });
   if (!a.retro.readable) return stopArchive('retro', 'retro.md has no "## Proposed updates" section');
-  const brief = (ps) => ps.map(({ n, targets, kind }) => ({ n, targets, kind }));
-  const unanswered = a.retro.proposals.filter((p) => p.answer === null);
-  if (unanswered.length) return step('stop-retro-answers', `${unanswered.length} retro proposal${unanswered.length > 1 ? 's' : ''} waiting for the owner's answer`, { proposals: brief(unanswered) });
+  if (unanswered.length) return answersStop();
   if (a.local === 'active') return step('archive', 'archive the change on its own branch', { branch: a.branch, base: a.base, create: !a.branchExists });
   if (state.branch !== a.branch) return stopArchive('archive', `the change is archived in the working tree of ${state.branch || '(detached)'}, not on ${a.branch}`);
   if (a.roadmap.listed && !a.roadmap.ticked) return step('tick-roadmap', 'openspec/roadmap.md lists the change unticked', { line: a.roadmap.line });
   const toApply = a.retro.proposals.filter((p) => p.answer === 'approved' && !p.applied);
   if (toApply.length) return step('apply-proposals', `${toApply.length} approved proposal${toApply.length > 1 ? 's' : ''} not applied yet`, { proposals: brief(toApply) });
-  if (a.changed?.missing) return stopArchive('archive', `origin/${a.base} is not available; git fetch origin ${a.base}`);
-  const offending = unnamedFiles(a.changed?.paths ?? [], a.retro.proposals);
-  if (offending.length) return stopArchive('apply-proposals', `files no approved proposal names: ${offending.join(', ')}`);
+  const stopped = filesStop();
+  if (stopped) return stopped;
   return step('open-archive-pr', 'commit the archive and open its pull request', { branch: a.branch, base: a.base, title: `chore(openspec): archive ${state.id} with its retro` });
 }
 
@@ -1354,6 +1375,24 @@ function ciPreflight(root, env, head) {
   }
 }
 
+// An archive PR (design D8): the archived folders the PR diff brings and the same exact-path
+// file check and answer check the local run makes, read from the PR's own files. Null when
+// the PR archives nothing. The retro of every archived folder must be readable and answered.
+function archivePrCheck(root, base) {
+  const changes = archiveChanges(root, base);
+  if (changes.missing) throw new UsageError(`GITHUB_BASE_REF is ${base} but origin/${base} is not available; fetch the full history (actions/checkout with fetch-depth: 0)`);
+  const folders = [...new Set(changes.paths.map((p) => /^(openspec\/changes\/archive\/\d{4}-\d{2}-\d{2}-[^/]+)\//.exec(p)?.[1]).filter(Boolean))].sort();
+  if (!folders.length) return null;
+  const retros = folders.map((f) => ({ folder: f, retro: readRetro(join(root, f, 'retro.md')) }));
+  const proposals = retros.flatMap((r) => r.retro.proposals);
+  return {
+    folders,
+    noRetro: retros.filter((r) => !r.retro.readable).map((r) => r.folder),
+    unanswered: proposals.filter((p) => p.answer === null).map((p) => p.n),
+    unnamed: unnamedFiles(changes.paths, proposals),
+  };
+}
+
 // Runs the devkit-reviews check: { code, stdout, stderr }. 0 pass, 1 fail,
 // 3 setup or usage error. Does not read `ship` or `merge_method`, and ignores DEVKIT_BYPASS.
 function runCi(opts, env, cwd) {
@@ -1371,6 +1410,19 @@ function runCi(opts, env, cwd) {
   try { selected = selectCiChange(root, opts.id, env, currentBranch(root, env)); } catch (e) {
     if (!(e instanceof CiFailure)) throw e;
     return { code: 1, stdout: opts.json ? `${JSON.stringify({ version: 1, mode: 'ci', pass: false, error: e.message })}\n` : '', stderr: `deliver-check: ${e.message}\n` };
+  }
+  if (selected.none && env.GITHUB_BASE_REF) {
+    const a = archivePrCheck(root, env.GITHUB_BASE_REF);
+    if (a) {
+      const problems = [
+        ...a.noRetro.map((f) => `${f}/retro.md is missing or has no "## Proposed updates"`),
+        ...(a.unanswered.length ? [`unanswered proposals: ${a.unanswered.length}`] : []),
+        ...(a.unnamed.length ? [`files no approved proposal names: ${a.unnamed.join(', ')}`] : []),
+      ];
+      const pass = problems.length === 0;
+      const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
+      return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, pass, archive: a }, text);
+    }
   }
   if (selected.none) {
     const note = `no change selected by branch ${currentBranch(root, env) || '(detached)'} or touched by this PR; nothing to check`;
