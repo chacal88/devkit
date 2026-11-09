@@ -1,0 +1,22 @@
+Verdict: approved
+Commit: cba2f4484a9452a95615ee6eba015bb21ecc1f98
+
+## Quality review — auto-merge (round 2)
+
+Scope: my round-1 findings and `55722bf..cba2f44` only.
+
+### Findings
+- [important] plugins/openspec/hooks/deliver-check.mjs:42-52 (makeGh), waitForMerge — no `gh` call had a timeout · fixed in cba2f44. One runner now lives in `merge-setup.mjs:26-46` (`makeGh`, default `GH_TIMEOUT_MS` 60 s, `timedOut` reported, `ghError` says "gh timed out"). `github-setup.mjs` reuses it (`runGh` delegates to `makeGh`). `waitForMerge` (deliver-check.mjs:906-923) cuts each poll at `min(60s, deadline - now)`, and a timed-out poll ends the wait. Tests: `deliver-check.test.mjs:2012` (a gh that sleeps 8 s is cut near 400 ms and read as "timed out"), `:2029` (a stalled poll is cut and the wait ends near the cap), and a source pin that neither script spawns `gh` itself. Suite is green per the caller (305 pass); I did not re-run it.
+- [important] plugins/openspec/hooks/deliver-check.mjs:1086-1097 — `nextStep` called twice in `--watch` · fixed in cba2f44. It is computed once (`const step = opts.watch !== null && state.pr ? nextStep(state).step : null;`, :1075) and both branches read `step`.
+- [important] plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs:71 — check-run discovery was not paginated · fixed in cba2f44. `discoverContexts` uses `--paginate` with `per_page=100`, one name per line, deduplicated, and drops `devkit-reviews`. `render` now prints "the ruleset will require these checks ... (confirm them, or pass --checks)". Test `github-setup.test.mjs:106` uses 45 names and asserts the `--paginate` call, the 46-context payload and the printed list.
+- [important] openspec/changes/auto-merge/ — no `evidence.md`, tasks 5.x open · refuted: `tasks.md` "Workflow follow-up" (lines 62-63) and design D11 order `devkit-core:pr-verifier`, which writes `evidence.md`, after `review-change`. The review gates the code, and the evidence is recorded at the head that opens the PR (AC-10 as `no proof: dogfood runs after the PR opens`), then again after phase 5. A missing `evidence.md` at review time is the planned state and not a defect in the diff. My round-1 text already called it expected. Condition carried to the pipeline, not to this verdict: `deliver-check --ci` and the ship contract stay red until `pr-verifier` records one real-output row per AC at the final head, so the gate enforces it.
+- [nit] plugins/openspec/hooks/merge-setup.mjs:68,:75 — branch encoding · fixed in cba2f44 (`encodeURIComponent` on both routes; the same in `github-setup.mjs` discovery). Note that `encodeURIComponent` also encodes `/` as `%2F`, which GitHub's `rules/branches/{branch}` route accepts, and any failure still fails closed.
+- [nit] devkit-reviews.yml tag ordering — now addressed beyond my note: the workflow pins the commit sha of tag `v<version>` and the item is `deferred` while the tag does not exist (design D5 amended). Nothing left for this review.
+- [nit] --ci without `openspec/` vs design D5 — design D5 is amended (owner-accepted deviation, import cycle recorded), so the false-claim rule no longer applies · fixed in cba2f44.
+- [nit] plugins/openspec/hooks/deliver-check.mjs:10-14 — an `export { makeGh }` re-export sits between import statements. Cosmetic; group it after the imports. The implementer decides.
+- [praise] plugins/openspec/hooks/merge-setup.mjs:26-46 — one `gh` runner for the three scripts, with a default timeout and a per-call override, plus a test that fails if a script spawns `gh` again. It removes the duplicated runner that caused the round-1 finding.
+- [praise] plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs `resolveTag` — pins the workflow to a sha, dereferences annotated tags, defers when the tag is absent and never falls back to the tag or a branch.
+
+### Summary
+- 8 findings (0 blocking, 0 open important, 2 nit) + 2 praise. Of the 4 previous important findings, 3 are fixed and 1 is refuted.
+- Justification: I read the whole `55722bf..cba2f44` diff of `deliver-check.mjs`, `merge-setup.mjs`, `github-setup.mjs`, design.md, and the three new tests. Each fix matches its claim and is covered by a test that exercises the edge (stalled gh, more than 30 checks). The evidence finding is refuted by the plan's own ordering (tasks.md and D11), and the ship gate enforces it. I found no new blocking issue in the range. I did not re-run the suite (the caller reports 305 pass, 0 fail).

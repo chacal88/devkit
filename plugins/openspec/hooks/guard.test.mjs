@@ -8,7 +8,9 @@ import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir } from './guard.mjs';
 
-import './deliver-check.test.mjs'; // ship-modes tests ride on the same command
+import { gitRepo, put, commitAll, git as gitIn } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
+import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
+import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -33,7 +35,7 @@ function repo({ changes = {}, branch = 'main', roadmap, archived = [] } = {}) {
   return root;
 }
 
-const clean = { DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '' };
+const clean = { DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
 function run(mode, input, env = {}, cwd) {
   const r = spawnSync('node', [guard, mode], { cwd, input: JSON.stringify(input), encoding: 'utf8', env: { ...process.env, ...clean, ...env } });
   return { code: r.status, err: r.stderr, out: r.stdout };
@@ -201,15 +203,79 @@ test('bypass only from the hook process env', () => {
 
 // ---------------------------------------------------------------- CI
 
-test('ci mode checks the branch change and ignores bypass', () => {
-  const root = repo({ changes: { feat: approved } });
-  const ci = (env = {}) => spawnSync('node', [guard, 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean, ...env } }).status;
-  assert.equal(ci(), 1);
-  mkdirSync(join(root, 'openspec/changes/feat/reviews'), { recursive: true });
-  for (const [f, b] of Object.entries({ ...goodReviews, ...evidence })) writeFileSync(join(root, 'openspec/changes/feat', f), b);
-  assert.equal(ci(), 0);
-  writeFileSync(join(root, 'openspec/changes/feat/readiness.md'), '- Status: BLOCKED\n');
-  assert.equal(ci({ DEVKIT_BYPASS: '1' }), 1);
+const CI_TASKS = '## 1. First\n- [x] 1.1 code\n- [x] 1.2 Gate: `node -e 0` green\n';
+// A committed devkit change `feat` (readiness APPROVED) on branch ship/feat.
+function ciRepo() {
+  const root = gitRepo({
+    config: 'schema: devkit\n',
+    changes: { feat: { '.openspec.yaml': 'schema: devkit\n', 'readiness.md': '## 1. Decision\n- Status: APPROVED\n', 'proposal.md': '## Acceptance criteria\n- AC-1: x\n', 'tasks.md': CI_TASKS } },
+    files: { 'src/a.ts': 'a\n' },
+  });
+  gitIn(root, 'switch', '-q', '-c', 'ship/feat');
+  return root;
+}
+const proveHead = (root) => {
+  const sha = gitIn(root, 'rev-parse', 'HEAD');
+  put(root, {
+    'openspec/changes/feat/reviews/code-quality-reviewer.md': `Verdict: approved\nCommit: ${sha}\n`,
+    'openspec/changes/feat/reviews/test-coverage-reviewer.md': `Verdict: approved\nCommit: ${sha}\n`,
+    'openspec/changes/feat/evidence.md': `Commit: ${sha}\n\n# Evidence\n| 1.2 | \`node -e 0\` | pass: ok |\n| AC-1 | test | pass: t |\n`,
+  });
+  commitAll(root, 'prove');
+};
+
+test('ci mode runs the devkit-reviews check: current reviews and evidence pass, a later product commit makes them stale, bypass is ignored (AC-5)', () => {
+  const root = ciRepo();
+  const ci = (env = {}, script = guard) => spawnSync('node', [script, 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean, ...env } });
+  assert.equal(ci().status, 1, 'no reviews yet');
+  proveHead(root);
+  const ok = ci();
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.match(ok.stdout, /^devkit-reviews: feat \(schema devkit, head [0-9a-f]{7}\)$/m);
+  assert.match(ok.stdout, /^pass$/m);
+  assert.equal(ci({ DEVKIT_BYPASS: '1' }).status, 0);
+  put(root, { 'src/a.ts': 'changed\n' });
+  commitAll(root, 'later product commit');
+  for (const env of [{}, { DEVKIT_BYPASS: '1' }]) {
+    const stale = ci(env);
+    assert.equal(stale.status, 1, 'verdicts are all approved, but the reviews are stale');
+    assert.match(stale.stdout, /stale code-quality-reviewer/);
+  }
+  put(root, { 'openspec/changes/feat/readiness.md': '- Status: BLOCKED\n' });
+  assert.equal(ci({ DEVKIT_BYPASS: '1' }).status, 1);
+});
+
+test('ci mode: a repository without openspec/ passes with a note, so the devkit-reviews job never breaks a repo that has not adopted OpenSpec (R-3)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-plain-'));
+  gitIn(dir, 'init', '-q', '-b', 'main');
+  for (const script of [guard, join(dirname(guard), 'deliver-check.mjs')]) {
+    const r = spawnSync('node', [script, ...(script === guard ? ['ci'] : ['--ci'])], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...clean } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /no openspec\/ folder; nothing to check/);
+  }
+});
+
+test('ci mode: guard.mjs alone fails closed naming deliver-check.mjs; a symlinked guard.mjs works (design D3)', () => {
+  const root = ciRepo();
+  proveHead(root);
+  const lone = join(mkdtempSync(join(tmpdir(), 'devkit-lone-')), 'guard.mjs');
+  cpSync(guard, lone);
+  const r = spawnSync('node', [lone, 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean } });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /devkit ci: guard\.mjs ci needs deliver-check\.mjs and merge-setup\.mjs in the same folder \(download all three; see docs\/openspec-flow\.md#ci\)/);
+  const link = join(mkdtempSync(join(tmpdir(), 'devkit-cilink-')), 'guard.mjs');
+  symlinkSync(guard, link);
+  const ok = spawnSync('node', [link, 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean } });
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.match(ok.stdout, /^pass$/m);
+});
+
+test('ci mode passes its arguments on: --json prints the deliver-check report', () => {
+  const root = ciRepo();
+  proveHead(root);
+  const r = spawnSync('node', [guard, 'ci', '--json'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean } });
+  assert.equal(r.status, 0);
+  assert.deepEqual([JSON.parse(r.stdout).mode, JSON.parse(r.stdout).pass], ['ci', true]);
 });
 
 // ---------------------------------------------------------------- roadmap

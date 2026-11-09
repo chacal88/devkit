@@ -5,7 +5,7 @@
 //   node guard.mjs bash     PreToolUse on Bash
 //   node guard.mjs session  SessionStart: prints where the active change stands,
 //                           and the current round of openspec/roadmap.md if any
-//   node guard.mjs ci       CI: the same gates for the branch's change (exit 1)
+//   node guard.mjs ci       CI: the devkit-reviews check, run by deliver-check.mjs --ci (exit 1)
 //
 // It only vetoes (exit 2 + reason on stderr). The flow lives in the OpenSpec
 // schema; this file enforces what the CLI can't see:
@@ -389,21 +389,24 @@ function sessionChange(root) {
     + 'in the devkit schema, product code is written by tdd-implementer after readiness is APPROVED. Dispatch those agents with the Agent tool.\n');
 }
 
-function ci() {
-  const root = findRoot(process.cwd());
-  if (!root) { console.log('devkit ci: no openspec/ folder, nothing to check'); return; }
-  const ch = resolveChange(root);
-  if (!ch) { console.log('devkit ci: no open change, nothing to check'); return; }
-  const fail = (m) => { console.error(`devkit ci: ${m}`); process.exitCode = 1; };
-  if (ch.ambiguous) return fail(`several open changes (${ch.ambiguous.join(', ')}); name the branch after one, or set DEVKIT_CHANGE`);
-  const dir = changeDir(root, ch.name);
-  if (schemaHasArtifact(root, changeSchema(root, ch.name), 'readiness')) {
-    const st = readValue(join(dir, 'readiness.md'), 'Status');
-    if (st !== 'APPROVED') fail(`${ch.name}: readiness.md Status is ${st || 'missing'}, expected APPROVED`);
+// The devkit-reviews check (deliver-check --ci): readiness, then contract items
+// 1-4 with the staleness rule. Imported dynamically so this file keeps no static
+// import of deliver-check.mjs, which imports it. Without deliver-check.mjs and
+// merge-setup.mjs (which deliver-check.mjs imports) in the same folder it fails closed.
+async function ci() {
+  let ciMain;
+  try {
+    ({ ciMain } = await import('./deliver-check.mjs'));
+  } catch (e) {
+    if (e?.code !== 'ERR_MODULE_NOT_FOUND') throw e;
+    console.error('devkit ci: guard.mjs ci needs deliver-check.mjs and merge-setup.mjs in the same folder (download all three; see docs/openspec-flow.md#ci)');
+    process.exitCode = 1;
+    return;
   }
-  const v = prViolation(root, ch);
-  if (v) fail(v);
-  if (!process.exitCode) console.log(`devkit ci: ${ch.name} passed readiness, review and evidence`);
+  const r = ciMain(process.argv.slice(3));
+  process.stdout.write(r.stdout);
+  process.stderr.write(r.stderr);
+  process.exitCode = r.code;
 }
 
 // Run a mode only when executed directly, so other scripts can import the
@@ -414,9 +417,11 @@ function isMain() {
 }
 
 if (isMain()) {
-  if (mode === 'ci') { ci(); process.exit(process.exitCode || 0); }
-  if (process.env.DEVKIT_BYPASS === '1') process.exit(0);
-  if (mode === 'edit') guardEdit(readStdin());
+  // Not awaited at the top level: deliver-check.mjs imports this file, and a
+  // top-level await here would wait on an import that waits on this module.
+  if (mode === 'ci') ci().then(() => process.exit(process.exitCode || 0));
+  else if (process.env.DEVKIT_BYPASS === '1') process.exit(0);
+  else if (mode === 'edit') guardEdit(readStdin());
   else if (mode === 'bash') guardBash(readStdin());
   else if (mode === 'session') session(readStdin());
 }
