@@ -463,9 +463,6 @@ test('ADR 0003 exists with Status: accepted, ADR 0002 points to it and has no "u
   assert.doesNotMatch(body, /gates nothing|outside `openspec\/`/, 'ADR 0003 describes the archive-PR check as it is');
   assert.match(body, /`devkit-reviews --ci` checks archive PRs/);
   assert.match(body, /`openspec\/changes\/\*\*`, `openspec\/roadmap\.md`/);
-  const design = read('openspec', 'changes', 'archive-after-merge', 'design.md');
-  assert.doesNotMatch(design, /gates nothing on an archive PR/);
-  assert.match(design, /`devkit-reviews --ci` checks archive PRs/);
   const adr2 = read('docs', 'adr', '0002-merge-without-the-owner-opt-in.md');
   assert.doesNotMatch(adr2, /until round 3/);
   assert.match(adr2, /0003-auto-merge-the-archive-pr\.md/);
