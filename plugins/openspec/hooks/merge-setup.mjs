@@ -3,7 +3,7 @@
 // and the read-only preflight of the repository settings (`mergeSetup`).
 // `gh` is a function running `gh <args>`: { status, stderr, stdout, missing }.
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 // The check name is the workflow job id: the workflow must not set a job `name:`.
 export const DEVKIT_REVIEWS_CHECK = 'devkit-reviews';
@@ -18,7 +18,32 @@ export const MERGE_METHODS = {
 };
 
 const POINTER = '; run the openspec-setup skill (GitHub step) to configure it';
-const firstLine = (r) => (r.missing ? 'gh is not installed or not on PATH' : (r.stderr.trim().split('\n')[0] || `gh exited ${r.status}`));
+
+// The one `gh` runner of the three scripts: a function running `gh <args>` in `cwd`,
+// { status, stdout, stderr, missing, timedOut, signal }. Every call is cut after
+// `timeoutMs` (default 60 s) so a stalled gh never hangs a check; `opts` may
+// carry `input`, or its own `timeout` for the long watch.
+export const GH_TIMEOUT_MS = 60000;
+export function makeGh(cwd, env = process.env, timeoutMs = GH_TIMEOUT_MS) {
+  return (args, opts = {}) => {
+    const r = spawnSync('gh', args, { cwd, env, encoding: 'utf8', timeout: timeoutMs, ...opts });
+    return {
+      status: r.status,
+      signal: r.signal,
+      stdout: r.stdout || '',
+      stderr: r.stderr || '',
+      missing: r.error?.code === 'ENOENT',
+      timedOut: r.error?.code === 'ETIMEDOUT',
+    };
+  };
+}
+
+// The first stderr line of a failed gh call, or why there is none.
+export const ghError = (r) => {
+  if (r.missing) return 'gh is not installed or not on PATH';
+  if (r.timedOut) return 'gh timed out';
+  return r.stderr.trim().split('\n')[0] || `gh exited ${r.status}`;
+};
 const unreadable = (why) => `cannot read the repository settings: ${why}`;
 
 function readJson(gh, route) {
@@ -30,7 +55,7 @@ function readJson(gh, route) {
 // GET repos/{owner}/{repo}: { settings } | { error }.
 export function readRepoSettings(gh) {
   const got = readJson(gh, 'repos/{owner}/{repo}');
-  if (got.failed) return { error: firstLine(got.failed) };
+  if (got.failed) return { error: ghError(got.failed) };
   if (got.error) return { error: got.error };
   return { settings: got.json };
 }
@@ -40,15 +65,15 @@ export function readRepoSettings(gh) {
 // { contexts: [...] } | { error }.
 export function requiredChecks(gh, branch) {
   const contexts = [];
-  const rules = readJson(gh, `repos/{owner}/{repo}/rules/branches/${branch}`);
-  if (rules.failed) return { error: firstLine(rules.failed) };
+  const rules = readJson(gh, `repos/{owner}/{repo}/rules/branches/${encodeURIComponent(branch)}`);
+  if (rules.failed) return { error: ghError(rules.failed) };
   if (rules.error) return { error: rules.error };
   for (const rule of Array.isArray(rules.json) ? rules.json : []) {
     if (rule?.type !== 'required_status_checks') continue;
     for (const c of rule.parameters?.required_status_checks ?? []) if (c?.context) contexts.push(c.context);
   }
-  const classic = readJson(gh, `repos/{owner}/{repo}/branches/${branch}/protection/required_status_checks`);
-  if (classic.failed && !/HTTP (404|403)\b|Not Found|Branch not protected/i.test(classic.failed.stderr)) return { error: firstLine(classic.failed) };
+  const classic = readJson(gh, `repos/{owner}/{repo}/branches/${encodeURIComponent(branch)}/protection/required_status_checks`);
+  if (classic.failed && !/HTTP (404|403)\b|Not Found|Branch not protected/i.test(classic.failed.stderr)) return { error: ghError(classic.failed) };
   if (classic.error) return { error: classic.error };
   if (classic.json) {
     contexts.push(...(classic.json.contexts ?? []));

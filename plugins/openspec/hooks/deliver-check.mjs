@@ -7,8 +7,11 @@
 import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync, spawnSync } from 'node:child_process';
-import { mergeSetup, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
+import { execFileSync } from 'node:child_process';
+import { mergeSetup, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
+
+// The shared gh runner (merge-setup.mjs), kept importable from here.
+export { makeGh };
 import { changeDir, changeSchema, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
@@ -391,24 +394,6 @@ export function acceptanceItem(root, id, facts = gitFacts(root)) {
 }
 
 // ---------------------------------------------------------------- GitHub
-
-// A function running `gh <args>` in the repo: { status, stdout, stderr, missing }.
-export function makeGh(root, env = process.env) {
-  return (args, opts = {}) => {
-    const r = spawnSync('gh', args, { cwd: root, env, encoding: 'utf8', ...opts });
-    return {
-      status: r.status,
-      signal: r.signal,
-      stdout: r.stdout || '',
-      stderr: r.stderr || '',
-      missing: r.error?.code === 'ENOENT',
-      timedOut: r.error?.code === 'ETIMEDOUT',
-    };
-  };
-}
-
-const ghError = (r) => (r.missing ? 'gh is not installed or not on PATH'
-  : (r.stderr.trim().split('\n')[0] || `gh exited ${r.status}`));
 
 const PR_FIELDS = 'number,url,state,headRefOid,baseRefName,mergeable,body';
 const MERGE_FIELDS = `${PR_FIELDS},autoMergeRequest,mergeStateStatus`;
@@ -921,15 +906,19 @@ function sleepSync(ms) {
 function waitForMerge(gh, pr, minutes, env) {
   const every = pollSeconds(env) * 1000;
   const deadline = Date.now() + minutes * 60000;
+  const done = (timedOut) => ({ minutes, timedOut });
   while (Date.now() < deadline) {
-    const r = gh(['pr', 'view', String(pr.number), '--json', 'state,autoMergeRequest,mergeStateStatus,headRefOid']);
-    if (r.status !== 0) return { minutes, timedOut: false };
+    // Each call is cut at the cap: one stalled gh never outruns the wait.
+    const left = Math.max(1, Math.ceil(deadline - Date.now()));
+    const r = gh(['pr', 'view', String(pr.number), '--json', 'state,autoMergeRequest,mergeStateStatus,headRefOid'], { timeout: Math.min(GH_TIMEOUT_MS, left) });
+    if (r.timedOut) return done(left <= GH_TIMEOUT_MS);
+    if (r.status !== 0) return done(false);
     let now;
-    try { now = JSON.parse(r.stdout); } catch { return { minutes, timedOut: false }; }
-    if (now.state !== 'OPEN' || now.autoMergeRequest == null || now.headRefOid !== pr.headRefOid) return { minutes, timedOut: false };
+    try { now = JSON.parse(r.stdout); } catch { return done(false); }
+    if (now.state !== 'OPEN' || now.autoMergeRequest == null || now.headRefOid !== pr.headRefOid) return done(false);
     sleepSync(Math.min(every, Math.max(0, deadline - Date.now())));
   }
-  return { minutes, timedOut: true };
+  return done(true);
 }
 
 export class UsageError extends Error {
@@ -1083,13 +1072,14 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     const gh = makeGh(root, env);
     let state = collectState(root, opts.id, { env, gh });
     let watch = null;
-    if (opts.watch !== null && state.pr && nextStep(state).step === 'wait-checks') {
+    const step = opts.watch !== null && state.pr ? nextStep(state).step : null;
+    if (step === 'wait-checks') {
       // One capped watch; the contract is computed again afterwards, whatever happened.
       const args = ['pr', 'checks', String(state.pr.number), '--watch', '--interval', '30', ...(state.items[5].details.required ? ['--required'] : [])];
       const r = gh(args, { timeout: opts.watch * 60000, killSignal: 'SIGTERM' });
       watch = { minutes: opts.watch, timedOut: r.timedOut };
       state = collectState(root, opts.id, { env, gh });
-    } else if (opts.watch !== null && state.pr && nextStep(state).step === 'wait-merge') {
+    } else if (step === 'wait-merge') {
       watch = waitForMerge(gh, state.pr, opts.watch, env);
       state = collectState(root, opts.id, { env, gh, prNumber: state.pr.number });
     }

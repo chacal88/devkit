@@ -10,10 +10,11 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEVKIT_REVIEWS_CHECK, WORKFLOW_PATH, RULESET_NAME, MERGE_METHODS, readRepoSettings, desiredRuleset } from '../../../hooks/merge-setup.mjs';
+import { DEVKIT_REVIEWS_CHECK, WORKFLOW_PATH, RULESET_NAME, MERGE_METHODS, readRepoSettings, desiredRuleset, makeGh, ghError } from '../../../hooks/merge-setup.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = join(here, '..', '..', '..');
+const DEVKIT_REPO = 'chacal88/devkit';
 const ITEMS = ['workflow', 'auto-merge', 'delete-branch', 'ruleset'];
 const REPO = 'repos/{owner}/{repo}';
 
@@ -36,19 +37,45 @@ function parseArgs(argv) {
   return o;
 }
 
-function runGh(args, cwd, input) {
-  const r = spawnSync('gh', args, { cwd, encoding: 'utf8', input });
-  return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '', missing: r.error?.code === 'ENOENT' };
-}
-const ghError = (r) => (r.missing ? 'gh is not installed or not on PATH' : (r.stderr.trim().split('\n')[0] || `gh exited ${r.status}`));
+const runGh = (args, cwd, input) => makeGh(cwd)(args, input === undefined ? {} : { input });
 const parse = (s) => { try { return JSON.parse(s); } catch { return undefined; } };
 const git = (cwd, args) => spawnSync('git', args, { cwd, encoding: 'utf8' });
 
 // ------------------------------------------------------------ reading
 
-function workflowItem(root) {
+const pluginVersion = () => JSON.parse(readFileSync(join(pluginRoot, '.claude-plugin', 'plugin.json'), 'utf8')).version;
+const SHA = /^[0-9a-f]{40}$/;
+
+// The commit sha of the devkit tag `v<plugin version>`, so the workflow pins
+// content and not a movable name: { tag, sha } | { tag, missing } | { tag, error }.
+// An annotated tag is dereferenced through git/tags/<sha>. Never a fallback.
+function resolveTag(cwd) {
+  const tag = `v${pluginVersion()}`;
+  const shaOf = (route) => {
+    const r = runGh(['api', route], cwd);
+    if (r.status !== 0) return { r };
+    const o = parse(r.stdout)?.object;
+    return SHA.test(o?.sha ?? '') ? { object: o } : { error: `${route} returned an unreadable answer` };
+  };
+  let got = shaOf(`repos/${DEVKIT_REPO}/git/ref/tags/${tag}`);
+  if (got.r) return /HTTP 404|Not Found/i.test(got.r.stderr) ? { tag, missing: true } : { tag, error: ghError(got.r) };
+  if (got.error) return { tag, error: got.error };
+  if (got.object.type === 'tag') {
+    got = shaOf(`repos/${DEVKIT_REPO}/git/tags/${got.object.sha}`);
+    if (got.r) return { tag, error: ghError(got.r) };
+    if (got.error) return { tag, error: got.error };
+  }
+  return got.object.type === 'commit' ? { tag, sha: got.object.sha } : { tag, error: `tag ${tag} points at a ${got.object.type}, not a commit` };
+}
+
+function workflowItem(root, cwd) {
   const file = join(root, WORKFLOW_PATH);
-  if (!existsSync(file)) return { item: 'workflow', state: 'create', why: `${WORKFLOW_PATH} is missing; the script writes it from the template (the owner commits it)` };
+  if (!existsSync(file)) {
+    const pin = resolveTag(cwd);
+    if (pin.missing) return { item: 'workflow', state: 'deferred', why: `tag ${pin.tag} does not exist in ${DEVKIT_REPO} yet; the workflow pins the commit of that tag, so release it first (never falls back to the tag or a branch)` };
+    if (pin.error) return { item: 'workflow', state: 'error', why: `cannot resolve tag ${pin.tag} of ${DEVKIT_REPO}: ${pin.error}` };
+    return { item: 'workflow', state: 'create', why: `${WORKFLOW_PATH} is missing; the script writes it from the template, pinned to ${pin.sha} (${pin.tag}); the owner commits it`, tag: pin.tag, sha: pin.sha };
+  }
   if (/deliver-check(\.mjs)?["']?\s+--ci\b/.test(readFileSync(file, 'utf8'))) return { item: 'workflow', state: 'ok', why: `${WORKFLOW_PATH} runs deliver-check --ci` };
   return { item: 'workflow', state: 'deferred', why: `${WORKFLOW_PATH} exists but does not run deliver-check --ci; edit it by hand (it is never overwritten)` };
 }
@@ -67,12 +94,13 @@ function settingsItems(settings, method) {
   return [auto, del];
 }
 
+// Every check-run name of the default branch, across all pages (`--paginate` runs
+// the jq per page, so the names come one per line, not as one array).
 function discoverContexts(cwd, branch) {
-  const r = runGh(['api', `${REPO}/commits/${branch}/check-runs`, '--jq', '[.check_runs[].name] | unique'], cwd);
+  const r = runGh(['api', '--paginate', `${REPO}/commits/${encodeURIComponent(branch)}/check-runs?per_page=100`, '--jq', '.check_runs[].name'], cwd);
   if (r.status !== 0) return { error: ghError(r) };
-  const names = parse(r.stdout);
-  if (!Array.isArray(names)) return { error: 'check-runs returned unreadable JSON' };
-  return { contexts: names.filter((n) => n !== DEVKIT_REVIEWS_CHECK) };
+  const names = r.stdout.split('\n').map((n) => n.trim()).filter(Boolean);
+  return { contexts: [...new Set(names)].filter((n) => n !== DEVKIT_REVIEWS_CHECK) };
 }
 
 const contextsOf = (rs) => (rs.rules ?? []).filter((x) => x.type === 'required_status_checks').flatMap((x) => (x.parameters?.required_status_checks ?? []).map((c) => c.context));
@@ -142,7 +170,7 @@ function rulesetItem(cwd, { branch, contexts, current }) {
 
 function plan(cwd, root, opts) {
   const result = { items: [], contexts: [], defaultBranch: null, method: opts.method };
-  const wf = workflowItem(root);
+  const wf = workflowItem(root, cwd);
   const read = readRepoSettings((args) => runGh(args, cwd));
   if (read.error) {
     const why = `cannot read the repository settings: ${read.error}`;
@@ -171,10 +199,9 @@ function plan(cwd, root, opts) {
 
 function applyItem(cwd, root, it) {
   if (it.item === 'workflow') {
-    const version = JSON.parse(readFileSync(join(pluginRoot, '.claude-plugin', 'plugin.json'), 'utf8')).version;
     const template = readFileSync(join(here, '..', 'templates', 'devkit-reviews.yml'), 'utf8');
     mkdirSync(dirname(join(root, WORKFLOW_PATH)), { recursive: true });
-    writeFileSync(join(root, WORKFLOW_PATH), template.replaceAll('{{ref}}', `v${version}`));
+    writeFileSync(join(root, WORKFLOW_PATH), template.replaceAll('{{ref}}', it.sha).replaceAll('{{tag}}', it.tag));
     return null;
   }
   if (it.item === 'ruleset') {
@@ -188,7 +215,8 @@ function applyItem(cwd, root, it) {
 // ------------------------------------------------------------ output
 
 function render(result, applied) {
-  const lines = [`repository: default branch ${result.defaultBranch ?? 'unknown'}, merge method ${result.method}, existing checks: ${result.contexts.join(', ') || 'none'}`];
+  const lines = [`repository: default branch ${result.defaultBranch ?? 'unknown'}, merge method ${result.method}`,
+    `the ruleset will require these checks, found on ${result.defaultBranch ?? 'the default branch'} (confirm them, or pass --checks): ${result.contexts.join(', ') || 'none'}`];
   for (const it of result.items) {
     lines.push(`${it.item.padEnd(14)} ${it.state.padEnd(9)} ${it.why ?? ''}`.trimEnd());
     if (['create', 'update'].includes(it.state) && it.payload) {

@@ -6,7 +6,7 @@
 
 ## Context
 
-Since ADR 0001, `ship-change` takes an approved change to a PR that `deliver-check` reports
+This ADR builds on ADR 0001 and leaves its gates unchanged. Since ADR 0001, `ship-change` takes an approved change to a PR that `deliver-check` reports
 as ready (8/8), and the owner merges it. Owners of some repositories want that merge to happen
 on its own. An agent saying "ready" is not enough to merge on: until this change, CI checked
 review verdicts without checking that they were current at the PR head.
@@ -31,7 +31,7 @@ default stays the owner's merge.
   so a comment made after auto-merge was enabled does not stop it (Mitigated: at 8/8 the merge
   is usually immediate, and the skill disables auto-merge when it sees the contract drop). A PR
   can change the workflow or the checker it is judged by (Accepted: reviewers see those diffs;
-  organization-level required workflows are out of scope). The ruleset blocks direct pushes
+  organization-level required workflows are out of scope). The consumer workflow downloads the checker pinned to the commit sha of the release tag, resolved at setup time, never to the movable tag. The ruleset blocks direct pushes
   for everyone, the owner included (Accepted until round 3's bypass). Strict up-to-date
   re-runs stale reviews after each base update (Accepted: cost, scoped re-review).
 

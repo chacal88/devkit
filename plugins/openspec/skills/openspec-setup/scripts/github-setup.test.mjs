@@ -18,12 +18,16 @@ const K = {
   repo: 'api-GET-repos__owner___repo_',
   rulesets: 'api-GET-repos__owner___repo__rulesets',
   ruleset: (id) => `api-GET-repos__owner___repo__rulesets_${id}`,
-  runs: 'api-GET-repos__owner___repo__commits_main_check-runs',
+  runs: 'api-GET-repos__owner___repo__commits_main_check-runs_per_page=100',
+  tag: (v) => `api-GET-repos_chacal88_devkit_git_ref_tags_v${v}`,
+  tagObj: (sha) => `api-GET-repos_chacal88_devkit_git_tags_${sha}`,
   contents: 'api-GET-repos__owner___repo__contents_.github_workflows_devkit-reviews.yml_ref=main',
   patch: 'api-PATCH-repos__owner___repo_',
   post: 'api-POST-repos__owner___repo__rulesets',
   put: (id) => `api-PUT-repos__owner___repo__rulesets_${id}`,
 };
+const SHA = 'a'.repeat(40);
+const TAG_SHA = 'b'.repeat(40);
 const SETTINGS_OFF = { default_branch: 'main', allow_auto_merge: false, delete_branch_on_merge: false, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true };
 const SETTINGS_ON = { ...SETTINGS_OFF, allow_auto_merge: true, delete_branch_on_merge: true };
 const D8 = (contexts) => ({
@@ -39,13 +43,15 @@ const D8 = (contexts) => ({
 const stored = (contexts, over = {}) => ({ id: 7, source_type: 'Repository', source: 'o/r', ...D8(contexts), ...over });
 
 // A temp repo, a fake gh answering a repository in the given state, and a runner for the script.
-function world({ settings = SETTINGS_OFF, runs = ['check'], rulesets = [], existing = null, workflow = 'missing', workflowOnMain = false, prChecks = null, prList = [], branch = 'feat' } = {}) {
+function world({ settings = SETTINGS_OFF, runs = ['check'], tag = { stdout: { object: { type: 'commit', sha: SHA } } }, rulesets = [], existing = null, workflow = 'missing', workflowOnMain = false, prChecks = null, prList = [], branch = 'feat' } = {}) {
   const root = gitRepo({ branch });
   const gh = fakeGh();
   if (workflow === 'template') put(root, { [WORKFLOW_PATH]: 'on: pull_request\njobs:\n  devkit-reviews:\n    steps:\n      - run: node plugins/openspec/hooks/deliver-check.mjs --ci\n' });
   if (workflow === 'foreign') put(root, { [WORKFLOW_PATH]: 'name: mine\non: push\n' });
   gh.set(K.repo, { stdout: settings });
-  gh.set(K.runs, { stdout: runs });
+  // gh --paginate --jq '.check_runs[].name' prints one name per line, across pages
+  gh.set(K.runs, { stdout: runs.map((n) => `${n}\n`).join('') });
+  if (tag) gh.set(K.tag(pluginVersion), tag);
   gh.set(K.rulesets, { stdout: rulesets });
   if (existing) gh.set(K.ruleset(existing.id ?? 7), { stdout: existing });
   if (workflowOnMain) gh.set(K.contents, { stdout: { name: 'devkit-reviews.yml' } });
@@ -95,6 +101,19 @@ test('plan: contexts come from the default branch check-runs without devkit-revi
   const k = w.run('--json', '--checks', 'ci,build').json();
   assert.deepEqual(k.contexts, ['ci', 'build']);
   assert.deepEqual(k.items.find((i) => i.item === 'ruleset').payload, D8(['ci', 'build', 'devkit-reviews']));
+});
+
+test('plan: check runs are read across pages (--paginate), so more than 30 checks all reach the ruleset, and the list is shown for confirmation (completeness)', () => {
+  const names = Array.from({ length: 45 }, (_, i) => `job-${i}`);
+  const w = world({ runs: [...names, 'job-3', 'devkit-reviews'], workflowOnMain: true });
+  const r = w.run('--json');
+  assert.deepEqual(r.json().contexts, names);
+  assert.equal(w.item(r, 'ruleset').payload.rules[1].parameters.required_status_checks.length, 46);
+  const call = w.gh.calls().find((c) => c.some((a) => a.includes('/check-runs')));
+  assert.ok(call.includes('--paginate'), call.join(' '));
+  const human = w.run().out;
+  assert.match(human, /the ruleset will require these checks, found on main \(confirm them, or pass --checks\): job-0, job-1/);
+  assert.match(human, /job-44/);
 });
 
 test('ruleset: the create payload equals design D8 for contexts check, devkit-reviews', () => {
@@ -148,16 +167,45 @@ test('ruleset applied from a PR: every other open PR is listed before confirming
   assert.doesNotMatch(main.run().out, /#9/, 'with the workflow on the default branch nobody waits');
 });
 
-test('workflow: a missing one is written with {{ref}} = v + the plugin version; nothing is committed', () => {
+test('workflow: a missing one is written pinned to the commit sha of tag v + the plugin version, tag named in a comment; nothing is committed (security)', () => {
   const w = world();
   const r = w.run('--apply', 'workflow');
   assert.equal(r.code, 0, r.err);
   const file = readFileSync(join(w.root, WORKFLOW_PATH), 'utf8');
-  assert.ok(file.includes(`chacal88/devkit/v${pluginVersion}/plugins/openspec/hooks`));
-  assert.doesNotMatch(file, /\{\{ref\}\}/);
-  assert.deepEqual(w.writes(), [], 'a file write is not a gh write');
+  assert.ok(file.includes(`chacal88/devkit/${SHA}/plugins/openspec/hooks`), 'the base URL holds the sha');
+  assert.ok(!file.includes(`devkit/v${pluginVersion}/`), 'never the mutable tag in a URL');
+  assert.match(file, new RegExp(`#.*v${pluginVersion.replaceAll('.', '\\.')}`), 'a comment names the tag');
+  assert.doesNotMatch(file, /\{\{\w+\}\}/);
+  assert.deepEqual(w.writes(), [], 'a file write is not a gh write (reading the tag is a GET)');
+  assert.ok(w.gh.calls().some((c) => c[0] === 'api' && c.includes(`repos/chacal88/devkit/git/ref/tags/v${pluginVersion}`)));
   const st = spawnSync('git', ['status', '--porcelain'], { cwd: w.root, encoding: 'utf8' }).stdout;
   assert.match(st, /\?\? \.github\//, 'left untracked for the owner to commit');
+});
+
+test('workflow: an annotated tag is dereferenced to the commit it points at', () => {
+  const w = world({ tag: { stdout: { object: { type: 'tag', sha: TAG_SHA } } } });
+  w.gh.set(K.tagObj(TAG_SHA), { stdout: { object: { type: 'commit', sha: SHA } } });
+  assert.equal(w.run('--apply', 'workflow').code, 0);
+  assert.ok(readFileSync(join(w.root, WORKFLOW_PATH), 'utf8').includes(`/devkit/${SHA}/`));
+});
+
+test('workflow: a tag that does not exist yet defers the item naming the tag; nothing is written, no fallback to the tag or a branch (security)', () => {
+  const w = world({ tag: { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' } });
+  const it = w.item(w.run('--json'), 'workflow');
+  assert.equal(it.state, 'deferred');
+  assert.match(it.why, new RegExp(`tag v${pluginVersion.replaceAll('.', '\\.')} does not exist`));
+  const r = w.run('--apply', 'workflow');
+  assert.equal(existsSync(join(w.root, WORKFLOW_PATH)), false);
+  assert.equal(r.code, 0, 'a deferred item is not an error');
+});
+
+test('workflow: a tag lookup that fails for another reason is an error, not a fallback', () => {
+  const w = world({ tag: { exit: 1, stderr: 'gh: connection reset\n' } });
+  const it = w.item(w.run('--json'), 'workflow');
+  assert.equal(it.state, 'error');
+  assert.match(it.why, /connection reset/);
+  assert.equal(w.run('--apply', 'workflow').code, 1);
+  assert.equal(existsSync(join(w.root, WORKFLOW_PATH)), false);
 });
 
 test('workflow: one that runs deliver-check --ci is ok; any other is deferred and never overwritten', () => {

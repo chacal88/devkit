@@ -7,6 +7,7 @@ import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { ghError } from './merge-setup.mjs';
 import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes } from './deliver-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1772,6 +1773,16 @@ test('merge setup stops: each missing piece goes through collectState and the CL
   }
 });
 
+test('merge setup stops: merge_method rebase with rebase merges off goes through the collector to stop-merge-setup, naming the method (AC-6, AC-8)', () => {
+  const t = shipRepo({ ship: 'merge', method: 'rebase' });
+  presetSetup(t.gh, { repo: { allow_rebase_merge: false } });
+  const n = nextStep(collectState(t.root, 'feat', { env: t.env }));
+  assert.equal(n.step, 'stop-merge-setup');
+  assert.match(n.missing.join(' '), /rebase merges are not allowed \(allow_rebase_merge\)/);
+  assert.doesNotMatch(n.missing.join(' '), /squash/);
+  assert.deepEqual(noMergeCall(t), []);
+});
+
 test('merge setup stops: an unreadable repository fails closed as a stop, not as a pass (AC-6)', () => {
   const t = shipRepo({ ship: 'merge' });
   t.gh.set('api-GET-repos__owner___repo_', { exit: 1, stderr: 'gh: connection reset\n' });
@@ -1897,6 +1908,39 @@ test('carry-over: pr mode still reports a MERGED PR as blocked item 5 and plan m
   assert.ok(!t.gh.calls().some((c) => c[1] === 'list'), 'no pr list outside merge mode');
 });
 
+// Items 6, 7 and 8 through the real collector in merge mode: nothing enables auto-merge over open work.
+test('merge mode: an unresolved thread and a failing check, read by the collector, answer / fix-checks and never enable-auto-merge (R-2, AC-3)', () => {
+  const answer = mergeReady();
+  answer.gh.set('api-graphql', { stdout: conversation({ threads: [thread(false, ann, undefined, 'https://gh/t9')] }) });
+  const a = JSON.parse(runCli(answer, ['feat', '--json']).out);
+  assert.deepEqual([a.next.step, a.next.threads], ['answer', ['https://gh/t9']]);
+  assert.equal(a.items[6].status, 'open');
+
+  const fix = mergeReady();
+  fix.gh.set('pr-checks', { exit: 1, stdout: [check('build', 'fail', 'https://ci/1')] });
+  const f = JSON.parse(runCli(fix, ['feat', '--json']).out);
+  assert.equal(f.next.step, 'fix-checks');
+  assert.deepEqual(f.next.failing, [{ name: 'build', link: 'https://ci/1' }]);
+
+  const body = mergeReady({ body: 'nothing here' });
+  const b = JSON.parse(runCli(body, ['feat', '--json']).out);
+  assert.equal(b.next.step, 'edit-pr-body');
+
+  for (const t of [answer, fix, body]) assert.deepEqual(noMergeCall(t), []);
+});
+
+test('merge mode: auto-merge already on with an unresolved thread or a failing check disables it first (R-2, AC-3)', () => {
+  const answer = mergeReady(on0());
+  answer.gh.set('api-graphql', { stdout: conversation({ threads: [thread(false, ann)] }) });
+  assert.deepEqual([JSON.parse(runCli(answer, ['feat', '--json']).out).next.step], ['disable-auto-merge']);
+  const fix = mergeReady(on0());
+  fix.gh.set('pr-checks', { exit: 1, stdout: [check('build', 'fail')] });
+  const n = JSON.parse(runCli(fix, ['feat', '--json']).out).next;
+  assert.deepEqual([n.step, n.number], ['disable-auto-merge', 12]);
+  for (const t of [answer, fix]) assert.deepEqual(noMergeCall(t), []);
+});
+function on0() { return { autoMergeRequest: { enabledAt: '2026-11-09T00:00:00Z' } }; }
+
 // ---- the wait: --watch at wait-merge (AC-4)
 
 const POLL = ['pr', 'view', '12', '--json', 'state,autoMergeRequest,mergeStateStatus,headRefOid'];
@@ -1963,6 +2007,36 @@ test('--watch at wait-merge: a gh error while polling stops the wait and the sta
   assert.equal(polls(t).length, 1);
   assert.equal(j.items[4].status, 'blocked');
   assert.match(j.items[4].reason, /network down/);
+});
+
+test('makeGh: a gh call that outlives its timeout is cut, reported as timedOut and read as "timed out" (one runner in merge-setup.mjs)', () => {
+  const gh = fakeGh();
+  gh.set('api-GET-repos__owner___repo_', { stdout: {}, sleep: 8000 });
+  const started = Date.now();
+  const r = makeGh(tmpdir(), gh.env, 400)(['api', 'repos/{owner}/{repo}']);
+  assert.ok(Date.now() - started < 5000, 'cut near the timeout, not after the 8s sleep');
+  assert.equal(r.timedOut, true);
+  assert.notEqual(r.status, 0);
+  assert.match(ghError(r), /timed out/);
+});
+
+test('one gh runner: deliver-check.mjs and github-setup.mjs do not spawn gh themselves (architecture)', () => {
+  for (const f of [join(here, 'deliver-check.mjs'), join(here, '..', 'skills', 'openspec-setup', 'scripts', 'github-setup.mjs')]) {
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /spawnSync\(\s*'gh'/, f);
+  }
+});
+
+test('--watch at wait-merge: one stalled gh poll is cut at the cap, so the wait ends near it and not when gh answers (R-4)', () => {
+  const t = waiting();
+  t.gh.set('pr-view', { stdout: t.pr(on) }, 1);
+  t.gh.set('pr-view', { stdout: t.pr(on), sleep: 15000 }, 2);
+  t.gh.set('pr-view', { stdout: t.pr(on) });
+  const started = Date.now();
+  const r = t.run('--watch=0.025');
+  assert.ok(Date.now() - started < 9000, `took ${Date.now() - started} ms`);
+  const j = JSON.parse(r.out);
+  assert.deepEqual(j.watch, { minutes: 0.025, timedOut: true });
+  assert.equal(j.summary, 'auto-merge on: waiting for GitHub to merge');
 });
 
 test('--watch outside wait-merge never polls (enable-auto-merge, and no --watch at all)', () => {
@@ -2674,11 +2748,12 @@ test('ADR 0002 exists, is cited by README and docs/openspec-flow.md, and says St
   }
 });
 
-test('the tag pinned in docs/openspec-flow.md is v + the devkit-openspec version (R-10)', () => {
+test('the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version, with the tag in a comment, never the tag in the URL (R-10, security)', () => {
   const repo = join(here, '..', '..', '..');
   const v = JSON.parse(readFileSync(join(here, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version;
   const doc = readFileSync(join(repo, 'docs', 'openspec-flow.md'), 'utf8');
-  const pins = [...doc.matchAll(/chacal88\/devkit\/(v\d+\.\d+\.\d+)\//g)].map((m) => m[1]);
+  const pins = [...doc.matchAll(/chacal88\/devkit\/([^/\n]+)\/plugins\/openspec\/hooks/g)].map((m) => m[1]);
   assert.ok(pins.length > 0);
-  assert.deepEqual([...new Set(pins)], [`v${v}`]);
+  assert.deepEqual([...new Set(pins)], [`<commit sha of v${v}>`]);
+  assert.match(doc, new RegExp(`# .*v${v.replaceAll('.', '\\.')}`), 'a comment in the snippet names the tag');
 });

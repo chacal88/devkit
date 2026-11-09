@@ -66,6 +66,7 @@ test('workflow (the setup template): downloads the checker from chacal88/devkit/
   assert.match(yml, /https:\/\/raw\.githubusercontent\.com\/chacal88\/devkit\/\{\{ref\}\}\/plugins\/openspec\/hooks/);
   const targets = [...yml.matchAll(/curl [^\n]*-o "?([^"\s]+)"?/g)].map((m) => m[1]);
   assert.deepEqual(targets, ['$RUNNER_TEMP/guard.mjs', '$RUNNER_TEMP/deliver-check.mjs', '$RUNNER_TEMP/merge-setup.mjs'], 'deliver-check.mjs imports merge-setup.mjs; a file downloaded into the workspace would make every review stale');
+  assert.match(yml, /^ {10}# .*\{\{tag\}\}/m, 'a comment names the tag the sha was resolved from');
   assert.match(yml, /^ {6}- run: node "\$RUNNER_TEMP\/deliver-check\.mjs" --ci$/m);
   assert.doesNotMatch(yml, /plugins\/openspec\/hooks\/deliver-check\.mjs --ci/, 'no copy of the repository path in the consumer template');
 });
