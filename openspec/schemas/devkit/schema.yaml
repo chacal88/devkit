@@ -12,7 +12,7 @@ artifacts:
       with the project's rules. Do not answer the questions yourself.
 
       Write requirements.md with:
-      - **Request**: the owner's request, in their words.
+      - **Request**: the owner's request, in their words; when the project's docs must be in another language than the request, the faithful translation, marked "(translated from <language>)".
       - **Assumptions**: each one confirmed by the owner, written literally
         (exact paths, fields, names).
       - **Acceptance criteria**: stable ids (AC-1, AC-2, ...), each observable

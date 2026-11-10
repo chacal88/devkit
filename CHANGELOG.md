@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1 — retro of devkit-opt-in
+
+- **devkit-core** 0.5.2: `tdd-implementer` stops a hung command by its own PID only, never `pkill`/`killall` by pattern.
+- **devkit-openspec** 0.7.1: the `devkit` schema's Request line says how to quote a request in another language (faithful translation marked "(translated from <language>)").
+- Docs: the CI snippet pins `v0.7.1`; `docs/migrate-to-project-scope.md` items 3 and 4 keep the first backup (`cp -n`) and write through a temporary file, so they are safe to run twice; a test pins both.
+
 ## 0.7.0 — devkit per project
 
 - **devkit-openspec** (BREAKING): the hooks (`session`, `edit`, `bash`) act only in projects whose `openspec/config.yaml` selects the `devkit` or `devkit-lite` schema; everywhere else they are silent, destructive git included. `ci` is unchanged. `install-schemas.sh` with no argument now installs into the current project (`--user` for machine-wide, the old default). New `project-settings.mjs` writes the project's `.claude/settings.json` opt-in; `openspec-setup` runs it and installs the schemas into the project.
