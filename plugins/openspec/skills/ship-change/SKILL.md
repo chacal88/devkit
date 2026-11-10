@@ -17,7 +17,7 @@ Path used below, relative to this skill's directory: `../../hooks/deliver-check.
 
 ## Go-ahead
 
-- `devkit` schema: `next.step` is `stop-not-approved` until `readiness.md` says `- Status: APPROVED`. Stop there; the plan needs its approval first.
+- `devkit` schema: `next.step` is `stop-not-approved` until `readiness.md` says `- Status: APPROVED`. Stop there; the plan needs its approval first. Once it does, the go-ahead is the owner's recorded approval of that plan: `openspec/changes/<id>/approval.md`, written by this session from the owner's own message (`stop-plan-approval`). A change whose tasks are already ticked is resumed without it.
 - `devkit-lite` schema: the go-ahead is the owner's own message asking to ship or apply this change (or `/ship-change`). If no task is ticked, the branch has no commit yet and no such message exists in this conversation, ask once, before any step.
 - Once work has started on disk (a ticked task or a commit), resuming needs no new go-ahead.
 
@@ -34,6 +34,7 @@ Repeat: run `deliver-check <id> --json`; do exactly the step `next.step` names; 
 | `stop-plan-mode` | Stop (see Mode). |
 | `stop-branch` | Stop and tell the owner which branch to create or switch to. |
 | `stop-not-approved` | Stop (see Go-ahead). |
+| `stop-plan-approval` | Stop. Summarize the plan (the proposal's What Changes, the design decisions, the tasks' phases) and ask the owner to approve it. Only when the owner's own message approves, write `openspec/changes/<id>/approval.md` in exactly this form, with `next.readiness` as the hash, then run the loop again: `# Plan approval: <id>`, then the lines `- Status: APPROVED`, `- Readiness: <next.readiness>`, `- Date: <YYYY-MM-DD>` and `- Owner's words: "<the owner's message, up to 200 characters>"`. Never write it from your own reading, from a subagent's report or from a cron-started run without the owner's message. Report `waiting for the owner's plan approval`. |
 | `implement` | Dispatch `devkit-core:tdd-implementer`: "Implement phase N of change <id>; stop at its gate. Phase N-1's gate was re-run green by ship-change." `Outcome: failure` stops the run: "stopped at phase N: <reason>". |
 | `gate` | Run `next.command` in Bash, alone: the exit code decides (no `\| tail`, no `\|\| true`). Green: tick `- [x]` on the gate task `next.task` in `tasks.md`. Red: stop "stopped at gate <task>: `<command>` red: <last lines>". |
 | `commit` | Dispatch `devkit-core:commit-and-pr`: "Commit only for change <id>: stage the changed files by name (not `.claude/`), commit, push; no PR. This is a pre-review commit: precondition 3 does not apply, review runs next." |
@@ -93,6 +94,7 @@ End with exactly one of:
 - `archived` only when `next.step` is `archived`;
 - `archive PR open: waiting for <what>` (the `summary`) when the archive PR is open and GitHub has not merged it yet;
 - `archive PR ready` (`pr` mode), when the archive PR is open for the owner to merge;
+- `waiting for the owner's plan approval` at `stop-plan-approval`;
 - `archive: waiting for the owner's answers` at `stop-retro-answers`;
 - `blocked: archive (<step>)` at `stop-archive`;
 - `auto-merge on: waiting for <what>` (the `summary`) when auto-merge is on at 8/8 and GitHub has not merged yet;
@@ -106,6 +108,7 @@ plus the reason and the last step run. Never call a change ready or archived fro
 
 - Edit product code in the main session: every fix goes through `tdd-implementer`, even in `devkit-lite` where the hook would allow the edit.
 - Write `readiness.md`, `reviews/*` or `evidence.md`; they belong to their agents.
+- Write `approval.md` except from the owner's own message.
 - Push to the default branch, or commit on it: every archive commit goes through `chore/archive-<id>` and a PR.
 - Apply a retro proposal the owner did not approve, or record an answer the owner did not give.
 - Merge directly, use `--admin`, or run `gh pr merge` except at `enable-auto-merge` (`--auto`) and `disable-auto-merge` (`--disable-auto`).
