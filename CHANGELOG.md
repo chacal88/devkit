@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 — phases as child sessions
+
+- **devkit-openspec** 0.9.0: `conduct-check --json` is version 2 (**BREAKING** for consumers of the JSON: the `wake` field is removed, `version` is 2). In `host: app`, a change whose next step is `implement` carries `next.actor: "session"` and a `session` descriptor (title, name, cwd, branch, phase, brief, background), and every change row carries `sessionPrefix`; in `host: cli` the subagent actor is unchanged.
+- `/conduct` starts one child session per phase in the change's worktree (`start_session` with `wake_when_done`), never a subagent in its place. A refused start ends that change's run as `waiting for the owner: start session <id> phase <n>`. Only the owner's typed `/conduct` is the go-ahead; a continuation turn after a child's end starts the next phase. Children join a sidebar group named after the change and are archived when the phase's gate is ticked. There is no session cron (the first run after the upgrade deletes a `/conduct` cron left by 0.8.0); waits on GitHub are one capped watch plus the app's PR Auto-fix.
+- Docs: ADR 0006 records phases as child sessions and supersedes ADR 0005; ADR 0001 points to it; round 6 of `openspec/roadmap.md` is this change; the CI snippet pins `v0.9.0`.
+
 ## 0.8.0 — conduct rounds
 
 - **devkit-openspec**: the `conduct` skill conducts every change of the current `openspec/roadmap.md` round from creation to archive. `conduct-check` (read-only, `--json`) computes each change's next step, who does it and whether the session should wake itself later; independent changes run their steps in parallel git worktrees (at most three at once, as background subagents), and a change with `after:` plans early and waits for its dependency's archive. `release-rebase` resolves release-file conflicts (versions, CHANGELOG, catalog) by rule, in the change's worktree. `/conduct round <n>` starts at a named round.
