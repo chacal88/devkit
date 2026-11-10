@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: dd407bdc86858067fa68ebe43836e05395df3cde
+Commit: 9cd32659aef800f1eaf373694e15030cdd141bff
 
-## Security audit - conduct-rounds (round 2)
+## Security audit - conduct-rounds (round 2, stale-only re-review at 9cd3265)
 
 Triaged scope: high: plugins/openspec/hooks/guard.mjs (classify, guardEdit, guardBash), conduct-check.mjs (wakeOf, actorOf), deliver-check.mjs (conflict flag), release-rebase.mjs (catch); medium: skills/conduct/SKILL.md, ADR 0005, docs.
 Categories walked: injection, authn/authz/IDOR, exposure, crypto, secret, config
@@ -20,6 +20,13 @@ Suite: not re-run (given: 534 pass).
 - actorOf unknown step -> stop: fail-closed.
 
 Discarded false positives: none new.
+
+### Changed since dd407bd (merge of origin/main, 9cd3265)
+- No hook code changed (guard.mjs, conduct-check, deliver-check, release-rebase untouched); only guard.test.mjs assertions on the migration doc.
+- docs/migrate-to-project-scope.md: `cp -n` plus temp file and `mv`, `mktemp -d` for the marketplace removal; operates on the owner's own files, no untrusted input, safer than before (first backup kept, no truncated write). No finding.
+- tdd-implementer.md: new rule forbids pkill/killall by pattern; strictly tightens.
+- schema Request line and templates: text only. Version bumps: metadata.
+- Previous findings and dispositions unchanged.
 
 ### Findings (TRUE POSITIVE)
 None. Follow-up only (not blocking): realpath/subshell hardening of the Bash write guard.

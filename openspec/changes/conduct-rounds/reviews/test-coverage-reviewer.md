@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: dd407bd
+Commit: 9cd32659aef800f1eaf373694e15030cdd141bff
 
-## Coverage analysis — conduct-rounds, round 2 (8f6f2bd..dd407bd)
+## Coverage analysis — conduct-rounds, stale re-review (dd407bd..9cd3265, merge of origin/main)
 
 In-scope surfaces: plugins/openspec/hooks (guard, conduct-check, deliver-check, release-rebase), skills/conduct, ADR 0005
 Blocking gaps (8-10 without a plan): 0
@@ -12,6 +12,8 @@ Seams checked (read only, mutation runs: 0; suite result given by the caller: 53
 - unknown step -> stop (conduct-check actorOf) -> caught by "a deliver-check step with no actor mapping stops the change" (actor, reason, blocked state, never dispatched) and the new `archived` / `wait-dependencies` -> none asserts.
 - `--wake` prompt (wakeOf) -> caught by the two updated wake tests (with and without --round, and through state({round:2})); the skill clauses are pinned in guard.test.mjs and ADR 0005 test.
 - release-rebase catch-all -> caught by "an invalid JSON manifest on the branch restores to oldHead with exit 2" (code, resolved false, HEAD == oldHead, clean status, no rebase-merge dir).
+
+Merge delta: only guard.test.mjs migration-doc tests (devkit-opt-in side, kept alongside conduct-rounds tests), versions, CHANGELOG, CI pin, tdd-implementer one-line rule. No conduct-rounds seam changed; all prior seams and dispositions stand. Suite result given by the caller: 535 tests, 0 fail.
 
 ### Findings
 - [important] [6] approval.md is not gated when the guard cannot name the active change · fixed in dd407bd

@@ -14,7 +14,7 @@ import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, sele
 // ---------------------------------------------------------------- fixture harness (task 2.1)
 
 const CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n  devkit: pr\n';
-const cleanEnv = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', DEVKIT_BYPASS: '' };
+const cleanEnv = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '' };
 const real = (p) => realpathSync(p);
 
 // A bare origin with main, a clone (the "main checkout") and, per path, its own fake gh.
@@ -1046,7 +1046,7 @@ test('conduct: --watch on a result that is not at end does not wait', () => {
 // ---------------------------------------------------------------- CLI and JSON (task 2.9)
 
 function cli(t, args, { cwd = t.main, env = {} } = {}) {
-  return conductMain(args, { ...t.ghAt(t.main).env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', DEVKIT_BYPASS: '', ...env }, cwd);
+  return conductMain(args, { ...t.ghAt(t.main).env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '', ...env }, cwd);
 }
 
 test('conduct: --json prints version 1 with the D2 fields', () => {

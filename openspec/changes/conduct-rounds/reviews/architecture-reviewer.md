@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: dd407bdc86858067fa68ebe43836e05395df3cde
+Commit: 9cd32659aef800f1eaf373694e15030cdd141bff
 
-## Architecture review — conduct-rounds (8f6f2bd..dd407bd), round 2
+## Architecture review — conduct-rounds (8f6f2bd..9cd3265), round 2, stale-only re-review after merging origin/main
 
 Analyzed: previous findings 1-4 and the delta 8f6f2bd..dd407bd; contract consumers of deliver-check `next` (conduct-check `releaseConflict` onChange/onArchive, `actorOf`, `deliveryStep`); the new `conflict` field emitted at deliver-check.mjs prItem, nextStep and archiveNext (both the item-5 and archive-pr paths); the guard `approval.md` classification under an ambiguous change; deletion tests unchanged (conduct-check, release-rebase: pass). Suite result supplied by the caller (534 tests, 0 fail), not re-run.
 
@@ -13,3 +13,6 @@ Analyzed: previous findings 1-4 and the delta 8f6f2bd..dd407bd; contract consume
 - [nit] release-rebase.mjs:14 — importing deliver-check only for `RELEASE_FILE`; unchanged, give it a leaf home if a third consumer appears.
 - [nit] guard.mjs:220-223 and ship-change SKILL (Go-ahead) — honor-system gate for `approval.md`; unchanged, D7 chose it. The new `--wake` marker (ADR 0005, conduct SKILL, flow doc) has the same nature: a convention the skill follows, not a hook-enforced boundary. Keep that limit stated.
 - [nit] new in delta, guard.mjs:373-380 and :346-350 — the ambiguous-change branch now judges only `approval.md`, as a special case in two places (Write and Bash). Consistent with the delta's tests and the single `classify` owner; if a second gate needs to hold without an active change, fold the special case into `writeViolation` instead of repeating it.
+
+### Re-review at 9cd3265 (merge of origin/main, devkit-opt-in 0.7.1)
+Checked `git diff dd407bd..9cd3265` excluding the archive: marketplace/plugin version bump, CHANGELOG, docs/migrate-to-project-scope.md and its guard.test.mjs assertions, one tdd-implementer rule (kill by PID, never pkill), schema Request wording (both schema copies in sync). No change to conduct-check, deliver-check, release-rebase or guard.mjs logic; no contract, boundary or new module. All previous dispositions above stand; no new finding. Gate result supplied by the caller (535 tests, 0 fail), not re-run.

@@ -1422,7 +1422,7 @@ function shipRepo({ ship = 'pr', method = '' } = {}) {
   if (ship === 'merge') presetSetup(gh);
   if (ship !== 'plan') gh.set('pr-list', { stdout: [] });
   gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
-  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
+  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
   return { root, gh, env, next: () => nextStep(collectState(root, 'feat', { env })) };
 }
 // A schema `devkit` change `feat` (readiness artifact declared), ship: pr, on
@@ -1447,7 +1447,7 @@ function devkitRepo({ readiness = null, branch = 'ship/feat', others = [], ship 
   gh.set('pr-view', { exit: 1, stderr: `no pull requests found for branch "${branch}"\n` });
   if (ship === 'merge') presetSetup(gh);
   if (ship !== 'plan') gh.set('pr-list', { stdout: [] });
-  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
+  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
   return { root, gh, env, state: (over = {}) => collectState(root, 'feat', { env: { ...env, ...over } }) };
 }
 

@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: dd407bd
+Commit: 9cd32659aef800f1eaf373694e15030cdd141bff
 
 ## Quality review — conduct-rounds (round 2)
 
@@ -14,3 +14,9 @@ Commit: dd407bd
 ### Summary
 - 3 findings (0 blocking, 0 important open, 2 nit) + 3 praise. The round-1 important is fixed.
 - Justification: I checked only my previous findings and `git diff 8f6f2bd..dd407bd` on the .mjs files. I did not re-run the suite and relied on the supplied result (gate green, 534 tests, 0 fail; check.py, catalog and plugin validate passed). The extra changes in the fix commit (the `--wake` marker, approval.md gating when several changes are active, the `gh pr create` fallback to the session root) each come with tests and introduce no new blocking defect. Only nits remain, so the verdict is `approved`.
+
+### Stale-only re-review at 9cd3265 (merge of origin/main, devkit-opt-in 0.7.1)
+- Checked only `git diff dd407bd..9cd3265` outside `openspec/changes/archive`. The suite was not re-run; I relied on the supplied gate result (535 tests, 0 fail, check.py, gen-catalog --check, plugin validate green).
+- The merge adds no new `.mjs` logic. In `guard.test.mjs` both sides' tests are kept: main's migration-doc assertions (mktemp, `--scope` or empty folder, `cp -n` plus tmp then mv) and the conduct-rounds worktree tests. No test was dropped or duplicated.
+- Versions are consistent: devkit-core 0.5.2 in `plugin.json` and `marketplace.json`; the CHANGELOG has both the 0.8.0 and 0.7.1 entries. `tdd-implementer.md` gets main's one-line PID-only rule.
+- No new finding. The two nits above stay open and optional. Verdict unchanged: approved.
