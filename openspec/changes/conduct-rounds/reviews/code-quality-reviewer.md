@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: 9cd32659aef800f1eaf373694e15030cdd141bff
+Commit: 7484e4795c0e9694ee9f86874a14af6a61562e3e
 
 ## Quality review — conduct-rounds (round 2)
 
@@ -19,4 +19,10 @@ Commit: 9cd32659aef800f1eaf373694e15030cdd141bff
 - Checked only `git diff dd407bd..9cd3265` outside `openspec/changes/archive`. The suite was not re-run; I relied on the supplied gate result (535 tests, 0 fail, check.py, gen-catalog --check, plugin validate green).
 - The merge adds no new `.mjs` logic. In `guard.test.mjs` both sides' tests are kept: main's migration-doc assertions (mktemp, `--scope` or empty folder, `cp -n` plus tmp then mv) and the conduct-rounds worktree tests. No test was dropped or duplicated.
 - Versions are consistent: devkit-core 0.5.2 in `plugin.json` and `marketplace.json`; the CHANGELOG has both the 0.8.0 and 0.7.1 entries. `tdd-implementer.md` gets main's one-line PID-only rule.
+- No new finding. The two nits above stay open and optional. Verdict unchanged: approved.
+
+### Stale-only re-review at 7484e47 (hermetic --ci fixtures)
+- Checked only `git diff 9cd3265..7484e47 -- plugins/`. The change is test-only: `GITHUB_BASE_REF` and `GITHUB_EVENT_PATH` are cleared in `cleanEnv` and `cli()` (conduct-check.test.mjs:17, :1049) and in `shipRepo` and `devkitRepo` (deliver-check.test.mjs:1425, :1450). It fixes a CI-only failure where the runner's own env leaked into the `--ci` fixtures. No production code changed.
+- I relied on the supplied results (CI-like env 1567/1567; gate 535/535; check.py passed) and did not re-run them.
+- [praise] deliver-check.test.mjs:1425 — the fixture env is made hermetic against the CI variables instead of relying on the runner's state.
 - No new finding. The two nits above stay open and optional. Verdict unchanged: approved.

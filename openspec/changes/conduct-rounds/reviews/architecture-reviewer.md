@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: 9cd32659aef800f1eaf373694e15030cdd141bff
+Commit: 7484e4795c0e9694ee9f86874a14af6a61562e3e
 
 ## Architecture review — conduct-rounds (8f6f2bd..9cd3265), round 2, stale-only re-review after merging origin/main
 
@@ -16,3 +16,6 @@ Analyzed: previous findings 1-4 and the delta 8f6f2bd..dd407bd; contract consume
 
 ### Re-review at 9cd3265 (merge of origin/main, devkit-opt-in 0.7.1)
 Checked `git diff dd407bd..9cd3265` excluding the archive: marketplace/plugin version bump, CHANGELOG, docs/migrate-to-project-scope.md and its guard.test.mjs assertions, one tdd-implementer rule (kill by PID, never pkill), schema Request wording (both schema copies in sync). No change to conduct-check, deliver-check, release-rebase or guard.mjs logic; no contract, boundary or new module. All previous dispositions above stand; no new finding. Gate result supplied by the caller (535 tests, 0 fail), not re-run.
+
+### Re-review at 7484e47 (stale-only)
+Checked `git diff 9cd3265..7484e47 -- plugins/`: conduct-check.test.mjs and deliver-check.test.mjs only, 4 lines each side, fixtures now clear GITHUB_BASE_REF and GITHUB_EVENT_PATH. No production code, contract, boundary or module change. All previous dispositions stand; no new finding. Results supplied by the caller (535/535 gate; 1567/1567 under CI-like env), not re-run.
