@@ -19,7 +19,7 @@ context: |
   Stack: Claude Code plugin marketplace - Markdown agents/skills, OpenSpec schemas (YAML), Node.js hooks (plugins/openspec/hooks/guard.mjs), Python scripts
   Test command: node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py
   Lint / typecheck: claude plugin validate . ; python3 scripts/gen-catalog.py must leave no diff
-  ADRs: docs/adr/ (0001 coordination without a harness, 0002 merge without the owner by opt-in, 0003 auto-merge the archive PR, 0004 devkit per project, 0005 parallel steps and a session wake-up, superseded by 0006; 0006 phases as child sessions)
+  ADRs: docs/adr/ (0001 coordination without a harness, 0002 merge without the owner by opt-in, 0003 auto-merge the archive PR, 0004 devkit per project, 0005 parallel steps and a session wake-up, superseded by 0006; 0006 phases as child sessions, amended by 0007 one change on request)
   Default branch: main
   Conventions: conventional commits; docs and assets in English; bump the version of each changed pack in plugin.json and marketplace.json, plus a CHANGELOG line
 

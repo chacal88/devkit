@@ -1025,10 +1025,12 @@ test('conduct: --json prints version 2 with the D2 fields, no wake and a session
   assert.equal(r.code, 0, r.stderr);
   const j = JSON.parse(r.stdout);
   assert.equal(j.version, 2);
-  for (const k of ['base', 'round', 'startedAt', 'skipped', 'roadmapDone', 'changes', 'dispatch', 'owner', 'github', 'stopped', 'busy', 'end']) assert.ok(k in j, k);
+  for (const k of ['base', 'mode', 'change', 'round', 'startedAt', 'skipped', 'roadmapDone', 'changes', 'dispatch', 'owner', 'github', 'stopped', 'busy', 'end']) assert.ok(k in j, k);
+  assert.deepEqual([j.mode, j.change], ['round', null]);
   assert.ok(!('wake' in j), 'wake is removed');
   for (const c of j.changes) assert.equal(c.sessionPrefix, `${c.id}-p`);
-  assert.deepEqual(Object.keys(j.changes[0]).sort(), ['after', 'base', 'branch', 'deliver', 'id', 'next', 'notes', 'round', 'schema', 'sessionPrefix', 'state', 'text', 'worktree']);
+  assert.deepEqual(Object.keys(j.changes[0]).sort(), ['after', 'base', 'branch', 'deliver', 'id', 'next', 'notes', 'round', 'schema', 'sessionPrefix', 'state', 'text', 'unfinished', 'worktree']);
+  for (const c of j.changes) assert.equal(c.unfinished, null, 'a clean worktree has nothing unfinished');
   for (const k of ['step', 'actor', 'reason']) assert.ok(k in j.changes[0].next, k);
   assert.deepEqual(j.dispatch, ['a', 'b']);
 });
@@ -1202,4 +1204,178 @@ test('conduct: a dispatch of two sessions and one subagent is capped at three; a
     { id: 'c', next: { actor: 'subagent' } }, { id: 'd', next: { actor: 'session' } },
   ]).join(), 'a,b,c');
   assert.deepEqual(selectDispatch([{ id: 'a', next: { actor: 'session' } }], ['x', 'y', 'z']), []);
+});
+
+// ---------------------------------------------------------------- one change (conduct-one-change phase 1)
+
+test('conduct: --change gives the same single row as the round mode, without a round (AC-1)', () => {
+  const t = lites(['a', 'b']);
+  const inRound = byId(t.state({ env: appEnv }), 'a');
+  const res = t.state({ env: appEnv, change: 'a' });
+  assert.deepEqual([res.version, res.mode, res.change, res.round, res.startedAt, res.skipped, res.roadmapDone], [2, 'change', 'a', null, null, [], false]);
+  assert.equal(res.changes.length, 1);
+  assert.equal(res.changes[0].id, 'a');
+  assert.equal(res.changes[0].round, null);
+  for (const k of ['next', 'state', 'sessionPrefix']) assert.deepEqual(res.changes[0][k], inRound[k], k);
+  const { background, ...session } = res.changes[0].session;
+  const { background: _round, ...roundSession } = inRound.session;
+  assert.deepEqual(session, roundSession);
+  assert.equal(background, 'Change `a`, conducted on its own: no roadmap round. Schema: devkit-lite. The coordinating session recomputes the next step when you end; it runs the gate and the commit.');
+  assert.deepEqual(res.dispatch, ['a']);
+  const roundRes = t.state({ env: appEnv });
+  assert.deepEqual([roundRes.mode, roundRes.change], ['round', null]);
+});
+
+test('conduct: --change reads no roadmap: a repository without one on origin/main still exits 0 (AC-1)', () => {
+  const t = lites(['a']);
+  git(t.main, 'rm', '-q', 'openspec/roadmap.md');
+  commitAll(t.main, 'drop the roadmap');
+  git(t.main, 'push', '-q', 'origin', 'main');
+  git(t.main, 'fetch', '-q', 'origin');
+  const r = cli(t, ['--json', '--change', 'a']);
+  assert.equal(r.code, 0, r.stderr);
+  const j = JSON.parse(r.stdout);
+  assert.deepEqual([j.mode, j.change, j.round, j.changes[0].id, j.changes[0].next.step], ['change', 'a', null, 'a', 'implement']);
+  assert.equal(cli(t, ['--json']).code, 3, 'the round mode still needs it');
+});
+
+test('conduct: --change through the CLI: --change=<id>, the usage line, and exit 3 for --round or a bad id (AC-1)', () => {
+  const t = lites(['a']);
+  assert.equal(JSON.parse(cli(t, ['--json', '--change=a']).stdout).change, 'a');
+  assert.match(cli(t, ['--bogus']).stderr, /\[--change <id>\]/);
+  let r = cli(t, ['--json', '--change', 'a', '--round', '1']);
+  assert.equal(r.code, 3);
+  assert.match(JSON.parse(r.stdout).error, /--change and --round do not combine/);
+  assert.equal(cli(t, ['--json', '--round', '1', '--change', 'a']).code, 3);
+  for (const bad of ['..', '.', 'archive', 'a/b', '', 'a b']) {
+    r = cli(t, ['--json', '--change', bad]);
+    assert.equal(r.code, 3, `"${bad}"`);
+    assert.match(JSON.parse(r.stdout).error, /--change expects a change id/);
+  }
+});
+
+test('conduct: --change <id> --watch returns the recomputed single row when the checks flip (AC-2)', () => {
+  let { t } = waitingOnChecks(3);
+  let res = conductState(t.main, { env: watchEnv, ghFor: t.ghFor, watch: 0.05, change: 'b' });
+  assert.equal(res.watch.timedOut, false);
+  assert.equal(res.mode, 'change');
+  assert.equal(res.changes.length, 1);
+  assert.equal(byId(res, 'b').next.step, 'ready', 'the one row is recomputed');
+  ({ t } = waitingOnChecks());
+  res = conductState(t.main, { env: watchEnv, ghFor: t.ghFor, watch: 0.01, change: 'b' });
+  assert.equal(res.watch.timedOut, true);
+  assert.equal(byId(res, 'b').next.step, 'wait-checks');
+});
+
+// ---------------------------------------------------------------- existence (design D3)
+
+const errorOf = (t, id, args = []) => {
+  const r = cli(t, ['--json', '--change', id, ...args]);
+  assert.equal(r.code, 3, r.stdout);
+  return JSON.parse(r.stdout).error;
+};
+
+test('conduct: --change of an id that exists nowhere is exit 3 "no change <id>:" and never create (AC-2)', () => {
+  const t = lites(['a']);
+  const e = errorOf(t, 'ghost');
+  assert.ok(e.startsWith('no change ghost:'), e);
+  assert.match(e, /openspec new change ghost --schema <devkit\|devkit-lite>/);
+  assert.equal(cli(t, ['--json']).code, 0, 'the round mode is unchanged');
+});
+
+test('conduct: --change of a worktree with no folder is exit 3 "change <id> has a worktree without a folder:" (AC-2)', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']) });
+  const wt = t.addWt('b');
+  const e = errorOf(t, 'b');
+  assert.ok(e.startsWith('change b has a worktree without a folder:'), e);
+  assert.ok(e.includes(wt));
+  assert.match(e, /openspec new change b --schema/);
+  assert.equal(byId(t.state(), 'b').next.step, 'new-change', 'the round mode still asks');
+});
+
+test('conduct: --change of the active folder in a checkout on another branch is exit 3 "is on another branch" naming git switch -c (AC-2)', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] x']) });
+  writeChange(t.main, 'x', { '.openspec.yaml': 'schema: devkit-lite\n', 'proposal.md': PROPOSAL, 'tasks.md': TASKS });
+  const e = errorOf(t, 'x');
+  assert.ok(e.startsWith('change x is on another branch:'), e);
+  assert.ok(e.includes('git switch -c x'));
+  assert.ok(e.includes('on branch main'));
+});
+
+test('conduct: --change keeps the three worktree rows, a local branch without the folder included (AC-2)', () => {
+  const t = lites(['a']);
+  git(t.main, 'branch', 'loc', 'origin/main');
+  let c = t.state({ change: 'loc' }).changes[0];
+  assert.deepEqual([c.next.step, c.next.actor, c.next.command], ['worktree', 'main', ['git', 'worktree', 'add', t.wtPath('loc'), 'loc']]);
+  git(t.main, 'branch', 'rem', 'origin/main');
+  git(t.main, 'push', '-q', 'origin', 'rem');
+  git(t.main, 'branch', '-q', '-D', 'rem');
+  c = t.state({ change: 'rem' }).changes[0];
+  assert.deepEqual(c.next.command, ['git', 'worktree', 'add', '--track', '-b', 'rem', t.wtPath('rem'), 'origin/rem']);
+  t.commitOrigin({ 'openspec/changes/onbase/proposal.md': PROPOSAL });
+  c = t.state({ change: 'onbase' }).changes[0];
+  assert.deepEqual(c.next.command, ['git', 'worktree', 'add', '-b', 'onbase', t.wtPath('onbase'), 'origin/main']);
+  assert.equal(c.unfinished, null);
+});
+
+test('conduct: --change of a change archived on origin/main with no worktree reads archived (AC-2)', () => {
+  const t = lites(['a']);
+  t.commitOrigin({ 'openspec/changes/archive/2026-11-09-old/proposal.md': PROPOSAL, 'openspec/changes/archive/2026-11-09-older-old/proposal.md': PROPOSAL });
+  const res = t.state({ change: 'old' });
+  const c = res.changes[0];
+  assert.deepEqual([c.next.step, c.next.actor, c.state, c.unfinished], ['archived', 'none', 'archived', null]);
+  assert.equal(c.worktree, t.wtPath('old'));
+  assert.equal(res.end, true);
+  assert.equal(errorOf(t, 'ol').slice(0, 10), 'no change ', 'a name that only ends the same way is not it');
+});
+
+// ---------------------------------------------------------------- unfinished (design D4)
+
+const HALF_TASKS = '# Tasks\n\n## 1. First\n- [x] 1.1 code\n- [x] 1.9 Gate: `true` green\n\n## 2. Second\n- [x] 2.1 more\n- [ ] 2.9 Gate: `true` green\n';
+const GATE_TASKS = '# Tasks\n\n## 1. First\n- [x] 1.1 code\n- [ ] 1.9 Gate: `true` green\n';
+
+test('conduct: unfinished is null on a clean worktree and on rows without a worktree, in both modes (AC-3)', () => {
+  const t = lites(['a']);
+  git(t.main, 'branch', 'loc', 'origin/main');
+  assert.equal(byId(t.state(), 'a').unfinished, null);
+  assert.equal(t.state({ change: 'a' }).changes[0].unfinished, null);
+  assert.equal(t.state({ change: 'loc' }).changes[0].unfinished, null);
+});
+
+test('conduct: unfinished.dirty lists product files, not files under openspec/changes/<id>/ (AC-3)', () => {
+  const t = lites(['a']);
+  const wt = real(t.wtPath('a'));
+  writeChange(wt, 'a', { 'notes.md': 'x\n' });
+  assert.equal(t.state({ change: 'a' }).changes[0].unfinished, null, 'a plan file is not unfinished work');
+  put(wt, { 'src/a.ts': 'x\n', 'src/b.ts': 'x\n' });
+  const u = t.state({ change: 'a' }).changes[0].unfinished;
+  assert.deepEqual(u.dirty.sort(), ['src/a.ts', 'src/b.ts']);
+  assert.deepEqual(u.phases, []);
+  assert.equal(u.summary, `2 uncommitted paths outside openspec/: ${u.dirty.join(', ')}`);
+  assert.ok(!u.dirty.some((f) => f.startsWith('openspec/')));
+});
+
+test('conduct: unfinished.phases is [2] for a half-done phase 2 with phase 1 fully ticked, and [1] when only the gate is open (AC-3)', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] a', '- [ ] g']) });
+  planFiles(t.addWt('a'), 'a', { tasks: HALF_TASKS });
+  planFiles(t.addWt('g'), 'g', { tasks: GATE_TASKS });
+  const a = t.state({ change: 'a' }).changes[0].unfinished;
+  assert.deepEqual([a.dirty, a.phases], [[], [2]]);
+  assert.equal(a.summary, 'phase 2 half done (2.1 ticked, 2.9 open)');
+  const g = t.state({ change: 'g' }).changes[0].unfinished;
+  assert.deepEqual([g.dirty, g.phases], [[], [1]]);
+  assert.equal(g.summary, 'phase 1 half done (1.1 ticked, 1.9 open)');
+  const inRound = t.state();
+  assert.deepEqual(byId(inRound, 'a').unfinished, a, 'the same row in round mode');
+  assert.deepEqual(byId(inRound, 'g').unfinished, g);
+  assert.equal(inRound.version, 2);
+});
+
+test('conduct: unfinished names the dirty paths and the half-done phase together (AC-3)', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] a']) });
+  const wt = t.addWt('a');
+  planFiles(wt, 'a', { tasks: GATE_TASKS });
+  put(wt, { 'src/one.ts': 'x\n' });
+  const u = t.state({ change: 'a' }).changes[0].unfinished;
+  assert.equal(u.summary, '1 uncommitted path outside openspec/: src/one.ts; phase 1 half done (1.1 ticked, 1.9 open)');
 });

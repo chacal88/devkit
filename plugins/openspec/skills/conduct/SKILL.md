@@ -1,19 +1,26 @@
 ---
 name: conduct
-description: Conducts every change of the current openspec/roadmap.md round from creation to archive - runs the next steps of independent changes in parallel git worktrees (at most three at once), starts each implementation phase as a child session in the desktop app, keeps an `after:` change waiting until its dependency is archived, asks the owner only at owner gates (schema, grill, plan approval, retro answers) and, while everything waits on GitHub, does one capped watch and leaves the rest to the app's PR Auto-fix. Always asks `conduct-check` what each change does next. Use when the owner says "/conduct", "conduct the round", "run the roadmap" or "/conduct round 5".
+description: Conducts the one change the owner names (`/conduct <id>`) from creation to archive - plans it, starts each implementation phase as a child session in the desktop app, asks the owner only at owner gates (schema, grill, plan approval, retro answers) and, while it waits on GitHub, does one capped watch and leaves the rest to the app's PR Auto-fix; `/conduct round <n>` is the explicit option that conducts every change of a roadmap round in parallel git worktrees (at most three at once, an `after:` change waiting for its dependency's archive). Always asks `conduct-check` what each change does next. Use when the owner says "/conduct <id>", "conduct this change", "/conduct round 5" or "conduct the round".
 ---
 
-# Conduct a roadmap round
+# Conduct one change
 
-Takes every change of the current round of `openspec/roadmap.md` from "not started" to "archived". It keeps no state of its own: every run asks `conduct-check` what is true in the repository, the worktrees and GitHub, does the steps it names, and asks again. Independent changes move at the same time, each in its own git worktree. A change that depends on another (`after:`) plans early and waits for the dependency's archive before its first `implement`. Per change, the steps from `implement` to `archived` are the ones the ship-change skill runs; this skill adds the planning steps, the worktrees, the parallelism and the child sessions.
+`/conduct <id>` takes the one change `<id>` from "not started" to "archived", in its own git worktree, with one row. It keeps no state of its own: every run asks `conduct-check --change <id>` what is true in the repository, the worktree and GitHub, does the step it names, and asks again. The single-change run reads and writes only that change's worktree, never reads `openspec/roadmap.md` and touches no other change. Per change, the steps from `implement` to `archived` are the ones the ship-change skill runs; this skill adds the planning steps, the worktree and the child sessions.
+
+`/conduct round <n>` is the explicit option: it conducts every change of round `<n>` of `openspec/roadmap.md`. Independent changes move at the same time, each in its own git worktree; a change that depends on another (`after:`) plans early and waits for the dependency's archive before its first `implement`. Where a section below speaks of several changes, a single-change run has one row.
 
 Path used below, relative to this skill's directory: `../../hooks/conduct-check.mjs`. `release-rebase.mjs` is in the same folder.
 
 ## Start
 
-1. The arguments, if any, are `round <n>`: conduct round `<n>` and skip the earlier open rounds (they are reported as `skipped rounds`); without it, the first round with an open line.
+1. The argument rule. There are three forms.
+   - `<id>`: single-change mode. Run `conduct-check --json --change <id>`. This run reads and writes only that change's worktree, never reads `openspec/roadmap.md`, touches no other change and enforces no `after:` (the owner orders changes, as with the ship-change skill).
+   - `round <n>`: conduct round `<n>` and skip the earlier open rounds (they are reported as `skipped rounds`). It is the only way into the round mode: there is no bare round mode.
+   - No argument: list the open change ids (the folders under `openspec/changes/` in the current checkout and in every path of `git worktree list`, minus `archive`, plus the worktree branches that are change ids, deduplicated) and ask which one with AskUserQuestion, then stop. A bare `/conduct` never sweeps. The owner's answer is the typed go-ahead for that id, and the run goes on as `/conduct <id>`.
+
+   Every `conduct-check` call of the run carries `--change <id>` (`--round <n>` in the round mode): Start 3, every Loop recompute, the continuation turn, the Auto-fix wake and the watch. A bare `conduct-check` is never run: it would sweep the round.
 2. `git worktree prune`, then `git fetch origin --prune --quiet`. This session is the only one that fetches.
-3. In the app, find the children still working first (see Children below), then run `node <skill-dir>/../../hooks/conduct-check.mjs --json [--round <n>] [--busy <id,id>]`. Exit 3 means print the `error` and stop.
+3. In the app, find the children still working first (see Children below), then run `node <skill-dir>/../../hooks/conduct-check.mjs --json (--change <id> | --round <n>) [--busy <id,id>]`. Exit 3 means print the `error` and stop, except the three cases of the missing change below.
 4. The go-ahead. Every new change's schema is confirmed with the owner first (see `create` below), `devkit-lite` included. After that answer, the owner invoking `/conduct` is the go-ahead for every `devkit-lite` change it conducts: no further owner question before its first `implement`. A `devkit` change still goes through the grill, readiness and the owner's recorded approval.
 5. The kind of turn decides what this run may do. It is told by the message that started the turn, never by a flag in the prompt.
    - The owner's typed `/conduct` is the only go-ahead: it confirms schemas, asks the grill, takes a `devkit-lite` change's first `implement`, writes `approval.md` and retro answers from the owner's own message, and starts sessions.
@@ -21,6 +28,19 @@ Path used below, relative to this skill's directory: `../../hooks/conduct-check.
    - An Auto-fix wake or any other turn the owner did not type runs GitHub-side steps only and starts no session.
    - A schema, grill, approval or retro gate reached by a turn the owner did not type is asked and left for the owner: the answer is the owner's next turn.
 6. Cron migration, on every run: call `CronList`, delete every job whose prompt starts with `/conduct` (`CronDelete`), say so in the report, and never create one. This skill schedules nothing.
+
+### A missing change (exit 3)
+
+Read the `error` of an exit 3 by its prefix:
+
+- `no change <id>:` (no worktree, no branch and no folder exist anywhere): print the error, list the open ids as in the no-argument form, and ask in one question whether to create `<id>` and with which schema (proposed `devkit`: no roadmap line to read, so the strictest track). Only on the owner's answer run `git worktree add -b <id> <main>/.claude/worktrees/<id> origin/<base>` (`<main>` is the parent of `git rev-parse --path-format=absolute --git-common-dir`; the error means no worktree and no branch exist, so it cannot collide) and `openspec new change <id> --schema <answer>` in that worktree, then recompute. A typo'd id creates nothing: nothing is created without the owner's answer naming the id and the schema.
+- `change <id> has a worktree without a folder:` ask the same question and run only `openspec new change <id> --schema <answer>` in that worktree, only on the owner's answer: no `git worktree add`. Then recompute.
+- `change <id> is on another branch:` stop with the message; this run creates nothing.
+- Any other exit 3: stop with the message and create nothing.
+
+### The unfinished-work gate
+
+After the first recompute of a run the owner typed, in both modes, before any step: for every row whose `unfinished` is not `null`, say `<id> has unfinished work in <worktree>: <summary>` and ask with AskUserQuestion whether to go on with it. Go on only when the owner's own message in that session says so; otherwise the change is set aside as `waiting for the owner: unfinished work in <worktree>` for this run. A continuation turn and an Auto-fix wake never ask it: mid-run the worktree is dirty by design (phases implemented, not yet committed), and the owner's answer stands for the session.
 
 ## Loop
 
@@ -92,7 +112,7 @@ If background dispatch is unavailable in the host, dispatch the `dispatch` set i
 
 ## Waits on GitHub
 
-When `end` is true and `github` is not empty, run one capped watch: `node <skill-dir>/../../hooks/conduct-check.mjs --json --watch [--round <n>]` (default 9 minutes, maximum 30). It recomputes the report once a waiting change moves or the cap is reached. If `end` still holds, end the run with `waiting on GitHub: <what>` and this fixed line: "Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `/conduct` again to go on."
+When `end` is true and `github` is not empty, run one capped watch: `node <skill-dir>/../../hooks/conduct-check.mjs --json --watch --change <id>` (`--round <n>` in the round mode; a bare `conduct-check` is never run: it would sweep the round) (default 9 minutes, maximum 30). It recomputes the report once a waiting change moves or the cap is reached. If `end` still holds, end the run with `waiting on GitHub: <what>` and this fixed line: "Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `/conduct` again to go on."
 
 After `open-pr`, call `mcp__ccd_pr__get_status` and, when it does not report that PR, `mcp__ccd_pr__bind_pr` with its URL. There is one PR bound per session: bind the PR opened last in the run and say in the report which one is bound; the other PRs of the round rely on the owner's re-run. An Auto-fix wake is an automated turn: it runs the non-session steps (`fix-checks`, `push`, `answer`, `review`) and starts no session.
 
@@ -116,7 +136,7 @@ End with one line per conducted change: its id, its schema and exactly one of th
 - `waiting on GitHub: <what>`;
 - `blocked: <why>`.
 
-Then, as they apply: the sessions left to start (`waiting for the owner: start session <id> phase <n>`); `not archived: <name> (<why>)`, `not grouped: <name> (<why>)` and `not bound: <url> (<why>)` lines; the PR bound by `bind_pr`, which is the PR opened last in the run; and, when a state is `waiting on GitHub: <what>`, the Auto-fix line: "Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `/conduct` again to go on." Then `round: <title> (<done>/<total>)`, `roadmap: done` when it is, and `skipped rounds: <titles>` when `--round` skipped any. Never call a change archived from your own reading of the state.
+Then, as they apply: the sessions left to start (`waiting for the owner: start session <id> phase <n>`); `not archived: <name> (<why>)`, `not grouped: <name> (<why>)` and `not bound: <url> (<why>)` lines; the PR bound by `bind_pr`, which is the PR opened last in the run; and, when a state is `waiting on GitHub: <what>`, the Auto-fix line: "Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `/conduct` again to go on." Then, in the round mode only, `round: <title> (<done>/<total>)`, `roadmap: done` when it is, and `skipped rounds: <titles>` when `--round` skipped any; a single-change run has no `round:`, `roadmap:` or `skipped rounds:` line. Either mode lists the changes set aside for unfinished work. Never call a change archived from your own reading of the state.
 
 ## Never
 
@@ -130,4 +150,8 @@ Then, as they apply: the sessions left to start (`waiting for the owner: start s
 - Run a phase as a subagent in the app host.
 - Start a session from a step other than `implement`.
 - Start a session from a turn the owner did not type, except the continuation of a child's end.
+- Sweep a round without an explicit `round <n>`.
+- Pick a change on your own: the owner names it, or answers the question.
+- Read `openspec/roadmap.md` or touch another change in single-change mode.
+- Run `conduct-check` without `--change <id>` or `--round <n>`.
 - Bypass a hook or a gate (`--no-verify`, `DEVKIT_BYPASS`).

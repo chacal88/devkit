@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0 — one change on request
+
+- **devkit-openspec** 0.10.0: `conduct-check --change <id>` restricts the report to the one change the owner names, with the same engine and row, and never reads the roadmap (`--round` does not combine with it, exit 3). A missing change is exit 3 with a prefix (`no change <id>:`, `change <id> has a worktree without a folder:`, `change <id> is on another branch:`). The JSON stays version 2 with `mode`, `change` and `unfinished` as additive fields.
+- `/conduct` has three argument forms: `<id>` conducts exactly that change, `round <n>` is the explicit round mode, and a bare `/conduct` lists the open ids and asks, never sweeping. Before a change runs on a turn the owner typed, unfinished work in its worktree (uncommitted product paths, half-done phases) is reported and goes on only on the owner's own message. A missing change is created only after the owner confirms the id and the schema.
+- Docs: ADR 0007 records one change on request and amends ADR 0006; round 7 of `openspec/roadmap.md` is this change; the CI snippet pins `v0.10.0`.
+
 ## 0.9.1 — retro of conduct-sessions
 
 - **devkit-openspec** 0.9.1: the `ship-change` `commit` row names what to stage (`next.paths` plus every other modified or untracked file under `openspec/`).

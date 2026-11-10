@@ -1,6 +1,7 @@
 # ADR 0006: Phases run as child sessions started by the conducting session
 
 - Status: accepted
+- Amended by ADR 0007 (0007-one-change-on-request.md)
 - Date: 2026-11-10
 - Change: conduct-sessions
 
@@ -21,7 +22,7 @@ a stop when a start is refused, and no cron.
    change's worktree, with `wake_when_done`, from the owner's turn or from the chain of continuation
    turns that follows it. The child runs that one phase through the implementer agent and ends with
    its report; the gate, the commit, the reviews and the PR stay with the conducting session. No
-   other step runs in a child.
+   other step runs in a child. Which changes a run conducts is decided by ADR 0007.
 2. A refused start stops that change for the run, as `waiting for the owner: start session <id>
    phase <n>`; the phase is never run as a subagent in its place. The owner's next message starts
    it.
