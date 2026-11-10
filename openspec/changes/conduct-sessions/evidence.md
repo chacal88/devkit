@@ -1,0 +1,44 @@
+Commit: e2ad4823e10fbce86c81484cf807a94b9d562e3b
+
+# Evidence: conduct-sessions
+
+## Verification
+
+Verified on branch `conduct-sessions` at the commit above; no PR exists yet. The working tree held uncommitted edits only under `openspec/changes/conduct-sessions/` (`review.md` and two files in `reviews/`), none in code. No UI is touched, so there are no screenshots. Every gate below was run by the verifier at this commit (not taken from ship-change's earlier run).
+
+### Gates
+
+| Gate | Command | Result |
+|---|---|---|
+| conduct-check tests | `node --test plugins/openspec/hooks/conduct-check.test.mjs` | pass: 383 tests, 383 pass, 0 fail, 0 cancelled, 0 skipped, exit 0 (run by the verifier) |
+| hook tests | `node --test plugins/openspec/hooks/guard.test.mjs` | pass: 550 tests, 550 pass, 0 fail, 0 cancelled, 0 skipped, exit 0, about 496 s (run by the verifier; the file imports conduct-check.test.mjs and deliver-check.test.mjs). Same count as ship-change's run. |
+| repo checks | `python3 scripts/check.py` | pass: "all checks passed", exit 0 (run by the verifier) |
+| catalog | `python3 scripts/gen-catalog.py --check` | pass: exit 0, no drift (run by the verifier) |
+| plugin validation | `claude plugin validate .` | pass: "Validation passed" for `.claude-plugin/marketplace.json`, exit 0 (run by the verifier) |
+| change validation | `openspec validate conduct-sessions --strict` | pass: "Change 'conduct-sessions' is valid", exit 0 (run by the verifier) |
+
+### Acceptance criteria
+
+Proof is test output and file content. Some criteria also have a live half (a real app session, a refused start, a re-run while a child works) that needs the desktop app and the merged skill; it is the post-merge dogfood in `tasks.md` "Workflow follow-up", stated in each row. That is a follow-up, not a defect.
+
+| AC | Criterion | Proof and where it is | Result |
+|---|---|---|---|
+| AC-1 | App host: `implement` is a `session` row with the descriptor; every change row has `sessionPrefix`; cli host stays `subagent` | `node --test --test-name-pattern="app host\|sessionPrefix\|version 2\|dispatch of two sessions\|under the app host" plugins/openspec/hooks/conduct-check.test.mjs`: 10 tests, 10 pass. Names include "under the app host implement is a session row of tdd-implementer; under cli it is the subagent", "app host: the session descriptor has title, name, cwd, branch, phase, brief and background", "app host: a change with phase 1 ticked and phase 2 open describes phase 2", "sessionPrefixes: plain, cut at 20, a two-digit phase keeps the prefix", "sessionPrefixes: a collision ...", "one id extending another ...", "sessionPrefix is on every change row of the round, whatever its step". Live: `DEVKIT_HOST=app` and `DEVKIT_HOST=cli node plugins/openspec/hooks/conduct-check.mjs --json` both ran on this repo (round 5): every change row has `sessionPrefix` (`commit-and-pr-traile-p`, `conventions-trailer-p`). No change is at `implement` today (steps `gate` and `wait-dependencies`), so the session and subagent actors are proven by the tests. | pass |
+| AC-2 | `version` is 2, no `wake`, `dispatch` capped at three with sessions counted | Test "version 2 in the report and in the exit-3 error object; wake is gone" and "a dispatch of two sessions and one subagent is capped at three; a fourth waits" (both in the 10 above). Live `--json` under both hosts: `version 2`, `'wake' in report` is False, keys are `version, base, round, startedAt, skipped, roadmapDone, changes, dispatch, owner, github, stopped, busy, end`. | pass |
+| AC-3 | `/conduct` starts one child session per `session` row with `wake_when_done: true` and `cwd` set, no subagent for those phases | `node --test --test-name-pattern="conduct SKILL.md" plugins/openspec/hooks/guard.test.mjs`: 11 tests, 11 pass, incl. "the app starts one child session per session row, with the start fields (AC-3)". `plugins/openspec/skills/conduct/SKILL.md` line 44 holds `wake_when_done: true`; line 46 `never a subagent in its place`. A live start in the app is pending in the post-merge dogfood. | pass: pins and sentences; live half is follow-up |
+| AC-4 | The child's direct product edits are refused in `devkit`, nothing is refused in `devkit-lite` | `node --test --test-name-pattern="worktree" plugins/openspec/hooks/guard.test.mjs`: 24 tests, 24 pass, incl. "worktree: with readiness APPROVED the tdd-implementer may edit and the main session may not (D5)" and "worktree: a devkit-lite change refuses nothing to a child session with no agent_type (conduct-sessions D4)". | pass |
+| AC-5 | A continuation turn starts the next child of a change under way with no owner message; chain rule pinned | Test "conduct SKILL.md: a continuation turn reads Outcome, recomputes and starts the next session of a change under way (AC-5)" passes. SKILL.md lines 20-26 state the kinds of turn: "A continuation turn advances what is under way and may start the next session of a change under way ... the `<side-sessions-event>` turn", and an Auto-fix wake or other automated turn starts no session. Two consecutive phases in a real app run are pending in the post-merge dogfood. | pass: pin and sentences; live half is follow-up |
+| AC-6 | A refused `start_session` ends as `waiting for the owner: start session <id> phase <n>`, no subagent | Test "a refused start waits for the owner and never becomes a subagent (AC-6)" passes. SKILL.md line 46 holds `waiting for the owner: start session` and `never a subagent in its place`. A real refused start is pending in the post-merge dogfood. | pass: pin and sentences; live half is follow-up |
+| AC-7 | A re-run while a child works passes it in `--busy`, reports `running`, starts no second session | Test "--busy comes from list_sessions by isRunning, isArchived and sessionPrefix (AC-7)" passes. SKILL.md line 42 holds `isRunning`, `limit: 100`, `sessionPrefix` and `followed by digits only`. conduct-check test "app host: a change at implement has next.actor session, and running when its id is in --busy" passes. A re-run against a live child is pending in the post-merge dogfood. | pass: tests, pin and sentences; live half is follow-up |
+| AC-8 | Child in the sidebar group named by the change id, archived once its gate task is ticked, not archived when stopped; no session cron, only 0.8.0 cron cleanup | Tests "the sidebar group, the archive and the one rule for a refused call (AC-8)" and "the cron migration rule, and no cron is ever created (D7, AC-8)" pass. SKILL.md holds `archive_session` (line 50), `not archived:` (line 52) and, in step 6, `CronList` then deleting jobs whose prompt starts with `/conduct` and "never create one. This skill schedules nothing". | pass: pins and sentences |
+| AC-9 | When all waits on GitHub: one capped watch, then `waiting on GitHub: <what>` and the Auto-fix line; `get_status`/`bind_pr` after `open-pr` | Test "the GitHub wait is one capped watch, then Auto-fix; the PR is bound after open-pr (AC-9)" passes. SKILL.md holds `mcp__ccd_pr__get_status` (line 97) and `bind_pr` (line 52 and two more). A live wait on GitHub is pending in the post-merge dogfood. | pass: pin and sentences; live half is follow-up |
+| AC-10 | ADR 0006 exists with its sections; ADR 0005 superseded; ADR 0001 and config point to it; no catalog drift; docs describe sessions, no cron | `docs/adr/0006-phases-as-child-sessions.md` has `## Context`, `## Decision`, `## Consequences`, `## Alternatives considered` and `### Review trigger` (line 47, under Consequences). `docs/adr/0005-*.md` line 3: "Status: superseded by ADR 0006". `docs/adr/0001-coordination-without-a-harness.md` lines 36 and 43 cite ADR 0006; `openspec/config.yaml` line 22 lists 0005 (superseded by 0006) and 0006. Test "ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it" passes. `python3 scripts/gen-catalog.py --check` exit 0. `grep -rn -i "cron\|wake" README.md docs/openspec-flow.md plugins/openspec/README.md` finds only "no cron" statements (README.md:66, plugins/openspec/README.md:23, openspec-flow.md:215), the Auto-fix wake description (207, 209, 215, 413) and the chain-break note listing a cron as an automated turn (537); no cron flow. | pass |
+| AC-11 | The test command passes with tests for AC-1, AC-2, AC-4 and the skill-text pins | Gate rows above: guard 550 pass, 0 fail (it includes the conduct-check and deliver-check files); conduct-check alone 383 pass, 0 fail; `check.py` passes. The tests are named in AC-1 to AC-9. The post-merge round-5 dogfood with sessions (two chained phases, one refused start, one re-run while a child works, recorded in `retro.md` `## Dogfood`) is pending by design (`tasks.md` "Workflow follow-up"). | pass: gate run; the dogfood half is follow-up |
+
+### Defects
+
+None found.
+
+### Notes
+
+- Verification ran only reads and tests; nothing was written outside this file.

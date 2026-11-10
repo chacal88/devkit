@@ -7,15 +7,15 @@
 import { readFileSync, existsSync, statSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHasArtifact } from './guard.mjs';
 import { readRepoSettings } from './merge-setup.mjs';
 import {
-  UsageError, makeGh, collectState, buildReport, locateChange, parseTasks, approvalState, RELEASE_FILE, watchMinutes,
+  UsageError, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, RELEASE_FILE, watchMinutes,
 } from './deliver-check.mjs';
 
 export const MAX_PARALLEL = 3;
-export const WAKE_SCHEDULE = '*/20 * * * *';
 // Mtime tolerance when a file is "older than" another (design D6).
 const FRESH_MS = 2000;
 
@@ -57,7 +57,9 @@ const GITHUB = ['wait-checks', 'wait-merge'];
 const STOP = ['stop-plan-mode', 'stop-branch', 'stop-merge-setup', 'stop-archive', 'blocked', 'stop-not-approved'];
 
 // The static map of design D9: { actor, agent?, askable? } for a `next.step`.
-export function actorOf(step) {
+// `host` is deliver-check's ('app' or 'cli'): in the app, `implement` is a child session (conduct-sessions D2).
+export function actorOf(step, host = 'cli') {
+  if (step === 'implement' && host === 'app') return { actor: 'session', agent: TDD };
   if (SUBAGENT[step]) return { actor: 'subagent', agent: SUBAGENT[step] };
   if (step === 'review') return { actor: 'review' };
   if (step === 'gate') return { actor: 'gate' };
@@ -71,7 +73,7 @@ export function actorOf(step) {
   return { actor: 'stop', reason: `unknown step ${step}` };
 }
 
-const RUNNABLE = ['subagent', 'review', 'gate', 'main'];
+const RUNNABLE = ['session', 'subagent', 'review', 'gate', 'main'];
 const OWNER_GATE = {
   create: 'schema', 'new-change': 'schema', grill: 'grill', approve: 'plan approval', 'stop-plan-approval': 'plan approval',
   'stop-retro-answers': 'retro answers', 'stop-readiness-blocked': 'readiness BLOCKED', 'stop-audit-unverifiable': 'plan audit UNVERIFIABLE',
@@ -80,7 +82,7 @@ const OWNER_GATE = {
 // The final or runnable state of a change (design D2, AC-7). `summary` is deliver-check's.
 function stateOf(next, { summary = '' } = {}) {
   switch (next.actor) {
-    case 'subagent': case 'review': case 'gate': case 'main': return `ready to run: ${next.step}`;
+    case 'session': case 'subagent': case 'review': case 'gate': case 'main': return `ready to run: ${next.step}`;
     case 'owner':
       if (next.step === 'ready') return `waiting for the owner: merge PR #${next.number ?? ''}`.trim();
       if (next.step === 'archive-pr-ready') return `waiting for the owner: merge archive PR #${next.number ?? ''}`.trim();
@@ -307,7 +309,7 @@ export function dependencyStep(f) {
 
 // deliver-check's `next` as a conduct row: { next, state }. Fields pass through unchanged.
 export function deliveryStep(change, report) {
-  let next = { ...report.next, ...actorOf(report.next.step) };
+  let next = { ...report.next, ...actorOf(report.next.step, report.host ?? 'cli') };
   if (next.step === 'answer') next = { ...next, actor: 'owner', askable: false, url: report.pr?.url ?? '' };
   if (next.step === 'ready' && next.number === undefined) next = { ...next, number: report.pr?.number };
   if (next.step === 'stop-plan-mode') next = { ...next, schema: report.schema };
@@ -495,14 +497,50 @@ function summarizeRound(changes, busy) {
   return { dispatch, owner, github, stopped, busy: busyIds, end: dispatch.length === 0 && owner.length === 0 && busyIds.length === 0 };
 }
 
-// The desired state of the session's wake-up cron (design D12): wanted exactly when nothing can move
-// except through GitHub.
-export function wakeOf(summary, roundArg = null) {
-  return {
-    cron: summary.end && summary.github.length > 0,
-    schedule: WAKE_SCHEDULE,
-    prompt: roundArg ? `/conduct round ${roundArg} --wake` : '/conduct --wake',
-  };
+// ---------------------------------------------------------------- sessions (conduct-sessions D3)
+
+const cutId = (id, n) => id.slice(0, n).replace(/-+$/, '');
+
+// The name prefix (`<id20>-p`) of every conducted change: Map id -> prefix. Two ids with the same cut id
+// both get `<id18><hh>-p`, hh being the first two hex characters of the SHA-1 of the full id.
+export function sessionPrefixes(ids) {
+  const cuts = new Map();
+  for (const id of ids) cuts.set(cutId(id, 20), (cuts.get(cutId(id, 20)) ?? 0) + 1);
+  return new Map(ids.map((id) => {
+    const cut = cutId(id, 20);
+    if (cuts.get(cut) === 1) return [id, `${cut}-p`];
+    return [id, `${cutId(id, 18)}${createHash('sha1').update(id).digest('hex').slice(0, 2)}-p`];
+  }));
+}
+
+function briefOf(id, phase, worktree, branch) {
+  return [
+    `Implement phase ${phase} of change \`${id}\` in \`${worktree}\` on branch \`${branch}\`.`,
+    `Work only there; every path is absolute under it; start every Bash command with \`cd ${worktree} && \`; do not fetch.`,
+    `Dispatch \`devkit-core:tdd-implementer\` with the Agent tool: "Implement phase ${phase} of change ${id}; stop at its gate." Wait for its \`Outcome:\`.`,
+    'Do not run the gate, commit, push, open a PR, start a session or edit product code yourself (in the `devkit` schema the project\'s hooks refuse it).',
+    'End your turn with exactly two lines first: `Outcome: success` or `Outcome: failure: <reason>`, then `Head: <sha of HEAD in the worktree>`.',
+  ].join(' ');
+}
+
+function backgroundOf(result, c) {
+  const round = result.round ? `Round ${result.round.n} (${result.round.title}).` : '';
+  return [round, c.text ? `Roadmap: ${c.text}.` : '', `Schema: ${c.schema}.`,
+    'The coordinating session recomputes the next step when you end; it runs the gate and the commit.'].filter(Boolean).join(' ');
+}
+
+// sessionPrefix on every change row; the `session` descriptor on every row whose actor is `session`.
+function addSessions(result, host) {
+  const prefixes = sessionPrefixes(result.changes.map((c) => c.id));
+  for (const c of result.changes) {
+    c.sessionPrefix = prefixes.get(c.id);
+    if (c.next.actor !== 'session') continue;
+    const phase = c.next.phase;
+    c.session = {
+      title: `${c.id}: phase ${phase}`, name: `${c.sessionPrefix}${phase}`, cwd: c.worktree, branch: c.branch, phase,
+      brief: briefOf(c.id, phase, c.worktree, c.branch), background: backgroundOf(result, c),
+    };
+  }
 }
 
 // Seconds between watch polls: DEVKIT_POLL_SECONDS, default 60 (tests use 0).
@@ -536,7 +574,7 @@ function compute(root, { env, ghFor, round, busy }) {
   const at = rounds.findIndex((r, i) => i >= startedAt - 1 && unticked(r).length > 0);
   const ticked = new Set(rounds.flatMap((r) => r.items).filter((i) => i.done).map((i) => i.id));
   const current = at >= 0 ? rounds[at] : null;
-  const result = { version: 1, base, round: null, startedAt, skipped, roadmapDone: current === null, changes: [] };
+  const result = { version: 2, base, round: null, startedAt, skipped, roadmapDone: current === null, changes: [] };
   let ctx = null;
   let items = [];
   if (current) {
@@ -551,12 +589,13 @@ function compute(root, { env, ghFor, round, busy }) {
   const summary = summarizeRound(result.changes, busy);
   const busySet = new Set(summary.busy);
   for (const c of result.changes) if (busySet.has(c.id) && RUNNABLE.includes(c.next.actor)) c.state = 'running';
-  Object.assign(result, summary, { wake: wakeOf(summary, round) });
+  Object.assign(result, summary);
+  addSessions(result, detectHost(env));
   return { result, ctx, items, at };
 }
 
-// The whole round: { version: 1, base, round, startedAt, skipped, roadmapDone, changes, dispatch, owner, github,
-// stopped, busy, end, wake }. With `watch` (minutes) and everything waiting on GitHub, polls the waiting changes
+// The whole round: { version: 2, base, round, startedAt, skipped, roadmapDone, changes, dispatch, owner, github,
+// stopped, busy, end }. With `watch` (minutes) and everything waiting on GitHub, polls the waiting changes
 // until one moves or the cap passes, then returns the recomputed round with `watch: { minutes, timedOut }`.
 export function conductState(root, { env = process.env, ghFor = (r) => makeGh(r, env), round = null, busy = [], watch = null } = {}) {
   const opts = { env, ghFor, round, busy };
@@ -603,7 +642,6 @@ export function renderHuman(result) {
     `dispatch: ${list(result.dispatch)}`,
     `owner: ${list(result.owner)}`,
     `github: ${list(result.github)}`,
-    `wake: ${result.wake.cron ? `cron ${result.wake.schedule} runs ${result.wake.prompt}` : 'none'}`,
     ...(result.watch ? [`watch: ${result.watch.timedOut ? `stopped after ${result.watch.minutes} minutes` : 'ended'}`] : []),
   ].join('\n') + '\n';
 }
@@ -622,7 +660,7 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     return { code: 0, stdout: json ? `${JSON.stringify(result, null, 2)}\n` : renderHuman(result), stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    return { code: 3, stdout: json ? `${JSON.stringify({ version: 1, error: message })}\n` : '', stderr: `conduct-check: ${message}\n` };
+    return { code: 3, stdout: json ? `${JSON.stringify({ version: 2, error: message })}\n` : '', stderr: `conduct-check: ${message}\n` };
   }
 }
 

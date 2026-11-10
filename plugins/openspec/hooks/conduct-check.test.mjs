@@ -9,12 +9,12 @@ import { createHash } from 'node:crypto';
 import { gitRepo, put, commitAll, git, fakeGh } from './deliver-check.test.mjs';
 import { makeGh } from './merge-setup.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
-import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, selectDispatch, wakeOf, main as conductMain } from './conduct-check.mjs';
+import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
 // ---------------------------------------------------------------- fixture harness (task 2.1)
 
 const CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n  devkit: pr\n';
-const cleanEnv = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '' };
+const cleanEnv = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '', DEVKIT_HOST: 'cli' };
 const real = (p) => realpathSync(p);
 
 // A bare origin with main, a clone (the "main checkout") and, per path, its own fake gh.
@@ -121,7 +121,7 @@ test('conduct: the roadmap is read from origin/main, not the working tree', () =
   const t = roundRepo({ roadmap: TWO_ROUNDS('- [ ] a', ['- [ ] b']) });
   put(t.main, { 'openspec/roadmap.md': roadmapOf(['Round 1: first', '- [x] a'], ['Round 2: second', '- [x] b']) });
   const res = t.state();
-  assert.equal(res.version, 1);
+  assert.equal(res.version, 2);
   assert.equal(res.base, 'main');
   assert.equal(res.round.n, 1);
   assert.deepEqual(res.changes.map((c) => c.id), ['a']);
@@ -976,37 +976,7 @@ test('conduct: A blocked makes B (after: A) read waiting on A while independent 
   assert.deepEqual(res.dispatch, ['c']);
 });
 
-// ---------------------------------------------------------------- wake and watch (task 2.8)
-
-test('conduct: wake.cron is on when end holds and a change waits on GitHub, even beside one that waits on the owner (AC-9)', () => {
-  const res = fiveKinds().state();
-  assert.equal(res.wake.cron, true);
-  assert.equal(res.wake.schedule, '*/20 * * * *');
-  assert.equal(res.wake.prompt, '/conduct --wake');
-});
-
-test('conduct: wake.cron is off when the roadmap is done, when everything waits on the owner or is stopped, and when anything is dispatchable (AC-8, AC-9)', () => {
-  const done = roundRepo({ roadmap: TWO_ROUNDS('- [x] a', ['- [x] b']) }).state();
-  assert.equal(done.wake.cron, false);
-  const owners = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] own']) });
-  planFiles(owners.addWt('own'), 'own', { schema: 'devkit', readiness: 'BLOCKED' });
-  assert.equal(owners.state().wake.cron, false);
-  const busy = fiveKinds();
-  const runnable = busy.addWt('extra', { branch: 'extra' });
-  assert.ok(runnable);
-  const t = lites(['a']);
-  assert.equal(t.state().wake.cron, false);
-  assert.equal(wakeOf({ end: false, github: ['x'] }).cron, false);
-  assert.equal(wakeOf({ end: true, github: [] }).cron, false);
-  assert.equal(wakeOf({ end: true, github: ['x'] }).cron, true);
-});
-
-test('conduct: the wake prompt carries --wake: /conduct round <n> --wake under --round <n>, else /conduct --wake', () => {
-  assert.equal(wakeOf({ end: true, github: ['x'] }, 5).prompt, '/conduct round 5 --wake');
-  assert.equal(wakeOf({ end: true, github: ['x'] }).prompt, '/conduct --wake');
-  const t = roundRepo({ roadmap: TWO_ROUNDS('- [ ] a', ['- [ ] b']) });
-  assert.equal(t.state({ round: 2 }).wake.prompt, '/conduct round 2 --wake');
-});
+// ---------------------------------------------------------------- watch (task 2.8)
 
 // One change waiting on its pending checks; `flipAt` is the pr-checks call that turns green.
 function waitingOnChecks(flipAt = null) {
@@ -1046,28 +1016,30 @@ test('conduct: --watch on a result that is not at end does not wait', () => {
 // ---------------------------------------------------------------- CLI and JSON (task 2.9)
 
 function cli(t, args, { cwd = t.main, env = {} } = {}) {
-  return conductMain(args, { ...t.ghAt(t.main).env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '', ...env }, cwd);
+  return conductMain(args, { ...t.ghAt(t.main).env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '', DEVKIT_HOST: 'cli', ...env }, cwd);
 }
 
-test('conduct: --json prints version 1 with the D2 fields', () => {
+test('conduct: --json prints version 2 with the D2 fields, no wake and a sessionPrefix per change', () => {
   const t = lites(['a', 'b']);
   const r = cli(t, ['--json']);
   assert.equal(r.code, 0, r.stderr);
   const j = JSON.parse(r.stdout);
-  assert.equal(j.version, 1);
-  for (const k of ['base', 'round', 'startedAt', 'skipped', 'roadmapDone', 'changes', 'dispatch', 'owner', 'github', 'stopped', 'busy', 'end', 'wake']) assert.ok(k in j, k);
-  assert.deepEqual(Object.keys(j.changes[0]).sort(), ['after', 'base', 'branch', 'deliver', 'id', 'next', 'notes', 'round', 'schema', 'state', 'text', 'worktree']);
+  assert.equal(j.version, 2);
+  for (const k of ['base', 'round', 'startedAt', 'skipped', 'roadmapDone', 'changes', 'dispatch', 'owner', 'github', 'stopped', 'busy', 'end']) assert.ok(k in j, k);
+  assert.ok(!('wake' in j), 'wake is removed');
+  for (const c of j.changes) assert.equal(c.sessionPrefix, `${c.id}-p`);
+  assert.deepEqual(Object.keys(j.changes[0]).sort(), ['after', 'base', 'branch', 'deliver', 'id', 'next', 'notes', 'round', 'schema', 'sessionPrefix', 'state', 'text', 'worktree']);
   for (const k of ['step', 'actor', 'reason']) assert.ok(k in j.changes[0].next, k);
   assert.deepEqual(j.dispatch, ['a', 'b']);
 });
 
-test('conduct: human output has one line per change, then dispatch, owner, github and wake', () => {
+test('conduct: human output has one line per change, then dispatch, owner and github', () => {
   const t = lites(['a', 'b']);
   const r = cli(t, []);
   assert.equal(r.code, 0);
   const lines = r.stdout.trimEnd().split('\n');
   assert.deepEqual(lines.slice(0, 2), ['a: ready to run: implement', 'b: ready to run: implement']);
-  assert.deepEqual(lines.slice(2).map((l) => l.split(':')[0]), ['dispatch', 'owner', 'github', 'wake']);
+  assert.deepEqual(lines.slice(2).map((l) => l.split(':')[0]), ['dispatch', 'owner', 'github']);
   assert.equal(lines[2], 'dispatch: a, b');
 });
 
@@ -1110,4 +1082,124 @@ test('conduct: the checker never writes: status, refs and worktrees are unchange
   assert.equal(cli(t, ['--json']).code, 0);
   assert.equal(snapshot(), before);
   assert.equal(readdirSync(join(t.main, '.git', 'refs'), { recursive: true }).sort().join(','), refs);
+});
+
+// ---------------------------------------------------------------- sessions (conduct-sessions phase 1)
+
+const appEnv = { ...cleanEnv, DEVKIT_HOST: 'app' };
+
+test('conduct: under the app host implement is a session row of tdd-implementer; under cli it is the subagent', () => {
+  assert.deepEqual(actorOf('implement', 'app'), { actor: 'session', agent: TDD });
+  assert.deepEqual(actorOf('implement', 'cli'), { actor: 'subagent', agent: TDD });
+  assert.deepEqual(actorOf('implement'), { actor: 'subagent', agent: TDD });
+  assert.equal(actorOf('commit', 'app').actor, 'subagent', 'only implement becomes a session');
+  const app = deliveryStep({ id: 'x' }, REPORT({ step: 'implement' }, { host: 'app' }));
+  assert.deepEqual([app.next.actor, app.next.agent, app.state], ['session', TDD, 'ready to run: implement']);
+  const cliRow = deliveryStep({ id: 'x' }, REPORT({ step: 'implement' }, { host: 'cli' }));
+  assert.equal(cliRow.next.actor, 'subagent');
+  assert.equal(deliveryStep({ id: 'x' }, REPORT({ step: 'implement' })).next.actor, 'subagent', 'no host means cli');
+});
+
+test('conduct: app host: a change at implement has next.actor session, and running when its id is in --busy', () => {
+  const t = lites(['a', 'b']);
+  let res = t.state({ env: appEnv });
+  assert.equal(byId(res, 'a').next.actor, 'session');
+  assert.equal(byId(res, 'a').state, 'ready to run: implement');
+  assert.deepEqual(res.dispatch, ['a', 'b']);
+  res = t.state({ env: appEnv, busy: ['a'] });
+  assert.equal(byId(res, 'a').state, 'running');
+  assert.deepEqual(res.dispatch, ['b']);
+  assert.equal(t.state().changes[0].next.actor, 'subagent', 'cli keeps the 0.8.0 actor');
+  assert.equal(t.state().changes[0].session, undefined);
+});
+
+test('conduct: sessionPrefixes: plain, cut at 20, a two-digit phase keeps the prefix', () => {
+  const p = sessionPrefixes(['add-login', 'conduct-sessions-with-a-long-id', 'twenty-chars-exactly-1']);
+  assert.equal(p.get('add-login'), 'add-login-p');
+  assert.equal(p.get('conduct-sessions-with-a-long-id'), 'conduct-sessions-wit-p');
+  assert.equal(p.get('twenty-chars-exactly-1'), 'twenty-chars-exactly-p');
+  assert.equal(sessionPrefixes(['abcdefghijklmnopqrs-xyz']).get('abcdefghijklmnopqrs-xyz'), 'abcdefghijklmnopqrs-p', 'trailing dash removed');
+  for (const n of ['1', '9', '10', '99']) assert.ok(`${p.get('conduct-sessions-with-a-long-id')}${n}`.length <= 24, n);
+});
+
+test('conduct: sessionPrefixes: a collision of the cut ids gives both the 18-cut plus two SHA-1 hex characters', () => {
+  const a = 'a-very-long-change-id-one';
+  const b = 'a-very-long-change-id-two';
+  const p = sessionPrefixes([a, b]);
+  const hh = (id) => createHash('sha1').update(id).digest('hex').slice(0, 2);
+  assert.equal(p.get(a), `a-very-long-change${hh(a)}-p`);
+  assert.equal(p.get(b), `a-very-long-change${hh(b)}-p`);
+  assert.ok(p.get(a).length + 2 <= 24);
+  assert.equal(sessionPrefixes([a]).get(a), 'a-very-long-change-i-p', 'alone, the plain rule applies');
+});
+
+test('conduct: one id extending another gets a distinct prefix that the shorter one cannot match', () => {
+  const p = sessionPrefixes(['add-x', 'add-x-pagination']);
+  assert.notEqual(p.get('add-x'), p.get('add-x-pagination'));
+  const short = new RegExp(`^${p.get('add-x')}[0-9]+$`);
+  const long = new RegExp(`^${p.get('add-x-pagination')}[0-9]+$`);
+  assert.ok(!short.test(`${p.get('add-x-pagination')}1`));
+  assert.ok(!long.test(`${p.get('add-x')}1`));
+});
+
+test('conduct: app host: the session descriptor has title, name, cwd, branch, phase, brief and background', () => {
+  const t = lites(['a']);
+  const row = byId(t.state({ env: appEnv }), 'a');
+  const s = row.session;
+  assert.deepEqual(Object.keys(s).sort(), ['background', 'branch', 'brief', 'cwd', 'name', 'phase', 'title']);
+  assert.equal(s.title, 'a: phase 1');
+  assert.equal(s.name, 'a-p1');
+  assert.equal(s.cwd, row.worktree);
+  assert.equal(s.branch, 'a');
+  assert.equal(s.phase, 1);
+  assert.equal(row.sessionPrefix, 'a-p');
+  assert.match(s.name, /^[a-z0-9-]{1,24}$/);
+  for (const phrase of ['phase 1', 'change `a`', row.worktree, 'devkit-core:tdd-implementer', 'Outcome: success', 'Outcome: failure: <reason>', 'Head: <sha',
+    'in the `devkit` schema the project\'s hooks refuse it', `cd ${row.worktree} && `]) assert.ok(s.brief.includes(phrase), phrase);
+  assert.match(s.background, /round 1/i);
+  assert.match(s.background, /devkit-lite/);
+  assert.match(s.background, /recomputes the next step/);
+});
+
+test('conduct: app host: a change with phase 1 ticked and phase 2 open describes phase 2 (name, title, phase, brief)', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] a']) });
+  const tasks = '# Tasks\n\n## 1. First\n- [x] 1.1 code\n- [x] 1.2 Gate: `true` green\n\n## 2. Second\n- [ ] 2.1 more\n- [ ] 2.2 Gate: `true` green\n';
+  planFiles(t.addWt('a'), 'a', { tasks });
+  const row = byId(t.state({ env: appEnv }), 'a');
+  assert.equal(row.next.step, 'implement');
+  assert.equal(row.session.name, 'a-p2');
+  assert.equal(row.session.phase, 2);
+  assert.equal(row.session.title, 'a: phase 2');
+  assert.ok(row.session.brief.includes('phase 2 of change `a`'), 'brief names phase 2');
+  assert.ok(row.session.brief.includes('Implement phase 2 of change a'), 'subagent line names phase 2');
+  assert.ok(!row.session.brief.includes('phase 1'), 'brief never names phase 1');
+});
+
+test('conduct: sessionPrefix is on every change row of the round, whatever its step', () => {
+  const t = lites(['a', 'b']);
+  rmSync(cf(real(t.wtPath('b')), 'b', 'tasks.md'));
+  const res = conductState(t.main, { env: appEnv, ghFor: t.ghFor });
+  assert.notEqual(byId(res, 'b').next.step, 'implement');
+  assert.equal(byId(res, 'b').sessionPrefix, 'b-p');
+  assert.equal(byId(res, 'b').session, undefined);
+});
+
+test('conduct: version 2 in the report and in the exit-3 error object; wake is gone', () => {
+  const t = lites(['a']);
+  assert.equal(t.state().version, 2);
+  assert.ok(!('wake' in t.state()));
+  const r = conductMain(['--json', '--round', '9'], { ...cleanEnv }, t.main);
+  assert.equal(r.code, 3);
+  assert.equal(JSON.parse(r.stdout).version, 2);
+});
+
+test('conduct: a dispatch of two sessions and one subagent is capped at three; a fourth waits', () => {
+  const t = lites(['a', 'b', 'c', 'd']);
+  const c = t.state({ env: appEnv });
+  assert.deepEqual(c.dispatch, ['a', 'b', 'c']);
+  assert.equal(selectDispatch([
+    { id: 'a', next: { actor: 'session' } }, { id: 'b', next: { actor: 'session' } },
+    { id: 'c', next: { actor: 'subagent' } }, { id: 'd', next: { actor: 'session' } },
+  ]).join(), 'a,b,c');
+  assert.deepEqual(selectDispatch([{ id: 'a', next: { actor: 'session' } }], ['x', 'y', 'z']), []);
 });

@@ -1,10 +1,12 @@
 # ADR 0005: Conduct a round: parallel step subagents and a session wake-up
 
-- Status: accepted
+- Status: superseded by ADR 0006 (0006-phases-as-child-sessions.md)
 - Date: 2026-11-10
 - Change: conduct-rounds
 
 ## Context
+
+Superseded by ADR 0006: the parallel dispatch (at most three steps at once, one step per change) survives; the session cron and its `--wake` marker do not.
 
 This ADR builds on ADR 0001 and makes two exceptions to it; ADR 0002 and ADR 0003 are unchanged.
 ADR 0001 lets a coordinating skill recompute the next step from the repository and GitHub and run
