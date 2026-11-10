@@ -13,6 +13,7 @@
 | 5 | Descriptor tests used phase 1 only (caught in review round 1, fixed in e2ad482) | bug-class | none (fixed) | project |
 | 6 | Item 6 counts "no checks reported" as met right after `open-pr`, so `enable-auto-merge` flips to `disable-auto-merge` once CI starts | tooling | followup: a change of its own (treat zero checks on a PR younger than the CI workflow's usual start as pending, or have ship-change watch once before the first `enable-auto-merge`) | project |
 | 7 | A session runs the installed pack, not the working tree: the 0.9.0 `/conduct` dogfood needs the project's devkit-openspec updated first | environment | doc-update (proposed below: CONTRIBUTING "Testing a pack locally") | project |
+| 8 | Two rules collide at the archive: `unnamedFiles` refuses `docs/openspec-flow.md` at apply-proposals (not a release file) while `deliver-check.test.mjs` requires its CI pin to follow the devkit-openspec version, so a pack bump at apply-proposals always fails one of them (seen on archive PR #15: CI `check` red after the pin was reverted) | tooling | doc-update (proposed below: the pin) + followup: a change of its own adds `docs/openspec-flow.md` to `RELEASE_FILE` or moves the pin bump into the release step | project |
 
 ## Proposed updates
 
@@ -41,6 +42,12 @@ Under "Testing a pack locally", after the `--plugin-dir` snippet.
 A subagent's report of an edit is a claim: check `git status` for each file it names before ticking a task or dispatching a commit.
 - Answer: approved
 - Applied: yes
+
+### `docs/openspec-flow.md` (tooling)
+The CI snippet pin follows the devkit-openspec release (0.9.1): the test "the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version" in `deliver-check.test.mjs` requires it, and `unnamedFiles` accepts the file only when a proposal names it. Every `v0.9.0` in the snippet and its prose becomes `v0.9.1`; nothing else in the file changes.
+- before: # pinned to the commit of v0.9.0 (a tag can move; a commit cannot) · <commit sha of v0.9.0> in the raw URL · the prose "(`v0.9.0` above)" and "git/ref/tags/v0.9.0"
++ after: the same lines with v0.9.1
+- Answer: approved
 
 ## Dogfood
 
