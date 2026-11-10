@@ -1,6 +1,21 @@
 # Review: conduct-sessions
 
-Round 1 · Commit: 5f0caebbe70e088a52e3cc90d96ca093c1160b58 · Date: 2026-11-10
+Round 2 · Commit: e2ad4823e10fbce86c81484cf807a94b9d562e3b · Date: 2026-11-10
+
+| Reviewer | Verdict | Blocking findings |
+|---|---|---|
+| code-quality-reviewer | PASS (round-1 important · fixed in e2ad482) | 0 |
+| test-coverage-reviewer | PASS (round-1 important · fixed in e2ad482) | 0 |
+
+Consensus: PASS (round 2/2). No new blocking or important findings in `5f0caeb..e2ad482` (one SKILL.md sentence, two tests). Nits carried over, no re-review.
+
+## Next
+
+Ready to ship: `pr-verifier`, then `commit-and-pr`.
+
+---
+
+## Round 1 (historical) · Commit: 5f0caebbe70e088a52e3cc90d96ca093c1160b58
 
 Structural: PASS (`openspec validate conduct-sessions --strict` valid; `python3 scripts/check.py` all checks passed, links resolve)
 
