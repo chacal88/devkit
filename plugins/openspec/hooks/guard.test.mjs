@@ -856,3 +856,18 @@ test('migration doc: every fenced bash block parses, and the jq filters work on 
   r = spawnSync('bash', ['-c', loop], { encoding: 'utf8', cwd: margi, env: { PATH: `${bin}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin`, HOME: home } });
   assert.equal(r.stdout.trim(), 'devkit-openspec@devkit');
 });
+
+// --- migration items 3 and 4 are safe to run twice: first backup kept, write through a temp file ---
+
+test('migration items 3 and 4 keep the first backup (cp -n) and write through a temp file then mv', () => {
+  const items = migrationItems(readFileSync(migrationPath, 'utf8'));
+  for (const n of [3, 4]) {
+    const item = items.find((i) => i.head.startsWith(`### ${n}.`));
+    assert.ok(item, `item ${n} exists`);
+    assert.match(item.Command, /cp -n "\$[fr]" "\$[fr]\.bak-devkit-opt-in"/, `item ${n} keeps the first backup`);
+    assert.doesNotMatch(item.Command, /cp "\$/, `item ${n} never overwrites the backup`);
+    assert.match(item.Command, /> "\$[fr]\.tmp" && mv "\$[fr]\.tmp" "\$[fr]"/, `item ${n} writes through a temp file then mv`);
+    assert.doesNotMatch(item.Command, /> "\$[fr]"\s*$/m, `item ${n} never writes the target directly`);
+    assert.ok(item.Undo, `item ${n} keeps its Undo`);
+  }
+});

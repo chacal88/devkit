@@ -76,12 +76,12 @@ claude plugin marketplace add chacal88/devkit --scope user
 
 ### 3. Remove the stale entry from recruit's local settings
 
-Recruit's `~/Documents/recruit/.claude/settings.local.json` carries `"devkit-openspec@devkit": false`. The command keeps a backup before the edit, and drops `enabledPlugins` when it ends up empty.
+Recruit's `~/Documents/recruit/.claude/settings.local.json` carries `"devkit-openspec@devkit": false`. The command keeps the first backup (a second run does not overwrite it) and writes through a temporary file, and drops `enabledPlugins` when it ends up empty.
 
 **Command**
 
 ```bash
-f=~/Documents/recruit/.claude/settings.local.json && cp "$f" "$f.bak-devkit-opt-in" && jq 'del(.enabledPlugins["devkit-openspec@devkit"]) | if .enabledPlugins == {} then del(.enabledPlugins) else . end' "$f.bak-devkit-opt-in" > "$f"
+f=~/Documents/recruit/.claude/settings.local.json && cp -n "$f" "$f.bak-devkit-opt-in" && jq 'del(.enabledPlugins["devkit-openspec@devkit"]) | if .enabledPlugins == {} then del(.enabledPlugins) else . end' "$f.bak-devkit-opt-in" > "$f.tmp" && mv "$f.tmp" "$f"
 ```
 
 **Check** (prints `false`, then the file parses)
@@ -100,12 +100,12 @@ f=~/Documents/recruit/.claude/settings.local.json && mv "$f.bak-devkit-opt-in" "
 
 ### 4. Remove the representante-digital worktree entries from Claude Code's registry
 
-This edits Claude Code's own registry, `installed_plugins.json`, because the CLI cannot remove project entries without editing each worktree's committed `.claude/settings.json`, and some of those paths no longer exist. Do it with no Claude Code session open, so nothing rewrites the file under you. The command keeps a backup first. A worktree that still exists registers again the next time a session opens there, because representante-digital opts in; that is expected.
+This edits Claude Code's own registry, `installed_plugins.json`, because the CLI cannot remove project entries without editing each worktree's committed `.claude/settings.json`, and some of those paths no longer exist. Do it with no Claude Code session open, so nothing rewrites the file under you. The command keeps the first backup (a second run does not overwrite it) and writes through a temporary file. A worktree that still exists registers again the next time a session opens there, because representante-digital opts in; that is expected.
 
 **Command**
 
 ```bash
-r=~/.claude/plugins/installed_plugins.json && cp "$r" "$r.bak-devkit-opt-in" && jq --arg p "$HOME/Documents/representante-digital/.claude/worktrees/" '.plugins |= with_entries(if (.key | endswith("@devkit")) then .value |= map(select(((.projectPath // "") | startswith($p)) | not)) else . end)' "$r.bak-devkit-opt-in" > "$r"
+r=~/.claude/plugins/installed_plugins.json && cp -n "$r" "$r.bak-devkit-opt-in" && jq --arg p "$HOME/Documents/representante-digital/.claude/worktrees/" '.plugins |= with_entries(if (.key | endswith("@devkit")) then .value |= map(select(((.projectPath // "") | startswith($p)) | not)) else . end)' "$r.bak-devkit-opt-in" > "$r.tmp" && mv "$r.tmp" "$r"
 ```
 
 **Check** (prints `0`; representante-digital's own entry is still listed)
