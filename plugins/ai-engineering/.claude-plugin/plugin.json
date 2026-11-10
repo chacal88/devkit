@@ -1,6 +1,6 @@
 {
   "name": "devkit-ai-engineering",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Building with LLMs: evaluation, multi-agent patterns, agent tool and CLI design, context compression and skill vetting.",
   "author": {
     "name": "kaue rodrigues dos santos",

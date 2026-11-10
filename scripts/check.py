@@ -2,16 +2,27 @@
 """Repository checks run in CI:
 - every agent/skill name matches its file/folder and its description says when to use it;
 - every relative Markdown link in the repo resolves;
-- no leftover non-English prose markers.
+- no leftover non-English prose markers;
+- every `plugin install` line names its scope: `--scope project` everywhere, and `--scope user`
+  only in docs/migrate-to-project-scope.md (ADR 0004).
 
-    python3 scripts/check.py
+    python3 scripts/check.py [--root <dir>]
 """
+import argparse
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SKIP_DIRS = {".git", "node_modules"}
+# Paths that quote the old commands or are generated locally: skipped by the install-scope check only.
+SCOPE_SKIP_PREFIXES = (
+    ("openspec", "changes"),
+    (".claude", "worktrees"),
+    (".claude", "skills"),
+    (".claude", "commands"),
+)
+MIGRATION_DOC = ("docs", "migrate-to-project-scope.md")
 problems = []
 
 
@@ -70,8 +81,33 @@ def check_language():
                 problems.append(f"{f.relative_to(ROOT)}:{i}: non-English text")
 
 
-check_assets()
-check_links()
-check_language()
+def check_install_scope():
+    install = re.compile(r"(/plugin|claude plugin) install\b")
+    for f in md_files():
+        parts = f.relative_to(ROOT).parts
+        if any(parts[: len(pre)] == pre for pre in SCOPE_SKIP_PREFIXES):
+            continue
+        scope = "--scope user" if parts == MIGRATION_DOC else "--scope project"
+        for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            if install.search(line) and scope not in line:
+                problems.append(
+                    f"{'/'.join(parts)}:{i}: plugin install must use {scope}"
+                )
+
+
+def main():
+    global ROOT
+    ap = argparse.ArgumentParser(description="devkit repository checks")
+    ap.add_argument("--root", default=str(ROOT), help="directory to check (default: this repository)")
+    ROOT = Path(ap.parse_args().root).resolve()
+    check_assets()
+    check_links()
+    check_language()
+    check_install_scope()
+    print("\n".join(problems) or "all checks passed")
+    sys.exit(1 if problems else 0)
+
+
+main()
 print("\n".join(problems) or "all checks passed")
 sys.exit(1 if problems else 0)

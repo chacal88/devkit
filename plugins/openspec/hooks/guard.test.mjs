@@ -6,11 +6,13 @@ import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange } from './guard.mjs';
+import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
 import { gitRepo, put, commitAll, git as gitIn } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
 import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
+import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
+import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -467,4 +469,390 @@ test('ADR 0003 exists with Status: accepted, ADR 0002 points to it and has no "u
   assert.doesNotMatch(adr2, /until round 3/);
   assert.match(adr2, /0003-auto-merge-the-archive-pr\.md/);
   assert.match(adr2, /^- Status: accepted$/m);
+});
+
+// ---------------------------------------------------------------- opt-in (ADR 0004)
+
+// A project whose openspec/config.yaml says `configText` (null: no config.yaml).
+function project({ config, changes = {}, roadmap, base } = {}) {
+  const root = base || mkdtempSync(join(tmpdir(), 'devkit-optin-'));
+  mkdirSync(join(root, 'openspec', 'changes', 'archive'), { recursive: true });
+  if (config !== null && config !== undefined) writeFileSync(join(root, 'openspec', 'config.yaml'), config);
+  for (const [name, files] of Object.entries(changes)) {
+    const dir = join(root, 'openspec', 'changes', name);
+    mkdirSync(dir, { recursive: true });
+    for (const [f, body] of Object.entries(files)) {
+      mkdirSync(dirname(join(dir, f)), { recursive: true });
+      writeFileSync(join(dir, f), body);
+    }
+  }
+  if (roadmap !== undefined) writeFileSync(join(root, 'openspec', 'roadmap.md'), roadmap);
+  return root;
+}
+
+const specDriven = { '.openspec.yaml': 'schema: spec-driven\n' };
+const pending = '## Round 1\n- [ ] x\n';
+const silent = (r, what) => {
+  assert.equal(r.code, 0, `${what}: exit 0 (${r.err})`);
+  assert.equal(r.out, '', `${what}: no stdout`);
+  assert.equal(r.err, '', `${what}: no stderr`);
+};
+const noGitHere = () => mkdtempSync(join(tmpdir(), 'devkit-nogit-'));
+const hookCases = (root) => {
+  const out = [];
+  for (const c of ['git push --force', 'git push -f origin x', 'git reset --hard HEAD~1', 'git add -A', 'gh pr merge 3 --admin', 'gh pr create --title t --body b']) {
+    out.push([`bash ${c}`, bash(root, c)]);
+  }
+  out.push(['edit src/a.ts', edit(root, 'src/a.ts')]);
+  out.push(['session', session(root)]);
+  return out;
+};
+
+test('not opted in: a folder with no openspec/ and a spec-driven repo are silent in every mode (AC-1)', () => {
+  const plain = noGitHere();
+  for (const [what, r] of hookCases(plain)) silent(r, `no openspec: ${what}`);
+  const sd = project({ config: 'schema: spec-driven\n', changes: { x: specDriven }, roadmap: pending });
+  for (const [what, r] of hookCases(sd)) silent(r, `spec-driven: ${what}`);
+});
+
+test('not opted in: no config.yaml, a custom schema name, and a comment-only devkit are silent (AC-1)', () => {
+  for (const [label, config] of [['no config.yaml', null], ['schema: devkit-lite-custom', 'schema: devkit-lite-custom\n'], ['comment only', '# schema: devkit\n']]) {
+    const root = project({ config, changes: { x: specDriven }, roadmap: pending });
+    for (const [what, r] of hookCases(root)) silent(r, `${label}: ${what}`);
+  }
+});
+
+test('spec-driven: the main session writes the gate files and opens a PR; session prints no [devkit] line (AC-2)', () => {
+  const root = project({ config: 'schema: spec-driven\n', changes: { x: specDriven }, roadmap: pending });
+  for (const f of ['openspec/changes/x/readiness.md', 'openspec/changes/x/evidence.md', 'openspec/changes/x/reviews/code-quality-reviewer.md']) {
+    assert.equal(edit(root, f).code, 0, f);
+  }
+  assert.equal(bash(root, 'gh pr create --title t --body b').code, 0);
+  assert.doesNotMatch(session(root).out, /\[devkit\]/);
+});
+
+test('opted in with a quoted schema and a change on another schema: still gated (AC-3)', () => {
+  const root = project({ config: 'schema: "devkit-lite"\n', changes: { x: { '.openspec.yaml': 'schema: representante-digital\n' } } });
+  const f = bash(root, 'git push --force');
+  assert.equal(f.code, 2);
+  assert.match(f.err, /force push/);
+  assert.equal(bash(root, 'gh pr create --title t --body b').code, 2, 'no reviews');
+  assert.match(session(root).out, /\[devkit\]/);
+});
+
+test('opted in: a subdirectory cwd is gated, and so is a repo with no active change (AC-3)', () => {
+  const root = project({ config: 'schema: devkit\n', changes: { x: devkit } });
+  const deep = join(root, 'src', 'deep');
+  mkdirSync(deep, { recursive: true });
+  assert.equal(run('bash', { cwd: deep, tool_input: { command: 'git reset --hard' } }).code, 2);
+  assert.equal(run('edit', { cwd: deep, tool_input: { file_path: join(root, 'openspec/changes/x/readiness.md') } }).code, 2);
+  const none = project({ config: 'schema: devkit-lite\n' });
+  assert.equal(bash(none, 'git push --force').code, 2, 'destructive git refused with no active change');
+  assert.equal(edit(none, 'src/a.ts').code, 0, 'nothing else is gated');
+});
+
+test('a nested checkout with its own spec-driven config is judged by its own config, not the outer repo (AC-3)', () => {
+  const outer = project({ config: 'schema: devkit\n', changes: { x: devkit } });
+  const inner = project({ config: 'schema: spec-driven\n', changes: { w: specDriven }, base: join(outer, '.claude', 'worktrees', 'w') });
+  for (const [what, r] of hookCases(inner)) silent(r, `nested: ${what}`);
+  assert.equal(bash(outer, 'git push --force').code, 2, 'the outer repo is still gated');
+});
+
+test('optedIn and projectSchema read the config.yaml next to openspec/changes (D2, D3)', () => {
+  assert.deepEqual(DEVKIT_SCHEMAS, ['devkit', 'devkit-lite']);
+  const cases = [
+    ['schema: devkit\n', 'devkit', true], ['schema: devkit-lite\n', 'devkit-lite', true],
+    ['schema: "devkit-lite"\n', 'devkit-lite', true], ["schema: 'devkit'\n", 'devkit', true],
+    ['schema: spec-driven\n', 'spec-driven', false], ['schema: devkit-lite-custom\n', 'devkit-lite-custom', false],
+    ['# schema: devkit\n', null, false], ['context: x\n', null, false], [null, null, false],
+  ];
+  for (const [config, schema, on] of cases) {
+    const root = project({ config });
+    assert.equal(projectSchema(root), schema, `projectSchema(${JSON.stringify(config)})`);
+    assert.equal(optedIn(root), on, `optedIn(${JSON.stringify(config)})`);
+  }
+  assert.equal(optedIn(project({ config: 'schema: spec-driven\n', changes: { x: devkit } })), false, 'a change schema does not opt in');
+});
+
+test('DEVKIT_BYPASS and ci keep their meaning in an opted-in project (D3)', () => {
+  const root = project({ config: 'schema: devkit\n' });
+  assert.equal(bash(root, 'git push --force', undefined, { DEVKIT_BYPASS: '1' }).code, 0);
+});
+
+test('ADR 0004 exists with its sections and the places that list ADRs name it (1.6)', () => {
+  const root = join(here, '..', '..', '..');
+  const read = (...p) => readFileSync(join(root, ...p), 'utf8');
+  const adr = join(root, 'docs', 'adr', '0004-devkit-per-project.md');
+  assert.ok(existsSync(adr), 'ADR 0004 file');
+  const body = readFileSync(adr, 'utf8');
+  assert.match(body, /^- Status: (accepted|proposed)$/m);
+  assert.match(body, /^# ADR 0004: devkit is opt-in per project/m);
+  for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) assert.ok(body.includes(h), h);
+  for (const f of [['README.md'], ['docs', 'openspec-flow.md'], ['openspec', 'config.yaml'], ['CONTRIBUTING.md']]) {
+    assert.match(read(...f), /0004/, `${f.join('/')} names ADR 0004`);
+  }
+  assert.match(read('openspec', 'config.yaml'), /0004 devkit per project/);
+  assert.match(read('docs', 'openspec-flow.md'), /adr\/0004-devkit-per-project\.md/);
+  assert.match(read('README.md'), /in projects that opted in/);
+});
+
+test('the hook docs say where the hooks act (1.7)', () => {
+  const root = join(here, '..', '..', '..');
+  const read = (...p) => readFileSync(join(root, ...p), 'utf8');
+  const flow = read('docs', 'openspec-flow.md');
+  assert.match(flow, /Where the hooks act/);
+  assert.match(flow, /renamed schema[^\n]*hooks|hooks[^\n]*renamed schema/i);
+  assert.match(read('plugins', 'openspec', 'README.md'), /openspec\/config\.yaml/);
+  assert.match(read('plugins', 'openspec', 'hooks', 'hooks.json'), /opted-in|opted in/);
+});
+
+test('openspec-setup SKILL.md teaches the per-project opt-in (2.4)', () => {
+  const root = join(here, '..', '..', '..');
+  const skill = readFileSync(join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'SKILL.md'), 'utf8');
+  assert.match(skill, /scripts\/project-settings\.mjs/);
+  assert.match(skill, /--user/);
+  assert.match(skill, /\.claude\/settings\.json/);
+  assert.doesNotMatch(skill, /\/plugin install/);
+  for (const line of skill.split('\n').filter((l) => /install-schemas\.sh/.test(l) && /bash /.test(l))) {
+    assert.match(line, /install-schemas\.sh (<project-root>|--user)/, `install-schemas.sh call needs an argument: ${line}`);
+  }
+  const never = skill.slice(skill.indexOf('## Never'));
+  assert.match(never, /user scope/);
+  assert.match(never, /~\/\.claude/);
+});
+
+test('this repository opts in through .claude/settings.json (2.5, ADR 0004)', () => {
+  const root = join(here, '..', '..', '..');
+  const file = join(root, '.claude', 'settings.json');
+  assert.ok(existsSync(file), '.claude/settings.json exists');
+  const s = JSON.parse(readFileSync(file, 'utf8'));
+  assert.deepEqual(s.extraKnownMarketplaces.devkit.source, { source: 'github', repo: 'chacal88/devkit' });
+  assert.equal(s.enabledPlugins['devkit-core@devkit'], true);
+  assert.equal(s.enabledPlugins['devkit-openspec@devkit'], true);
+  const script = join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'scripts', 'project-settings.mjs');
+  const r = spawnSync('node', [script, root, '--dry-run'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /file: unchanged /);
+});
+
+// --- 3.1: the install-scope lint in scripts/check.py (D8) ---
+const checkPy = join(here, '..', '..', '..', 'scripts', 'check.py');
+
+function lintRoot(files) {
+  const root = mkdtempSync(join(tmpdir(), 'devkit-lint-'));
+  for (const [f, body] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, f)), { recursive: true });
+    writeFileSync(join(root, f), body);
+  }
+  return root;
+}
+
+function lint(files) {
+  const r = spawnSync('python3', [checkPy, '--root', lintRoot(files)], { encoding: 'utf8' });
+  return { code: r.status, out: r.stdout + r.stderr };
+}
+
+test('install-scope lint: a user-scope install passes only in the migration doc', () => {
+  const line = 'claude plugin install devkit-core@devkit --scope user\n';
+  assert.equal(lint({ 'docs/migrate-to-project-scope.md': line }).code, 0);
+  const r = lint({ 'README.md': line });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /README\.md:1: plugin install must use --scope project/);
+});
+
+test('install-scope lint: the migration doc itself needs --scope user', () => {
+  const r = lint({ 'docs/migrate-to-project-scope.md': 'claude plugin install devkit-core@devkit --scope project\n' });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /docs\/migrate-to-project-scope\.md:1:/);
+});
+
+test('install-scope lint: /plugin install and no scope fail, --scope project passes, fenced blocks count', () => {
+  assert.equal(lint({ 'README.md': 'text\n\n```text\n/plugin install devkit-core@devkit\n```\n' }).code, 1);
+  assert.match(lint({ 'README.md': 'a\nb\n```bash\nclaude plugin install devkit-core@devkit\n```\n' }).out, /README\.md:4:/);
+  assert.equal(lint({ 'README.md': 'claude plugin install devkit-core@devkit --scope project\n' }).code, 0);
+  assert.equal(lint({ 'README.md': 'claude plugin install devkit-core@devkit --scope local\n' }).code, 1);
+});
+
+test('install-scope lint: change folders, worktrees, generated skills and commands are ignored', () => {
+  const bad = '/plugin install devkit-core@devkit\n';
+  const r = lint({
+    'openspec/changes/x/notes.md': bad,
+    '.claude/worktrees/w/README.md': bad,
+    '.claude/skills/s/SKILL.md': bad,
+    '.claude/commands/c/cmd.md': bad,
+  });
+  assert.equal(r.code, 0, r.out);
+});
+
+// --- 3.1 docs: why per project, and the link to the migration doc ---
+test('README and getting-started say the packs load only in the projects that chose them and link the migration doc (3.1)', () => {
+  const root = join(here, '..', '..', '..');
+  for (const f of [['README.md'], ['docs', 'getting-started.md']]) {
+    const body = readFileSync(join(root, ...f), 'utf8');
+    assert.match(body, /only in the projects that (chose|opted in to) (them|it)|load only in the projects that chose them/, `${f.join('/')} says why per project`);
+    assert.match(body, /migrate-to-project-scope\.md/, `${f.join('/')} links the migration doc`);
+  }
+});
+
+// --- 3.3 / 3.4: docs/migrate-to-project-scope.md ---
+const repoRoot = join(here, '..', '..', '..');
+const migrationPath = join(repoRoot, 'docs', 'migrate-to-project-scope.md');
+
+function migrationItems(body) {
+  const parts = body.split(/^(?=### \d+\. )/m).slice(1);
+  return parts.map((p) => {
+    const blocks = {};
+    for (const label of ['Command', 'Check', 'Undo']) {
+      const m = p.match(new RegExp(`\\*\\*${label}\\*\\*[^\\n]*\\n+\`\`\`bash\\n([\\s\\S]*?)\`\`\``));
+      blocks[label] = m ? m[1] : null;
+    }
+    return { head: p.split('\n')[0], text: p, ...blocks };
+  });
+}
+
+test('migration doc: rule, preconditions, four items with Command/Check/Undo (3.3)', () => {
+  assert.ok(existsSync(migrationPath), 'docs/migrate-to-project-scope.md exists');
+  const body = readFileSync(migrationPath, 'utf8');
+  assert.match(body, /only after the owner says yes to that item/);
+  assert.match(body, /an agent never runs one on its own/);
+  assert.match(body, /0\.7\.0/);
+  assert.match(body, /git -C ~\/Documents\/devkit pull/);
+  assert.match(body, /\.claude\/settings\.json/);
+  const items = migrationItems(body);
+  assert.equal(items.length, 4, 'four numbered item headings');
+  items.forEach((it, i) => {
+    assert.match(it.head, new RegExp(`^### ${i + 1}\\. `));
+    for (const label of ['Command', 'Check', 'Undo']) assert.ok(it[label], `item ${i + 1} has a bash block under **${label}**`);
+  });
+  assert.match(items[0].Command, /claude plugin uninstall devkit-core@devkit --scope user/);
+  assert.match(items[0].Command, /claude plugin uninstall devkit-openspec@devkit --scope user/);
+  assert.match(items[1].Command, /claude plugin marketplace remove devkit --scope user/);
+  assert.match(items[1].text, /without `--scope`|omit(ting)? `--scope`/);
+  assert.match(items[2].text, /~\/Documents\/recruit\/\.claude\/settings\.local\.json/);
+  assert.match(items[2].text, /backup/i);
+  assert.match(items[3].text, /installed_plugins\.json/);
+  assert.match(items[3].text, /no Claude Code session open/);
+  assert.match(items[3].text, /backup/i);
+  const lines = body.split('\n');
+  for (const l of lines.filter((x) => /claude plugin (uninstall|marketplace remove)/.test(x))) assert.match(l, /--scope/, `scope on: ${l}`);
+  for (const l of lines.filter((x) => /claude plugin install/.test(x))) assert.match(l, /--scope user/, `install scope on: ${l}`);
+  assert.match(body, /## Final check/);
+  assert.match(body, /claude plugin list/);
+  assert.match(body, /~\/Documents\/projects\/margi/);
+});
+
+test('migration doc: it passes the install-scope lint (3.3)', () => {
+  const r = spawnSync('python3', [checkPy], { encoding: 'utf8' });
+  assert.doesNotMatch(r.stdout, /migrate-to-project-scope\.md:\d+: plugin install/);
+});
+
+test('migration doc: every fenced bash block parses, and the jq filters work on fixtures (3.4)', () => {
+  const body = readFileSync(migrationPath, 'utf8');
+  const blocks = [...body.matchAll(/```bash\n([\s\S]*?)```/g)].map((m) => m[1]);
+  assert.ok(blocks.length >= 13, `expected the preconditions, 4x3 item blocks and the final check, got ${blocks.length}`);
+  for (const b of blocks) {
+    const r = spawnSync('bash', ['-n'], { input: b, encoding: 'utf8' });
+    assert.equal(r.status, 0, `bash -n failed: ${r.stderr}\n${b}`);
+  }
+
+  // Fixtures live in a temp HOME; `claude plugin list --json` is replaced by a file, every other `claude` is a failing stub.
+  const home = mkdtempSync(join(tmpdir(), 'devkit-migrate-home-'));
+  const bin = join(home, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "claude must not run" >&2\nexit 99\n', { mode: 0o755 });
+  const listFile = join(home, 'list.json');
+  const rd = join(home, 'Documents', 'representante-digital');
+  const list = (rows) => writeFileSync(listFile, JSON.stringify(rows));
+  const put2 = (rel, obj) => {
+    mkdirSync(dirname(join(home, rel)), { recursive: true });
+    writeFileSync(join(home, rel), typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2));
+  };
+  const run = (script, extra = {}) => spawnSync('bash', ['-c', script.replaceAll('claude plugin list --json', `cat ${listFile}`)], {
+    encoding: 'utf8', cwd: home, env: { PATH: `${bin}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin`, HOME: home, ...extra },
+  });
+  const items = migrationItems(body);
+
+  // preconditions: the version filter
+  list([{ id: 'devkit-openspec@devkit', scope: 'user', version: '0.7.0' }, { id: 'devkit-core@devkit', scope: 'user', version: '0.5.1' }]);
+  const pre = body.match(/## Preconditions[\s\S]*?```bash\n([\s\S]*?)```/)[1];
+  const preLines = pre.split('\n').filter((l) => /claude plugin list --json/.test(l));
+  assert.equal(preLines.length, 1);
+  assert.equal(run(preLines[0]).stdout.trim(), '0.7.0');
+
+  // item 1 check
+  list([{ id: 'devkit-core@devkit', scope: 'project', projectPath: '/x' }, { id: 'other@x', scope: 'user' }]);
+  put2('.claude/settings.json', { enabledPlugins: { 'other@x': true } });
+  let r = run(items[0].Check);
+  assert.deepEqual(r.stdout.trim().split('\n'), ['0', '[]'], r.stderr);
+  list([{ id: 'devkit-core@devkit', scope: 'user' }]);
+  put2('.claude/settings.json', { enabledPlugins: { 'devkit-core@devkit': true } });
+  r = run(items[0].Check);
+  assert.deepEqual(r.stdout.trim().split('\n').map((l) => l.trim()).filter(Boolean).join(''), '1["devkit-core@devkit"]');
+
+  // item 2 check
+  put2('.claude/plugins/known_marketplaces.json', { other: {} });
+  assert.equal(run(items[1].Check).stdout.trim(), 'false');
+  put2('.claude/plugins/known_marketplaces.json', { devkit: {} });
+  assert.equal(run(items[1].Check).stdout.trim(), 'true');
+
+  // item 3: command, check, undo against recruit's settings.local.json fixture (backup first)
+  const local = join(home, 'Documents', 'recruit', '.claude', 'settings.local.json');
+  const original = { permissions: { allow: ['Bash(ls)'] }, enabledPlugins: { 'devkit-openspec@devkit': false, 'other@x': true } };
+  put2('Documents/recruit/.claude/settings.local.json', original);
+  r = run(items[2].Command);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(local, 'utf8')), { permissions: original.permissions, enabledPlugins: { 'other@x': true } });
+  assert.equal(run(items[2].Check).stdout.split('\n')[0].trim(), 'false');
+  assert.ok(existsSync(`${local}.bak-devkit-opt-in`));
+  r = run(items[2].Undo);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(local, 'utf8')), original);
+  // an enabledPlugins that becomes empty is dropped
+  put2('Documents/recruit/.claude/settings.local.json', { enabledPlugins: { 'devkit-openspec@devkit': false } });
+  run(items[2].Command);
+  assert.deepEqual(JSON.parse(readFileSync(local, 'utf8')), {});
+  assert.equal(run(items[2].Check).stdout.split('\n')[0].trim(), 'false');
+
+  // item 4: command and undo against an installed_plugins.json fixture
+  const reg = join(home, '.claude', 'plugins', 'installed_plugins.json');
+  const registry = {
+    version: 2,
+    plugins: {
+      'devkit-core@devkit': [
+        { scope: 'user' },
+        { scope: 'project', projectPath: `${rd}` },
+        { scope: 'project', projectPath: `${rd}/.claude/worktrees/a` },
+        { scope: 'project', projectPath: `${rd}/.claude/worktrees/b` },
+      ],
+      'other@x': [{ scope: 'project', projectPath: `${rd}/.claude/worktrees/a` }],
+    },
+  };
+  put2('.claude/plugins/installed_plugins.json', registry);
+  r = run(items[3].Command);
+  assert.equal(r.status, 0, r.stderr);
+  const after = JSON.parse(readFileSync(reg, 'utf8'));
+  assert.deepEqual(after.plugins['devkit-core@devkit'], [{ scope: 'user' }, { scope: 'project', projectPath: rd }]);
+  assert.deepEqual(after.plugins['other@x'], registry.plugins['other@x'], 'other packs untouched');
+  r = run(items[3].Undo);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(reg, 'utf8')), registry);
+  // item 4 check: counts only worktree entries of representante-digital
+  list([{ id: 'devkit-core@devkit', scope: 'project', projectPath: `${rd}/.claude/worktrees/a` }, { id: 'devkit-core@devkit', scope: 'project', projectPath: rd }]);
+  assert.equal(run(items[3].Check).stdout.trim().split('\n')[0], '1');
+  list([{ id: 'devkit-core@devkit', scope: 'project', projectPath: rd }]);
+  assert.equal(run(items[3].Check).stdout.trim().split('\n')[0], '0');
+
+  // final check: the margi loop reads each file on its own
+  const margi = join(home, 'Documents', 'projects', 'margi');
+  mkdirSync(join(margi, '.claude'), { recursive: true });
+  const fin = body.slice(body.indexOf('## Final check'));
+  const finBlocks = [...fin.matchAll(/```bash\n([\s\S]*?)```/g)].map((m) => m[1]);
+  const loop = finBlocks.find((b) => /enabledPlugins/.test(b));
+  assert.ok(loop, 'final check has the margi loop');
+  put2('.claude/settings.json', { enabledPlugins: { 'other@x': true } });
+  r = spawnSync('bash', ['-c', loop], { encoding: 'utf8', cwd: margi, env: { PATH: `${bin}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin`, HOME: home } });
+  assert.equal(r.stdout.trim(), '', r.stderr);
+  writeFileSync(join(margi, '.claude', 'settings.local.json'), JSON.stringify({ enabledPlugins: { 'devkit-openspec@devkit': true } }));
+  r = spawnSync('bash', ['-c', loop], { encoding: 'utf8', cwd: margi, env: { PATH: `${bin}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin`, HOME: home } });
+  assert.equal(r.stdout.trim(), 'devkit-openspec@devkit');
 });

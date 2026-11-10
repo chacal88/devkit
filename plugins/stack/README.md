@@ -2,9 +2,11 @@
 
 Technology references that Claude loads when the work touches that technology. Install only the pack where the stack matches; every installed skill's description costs context on every turn.
 
-```text
-/plugin install devkit-stack@devkit
+```bash
+claude plugin install devkit-stack@devkit --scope project
 ```
+
+Run at the project root, or add the pack to the project's `.claude/settings.json` (see [getting-started](../../docs/getting-started.md#1-opt-the-project-in)).
 
 Most of these skills are adapted from public, permissively licensed sources. See [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md).
 

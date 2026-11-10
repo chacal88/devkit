@@ -23,6 +23,11 @@
 //    evidence.md.
 // 3. Destructive git is refused.
 //
+// Only in projects whose openspec/config.yaml selects the devkit or devkit-lite
+// schema (ADR 0004). Anywhere else session, edit and bash print nothing and
+// block nothing, destructive git included, even when the plugin is loaded at
+// user scope. `ci` does not depend on it.
+//
 // Active change: $DEVKIT_CHANGE, else the change whose name the git branch
 // ends with (or contains), else the only open change. No open change means
 // the work is outside the flow and nothing is gated.
@@ -127,6 +132,18 @@ export function changeSchemaAt(root, dir) {
   }
   return 'spec-driven';
 }
+
+export const DEVKIT_SCHEMAS = ['devkit', 'devkit-lite'];
+
+// The project's default schema: openspec/config.yaml `schema:`, else null.
+export function projectSchema(root) {
+  const f = join(root, 'openspec', 'config.yaml');
+  if (!existsSync(f)) return null;
+  return readFileSync(f, 'utf8').match(/^schema:\s*["']?([\w.-]+)/m)?.[1] ?? null;
+}
+
+// Has this project chosen devkit? Its openspec/config.yaml selects a devkit schema.
+export function optedIn(root) { return DEVKIT_SCHEMAS.includes(projectSchema(root)); }
 
 function schemaFile(root, schema) {
   const dataHome = process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share');
@@ -304,7 +321,7 @@ function guardEdit(input) {
   const file = ti.file_path || ti.notebook_path || ti.path;
   if (!file) return;
   const root = findRoot(input.cwd || dirname(resolve(file)));
-  if (!root) return;
+  if (!root || !optedIn(root)) return;
   const ch = resolveChange(root);
   if (!ch) return;
   if (ch.ambiguous) {
@@ -318,10 +335,10 @@ function guardEdit(input) {
 
 function guardBash(input) {
   const cmd = (input.tool_input || {}).command || '';
+  const root = findRoot(input.cwd);
+  if (!root || !optedIn(root)) return;
   const why = gitViolation(cmd);
   if (why) block(`blocked: ${why}. If you really need it, ask the user to run it.`);
-  const root = findRoot(input.cwd);
-  if (!root) return;
   const ch = resolveChange(root);
   if (!ch) return;
   const cwd = input.cwd || root;
@@ -386,7 +403,7 @@ function roadmapReport(root) {
 
 function session(input) {
   const root = findRoot(input.cwd);
-  if (!root) return;
+  if (!root || !optedIn(root)) return;
   sessionChange(root);
   let report = '';
   try { report = roadmapReport(root); } catch { /* a broken roadmap never breaks the hook */ }

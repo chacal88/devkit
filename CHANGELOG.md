@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 — devkit per project
+
+- **devkit-openspec** (BREAKING): the hooks (`session`, `edit`, `bash`) act only in projects whose `openspec/config.yaml` selects the `devkit` or `devkit-lite` schema; everywhere else they are silent, destructive git included. `ci` is unchanged. `install-schemas.sh` with no argument now installs into the current project (`--user` for machine-wide, the old default). New `project-settings.mjs` writes the project's `.claude/settings.json` opt-in; `openspec-setup` runs it and installs the schemas into the project.
+- **devkit-core** 0.5.1, **devkit-design** 0.1.1, **devkit-stack** 0.1.1, **devkit-ai-engineering** 0.1.1: the READMEs install with `claude plugin install <pack>@devkit --scope project`.
+- Docs: ADR 0004 records devkit as opt-in per project; `docs/migrate-to-project-scope.md` removes the old user-scope install from a machine, item by item; `scripts/check.py` refuses a `plugin install` line without `--scope project`; this repository opts in through its `.claude/settings.json`; the CI snippet pins `v0.7.0`.
+
 ## 0.6.0 — archive after merge
 
 - **devkit-openspec**: after a change PR merges, `deliver-check` and `ship-change` go on to the archive steps (`retro`, `stop-retro-answers`, `archive`, `tick-roadmap`, `apply-proposals`, `open-archive-pr`, `archive-pr-ready`, `stop-archive`, `archived`): the owner answers each retro proposal, and the archive lands through a PR on `chore/archive-<id>` that GitHub auto-merges in `merge` mode (a file the owner did not approve stops the run). The guard hooks and `--ci` never select another change from an archive branch, so the archive PR passes `devkit-reviews`. In `pr` mode a merged PR now leads to the archive steps instead of `blocked: item 5`, and `merged` is no longer a final `next.step`.

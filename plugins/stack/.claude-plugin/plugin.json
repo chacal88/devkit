@@ -1,6 +1,6 @@
 {
   "name": "devkit-stack",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Technology references: Postgres, Neon, React performance, Vitest, multi-tenant SaaS and threat modeling.",
   "author": {
     "name": "kaue rodrigues dos santos",

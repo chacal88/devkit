@@ -2,9 +2,11 @@
 
 For projects that build with LLMs: evaluating outputs, designing multi-agent systems and the tools agents call, keeping context small, and vetting third-party skills before adopting them.
 
-```text
-/plugin install devkit-ai-engineering@devkit
+```bash
+claude plugin install devkit-ai-engineering@devkit --scope project
 ```
+
+Run at the project root, or add the pack to the project's `.claude/settings.json` (see [getting-started](../../docs/getting-started.md#1-opt-the-project-in)).
 
 Most of these skills are adapted from public, permissively licensed sources. See [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md).
 
