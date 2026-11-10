@@ -1180,6 +1180,8 @@ test('conduct SKILL.md: the sidebar group, the archive and the one rule for a re
   assert.match(md, /mcp__ccd_session_mgmt__archive_session/);
   assert.match(md, /gate task of the phase is ticked/);
   assert.match(md, /every idle linked session/);
+  assert.ok(md.includes('whose `name` is `<sessionPrefix><n>`, where `n` is the phase whose gate task just ticked'), 'archive names the phase from the gate task');
+  assert.ok(!md.includes("is that phase's `session.name`"), 'the old wording read a name a non-session row lacks');
   assert.ok(md.includes('phase <n> of <id>: gate green'));
   assert.match(md, /stopped phase is left unarchived/);
   for (const f of ['not archived: <name> (<why>)', 'not grouped: <name> (<why>)', 'not bound: <url> (<why>)']) assert.ok(md.includes(f), f);

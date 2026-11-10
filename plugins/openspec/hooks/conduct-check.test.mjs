@@ -1161,6 +1161,20 @@ test('conduct: app host: the session descriptor has title, name, cwd, branch, ph
   assert.match(s.background, /recomputes the next step/);
 });
 
+test('conduct: app host: a change with phase 1 ticked and phase 2 open describes phase 2 (name, title, phase, brief)', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] a']) });
+  const tasks = '# Tasks\n\n## 1. First\n- [x] 1.1 code\n- [x] 1.2 Gate: `true` green\n\n## 2. Second\n- [ ] 2.1 more\n- [ ] 2.2 Gate: `true` green\n';
+  planFiles(t.addWt('a'), 'a', { tasks });
+  const row = byId(t.state({ env: appEnv }), 'a');
+  assert.equal(row.next.step, 'implement');
+  assert.equal(row.session.name, 'a-p2');
+  assert.equal(row.session.phase, 2);
+  assert.equal(row.session.title, 'a: phase 2');
+  assert.ok(row.session.brief.includes('phase 2 of change `a`'), 'brief names phase 2');
+  assert.ok(row.session.brief.includes('Implement phase 2 of change a'), 'subagent line names phase 2');
+  assert.ok(!row.session.brief.includes('phase 1'), 'brief never names phase 1');
+});
+
 test('conduct: sessionPrefix is on every change row of the round, whatever its step', () => {
   const t = lites(['a', 'b']);
   rmSync(cf(real(t.wtPath('b')), 'b', 'tasks.md'));
