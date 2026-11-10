@@ -88,18 +88,18 @@ The current round is the first with an unticked line, and `after:` orders the tw
 
 1. It fetches and asks `conduct-check` what each change does next.
 2. For each new change it asks you to confirm the schema it proposes from the line's description (one question at a time), then creates a git worktree at `.claude/worktrees/<id>` on a branch named after the change.
-3. It plans both changes at once, each step a subagent in that change's worktree, at most three at a time.
+3. It plans both changes at once, the planning steps that are not owner gates run as subagents in that change's worktree, at most three at a time.
 4. `add-csv-export` goes on through implement, review, evidence, PR and merge (GitHub merges in `merge` mode, you merge in `pr` mode), then the retro (you answer each proposal) and an archive PR that ticks its line.
 5. `export-audit-log`, once planned, shows `waiting on add-csv-export`. Only after the tick lands on `origin/<base>` is it rebased, its plan audited, and delivered the same way.
 6. You are asked only at owner gates: each schema, the grill and plan approval for `devkit` changes, and retro answers. After the schema answer, typing `/conduct` is the go-ahead for a `devkit-lite` change.
 7. When everything waits on GitHub it watches once (9 minutes by default), then leaves one session cron that re-runs `/conduct --wake` every 20 minutes while the session is open.
 
-A run that stops mid-round ends with a report like this:
+A run that stops mid-round ends with a report like this, one line per change (id, schema, one state) plus the round and wake-up lines:
 
 ```text
-add-csv-export: waiting on GitHub: <what>
-export-audit-log: waiting on add-csv-export
-round: exports (0/2)
+add-csv-export (devkit-lite): waiting on GitHub: <what>
+export-audit-log (devkit-lite): waiting on add-csv-export
+round: Round 1: exports (0/2)
 wake-up: cron <id> every 20 minutes
 ```
 
