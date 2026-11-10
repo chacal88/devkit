@@ -9,7 +9,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ghError } from './merge-setup.mjs';
 import { archiveBranchChange, resolveChange } from './guard.mjs';
-import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro } from './deliver-check.mjs';
+import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, ciMain } from './deliver-check.mjs';
+import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemas = join(here, '..', 'schemas');
@@ -1421,7 +1422,7 @@ function shipRepo({ ship = 'pr', method = '' } = {}) {
   if (ship === 'merge') presetSetup(gh);
   if (ship !== 'plan') gh.set('pr-list', { stdout: [] });
   gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
-  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
+  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
   return { root, gh, env, next: () => nextStep(collectState(root, 'feat', { env })) };
 }
 // A schema `devkit` change `feat` (readiness artifact declared), ship: pr, on
@@ -1446,7 +1447,7 @@ function devkitRepo({ readiness = null, branch = 'ship/feat', others = [], ship 
   gh.set('pr-view', { exit: 1, stderr: `no pull requests found for branch "${branch}"\n` });
   if (ship === 'merge') presetSetup(gh);
   if (ship !== 'plan') gh.set('pr-list', { stdout: [] });
-  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '' };
+  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
   return { root, gh, env, state: (over = {}) => collectState(root, 'feat', { env: { ...env, ...over } }) };
 }
 
@@ -1488,6 +1489,110 @@ test('CLI --json: a devkit change reports next.step stop-not-approved, then move
   assert.equal(j.next.step, 'stop-not-approved');
   put(t.root, { 'openspec/changes/feat/readiness.md': '# Readiness\n\n- Status: APPROVED\n' });
   assert.notEqual(JSON.parse(runCli(t, ['feat', '--json']).out).next.step, 'stop-not-approved');
+});
+
+// ---------------------------------------------------------------- plan approval on disk (conduct-rounds D7, AC-5)
+
+const readinessHash = (root, id = 'feat') => `sha256:${createHash('sha256').update(readFileSync(join(root, 'openspec', 'changes', id, 'readiness.md'))).digest('hex').slice(0, 12)}`;
+const approvalMd = (hash) => `# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${hash}\n- Date: 2026-11-09\n- Owner's words: "Aprovo"\n`;
+// An approved devkit change with phase 1 not started, unless `tasks` says otherwise.
+function planRepo({ tasks = '## 1. First\n- [ ] 1.1 code\n', approval } = {}) {
+  const t = devkitRepo({ readiness: 'APPROVED' });
+  put(t.root, { 'openspec/changes/feat/tasks.md': tasks });
+  if (approval) put(t.root, { 'openspec/changes/feat/approval.md': typeof approval === 'function' ? approval(readinessHash(t.root)) : approval });
+  return t;
+}
+
+test('stop-plan-approval: APPROVED readiness with no approval.md waits for the owner, naming the readiness hash (AC-5)', () => {
+  const t = planRepo();
+  const next = nextStep(t.state());
+  assert.equal(next.step, 'stop-plan-approval');
+  assert.equal(next.readiness, readinessHash(t.root));
+  assert.match(next.readiness, /^sha256:[0-9a-f]{12}$/);
+  assert.equal(next.file, 'openspec/changes/feat/approval.md');
+  assert.match(next.reason, /no recorded owner approval/);
+  const j = buildReport(t.state());
+  assert.equal(j.summary, "waiting for the owner's plan approval");
+  assert.equal(j.version, 1);
+  assert.deepEqual(j.approval, { status: null, recorded: null, readiness: readinessHash(t.root), ok: false });
+});
+
+test('stop-plan-approval: the row sits after stop-not-approved and before the merge setup stop', () => {
+  const t = planRepo();
+  put(t.root, { 'openspec/changes/feat/readiness.md': '- Status: BLOCKED\n' });
+  assert.equal(nextStep(t.state()).step, 'stop-not-approved');
+  const m = devkitRepo({ ship: 'merge', readiness: 'APPROVED' });
+  put(m.root, { 'openspec/changes/feat/tasks.md': '## 1. First\n- [ ] 1.1 code\n' });
+  assert.equal(nextStep(m.state()).step, 'stop-plan-approval', 'before stop-merge-setup');
+});
+
+test('stop-plan-approval: a current approval.md lets implement start (AC-5)', () => {
+  const t = planRepo({ approval: approvalMd });
+  const s = t.state();
+  assert.equal(s.approval.ok, true);
+  assert.equal(nextStep(s).step, 'implement');
+  assert.equal(buildReport(s).approval.ok, true);
+});
+
+test('stop-plan-approval: an approval of an earlier readiness.md asks the owner again (AC-5)', () => {
+  const t = planRepo({ approval: approvalMd('sha256:000000000000') });
+  const next = nextStep(t.state());
+  assert.equal(next.step, 'stop-plan-approval');
+  assert.match(next.reason, /earlier readiness/);
+  assert.equal(next.readiness, readinessHash(t.root));
+  assert.equal(buildReport(t.state()).approval.recorded, 'sha256:000000000000');
+  put(t.root, { 'openspec/changes/feat/approval.md': approvalMd(readinessHash(t.root)).replace('APPROVED', 'REJECTED') });
+  assert.equal(nextStep(t.state()).step, 'stop-plan-approval', 'a Status other than APPROVED is no approval');
+  put(t.root, { 'openspec/changes/feat/approval.md': approvalMd(readinessHash(t.root)).toUpperCase() });
+  assert.equal(nextStep(t.state()).step, 'implement', 'the hash is compared without case');
+});
+
+test('stop-plan-approval: a change with a ticked task keeps running without approval.md (the started exemption)', () => {
+  const t = planRepo({ tasks: '## 1. First\n- [x] 1.1 code\n- [ ] 1.2 more\n' });
+  const s = t.state();
+  assert.equal(s.started, true);
+  assert.equal(nextStep(s).step, 'implement');
+  assert.equal(planRepo().state().started, false);
+});
+
+test('stop-plan-approval: devkit-lite never gets this row, and its JSON has no approval object', () => {
+  const t = shipRepo();
+  put(t.root, { 'openspec/changes/feat/tasks.md': '## 1. First\n- [ ] 1.1 code\n' });
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.notEqual(nextStep(s).step, 'stop-plan-approval');
+  assert.equal('approval' in buildReport(s), false);
+});
+
+test('stop-plan-approval: the CLI exits 1 with the summary and the approval object', () => {
+  const t = planRepo();
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 1);
+  const j = JSON.parse(r.out);
+  assert.equal(j.next.step, 'stop-plan-approval');
+  assert.equal(j.summary, "waiting for the owner's plan approval");
+  assert.equal(j.approval.ok, false);
+  assert.match(runCli(t, ['feat']).out, /next: stop-plan-approval/);
+});
+
+test('approvalState: no file, a current file and a stale file', () => {
+  const t = planRepo();
+  const dir = join(t.root, 'openspec', 'changes', 'feat');
+  const hash = readinessHash(t.root);
+  assert.deepEqual(approvalState(dir), { status: null, recorded: null, readiness: hash, ok: false });
+  put(t.root, { 'openspec/changes/feat/approval.md': approvalMd(hash) });
+  assert.deepEqual(approvalState(dir), { status: 'APPROVED', recorded: hash, readiness: hash, ok: true });
+  put(t.root, { 'openspec/changes/feat/approval.md': approvalMd('sha256:abc') });
+  assert.equal(approvalState(dir).ok, false);
+  assert.equal(RELEASE_FILE.test('CHANGELOG.md'), true, 'RELEASE_FILE is exported');
+});
+
+test('--ci output is unchanged by the approval row: no approval object, same pass or fail (AC-5)', () => {
+  const t = planRepo();
+  const r = ciMain(['--json'], t.env, t.root);
+  const j = JSON.parse(r.stdout);
+  assert.equal('approval' in j, false);
+  assert.deepEqual(Object.keys(j.readiness), ['status', 'met']);
+  assert.equal(j.readiness.met, true);
 });
 
 test('branchOk: the default branch and an unrelated branch stop with stop-branch; the change branch does not', () => {
@@ -2513,7 +2618,7 @@ test('format: ship-change skill exists, says "Use when", and its deliver-check p
 
 test('format: ship-change names every next.step the checker can return', () => {
   const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
-  const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready',
+  const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'stop-plan-approval', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready',
     'stop-merge-setup', 'disable-auto-merge', 'update-branch', 'enable-auto-merge', 'wait-merge',
     'retro', 'stop-retro-answers', 'archive', 'tick-roadmap', 'apply-proposals', 'open-archive-pr', 'archive-pr-ready', 'stop-archive', 'archived'];
   for (const s of steps) assert.ok(md.includes(`\`${s}\``), `names step ${s}`);
@@ -3910,4 +4015,11 @@ test('format: tdd-implementer has an apply-proposals call: exactly the approved 
   assert.match(md, /tasks\.md/);
   assert.match(md, /CHANGELOG/);
   assert.match(md, /test-first|test first/i);
+});
+
+test('collectState: pr facts carry the PR head, state and mergeable in pr mode too (conduct-check reads them)', () => {
+  const t = shipRepo();
+  t.gh.set('pr-view', { stdout: prJson({ headRefOid: 'abc1234'.padEnd(40, '0'), mergeable: 'CONFLICTING' }) });
+  const pr = collectState(t.root, 'feat', { env: t.env }).pr;
+  assert.deepEqual([pr.number, pr.state, pr.headRefOid, pr.mergeable], [12, 'OPEN', 'abc1234'.padEnd(40, '0'), 'CONFLICTING']);
 });

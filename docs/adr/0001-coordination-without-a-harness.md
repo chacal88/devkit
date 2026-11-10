@@ -31,6 +31,10 @@ PR) stay as they are, and the owner's plan approval remains a human gate.
   minutes). Waiting is bounded by the session: outside the app, one capped watch, then the owner
   re-runs the skill (Accepted). Auto-fix cannot be detected from the session (Mitigated: the
   skill says what will wake it).
+- Note: conducting a roadmap round (the next steps of several changes at once, each in its own
+  worktree, and a session cron that re-runs the skill while everything waits on GitHub) is an
+  exception recorded in ADR 0005 (0005-parallel-steps-and-a-session-wake-up.md). This ADR's
+  Decision governs everything else.
 
 ### Review trigger
 

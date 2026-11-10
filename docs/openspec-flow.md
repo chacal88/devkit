@@ -121,7 +121,7 @@ OpenSpec lists changes flat. To keep rounds, the order between them and "where a
 - [ ] export-audit-log
 ```
 
-- Each `## ` heading is a round; each `- [ ] <change-id>` line is a change, optionally with `(after: a, b)`. Anything else in the file is ignored.
+- Each `## ` heading is a round; each `- [ ] <change-id>` line is a change, optionally with `(after: a, b)` and a description after it (`- [ ] add-csv-export (after: auth-scopes) - export the table as CSV`). Indented lines under a change are its notes. The description and the notes are what `/conduct` reads to propose a schema for a new change; the session report ignores them. Anything else in the file is ignored.
 - The current round is the first one with an unticked line.
 - At session start, after the active change, the hook prints the current round, `done/total`, and the state of each unticked change, read from disk:
 
@@ -135,7 +135,87 @@ OpenSpec lists changes flat. To keep rounds, the order between them and "where a
   When more than one applies, the first row wins: an open change whose dependency isn't ticked shows as `waiting on`.
 
 - It is printed with one active change, several, or none, so a fresh session on `main` sees the plan too.
-- It only reports. Nothing is gated by it, and the hook never writes it: tick a line by hand (or let the agent do it) when the change is archived. Run each change of a round in its own session and branch; the roadmap is the shared checklist between them.
+- The session report only reports. The hook never writes the roadmap: tick a line by hand (or let the agent do it) when the change is archived. `/conduct` (next section) enforces `after:` before a change's first `implement`; `/ship-change` on its own does not. Run each change of a round in its own session and branch, or let `/conduct` run them in worktrees; the roadmap is the shared checklist between them.
+
+## Conducting a round: `/conduct`
+
+`conduct-check` (`plugins/openspec/hooks/conduct-check.mjs`) answers, for every change of the current round, what happens next, who does it and whether the session should wake itself later. It is read-only like `deliver-check`: it never writes files, refs or GitHub objects, and never fetches (the skill runs `git fetch origin --prune --quiet` first). It reuses `deliver-check` in-process, in each change's worktree, for everything from `implement` to `archived`.
+
+```
+node conduct-check.mjs [--json] [--round <n>] [--busy <id,id>] [--watch[=<minutes>]]
+```
+
+Run it from any checkout of the repository. Exit 0 is a report (a blocked change is a state, not an exit code); exit 3 is a setup or usage error: no `openspec/`, no git, an unreadable default branch, a missing `origin/<base>` (the message says `git fetch origin <base>`), an unknown option or a `--round` out of range.
+
+**The round.** The default branch is `default_branch` from GitHub. The roadmap is read from `origin/<base>`, never from the working tree, so a tick counts only once its archive PR landed. The current round is the first with an unticked line; with it fully ticked the next unticked round is current in the same call, and with none left `roadmapDone` is true. `--round <n>` starts at round `n`; earlier rounds with unticked lines are listed in `skipped` and never conducted. An `after:` id that is not ticked on `origin/<base>` (missing from the roadmap, or in a skipped round, included) keeps its dependent waiting.
+
+**Worktrees.** Every change runs in its own git worktree on the branch named after it. A worktree is found by branch (`<id>` or `chore/archive-<id>`) at whatever path, so one created earlier, by hand or by the session, is reused and a second one is never made; prunable entries are ignored, and a worktree stopped in the middle of a rebase is still found. Without one:
+
+| Facts | `next.step` | What the main session runs |
+|---|---|---|
+| local branch `<id>` | `worktree` | `git worktree add <path> <id>` |
+| only `origin/<id>` | `worktree` | `git worktree add --track -b <id> <path> origin/<id>` |
+| `openspec/changes/<id>/` on `origin/<base>` | `worktree` | `git worktree add -b <id> <path> origin/<base>` |
+| nothing | `create` | ask the schema, then the same `-b` command |
+
+The path is `<main checkout>/.claude/worktrees/<id>`, whichever worktree `/conduct` was typed in.
+
+**Planning rows**, first match wins, before any delivery row and only while no task is ticked (once work has started the planning gates were passed):
+
+| Row | Condition | `next.step` | Who |
+|---|---|---|---|
+| C1 | no worktree, no branch, no folder on `origin/<base>` | `create` | owner, askable |
+| C2 | worktree without a change folder | `new-change` | owner, askable |
+| P-1 | schema has `requirements`, `requirements.md` missing | `grill` | owner, askable |
+| P-2 | a plan file (`proposal.md`, `design.md`, `tasks.md`) missing | `plan` | `change-planner` |
+| P-3 | `readiness.md` missing or older than the newest plan file by more than 2 s | `readiness` | `plan-readiness-reviewer` |
+| P-4 | readiness `NEEDS-REVISION` | `revise-plan` | `change-planner` |
+| P-4b | readiness `BLOCKED` | `stop-readiness-blocked` | owner, not askable |
+| P-5 | `devkit`, no current `approval.md` | `approve` | owner, askable |
+
+Every new change, `devkit-lite` included, first asks the owner to confirm its schema: `create` and `new-change` carry `proposedSchema` and a one-line `reason`, computed from the roadmap line's description against the criteria in the `openspec/config.yaml` header (a line with no description is proposed `devkit`, the strictest track). The answer is recorded by the change folder itself (its `.openspec.yaml`), so a resumed run never asks twice. After that a `devkit-lite` change has no owner row before its first `implement`.
+
+**Dependency rows**, after the planning rows and before delivery, while no task is ticked, for a change with `after:` ids:
+
+| Row | Condition | `next.step` | Who |
+|---|---|---|---|
+| D-1 | an `after:` id not ticked on `origin/<base>` | `wait-dependencies` (state `waiting on <ids>`) | none |
+| D-2 | every dependency ticked on `origin/<base>`, but the roadmap at the worktree's `HEAD` lacks a tick | `rebase` (`git -C <worktree> rebase --autostash origin/<base>`) | main session |
+| D-3 | no `audit.md`, or its `Base:` commit lacks a tick, or a plan file is newer than it by more than 2 s | `audit` | `plan-reality-auditor` |
+| D-4 | `audit.md` `OUTDATED` | `revise-plan` | `change-planner` |
+| D-5 | `audit.md` `UNVERIFIABLE` | `stop-audit-unverifiable` | owner, not askable |
+
+Planning of a dependent change (grill, plan, readiness, approval) runs while its dependency is still in progress; only the delivery rows wait. A rebase left in progress is `blocked: rebase of <id> stopped`.
+
+**Delivery rows.** Once planning and dependencies pass, `deliver-check`'s `next` is mapped to an actor and passes through unchanged: `implement`, `fix-*`, `apply-proposals` go to `tdd-implementer`; `commit`, `open-pr`, `push`, `open-archive-pr` to `commit-and-pr`; `verify` to `pr-verifier`; `retro` to a `general-purpose` subagent running the retro skill; `review` and `gate` to the main session; the small PR steps (`edit-pr-body`, `enable-auto-merge`, `disable-auto-merge`, `update-branch`, `archive`, `tick-roadmap`) to the main session; `wait-checks` and `wait-merge` to GitHub; `ready`, `archive-pr-ready`, `stop-review-deadlock` and `answer` to the owner (not askable); the `stop-*` rows and `blocked` stop the change. Three overrides sit in front of that mapping:
+
+- **Release-file conflict.** A change PR (item 5) or an archive PR that conflicts with its base is classified with `git merge-tree --write-tree --name-only --no-messages origin/<base> HEAD`. Only release files (`plugins/*/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/catalog.md`) gives `resolve-release-conflict` (with `paths`); any other path is `blocked: item 5 (conflict in <paths>)` or `blocked: archive (archive-pr): conflict in <paths>`; a clean merge (GitHub's view is stale) is `update-branch` in `merge` mode.
+- **A branch we rewrote.** An open PR whose head is not an ancestor of `HEAD` but is in the branch's reflog was rewritten by our own rebase. `push-rebased` (to `commit-and-pr`, with `oldHead`, the dirty `paths` and the command `git push --force-with-lease=<branch>:<oldHead> origin <branch>`) comes before `deliver-check`'s own rows, which would commit and push plainly and be rejected; only `disable-auto-merge` still comes first. After the push every review is stale, so `review` and `verify` follow. A PR head that is not in the reflog is somebody else's push and stays `blocked: ... not in local history`.
+- **Archives are serialized.** A change at `archive` waits (`waiting on <id> (archive)`) while another conducted change has an archive branch, and the later of two changes that both want to archive waits for the earlier one, so two archive PRs never tick adjacent roadmap lines. Retro and answers still run in parallel.
+
+**Release-file conflicts: `release-rebase.mjs`.** When a change PR (or an archive PR) conflicts only in release files, the `resolve-release-conflict` step runs, in the change's worktree, `node <plugin>/hooks/release-rebase.mjs --base <base> [--json]`. Several changes bump the same version lines, so the resolution is a rule, not a merge:
+
+- **Classification.** The conflicted paths must all be in the release list (`plugins/*/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/catalog.md`, the same list ADR 0003 exempts). Any other path, a manifest edited beyond its version fields (a `description`, a new pack), a catalog conflict without `scripts/gen-catalog.py`, or a CHANGELOG that does not hold exactly one new entry, aborts: the branch is back at its old head, the worktree is clean, the exit code is 2 and `conflicts` (or `error`) says why. The change then stays `blocked: item 5`.
+- **The replay keeps the base.** The script runs `git rebase origin/<base>` and, at every stop, keeps the base's side of each conflicted release file. During a rebase that is `git checkout --ours`: `--ours` is the upstream being rebased onto, `--theirs` is the change's own commit. The change's side is not lost: it is read from the old head.
+- **The version rule.** For each pack whose `plugin.json` version differs between the merge base and the old head, and for `metadata.version`, the final version is the base's version with the change's own bump applied: base 0.7.0 over a change that went 0.6.0 to 0.6.1 gives 0.7.1; a change 0.6.0 to 0.7.0 gives 0.8.0; a change that did not touch a version keeps the base's. The manifests are rewritten from the base's text (key order and 2-space JSON kept), whichever file happened to conflict.
+- **CHANGELOG.** The change's own entry (the one not in the merge base) is renumbered to the new `metadata.version` and placed above the base's newest entry; every base entry is kept.
+- **Catalog.** With a catalog conflict, or any manifest rewritten, `scripts/gen-catalog.py` runs.
+- **The edits stay uncommitted.** The script never pushes and never commits after the rebase. The subagent runs the project's test command and stops on red. The next recompute gives `push-rebased`: commit the edits, then `git push --force-with-lease=<branch>:<oldHead>`. Every review is stale after the rebase, so `review` and `verify` run again on the pushed head; ADR 0002 accepts that cost ("Strict up-to-date re-runs stale reviews").
+
+**What the skill runs.** `/conduct [round <n>]` prunes stale worktrees, runs `git fetch origin --prune --quiet`, then `conduct-check --json` and loops: it runs the main session's steps inline, dispatches every id in `dispatch` at once (at most three steps, never two steps of one change), asks the first owner gate, and recomputes after every finished step or answered question. Each dispatch starts with a preamble that pins the subagent to the change's worktree: "Work only in `<worktree>` on branch `<branch>`; every file path is absolute under it; start every Bash command with `cd <worktree> && `; do not fetch." Only the owner's session fetches. The delivery rows follow the ship-change skill's Loop for the same `next.step`; a stop sets that one change aside.
+
+**Owner gates.** The skill asks, one question at a time: the schema of every new change (before `git worktree add`, `devkit-lite` included), the grill's questions, plan approval (`approval.md`, written only from your own message), and the answer to each retro proposal. After the schema answer, `/conduct` is the go-ahead for a `devkit-lite` change. Nothing else asks you: a change moves from `not started` to `archived` on its own, except for a PR merge in `pr` mode and the decisions the checker lists as not askable.
+
+**Background subagents.** Steps are dispatched as background subagents so an owner question can be asked while they run. While a question is pending the turn is blocked: running subagents go on, and their results are handled after the answer. Where the host has no background dispatch, the skill dispatches the `dispatch` set in one message (parallel, foreground) and asks owner gates between batches. A subagent cannot sleep in the foreground, so no step waits by sleeping.
+
+**The wake-up.** When nothing can move without GitHub, the skill runs one capped watch (`conduct-check --watch`, 9 minutes by default). If something still waits on GitHub it leaves one recurring session cron, every 20 minutes, whose prompt is `/conduct --wake` (or `/conduct round <n> --wake`); a firing is a run that recomputes everything but is not an owner message: it never takes a `devkit-lite` change's first `implement`, nor writes `approval.md` or a retro answer. At the end of every run it lists the session's crons and reconciles them with `wake.cron`: none listed and wanted, create one; one with the same prompt, keep it; another prompt or several, delete all and create one; not wanted, delete all. The report ends with `wake-up: cron <id> every 20 minutes` or `wake-up: none`. Limits of a session cron: it fires only while the session is idle, up to ten minutes late for this period; it expires after seven days (the next run that wants one recreates it); it dies with the session (the next `/conduct` recreates it). The decision and its review trigger: [ADR 0005](adr/0005-parallel-steps-and-a-session-wake-up.md).
+
+**The result.** `--json` (`version: 1`) carries `base`, `round` (`n`, `title`, `done`, `total`), `startedAt`, `skipped`, `roadmapDone`, and one entry per conducted change: `id`, `round`, `after`, `text`, `notes`, `schema`, `worktree`, `branch`, `base`, `next` (always `step`, `actor` and `reason`, plus the step's own fields; `agent` for a subagent, `askable` for an owner row), `state` and `deliver` (`deliver-check`'s `summary`, `met` and `next`, or null before delivery). Then `dispatch`, `owner`, `github`, `stopped` and `busy` (ids), `end` and `wake`. Every change has exactly one `state`: `ready to run: <step>`, `running` (it is in `--busy`), or, when nothing can move, one of `archived`, `waiting on <ids>`, `waiting for the owner: <gate>`, `waiting on GitHub: <what>`, `blocked: <reason>`. The human output is one `<id>: <state>` line per change, then `dispatch:`, `owner:`, `github:` and `wake:`.
+
+- **`dispatch`** lists the changes whose actor is a subagent, the review, a gate or the main session, in roadmap order, without the `--busy` ids, at most 3 minus the busy ones (the main session's steps take seconds and are not capped). A change has one next step, so two dispatched steps never belong to the same change. A blocked change does not stop the others: its dependents read `waiting on <id>` and independent changes keep their rows.
+- **`end`** is true when `dispatch`, `owner` (the askable gates) and `busy` are empty: nothing can move without GitHub or the owner.
+- **The watch.** `--watch[=<minutes>]` (default 9, at most 30) applies only at `end` with a change waiting on GitHub. It polls the waiting changes every `DEVKIT_POLL_SECONDS` (default 60) until one of them moves or the cap is reached, then returns the recomputed round with `watch: { minutes, timedOut }`.
+- **`wake`.** `wake.cron` is true exactly when `end` holds and something waits on GitHub (another change may wait on the owner: the cron can still advance the first). It is false when the roadmap is done, when everything waits on the owner or is stopped, and when anything is dispatchable. `wake.schedule` is `*/20 * * * *`; `wake.prompt` is `/conduct`, or `/conduct round <n>` under `--round <n>`.
 
 ## The gates
 
@@ -144,13 +224,15 @@ OpenSpec lists changes flat. To keep rounds, the order between them and "where a
 | Plan complete before apply | OpenSpec CLI | All artifacts that `apply` requires exist |
 | Plan approved before product code | Hook on Edit/Write and shell writes | `readiness.md` contains `- Status: APPROVED` (schemas with a `readiness` artifact only) |
 | Code written by the implementer | Same hook | In the `devkit` schema, the writer is the `tdd-implementer` agent |
-| One writer per gate file | Same hook | `readiness.md` ← `plan-readiness-reviewer`; `reviews/<reviewer>.md` ← that reviewer; `evidence.md` ← `pr-verifier` |
+| One writer per gate file | Same hook | `readiness.md` ← `plan-readiness-reviewer`; `reviews/<reviewer>.md` ← that reviewer; `evidence.md` ← `pr-verifier`; `approval.md` ← the main session only, from your own message (no subagent writes it) |
 | Review and evidence before the PR | Hook on `gh pr create` | `reviews/` has `code-quality-reviewer.md` and `test-coverage-reviewer.md`, every review there says `Verdict: approved` (or `declined`), and `evidence.md` has content |
 | No destructive git | Hook on Bash | The command isn't a force push, `--no-verify`, `reset --hard`, `clean -f`, `branch -D`, `checkout -- .`, `add -A` / `add .`, or `gh pr merge --admin` |
 
 Planning files under `openspec/`, anything under `.claude/`, and anything outside the repository stay open: you can always fix the plan.
 
 **How roles work.** When a subagent calls a tool, Claude Code passes its type (for example `devkit-core:tdd-implementer`) to the hook; the main session has none. The guard compares that with the file's owner. A subagent can still be given a misleading prompt, so each reviewer is told to ignore verdicts suggested by its caller; the separation makes self-approval impossible by accident and visible on purpose, not impossible.
+
+**Worktrees.** The hooks resolve the root and the change from the path being written, not from the session's directory: a file in a linked worktree (`git worktree add`) is gated by that worktree's change, `cd <worktree> && echo x > f` is judged against the worktree, and `gh pr create` after `cd <worktree>` is checked against the worktree's reviews. A session started in the main checkout therefore cannot write a worktree's product code before its readiness is approved.
 
 **Which change is active.** `DEVKIT_CHANGE` if set; else, on a branch `chore/archive-<id>` for a known change `<id>`, that change while it is open (and none once it moved to `openspec/changes/archive/`); else the open change whose name the branch ends with, or contains; else the only open change. With several open changes and no branch match, code edits are blocked until you name the branch. With no open change, nothing is gated. On an archive branch whose change has moved, the hooks gate nothing, even while other changes are open: the archive PR is never held to another change's readiness or reviews.
 
@@ -212,6 +294,8 @@ The rule goes by author type, not by intent: the checker cannot tell whether a b
 - **Summaries.** `auto-merge on: waiting for <what>` (`GitHub to merge`, `branch rules outside the delivery contract (for example a required approval)`, `GitHub to compute mergeability`, or `GitHub (mergeStateStatus <value>)`); `blocked: merge setup`. Otherwise the summary is the usual one, including `ready` at 8/8 with auto-merge off.
 - **`merge` object.** `{ "method", "setup": { "ok", "missing" }, "autoMerge", "state", "mergeStateStatus", "waitingFor" }`, present only when `ship` is `merge`.
 - **The wait.** With `--watch[=<minutes>]` at `wait-merge`, the checker polls `gh pr view <n>` every `DEVKIT_POLL_SECONDS` (default 30) until the PR is not open, auto-merge goes off, the head changes, `gh` fails or the cap (default 9 minutes, at most 30) is reached, then computes the contract again: the result is the first archive step (the retro) once GitHub merged, or `auto-merge on: waiting for <what>`.
+
+- **Plan approval on disk.** For schemas with a `readiness` artifact, a new step `stop-plan-approval` sits right after `stop-not-approved`: readiness is `APPROVED`, no task is ticked yet, and `approval.md` is missing or records an earlier `readiness.md`. The summary is `waiting for the owner's plan approval`, the exit code 1, and `next` carries `readiness` (`sha256:` and the first 12 hex of the hash of `readiness.md`), `file` and `reason`. `approval.md` is written by the main session only, from your own message, in the form `- Status: APPROVED`, `- Readiness: sha256:<12 hex>`, `- Date`, `- Owner's words`. A new readiness round changes the hash, so you are asked again; a change that already has a ticked task keeps running. The JSON gains an additive `approval` object (`status`, `recorded`, `readiness`, `ok`) for these schemas; `version` stays 1, and `--ci` is unchanged. `devkit-lite` never gets this step.
 
 ### After the merge: the archive steps
 
@@ -320,7 +404,7 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 
 **Limits of `merge` mode.** Zero approvals are required, so a `CHANGES_REQUESTED` review does not stop GitHub's merge on its own; item 7 covers it while the skill runs, and `disable-auto-merge` fires when a review lands before the merge. Between skill runs GitHub merges on its required checks alone: a comment posted after auto-merge was enabled does not stop the merge unless someone disables it. A PR can edit `devkit-reviews.yml` (or, in this repository, `deliver-check.mjs`), and the edited version runs on that PR; reviewers see those diffs. Organization-level required workflows are out of scope.
 
-**Go-ahead.** In `devkit`, `readiness.md` must say `- Status: APPROVED`. In `devkit-lite`, the go-ahead is your message asking to ship or apply the change.
+**Go-ahead.** In `devkit`, `readiness.md` must say `- Status: APPROVED`, and then your approval of that plan must be recorded in `approval.md` (the skill writes it from your own message at `stop-plan-approval`). In `devkit-lite`, the go-ahead is your message asking to ship or apply the change.
 
 **App and CLI.** At the "wait for checks" step it runs one capped watch (9 minutes by default). In the CLI it then reports the state and stops; a red check is fixed the next time you run it. In the Claude desktop app a red check after the watch is fixed in the same run, and when it stops `in progress` the app's Auto-fix wakes the session on a CI failure, a merge conflict or a review comment; that session runs `ship-change` again. Auto-fix does not wake on green checks, which is why the watch exists.
 
@@ -349,15 +433,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.7.1 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.7.1>/plugins/openspec/hooks
+          # pinned to the commit of v0.8.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.8.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.7.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.7.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.8.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.8.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@latest` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -426,6 +510,9 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | `archive PR open: waiting for <what>` | The archive PR has auto-merge on and GitHub has not merged yet | Run `deliver-check <id> --watch` or `ship-change` again |
 | `deliver-check` exits 3: `no openspec/changes/<id>/ and no openspec/changes/archive/<date>-<id>/` | The id is in neither place in this checkout | Switch to the default branch and pull, or to the change's branch |
 | `in progress: item 6` | Required checks are still running, or failing | Run `deliver-check <id> --watch` or `ship-change` again; a failing check is fixed through `tdd-implementer` |
+| `git worktree list` shows a worktree whose folder is gone (`prunable`) | A change's worktree was deleted by hand | `git worktree prune`; `/conduct` prunes at its start and reuses a worktree found by branch |
+| `blocked: rebase of <id> stopped: resolve or abort it in <worktree>` | A rebase left in progress in the change's worktree (a conflict outside the release files) | Resolve it there, or `git -C <worktree> rebase --abort`, then run `/conduct` again; the skill aborts only when you ask |
+| A conduct cron keeps firing after the round ended | The session cron outlived its need (or a second one was created by hand) | Run `/conduct` (it deletes every conduct cron when `wake.cron` is false), or `CronList` and `CronDelete <id>` for each job whose prompt starts with `/conduct` |
 | The hooks don't fire at all | `devkit-openspec` isn't installed or enabled, or the project isn't opted in: `openspec/config.yaml` doesn't select `devkit` or `devkit-lite` (a renamed schema counts) | `/plugin` → enable `devkit-openspec@devkit`; set `schema: devkit` or `devkit-lite` in `openspec/config.yaml` |
 
 ## Cost
@@ -441,8 +528,10 @@ Every agent run costs time and tokens, so the defaults keep runs few and cheap:
 ## Limits
 
 - Who merges depends on the ship mode: in `plan` and `pr` mode the merge is always yours; in `merge` mode GitHub merges, but only after `ship-change` enabled auto-merge at 8/8 on a prepared repository (see the limits above). In `devkit-lite` the hooks allow the main session to edit product code, so only the `ship-change` skill keeps it off product code.
-- `openspec/roadmap.md` reports the order between changes; it does not enforce it. A change can be started before the ones it is `after:`.
+- `openspec/roadmap.md` reports the order between changes; `/conduct` enforces `after:` before a change's first `implement`, but `/ship-change <id>` on its own does not: a change can be started before the ones it is `after:`.
+- The `/conduct` wake-up is a session cron (see [Conducting a round](#conducting-a-round-conduct)): it needs the session open, fires only when the session is idle, is dropped on a restart and expires after seven days. Nothing outside the session wakes a round.
 - Hooks can veto an action; they can't make a step happen. The guarantee is "no code before an independently approved plan, no PR without approved reviews and evidence", not "the review was thorough".
 - Shell writes are detected from the command (`>`, `>>`, `tee`, `sed -i`, `cp`, `mv`, `install`, `touch`, `truncate`). A path built from a variable (`"$TMP"/x`) or a script that writes from inside an interpreter (`python -c`, `node -e`) is not resolved, so it isn't gated; CI is the backstop.
 - OpenSpec's schema commands are marked experimental by the CLI and may change between versions. The schemas here are validated against OpenSpec 1.16.
+- CI does not check `approval.md`: the main session writes it, so CI could see only that the file exists, not that you gave it, and it would fail every open `devkit` PR made before it existed. The recorded approval is a local gate (`deliver-check` and the skill).
 - `readiness.md` approval is not invalidated automatically when the plan changes later; the schema tells the agent to re-run it, and review in the PR is the backstop.

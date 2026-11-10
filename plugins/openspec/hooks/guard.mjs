@@ -145,7 +145,7 @@ export function projectSchema(root) {
 // Has this project chosen devkit? Its openspec/config.yaml selects a devkit schema.
 export function optedIn(root) { return DEVKIT_SCHEMAS.includes(projectSchema(root)); }
 
-function schemaFile(root, schema) {
+export function schemaFile(root, schema) {
   const dataHome = process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share');
   for (const p of [
     join(root, 'openspec', 'schemas', schema, 'schema.yaml'),
@@ -201,10 +201,13 @@ export function classify(root, change, file) {
   const parts = rel.split(sep);
   if (parts[0] === '.claude') return { kind: 'exempt' };
   if (parts[0] !== 'openspec') return { kind: 'code' };
+  // approval.md is main-session only wherever it sits: any change's folder, whatever the active change is.
+  if (parts[1] === 'changes' && parts.length === 4 && parts[3] === 'approval.md') return { kind: 'gate', owner: '' };
   if (!change || parts[1] !== 'changes' || parts[2] !== change) return { kind: 'planning' };
   const inner = parts.slice(3).join('/');
   if (inner === 'readiness.md') return { kind: 'gate', owner: 'plan-readiness-reviewer' };
   if (inner === 'evidence.md') return { kind: 'gate', owner: 'pr-verifier' };
+  if (inner === 'approval.md') return { kind: 'gate', owner: '' }; // the main session only
   const rv = inner.match(/^reviews\/([\w-]+)\.md$/);
   if (rv) return { kind: 'gate', owner: rv[1] };
   if (inner.startsWith('reviews/')) return { kind: 'gate', owner: '(a reviewer, as reviews/<its-name>.md)' };
@@ -216,6 +219,10 @@ function writeViolation(root, ch, actor, file) {
   const c = classify(root, ch.name, file);
   if (c.kind === 'outside' || c.kind === 'exempt') return null;
   const who = actor || 'the main session';
+  if (c.kind === 'gate' && c.owner === '') {
+    return actor === '' ? null
+      : `approval.md is written only by the main session, from the owner's own message; not by ${who}`;
+  }
   if (c.kind === 'gate') {
     return actor === c.owner ? null
       : `${relative(root, resolve(root, file))} is written only by the ${c.owner} agent, not by ${who}. Dispatch it with the Agent tool (subagent_type devkit-core:${c.owner}).`;
@@ -254,19 +261,29 @@ export function sanitize(cmd) {
   return out.replace(/'[^']*'/g, "''").replace(/"(?:[^"\\]|\\.)*"/g, '""');
 }
 
+// The command's segments (split on `&&`, `||`, `;` and newlines, quoted text
+// and heredoc bodies removed) as { text, dir }, where `dir` is the directory the
+// segment runs in: `cwd`, moved by any `cd <dir>` before it. `cd` segments
+// themselves are not yielded. Without `cwd`, `dir` is undefined.
+export function commandSegments(cmd, cwd) {
+  const out = [];
+  let dir = cwd;
+  for (const seg of sanitize(cmd).split(/&&|\|\||[;\n]/)) {
+    const text = seg.trim();
+    const cdm = text.match(/^cd\s+([^\s|<>()]+)\s*$/);
+    if (cdm) { if (dir) dir = resolve(dir, cdm[1].replace(/^~(?=\/|$)/, homedir())); continue; }
+    if (text) out.push({ text, dir });
+  }
+  return out;
+}
+
 // Paths a command writes to (redirections, tee, sed -i, cp/mv/install/touch/
 // truncate destinations), resolved against `cwd` and any `cd <dir>` earlier in
 // the command. Returns absolute paths when `cwd` is given.
 export function bashWrites(cmd, cwd) {
-  const s = sanitize(cmd);
   const targets = [];
-  let dir = cwd;
-  const at = (t) => (dir ? resolve(dir, t) : t);
-  // Walk segments in order so a `cd` applies to what follows it.
-  for (const seg of s.split(/&&|\|\||[;\n]/)) {
-    const text = seg.trim();
-    const cdm = text.match(/^cd\s+([^\s|<>()]+)\s*$/);
-    if (cdm) { if (dir) dir = resolve(dir, cdm[1].replace(/^~(?=\/|$)/, homedir())); continue; }
+  for (const { text, dir } of commandSegments(cmd, cwd)) {
+    const at = (t) => (dir ? resolve(dir, t) : t);
     for (const m of text.matchAll(/(?:^|[^<>&\d])\d?>>?\s*([^\s;&|<>()]+)/g)) targets.push(at(m[1]));
     for (const m of text.matchAll(/\btee\s+(?:-a\s+)?([^\s;&|<>()]+)/g)) targets.push(at(m[1]));
     const words = text.split(/\s+/).filter(Boolean);
@@ -320,13 +337,17 @@ function guardEdit(input) {
   const ti = input.tool_input || {};
   const file = ti.file_path || ti.notebook_path || ti.path;
   if (!file) return;
-  const root = findRoot(input.cwd || dirname(resolve(file)));
+  // The root comes from the file, not the session: a file in a linked worktree
+  // is gated by that worktree's change, and by that root's own opt-in.
+  const root = findRoot(dirname(resolve(input.cwd || process.cwd(), file)));
   if (!root || !optedIn(root)) return;
   const ch = resolveChange(root);
   if (!ch) return;
   if (ch.ambiguous) {
     const c = classify(root, null, file);
     if (c.kind === 'code') block(`several active OpenSpec changes (${ch.ambiguous.join(', ')}). Name the branch after the change you are implementing, or start Claude Code with DEVKIT_CHANGE=<name>.`);
+    const why = c.kind === 'gate' && c.owner === '' ? writeViolation(root, { name: null }, role(input), file) : null;
+    if (why) block(why);
     return;
   }
   const why = writeViolation(root, ch, role(input), file);
@@ -335,20 +356,37 @@ function guardEdit(input) {
 
 function guardBash(input) {
   const cmd = (input.tool_input || {}).command || '';
-  const root = findRoot(input.cwd);
-  if (!root || !optedIn(root)) return;
-  const why = gitViolation(cmd);
+  // The git rules follow the session's project; writes and PRs follow their own target root.
+  const sessionRoot = findRoot(input.cwd);
+  const why = sessionRoot && optedIn(sessionRoot) ? gitViolation(cmd) : null;
   if (why) block(`blocked: ${why}. If you really need it, ask the user to run it.`);
-  const ch = resolveChange(root);
-  if (!ch) return;
-  const cwd = input.cwd || root;
-  if (!ch.ambiguous) {
-    for (const t of bashWrites(cmd, cwd)) {
-      const v = writeViolation(root, ch, role(input), t);
-      if (v) block(`${v} (Writing it through the shell is gated the same way.)`);
+  const cwd = input.cwd || process.cwd();
+  // Each root's change is resolved once; a target or a segment is judged by its own root.
+  const changes = new Map();
+  const changeAt = (root) => {
+    if (!changes.has(root)) changes.set(root, resolveChange(root));
+    return changes.get(root);
+  };
+  for (const t of bashWrites(cmd, cwd)) {
+    const root = findRoot(dirname(t));
+    const ch = root && optedIn(root) && changeAt(root);
+    if (!ch) continue;
+    if (ch.ambiguous) {
+      // Only the approval record is judged without a single active change.
+      const c = classify(root, null, t);
+      const a = c.kind === 'gate' && c.owner === '' ? writeViolation(root, { name: null }, role(input), t) : null;
+      if (a) block(`${a} (Writing it through the shell is gated the same way.)`);
+      continue;
     }
+    const v = writeViolation(root, ch, role(input), t);
+    if (v) block(`${v} (Writing it through the shell is gated the same way.)`);
   }
-  if (/\bgh\s+pr\s+create\b/.test(sanitize(cmd))) {
+  for (const { text, dir } of commandSegments(cmd, cwd)) {
+    if (!/\bgh\s+pr\s+create\b/.test(text)) continue;
+    // A `cd` into a folder with no project does not leave the session's: fall back to its root.
+    const root = findRoot(dir) ?? sessionRoot;
+    const ch = root && optedIn(root) && changeAt(root);
+    if (!ch) continue;
     const v = prViolation(root, ch);
     if (v) block(v);
   }
@@ -364,15 +402,30 @@ function guardBash(input) {
 export function readRoadmap(root) {
   const file = join(root, 'openspec', 'roadmap.md');
   if (!existsSync(file)) return null;
+  return parseRoadmap(readFileSync(file, 'utf8'));
+}
+
+// The same parse over roadmap text (conduct-check reads origin/<base>:openspec/roadmap.md).
+export function parseRoadmap(text) {
   const rounds = [];
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+  let item = null;
+  const notes = [];
+  const close = () => { if (item) item.notes = notes.join('\n').trim(); item = null; notes.length = 0; };
+  for (const line of String(text).split(/\r?\n/)) {
     const h = line.match(/^##\s+(\S.*?)\s*$/);
-    if (h) { rounds.push({ title: h[1], items: [] }); continue; }
-    const m = line.match(/^\s*[-*]\s+\[([ xX])\]\s+([A-Za-z0-9][\w.-]*)(?:\s+\(after:\s*([^)]*)\))?/);
-    if (!m || rounds.length === 0) continue;
-    const after = (m[3] || '').split(',').map((d) => d.trim()).filter((d) => /^[A-Za-z0-9][\w.-]*$/.test(d));
-    rounds[rounds.length - 1].items.push({ id: m[2], done: m[1] !== ' ', after });
+    if (h) { close(); rounds.push({ title: h[1], items: [] }); continue; }
+    const m = line.match(/^\s*[-*]\s+\[([ xX])\]\s+([A-Za-z0-9][\w.-]*)(?:\s+\(after:\s*([^)]*)\))?(.*)$/);
+    if (m && rounds.length > 0) {
+      close();
+      const after = (m[3] || '').split(',').map((d) => d.trim()).filter((d) => /^[A-Za-z0-9][\w.-]*$/.test(d));
+      item = { id: m[2], done: m[1] !== ' ', after, text: m[4].replace(/^\s*[—:-]?\s*/, '').trim(), notes: '' };
+      rounds[rounds.length - 1].items.push(item);
+      continue;
+    }
+    if (item && /^( {2,}|\t)\S/.test(line)) notes.push(line.replace(/^ {2}/, '').replace(/\s+$/, ''));
+    else if (item && line.trim() !== '') close();
   }
+  close();
   return rounds;
 }
 

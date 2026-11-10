@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 — conduct rounds
+
+- **devkit-openspec**: the `conduct` skill conducts every change of the current `openspec/roadmap.md` round from creation to archive. `conduct-check` (read-only, `--json`) computes each change's next step, who does it and whether the session should wake itself later; independent changes run their steps in parallel git worktrees (at most three at once, as background subagents), and a change with `after:` plans early and waits for its dependency's archive. `release-rebase` resolves release-file conflicts (versions, CHANGELOG, catalog) by rule, in the change's worktree. `/conduct round <n>` starts at a named round.
+- The hooks are worktree-aware: the root comes from the edited file or from a command's own `cd`, not only from the session's folder, and the opt-in check applies to each target root.
+- `approval.md`: the owner's recorded plan approval, written only by the main session from the owner's own message. `deliver-check` gains the `stop-plan-approval` stop for a `devkit` change not yet started whose readiness is APPROVED but has no current approval; a change with a ticked task is unaffected.
+- Docs: ADR 0005 records parallel step subagents and a session wake-up (every 20 minutes) as an exception to ADR 0001; round 5 of `openspec/roadmap.md` is the dogfood round; the CI snippet pins `v0.8.0`.
+
 ## 0.7.1 — retro of devkit-opt-in
 
 - **devkit-core** 0.5.2: `tdd-implementer` stops a hung command by its own PID only, never `pkill`/`killall` by pattern.

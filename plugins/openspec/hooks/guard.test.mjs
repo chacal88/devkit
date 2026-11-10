@@ -1,15 +1,17 @@
 // node --test plugins/openspec/hooks/guard.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
+import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
 import { gitRepo, put, commitAll, git as gitIn } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
 import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
+import './conduct-check.test.mjs'; // conduct-rounds: the round computation
+import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
 import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
@@ -302,9 +304,9 @@ const ROADMAP = `# Roadmap
 test('readRoadmap parses rounds, ticks and dependencies, skipping junk', () => {
   const root = repo({ roadmap: '# R\nintro text\n- [ ] orphan-before-any-round\n## Round A\n- [X] a\n- [ ] b (after: a)\nnot a line\n- [ ]\n* [ ] c\n' });
   assert.deepEqual(readRoadmap(root), [{ title: 'Round A', items: [
-    { id: 'a', done: true, after: [] },
-    { id: 'b', done: false, after: ['a'] },
-    { id: 'c', done: false, after: [] },
+    { id: 'a', done: true, after: [], text: '', notes: '' },
+    { id: 'b', done: false, after: ['a'], text: '', notes: '' },
+    { id: 'c', done: false, after: [], text: '', notes: '' },
   ] }]);
   assert.equal(readRoadmap(repo()), null, 'no roadmap file');
 });
@@ -879,4 +881,220 @@ test('migration items 3 and 4 keep the first backup (cp -n) and write through a 
     assert.doesNotMatch(item.Command, /> "\$[fr]"\s*$/m, `item ${n} never writes the target directly`);
     assert.ok(item.Undo, `item ${n} keeps its Undo`);
   }
+});
+
+// ---------------------------------------------------------------- worktrees (conduct-rounds D5)
+
+// The main checkout is on `main` with no open change; `.claude/worktrees/feat`
+// is a real linked worktree on branch `feat` holding the devkit change `feat`.
+function worktreeRepo({ readiness = '- Status: NEEDS-REVISION\n', config = 'schema: devkit\n' } = {}) {
+  const main = gitRepo({ config });
+  const wt = join(main, '.claude', 'worktrees', 'feat');
+  gitIn(main, 'worktree', 'add', '-q', wt, '-b', 'feat');
+  put(wt, { 'openspec/changes/feat/.openspec.yaml': 'schema: devkit\n', 'openspec/changes/feat/readiness.md': readiness });
+  return { main, wt };
+}
+const editAt = (cwd, file, a) => run('edit', { cwd, tool_name: 'Write', tool_input: { file_path: file }, ...agent(a) });
+const bashAt = (cwd, command, a) => run('bash', { cwd, tool_name: 'Bash', tool_input: { command }, ...agent(a) });
+
+test('commandSegments: yields text and dir per segment, following cd; bashWrites output is unchanged', () => {
+  assert.deepEqual(commandSegments('cd a && echo x > b.txt; ls\npwd', '/r'), [
+    { text: 'echo x > b.txt', dir: '/r/a' }, { text: 'ls', dir: '/r/a' }, { text: 'pwd', dir: '/r/a' },
+  ]);
+  assert.deepEqual(commandSegments("echo 'a && b'", '/r').map((s) => s.dir), ['/r']);
+  assert.deepEqual(commandSegments('ls').map((s) => s.dir), [undefined]);
+  assert.deepEqual(bashWrites('cd /w && echo x > src/a.ts', '/main'), ['/w/src/a.ts']);
+});
+
+test('worktree: an Edit of a file in a worktree is gated by the worktree change, whatever the session cwd (D5)', () => {
+  const { main, wt } = worktreeRepo();
+  const r = editAt(main, join(wt, 'src', 'a.ts'), 'tdd-implementer');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /Status: NEEDS-REVISION/);
+  assert.equal(editAt(main, join(main, 'src', 'a.ts')).code, 0, 'a file in the main checkout, no open change: not gated');
+  assert.equal(editAt(main, join(wt, 'openspec/changes/feat/tasks.md')).code, 0, 'planning files stay open');
+  assert.equal(editAt(main, join(tmpdir(), 'devkit-elsewhere', 'a.ts')).code, 0, 'a file in no OpenSpec tree');
+});
+
+test('worktree: a shell write through cd <wt> is gated by the worktree change (D5)', () => {
+  const { main, wt } = worktreeRepo();
+  assert.equal(bashAt(main, `cd ${wt} && echo x > src/a.ts`, 'tdd-implementer').code, 2);
+  assert.equal(bashAt(main, `echo x > ${wt}/src/a.ts`, 'tdd-implementer').code, 2);
+  assert.equal(bashAt(main, `cd ${wt} && echo x > openspec/changes/feat/tasks.md`).code, 0);
+  assert.equal(bashAt(main, 'echo x > src/a.ts').code, 0, 'the main checkout has no open change');
+});
+
+test('worktree: gh pr create after cd <wt> is checked against the worktree change (D5)', () => {
+  const { main, wt } = worktreeRepo({ readiness: '- Status: APPROVED\n' });
+  const r = bashAt(main, `cd ${wt} && gh pr create --title t --body b`);
+  assert.equal(r.code, 2);
+  assert.match(r.err, /review not approved/);
+  assert.equal(bashAt(main, 'gh pr create --title t --body b').code, 0, 'no cd: the main checkout has no open change');
+  assert.equal(bashAt(main, `gh pr create --title t --body b && cd ${wt}`).code, 0, 'a cd after the command does not move it');
+});
+
+test('worktree: with readiness APPROVED the tdd-implementer may edit and the main session may not (D5)', () => {
+  const { main, wt } = worktreeRepo({ readiness: '- Status: APPROVED\n' });
+  assert.equal(editAt(main, join(wt, 'src', 'a.ts'), 'tdd-implementer').code, 0);
+  const r = editAt(main, join(wt, 'src', 'a.ts'));
+  assert.equal(r.code, 2);
+  assert.match(r.err, /tdd-implementer/);
+  assert.equal(bashAt(main, `cd ${wt} && echo x > src/a.ts`).code, 2);
+  assert.equal(bashAt(main, `cd ${wt} && echo x > src/a.ts`, 'tdd-implementer').code, 0);
+});
+
+test('worktree + opt-in: the opt-in check applies to each target root, not to the session cwd (D5, ADR 0004)', () => {
+  const { main, wt } = worktreeRepo();
+  assert.equal(editAt(main, join(wt, 'src', 'a.ts'), 'tdd-implementer').code, 2, 'opted-in project: its worktree is gated with cwd in the main checkout');
+  assert.equal(bashAt(main, `cd ${wt} && echo x > src/a.ts`, 'tdd-implementer').code, 2);
+  const out = worktreeRepo({ config: 'schema: spec-driven\n' });
+  assert.equal(editAt(out.main, join(out.wt, 'src', 'a.ts'), 'tdd-implementer').code, 0, 'a root that is not opted in is not gated');
+  assert.equal(bashAt(out.main, `cd ${out.wt} && echo x > src/a.ts`, 'tdd-implementer').code, 0);
+  assert.equal(bashAt(out.main, `cd ${out.wt} && gh pr create --title t --body b`).code, 0);
+  // a session in a project that is not opted in, writing into one that is
+  assert.equal(editAt(out.main, join(wt, 'src', 'a.ts'), 'tdd-implementer').code, 2, 'the target root decides, not the session');
+  assert.equal(bashAt(out.main, `cd ${wt} && echo x > src/a.ts`, 'tdd-implementer').code, 2);
+});
+
+// ---------------------------------------------------------------- approval.md (conduct-rounds D7)
+
+test('approval.md: classify gives a gate with no agent owner', () => {
+  assert.deepEqual(classify('/r', 'feat', '/r/openspec/changes/feat/approval.md'), { kind: 'gate', owner: '' });
+});
+
+test('approval.md: only the main session writes it, by Write and by shell redirect (D7)', () => {
+  const root = repo({ changes: { feat: approved } });
+  const f = 'openspec/changes/feat/approval.md';
+  for (const a of ['change-planner', 'plan-readiness-reviewer', 'tdd-implementer']) {
+    const r = edit(root, f, a);
+    assert.equal(r.code, 2, a);
+    assert.match(r.err, /approval\.md is written only by the main session, from the owner's own message; not by /);
+    assert.match(r.err, new RegExp(`not by ${a}`));
+    assert.equal(bash(root, `echo '- Status: APPROVED' > ${f}`, a).code, 2, `${a} by redirect`);
+  }
+  assert.equal(edit(root, f).code, 0, 'the main session');
+  assert.equal(bash(root, `cat > ${f} <<'EOF'\n- Status: APPROVED\nEOF`).code, 0);
+});
+
+test('approval.md: main-session only even with several active changes or in another change folder (D7)', () => {
+  const several = repo({ changes: { feat: approved, other: approved } }); // branch main: ambiguous
+  const one = repo({ changes: { feat: approved, other: approved }, branch: 'feat' });
+  for (const [root, f] of [[several, 'openspec/changes/feat/approval.md'], [one, 'openspec/changes/other/approval.md']]) {
+    for (const a of ['change-planner', 'tdd-implementer']) {
+      const r = edit(root, f, a);
+      assert.equal(r.code, 2, `${a} by Write on ${f}`);
+      assert.match(r.err, /approval\.md is written only by the main session/);
+      assert.equal(bash(root, `echo '- Status: APPROVED' > ${f}`, a).code, 2, `${a} by redirect on ${f}`);
+    }
+    assert.equal(edit(root, f).code, 0, 'the main session by Write');
+    assert.equal(bash(root, `echo ok > ${f}`).code, 0, 'the main session by redirect');
+  }
+});
+
+test('gh pr create after cd to a directory with no project still meets the session root gate (D5)', () => {
+  const root = repo({ changes: { feat: approved }, branch: 'feat' });
+  const r = bash(root, 'cd /tmp && gh pr create --title t --body b');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /review not approved/);
+});
+
+// ---------------------------------------------------------------- roadmap text and notes (conduct-rounds D3)
+
+test('readRoadmap keeps the description as text and the indented lines as notes', () => {
+  const root = repo({ roadmap: '## R\n- [ ] a — docs: x\n- [ ] b (after: a) — y\n- [x] c - dash text\n- [ ] d: colon text\n  first note\n    second note\n- [ ] e\n\n  late note\n## S\n- [ ] f\n  of f\n' });
+  const [r, s] = readRoadmap(root);
+  const by = Object.fromEntries(r.items.map((i) => [i.id, i]));
+  assert.equal(by.a.text, 'docs: x');
+  assert.equal(by.b.text, 'y');
+  assert.deepEqual(by.b.after, ['a']);
+  assert.equal(by.c.text, 'dash text');
+  assert.equal(by.d.text, 'colon text');
+  assert.equal(by.d.notes, 'first note\n  second note');
+  assert.equal(by.e.text, '', 'no description');
+  assert.equal(by.e.notes, 'late note', 'a blank line does not end the notes');
+  assert.equal(by.a.notes, '');
+  assert.equal(s.items[0].notes, 'of f', 'notes stop at the next heading');
+});
+
+// ---------------------------------------------------------------- ship-change: the recorded approval (conduct-rounds D7)
+
+test('ship-change SKILL.md pins the stop-plan-approval row: only the owner\'s own message writes approval.md', () => {
+  const md = readFileSync(join(here, '..', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const row = md.split('\n').find((l) => l.startsWith('| `stop-plan-approval`')) ?? '';
+  assert.ok(row, 'a table row for stop-plan-approval');
+  assert.match(row, /only when the owner's own message approves/i);
+  assert.match(row, /approval\.md/);
+  assert.match(row, /next\.readiness/);
+  assert.match(md, /waiting for the owner's plan approval/);
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Write `approval\.md` except from the owner's own message/);
+  assert.match(md.slice(0, md.indexOf('## Loop')), /approval\.md/, 'the go-ahead names the recorded approval');
+});
+
+// ---------------------------------------------------------------- the conduct skill (conduct-rounds D14)
+
+const conductMd = () => readFileSync(join(here, '..', 'skills', 'conduct', 'SKILL.md'), 'utf8');
+
+test('conduct SKILL.md: at most three steps at once, the worktree preamble, never a subagent for a whole change', () => {
+  const md = conductMd();
+  assert.match(md, /at most three/);
+  assert.ok(md.includes('Work only in `<worktree>` on branch `<branch>`; every file path is absolute under it; start every Bash command with `cd <worktree> && `; do not fetch.'));
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Dispatch a subagent for a whole change/);
+  assert.match(never, /Create a second conduct cron/);
+});
+
+test('conduct SKILL.md: the reconciliation table has its four rows', () => {
+  const md = conductMd();
+  const rows = md.split('\n').filter((l) => /^\| (true|false) \|/.test(l));
+  assert.equal(rows.length, 4);
+  assert.match(rows[0], /none \| `CronCreate`/);
+  assert.match(rows[1], /one, same prompt \| keep it/);
+  assert.match(rows[2], /`CronDelete` all, then `CronCreate` one/);
+  assert.match(rows[3], /^\| false \| any \| `CronDelete` all/);
+  assert.match(md, /every 20 minutes/);
+});
+
+test('conduct SKILL.md: approval.md and retro answers only from the owner\'s own message', () => {
+  const md = conductMd();
+  assert.match(md, /Plan approval and retro answers are written only from the owner's own message/);
+  assert.match(md, /Write `approval\.md` or a retro answer except from the owner's own message/);
+  assert.match(md, /cron-started run without the owner's message/);
+  assert.match(md, /`--wake`, which only the wake-up cron's prompt carries/);
+  assert.match(md, /A run started with `--wake` is not that go-ahead: it never takes a `devkit-lite` change's first `implement`, and never writes `approval\.md` or a retro answer/);
+});
+
+test('conduct SKILL.md: the schema is asked for every new change before git worktree add, devkit-lite included; then /conduct is the go-ahead', () => {
+  const md = conductMd();
+  const create = md.split('\n').find((l) => l.startsWith('| `create`')) ?? '';
+  assert.match(create, /for every new change, `devkit-lite` included/);
+  assert.match(create, /Only after the answer run `git worktree add -b <id> <path> origin\/<base>`/);
+  assert.ok(create.indexOf('Ask the owner') < create.indexOf('git worktree add'), 'the question comes first');
+  assert.match(md, /After that answer, the owner invoking `\/conduct` is the go-ahead for every `devkit-lite` change/);
+});
+
+test('conduct SKILL.md: the report names the five states', () => {
+  const rep = conductMd().split('## Report')[1].split('## Never')[0];
+  for (const form of ['`archived`', '`waiting on <ids>`', '`waiting for the owner: <what>`', '`waiting on GitHub: <what>`', '`blocked: <why>`']) {
+    assert.ok(rep.includes(form), form);
+  }
+  assert.match(rep, /wake-up: cron <id> every 20 minutes/);
+  assert.match(rep, /wake-up: none/);
+});
+
+// ---------------------------------------------------------------- ADR 0005 (conduct-rounds D13)
+
+test('ADR 0005 records the parallel steps and the wake-up, and ADR 0001 points to it', () => {
+  const root = join(here, '..', '..', '..');
+  const name = '0005-parallel-steps-and-a-session-wake-up.md';
+  const adr1 = readFileSync(join(root, 'docs', 'adr', '0001-coordination-without-a-harness.md'), 'utf8');
+  assert.ok(adr1.includes(name), 'ADR 0001 points to ADR 0005');
+  assert.match(adr1, /^## Decision$/m);
+  const adr5 = readFileSync(join(root, 'docs', 'adr', name), 'utf8');
+  assert.match(adr5, /^- Status: accepted$/m);
+  assert.match(adr5, /at most three/);
+  assert.match(adr5, /every 20 minutes/);
+  assert.match(adr5, /`--wake` marker/);
+  const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
+  assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });

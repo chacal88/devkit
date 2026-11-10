@@ -6,6 +6,7 @@
 
 import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
@@ -513,7 +514,7 @@ export function prItem(root, id, fetched, facts = gitFacts(root), { merge = fals
     return item(5, name, 'blocked', `PR #${pr.number} merged at ${String(pr.headRefOid).slice(0, 7)}; local head ${String(facts.head).slice(0, 7)} differs`, { pr: ref });
   }
   if (pr.state !== 'OPEN') return item(5, name, 'blocked', `PR #${pr.number} is ${String(pr.state).toLowerCase()}`, { pr: ref });
-  if (pr.mergeable === 'CONFLICTING') return item(5, name, 'blocked', `PR #${pr.number} has merge conflicts with ${pr.baseRefName}`, { pr: ref });
+  if (pr.mergeable === 'CONFLICTING') return item(5, name, 'blocked', `PR #${pr.number} has merge conflicts with ${pr.baseRefName}`, { pr: ref, conflict: true });
   const details = { pr: ref, ahead: false, uncommitted: [] };
   if (merge) details.behind = pr.mergeStateStatus === 'BEHIND';
   const reasons = [];
@@ -751,7 +752,7 @@ function archiveChanges(root, base) {
 const isArchiveRecord = (p) => p.startsWith('openspec/changes/') || p === 'openspec/roadmap.md';
 const normalizePath = (p) => p.replace(/^(\.\/)+/, '');
 // Files a version bump or a regenerated catalog changes without a proposal naming them (design D8).
-const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
+export const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
 
 // The changed paths that no approved proposal names exactly (AC-3):
 // no directory, prefix or glob matching.
@@ -870,12 +871,12 @@ function archiveNext(state) {
   const a = state.archive;
   const merge = state.ship === 'merge';
   const step = (name, reason, extra = {}) => ({ step: name, reason, ...extra });
-  const stopArchive = (archiveStep, reason) => step('stop-archive', reason, { archiveStep });
+  const stopArchive = (archiveStep, reason, extra = {}) => step('stop-archive', reason, { archiveStep, ...extra });
 
   if (a.onDefault === 'archived') return step('archived', `${a.folder} is on ${a.base}`, { folder: a.folder });
   if (a.stop) return stopArchive(a.stop.archiveStep, a.stop.reason);
   const five = state.items[4];
-  if (five.status === 'blocked') return step('blocked', five.reason, { item: 5 });
+  if (five.status === 'blocked') return step('blocked', five.reason, { item: 5, ...(five.details.conflict ? { conflict: true } : {}) });
   if (merge && state.setup && !state.setup.ok) {
     return step('stop-merge-setup', `merge mode needs the repository prepared: ${state.setup.missing.join('; ')}`, { missing: state.setup.missing });
   }
@@ -906,7 +907,7 @@ function archiveNext(state) {
       return step('disable-auto-merge', `auto-merge is on but the archive PR #${pr.number} no longer qualifies`, { number: pr.number });
     }
     if (held) return held;
-    if (conflicts) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`);
+    if (conflicts) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`, { conflict: true });
     if (pr.headRel === 'foreign') return stopArchive('archive-pr', `PR #${pr.number} head ${String(pr.headRefOid).slice(0, 7)} is not in local history (someone else pushed?)`);
     if (pr.headRel === 'ahead' || uncommitted) {
       return step('open-archive-pr', `${pr.headRel === 'ahead' ? `local is ahead of PR head ${String(pr.headRefOid).slice(0, 7)}` : `uncommitted files: ${a.dirty.slice(0, 3).join(', ')}`}; commit and push`, { branch: a.branch, number: pr.number });
@@ -936,6 +937,21 @@ function archiveNext(state) {
   return step('open-archive-pr', 'commit the archive and open its pull request', { branch: a.branch, base: a.base, title: `chore(openspec): archive ${state.id} with its retro` });
 }
 
+// The owner's recorded plan approval (design D7): approval.md says
+// "- Status: APPROVED" and its "- Readiness:" value is sha256:<first 12 hex of
+// the sha256 of the current readiness.md>. A new readiness round changes the
+// hash, so the owner is asked again.
+export function approvalState(dir) {
+  const readinessFile = join(dir, 'readiness.md');
+  const readiness = existsSync(readinessFile)
+    ? `sha256:${createHash('sha256').update(readFileSync(readinessFile)).digest('hex').slice(0, 12)}`
+    : null;
+  const file = join(dir, 'approval.md');
+  const status = readValue(file, 'Status');
+  const recorded = readValue(file, 'Readiness')?.toLowerCase() ?? null;
+  return { status, recorded, readiness, ok: status === 'APPROVED' && readiness !== null && recorded === readiness };
+}
+
 // The one step to take now, computed from facts only (see design D4, first
 // match wins). `state` is what collectState builds.
 export function nextStep(state) {
@@ -953,6 +969,13 @@ export function nextStep(state) {
   if (!state.branchOk) return step('stop-branch', `the current branch does not select change ${state.id} for the hooks; create or switch to a branch named after it`);
   if (state.needsReadiness && state.readiness !== 'APPROVED') {
     return step('stop-not-approved', `readiness.md Status is ${state.readiness || 'missing'}, expected APPROVED; the plan needs its approval first`);
+  }
+  if (state.needsReadiness && state.readiness === 'APPROVED' && state.approval && !state.approval.ok && !state.started) {
+    const earlier = state.approval.status === 'APPROVED' && state.approval.recorded;
+    return step('stop-plan-approval', earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval', {
+      readiness: state.approval.readiness,
+      file: `openspec/changes/${state.id}/approval.md`,
+    });
   }
   if (merge && state.setup && !state.setup.ok) {
     return step('stop-merge-setup', `merge mode needs the repository prepared: ${state.setup.missing.join('; ')}`, { missing: state.setup.missing });
@@ -998,7 +1021,7 @@ export function nextStep(state) {
   if (stuck) return step('blocked', it(stuck).reason, { item: stuck });
 
   if (it(5).details.none) return step('open-pr', 'no pull request yet');
-  if (it(5).status === 'blocked') return step('blocked', it(5).reason, { item: 5 });
+  if (it(5).status === 'blocked') return step('blocked', it(5).reason, { item: 5, ...(it(5).details.conflict ? { conflict: true } : {}) });
   const five = it(5).details;
   if (merge && it(5).status === 'open' && five.behind && !five.ahead && !five.uncommitted.length) {
     return step('update-branch', it(5).reason, { number: state.pr.number });
@@ -1073,7 +1096,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     ...(merge ? { setup: mergeSetup(gh, root, mergeMethod, repo) } : {}),
   };
   const prFacts = (f) => (f.pr
-    ? { number: f.pr.number, url: f.pr.url, ...(merge ? { autoMerge: f.pr.autoMergeRequest != null, state: f.pr.state, mergeStateStatus: f.pr.mergeStateStatus ?? null, headRefOid: f.pr.headRefOid } : {}) }
+    ? { number: f.pr.number, url: f.pr.url, state: f.pr.state, headRefOid: f.pr.headRefOid, mergeable: f.pr.mergeable ?? null, ...(merge ? { autoMerge: f.pr.autoMergeRequest != null, mergeStateStatus: f.pr.mergeStateStatus ?? null } : {}) }
     : null);
 
   if (postMerge) {
@@ -1087,6 +1110,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
       branchOk: true,
       needsReadiness: false,
       readiness: null,
+      approval: null,
+      started: false,
       phases: [],
       reviewMd: null,
       reviews: [],
@@ -1122,6 +1147,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     branchOk: selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch),
     needsReadiness,
     readiness: needsReadiness ? readValue(join(dir, 'readiness.md'), 'Status') : null,
+    approval: needsReadiness ? approvalState(dir) : null,
+    started: existsSync(join(dir, 'tasks.md')) && parseTasks(readFileSync(join(dir, 'tasks.md'), 'utf8')).some((t) => t.done),
     phases: readPhases(join(dir, 'tasks.md')),
     reviewMd: readReviewMd(join(dir, 'review.md')),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
@@ -1160,6 +1187,7 @@ export function buildReport(state, env = process.env) {
     met,
     summary,
     next,
+    ...(state.approval ? { approval: state.approval } : {}),
     ...(merge ? {
       merge: {
         method: state.mergeMethod,
@@ -1189,6 +1217,7 @@ function summaryOf(state, next, itemsSummary) {
       default: return `merged: archive step ${next.step}`;
     }
   }
+  if (next.step === 'stop-plan-approval') return "waiting for the owner's plan approval";
   if (state.ship !== 'merge') return itemsSummary;
   if (next.step === 'stop-merge-setup') return 'blocked: merge setup';
   if (next.step === 'wait-merge') return `auto-merge on: waiting for ${next.waitingFor}`;
@@ -1486,7 +1515,7 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     }
     const report = buildReport(state, env);
     if (watch) report.watch = watch;
-    const code = report.summary.startsWith('blocked') || report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 ? 0 : 1;
+    const code = report.summary.startsWith('blocked') || report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 && report.next.step !== 'stop-plan-approval' ? 0 : 1;
     return { code, stdout: opts.json ? `${JSON.stringify(report, null, 2)}\n` : renderHuman(report), stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
