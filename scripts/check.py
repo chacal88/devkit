@@ -9,6 +9,7 @@
     python3 scripts/check.py [--root <dir>]
 """
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -95,6 +96,19 @@ def check_install_scope():
                 )
 
 
+def check_changelog():
+    market = ROOT / ".claude-plugin" / "marketplace.json"
+    changelog = ROOT / "CHANGELOG.md"
+    if not (market.is_file() and changelog.is_file()):
+        return
+    version = str(json.loads(market.read_text(encoding="utf-8")).get("metadata", {}).get("version", ""))
+    if not version:
+        return
+    heading = re.compile(r"^## " + re.escape(version) + r"(\s|$)", re.M)
+    if not heading.search(changelog.read_text(encoding="utf-8")):
+        problems.append(f'CHANGELOG.md: no "## {version}" entry for marketplace version {version}')
+
+
 def main():
     global ROOT
     ap = argparse.ArgumentParser(description="devkit repository checks")
@@ -104,6 +118,7 @@ def main():
     check_links()
     check_language()
     check_install_scope()
+    check_changelog()
     print("\n".join(problems) or "all checks passed")
     sys.exit(1 if problems else 0)
 

@@ -64,3 +64,5 @@ Load a pack straight from the working tree, without installing it:
 ```bash
 claude --plugin-dir plugins/core --plugin-dir plugins/openspec
 ```
+
+A session runs the pack installed at project scope, not the working tree: after a release merges, run `claude plugin update devkit-openspec@devkit` (and `devkit-core@devkit` when it changed) in the project before dogfooding the new version, or load the tree with `--plugin-dir` as above.
