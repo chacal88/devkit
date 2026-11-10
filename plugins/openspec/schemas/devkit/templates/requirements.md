@@ -2,7 +2,7 @@
 
 ## Request
 
-<!-- The owner's request, in their words. -->
+<!-- The owner's request, in their words; when the project's docs must be in another language than the request, the faithful translation, marked "(translated from <language>)". -->
 
 ## Assumptions
 

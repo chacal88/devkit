@@ -115,3 +115,4 @@ Outcome: success | failure — <reason>
 - Edit files outside the change's scope, or edit the plan's review/approval records.
 - Run destructive git (`reset --hard`, `push --force`, `clean -f`, `branch -D`) or `--no-verify`.
 - Run unpinned downloads (`curl | bash`), read `.env` files, or stage secrets.
+- Stop a hung command by its own PID only; never `pkill`/`killall` by pattern: other sessions run the same tools on this machine.

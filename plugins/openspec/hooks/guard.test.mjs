@@ -728,15 +728,24 @@ test('migration doc: rule, preconditions, four items with Command/Check/Undo (3.
   });
   assert.match(items[0].Command, /claude plugin uninstall devkit-core@devkit --scope user/);
   assert.match(items[0].Command, /claude plugin uninstall devkit-openspec@devkit --scope user/);
-  assert.match(items[1].Command, /claude plugin marketplace remove devkit --scope user/);
-  assert.match(items[1].text, /without `--scope`|omit(ting)? `--scope`/);
+  // Item 2 as run on the owner's machine: `--scope user` fails for a marketplace added with /plugin, so it runs
+  // without --scope from a new empty folder, and it says it also removes the install records (item 4).
+  assert.match(items[1].Command, /mktemp -d\) && cd "\$d" && claude plugin marketplace remove devkit\s*$/);
+  assert.match(items[1].text, /not declared in user settings/);
+  assert.match(items[1].text, /Without `--scope`/);
+  assert.match(items[1].text, /already does item 4/);
+  assert.match(items[3].text, /Skip this item if item 2 ran/);
+  assert.match(body, /claude plugin update devkit-core@devkit --scope user/);
+  assert.match(body, /claude plugin update devkit-openspec@devkit --scope user/);
   assert.match(items[2].text, /~\/Documents\/recruit\/\.claude\/settings\.local\.json/);
   assert.match(items[2].text, /backup/i);
   assert.match(items[3].text, /installed_plugins\.json/);
   assert.match(items[3].text, /no Claude Code session open/);
   assert.match(items[3].text, /backup/i);
   const lines = body.split('\n');
-  for (const l of lines.filter((x) => /claude plugin (uninstall|marketplace remove)/.test(x))) assert.match(l, /--scope/, `scope on: ${l}`);
+  for (const l of lines.filter((x) => /claude plugin (uninstall|update)/.test(x))) assert.match(l, /--scope/, `scope on: ${l}`);
+  // A marketplace remove either names its scope or runs from a new empty folder (item 2).
+  for (const l of lines.filter((x) => /claude plugin marketplace remove/.test(x))) assert.match(l, /--scope|mktemp -d\) && cd "\$d"/, `scope or empty folder on: ${l}`);
   for (const l of lines.filter((x) => /claude plugin install/.test(x))) assert.match(l, /--scope user/, `install scope on: ${l}`);
   assert.match(body, /## Final check/);
   assert.match(body, /claude plugin list/);
@@ -857,6 +866,21 @@ test('migration doc: every fenced bash block parses, and the jq filters work on 
   writeFileSync(join(margi, '.claude', 'settings.local.json'), JSON.stringify({ enabledPlugins: { 'devkit-openspec@devkit': true } }));
   r = spawnSync('bash', ['-c', loop], { encoding: 'utf8', cwd: margi, env: { PATH: `${bin}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin`, HOME: home } });
   assert.equal(r.stdout.trim(), 'devkit-openspec@devkit');
+});
+
+// --- migration items 3 and 4 are safe to run twice: first backup kept, write through a temp file ---
+
+test('migration items 3 and 4 keep the first backup (cp -n) and write through a temp file then mv', () => {
+  const items = migrationItems(readFileSync(migrationPath, 'utf8'));
+  for (const n of [3, 4]) {
+    const item = items.find((i) => i.head.startsWith(`### ${n}.`));
+    assert.ok(item, `item ${n} exists`);
+    assert.match(item.Command, /cp -n "\$[fr]" "\$[fr]\.bak-devkit-opt-in"/, `item ${n} keeps the first backup`);
+    assert.doesNotMatch(item.Command, /cp "\$/, `item ${n} never overwrites the backup`);
+    assert.match(item.Command, /> "\$[fr]\.tmp" && mv "\$[fr]\.tmp" "\$[fr]"/, `item ${n} writes through a temp file then mv`);
+    assert.doesNotMatch(item.Command, /> "\$[fr]"\s*$/m, `item ${n} never writes the target directly`);
+    assert.ok(item.Undo, `item ${n} keeps its Undo`);
+  }
 });
 
 // ---------------------------------------------------------------- worktrees (conduct-rounds D5)
