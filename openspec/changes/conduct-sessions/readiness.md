@@ -1,75 +1,68 @@
 # Readiness review: conduct-sessions
 
 ## 1. Decision
-- Status: NEEDS-REVISION
+- Status: APPROVED
 - Confidence: high
-- Ready to implement: no
+- Ready to implement: yes
 
-Third round. The three fixes of the previous round (under way, `limit: 100`, fixed 4-character name rule) are present in the edited artifacts, and M1-M8 of round 1 still hold. The edits introduced two narrow gaps (N1, N2). Both fit inside the approved scope; no owner decision in requirements.md is impossible given the code. `openspec validate conduct-sessions --strict`: valid, 0 errors (INFO only: skip_specs). `rules.tasks` met (one `## N.` group per phase ending in a gate; every AC id appears in a task). `rules.readiness` respected (only this reviewer writes the file).
+Fifth round. The one mandatory fix of round 4 (M1, the `bind_pr` part of AC-9 with no way to be verified) is in `tasks.md`, and the fixes of rounds 1 to 3 still hold. `openspec validate conduct-sessions --strict`: valid, 0 errors (INFO only: `skip_specs`). `rules.tasks` met (one `## N.` group per phase, each ending in a gate task that names the test command, every AC id in a task). `rules.readiness` respected (only this reviewer writes the file). No verdict was suggested by the caller, and none of the owner's decisions in requirements.md ("Decided with the owner") is impossible given the code.
 
 ## 2. Scope validation
-Classification: correct. Problem, scope and owner decisions are explicit (requirements.md, "Decided with the owner"). Proposal AC-1 and requirements AC-1 agree, and both agree with design D3.
+Classification: correct. Problem, scope, non-goals and the owner's decisions are explicit. The author's edit touched only `tasks.md` (`git diff HEAD` shows pin text, gate wording, dogfood bullet, 3.1 and 2.3 clarifications); scope did not grow.
 
 ## 3. Proposal review
-Consistent with requirements and design: AC list identical, Impact lists the harness, `description` and ADR test. No findings.
+Proposal AC-9 (proposal.md:49) and requirements AC-9 (requirements.md:170-172) agree: capped watch, `waiting on GitHub: <what>`, the Auto-fix line, `get_status`/`bind_pr` after `open-pr`. No findings.
 
 ## 4. Design review
-Previous mandatory fixes, checked against the edited artifacts:
+Round 4 fix, re-checked against the edited artifacts:
 
-- Fix 1 (under way, D13): fixed. design.md:288-298 defines "under way" from the recompute (at least one ticked task in `tasks.md`, or in `devkit` an `approval.md` recording the current readiness; a `devkit-lite` change with no ticked task is not under way) and says it never reads the app's list. requirements.md:88-92, proposal.md:28 and tasks.md 2.1 agree. One leftover: N1.
-- Fix 2 (`limit: 100`, D6): fixed in design.md:121-123, requirements.md:96 and tasks.md 2.1 (and its pin test). I called `list_sessions({linked: true, limit: 100})` in this repository: the tool accepted it and returned rows with no error, so the value is usable.
-- Fix 3 (fixed 4-character rule, D3): fixed. design.md:66-77 reserves `-p` plus two digits, cuts the id to 20 characters (trailing `-` removed) for every phase, uses `<id18><hh>-p<n>` on a collision with the SHA-1 of the full id for both changes, and puts phases above 99 out of scope; 20+4 = 24 and 18+2+4 = 24 both fit the tool's `[a-z0-9-]`, 24-character `name`. The prefix is now identical for phases 9 and 10. The Risks line (design.md:319) no longer says "20-character prefix". One leftover: N2.
-- Round 1 items: M1 (`stateOf` has no `session` case today, `conduct-check.mjs:81-85`; D2 and 1.1 add it), M2 (`DEVKIT_HOST: 'cli'` pinned in the harness, 1.1), M3, M4 (D13), M6 (`guard.mjs:235` returns null without a `readiness` artifact; AC-4 and 2.4 scope the refusal to `devkit`), M7 (docs and README rows assigned to 1.4, 2.3, 2.5, 3.2) and M8 (D9's one report rule) are unchanged by the edits and still hold. Every test the tasks name (the wake tests, the version tests, the four `guard.test.mjs` skill-text tests, the ADR 0005 test, the worktree test at `guard.test.mjs:936`) was found under that name in the previous round and the edits touched none of them.
-- App tool facts: `list_sessions` rows carry `sessionId`, `title`, `cwd`, `isArchived`, `isRunning`, `lastActivityAt`, `group`, `link`, `remoteControlActive`, and linked children `name` and `startedBy`; no `state` field; archived rows are omitted unless `include_archived`. D6 uses only these.
+- M1: fixed. `tasks.md` 2.3 now ends with "add a pin test for the PR binding: `mcp__ccd_pr__get_status` then `mcp__ccd_pr__bind_pr` after `open-pr`, 'one PR bound per session' and 'the PR opened last' named in the report", matching design D8 (design.md:158-170: `get_status` first, `bind_pr` only when it does not report the PR, one PR bound per session, the PR opened last, which one is bound said in the report). The 2.9 gate names the pins of 2.1, 2.2 and 2.3 "the AC-9 pin of 2.3 included" and AC-9 among the live proofs. The dogfood bullet records `get_status`/`bind_pr` after `open-pr` with the bound PR named in the report. AC-9 now has a test and a live record.
+- Round 4 optional items: 3.1 now says 0005 is already in `openspec/config.yaml` and 0006 is added beside it (verified: `openspec/config.yaml:22` lists 0001..0005; `docs/adr/` holds 0001..0005 and 0006 is free). 2.3 says Start 4 keeps "After that answer, the owner invoking `/conduct` is the go-ahead for every `devkit-lite` change", which is pinned at `guard.test.mjs:1073` and present in `SKILL.md:17` today. The hash-suffix item was left as is (1 in 256), accepted.
+- Rounds 1 to 3: unchanged by this edit (only `tasks.md` changed and only the lines above). "Under way" (D13) text is the same in 2.1, 2.3, design and requirements; the digits-only prefix match (2.1, 1.2, D6) is unchanged.
+- Claims about the code re-checked this round: `SKILL.md:17` holds the `--wake` text 2.3 replaces; the six `guard.test.mjs` tests named in 2.3, 3.1 and 2.4 each exist by name (one match each); no other file than readiness.md and tasks.md is modified in the worktree. The rest of the code claims (`conduct-check.mjs`, `deliver-check.mjs`, `guard.mjs` line references) were verified in round 4 and the plan's wording of them did not change.
 
-New gaps:
-
-- N1. tasks.md:20 (task 2.3) still tells the implementer to write that a continuation turn "may start the next session of a change that already had one". That is the phrase round 2 flagged as undefined; D13 and task 2.1 replaced it with "under way". Task 2.3 also drives the rewritten pin test of the kinds-of-turn paragraph, so the skill text and its test could use the old wording and contradict D13 (the child is archived before the next recompute, so "had one" cannot be answered from the app).
-- N2. design.md:125-127 and tasks.md 2.1 match a child to its change by `name` "starts with" `sessionPrefix`. Prefixes are not prefix-free across changes: `add-x` has prefix `add-x-p`, and the child `add-x-pagination-p1` of another change starts with it. The wrongly matched change is marked `running` and kept out of `dispatch` for as long as the other child runs (and `add-x`'s archive step in D9 matches by exact `session.name`, so only busy detection is affected). The collision rule covers equal cut ids only. Two developers would match differently (startsWith, or prefix plus digits).
+No new findings.
 
 ## 5. Specs review
-No specs by design (D1, `skip_specs: true`, archived precedents). Behavior is pinned by the listed tests; acceptable.
+Not applicable by design (`skip_specs: true`, design D1; archived precedents). The acceptance criteria AC-1..AC-11 in requirements.md serve as the testable list; each has a task and a verification (test pin or dogfood record).
 
 ## 6. Tasks review
-Ordered by phase, each task has a verify, each AC has a task: AC-1 1.1, 1.2; AC-2 1.3; AC-3, AC-5, AC-6, AC-7 2.1; AC-8 2.2, 2.3; AC-9 2.3; AC-4 2.4; AC-10 2.5, 3.1-3.3; AC-11 3.4, 3.9 and the dogfood bullets (plain bullets by precedent; the `parseTasks` note is correct). Findings: N1 (task 2.3 wording), N2 (task 1.2 and 2.1 need the match rule).
+Ordered by dependency (checker, then skill, then ADR/docs/release), `- [ ]` checkboxes, each with a verify clause, each phase ending in a gate (1.9, 2.9, 3.9). Dogfood items are plain bullets after the merge, as the note at the top of the file requires.
+- Low (nice to have, fix during implementation): 2.3 pins "the PR opened last named in the report" without fixing a report-line format (unlike `not bound:`). The pin only needs those phrases to appear in the skill text; any wording that contains them satisfies it. Not blocking.
 
 ## 7. Omission detection
-- Error handling: start refusal (D5), archive, move, bind refusal (D9): covered.
-- Permissions: kinds of turn (D13): covered.
-- Idempotency: idle same-name child, list truncation: covered.
-- Rollback (install 0.8.0), compatibility (`cli` unchanged), observability (report lines): covered.
-- Test strategy: skill-text pins plus the dogfood; acceptable as stated. Not covered: the match rule between a child name and a prefix (N2).
+Validation, error handling, idempotency (D6), permissions (D13), side effects (D9 archive risk with a dogfood check and fallback), observability (report lines), rollback (install 0.8.0), compatibility (JSON version 2, BREAKING note) and test strategy are defined. No findings.
 
 ## 8. Execution risks (top 5 failures)
-1. Cause: startsWith on `sessionPrefix` (N2). Impact: an unrelated change is held `running` while a sibling change's child works. Prevention: M2 below.
-2. Cause: 2.3 says "already had one" (N1). Impact: pin test and skill text drift from D13; chain may stop or start on the wrong turn. Prevention: M1 below.
-3. Cause: `archive_session` cleans up worktrees by default. Impact: the change's worktree disappears. Prevention: D9's dogfood check and fallback (already in the plan).
-4. Cause: the app asks the owner to approve every move and archive. Impact: the run waits on prompts. Prevention: D9's report rule and notice (already in the plan).
-5. Cause: a change joins the round later and a new prefix collision renames another change's prefix. Impact: its running child is not recognized for one run. Prevention: low risk, accepted (the roadmap round is fixed during a run).
+1. Cause: the app archives the change's worktree along with the child. Impact: later phases and the gate lose their folder. Prevention: D9 dogfood check of `git worktree list` and the "group only" fallback.
+2. Cause: a continuation turn misreads "under way" for a change whose previous child is archived. Impact: a phase waits for the owner's next message. Prevention: D13 reads it from `tasks.md` and `approval.md`.
+3. Cause: `limit: 100` hides a running child past 100 linked sessions. Impact: a second session for a busy phase. Prevention: stopped attempts are archived after the gate; the dogfood records the rows.
+4. Cause: the host read from the ambient env in tests. Impact: `implement` rows turn into sessions and old tests fail. Prevention: 1.1 pins `DEVKIT_HOST` in `cleanEnv` and `cli()`.
+5. Cause: `bind_pr` refused or declined by the owner. Impact: Auto-fix does not wake the session. Prevention: reported as `not bound: <url> (<why>)`, never a stop (2.2), with the AC-9 pin and dogfood record.
 
 ## 9. Mandatory fixes before implementation
-- [ ] Medium — tasks.md:20 (task 2.3) — still says "a change that already had one", which D13 replaced by "under way" and which cannot be answered once the child is archived — smallest correction: replace it with "a change under way (a ticked task in `tasks.md`, or in `devkit` an `approval.md` recording the current readiness; design D13)" so the pinned sentence matches 2.1 and D13.
-- [ ] Medium — design.md:125-127 (D6) and tasks.md 2.1 (and 1.2's tests) — `startsWith(sessionPrefix)` matches another change's child when one id extends another (`add-x` vs `add-x-pagination`) — smallest correction: say a row belongs to a change when its `name` equals `sessionPrefix` followed only by digits (`^<prefix>[0-9]+$`), pin that phrase in the 2.1 test, and add to the 1.2 name tests a case of two ids where one extends the other with distinct prefixes.
+No mandatory fixes.
 
 ## 10. Optional improvements (within scope)
-- [ ] Say in 2.1 that the first-run double recompute (D6) is skipped when `list_sessions` returns no running row.
+- [ ] 2.3: give the "which PR is bound" report line a fixed form (for example `bound: <url>`), as `not bound:` has.
+- [ ] 1.2: note the unhandled second collision of the two-character suffix (1 in 256) or widen the suffix if the name budget allows.
 
 ## 11. Explicitly out of scope
-- [ ] The orquestrador panel, the Workflow-based review, any per-project flow file (requirements.md, owner's decisions).
+- [ ] The orquestrador panel, a Workflow-based review round, a per-project flow file, child sessions for steps other than `implement` (requirements "Out of scope").
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes.
-2. Is the result measurable? Yes, by AC-1 to AC-11 and the tests named in the tasks.
-3. Are error behaviors defined? Yes (D5, D6, D9).
-4. Are edge cases covered? Yes, except the prefix-extension case (N2).
-5. Are dependencies clear? Yes (phase 1, then 2, then 3).
-6. Are contracts defined? Yes: the `session` descriptor and `sessionPrefix`, except the match rule (N2).
-7. Can two developers interpret this differently? Yes on N1 and N2.
-8. Are any decisions implicit instead of written? N1 (stale wording), N2 (match rule).
-9. Do the tasks fully deliver the intended outcome? Yes once the two fixes are folded in.
-10. What will be discovered too late? That a change is held `running` by another change's child (N2).
+1. Is the problem objectively defined? Yes: requirements.md Request and proposal Why.
+2. Is the result measurable? Yes: AC-1..AC-11 each have a test pin or a dogfood record, AC-9 included.
+3. Are error behaviors defined? Yes: refused start (D5), refused archive/move/bind (D9), a child without a ticked task (D6), unreadable roadmap (unchanged).
+4. Are edge cases covered? Yes: name cut and collision, prefix extension, a re-run during a phase, a retried phase, a continuation turn at an owner gate, `devkit-lite`.
+5. Are dependencies clear? Yes: phases 1, 2, 3 in order; the dogfood needs the merge.
+6. Are contracts defined? Yes: `session` descriptor, `sessionPrefix`, JSON version 2, start fields, report lines.
+7. Can two developers interpret this differently? Not on any point found beyond the free wording noted in section 6.
+8. Are any decisions implicit instead of written? No.
+9. Do the tasks fully deliver the intended outcome? Yes.
+10. What will be discovered too late if implementation starts now? Whether `archive_session` removes the worktree and whether the app accepts chained starts; both are the dogfood's and have a fallback.
 
 ## 13. Final conclusion
-- Can we start? Not yet.
-- What must be fixed? The two items of section 9, both one-line edits.
-- Main risk if ignored? A pinned skill sentence that contradicts D13 (N1) and a change wrongly held running (N2).
+- Can we start? Yes.
+- What must be fixed? Nothing mandatory.
+- Main risk if ignored? The app behaviors (worktree on archive, chained starts, `bind_pr`) can differ from the tool descriptions; the dogfood and the planned fallbacks cover them.
