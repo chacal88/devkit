@@ -201,6 +201,8 @@ export function classify(root, change, file) {
   const parts = rel.split(sep);
   if (parts[0] === '.claude') return { kind: 'exempt' };
   if (parts[0] !== 'openspec') return { kind: 'code' };
+  // approval.md is main-session only wherever it sits: any change's folder, whatever the active change is.
+  if (parts[1] === 'changes' && parts.length === 4 && parts[3] === 'approval.md') return { kind: 'gate', owner: '' };
   if (!change || parts[1] !== 'changes' || parts[2] !== change) return { kind: 'planning' };
   const inner = parts.slice(3).join('/');
   if (inner === 'readiness.md') return { kind: 'gate', owner: 'plan-readiness-reviewer' };
@@ -344,6 +346,8 @@ function guardEdit(input) {
   if (ch.ambiguous) {
     const c = classify(root, null, file);
     if (c.kind === 'code') block(`several active OpenSpec changes (${ch.ambiguous.join(', ')}). Name the branch after the change you are implementing, or start Claude Code with DEVKIT_CHANGE=<name>.`);
+    const why = c.kind === 'gate' && c.owner === '' ? writeViolation(root, { name: null }, role(input), file) : null;
+    if (why) block(why);
     return;
   }
   const why = writeViolation(root, ch, role(input), file);
@@ -366,13 +370,21 @@ function guardBash(input) {
   for (const t of bashWrites(cmd, cwd)) {
     const root = findRoot(dirname(t));
     const ch = root && optedIn(root) && changeAt(root);
-    if (!ch || ch.ambiguous) continue;
+    if (!ch) continue;
+    if (ch.ambiguous) {
+      // Only the approval record is judged without a single active change.
+      const c = classify(root, null, t);
+      const a = c.kind === 'gate' && c.owner === '' ? writeViolation(root, { name: null }, role(input), t) : null;
+      if (a) block(`${a} (Writing it through the shell is gated the same way.)`);
+      continue;
+    }
     const v = writeViolation(root, ch, role(input), t);
     if (v) block(`${v} (Writing it through the shell is gated the same way.)`);
   }
   for (const { text, dir } of commandSegments(cmd, cwd)) {
     if (!/\bgh\s+pr\s+create\b/.test(text)) continue;
-    const root = findRoot(dir);
+    // A `cd` into a folder with no project does not leave the session's: fall back to its root.
+    const root = findRoot(dir) ?? sessionRoot;
     const ch = root && optedIn(root) && changeAt(root);
     if (!ch) continue;
     const v = prViolation(root, ch);

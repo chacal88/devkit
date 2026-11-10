@@ -22,7 +22,9 @@ independent changes at once and to let the skill schedule its own re-run.
    before it is dispatched, and no subagent runs more than one step of one change. Owner gates
    (grill questions, plan approval, retro answers) stay in the owner's session.
 2. When everything that can move waits on GitHub after one capped watch, the skill may leave one
-   recurring cron job in the same session, every 20 minutes, whose prompt re-runs the skill. It
+   recurring cron job in the same session, every 20 minutes, whose prompt re-runs the skill with a `--wake` marker, which the skill treats as
+   not an owner message (it never takes a `devkit-lite` change's first implement, nor writes an approval or a
+   retro answer). It
    lists the session's jobs first and keeps at most one; it deletes it when nothing left can be
    advanced by it (roadmap done, or every remaining change waits on the owner or is stopped). The
    job holds no state: each firing recomputes everything.

@@ -514,7 +514,7 @@ export function prItem(root, id, fetched, facts = gitFacts(root), { merge = fals
     return item(5, name, 'blocked', `PR #${pr.number} merged at ${String(pr.headRefOid).slice(0, 7)}; local head ${String(facts.head).slice(0, 7)} differs`, { pr: ref });
   }
   if (pr.state !== 'OPEN') return item(5, name, 'blocked', `PR #${pr.number} is ${String(pr.state).toLowerCase()}`, { pr: ref });
-  if (pr.mergeable === 'CONFLICTING') return item(5, name, 'blocked', `PR #${pr.number} has merge conflicts with ${pr.baseRefName}`, { pr: ref });
+  if (pr.mergeable === 'CONFLICTING') return item(5, name, 'blocked', `PR #${pr.number} has merge conflicts with ${pr.baseRefName}`, { pr: ref, conflict: true });
   const details = { pr: ref, ahead: false, uncommitted: [] };
   if (merge) details.behind = pr.mergeStateStatus === 'BEHIND';
   const reasons = [];
@@ -871,12 +871,12 @@ function archiveNext(state) {
   const a = state.archive;
   const merge = state.ship === 'merge';
   const step = (name, reason, extra = {}) => ({ step: name, reason, ...extra });
-  const stopArchive = (archiveStep, reason) => step('stop-archive', reason, { archiveStep });
+  const stopArchive = (archiveStep, reason, extra = {}) => step('stop-archive', reason, { archiveStep, ...extra });
 
   if (a.onDefault === 'archived') return step('archived', `${a.folder} is on ${a.base}`, { folder: a.folder });
   if (a.stop) return stopArchive(a.stop.archiveStep, a.stop.reason);
   const five = state.items[4];
-  if (five.status === 'blocked') return step('blocked', five.reason, { item: 5 });
+  if (five.status === 'blocked') return step('blocked', five.reason, { item: 5, ...(five.details.conflict ? { conflict: true } : {}) });
   if (merge && state.setup && !state.setup.ok) {
     return step('stop-merge-setup', `merge mode needs the repository prepared: ${state.setup.missing.join('; ')}`, { missing: state.setup.missing });
   }
@@ -907,7 +907,7 @@ function archiveNext(state) {
       return step('disable-auto-merge', `auto-merge is on but the archive PR #${pr.number} no longer qualifies`, { number: pr.number });
     }
     if (held) return held;
-    if (conflicts) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`);
+    if (conflicts) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`, { conflict: true });
     if (pr.headRel === 'foreign') return stopArchive('archive-pr', `PR #${pr.number} head ${String(pr.headRefOid).slice(0, 7)} is not in local history (someone else pushed?)`);
     if (pr.headRel === 'ahead' || uncommitted) {
       return step('open-archive-pr', `${pr.headRel === 'ahead' ? `local is ahead of PR head ${String(pr.headRefOid).slice(0, 7)}` : `uncommitted files: ${a.dirty.slice(0, 3).join(', ')}`}; commit and push`, { branch: a.branch, number: pr.number });
@@ -1021,7 +1021,7 @@ export function nextStep(state) {
   if (stuck) return step('blocked', it(stuck).reason, { item: stuck });
 
   if (it(5).details.none) return step('open-pr', 'no pull request yet');
-  if (it(5).status === 'blocked') return step('blocked', it(5).reason, { item: 5 });
+  if (it(5).status === 'blocked') return step('blocked', it(5).reason, { item: 5, ...(it(5).details.conflict ? { conflict: true } : {}) });
   const five = it(5).details;
   if (merge && it(5).status === 'open' && five.behind && !five.ahead && !five.uncommitted.length) {
     return step('update-branch', it(5).reason, { number: state.pr.number });

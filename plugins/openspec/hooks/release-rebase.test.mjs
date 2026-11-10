@@ -253,6 +253,20 @@ test('release-rebase: a manifest edited beyond its version aborts to oldHead', (
   assert.equal(git(root, 'status', '--porcelain'), '');
 });
 
+test('release-rebase: an invalid JSON manifest on the branch restores to oldHead with exit 2', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
+  git(root, 'checkout', '-q', '-b', 'tmp');
+  write(root, { 'plugins/a/.claude-plugin/plugin.json': '{ not json' });
+  commit(root, 'break');
+  const oldHead = git(root, 'rev-parse', 'HEAD');
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 2);
+  assert.equal(r.out.resolved, false);
+  assert.equal(git(root, 'rev-parse', 'HEAD'), oldHead);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.equal(existsSync(join(root, '.git', 'rebase-merge')), false);
+});
+
 test('release-rebase: a docs/catalog.md conflict runs scripts/gen-catalog.py, and aborts without it', () => {
   const b = { ...B_PATCH, catalog: 'catalog mine\n' };
   const a = { ...A_MINOR, catalog: 'catalog theirs\n' };

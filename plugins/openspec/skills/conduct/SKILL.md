@@ -11,10 +11,10 @@ Path used below, relative to this skill's directory: `../../hooks/conduct-check.
 
 ## Start
 
-1. The argument, if any, is `round <n>`: conduct round `<n>` and skip the earlier open rounds (they are reported as `skipped rounds`). Without it, the first round with an open line.
+1. The arguments, if any, are `round <n>`: conduct round `<n>` and skip the earlier open rounds (they are reported as `skipped rounds`); without it, the first round with an open line. And `--wake`, which only the wake-up cron's prompt carries (`wake.prompt`): a run with `--wake` was started by the cron, not typed by the owner, and is not an owner message.
 2. `git worktree prune`, then `git fetch origin --prune --quiet`. This session is the only one that fetches.
 3. Run `node <skill-dir>/../../hooks/conduct-check.mjs --json [--round <n>] [--busy <id,id>]`. Exit 3 means print the `error` and stop.
-4. The go-ahead. Every new change's schema is confirmed with the owner first (see `create` below), `devkit-lite` included. After that answer, invoking `/conduct` is the go-ahead for every `devkit-lite` change it conducts: no further owner question before its first `implement`. A `devkit` change still goes through the grill, readiness and the owner's recorded approval.
+4. The go-ahead. Every new change's schema is confirmed with the owner first (see `create` below), `devkit-lite` included. After that answer, the owner invoking `/conduct` is the go-ahead for every `devkit-lite` change it conducts: no further owner question before its first `implement`. A run started with `--wake` is not that go-ahead: it never takes a `devkit-lite` change's first `implement`, and never writes `approval.md` or a retro answer. It advances only what was already under way and leaves the rest to the owner's next typed `/conduct`. A `devkit` change still goes through the grill, readiness and the owner's recorded approval.
 
 ## Loop
 
@@ -66,7 +66,7 @@ If background dispatch is unavailable in the host, dispatch the `dispatch` set i
 
 When `end` is true and `github` is not empty, run one capped watch: `node <skill-dir>/../../hooks/conduct-check.mjs --json --watch [--round <n>]` (default 9 minutes, maximum 30). It recomputes the report once a waiting change moves or the cap is reached. If `end` still holds, end the run.
 
-Then reconcile the session's cron with `wake.cron` from the last report. Call `CronList` and take the jobs whose prompt starts with `/conduct`:
+Then reconcile the session's cron with `wake.cron` from the last report. Call `CronList` and take the jobs whose prompt starts with `/conduct` (`wake.prompt` is `/conduct --wake` or `/conduct round <n> --wake`):
 
 | `wake.cron` | Conduct jobs listed | Do |
 |---|---|---|
@@ -75,7 +75,7 @@ Then reconcile the session's cron with `wake.cron` from the last report. Call `C
 | true | one with another prompt, or more than one | `CronDelete` all, then `CronCreate` one |
 | false | any | `CronDelete` all |
 
-The job holds no state: each firing is an ordinary `/conduct` run that recomputes everything. The runtime fires it only while the session is idle, possibly up to ten minutes late, and expires it after seven days; the next run that wants one recreates it. A session restart drops it, and the next `/conduct` creates one again if wanted.
+The job holds no state: each firing is a `/conduct --wake` run that recomputes everything and is not an owner message. The runtime fires it only while the session is idle, possibly up to ten minutes late, and expires it after seven days; the next run that wants one recreates it. A session restart drops it, and the next `/conduct` creates one again if wanted.
 
 ## Stops per change
 

@@ -1,0 +1,32 @@
+Verdict: approved
+Commit: 8f6f2bd747e0fb6eeadc6a67765d2b499b9f1793
+
+## Coverage analysis — conduct-rounds, round 1 (12aa99e..8f6f2bd)
+
+In-scope surfaces: plugins/openspec/hooks (guard, deliver-check, conduct-check, release-rebase), skills (conduct, ship-change), ADR 0005
+Blocking gaps (8-10 without a plan): 0
+Seams checked (read only, mutation runs: 0):
+- guardEdit root from target path -> caught by guard.test.mjs "worktree: an Edit of a file in a worktree is gated by the worktree change" (asserts code 2 + /Status: NEEDS-REVISION/ with session cwd in main) and "worktree + opt-in" (both directions of the opt-in).
+- guardBash write target root (guard.mjs:371-378) -> caught by "a shell write through cd <wt>" and "worktree + opt-in" (bashAt with `cd` and with absolute redirect).
+- gh pr create per segment (guard.mjs:379-385) -> caught by "gh pr create after cd <wt>", including the negative `... && cd <wt>` (cd after the command does not move it).
+- approval.md writer (guard.mjs:218-221) -> caught by "approval.md: only the main session writes it" for 3 agents, Write and redirect, and main-session allowed.
+- deliver-check stop-plan-approval row (deliver-check.mjs:973-978) -> caught by the nine "stop-plan-approval" tests: missing file, stale hash, REJECTED status, case-insensitive hash, started exemption, devkit-lite absent, row order vs stop-not-approved and stop-merge-setup, CLI exit 1, --ci unchanged.
+- conduct-check planning/approve row vs deliver (conduct-check.test.mjs:304) -> caught: asserts `approve`+askable+hash, then `implement`+tdd-implementer after approval.
+- conduct-check dependency rows D-1..D-5, release-conflict classification, push-rebased overrides, archive serialization, dispatch cap, wake.cron -> caught by named tests (386, 404, 447, 615, 628, 677-719, 837-861, 891, 968-991), built on real git worktrees and per-worktree gh fixtures.
+- release-rebase -> caught by real-git tests (174-297): abort to oldHead on non-release conflict, beyond-version manifest edit, two CHANGELOG entries, catalog with and without generator.
+
+### Findings
+- [important] [6] approval.md is not gated when the guard cannot name the active change — failure: with several active changes in one root (`ch.ambiguous`, guard.mjs:343-347 for Edit, guard.mjs:365 `continue` for Bash) or when the path is another change's folder (`classify` guard.mjs:207 returns `planning` when `parts[2] !== change`), a `tdd-implementer` or `change-planner` can write `openspec/changes/<id>/approval.md` and `deliver-check` then reads it as the owner's approval (approvalState ok). No test covers either path; the design table row "approval.md written" (design.md:465) lists only Write/Edit, redirect and subagent. · write in: plugins/openspec/hooks/guard.test.mjs next to "approval.md: only the main session writes it" (use `repo()` with two active changes, and a file under a second change's folder; assert code 2 or document the limit in the design table). Not 8+ because it needs a misnamed branch or a cross-change write, and the readiness.md gate has the same pre-existing shape.
+- [important] [5] Cron reconciliation (AC-9 "exactly one, none duplicated") and AC-11 "no second worktree" are pinned only by regexes over SKILL.md (guard.test.mjs "the reconciliation table has its four rows", "at most three"). wake.cron is tested as data (conduct-check.test.mjs:968-991), but nothing executes CronList/CronCreate/CronDelete. This is a cross-process flow, so the follow-up is real evidence, not another unit test: the round-5 `## Dogfood` in retro.md (AC-13) must show CronList output after two consecutive runs, and a kill-and-resume run listing `git worktree list`. Already planned in the design (runtime smoke); keep it as a checked item before archive.
+- [nit] [4] Relative `file_path` with `input.cwd` is untested — guard.mjs:340 `resolve(input.cwd || process.cwd(), file)` is the new root derivation and every worktree test passes absolute paths. A relative path from a session in the main checkout pointing into `.claude/worktrees/x/...` is the likely real form. · write in: guard.test.mjs worktree block (`editAt(main, '.claude/worktrees/feat/src/a.ts', 'tdd-implementer')` expect 2).
+- [nit] [4] approval.md by `sed -i`, `cp`, `mv`, `tee` from a subagent is untested; only `>` redirect is (guard.test.mjs approval block). bashWrites covers those forms for other gates, so the risk is low. · same file.
+- [nit] [4] Freshness by mtime (conduct-check.mjs `fresh`, `FRESH_MS` 2000, planFacts) after a rebase: the test at conduct-check.test.mjs:404 rebases with uncommitted plan files (autostash), so it never exercises committed plan files replayed one commit at a time, where readiness.md and audit.md can end up older than a later plan file by more than 2 s on a long branch and loop on `readiness`/`audit`. Speculative, not reproduced. · write in: conduct-check.test.mjs, one case with committed plan files and `at()` offsets > 2 s.
+- [nit] implementation-coupled: guard.test.mjs "conduct SKILL.md: at most three steps..." asserts an exact sentence ("Work only in `<worktree>` ... do not fetch.") and exact table-cell phrases; a harmless rewording of the skill turns it red. Accepted trade-off for a prompt-as-contract, but keep the pins to the load-bearing clauses.
+- [nit] inherent limit, not a test gap: "written from the owner's own message" for approval.md and retro answers is enforced only by skill text (the guard can only tell main session from subagent). A cron-started `/conduct` run is the same actor as the owner's session to the hook. The skill pins say it (guard.test.mjs "approval.md and retro answers only from the owner's own message"); nothing more is testable at the hook.
+
+### Well covered
+- Plan approval hash: stale, REJECTED, upper-case, started exemption, devkit-lite, --ci unchanged, exit code 1 (deliver-check.test.mjs approval block) — each assertion would go red on a one-line break in approvalState or the row's guard.
+- Worktree gating in both directions of the opt-in (target root decides, not the session) for Edit, shell write and gh pr create.
+- Release-file conflict: merge-tree classification, README conflict blocking while an independent change is still dispatched, clean-merge staleness, force-push override with reflog check, foreign push stays blocked.
+- release-rebase: abort restores oldHead on every unresolvable path; version arithmetic tested per bump kind.
+- Roadmap round computation: next round in the same call, --round skip, missing/skipped after: ids keep the dependent waiting.

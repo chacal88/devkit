@@ -534,6 +534,17 @@ test('conduct: deliveryStep maps every deliver-check step to its actor, agent an
   assert.deepEqual(actorOf('stop-retro-answers'), { actor: 'owner', askable: true });
   assert.equal(actorOf('ready').askable, false);
   assert.equal(actorOf('plan').agent, 'devkit-core:change-planner');
+  assert.deepEqual(actorOf('archived'), { actor: 'none' });
+  assert.deepEqual(actorOf('wait-dependencies'), { actor: 'none' });
+});
+
+test('conduct: a deliver-check step with no actor mapping stops the change with "unknown step <name>"', () => {
+  assert.deepEqual(actorOf('bogus'), { actor: 'stop', reason: 'unknown step bogus' });
+  const got = deliveryStep({ id: 'x' }, REPORT({ step: 'bogus' }));
+  assert.equal(got.next.actor, 'stop');
+  assert.equal(got.next.reason, 'unknown step bogus');
+  assert.equal(got.state, 'blocked: S: unknown step bogus');
+  assert.deepEqual(selectDispatch([{ id: 'x', next: got.next }]), [], 'never dispatched');
 });
 
 test('conduct: DEVKIT_BRANCH in the parent env does not change a worktree\'s selection', () => {
@@ -622,6 +633,7 @@ test('conduct: a change PR in conflict only in release files is resolve-release-
   assert.ok(c.next.command.includes('--base') && c.next.command.includes('main'));
   assert.match(c.next.command[1], /release-rebase\.mjs$/);
   assert.equal(c.deliver.next.step, 'blocked', 'deliver-check alone says blocked');
+  assert.equal(c.deliver.next.conflict, true, 'deliver-check names the conflict in a field, not only in prose');
   assert.equal(headOf(b), c.deliver ? headOf(b) : '', 'nothing was touched');
 });
 
@@ -771,6 +783,7 @@ test('conduct: an archive PR in conflict only in release files is resolve-releas
   archiveGh(t, wt, 'b', [ARCHIVE_PR({ headRefOid: headOf(wt), mergeable: 'CONFLICTING' })]);
   let c = byId(t.state(), 'b');
   assert.equal(c.deliver.next.step, 'stop-archive');
+  assert.equal(c.deliver.next.conflict, true, 'the archive PR conflict is a field too');
   assert.deepEqual(planStep(c), ['resolve-release-conflict', 'subagent']);
   assert.deepEqual(c.next.paths, ['CHANGELOG.md']);
 
@@ -969,7 +982,7 @@ test('conduct: wake.cron is on when end holds and a change waits on GitHub, even
   const res = fiveKinds().state();
   assert.equal(res.wake.cron, true);
   assert.equal(res.wake.schedule, '*/20 * * * *');
-  assert.equal(res.wake.prompt, '/conduct');
+  assert.equal(res.wake.prompt, '/conduct --wake');
 });
 
 test('conduct: wake.cron is off when the roadmap is done, when everything waits on the owner or is stopped, and when anything is dispatchable (AC-8, AC-9)', () => {
@@ -988,11 +1001,11 @@ test('conduct: wake.cron is off when the roadmap is done, when everything waits 
   assert.equal(wakeOf({ end: true, github: ['x'] }).cron, true);
 });
 
-test('conduct: the wake prompt is /conduct round <n> under --round <n>, else /conduct', () => {
-  assert.equal(wakeOf({ end: true, github: ['x'] }, 5).prompt, '/conduct round 5');
-  assert.equal(wakeOf({ end: true, github: ['x'] }).prompt, '/conduct');
+test('conduct: the wake prompt carries --wake: /conduct round <n> --wake under --round <n>, else /conduct --wake', () => {
+  assert.equal(wakeOf({ end: true, github: ['x'] }, 5).prompt, '/conduct round 5 --wake');
+  assert.equal(wakeOf({ end: true, github: ['x'] }).prompt, '/conduct --wake');
   const t = roundRepo({ roadmap: TWO_ROUNDS('- [ ] a', ['- [ ] b']) });
-  assert.equal(t.state({ round: 2 }).wake.prompt, '/conduct round 2');
+  assert.equal(t.state({ round: 2 }).wake.prompt, '/conduct round 2 --wake');
 });
 
 // One change waiting on its pending checks; `flipAt` is the pr-checks call that turns green.

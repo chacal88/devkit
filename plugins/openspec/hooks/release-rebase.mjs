@@ -255,8 +255,8 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
     const newHead = gitOut(root, ['rev-parse', 'HEAD']);
     return report(0, { resolved: true, oldHead, newHead, versions, files }, `resolved: ${files.join(', ') || 'no release file changed'} (uncommitted, ${Object.entries(versions.packs).map(([n, v]) => `${n} ${v}`).join(', ')})`);
   } catch (e) {
-    if (!(e instanceof ReleaseError)) throw e;
-    return unresolved({ conflicts: [], error: e.message });
+    // Any failure after the replay (a malformed manifest, a write error) must leave the tree as it was found.
+    return unresolved({ conflicts: [], error: e instanceof Error ? e.message : String(e) });
   }
 }
 

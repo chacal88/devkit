@@ -952,6 +952,28 @@ test('approval.md: only the main session writes it, by Write and by shell redire
   assert.equal(bash(root, `cat > ${f} <<'EOF'\n- Status: APPROVED\nEOF`).code, 0);
 });
 
+test('approval.md: main-session only even with several active changes or in another change folder (D7)', () => {
+  const several = repo({ changes: { feat: approved, other: approved } }); // branch main: ambiguous
+  const one = repo({ changes: { feat: approved, other: approved }, branch: 'feat' });
+  for (const [root, f] of [[several, 'openspec/changes/feat/approval.md'], [one, 'openspec/changes/other/approval.md']]) {
+    for (const a of ['change-planner', 'tdd-implementer']) {
+      const r = edit(root, f, a);
+      assert.equal(r.code, 2, `${a} by Write on ${f}`);
+      assert.match(r.err, /approval\.md is written only by the main session/);
+      assert.equal(bash(root, `echo '- Status: APPROVED' > ${f}`, a).code, 2, `${a} by redirect on ${f}`);
+    }
+    assert.equal(edit(root, f).code, 0, 'the main session by Write');
+    assert.equal(bash(root, `echo ok > ${f}`).code, 0, 'the main session by redirect');
+  }
+});
+
+test('gh pr create after cd to a directory with no project still meets the session root gate (D5)', () => {
+  const root = repo({ changes: { feat: approved }, branch: 'feat' });
+  const r = bash(root, 'cd /tmp && gh pr create --title t --body b');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /review not approved/);
+});
+
 // ---------------------------------------------------------------- roadmap text and notes (conduct-rounds D3)
 
 test('readRoadmap keeps the description as text and the indented lines as notes', () => {
@@ -1014,6 +1036,8 @@ test('conduct SKILL.md: approval.md and retro answers only from the owner\'s own
   assert.match(md, /Plan approval and retro answers are written only from the owner's own message/);
   assert.match(md, /Write `approval\.md` or a retro answer except from the owner's own message/);
   assert.match(md, /cron-started run without the owner's message/);
+  assert.match(md, /`--wake`, which only the wake-up cron's prompt carries/);
+  assert.match(md, /A run started with `--wake` is not that go-ahead: it never takes a `devkit-lite` change's first `implement`, and never writes `approval\.md` or a retro answer/);
 });
 
 test('conduct SKILL.md: the schema is asked for every new change before git worktree add, devkit-lite included; then /conduct is the go-ahead', () => {
@@ -1022,7 +1046,7 @@ test('conduct SKILL.md: the schema is asked for every new change before git work
   assert.match(create, /for every new change, `devkit-lite` included/);
   assert.match(create, /Only after the answer run `git worktree add -b <id> <path> origin\/<base>`/);
   assert.ok(create.indexOf('Ask the owner') < create.indexOf('git worktree add'), 'the question comes first');
-  assert.match(md, /After that answer, invoking `\/conduct` is the go-ahead for every `devkit-lite` change/);
+  assert.match(md, /After that answer, the owner invoking `\/conduct` is the go-ahead for every `devkit-lite` change/);
 });
 
 test('conduct SKILL.md: the report names the five states', () => {
@@ -1046,6 +1070,7 @@ test('ADR 0005 records the parallel steps and the wake-up, and ADR 0001 points t
   assert.match(adr5, /^- Status: accepted$/m);
   assert.match(adr5, /at most three/);
   assert.match(adr5, /every 20 minutes/);
+  assert.match(adr5, /`--wake` marker/);
   const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });

@@ -66,7 +66,9 @@ export function actorOf(step) {
   if (OWNER.includes(step)) return { actor: 'owner', askable: false };
   if (GITHUB.includes(step)) return { actor: 'github' };
   if (STOP.includes(step)) return { actor: 'stop' };
-  return { actor: 'none' };
+  // Steps that end a change's row without an actor; anything else is a deliver-check step this map lacks.
+  if (step === 'archived' || step === 'wait-dependencies') return { actor: 'none' };
+  return { actor: 'stop', reason: `unknown step ${step}` };
 }
 
 const RUNNABLE = ['subagent', 'review', 'gate', 'main'];
@@ -372,8 +374,8 @@ function conflictedPaths(root, ref) {
 // Override 1: a PR in conflict. Release files only: resolve-release-conflict; anything else stays blocked.
 function releaseConflict(ctx, row, state, report) {
   const n = report.next;
-  const onChange = n.step === 'blocked' && n.item === 5 && /has merge conflicts/.test(n.reason);
-  const onArchive = n.step === 'stop-archive' && n.archiveStep === 'archive-pr' && /has merge conflicts/.test(n.reason);
+  const onChange = n.step === 'blocked' && n.item === 5 && n.conflict === true;
+  const onArchive = n.step === 'stop-archive' && n.archiveStep === 'archive-pr' && n.conflict === true;
   if (!onChange && !onArchive) return null;
   const where = onChange ? 'item 5' : 'archive (archive-pr)';
   const stop = (message, extra = {}) => ({ ...step('blocked', message, extra), blockedState: `blocked: ${message}` });
@@ -499,7 +501,7 @@ export function wakeOf(summary, roundArg = null) {
   return {
     cron: summary.end && summary.github.length > 0,
     schedule: WAKE_SCHEDULE,
-    prompt: roundArg ? `/conduct round ${roundArg}` : '/conduct',
+    prompt: roundArg ? `/conduct round ${roundArg} --wake` : '/conduct --wake',
   };
 }
 
