@@ -1252,6 +1252,15 @@ test('conduct: --change through the CLI: --change=<id>, the usage line, and exit
     assert.equal(r.code, 3, `"${bad}"`);
     assert.match(JSON.parse(r.stdout).error, /--change expects a change id/);
   }
+  r = cli(t, ['--json', '--change', '--json']);
+  assert.equal(r.code, 3);
+  assert.match(JSON.parse(r.stdout).error, /--change expects a change id, not "--json"/);
+  for (const args of [['--change', '-x'], ['--change=-rf']]) {
+    r = cli(t, ['--json', ...args]);
+    assert.equal(r.code, 3, args.join(' '));
+    assert.match(JSON.parse(r.stdout).error, /--change expects a change id, not "-/);
+  }
+  assert.equal(cli(t, ['--json', '--change', 'a']).code, 0, 'a plain id still works');
 });
 
 test('conduct: --change <id> --watch returns the recomputed single row when the checks flip (AC-2)', () => {
@@ -1291,6 +1300,16 @@ test('conduct: --change of a worktree with no folder is exit 3 "change <id> has 
   assert.ok(e.includes(wt));
   assert.match(e, /openspec new change b --schema/);
   assert.equal(byId(t.state(), 'b').next.step, 'new-change', 'the round mode still asks');
+});
+
+test('conduct: --change reads a chore/archive-<id> worktree that holds only the archived folder (D2)', () => {
+  const { t, wt, id } = archiveRepo();
+  archiveGh(t, wt, id, [ARCHIVE_PR({ headRefOid: headOf(wt) })]);
+  const row = t.state({ change: id });
+  assert.equal(row.changes.length, 1);
+  const round = byId(t.state(), id);
+  assert.equal(row.changes[0].next.step, round.next.step);
+  assert.equal(row.changes[0].state, round.state);
 });
 
 test('conduct: --change of the active folder in a checkout on another branch is exit 3 "is on another branch" naming git switch -c (AC-2)', () => {

@@ -698,7 +698,7 @@ function parseArgs(argv) {
       opts.round = Number(v);
     } else if (a === '--change' || a.startsWith('--change=')) {
       const v = value(a, 'change', rest);
-      if (!/^[\w.-]+$/.test(v) || ['.', '..', 'archive'].includes(v)) throw new UsageError(`--change expects a change id, not "${v}"`);
+      if (!/^[A-Za-z0-9][\w.-]*$/.test(v) || ['.', '..', 'archive'].includes(v)) throw new UsageError(`--change expects a change id, not "${v}"`);
       opts.change = v;
     } else if (a === '--busy' || a.startsWith('--busy=')) opts.busy = value(a, 'busy', rest).split(',').map((x) => x.trim()).filter(Boolean);
     else if (a === '--watch' || a.startsWith('--watch=')) opts.watch = watchMinutes(a.includes('=') ? a.slice(a.indexOf('=') + 1) : undefined);
