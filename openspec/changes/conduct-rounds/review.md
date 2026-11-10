@@ -30,3 +30,15 @@ Consensus: FAIL (round 1/2): code-quality-reviewer's open important finding.
 
 ## Next
 Fix the findings above (tdd-implementer), commit, then re-review: code-quality-reviewer at round 2; the others are stale after the fix commit and re-run at round 1.
+
+## Round 2 (dd407bd)
+
+| Reviewer | Verdict | Blocking | Open important |
+|---|---|---|---|
+| adr-reviewer | PASS | 0 | 0 (cron go-ahead fixed in dd407bd) |
+| code-quality-reviewer | PASS | 0 | 0 (release-rebase catch-all fixed in dd407bd) |
+| test-coverage-reviewer | PASS | 0 | 0 (approval.md paths fixed; cron/worktree proof deferred to the AC-13 dogfood, required before archive) |
+| security-reviewer | PASS | 0 | 0 (gh pr create fallback fixed; guard escapes refuted as pre-existing, follow-up) |
+| architecture-reviewer | PASS | 0 | 2 accepted as follow-ups (collectState internals; helper copies that differ) |
+
+Consensus: PASS (round 2/2). Follow-ups: Bash write-guard escapes (realpath, subshell `cd`, `git -C`); one parameterized git/poll helper; conduct-check reading deliver-check's published report instead of `collectState`; ADR 0005 citing ADR 0004.
