@@ -63,7 +63,7 @@ Coordination is allowed; a harness is not. The `ship-change` skill drives one ap
 
 The merge stays the owner's unless a repository opts in, per schema, to GitHub merging a change on its own once the `devkit-reviews` check passes at the PR head; the opt-in is a rule with a review trigger, not a default. See [ADR 0002](docs/adr/0002-merge-without-the-owner-opt-in.md). After the merge, `ship-change` archives the change through a PR that GitHub merges in `merge` mode; see [ADR 0003](docs/adr/0003-auto-merge-the-archive-pr.md).
 
-For a roadmap round, `/conduct` runs the next steps of independent changes at once, each in its own git worktree (at most three at a time), asks you only at owner gates, and while everything waits on GitHub leaves one session cron that re-runs it every 20 minutes. It is an exception to ADR 0001, recorded in [ADR 0005](docs/adr/0005-parallel-steps-and-a-session-wake-up.md).
+For a roadmap round, `/conduct` runs the next steps of independent changes at once, each in its own git worktree (at most three at a time), asks you only at owner gates, and, in the desktop app, starts each implementation phase as a child session (grouped in the sidebar by change, archived when the phase's gate is green); while everything waits on GitHub it does one capped watch and leaves the rest to the app's PR Auto-fix, with no cron. It is an exception to ADR 0001, recorded in [ADR 0006](docs/adr/0006-phases-as-child-sessions.md).
 
 ## Documentation
 

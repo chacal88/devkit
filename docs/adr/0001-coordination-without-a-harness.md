@@ -32,14 +32,16 @@ PR) stay as they are, and the owner's plan approval remains a human gate.
   re-runs the skill (Accepted). Auto-fix cannot be detected from the session (Mitigated: the
   skill says what will wake it).
 - Note: conducting a roadmap round (the next steps of several changes at once, each in its own
-  worktree, and a session cron that re-runs the skill while everything waits on GitHub) is an
-  exception recorded in ADR 0005 (0005-parallel-steps-and-a-session-wake-up.md). This ADR's
-  Decision governs everything else.
+  worktree, and in the desktop app each implementation phase as a child session the conducting
+  skill starts) is an exception recorded in ADR 0006 (0006-phases-as-child-sessions.md), which
+  supersedes ADR 0005 (0005-parallel-steps-and-a-session-wake-up.md). This ADR's Decision governs
+  everything else.
 
 ### Review trigger
 
 A coordinator needs state that cannot be derived from the repository or GitHub, or Claude Code
-lets automation start sessions.
+lets automation start sessions (ADR 0006 already allows starting child sessions from the owner's
+turn and its continuations; review it if an automated turn can start them).
 
 ## Alternatives considered
 

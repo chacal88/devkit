@@ -941,6 +941,22 @@ test('worktree: with readiness APPROVED the tdd-implementer may edit and the mai
   assert.match(r.err, /tdd-implementer/);
   assert.equal(bashAt(main, `cd ${wt} && echo x > src/a.ts`).code, 2);
   assert.equal(bashAt(main, `cd ${wt} && echo x > src/a.ts`, 'tdd-implementer').code, 0);
+  // a child session (conduct-sessions D4): its hook input cwd is the worktree itself
+  const own = editAt(wt, join(wt, 'src', 'a.ts'));
+  assert.equal(own.code, 2, 'a child with no agent_type is refused');
+  assert.match(own.err, /tdd-implementer/);
+  assert.equal(editAt(wt, join(wt, 'src', 'a.ts'), 'devkit-core:tdd-implementer').code, 0, 'the implementer it dispatches passes');
+  assert.equal(bashAt(wt, 'echo x > src/a.ts').code, 2);
+  assert.equal(bashAt(wt, 'echo x > src/a.ts', 'devkit-core:tdd-implementer').code, 0);
+});
+
+test('worktree: a devkit-lite change refuses nothing to a child session with no agent_type (conduct-sessions D4)', () => {
+  const main = gitRepo({ config: 'schema: devkit-lite\n' });
+  const wt = join(main, '.claude', 'worktrees', 'fix');
+  gitIn(main, 'worktree', 'add', '-q', wt, '-b', 'fix');
+  put(wt, { 'openspec/changes/fix/.openspec.yaml': 'schema: devkit-lite\nskip_specs: true\n' });
+  assert.equal(editAt(wt, join(wt, 'src', 'a.ts')).code, 0);
+  assert.equal(bashAt(wt, 'echo x > src/a.ts').code, 0);
 });
 
 test('worktree + opt-in: the opt-in check applies to each target root, not to the session cwd (D5, ADR 0004)', () => {
@@ -1041,27 +1057,38 @@ test('conduct SKILL.md: at most three steps at once, the worktree preamble, neve
   assert.ok(md.includes('Work only in `<worktree>` on branch `<branch>`; every file path is absolute under it; start every Bash command with `cd <worktree> && `; do not fetch.'));
   const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /Dispatch a subagent for a whole change/);
-  assert.match(never, /Create a second conduct cron/);
+  assert.match(never, /Create a conduct cron/);
+  assert.doesNotMatch(never, /Create a second conduct cron/);
+  assert.match(never, /Run a phase as a subagent in the app host/);
+  assert.match(never, /Start a session from a step other than `implement`/);
+  assert.match(never, /Start a session from a turn the owner did not type, except the continuation of a child's end/);
+  assert.doesNotMatch(never, /Start or drive another session/);
 });
 
-test('conduct SKILL.md: the reconciliation table has its four rows', () => {
+test('conduct SKILL.md: the cron migration rule, and no cron is ever created (D7, AC-8)', () => {
   const md = conductMd();
-  const rows = md.split('\n').filter((l) => /^\| (true|false) \|/.test(l));
-  assert.equal(rows.length, 4);
-  assert.match(rows[0], /none \| `CronCreate`/);
-  assert.match(rows[1], /one, same prompt \| keep it/);
-  assert.match(rows[2], /`CronDelete` all, then `CronCreate` one/);
-  assert.match(rows[3], /^\| false \| any \| `CronDelete` all/);
-  assert.match(md, /every 20 minutes/);
+  assert.doesNotMatch(md, /\| (true|false) \|/, 'the reconciliation table is gone');
+  assert.match(md, /`CronList`/);
+  assert.match(md, /delete every job whose prompt starts with `\/conduct`/);
+  assert.match(md, /never create one/);
+  assert.doesNotMatch(md, /CronCreate|every 20 minutes|`--wake`|--wake|wake\.cron|wake-up cron/);
+  const desc = md.split('\n').find((l) => l.startsWith('description:'));
+  assert.doesNotMatch(desc, /cron|wake-up/);
+  assert.match(desc, /\bUse when\b/);
 });
 
 test('conduct SKILL.md: approval.md and retro answers only from the owner\'s own message', () => {
   const md = conductMd();
   assert.match(md, /Plan approval and retro answers are written only from the owner's own message/);
   assert.match(md, /Write `approval\.md` or a retro answer except from the owner's own message/);
-  assert.match(md, /cron-started run without the owner's message/);
-  assert.match(md, /`--wake`, which only the wake-up cron's prompt carries/);
-  assert.match(md, /A run started with `--wake` is not that go-ahead: it never takes a `devkit-lite` change's first `implement`, and never writes `approval\.md` or a retro answer/);
+  assert.doesNotMatch(md, /cron-started run/);
+  assert.match(md, /The owner's typed `\/conduct` is the only go-ahead/);
+  assert.match(md, /a continuation turn advances what is under way and may start the next session of a change under way/i);
+  assert.match(md, /an `approval\.md` recording the current readiness/);
+  assert.match(md, /never writes `approval\.md` or a retro answer/);
+  assert.match(md, /An Auto-fix wake or any other turn the owner did not type runs GitHub-side steps only and starts no session/);
+  assert.match(md, /a schema, grill, approval or retro gate reached by a turn the owner did not type is asked and left for the owner/i);
+  assert.match(md, /by the message that started the turn, never by a flag in the prompt/);
 });
 
 test('conduct SKILL.md: the schema is asked for every new change before git worktree add, devkit-lite included; then /conduct is the go-ahead', () => {
@@ -1078,23 +1105,123 @@ test('conduct SKILL.md: the report names the five states', () => {
   for (const form of ['`archived`', '`waiting on <ids>`', '`waiting for the owner: <what>`', '`waiting on GitHub: <what>`', '`blocked: <why>`']) {
     assert.ok(rep.includes(form), form);
   }
-  assert.match(rep, /wake-up: cron <id> every 20 minutes/);
-  assert.match(rep, /wake-up: none/);
+  assert.doesNotMatch(rep, /wake-up:/);
+  assert.match(rep, /Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `\/conduct` again to go on/);
+  assert.match(rep, /not archived: <name> \(<why>\)/);
+  assert.match(rep, /not grouped: <name> \(<why>\)/);
+  assert.match(rep, /not bound: <url> \(<why>\)/);
+  assert.match(rep, /sessions left to start/);
+});
+
+test('conduct SKILL.md: the GitHub wait is one capped watch, then Auto-fix; the PR is bound after open-pr (AC-9)', () => {
+  const md = conductMd();
+  assert.match(md, /one capped watch/);
+  assert.match(md, /mcp__ccd_pr__get_status/);
+  assert.match(md, /mcp__ccd_pr__bind_pr/);
+  assert.ok(md.indexOf('`open-pr`') < md.indexOf('mcp__ccd_pr__bind_pr'), 'bound after open-pr');
+  assert.match(md, /one PR bound per session/);
+  assert.match(md, /the PR opened last/);
+  const rep = md.split('## Report')[1].split('## Never')[0];
+  assert.match(rep, /the PR opened last/, 'the report names the bound PR');
+  assert.match(md, /waiting on GitHub: <what>/);
+});
+
+// ---------------------------------------------------------------- the conduct skill: child sessions (conduct-sessions D5, D6, D13)
+
+test('conduct SKILL.md: the app starts one child session per session row, with the start fields (AC-3)', () => {
+  const md = conductMd();
+  assert.match(md, /mcp__ccd_session__start_session/);
+  for (const f of ['initiation: "user_asked"', 'context: "fresh"', 'use_worktree: false', 'wake_when_done: true', '`session.brief`', '`session.background`', '`session.name`', '`session.title`', '`session.cwd`']) {
+    assert.ok(md.includes(f), f);
+  }
+  assert.match(md, /`model`, `effort` and `permission_mode` are omitted/);
+  assert.match(md, /In the app:/);
+});
+
+test('conduct SKILL.md: --busy comes from list_sessions by isRunning, isArchived and sessionPrefix (AC-7)', () => {
+  const md = conductMd();
+  assert.ok(md.includes('mcp__ccd_session_mgmt__list_sessions({ linked: true, limit: 100 })'));
+  assert.match(md, /`isRunning`/);
+  assert.match(md, /`isArchived`/);
+  assert.match(md, /`sessionPrefix`/);
+  assert.match(md, /followed by digits only/);
+  assert.ok(md.includes('^<prefix>[0-9]+$'));
+  assert.match(md, /never a bare starts-with/);
+  assert.match(md, /recomputes once without `--busy`/);
+  assert.match(md, /recomputes again with `--busy`/);
+});
+
+test('conduct SKILL.md: a refused start waits for the owner and never becomes a subagent (AC-6)', () => {
+  const md = conductMd();
+  assert.ok(md.includes('waiting for the owner: start session <id> phase <n>'));
+  assert.match(md, /never a subagent in its place/);
+  assert.match(md, /each is attempted once/);
+  assert.match(md, /sessions left to start/);
+});
+
+test('conduct SKILL.md: a continuation turn reads Outcome, recomputes and starts the next session of a change under way (AC-5)', () => {
+  const md = conductMd();
+  assert.match(md, /`<side-sessions-event>`/);
+  assert.match(md, /reads the child's `Outcome:` line/);
+  assert.match(md, /the next phase of the same change starts with no message from the owner/);
+  assert.match(md, /under way/);
+  assert.match(md, /a ticked task in `tasks\.md`, or, in the `devkit` schema, an `approval\.md` that records the current readiness/);
+  assert.match(md, /never from the app's list of sessions/);
+  assert.ok(md.includes('blocked: phase <n>: <reason>'));
+  assert.ok(md.includes('blocked: phase <n>: child ended without ticking tasks'));
+});
+
+test('conduct SKILL.md: the sidebar group, the archive and the one rule for a refused call (AC-8)', () => {
+  const md = conductMd();
+  assert.match(md, /mcp__ccd_sidebar__list_groups/);
+  assert.match(md, /mcp__ccd_sidebar__create_group/);
+  assert.match(md, /mcp__ccd_sidebar__move_sessions/);
+  assert.match(md, /group named exactly `<id>`/);
+  assert.match(md, /mcp__ccd_session_mgmt__archive_session/);
+  assert.match(md, /gate task of the phase is ticked/);
+  assert.match(md, /every idle linked session/);
+  assert.ok(md.includes('phase <n> of <id>: gate green'));
+  assert.match(md, /stopped phase is left unarchived/);
+  for (const f of ['not archived: <name> (<why>)', 'not grouped: <name> (<why>)', 'not bound: <url> (<why>)']) assert.ok(md.includes(f), f);
+  assert.match(md, /not retried in the run/);
+  assert.match(md, /never a stop/);
+  assert.match(md, /git worktree list/);
+});
+
+test('README and the pack README describe the session flow with no cron (2.5)', () => {
+  const root = join(here, '..', '..', '..');
+  const top = readFileSync(join(root, 'README.md'), 'utf8');
+  const para = top.split('\n').find((l) => l.startsWith('For a roadmap round, `/conduct`')) ?? '';
+  assert.match(para, /child session/);
+  assert.match(para, /0006-phases-as-child-sessions\.md/);
+  assert.doesNotMatch(para, /every 20 minutes|session cron/);
+  const pack = readFileSync(join(root, 'plugins', 'openspec', 'README.md'), 'utf8');
+  const rows = pack.split('\n').filter((l) => /conduct/.test(l) && l.startsWith('|'));
+  assert.ok(rows.length >= 3);
+  for (const r of rows) assert.doesNotMatch(r, /every 20 minutes|session cron|`wake`/);
+  assert.match(pack.split('\n').find((l) => l.startsWith('| `conduct` skill')), /child session/);
+  assert.match(pack.split('\n').find((l) => l.startsWith('| [`hooks/conduct-check.mjs`')), /`session`/);
 });
 
 // ---------------------------------------------------------------- ADR 0005 (conduct-rounds D13)
 
-test('ADR 0005 records the parallel steps and the wake-up, and ADR 0001 points to it', () => {
+test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', () => {
   const root = join(here, '..', '..', '..');
-  const name = '0005-parallel-steps-and-a-session-wake-up.md';
+  const n5 = '0005-parallel-steps-and-a-session-wake-up.md';
+  const n6 = '0006-phases-as-child-sessions.md';
   const adr1 = readFileSync(join(root, 'docs', 'adr', '0001-coordination-without-a-harness.md'), 'utf8');
-  assert.ok(adr1.includes(name), 'ADR 0001 points to ADR 0005');
+  assert.ok(adr1.includes(n6), 'ADR 0001 names ADR 0006');
   assert.match(adr1, /^## Decision$/m);
-  const adr5 = readFileSync(join(root, 'docs', 'adr', name), 'utf8');
-  assert.match(adr5, /^- Status: accepted$/m);
-  assert.match(adr5, /at most three/);
-  assert.match(adr5, /every 20 minutes/);
-  assert.match(adr5, /`--wake` marker/);
+  const adr5 = readFileSync(join(root, 'docs', 'adr', n5), 'utf8');
+  assert.match(adr5, /^- Status: superseded by ADR 0006/m);
+  const adr6 = readFileSync(join(root, 'docs', 'adr', n6), 'utf8');
+  assert.match(adr6, /^- Status: accepted$/m);
+  for (const h of ['Decision', 'Consequences', 'Review trigger', 'Alternatives considered']) {
+    assert.match(adr6, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0006 has ${h}`);
+  }
+  const cfg = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8');
+  assert.match(cfg, /0005 parallel steps/);
+  assert.match(cfg, /0006 phases as child sessions/);
   const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });
