@@ -2,7 +2,7 @@
 
 Reusable [Claude Code](https://docs.claude.com/en/docs/claude-code) agents and skills, plus a spec-driven workflow on top of [OpenSpec](https://github.com/Fission-AI/OpenSpec) that you can enforce without a harness.
 
-devkit is a plugin marketplace with five packs. Install it once, then enable only the packs each project needs: every installed skill's description is loaded into context on every turn, so fewer packs means a leaner agent.
+devkit is a plugin marketplace with five packs. Install the packs per project: each project's `.claude/settings.json` names the packs it uses, so they load only in the projects that chose them and every other project pays no context for them (every installed skill's description is loaded into context on every turn).
 
 | Pack | What it gives you |
 |---|---|
@@ -16,14 +16,28 @@ The full list, generated from the files: [docs/catalog.md](docs/catalog.md).
 
 ## Install
 
-In Claude Code:
+Commit the marketplace and the packs the project uses to its `.claude/settings.json`:
 
-```text
-/plugin marketplace add chacal88/devkit
-/plugin install devkit-core@devkit
+```json
+{
+  "extraKnownMarketplaces": {
+    "devkit": { "source": { "source": "github", "repo": "chacal88/devkit" } }
+  },
+  "enabledPlugins": {
+    "devkit-core@devkit": true,
+    "devkit-openspec@devkit": true
+  }
+}
 ```
 
-Add more packs the same way (`devkit-openspec@devkit`, `devkit-design@devkit`, `devkit-stack@devkit`, `devkit-ai-engineering@devkit`). To pin packs for everyone working on a repo, declare them in the project's `.claude/settings.json` — see [docs/getting-started.md](docs/getting-started.md#share-with-a-team).
+Or run the CLI equivalent at the project root:
+
+```bash
+claude plugin marketplace add chacal88/devkit --scope project
+claude plugin install devkit-core@devkit --scope project
+```
+
+Add more packs the same way (`devkit-openspec@devkit`, `devkit-design@devkit`, `devkit-stack@devkit`, `devkit-ai-engineering@devkit`). The packs load only in the projects that chose them. If this machine still has the old user-scope install, see [docs/migrate-to-project-scope.md](docs/migrate-to-project-scope.md). Details: [docs/getting-started.md](docs/getting-started.md).
 
 ## The workflow in one picture
 
@@ -41,7 +55,7 @@ Earlier attempts orchestrated changes with a coordinator session driving a state
 
 1. **The schema** (OpenSpec) declares the artifacts and their order; the CLI computes what's next and refuses `apply` while the plan isn't done.
 2. **The skills and agents** say how to produce each artifact.
-3. **A few hooks and CI checks** refuse what must never happen: code before an approved plan, a PR before an approved review, destructive git.
+3. **A few hooks and CI checks** refuse what must never happen, in projects that opted in: code before an approved plan, a PR before an approved review, destructive git. A project opts in through its `openspec/config.yaml` schema; elsewhere the hooks stay silent. See [ADR 0004](docs/adr/0004-devkit-per-project.md).
 
 Edit an artifact by hand, use another agent, or pick the lighter `devkit-lite` schema for small changes; the flow still holds.
 
@@ -51,7 +65,8 @@ The merge stays the owner's unless a repository opts in, per schema, to GitHub m
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md): install, pick packs, first change
+- [Getting started](docs/getting-started.md): opt a project in, pick packs, first change
+- [Migrate to project scope](docs/migrate-to-project-scope.md): remove the old user-scope install, item by item
 - [The OpenSpec flow](docs/openspec-flow.md): schemas, config, hooks, CI, troubleshooting
 - [Catalog](docs/catalog.md): every agent and skill
 - [Conventions](docs/conventions.md): how assets are named and written

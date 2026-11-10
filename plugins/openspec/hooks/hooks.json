@@ -1,5 +1,5 @@
 {
-  "description": "devkit guards for OpenSpec: product code needs an approved readiness, a PR needs an approved review and evidence, destructive git is refused.",
+  "description": "devkit guards for OpenSpec: product code needs an approved readiness, a PR needs an approved review and evidence, destructive git is refused. Active only in projects whose openspec/config.yaml selects devkit or devkit-lite (opted in); silent elsewhere.",
   "hooks": {
     "SessionStart": [
       {

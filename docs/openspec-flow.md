@@ -74,17 +74,17 @@ The `openspec-setup` skill does all of this; here is what it does, if you prefer
    openspec init --tools claude
    ```
 
-2. Install the schemas. In the project, so the team and CI share them (recommended):
+2. Install the schemas into the project, so the team and CI share them (run it inside the project, no argument needed):
 
    ```bash
-   bash <devkit>/plugins/openspec/skills/openspec-setup/scripts/install-schemas.sh .
+   bash <devkit>/plugins/openspec/skills/openspec-setup/scripts/install-schemas.sh
    ```
 
-   Or for every project on this machine: the same command without the `.`.
+   Or, for every project on this machine, add `--user`: the same command with `--user` installs under `$XDG_DATA_HOME/openspec/schemas/` and leaves the project untouched.
 
 3. Copy [`templates/config.yaml`](../plugins/openspec/skills/openspec-setup/templates/config.yaml) to `openspec/config.yaml` and fill in `context` with the real stack, test command and conventions.
 
-4. Install the plugins `devkit-core` and `devkit-openspec` (see [getting-started.md](getting-started.md)).
+4. Opt the project in: enable the packs `devkit-core` and `devkit-openspec` per project, in its `.claude/settings.json` (see [getting-started.md](getting-started.md)).
 
 ## Running a change
 
@@ -155,6 +155,10 @@ Planning files under `openspec/`, anything under `.claude/`, and anything outsid
 **Which change is active.** `DEVKIT_CHANGE` if set; else, on a branch `chore/archive-<id>` for a known change `<id>`, that change while it is open (and none once it moved to `openspec/changes/archive/`); else the open change whose name the branch ends with, or contains; else the only open change. With several open changes and no branch match, code edits are blocked until you name the branch. With no open change, nothing is gated. On an archive branch whose change has moved, the hooks gate nothing, even while other changes are open: the archive PR is never held to another change's readiness or reviews.
 
 **Bypass.** Start Claude Code with `DEVKIT_BYPASS=1` in its environment. A prefix inside a command (`DEVKIT_BYPASS=1 git push --force`) does not work, so the agent can't bypass on its own.
+
+### Where the hooks act
+
+The hooks (`session`, `edit`, `bash`) act only in a project that opted in: its `openspec/config.yaml` selects the `devkit` or `devkit-lite` schema (`schema:` at the top level). The guard looks for that file from the session's folder upward, next to the `openspec/changes/` it finds, so a subfolder and a `.claude/worktrees/<name>` checkout use their own project's config. Elsewhere the three hooks print nothing and block nothing, destructive git included, even when the pack is loaded at user scope. `guard.mjs ci` and `deliver-check --ci` do not depend on it. A change's own `.openspec.yaml` does not opt a project in or out. The decision and its limits: [ADR 0004](adr/0004-devkit-per-project.md).
 
 ## The delivery contract
 
@@ -345,15 +349,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.6.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.6.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.7.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.7.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.6.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.6.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.7.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.7.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@latest` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -396,7 +400,7 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 ## Customizing
 
 - **Rules for one project**: add them under `rules.<artifact>` in `openspec/config.yaml`. They reach the agent with that artifact's instructions.
-- **Change the flow itself**: copy the schema into the project (`openspec/schemas/devkit/`) and edit it; project schemas take precedence over the machine-wide ones. Validate with `openspec schema validate devkit`. Keep the artifact id `readiness` if you want the code gate.
+- **Change the flow itself**: copy the schema into the project (`openspec/schemas/devkit/`) and edit it; project schemas take precedence over the machine-wide ones. Validate with `openspec schema validate devkit`. Keep the artifact id `readiness` if you want the code gate. Keep the name too: the hooks act only where `openspec/config.yaml` selects `devkit` or `devkit-lite`, so a renamed schema turns them off.
 - **A different gate**: the hooks only look for the `readiness` artifact id and the `Status:` / `Verdict:` lines, so a renamed or reworded artifact must keep those.
 
 ## Troubleshooting
@@ -422,7 +426,7 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | `archive PR open: waiting for <what>` | The archive PR has auto-merge on and GitHub has not merged yet | Run `deliver-check <id> --watch` or `ship-change` again |
 | `deliver-check` exits 3: `no openspec/changes/<id>/ and no openspec/changes/archive/<date>-<id>/` | The id is in neither place in this checkout | Switch to the default branch and pull, or to the change's branch |
 | `in progress: item 6` | Required checks are still running, or failing | Run `deliver-check <id> --watch` or `ship-change` again; a failing check is fixed through `tdd-implementer` |
-| The hooks don't fire at all | `devkit-openspec` isn't installed or enabled | `/plugin` → enable `devkit-openspec@devkit` |
+| The hooks don't fire at all | `devkit-openspec` isn't installed or enabled, or the project isn't opted in: `openspec/config.yaml` doesn't select `devkit` or `devkit-lite` (a renamed schema counts) | `/plugin` → enable `devkit-openspec@devkit`; set `schema: devkit` or `devkit-lite` in `openspec/config.yaml` |
 
 ## Cost
 

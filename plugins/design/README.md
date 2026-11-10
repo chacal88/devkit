@@ -2,9 +2,11 @@
 
 Greenfield design in four phases, before there is code to change. Each phase is an interview with the owner that ends in a document and an explicit approval, then points to the next phase.
 
-```text
-/plugin install devkit-design@devkit
+```bash
+claude plugin install devkit-design@devkit --scope project
 ```
+
+Run at the project root, or add the pack to the project's `.claude/settings.json` (see [getting-started](../../docs/getting-started.md#1-opt-the-project-in)).
 
 ```text
 design-business-discovery ─▶ design-domain-model ─▶ design-architecture ─▶ design-implementation-plan

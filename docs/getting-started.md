@@ -1,12 +1,29 @@
 # Getting started
 
-## 1. Add the marketplace
+## 1. Opt the project in
 
-In Claude Code:
+devkit installs per project: the project's `.claude/settings.json` names the marketplace and the packs it uses, so the packs load only in the projects that chose them and every other project pays no context for them. Commit the file and everyone who opens the repo gets the same setup:
 
-```text
-/plugin marketplace add chacal88/devkit
+```json
+{
+  "extraKnownMarketplaces": {
+    "devkit": { "source": { "source": "github", "repo": "chacal88/devkit" } }
+  },
+  "enabledPlugins": {
+    "devkit-core@devkit": true,
+    "devkit-openspec@devkit": true
+  }
+}
 ```
+
+The CLI does the same, run at the project root:
+
+```bash
+claude plugin marketplace add chacal88/devkit --scope project
+claude plugin install devkit-core@devkit --scope project
+```
+
+If this machine still has the old user-scope install, follow [migrate-to-project-scope.md](migrate-to-project-scope.md).
 
 ## 2. Pick packs per project
 
@@ -18,11 +35,11 @@ In Claude Code:
 | uses Postgres, Neon, React/Next.js or Vitest, or is a multi-tenant SaaS | `devkit-stack` |
 | builds LLM features or agents | `devkit-ai-engineering` |
 
-```text
-/plugin install devkit-core@devkit
+```bash
+claude plugin install <pack>@devkit --scope project
 ```
 
-Skills load by description, so don't install packs "just in case": each unused skill is context spent on every turn.
+Skills load by description, so don't enable packs "just in case": each unused skill is context spent on every turn.
 
 ## 3. Use the assets
 
@@ -43,33 +60,17 @@ To call one explicitly: `/review-change`, `/plan-readiness-review`, or "use the 
 
 ## 4. Optional: enforce the flow with OpenSpec
 
-```text
-/plugin install devkit-openspec@devkit
+```bash
+claude plugin install devkit-openspec@devkit --scope project
 ```
 
-Then in the project, run `/openspec-setup`. It installs OpenSpec's files, the devkit schemas and an `openspec/config.yaml` filled from your repo. Start a change with:
+Then in the project, run `/openspec-setup`. It writes the `.claude/settings.json` opt-in, installs OpenSpec's files and the devkit schemas into the project, and fills an `openspec/config.yaml` from your repo. Start a change with:
 
 ```bash
 openspec new change add-csv-export
 ```
 
 and ask Claude to "continue the change". Details: [openspec-flow.md](openspec-flow.md).
-
-## Share with a team
-
-Commit the marketplace and the packs to the project's `.claude/settings.json`, so everyone who opens the repo gets the same setup:
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "devkit": { "source": { "source": "github", "repo": "chacal88/devkit" } }
-  },
-  "enabledPlugins": {
-    "devkit-core@devkit": true,
-    "devkit-openspec@devkit": true
-  }
-}
-```
 
 ## Update
 

@@ -2,12 +2,14 @@
 
 Runs the devkit workflow on top of [OpenSpec](https://github.com/Fission-AI/OpenSpec) without a harness. The flow is an OpenSpec schema; the OpenSpec CLI decides what comes next; a few hooks refuse what must never happen. No coordinator session, no state machine: the state is the change's files on disk.
 
-```text
-/plugin install devkit-core@devkit
-/plugin install devkit-openspec@devkit
+```bash
+claude plugin install devkit-core@devkit --scope project
+claude plugin install devkit-openspec@devkit --scope project
 ```
 
-Then, in the project: `/openspec-setup`. The full guide is [docs/openspec-flow.md](../../docs/openspec-flow.md).
+Run at the project root, or add the pack to the project's `.claude/settings.json` (see [getting-started](../../docs/getting-started.md#1-opt-the-project-in)).
+
+Then, in the project: `/openspec-setup`, which also writes that `.claude/settings.json` opt-in. The full guide is [docs/openspec-flow.md](../../docs/openspec-flow.md).
 
 ## What's inside
 
@@ -18,13 +20,15 @@ Then, in the project: `/openspec-setup`. The full guide is [docs/openspec-flow.m
 | [`hooks/`](hooks/guard.mjs) | The gates OpenSpec can't see, because it only checks that a file exists (see below) |
 | [`hooks/deliver-check.mjs`](hooks/deliver-check.mjs) | Answers "is this change a ready PR?" with eight items, exit codes and a versioned JSON, from files, git and `gh`. Read-only. See [the delivery contract](../../docs/openspec-flow.md#the-delivery-contract) |
 | `ship-change` skill | With `ship: pr` in `openspec/config.yaml`, drives an approved change to a ready PR by following `deliver-check`'s next step, and the owner merges; with `ship: merge` it also enables GitHub auto-merge at 8/8, once the repository is prepared. In `merge` mode it enables auto-merge and never merges directly. See [ship modes](../../docs/openspec-flow.md#shipping-a-change-ship-modes). After the merge it archives the change: the retro, the owner's answer to each proposal, `openspec archive`, and an archive PR on `chore/archive-<id>` (GitHub merges it in `merge` mode; you do in `pr` mode) |
-| `openspec-setup` skill | Initializes OpenSpec, installs the schemas, writes `openspec/config.yaml` from the real repo. Its GitHub step (`scripts/github-setup.mjs`) plans, then applies only what the owner confirms: the `devkit-reviews` workflow, auto-merge, delete-branch-on-merge and the `devkit` ruleset |
+| `openspec-setup` skill | Initializes OpenSpec, writes the project's `.claude/settings.json` opt-in (`scripts/project-settings.mjs`), installs the schemas into the project, writes `openspec/config.yaml` from the real repo. Its GitHub step (`scripts/github-setup.mjs`) plans, then applies only what the owner confirms: the `devkit-reviews` workflow, auto-merge, delete-branch-on-merge and the `devkit` ruleset |
 | [`hooks/merge-setup.mjs`](hooks/merge-setup.mjs) and the `devkit-reviews` workflow | The GitHub facts `merge` mode checks before it runs (auto-merge allowed, a rule requiring `devkit-reviews`, the workflow committed), and the `deliver-check --ci` check that rule requires. The workflow template downloads `guard.mjs`, `deliver-check.mjs` and `merge-setup.mjs` together |
 | `openspec-validator` agent | Structure-only check of a change |
 
 The `openspec-*` skills (propose, explore, apply, archive, ...) are not in this pack: `openspec init` / `openspec update` generates them in each project, matching the installed CLI.
 
 ## Hooks
+
+The hooks act only in projects whose `openspec/config.yaml` selects the `devkit` or `devkit-lite` schema (ADR 0004); elsewhere they are silent.
 
 | When | Rule |
 |---|---|
@@ -65,6 +69,6 @@ Hooks veto; they can't make a step happen. The flow's guarantee is that code doe
 
 | Skill | What it does / when to use |
 |---|---|
-| [`openspec-setup`](skills/openspec-setup/SKILL.md) | Sets up a project to run the devkit flow on OpenSpec - runs openspec init, installs the devkit and devkit-lite schemas, writes openspec/config.yaml with the project's real context (stack, test command, ADRs, conventions). Use when the user says "set up devkit", "set up openspec with devkit", "adopt the devkit flow here", or a project has no openspec/ folder and wants the flow. |
+| [`openspec-setup`](skills/openspec-setup/SKILL.md) | Sets up a project to run the devkit flow on OpenSpec - opts the project into devkit in its .claude/settings.json, runs openspec init, installs the devkit and devkit-lite schemas, writes openspec/config.yaml with the project's real context (stack, test command, ADRs, conventions). Use when the user says "set up devkit", "set up openspec with devkit", "adopt the devkit flow here", or a project has no openspec/ folder and wants the flow. |
 | [`ship-change`](skills/ship-change/SKILL.md) | Drives one approved change to a ready pull request (ship pr) or, with ship merge in the project's openspec/config.yaml, to a PR that GitHub merges once the delivery contract is 8/8, and on to its archive after the merge (retro, the owner's answer to each proposal, `openspec archive`, an archive PR) - implements phase by phase, reviews, verifies, opens the PR, answers its conversation and waits for checks, always asking `deliver-check` what is next. Enables auto-merge only at the step that says so (`merge` ship mode); never merges directly. Use when the owner says "ship this change", "apply and ship <id>", "/ship-change <id>", or when Auto-fix wakes the session about that change's PR. |
 <!-- catalog:end -->

@@ -2,9 +2,11 @@
 
 Stack-agnostic development workflow: research the code, grill the requirements, plan, check the plan, implement with TDD, review with a bench of specialist reviewers, verify, and ship a PR. Works with or without OpenSpec.
 
-```text
-/plugin install devkit-core@devkit
+```bash
+claude plugin install devkit-core@devkit --scope project
 ```
+
+Run at the project root, or add the pack to the project's `.claude/settings.json` (see [getting-started](../../docs/getting-started.md#1-opt-the-project-in)).
 
 ## The path through a change
 

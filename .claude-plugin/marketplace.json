@@ -6,42 +6,42 @@
   },
   "metadata": {
     "description": "Reusable Claude Code agents, skills and an OpenSpec-based workflow, split into packs you install per project.",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "plugins": [
     {
       "name": "devkit-core",
       "source": "./plugins/core",
       "description": "Stack-agnostic dev workflow: research, plan, implement, review, ship, debug and test.",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "category": "development"
     },
     {
       "name": "devkit-openspec",
       "source": "./plugins/openspec",
       "description": "Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (grill → plan → readiness → TDD → review → evidence) and hooks that keep product code closed until readiness is APPROVED and refuse a PR without an approved review and evidence.",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "category": "development"
     },
     {
       "name": "devkit-design",
       "source": "./plugins/design",
       "description": "Greenfield design in four DDD phases: business discovery, domain model, architecture and implementation plan.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "development"
     },
     {
       "name": "devkit-stack",
       "source": "./plugins/stack",
       "description": "Technology references: Postgres, Neon, React performance, Vitest, multi-tenant SaaS and threat modeling.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "development"
     },
     {
       "name": "devkit-ai-engineering",
       "source": "./plugins/ai-engineering",
       "description": "Building with LLMs: evaluation, multi-agent patterns, agent tool and CLI design, context compression and skill vetting.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "development"
     }
   ]

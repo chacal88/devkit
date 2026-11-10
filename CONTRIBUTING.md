@@ -6,6 +6,8 @@ This repo uses its own flow. Open a change with `openspec new change <id>` (`dev
 
 This repository ships in `merge` mode ([ADR 0002](docs/adr/0002-merge-without-the-owner-opt-in.md)): once a change is at 8/8, GitHub merges it when the `devkit-reviews` check passes. The `devkit` ruleset blocks direct pushes to `main` for everyone, so every change, the archive commit included, lands through a pull request; the archive PR's auto-merge rule is [ADR 0003](docs/adr/0003-auto-merge-the-archive-pr.md).
 
+This repository opts in to its own hooks through its `.claude/settings.json` and `openspec/config.yaml` ([ADR 0004](docs/adr/0004-devkit-per-project.md)).
+
 When a change edits an agent's output format, dispatch that change's agents with the repo's `plugins/<pack>/agents/<name>.md` as the format source: the installed plugins follow the old format until the release is installed.
 
 When an implementer resolves a readiness note in a way the design does not say, amend `design.md` in the same phase. When a check guards an action (auto-merge, a push, a merge), the design lists every step path that reaches that action, open and resumed states included, and each path gets the check and a test.
