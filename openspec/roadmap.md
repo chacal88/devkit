@@ -20,3 +20,6 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 
 ## Round 6: phases as child sessions
 - [x] conduct-sessions — /conduct starts one child session per implementation phase in the app (wake_when_done, sidebar group per change, no cron); conduct-check names the sessions (JSON version 2); ADR 0006 supersedes ADR 0005
+
+## Round 7: one change on request
+- [ ] conduct-one-change — /conduct <id> conducts one change the owner names (conduct-check --change <id>, no roadmap read, unfinished work reported first); the round sweep only on an explicit `round <n>`; ADR 0007 amends ADR 0006
