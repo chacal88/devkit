@@ -18,5 +18,5 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 - [ ] commit-and-pr-trailer — commit-and-pr lets the caller's Co-Authored-By trailer win (archive-after-merge retro, item 4)
 - [ ] conventions-trailer (after: commit-and-pr-trailer) — docs: docs/conventions.md states the trailer rule once the fix lands
 
-## Round 6: one change at a time
-- [ ] remove-conduct — remove /conduct, conduct-check and ADR 0005 (superseded); keep approval.md, worktree-aware hooks and release-rebase; the owner picks each change and runs it with ship-change
+## Round 6: phases as child sessions
+- [ ] conduct-sessions — /conduct starts one child session per implementation phase in the app (wake_when_done, sidebar group per change, no cron); conduct-check names the sessions (JSON version 2); ADR 0006 supersedes ADR 0005
