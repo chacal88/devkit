@@ -48,6 +48,7 @@ The CI snippet pin follows the devkit-openspec release (0.9.1): the test "the pi
 - before: # pinned to the commit of v0.9.0 (a tag can move; a commit cannot) · <commit sha of v0.9.0> in the raw URL · the prose "(`v0.9.0` above)" and "git/ref/tags/v0.9.0"
 + after: the same lines with v0.9.1
 - Answer: approved
+- Applied: yes
 
 ## Dogfood
 
