@@ -20,7 +20,15 @@
 
 ## Post-merge: machine state (AC-7, per design Q2)
 
-Pending: the owner's yes per migration item; the result of each approved item and the final check are recorded here after they run.
+Run on 2026-11-10, each step after the owner's own yes for it (`docs/migrate-to-project-scope.md`).
+
+- Preconditions (owner: yes). `git -C ~/Documents/devkit pull --ff-only` brought `.claude/settings.json` to the main checkout. `claude plugin marketplace update devkit` left the installed packs at 0.5.0 / 0.6.0: it refreshes the catalog only. `claude plugin update <pack>@devkit --scope user` then installed devkit-core 0.5.2 and devkit-openspec 0.7.1. Worktrees: conduct-rounds has `.claude/settings.json`; `openspec-setup-b0bdf2` (an old archive branch) has not.
+- Item 1 (owner: yes). Both packs uninstalled from user scope. Check: `0`, then `[]`.
+- Item 2 (owner: yes, then yes to the alternative). The doc's `claude plugin marketplace remove devkit --scope user` failed with no change: "Marketplace 'devkit' is not declared in user settings". Run instead without `--scope` from a new empty folder: removed. Check: `false`. `~/.claude/settings.json` unchanged, and both opted-in projects still declare the marketplace. Side effect: every devkit install record was removed, project scope included (representante-digital and its worktrees), so item 4 had nothing left to do.
+- Item 3 (owner: yes). The `devkit-openspec@devkit` entry removed from `~/Documents/recruit/.claude/settings.local.json`, first backup kept as `settings.local.json.bak-devkit-opt-in`. Check: `false`, `parses`.
+- Item 4. Not run: item 2 had already removed the entries (`claude plugin list --json` lists no devkit entry).
+- Final check. `claude plugin list` shows no devkit pack at user scope (no devkit entry at all until an opted-in project is opened). The margi settings loop prints nothing. A new session in margi was not opened from this session.
+- The doc's precondition 1 and item 2 are fixed to what was run, item 4 says when to skip it, and the doc test pins both (PR after this archive).
 
 ## Proposed updates
 

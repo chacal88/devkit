@@ -726,15 +726,24 @@ test('migration doc: rule, preconditions, four items with Command/Check/Undo (3.
   });
   assert.match(items[0].Command, /claude plugin uninstall devkit-core@devkit --scope user/);
   assert.match(items[0].Command, /claude plugin uninstall devkit-openspec@devkit --scope user/);
-  assert.match(items[1].Command, /claude plugin marketplace remove devkit --scope user/);
-  assert.match(items[1].text, /without `--scope`|omit(ting)? `--scope`/);
+  // Item 2 as run on the owner's machine: `--scope user` fails for a marketplace added with /plugin, so it runs
+  // without --scope from a new empty folder, and it says it also removes the install records (item 4).
+  assert.match(items[1].Command, /mktemp -d\) && cd "\$d" && claude plugin marketplace remove devkit\s*$/);
+  assert.match(items[1].text, /not declared in user settings/);
+  assert.match(items[1].text, /Without `--scope`/);
+  assert.match(items[1].text, /already does item 4/);
+  assert.match(items[3].text, /Skip this item if item 2 ran/);
+  assert.match(body, /claude plugin update devkit-core@devkit --scope user/);
+  assert.match(body, /claude plugin update devkit-openspec@devkit --scope user/);
   assert.match(items[2].text, /~\/Documents\/recruit\/\.claude\/settings\.local\.json/);
   assert.match(items[2].text, /backup/i);
   assert.match(items[3].text, /installed_plugins\.json/);
   assert.match(items[3].text, /no Claude Code session open/);
   assert.match(items[3].text, /backup/i);
   const lines = body.split('\n');
-  for (const l of lines.filter((x) => /claude plugin (uninstall|marketplace remove)/.test(x))) assert.match(l, /--scope/, `scope on: ${l}`);
+  for (const l of lines.filter((x) => /claude plugin (uninstall|update)/.test(x))) assert.match(l, /--scope/, `scope on: ${l}`);
+  // A marketplace remove either names its scope or runs from a new empty folder (item 2).
+  for (const l of lines.filter((x) => /claude plugin marketplace remove/.test(x))) assert.match(l, /--scope|mktemp -d\) && cd "\$d"/, `scope or empty folder on: ${l}`);
   for (const l of lines.filter((x) => /claude plugin install/.test(x))) assert.match(l, /--scope user/, `install scope on: ${l}`);
   assert.match(body, /## Final check/);
   assert.match(body, /claude plugin list/);
