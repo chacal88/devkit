@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 — retro of conduct-sessions
+
+- **devkit-openspec** 0.9.1: the `ship-change` `commit` row names what to stage (`next.paths` plus every other modified or untracked file under `openspec/`).
+- Repo: `scripts/check.py` requires a CHANGELOG heading for the marketplace version, pinned by a guard test.
+- Docs: CONTRIBUTING notes updating the installed pack before dogfooding.
+
 ## 0.9.0 — phases as child sessions
 
 - **devkit-openspec** 0.9.0: `conduct-check --json` is version 2 (**BREAKING** for consumers of the JSON: the `wake` field is removed, `version` is 2). In `host: app`, a change whose next step is `implement` carries `next.actor: "session"` and a `session` descriptor (title, name, cwd, branch, phase, brief, background), and every change row carries `sessionPrefix`; in `host: cli` the subagent actor is unchanged.

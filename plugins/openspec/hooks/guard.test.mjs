@@ -686,6 +686,15 @@ test('install-scope lint: change folders, worktrees, generated skills and comman
   assert.equal(r.code, 0, r.out);
 });
 
+test('changelog lint: the marketplace version needs a "## <version>" heading in CHANGELOG.md', () => {
+  const market = JSON.stringify({ metadata: { version: '1.2.3' }, plugins: [] });
+  const r = lint({ '.claude-plugin/marketplace.json': market, 'CHANGELOG.md': '# Changelog\n\n## 1.2.2\n' });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /CHANGELOG\.md: no "## 1\.2\.3" entry for marketplace version 1\.2\.3/);
+  const ok = lint({ '.claude-plugin/marketplace.json': market, 'CHANGELOG.md': '# Changelog\n\n## 1.2.3 \u2014 x\n' });
+  assert.equal(ok.code, 0, ok.out);
+});
+
 // --- 3.1 docs: why per project, and the link to the migration doc ---
 test('README and getting-started say the packs load only in the projects that chose them and link the migration doc (3.1)', () => {
   const root = join(here, '..', '..', '..');
