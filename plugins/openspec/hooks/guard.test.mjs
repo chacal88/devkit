@@ -1,7 +1,7 @@
 // node --test plugins/openspec/hooks/guard.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
@@ -983,4 +983,69 @@ test('ship-change SKILL.md pins the stop-plan-approval row: only the owner\'s ow
   const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /Write `approval\.md` except from the owner's own message/);
   assert.match(md.slice(0, md.indexOf('## Loop')), /approval\.md/, 'the go-ahead names the recorded approval');
+});
+
+// ---------------------------------------------------------------- the conduct skill (conduct-rounds D14)
+
+const conductMd = () => readFileSync(join(here, '..', 'skills', 'conduct', 'SKILL.md'), 'utf8');
+
+test('conduct SKILL.md: at most three steps at once, the worktree preamble, never a subagent for a whole change', () => {
+  const md = conductMd();
+  assert.match(md, /at most three/);
+  assert.ok(md.includes('Work only in `<worktree>` on branch `<branch>`; every file path is absolute under it; start every Bash command with `cd <worktree> && `; do not fetch.'));
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Dispatch a subagent for a whole change/);
+  assert.match(never, /Create a second conduct cron/);
+});
+
+test('conduct SKILL.md: the reconciliation table has its four rows', () => {
+  const md = conductMd();
+  const rows = md.split('\n').filter((l) => /^\| (true|false) \|/.test(l));
+  assert.equal(rows.length, 4);
+  assert.match(rows[0], /none \| `CronCreate`/);
+  assert.match(rows[1], /one, same prompt \| keep it/);
+  assert.match(rows[2], /`CronDelete` all, then `CronCreate` one/);
+  assert.match(rows[3], /^\| false \| any \| `CronDelete` all/);
+  assert.match(md, /every 20 minutes/);
+});
+
+test('conduct SKILL.md: approval.md and retro answers only from the owner\'s own message', () => {
+  const md = conductMd();
+  assert.match(md, /Plan approval and retro answers are written only from the owner's own message/);
+  assert.match(md, /Write `approval\.md` or a retro answer except from the owner's own message/);
+  assert.match(md, /cron-started run without the owner's message/);
+});
+
+test('conduct SKILL.md: the schema is asked for every new change before git worktree add, devkit-lite included; then /conduct is the go-ahead', () => {
+  const md = conductMd();
+  const create = md.split('\n').find((l) => l.startsWith('| `create`')) ?? '';
+  assert.match(create, /for every new change, `devkit-lite` included/);
+  assert.match(create, /Only after the answer run `git worktree add -b <id> <path> origin\/<base>`/);
+  assert.ok(create.indexOf('Ask the owner') < create.indexOf('git worktree add'), 'the question comes first');
+  assert.match(md, /After that answer, invoking `\/conduct` is the go-ahead for every `devkit-lite` change/);
+});
+
+test('conduct SKILL.md: the report names the five states', () => {
+  const rep = conductMd().split('## Report')[1].split('## Never')[0];
+  for (const form of ['`archived`', '`waiting on <ids>`', '`waiting for the owner: <what>`', '`waiting on GitHub: <what>`', '`blocked: <why>`']) {
+    assert.ok(rep.includes(form), form);
+  }
+  assert.match(rep, /wake-up: cron <id> every 20 minutes/);
+  assert.match(rep, /wake-up: none/);
+});
+
+// ---------------------------------------------------------------- ADR 0005 (conduct-rounds D13)
+
+test('ADR 0005 records the parallel steps and the wake-up, and ADR 0001 points to it', () => {
+  const root = join(here, '..', '..', '..');
+  const name = '0005-parallel-steps-and-a-session-wake-up.md';
+  const adr1 = readFileSync(join(root, 'docs', 'adr', '0001-coordination-without-a-harness.md'), 'utf8');
+  assert.ok(adr1.includes(name), 'ADR 0001 points to ADR 0005');
+  assert.match(adr1, /^## Decision$/m);
+  const adr5 = readFileSync(join(root, 'docs', 'adr', name), 'utf8');
+  assert.match(adr5, /^- Status: accepted$/m);
+  assert.match(adr5, /at most three/);
+  assert.match(adr5, /every 20 minutes/);
+  const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
+  assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });

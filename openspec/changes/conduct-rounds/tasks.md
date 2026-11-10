@@ -157,12 +157,12 @@ Change: `conduct-rounds` · Date: 2026-11-09 · Owner: kaue rodrigues dos santos
 
 ## 4. The `conduct` skill, ADRs, round 5 and release
 
-- [ ] 4.0 Rebase on the default branch first (design D17).
+- [x] 4.0 Rebase on the default branch first (design D17).
   - Run `git fetch origin`, then `git rebase origin/main`.
   - If `devkit-opt-in` (or any other change) has landed, merge its overlaps in `guard.mjs`, `guard.test.mjs`, `docs/openspec-flow.md` and `README.md` by hand, keeping both behaviors. If the opt-in check is on `main`, add D5's combination: the opt-in check applies to each target root. Add its test: a worktree of an opted-in project is gated with the session's `cwd` in the main checkout, and a target root that is not opted in is not gated.
   - Record `origin/main`'s devkit-openspec version and `metadata.version` in the phase report for task 4.7.
   - Re-run the phase 1–3 tests before going on.
-- [ ] 4.1 Precondition: the runtime smoke in Workflow follow-up is recorded (cron create/list/delete, background subagents with a pending AskUserQuestion, the hook `cwd` observed), and design D12/D14 were amended if it differed. If it is not recorded, stop with `Outcome: failure` naming it. Then write the new `plugins/openspec/skills/conduct/SKILL.md` per design D14: frontmatter, Start, Loop, the planning and delivery rows, owner gates, waits and the reconciliation table, stops, Report, Never. AC-1, AC-2, AC-4, AC-7, AC-8, AC-9, AC-11. Text tests in `guard.test.mjs` pin:
+- [x] 4.1 Precondition: the runtime smoke in Workflow follow-up is recorded (cron create/list/delete, background subagents with a pending AskUserQuestion, the hook `cwd` observed), and design D12/D14 were amended if it differed. If it is not recorded, stop with `Outcome: failure` naming it. Then write the new `plugins/openspec/skills/conduct/SKILL.md` per design D14: frontmatter, Start, Loop, the planning and delivery rows, owner gates, waits and the reconciliation table, stops, Report, Never. AC-1, AC-2, AC-4, AC-7, AC-8, AC-9, AC-11. Text tests in `guard.test.mjs` pin:
   - "at most three";
   - the worktree preamble;
   - the four reconciliation rows;
@@ -173,22 +173,22 @@ Change: `conduct-rounds` · Date: 2026-11-09 · Owner: kaue rodrigues dos santos
   - "Never dispatch a subagent for a whole change".
 
   `python3 scripts/check.py` passes (frontmatter, links, language).
-- [ ] 4.2 ADR 0005 and the ADR 0001 pointer (design D13; AC-10).
+- [x] 4.2 ADR 0005 and the ADR 0001 pointer (design D13; AC-10).
   - Write `docs/adr/0005-parallel-steps-and-a-session-wake-up.md` from the D13 draft. Wording may change, substance may not; a substantive change amends D13 in this phase.
   - Add the pointer note to `docs/adr/0001-coordination-without-a-harness.md`, leaving its Decision unchanged.
   - Red first, in `guard.test.mjs`: a test that fails while ADR 0001 lacks `0005-parallel-steps-and-a-session-wake-up.md`, or while ADR 0005 lacks "at most three" and "every 20 minutes".
-- [ ] 4.3 ADR numbering check (design D13).
+- [x] 4.3 ADR numbering check (design D13).
   - Run `git fetch origin` and `git ls-tree origin/main docs/adr/`.
   - If `0005` is taken on `origin/main` by another change, renumber this ADR and every reference to it (proposal, design, tasks, ADR 0001, docs, tests) to the next free number in this phase.
   - Record the result in the phase report.
-- [ ] 4.4 Round 5 for the dogfood (design D15; AC-13, pre-merge part).
+- [x] 4.4 Round 5 for the dogfood (design D15; AC-13, pre-merge part).
   - Add the three D15 lines to `openspec/roadmap.md`, after round 4.
   - Smoke in this worktree: `node plugins/openspec/hooks/conduct-check.mjs --json --round 5` (with the roadmap committed on a scratch ref pointed to by `refs/remotes/origin/main` in a scratchpad clone) reports:
     - round 5 with three changes, each `create`, with its `text`;
     - `conventions-trailer` with `after: ['commit-and-pr-trailer']`;
     - round 4 in `skipped`.
   - Record the output in the phase report.
-- [ ] 4.5 Docs.
+- [x] 4.5 Docs.
   - `docs/openspec-flow.md`:
     - "Conducting a round": what the skill runs, the owner gates, background subagents and the fallback, the wake-up and its limits;
     - "Limits": `/ship-change` alone does not enforce `after:`, plus the session cron limits;
@@ -198,8 +198,8 @@ Change: `conduct-rounds` · Date: 2026-11-09 · Owner: kaue rodrigues dos santos
   - `README.md`: the coordination paragraph names `/conduct` and ADR 0005.
   - `openspec/config.yaml` `context` ADR list adds 0005.
   - `python3 scripts/check.py` passes.
-- [ ] 4.6 Regenerate the catalog: `python3 scripts/gen-catalog.py`, then `python3 scripts/gen-catalog.py --check` exits 0.
-- [ ] 4.7 Release.
+- [x] 4.6 Regenerate the catalog: `python3 scripts/gen-catalog.py`, then `python3 scripts/gen-catalog.py --check` exits 0.
+- [x] 4.7 Release.
   - Versions are not hard-coded (design D17). devkit-openspec goes one minor above the `origin/main` version recorded in task 4.0, in `plugins/openspec/.claude-plugin/plugin.json` and its `.claude-plugin/marketplace.json` entry. `metadata.version` goes one minor above `origin/main`'s. A test-free check: `git diff origin/main -- plugins/openspec/.claude-plugin/plugin.json .claude-plugin/marketplace.json` shows exactly those two bumps.
   - `CHANGELOG.md`: a `## <new metadata.version> — conduct rounds` entry above the newest entry on `origin/main`, with:
     - the `conduct` skill, `conduct-check` and `release-rebase`;
@@ -207,7 +207,7 @@ Change: `conduct-rounds` · Date: 2026-11-09 · Owner: kaue rodrigues dos santos
     - `approval.md` and the new `stop-plan-approval` stop for `devkit` changes not yet started;
     - ADR 0005.
   - devkit-core is unchanged. `claude plugin validate .` passes.
-- [ ] 4.8 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate .` green; covers AC-1, AC-2, AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13 (pre-merge part)
+- [x] 4.8 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate .` green; covers AC-1, AC-2, AC-4, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13 (pre-merge part)
 
 ## Workflow follow-up
 

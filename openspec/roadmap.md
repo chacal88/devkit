@@ -13,3 +13,8 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 
 ## Round 4: conduct roadmap rounds
 - [ ] conduct-rounds (after: ship-modes)
+
+## Round 5: conduct test round
+- [ ] commit-and-pr-trailer — commit-and-pr lets the caller's Co-Authored-By trailer win (archive-after-merge retro, item 4)
+- [ ] getting-started-roadmap — docs: docs/getting-started.md shows a roadmap round and /conduct
+- [ ] conventions-trailer (after: commit-and-pr-trailer) — docs: docs/conventions.md states the trailer rule once the fix lands
