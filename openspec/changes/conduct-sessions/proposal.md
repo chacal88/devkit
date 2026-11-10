@@ -24,8 +24,10 @@ that was missing, in the one place that already computes the next step.
   worktree, with `wake_when_done`. The child dispatches `tdd-implementer` for its phase and reports
   `Outcome:` and `Head:`; gate, commit, review and PR stay with the coordination. The chain rule is
   explicit: a refused start ends that change's run as `waiting for the owner: start session ...`,
-  never a subagent in its place. Children join a sidebar group named after the change and are
-  archived when the phase's gate is ticked.
+  never a subagent in its place. Only the owner's typed `/conduct` is the go-ahead; a continuation
+  turn after a child's end advances what is under way and starts the next phase's session; an
+  Auto-fix wake starts none. Children join a sidebar group named after the change and are archived
+  when the phase's gate is ticked.
 - **The session cron goes away** (**BREAKING** for consumers of `conduct-check --json`: `wake` is
   removed, `version` becomes 2). Waits on GitHub are one capped watch plus the app's PR Auto-fix;
   green checks need the owner's re-run. The first run after the upgrade deletes a cron left by 0.8.0.
@@ -36,11 +38,11 @@ that was missing, in the one place that already computes the next step.
 
 ## Acceptance criteria
 
-- AC-1: With `DEVKIT_HOST=app`, `conduct-check --json` reports every change whose next step is `implement` with `next.actor: "session"` and a `session` object `{ title, name, cwd, branch, phase, brief, background }` where `cwd` is the change's worktree, `phase` the phase number, `name` at most 24 characters of `[a-z0-9-]`, unique per change and phase, and `brief` names the change, the phase, the worktree, the `tdd-implementer` dispatch and the `Outcome:`/`Head:` report lines. With `DEVKIT_HOST=cli` the same change reports `next.actor: "subagent"` with `devkit-core:tdd-implementer`, as in 0.8.0.
+- AC-1: With `DEVKIT_HOST=app`, `conduct-check --json` reports every change whose next step is `implement` with `next.actor: "session"` and a `session` object `{ title, name, cwd, branch, phase, brief, background }` where `cwd` is the change's worktree, `phase` the phase number, `name` at most 24 characters of `[a-z0-9-]` (the id cut to 20, then `-p<n>`; design D3), unique per change and phase, and `brief` names the change, the phase, the worktree, the `tdd-implementer` dispatch and the `Outcome:`/`Head:` report lines. Every change row, whatever its step, carries `sessionPrefix`: that `name` without its phase number. With `DEVKIT_HOST=cli` the same change reports `next.actor: "subagent"` with `devkit-core:tdd-implementer`, as in 0.8.0.
 - AC-2: `conduct-check --json` has no `wake` field and `version` is 2; `dispatch` still holds at most three non-`main` ids minus `--busy`, with `session` rows counted like `subagent` rows.
 - AC-3: `/conduct`, typed by the owner in the app, starts one child session per `session` row in `dispatch` with `wake_when_done: true` and `cwd` set to the change's worktree, and runs no `tdd-implementer` subagent for those phases in the coordination.
-- AC-4: The child dispatches `devkit-core:tdd-implementer` for its phase and ends with the `Outcome:` and `Head:` lines; product code edited directly by the child is refused by the guard (test: the `edit` hook with no `agent_type` on a product file inside `.claude/worktrees/<id>/` of a `devkit` change with approved readiness).
-- AC-5: When a child ends, the coordination's continuation turn (`<side-sessions-event>`) recomputes and, when the change's next step is again `implement`, starts the next child in that same turn, with no message from the owner. Two consecutive phases of one change complete this way in the dogfood (AC-11).
+- AC-4: The child dispatches `devkit-core:tdd-implementer` for its phase and ends with the `Outcome:` and `Head:` lines; in the `devkit` schema, product code edited directly by the child is refused by the guard (test: the existing worktree test in `guard.test.mjs` extended with the hook's `cwd` set to the worktree, no `agent_type`, a product file inside `.claude/worktrees/<id>/` of a `devkit` change with approved readiness), and a `devkit-lite` case shows nothing is refused there, as in 0.8.0.
+- AC-5: When a child ends, the coordination's continuation turn (`<side-sessions-event>`) recomputes and, when the change's next step is again `implement`, starts the next child in that same turn, with no message from the owner. The skill's Start section states this continuation rule and the kinds of turn (design D13), and a test in `guard.test.mjs` pins the sentences. Two consecutive phases of one change complete this way in the dogfood (AC-11).
 - AC-6: When `start_session` is refused, the run ends with the state `waiting for the owner: start session <id> phase <n>` for that change, lists every session left to start, and no subagent runs the phase. Independent changes keep moving in the same run.
 - AC-7: A `/conduct` run while a child is still working passes that change in `--busy`, reports it `running`, and starts no second session for its phase.
 - AC-8: A child is in the sidebar group named exactly its change id right after it starts, and is archived by the skill once its phase's gate task is ticked; a child whose phase stopped is not archived. A `/conduct` run never creates a session cron; it lists and deletes session crons only to remove a `/conduct` cron left by 0.8.0, on the first run after the upgrade.
@@ -60,11 +62,14 @@ that was missing, in the one place that already computes the next step.
 
 - **devkit-openspec** (`plugins/openspec/`): `hooks/conduct-check.mjs` (`actorOf` by host, the
   `session` descriptor, `wake` removed, `version: 2`), `hooks/conduct-check.test.mjs`,
-  `skills/conduct/SKILL.md` (session rows, chain rule, busy from linked sessions, sidebar, cron
-  migration, Auto-fix line), `hooks/guard.test.mjs` (skill-text pins and the AC-4 guard test),
-  `README.md`, `.claude-plugin/plugin.json`.
+  `skills/conduct/SKILL.md` (frontmatter `description`, session rows, chain rule, kinds of turn,
+  busy from linked sessions, sidebar, cron migration, Auto-fix line), `hooks/guard.test.mjs`
+  (skill-text pins, the ADR test and the AC-4 guard test), `hooks/conduct-check.test.mjs` (the wake,
+  version and harness-env tests), `README.md` (the `conduct` and `conduct-check` rows),
+  `.claude-plugin/plugin.json`.
 - **Repo**: new `docs/adr/0006-phases-as-child-sessions.md`; `docs/adr/0005-...` (status) and
-  `docs/adr/0001-...` (note, trigger); `docs/openspec-flow.md`, `README.md`, `docs/catalog.md`
+  `docs/adr/0001-...` (note, trigger); `docs/openspec-flow.md` (the `/conduct` section, the cron
+  troubleshooting row, the Limits bullet), `README.md` (the `/conduct` paragraph), `docs/catalog.md`
   (generated), `openspec/config.yaml` (ADR list), `openspec/roadmap.md` (round 6 line),
   `.claude-plugin/marketplace.json`, `CHANGELOG.md`.
 - **Runtime**: the Claude Code desktop app's session tools (`mcp__ccd_session__start_session`,

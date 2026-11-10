@@ -42,7 +42,8 @@ Classification: domain=process type=feature flags=[architecture (ADR 0001/0005 e
   `mcp__ccd_session__start_session` (`initiation` user_asked | offer | own_initiative, `context`
   fresh | fork, `cwd`, `use_worktree`, `wake_when_done`, `name` ≤ 24 chars `[a-z0-9-]`, `title`,
   `prompt`, `background`, `model`, `effort`, `permission_mode`), `mcp__ccd_session_mgmt__list_sessions`
-  (`{linked: true}` lists the sessions this one started, with `name`, `state` and `startedBy`),
+  (`{linked: true}` lists the sessions this one started, with `sessionId`, `name`, `isRunning`,
+  `isArchived`, `startedBy` and `lastActivityAt`; observed on 2026-11-10: it has no `state` field),
   `mcp__ccd_session_mgmt__archive_session`, `mcp__ccd_sidebar__list_groups`, `create_group` and
   `move_sessions`, and `SendMessage`. Rules the app states: a start with `initiation: "user_asked"` is
   accepted on the owner's own turn and on a `<side-sessions-event>` turn that follows it, or another
@@ -81,11 +82,25 @@ Classification: domain=process type=feature flags=[architecture (ADR 0001/0005 e
   ends the run for that change with the state `waiting for the owner: start session <id> phase <n>`;
   the phase is never run as a subagent in `host: app`. The report lists every session left to start.
   The owner's next typed `/conduct` starts them.
+- Kinds of turn (replaces the `--wake` rule): only the owner's typed `/conduct` is the go-ahead
+  (schemas, the grill, a `devkit-lite` change's first `implement`, `approval.md`, retro answers,
+  starting sessions). A continuation turn (`<side-sessions-event>` after a child's end) advances
+  what is already under way and starts the next session of every change under way, where "under
+  way" is read from the recompute: at least one ticked task in `tasks.md`, or, in `devkit`, an
+  `approval.md` that records the current readiness; it never takes a `devkit-lite` change's first
+  `implement`, never writes `approval.md` or a retro answer, and leaves
+  a schema, grill, approval or retro question asked for the owner's next message. An Auto-fix wake
+  or any other turn the owner did not type runs GitHub-side steps only and starts no session
+  (design D13).
 - Parallelism and busy detection: `MAX_PARALLEL` stays 3; a child still working counts in `--busy`.
-  The skill derives `--busy` from `mcp__ccd_session_mgmt__list_sessions({linked: true})`: a session
-  whose `name` matches a conducted change's `session.name` and whose state is not ended counts as
-  busy for that change. A `/conduct` run while a child works never starts a second session for the
-  same phase.
+  The skill derives `--busy` from `mcp__ccd_session_mgmt__list_sessions({linked: true, limit: 100})`: a row
+  with `isRunning: true` and `isArchived: false` (the fields the tool returns; it has no `state`)
+  whose `name` is a conducted change's `sessionPrefix` (the session `name` without its phase
+  number, carried by every change row of the JSON) followed by digits only counts as busy for that
+  change, whatever
+  its next step. An ended child is never busy; a child that ended without ticking a task stops the
+  change (`blocked: phase <n>: ...`); a retried phase reuses the name. A `/conduct` run while a
+  child works never starts a second session for the same phase (design D6).
 - The cron goes away: `wakeOf`, the `wake` field, `CronCreate`/`CronList`/`CronDelete` in the skill
   and the `--wake` marker are removed. The JSON becomes `version: 2` (a field is removed). On its
   first run the skill deletes any session cron whose prompt starts with `/conduct` (migration), and
@@ -100,8 +115,11 @@ Classification: domain=process type=feature flags=[architecture (ADR 0001/0005 e
 - Sidebar: right after a successful start the skill calls `mcp__ccd_sidebar__list_groups`, creates
   the group named exactly `<id>` with `create_group` when none exists, and moves the child into it
   with `move_sessions`. When a later recompute shows the phase's gate task ticked in `tasks.md`, the
-  skill archives that phase's child with `mcp__ccd_session_mgmt__archive_session`. The coordination
-  itself is not moved. A child whose phase stopped (gate red, `Outcome: failure`) stays unarchived.
+  skill archives every idle linked session with that phase's name with
+  `mcp__ccd_session_mgmt__archive_session`. The coordination itself is not moved. A child whose phase
+  stopped (gate red, `Outcome: failure`) stays unarchived. A refused or declined archive, move or
+  `bind_pr` is reported (`not archived:` / `not grouped:` / `not bound:`), not retried in the run and
+  never stops the change (design D9).
 - ADRs: a new `docs/adr/0006-phases-as-child-sessions.md` records the decision; ADR 0005's status
   becomes `superseded by ADR 0006` (its parallel-steps rule survives through ADR 0006, its cron does
   not); ADR 0001's note and review trigger point to ADR 0006. `openspec/config.yaml` `context` lists
@@ -118,9 +136,11 @@ Classification: domain=process type=feature flags=[architecture (ADR 0001/0005 e
 - AC-1: With `DEVKIT_HOST=app`, `conduct-check --json` reports every change whose next step is
   `implement` with `next.actor: "session"` and a `session` object `{ title, name, cwd, branch,
   phase, brief, background }` where `cwd` is the change's worktree, `phase` the phase number, `name`
-  at most 24 characters of `[a-z0-9-]`, unique per change and phase, and `brief` names the change,
+  at most 24 characters of `[a-z0-9-]` (the id cut to 20, then `-p<n>`; design D3), unique per
+  change and phase, and `brief` names the change,
   the phase, the worktree, the `tdd-implementer` dispatch and the `Outcome:`/`Head:` report lines.
-  With `DEVKIT_HOST=cli` the same change reports `next.actor: "subagent"` with
+  Every change row, whatever its step, carries `sessionPrefix`: that `name` without its phase
+  number. With `DEVKIT_HOST=cli` the same change reports `next.actor: "subagent"` with
   `devkit-core:tdd-implementer`, as in 0.8.0.
 - AC-2: `conduct-check --json` has no `wake` field and `version` is 2; `dispatch` still holds at most
   three non-`main` ids minus `--busy`, with `session` rows counted like `subagent` rows.
@@ -128,13 +148,16 @@ Classification: domain=process type=feature flags=[architecture (ADR 0001/0005 e
   `dispatch` with `wake_when_done: true` and `cwd` set to the change's worktree, and runs no
   `tdd-implementer` subagent for those phases in the coordination.
 - AC-4: The child dispatches `devkit-core:tdd-implementer` for its phase and ends with the `Outcome:`
-  and `Head:` lines; product code edited directly by the child is refused by the guard (test: the
-  `edit` hook with no `agent_type` on a product file inside `.claude/worktrees/<id>/` of a `devkit`
-  change with approved readiness).
+  and `Head:` lines; in the `devkit` schema, product code edited directly by the child is refused by
+  the guard (test: the existing worktree test in `guard.test.mjs` extended with the hook's `cwd` set
+  to the worktree, no `agent_type`, a product file inside `.claude/worktrees/<id>/` of a `devkit`
+  change with approved readiness), and a `devkit-lite` case shows nothing is refused there, as in
+  0.8.0.
 - AC-5: When a child ends, the coordination's continuation turn (`<side-sessions-event>`) recomputes
   and, when the change's next step is again `implement`, starts the next child in that same turn,
-  with no message from the owner. Two consecutive phases of one change complete this way in the
-  dogfood (AC-11).
+  with no message from the owner. The skill's Start section states this continuation rule and the
+  kinds of turn (design D13), and a test in `guard.test.mjs` pins the sentences. Two consecutive
+  phases of one change complete this way in the dogfood (AC-11).
 - AC-6: When `start_session` is refused, the run ends with the state `waiting for the owner: start
   session <id> phase <n>` for that change, lists every session left to start, and no subagent runs
   the phase. Independent changes keep moving in the same run.

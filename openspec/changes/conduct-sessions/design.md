@@ -48,8 +48,11 @@ run from `guard.test.mjs` and set `skip_specs: true`. Same here.
 `implement` when `host === 'app'`, and today's `{ actor: 'subagent', ... }` otherwise. `host` is the
 one `deliver-check` computes (`DEVKIT_HOST`, else `CLAUDE_CODE_ENTRYPOINT`), read once per run and
 passed down, so `--json` is reproducible in tests with `DEVKIT_HOST`. `RUNNABLE` gains `'session'`;
-`selectDispatch` treats it like `subagent` (counted against the cap of three). `stateOf` is unchanged:
-a dispatched session row is `running` when busy, otherwise its `next` summary.
+`selectDispatch` treats it like `subagent` (counted against the cap of three). `stateOf` gains the
+`session` case beside `subagent`, `review`, `gate` and `main` (`conduct-check.mjs:81-85` has no such
+case today): a session row's state is `ready to run: implement`, and `running` when its change is in
+`--busy` (the `running` override in `compute` already covers every `RUNNABLE` actor). `deliveryStep`
+takes the host from `report.host`; a fixture report without `host` means `cli`.
 
 Alternatives: a `--sessions` flag (rejected: the host already says whether sessions exist, and a
 caller would have to know to pass it); sessions in `cli` too (rejected: no tool to start them).
@@ -60,17 +63,24 @@ For every `session` row the JSON carries `session: { title, name, cwd, branch, p
 background }`:
 
 - `title`: `<id>: phase <n>`.
-- `name`: `[a-z0-9-]`, at most 24 characters, unique per change and phase: the change id cut to
-  `24 - length('-p<n>')` characters, trailing `-` removed, plus `-p<n>`. When two conducted changes
-  would collide after the cut, the checker appends the first two characters of a short hash of the
-  id before `-p<n>` (and cuts the id two more characters); a test pins both cases.
+- `name`: `[a-z0-9-]`, at most 24 characters, unique per change and phase. Four characters are
+  reserved for `-p<n>` (`-p` plus up to two digits; a change with more than 99 phases is out of
+  scope), so the id is cut to its first 20 characters, trailing `-` removed, for every phase:
+  `<id20>-p<n>`. When two conducted changes have the same cut id, both get `<id18><hh>-p<n>`, where
+  `<id18>` is the id cut to 18 characters (trailing `-` removed) and `<hh>` the first two hex
+  characters of the SHA-1 of the full id. A test pins the plain, the cut and the collision case.
 - `cwd`: the change's worktree (the row's `worktree`, absolute). `branch`: the row's `branch`.
+- Every change row of the round, whatever its step, also carries `sessionPrefix`: the `name` without
+  its phase number (`<id20>-p`, or `<id18><hh>-p` after a collision), the same for every phase of
+  the change, so a caller can match a change's children in any phase (D6). Prefixes are computed
+  for all conducted changes at once, so the collision rule gives every row of one run the same
+  prefix for the same change.
 - `brief`: the prompt, from a template in the checker: "Implement phase <n> of change `<id>` in
   `<worktree>` on branch `<branch>`. Work only there; every path is absolute under it; start every
   Bash command with `cd <worktree> && `; do not fetch. Dispatch `devkit-core:tdd-implementer` with
   the Agent tool: "Implement phase <n> of change <id>; stop at its gate." Wait for its `Outcome:`.
-  Do not run the gate, commit, push, open a PR, start a session or edit product code yourself (the
-  project's hooks refuse it). End your turn with exactly two lines first: `Outcome: success` or
+  Do not run the gate, commit, push, open a PR, start a session or edit product code yourself (in
+  the `devkit` schema the project's hooks refuse it). End your turn with exactly two lines first: `Outcome: success` or
   `Outcome: failure: <reason>`, then `Head: <sha of HEAD in the worktree>`."
 - `background`: the round (`n`, title), the change's roadmap text when any, the schema, and "the
   coordinating session recomputes the next step when you end; it runs the gate and the commit".
@@ -83,7 +93,9 @@ prompt (rejected: two copies the day the panel exists).
 
 The child does one phase through `tdd-implementer` and ends. The coordination's next recompute sees
 `gate`, runs it in Bash as today, ticks the gate task, then `commit` and so on. Reasons: the
-one-writer rule stays where it is enforced (the child cannot write product code itself); a red gate
+one-writer rule stays where it is enforced (in the `devkit` schema the child cannot write product
+code itself, `guard.mjs` refuses a product edit with no `agent_type`; in `devkit-lite` the hooks do
+not gate product code, as in 0.8.0, and only the brief keeps the child off it); a red gate
 is seen by the coordination, which already stops the change and reports it; nothing else of the
 loop moves. Alternative: the child also runs the gate and the commit (rejected: three steps outside
 the recompute, and a second place that ticks `tasks.md`).
@@ -106,13 +118,31 @@ edits product code" through a side door.
 
 ### D6. Busy from the app, not from a file
 
-Before the recompute, the skill calls `mcp__ccd_session_mgmt__list_sessions({ linked: true })` and
-collects the names of sessions that are not ended (state working, starting or waiting at a prompt).
-Every conducted change whose `session.name` (for its current phase) is in that set goes into
-`--busy`. The checker marks it `running` and leaves it out of `dispatch`. A child that ended is not
-busy; the next recompute reads its result from `tasks.md` (ticked tasks) and git, never from the
-child's report text. This is how a re-run during a phase (AC-7) and a kill-and-resume both avoid a
-second session for the same phase.
+Before the recompute, the skill calls `mcp__ccd_session_mgmt__list_sessions({ linked: true, limit:
+100 })` (the tool returns the most recent rows first and defaults to 20; stopped attempts stay
+unarchived, so the default could hide a running child behind them). Its rows carry `sessionId`, `name`, `isRunning`, `isArchived`, `startedBy` and `lastActivityAt`
+(observed on 2026-11-10; there is no `state` field). A row is busy when `isRunning` is true and
+`isArchived` is false. The skill takes the previous report's `sessionPrefix` of every conducted
+change (D3) and passes in `--busy` every change that has a busy row whose `name` is its prefix
+followed by digits only (`^<prefix>[0-9]+$`; a bare starts-with would match `add-x-pagination-p1`
+to `add-x`, whose prefix `add-x-p` it starts with), whatever the change's next step is: a child that ticked its last task but is still running
+(writing its report) keeps the change out of `dispatch`, so no `gate` or `commit` runs beside a
+live child. The first run of a round has no previous report: it recomputes once without `--busy`,
+takes the prefixes from that report and, when any linked session is running, recomputes again with
+`--busy`. The checker marks a busy change `running` and leaves it out of `dispatch`.
+
+A child that ended is never busy. Its progress is read from `tasks.md` (ticked tasks) and git,
+never from the child's report text; the one thing read from the report is its `Outcome:` line, by
+the continuation turn, for the stop rule: `Outcome: failure: <reason>` stops the change as
+`blocked: phase <n>: <reason>` and the child is left unarchived (D9). When the child reported
+`Outcome: success` but the recompute still says `implement` for the same phase (no task ticked),
+the change stops as `blocked: phase <n>: child ended without ticking tasks`. An idle (ended,
+unarchived) child with the same name is not busy: on the owner's next typed `/conduct`, if the
+phase is still `implement`, the skill starts a new session with the same name (the app allows a
+repeated `name`; the older session is the stopped attempt, left for the owner to read). Once the
+phase's gate task is ticked, every idle linked session with that name is archived (D9). This is how
+a re-run during a phase (AC-7), a kill-and-resume and a retried phase all avoid a second live
+session for the same phase.
 
 ### D7. The cron goes away; JSON version 2
 
@@ -142,11 +172,23 @@ so nothing is lost. The requirements' AMBIGUOUS item resolves to (a).
 
 Right after a start succeeds: `list_groups`; create `<id>` when missing; `move_sessions` with the
 new session's id. The coordination is not moved (it conducts many changes). When a recompute shows
-the gate task of a phase ticked (`tasks.md`), the skill calls `archive_session` for that phase's
-child, with reason `phase <n> of <id>: gate green`. A child whose phase stopped (gate red,
+the gate task of a phase ticked (`tasks.md`), the skill calls `archive_session` for every idle
+linked session whose `name` is that phase's `session.name` (a retried phase may have left a stopped
+attempt, D6), with reason `phase <n> of <id>: gate green`. A child whose phase stopped (gate red,
 `Outcome: failure`) is left as it is, so the owner can open it. The app may ask the owner to
 approve a move or an archive: the owner's `/conduct` after this change is the standing request, and
 the skill says so in one line the first time it archives in a run.
+
+What the app does with these calls, from its tool descriptions: `archive_session` asks the owner
+to approve each call (except in auto or bypass mode), refuses a session that is still working,
+pinned or open on screen, archives with it the archived session's own side sessions (a child starts
+none, so archiving one child never touches its siblings) and cleans up its worktree by default;
+`move_sessions` asks in default mode; `bind_pr` (D8) asks too. One rule for all three: a refused or
+declined archive, move or bind is written in the run's report (`not archived: <name> (<why>)`,
+`not grouped: <name> (<why>)`, `not bound: <url> (<why>)`), is not retried in the same run and
+never stops the change; the next run tries again. Archiving the children of a change is the
+intended cleanup of its worktree's sessions; whether the archive also removes the change's worktree
+is the risk below.
 
 [Risk] `archive_session` says it "cleans up its worktree" by default. The child was started with
 `cwd` set to the change's worktree and `use_worktree: false`, so the app created no worktree for
@@ -235,6 +277,38 @@ devkit-openspec 0.9.0 in `plugins/openspec/.claude-plugin/plugin.json` and
 child sessions` with the **BREAKING** JSON note. The CI snippet in the docs pins `v0.9.0`, as the
 previous releases did. devkit-core is not touched.
 
+### D13. Which turns may do what
+
+Removing `--wake` (D7) removes the 0.8.0 sentence that told an automated run apart from the
+owner's. The skill states the rule by the kind of turn instead, in Start, and the checker is not
+involved (it cannot know the turn's origin):
+
+- The owner's typed `/conduct` is the only go-ahead: it confirms schemas, asks the grill, takes a
+  `devkit-lite` change's first `implement`, writes `approval.md` and retro answers from the owner's
+  own message, and starts sessions.
+- A continuation turn (a `<side-sessions-event>` that follows a child's end) advances what is
+  already under way: it reads the child's `Outcome:` line (D6), recomputes, runs `main` steps,
+  gates, subagent steps and reviews, and starts the next session of every change that is under way
+  (the chain, D5). "Under way" is read from the recompute, never from the app's list of sessions
+  (the previous child may already be archived by then): a change is under way when its `tasks.md`
+  has at least one ticked task, or, in the `devkit` schema, when `approval.md` records the current
+  `readiness.md` (the owner's go-ahead is on disk). A `devkit-lite` change with no ticked task is
+  not under way: its first `implement` waits for the owner's typed `/conduct`. The turn never
+  writes `approval.md` or a retro answer, and when the recompute reaches a schema, grill,
+  plan-approval or retro gate it asks the question with AskUserQuestion and leaves it there: the
+  answer is the owner's turn again.
+- An Auto-fix wake (a `<ci-monitor-event>`) and any other turn the owner did not type (a message
+  from another session, a scheduled task) advance only the GitHub side of what is under way
+  (`fix-checks`, `push`, `answer`, `review`, `resolve-release-conflict`), ask nothing new and start
+  no session. The app refuses a start on a turn a cron, a wake-up or another session's message
+  started (requirements Facts); the skill treats an Auto-fix wake the same way without attempting
+  the start, so no such turn produces D5's waiting state by itself.
+
+The skill tells the three apart by the message that started the turn, never by a flag in the
+prompt. This replaces 0.8.0's `--wake` clause in Start 1, its `--wake` sentences in Start 4 and the
+"cron-started run" sentences in Owner gates and Never; the `guard.test.mjs` test that pins those
+sentences is rewritten to pin these (task 2.3).
+
 ## Risks / Trade-offs
 
 - [The app changes the chain semantics or stops continuing the parent] → ADR 0006's review trigger;
@@ -243,11 +317,15 @@ previous releases did. devkit-core is not touched.
   after the answer (observed in `conduct-rounds` design D14); the recompute that follows handles it.
 - [`archive_session` removes the change's worktree] → D9's dogfood check and fallback to "group
   only".
-- [Two conducted changes share a 20-character prefix] → D3's hash suffix, pinned by a test.
+- [Two conducted changes share their first 20 characters] → D3's hash suffix, pinned by a test.
 - [The owner runs `/conduct` from Remote Control] → `start_session` is refused there; D5 reports it
   as waiting for the owner, and the report says a desktop turn is needed.
 - [A child's `Head:` line disagrees with the worktree] → never read: the recompute uses `tasks.md`
   and git (D6).
+- [A continuation turn reaches an owner gate (schema, grill, approval, retro)] → D13: it asks and
+  leaves the question; nothing is written until the owner answers.
+- [A child ends without ticking a task but reports `Outcome: success`] → D6: `blocked: phase <n>:
+  child ended without ticking tasks`; the owner reads the child.
 
 ## Migration Plan
 
@@ -258,6 +336,5 @@ previous releases did. devkit-core is not touched.
 
 ## Open Questions
 
-None that change the specs, the approach or the tasks. Deferrable: whether a continuation turn may
-also ask the owner a grill question (today the grill runs in the owner's turn; a continuation turn
-that reaches `grill` for another change asks, and the answer is the owner's turn again).
+None. Whether a continuation turn may ask the owner a grill question is answered by D13: it asks
+and leaves the question; the answer is the owner's turn again.
