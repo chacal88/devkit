@@ -1,16 +1,17 @@
 Verdict: approved
-Commit: 4955dcf7d55dd2206b54ce7c6f0ebeb940343195
+Commit: 01ee2969e180f353ff1752bf655688839976fa96
 
-## Quality review — review-workflow (round 1)
+## Quality review — review-workflow (round 1, re-review of 4955dcf..01ee296)
 
 ### Findings
-- [nit] plugins/core/skills/review-change/scripts/review-round.workflow.js:98 — a reviewer that supplies a valid id on one finding and omits it on a later one can collide with the fallback id (`[{id:"F2"},{}]` gives F2 twice) and the whole stage 1 is discarded as invalid · fix: pick the fallback from the first unused F<n>, not from the index.
-- [nit] plugins/core/skills/review-change/scripts/review-round.mjs:78 — `readStage1` swallows the validation message, so on the agents path a failed reviewer shows only "review stage failed: <r> review" while the workflow path logs the cause (workflow.js:299) · fix: log the message to stderr or add it to the `failed` entry.
-- [nit] plugins/core/skills/review-change/scripts/review-round.mjs:28 — the catch around `new Function` turns any syntax error in the rules section into "rules section not found", hiding the real cause · fix: keep `e.message` in the thrown error.
-- [nit] plugins/openspec/hooks/deliver-check.mjs:1006 — after round 2, an approved verdict with an undisposed finding goes to `fix-review` instead of the deadlock stop (the stop only counts `rejectedNow`), so it can cycle fix, review, fix · fix: decide in the design whether round >= 2 should stop here too.
-- [praise] review-round.workflow.js:3,283 and review-round.mjs:18 — the rules live once between markers and the CLI loads that same section, so the workflow and agents paths cannot drift. Pure rules (majority 2 of 3, empty evidence not counted, failed votes counted) are separated from the orchestration and covered by 51 passing tests.
-- [praise] deliver-check.mjs:995-1008 — a small, readable change that closes the approved-with-open-finding hole, with a reason string naming both causes and tests added.
+- [nit] plugins/core/skills/review-change/scripts/review-round.workflow.js:98 — a valid id on one finding plus an omitted id on a later one can collide with the fallback id (`[{id:"F2"},{}]` gives F2 twice) and stage 1 is discarded · fix: pick the first unused F<n>. (still open, unchanged)
+- [nit] plugins/core/skills/review-change/scripts/review-round.mjs:78 — `readStage1` swallows the validation message on the agents path · fix: log it or add it to `failed`. (still open, unchanged)
+- [nit] plugins/core/skills/review-change/scripts/review-round.mjs:28 — the catch around `new Function` hides a rules-section syntax error as "not found" · fix: keep `e.message`. (still open, unchanged)
+- [nit] plugins/openspec/hooks/deliver-check.mjs:1006 — approved verdict with an undisposed finding after round 2 goes to `fix-review`, not the deadlock stop · fix: decide in the design. (still open, unchanged)
+- [nit] plugins/core/skills/review-change/scripts/review-round.workflow.js:1 — `meta.description` still says "three refuting verifiers", outside the rules section, so changing `VERIFIERS` leaves it stale (the new test's regex does not catch the word "three") · fix: derive it or drop the number.
+- [praise] review-round.workflow.js:134-170 — `verifyJobs`, `groupVotes`, `writeMismatch` and `VERIFIERS`/`MAJORITY` now live once in the rules section; the CLI's `verifyCommand` reuses `verifyJobs` instead of its own `k <= 3` loop, which removes the drift risk between the two paths.
+- [praise] review-round.test.mjs:442-498 — the `VERIFIERS = 5` test rewrites the constant in a copy of the script and checks jobs, majority (2 of 5 does not refute, 3 does) and the `(3 of 5)` wording, and the writer fake in `responder` is now honest (commit from the prompt, verdict from the open lines), so the happy-path tests no longer hide a mismatch.
 
 ### Summary
-- 4 findings (0 blocking, 0 important, 4 nit) + 2 praise
-- Justification: read the workflow script, CLI loader, deliver-check change, SKILL.md rows and the verifier agent. Ran `node --test review-round.test.mjs`: 51/51 pass. Gate 2.8 (645/645, check.py, catalog, validate) taken from the caller. No bug, contract break or false claim found. The stage 1/2/3 flow, the path decision and the failure rows in SKILL.md match the script's behavior.
+- 5 findings (0 blocking, 0 important, 5 nit) + 2 praise
+- Justification: reviewed only 4955dcf..01ee296. `writeMismatch` covers null, `written:false`, verdict and commit, and the `reason` is added to `failed` with the same error text, so the SKILL.md failure rows still hold. The design.md D4/D5 edits match the code. Ran `node --test review-round.test.mjs`: 54/54 pass. Full suite and check.py (648/648) taken from the caller. No bug or false claim found.

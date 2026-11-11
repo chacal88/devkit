@@ -25,3 +25,23 @@ Consensus: FAIL (round 1/2): two `important` findings with no evidence-backed re
 
 ## Next
 Fix both blockers through `tdd-implementer` (test first), commit, then round 2: `test-coverage-reviewer` and `architecture-reviewer` with their previous verdicts and the range `4955dcf..HEAD`; the three others refresh their stale verdicts (round 1).
+
+# Review: review-workflow, round 2
+
+Range `4955dcf..01ee296` · path: agents · structural: PASS (suite 648/648, `check.py` all checks passed on 01ee296)
+
+| Reviewer | Verdict | Blocking | Important (open) | Commit |
+|---|---|---|---|---|
+| adr-reviewer | approved (stale refresh) | 0 | 0 | 01ee296 |
+| architecture-reviewer | approved (round 2) | 0 | 0 | 01ee296 |
+| code-quality-reviewer | approved (stale refresh) | 0 | 0 | 01ee296 |
+| security-reviewer | approved (stale refresh) | 0 | 0 | 01ee296 |
+| test-coverage-reviewer | approved (round 2) | 0 | 0 | 01ee296 |
+
+- test-coverage-reviewer — [important] the workflow path never compared the writer's verdict/commit with the outcome · fixed in 01ee296 (`writeMismatch`, with tests for a wrong verdict and a wrong commit)
+- architecture-reviewer — [important] verifier count, jobs, grouping and majority outside the rules section · fixed in 01ee296 (`VERIFIERS`, `MAJORITY`, `verifyJobs`, `groupVotes` in the rules section; a `VERIFIERS = 5` test)
+
+Consensus: PASS (round 2/2). New nit: `meta.description` still says "three refuting verifiers" outside the rules section (code-quality). Nits go to the retro.
+
+## Next
+`pr-verifier` (evidence.md), then the PR.
