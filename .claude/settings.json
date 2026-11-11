@@ -1,4 +1,9 @@
 {
+  "enabledPlugins": {
+    "devkit-core@devkit": true,
+    "devkit-openspec@devkit": true,
+    "devkit-panel@devkit": true
+  },
   "extraKnownMarketplaces": {
     "devkit": {
       "source": {
@@ -6,9 +11,5 @@
         "repo": "chacal88/devkit"
       }
     }
-  },
-  "enabledPlugins": {
-    "devkit-core@devkit": true,
-    "devkit-openspec@devkit": true
   }
 }
