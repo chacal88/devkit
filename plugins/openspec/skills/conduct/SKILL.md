@@ -101,7 +101,7 @@ Do what the ship-change skill's Loop says for this `next.step`, in the change's 
 4. Overrides:
    - `resolve-release-conflict`: dispatch `devkit-core:tdd-implementer` with the preamble: "Run `node <skill-dir>/../../hooks/release-rebase.mjs --base <base> --json` in `<worktree>`, then the project's test command; report the JSON and the result; change nothing else." `Outcome: failure` stops that change.
    - `push-rebased`: dispatch `devkit-core:commit-and-pr` with the preamble, `oldHead` and `paths`: "The branch was rewritten by a rebase. Commit these files by name if any, then push with `git push --force-with-lease=<branch>:<oldHead> origin <branch>`. No PR edit."
-5. `review` runs the review-change skill from this session, scoped as in the ship-change skill.
+5. `review` runs the review-change skill from this session, scoped as in the ship-change skill, through the Workflow tool as `review-change` describes: pass the id in `--busy` until the round's completion notice, or until the round is declared lost. On a continuation turn or an Auto-fix wake the round runs on the `agents` path.
 6. `apply-proposals` and the archive steps are serialized by the checker (`waiting on <id> (archive)`): two archive PRs from the same base would conflict on adjacent roadmap lines.
 
 ## Owner gates

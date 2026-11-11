@@ -9,8 +9,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ghError } from './merge-setup.mjs';
 import { archiveBranchChange, resolveChange } from './guard.mjs';
-import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, unnamedFiles, ciMain } from './deliver-check.mjs';
+import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, readReviewMd, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, unnamedFiles, ciMain } from './deliver-check.mjs';
 import { createHash } from 'node:crypto';
+import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemas = join(here, '..', 'schemas');
@@ -1302,6 +1303,84 @@ test('nextStep row 9: missing reviewers and approved reviewers with undisposed f
   assert.deepEqual([n.step, n.reviewers], ['review', ['code-quality-reviewer', 'test-coverage-reviewer']]);
   n = nextStep(state({ items: { 3: open({ undisposed: [{ reviewer: 'security-reviewer', excerpt: '[important] y' }] }) } }));
   assert.deepEqual([n.step, n.reviewers], ['review', ['security-reviewer']]);
+});
+
+// The real round-1 line of release-rebase-pin (af4055a, test-coverage-reviewer.md): approved, with an open important.
+// Copied here because CI checks out shallow.
+const REAL_ROUND1_LINE = "- [important] [6] \"at every rebase stop\" has no multi-stop test: every pin test in release-rebase.test.mjs:440-520 has one change commit, so the pin branch of the loop at release-rebase.mjs:270 runs once. With two change commits that both touch docs/openspec-flow.md, a bug that reuses a stale `pinMerged` or `baseVersion`, or that fails at the second stop, stays green. · write in: release-rebase.test.mjs, with releaseRepo plus a second commit on feature (style of the \"second entry\" test near :304), asserting exit 0 and both edits present.";
+
+function approvedWithOpenFinding(severity) {
+  const root = gitRepo({ changes: { feat: { 'tasks.md': '- [x] 1.1 a\n' } } });
+  const text = REAL_ROUND1_LINE.replace('[important]', `[${severity}]`);
+  put(root, { 'openspec/changes/feat/reviews/test-coverage-reviewer.md': `Verdict: approved\nCommit: ${'c'.repeat(40)}\n\n### Findings\n${text}\n` });
+  const item3 = findingsItem(root, 'feat');
+  assert.equal(item3.status, 'open');
+  return item3;
+}
+
+test('nextStep: an approved review at the current commit with an undisposed important finding goes to fix-review with that finding (AC-6)', () => {
+  for (const severity of ['important', 'blocking']) {
+    const n = nextStep(state({
+      reviews: [{ name: 'code-quality-reviewer', verdict: 'APPROVED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
+      items: { 3: approvedWithOpenFinding(severity) },
+    }));
+    assert.equal(n.step, 'fix-review', severity);
+    assert.deepEqual(n.reviewers, ['test-coverage-reviewer']);
+    assert.equal(n.findings.length, 1);
+    assert.ok(n.findings[0].excerpt.startsWith(`[${severity}] [6] "at every rebase stop"`), n.findings[0].excerpt);
+    assert.match(n.reason, /test-coverage-reviewer approved with an undisposed finding/);
+  }
+});
+
+test('nextStep: a rejected review and an approved one with an open finding give one fix-review with both reviewers and both findings', () => {
+  const item3 = approvedWithOpenFinding('important');
+  const undisposed = [{ reviewer: 'code-quality-reviewer', excerpt: '[blocking] x' }, ...item3.details.undisposed];
+  const n = nextStep(state({
+    reviewMd: { consensus: 'FAIL', round: 1 },
+    reviews: [{ name: 'code-quality-reviewer', verdict: 'REJECTED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
+    items: { 3: open({ undisposed }) },
+  }));
+  assert.equal(n.step, 'fix-review');
+  assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
+  assert.deepEqual(n.findings.map((f) => f.reviewer), ['code-quality-reviewer', 'test-coverage-reviewer']);
+  assert.match(n.reason, /code-quality-reviewer rejected at the current commit; test-coverage-reviewer approved with an undisposed finding/);
+});
+
+test('nextStep: an approved but stale review with an undisposed finding is still reviewed', () => {
+  const n = nextStep(state({
+    reviews: [{ name: 'code-quality-reviewer', verdict: 'APPROVED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: false }],
+    items: { 2: open({ stale: ['test-coverage-reviewer'] }), 3: approvedWithOpenFinding('important') },
+  }));
+  assert.deepEqual([n.step, n.reviewers], ['review', ['test-coverage-reviewer']]);
+});
+
+test("review round: findingsItem reads findingLine's refuted line as refuted and its open line as undisposed", () => {
+  const root = gitRepo({ changes: { feat: { 'tasks.md': '- [x] 1.1 a\n' } } });
+  const f = (over) => ({ id: 'F1', severity: 'important', location: 'a.mjs:1', text: 'a problem', disposition: null, ...over });
+  const lines = [
+    findingLine(f({ disposition: 'refuted: a.mjs:1 shows it is fine / the test passes' })),
+    findingLine(f({ id: 'F2', severity: 'blocking', text: 'still open' })),
+    findingLine(f({ id: 'F3', severity: 'nit', text: 'only a nit' })),
+  ];
+  put(root, { 'openspec/changes/feat/reviews/code-quality-reviewer.md': `Verdict: rejected\nCommit: ${'d'.repeat(40)}\n\n### Findings\n${lines.join('\n')}\n` });
+  const it = findingsItem(root, 'feat');
+  assert.equal(it.details.refuted, 1);
+  assert.equal(it.details.undisposed.length, 1);
+  assert.ok(it.details.undisposed[0].excerpt.startsWith('[blocking] a.mjs:1 — still open'), it.details.undisposed[0].excerpt);
+});
+
+test("review round: readReviewMd reads consolidate's Consensus line and round", () => {
+  const root = gitRepo();
+  const mk = (round, text) => {
+    const args = { change: 'feat', changeDir: 'openspec/changes/feat', round, path: 'agents', range: 'main..HEAD', structural: 'PASS', preamble: '', bench: [{ reviewer: 'code-quality-reviewer', previous: null, range: null }] };
+    const s = validateStage1('code-quality-reviewer', { declined: false, commit: 'e'.repeat(40), uncommitted: false, heading: '## h', findings: [{ severity: 'important', location: 'x', text }], sections: '' });
+    return consolidate({ args, outcomes: [outcomeOf(args, s, {})], failed: [], notes: [] }).text;
+  };
+  const file = join(root, 'openspec/changes/feat/review.md');
+  put(root, { 'openspec/changes/feat/review.md': mk(1, 'one') });
+  assert.deepEqual(readReviewMd(file), { consensus: 'FAIL', round: 1 });
+  put(root, { 'openspec/changes/feat/review.md': `${mk(1, 'one')}\n${mk(2, 'two')}` });
+  assert.deepEqual(readReviewMd(file), { consensus: 'FAIL', round: 2 });
 });
 
 test('nextStep row 10: a fail or defect row at current evidence goes to fix-defect', () => {

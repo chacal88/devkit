@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0 — reviews as a workflow
+
+- **devkit-core** 0.6.0: the `review-change` round runs in three stages (the reviewers in parallel, three `finding-verifier` agents per blocking or important finding, the reviewers writing their own files), as one Workflow script (`review-round.workflow.js`) on the owner's typed turn and with the Agent tool on any other turn or when the tool is missing, through the same rules (`review-round.mjs`: `stage1`, `verify`, `outcomes`, `consolidate`, `check-file`). A new read-only agent, `finding-verifier`; a `### Staged round` paragraph in the six reviewers; `review.md` gains the path, the verified and refuted counts and the notes.
+- **devkit-openspec** 0.12.0: an approved review with an undisposed blocking or important finding is `fix-review` in `deliver-check`, not `review`; the `review` rows of `ship-change` and `conduct` run the round through the Workflow tool as `review-change` describes, with the busy mark until its notice. The CI snippet pins `v0.12.0`.
+- Docs: ADR 0008, ADR 0001's Note, "The review round" in `docs/openspec-flow.md`.
+
 ## 0.12.0 — release-rebase pin
 
 - **devkit-openspec** 0.11.0: a conflict in `docs/openspec-flow.md` that is only the CI pin (pins masked, `git merge-file -p` clean) is `resolve-release-conflict` in `conduct-check` and is resolved by `release-rebase.mjs` at every stop; anything beyond the pin is still blocked in `conduct-check` and exit 2 in `release-rebase.mjs`. After every replay the pins follow the resolved devkit-openspec version. A new error, `cannot set the pin:`, when the base's version cannot be read. `RELEASE_FILE` and ADR 0003's exemption are unchanged. The CI snippet pins `v0.11.0`.

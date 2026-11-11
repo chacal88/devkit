@@ -36,7 +36,9 @@ PR) stay as they are, and the owner's plan approval remains a human gate.
   implementation phase is a child session the conducting skill starts) is an exception recorded in
   ADR 0006 (0006-phases-as-child-sessions.md), which supersedes ADR 0005
   (0005-parallel-steps-and-a-session-wake-up.md), and in ADR 0007 (0007-one-change-on-request.md),
-  which amends it. This ADR's Decision governs everything else.
+  which amends it. Running the reviewer round as one
+  Workflow script inside the session is an exception recorded in ADR 0008
+  (0008-reviews-as-a-workflow.md). This ADR's Decision governs everything else.
 
 ### Review trigger
 
