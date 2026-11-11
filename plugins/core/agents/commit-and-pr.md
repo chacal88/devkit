@@ -34,7 +34,7 @@ You ship work that was already written, reviewed and validated. Your job is to c
    - Body: the *why*, and the artifacts touched.
    - Add the attribution/co-author lines the environment or the user requires; add none of your own.
 4. **Push**: `git push -u origin <branch>` on first push, plain `git push` afterwards. `--force-with-lease` only if the caller says the branch was rewritten; never a force push to the default branch. On a commit-only call, stop here: report `PR: none (commit only)`.
-5. **Open the PR** with `gh pr create`, body via HEREDOC. If the branch already has an open PR (`gh pr view --json url,state`), don't create another: the push already updated it, so stop at its URL.
+5. **Open the PR** with `gh pr create --body-file - <<'EOF'` (the body as a heredoc on stdin; never `--body -`, which `gh` takes as the literal body `-`). If the branch already has an open PR (`gh pr view --json url,state`), don't create another: the push already updated it, so stop at its URL.
    - Summary (1–3 bullets).
    - Linked artifacts: the change plan, ADRs touched, specs changed.
    - Test plan: checked items for what was verified, unchecked for what the human still does.

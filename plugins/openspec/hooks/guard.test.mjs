@@ -1115,7 +1115,7 @@ test('conduct SKILL.md: the report names the five states', () => {
     assert.ok(rep.includes(form), form);
   }
   assert.doesNotMatch(rep, /wake-up:/);
-  assert.match(rep, /Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `\/conduct` again to go on/);
+  assert.match(rep, /Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `\/conduct <id>` \(or `\/conduct round <n>`\) again to go on/);
   assert.match(rep, /not archived: <name> \(<why>\)/);
   assert.match(rep, /not grouped: <name> \(<why>\)/);
   assert.match(rep, /not bound: <url> \(<why>\)/);
