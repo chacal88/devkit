@@ -524,3 +524,24 @@ test('release-rebase pin: without a devkit-openspec pack a pin conflict stops wi
   assert.equal(ok.out.files.includes(PIN_FILE), false);
   assert.equal(read(calm.root, PIN_FILE), pinDoc('0.10.0', { bottom: 'BOTTOM B' }));
 });
+
+test('release-rebase pin: two change commits that both touch the pin file are resolved at each stop', () => {
+  const { root } = releaseRepo({
+    a: pinSide('0.7.0', '0.11.0'), b: pinSide('0.6.1', '0.10.1'), initial: pinInitial,
+    extraA: { ...pinPack('0.11.0'), [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
+    extraB: { ...pinPack('0.10.1'), [PIN_FILE]: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) },
+  });
+  // A second change commit: moves the pin again and edits a body line, so it conflicts with the replayed first one.
+  write(root, { [PIN_FILE]: pinDoc('0.10.2', { bottom: 'BOTTOM B' }).replace('body 2', 'body 2 edited C') });
+  commit(root, 'second change commit');
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  const doc = read(root, PIN_FILE);
+  for (const text of ['TOP A', 'BOTTOM B', 'body 2 edited C']) assert.match(doc, new RegExp(text));
+  assert.deepEqual([...new Set(pinsOf(doc))], ['v0.11.1']);
+  assert.ok(r.out.files.includes(PIN_FILE));
+  const head = git(root, 'show', `HEAD:${PIN_FILE}`);
+  assert.match(head, /body 2 edited C/);
+  assert.deepEqual([...new Set(pinsOf(head))], ['v0.11.0']);
+  assert.equal(git(root, 'rev-list', '--count', 'origin/main..HEAD'), '2');
+});

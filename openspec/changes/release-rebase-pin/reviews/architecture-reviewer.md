@@ -1,0 +1,15 @@
+Verdict: approved
+Commit: 66b6041b362791ff6eed4b1c90ea537db7b2cd69
+
+## Architecture review — release-rebase-pin (round 1, origin/main..HEAD)
+
+Analyzed: owners (the pin rule in release-rebase.mjs, the release list stays in deliver-check.mjs:755); boundaries (import direction deliver-check <- release-rebase <- conduct-check, no cycle: release-rebase.mjs:15 imports only deliver-check, conduct-check.mjs:16 imports deliver-check and release-rebase, neither imports conduct-check); contract consumers enumerated (resolve-release-conflict row: skills/conduct/SKILL.md:102 passes paths through and reads only the JSON report, ship-change has no row for it, docs/openspec-flow.md updated, plugins/panel has no reference; release-rebase JSON `files`/`conflicts`/`error`: only the conduct subagent reads it, the new `cannot set the pin:` is a prefix inside the existing `error` string, no new field; RELEASE_FILE unchanged, so unnamedFiles/ADR 0003 are untouched); deletion tests (setPins: passes, shared by mask and rewrite; mergePins: passes, hides temp dir, git merge-file and always-cleanup; classifyConflict: passes, one rule serves two callers; threeVersions: borderline, see nit).
+
+### Findings
+- [nit] plugins/openspec/hooks/conduct-check.mjs:378 — friction: `threeVersions` re-implements a git-show reader beside `show`/`stageReader` in release-rebase.mjs:182-186; the two differ only in revision source (commits vs index stages). · why: leverage, two places to fix if the blob read changes. · direction: acceptable now (different revisions, three lines); if a third reader appears, export one reader from release-rebase.mjs.
+- [nit] plugins/openspec/skills/openspec-setup/templates/devkit-reviews.yml — friction: a second pin site that shares the markers with docs/openspec-flow.md, but PIN_FILE covers only the doc. · why: the marker regex in release-rebase.mjs:128 is the sole definition of "pin line"; a marker edit in the template or doc can silently drift from it. · direction: the real-doc test (release-rebase.test.mjs:421) guards the doc; consider the same guard for the template if it is ever rebased in this flow. No ADR needed (D10 holds).
+- [nit] plugins/openspec/hooks/conduct-check.mjs:1-5 — friction: the "never writes" contract now has an exception (temp folder in mergePins). · why: boundary honesty; the header comment was updated, which is right. · direction: none required; keep the exception confined to mergePins.
+
+Preview and replay can in principle disagree (conduct-check classifies one merge-base/HEAD triple, the rebase classifies per stop). The failure mode is safe: an unresolved replay restores the old head (release-rebase.mjs:261 `unresolved`), and the design records it. Not a finding.
+
+Good points: the pin rule has one owner and both callers share one `classifyConflict` (conduct-check.mjs:401, release-rebase.mjs:273), so the preview in conduct-check cannot drift from the resolver; the `stagesOf` callback keeps classification pure and free of git, and "called at most once, only for PIN_FILE" is test-pinned. Release list and ADR 0003 are deliberately left unchanged, with the contract kept additive.
