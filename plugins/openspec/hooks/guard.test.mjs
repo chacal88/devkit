@@ -1199,19 +1199,74 @@ test('conduct SKILL.md: the sidebar group, the archive and the one rule for a re
   assert.match(md, /git worktree list/);
 });
 
-test('README and the pack README describe the session flow with no cron (2.5)', () => {
+// ---------------------------------------------------------------- the conduct skill: one change on request (conduct-one-change AC-4 to AC-7)
+
+test('conduct SKILL.md: /conduct <id> comes first, every call carries --change, a bare /conduct never sweeps (AC-4)', () => {
+  const md = conductMd();
+  const afterTitle = md.slice(md.indexOf('# Conduct one change'));
+  assert.match(afterTitle.split('\n\n')[1], /^`\/conduct <id>` takes the one change/);
+  assert.ok(md.includes('--json --change <id>'));
+  assert.ok(md.includes('--json (--change <id> | --round <n>) [--busy <id,id>]'));
+  assert.ok(md.includes('--json --watch --change <id>'));
+  assert.match(md, /A bare `conduct-check` is never run: it would sweep the round/);
+  assert.match(md, /`round <n>`/);
+  assert.match(md, /the only way into the round mode/);
+  assert.match(md, /never sweeps/);
+  assert.match(md, /never reads `openspec\/roadmap\.md`/);
+  assert.match(md, /touches no other change/);
+  assert.match(md, /reads and writes only that change's worktree/);
+  assert.match(md, /AskUserQuestion/);
+  const desc = md.split('\n').find((l) => l.startsWith('description:'));
+  assert.match(desc, /\bUse when\b/);
+  assert.ok(desc.indexOf('/conduct <id>') < desc.indexOf('round <n>'), 'the single change comes first');
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Sweep a round without an explicit `round <n>`/);
+  assert.match(never, /Pick a change on your own/);
+  assert.match(never, /Read `openspec\/roadmap\.md` or touch another change in single-change mode/);
+  assert.match(never, /Run `conduct-check` without `--change <id>` or `--round <n>`/);
+});
+
+test('conduct SKILL.md: a missing change is created only on the owner\'s answer (AC-7)', () => {
+  const md = conductMd();
+  for (const p of ['`no change <id>:`', '`change <id> has a worktree without a folder:`', '`change <id> is on another branch:`']) assert.ok(md.includes(p), p);
+  assert.ok(md.includes('`openspec new change <id> --schema <answer>`'));
+  assert.match(md, /Only on the owner's answer run `git worktree add -b <id>/);
+  assert.match(md, /no `git worktree add`/);
+  assert.match(md, /this run creates nothing/);
+  assert.match(md, /A typo'd id creates nothing/);
+  assert.match(md, /in one question whether to create `<id>` and with which schema/);
+});
+
+test('conduct SKILL.md: unfinished work is asked on the owner\'s turn only (AC-6)', () => {
+  const md = conductMd();
+  assert.ok(md.includes('`<id> has unfinished work in <worktree>: <summary>`'));
+  assert.match(md, /only when the owner's own message/i);
+  assert.ok(md.includes('waiting for the owner: unfinished work in <worktree>'));
+  assert.match(md, /never ask it/);
+  const rep = md.split('## Report')[1].split('## Never')[0];
+  assert.match(rep, /a single-change run has no `round:`, `roadmap:` or `skipped rounds:` line/);
+});
+
+test('README and the pack README describe the session flow with no cron (2.5) and one change on request (AC-4)', () => {
   const root = join(here, '..', '..', '..');
   const top = readFileSync(join(root, 'README.md'), 'utf8');
-  const para = top.split('\n').find((l) => l.startsWith('For a roadmap round, `/conduct`')) ?? '';
+  const para = top.split('\n').find((l) => l.startsWith('`/conduct <id>` conducts one change')) ?? '';
   assert.match(para, /child session/);
   assert.match(para, /0006-phases-as-child-sessions\.md/);
+  assert.match(para, /0007-one-change-on-request\.md/);
+  assert.match(para, /one change/);
+  assert.match(para, /`\/conduct round <n>`/);
   assert.doesNotMatch(para, /every 20 minutes|session cron/);
   const pack = readFileSync(join(root, 'plugins', 'openspec', 'README.md'), 'utf8');
   const rows = pack.split('\n').filter((l) => /conduct/.test(l) && l.startsWith('|'));
   assert.ok(rows.length >= 3);
   for (const r of rows) assert.doesNotMatch(r, /every 20 minutes|session cron|`wake`/);
   assert.match(pack.split('\n').find((l) => l.startsWith('| `conduct` skill')), /child session/);
-  assert.match(pack.split('\n').find((l) => l.startsWith('| [`hooks/conduct-check.mjs`')), /`session`/);
+  assert.match(pack.split('\n').find((l) => l.startsWith('| `conduct` skill')), /#conducting-a-change-conduct-id/);
+  const check = pack.split('\n').find((l) => l.startsWith('| [`hooks/conduct-check.mjs`'));
+  assert.match(check, /`session`/);
+  assert.match(check, /--change/);
+  assert.match(check, /`unfinished`/);
 });
 
 // ---------------------------------------------------------------- ADR 0005 (conduct-rounds D13)
@@ -1233,6 +1288,13 @@ test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', ()
   const cfg = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8');
   assert.match(cfg, /0005 parallel steps/);
   assert.match(cfg, /0006 phases as child sessions/);
+  assert.match(cfg, /0007 one change on request/);
+  const adr7 = readFileSync(join(root, 'docs', 'adr', '0007-one-change-on-request.md'), 'utf8');
+  assert.match(adr7, /^- Status: accepted$/m);
+  for (const h of ['Decision', 'Consequences', 'Review trigger', 'Alternatives considered']) {
+    assert.match(adr7, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0007 has ${h}`);
+  }
+  assert.match(adr6, /^- Amended by ADR 0007 \(0007-one-change-on-request\.md\)$/m);
   const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });

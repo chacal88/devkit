@@ -12,7 +12,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHasArtifact } from './guard.mjs';
 import { readRepoSettings } from './merge-setup.mjs';
 import {
-  UsageError, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, RELEASE_FILE, watchMinutes,
+  UsageError, gitFacts, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, RELEASE_FILE, watchMinutes,
 } from './deliver-check.mjs';
 
 export const MAX_PARALLEL = 3;
@@ -433,12 +433,58 @@ function blockedRow(row, message) {
   return { ...row, next, state: stateOf(next) };
 }
 
+// The half-done work of a change in its worktree (design D4): { dirty, phases, summary }, or null when there is none.
+function unfinishedWork(worktree, id) {
+  const dirty = gitFacts(worktree).dirty;
+  const located = locateChange(worktree, id);
+  const tasksFile = located ? join(located.dir, 'tasks.md') : null;
+  const tasks = tasksFile && existsSync(tasksFile) ? parseTasks(readFileSync(tasksFile, 'utf8')) : [];
+  const phases = [...new Set(tasks.map((t) => t.phase))]
+    .filter((n) => tasks.some((t) => t.phase === n && t.done) && tasks.some((t) => t.phase === n && !t.done))
+    .sort((a, b) => a - b);
+  if (!dirty.length && !phases.length) return null;
+  const parts = [];
+  if (dirty.length) parts.push(`${dirty.length} uncommitted path${dirty.length === 1 ? '' : 's'} outside openspec/: ${dirty.slice(0, 3).join(', ')}`);
+  for (const n of phases) {
+    const inPhase = tasks.filter((t) => t.phase === n);
+    parts.push(`phase ${n} half done (${inPhase.filter((t) => t.done).map((t) => t.id).join(', ')} ticked, ${inPhase.filter((t) => !t.done).map((t) => t.id).join(', ')} open)`);
+  }
+  return { dirty, phases, summary: parts.join('; ') };
+}
+
+const NEW_CHANGE_CMD = (id) => `openspec new change ${id} --schema <devkit|devkit-lite>`;
+
+// The newest archived folder of `id` on `ref`: its name, or null.
+function archivedOn(root, ref, id) {
+  let out = '';
+  try { out = git(root, ['ls-tree', '--name-only', ref, 'openspec/changes/archive/']); } catch { return null; }
+  const re = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  const names = out.split('\n').map((l) => l.split('/').pop()).filter((n) => re.test(n)).sort();
+  return names.at(-1) ?? null;
+}
+
+// Single-change mode, no worktree, no branch (design D3 steps 3 and 4): the archived row, or exit 3.
+function missingChange(ctx, id) {
+  if (archivedOn(ctx.root, ctx.ref, id)) return null;
+  const here = locateChange(ctx.root, id);
+  if (here && !here.archived) {
+    let branch = '';
+    try { branch = git(ctx.root, ['rev-parse', '--abbrev-ref', 'HEAD']).trim(); } catch { /* no branch */ }
+    throw new UsageError(`change ${id} is on another branch: openspec/changes/${id}/ is in ${ctx.root} on branch ${branch}; run \`git switch -c ${id}\` there and run again`);
+  }
+  throw new UsageError(`no change ${id}: no worktree, no branch ${id}, no openspec/changes/${id}/ on ${ctx.ref} and no archived folder; create it with \`${NEW_CHANGE_CMD(id)}\` on a branch named ${id}`);
+}
+
 function evaluate(ctx, item, round) {
   const entry = findWorktree(ctx.worktrees, item.id);
+  if (ctx.single && entry && !locateChange(entry.path, item.id)) {
+    throw new UsageError(`change ${item.id} has a worktree without a folder: ${entry.path} has no openspec/changes/${item.id}/; run \`${NEW_CHANGE_CMD(item.id)}\` there`);
+  }
   const row = {
     id: item.id, round, after: item.after, text: item.text, notes: item.notes, schema: null,
     worktree: entry?.path ?? join(ctx.main, '.claude', 'worktrees', item.id),
     branch: entry?.branch ?? item.id, base: ctx.base, next: null, state: '', deliver: null,
+    unfinished: entry ? unfinishedWork(entry.path, item.id) : null,
   };
   const finish = (next, extra = {}) => {
     const full = { ...next, ...actorOf(next.step), ...(next.askable !== undefined ? { askable: next.askable } : {}) };
@@ -454,6 +500,10 @@ function evaluate(ctx, item, round) {
     if (local) return finish(step('worktree', 'the change has a branch but no worktree', { path, command: ['git', 'worktree', 'add', path, item.id] }));
     if (remote) return finish(step('worktree', 'the change has a remote branch but no local one', { path, command: ['git', 'worktree', 'add', '--track', '-b', item.id, path, `origin/${item.id}`] }));
     if (onBase) return finish(step('worktree', `openspec/changes/${item.id}/ is on ${ctx.ref}`, { path, command: ['git', 'worktree', 'add', '-b', item.id, path, ctx.ref] }));
+    if (ctx.single) {
+      missingChange(ctx, item.id);
+      return finish(step('archived', `${item.id} is archived on ${ctx.ref}`));
+    }
     return finish(step('create', 'a new change: ask the owner to confirm the schema, then create its worktree and folder', {
       path, text: item.text, notes: item.notes, ...proposal, command: ['git', 'worktree', 'add', '-b', item.id, path, ctx.ref],
     }));
@@ -524,7 +574,7 @@ function briefOf(id, phase, worktree, branch) {
 }
 
 function backgroundOf(result, c) {
-  const round = result.round ? `Round ${result.round.n} (${result.round.title}).` : '';
+  const round = result.mode === 'change' ? `Change \`${result.change}\`, conducted on its own: no roadmap round.` : result.round ? `Round ${result.round.n} (${result.round.title}).` : '';
   return [round, c.text ? `Roadmap: ${c.text}.` : '', `Schema: ${c.schema}.`,
     'The coordinating session recomputes the next step when you end; it runs the gate and the commit.'].filter(Boolean).join(' ');
 }
@@ -555,13 +605,26 @@ function sleepSync(ms) {
 // What a GitHub wait is waiting for: when it changes, something happened.
 const signature = (c) => JSON.stringify([c.next.step, c.next.waitingFor ?? null, c.next.pending ?? null, c.state]);
 
-function compute(root, { env, ghFor, round, busy }) {
+// The round number of a row: `at + 1` in a round, null in single-change mode (where `at` is null).
+const roundOf = (at) => (at === null ? null : at + 1);
+
+function compute(root, { env, ghFor, round, busy, change }) {
   const repo = readRepoSettings(ghFor(root));
   if (repo.error) throw new UsageError(`cannot read the default branch: ${repo.error}`);
   const base = repo.settings?.default_branch;
   if (!base) throw new UsageError('cannot read the default branch: the repository settings have no default_branch');
   const ref = `origin/${base}`;
   if (!resolves(root, ref)) throw new UsageError(`${ref} does not resolve; run: git fetch origin ${base}`);
+  if (change) {
+    const result = { version: 2, base, mode: 'change', change, round: null, startedAt: null, skipped: [], roadmapDone: false, changes: [] };
+    const ctx = {
+      root, env, ghFor, base, ref, ticked: new Set(), main: mainRoot(root), worktrees: listWorktrees(root),
+      originSha: git(root, ['rev-parse', ref]).trim(), single: true,
+    };
+    const items = [{ id: change, after: [], text: null, notes: null }];
+    result.changes = serializeArchives(ctx, items.map((item) => evaluate(ctx, item, null)));
+    return conclude(result, ctx, items, null, busy, env);
+  }
   let text;
   try { text = git(root, ['show', `${ref}:openspec/roadmap.md`]); } catch { throw new UsageError(`${ref} has no openspec/roadmap.md`); }
   const rounds = parseRoadmap(text) ?? [];
@@ -574,7 +637,7 @@ function compute(root, { env, ghFor, round, busy }) {
   const at = rounds.findIndex((r, i) => i >= startedAt - 1 && unticked(r).length > 0);
   const ticked = new Set(rounds.flatMap((r) => r.items).filter((i) => i.done).map((i) => i.id));
   const current = at >= 0 ? rounds[at] : null;
-  const result = { version: 2, base, round: null, startedAt, skipped, roadmapDone: current === null, changes: [] };
+  const result = { version: 2, base, mode: 'round', change: null, round: null, startedAt, skipped, roadmapDone: current === null, changes: [] };
   let ctx = null;
   let items = [];
   if (current) {
@@ -586,6 +649,11 @@ function compute(root, { env, ghFor, round, busy }) {
     items = unticked(current);
     result.changes = serializeArchives(ctx, items.map((item) => evaluate(ctx, item, at + 1)));
   }
+  return conclude(result, ctx, items, at, busy, env);
+}
+
+// The dispatch summary, the running states and the sessions, on a computed result.
+function conclude(result, ctx, items, at, busy, env) {
   const summary = summarizeRound(result.changes, busy);
   const busySet = new Set(summary.busy);
   for (const c of result.changes) if (busySet.has(c.id) && RUNNABLE.includes(c.next.actor)) c.state = 'running';
@@ -597,8 +665,8 @@ function compute(root, { env, ghFor, round, busy }) {
 // The whole round: { version: 2, base, round, startedAt, skipped, roadmapDone, changes, dispatch, owner, github,
 // stopped, busy, end }. With `watch` (minutes) and everything waiting on GitHub, polls the waiting changes
 // until one moves or the cap passes, then returns the recomputed round with `watch: { minutes, timedOut }`.
-export function conductState(root, { env = process.env, ghFor = (r) => makeGh(r, env), round = null, busy = [], watch = null } = {}) {
-  const opts = { env, ghFor, round, busy };
+export function conductState(root, { env = process.env, ghFor = (r) => makeGh(r, env), round = null, busy = [], watch = null, change = null } = {}) {
+  const opts = { env, ghFor, round, busy, change };
   let { result, ctx, items, at } = compute(root, opts);
   if (watch === null || !result.end || result.github.length === 0) return result;
   const before = new Map(result.changes.filter((c) => result.github.includes(c.id)).map((c) => [c.id, signature(c)]));
@@ -607,7 +675,7 @@ export function conductState(root, { env = process.env, ghFor = (r) => makeGh(r,
   let timedOut = true;
   while (Date.now() < deadline) {
     sleepSync(Math.min(every, Math.max(0, deadline - Date.now())));
-    const moved = [...before].some(([id, sig]) => signature(evaluate(ctx, items.find((i) => i.id === id), at + 1)) !== sig);
+    const moved = [...before].some(([id, sig]) => signature(evaluate(ctx, items.find((i) => i.id === id), roundOf(at))) !== sig);
     if (moved) { timedOut = false; break; }
   }
   ({ result } = compute(root, opts));
@@ -618,7 +686,7 @@ export function conductState(root, { env = process.env, ghFor = (r) => makeGh(r,
 // ---------------------------------------------------------------- CLI
 
 function parseArgs(argv) {
-  const opts = { json: false, round: null, busy: [], watch: null };
+  const opts = { json: false, round: null, change: null, busy: [], watch: null };
   const value = (a, name, rest) => (a.includes('=') ? a.slice(a.indexOf('=') + 1) : rest.shift() ?? '');
   const rest = [...argv];
   while (rest.length) {
@@ -628,10 +696,15 @@ function parseArgs(argv) {
       const v = value(a, 'round', rest);
       if (!/^\d+$/.test(v)) throw new UsageError(`--round expects a round number, not "${v}"`);
       opts.round = Number(v);
+    } else if (a === '--change' || a.startsWith('--change=')) {
+      const v = value(a, 'change', rest);
+      if (!/^[A-Za-z0-9][\w.-]*$/.test(v) || ['.', '..', 'archive'].includes(v)) throw new UsageError(`--change expects a change id, not "${v}"`);
+      opts.change = v;
     } else if (a === '--busy' || a.startsWith('--busy=')) opts.busy = value(a, 'busy', rest).split(',').map((x) => x.trim()).filter(Boolean);
     else if (a === '--watch' || a.startsWith('--watch=')) opts.watch = watchMinutes(a.includes('=') ? a.slice(a.indexOf('=') + 1) : undefined);
-    else throw new UsageError(`unknown option ${a}; usage: conduct-check [--json] [--round <n>] [--busy <id,id>] [--watch[=<minutes>]]`);
+    else throw new UsageError(`unknown option ${a}; usage: conduct-check [--json] [--round <n>] [--change <id>] [--busy <id,id>] [--watch[=<minutes>]]`);
   }
+  if (opts.change !== null && opts.round !== null) throw new UsageError('--change and --round do not combine');
   return opts;
 }
 
@@ -656,7 +729,7 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     const root = findRoot(cwd);
     if (!root) throw new UsageError(`no openspec/ folder found from ${cwd}`);
     if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: conduct-check reads commits and worktrees`);
-    const result = conductState(root, { env, round: opts.round, busy: opts.busy, watch: opts.watch });
+    const result = conductState(root, { env, round: opts.round, change: opts.change, busy: opts.busy, watch: opts.watch });
     return { code: 0, stdout: json ? `${JSON.stringify(result, null, 2)}\n` : renderHuman(result), stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
