@@ -1,16 +1,18 @@
 # Review: conduct-one-change
 
-Structural: PASS (`openspec validate conduct-one-change --strict` valid; `scripts/check.py` all checks passed; HEAD a527a0f)
+Structural: PASS (`openspec validate conduct-one-change --strict` valid; `scripts/check.py` all checks passed)
+
+Round 1 at a527a0f; round 2 at ace7ac0 (the two important findings fixed in ace7ac0, verified by their reviewers; adr-reviewer re-read the diff for staleness).
 
 | Reviewer | Verdict | Blocking findings |
 |---|---|---|
-| code-quality-reviewer | FAIL (1 important) | 0 |
-| test-coverage-reviewer | FAIL (1 important, verdict line approved) | 0 |
+| code-quality-reviewer | PASS (round 1: FAIL, 1 important) | 0 |
+| test-coverage-reviewer | PASS (round 1: 1 important) | 0 |
 | adr-reviewer | PASS | 0 |
 
-Consensus: FAIL (round 1/2)
+Consensus: PASS (round 2/2)
 
-## Blockers
+## Blockers (round 1, fixed in ace7ac0)
 
 - code-quality-reviewer — plugins/openspec/hooks/conduct-check.mjs:699 — the `--change` id regex accepts a leading dash (`--change --json` swallows `--json`; `--change=-rf` reaches the suggested git commands); require `^[A-Za-z0-9][\w.-]*$` and test `--change --json` and `-x`.
 - test-coverage-reviewer — plugins/openspec/hooks/conduct-check.test.mjs — no test reads a `chore/archive-<id>` worktree holding only the archived folder with `--change`; a live-only guard in `evaluate` would exit 3 on the archive step and nothing would go red.
@@ -22,4 +24,4 @@ Consensus: FAIL (round 1/2)
 
 ## Next
 
-Fix the blockers and run review-change again (round 2: code-quality-reviewer and test-coverage-reviewer only).
+Ready to ship: `pr-verifier` writes evidence.md, then `commit-and-pr` opens the PR.
