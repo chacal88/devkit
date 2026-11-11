@@ -2,12 +2,12 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog } from './release-rebase.mjs';
+import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict } from './release-rebase.mjs';
 
 const script = join(dirname(fileURLToPath(import.meta.url)), 'release-rebase.mjs');
 const ENV = {
@@ -126,7 +126,7 @@ function bump(root, { packs, metadata, packsAll, title, body = '- change', catal
 }
 
 // A clone on branch `feature` (one commit by B) behind origin/main (one commit by A).
-function releaseRepo({ a, b, extraA = {}, extraB = {}, gen = false } = {}) {
+function releaseRepo({ a, b, extraA = {}, extraB = {}, gen = false, initial = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'devkit-release-'));
   const origin = mkdtempSync(join(tmpdir(), 'devkit-release-origin-'));
   git(origin, 'init', '-q', '--bare', '-b', 'main');
@@ -139,6 +139,7 @@ function releaseRepo({ a, b, extraA = {}, extraB = {}, gen = false } = {}) {
     'README.md': 'readme\n',
     'docs/catalog.md': 'catalog v1\n',
     ...(gen ? { 'scripts/gen-catalog.py': "from pathlib import Path\nPath('docs/catalog.md').write_text('regenerated\\n')\n" } : {}),
+    ...initial,
   });
   commit(root, 'initial');
   git(root, 'remote', 'add', 'origin', origin);
@@ -314,4 +315,233 @@ test('release-rebase: a missing origin/<base> and an unknown option are setup er
   assert.equal(missing.code, 3);
   assert.match(missing.stderr, /git fetch origin nope/);
   assert.equal(run(root, '--bogus').code, 3);
+});
+
+// ---------------------------------------------------------------- the CI pin (release-rebase-pin)
+
+const here = dirname(fileURLToPath(import.meta.url));
+const pinTmp = () => readdirSync(tmpdir()).filter((f) => f.startsWith('devkit-pin-'));
+
+// A doc shaped like docs/openspec-flow.md around its CI pin: a top slot, a body, the `## CI` block with
+// the three pin lines of the real file, and a bottom slot. Each slot is 3+ unchanged lines from the pin lines.
+export function pinDoc(version, { top = null, bottom = null } = {}) {
+  const v = `v${version}`;
+  return [
+    '# Flow', '', ...(top === null ? [] : [top, '']),
+    'intro 1', 'intro 2', 'intro 3', 'intro 4', '',
+    '## Body', 'body 1', 'body 2', 'body 3', 'body 4', '',
+    '## CI', '',
+    `          # pinned to the commit of ${v} (a tag can move; a commit cannot)`,
+    `          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of ${v}>/plugins/openspec/hooks`,
+    '', 'ci 1', 'ci 2', 'ci 3', '',
+    `Pin the commit sha of the release tag (\`${v}\` above), not the tag; by hand, run \`gh api repos/chacal88/devkit/git/ref/tags/${v}\`. Bump it on purpose.`,
+    '', 'ci 4', 'ci 5', 'ci 6', '',
+    '## Notes', 'note 1', 'note 2', 'note 3', 'note 4', ...(bottom === null ? [] : ['', bottom]), '',
+  ].join('\n');
+}
+const pinPack = (version) => ({ [PIN_PACK]: json({ name: PIN_PACK_NAME, version, description: 'pack devkit-openspec' }) });
+const pinMarket = (metadata, version) => marketplace(metadata, { a: '0.6.0', b: '0.5.0', [PIN_PACK_NAME]: version });
+const pinSide = (metadata, version) => ({ packs: {}, metadata, packsAll: { a: '0.6.0', b: '0.5.0', [PIN_PACK_NAME]: version }, title: `at ${version}`, body: `- at ${version}` });
+const pinInitial = { ...pinPack('0.10.0'), [PIN_FILE]: pinDoc('0.10.0'), '.claude-plugin/marketplace.json': pinMarket('0.6.0', '0.10.0') };
+const pinsOf = (text) => [...text.matchAll(/v\d+\.\d+\.\d+/g)].map((m) => m[0]);
+
+test('release-rebase pin: setPins rewrites each of the four marker forms, both pins of one line, and keeps the period of a sentence end', () => {
+  assert.equal(setPins('pinned to the commit of v0.10.3 (x)', '1.2.3'), 'pinned to the commit of v1.2.3 (x)');
+  assert.equal(setPins('base=https://h/<commit sha of v0.10.3>/p', '1.2.3'), 'base=https://h/<commit sha of v1.2.3>/p');
+  assert.equal(setPins('run gh api repos/o/r/git/ref/tags/v0.10.3 now', '1.2.3'), 'run gh api repos/o/r/git/ref/tags/v1.2.3 now');
+  assert.equal(setPins('the tag (`v0.10.3` above), not the tag', '1.2.3'), 'the tag (`v1.2.3` above), not the tag');
+  assert.equal(setPins('(`v0.10.3` above) and git/ref/tags/v0.10.3', '1.2.3'), '(`v1.2.3` above) and git/ref/tags/v1.2.3');
+  assert.equal(setPins('see git/ref/tags/v0.10.3.', '0.11.0'), 'see git/ref/tags/v0.11.0.');
+});
+
+test('release-rebase pin: setPins replaces v1.2.34 whole and leaves a v1.2.3 on a line without a marker', () => {
+  assert.equal(setPins('pinned to the commit of v1.2.34', '2.0.0'), 'pinned to the commit of v2.0.0');
+  assert.equal(setPins('mentions v1.2.3 only', '2.0.0'), 'mentions v1.2.3 only');
+});
+
+test('release-rebase pin: setPins keeps CRLF endings, leaves a marker line without a pin, and is idempotent', () => {
+  const crlf = 'a\r\npinned to the commit of v0.1.0\r\nb\r\n';
+  assert.equal(setPins(crlf, '0.2.0'), 'a\r\npinned to the commit of v0.2.0\r\nb\r\n');
+  const literal = 'the markers are `git/ref/tags/v` and `<commit sha of v`';
+  assert.equal(setPins(literal, '9.9.9'), literal);
+  const once = setPins(pinDoc('0.10.0'), '0.11.0');
+  assert.equal(setPins(once, '0.11.0'), once);
+});
+
+test('release-rebase pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder', () => {
+  const before = pinTmp();
+  const base = pinDoc('0.10.0');
+  const ours = pinDoc('0.11.0', { top: 'TOP A' });
+  const theirs = pinDoc('0.10.1', { bottom: 'BOTTOM B' });
+  const merged = mergePins({ base, ours, theirs });
+  assert.equal(typeof merged, 'string');
+  assert.match(merged, /TOP A/);
+  assert.match(merged, /BOTTOM B/);
+  assert.deepEqual([...new Set(pinsOf(merged))], ['v0.0.0']);
+  assert.deepEqual(pinTmp(), before);
+});
+
+test('release-rebase pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder', () => {
+  const before = pinTmp();
+  const base = pinDoc('0.10.0');
+  assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
+  for (const side of ['base', 'ours', 'theirs']) {
+    const sides = { base, ours: base, theirs: base, [side]: null };
+    assert.equal(mergePins(sides), null, side);
+  }
+  assert.deepEqual(pinTmp(), before);
+});
+
+test('release-rebase pin: classifyConflict lets release files through without reading any stage', () => {
+  let calls = 0;
+  const stagesOf = () => { calls++; return null; };
+  assert.deepEqual(classifyConflict(['CHANGELOG.md', '.claude-plugin/marketplace.json', 'docs/catalog.md'], stagesOf), { blocking: [], pinMerged: null });
+  assert.equal(calls, 0);
+});
+
+test('release-rebase pin: classifyConflict resolves a pin-only docs/openspec-flow.md and blocks one beyond the pin, reading it once', () => {
+  const asked = [];
+  const base = pinDoc('0.10.0');
+  const pinOnly = () => ({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) });
+  const ok = classifyConflict(['CHANGELOG.md', PIN_FILE], (p) => { asked.push(p); return pinOnly(); });
+  assert.deepEqual(ok.blocking, []);
+  assert.equal(typeof ok.pinMerged, 'string');
+  assert.deepEqual(asked, [PIN_FILE]);
+  const beyond = classifyConflict([PIN_FILE], () => ({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }));
+  assert.deepEqual(beyond, { blocking: [PIN_FILE], pinMerged: null });
+});
+
+test('release-rebase pin: classifyConflict always blocks README.md and keeps the order of the paths', () => {
+  const base = pinDoc('0.10.0');
+  const stagesOf = () => ({ base, ours: base, theirs: base });
+  assert.deepEqual(classifyConflict(['README.md', 'CHANGELOG.md'], stagesOf), { blocking: ['README.md'], pinMerged: null });
+  assert.deepEqual(classifyConflict(['README.md', PIN_FILE, 'src/x.js'], stagesOf).blocking, ['README.md', 'src/x.js']);
+});
+
+test('release-rebase pin: the real docs/openspec-flow.md: setPins changes exactly its CI pin lines', () => {
+  const repo = join(here, '..', '..', '..');
+  const doc = readFileSync(join(repo, PIN_FILE), 'utf8');
+  const v = JSON.parse(readFileSync(join(repo, PIN_PACK), 'utf8')).version;
+  assert.equal(setPins(doc, v), doc);
+  const MARKER = /pinned to the commit of v|<commit sha of v|git\/ref\/tags\/v|\(`v\d+\.\d+\.\d+` above\)/;
+  const PIN = /(?<![A-Za-z0-9])v\d+\.\d+\.\d+(?!\d)/;
+  const before = doc.split('\n');
+  const after = setPins(doc, '99.0.0').split('\n');
+  assert.equal(after.length, before.length);
+  const changed = before.flatMap((l, i) => (l !== after[i] ? [i] : []));
+  const pinLines = before.flatMap((l, i) => (MARKER.test(l) && PIN.test(l) ? [i] : []));
+  assert.deepEqual(changed, pinLines);
+  assert.ok(pinLines.length >= 3, 'at least 3 pin lines');
+  const ci = before.indexOf('## CI');
+  const next = before.findIndex((l, i) => i > ci && l.startsWith('## '));
+  assert.ok(ci >= 0);
+  for (const i of pinLines) assert.ok(i > ci && (next < 0 || i < next), `line ${i + 1} is inside ## CI`);
+  const urls = [...after.join('\n').matchAll(/chacal88\/devkit\/([^/\n]+)\/plugins\/openspec\/hooks/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(urls)], ['<commit sha of v99.0.0>']);
+});
+
+const sha = (root, rev = 'HEAD') => git(root, 'rev-parse', rev);
+
+test('release-rebase pin: both sides move the pin and add text apart, the rebase merges them and the worktree takes the resolved version (AC-4)', () => {
+  const a = pinSide('0.7.0', '0.11.0');
+  const b = pinSide('0.6.1', '0.10.1');
+  const { root } = releaseRepo({
+    a, b, initial: pinInitial,
+    extraA: { ...pinPack('0.11.0'), [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
+    extraB: { ...pinPack('0.10.1'), [PIN_FILE]: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) },
+  });
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(r.out.resolved, true);
+  const doc = read(root, PIN_FILE);
+  assert.match(doc, /TOP A/);
+  assert.match(doc, /BOTTOM B/);
+  assert.deepEqual([...new Set(pinsOf(doc))], ['v0.11.1']);
+  assert.ok(r.out.files.includes(PIN_FILE));
+  assert.equal(r.out.versions.packs[PIN_PACK_NAME], '0.11.1');
+  assert.match(git(root, 'status', '--porcelain'), /docs\/openspec-flow\.md/);
+  const head = git(root, 'show', `HEAD:${PIN_FILE}`);
+  assert.match(head, /TOP A/);
+  assert.match(head, /BOTTOM B/);
+  assert.deepEqual([...new Set(pinsOf(head))], ['v0.11.0']);
+});
+
+test('release-rebase pin: both sides edit the same paragraph, the run aborts to the old head (AC-5)', () => {
+  const { root } = releaseRepo({
+    a: pinSide('0.7.0', '0.11.0'), b: pinSide('0.6.1', '0.10.1'), initial: pinInitial,
+    extraA: { ...pinPack('0.11.0'), [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
+    extraB: { ...pinPack('0.10.1'), [PIN_FILE]: pinDoc('0.10.1', { top: 'TOP B' }) },
+  });
+  const oldHead = sha(root);
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 2);
+  assert.equal(r.out.resolved, false);
+  assert.ok(r.out.conflicts.includes(PIN_FILE));
+  assert.equal(sha(root), oldHead);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.equal(existsSync(join(root, '.git', 'rebase-merge')), false);
+});
+
+test('release-rebase pin: a renumbered pack with no conflict in the doc keeps the change commit and rewrites the worktree (AC-6)', () => {
+  const { root } = releaseRepo({
+    a: pinSide('0.7.0', '0.11.0'), b: pinSide('0.6.1', '0.10.1'), initial: pinInitial,
+    extraA: pinPack('0.11.0'),
+    extraB: { ...pinPack('0.10.1'), [PIN_FILE]: pinDoc('0.10.1') },
+  });
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual([...new Set(pinsOf(git(root, 'show', `HEAD:${PIN_FILE}`)))], ['v0.10.1']);
+  assert.deepEqual([...new Set(pinsOf(read(root, PIN_FILE)))], ['v0.11.1']);
+  assert.ok(r.out.files.includes(PIN_FILE));
+});
+
+test('release-rebase pin: a change that did not bump devkit-openspec takes the base version for every pin (AC-6)', () => {
+  const b = { ...B_PATCH, packsAll: { a: '0.6.1', b: '0.5.0', [PIN_PACK_NAME]: '0.10.0' } };
+  const { root } = releaseRepo({ a: pinSide('0.7.0', '0.11.0'), b, initial: pinInitial, extraA: pinPack('0.11.0') });
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual([...new Set(pinsOf(read(root, PIN_FILE)))], ['v0.11.0']);
+  assert.ok(r.out.files.includes(PIN_FILE));
+});
+
+test('release-rebase pin: without a devkit-openspec pack a pin conflict stops with "cannot set the pin:", and no conflict leaves the file alone', () => {
+  const noPack = { [PIN_FILE]: pinDoc('0.10.0') };
+  const conflicted = releaseRepo({
+    a: A_MINOR, b: B_PATCH, initial: noPack,
+    extraA: { [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
+    extraB: { [PIN_FILE]: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) },
+  });
+  const oldHead = sha(conflicted.root);
+  const r = run(conflicted.root, '--base', 'main', '--json');
+  assert.equal(r.code, 2);
+  assert.match(r.out.error, /^cannot set the pin:/);
+  assert.equal(sha(conflicted.root), oldHead);
+  assert.equal(git(conflicted.root, 'status', '--porcelain'), '');
+
+  const calm = releaseRepo({ a: A_MINOR, b: B_PATCH, initial: noPack, extraB: { [PIN_FILE]: pinDoc('0.10.0', { bottom: 'BOTTOM B' }) } });
+  const ok = run(calm.root, '--base', 'main', '--json');
+  assert.equal(ok.code, 0, ok.stderr + ok.stdout);
+  assert.equal(ok.out.files.includes(PIN_FILE), false);
+  assert.equal(read(calm.root, PIN_FILE), pinDoc('0.10.0', { bottom: 'BOTTOM B' }));
+});
+
+test('release-rebase pin: two change commits that both touch the pin file are resolved at each stop', () => {
+  const { root } = releaseRepo({
+    a: pinSide('0.7.0', '0.11.0'), b: pinSide('0.6.1', '0.10.1'), initial: pinInitial,
+    extraA: { ...pinPack('0.11.0'), [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
+    extraB: { ...pinPack('0.10.1'), [PIN_FILE]: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) },
+  });
+  // A second change commit: moves the pin again and edits a body line, so it conflicts with the replayed first one.
+  write(root, { [PIN_FILE]: pinDoc('0.10.2', { bottom: 'BOTTOM B' }).replace('body 2', 'body 2 edited C') });
+  commit(root, 'second change commit');
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  const doc = read(root, PIN_FILE);
+  for (const text of ['TOP A', 'BOTTOM B', 'body 2 edited C']) assert.match(doc, new RegExp(text));
+  assert.deepEqual([...new Set(pinsOf(doc))], ['v0.11.1']);
+  assert.ok(r.out.files.includes(PIN_FILE));
+  const head = git(root, 'show', `HEAD:${PIN_FILE}`);
+  assert.match(head, /body 2 edited C/);
+  assert.deepEqual([...new Set(pinsOf(head))], ['v0.11.0']);
+  assert.equal(git(root, 'rev-list', '--count', 'origin/main..HEAD'), '2');
 });

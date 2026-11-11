@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0 — release-rebase pin
+
+- **devkit-openspec** 0.11.0: a conflict in `docs/openspec-flow.md` that is only the CI pin (pins masked, `git merge-file -p` clean) is `resolve-release-conflict` in `conduct-check` and is resolved by `release-rebase.mjs` at every stop; anything beyond the pin is still blocked in `conduct-check` and exit 2 in `release-rebase.mjs`. After every replay the pins follow the resolved devkit-openspec version. A new error, `cannot set the pin:`, when the base's version cannot be read. `RELEASE_FILE` and ADR 0003's exemption are unchanged. The CI snippet pins `v0.11.0`.
+
 ## 0.11.1 — retro of devkit-panel
 
 - **devkit-openspec** 0.10.3: `scripts/check.py`'s language check blanks fenced blocks and backticked spans before scanning (a quoted UI string is a quotation, not prose), pinned by a guard test; the CI snippet pins `v0.10.3`.

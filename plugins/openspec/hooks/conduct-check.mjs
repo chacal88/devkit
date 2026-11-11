@@ -1,6 +1,7 @@
 // conduct-check: what does every change of a roadmap round do next? (conduct-rounds design D2)
 //
-// Reads files, git and (through gh) GitHub; never writes files, refs or GitHub objects, never fetches.
+// Reads files, git and (through gh) GitHub; never writes files in the repository, refs or GitHub objects (the CI-pin
+// check merges in a temporary folder it removes), never fetches.
 // Reuses deliver-check, in-process and per worktree, for everything from `implement` to `archived`.
 // No dependencies.
 
@@ -12,8 +13,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHasArtifact } from './guard.mjs';
 import { readRepoSettings } from './merge-setup.mjs';
 import {
-  UsageError, gitFacts, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, RELEASE_FILE, watchMinutes,
+  UsageError, gitFacts, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
 } from './deliver-check.mjs';
+import { PIN_FILE, classifyConflict } from './release-rebase.mjs';
 
 export const MAX_PARALLEL = 3;
 // Mtime tolerance when a file is "older than" another (design D6).
@@ -373,6 +375,13 @@ function conflictedPaths(root, ref) {
   return { paths };
 }
 
+// The three versions of `path` the pin merge needs before any rebase: the merge base, origin/<base> and HEAD (null when absent).
+function threeVersions(root, ref, path) {
+  const mb = (() => { try { return git(root, ['merge-base', ref, 'HEAD']).trim(); } catch { return null; } })();
+  const at = (rev) => { if (rev === null) return null; try { return git(root, ['show', `${rev}:${path}`]); } catch { return null; } };
+  return { base: at(mb), ours: at(ref), theirs: at('HEAD') };
+}
+
 // Override 1: a PR in conflict. Release files only: resolve-release-conflict; anything else stays blocked.
 function releaseConflict(ctx, row, state, report) {
   const n = report.next;
@@ -389,10 +398,10 @@ function releaseConflict(ctx, row, state, report) {
     const pr = openPrOf(state);
     return state.ship === 'merge' && pr ? step('update-branch', `GitHub reports a conflict but ${ctx.ref} merges cleanly; update the branch`, { number: pr.number }) : null;
   }
-  const others = found.paths.filter((p) => !RELEASE_FILE.test(p));
+  const others = classifyConflict(found.paths, (p) => threeVersions(row.worktree, ctx.ref, p)).blocking;
   if (others.length) return stop(onChange ? `item 5 (conflict in ${others.join(', ')})` : `archive (archive-pr): conflict in ${others.join(', ')}`);
   const pr = openPrOf(state);
-  return step('resolve-release-conflict', `the PR conflicts only in release files: ${found.paths.join(', ')}`, {
+  return step('resolve-release-conflict', `the PR conflicts only in release files${found.paths.includes(PIN_FILE) ? ' and the CI pin' : ''}: ${found.paths.join(', ')}`, {
     number: pr?.number ?? null, paths: [...found.paths].sort(), base: ctx.base,
     command: ['node', RELEASE_REBASE, '--base', ctx.base, '--json'],
   });

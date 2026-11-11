@@ -9,7 +9,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ghError } from './merge-setup.mjs';
 import { archiveBranchChange, resolveChange } from './guard.mjs';
-import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, ciMain } from './deliver-check.mjs';
+import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, unnamedFiles, ciMain } from './deliver-check.mjs';
 import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -4022,4 +4022,11 @@ test('collectState: pr facts carry the PR head, state and mergeable in pr mode t
   t.gh.set('pr-view', { stdout: prJson({ headRefOid: 'abc1234'.padEnd(40, '0'), mergeable: 'CONFLICTING' }) });
   const pr = collectState(t.root, 'feat', { env: t.env }).pr;
   assert.deepEqual([pr.number, pr.state, pr.headRefOid, pr.mergeable], [12, 'OPEN', 'abc1234'.padEnd(40, '0'), 'CONFLICTING']);
+});
+
+test('release list: RELEASE_FILE is unchanged and unnamedFiles still reports docs/openspec-flow.md (AC-7)', () => {
+  assert.equal(RELEASE_FILE.source, '^(plugins\\/[^/]+\\/\\.claude-plugin\\/plugin\\.json|\\.claude-plugin\\/marketplace\\.json|CHANGELOG\\.md|docs\\/catalog\\.md)$');
+  assert.equal(RELEASE_FILE.test('docs/openspec-flow.md'), false);
+  assert.deepEqual(unnamedFiles(['docs/openspec-flow.md', 'CHANGELOG.md', 'openspec/roadmap.md'], []), ['docs/openspec-flow.md']);
+  assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [{ answer: 'approved', targets: ['docs/openspec-flow.md'] }]), []);
 });

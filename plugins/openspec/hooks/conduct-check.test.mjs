@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { gitRepo, put, commitAll, git, fakeGh } from './deliver-check.test.mjs';
 import { makeGh } from './merge-setup.mjs';
+import { pinDoc } from './release-rebase.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
@@ -1397,4 +1398,59 @@ test('conduct: unfinished names the dirty paths and the half-done phase together
   put(wt, { 'src/one.ts': 'x\n' });
   const u = t.state({ change: 'a' }).changes[0].unfinished;
   assert.equal(u.summary, '1 uncommitted path outside openspec/: src/one.ts; phase 1 half done (1.1 ticked, 1.9 open)');
+});
+
+// ---------------------------------------------------------------- the CI pin (release-rebase-pin)
+
+const PIN_DOC = 'docs/openspec-flow.md';
+const pinTmpFolders = () => readdirSync(tmpdir()).filter((f) => f.startsWith('devkit-pin-'));
+
+// A round whose change and origin both edit CHANGELOG.md and docs/openspec-flow.md.
+function pinConflictRepo({ change, origin }) {
+  const t = roundRepo({
+    roadmap: roadmapOf(['Round 1: x', '- [ ] b']),
+    files: { 'CHANGELOG.md': '# c\n', [PIN_DOC]: pinDoc('0.10.0') },
+  });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: { 'CHANGELOG.md': '# c\nchange edit\n', [PIN_DOC]: change } });
+  t.commitOrigin({ 'CHANGELOG.md': '# c\norigin edit\n', [PIN_DOC]: origin }, 'origin edits');
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  return { t, b };
+}
+
+test('conduct pin: a change PR whose only conflicts are release files and the CI pin is resolve-release-conflict, and nothing is touched (AC-1)', () => {
+  const { t, b } = pinConflictRepo({ change: pinDoc('0.10.1', { bottom: 'BOTTOM B' }), origin: pinDoc('0.11.0', { top: 'TOP A' }) });
+  const head = headOf(b);
+  const status = git(b, 'status', '--porcelain');
+  const before = pinTmpFolders();
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['resolve-release-conflict', 'subagent']);
+  assert.deepEqual(c.next.paths, ['CHANGELOG.md', PIN_DOC]);
+  assert.match(c.next.reason, /and the CI pin/);
+  assert.equal(headOf(b), head);
+  assert.equal(git(b, 'status', '--porcelain'), status);
+  assert.deepEqual(pinTmpFolders(), before);
+});
+
+test('conduct pin: both sides editing one paragraph of docs/openspec-flow.md is blocked (AC-2)', () => {
+  const { t } = pinConflictRepo({ change: pinDoc('0.10.1', { top: 'TOP B' }), origin: pinDoc('0.11.0', { top: 'TOP A' }) });
+  const c = byId(t.state(), 'b');
+  assert.equal(c.state, `blocked: item 5 (conflict in ${PIN_DOC})`);
+  assert.equal(c.next.actor, 'stop');
+});
+
+test('conduct pin: an archive PR conflicting in the CI pin only is resolve-release-conflict, beyond the pin it is blocked (AC-3)', () => {
+  const retro = `# Retro: b\n\n## Proposed updates\n\n### \`${PIN_DOC}\` (process-friction)\nSummary of ${PIN_DOC}.\n- before: old\n+ after: new\n- Answer: approved\n- Applied: yes\n`;
+  const retroPath = 'openspec/changes/archive/2026-11-09-b/retro.md';
+  const conflict = (mine, theirs) => {
+    const { t, wt } = archiveRepo({ files: { [PIN_DOC]: pinDoc('0.10.0') }, archiveFiles: { 'CHANGELOG.md': '# c\narchive edit\n', [PIN_DOC]: mine, [retroPath]: retro } });
+    t.commitOrigin({ 'CHANGELOG.md': '# c\norigin edit\n', [PIN_DOC]: theirs }, 'origin edits both');
+    archiveGh(t, wt, 'b', [ARCHIVE_PR({ headRefOid: headOf(wt), mergeable: 'CONFLICTING' })]);
+    return byId(t.state(), 'b');
+  };
+  const pinOnly = conflict(pinDoc('0.10.1', { bottom: 'BOTTOM B' }), pinDoc('0.11.0', { top: 'TOP A' }));
+  assert.deepEqual(planStep(pinOnly), ['resolve-release-conflict', 'subagent']);
+  assert.ok(pinOnly.next.paths.includes(PIN_DOC));
+  const beyond = conflict(pinDoc('0.10.1', { top: 'TOP B' }), pinDoc('0.11.0', { top: 'TOP A' }));
+  assert.equal(beyond.state, `blocked: archive (archive-pr): conflict in ${PIN_DOC}`);
 });

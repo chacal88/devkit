@@ -7,7 +7,8 @@
 //
 // Exit 0 resolved, 2 not resolvable (the branch is back at its old head), 3 setup or usage error.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -117,6 +118,52 @@ export function resolveChangelog({ mergeBase, change, base, version }) {
   return base.slice(0, at) + mine + base.slice(at);
 }
 
+// ---------------------------------------------------------------- the CI pin
+
+// docs/openspec-flow.md pins the CI snippet to the devkit-openspec release (release-rebase-pin design D1-D4).
+export const PIN_FILE = 'docs/openspec-flow.md';
+export const PIN_PACK = 'plugins/openspec/.claude-plugin/plugin.json';
+export const PIN_PACK_NAME = 'devkit-openspec';
+const MASK = '0.0.0';
+// A pin line names a marker; a pin is a vX.Y.Z on such a line. A marker line may hold no pin.
+const PIN_MARKER = /pinned to the commit of v|<commit sha of v|git\/ref\/tags\/v|\(`v\d+\.\d+\.\d+` above\)/;
+const PIN_TOKEN = /(?<![A-Za-z0-9])v\d+\.\d+\.\d+(?!\d)/g;
+
+// Every pin on every pin line becomes v<version>; every other byte stays. Masking is setPins(text, '0.0.0').
+export function setPins(text, version) {
+  return text.split('\n').map((line) => (PIN_MARKER.test(line) ? line.replace(PIN_TOKEN, `v${version}`) : line)).join('\n');
+}
+
+// The three sides merged with their pins masked: the merged text (pins at v0.0.0), or null when the
+// merge conflicts, errors, or a side is missing. The temporary folder is always removed.
+export function mergePins({ base, ours, theirs }) {
+  if (base === null || ours === null || theirs === null) return null;
+  const dir = mkdtempSync(join(tmpdir(), 'devkit-pin-'));
+  try {
+    const paths = { base: join(dir, 'base'), ours: join(dir, 'ours'), theirs: join(dir, 'theirs') };
+    writeFileSync(paths.base, setPins(base, MASK));
+    writeFileSync(paths.ours, setPins(ours, MASK));
+    writeFileSync(paths.theirs, setPins(theirs, MASK));
+    const r = spawnSync('git', ['merge-file', '-p', paths.ours, paths.base, paths.theirs], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    return r.status === 0 ? r.stdout : null;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// Which conflicted paths stop the caller. `stagesOf(PIN_FILE)` gives { base, ours, theirs } (a missing blob is
+// null); it is called at most once, and only for PIN_FILE.
+export function classifyConflict(paths, stagesOf) {
+  let pinMerged = null;
+  const blocking = paths.filter((p) => {
+    if (RELEASE_FILE.test(p)) return false;
+    if (p !== PIN_FILE) return true;
+    pinMerged = mergePins(stagesOf(p));
+    return pinMerged === null;
+  });
+  return { blocking, pinMerged };
+}
+
 // ---------------------------------------------------------------- the CLI
 
 const MANIFEST = /(^|\/)(plugin\.json|marketplace\.json)$/;
@@ -135,6 +182,8 @@ function show(root, rev, path) {
   const r = spawnSync('git', ['-C', root, 'show', `${rev}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
   return r.status === 0 ? r.stdout : null;
 }
+// The index stages of a conflicted path at a rebase stop: :1: the common base, :2: the upstream, :3: the change.
+const stageReader = (root) => (path) => ({ base: show(root, ':1', path), ours: show(root, ':2', path), theirs: show(root, ':3', path) });
 function rebaseInProgress(root) {
   return ['rebase-merge', 'rebase-apply'].some((d) => existsSync(resolve(root, gitOut(root, ['rev-parse', '--git-path', d]))));
 }
@@ -212,6 +261,8 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
   const written = [];
   const unresolved = (extra) => { restore(root, oldHead, written); return report(2, { resolved: false, oldHead, ...extra }, `not resolved: ${extra.error ?? `conflicts in ${extra.conflicts.join(', ')}`}`); };
 
+  const packAtBase = (() => { try { return JSON.parse(show(root, ref, PIN_PACK) ?? 'null'); } catch { return null; } })();
+  const baseVersion = packAtBase?.name === PIN_PACK_NAME && typeof packAtBase.version === 'string' ? packAtBase.version : null;
   const hasGen = existsSync(join(root, 'scripts', 'gen-catalog.py'));
   let catalogConflict = false;
   const first = sh(root, ['rebase', ref]);
@@ -219,12 +270,17 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
   for (let stops = 0; rebaseInProgress(root); stops++) {
     if (stops > 200) return unresolved({ conflicts: [], error: 'the rebase did not converge' });
     const conflicts = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
-    const others = conflicts.filter((p) => !RELEASE_FILE.test(p));
-    if (others.length || (conflicts.includes('docs/catalog.md') && !hasGen)) return unresolved({ conflicts });
+    const { blocking, pinMerged } = classifyConflict(conflicts, stageReader(root));
+    if (blocking.length || (conflicts.includes('docs/catalog.md') && !hasGen)) return unresolved({ conflicts });
     if (conflicts.includes('docs/catalog.md')) catalogConflict = true;
     // During a rebase --ours is the base being rebased onto; the change's side is read from oldHead below.
-    for (const p of conflicts) {
+    for (const p of conflicts.filter((c) => c !== PIN_FILE)) {
       if (!sh(root, ['checkout', '--ours', '--', p]).ok || !sh(root, ['add', '--', p]).ok) return unresolved({ conflicts, error: `cannot keep the base's side of ${p}` });
+    }
+    if (conflicts.includes(PIN_FILE)) {
+      if (baseVersion === null) return unresolved({ conflicts, error: `cannot set the pin: ${ref} has no ${PIN_PACK_NAME} version in ${PIN_PACK}` });
+      try { writeFileSync(join(root, PIN_FILE), setPins(pinMerged, baseVersion)); } catch { return unresolved({ conflicts, error: `cannot keep the merged pin file ${PIN_FILE}` }); }
+      if (!sh(root, ['add', '--', PIN_FILE]).ok) return unresolved({ conflicts, error: `cannot keep the merged pin file ${PIN_FILE}` });
     }
     if (!sh(root, ['rebase', '--continue']).ok && !rebaseInProgress(root)) return unresolved({ conflicts, error: 'git rebase --continue failed' });
   }
@@ -246,6 +302,11 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
       if (!version) throw new ReleaseError('cannot place the CHANGELOG entry: no metadata.version to number it with');
       writeFileSync(join(root, 'CHANGELOG.md'), resolveChangelog({ mergeBase: clMerge, change: clChange, base: show(root, ref, 'CHANGELOG.md') ?? '', version }));
       files.push('CHANGELOG.md');
+    }
+    const pinVersion = versions.packs[PIN_PACK_NAME] ?? baseVersion;
+    if (pinVersion && existsSync(join(root, PIN_FILE))) {
+      writeFileSync(join(root, PIN_FILE), setPins(readFileSync(join(root, PIN_FILE), 'utf8'), pinVersion));
+      files.push(PIN_FILE);
     }
     if (hasGen && (catalogConflict || files.some((f) => MANIFEST.test(f)))) {
       const g = spawnSync('python3', ['scripts/gen-catalog.py'], { cwd: root, encoding: 'utf8' });
