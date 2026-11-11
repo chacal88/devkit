@@ -37,11 +37,13 @@ When a change alters how the owner works (what runs, in which order, who starts 
    node --test plugins/openspec/hooks/guard.test.mjs
    ```
 
-   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs` and `github-setup.test.mjs`, so this one command runs every hook test (about 6 minutes); give reviewers its result instead of having them re-run it.
+   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs` and `github-setup.test.mjs`, so this one command runs every hook test (about 9 minutes; 8.7 observed on 94e795d); give reviewers its result instead of having them re-run it.
 
    ```bash
-   claude plugin validate .
+   "$HOME/Library/Application Support/Claude/claude-code/<version>/<hash>/claude.app/Contents/MacOS/claude" plugin validate .
    ```
+
+   Use the desktop app's bundled Claude Code (see "Testing a mod pack" below): since devkit-panel, the npm `claude` (2.1.227) fails `plugin validate .` on this repository with `userConfig.language: Unrecognized key: "options"`, so a gate in `tasks.md` that validates the repository names the bundled binary by absolute path as well.
 
 5. Bump the `version` of every pack you changed, in its `plugin.json` and in `marketplace.json`, and add a line to [CHANGELOG.md](CHANGELOG.md).
 
@@ -69,4 +71,4 @@ claude --plugin-dir plugins/core --plugin-dir plugins/openspec
 
 A session runs the pack installed at project scope, not the working tree: after a release merges, run `claude plugin update devkit-openspec@devkit` (and `devkit-core@devkit` when it changed) in the project before dogfooding the new version, or load the tree with `--plugin-dir` as above.
 
-**Testing a mod pack.** A pack of hooks modules (`plugins/panel`) is tested with `claude plugin test <dir>`, which only the desktop app's bundled Claude Code has: `"$HOME/Library/Application Support/Claude/claude-code/<version>/<hash>/claude.app/Contents/MacOS/claude"` (the npm `claude` has no `plugin test`, and its `plugin validate` rejects a `modules` hooks.json). Before a run, `<that binary> plugin test --help` must print `Run a mod's tests`; when it prints the rollout-switch refusal instead (exit 0 as well), run `<that binary> -p "ok" --max-turns 1 --model haiku` once with network access and check again; the refreshed switch holds for about two minutes. In `tasks.md` a gate is the first backticked text after `Gate:`, and `deliver-check`, `ship-change` and `pr-verifier` run each `&&` part of it on its own: name the binary by absolute path inside the command (prose or an `export PATH` outside the backticks does not count) and put the `plugin test` part first, before the guard suite.
+**Testing a mod pack.** A pack of hooks modules (`plugins/panel`) is tested with `claude plugin test <dir>`, which only the desktop app's bundled Claude Code has: `"$HOME/Library/Application Support/Claude/claude-code/<version>/<hash>/claude.app/Contents/MacOS/claude"` (the npm `claude` has no `plugin test`, and its `plugin validate` rejects a `modules` hooks.json and, on 2.1.227, devkit-panel's `userConfig.language.options`). Before a run, `<that binary> plugin test --help` must print `Run a mod's tests`; when it prints the rollout-switch refusal instead (exit 0 as well), run `<that binary> -p "ok" --max-turns 1 --model haiku` once with network access and check again; the refreshed switch holds for about two minutes. In `tasks.md` a gate is the first backticked text after `Gate:`, and `deliver-check`, `ship-change` and `pr-verifier` run each `&&` part of it on its own: name the binary by absolute path inside the command (prose or an `export PATH` outside the backticks does not count) and put the `plugin test` part first, before the guard suite.
