@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.1 — retro of conduct-one-change
+
+- **devkit-core** 0.5.3: `commit-and-pr` opens the PR with `--body-file -` (the body as a heredoc on stdin), never `--body -`.
+- **devkit-openspec** 0.10.1: the Auto-fix line says `/conduct <id>` (or `round <n>`); the CI snippet pins `v0.10.1`.
+- Docs: ADR 0001's note names the single change and ADR 0007.
+
 ## 0.10.0 — one change on request
 
 - **devkit-openspec** 0.10.0: `conduct-check --change <id>` restricts the report to the one change the owner names, with the same engine and row, and never reads the roadmap (`--round` does not combine with it, exit 3). A missing change is exit 3 with a prefix (`no change <id>:`, `change <id> has a worktree without a folder:`, `change <id> is on another branch:`). The JSON stays version 2 with `mode`, `change` and `unfinished` as additive fields.

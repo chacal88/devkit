@@ -443,15 +443,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.10.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.10.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.10.1 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.10.1>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.10.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.10.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.10.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.10.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@latest` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -524,7 +524,7 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | `conduct-check` exits 3: `no change <id>:` | `/conduct <id>` names a change that exists nowhere: no worktree, no branch, no folder | Check the id; the skill asks whether to create it and with which schema, and creates nothing before your answer |
 | `<id> has unfinished work in <worktree>` | The change's worktree holds uncommitted paths outside `openspec/` or a half-done phase, left by an earlier run | Say in your own message whether to go on with it; otherwise the change stays `waiting for the owner: unfinished work in <worktree>` |
 | `blocked: rebase of <id> stopped: resolve or abort it in <worktree>` | A rebase left in progress in the change's worktree (a conflict outside the release files) | Resolve it there, or `git -C <worktree> rebase --abort`, then run `/conduct` again; the skill aborts only when you ask |
-| A start was refused: `waiting for the owner: start session <id> phase <n>` | The app accepts a start only on your typed turn and its unbroken chain of continuation turns; an automated turn broke the chain | Type `/conduct` again; the phase is never run as a subagent in its place |
+| A start was refused: `waiting for the owner: start session <id> phase <n>` | The app accepts a start only on your typed turn and its unbroken chain of continuation turns; an automated turn broke the chain | Type `/conduct <id>` (or `/conduct round <n>`) again; the phase is never run as a subagent in its place |
 | A child is still running when you re-run `/conduct` | The change reads `running` (its child is in `--busy`) and no second session starts | Wait for its end (the next turn continues the chain) or open the child session from the sidebar |
 | The hooks don't fire at all | `devkit-openspec` isn't installed or enabled, or the project isn't opted in: `openspec/config.yaml` doesn't select `devkit` or `devkit-lite` (a renamed schema counts) | `/plugin` → enable `devkit-openspec@devkit`; set `schema: devkit` or `devkit-lite` in `openspec/config.yaml` |
 
