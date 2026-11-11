@@ -20,7 +20,11 @@ already compute every state the pane needs; nothing draws them beside the chat.
 - `.claude-plugin/marketplace.json` lists the pack; `scripts/gen-catalog.py` and `docs/catalog.md`
   know it; `docs/conventions.md` adds it to the pack table; `docs/openspec-flow.md` gets a short
   section on the panel; CHANGELOG `## 0.10.0 — devkit panel`, marketplace version 0.10.0.
-- No change to devkit-openspec or devkit-core, and no ADR (the panel stays within ADR 0001: it
+- devkit-openspec 0.9.2: one line, `devkit-panel` in `PACKS` of
+  `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs`, so `openspec-setup --packs`
+  accepts the pack (a guard test pins `PACKS` to the marketplace's pack names; the owner chose the
+  bump over an exception on 2026-11-11). `DEFAULT_PACKS` is unchanged. No change to devkit-core,
+  and no ADR (the panel stays within ADR 0001: it
   reads the repository, GitHub through the checkers and the app's own list of sessions, and drives
   nothing).
 
@@ -81,7 +85,9 @@ None.
 
 - New: `plugins/panel/` (`.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/register.tsx`
   and sibling modules, `types/index.d.ts`, `hooks/*.test.tsx`, `README.md`).
-- Edited: `.claude-plugin/marketplace.json` (new entry, `metadata.version` 0.10.0),
+- Edited: `.claude-plugin/marketplace.json` (new entry, `metadata.version` 0.10.0, devkit-openspec
+  0.9.2), `plugins/openspec/.claude-plugin/plugin.json` (0.9.2),
+  `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs` (`PACKS`),
   `scripts/gen-catalog.py` (`PACKS`), `docs/catalog.md` (generated), `docs/conventions.md` (pack
   table), `docs/openspec-flow.md` (panel section), `CHANGELOG.md`.
 - Dependencies: none added to the repository. At run time the pack needs `node` on the host's

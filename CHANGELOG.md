@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0 — devkit panel
+
+- **devkit-panel** 0.1.0: a new pack, a Claude Code mod for the desktop app. A side pane over `conduct-check --json` and `deliver-check <id> --json`: the round's changes with their state, next step and actor, the eight delivery items and the linked child sessions (`^<sessionPrefix>[0-9]+$`) of an unfolded row, the other and archived changes by name; a one-line band above the prompt with an `Open` / `Close` button; `/devkit-panel` (`status` prints the pane as text) and the `mcp__devkit-panel__status` tool. The `Conduct`, `Ship`, `Approve` and `Answer` buttons fill the prompt box with the owner's next command and never submit it. Read-only: no session start, no file write, no `prompt.submit`, no schedule beyond its 60 s refresh while the pane is open. It runs the repository's own `plugins/openspec/hooks/` in the devkit repository, else the `devkit-openspec` installed at project scope (user scope as the fallback). `userConfig.language` (`pt-BR` by default, `en`) selects its texts.
+- **devkit-openspec** 0.10.2: `openspec-setup --packs` accepts `devkit-panel` (`PACKS` of `project-settings.mjs` lists it; `DEFAULT_PACKS` unchanged); the CI snippet pins `v0.10.2`.
+- Docs: the pack row in `docs/conventions.md`, "The panel: devkit-panel" in `docs/openspec-flow.md`, `plugins/panel/README.md` and `docs/catalog.md`; `scripts/gen-catalog.py` lists the pack. No change to devkit-core.
+
 ## 0.10.1 — retro of conduct-one-change
 
 - **devkit-core** 0.5.3: `commit-and-pr` opens the PR with `--body-file -` (the body as a heredoc on stdin), never `--body -`.

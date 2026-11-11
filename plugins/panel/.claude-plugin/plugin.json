@@ -1,0 +1,17 @@
+{
+  "name": "devkit-panel",
+  "version": "0.1.0",
+  "description": "Side pane over the devkit checkers: the round's changes, their next step, the linked child sessions, and buttons that put the owner's next command in the prompt box. Read-only.",
+  "author": { "name": "kaue rodrigues dos santos", "url": "https://github.com/chacal88" },
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of the pane, band and toasts",
+      "options": ["pt-BR", "en"],
+      "default": "pt-BR"
+    }
+  }
+}

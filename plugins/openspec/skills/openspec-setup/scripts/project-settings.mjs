@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
-export const PACKS = ['devkit-core', 'devkit-openspec', 'devkit-design', 'devkit-stack', 'devkit-ai-engineering'];
+export const PACKS = ['devkit-core', 'devkit-openspec', 'devkit-design', 'devkit-stack', 'devkit-ai-engineering', 'devkit-panel'];
 export const DEFAULT_PACKS = ['devkit-core', 'devkit-openspec'];
 export const MARKETPLACE_SOURCE = { source: 'github', repo: 'chacal88/devkit' };
 const USAGE = 'usage: project-settings.mjs [<project-root>] [--packs <pack,...>] [--dry-run] [--json]';

@@ -315,7 +315,12 @@ beneath the plugin, as the old mod's `orchestrator/tests/harness.test.ts` and `t
 - `docs/conventions.md`: pack table row `panel`; `docs/openspec-flow.md`: a short `## The panel:
   devkit-panel` section after "Conducting a round" (what it shows, the buttons fill the prompt,
   read-only, install line with `--scope project`).
-- `CHANGELOG.md`: `## 0.10.0 — devkit panel`. The sibling change targets 0.10.0 for
+- devkit-openspec 0.9.2 (`plugins/openspec/.claude-plugin/plugin.json` and its marketplace entry):
+  `'devkit-panel'` appended to `PACKS` in `plugins/openspec/skills/openspec-setup/scripts/
+  project-settings.mjs` (the guard test `PACKS equals the plugin names in marketplace.json` pins it;
+  `DEFAULT_PACKS` unchanged). If `deliver-check.test.mjs`'s pin test then asks for `v0.9.2` in the CI
+  snippet of `docs/openspec-flow.md`, the pin moves with the release as 0.9.1 did.
+- `CHANGELOG.md`: `## 0.10.0 — devkit panel` with a `**devkit-openspec** 0.9.2:` line too. The sibling change targets 0.10.0 for
   devkit-openspec; whichever merges second rebases with `release-rebase` (versions, CHANGELOG,
   catalog by rule).
 - `plugins/panel/README.md` with `<!-- catalog:begin -->` / `<!-- catalog:end -->` markers and the
@@ -338,7 +343,9 @@ the same day, so the check runs before every gate). When it answers `hooks
 modules are turned off in this process: the rollout switch was saved off by an earlier session`,
 start that binary once with network access (`claude -p "ok" --max-turns 1`) and retry (that is
 what turned it on in this session on 2026-11-10); if the message persists, mods are off remotely
-and the change stops as an owner decision.
+and the change stops as an owner decision. The refreshed switch holds for about two minutes only
+(measured on 2026-11-11), so in a chained gate the `plugin test` part runs first, before the
+three-minute guard suite.
 
 ### D16. Within ADR 0001, no ADR
 
