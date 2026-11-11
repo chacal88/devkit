@@ -1,3 +1,4 @@
+import type { ToolCallResult } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine, MockClock, TestBody } from 'claude-code/testing'
 
@@ -45,14 +46,18 @@ type World = {
   runs: { argv: readonly string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }[]
   /** What the checkers answer; `reject` makes the run reject (a timeout, `node` missing). */
   round: Run | 'reject'
-  change: Run
+  change: Run | 'reject'
   deliver: Run
+  /** A run the mock holds before answering: the promise it awaits, or nothing to answer at once. */
+  hold?: (argv: readonly string[]) => Promise<void> | undefined
   permission: Permission
   tools: string[]
   /** Every `$.tool.check` argument and every `$.tool.call` input. */
   checks: unknown[]
   calls: Record<string, unknown>[]
   rows: Record<string, unknown>[]
+  /** How `list_sessions` answers, given the rows as JSON text: core's `{ result, text }` unless a test shapes it. */
+  listAnswer: (text: string) => ToolCallResult
   fills: { text: string; mode?: string }[]
   isFilled: boolean
   toasts: string[]
@@ -84,6 +89,7 @@ const world = (on: On, { devkit = true, checker = true }: { devkit?: boolean; ch
     checks: [],
     calls: [],
     rows: [],
+    listAnswer: text => ({ result: text, text }),
     fills: [],
     isFilled: true,
     toasts: [],
@@ -109,12 +115,14 @@ const world = (on: On, { devkit = true, checker = true }: { devkit?: boolean; ch
       value: names.map(k => ({ name: k.slice(e.path.length + 1), kind: w.dirs.has(k) ? 'dir' : 'file', size: 0, mtimeMs: 0, isLink: false })),
     }
   })
-  on('process.run', ($, e) => {
+  on('process.run', async ($, e) => {
     w.runs.push({ argv: e.argv, cwd: e.init?.cwd, env: e.init?.env, timeoutMs: e.init?.timeoutMs })
+    const held = w.hold?.(e.argv)
+    if (held !== undefined) await held
     const script = String(e.argv[1] ?? '')
-    const ran = (run: Run) => ({ value: { ...run, isStdoutTruncated: false, isStderrTruncated: false } })
+    const ran = (run: Run | 'reject') => (run === 'reject' ? { deny: 'timed out after 60000 ms' } : { value: { ...run, isStdoutTruncated: false, isStderrTruncated: false } })
     if (e.argv.includes('--change')) return ran(w.change)
-    if (script.endsWith('conduct-check.mjs')) return w.round === 'reject' ? { deny: 'timed out after 60000 ms' } : ran(w.round)
+    if (script.endsWith('conduct-check.mjs')) return ran(w.round)
     if (script.endsWith('deliver-check.mjs')) return ran(w.deliver)
     return { deny: `unexpected command: ${e.argv.join(' ')}` }
   })
@@ -126,8 +134,8 @@ const world = (on: On, { devkit = true, checker = true }: { devkit?: boolean; ch
   on('tool.call', ($, e) => {
     const input = e as unknown as Record<string, unknown>
     w.calls.push(input)
-    const text = input.tool === LIST ? JSON.stringify(w.rows) : 'ok'
-    return { result: text, text }
+    if (input.tool !== LIST) return { result: 'ok', text: 'ok' }
+    return w.listAnswer(JSON.stringify(w.rows))
   })
   on('prompt.fill', ($, e) => {
     w.fills.push({ text: e.text, mode: e.mode })
@@ -210,6 +218,16 @@ const probeRuns = (w: World) => w.runs.filter(r => r.argv.includes('--change'))
 const settle = async (w: World) => {
   for (let i = 0; i < 5; i++) await w.clock.settle()
 }
+/** A promise a `process.run` mock can be held on, and the hand that releases it. */
+const gate = () => {
+  let release = (): void => {}
+  const promise = new Promise<void>(resolve => {
+    release = resolve
+  })
+  return { promise, release }
+}
+const isScript = (argv: readonly string[], name: string) => String(argv[1]).endsWith(`${name}.mjs`)
+const DELIVER_LINE = '    deliver: in progress: item 1 · 1/8 ok · próximo: implement'
 
 test('AC-2: after session start the pane lists every change of the round with its state, step and actor; the header names the checker', async ($, on) => {
   const w = world(on)
@@ -245,6 +263,24 @@ test('AC-3: open changes not in the round and archived changes are listed by nam
   }
   expect(w.runs.filter(r => r.argv.some(a => a.includes('devkit-panel') || a.includes('ship-modes')))).toEqual([])
   expect(deliverRuns(w)).toEqual([])
+})
+
+test('AC-4: a plain OpenSpec project (config.yaml with another schema) is the same one line, no checker run and the engine band', async ($, on) => {
+  const w = world(on)
+  w.files.set('/w/openspec/config.yaml', 'schema: spec-driven\n')
+  await start($)
+  await settle(w)
+  await turn($)
+  await settle(w)
+  expect(w.runs).toEqual([])
+  for (const surface of SURFACES) {
+    const pane = await $.ui.mount({ ...PANE, surface })
+    expect((await pane.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['Não é um projeto OpenSpec devkit.'])
+    await pane.unmount()
+    const band = await $.ui.mount({ ...BAND, surface })
+    expect((await band.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['engine'])
+    await band.unmount()
+  }
 })
 
 test('AC-4: outside an OpenSpec devkit project the pane is one line and no checker runs', async ($, on) => {
@@ -319,6 +355,56 @@ test('AC-5: a row whose worktree is not there yet runs deliver-check in the proj
   await ui.unmount()
 })
 
+test('AC-5: a row expanded during a refresh keeps the deliver report its toggle wrote once the refresh lands', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await settle(w)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'toggle:commit-and-pr-trailer' })
+  expect(deliverRuns(w)).toHaveLength(1)
+  // the refresh's deliver-check of the expanded row is held; meanwhile the owner expands the other row
+  const held = gate()
+  w.hold = argv => (isScript(argv, 'deliver-check') && argv[2] === 'commit-and-pr-trailer' ? held.promise : undefined)
+  await turn($)
+  await settle(w)
+  expect(deliverRuns(w)).toHaveLength(2)
+  await ui.press({ key: 'toggle:conventions-trailer' })
+  await settle(w)
+  expect(deliverRuns(w).map(r => r.argv[2])).toEqual(['commit-and-pr-trailer', 'commit-and-pr-trailer', 'conventions-trailer'])
+  // the toggle's own write is drawn at once; the refresh landing must not drop it
+  expect((await ui.findAll({ type: 'Text', text: /^    deliver:/ })).map(t => t.text)).toEqual([DELIVER_LINE, DELIVER_LINE])
+  held.release()
+  await settle(w)
+  await ui.redraw()
+  expect((await ui.findAll({ type: 'Text', text: /^v [a-z]/ })).map(t => t.text)).toEqual([
+    'v commit-and-pr-trailer · ready to run: gate · gate · gate',
+    'v conventions-trailer · waiting on commit-and-pr-trailer · wait-dependencies · none',
+  ])
+  expect((await ui.findAll({ type: 'Text', text: /^    deliver:/ })).map(t => t.text)).toEqual([DELIVER_LINE, DELIVER_LINE])
+  await ui.unmount()
+})
+
+test('AC-6: while a refresh is in flight the header reads refreshing and the last report stays; once it lands, its age', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await settle(w)
+  const held = gate()
+  w.hold = argv => (isScript(argv, 'conduct-check') ? held.promise : undefined)
+  await turn($)
+  await settle(w)
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /^devkit · repo/ }))?.text).toBe('devkit · repo · atualizando...')
+    expect((await ui.find({ type: 'Text', text: /^> commit-and-pr-trailer/ }))?.text).toBe('> commit-and-pr-trailer · ready to run: gate · gate · gate')
+    await ui.unmount()
+  }
+  held.release()
+  await settle(w)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /^devkit · repo/ }))?.text).toBe('devkit · repo · atualizado há 0 s')
+  await ui.unmount()
+})
+
 test('AC-6: the report refreshes at session start, at the end of a main-loop turn and every 60 s while the pane is open; never for a subagent', async ($, on) => {
   const w = world(on)
   await start($)
@@ -372,6 +458,28 @@ test('AC-6: two triggers at once make one checker run; a failed run is one heade
   expect((await ui.find({ type: 'Text', text: /conduct-check:/ }))?.text).toMatch(/^! conduct-check: .*timed out after 60000 ms$/)
   expect(await ui.find({ type: 'Text', text: /^> conventions-trailer/ })).toBeDefined()
   await ui.unmount()
+})
+
+test('D5: a conduct-check report of a newer JSON version is one error line and the last good report stays; a newer deliver-check is the deliver line', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await settle(w)
+  w.round = { exitCode: 0, stdout: JSON.stringify({ ...(JSON.parse(ROUND_STDOUT) as Record<string, unknown>), version: 3 }), stderr: '' }
+  w.deliver = { exitCode: 1, stdout: JSON.stringify({ ...(JSON.parse(DELIVER_STDOUT) as Record<string, unknown>), version: 2 }), stderr: '' }
+  await w.clock.advance(5_000)
+  await turn($)
+  await settle(w)
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /^devkit · repo/ }))?.text).toBe('devkit · repo · atualizado há 5 s')
+    expect((await ui.find({ type: 'Text', text: /conduct-check:/ }))?.text).toBe('! conduct-check: JSON version 3 is newer than the 2 this panel reads')
+    expect(await ui.find({ type: 'Text', text: /^> commit-and-pr-trailer/ })).toBeDefined()
+    await ui.press({ key: 'toggle:commit-and-pr-trailer' })
+    expect((await ui.find({ type: 'Text', text: /deliver:/ }))?.text).toBe('    deliver: JSON version 2 is newer than the 1 this panel reads')
+    expect(await ui.find({ type: 'Text', text: /^    [1-8] [+ox] / })).toBeUndefined()
+    await ui.press({ key: 'toggle:commit-and-pr-trailer' })
+    await ui.unmount()
+  }
 })
 
 test('AC-7: with list_sessions allowed the check is asked with { tool, input } and each change lists its children by prefix with a state', async ($, on) => {
@@ -428,6 +536,46 @@ const noList = (permission: Permission): TestBody => async ($, on) => {
 test('AC-7: with ask no session tool is called, the lists stay empty and one line names the tool; a timer never asks', noList('ask'))
 test('AC-7: with deny the same: no call, empty lists, the line', noList('deny'))
 
+/** A `list_sessions` call answered with `answer`: the error line names the tool and the reason; no permission notice, no rows. */
+const listFails = (answer: ToolCallResult, line: string): TestBody => async ($, on) => {
+  const w = world(on)
+  w.rows = [session('commit-and-pr-traile-p1', { isRunning: true })]
+  w.listAnswer = () => answer
+  await start($)
+  await settle(w)
+  expect(w.calls).toHaveLength(1)
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /list_sessions/ }))?.text).toBe(line)
+    expect(await ui.find({ type: 'Text', text: /permita/ })).toBeUndefined()
+    await ui.press({ key: 'toggle:commit-and-pr-trailer' })
+    expect(await ui.find({ type: 'Text', text: /^    sessões:/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^> conventions-trailer/ })).toBeDefined()
+    await ui.press({ key: 'toggle:commit-and-pr-trailer' })
+    await ui.unmount()
+  }
+}
+
+test('AC-7: a refused list_sessions call ({ deny }) is one error line naming the tool, never a silent empty list', listFails({ deny: 'refused by a hook' }, '! list_sessions: refused by a hook'))
+test('AC-7: a failed list_sessions call ({ isError }) is one error line with the text the model read', listFails({ isError: true, result: 'the app is away', text: 'the app is away' }, '! list_sessions: the app is away'))
+
+/** The rows read from a `list_sessions` answer of that shape: the children are listed. */
+const listAnswers = (answer: (text: string) => ToolCallResult): TestBody => async ($, on) => {
+  const w = world(on)
+  w.rows = [session('commit-and-pr-traile-p1', { isRunning: true })]
+  w.listAnswer = answer
+  await start($)
+  await settle(w)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /list_sessions/ })).toBeUndefined()
+  await ui.press({ key: 'toggle:commit-and-pr-trailer' })
+  expect((await ui.find({ type: 'Text', text: /^    sessões:/ }))?.text).toBe('    sessões: commit-and-pr-traile-p1 · running')
+  await ui.unmount()
+}
+
+test("AC-7: the rows are read from a hook's own answer, a string result with no text", listAnswers(text => ({ result: text })))
+test("AC-7: the rows are read from core's text when the result is not a string", listAnswers(text => ({ result: { rows: 1 }, text })))
+
 test('AC-7: when the tool is not listed at all, no check and no call are made', async ($, on) => {
   const w = world(on)
   w.tools = ['Bash']
@@ -437,7 +585,44 @@ test('AC-7: when the tool is not listed at all, no check and no call are made', 
   expect(w.calls).toEqual([])
 })
 
-test('the --change probe runs once per session: unknown option makes Conduct fill /conduct, exit 0 makes it fill /conduct <id>', async ($, on) => {
+/** A probe that does not exit 0 answers `no`, once per session: Conduct fills `/conduct` and the next refresh probes no more. */
+const probeIsNo = (change: Run | 'reject'): TestBody => async ($, on) => {
+  const w = world(on)
+  w.change = change
+  await start($)
+  await settle(w)
+  expect(probeRuns(w)).toHaveLength(1)
+  await turn($)
+  await settle(w)
+  expect(probeRuns(w)).toHaveLength(1)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'conduct:commit-and-pr-trailer' })
+  expect(w.fills).toEqual([{ text: '/conduct', mode: 'replace' }])
+  expect(await ui.find({ type: 'Text', text: /conduct-check:/ })).toBeUndefined()
+  await ui.unmount()
+}
+
+test('the --change probe: exit 3 with another error than the usage one is no, probed once', probeIsNo({ exitCode: 3, stdout: '{"version":2,"error":"missing origin/main: git fetch origin main"}', stderr: '' }))
+test('the --change probe: a rejected run is no, probed once', probeIsNo('reject'))
+
+test('the --change probe waits for a round id: none without changes, one at the first refresh that has one', async ($, on) => {
+  const w = world(on)
+  w.round = { exitCode: 0, stdout: roundWith([]), stderr: '' }
+  await start($)
+  await settle(w)
+  await turn($)
+  await settle(w)
+  expect(probeRuns(w)).toEqual([])
+  w.round = { exitCode: 0, stdout: ROUND_STDOUT, stderr: '' }
+  await turn($)
+  await settle(w)
+  expect(probeRuns(w)).toHaveLength(1)
+  await turn($)
+  await settle(w)
+  expect(probeRuns(w)).toHaveLength(1)
+})
+
+test('the --change probe runs once per session: a usage error (exit 3) makes Conduct fill /conduct, exit 0 makes it fill /conduct <id>', async ($, on) => {
   const w = world(on)
   await start($)
   await settle(w)
@@ -617,8 +802,8 @@ test('AC-9: /devkit-panel toggles the pane with one of three answers; /devkit-pa
   const lines = ((await command($, 'status')).text ?? '').split('\n')
   expect(lines[0]).toBe('devkit · repo · atualizado há 0 s')
   expect(lines).toContain('Rodada 5: Round 5: trailer fix, one change at a time · 0/2 · dispatch 1 · owner 0 · github 0 · parados 0')
-  expect(lines).toContain('> commit-and-pr-trailer · ready to run: gate · gate · gate')
-  expect(lines).toContain('> conventions-trailer · waiting on commit-and-pr-trailer · wait-dependencies · none')
+  expect(lines).toContain('v commit-and-pr-trailer · ready to run: gate · gate · gate')
+  expect(lines).toContain('v conventions-trailer · waiting on commit-and-pr-trailer · wait-dependencies · none')
   expect(lines).toContain('> Outras mudanças (1) · devkit-panel')
   expect(lines).toContain('> Arquivadas (2) · 2026-11-10-conduct-sessions, 2026-11-08-ship-modes')
   expect(w.submits).toEqual([])
@@ -632,18 +817,45 @@ test('/devkit-panel status outside a devkit project is the one line', async ($, 
   expect(w.runs).toEqual([])
 })
 
-test('the mcp__devkit-panel__status tool answers the pane as text after a refresh', async ($, on) => {
+test('the mcp__devkit-panel__status tool answers the pane as text after a refresh: every row with its child sessions, whatever the folds', async ($, on) => {
   const w = world(on)
+  w.rows = [session('commit-and-pr-traile-p1', { isRunning: true }), session('conventions-trailer-p1', { isArchived: true })]
   await start($)
   await settle(w)
   const before = conductRuns(w).length
   const answer = await $.tool.call({ tool: 'mcp__devkit-panel__status' })
   expect(conductRuns(w)).toHaveLength(before + 1)
-  const text = String(answer.result)
-  expect(text).toMatch(/^devkit · repo · atualizado há 0 s\n/)
-  expect(text).toContain('> conventions-trailer · waiting on commit-and-pr-trailer · wait-dependencies · none')
+  const lines = String(answer.result).split('\n')
+  expect(lines[0]).toBe('devkit · repo · atualizado há 0 s')
+  expect(lines.slice(2, 6)).toEqual([
+    'v commit-and-pr-trailer · ready to run: gate · gate · gate',
+    '    sessões: commit-and-pr-traile-p1 · running',
+    'v conventions-trailer · waiting on commit-and-pr-trailer · wait-dependencies · none',
+    '    sessões: conventions-trailer-p1 · archived',
+  ])
+  // no deliver line without a cached report, and the text view runs no deliver-check
+  expect(lines.some(l => l.startsWith('    deliver:'))).toBe(false)
+  expect(deliverRuns(w)).toEqual([])
   expect(w.submits).toEqual([])
   expect(w.opens).toEqual([])
+})
+
+test('the status text lists the deliver items of a row whose report is cached by the pane; the pane keeps its folds', async ($, on) => {
+  const w = world(on)
+  w.rows = [session('commit-and-pr-traile-p1', { isRunning: true })]
+  await start($)
+  await settle(w)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'toggle:commit-and-pr-trailer' })
+  const lines = ((await command($, 'status')).text ?? '').split('\n')
+  expect(lines.slice(2, 5)).toEqual(['v commit-and-pr-trailer · ready to run: gate · gate · gate', DELIVER_LINE, '    1 o tasks · unticked tasks: 1.1, 1.2, 1.3, 1.4, 1.9, 2.1, 2.2, 2.3, 2.9, 3.1, 3.2, 3.9, 4.1, 4.2, 4.9'])
+  expect(lines).toContain('    sessões: commit-and-pr-traile-p1 · running')
+  expect(lines).toContain('v conventions-trailer · waiting on commit-and-pr-trailer · wait-dependencies · none')
+  expect(lines.filter(l => l.startsWith('    deliver:'))).toHaveLength(1)
+  expect(deliverRuns(w)).toHaveLength(1)
+  // the pane itself keeps the other row folded
+  expect((await ui.find({ type: 'Text', text: /conventions-trailer ·/ }))?.text).toBe('> conventions-trailer · waiting on commit-and-pr-trailer · wait-dependencies · none')
+  await ui.unmount()
 })
 
 test('AC-10: language en draws the pane, the band, the toasts and the command answers in English', { options: { language: 'en' } }, async ($, on) => {

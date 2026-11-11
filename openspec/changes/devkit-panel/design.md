@@ -52,7 +52,7 @@ set `skip_specs: true`. Same here: the acceptance criteria are pinned by `plugin
 plugins/panel/
   .claude-plugin/plugin.json      name devkit-panel, version 0.1.0, types, userConfig.language
   hooks/hooks.json                { "modules": ["./register.tsx"] }
-  hooks/register.tsx              hooks: session.start, command.run, turn.complete, ui.render (Pane, AbovePrompt), ui.close, tool.call (status tool)
+  hooks/register.tsx              hooks: session.start, command.run, turn.complete, ui.render (Pane, AbovePrompt), tool.call (status tool)
   hooks/project.ts                root detection, checker location, change folders (pure helpers + $.fs readers)
   hooks/report.ts                 JSON parsing of conduct-check and deliver-check (pure), the panel's view model
   hooks/sessions.ts               parseSessionRows, prefix match, the permission check (mayList)
@@ -149,6 +149,11 @@ type PanelView = {
 }
 ```
 
+The read versions are named in one place (`report.ts`: round `2`, deliver `1`); a report whose
+`version` is higher than the one read is not drawn: it becomes the error line (`conduct-check: JSON
+version 3 is newer than the 2 this panel reads`), the last good report stays (the docs define
+`version` as the breaking-change signal).
+
 `others` = entries of `<root>/openspec/changes/` of kind `dir`, not `archive`, whose name is not a
 round id; `archived` = entries of `<root>/openspec/changes/archive/` of kind `dir`, newest name
 first (they start with the date). Both from `$.fs.list`, no checker.
@@ -190,7 +195,9 @@ true, limit: 100 } })).decision === 'allow'` (the check's argument is `{ tool, i
 `sessionId` is dropped). Not listed or not `allow` → `view.permission = LIST`, `sessions = {}`,
 one line in the pane (`allow mcp__ccd_session_mgmt__list_sessions to see the child sessions`).
 `$.tool.check` opens no dialog (its doc: "nothing runs, no dialog opens"), so a timer never asks
-the owner. A row belongs to change `c` when `row.name` matches `new RegExp('^' +
+the owner. The call itself resolves `{ deny }` or `{ isError }` when refused or failed (it rejects
+only for an unknown name or an abort): both become the error line (`list_sessions: <reason>`),
+never a silent empty list; the `permission` notice is only the `mayList` path. A row belongs to change `c` when `row.name` matches `new RegExp('^' +
 escape(c.sessionPrefix) + '[0-9]+$')`; its state is `running` when `isRunning`, `archived` when
 `isArchived`, else `idle`; a row with no matching change is not shown.
 
@@ -211,9 +218,10 @@ A press calls `$.prompt.fill({ text, mode: 'replace' })`; `isFilled === false` �
 Every text is one of `uiText(lang).fill.*` (four: conduct, ship, approve, answer), so AC-8 pins them per language.
 
 The `--change` probe: on the first refresh of a session with `changeOption === 'unknown'`, the
-panel runs `conduct-check --json --change <first id>` once; exit 3 with `unknown option` in the
-error → `'no'`; exit 0 → `'yes'` (and that stdout is not used as the round). No round id →
-stays `unknown` (treated as `'no'`).
+panel runs `conduct-check --json --change <first id>` once; exit 0 → `'yes'` (that stdout is not
+used as the round); any other exit or a rejection → `'no'` (the wording of the checker's error is
+not a contract; a failed probe only costs the id in the Conduct button). No round id → stays
+`unknown` (treated as `'no'`, probed again at the next refresh that has an id).
 
 ### D9. The band, the command and the status text
 
@@ -233,8 +241,11 @@ stays `unknown` (treated as `'no'`).
   served by `on('tool.call', { tool: 'mcp__devkit-panel__status' })` returning `{ result: text }`
   after a refresh (`text` is core's to fill). It is how a session proves AC-13 (`evidence.md` pastes its output) and
   how a headless or mobile owner reads the panel. Read-only like everything else.
-- `ui.close` of the pane (the person's mark): observed through `next(e)`; nothing to keep (the
-  pane's state is the engine's record, `$.ui.panes()`).
+- `renderText` (the `status` command and tool) is the headless reading of the panel: it lists
+  every change row with its child sessions whatever the collapse state, and the deliver items of
+  the rows whose report is cached; the pane keeps its folds.
+- The pane's close (the person's mark) needs no hook: the pane's state is the engine's record
+  (`$.ui.panes()`).
 
 ### D10. Language
 
@@ -249,7 +260,7 @@ are English (`scripts/check.py#check_language` scans `*.md` only; the pt-BR stri
 `types/index.d.ts` declares, under `PluginState['devkit-panel']`:
 
 ```ts
-view: Shaped<PanelView>     // shape 'view-1': a value stored by an earlier version is declined
+view: Shaped<PanelView>     // shape `view-2` (`view-1` before the review round added `listError`): an older value is declined
 collapsed: Record<string, boolean>   // by change id; `others` and `archived` as keys too; absent = collapsed
 isRefreshing: boolean
 ```

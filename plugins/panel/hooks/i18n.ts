@@ -24,11 +24,14 @@ export type UiText = {
     round: (n: number, title: string, done: number, total: number) => string
     noRound: string
     counts: (dispatch: number, owner: number, github: number, stopped: number) => string
-    deliver: (summary: string, met: number, next: string) => string
+    /** The row's deliver line: `met` of the report's `total` items. */
+    deliver: (summary: string, met: number, total: number, next: string) => string
     sessions: string
     others: (n: number) => string
     archived: (n: number) => string
     permission: (tool: string) => string
+    /** The error line of a refused or failed `list_sessions` call (design D7). */
+    listError: (reason: string) => string
   }
   band: {
     /** The one dim line above the prompt (design D9). */
@@ -58,11 +61,12 @@ const PT_BR: UiText = {
     round: (n, title, done, total) => `Rodada ${n}: ${title} · ${done}/${total}`,
     noRound: 'Sem rodada no roadmap.',
     counts: (d, o, g, s) => `dispatch ${d} · owner ${o} · github ${g} · parados ${s}`,
-    deliver: (summary, met, next) => `deliver: ${summary} · ${met}/8 ok · próximo: ${next}`,
+    deliver: (summary, met, total, next) => `deliver: ${summary} · ${met}/${total} ok · próximo: ${next}`,
     sessions: 'sessões',
     others: n => `Outras mudanças (${n})`,
     archived: n => `Arquivadas (${n})`,
     permission: tool => `permita ${tool} para ver as sessões filhas`,
+    listError: reason => `list_sessions: ${reason}`,
   },
   band: {
     line: (n, title, done, total, d, o, g, s) => `devkit · rodada ${n} ${title} · ${done}/${total} · dispatch ${d} · owner ${o} · github ${g} · parados ${s}`,
@@ -90,11 +94,12 @@ const EN: UiText = {
     round: (n, title, done, total) => `Round ${n}: ${title} · ${done}/${total}`,
     noRound: 'No roadmap round.',
     counts: (d, o, g, s) => `dispatch ${d} · owner ${o} · github ${g} · stopped ${s}`,
-    deliver: (summary, met, next) => `deliver: ${summary} · ${met}/8 met · next: ${next}`,
+    deliver: (summary, met, total, next) => `deliver: ${summary} · ${met}/${total} met · next: ${next}`,
     sessions: 'sessions',
     others: n => `Other changes (${n})`,
     archived: n => `Archived (${n})`,
     permission: tool => `allow ${tool} to see the child sessions`,
+    listError: reason => `list_sessions: ${reason}`,
   },
   band: {
     line: (n, title, done, total, d, o, g, s) => `devkit · round ${n} ${title} · ${done}/${total} · dispatch ${d} · owner ${o} · github ${g} · stopped ${s}`,

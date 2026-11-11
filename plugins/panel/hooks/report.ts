@@ -19,11 +19,26 @@ const parseJson = (text: string): Json | undefined => {
   }
 }
 
+/**
+ * The checkers' JSON versions this panel reads: `conduct-check --json` 2, `deliver-check --json` 1.
+ * The docs define `version` as the breaking-change signal (it moves only when a field is removed
+ * or changes meaning), so a newer report is not drawn; an older or absent one is read as it is.
+ */
+export const READ_VERSION = { round: 2, deliver: 1 } as const
+
 const str = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined)
 const num = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
 const bool = (value: unknown): boolean => value === true
 const ids = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [])
 const objects = (value: unknown): Json[] => (Array.isArray(value) ? value.map(asObject).filter((v): v is Json => v !== undefined) : [])
+
+const isNewer = (r: Json, read: number): boolean => (num(r.version) ?? 0) > read
+
+/** The error line of a report whose `version` is newer than the one this panel reads; undefined when it is readable or not a report. */
+export const newerVersion = (stdout: string, read: number): string | undefined => {
+  const r = parseJson(stdout)
+  return r !== undefined && isNewer(r, read) ? `JSON version ${num(r.version)} is newer than the ${read} this panel reads` : undefined
+}
 
 const parseRound_ = (round: unknown): RoundReport['round'] => {
   const r = asObject(round)
@@ -75,10 +90,10 @@ const parseChange = (c: Json): ChangeRow => {
   }
 }
 
-/** `conduct-check --json` (version 2) from its stdout; undefined when the text is not a report. */
+/** `conduct-check --json` (version 2) from its stdout; undefined when the text is not a report or its version is newer. */
 export const parseRound = (stdout: string): RoundReport | undefined => {
   const r = parseJson(stdout)
-  if (r === undefined || str(r.error) !== undefined) return undefined
+  if (r === undefined || str(r.error) !== undefined || isNewer(r, READ_VERSION.round)) return undefined
   const round = parseRound_(r.round)
   return {
     version: num(r.version) ?? 0,
@@ -107,10 +122,10 @@ const parseItem = (i: Json): DeliverItem => {
   }
 }
 
-/** `deliver-check <id> --json` (version 1) from its stdout; undefined when the text is not a report. */
+/** `deliver-check <id> --json` (version 1) from its stdout; undefined when the text is not a report or its version is newer. */
 export const parseDeliver = (stdout: string): DeliverReport | undefined => {
   const r = parseJson(stdout)
-  if (r === undefined || str(r.error) !== undefined) return undefined
+  if (r === undefined || str(r.error) !== undefined || isNewer(r, READ_VERSION.deliver)) return undefined
   const next = asObject(r.next) ?? {}
   const approval = asObject(r.approval)
   return {

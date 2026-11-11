@@ -6,7 +6,7 @@ import { DELIVER_STDOUT } from './fixtures/deliver'
 import { ROUND_STDOUT } from './fixtures/round'
 import { changeFolders, isDevkitProject, locateChecker } from './project'
 import type { PanelFs } from './project'
-import { checkerError, parseDeliver, parseRound } from './report'
+import { READ_VERSION, checkerError, newerVersion, parseDeliver, parseRound } from './report'
 import { buttonsFor, isDeliveryStep } from './commands'
 import { langOf, uiText } from './i18n'
 import { LIST, childrenOf, mayList, parseSessionRows, sessionState } from './sessions'
@@ -72,6 +72,22 @@ test('the deliver fixture parses into its 8 items with ids, the summary, met and
   expect(report?.approval?.ok).toBe(true)
   expect(parseDeliver('{"version":1}')).toMatchObject({ change: '', items: [], met: 0, summary: '', next: { step: '' } })
   expect(parseDeliver('nope')).toBeUndefined()
+})
+
+test('a report whose JSON version is newer than the one read is refused by the parser and named by one error line (design D5)', () => {
+  expect(READ_VERSION).toEqual({ round: 2, deliver: 1 })
+  const round3 = JSON.stringify({ ...(JSON.parse(ROUND_STDOUT) as Record<string, unknown>), version: 3 })
+  expect(parseRound(round3)).toBeUndefined()
+  expect(newerVersion(round3, READ_VERSION.round)).toBe('JSON version 3 is newer than the 2 this panel reads')
+  expect(newerVersion(ROUND_STDOUT, READ_VERSION.round)).toBeUndefined()
+  expect(parseDeliver('{"version":2,"change":"x"}')).toBeUndefined()
+  expect(newerVersion('{"version":2,"change":"x"}', READ_VERSION.deliver)).toBe('JSON version 2 is newer than the 1 this panel reads')
+  expect(parseDeliver(DELIVER_STDOUT)).toBeDefined()
+  // an older or absent version is read as it is (additive changes are tolerated); a non-report has no version
+  expect(newerVersion('{"version":1}', READ_VERSION.round)).toBeUndefined()
+  expect(parseRound('{"changes":[]}')).toBeDefined()
+  expect(newerVersion('{}', 2)).toBeUndefined()
+  expect(newerVersion('nope', 2)).toBeUndefined()
 })
 
 test('a checker error is the JSON error of exit 3, else the first stderr line, else the exit code', () => {
@@ -308,6 +324,11 @@ test('uiText: pt-BR and en carry the same keys, the pane, band, toast, command a
   expect(uiText('pt-BR').band.line(5, 'trailer fix', 0, 2, 1, 0, 0, 0)).toBe('devkit · rodada 5 trailer fix · 0/2 · dispatch 1 · owner 0 · github 0 · parados 0')
   expect(uiText('en').command).toEqual({ opened: 'devkit panel opened', closed: 'devkit panel closed', waiting: 'devkit panel waiting for room' })
   expect(uiText('pt-BR').command).toEqual({ opened: 'painel devkit aberto', closed: 'painel devkit fechado', waiting: 'painel devkit aguardando espaço' })
+  // the deliver line counts the report's items, not a fixed eight
+  expect(uiText('en').pane.deliver('in progress: item 1', 1, 3, 'gate')).toBe('deliver: in progress: item 1 · 1/3 met · next: gate')
+  expect(uiText('pt-BR').pane.deliver('in progress: item 1', 1, 3, 'gate')).toBe('deliver: in progress: item 1 · 1/3 ok · próximo: gate')
+  expect(uiText('en').pane.listError('refused')).toBe('list_sessions: refused')
+  expect(uiText('pt-BR').pane.listError('refused')).toBe('list_sessions: refused')
 })
 
 test('the four fill texts match design D8 in each language', () => {

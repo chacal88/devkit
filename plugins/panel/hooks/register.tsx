@@ -13,7 +13,7 @@ import type { UiText } from './i18n'
 import { renderBand, renderLines, renderPane, renderText } from './pane'
 import { changeFolders, isDevkitProject, locateChecker } from './project'
 import type { CheckerLocation } from './project'
-import { checkerError, parseDeliver, parseRound } from './report'
+import { READ_VERSION, checkerError, newerVersion, parseDeliver, parseRound } from './report'
 import type { CheckerRun } from './report'
 import { LIST, LIST_INPUT, childrenOf, mayList, parseSessionRows } from './sessions'
 
@@ -24,7 +24,7 @@ const REFRESH_MS = 60_000
 const EMPTY: PanelView = { kind: 'not-devkit', others: [], archived: [], delivers: {}, sessions: {}, changeOption: 'unknown' }
 
 // Change the tag when the view's fields change: it declines what an earlier version stored.
-const view = atom({ plugin: 'devkit-panel', key: 'view' } as const, EMPTY, { shape: 'view-1' })
+const view = atom({ plugin: 'devkit-panel', key: 'view' } as const, EMPTY, { shape: 'view-2' })
 const collapsed = atom({ plugin: 'devkit-panel', key: 'collapsed' } as const, {})
 const isRefreshing = atom({ plugin: 'devkit-panel', key: 'isRefreshing' } as const, false)
 
@@ -34,20 +34,25 @@ let inFlight: Promise<void> | undefined
 /** A checker run, or why it could not run (a timeout, `node` missing). */
 type Ran = { run: CheckerRun } | { failed: string }
 
+/** The one line of a rejection: the error's message, or the value as text. */
+const reasonOf = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+
 const runChecker = async ($: EngineInterface, argv: readonly string[], cwd: string): Promise<Ran> => {
   try {
     return { run: await $.process.run(argv, { cwd, env: { DEVKIT_HOST: 'app' }, timeoutMs: TIMEOUT_MS }) }
   } catch (error) {
-    return { failed: error instanceof Error ? error.message : String(error) }
+    return { failed: reasonOf(error) }
   }
 }
 
 const checkerScript = (checker: CheckerLocation, name: string): string => `${checker.dir}/${name}.mjs`
 
-/** `conduct-check --json` in the root: the report, or the one error line (design D4). */
+/** `conduct-check --json` in the root: the report, or the one error line (design D4; D5 for a newer JSON version). */
 const roundReport = async ($: EngineInterface, checker: CheckerLocation, root: string): Promise<{ report: RoundReport } | { error: string }> => {
   const ran = await runChecker($, ['node', checkerScript(checker, 'conduct-check'), '--json'], root)
   if ('failed' in ran) return { error: ran.failed }
+  const newer = newerVersion(ran.run.stdout, READ_VERSION.round)
+  if (newer !== undefined) return { error: newer }
   const report = ran.run.exitCode === 0 ? parseRound(ran.run.stdout) : undefined
   return report === undefined ? { error: checkerError(ran.run) } : { report }
 }
@@ -57,30 +62,36 @@ const deliverReport = async ($: EngineInterface, checker: CheckerLocation, root:
   const cwd = worktree !== undefined && (await $.fs.exists(worktree)) ? worktree : root
   const ran = await runChecker($, ['node', checkerScript(checker, 'deliver-check'), id, '--json'], cwd)
   if ('failed' in ran) return { error: ran.failed }
+  const newer = newerVersion(ran.run.stdout, READ_VERSION.deliver)
+  if (newer !== undefined) return { error: newer }
   return parseDeliver(ran.run.stdout) ?? { error: checkerError(ran.run) }
 }
 
-/** The `--change <id>` probe (design D8): `no` on exit 3 `unknown option`, `yes` on exit 0, else still unknown. */
-const probeChangeOption = async ($: EngineInterface, checker: CheckerLocation, root: string, id: string): Promise<PanelView['changeOption']> => {
+/** The `--change <id>` probe (design D8): `yes` on exit 0, else `no` (the wording of the checker's error is not a contract). */
+const probeChangeOption = async ($: EngineInterface, checker: CheckerLocation, root: string, id: string): Promise<'yes' | 'no'> => {
   const ran = await runChecker($, ['node', checkerScript(checker, 'conduct-check'), '--json', '--change', id], root)
-  if ('failed' in ran) return 'unknown'
-  if (ran.run.exitCode === 0) return 'yes'
-  return ran.run.exitCode === 3 && /unknown option/.test(checkerError(ran.run)) ? 'no' : 'unknown'
+  return 'run' in ran && ran.run.exitCode === 0 ? 'yes' : 'no'
 }
 
 /** The text of a tool's answer: `text` when the engine filled it, else a string `result`. */
 const answerText = (answer: { text?: string; result?: unknown }): string | undefined =>
   typeof answer.text === 'string' ? answer.text : typeof answer.result === 'string' ? answer.result : undefined
 
-/** The linked child sessions by change id, read only when allowed (design D7); else the tool to allow. */
-const loadSessions = async ($: EngineInterface, changes: readonly RoundReport['changes'][number][]): Promise<Pick<PanelView, 'sessions' | 'permission'>> => {
+/**
+ * The linked child sessions by change id (design D7): read only when `mayList` allows (else the tool
+ * to allow); a call the engine refuses (`{ deny }`), fails (`{ isError }`) or rejects is the error line.
+ */
+const loadSessions = async ($: EngineInterface, changes: readonly RoundReport['changes'][number][]): Promise<Pick<PanelView, 'sessions' | 'permission' | 'listError'>> => {
   if (!(await mayList($))) return { sessions: {}, permission: LIST }
-  let rows: SessionRow[] = []
+  let answer: Awaited<ReturnType<EngineInterface['tool']['call']>>
   try {
-    rows = parseSessionRows(answerText(await $.tool.call({ tool: LIST, ...LIST_INPUT })))
-  } catch {
-    return { sessions: {}, permission: LIST }
+    answer = await $.tool.call({ tool: LIST, ...LIST_INPUT })
+  } catch (error) {
+    return { sessions: {}, listError: reasonOf(error) }
   }
+  if (answer.deny !== undefined) return { sessions: {}, listError: answer.deny }
+  if (answer.isError === true) return { sessions: {}, listError: answerText(answer) ?? 'error' }
+  const rows = parseSessionRows(answerText(answer))
   const sessions: Record<string, SessionRow[]> = {}
   for (const change of changes) sessions[change.id] = childrenOf(rows, change.sessionPrefix)
   return { sessions }
@@ -117,18 +128,25 @@ const load = async ($: EngineInterface): Promise<void> => {
   for (const change of changes) {
     if (open[change.id] === false) delivers[change.id] = await deliverReport($, checker, root, change.id, change.worktree)
   }
-  const next: PanelView = {
+  const next: Omit<PanelView, 'delivers'> = {
     kind: 'report',
     checker: checker.label,
     ...(report !== undefined ? { report } : {}),
     ...(reportAt !== undefined ? { reportAt } : {}),
     ...('error' in round ? { error: round.error } : {}),
     ...folders,
-    delivers,
     ...sessions,
     changeOption,
   }
-  await update($, view, () => next)
+  // a merge, not a replacement: a row the owner expanded during the run wrote its own deliver report meanwhile
+  const stillOpen = await read($, collapsed)
+  await update($, view, current => {
+    const kept: PanelView['delivers'] = {}
+    for (const [id, cached] of Object.entries(current.delivers)) {
+      if (stillOpen[id] === false && delivers[id] === undefined) kept[id] = cached
+    }
+    return { ...next, delivers: { ...kept, ...delivers } }
+  })
 }
 
 /** Refreshes the view, one run at a time: a trigger during a run gets that run's promise (AC-6). */
@@ -227,11 +245,11 @@ export const register: Register = (on, options) => {
     return { text: text.command[await togglePane($, text)] }
   }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
-  // the model's (and a headless owner's) view: the same text, after a refresh
+  // the model's (and a headless owner's) view: the same text, after a refresh. A hook that fails names itself.
   on('tool.call', { tool: 'mcp__devkit-panel__status' }, async $ => {
     await refresh($)
     return { result: await statusText($, text) }
-  })
+  }).catch(($, e, next) => (next.called ? undefined : { deny: `${$.plugin.name}: status failed: ${next.error.message ?? next.error.kind}` }))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)

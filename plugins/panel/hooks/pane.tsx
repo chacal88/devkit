@@ -87,7 +87,7 @@ const rowLines = (row: ChangeRow, view: PanelView, collapsed: Record<string, boo
   if (deliver !== undefined) {
     if ('error' in deliver) lines.push({ kind: 'deliver', segments: [{ text: `${INDENT}deliver: ${deliver.error}`, tone: 'warning' }] })
     else {
-      lines.push({ kind: 'deliver', segments: [{ text: `${INDENT}${text.pane.deliver(deliver.summary, deliver.met, deliver.next.step)}`, tone: 'dim' }] })
+      lines.push({ kind: 'deliver', segments: [{ text: `${INDENT}${text.pane.deliver(deliver.summary, deliver.met, deliver.items.length, deliver.next.step)}`, tone: 'dim' }] })
       for (const item of deliver.items) {
         const reason = item.reason !== undefined && item.reason !== '' ? ` · ${item.reason}` : ''
         lines.push({
@@ -124,6 +124,7 @@ export const renderLines = (view: PanelView, collapsed: Record<string, boolean>,
   const age = isRefreshing ? text.pane.refreshing : text.pane.updated(view.reportAt === undefined ? 0 : Math.max(0, Math.round((now - view.reportAt) / 1000)))
   const lines: PaneLine[] = [{ kind: 'header', segments: [{ text: text.pane.title, tone: 'strong' }, { text: ` · ${view.checker ?? ''} · ${age}`, tone: 'dim' }] }]
   if (view.error !== undefined) lines.push({ kind: 'error', segments: [{ text: `! ${text.pane.error(view.error)}`, tone: 'warning' }] })
+  if (view.listError !== undefined) lines.push({ kind: 'error', segments: [{ text: `! ${text.pane.listError(view.listError)}`, tone: 'warning' }] })
   const report = view.report
   if (report !== undefined) {
     const round = report.round === undefined ? text.pane.noRound : text.pane.round(report.round.n, report.round.title, report.round.done, report.round.total)
@@ -139,9 +140,16 @@ export const renderLines = (view: PanelView, collapsed: Record<string, boolean>,
   return lines
 }
 
-/** The same view as plain lines, for the `status` command and tool. */
-export const renderText = (view: PanelView, collapsed: Record<string, boolean>, text: UiText, now: number, isRefreshing: boolean): string =>
-  renderLines(view, collapsed, text, now, isRefreshing).map(lineText).join('\n')
+/**
+ * The same view as plain lines, for the `status` command and tool (design D9): every change row
+ * unfolded, so its child sessions and a cached deliver report are listed whatever the pane's folds;
+ * the groups keep theirs (a folded group names its entries on its line).
+ */
+export const renderText = (view: PanelView, collapsed: Record<string, boolean>, text: UiText, now: number, isRefreshing: boolean): string => {
+  const unfolded = { ...collapsed }
+  for (const row of view.report?.changes ?? []) unfolded[row.id] = false
+  return renderLines(view, unfolded, text, now, isRefreshing).map(lineText).join('\n')
+}
 
 /** `s` cut to `columns` cells, an ellipsis closing a cut line. */
 export const cut = (s: string, columns: number): string => (s.length <= columns ? s : `${s.slice(0, Math.max(0, columns - 1))}${ELLIPSIS}`)

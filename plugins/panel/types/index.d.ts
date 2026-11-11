@@ -78,8 +78,10 @@ export type PanelView = {
   delivers: Record<string, DeliverReport | { error: string }>
   /** The linked child sessions by change id. */
   sessions: Record<string, SessionRow[]>
-  /** The tool to allow, when `list_sessions` is not allowed. */
+  /** The tool to allow, when `list_sessions` is not allowed (the `mayList` path). */
   permission?: string
+  /** Why an allowed `list_sessions` call was refused or failed: drawn as an error line, never a silent empty list. */
+  listError?: string
   /** The `--change` probe (design D8). */
   changeOption: 'unknown' | 'yes' | 'no'
 }
