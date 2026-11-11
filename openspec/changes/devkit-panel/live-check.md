@@ -1,6 +1,7 @@
 # Live check (task 4.2, AC-13)
 
-Date: 2026-11-11. Session: `devkit-panel live check (status tool)` (`local_2f7c15f4-a414-48d1-ae9a-6f6e1f630853`), started by the conducting session on the owner's typed turn, cwd `/Users/kauesantos/Documents/devkit` (the devkit root, main checkout at ae2b676), the pack loaded through `CLAUDE_CODE_PLUGIN_DIRS=/Users/kauesantos/Documents/devkit/.claude/worktrees/devkit-panel/plugins/panel` in the `env` block of `~/.claude/settings.json`. The pack's files on disk at the time of the call were those of commit 0d186c7 (the fix round 96c04f5 was written after the call).
+Date: 2026-11-11. Session: `devkit-panel live check (status tool)` (`local_2f7c15f4-a414-48d1-ae9a-6f6e1f630853`), started by the conducting session on the owner's typed turn, cwd `/Users/kauesantos/Documents/devkit` (the devkit root, main checkout at ae2b676), the pack loaded through `CLAUDE_CODE_PLUGIN_DIRS=/Users/kauesantos/Documents/devkit/.claude/worktrees/devkit-panel/plugins/panel` in the `env` block of `~/.claude/settings.json`. The pack's files on disk at the time of the call were those of commit 0d186c7 (the fix round 96c04f5 was written after the call). After the rebase
+onto main those commits are 1e3e3fa and 1b7ccaa.
 
 Task 4.1 was `not offered`: the link in the conducting session's mods folder (made 2026-11-10 21:48) raised no "Turn on the mods" question there.
 

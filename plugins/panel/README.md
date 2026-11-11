@@ -33,12 +33,12 @@ Every owner button calls `prompt.fill` with one exact text and nothing else: no 
 
 | Button | On | Text filled |
 |---|---|---|
-| Conduct | every row | `/conduct <id>` when the installed `conduct-check` accepts `--change <id>` (probed once per session), else `/conduct` |
+| Conduct | every row | `/conduct <id>` (or `/conduct` when the installed `conduct-check` predates `--change <id>`, probed once per session) |
 | Ship | a delivery step (`implement` onward: `fix-*`, `gate`, `commit`, `verify`, `open-pr`, `wait-*`, `retro`, `archive`, ...) | `/ship-change <id>` |
 | Approve | `stop-plan-approval`, `approve` | pt-BR `Aprovo o plano de <id>` · en `I approve the plan of <id>` |
 | Answer | `stop-retro-answers` | `Approve proposal 1 of <id>` (edit the number and the verdict) |
 
-A `create` or `new-change` row has only `Conduct` (`/conduct`: the conduct skill asks the schema itself).
+A `create` or `new-change` row has only `Conduct`, with the same text as every other row: on a change not yet created, `/conduct <id>` is the create path (the conduct skill asks the schema, then creates it).
 
 ## Language
 

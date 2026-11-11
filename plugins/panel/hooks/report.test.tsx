@@ -284,8 +284,12 @@ test('every button text per step, in both languages', () => {
       ['approve:add-x', approve],
     ])
     expect(texts(buttonsFor(change('approve', 'owner'), view('no'), text))).toEqual([['conduct:add-x', '/conduct'], ['approve:add-x', approve]])
-    expect(texts(buttonsFor(change('create', 'main'), view('yes'), text))).toEqual([['conduct:add-x', '/conduct']])
-    expect(texts(buttonsFor(change('new-change', 'main'), view('yes'), text))).toEqual([['conduct:add-x', '/conduct']])
+    // a creation row has only Conduct, with the id like every other row: `/conduct <id>` on a missing change is the create path (design D8)
+    expect(texts(buttonsFor(change('create', 'main'), view('yes'), text))).toEqual([['conduct:add-x', '/conduct add-x']])
+    expect(texts(buttonsFor(change('new-change', 'main'), view('yes'), text))).toEqual([['conduct:add-x', '/conduct add-x']])
+    expect(texts(buttonsFor(change('create', 'main'), view('no'), text))).toEqual([['conduct:add-x', '/conduct']])
+    expect(texts(buttonsFor(change('new-change', 'main'), view('no'), text))).toEqual([['conduct:add-x', '/conduct']])
+    expect(texts(buttonsFor(change('new-change', 'main'), view('unknown'), text))).toEqual([['conduct:add-x', '/conduct']])
     expect(texts(buttonsFor(change('stop-retro-answers', 'owner'), view('no'), text))).toEqual([
       ['conduct:add-x', '/conduct'],
       ['ship:add-x', '/ship-change add-x'],

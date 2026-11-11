@@ -653,6 +653,60 @@ test('the --change probe: a checker that accepts the option makes Conduct fill /
   expect(w.toasts).toEqual([])
 })
 
+test('a create row\'s Conduct fills /conduct <id> when the checker accepts --change: the create path of /conduct <id>', async ($, on) => {
+  const w = world(on)
+  w.round = { exitCode: 0, stdout: roundWith(OWNER_ROWS), stderr: '' }
+  w.change = { exitCode: 0, stdout: ROUND_STDOUT, stderr: '' }
+  await start($)
+  await settle(w)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  const owner = (await ui.findAll({ type: 'Button' })).map(b => b.key).filter(k => k?.startsWith('conduct:d') || k?.startsWith('ship:d'))
+  expect(owner).toEqual(['conduct:d'])
+  await ui.press({ key: 'conduct:d' })
+  expect(w.fills).toEqual([{ text: '/conduct d', mode: 'replace' }])
+  await ui.unmount()
+  expect(w.submits).toEqual([])
+})
+
+test('the --change probe skips the create rows: a round whose first row is create probes with the first found change', async ($, on) => {
+  const w = world(on)
+  w.round = { exitCode: 0, stdout: roundWith([{ id: 'd', step: 'create', actor: 'main' }, { id: 'e', step: 'new-change', actor: 'main' }, { id: 'a', step: 'gate', actor: 'gate' }]), stderr: '' }
+  w.change = { exitCode: 0, stdout: ROUND_STDOUT, stderr: '' }
+  await start($)
+  await settle(w)
+  expect(probeRuns(w)).toEqual([{ argv: ['node', `${CHECKER}/conduct-check.mjs`, '--json', '--change', 'a'], cwd: '/w', env: { DEVKIT_HOST: 'app' }, timeoutMs: 60_000 }])
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'conduct:d' })
+  expect(w.fills).toEqual([{ text: '/conduct d', mode: 'replace' }])
+  await ui.unmount()
+})
+
+test('the --change probe waits for a found change: a round of only create rows makes no probe, the first refresh with a found row makes one', async ($, on) => {
+  const w = world(on)
+  w.round = { exitCode: 0, stdout: roundWith([{ id: 'd', step: 'create', actor: 'main' }, { id: 'e', step: 'new-change', actor: 'main' }]), stderr: '' }
+  w.change = { exitCode: 0, stdout: ROUND_STDOUT, stderr: '' }
+  await start($)
+  await settle(w)
+  await turn($)
+  await settle(w)
+  expect(probeRuns(w)).toEqual([])
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'conduct:d' })
+  expect(w.fills).toEqual([{ text: '/conduct', mode: 'replace' }])
+  await ui.unmount()
+  w.round = { exitCode: 0, stdout: roundWith([{ id: 'd', step: 'create', actor: 'main' }, { id: 'a', step: 'gate', actor: 'gate' }]), stderr: '' }
+  await turn($)
+  await settle(w)
+  expect(probeRuns(w).map(r => r.argv.at(-1))).toEqual(['a'])
+  await turn($)
+  await settle(w)
+  expect(probeRuns(w)).toHaveLength(1)
+  const again = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await again.press({ key: 'conduct:d' })
+  expect(w.fills.at(-1)).toEqual({ text: '/conduct d', mode: 'replace' })
+  await again.unmount()
+})
+
 test('AC-8: every owner button fills the prompt box with its exact text; nothing is submitted, started or called', async ($, on) => {
   const w = world(on)
   w.round = { exitCode: 0, stdout: roundWith(OWNER_ROWS), stderr: '' }

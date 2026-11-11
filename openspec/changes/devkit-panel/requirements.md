@@ -157,8 +157,8 @@ Classification: domain=process type=feature flags=[ui, contract] (confirmed)
   verbatim, because the devkit-core agent types are not loaded in this session; `readiness.md` and
   `evidence.md` say so in one line.
 - Versions: devkit-panel 0.1.0; marketplace `metadata.version` 0.10.0 with `## 0.10.0 — devkit
-  panel` in `CHANGELOG.md` (the sibling `conduct-one-change` also targets 0.10.0 for
-  devkit-openspec; `release-rebase` resolves the release files if they collide).
+  panel` in `CHANGELOG.md` as planned; the sibling `conduct-one-change` merged first (0.10.0 and its
+  archive 0.10.1), so the release-rebase rule gave 0.11.0 and devkit-openspec 0.10.2 (design D14).
 
 ## Acceptance criteria
 

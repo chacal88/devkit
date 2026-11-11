@@ -210,7 +210,7 @@ escape(c.sessionPrefix) + '[0-9]+$')`; its state is `running` when `isRunning`, 
 | any row | Conduct | `/conduct <id>` when `changeOption === 'yes'`; `/conduct` otherwise (the owner adds the id) |
 | a delivery step (`implement`, `fix-*`, `gate`, `commit`, `verify`, `open-pr`, `push`, `wait-*`, `enable-auto-merge`, `edit-pr-body`, `retro`, `archive*`, `tick-roadmap`, `apply-proposals`, `stop-retro-answers`, `stop-plan-approval`) | Ship | `/ship-change <id>` |
 | `stop-plan-approval`, `approve` | Approve | pt-BR `Aprovo o plano de <id>` · en `I approve the plan of <id>` |
-| `create`, `new-change` | Conduct only | `/conduct` (the conduct skill asks the schema itself with AskUserQuestion) |
+| `create`, `new-change` | Conduct only | `/conduct <id>` when `changeOption === 'yes'` (on main since devkit-openspec 0.10.0, `/conduct <id>` on a missing change creates it after the schema question, ADR 0007); `/conduct` otherwise (a bare `/conduct` lists the open ids and asks) |
 | `stop-retro-answers` | Answer | `Approve proposal 1 of <id>` (the owner edits the number and the verdict) |
 
 A press calls `$.prompt.fill({ text, mode: 'replace' })`; `isFilled === false` → `$.ui.toast(text)`
@@ -218,7 +218,10 @@ A press calls `$.prompt.fill({ text, mode: 'replace' })`; `isFilled === false` �
 Every text is one of `uiText(lang).fill.*` (four: conduct, ship, approve, answer), so AC-8 pins them per language.
 
 The `--change` probe: on the first refresh of a session with `changeOption === 'unknown'`, the
-panel runs `conduct-check --json --change <first id>` once; exit 0 → `'yes'` (that stdout is not
+panel runs `conduct-check --json --change <id>` once, with the first round row whose `next.step` is
+neither `create` nor `new-change` (a change the checker has found: single-change mode exits 3 on a
+change with no folder, which would read as `'no'` for the whole session); with no such row it stays
+`unknown`; exit 0 → `'yes'` (that stdout is not
 used as the round); any other exit or a rejection → `'no'` (the wording of the checker's error is
 not a contract; a failed probe only costs the id in the Conduct button). No round id → stays
 `unknown` (treated as `'no'`, probed again at the next refresh that has an id).
@@ -367,7 +370,9 @@ three-minute guard suite.
 The panel reads the repository (folders), GitHub through the checkers, and the app's own list of
 sessions, which ADR 0001 and ADR 0006 already count as the state a coordinator may read. It starts
 nothing, drives nothing, schedules nothing but its own redraw, and keeps no state outside the
-session (`$.state`, gone with it). The owner declined an ADR in the grill. Review trigger carried
+session (`$.state`, gone with it). The owner declined an ADR in the grill. ADR 0007 (the sibling change `conduct-one-change`, merged
+before this one) governs which changes a conducting run conducts; the panel conducts nothing and
+only fills `/conduct <id>`, the shape its Decision 1 names. Review trigger carried
 by this design, not by an ADR: if the app ever accepts a mod's `prompt.submit` as the owner's
 turn, the buttons may submit, and that would be a new decision.
 

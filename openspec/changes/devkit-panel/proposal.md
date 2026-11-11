@@ -19,8 +19,9 @@ already compute every state the pane needs; nothing draws them beside the chat.
   never submits a prompt.
 - `.claude-plugin/marketplace.json` lists the pack; `scripts/gen-catalog.py` and `docs/catalog.md`
   know it; `docs/conventions.md` adds it to the pack table; `docs/openspec-flow.md` gets a short
-  section on the panel; CHANGELOG `## 0.10.0 — devkit panel`, marketplace version 0.10.0.
-- devkit-openspec 0.9.2: one line, `devkit-panel` in `PACKS` of
+  section on the panel; CHANGELOG `## 0.11.0 — devkit panel`, marketplace version 0.11.0 (after the rebase onto main at
+  0.10.1; planned as 0.10.0 before the sibling change merged).
+- devkit-openspec 0.10.2 (0.9.2 before the rebase): one line, `devkit-panel` in `PACKS` of
   `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs`, so `openspec-setup --packs`
   accepts the pack (a guard test pins `PACKS` to the marketplace's pack names; the owner chose the
   bump over an exception on 2026-11-11). `DEFAULT_PACKS` is unchanged. No change to devkit-core,
@@ -85,8 +86,8 @@ None.
 
 - New: `plugins/panel/` (`.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/register.tsx`
   and sibling modules, `types/index.d.ts`, `hooks/*.test.tsx`, `README.md`).
-- Edited: `.claude-plugin/marketplace.json` (new entry, `metadata.version` 0.10.0, devkit-openspec
-  0.9.2), `plugins/openspec/.claude-plugin/plugin.json` (0.9.2),
+- Edited: `.claude-plugin/marketplace.json` (new entry, `metadata.version` 0.11.0, devkit-openspec
+  0.10.2), `plugins/openspec/.claude-plugin/plugin.json` (0.10.2),
   `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs` (`PACKS`),
   `scripts/gen-catalog.py` (`PACKS`), `docs/catalog.md` (generated), `docs/conventions.md` (pack
   table), `docs/openspec-flow.md` (panel section), `CHANGELOG.md`.
@@ -97,5 +98,6 @@ None.
   scripts/gen-catalog.py --check`, `node --test plugins/openspec/hooks/guard.test.mjs && python3
   scripts/check.py`, all green at the PR's head; the live check of AC-13 in `evidence.md`.
 - Decisions cited: ADR 0001 (no harness; the panel drives nothing), ADR 0004 (opt-in per project:
-  the panel draws only where the hooks act), ADR 0006 (children are named `<sessionPrefix><n>`).
+  the panel draws only where the hooks act), ADR 0006 (children are named `<sessionPrefix><n>`),
+  ADR 0007 (`/conduct <id>` conducts one change; the Conduct button fills that shape).
   Open decisions inherited: none.

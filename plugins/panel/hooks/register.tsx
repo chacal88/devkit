@@ -8,6 +8,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { DeliverReport, PanelView, RoundReport, SessionRow } from '../types'
+import { isCreateStep } from './commands'
 import { langOf, uiText } from './i18n'
 import type { UiText } from './i18n'
 import { renderBand, renderLines, renderPane, renderText } from './pane'
@@ -119,8 +120,9 @@ const load = async ($: EngineInterface): Promise<void> => {
   const report = 'report' in round ? round.report : previous.kind === 'report' ? previous.report : undefined
   const reportAt = 'report' in round ? await $.clock.now() : previous.reportAt
   const changes = report?.changes ?? []
-  const firstId = changes[0]?.id
-  const changeOption = previous.changeOption === 'unknown' && firstId !== undefined ? await probeChangeOption($, checker, root, firstId) : previous.changeOption
+  // the probe needs a change the checker has found: single-change mode exits 3 on a change with no folder, which would read as `no`
+  const probeId = changes.find(c => !isCreateStep(c.next.step))?.id
+  const changeOption = previous.changeOption === 'unknown' && probeId !== undefined ? await probeChangeOption($, checker, root, probeId) : previous.changeOption
   const folders = await changeFolders($, root, changes.map(c => c.id))
   const sessions = await loadSessions($, changes)
   const open = await read($, collapsed)
