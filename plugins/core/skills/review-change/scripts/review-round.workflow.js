@@ -2,6 +2,8 @@ export const meta = { name: 'review-round', description: 'Runs the review-change
 
 // ---- rules: begin   (pure: no tool globals, no module loading, no clock, no randomness)
 const REVIEWERS = ['code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer', 'adr-reviewer', 'spec-reviewer'];
+const VERIFIERS = 3;
+const MAJORITY = Math.floor(VERIFIERS / 2) + 1;
 const SEVERITIES = ['blocking', 'important', 'nit', 'praise'];
 
 const STAGE1_SCHEMA = {
@@ -127,10 +129,46 @@ function isRefutation(vote) {
 function decide(votes) {
   const refuting = (votes || []).filter(isRefutation);
   return {
-    refuted: refuting.length >= 2,
+    refuted: refuting.length >= MAJORITY,
     refutations: refuting.length,
     evidence: refuting.map((v) => oneLine(v.evidence, 400)).join(' / '),
   };
+}
+
+// One job per verifier per finding that needs verification, for each reviewer that passed stage 1.
+function verifyJobs(args, passed) {
+  const jobs = [];
+  for (const p of passed) {
+    for (const finding of p.stage1.findings.filter(needsVerification)) {
+      for (let k = 1; k <= VERIFIERS; k += 1) {
+        jobs.push({
+          entry: p.entry, reviewer: p.entry.reviewer, finding, id: finding.id, k,
+          label: p.entry.reviewer + ' ' + finding.id + ' v' + k,
+          prompt: verifierPrompt(args, p.entry, finding),
+        });
+      }
+    }
+  }
+  return jobs;
+}
+
+// The votes in the order of the jobs, as { reviewer: { findingId: [vote ...] } }.
+function groupVotes(jobs, votes) {
+  const by = {};
+  jobs.forEach((j, i) => {
+    if (!by[j.reviewer]) by[j.reviewer] = {};
+    if (!by[j.reviewer][j.id]) by[j.reviewer][j.id] = [];
+    by[j.reviewer][j.id].push(votes[i]);
+  });
+  return by;
+}
+
+// null when the writer returned what the outcome says; else the reason it did not.
+function writeMismatch(outcome, returned) {
+  if (!returned || returned.written !== true) return 'the writer wrote nothing';
+  if (returned.verdict !== outcome.verdict) return 'the writer returned verdict ' + returned.verdict + ', expected ' + outcome.verdict;
+  if (returned.commit !== outcome.commit) return 'the writer returned commit ' + returned.commit + ', expected ' + outcome.commit;
+  return null;
 }
 
 function findingLine(finding) {
@@ -149,7 +187,7 @@ function outcomeOf(args, stage1, votesById) {
     if (!needsVerification(f)) return { ...f, status: 'open', disposition: null };
     verified += 1;
     const votes = byId[f.id] || [];
-    voteFailures += Math.max(0, 3 - votes.filter((v) => v && typeof v === 'object').length);
+    voteFailures += Math.max(0, VERIFIERS - votes.filter((v) => v && typeof v === 'object').length);
     const d = decide(votes);
     if (!d.refuted) return { ...f, status: 'open', disposition: null, refutations: d.refutations };
     refuted += 1;
@@ -246,7 +284,7 @@ function consolidate(input) {
     for (const f of o.findings) {
       const head = '- ' + o.reviewer + ' — [' + f.severity + '] ' + (f.location ? f.location + ' — ' : '') + f.text;
       if (f.status === 'open' && (f.severity === 'blocking' || f.severity === 'important')) open.push(head);
-      if (f.status === 'refuted') refuted.push(head + ' · ' + f.disposition + ' (' + f.refutations + ' of 3)');
+      if (f.status === 'refuted') refuted.push(head + ' · ' + f.disposition + ' (' + f.refutations + ' of ' + VERIFIERS + ')');
     }
   }
   const next = consensus === 'PASS'
@@ -301,22 +339,11 @@ run.bench.forEach((e, i) => {
 });
 
 phase('verify');
-const jobs = [];
-for (const p of passed) {
-  for (const f of p.stage1.findings) {
-    if (!needsVerification(f)) continue;
-    for (let k = 1; k <= 3; k += 1) jobs.push({ entry: p.entry, finding: f, k });
-  }
-}
-const voted = await parallel(jobs.map((j) => () => agent(verifierPrompt(run, j.entry, j.finding), {
-  agentType: 'devkit-core:finding-verifier', schema: VOTE_SCHEMA, label: j.entry.reviewer + ' ' + j.finding.id + ' v' + j.k, phase: 'verify',
+const jobs = verifyJobs(run, passed);
+const voted = await parallel(jobs.map((j) => () => agent(j.prompt, {
+  agentType: 'devkit-core:finding-verifier', schema: VOTE_SCHEMA, label: j.label, phase: 'verify',
 })));
-const votesBy = {};
-jobs.forEach((j, i) => {
-  if (!votesBy[j.entry.reviewer]) votesBy[j.entry.reviewer] = {};
-  if (!votesBy[j.entry.reviewer][j.finding.id]) votesBy[j.entry.reviewer][j.finding.id] = [];
-  votesBy[j.entry.reviewer][j.finding.id].push(voted[i]);
-});
+const votesBy = groupVotes(jobs, voted);
 const outcomes = passed.map((p) => outcomeOf(run, p.stage1, votesBy[p.entry.reviewer] || {}));
 
 phase('write');
@@ -324,8 +351,9 @@ const written = await parallel(outcomes.map((o) => () => agent(writerPrompt(run,
   agentType: 'devkit-core:' + o.reviewer, schema: WRITE_SCHEMA, label: o.reviewer + ' write', phase: 'write',
 })));
 outcomes.forEach((o, i) => {
-  if (!written[i] || written[i].written !== true) {
-    failed.push({ reviewer: o.reviewer, stage: 'write', error: 'review stage failed: ' + o.reviewer + ' write' });
+  const reason = writeMismatch(o, written[i]);
+  if (reason) {
+    failed.push({ reviewer: o.reviewer, stage: 'write', error: 'review stage failed: ' + o.reviewer + ' write', reason });
   }
 });
 

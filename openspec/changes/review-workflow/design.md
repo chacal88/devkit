@@ -142,6 +142,10 @@ export const meta = { name: 'review-round', description: '<one sentence>', phase
 STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA            JSON-schema literals (D4)
 validateArgs(args)                    -> args | throws 'review input invalid: <what>'
 validateStage1(reviewer, value)       -> normalized stage-1 return | throws 'review input invalid: <what>'
+VERIFIERS                            3: the verifier count; the majority and the `of N` wording derive from it (D5)
+verifyJobs(args, passed)              -> [ { entry, reviewer, finding, id, k, label, prompt } ]   (D5)
+groupVotes(jobs, votes)               -> { reviewer: { id: [vote ...] } }
+writeMismatch(outcome, returned)      -> null | reason (D4 stage 3)
 needsVerification(finding)            -> boolean (D5)
 isRefutation(vote)                    -> boolean (D5)
 decide(votes)                         -> { refuted, refutations, evidence }   (D5)
@@ -223,7 +227,9 @@ findings where `needsVerification(f)` holds, three thunks
 **Stage 3, write** (phase `write`): for each reviewer that passed stage 1,
 `agent(writerPrompt(args, outcome), { agentType: 'devkit-core:' + reviewer, schema: WRITE_SCHEMA, label: '<reviewer> write', phase: 'write' })`,
 all in one `parallel()`. `WRITE_SCHEMA` is `{ written: boolean, verdict: 'approved'|'rejected'|'declined', commit: '<40 hex>' }`.
-A `null` return, or `written: false`, is `review stage failed: <reviewer> write`.
+A `null` return, `written: false`, or a returned `verdict` or `commit` that differs from the outcome's
+is `review stage failed: <reviewer> write`, with a `reason` naming the mismatch (`writeMismatch(outcome, returned)`).
+On the `agents` path, `check-file` checks the file itself.
 
 **Result** (the script's final value):
 
@@ -256,7 +262,9 @@ phases and makes the call-order assertions of AC-1 weaker.
 - `isRefutation(v)`: `v` is not `null`, `v.refuted === true`, and `v.evidence.trim()` is not empty.
   A failed verifier (`null`) and a refutation with no evidence both count as "not refuted".
 - `decide(votes)`: `refutations` is the number of `isRefutation`. The finding is `refuted` when
-  `refutations >= 2` (AC-2). `evidence` joins the refuting verifiers' evidence, each made one line,
+  `refutations >= MAJORITY` (AC-2), where `MAJORITY` is `floor(VERIFIERS / 2) + 1`: 2 of the 3 in
+  `VERIFIERS`, the one place the count lives. Both the script and the CLI take their jobs from
+  `verifyJobs` and group the votes with `groupVotes`. `evidence` joins the refuting verifiers' evidence, each made one line,
   with ` / `.
 - `oneLine(text, max = 400)`:
   - newlines and runs of whitespace become one space;

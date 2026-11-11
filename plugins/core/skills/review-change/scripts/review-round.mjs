@@ -9,7 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const SCRIPT_FILE = join(here, 'review-round.workflow.js');
 
 const NAMES = [
-  'STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation',
+  'VERIFIERS', 'verifyJobs', 'groupVotes', 'writeMismatch', 'STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation',
   'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate',
 ];
 const BEGIN = /^\/\/ ---- rules: begin.*$/m;
@@ -33,7 +33,7 @@ export function loadRules(file = SCRIPT_FILE) {
 }
 
 export const {
-  STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, validateArgs, validateStage1, needsVerification, isRefutation,
+  VERIFIERS, verifyJobs, groupVotes, writeMismatch, STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, validateArgs, validateStage1, needsVerification, isRefutation,
   decide, oneLine, findingLine, outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate,
 } = loadRules();
 
@@ -91,14 +91,7 @@ function stage1Command({ args }) {
 function verifyCommand({ args, stage1 }) {
   const a = validateArgs(args);
   const { passed, failed } = readStage1(a, stage1);
-  const jobs = [];
-  for (const p of passed) {
-    for (const finding of p.stage1.findings.filter(needsVerification)) {
-      for (let k = 1; k <= 3; k += 1) {
-        jobs.push({ reviewer: p.entry.reviewer, id: finding.id, k, agentType: VERIFIER, prompt: verifierPrompt(a, p.entry, finding) });
-      }
-    }
-  }
+  const jobs = verifyJobs(a, passed).map((j) => ({ reviewer: j.reviewer, id: j.id, k: j.k, agentType: VERIFIER, prompt: j.prompt }));
   return { jobs, failed };
 }
 

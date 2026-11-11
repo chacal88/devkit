@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import {
   loadRules, validateArgs, validateStage1, needsVerification, isRefutation, decide, oneLine, findingLine,
   outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate,
+  VERIFIERS, verifyJobs, groupVotes, writeMismatch,
   STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA,
 } from './review-round.mjs';
 
@@ -300,7 +301,11 @@ function responder({ stage1, votes = {}, writes = {} }) {
       return (votes[`${m[1]} ${m[2]}`] || [])[Number(m[3]) - 1] ?? null;
     }
     const w = writes[call.label.replace(/ write$/, '')];
-    return w === undefined ? { written: true, verdict: 'approved', commit: SHA } : w;
+    if (w !== undefined) return w;
+    // an honest writer: the commit on line 2 of the file it is told to write, and a verdict from the open lines
+    const commit = call.prompt.match(/^line 2: Commit: ([0-9a-f]{40})/m)[1];
+    const open = /^- \[(blocking|important)\](?!.* · (fixed in|refuted:))/m.test(call.prompt);
+    return { written: true, verdict: open ? 'rejected' : 'approved', commit };
   };
 }
 
@@ -432,6 +437,63 @@ test('review round: workflow reports a writer that returned null or wrote nothin
   assert.ok(r.failed.every((f) => f.stage === 'write'));
   assert.equal(r.reviewMd, null);
   assert.equal(r.outcomes.length, 2, 'the outcomes stay, so the session can rerun stage 3');
+});
+
+test('review round: workflow fails a writer whose returned verdict or commit differs from the outcome', async () => {
+  const stage1 = { [cq]: stage1Of(cq, [finding()]), [tc]: stage1Of(tc, [finding()]), [ar]: stage1Of(ar, []) };
+  const votes = { [`${cq} F1`]: [keep(), keep(), keep()], [`${tc} F1`]: [keep(), keep(), keep()] };
+  const writes = {
+    [cq]: { written: true, verdict: 'approved', commit: SHA },
+    [tc]: { written: true, verdict: 'rejected', commit: SHA2 },
+    [ar]: { written: true, verdict: 'approved', commit: SHA },
+  };
+  const h = harness({ respond: responder({ stage1, votes, writes }) });
+  const r = await h.run(baseArgs({ bench: bench(cq, tc, ar) }));
+  assert.deepEqual(r.failed.map((f) => [f.reviewer, f.stage, f.error]), [
+    [cq, 'write', `review stage failed: ${cq} write`],
+    [tc, 'write', `review stage failed: ${tc} write`],
+  ]);
+  assert.match(r.failed[0].reason, /verdict/);
+  assert.match(r.failed[1].reason, /commit/);
+  assert.equal(r.reviewMd, null);
+  assert.equal(r.consensus, 'FAIL');
+});
+
+test('review round: writeMismatch accepts the outcome as written and names a wrong verdict or commit', () => {
+  const o = { reviewer: cq, verdict: 'rejected', commit: SHA };
+  assert.equal(writeMismatch(o, { written: true, verdict: 'rejected', commit: SHA }), null);
+  assert.match(writeMismatch(o, { written: true, verdict: 'approved', commit: SHA }), /verdict/);
+  assert.match(writeMismatch(o, { written: true, verdict: 'rejected', commit: SHA2 }), /commit/);
+});
+
+test('review round: VERIFIERS lives once in the rules section: verifyJobs, groupVotes, decide and the wording follow it', async () => {
+  assert.equal(VERIFIERS, 3);
+  const args = baseArgs();
+  const passed = [{ entry: args.bench[0], stage1: validateStage1(cq, stage1Of(cq, [finding(), finding({ id: 'F2', severity: 'nit' })])) }];
+  const jobs = verifyJobs(args, passed);
+  assert.deepEqual(jobs.map((j) => `${j.reviewer} ${j.id} ${j.k}`), [1, 2, 3].map((k) => `${cq} F1 ${k}`));
+  assert.deepEqual(groupVotes(jobs, ['a', 'b', 'c']), { [cq]: { F1: ['a', 'b', 'c'] } });
+
+  const source = readFileSync(SCRIPT, 'utf8');
+  const five = join(mkdtempSync(join(tmpdir(), 'review-round-five-')), 'five.js');
+  writeFileSync(five, source.replace('const VERIFIERS = 3;', 'const VERIFIERS = 5;'));
+  const rules = loadRules(five);
+  assert.equal(rules.VERIFIERS, 5);
+  assert.equal(rules.verifyJobs(args, passed).length, 5);
+  const votes = (n) => Array.from({ length: 5 }, (_, i) => (i < n ? refute(`e${i}`) : keep()));
+  assert.equal(rules.decide(votes(2)).refuted, false);
+  assert.equal(rules.decide(votes(3)).refuted, true);
+  const outcome = rules.outcomeOf(args, passed[0].stage1, { F1: votes(3) });
+  assert.equal(outcome.voteFailures, 0);
+  const text = rules.consolidate({ args, outcomes: [outcome], failed: [], notes: [] }).text;
+  assert.match(text, /\(3 of 5\)/);
+
+  // nothing outside the rules section holds the count, the job loop or the majority
+  const outside = (text) => text.replace(/\/\/ ---- rules: begin[\s\S]*\/\/ ---- rules: end/, '');
+  for (const file of [SCRIPT, CLI]) {
+    const rest = outside(readFileSync(file, 'utf8'));
+    assert.ok(!/<=\s*3\b|>=\s*2\b|\bof 3\b/.test(rest), `${file} holds the verifier count outside the rules section`);
+  }
 });
 
 test('review round: workflow rejects invalid args with the review input invalid prefix before any agent runs', async () => {
