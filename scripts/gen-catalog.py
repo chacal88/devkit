@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKS = ["core", "openspec", "design", "stack", "ai-engineering"]
+PACKS = ["core", "openspec", "design", "stack", "ai-engineering", "panel"]
 BEGIN, END = "<!-- catalog:begin -->", "<!-- catalog:end -->"
 
 

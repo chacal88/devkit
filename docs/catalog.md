@@ -100,3 +100,9 @@ Building with LLMs: evaluation, multi-agent patterns, agent tool and CLI design,
 | [`llm-evaluation`](../plugins/ai-engineering/skills/llm-evaluation/SKILL.md) | Builds LLM evaluation - LLM-as-judge with direct scoring and pairwise comparison, rubrics, and mitigation of position, length and authority bias in evaluation pipelines. Use when the user asks to implement LLM-as-judge, compare model outputs, create evaluation rubrics, mitigate evaluation bias, or automate quality assessment of LLM output. |
 | [`multi-agent-patterns`](../plugins/ai-engineering/skills/multi-agent-patterns/SKILL.md) | Patterns for multi-agent systems - supervisor/orchestrator, peer-to-peer swarm, hierarchical - with context isolation, handoffs, sub-agents and parallel execution, and their failure modes. Use when the user asks to design a multi-agent system, implement a supervisor or swarm, coordinate multiple agents, or split work across sub-agents. |
 | [`skill-scanner`](../plugins/ai-engineering/skills/skill-scanner/SKILL.md) | Scans an agent skill for security issues before adoption - prompt injection, malicious code, excessive permissions, secret exposure and supply-chain risk - with a manual review checklist. Use when evaluating a third-party skill or plugin before installing it, or when the user asks whether a skill is safe to trust. |
+
+## devkit-panel
+
+Side pane over the devkit checkers: the round's changes, their next step, the linked child sessions, and buttons that put the owner's next command in the prompt box. Read-only. — [README](../plugins/panel/README.md)
+
+
