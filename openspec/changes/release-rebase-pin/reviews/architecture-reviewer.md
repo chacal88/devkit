@@ -1,7 +1,9 @@
 Verdict: approved
-Commit: 66b6041b362791ff6eed4b1c90ea537db7b2cd69
+Commit: af4055acf094de5228be025d780f5d611905f06c
 
-## Architecture review — release-rebase-pin (round 1, origin/main..HEAD)
+## Architecture review — release-rebase-pin (re-review round 1, 66b6041..af4055a)
+
+Re-review scope: 66b6041..af4055a adds one test (release-rebase.test.mjs:528, two change commits touching the pin file, resolved at each stop) plus review files under openspec/. No product code, seam, owner or contract changed; the test exercises the existing per-stop classifyConflict path and adds no module. No new finding. Previous findings below keep their state (no blocking or important existed; the three nits remain open, unchanged, none required).
 
 Analyzed: owners (the pin rule in release-rebase.mjs, the release list stays in deliver-check.mjs:755); boundaries (import direction deliver-check <- release-rebase <- conduct-check, no cycle: release-rebase.mjs:15 imports only deliver-check, conduct-check.mjs:16 imports deliver-check and release-rebase, neither imports conduct-check); contract consumers enumerated (resolve-release-conflict row: skills/conduct/SKILL.md:102 passes paths through and reads only the JSON report, ship-change has no row for it, docs/openspec-flow.md updated, plugins/panel has no reference; release-rebase JSON `files`/`conflicts`/`error`: only the conduct subagent reads it, the new `cannot set the pin:` is a prefix inside the existing `error` string, no new field; RELEASE_FILE unchanged, so unnamedFiles/ADR 0003 are untouched); deletion tests (setPins: passes, shared by mask and rewrite; mergePins: passes, hides temp dir, git merge-file and always-cleanup; classifyConflict: passes, one rule serves two callers; threeVersions: borderline, see nit).
 

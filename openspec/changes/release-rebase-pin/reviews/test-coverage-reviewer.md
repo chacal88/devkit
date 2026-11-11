@@ -1,21 +1,20 @@
 Verdict: approved
-Commit: 66b6041b362791ff6eed4b1c90ea537db7b2cd69
+Commit: af4055acf094de5228be025d780f5d611905f06c
 
-## Coverage analysis - release-rebase-pin (round 1, origin/main..HEAD)
+## Coverage analysis - release-rebase-pin (round 2, re-review, 66b6041..af4055a)
 
-In-scope surfaces: plugins/openspec/hooks (release-rebase.mjs, conduct-check.mjs, deliver-check.mjs export)
+In-scope surfaces: plugins/openspec/hooks (release-rebase.test.mjs; no product code changed in the range)
 Blocking gaps (8-10 without a plan): 0
-Seams checked: conduct-check threeVersions -> classifyConflict (caught by the "conduct pin" AC-1/AC-2/AC-3 tests, conduct-check.test.mjs:1403-1456); stageReader :1/:2/:3 -> classifyConflict (AC-4/AC-5 on real git repos, release-rebase.test.mjs:440-480); stop-loop skip of PIN_FILE in checkout --ours plus the merged write (AC-4 asserts TOP A and BOTTOM B both survive); baseVersion null -> "cannot set the pin:" (release-rebase.test.mjs:507); post-replay rewrite (AC-4, AC-6 twice); RELEASE_FILE unchanged (deliver-check.test.mjs:4027). (mutation runs: 0)
-Run: release-rebase.test.mjs 32/32 pass (targeted); full suite per gate 2.9 (587/587, reported by the caller, not re-run).
+Seams checked: pin branch of the stop loop at release-rebase.mjs:270-277 (pinMerged and baseVersion per stop) -> caught by the new test `two change commits that both touch the pin file are resolved at each stop` (mutation runs: 0)
+Run: the new test alone, 1/1 pass. Full suite 588/588 and `python3 scripts/check.py` per the conducting session, not re-run.
+
+Two-stop check (done here): ran the new test with `GIT_TRACE` pointed at a scratchpad file. The trace shows two `git diff --name-only --diff-filter=U` calls and two `git rebase --continue` calls. Stop 1 had `git checkout --ours` on marketplace.json, CHANGELOG.md and plugin.json. Stop 2 had none, so only the pin file was left, and the loop resolved it. This matches the implementer's report (STOP 0 with four files, STOP 1 with docs/openspec-flow.md). The assertions fit the contract: exit 0, TOP A, BOTTOM B and "body 2 edited C" all present, every pin in the worktree is v0.11.1, HEAD still pins v0.11.0 (the rewrite stays uncommitted), and two commits sit above origin/main.
 
 ### Findings
-- [important] [6] "at every rebase stop" has no multi-stop test: every pin test in release-rebase.test.mjs:440-520 has one change commit, so the pin branch of the loop at release-rebase.mjs:270 runs once. With two change commits that both touch docs/openspec-flow.md, a bug that reuses a stale `pinMerged` or `baseVersion`, or that fails at the second stop, stays green. · write in: release-rebase.test.mjs, with releaseRepo plus a second commit on feature (style of the "second entry" test near :304), asserting exit 0 and both edits present.
-- [nit] The beyond-pin cases of conduct pin AC-2/AC-3 assert the blocked state but not that HEAD, the worktree and the devkit-pin- temp folders are untouched (only AC-1 does, conduct-check.test.mjs:1424-1427). mergePins' finally is covered at unit level, so the risk is low.
-- [nit] A null :1 blob (add/add conflict) at a real rebase stop is covered only by the mergePins null-side unit test, not through a rebase; the path returns blocking and aborts through the existing restore.
+- [important] "at every rebase stop" has no multi-stop test (release-rebase.test.mjs:440-520, loop at release-rebase.mjs:270) · fixed in af4055a
+- [nit] The beyond-pin cases of conduct pin AC-2/AC-3 assert the blocked state but not that HEAD, the worktree and the devkit-pin- temp folders are untouched (only AC-1 does, conduct-check.test.mjs:1424-1427). Not part of this round; mergePins' finally is covered at unit level.
+- [nit] A null :1 blob (add/add conflict) at a real rebase stop is covered only by the mergePins null-side unit test. Not part of this round.
 
 ### Well covered
-- Pin-only conflict resolved; beyond-pin aborts to the old head with a clean worktree and no rebase-merge dir - release-rebase.test.mjs AC-4/AC-5 (sha, status --porcelain, rebase-merge asserts).
-- Every pin follows the resolved version with a conflict, without one, and when the change did not bump - AC-6 tests assert HEAD (committed) and worktree (uncommitted) separately.
-- setPins edges (v1.2.34, CRLF, marker without pin, idempotent) and the real docs file shape guard (changed lines equal pin lines, all inside ## CI).
-- classifyConflict reads stages only for PIN_FILE and once; order and README.md blocking kept.
-- AC-7: RELEASE_FILE source pinned and unnamedFiles still reports the doc.
+- Second stop of a pin replay: the new test, with a real git repo and the trace above as proof of two stops.
+- Everything listed as well covered in round 1 is unchanged, since no product code moved.

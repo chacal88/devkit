@@ -1,12 +1,15 @@
 Verdict: approved
-Commit: 66b6041b362791ff6eed4b1c90ea537db7b2cd69
+Commit: af4055acf094de5228be025d780f5d611905f06c
 
 ## ADR review — release-rebase-pin
 
 ADRs reviewed: ADR 0001 (`docs/adr/0001-coordination-without-a-harness.md`), ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`), ADR 0003 (`docs/adr/0003-auto-merge-the-archive-pr.md`). ADRs 0004-0007 skimmed; not touched by the change (0005 superseded by 0006; 0007 only amends conduct-on-request). No open-decisions log found.
 
+### Re-review (round 1, range 66b6041..HEAD)
+Only change outside `openspec/`: one new test in `plugins/openspec/hooks/release-rebase.test.mjs` (two change commits touching the pin file). No hook, doc, or ADR-governed file changed; ADRs 0001-0003 conformance is unchanged. No new findings.
+
 ### Findings
-- [nit] `plugins/openspec/hooks/conduct-check.mjs:4-5`, `plugins/openspec/hooks/release-rebase.mjs` (`mergePins`) — ADR 0001 § Decision (no state outside the repository and GitHub)
+- [nit] (previous, no action needed) `plugins/openspec/hooks/conduct-check.mjs:4-5`, `plugins/openspec/hooks/release-rebase.mjs` (`mergePins`) — ADR 0001 § Decision (no state outside the repository and GitHub)
   - What is wrong: conduct-check now creates and removes a temp folder under the OS tmpdir to run `git merge-file`. It is transient, removed in `finally`, and carries no state between runs, so it does not break the ADR. The header comment already says it.
   - Fix: none needed; keep the header comment.
 
