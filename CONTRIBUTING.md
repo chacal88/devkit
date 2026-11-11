@@ -37,7 +37,7 @@ When a change alters how the owner works (what runs, in which order, who starts 
    node --test plugins/openspec/hooks/guard.test.mjs
    ```
 
-   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs` and `github-setup.test.mjs`, so this one command runs every hook test (about 9 minutes; 8.7 observed on 94e795d); give reviewers its result instead of having them re-run it.
+   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs`, `github-setup.test.mjs` and devkit-core's `plugins/core/skills/review-change/scripts/review-round.test.mjs`, so this one command runs every hook test and the review round's tests (about 9 minutes; 8.7 observed on 94e795d); give reviewers its result instead of having them re-run it. To run only the review round's tests, use `node --test plugins/core/skills/review-change/scripts/review-round.test.mjs`.
 
    ```bash
    "$HOME/Library/Application Support/Claude/claude-code/<version>/<hash>/claude.app/Contents/MacOS/claude" plugin validate .
