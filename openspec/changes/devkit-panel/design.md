@@ -331,7 +331,11 @@ beneath the plugin, as the old mod's `orchestrator/tests/harness.test.ts` and `t
   project-settings.mjs` (the guard test `PACKS equals the plugin names in marketplace.json` pins it;
   `DEFAULT_PACKS` unchanged). If `deliver-check.test.mjs`'s pin test then asks for `v0.9.2` in the CI
   snippet of `docs/openspec-flow.md`, the pin moves with the release as 0.9.1 did.
-- `CHANGELOG.md`: `## 0.10.0 — devkit panel` with a `**devkit-openspec** 0.9.2:` line too. The sibling change targets 0.10.0 for
+- `CHANGELOG.md`: `## 0.10.0 — devkit panel` with a `**devkit-openspec** 0.9.2:` line too.
+- After the rebase onto main at 0.10.1 (`conduct-one-change` merged first), the release-rebase rule
+  gives marketplace 0.11.0 (minor bump over the base), devkit-openspec 0.10.2 (patch bump over the
+  base), the CHANGELOG entry `## 0.11.0 — devkit panel`, and the CI pin `v0.10.2`; `docs/openspec-flow.md`
+  (not a release file) was merged by hand: the base's text plus the panel section. The sibling change targets 0.10.0 for
   devkit-openspec; whichever merges second rebases with `release-rebase` (versions, CHANGELOG,
   catalog by rule).
 - `plugins/panel/README.md` with `<!-- catalog:begin -->` / `<!-- catalog:end -->` markers and the
