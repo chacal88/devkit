@@ -695,6 +695,17 @@ test('changelog lint: the marketplace version needs a "## <version>" heading in 
   assert.equal(ok.code, 0, ok.out);
 });
 
+test('language lint: a pt-BR marker inside backticks or a fenced block is a quotation; outside them it is refused, with the line number kept', () => {
+  assert.equal(lint({ 'docs/x.md': 'The pane says `n\u00e3o` here\n' }).code, 0);
+  assert.equal(lint({ 'docs/x.md': 'text\n\n```text\nvoc\u00ea tamb\u00e9m\n```\n' }).code, 0);
+  const r = lint({ 'docs/x.md': 'this is n\u00e3o English\n' });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /docs\/x\.md:1: non-English text/);
+  const after = lint({ 'docs/x.md': '```text\nvoc\u00ea\n```\nthis is n\u00e3o English\n' });
+  assert.equal(after.code, 1);
+  assert.match(after.out, /docs\/x\.md:4: non-English text/);
+});
+
 // --- 3.1 docs: why per project, and the link to the migration doc ---
 test('README and getting-started say the packs load only in the projects that chose them and link the migration doc (3.1)', () => {
   const root = join(here, '..', '..', '..');
