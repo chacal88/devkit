@@ -992,10 +992,18 @@ export function nextStep(state) {
   if (rejectedNow.length && state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round >= 2) {
     return step('stop-review-deadlock', `${rejectedNow.join(', ')} still rejects after round 2; the owner decides`, { reviewers: rejectedNow });
   }
-  if (rejectedNow.length) {
-    return step('fix-review', `${rejectedNow.join(', ')} rejected at the current commit`, {
-      reviewers: rejectedNow,
-      findings: it(3).details.undisposed.filter((f) => rejectedNow.includes(f.reviewer)),
+  // An approved verdict at the current commit that still lists an undisposed finding is fixed, not re-reviewed.
+  const approvedOpen = uniq(it(3).details.undisposed.map((f) => f.reviewer)
+    .filter((n) => state.reviews.some((r) => r.name === n && r.current && approved(r.verdict))));
+  const fix = uniq([...rejectedNow, ...approvedOpen]);
+  if (fix.length) {
+    const reason = [
+      rejectedNow.length ? `${rejectedNow.join(', ')} rejected at the current commit` : '',
+      approvedOpen.length ? `${approvedOpen.join(', ')} approved with an undisposed finding` : '',
+    ].filter(Boolean).join('; ');
+    return step('fix-review', reason, {
+      reviewers: fix,
+      findings: it(3).details.undisposed.filter((f) => fix.includes(f.reviewer)),
     });
   }
   const toReview = uniq([

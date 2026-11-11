@@ -15,6 +15,7 @@ import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
 import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
+import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -1306,6 +1307,22 @@ test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', ()
     assert.match(adr7, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0007 has ${h}`);
   }
   assert.match(adr6, /^- Amended by ADR 0007 \(0007-one-change-on-request\.md\)$/m);
+  const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
+  assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
+});
+
+test('ADR 0008 records the reviewer round as a Workflow script; ADR 0001 and the config point to it', () => {
+  const root = join(here, '..', '..', '..');
+  const n8 = '0008-reviews-as-a-workflow.md';
+  const adr1 = readFileSync(join(root, 'docs', 'adr', '0001-coordination-without-a-harness.md'), 'utf8');
+  assert.ok(adr1.includes(n8), 'ADR 0001 names ADR 0008');
+  const adr8 = readFileSync(join(root, 'docs', 'adr', n8), 'utf8');
+  assert.match(adr8, /^- Status: accepted$/m);
+  for (const h of ['Decision', 'Consequences', 'Review trigger', 'Alternatives considered']) {
+    assert.match(adr8, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0008 has ${h}`);
+  }
+  const cfg = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8');
+  assert.match(cfg, /0008 reviews as a workflow/);
   const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });

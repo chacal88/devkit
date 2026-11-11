@@ -248,7 +248,7 @@ claude plugin install devkit-panel@devkit --scope project
 | Plan complete before apply | OpenSpec CLI | All artifacts that `apply` requires exist |
 | Plan approved before product code | Hook on Edit/Write and shell writes | `readiness.md` contains `- Status: APPROVED` (schemas with a `readiness` artifact only) |
 | Code written by the implementer | Same hook | In the `devkit` schema, the writer is the `tdd-implementer` agent |
-| One writer per gate file | Same hook | `readiness.md` ← `plan-readiness-reviewer`; `reviews/<reviewer>.md` ← that reviewer; `evidence.md` ← `pr-verifier`; `approval.md` ← the main session only, from your own message (no subagent writes it) |
+| One writer per gate file | Same hook | `readiness.md` ← `plan-readiness-reviewer`; `reviews/<reviewer>.md` ← that reviewer; `evidence.md` ← `pr-verifier`; `finding-verifier` writes nothing; `approval.md` ← the main session only, from your own message (no subagent writes it) |
 | Review and evidence before the PR | Hook on `gh pr create` | `reviews/` has `code-quality-reviewer.md` and `test-coverage-reviewer.md`, every review there says `Verdict: approved` (or `declined`), and `evidence.md` has content |
 | No destructive git | Hook on Bash | The command isn't a force push, `--no-verify`, `reset --hard`, `clean -f`, `branch -D`, `checkout -- .`, `add -A` / `add .`, or `gh pr merge --admin` |
 
@@ -265,6 +265,23 @@ Planning files under `openspec/`, anything under `.claude/`, and anything outsid
 ### Where the hooks act
 
 The hooks (`session`, `edit`, `bash`) act only in a project that opted in: its `openspec/config.yaml` selects the `devkit` or `devkit-lite` schema (`schema:` at the top level). The guard looks for that file from the session's folder upward, next to the `openspec/changes/` it finds, so a subfolder and a `.claude/worktrees/<name>` checkout use their own project's config. Elsewhere the three hooks print nothing and block nothing, destructive git included, even when the pack is loaded at user scope. `guard.mjs ci` and `deliver-check --ci` do not depend on it. A change's own `.openspec.yaml` does not opt a project in or out. The decision and its limits: [ADR 0004](adr/0004-devkit-per-project.md).
+
+## The review round
+
+The `review-change` skill runs the reviewer round in three stages, each with all its agents in parallel:
+
+1. **review**: every reviewer of the bench reviews and returns its findings. It writes no file.
+2. **verify**: for each `blocking` or `important` finding with no disposition, three `finding-verifier` agents try to refute it, each in its own context. `nit` and `praise` are never verified. A finding is refuted when at least 2 of 3 refute it with evidence; it stays in the verdict file as ` · refuted: <evidence>` and does not count as open.
+3. **write**: each reviewer writes its own `reviews/<reviewer>.md`, the verdict by its own rules from the lines it is given.
+
+There are two paths that run the same stages and rules (one rules section, in `plugins/core/skills/review-change/scripts/review-round.workflow.js`, read by `review-round.mjs` on the second path):
+
+- the `workflow` path runs the stages as one Workflow script in the background of your session. It runs only on a turn you typed, through a skill that names the Workflow tool, and only where the host has the tool;
+- the `agents` path runs the same stages with the Agent tool, one message per stage. It runs on any other turn (a continuation turn, an Auto-fix wake, a task notification) and wherever the Workflow tool is missing or refuses. In `/conduct` the review step usually lands on a continuation turn, so it usually runs here.
+
+The files have the same shape on both paths. After the round the session checks every written file (`review-round.mjs check-file`: the verdict line, the commit line and every blocking or important line) and appends one section to `review.md`: the path, a table with each reviewer's verdict, open and verified counts, the `Consensus: PASS | FAIL (round N/2)` line, the open findings, the refuted ones with their evidence, and the notes. The gate does not read `review.md`, except the `Consensus:` line for the deadlock stop.
+
+An approved review that still lists an undisposed `blocking` or `important` finding is not a clean review: `deliver-check` answers `fix-review` for it, with that finding. The decision and its review trigger: [ADR 0008](adr/0008-reviews-as-a-workflow.md).
 
 ## The delivery contract
 
@@ -457,15 +474,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.11.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.11.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.12.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.12.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.11.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.11.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.12.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.12.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@latest` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -541,6 +558,7 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | A start was refused: `waiting for the owner: start session <id> phase <n>` | The app accepts a start only on your typed turn and its unbroken chain of continuation turns; an automated turn broke the chain. Two such turns are routine in a `devkit` change: plan approval asked in a turn that a background agent's result opened (planning and readiness run in the background), and a phase gate run as a background Bash, whose end is a task notification, not a `<side-sessions-event>` | Type `/conduct <id>` (or `/conduct round <n>`) again; the phase is never run as a subagent in its place. That run asks about unfinished work when earlier phases are done, because no phase is committed before the last one: answer that it should go on |
 | A child is still running when you re-run `/conduct` | The change reads `running` (its child is in `--busy`) and no second session starts | Wait for its end (the next turn continues the chain) or open the child session from the sidebar |
 | `not grouped: <name> (nested under the conducting session)`, and an empty `<id>` group in the sidebar | The app nests a child session under the session that started it and moves it only with its parent; the skill never moves the conducting session | Nothing to fix: the nesting already keeps the change's children together under the conducting session. Delete the empty group from the sidebar if it is in the way |
+| `review.md` says `Path: agents` on a typed turn | The host has no Workflow tool, or the tool refused or the result was unusable | Read the Notes line of that `review.md` section (`Workflow refused`, `Workflow result invalid`, `Workflow lost`); the files are the same on both paths |
 | The hooks don't fire at all | `devkit-openspec` isn't installed or enabled, or the project isn't opted in: `openspec/config.yaml` doesn't select `devkit` or `devkit-lite` (a renamed schema counts) | `/plugin` → enable `devkit-openspec@devkit`; set `schema: devkit` or `devkit-lite` in `openspec/config.yaml` |
 | Every role runs as a general-purpose subagent "following" an agent file, and the one-writer rule is not enforced on the gate files | The conducting session was started in another folder (the app cannot move it), so the packs installed at project scope are not loaded in it | Start the conducting session on the project's folder (a worktree under it counts). If you go on anyway, keep the one-line deviation in `readiness.md`, every `reviews/<name>.md` and `evidence.md`, as devkit-panel did |
 
@@ -552,6 +570,7 @@ Every agent run costs time and tokens, so the defaults keep runs few and cheap:
 - All reviewers and the readiness reviewer run on Sonnet; only `change-planner` uses Opus. To change a model for one project, copy the agent into the project's `.claude/agents/` and edit its `model:`.
 - Reviewers scale to the diff (each has a Budget section), run the test suite at most once, and read tests instead of running mutations unless asked.
 - `review-change` summons only the reviewers the diff needs, re-runs only the ones that rejected, checks only their previous findings, and stops after two rounds.
+- A review round runs R reviewers, then 3 verifiers per open `blocking` or `important` finding, then the R reviewers again to write their files. A refuted finding saves a fix round; `nit` and `praise` are never verified.
 - In the full flow, tasks use as few phases as the work needs: each phase is one implementer run.
 
 ## Limits
@@ -559,6 +578,7 @@ Every agent run costs time and tokens, so the defaults keep runs few and cheap:
 - Who merges depends on the ship mode: in `plan` and `pr` mode the merge is always yours; in `merge` mode GitHub merges, but only after `ship-change` enabled auto-merge at 8/8 on a prepared repository (see the limits above). In `devkit-lite` the hooks allow the main session to edit product code, so only the `ship-change` skill keeps it off product code.
 - `openspec/roadmap.md` reports the order between changes; `/conduct round <n>` enforces `after:` before a change's first `implement`, but `/conduct <id>` and `/ship-change <id>` on their own do not: a change can be started before the ones it is `after:`.
 - The `/conduct` chain of child sessions is broken by any automated turn (a cron, a scheduled wake-up, a message from a session): the report lists what is left to start and you type `/conduct` once more. Nothing outside the session wakes a round, and outside the desktop app phases are subagents, not sessions.
+- The `workflow` path of the review round runs only on a turn you typed; any other turn runs the `agents` path, with the same files.
 - Hooks can veto an action; they can't make a step happen. The guarantee is "no code before an independently approved plan, no PR without approved reviews and evidence", not "the review was thorough".
 - Shell writes are detected from the command (`>`, `>>`, `tee`, `sed -i`, `cp`, `mv`, `install`, `touch`, `truncate`). A path built from a variable (`"$TMP"/x`) or a script that writes from inside an interpreter (`python -c`, `node -e`) is not resolved, so it isn't gated; CI is the backstop.
 - OpenSpec's schema commands are marked experimental by the CLI and may change between versions. The schemas here are validated against OpenSpec 1.16.
