@@ -77,7 +77,16 @@ def check_links():
 def check_language():
     pattern = re.compile(r"\b(não|você|também|está|então|porque|ção|ções)\b", re.I)
     for f in md_files():
-        for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+        # A string quoted in backticks is a quotation, not prose; blank fenced
+        # blocks and spans (as check_links does) but keep the line numbers.
+        text = re.sub(
+            r"```.*?```",
+            lambda m: "\n" * m.group(0).count("\n"),
+            f.read_text(encoding="utf-8"),
+            flags=re.S,
+        )
+        text = re.sub(r"`[^`\n]*`", "", text)
+        for i, line in enumerate(text.splitlines(), 1):
             if pattern.search(line):
                 problems.append(f"{f.relative_to(ROOT)}:{i}: non-English text")
 

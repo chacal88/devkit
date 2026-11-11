@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1 — retro of devkit-panel
+
+- **devkit-openspec** 0.10.3: `scripts/check.py`'s language check blanks fenced blocks and backticked spans before scanning (a quoted UI string is a quotation, not prose), pinned by a guard test; the CI snippet pins `v0.10.3`.
+- Docs: round 8 of `openspec/roadmap.md` is `release-rebase-pin` (the CI pin collision becomes a change); CONTRIBUTING gains "Testing a mod pack" (the app's bundled binary, the rollout-switch warm-up, how a gate line is read) and the rule to re-read what a change consumes from a sibling after a rebase; a troubleshooting row in `docs/openspec-flow.md` for a conducting session started in another folder.
+
 ## 0.11.0 — devkit panel
 
 - **devkit-panel** 0.1.0: a new pack, a Claude Code mod for the desktop app. A side pane over `conduct-check --json` and `deliver-check <id> --json`: the round's changes with their state, next step and actor, the eight delivery items and the linked child sessions (`^<sessionPrefix>[0-9]+$`) of an unfolded row, the other and archived changes by name; a one-line band above the prompt with an `Open` / `Close` button; `/devkit-panel` (`status` prints the pane as text) and the `mcp__devkit-panel__status` tool. The `Conduct`, `Ship`, `Approve` and `Answer` buttons fill the prompt box with the owner's next command and never submit it. Read-only: no session start, no file write, no `prompt.submit`, no schedule beyond its 60 s refresh while the pane is open. It runs the repository's own `plugins/openspec/hooks/` in the devkit repository, else the `devkit-openspec` installed at project scope (user scope as the fallback). `userConfig.language` (`pt-BR` by default, `en`) selects its texts.

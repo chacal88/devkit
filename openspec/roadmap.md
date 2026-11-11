@@ -23,3 +23,6 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 
 ## Round 7: one change on request
 - [x] conduct-one-change — /conduct <id> conducts one change the owner names (conduct-check --change <id>, no roadmap read, unfinished work reported first); the round sweep only on an explicit `round <n>`; ADR 0007 amends ADR 0006
+
+## Round 8: release-rebase and the CI pin
+- [ ] release-rebase-pin — release-rebase and deliver-check accept a conflict in docs/openspec-flow.md when it is only the CI pin: the three stages are merged with the pin version masked, then the pin is set to the resolved devkit-openspec version; any other conflict in that file still aborts (retros: conduct-sessions item 8, conduct-one-change item 9, devkit-panel item 1)
