@@ -4,6 +4,8 @@
 
 import type { EngineInterface } from 'claude-code'
 
+import { isChangeId } from './grammar'
+
 /** The part of `$.fs` the panel reads (never writes). */
 export type PanelFs = Pick<EngineInterface['fs'], 'exists' | 'read' | 'list'>
 
@@ -97,10 +99,76 @@ async function dirNames($: Pick<PanelHost, 'fs'>, path: string): Promise<string[
   }
 }
 
-/** The open change folders not in the round, and the archived ones newest first (design D5). No checker runs. */
-export async function changeFolders($: Pick<PanelHost, 'fs'>, root: string, roundIds: readonly string[]): Promise<{ others: string[]; archived: string[] }> {
-  const changes = `${root}/openspec/changes`
-  const others = (await dirNames($, changes)).filter(name => name !== 'archive' && !roundIds.includes(name))
-  const archived = (await dirNames($, `${changes}/archive`)).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
-  return { others, archived }
+/** One checkout of `git worktree list --porcelain`: its path, and its branch unless the head is detached or bare. */
+export type Worktree = { path: string; branch?: string }
+
+/** `git worktree list --porcelain` (design D4): one block per worktree, the first being the main checkout. */
+export const parseWorktrees = (porcelain: string): Worktree[] =>
+  porcelain
+    .split(/\n\s*\n/)
+    .flatMap((block): Worktree[] => {
+      const lines = block.split('\n').map(l => l.trim())
+      const path = lines.find(l => l.startsWith('worktree '))?.slice('worktree '.length)
+      if (path === undefined || path === '') return []
+      const ref = lines.find(l => l.startsWith('branch '))?.slice('branch '.length)
+      const branch = ref?.replace(/^refs\/heads\//, '')
+      return [{ path, ...(branch !== undefined && branch !== '' ? { branch } : {}) }]
+    })
+
+/** A change the panel asks the checker about: where its id came from (design D4, D7). */
+export type Candidate = { id: string; source: 'folder' | 'branch' }
+
+
+/**
+ * The open change ids, the way the conduct skill's no-argument form lists them (design D4): the folders under
+ * `openspec/changes` of every worktree path (the root when git listed none), minus `archive`, plus the branches
+ * of every worktree but the first that are change ids; de-duplicated, a folder winning over the same branch.
+ */
+export async function candidates($: Pick<PanelHost, 'fs'>, root: string, worktrees: readonly Worktree[]): Promise<Candidate[]> {
+  const paths = [...new Set([...worktrees.map(w => w.path), root])]
+  const found: Candidate[] = []
+  const archived = new Map<string, Set<string>>()
+  const archivedIn = async (path: string): Promise<Set<string>> => {
+    const known = archived.get(path)
+    if (known !== undefined) return known
+    const ids = new Set<string>()
+    for (const name of await dirNames($, `${path}/openspec/changes/archive`)) {
+      const match = /^\d{4}-\d{2}-\d{2}-(.+)$/.exec(name)
+      if (match?.[1] !== undefined) ids.add(match[1])
+    }
+    archived.set(path, ids)
+    return ids
+  }
+  /** An id with an archived folder in the root or in its own checkout is not open (AC-6). */
+  const add = async (candidate: Candidate, own: string): Promise<void> => {
+    if (found.some(c => c.id === candidate.id)) return
+    if ((await archivedIn(root)).has(candidate.id) || (await archivedIn(own)).has(candidate.id)) return
+    found.push(candidate)
+  }
+  for (const path of paths) {
+    for (const name of await dirNames($, `${path}/openspec/changes`)) if (name !== 'archive') await add({ id: name, source: 'folder' }, path)
+  }
+  for (const w of worktrees.slice(1)) {
+    if (w.branch !== undefined && isChangeId(w.branch)) await add({ id: w.branch, source: 'branch' }, w.path)
+  }
+  return found
+}
+
+/** The first checker version that has `--change` (devkit-openspec 0.10.0, ADR 0007). */
+const MIN_CHECKER = [0, 10, 0] as const
+
+/**
+ * Whether the checker named by `label` has `conduct-check --change` (design D6): `repo` and an unreadable label
+ * are `ok` (the first `--change` run's error line then shows the real reason), below 0.10.0 is `old-checker`.
+ */
+export const checkerVersionOk = (label: string): 'ok' | 'old-checker' => {
+  const match = /(\d+)\.(\d+)\.(\d+)/.exec(label)
+  if (match === null) return 'ok'
+  const version = [Number(match[1]), Number(match[2]), Number(match[3])]
+  for (let i = 0; i < MIN_CHECKER.length; i++) {
+    const have = version[i] ?? 0
+    const need = MIN_CHECKER[i] ?? 0
+    if (have !== need) return have > need ? 'ok' : 'old-checker'
+  }
+  return 'ok'
 }

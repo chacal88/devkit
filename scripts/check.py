@@ -3,6 +3,7 @@
 - every agent/skill name matches its file/folder and its description says when to use it;
 - every relative Markdown link in the repo resolves;
 - no leftover non-English prose markers;
+- the panel's copies of the checkers' grammar (plugins/panel/hooks/grammar.ts) match the checkers' literals;
 - every `plugin install` line names its scope: `--scope project` everywhere, and `--scope user`
   only in docs/migrate-to-project-scope.md (ADR 0004).
 
@@ -118,6 +119,50 @@ def check_changelog():
         problems.append(f'CHANGELOG.md: no "## {version}" entry for marketplace version {version}')
 
 
+PANEL_GRAMMAR = ("plugins", "panel", "hooks", "grammar.ts")
+OPENSPEC_HOOKS = ("plugins", "openspec", "hooks")
+
+
+def check_panel_parity():
+    """The panel keeps copies of grammar the openspec checkers own (design D27, D3): the tasks.md headings and
+    task lines of deliver-check.mjs, the `--change` id rule of conduct-check.mjs. A copy that changes alone fails here."""
+    grammar = ROOT.joinpath(*PANEL_GRAMMAR)
+    if not grammar.is_file():
+        return
+    rel = "/".join(PANEL_GRAMMAR)
+    ts = grammar.read_text(encoding="utf-8")
+
+    def literal(name):
+        m = re.search(r"^export const " + name + r" = /(.+)/[a-z]*$", ts, re.M)
+        return m.group(1) if m else None
+
+    def read(name):
+        f = ROOT.joinpath(*OPENSPEC_HOOKS, name)
+        return f.read_text(encoding="utf-8") if f.is_file() else None
+
+    def expect_literal(name, checker):
+        src, text = literal(name), read(checker)
+        if src is None:
+            problems.append(f"{rel}: no `export const {name} = /.../` literal to compare with {checker}")
+        elif text is None:
+            problems.append(f"{rel}: {checker} not found to compare {name} with")
+        elif "/" + src + "/" not in text:
+            problems.append(f"{rel}: copy of {name} differs from {'/'.join(OPENSPEC_HOOKS)}/{checker}")
+
+    expect_literal("SECTION_RE", "deliver-check.mjs")
+    expect_literal("TASK_RE", "deliver-check.mjs")
+    expect_literal("CHANGE_ID_RE", "conduct-check.mjs")
+    ids = re.search(r"^export const NOT_IDS[^=]*= \[([^\]]*)\]", ts, re.M)
+    conduct = read("conduct-check.mjs")
+    if ids is None:
+        problems.append(f"{rel}: no `export const NOT_IDS = [...]` list to compare with conduct-check.mjs")
+    elif conduct is not None:
+        theirs = re.search(r"\[((?:'[^']*',?\s*)+)\]\.includes\(v\)", conduct)
+        mine = sorted(re.findall(r"'([^']*)'", ids.group(1)))
+        if theirs is None or sorted(re.findall(r"'([^']*)'", theirs.group(1))) != mine:
+            problems.append(f"{rel}: copy of NOT_IDS differs from {'/'.join(OPENSPEC_HOOKS)}/conduct-check.mjs")
+
+
 def main():
     global ROOT
     ap = argparse.ArgumentParser(description="devkit repository checks")
@@ -128,6 +173,7 @@ def main():
     check_language()
     check_install_scope()
     check_changelog()
+    check_panel_parity()
     print("\n".join(problems) or "all checks passed")
     sys.exit(1 if problems else 0)
 

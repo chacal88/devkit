@@ -1,7 +1,8 @@
 // Parsing of the checkers' JSON (design D5): tolerant of missing fields, unknown
 // values kept as text, nothing computed about the flow. Pure.
 
-import type { ChangeRow, DeliverItem, DeliverReport, RoundReport } from '../types'
+import type { ChangeRow, DeliverItem, DeliverReport, Phase, RoundReport } from '../types'
+import { OWNER_RUN_RE } from './grammar'
 
 type Json = Record<string, unknown>
 
@@ -54,6 +55,8 @@ const parseNext = (next: unknown): ChangeRow['next'] => {
     ...(str(n.reason) !== undefined ? { reason: str(n.reason) } : {}),
     ...(typeof n.askable === 'boolean' ? { askable: n.askable } : {}),
     ...(num(n.phase) !== undefined ? { phase: num(n.phase) } : {}),
+    ...(num(n.item) !== undefined ? { item: num(n.item) } : {}),
+    ...(num(n.round) !== undefined ? { round: num(n.round) } : {}),
   }
 }
 
@@ -110,15 +113,51 @@ export const parseRound = (stdout: string): RoundReport | undefined => {
   }
 }
 
+/** The item of `deliver-check` that reports the pull request's checks. */
+const CHECKS_ITEM = 6
+
 const STATUSES: readonly DeliverItem['status'][] = ['met', 'open', 'blocked']
+
+const LIST_FIELDS = ['unticked', 'missingGates', 'missing', 'rejected', 'stale', 'ids', 'proven', 'defects', 'noProof', 'pending'] as const
+
+/** An item's `details`, each field kept only when it has its expected type (a list field present but not a list reads empty). */
+const parseDetails = (details: unknown): DeliverItem['details'] => {
+  const d = asObject(details)
+  if (d === undefined) return undefined
+  const lists = Object.fromEntries(LIST_FIELDS.filter(key => key in d).map(key => [key, ids(d[key])]))
+  return {
+    ...lists,
+    ...(typeof d.evidence === 'string' ? { evidence: d.evidence } : {}),
+    ...('failing' in d ? { failing: objects(d.failing).flatMap(f => (str(f.name) !== undefined ? [{ name: str(f.name) ?? '' }] : [])) } : {}),
+  }
+}
 
 const parseItem = (i: Json): DeliverItem => {
   const status = str(i.status)
+  const details = parseDetails(i.details)
   return {
     id: num(i.id) ?? 0,
     name: str(i.name) ?? '',
     status: STATUSES.find(s => s === status) ?? 'open',
     ...(str(i.reason) !== undefined ? { reason: str(i.reason) } : {}),
+    ...(details !== undefined ? { details } : {}),
+  }
+}
+
+const parsePr = (pr: unknown): DeliverReport['pr'] => {
+  const p = asObject(pr)
+  const number = num(p?.number)
+  const url = str(p?.url)
+  return number !== undefined && url !== undefined ? { number, url } : null
+}
+
+const parsePhase = (p: Json): Phase => {
+  const gate = asObject(p.gate)
+  return {
+    n: num(p.n) ?? 0,
+    title: str(p.title) ?? '',
+    open: ids(p.open),
+    gate: gate === undefined ? null : { id: str(gate.id) ?? '', done: bool(gate.done) },
   }
 }
 
@@ -135,8 +174,37 @@ export const parseDeliver = (stdout: string): DeliverReport | undefined => {
     items: objects(r.items).map(parseItem),
     next: { ...next, step: str(next.step) ?? '' },
     ...(approval !== undefined ? { approval: { ok: bool(approval.ok) } } : {}),
+    pr: parsePr(r.pr),
+    phases: objects(r.phases).map(parsePhase),
   }
 }
+
+/** How the pull request's checks read (design D8 item 4), from item 6; undefined when the report has no item 6. */
+export type ChecksStatus = 'green' | 'red' | 'running' | 'unreadable'
+
+export const checksStatus = (report: DeliverReport): ChecksStatus | undefined => {
+  const item = report.items.find(i => i.id === CHECKS_ITEM)
+  if (item === undefined) return undefined
+  if (item.status === 'met') return 'green'
+  if (item.status === 'blocked') return 'unreadable'
+  if ((item.details?.failing ?? []).length > 0) return 'red'
+  if ((item.details?.pending ?? []).length > 0) return 'running'
+  return 'unreadable'
+}
+
+/** Where the change is in its phases (design D8 item 3): the current phase, the total and the finished ones. */
+export type PhaseProgress = { current: number; total: number; finished: number[] }
+
+/** A phase is finished when its gate is done and it has no open task; the current one is the first unfinished, the last when all are finished. */
+export const phaseProgress = (phases: readonly Phase[]): PhaseProgress | undefined => {
+  if (phases.length === 0) return undefined
+  const finished = phases.filter(p => p.gate?.done === true && p.open.length === 0).map(p => p.n)
+  const current = phases.find(p => !finished.includes(p.n))?.n ?? phases[phases.length - 1]?.n ?? 0
+  return { current, total: phases.length, finished }
+}
+
+/** GitHub's `API rate limit exceeded`, `secondary rate limit` and `gh`'s `GraphQL: rate limited` (design D5). */
+export const isRateLimited = (line: string): boolean => /rate limit/i.test(line)
 
 /** The one error line of a failed run: exit 3's JSON `error`, else stderr's first line, else the exit code. */
 export const checkerError = (run: CheckerRun): string => {
@@ -144,4 +212,15 @@ export const checkerError = (run: CheckerRun): string => {
   if (fromJson !== undefined && fromJson !== '') return fromJson
   const line = run.stderr.split('\n').map(l => l.trim()).find(l => l !== '')
   return line ?? `exit ${run.exitCode}`
+}
+
+/**
+ * Who acts on a row (design D25): the checker's `next.actor`, except that on `implement` and `gate` of a phase whose title holds
+ * the `owner-run` marker the owner acts, though the checker still reports the session. A reading of data already read.
+ */
+export const actorOf = (row: ChangeRow, deliver: DeliverReport | { error: string } | undefined): string => {
+  const { step, phase, actor } = row.next
+  if ((step !== 'implement' && step !== 'gate') || phase === undefined || deliver === undefined || 'error' in deliver) return actor
+  const title = deliver.phases.find(p => p.n === phase)?.title ?? ''
+  return OWNER_RUN_RE.test(title) ? 'owner' : actor
 }
