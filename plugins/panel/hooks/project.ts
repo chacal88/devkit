@@ -4,7 +4,7 @@
 
 import type { EngineInterface } from 'claude-code'
 
-import { isChangeId } from './conducted'
+import { isChangeId } from './grammar'
 
 /** The part of `$.fs` the panel reads (never writes). */
 export type PanelFs = Pick<EngineInterface['fs'], 'exists' | 'read' | 'list'>

@@ -1376,7 +1376,9 @@ Revision:
 - `holdToasts` hides a toast the owner needed (LOW × LOW) → no refresh toasts; a fill from the
   detail pane closes it before its toast, and `Copiar` answers in its own label (D10, D20).
 - The panel's `tasks.md` reading drifts from `deliver-check`'s (MEDIUM × MEDIUM) → the same two
-  expressions, and a test that compares both readings of one captured file (D27).
+  expressions, and a test that compares both readings of one captured file (D27); the copies live in
+  `plugins/panel/hooks/grammar.ts` and `scripts/check.py` (check_panel_parity, gates 3.9 and 4.9 and CI) fails
+  when a checker's literal or the panel's copy changes alone (the tasks grammar of D27, the `--change` id rule of D3).
 - The mock's look needs what the mod lacks (a tinted rounded box, a pill radius, row tints)
   (HIGH × LOW) → each substitute is named in D8's table and checked against the mock at phase 5.
 - `$.ui.copy` is read as a write against the read-only contract (LOW × MEDIUM) → it is on a press,

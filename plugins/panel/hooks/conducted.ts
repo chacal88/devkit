@@ -4,19 +4,16 @@
 import type { SessionMessage, ToolUseSummary } from 'claude-code'
 
 import type { ChangeEntry, Conducted, SessionRow } from '../types'
+import { isChangeId } from './grammar'
 import { childrenOf } from './sessions'
 
 /** The part of the engine's `SessionMessage` this reads: who wrote it, its text, and the tools an assistant message used. */
 export type Msg = Pick<SessionMessage, 'role' | 'text'> & { toolUses: readonly Pick<ToolUseSummary, 'tool' | 'input'>[] }
 
-// the checker's own `--change` rule (conduct-check.mjs): one change id
-const CHANGE_ID_RE = /^[A-Za-z0-9][\w.-]*$/
-const NOT_IDS = new Set(['.', '..', 'archive'])
+// (the id rule, a copy of the checker's `--change` rule, is in grammar.ts)
 // what a sentence or a quoting leaves around an id the owner typed
 const EDGE_NOISE_RE = /^["'`.,;:!?\s]+|["'`.,;:!?\s]+$/g
 
-/** Whether `value` is a change id by the checker's `--change` rule. */
-export const isChangeId = (value: string): boolean => CHANGE_ID_RE.test(value) && !NOT_IDS.has(value)
 // `/conduct` or `/<plugin>:conduct`
 const COMMAND = String.raw`\/(?:[^\s:<>/]+:)?conduct`
 const TAGGED_RE = new RegExp(String.raw`<command-name>${COMMAND}<\/command-name>`)

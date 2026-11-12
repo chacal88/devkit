@@ -4,17 +4,15 @@ import type { ChangeRow, DeliverItem, DeliverReport, Task, TaskSection, TaskSect
 import { clip, commandLabel, itemLines, itemSummary } from './detail'
 import { STEP_KEYS } from './i18n'
 import type { StepKey, UiText } from './i18n'
+import { OWNER_RUN_RE, SECTION_RE, TASK_RE } from './grammar'
 import { checksStatus } from './report'
 
 // ---------------------------------------------------------------- tasks.md (design D27)
 
-// the same two expressions as deliver-check.mjs#parseTasks and #readPhases
-const SECTION_RE = /^##\s+(\d+)\.\s*(.*)$/
-const TASK_RE = /^\s*[-*]\s+\[([ xX])\]\s+(\S+)\s*(.*)$/
+// SECTION_RE and TASK_RE are copies of deliver-check.mjs's: see grammar.ts, compared by scripts/check.py
 const ANY_HEADING_RE = /^##\s/
 const GATE_RE = /^Gate:[^`]*`([^`]+)`/
-// the marker a phase heading carries when the owner runs it (design D25); on a task only at its start or right after a parenthesis
-const OWNER_RUN_RE = /\bowner-run\b/
+// on a task the marker only counts at its start or right after a parenthesis (OWNER_RUN_RE, on a phase heading, is in grammar.ts)
 const TASK_OWNER_RUN_RE = /(?:^|\()owner-run\b/i
 
 const TITLE_CELLS = 40

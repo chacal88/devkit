@@ -2,6 +2,7 @@
 // values kept as text, nothing computed about the flow. Pure.
 
 import type { ChangeRow, DeliverItem, DeliverReport, Phase, RoundReport } from '../types'
+import { OWNER_RUN_RE } from './grammar'
 
 type Json = Record<string, unknown>
 
@@ -212,8 +213,6 @@ export const checkerError = (run: CheckerRun): string => {
   const line = run.stderr.split('\n').map(l => l.trim()).find(l => l !== '')
   return line ?? `exit ${run.exitCode}`
 }
-
-const OWNER_RUN_RE = /\bowner-run\b/
 
 /**
  * Who acts on a row (design D25): the checker's `next.actor`, except that on `implement` and `gate` of a phase whose title holds

@@ -1735,6 +1735,30 @@ test('AC-15 summary-and-documents: the change folder is read with no checker run
   expect(w.runs).toEqual([])
 })
 
+test('AC-15 summary-and-documents: a worktree that is gone falls back to <root>/openspec/changes/<id> for the conducted change and for another change\'s progress (design D23, D27)', async ($, on) => {
+  const w = flowWorld(on, MID_IMPLEMENTATION)
+  // the conducted change's worktree is gone: its files are on the root checkout only
+  w.dirs.delete(WORKTREE)
+  for (const [path, text] of [...w.files]) {
+    if (path.startsWith(`${FOLDER}/`)) {
+      w.files.delete(path)
+      w.files.set(path.replace(FOLDER, '/w/openspec/changes/panel-conduct-view'), text)
+    }
+  }
+  w.dirs.add('/w/openspec/changes/panel-conduct-view/specs')
+  w.dirs.add('/w/openspec/changes/panel-conduct-view/specs/panel')
+  // another change's worktree is gone too: its tasks are read from the root
+  w.dirs.delete('/w/.claude/worktrees/commit-and-pr-trailer')
+  w.files.set('/w/openspec/changes/commit-and-pr-trailer/tasks.md', '## 1. A\n\n- [x] 1.1 a\n- [ ] 1.2 b\n')
+  await start($)
+  await settle(w)
+  const status = textLines((await command($, 'status')).text ?? '')
+  expect(status.some(l => l.startsWith(SUMMARY.slice(0, 60)))).toBe(true)
+  expect(status).toContain('Proposta Design Tarefas Specs')
+  expect(status).toContain('● Implementação 4 de 9 tarefas ›')
+  expect(status.some(l => l.includes('1 de 2 tarefas · gate da fase 1'))).toBe(true)
+})
+
 // ---------------------------------------------------------------- the owner-run actor, the layout (design D25, D26)
 
 test('AC-18 owner-run-actor: the pill and the band read você age on an owner-run phase; Claude age without the marker', async ($, on) => {
