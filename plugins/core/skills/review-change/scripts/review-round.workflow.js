@@ -257,7 +257,7 @@ function writerPrompt(args, outcome) {
     + 'This is stage 3 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of 2). Do not review again.\n'
     + 'Write your verdict file ' + args.changeDir + '/reviews/' + outcome.reviewer + '.md, overwriting it, and write nothing else.\n'
     + 'Do not change, add or drop a finding, and do not reword a line. The file is, in this order:\n'
-    + 'line 1: your verdict line (Verdict: followed by your verdict), decided by your own rules from the findings below\n'
+    + 'line 1: exactly Verdict: ' + outcome.verdict + ' (the round computed it: approved only when no blocking or important finding is left open)\n'
     + 'line 2: ' + commitLine(outcome) + '\n'
     + 'a blank line, then this heading line:\n'
     + outcome.heading + '\n'

@@ -219,7 +219,7 @@ test('review round: verifierPrompt holds only its finding, the range and the wor
   assert.ok(!/Verdict:/.test(p));
 });
 
-test('review round: writerPrompt holds every line verbatim and the commit line, and suggests no verdict', () => {
+test('review round: writerPrompt holds every line verbatim and the commit line', () => {
   const args = baseArgs();
   const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding(), finding({ id: 'F2', severity: 'nit', text: 'a nit' })], { uncommitted: true }));
   const o = outcomeOf(args, s, { F1: [refute('e1'), refute('e2'), keep()] });
@@ -227,9 +227,17 @@ test('review round: writerPrompt holds every line verbatim and the commit line, 
   for (const line of o.lines) assert.ok(p.includes(line), line);
   assert.ok(p.includes(`Commit: ${SHA} (uncommitted changes)`));
   assert.ok(p.includes('openspec/changes/demo/reviews/code-quality-reviewer.md'));
-  assert.ok(!p.includes('Verdict: approved'));
-  assert.ok(!p.includes('Verdict: rejected'));
-  assert.ok(!p.includes('Verdict: declined'));
+});
+
+test('review round: writerPrompt names the verdict the round computed on line 1', () => {
+  const args = baseArgs();
+  const line1 = (p) => p.split('\n').find((l) => l.startsWith('line 1:'));
+  const open = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()])), { F1: [keep(), keep(), keep()] });
+  assert.equal(open.verdict, 'rejected');
+  assert.match(line1(writerPrompt(args, open)), /^line 1: exactly Verdict: rejected\b/);
+  const clean = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })])), {});
+  assert.equal(clean.verdict, 'approved');
+  assert.match(line1(writerPrompt(args, clean)), /^line 1: exactly Verdict: approved\b/);
 });
 
 test('review round: consolidate writes the table, the counts, the consensus line and the path', () => {
@@ -379,7 +387,7 @@ test('review round: workflow writes one prompt per reviewer with its own agent t
   assert.ok(writers[0].prompt.includes('- [nit] a.mjs:1 — two\n'));
   assert.ok(writers[0].prompt.includes(`Commit: ${SHA}`));
   assert.ok(writers[1].prompt.includes(`Commit: ${SHA2}`));
-  assert.ok(!writers.some((c) => /Verdict: (approved|rejected)/.test(c.prompt)));
+  assert.ok(writers.every((c) => c.prompt.includes('line 1: exactly Verdict: approved')));
   assert.equal(r.outcomes[0].verdict, 'approved', 'all refuted');
 });
 
