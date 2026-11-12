@@ -1,4 +1,4 @@
-Commit: 1077219956e46fe2d6a0c73c0d7220209dc3f785
+Commit: 630180f18de881ff3160ca795369b2caca5424f6
 
 # Evidence: panel-conduct-view
 
@@ -16,35 +16,31 @@ Each part ran as its own command; the exit code decided.
 
 | Gate | Command | Result |
 | --- | --- | --- |
-| 1.9, 2.9, 3.9, 4.9, 5.9 | `"$BUNDLED" plugin test plugins/panel` | pass: exit 0, 162 pass, 0 fail, 2 files (`panel.test.tsx`, `report.test.tsx`) |
-| 1.9, 2.9, 4.9 | `"$BUNDLED" plugin validate plugins/panel` | pass: exit 0, `✔ Validation passed` (one plugin-directory warning, no icon, which the command says does not change the result) |
+| 1.9, 2.9, 3.9, 4.9, 5.9 | `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin test plugins/panel` | pass: exit 0, 163 pass, 0 fail, 2 files (`panel.test.tsx`, `report.test.tsx`) |
+| 1.9, 2.9, 4.9 | `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate plugins/panel` | pass: exit 0, `✔ Validation passed` (one plugin-directory warning, no icon, which the command says does not change the result) |
 | 1.9, 4.9 | `"$HOME/.nvm/versions/node/v22.22.0/bin/claude" plugin validate plugins/panel` | pass: exit 0, `✔ Validation passed with warnings` (the `types` field is unknown to the npm CLI and ignored at load time) |
 | 1.9 | `"$HOME/.nvm/versions/node/v22.22.0/bin/claude" plugin validate .` | pass: exit 0, `✔ Validation passed with warnings` (same `types` warning) |
-| 3.9 | `"$BUNDLED" plugin validate .` | pass: exit 0, `✔ Validation passed` |
-| 3.9 | `node --test plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 648 pass, 0 fail (background run, 10 min 43 s) |
+| 3.9 | `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate .` | pass: exit 0, `✔ Validation passed` |
+| 3.9 | `node --test plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 648 pass, 0 fail (background run, 8 min 29 s) |
 | 3.9, 4.9 | `python3 scripts/check.py` | pass: exit 0, `all checks passed` |
 | 3.9 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
-| 2.7, 4.8 | `npx -y -p typescript@5.6.3 tsc -p <scratchpad>/tsc-v/tsconfig.json` | fail: exit 2, three errors (below) |
+| 2.7, 4.8 | `npx -y -p typescript@5.6.3 tsc -p <scratchpad>/tsc-v/tsconfig.json` | pass: exit 0, no errors (the 2.1.317 contract) |
+| 2.7, 4.8 | `npx -y -p typescript@5.6.3 tsc -p plugins/panel/.claude-plugin/types/tsconfig.json` | pass: exit 0, no errors (the 2.1.321 contract) |
 
 `$BUNDLED` is `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")"`,
 as the gate lines write it.
 
-The type check used the tsconfig of the earlier session that ran 2.7 and 4.8 (strict, `noUncheckedIndexedAccess`,
+The first `tsc` used the tsconfig of the earlier session that ran 2.7 and 4.8 (strict, `noUncheckedIndexedAccess`,
 `jsx: react` with `h`/`Fragment`, one file, the bundled skill's 2.1.317 `claude-code.d.ts`, `include` of
-`plugins/panel/hooks` and `plugins/panel/types`), copied to `<scratchpad>/tsc-v/tsconfig.json`. Exit status 2, errors:
+`plugins/panel/hooks` and `plugins/panel/types`), copied to `<scratchpad>/tsc-v/tsconfig.json`; the second used the
+engine-written tsconfig of the pack (the 2.1.321 contract). Both exit 0.
 
-```
-plugins/panel/hooks/pane.tsx(654,13): error TS2783: 'width' is specified more than once, so this usage will be overwritten.
-plugins/panel/hooks/register.tsx(593,142): error TS2322: Type '"terminal" | "desktop" | "mobile" | "vscode"' is not assignable to type '"terminal" | "desktop" | "mobile" | undefined'.
-plugins/panel/hooks/register.tsx(615,7): error TS2322: the same type, '"vscode"' not assignable.
-```
-
-Both of the two bundled-skill 2.1.317 contract files (hashes `0be87fe2...` and `4c4c4113...`) give the same three errors.
-Task 2.7 says any other exit than 0 ends the phase with `Outcome: failure`. See "Defect found" below.
+The `tsc` defect (exit 2 at 1077219: duplicate `width`, the `vscode` surface, `isCollapsed` on the band mount, TS2589) was found by
+my previous run and fixed in 630180f.
 
 ### Re-run of 1.1: npm install in a new scratch config folder
 
-`CLAUDE_CONFIG_DIR=<scratchpad>/npm-cfg-v` (new, empty), npm Claude Code 2.1.227, from the worktree:
+`CLAUDE_CONFIG_DIR=<scratchpad>/npm-cfg-v2` (new, empty), npm Claude Code 2.1.227, from the worktree:
 
 ```
 plugin marketplace add <worktree>          -> ✔ Successfully added marketplace: devkit (declared in user settings)   exit 0
@@ -57,7 +53,7 @@ plugin list                                -> ❯ devkit-panel@devkit
 
 ### Bundled validate: the `calls:` line
 
-From `"$BUNDLED" plugin validate plugins/panel` (exit 0):
+From `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate plugins/panel` (exit 0):
 
 ```
 ./register.tsx calls: $.clock.every, $.clock.now, $.command.register, $.env.get (via locateChecker), $.fs.exists (via deliverReport, folderOf, isDevkitRoot, readFolder, readJson), $.fs.list (via dirNames, readDoc, readFolder), $.fs.read (via isDevkitRoot, readJson, readText), $.process.run (via runProcess), $.prompt.fill (via fill), $.prompt.read (via clearFilledIfChanged, standsInPrompt), $.session.messages (via transcript), $.session.root (via load), $.state.get, $.state.set, $.tool.call (via callAppTool), $.tool.check (via mayList, openChild), $.tool.list (via isListed, mayList), $.tool.register, $.ui.close (via closeDetail, openDetail, togglePane), $.ui.copy (via copyText), $.ui.open (via openDetail, togglePane), $.ui.panes (via isPaneUp, isUp), $.ui.resolve, $.ui.scroll (via scrollTo), $.ui.toast
@@ -129,7 +125,7 @@ so the child-session signal decided, as design D3 says.
 - The owner: "nao quebra mais mas a faixa esta dupla": the bar rendered as two rows and each divider as a thick grey band.
   Fix: the bar Box with an explicit row direction, desktop dividers dropped in favour of section spacing.
 - Owner's final verdict: `Ficou certo` (bar one row, no grey bands, sections spaced as the app panel), at 161 tests; the
-  gate above ran 162 at the verified head.
+  gate above ran 163 at the verified head.
 
 ## Acceptance criteria
 
@@ -144,8 +140,8 @@ so the child-session signal decided, as design D3 says.
 | AC-7 | `no-conducted-change` with no conducted change the pane is the empty screen with the open changes | `plugin test`: the case named `AC-7 no-conducted-change` (shared with the folded-group slug) on both surfaces; the live check ran with a conducted change, so the empty screen has the test proof only | pass |
 | AC-8 | `buttons-visibly-fill` a button fills the box with its exact command, never submits, and says so | `plugin test`: 9 cases `AC-8 buttons-visibly-fill`; live: `Conduzir` and `Continuar aqui` filled the box without sending, with the hint `clique na caixa de texto e aperte Enter`; the mod API cannot move focus to the prompt, a limit the owner accepted (`Manter com a dica`) | pass |
 | AC-9 | `band-shows-conducted-change` the band line shows glyph, id, step, what is left, who acts, and the toggle | `plugin test`: 3 cases `AC-9 band-shows-conducted-change`; live: the band read `devkit · panel-conduct-view · fase 4/4 · implementar fase 4 · Claude` and `Fechar` | pass |
-| AC-10 | `loads-in-both-clis` devkit-panel loads and validates with the npm 2.1.227 and the bundled 2.1.321 | npm: `marketplace add`, `install` and `plugin list` re-run in the new scratch config `npm-cfg-v`, all exit 0, list shows `devkit-panel@devkit`, `Version: 0.2.0`, `Status: ✔ enabled`; `plugin validate .` passes with the npm binary (exit 0) and with the bundled one (exit 0), and `plugin validate plugins/panel` with both (exit 0); the `langOf` case in `plugin test` | pass |
-| AC-11 | `read-only-kept` no `prompt.submit`, `fs.write`, `store`, `clock.after` and no session-mutating tool call; the mod's tests pass on `terminal` and `desktop` | the bundled validate's `calls:` line above lists none of them (only `$.ui.copy` and `$.ui.scroll`, the two presses of design D13); `plugin test` 162 pass, 0 fail, including `AC-11 read-only-kept` (every trigger, every button, a child press, both band states, the detail pane) and the case that no refresh ever calls `open_session_in` | pass |
+| AC-10 | `loads-in-both-clis` devkit-panel loads and validates with the npm 2.1.227 and the bundled 2.1.321 | npm: `marketplace add`, `install` and `plugin list` re-run in the new scratch config `npm-cfg-v2`, all exit 0, list shows `devkit-panel@devkit`, `Version: 0.2.0`, `Status: ✔ enabled`; `plugin validate .` passes with the npm binary (exit 0) and with the bundled one (exit 0), and `plugin validate plugins/panel` with both (exit 0); the `langOf` case in `plugin test` | pass |
+| AC-11 | `read-only-kept` no `prompt.submit`, `fs.write`, `store`, `clock.after` and no session-mutating tool call; the mod's tests pass on `terminal` and `desktop` | the bundled validate's `calls:` line above lists none of them (only `$.ui.copy` and `$.ui.scroll`, the two presses of design D13); `plugin test` 163 pass, 0 fail, including `AC-11 read-only-kept` (every trigger, every button, a child press, both band states, the detail pane) and the case that no refresh ever calls `open_session_in` | pass |
 | AC-12 | `looks-like-app-panel` the pane follows the approved mock screen by screen, dividers never wrap, owner confirms it is readable | `plugin test`: 4 cases `AC-12 looks-like-app-panel` (no text-form line longer than the columns, rows laid out to the pane width, one divider per boundary, the bar at 24 to 140 columns). Owner half, from the live check: after the mock comparison and two resize fixes the owner said `Ficou certo` (bar one row, no grey bands, sections spaced as the app panel). The screenshots are not in the repository | pass |
 | AC-13 | `live-check` loaded through the app while `/conduct <id>` runs, the pane shows the change with its summary, Now box, steps, pending, documents, sessions, next step; text and reading recorded | the "Live check" section above: the dev-mods load route, both rounds' status text and `via`, every finding and its fix, the owner's final verdict `Ficou certo`. The screenshots were attached to the conversation, not committed | pass |
 | AC-14 | `flow-steps-you-are-here` ten steps with done, partial, current, pending marks and a count; a press opens the detail | `plugin test`: 11 cases `AC-14 flow-steps-you-are-here`; live: `Passos 4 de 10`, the `Implementação` step opened its detail | pass |
@@ -157,15 +153,4 @@ so the child-session signal decided, as design D3 says.
 | AC-20 | `pending-list` open tasks one per line with a short tag; a press opens the pending detail | `plugin test`: 5 cases `AC-20 pending-list` plus the combined cases; live: `Pendências 3`, a pending row opened the detail | pass |
 | AC-21 | `step-detail` the Implementation step's detail shows done of total, percentage, bar, open sections, done dimmed, `Ver tasks.md` | `plugin test`: the case `AC-21 step-detail` plus the combined cases shared with the delivery-items slug and the bar cases; live: the `Implementação` step detail, fixed for the resize wrap and the bar rows, then `Ficou certo` | pass |
 
-## Defect found
-
-`tsc` (task 2.7, re-run for 4.8) exits 2 on the head `1077219`, with three errors, all in code of the commit `0820110`:
-
-- `/Users/kauesantos/Documents/devkit/.claude/worktrees/panel-conduct-view-404c57/plugins/panel/hooks/pane.tsx` line 654: `width="100%"` is set and a later spread in the same props (line 659, `{...(isTint ? { ..., width: '100%' } : {})}`) sets `width` again (TS2783).
-- `/Users/kauesantos/Documents/devkit/.claude/worktrees/panel-conduct-view-404c57/plugins/panel/hooks/register.tsx` lines 593 and 615: `e.surface` has the type `"terminal" | "desktop" | "mobile" | "vscode"` and is passed where the 2.1.317 contract accepts `"terminal" | "desktop" | "mobile"` (TS2322).
-
-Reproduce: the tsconfig described under Gates, then `npx -y -p typescript@5.6.3 tsc -p <that tsconfig>`. Also, with the engine-written
-`plugins/panel/.claude-plugin/types/tsconfig.json`, `tsc` fails (the first error is the same `width`, and test mounts lack `isCollapsed`). The tests and
-both validates pass, so this does not show at run time; it is the failure 2.7 says ends a phase. Nothing was fixed.
-
-Outcome: defect-found.
+Outcome: verified.
