@@ -582,6 +582,7 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
   // the model's (and a headless owner's) view: the same text, after a refresh. A hook that fails names itself.
+  // @ts-ignore TS2589 on the 2.1.321 types only (the matcher over every tool's input is too deep there); the 2.1.317 types accept it
   on('tool.call', { tool: 'mcp__devkit-panel__status' }, async $ => {
     await refresh($, 'light')
     return { result: await statusText($, text) }

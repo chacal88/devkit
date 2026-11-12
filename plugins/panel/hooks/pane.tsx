@@ -112,7 +112,7 @@ export type Ctx = {
   /** Whether the pane is open: the next tick is only drawn then. */
   isPaneUp: boolean
   /** The surface the pane is drawn on: a rule is a clipped run of `─` on the terminal and an unclipped one elsewhere. */
-  surface?: 'terminal' | 'desktop' | 'mobile'
+  surface?: RenderSurface
 }
 
 const ELLIPSIS = '…'
@@ -656,7 +656,7 @@ export const renderPane = ({ Box, Text, Button, Link }: PaneElements, items: rea
             paddingLeft={item.indent * 2}
             {...(item.heading === true && !spaced ? { paddingTop: 1 } : {})}
             {...lead}
-            {...(isTint ? { backgroundColor: MOCK.stepBg, paddingX: 1, marginX: -1, width: '100%' } : {})}
+            {...(isTint ? { backgroundColor: MOCK.stepBg, paddingX: 1, marginX: -1 } : {})}
           >
             <Box flexDirection="row" columnGap={1} flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
               {item.glyph !== undefined && <Text color={paneColor(item.glyph.color)}>{item.glyph.char}</Text>}

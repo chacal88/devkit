@@ -273,7 +273,7 @@ const BAND = {
   plugin: PLUGIN,
   component: 'AbovePrompt',
   requestId: 'above-prompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 140, scroll: { offset: 0, bodyRows: 10 }, view: {} },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 140, scroll: { offset: 0, bodyRows: 10 }, view: {} },
 } as const
 
 const start = ($: Engine) => $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
@@ -1942,6 +1942,19 @@ test('AC-12 looks-like-app-panel: every row is laid out to the pane\'s own width
     expect(label).toBeDefined()
     await ui.unmount()
   }
+})
+
+test('AC-12 looks-like-app-panel: a vscode render follows the desktop layout, with no rule element and the same lines', async ($, on) => {
+  const w = flowWorld(on, MID_IMPLEMENTATION)
+  w.rows = THREE_CHILDREN()
+  await start($)
+  await settle(w)
+  const desktop = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  const vscode = await $.ui.mount({ ...PANE, surface: 'vscode' })
+  expect(nodes(await vscode.drawn()).filter(n => n.type === 'Box' && n.props?.height === 1 && (n.children ?? []).length === 0), 'vscode draws no rule element').toEqual([])
+  expect(await lines(vscode)).toEqual(await lines(desktop))
+  await desktop.unmount()
+  await vscode.unmount()
 })
 
 test('AC-12 looks-like-app-panel: one divider per section boundary on the terminal; on the desktop no rule element, and each section heading after the first has a top margin', async ($, on) => {
