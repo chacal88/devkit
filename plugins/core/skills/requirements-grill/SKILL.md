@@ -55,7 +55,11 @@ Ask with **AskUserQuestion**, **one line of reasoning at a time**: follow the th
 
 Before closing, re-read every assumption that names a file path, a config/JSON/YAML field, a function, a CLI flag or a state key. Rewrite it in the exact form an implementer would type: path from the repo root, full nesting with the parent named, `file#function`, the verbatim flag. A dotted shorthand like `outputs.summary` is never literal (nested key, a key literally named that, or a sibling?). If the owner's answers genuinely don't settle it, mark it: `AMBIGUOUS: (a) <reading> | (b) <reading>; the planner resolves`. Flag only what another question wouldn't answer.
 
-### 6. Converge and return
+### 6. Mock a visible screen
+
+A change with a visible screen (a pane, a band, a page) ends with a mock of each screen, drawn with a real example's data and only what the target can draw, approved by the owner and saved in the change folder (`mock/`); the plan maps it element by element.
+
+### 7. Converge and return
 
 When critical doubts are resolved and small ones are assumptions, stop and return the output. Don't write the spec and don't implement: the change-planner agent takes it from here.
 
@@ -72,7 +76,7 @@ Classification: domain=<..> type=<..> flags=[..] (<confirmed | strict-assumed>)
 - <assumption, in literal form>
 
 **Acceptance criteria (observable effect of done):**
-- `<kebab-id>` — <criterion>
+- AC-<n> `<kebab-id>` — <criterion>
 
 **Questions asked:**
 1. [scope | end effect | edges | project rules] <question> → <answer, summarized>
@@ -81,7 +85,7 @@ Classification: domain=<..> type=<..> flags=[..] (<confirmed | strict-assumed>)
 - REQUIRES HUMAN DECISION — <collision with ADR NNN / scope beyond the request>
 ```
 
-Each acceptance criterion gets a stable kebab-case id (from its first words) so later plan revisions and evidence can refer to it even if the prose is reworded.
+Each acceptance criterion gets `AC-<n>` (numbered in order; `deliver-check` reads `/\bAC-\d+/`) and a stable kebab-case slug from its first words, so later plan revisions and evidence can refer to it even if the prose is reworded.
 
 On opt-out, return one line: `Requirements grill skipped (owner opt-out): <reason>.`
 

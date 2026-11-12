@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.0 — retro of panel-conduct-view
+
+- **devkit-core** 0.6.1: the `requirements-grill` skill numbers acceptance criteria `AC-<n>` (with the slug beside) and ends a change with a visible screen in a mock kept in `mock/`; `tdd-implementer` never ticks a `Gate:` task; `pr-verifier` copies each gate part verbatim into its Gates table; the stage-3 writer prompt of the review round names the verdict the round computed (`Verdict: approved` or `rejected`), pinned by a test.
+- Docs: CONTRIBUTING's "Testing a mod pack" gains the version-agnostic binary form, live loading of a work-in-progress pack and what the desktop surface draws.
+
 ## 0.14.0 — panel: the conducted change
 
 - **devkit-panel** 0.2.0: the pane draws the change this session conducts (its newest `/conduct <id>`, else its own child sessions) with the next step, who acts, the phases, the PR and its checks, the eight delivery items and the phase child sessions, and folds the other changes in progress below it; a press on a child opens it, a filled button shows it is filled, and the band shows the conducted change. The layout is the owner's approved mock: the change with its summary, an `Agora` box, ten `Passos` with where the change stands, the open tasks as `Pendências`, the change's documents, and a second detail pane (Escape or `✕` closes it) for a step, the pending list, a document, another change or an error line; the phase bar, the Delivery group and the Ship button are gone, and a phase marked `owner-run` reads as the owner acting. It calls `$.ui.copy` (`Copiar`, on your press) and `$.ui.scroll` (the document's section index) besides what it called before; nothing is sent. It loads in the npm `claude` too (`userConfig.language.options` and the hooks entry are gone). The round view, `Archived` and the `--change` probe are removed; devkit-openspec 0.10.0 or newer is needed. Read-only, as before.
