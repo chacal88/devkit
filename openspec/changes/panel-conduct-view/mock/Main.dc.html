@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Painel devkit conduzindo uma change</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1A1A19;background:#FFFFFF}
+a{color:#1A1A19;text-decoration:none}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="width: 400px; min-height: 1240px; box-sizing: border-box; background: #FFFFFF; padding: 20px 24px 28px; display: flex; flex-direction: column; gap: 0px; font-size: 14px; line-height: 1.4">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px">
+<span style="font-weight: 600; font-size: 15px">devkit</span>
+<button style="border: 0; background: transparent; color: #6B6965; font-size: 13px; padding: 6px 8px; border-radius: 6px; font-family: inherit; cursor: pointer">↻ Atualizar</button>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; padding: 16px 0 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; color: #6B6965">Esta conversa conduz</span>
+<span style="font-size: 17px; font-weight: 600">controlid-settings</span>
+<span style="color: #3D3B37">O operador vê e altera as configurações dos Control iD pela nossa tela, sem abrir a interface web do aparelho.</span>
+<span style="font-size: 12px; color: #6B6965">psim-kernel · branch controlid-settings</span>
+</div>
+
+<div style="background: #F6F5F2; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 12px; color: #6B6965">Agora</span>
+<span style="font-size: 12px; color: #FFFFFF; background: {{accent}}; padding: 2px 8px; border-radius: 999px">você age</span>
+</div>
+<span style="font-weight: 600">Ligar a bancada: o iD Box está offline</span>
+<span style="font-size: 13px; color: #3D3B37">As 4 tarefas que faltam esperam o aparelho, desde 21 set. Depois: fechar a revisão, provas, PR e merge.</span>
+<div style="display: flex; gap: 8px; padding-top: 6px; flex-wrap: wrap">
+<button style="border: 1px solid #D9D6CF; background: #FFFFFF; color: #1A1A19; font-size: 13px; padding: 8px 12px; border-radius: 8px; font-family: inherit; cursor: pointer">Continuar aqui</button>
+<span style="font-size: 12px; color: #6B6965; align-self: center">põe /conduct controlid-settings na caixa</span>
+</div>
+</div>
+
+<div style="padding: 20px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Passos</span>
+<span style="font-size: 12px; color: #6B6965">4 de 10</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #2F7D4F">✓</span><span style="flex: 1">Requisitos</span><span style="font-size: 12px; color: #6B6965">grill</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #2F7D4F">✓</span><span style="flex: 1">Plano</span><span style="font-size: 12px; color: #6B6965">16 seções</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #2F7D4F">✓</span><span style="flex: 1">Prontidão</span><span style="font-size: 12px; color: #6B6965">aprovada</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #2F7D4F">✓</span><span style="flex: 1">Sua aprovação</span><span style="font-size: 12px; color: #6B6965">18 set</span></div>
+<a href="Step.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #A16207">◐</span><span style="flex: 1">Implementação</span><span style="font-size: 12px; color: #6B6965">103 de 107 tarefas ›</span></a>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0; margin: 0 -8px; padding-left: 8px; padding-right: 8px; background: #FBF1EC; border-radius: 6px"><span style="width: 16px; color: {{accent}}">●</span><span style="flex: 1; font-weight: 600">Revisão</span><span style="font-size: 12px; color: #6B6965">rodada 2 · espera bancada</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #A8A49C">○</span><span style="flex: 1; color: #6B6965">Provas</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #A8A49C">○</span><span style="flex: 1; color: #6B6965">PR e checks</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #A8A49C">○</span><span style="flex: 1; color: #6B6965">Merge</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 5px 0"><span style="width: 16px; color: #A8A49C">○</span><span style="flex: 1; color: #6B6965">Retro e arquivo</span></div>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Pendências</span>
+<span style="font-size: 12px; color: #6B6965">4</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<a href="Detail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span style="width: 16px; color: #A16207">◐</span><span style="flex: 1">16.3 Re-medir a leitura no iD Box</span><span style="font-size: 12px; color: #A16207">bancada</span></a>
+<a href="Detail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span style="width: 16px; color: #A16207">◐</span><span style="flex: 1">11.1 Aba Configurações nos 3 models</span><span style="font-size: 12px; color: #A16207">bancada</span></a>
+<a href="Detail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span style="width: 16px; color: #A16207">◐</span><span style="flex: 1">11.4 Grupo door nas 4 portas</span><span style="font-size: 12px; color: #A16207">bancada</span></a>
+<a href="Detail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span style="width: 16px; color: #A16207">◐</span><span style="flex: 1">15.8 Escrita LSB no iD Box</span><span style="font-size: 12px; color: #A16207">bancada</span></a>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 6px">
+<span style="font-weight: 600">Documentos</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px 14px">
+<a href="Doc.dc.html" style="font-size: 13px; color: #1A1A19; text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Proposta</a>
+<a href="Doc.dc.html" style="font-size: 13px; color: #1A1A19; text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Design</a>
+<a href="Doc.dc.html" style="font-size: 13px; color: #1A1A19; text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Tarefas</a>
+<a href="Doc.dc.html" style="font-size: 13px; color: #1A1A19; text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Specs</a>
+<a href="Doc.dc.html" style="font-size: 13px; color: #1A1A19; text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Provas</a>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Sessões desta change</span>
+<span style="font-size: 12px; color: #6B6965">16</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<a href="#" style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span style="width: 16px; color: #A8A49C">○</span><span style="flex: 1">Fase 16 · correções rodada 2</span><span style="font-size: 12px; color: #6B6965">ociosa ›</span></a>
+<a href="#" style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span style="width: 16px; color: #A8A49C">○</span><span style="flex: 1">Fase 11 · tela ao vivo</span><span style="font-size: 12px; color: #6B6965">ociosa ›</span></a>
+<div style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span style="width: 16px; color: #A8A49C">›</span><span style="flex: 1; color: #6B6965">14 arquivadas</span></div>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 0; display: flex; align-items: baseline; justify-content: space-between">
+<span style="color: #6B6965">› Outras changes abertas</span>
+<span style="font-size: 12px; color: #6B6965">3</span>
+</div>
+
+<div style="margin-top: 24px; font-size: 12px; color: #6B6965">Atualizado há 6 s · próxima em 54 s</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#B0502C","options":["#B0502C","#2563EB","#2F7D4F"]},"$preview":{"width":400,"height":1240}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#B0502C' };
+}
+}
+</script>
+</body>
+</html>

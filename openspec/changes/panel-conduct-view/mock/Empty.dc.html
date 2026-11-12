@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Painel sem change conduzida</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1A1A19;background:#FFFFFF}
+a{color:#1A1A19;text-decoration:none}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="width: 400px; min-height: 720px; box-sizing: border-box; background: #FFFFFF; padding: 20px 24px 28px; display: flex; flex-direction: column; font-size: 14px; line-height: 1.4">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px">
+<span style="font-weight: 600; font-size: 15px">devkit</span>
+<button style="border: 0; background: transparent; color: #6B6965; font-size: 13px; padding: 6px 8px; border-radius: 6px; font-family: inherit; cursor: pointer">↻ Atualizar</button>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; padding: 18px 0; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 17px; font-weight: 600">Nenhuma change nesta conversa</span>
+<span style="color: #3D3B37">Escolha uma abaixo para conduzir aqui. O botão põe o comando na caixa de texto; você aperta Enter.</span>
+</div>
+
+<div style="padding: 4px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Changes abertas em psim-kernel</span>
+<span style="font-size: 12px; color: #6B6965">5</span>
+</div>
+
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F0EEE9">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>controlid-settings</span><span style="font-size: 12px; color: #6B6965">103 de 107 tarefas · espera bancada</span></div>
+<button style="border: 1px solid #D9D6CF; background: #FFFFFF; color: #1A1A19; font-size: 13px; padding: 8px 12px; border-radius: 8px; font-family: inherit; cursor: pointer">Conduzir</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F0EEE9">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>homolog-run-all</span><span style="font-size: 12px; color: #6B6965">38 de 51 tarefas</span></div>
+<button style="border: 1px solid #D9D6CF; background: #FFFFFF; color: #1A1A19; font-size: 13px; padding: 8px 12px; border-radius: 8px; font-family: inherit; cursor: pointer">Conduzir</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F0EEE9">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>device-physical-proof-window</span><span style="font-size: 12px; color: #6B6965">1 de 47 tarefas</span></div>
+<button style="border: 1px solid #D9D6CF; background: #FFFFFF; color: #1A1A19; font-size: 13px; padding: 8px 12px; border-radius: 8px; font-family: inherit; cursor: pointer">Conduzir</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F0EEE9">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>xpe-akuvox-card-reader</span><span style="font-size: 12px; color: #6B6965">plano pronto · 0 de 25</span></div>
+<button style="border: 1px solid #D9D6CF; background: #FFFFFF; color: #1A1A19; font-size: 13px; padding: 8px 12px; border-radius: 8px; font-family: inherit; cursor: pointer">Conduzir</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 0">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>device-user-link-reconciliation</span><span style="font-size: 12px; color: #6B6965">plano pronto · 0 de 18</span></div>
+<button style="border: 1px solid #D9D6CF; background: #FFFFFF; color: #1A1A19; font-size: 13px; padding: 8px 12px; border-radius: 8px; font-family: inherit; cursor: pointer">Conduzir</button>
+</div>
+</div>
+
+<div style="margin-top: 24px; font-size: 12px; color: #6B6965">Atualizado há 3 s · próxima em 57 s</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":720}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

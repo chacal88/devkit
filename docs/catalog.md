@@ -104,6 +104,6 @@ Building with LLMs: evaluation, multi-agent patterns, agent tool and CLI design,
 
 ## devkit-panel
 
-Side pane over the devkit checkers: the round's changes, their next step, the linked child sessions, and buttons that put the owner's next command in the prompt box. Read-only. — [README](../plugins/panel/README.md)
+Side pane in the Claude desktop app over the devkit checkers: the change this session conducts with its next step, phases, PR, delivery items and child sessions, the other changes in progress, and buttons that put the owner's next command in the prompt box. Read-only. — [README](../plugins/panel/README.md)
 
 

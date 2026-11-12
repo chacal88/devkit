@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Documento da change</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1A1A19;background:#FFFFFF}
+a{color:#1A1A19;text-decoration:none}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="width: 400px; min-height: 1040px; box-sizing: border-box; background: #FFFFFF; padding: 20px 24px 28px; display: flex; flex-direction: column; font-size: 14px; line-height: 1.5">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-weight: 600; font-size: 15px">Proposta</span>
+<span style="font-size: 12px; color: #6B6965">controlid-settings · proposal.md</span>
+</div>
+<a href="Main.dc.html" aria-label="Fechar" style="font-size: 18px; color: #6B6965; padding: 6px 10px; border-radius: 6px">✕</a>
+</div>
+
+<div style="display: flex; gap: 4px; flex-wrap: wrap; padding-bottom: 12px">
+<span style="font-size: 13px; padding: 5px 10px; border-radius: 999px; background: #1A1A19; color: #FFFFFF">Proposta</span>
+<a href="#" style="font-size: 13px; padding: 5px 10px; border-radius: 999px; background: #F2F1ED; color: #3D3B37">Design</a>
+<a href="#" style="font-size: 13px; padding: 5px 10px; border-radius: 999px; background: #F2F1ED; color: #3D3B37">Tarefas</a>
+<a href="#" style="font-size: 13px; padding: 5px 10px; border-radius: 999px; background: #F2F1ED; color: #3D3B37">Specs</a>
+<a href="#" style="font-size: 13px; padding: 5px 10px; border-radius: 999px; background: #F2F1ED; color: #3D3B37">Provas</a>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; padding: 14px 0 4px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #6B6965">Seções</span>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px">
+<a href="#why" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Why</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">What Changes</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Non-Goals</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Capabilities</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Impact</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Dependências</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Decisões</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Acceptance criteria</a>
+<a href="#" style="text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Exit criteria</a>
+</div>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 12px; padding-top: 16px; display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 18px; line-height: 1.35; font-weight: 600">Configurações do equipamento nos três Control iD, com o motor neutro cortado antes</h1>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #F2F1ED; color: #3D3B37">device</span>
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #F2F1ED; color: #3D3B37">feature</span>
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #F2F1ED; color: #3D3B37">architecture · contract · ui</span>
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #FBF4E6; color: #7A4D05">hardware necessário</span>
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #F2F1ED; color: #3D3B37">18 set 2026</span>
+</div>
+<h2 id="why" style="margin: 8px 0 0; font-size: 15px; font-weight: 600">Why</h2>
+<p style="margin: 0; color: #3D3B37">O operador não consegue ver nem alterar as configurações de nenhum Control iD pela nossa tela: os três models do fabricante declarados em <code style="font-size: 12px; background: #F2F1ED; padding: 1px 4px; border-radius: 4px">controlid.driver.json</code> não têm <code style="font-size: 12px; background: #F2F1ED; padding: 1px 4px; border-radius: 4px">models[].settings</code>, e nenhuma das três famílias registra a chave <code style="font-size: 12px; background: #F2F1ED; padding: 1px 4px; border-radius: 4px">settings</code>.</p>
+<p style="margin: 0; color: #3D3B37">Para mexer em tempo de relé, sensor de porta, alarme, identificação por cartão/face/QR ou idioma, ele abre a interface web do próprio aparelho, exatamente a dependência que a rota única <code style="font-size: 12px; background: #F2F1ED; padding: 1px 4px; border-radius: 4px">GET/PUT /device/:id/settings</code> existe para matar.</p>
+<p style="margin: 0; color: #3D3B37">E este é o terceiro dialeto de configuração do repo, depois do ISAPI (Hikvision) e do bio-t (Intelbras)…</p>
+<span style="font-size: 12px; color: #6B6965">role para ler o resto</span>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 20px; padding-top: 14px; display: flex; align-items: center; justify-content: space-between">
+<a href="#" style="font-size: 13px; text-decoration: underline; text-decoration-color: #D9D6CF; text-underline-offset: 3px">Abrir no editor ↗</a>
+<span style="font-size: 12px; color: #6B6965">Esc fecha</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":1040}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
