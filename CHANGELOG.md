@@ -2,7 +2,7 @@
 
 ## 0.16.0 — evidence before review
 
-- **devkit-openspec** 0.13.0: `deliver-check` puts evidence before review (the `evidence` step comes before `review` in the next-step order); the instructions, skills and docs of the flow follow. The CI snippet pins `v0.13.0`.
+- **devkit-openspec** 0.13.0: `deliver-check` reports `verify` (`pr-verifier` records `evidence.md`) and `fix-defect` before `review`, so a review round never runs on code with missing or stale evidence or a failing criterion; the instructions, skills and docs of the flow follow. The CI snippet pins `v0.13.0`.
 - **devkit-core** 0.6.2: the README names evidence before review.
 - **devkit-panel** 0.2.1: `Provas` comes before `Revisão` in the ten steps.
 - Docs: the flow doc, CONTRIBUTING's release tag rule (a release that changes devkit-openspec's version is tagged on its merge commit) and the CI pin at `v0.13.0`.
