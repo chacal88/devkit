@@ -30,3 +30,9 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 ## Round 9: reviews as a workflow, and the panel
 - [x] review-workflow — the reviewer round of ship-change and /conduct becomes a script of the Workflow tool: the three reviewers in parallel, adversarial verification of their findings, and the consolidation of review.md; the delivery contract does not change
 - [x] panel-conduct-view (after: review-workflow) — devkit-panel shows the change the session is conducting (a single-change /conduct included) with its child sessions, as cards like the old orchestrator's, with buttons that visibly fill the prompt and sessions with identifying icons (owner feedback and retro of release-rebase-pin, followup rows 3 and 8)
+
+## Round 10: evidence before review
+- [x] evidence-before-review — deliver-check reports verify (and fix-defect) before a review round; schemas, skills, docs and the panel follow; release tagged v0.13.0 (requests from chacal88/Digital-Representative retros)
+
+## Round 11: review round tooling
+- [ ] review-writer-prompt — `review-round.mjs outcomes` returns each outcome's stage-3 writer prompt (`writerPrompt`), as `review-change`'s agents path says (evidence-before-review retro, item 3)
