@@ -155,12 +155,12 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
 
 ## 3. devkit-panel: Provas before Revisão (AC-6, AC-7)
 
-- [ ] 3.1 In `plugins/panel/hooks/i18n.ts`, `STEP_KEYS` becomes `[..., 'implementation', 'proofs',
+- [x] 3.1 In `plugins/panel/hooks/i18n.ts`, `STEP_KEYS` becomes `[..., 'implementation', 'proofs',
   'review', 'pr', ...]`; the `StepKey` union and `STEP_NAMES` follow the same order (design D7).
   Read `STEP_OF`, `STEP_ITEMS`, `stepOfItem`, the `partial` rules, the `isFinished` fallback and
   `nowOf`'s `then` in `plugins/panel/hooks/steps.ts` against design D7; if any of them needs a
   change, make it and amend design D7 in this phase. Verify: the 3.2 tests (AC-7 panel-order).
-- [ ] 3.2 Tests (design D7): flip `plugins/panel/hooks/report.test.tsx` lines 606, 612-613, 942,
+- [x] 3.2 Tests (design D7): flip `plugins/panel/hooks/report.test.tsx` lines 606, 612-613, 942,
   952-953, 961-965, 1017 and 1021, and `plugins/panel/hooks/panel.test.tsx` lines 396, 405-406, 444
   and 458 to the new order; add `AC-7 panel-order: ...` to `report.test.tsx` (a row with
   `next.step: verify`: Proofs `current`, Review `pending`, `then` reads `Depois: revisão, PR e
@@ -168,7 +168,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
   `● Provas ...` and then `○ Revisão`, in `mock/passos.md`'s order). The mock's numbers (5
   criteria, `0/5`, `14/14`) only illustrate the order; the tests build their own data. Verify:
   gate 3.9 (AC-7 panel-order).
-- [ ] 3.3 `plugins/panel/README.md` line 31 lists `Provas` before `Revisão`; add the panel's old
+- [x] 3.3 `plugins/panel/README.md` line 31 lists `Provas` before `Revisão`; add the panel's old
   phrases (`'review', 'proofs'`, `Revisão, Provas`, `revisão, provas`, `review, proofs`) to the
   `OLD_ORDER` list of the 2.6 test. Verify: the `instructions-follow` test passes (AC-6
   instructions-follow).

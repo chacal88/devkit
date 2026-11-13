@@ -7,9 +7,9 @@ import type { PluginOptions } from 'claude-code'
 export type Lang = 'pt-BR' | 'en'
 
 /** The ten steps of the flow, in order (design D22). */
-export type StepKey = 'requirements' | 'plan' | 'readiness' | 'approval' | 'implementation' | 'review' | 'proofs' | 'pr' | 'merge' | 'retro'
+export type StepKey = 'requirements' | 'plan' | 'readiness' | 'approval' | 'implementation' | 'proofs' | 'review' | 'pr' | 'merge' | 'retro'
 
-export const STEP_KEYS: readonly StepKey[] = ['requirements', 'plan', 'readiness', 'approval', 'implementation', 'review', 'proofs', 'pr', 'merge', 'retro']
+export const STEP_KEYS: readonly StepKey[] = ['requirements', 'plan', 'readiness', 'approval', 'implementation', 'proofs', 'review', 'pr', 'merge', 'retro']
 
 /** The words of a short list (design D21), by key so the lists stay pure. */
 export type WordKey = 'open' | 'noProof' | 'missing' | 'stale' | 'rejected' | 'failing' | 'running' | 'ownerWeighs'
@@ -244,8 +244,8 @@ const STEP_NAMES: Record<StepKey, readonly [string, string]> = {
   readiness: ['Prontidão', 'Readiness'],
   approval: ['Sua aprovação', 'Your approval'],
   implementation: ['Implementação', 'Implementation'],
-  review: ['Revisão', 'Review'],
   proofs: ['Provas', 'Proofs'],
+  review: ['Revisão', 'Review'],
   pr: ['PR e checks', 'PR and checks'],
   merge: ['Merge', 'Merge'],
   retro: ['Retro e arquivo', 'Retro and archive'],

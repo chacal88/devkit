@@ -28,7 +28,7 @@ The layout is the one the owner approved as a mock (`openspec/changes/panel-cond
 
 - **The change**: `Esta conversa conduz`, the id, a one-line summary (the `Summary:` line of `proposal.md`, else the first sentence of its `## Why`), `<repository> · branch <branch>`.
 - **Agora** (the Now box): the current step in a few words, what is left and what comes after, who acts as a pill (`você age`, `Claude age`, `GitHub age`, `parada`, `esperando`), and `Continuar aqui` with its hint. `Aprovar plano` or `Responder retro` appear on the steps that ask for them. A phase whose heading says `owner-run` reads as the owner acting, though the checker still reports the session.
-- **Passos**: ten steps (Requisitos, Plano, Prontidão, Sua aprovação, Implementação, Revisão, Provas, PR e checks, Merge, Retro e arquivo), each with a glyph (done, partly done, current, pending) and a few words of fact. A press opens the step's detail.
+- **Passos**: ten steps (Requisitos, Plano, Prontidão, Sua aprovação, Implementação, Provas, Revisão, PR e checks, Merge, Retro e arquivo), each with a glyph (done, partly done, current, pending) and a few words of fact. A press opens the step's detail.
 - **Pendências**: the open tasks of `tasks.md` (at most six, then `+N`), each with who it waits on; a press opens the pending detail.
 - **Documentos**: `Proposta`, `Design`, `Tarefas`, `Specs`, `Provas`, each only when its file exists.
 - **Sessões desta change**: the running and idle child sessions as `Fase n · <title>`; the archived ones are one folded row.

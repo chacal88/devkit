@@ -2841,6 +2841,8 @@ const OLD_ORDER = [
   'reviews, verifies', 'scoped re-review, `verify`', '`review` and `verify` follow',
   'then dispatch `pr-verifier`', 'review with a bench of specialist reviewers, verify',
   '`review-change` with six specialist reviewers, `pr-verifier`',
+  // the panel's old phrases (design D7)
+  "'review', 'proofs'", 'Revisão, Provas', 'revisão, provas', 'review, proofs',
 ];
 const textOf = (...p) => readFileSync(join(repoRoot, ...p), 'utf8');
 const before = (text, first, second, what) => {

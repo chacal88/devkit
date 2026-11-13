@@ -393,7 +393,7 @@ test('AC-15 summary-and-documents, AC-19 now-box, AC-14 flow-steps-you-are-here,
       'Agora Claude age',
       'Implementar a fase 2: The pane',
       'Faltam 2 tarefas nesta fase.',
-      'Depois: revisão, provas, PR e checks.',
+      'Depois: provas, revisão, PR e checks.',
       'Continuar aqui põe /conduct panel-conduct-view na caixa',
       '─',
       'Passos 4 de 10',
@@ -402,8 +402,8 @@ test('AC-15 summary-and-documents, AC-19 now-box, AC-14 flow-steps-you-are-here,
       '✓ Prontidão aprovada',
       '✓ Sua aprovação 18 set',
       '● Implementação 4 de 9 tarefas ›',
-      '○ Revisão',
       '○ Provas',
+      '○ Revisão',
       '○ PR e checks',
       '○ Merge',
       '○ Retro e arquivo',
@@ -441,7 +441,7 @@ test('AC-14 flow-steps-you-are-here: the planning row draws Readiness as the cur
     const ui = await $.ui.mount({ ...PANE, surface })
     const steps = section(await lines(ui), 'Passos')
     expect(steps.slice(0, 4)).toEqual(['Passos 2 de 10', '✓ Requisitos 21 critérios', '✓ Plano 3 seções', '● Prontidão a revisar'])
-    expect(steps.slice(4)).toEqual(['○ Sua aprovação', '○ Implementação', '○ Revisão', '○ Provas', '○ PR e checks', '○ Merge', '○ Retro e arquivo'])
+    expect(steps.slice(4)).toEqual(['○ Sua aprovação', '○ Implementação', '○ Provas', '○ Revisão', '○ PR e checks', '○ Merge', '○ Retro e arquivo'])
     expect(changeBlock(await lines(ui))).toContain('Prontidão do plano')
     await ui.unmount()
   }
@@ -455,8 +455,26 @@ test('AC-14 flow-steps-you-are-here, AC-3 pr-and-checks: the delivery row has Im
     const ui = await $.ui.mount({ ...PANE, surface })
     const steps = section(await lines(ui), 'Passos')
     expect(steps.slice(0, 1)).toEqual(['Passos 7 de 10'])
-    expect(steps.slice(6, 10)).toEqual(['✓ Revisão', '✓ Provas 2 de 2 critérios', '● PR e checks PR #31 · rodando · aguardando CI', '○ Merge'])
+    expect(steps.slice(6, 10)).toEqual(['✓ Provas 2 de 2 critérios', '✓ Revisão', '● PR e checks PR #31 · rodando · aguardando CI', '○ Merge'])
     expect(changeBlock(await lines(ui))).toContain('Aguardando CI')
+    await ui.unmount()
+  }
+})
+
+test('AC-7 panel-order: with next.step verify both surfaces draw Provas as the current step and Revisão after it, pending', async ($, on) => {
+  const row = JSON.parse(DELIVERY.rowStdout) as { changes: { next: Record<string, unknown> }[] }
+  row.changes = row.changes.map(c => ({ ...c, next: { ...c.next, step: 'verify', actor: 'session' } }))
+  const w = flowWorld(on, { ...DELIVERY, rowStdout: JSON.stringify(row) })
+  await start($)
+  await settle(w)
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const all = await lines(ui)
+    const steps = section(all, 'Passos')
+    const proofs = steps.findIndex(l => l.startsWith('● Provas'))
+    expect(proofs).toBeGreaterThan(0)
+    expect(steps[proofs + 1]).toBe('○ Revisão')
+    expect(steps.indexOf('✓ Revisão')).toBe(-1)
     await ui.unmount()
   }
 })
