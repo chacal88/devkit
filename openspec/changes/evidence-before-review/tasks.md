@@ -44,14 +44,14 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
 
 ## 1. deliver-check: evidence before review (AC-1, AC-2, AC-3, AC-4, AC-5)
 
-- [ ] 1.1 In `plugins/openspec/hooks/deliver-check.mjs#nextStep`, move the `fix-defect` block (with
+- [x] 1.1 In `plugins/openspec/hooks/deliver-check.mjs#nextStep`, move the `fix-defect` block (with
   its `const ac`) and the `verify` block to just after the `fix-review` block and before the
   `toReview` / `review` block (design D2). Nothing else in `nextStep` moves; `staleness()`, the step
   names, the `round` computation and the JSON stay as they are. The comment above `nextStep` names
   this change's design D2 beside "design D4, first match wins". Verify: the tests of 1.2 and 1.3
   pass and fail on the old order (AC-1 evidence-first, AC-2 defect-before-review, AC-3
   fix-restales-both).
-- [ ] 1.2 Unit tests in `plugins/openspec/hooks/deliver-check.test.mjs`, beside the `nextStep row`
+- [x] 1.2 Unit tests in `plugins/openspec/hooks/deliver-check.test.mjs`, beside the `nextStep row`
   tests, built with `state()`:
   - `AC-1 evidence-first: ...`: item 1 or item 4 with evidence missing (and stale) and item 2 with
     both reviewers missing (and stale) gives `verify`; evidence current with no defect and the
@@ -64,7 +64,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
     item 4.
 
   Verify: each test fails when 1.1 is reverted.
-- [ ] 1.3 Integration tests in `deliver-check.test.mjs` with `shipRepo()`, `reviewAt()` and
+- [x] 1.3 Integration tests in `deliver-check.test.mjs` with `shipRepo()`, `reviewAt()` and
   `fullEvidence()`:
   - the walkthroughs flip (design D5): `driveToReady` gives `[..., 'commit', 'verify', 'review',
     'open-pr', 'ready']` (line 1781) and the merge-mode one `'verify', 'review'` (line 2324);
@@ -76,13 +76,13 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
     `verify`, then `review`, then after the reviews `push`.
 
   Verify: these tests pass (AC-1 evidence-first, AC-3 fix-restales-both).
-- [ ] 1.4 `AC-4 no-mutual-staleness: ...` tests in `deliver-check.test.mjs` (design D3), with
+- [x] 1.4 `AC-4 no-mutual-staleness: ...` tests in `deliver-check.test.mjs` (design D3), with
   `gitRepo` / `collectState` on a committed change: `evidence.md` at `HEAD`, then `reviews/*.md`
   written uncommitted, then committed: items 1 and 4 keep `evidence: 'current'` both times; the
   reverse (reviews at `HEAD`, then `evidence.md` uncommitted, then committed): item 2 stays `met`
   both times. Verify: the tests pass, and the same assertions fail when a `src/` file is committed
   in between (the control case).
-- [ ] 1.5 `AC-5 guards-kept: ...` tests (design D4):
+- [x] 1.5 `AC-5 guards-kept: ...` tests (design D4):
   - in `plugins/openspec/hooks/guard.test.mjs`, beside "gh pr create needs approved reviews and
     evidence": `evidence.md` written first and no `reviews/` refuses `gh pr create` with
     `review not approved`; approved reviews and no `evidence.md` refuses it with `evidence.md`;
@@ -92,7 +92,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
 
   Verify: the tests pass; `guard.mjs` and the `--ci` code are unchanged (`git diff` shows no line of
   `guard.mjs` and no line outside `nextStep` in `deliver-check.mjs`).
-- [ ] 1.6 Adjust the existing tests that asked for `review` while the evidence was missing, by
+- [x] 1.6 Adjust the existing tests that asked for `review` while the evidence was missing, by
   design D5's rule (about the order: flip; about something else: record evidence first):
   in `deliver-check.test.mjs`, as design D5's table says:
   - line 1717 (scoped re-review): record `fullEvidence` before each `t.next()`;

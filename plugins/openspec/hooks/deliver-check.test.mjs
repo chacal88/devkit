@@ -1402,6 +1402,55 @@ test('nextStep row 11 before row 10: a defect row on stale evidence is verified 
   assert.equal(nextStep(state({ items: { 4: open({ defects: ['AC-1'], evidence: 'stale' }) } })).step, 'verify');
 });
 
+const BOTH = ['code-quality-reviewer', 'test-coverage-reviewer'];
+const noReviews = (kind) => (kind === 'stale'
+  ? { reviews: BOTH.map((name) => ({ name, verdict: 'APPROVED', current: false })), 2: open({ stale: BOTH }) }
+  : { reviews: [], 2: open({ missing: BOTH }) });
+
+test('AC-1 evidence-first: missing or stale evidence with both reviewers missing or stale goes to verify, not review', () => {
+  for (const evidence of [{ 1: open({ evidence: 'missing' }) }, { 4: open({ evidence: 'stale', proven: [] }) }]) {
+    for (const kind of ['missing', 'stale']) {
+      const r = noReviews(kind);
+      const n = nextStep(state({ reviews: r.reviews, items: { ...evidence, 2: r[2] } }));
+      assert.equal(n.step, 'verify', `${JSON.stringify(evidence)} ${kind}`);
+    }
+  }
+});
+
+test('AC-1 evidence-first: current evidence with no defect and the reviewers missing goes to review with both, round 1', () => {
+  const r = noReviews('missing');
+  const n = nextStep(state({ reviews: r.reviews, items: { 2: r[2] } }));
+  assert.deepEqual([n.step, n.reviewers, n.round], ['review', BOTH, 1]);
+});
+
+test('AC-2 defect-before-review: a defect row at current evidence goes to fix-defect with the reviewers missing, stale, or approved', () => {
+  const defect = { 4: open({ defects: ['AC-1'], proven: [] }) };
+  for (const kind of ['missing', 'stale']) {
+    const r = noReviews(kind);
+    const n = nextStep(state({ reviews: r.reviews, items: { ...defect, 2: r[2] } }));
+    assert.deepEqual([n.step, n.defects], ['fix-defect', ['AC-1']], kind);
+  }
+  assert.equal(nextStep(state({ items: defect })).step, 'fix-defect', 'approved, nothing undisposed');
+});
+
+test('D2: a current rejected review beside a current defect gives fix-review, before fix-defect', () => {
+  const n = nextStep(rejectedState({ items: { 4: open({ defects: ['AC-1'], proven: [] }) } }));
+  assert.equal(n.step, 'fix-review');
+});
+
+test('D2: a round-2 deadlock stays first, with the evidence missing', () => {
+  const n = nextStep(rejectedState({ reviewMd: { consensus: 'FAIL', round: 2 }, items: { 1: open({ evidence: 'missing' }) } }));
+  assert.equal(n.step, 'stop-review-deadlock');
+});
+
+test('D2: a no-proof criterion at current evidence still reviews, then blocks at item 4', () => {
+  const noProof = blocked({ noProof: ['AC-1'], proven: [] });
+  const r = noReviews('missing');
+  assert.equal(nextStep(state({ reviews: r.reviews, items: { 2: r[2], 4: noProof } })).step, 'review');
+  const stuck = nextStep(state({ items: { 4: noProof } }));
+  assert.deepEqual([stuck.step, stuck.item], ['blocked', 4]);
+});
+
 test('nextStep row 12: a blocked item 1 to 4 stops with that item', () => {
   for (const n of [1, 2, 3, 4]) {
     const r = nextStep(state({ items: { [n]: blocked() } }));
@@ -1719,6 +1768,7 @@ test('resume: code committed with one review current runs only the other reviewe
   tick(t.root, '1.1', '1.2', '2.1', '2.2', '2.3');
   commitAll(t.root, 'all code');
   reviewAt(t.root, ['code-quality-reviewer']);
+  fullEvidence(t.root, t.env);
   let n = t.next();
   assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['test-coverage-reviewer'], 1]);
 
@@ -1729,6 +1779,7 @@ test('resume: code committed with one review current runs only the other reviewe
   put(t.root, { 'src/a.ts': 'fixed\n' });
   commitAll(t.root, 'fix after review');
   reviewAt(t.root, ['code-quality-reviewer']);
+  fullEvidence(t.root, t.env);
   n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', ['test-coverage-reviewer']]);
 });
@@ -1778,7 +1829,7 @@ function driveToReady(t) {
 }
 
 test('walkthrough: a devkit-lite change goes from no ticked task to ready without a stop step (AC-2)', () => {
-  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'review', 'verify', 'open-pr', 'ready']);
+  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'ready']);
 });
 
 test('resume: a round-2 deadlock on disk stops while current and re-reviews as round 1 after the owner\'s product commit (AC-4, AC-5)', () => {
@@ -1791,9 +1842,95 @@ test('resume: a round-2 deadlock on disk stops while current and re-reviews as r
   assert.equal(n.step, 'stop-review-deadlock');
   put(t.root, { 'src/a.ts': 'owner fixed it by hand\n' });
   commitAll(t.root, 'owner fix');
+  assert.equal(t.next().step, 'verify');
+  fullEvidence(t.root, t.env);
   n = t.next();
   assert.deepEqual([n.step, n.round], ['review', 1]);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
+});
+
+// A devkit-lite change driven to ready: code, reviews and evidence current, PR open, one commit ahead of nothing.
+function readyRepo() {
+  const t = shipRepo();
+  assert.equal(driveToReady(t).at(-1), 'ready');
+  return t;
+}
+const productCommit = (t, text = 'a later product change\n') => { put(t.root, { 'src/a.ts': text }); return commitAll(t.root, 'product change'); };
+
+test('AC-3 fix-restales-both (a): after a rejected review and its fix commit, verify comes first and then review at round 2', () => {
+  const t = readyRepo();
+  put(t.root, withReviews({ 'code-quality-reviewer': review('rejected', head(t.root)), 'test-coverage-reviewer': review('approved', head(t.root)) }));
+  put(t.root, changeFiles({ 'review.md': '# Review: feat\n\nConsensus: FAIL (round 1/2)\n' }));
+  assert.equal(t.next().step, 'fix-review');
+  productCommit(t);
+  assert.equal(t.next().step, 'verify');
+  fullEvidence(t.root, t.env);
+  const n = t.next();
+  assert.deepEqual([n.step, n.round, n.reviewers], ['review', 2, ['code-quality-reviewer', 'test-coverage-reviewer']]);
+});
+
+test('AC-3 fix-restales-both (b): after a fail row and its fix commit, verify comes first and then review', () => {
+  const t = readyRepo();
+  ev(t.root, `Commit: ${head(t.root)}\n\n# Evidence\n\n### Gates\n| gate | command | result |\n|---|---|---|\n${gateRow('node -e 0', 'pass: ok')}${gateRow('node -v', 'pass: ok')}\n### Acceptance\n${acRow('AC-1', 'fail: red')}${acRow('AC-2', 'verified: r')}`);
+  assert.equal(t.next().step, 'fix-defect');
+  productCommit(t);
+  assert.equal(t.next().step, 'verify');
+  fullEvidence(t.root, t.env);
+  assert.deepEqual([t.next().step], ['review']);
+});
+
+test('AC-3 fix-restales-both (c): after a failing check and its fix commit, verify, then review, then push', () => {
+  const t = readyRepo();
+  t.gh.set('pr-checks', { exit: 1, stdout: [check('build', 'fail')] });
+  assert.equal(t.next().step, 'fix-checks');
+  productCommit(t);
+  let n = t.next();
+  assert.equal(n.step, 'verify');
+  fullEvidence(t.root, t.env);
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['review', ['code-quality-reviewer', 'test-coverage-reviewer']]);
+  reviewAt(t.root, n.reviewers);
+  assert.equal(t.next().step, 'push');
+});
+
+// ---- AC-4: evidence.md and reviews/*.md written one after the other never stale each other (design D3)
+
+function committedChange() {
+  const t = shipRepo();
+  tick(t.root, '1.1', '1.2', '2.1', '2.2', '2.3');
+  commitAll(t.root, 'all code');
+  return t;
+}
+const itemsOf = (t) => collectState(t.root, 'feat', { env: t.env }).items;
+const bothEvidenceCurrent = (t) => { const i = itemsOf(t); return [i[0].details.evidence, i[3].details.evidence]; };
+
+test('AC-4 no-mutual-staleness: reviews written after the evidence leave the evidence current, uncommitted and committed', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  reviewAt(t.root, BOTH);
+  assert.deepEqual(bothEvidenceCurrent(t), ['current', 'current'], 'reviews uncommitted');
+  commitAll(t.root, 'reviews');
+  assert.deepEqual(bothEvidenceCurrent(t), ['current', 'current'], 'reviews committed');
+});
+
+test('AC-4 no-mutual-staleness: evidence written after the reviews leave item 2 met, uncommitted and committed', () => {
+  const t = committedChange();
+  reviewAt(t.root, BOTH);
+  fullEvidence(t.root, t.env);
+  assert.equal(itemsOf(t)[1].status, 'met', 'evidence uncommitted');
+  commitAll(t.root, 'evidence');
+  assert.equal(itemsOf(t)[1].status, 'met', 'evidence committed');
+});
+
+test('AC-4 no-mutual-staleness: control, a product commit in between does make them stale', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  productCommit(t);
+  assert.deepEqual(bothEvidenceCurrent(t), ['stale', 'stale']);
+  const u = committedChange();
+  reviewAt(u.root, BOTH);
+  productCommit(u);
+  assert.equal(itemsOf(u)[1].status, 'open');
 });
 
 // ---------------------------------------------------------------- merge mode: facts and items (auto-merge 2.3, design D6)
@@ -2321,7 +2458,7 @@ test('--watch outside wait-merge never polls (enable-auto-merge, and no --watch 
 test('walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then the retro', () => {
   const t = shipRepo({ ship: 'merge' });
   const taken = driveToReady(t);
-  assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'review', 'verify', 'open-pr', 'enable-auto-merge']);
+  assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'enable-auto-merge']);
 
   const pr = (extra = {}, sha = head(t.root)) => t.gh.set('pr-view', { stdout: prJson({ headRefOid: sha, body: PR_BODY, ...extra }) });
   const step = () => nextStep(collectState(t.root, 'feat', { env: t.env }));
@@ -2340,10 +2477,11 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
 
   n = step();
   seen.push(n.step);
+  fullEvidence(t.root, t.env);
+  n = step();
+  seen.push(n.step);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
   reviewAt(t.root, n.reviewers);
-  seen.push(step().step);
-  fullEvidence(t.root, t.env);
   seen.push(step().step);
 
   commitAll(t.root, 'ship change files'); // the push
@@ -2358,7 +2496,7 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
   presetArchiveReads(t);
   seen.push(step().step);
 
-  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'review', 'verify', 'push', 'enable-auto-merge', 'wait-merge', 'retro']);
+  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'verify', 'review', 'push', 'enable-auto-merge', 'wait-merge', 'retro']);
   assert.deepEqual(noMergeCall(t), [], 'deliver-check never merges; the skill runs gh pr merge');
 });
 
@@ -2787,6 +2925,29 @@ test('--ci: a product commit after the reviews makes them stale and fails with e
   assert.match(r.out, /^ {2}2 open\s+reviews at head: .*stale code-quality-reviewer/m);
   assert.match(r.out, /^fail: item 1, item 2, item 4$/m, 'evidence is stale too');
   assert.equal(runCi(root, ['--json']).json().pass, false);
+});
+
+test('AC-5 guards-kept: --ci with only the reviews re-recorded at a later product commit fails with items 1 and 4', () => {
+  const root = ciRepo();
+  put(root, { 'src/a.ts': 'changed\n' });
+  commitAll(root, 'later product commit');
+  put(root, withReviews(reviews(head(root))));
+  commitAll(root, 'reviews only');
+  const r = runCi(root);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /^fail: item 1, item 4$/m);
+});
+
+test('AC-5 guards-kept: --ci with only the evidence re-recorded at a later product commit fails with item 2', () => {
+  const root = ciRepo();
+  put(root, { 'src/a.ts': 'changed\n' });
+  commitAll(root, 'later product commit');
+  const sha = head(root);
+  ev(root, `Commit: ${sha}\n\n# Evidence\n\n### Gates\n| gate | command | result |\n|---|---|---|\n${ciGate()}\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n${acRow('AC-1', 'pass: t')}`);
+  commitAll(root, 'evidence only');
+  const r = runCi(root);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /^fail: item 2$/m);
 });
 
 test('--ci: fails for each of an undisposed blocking finding, an AC without a pass row, a no proof AC and a gate without a passing row (AC-5)', () => {
