@@ -107,7 +107,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
   `subagent` `devkit-core:pr-verifier`, then, with evidence recorded, `['review', 'review']`).
   Any other test the suite turns red follows the same rule and is named in the phase report.
   Verify: the guard suite is green (gate 1.9) (AC-1 evidence-first).
-- [ ] 1.9 Gate: `node --test plugins/openspec/hooks/guard.test.mjs` green (AC-1 evidence-first, AC-2 defect-before-review, AC-3 fix-restales-both, AC-4 no-mutual-staleness, AC-5 guards-kept). Run as a background Bash.
+- [x] 1.9 Gate: `node --test plugins/openspec/hooks/guard.test.mjs` green (AC-1 evidence-first, AC-2 defect-before-review, AC-3 fix-restales-both, AC-4 no-mutual-staleness, AC-5 guards-kept). Run as a background Bash.
 
 ## 2. Instructions, skills and docs (AC-6)
 
