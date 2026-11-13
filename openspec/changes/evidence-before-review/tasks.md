@@ -111,7 +111,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
 
 ## 2. Instructions, skills and docs (AC-6)
 
-- [ ] 2.1 Schemas (design D6): in `plugins/openspec/schemas/devkit/schema.yaml` and
+- [x] 2.1 Schemas (design D6): in `plugins/openspec/schemas/devkit/schema.yaml` and
   `plugins/openspec/schemas/devkit-lite/schema.yaml`, `apply.instruction` dispatches
   `devkit-core:pr-verifier` first (a defect fixed by `tdd-implementer`, then `pr-verifier` again),
   then the review-change skill (after a fix: `pr-verifier` again, then the reviewers concerned),
@@ -119,25 +119,25 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
   byte-identical to `openspec/schemas/devkit/schema.yaml` and
   `openspec/schemas/devkit-lite/schema.yaml`. Verify: `cmp` of each pair exits 0 and
   `openspec schema validate devkit` and `devkit-lite` print valid (AC-6 instructions-follow).
-- [ ] 2.2 Configs (design D6): `plugins/openspec/skills/openspec-setup/templates/config.yaml` and
+- [x] 2.2 Configs (design D6): `plugins/openspec/skills/openspec-setup/templates/config.yaml` and
   `openspec/config.yaml`: the header comment reads "apply → evidence + reviews", and the
   `operations.apply.guidance` line dispatches `devkit-core:pr-verifier` before `review-change`.
   Verify: `node --test --test-name-pattern="the config template says who merges"
   plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs` stays green (it reads other
   lines of the template; the whole file takes about seven minutes, so filter it) and the 2.6 test
   passes (AC-6 instructions-follow).
-- [ ] 2.3 Skills (design D6): `plugins/openspec/skills/ship-change/SKILL.md` (description "verifies,
+- [x] 2.3 Skills (design D6): `plugins/openspec/skills/ship-change/SKILL.md` (description "verifies,
   reviews"; Mode list `pr-verifier`, `review-change`; the `commit` row "verify and review run
   next"; Resume; the Hosts `app` line `fix-checks`, its commit, `verify`, scoped re-review, `push`)
   and `plugins/openspec/skills/conduct/SKILL.md` (the Delivery rows sentence on the checker's
   order). The step table keeps a row for every `next.step`. Verify: the `format: ship-change ...`
   tests pass and the 2.6 test passes (AC-6 instructions-follow).
-- [ ] 2.4 `docs/openspec-flow.md` (design D6): lines 51, 61, 199, 420 and 541 in the new order, and a
+- [x] 2.4 `docs/openspec-flow.md` (design D6): lines 51, 61, 199, 420 and 541 in the new order, and a
   new **Order of the delivery steps.** paragraph in "The delivery contract", after "The `Commit:`
   staleness rule", with design D2's rows and why reviews and evidence never stale each other.
   The CI pin is not touched here (task 4.3). Verify: `python3 scripts/check.py` (links, language)
   and the 2.6 test pass (AC-6 instructions-follow).
-- [ ] 2.5 READMEs and descriptions (design D6): `plugins/core/README.md` (line 3, the line-17
+- [x] 2.5 READMEs and descriptions (design D6): `plugins/core/README.md` (line 3, the line-17
   diagram with the `│` above still aligned, the "Prove it works" row above "Review"), `README.md`
   (line 9 list, line 47 diagram), the devkit-openspec `description` in
   `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` ("TDD →
@@ -145,7 +145,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
   catalog blocks. Verify: `python3 scripts/gen-catalog.py --check` exits 0 and
   `node --test plugins/core/skills/review-change/scripts/review-round.test.mjs` is green (it reads
   the core README's Review row) (AC-6 instructions-follow).
-- [ ] 2.6 The text test `AC-6 instructions-follow: ...` in `deliver-check.test.mjs`, beside the
+- [x] 2.6 The text test `AC-6 instructions-follow: ...` in `deliver-check.test.mjs`, beside the
   `format:` tests (design D6): the schema copies are identical; the positive markers of the listed
   files; the `OLD_ORDER` scan over `git ls-files` outside `openspec/changes/`, `CHANGELOG.md`,
   `plugins/panel/hooks/fixtures/` and the test file itself, with design D6's phrases. Verify: it

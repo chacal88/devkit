@@ -2833,6 +2833,73 @@ test('format: ship-change skill exists, says "Use when", and its deliver-check p
   assert.ok(existsSync(join(dir, rel)), 'the path resolves from the skill directory');
 });
 
+// AC-6 instructions-follow: every text that sequences the delivery steps says evidence first, then review (design D6)
+const OLD_ORDER = [
+  'review → evidence', 'review + evidence', 'reviews + evidence', 'pr-verifier ◀── review-change',
+  '1. Run the review-change skill', 'then dispatch devkit-core:pr-verifier',
+  '`review-change`, `pr-verifier`', 'for only the reviewers that went stale, `pr-verifier`',
+  'reviews, verifies', 'scoped re-review, `verify`', '`review` and `verify` follow',
+  'then dispatch `pr-verifier`', 'review with a bench of specialist reviewers, verify',
+  '`review-change` with six specialist reviewers, `pr-verifier`',
+];
+const textOf = (...p) => readFileSync(join(repoRoot, ...p), 'utf8');
+const before = (text, first, second, what) => {
+  const a = text.indexOf(first);
+  const b = text.indexOf(second);
+  assert.ok(a >= 0, `${what}: has ${first}`);
+  assert.ok(b >= 0, `${what}: has ${second}`);
+  assert.ok(a < b, `${what}: ${first} comes before ${second}`);
+};
+
+test('AC-6 instructions-follow: the schema copies are identical and dispatch pr-verifier before review-change', () => {
+  for (const s of ['devkit', 'devkit-lite']) {
+    const plugin = textOf('plugins', 'openspec', 'schemas', s, 'schema.yaml');
+    assert.equal(textOf('openspec', 'schemas', s, 'schema.yaml'), plugin, `${s} copies are byte-identical`);
+    const apply = plugin.slice(plugin.indexOf('\napply:'));
+    before(apply, 'pr-verifier', 'review-change', `${s} apply`);
+    assert.match(plugin, /^description: .*evidence \+ review before the PR/m, `${s} description`);
+  }
+});
+
+test('AC-6 instructions-follow: configs, ship-change, conduct, flow doc and READMEs name evidence before review', () => {
+  for (const f of [['plugins', 'openspec', 'skills', 'openspec-setup', 'templates', 'config.yaml'], ['openspec', 'config.yaml']]) {
+    const t = textOf(...f);
+    const line = t.split('\n').find((l) => l.includes('devkit-core:pr-verifier') && l.includes('review-change'));
+    assert.ok(line, `${f.join('/')} guidance line`);
+    before(line, 'devkit-core:pr-verifier', 'review-change', f.join('/'));
+    assert.match(t, /apply →\s*(?:#\s*)?evidence \+ reviews/, `${f.join('/')} header`);
+  }
+  const ship = textOf('plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md');
+  const mode = ship.split('\n').find((l) => l.includes('`tdd-implementer`') && l.includes('`review-change`'));
+  assert.ok(mode, 'ship-change Mode paragraph');
+  before(mode, '`pr-verifier`', '`review-change`', 'ship-change Mode');
+  assert.match(ship, /verifies, reviews, opens the PR/);
+  const conduct = textOf('plugins', 'openspec', 'skills', 'conduct', 'SKILL.md');
+  const delivery = conduct.slice(conduct.indexOf('Delivery rows'));
+  before(delivery, '`verify`', '`review`', 'conduct Delivery rows');
+  const flow = textOf('docs', 'openspec-flow.md');
+  const applyLine = flow.split('\n').find((l) => l.startsWith('`apply` requires `readiness`'));
+  assert.ok(applyLine, 'flow doc apply paragraph');
+  before(applyLine, '`pr-verifier`', '`review-change`', 'flow doc apply');
+  assert.match(flow, /\*\*Order of the delivery steps\.\*\*/);
+  for (const f of [['plugins', 'core', 'README.md'], ['README.md']]) {
+    assert.ok(textOf(...f).includes('review-change ◀── pr-verifier'), `${f.join('/')} diagram`);
+  }
+});
+
+test('AC-6 instructions-follow: no tracked file outside the records still says review before evidence', () => {
+  const files = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' }).split('\n').filter(Boolean)
+    .filter((f) => !f.startsWith('openspec/changes/') && f !== 'CHANGELOG.md' && !f.startsWith('plugins/panel/hooks/fixtures/')
+      && f !== 'plugins/openspec/hooks/deliver-check.test.mjs' && existsSync(join(repoRoot, f)));
+  const hits = [];
+  for (const f of files) {
+    let t;
+    try { t = readFileSync(join(repoRoot, f), 'utf8'); } catch { continue; }
+    for (const p of OLD_ORDER) if (t.includes(p)) hits.push(`${f}: ${p}`);
+  }
+  assert.deepEqual(hits, []);
+});
+
 test('format: ship-change names every next.step the checker can return', () => {
   const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
   const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'stop-plan-approval', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready',

@@ -93,7 +93,7 @@ The planning steps come before any delivery step. `next.step` of a change in `ch
 
 ## Delivery rows
 
-Do what the ship-change skill's Loop says for this `next.step`, in the change's worktree, with these differences:
+Do what the ship-change skill's Loop says for this `next.step`, in the change's worktree, with these differences. The checker orders the delivery steps as that Loop runs them: after the phases `pr-verifier` records the evidence (`verify`, and `fix-defect` until no defect is left) before a `review` round, and a fix outside `openspec/` makes both stale again (`verify`, then `review`).
 
 1. Every dispatch prompt starts with the worktree preamble: "Work only in `<worktree>` on branch `<branch>`; every file path is absolute under it; start every Bash command with `cd <worktree> && `; do not fetch." Pass it to every reviewer too.
 2. `wait-checks` and `wait-merge` are not run per change: the round's single watch covers them (see Waits).
