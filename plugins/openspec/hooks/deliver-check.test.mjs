@@ -3347,6 +3347,24 @@ test('the pin in docs/openspec-flow.md is the commit sha of v + the devkit-opens
   assert.match(doc, new RegExp(`# .*v${v.replaceAll('.', '\\.')}`), 'a comment in the snippet names the tag');
 });
 
+test('AC-8 release-ready: every pack version matches its marketplace entry, the doc pin names the devkit-openspec version and CONTRIBUTING holds the tag rule', () => {
+  const repo = join(here, '..', '..', '..');
+  const market = JSON.parse(readFileSync(join(repo, '.claude-plugin', 'marketplace.json'), 'utf8'));
+  assert.ok(market.plugins.length > 0);
+  for (const entry of market.plugins) {
+    const pack = JSON.parse(readFileSync(join(repo, entry.source, '.claude-plugin', 'plugin.json'), 'utf8'));
+    assert.equal(entry.version, pack.version, entry.name);
+  }
+  const v = JSON.parse(readFileSync(join(repo, 'plugins', 'openspec', '.claude-plugin', 'plugin.json'), 'utf8')).version;
+  const doc = readFileSync(join(repo, 'docs', 'openspec-flow.md'), 'utf8');
+  assert.ok(doc.includes(`<commit sha of v${v}>`), 'the doc pin names the tag');
+  assert.ok(doc.includes(`gh api repos/chacal88/devkit/git/ref/tags/v${v}`), 'the by-hand command names the tag');
+  const contributing = readFileSync(join(repo, 'CONTRIBUTING.md'), 'utf8');
+  assert.ok(contributing.includes(`v<that version>`) || contributing.includes(`v${v}`), 'the tag rule names the tag');
+  assert.match(contributing, /merge commit/);
+  assert.match(contributing, /lightweight/);
+});
+
 // ================================================================ after the merge: the archive steps (archive-after-merge phase 2)
 
 const EVIDENCE_LINK = 'openspec/changes/feat/evidence.md';

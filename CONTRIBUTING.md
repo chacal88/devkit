@@ -37,7 +37,7 @@ When a change alters how the owner works (what runs, in which order, who starts 
    node --test plugins/openspec/hooks/guard.test.mjs
    ```
 
-   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs`, `github-setup.test.mjs` and devkit-core's `plugins/core/skills/review-change/scripts/review-round.test.mjs`, so this one command runs every hook test and the review round's tests (about 9 minutes; 8.7 observed on 94e795d); give reviewers its result instead of having them re-run it. To run only the review round's tests, use `node --test plugins/core/skills/review-change/scripts/review-round.test.mjs`.
+   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs`, `github-setup.test.mjs` and devkit-core's `plugins/core/skills/review-change/scripts/review-round.test.mjs`, so this one command runs every hook test and the review round's tests (about 13 minutes; 12m54s observed on 279c830); give reviewers its result instead of having them re-run it. To run only the review round's tests, use `node --test plugins/core/skills/review-change/scripts/review-round.test.mjs`.
 
    ```bash
    "$HOME/Library/Application Support/Claude/claude-code/<version>/<hash>/claude.app/Contents/MacOS/claude" plugin validate .
@@ -46,6 +46,8 @@ When a change alters how the owner works (what runs, in which order, who starts 
    Use the desktop app's bundled Claude Code (see "Testing a mod pack" below); the npm `claude` (2.1.227) validates the repository and the pack again, since devkit-panel 0.2.0 dropped `userConfig.language.options`, but it still has no `plugin test`.
 
 5. Bump the `version` of every pack you changed, in its `plugin.json` and in `marketplace.json`, and add a line to [CHANGELOG.md](CHANGELOG.md).
+
+   A release that changes devkit-openspec's version is tagged `v<that version>` on its merge commit on `main`: a lightweight tag, pushed after the merge (`git tag v<x> <merge sha>`, then `git push origin v<x>`), because `openspec-setup` pins projects' CI and vendored schemas to that tag's commit (ADR 0002). A release that bumps only other packs gets no new tag: it has nothing new to pin, and `v<that version>` already names an earlier commit.
 
 ## Changing the OpenSpec schemas
 

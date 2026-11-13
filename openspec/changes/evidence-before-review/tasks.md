@@ -176,23 +176,23 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
 
 ## 4. Release files (AC-8)
 
-- [ ] 4.1 Versions (design D8): `plugins/openspec/.claude-plugin/plugin.json` 0.13.0,
+- [x] 4.1 Versions (design D8): `plugins/openspec/.claude-plugin/plugin.json` 0.13.0,
   `plugins/core/.claude-plugin/plugin.json` 0.6.2, `plugins/panel/.claude-plugin/plugin.json` 0.2.1,
   the same three in `.claude-plugin/marketplace.json`, and its `metadata.version` 0.16.0. Verify:
   the 4.5 test (AC-8 release-ready).
-- [ ] 4.2 `CHANGELOG.md`: a `## 0.16.0 — evidence before review` entry on top, one line each for
+- [x] 4.2 `CHANGELOG.md`: a `## 0.16.0 — evidence before review` entry on top, one line each for
   devkit-openspec 0.13.0, devkit-core 0.6.2 and devkit-panel 0.2.1, and a Docs line (the flow doc,
   CONTRIBUTING's tag rule, the CI pin at `v0.13.0`). Verify: `python3 scripts/check.py` (its
   CHANGELOG check reads the metadata version) (AC-8 release-ready).
-- [ ] 4.3 The CI pin in `docs/openspec-flow.md` (lines 479, 480, 487) names `v0.13.0`. Verify: the
+- [x] 4.3 The CI pin in `docs/openspec-flow.md` (lines 479, 480, 487) names `v0.13.0`. Verify: the
   existing test "the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec
   version" passes (AC-8 release-ready).
-- [ ] 4.4 `CONTRIBUTING.md` (design D8): add the new release tag rule after step 5 of "Adding or
+- [x] 4.4 `CONTRIBUTING.md` (design D8): add the new release tag rule after step 5 of "Adding or
   changing an asset" (a release that changes devkit-openspec's version is tagged `v<that version>`
   on its merge commit on `main`, a lightweight tag pushed after the merge; a release that bumps
   only other packs gets no new tag), and on line 40 replace the guard-suite time "about 9 minutes;
   8.7 observed on 94e795d" with "about 13 minutes; 12m54s observed on 279c830". Verify: the 4.5 test and `python3 scripts/check.py` (AC-8 release-ready).
-- [ ] 4.5 `AC-8 release-ready: ...` test in `deliver-check.test.mjs` (design D8): every pack's
+- [x] 4.5 `AC-8 release-ready: ...` test in `deliver-check.test.mjs` (design D8): every pack's
   `plugin.json` version equals its `marketplace.json` entry; the doc pin names
   `v<devkit-openspec version>`; CONTRIBUTING holds the tag rule (`v<devkit-openspec version>`,
   "merge commit", "lightweight"). Verify: it passes, and fails with one marketplace version
