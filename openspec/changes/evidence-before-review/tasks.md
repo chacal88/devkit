@@ -151,7 +151,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
   `plugins/panel/hooks/fixtures/` and the test file itself, with design D6's phrases. Verify: it
   passes on the edited tree and fails when any one listed old phrase is put back in any scanned
   file (try one by hand and revert) (AC-6 instructions-follow).
-- [ ] 2.9 Gate: `node --test --test-name-pattern="instructions-follow" --test-name-pattern="format:" plugins/openspec/hooks/deliver-check.test.mjs && node --test plugins/core/skills/review-change/scripts/review-round.test.mjs && openspec schema validate devkit && openspec schema validate devkit-lite && python3 scripts/check.py && python3 scripts/gen-catalog.py --check` green (AC-6 instructions-follow).
+- [x] 2.9 Gate: `node --test --test-name-pattern="instructions-follow" --test-name-pattern="format:" plugins/openspec/hooks/deliver-check.test.mjs && node --test plugins/core/skills/review-change/scripts/review-round.test.mjs && openspec schema validate devkit && openspec schema validate devkit-lite && python3 scripts/check.py && python3 scripts/gen-catalog.py --check` green (AC-6 instructions-follow).
 
 ## 3. devkit-panel: Provas before Revisão (AC-6, AC-7)
 
