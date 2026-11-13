@@ -197,7 +197,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
   `v<devkit-openspec version>`; CONTRIBUTING holds the tag rule (`v<devkit-openspec version>`,
   "merge commit", "lightweight"). Verify: it passes, and fails with one marketplace version
   changed by hand (revert after) (AC-8 release-ready).
-- [ ] 4.9 Gate: `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin test plugins/panel && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate evidence-before-review` green (AC-8 release-ready, and every criterion's tests together). Run the whole gate as a background Bash; `plugin test` goes first because the refreshed switch holds about two minutes and the guard suite alone takes about 13.
+- [x] 4.9 Gate: `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin test plugins/panel && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate evidence-before-review` green (AC-8 release-ready, and every criterion's tests together). Run the whole gate as a background Bash; `plugin test` goes first because the refreshed switch holds about two minutes and the guard suite alone takes about 13.
 
 ## 5. Release tag free, owner-run (AC-8)
 
@@ -210,7 +210,7 @@ proves `v0.13.0` is free. Creating and pushing the tag on the merge commit is a 
 (Workflow follow-up, design D9), recorded and checked in `retro.md`, so every checkbox here can be
 ticked before the PR.
 
-- [ ] 5.1 Owner-run, by the conducting session (no implementer, no child session): check the tag is
+- [x] 5.1 Owner-run, by the conducting session (no implementer, no child session): check the tag is
   free and the release reads 0.13.0, in the worktree:
   - `git ls-remote --tags origin refs/tags/v0.13.0` prints nothing;
   - `git tag --list v0.13.0` prints nothing;
@@ -219,7 +219,7 @@ ticked before the PR.
   Write the three outputs, with the post-merge commands of design D9, to a file in the conducting
   session's scratchpad for `pr-verifier`. If the tag exists, stop and tell the owner; never move
   it.
-- [ ] 5.9 Gate: `node --test --test-name-pattern="release-ready" plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green (AC-8 release-ready). Owner-run, by the conducting session (no implementer, no child session): ticked only once 5.1's record is written.
+- [x] 5.9 Gate: `node --test --test-name-pattern="release-ready" plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green (AC-8 release-ready). Owner-run, by the conducting session (no implementer, no child session): ticked only once 5.1's record is written.
 
 ## Workflow follow-up
 
