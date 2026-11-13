@@ -189,6 +189,13 @@ test('gh pr create needs approved reviews and evidence', () => {
   assert.equal(pr().code, 0);
 });
 
+test('AC-5 guards-kept: gh pr create is refused with evidence first and no reviews, and with approved reviews and no evidence (design D4)', () => {
+  const evidenceFirst = repo({ changes: { feat: { ...approved, ...evidence } } });
+  assert.match(bash(evidenceFirst, 'gh pr create --title x --body y').err, /review not approved/);
+  const reviewsOnly = repo({ changes: { feat: { ...approved, ...goodReviews } } });
+  assert.match(bash(reviewsOnly, 'gh pr create --title x --body y').err, /evidence\.md/);
+});
+
 test('destructive git is refused, quoted mentions are not', () => {
   for (const c of ['git push --force', 'git push -f origin x', 'git commit --no-verify -m x', 'git reset --hard HEAD~1',
     'git clean -fd', 'git branch -D x', 'git checkout -- .', 'git add -A', 'git add .', 'gh pr merge 3 --admin']) {

@@ -1,6 +1,6 @@
 name: devkit
 version: 1
-description: devkit workflow - requirements → proposal → specs + design → tasks → readiness gate → apply (TDD per phase) → review + evidence before the PR
+description: devkit workflow - requirements → proposal → specs + design → tasks → readiness gate → apply (TDD per phase) → evidence + review before the PR
 artifacts:
   - id: requirements
     generates: requirements.md
@@ -334,13 +334,15 @@ apply:
     reason; fix the plan (and re-run readiness) or ask the user.
 
     After the last phase:
-    1. Run the review-change skill for this change. It dispatches the
+    1. Dispatch devkit-core:pr-verifier: it writes evidence.md, one row of
+       proof per acceptance criterion id. If it records a defect, dispatch
+       tdd-implementer to fix it, then dispatch pr-verifier again.
+    2. Run the review-change skill for this change. It dispatches the
        reviewer agents (devkit-core:code-quality-reviewer,
        devkit-core:test-coverage-reviewer, plus the ones the diff calls
        for); each writes reviews/<reviewer>.md. If any rejects, dispatch
-       tdd-implementer to fix, then re-run the reviewers concerned.
-    2. Dispatch devkit-core:pr-verifier: it writes evidence.md, one row of
-       proof per acceptance criterion id.
+       tdd-implementer to fix, then dispatch pr-verifier again and re-run
+       the reviewers concerned.
     3. Dispatch devkit-core:commit-and-pr. The hooks refuse `gh pr create`
        until the reviews are approved and evidence.md exists.
 

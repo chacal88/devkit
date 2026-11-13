@@ -6,7 +6,7 @@ devkit is a plugin marketplace with five packs. Install the packs per project: e
 
 | Pack | What it gives you |
 |---|---|
-| [**devkit-core**](plugins/core/README.md) | The development workflow, stack-agnostic: `codebase-researcher`, `requirements-grill`, `change-planner`, `plan-readiness-review`, `tdd-implementer`, `review-change` with six specialist reviewers, `pr-verifier`, `commit-and-pr`, `retro`, plus TDD and systematic debugging |
+| [**devkit-core**](plugins/core/README.md) | The development workflow, stack-agnostic: `codebase-researcher`, `requirements-grill`, `change-planner`, `plan-readiness-review`, `tdd-implementer`, `pr-verifier`, `review-change` with six specialist reviewers, `commit-and-pr`, `retro`, plus TDD and systematic debugging |
 | [**devkit-openspec**](plugins/openspec/README.md) | That workflow as an OpenSpec schema, with hooks that keep product code closed until the plan is approved and refuse a PR without an approved review and evidence |
 | [**devkit-design**](plugins/design/README.md) | Greenfield design in four DDD phases: business discovery, domain model, architecture (with ADRs), implementation plan |
 | [**devkit-stack**](plugins/stack/README.md) | Technology references: Postgres, Neon, React performance, Vitest, multi-tenant SaaS, threat modeling |
@@ -44,7 +44,7 @@ Add more packs the same way (`devkit-openspec@devkit`, `devkit-design@devkit`, `
 ```text
 requirements-grill ─▶ change-planner ─▶ plan-readiness-reviewer ──[APPROVED]──▶ tdd-implementer (per phase)
                                                                                           │
-                       retro ◀── commit-and-pr ◀── pr-verifier ◀── review-change ◀──────┘
+                       retro ◀── commit-and-pr ◀── review-change ◀── pr-verifier ◀──────┘
 ```
 
 Each step works on its own: ask Claude to "review this diff" or "is this plan ready?" and the matching asset picks it up. With **devkit-openspec**, the same path becomes an OpenSpec schema: `openspec status` always tells you the next step, and the hooks block skipping the gates. See [docs/openspec-flow.md](docs/openspec-flow.md).

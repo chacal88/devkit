@@ -603,14 +603,14 @@ test('AC-17 sections-say-what-they-are: every text of design D12 is written as t
   expect(['owner', 'session', 'github', 'stop', 'none'].map(a => pt.pane.pill(a))).toEqual(['você age', 'Claude age', 'GitHub age', 'parada', 'esperando'])
   expect(['owner', 'session', 'github', 'stop', 'none'].map(a => en.pane.pill(a))).toEqual(['you act', 'Claude acts', 'GitHub acts', 'stopped', 'waiting'])
   expect([pt.pane.nowLeft(4), en.pane.nowLeft(4)]).toEqual(['Faltam 4 tarefas nesta fase.', '4 tasks left in this phase.'])
-  expect([pt.pane.nowThen('revisão, provas'), en.pane.nowThen('review, proofs')]).toEqual(['Depois: revisão, provas.', 'Then: review, proofs.'])
+  expect([pt.pane.nowThen('provas, revisão'), en.pane.nowThen('proofs, review')]).toEqual(['Depois: provas, revisão.', 'Then: proofs, review.'])
   expect([pt.labels.continueHere, pt.labels.approve, pt.labels.answer, pt.labels.conduct]).toEqual(['Continuar aqui', 'Aprovar plano', 'Responder retro', 'Conduzir'])
   expect([en.labels.continueHere, en.labels.approve, en.labels.answer, en.labels.conduct]).toEqual(['Continue here', 'Approve plan', 'Answer retro', 'Conduct'])
   expect([pt.pane.hint('x'), en.pane.hint('x')]).toEqual(['põe /conduct x na caixa', 'puts /conduct x in the box'])
   // 1 · steps, names, facts
   expect([pt.pane.steps, pt.pane.stepsCount(4), en.pane.steps, en.pane.stepsCount(4)]).toEqual(['Passos', '4 de 10', 'Steps', '4 of 10'])
-  expect(STEP_KEYS.map(k => pt.pane.stepName(k))).toEqual(['Requisitos', 'Plano', 'Prontidão', 'Sua aprovação', 'Implementação', 'Revisão', 'Provas', 'PR e checks', 'Merge', 'Retro e arquivo'])
-  expect(STEP_KEYS.map(k => en.pane.stepName(k))).toEqual(['Requirements', 'Plan', 'Readiness', 'Your approval', 'Implementation', 'Review', 'Proofs', 'PR and checks', 'Merge', 'Retro and archive'])
+  expect(STEP_KEYS.map(k => pt.pane.stepName(k))).toEqual(['Requisitos', 'Plano', 'Prontidão', 'Sua aprovação', 'Implementação', 'Provas', 'Revisão', 'PR e checks', 'Merge', 'Retro e arquivo'])
+  expect(STEP_KEYS.map(k => en.pane.stepName(k))).toEqual(['Requirements', 'Plan', 'Readiness', 'Your approval', 'Implementation', 'Proofs', 'Review', 'PR and checks', 'Merge', 'Retro and archive'])
   expect([pt.pane.fact.criteria(3), pt.pane.fact.sections(16), pt.pane.fact.approved, pt.pane.fact.toRevise, pt.pane.fact.blocked, pt.pane.fact.tasks(103, 107), pt.pane.fact.round(2), pt.pane.fact.proven(3, 21), pt.pane.fact.pr(31, 'verde')]).toEqual([
     '3 critérios', '16 seções', 'aprovada', 'a revisar', 'bloqueada', '103 de 107 tarefas', 'rodada 2', '3 de 21 critérios', 'PR #31 · verde',
   ])
@@ -939,7 +939,7 @@ test('AC-14 flow-steps-you-are-here, AC-3 pr-and-checks: the delivery row has Im
   const pr = flow.steps[7]
   expect(pr?.fact).toContain('PR #31 · rodando')
   expect(pr?.items).toEqual([5, 6, 7, 8])
-  expect(flow.steps[6]?.fact).toBe('2 de 2 critérios')
+  expect(flow.steps[5]?.fact).toBe('2 de 2 critérios')
   expect(flowOf(DELIVERY, en).flow.steps[7]?.fact).toContain('PR #31 · running')
 })
 
@@ -949,8 +949,8 @@ test('AC-14 flow-steps-you-are-here: Implementation with an unticked task and Pr
   expect(statusOf(flowSteps(row, deliver, open, new Set(DELIVERY.files), pt))[4]).toBe('partial')
   const unproven = { ...deliver, items: deliver.items.map(i => (i.id === 4 ? { ...i, details: { ids: ['AC-1', 'AC-2'], missing: ['AC-2'], evidence: 'current' } } : i)) }
   const steps = flowSteps(row, unproven, readTasks(DELIVERY.tasks), new Set(DELIVERY.files), pt).steps
-  expect(steps[6]?.status).toBe('partial')
-  expect(steps[6]?.fact).toBe('1 de 2 critérios')
+  expect(steps[5]?.status).toBe('partial')
+  expect(steps[5]?.fact).toBe('1 de 2 critérios')
 })
 
 test('AC-14 flow-steps-you-are-here: fix-review makes Review current; blocked with item 6 makes PR and checks current; fix-defect makes Proofs current', () => {
@@ -958,14 +958,26 @@ test('AC-14 flow-steps-you-are-here: fix-review makes Review current; blocked wi
   const files = new Set(DELIVERY.files)
   const tasks = readTasks(DELIVERY.tasks)
   const at = (r: ChangeRow, d = deliver) => flowSteps(r, d, tasks, files, pt).steps.findIndex(s => s.status === 'current')
-  expect(at({ ...row, next: { ...row.next, step: 'fix-review' } })).toBe(5)
-  expect(at({ ...row, next: { ...row.next, step: 'fix-defect' } })).toBe(6)
+  expect(at({ ...row, next: { ...row.next, step: 'fix-review' } })).toBe(6)
+  expect(at({ ...row, next: { ...row.next, step: 'fix-defect' } })).toBe(5)
   expect(at({ ...row, next: { ...row.next, step: 'blocked', item: 6 } })).toBe(7)
-  expect(at({ ...row, next: { ...row.next, step: 'blocked', item: 2 } })).toBe(5)
-  expect(at({ ...row, next: { ...row.next, step: 'blocked', item: 4 } })).toBe(6)
+  expect(at({ ...row, next: { ...row.next, step: 'blocked', item: 2 } })).toBe(6)
+  expect(at({ ...row, next: { ...row.next, step: 'blocked', item: 4 } })).toBe(5)
   const blocked = flowSteps({ ...row, next: { ...row.next, step: 'blocked', item: 6 } }, deliver, tasks, files, pt)
   expect(blocked.steps[7]?.isError).toBe(true)
   expect(blocked.now.title).toBe('blocked')
+})
+
+test('AC-7 panel-order: with next.step verify, Proofs is current and Review is pending, and Depois reads revisão, PR e checks, merge', () => {
+  const { row, deliver } = flowOf(DELIVERY)
+  const unproven = { ...deliver, items: deliver.items.map(i => (i.id === 4 ? { ...i, details: { ids: ['AC-1', 'AC-2'], missing: ['AC-1', 'AC-2'], evidence: 'current' } } : i)) }
+  const flow = flowSteps({ ...row, next: { ...row.next, step: 'verify' } }, unproven, readTasks(DELIVERY.tasks), new Set(DELIVERY.files), pt)
+  expect(flow.steps.map(s => s.key).slice(4, 8)).toEqual(['implementation', 'proofs', 'review', 'pr'])
+  expect(flow.steps[5]?.key).toBe('proofs')
+  expect(flow.steps[5]?.status).toBe('current')
+  expect(flow.steps[6]?.key).toBe('review')
+  expect(flow.steps[6]?.status).toBe('pending')
+  expect(flow.now.then).toBe('Depois: revisão, PR e checks, merge.')
 })
 
 test('AC-14 flow-steps-you-are-here: a change with no tasks.md has Implementation pending and no fact; stop-merge-setup falls back to the facts', () => {
@@ -1014,11 +1026,11 @@ test('AC-19 now-box: the Now lines of implement are Implementar a fase n: <title
   const { flow } = flowOf(MID_IMPLEMENTATION)
   expect(flow.now.title).toBe('Implementar a fase 2: The pane')
   expect(flow.now.left).toBe('Faltam 2 tarefas nesta fase.')
-  expect(flow.now.then).toBe('Depois: revisão, provas, PR e checks.')
+  expect(flow.now.then).toBe('Depois: provas, revisão, PR e checks.')
   const english = flowOf(MID_IMPLEMENTATION, en).flow.now
   expect(english.title).toBe('Implement phase 2: The pane')
   expect(english.left).toBe('2 tasks left in this phase.')
-  expect(english.then).toBe('Then: review, proofs, PR and checks.')
+  expect(english.then).toBe('Then: proofs, review, PR and checks.')
   // a gate, and a delivery step: the items' summary
   const { row, deliver } = flowOf(MID_IMPLEMENTATION)
   const gate = flowSteps({ ...row, next: { ...row.next, step: 'gate' } }, deliver, readTasks(MID_IMPLEMENTATION.tasks), new Set(MID_IMPLEMENTATION.files), pt)

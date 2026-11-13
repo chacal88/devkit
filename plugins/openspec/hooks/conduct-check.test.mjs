@@ -707,17 +707,17 @@ test('conduct: killed after the commit and before the push is push-rebased with 
   assert.equal(c.next.oldHead, oldHead);
 });
 
-test('conduct: after the force push every reviewer is stale (review), and then verify (override 2c)', () => {
+test('conduct: after the force push both are stale: verify, then review (override 2c)', () => {
   const { t, b } = rebasedChange({ commit: true });
   openPr(t, b, 'b');
   let c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['verify', 'subagent']);
+  assert.equal(c.next.agent, 'devkit-core:pr-verifier');
+  const sha = headOf(b);
+  writeChange(b, 'b', { 'evidence.md': `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n` });
+  c = byId(t.state(), 'b');
   assert.deepEqual(planStep(c), ['review', 'review']);
   assert.deepEqual([...c.next.reviewers].sort(), ['code-quality-reviewer', 'test-coverage-reviewer']);
-  const sha = headOf(b);
-  const review = `Verdict: approved\nCommit: ${sha}\n\n# Review\n`;
-  writeChange(b, 'b', { 'reviews/code-quality-reviewer.md': review, 'reviews/test-coverage-reviewer.md': review });
-  c = byId(t.state(), 'b');
-  assert.equal(c.next.step, 'verify');
 });
 
 test('conduct: auto-merge still on gives disable-auto-merge first (override 2d)', () => {

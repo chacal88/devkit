@@ -953,7 +953,8 @@ export function approvalState(dir) {
 }
 
 // The one step to take now, computed from facts only (see design D4, first
-// match wins). `state` is what collectState builds.
+// match wins; evidence-before-review design D2 puts fix-defect and verify ahead
+// of review). `state` is what collectState builds.
 export function nextStep(state) {
   const it = (n) => state.items[n - 1];
   const step = (name, reason, extra = {}) => ({ step: name, reason, ...extra });
@@ -1006,6 +1007,13 @@ export function nextStep(state) {
       findings: it(3).details.undisposed.filter((f) => fix.includes(f.reviewer)),
     });
   }
+  const ac = it(4).details;
+  if (ac.defects.length && ac.evidence === 'current') {
+    return step('fix-defect', `evidence records a fail/defect for ${ac.defects.join(', ')}`, { defects: ac.defects });
+  }
+  const gatesOpen = it(1).status === 'open' && (it(1).details.evidence !== 'current' || it(1).details.missingGates.length > 0);
+  const acOpen = ac.ids.length > 0 && (ac.evidence !== 'current' || ac.missing.length > 0);
+  if (gatesOpen || acOpen) return step('verify', 'evidence.md is missing, stale or lacks a gate or criterion row');
   const toReview = uniq([
     ...it(2).details.missing, ...it(2).details.stale,
     ...it(3).details.undisposed.map((f) => f.reviewer),
@@ -1018,13 +1026,6 @@ export function nextStep(state) {
     const round = state.reviewMd?.consensus === 'FAIL' && state.reviewMd.round === 1 && reRejected ? 2 : 1;
     return step('review', `review needed from ${toReview.join(', ')}`, { reviewers: toReview, round });
   }
-  const ac = it(4).details;
-  if (ac.defects.length && ac.evidence === 'current') {
-    return step('fix-defect', `evidence records a fail/defect for ${ac.defects.join(', ')}`, { defects: ac.defects });
-  }
-  const gatesOpen = it(1).status === 'open' && (it(1).details.evidence !== 'current' || it(1).details.missingGates.length > 0);
-  const acOpen = ac.ids.length > 0 && (ac.evidence !== 'current' || ac.missing.length > 0);
-  if (gatesOpen || acOpen) return step('verify', 'evidence.md is missing, stale or lacks a gate or criterion row');
   const stuck = [1, 2, 3, 4].find((n) => it(n).status === 'blocked');
   if (stuck) return step('blocked', it(stuck).reason, { item: stuck });
 

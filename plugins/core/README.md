@@ -1,6 +1,6 @@
 # devkit-core
 
-Stack-agnostic development workflow: research the code, grill the requirements, plan, check the plan, implement with TDD, review with a bench of specialist reviewers, verify, and ship a PR. Works with or without OpenSpec.
+Stack-agnostic development workflow: research the code, grill the requirements, plan, check the plan, implement with TDD, verify, review with a bench of specialist reviewers, and ship a PR. Works with or without OpenSpec.
 
 ```bash
 claude plugin install devkit-core@devkit --scope project
@@ -14,7 +14,7 @@ Run at the project root, or add the pack to the project's `.claude/settings.json
 requirements-grill ─▶ change-planner ─▶ plan-readiness-reviewer
                                                                         │ Status: APPROVED
                                                                         ▼
-retro ◀── commit-and-pr ◀── pr-verifier ◀── review-change ◀── tdd-implementer (one phase at a time)
+retro ◀── commit-and-pr ◀── review-change ◀── pr-verifier ◀── tdd-implementer (one phase at a time)
 ```
 
 | Step | Asset | Output |
@@ -24,8 +24,8 @@ retro ◀── commit-and-pr ◀── pr-verifier ◀── review-change ◀�
 | Check the plan against the code | `plan-reality-auditor` agent | `Verdict: ACCURATE \| OUTDATED \| UNVERIFIABLE` |
 | Gate the plan | `plan-readiness-reviewer` agent (runs the `plan-readiness-review` method; independent of the author) | `readiness.md` with `Status: APPROVED \| NEEDS-REVISION \| BLOCKED` |
 | Build | `tdd-implementer` agent | Code and tests per phase, `Outcome: success \| failure` |
-| Review | `review-change` skill | Picks reviewers from what the diff touches and runs them in three stages: the reviewers in parallel, three `finding-verifier` agents per blocking or important finding, then each reviewer writes `reviews/<reviewer>.md` with its `Verdict:` |
 | Prove it works | `pr-verifier` agent | `evidence.md`: one row of proof per acceptance criterion |
+| Review | `review-change` skill | Picks reviewers from what the diff touches and runs them in three stages: the reviewers in parallel, three `finding-verifier` agents per blocking or important finding, then each reviewer writes `reviews/<reviewer>.md` with its `Verdict:` |
 | Ship | `commit-and-pr` agent | Commit by file name, push, PR. This agent never merges; the merge is the owner's, or GitHub's in `merge` ship mode (`ship-change` enables auto-merge) |
 | Learn | `retro` skill | Proposed doc and rule updates, for the owner to approve: the owner answers each proposal, and `ship-change` applies the approved ones in the archive step |
 

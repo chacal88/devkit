@@ -1,5 +1,5 @@
 # Default flow: devkit-lite (proposal → optional spec delta → tasks → apply →
-# reviews + evidence). Use the full flow, with the owner grilled, an
+# evidence + reviews). Use the full flow, with the owner grilled, an
 # independent readiness gate and code written only by tdd-implementer,
 # for changes that are new capabilities, cross areas, change a public
 # contract or data model, touch auth/money/personal data, or are hard to
@@ -44,7 +44,7 @@ operations:
   apply:
     guidance:
       - One phase at a time, each dispatched to the devkit-core:tdd-implementer agent; stop at the phase gate
-      - After the last phase, run review-change for this change (each reviewer writes reviews/<reviewer>.md), then dispatch devkit-core:pr-verifier (writes evidence.md)
+      - After the last phase, dispatch devkit-core:pr-verifier (writes evidence.md; a defect is fixed and the evidence recorded again), then run review-change for this change (each reviewer writes reviews/<reviewer>.md)
       - Open the PR with the commit-and-pr agent; the merge is the owner's in `plan` and `pr` mode, GitHub's in `merge` mode (ship-change enables auto-merge)
   archive:
     guidance:

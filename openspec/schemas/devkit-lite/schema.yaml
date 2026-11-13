@@ -1,6 +1,6 @@
 name: devkit-lite
 version: 1
-description: devkit for small, contained changes - proposal → (optional spec delta) → tasks → apply (TDD) → review + evidence before the PR. No grill, no readiness gate.
+description: devkit for small, contained changes - proposal → (optional spec delta) → tasks → apply (TDD) → evidence + review before the PR. No grill, no readiness gate.
 artifacts:
   - id: proposal
     generates: proposal.md
@@ -263,10 +263,13 @@ apply:
     or dispatch devkit-core:tdd-implementer with the Agent tool.
 
     Then:
-    1. Run the review-change skill for this change. Each reviewer agent
+    1. Dispatch devkit-core:pr-verifier: it writes evidence.md. If it
+       records a defect, fix it (test first), then dispatch pr-verifier
+       again.
+    2. Run the review-change skill for this change. Each reviewer agent
        writes reviews/<reviewer>.md; code-quality-reviewer and
-       test-coverage-reviewer are always required.
-    2. Dispatch devkit-core:pr-verifier: it writes evidence.md.
+       test-coverage-reviewer are always required. After a fix,
+       dispatch pr-verifier again, then re-run the reviewers concerned.
     3. Dispatch devkit-core:commit-and-pr. The hooks refuse `gh pr create`
        until the reviews are approved and evidence.md exists.
 

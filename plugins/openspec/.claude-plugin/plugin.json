@@ -1,7 +1,7 @@
 {
   "name": "devkit-openspec",
-  "version": "0.12.0",
-  "description": "Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (grill → plan → readiness → TDD → review → evidence) and hooks that keep product code closed until readiness is APPROVED and refuse a PR without an approved review and evidence.",
+  "version": "0.13.0",
+  "description": "Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (grill → plan → readiness → TDD → evidence → review) and hooks that keep product code closed until readiness is APPROVED and refuse a PR without an approved review and evidence.",
   "author": {
     "name": "kaue rodrigues dos santos",
     "url": "https://github.com/chacal88"

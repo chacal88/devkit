@@ -1,6 +1,6 @@
 {
   "name": "devkit-panel",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Side pane in the Claude desktop app over the devkit checkers: the change this session conducts with its next step, phases, PR, delivery items and child sessions, the other changes in progress, and buttons that put the owner's next command in the prompt box. Read-only.",
   "author": { "name": "kaue rodrigues dos santos", "url": "https://github.com/chacal88" },
   "license": "MIT",
