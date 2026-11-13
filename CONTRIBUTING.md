@@ -18,6 +18,8 @@ When a change is rebased onto a base that merged a sibling while the change was 
 
 When a change alters how the owner works (what runs, in which order, who starts it), the grill ends with a walkthrough of one concrete day under the new behaviour, including an urgent item, and the owner confirms the walkthrough itself, not only the options.
 
+An acceptance criterion states only what can be proven before the PR: `deliver-check` reads every criterion's row in `evidence.md` before `open-pr`. A fact that exists only after the merge (a tag, a release, a deploy) is a bullet under the change's `## Workflow follow-up`, done after the merge and recorded in `retro.md`.
+
 ## Adding or changing an asset
 
 1. Read [docs/conventions.md](docs/conventions.md): naming, frontmatter, and what an agent or skill body must contain.
