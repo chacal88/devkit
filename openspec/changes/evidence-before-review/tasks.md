@@ -172,7 +172,7 @@ slug; a row's cells name no other `AC-<n>` id (a cross-reference goes by slug).
   phrases (`'review', 'proofs'`, `Revisão, Provas`, `revisão, provas`, `review, proofs`) to the
   `OLD_ORDER` list of the 2.6 test. Verify: the `instructions-follow` test passes (AC-6
   instructions-follow).
-- [ ] 3.9 Gate: `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin test plugins/panel && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate plugins/panel && node --test --test-name-pattern="instructions-follow" plugins/openspec/hooks/deliver-check.test.mjs` green (AC-7 panel-order, AC-6 instructions-follow).
+- [x] 3.9 Gate: `"$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin test plugins/panel && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate plugins/panel && node --test --test-name-pattern="instructions-follow" plugins/openspec/hooks/deliver-check.test.mjs` green (AC-7 panel-order, AC-6 instructions-follow).
 
 ## 4. Release files (AC-8)
 
