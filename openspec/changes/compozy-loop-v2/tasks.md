@@ -248,12 +248,12 @@ else.
 - [x] 6.3 Update `.compozy/config.toml` and `.compozy/README.md` from the templates: the roles table
   gains `design`, and the stage line becomes the twelve stages of version 2. No `design:` block is
   added to `openspec/config.yaml`: this repository has no screens.
-- [ ] 6.4 Write `plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs`:
+- [x] 6.4 Write `plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs`:
   `AC-9 repo-adopts: ...` renders each template with this repository's values, read from the
   substitution map of `templates/substitutions.json` (task 1.3), the same file `compozy-setup` reads
   to install them, and asserts the rendered text equals the installed file byte for byte — a render-then-compare, never a
   line-by-line heuristic — and that the four role shells are the shipped ones.
-- [ ] 6.5 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && python3 scripts/check.py`
+- [x] 6.5 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && python3 scripts/check.py`
 
 ## 7. Documentation and release (AC-1, AC-10)
 
