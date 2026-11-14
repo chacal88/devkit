@@ -135,7 +135,7 @@ D2 fixes the node ids, the order and the edges; the validated probe is the refer
   `worktree_path`, `archive_pr`), `cleanup` (`class: action`, `kind: compozy__worktree_remove`,
   `params.path` from `archive`'s output, `on_error: { allow_fail: true }`), and the eighteen edges
   of design D2 including the two skip edges `approve_plan → implement` and `verify → deliver`.
-- [ ] 2.7 Write `plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs`:
+- [x] 2.7 Write `plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs`:
   `AC-2 loop-shape: ...` asserts the node ids, their order and the eighteen edges, that every gate
   criterion is `command`, that no criterion is `agent-judge` and no node is a `goal`, and that the
   two `review` blocks carry `responders: { agents: deny }`; `AC-3 design-gate: ...` asserts both
