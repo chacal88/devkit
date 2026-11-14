@@ -175,7 +175,7 @@ they are CompozyOS roles, not Claude Code agents.
   `permissions.mode`, skills sources, timezone placeholder) and `templates/README.md` (the project's
   `.compozy/README.md`: the roles table, the stage line of the loop, and the one command that starts
   a run), both with the placeholders `compozy-setup` fills.
-- [ ] 3.6 Write `plugins/compozy/skills/compozy-setup/scripts/role-shells.test.mjs`:
+- [x] 3.6 Write `plugins/compozy/skills/compozy-setup/scripts/role-shells.test.mjs`:
   `AC-9 repo-adopts: ...` asserts each of the four shells has the frontmatter keys the daemon reads
   and a body; `AC-5 ci-green: ...` asserts the `dev` shell names the monitor and forbids the four
   polling forms; `AC-7 archive-cleanup: ...` asserts the `qa` shell keeps the deferred-task rule and
