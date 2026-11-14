@@ -6,9 +6,8 @@
   resolves to the single active change (`resolveChange`'s last fallback) as that change's own
   branch; the branch's own name must now name the change (exact tail or contained), so a merged
   PR is still found by its body link instead of reported as `none` (compozy-loop-v2 retro). The
-  CI snippet in `docs/openspec-flow.md` still pins `v0.14.0`: no approved retro proposal names that
-  file, and `deliver-check`'s archive gate refuses a file no proposal names, so the pin moves in a
-  change of its own.
+  CI snippet pins `v0.14.1`, as two tests of `deliver-check.test.mjs` require of any
+  `devkit-openspec` bump.
 - **devkit-core** 0.6.3: `review-change` records `git status --porcelain` before stage 1 of a
   review round, and a stage-1 finding whose only evidence is an uncommitted edit that record does
   not show is refuted in stage 2 without a verifier.
