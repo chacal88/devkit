@@ -30,9 +30,11 @@ propose ─▶ plan gate ─▶ design ─▶ implement ─▶ review ─▶ ver
 - `demo_command` (optional): a command that captures screenshots and a short video for a change
   with screens. Empty skips the demo branch.
 - `demo_url` (optional): the base URL `demo_command` runs the demo against.
-- A `design:` block in `openspec/config.yaml` (`screen_map:` and, optionally, `mockup:`), only
-  when the project has a browser surface to track. No block means no screens: the design gate is
-  a no-op.
+- A `design:` block in `openspec/config.yaml`, its two keys `screen_map:` (the project's screen
+  map path) and, optionally, `mockup:` (the tool or document the mockup lives in), only when the
+  project has a browser surface to track. No block means no screens: the design gate is a no-op.
+  The map at `screen_map` must carry a row per screen with the screen id as its first cell, and a
+  line starting with `Mockup:` carrying the version or the date the rows describe.
 
 ## Install
 

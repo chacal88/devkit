@@ -31,10 +31,23 @@ files; it does not maintain them afterwards.
    [`templates/bin/devkit-kit`](templates/bin/devkit-kit) verbatim (it carries no placeholder:
    every template calls `.compozy/bin/devkit-kit <checker>` instead of a path from one
    repository).
-7. **Add a `design:` block to `openspec/config.yaml`**, with `screen_map:` (`__SCREEN_MAP__`) and,
-   when the project names one, `mockup:` (`__MOCKUP__`) - only when the project has at least one
-   screen to track. A project with no browser surface gets no block, and the design gate stays a
-   no-op for it.
+7. **Add a `design:` block to `openspec/config.yaml`**, with its two keys: `screen_map:`
+   (`__SCREEN_MAP__`), the path to the project's screen map, and, when the project names one,
+   `mockup:` (`__MOCKUP__`), the tool or document the mockup lives in (informational only; the
+   design gate does not read it) - only when the project has at least one screen to track. A
+   project with no browser surface gets no block, and the design gate stays a no-op for it.
+
+   ```yaml
+   design:
+     screen_map: docs/design/screen-map.md
+     mockup: Figma
+   ```
+
+   The map at `screen_map` must carry the two things the `screen-design` skill's `screens-check`
+   reads: a row per screen with **the screen id as the row's first cell**, and somewhere in the
+   document a line starting with `Mockup:` carrying the version or the date the rows describe
+   (`Mockup: v3`, `Mockup: 2026-11-14`). See the `screen-design` skill for how a row is proposed
+   and where it is written.
 
 ### devkit-kit's resolver
 

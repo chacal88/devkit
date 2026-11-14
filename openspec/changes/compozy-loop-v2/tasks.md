@@ -204,7 +204,7 @@ and 4.
   `Mockup:` version (1), no `## Screens` (0), no `design:` block (0), an unreadable map (3), an
   unknown change (3), and the `--json` shape; `AC-3 design-gate: ...` for a fixture shaped like the
   screen map of a real project, proving the format the gate requires is the one already written.
-- [ ] 4.4 Extend `compozy-setup/SKILL.md` (written in 1.4) and `plugins/compozy/README.md` with the `design:` block:
+- [x] 4.4 Extend `compozy-setup/SKILL.md` (written in 1.4) and `plugins/compozy/README.md` with the `design:` block:
   its two keys, where it goes in `openspec/config.yaml`, and the two things the map must carry. The
   devkit's own `openspec-setup` template is not touched, so `devkit-openspec` keeps its version and
   this release creates no tag.
