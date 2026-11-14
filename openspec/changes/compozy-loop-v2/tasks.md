@@ -188,7 +188,7 @@ Answers OD-2. A fixed-path answer changes how 4.2 resolves the map and its fixtu
 passages that document it in 1.4, 3.4 and 4.4 — one function and four texts, across phases 1, 3
 and 4.
 
-- [ ] 4.1 Write `plugins/compozy/skills/screen-design/SKILL.md`: how to read a screen map and its
+- [x] 4.1 Write `plugins/compozy/skills/screen-design/SKILL.md`: how to read a screen map and its
   mockup version, what a proposed row must carry (id, screen, what it shows and allows, the stage,
   the level of detail in the mockup), that the rows land on the change branch so map and code merge
   together, and that the owner approves plan and design in the same review, before any code.
