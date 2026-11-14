@@ -348,7 +348,7 @@ one table cell. The order is the plan first, then the tests, then the evidence, 
   asks for the `v0.14.0` tag after the merge. Commit that file, by itself or with the rest of this
   phase, and give the bench the sha: the finding is disposed by the re-review writing
   `· fixed in <sha>` on its line, not by this task.
-- [ ] 9.2 Pin `deliver`'s guarded evidence link (`test-coverage-reviewer`, round 2, important;
+- [x] 9.2 Pin `deliver`'s guarded evidence link (`test-coverage-reviewer`, round 2, important;
   AC-6, AC-9). AC-6 requires `deliver` to link the change's `evidence/` folder from the pull-request
   body when the demo ran, and no assertion reads that text today, so deleting it leaves every suite
   green. Add to `plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs` an

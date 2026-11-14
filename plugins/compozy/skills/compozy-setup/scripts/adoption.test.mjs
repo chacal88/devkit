@@ -103,6 +103,23 @@ test('AC-9 repo-adopts: the installed loop.yaml guards the skipped design node o
   assert.doesNotMatch(installed, /\{\{\s*if\s+\.nodes\.design\.output\.\w+/);
 });
 
+// AC-6 demo-contract, round 2 important (task 9.2), mirroring the structural scan
+// loop-template.test.mjs owns over the template: the render-and-compare above already proves the
+// installed file is the template byte for byte, but this states the repaired shape directly, the
+// way the design guard above does, so AC-9 and AC-6 are both provable without reasoning through
+// that equality.
+test('AC-9 repo-adopts: the installed loop.yaml links the evidence folder from deliver, guarded on the demo node\'s parent output', () => {
+  const installed = readInstalled('loops', 'openspec-change', 'loop.yaml');
+  const m = installed.match(/\{\{\s*if\s+(\.nodes\.demo\.output(?:\.\w+)*)\s*\}\}([\s\S]*?)\{\{\s*end\s*\}\}/);
+  assert.ok(m, 'the installed loop.yaml must carry a {{ if .nodes.demo.output }} ... {{ end }} block');
+  assert.equal(m[1], '.nodes.demo.output', 'the guard must be the bare parent output, not a field dotted on it');
+  assert.match(
+    m[2],
+    /openspec\/changes\/\{\{\s*\.inputs\.change_id\s*\}\}\/evidence\//,
+    'the guarded sentence must link openspec/changes/<id>/evidence/',
+  );
+});
+
 test('AC-9 repo-adopts: .compozy/bin/devkit-kit is the shipped resolver, verbatim (no placeholder)', () => {
   const templateText = readTemplate('bin', 'devkit-kit');
   const actual = readInstalled('bin', 'devkit-kit');

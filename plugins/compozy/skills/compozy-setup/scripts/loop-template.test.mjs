@@ -150,6 +150,18 @@ function designOutputViolations(text) {
   return violations;
 }
 
+// The `{{ if .nodes.demo.output }}` ... `{{ end }}` block of a node's prompt, as
+// { condition, body }, or null when the node carries no such guard. The condition is captured
+// rather than matched so the caller can tell "no guard at all" from "a guard on a field dotted on
+// the output", which design Risks, "A skipped node's output", forbids for the same reason it
+// forbids it for `.nodes.design.output`: the demo node is skipped whenever the change declares no
+// screen. The body is matched loosely on purpose - what AC-6 fixes is the link, not the prose
+// around it.
+function guardedDemoBlock(block) {
+  const m = block.match(/\{\{\s*if\s+(\.nodes\.demo\.output(?:\.\w+)*)\s*\}\}([\s\S]*?)\{\{\s*end\s*\}\}/);
+  return m ? { condition: m[1], body: m[2] } : null;
+}
+
 test('AC-2 loop-shape: the node ids are exactly design D2\'s seventeen, in order', () => {
   assert.deepEqual(nodeIds(), EXPECTED_NODE_IDS);
 });
@@ -314,6 +326,23 @@ test('AC-7 archive-cleanup: contract.verification checks the archived folder on 
 
 test('AC-2 loop-shape: every .nodes.design.output read is the parent guard itself or sits inside one (design Risks, "A skipped node\'s output")', () => {
   assert.deepEqual(designOutputViolations(text), []);
+});
+
+// AC-6 demo-contract, AC-9 repo-adopts, round 2 important: AC-6 requires deliver to link the
+// change's evidence folder from the pull-request body when the demo ran, and nothing read that
+// text before this, so deleting the sentence (or loosening the guard to a nested field, which
+// design Risks "A skipped node's output" forbids the same way it forbids it for .nodes.design.output)
+// left every suite green. One assertion that bites both mutations: the link's guard must be the
+// bare parent condition, not a field dotted on it.
+test('AC-6 demo-contract: deliver links the change\'s evidence/ folder from the pull-request body, guarded on the demo node\'s parent output', () => {
+  const guarded = guardedDemoBlock(nodeBlock('deliver'));
+  assert.ok(guarded, 'deliver must carry a {{ if .nodes.demo.output }} ... {{ end }} block');
+  assert.equal(guarded.condition, '.nodes.demo.output', 'the guard must be the bare parent output, not a field dotted on it');
+  assert.match(
+    guarded.body,
+    /openspec\/changes\/\{\{\s*\.inputs\.change_id\s*\}\}\/evidence\//,
+    'the guarded sentence must link openspec/changes/<id>/evidence/',
+  );
 });
 
 // The strongest proof of the template, but it needs a running CompozyOS daemon (design.md
