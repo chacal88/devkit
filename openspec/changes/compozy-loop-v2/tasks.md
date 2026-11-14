@@ -230,7 +230,7 @@ else.
   themes and the two widths, writes each screenshot under the evidence folder with the name of 5.2,
   and records one video of the journey. It is an example a project copies and adapts, stated as such
   in its header.
-- [ ] 5.4 Write `plugins/compozy/skills/screen-demo/scripts/evidence-names.test.mjs`:
+- [x] 5.4 Write `plugins/compozy/skills/screen-demo/scripts/evidence-names.test.mjs`:
   `AC-6 demo-contract: ...` asserts the eight paths and the video path for a change and two screens,
   the two viewport constants, and that the shipped spec text declares both themes, both widths, the
   video and the same name pattern.
