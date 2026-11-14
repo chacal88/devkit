@@ -225,7 +225,7 @@ else.
 - [x] 5.2 Write the naming helper `plugins/compozy/skills/screen-demo/scripts/evidence-names.mjs`:
   pure functions from a change id and a screen id to the eight paths (four combinations, both
   themes) and to the video path, with the two viewport sizes as exported constants.
-- [ ] 5.3 Write the example spec `plugins/compozy/skills/screen-demo/templates/demo/screens.spec.ts`:
+- [x] 5.3 Write the example spec `plugins/compozy/skills/screen-demo/templates/demo/screens.spec.ts`:
   a Playwright spec that takes the screen list and the base URL from the environment, loops the two
   themes and the two widths, writes each screenshot under the evidence folder with the name of 5.2,
   and records one video of the journey. It is an example a project copies and adapts, stated as such
