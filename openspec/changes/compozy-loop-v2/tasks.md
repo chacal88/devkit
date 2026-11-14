@@ -64,7 +64,7 @@ move before 1.1 rather than after any later phase.
   `verify_command`, `demo_command`, `demo_url`, the timezone, the screen-map keys), each with its
   meaning and its default. `compozy-setup` reads it to fill the templates, and the adoption test of
   6.4 reads the same file to render them: one source, so neither can drift from the other.
-- [ ] 1.4 Write `plugins/compozy/skills/compozy-setup/SKILL.md`: frontmatter `name: compozy-setup`
+- [x] 1.4 Write `plugins/compozy/skills/compozy-setup/SKILL.md`: frontmatter `name: compozy-setup`
   and a description that says what it installs and the phrases a user would say. Body: the install
   procedure (write `.compozy/` with `config.toml`, `README.md`, `agents/<role>/AGENT.md` for the
   four roles, `loops/openspec-change/loop.yaml`, `bin/devkit-kit`; add the `design:` block to
