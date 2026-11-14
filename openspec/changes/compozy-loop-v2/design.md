@@ -220,14 +220,51 @@ pack, so it inlines the matrix and the path builders. The drift protection that 
 given is a test instead: it parses the spec's inlined constants and template literals out of its
 text and asserts they equal the helper's exports for the same inputs.
 
-**D12 — No new ADR, and no ADR changes.** The kit sequences the existing flow and changes none of
-its decisions: the gates still live in the checkers (ADR 0001), the ship mode still decides the
-merge and the loop still never merges by hand (ADR 0002, ADR 0003), the devkit is still installed
-per project, which is why the kit is a pack (ADR 0004), and the review round is untouched
-(ADR 0008). `/conduct` (ADR 0006, ADR 0007) is the other way to drive the same flow and is not
-changed; a project may use either. If the implementer finds a decision this design does not cover,
-`CONTRIBUTING.md` applies: amend this file in the same phase, and raise an ADR rather than deviate
-silently.
+**D12 — One new ADR, 0009: the CompozyOS loop as a second driver.** The first round's `adr-reviewer`
+was right that this cannot be settled in a design doc. ADR 0001 forbids coordination through a
+harness and names its own review trigger — "a coordinator needs state that cannot be derived from
+the repository or GitHub" — and a CompozyOS run holds exactly that state (`iteration_cap`,
+`no_progress.window`, `budget.wall_clock_sec`, an armed pull-request monitor). ADR 0006's
+alternatives table rejects "a daemon that starts sessions (Compozy-style)" by name. The trigger has
+fired, so `openspec/config.yaml`'s design rule applies: record it as an ADR, not as a deviation.
+
+The ADR to write is `docs/adr/0009-compozy-loop-as-a-second-driver.md`, and it records a posture the
+owner already took: `.compozy/` with its roles and loop merged to `main` in PR #29 (`184dc17`),
+`CLAUDE.md` on `main` already says `.compozy/` sequences this flow, and this very change is being
+driven by that loop. What is new here is packaging it for any project, which is what raises the
+stakes and what the ADR must name.
+
+Its decision, for the owner to approve at the plan-approval review (and the first open question of
+this revision): CompozyOS is a **second driver** of the devkit flow, recorded as an exception in
+ADR 0001's Note — the pattern ADR 0006 and ADR 0008 already use — rather than a superseder of
+ADR 0001. The reasons it is an exception and not a replacement: the gates do not move (every loop
+gate shells out to `deliver-check`, `conduct-check` or `screens-check`, so what "ready" means stays
+one checker anyone can run); the repository and GitHub remain the source of truth, and the run state
+the daemon holds is bookkeeping for one run, which can be killed and restarted from disk; and the
+loop is opt-in per project (ADR 0004), so a project that never installs `devkit-compozy` keeps
+ADR 0001's world exactly. `/conduct` (ADR 0006, ADR 0007) stays the in-session driver; a project
+picks one. ADR 0006's rejected "Compozy-style daemon" row gains a pointer to ADR 0009, so the table
+does not read as a standing refusal.
+
+If the owner prefers the stronger form, ADR 0009 supersedes ADR 0001 instead of excepting it. That
+changes the ADR's `Status` lines and ADR 0001's header, nothing else in this change: no file the kit
+ships depends on which of the two it is.
+
+**D13 — `openspec-setup` lists the new pack, so this release is tagged.** `project-settings.mjs`
+holds `PACKS`, the closed list of packs a project may opt into, and refuses anything outside it;
+`project-settings.test.mjs` asserts the list equals the plugin names in `marketplace.json`. Shipping
+a pack without adding it there leaves a pack nobody can install through the devkit's own setup and a
+red test in the guard suite. So `devkit-compozy` joins `PACKS`.
+
+The consequence is a release shape the first round denied: the edit is inside `plugins/openspec/`,
+so `devkit-openspec` is bumped (`0.13.0` → `0.14.0`, in its `plugin.json` and in
+`marketplace.json`), and `CONTRIBUTING.md` then requires the lightweight tag `v0.14.0` on the merge
+commit, because `openspec-setup` pins projects' CI and vendored schemas to a tag's commit. The tag
+exists only after the merge, so `CONTRIBUTING.md` puts it under `## Workflow follow-up` rather than
+in an acceptance criterion. *Alternatives:* leave the pack out of `PACKS` and let projects enable it
+by hand, rejected because it breaks the test that keeps the two lists honest and contradicts
+ADR 0004; or weaken that test, rejected outright — it is the invariant that a shipped pack is an
+installable pack.
 
 ## Risks / Trade-offs
 
@@ -254,8 +291,13 @@ silently.
   what the brief asks for, and they make a change folder heavy. The naming is fixed so a project can
   add one ignore rule or a size budget later; this change does not add one.
 - **A skipped node's output.** Prompts and conditions that read `.nodes.design.output.*` must be
-  guarded (`{{ if ... }}`), because a skipped node settles with a skip marker rather than a filled
-  schema. The template test pins the guards; a missed guard shows up in `compozy loop validate`.
+  guarded on the parent (`{{ if .nodes.design.output }}`), never on a nested field, because a
+  skipped node settles with a skip marker rather than a filled schema and the compiler's Go
+  templates raise `nil pointer evaluating %s.%s` when a field is dotted on a nil output. The first
+  round shipped one prompt guarded on the nested field (`implement`, template line 265), and the
+  sentence that said the template test pinned the guards was not true: no such assertion existed,
+  and `compozy loop validate` checks shape, not render behaviour for a skipped node. Task 8.3 fixes
+  the guard and writes the assertion, which is what makes this sentence true.
 - **Eleven places of drift, already.** Adopting the kit here rewrites this repository's `.compozy/`.
   A test asserts the installed files match the templates except for the filled inputs, so the next
   drift is a failing test instead of a discovery.

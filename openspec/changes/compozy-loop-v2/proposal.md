@@ -48,7 +48,18 @@ the owner's, by hand, in another session.
     archive steps**, then removes the worktree. A task the owner deferred by a dated decision in
     `tasks.md` still counts as done for the finish line.
 - **This repository adopts version 2**: its `.compozy/` is regenerated from the templates and
-  differs from them only by the inputs it fills in. That is how the templates are proven.
+  differs from them only by the inputs it fills in. That is how the templates are proven. Adoption
+  here is those files; enabling the pack in `.claude/settings.json` waits for the pack to exist on
+  `main`, as `devkit-panel` did.
+- **`openspec-setup` learns the pack**: `devkit-compozy` joins the `PACKS` list of
+  `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs`, so a project can opt into
+  it the way it opts into every other pack (ADR 0004). That is one list entry in
+  `devkit-openspec`, and it is what makes this release a tagged one.
+- **An ADR records the posture**: `docs/adr/0009-compozy-loop-as-a-second-driver.md`. ADR 0001's own
+  review trigger — "a coordinator needs state that cannot be derived from the repository or GitHub"
+  — has fired, and ADR 0006 lists "a daemon that starts sessions (Compozy-style)" among its rejected
+  alternatives. Shipping that daemon's loop for any project is a decision the repository records
+  where it records decisions, not inside a design doc.
 - **Docs and release**: a kit page under `docs/`, the pack row in `docs/conventions.md`, the
   marketplace entry, the regenerated catalog and a `CHANGELOG.md` line. `devkit-openspec` is not
   touched, so this release creates no tag (`CONTRIBUTING.md`).
@@ -73,18 +84,18 @@ and the demo branch of its own run are skipped, which is also the first proof th
 - AC-6 (`demo-contract`): the demo step and its skill state that, for a change with screens, `openspec/changes/<id>/evidence/` receives one screenshot per declared screen for each theme (light and dark) and each width (desktop and phone) plus one video of the journey, and that `deliver` links that folder from the pull request body; the shipped Playwright template produces exactly those names.
 - AC-7 (`archive-cleanup`): after the merge the template runs the `ship-change` archive steps and then removes the worktree, the cleanup runs only after the change reads `archived`, and the `definition_of_done` keeps the sentence that a task the owner deferred by a dated decision in `tasks.md` counts as done.
 - AC-8 (`portable-hooks`): every shipped template calls the devkit checkers through the kit's resolver, which finds them at `$DEVKIT_HOOKS`, in a repository checkout, or in an installed `devkit-openspec`; no shipped template holds a path that exists in only one repository.
-- AC-9 (`repo-adopts`): this repository's `.compozy/` is regenerated from the kit's templates and differs from them only by the values the setup fills in, and `compozy loop validate` accepts the result.
-- AC-10 (`release-ready`): the release adds `devkit-compozy` to `marketplace.json` with its version, bumps the marketplace version, adds the `CHANGELOG.md` line, regenerates `docs/catalog.md`, and the kit is named in `README.md`, `docs/conventions.md` and the new kit page.
+- AC-9 (`repo-adopts`): this repository's `.compozy/` is regenerated from the kit's templates and differs from them only by the values the setup fills in, and `compozy loop validate` accepts the result. Adoption here means exactly those installed files: enabling `devkit-compozy@devkit` in `.claude/settings.json` needs the pack to be on `main` first, as `devkit-panel` was (the pack merged, then a separate enablement commit), so it is a `## Workflow follow-up` bullet and not part of this criterion.
+- AC-10 (`release-ready`): the release adds `devkit-compozy` to `marketplace.json` with its version, bumps the marketplace version, adds the `CHANGELOG.md` line, regenerates `docs/catalog.md`, and the kit is named in `README.md`, `docs/conventions.md` and the new kit page; `openspec-setup` can install the new pack, which bumps `devkit-openspec` and makes the release a tagged one; and `docs/adr/0009-compozy-loop-as-a-second-driver.md` exists with `- Status: accepted`, is cited from ADR 0001 and ADR 0006 and listed in `openspec/config.yaml`'s ADR line.
 
 ## Open decisions
 
-The owner answers these at the plan-approval review, before any code: the point at which they are
-cheap, because no file exists yet. None of the four is confined to a single phase, and
-`requirements.md` carries the table of what each one really costs. In short: OD-1 moves the path
-prefix of every file the change creates and its registration (all seven phases, no content change);
-OD-2 changes one function and four passages (phases 1, 3, 4); OD-3 reaches phases 2 to 4; OD-4 is
-the smallest, phase 5 plus the `demo` prompt of task 2.4. None of the four changes the loop's graph,
-its gates or these criteria.
+OD-1 to OD-4 are settled: the owner approved the plan with the answers each decision names, and
+phases 1 to 7 were implemented on them. They are kept here as the record of what was decided and
+what a different answer would have cost; `requirements.md` carries the table.
+
+OD-5 is the one still open, added by this revision after the first review round. The owner answers
+it at the plan-approval review, before task 8.2 writes the ADR. It changes two `Status` lines and no
+shipped file.
 
 - OD-1 (phase 1): the kit is a new pack `devkit-compozy`, not a skill inside `devkit-openspec`.
 - OD-2 (phase 4): the design gate reads the screen map from a `design:` block in the project's
@@ -93,6 +104,10 @@ its gates or these criteria.
   `propose` node's `screens` output), rather than a checker inferring them from the diff.
 - OD-4 (phase 5): the demo runs a command the project owns (`demo_command`), with the kit shipping
   an example Playwright spec, rather than the kit imposing Playwright as a project dependency.
+- OD-5 (phase 8, added by this revision): ADR 0009 records CompozyOS as a **second driver** of the
+  devkit flow, an exception in ADR 0001's Note beside ADR 0006 and ADR 0008, rather than a
+  superseder of ADR 0001. The alternative — ADR 0009 supersedes ADR 0001 — changes the `Status`
+  lines of the two ADRs and nothing else in this change (`design.md` D12).
 
 ## Capabilities
 
@@ -115,19 +130,26 @@ None.
 - Changed: `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/catalog.md` (generated),
   `docs/conventions.md`, `README.md`, a new `docs/compozy-kit.md`, and this repository's
   `.compozy/` (loop, the four roles, `config.toml`, `README.md`, `bin/devkit-kit`).
-- Untouched: `plugins/openspec/` and `plugins/core/`. No pack of the devkit flow is bumped, so this
-  release creates no tag.
+- Changed in `plugins/openspec/`: one entry in `project-settings.mjs`'s `PACKS` list, so
+  `openspec-setup --packs devkit-compozy` installs the new pack instead of refusing it. That bumps
+  `devkit-openspec` to `0.14.0`, and `CONTRIBUTING.md` makes this a tagged release (`v0.14.0`,
+  pushed after the merge). `plugins/core/` is untouched and keeps its version.
+- Changed in `docs/adr/`: the new ADR 0009, a Note line in ADR 0001 and a line under ADR 0006's
+  alternatives table, so the rejected "Compozy-style daemon" row points at what replaced it.
 - Other projects: nothing changes until they install the new pack. A project already running the
   pilot's hand-copied `.compozy/` keeps working; adopting the kit replaces those files.
 - Dependencies: none new in this repository. A project that wants the demo supplies its own
   Playwright and a `demo_command`.
 - Exit criteria, green at the pull-request head: `python3 scripts/check.py`,
   `python3 scripts/gen-catalog.py --check`, the bundled binary's `plugin validate .`,
-  `node --test plugins/openspec/hooks/guard.test.mjs`, and the tests of the three new skills.
-- Decisions cited: ADR 0001 (the gates stay in the checkers, not in a harness), ADR 0002 (the ship
-  mode decides the merge; the loop never merges by hand), ADR 0004 (the devkit is installed per
-  project, which is why the kit is a pack), ADR 0008 (the review round is unchanged). No ADR
-  changes; `design.md` D12 records why no new ADR is needed.
+  `node --test plugins/openspec/hooks/guard.test.mjs` (which holds both the `PACKS` assertion and
+  the docs sweep this plan's phase 8 answers), and the tests of the three new skills.
+- Decisions cited: ADR 0001 (coordination without a harness, whose review trigger this change
+  fires), ADR 0002 (the ship mode decides the merge; the loop never merges by hand), ADR 0003 (the
+  archive pull request), ADR 0004 (the devkit is installed per project, which is why the kit is a
+  pack), ADR 0005 to ADR 0007 (how agent turns are dispatched: a loop node is a third dispatcher
+  beside `/conduct`'s child sessions and subagents), ADR 0008 (the review round is unchanged).
+  `design.md` D12 carries the new ADR's decision statement and D13 the release consequence.
 - Workflow follow-up (after the merge, not an acceptance criterion): the first real demo run and the
   first design gate happen in `chacal88/whatsapp-platform`, which adopts the kit next; the result is
   recorded in `retro.md`.

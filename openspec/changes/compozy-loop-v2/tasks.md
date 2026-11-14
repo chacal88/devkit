@@ -11,13 +11,20 @@ Gates table, so no part holds a `|`. The desktop app's bundled Claude Code (the 
 says:
 "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")"
 
-Gate 7.6 holds the guard suite (`node --test plugins/openspec/hooks/guard.test.mjs`, about 13
-minutes), so it runs as a background Bash, never as a foreground tool call, which stops at 600 s.
-This change touches no hook, so that suite runs once, at the end, as the regression net.
+The guard suite (`node --test plugins/openspec/hooks/guard.test.mjs`, about 13 minutes) runs as a
+background Bash, never as a foreground tool call, which stops at 600 s. It runs once, as the
+regression net at the end of the last phase. After the first review round that end is gate 8.5, not
+7.6: two of the suite's assertions (`PACKS` equals `marketplace.json`, and the docs sweep over
+"never merges") are answered by phase 8, so running it at 7.6 could only fail. The suite is not
+weakened and no part of it is dropped; it moves to the new last gate.
 
 `compozy loop validate` exits 0 even when it reports `"valid": false`, so it is never a gate part on
 its own (design D-risks). The loop-template test of 2.7 runs it, asserts `valid: true`, and skips
 that assertion when the CLI or the daemon is absent.
+
+A cell of `evidence.md` quotes a documentation line without reproducing Markdown link syntax:
+`scripts/check.py` resolves every `[text](path)` relative to the file it sits in, so a catalog row
+copied verbatim into the change folder reports a broken link. Quote the path alone.
 
 The acceptance criteria carry the ids `deliver-check` item 4 reads (`AC-<n>`, from the
 `## Acceptance criteria` section of `proposal.md`), each with its slug. A test that proves a
@@ -32,15 +39,15 @@ definition of done says.
 | Id | Slug | Tasks |
 |---|---|---|
 | AC-1 | `kit-pack` | 1.1, 1.2, 7.3, 7.5, 7.6 |
-| AC-2 | `loop-shape` | 2.1, 2.2, 2.5, 2.6, 2.7, 2.8 |
+| AC-2 | `loop-shape` | 2.1, 2.2, 2.5, 2.6, 2.7, 2.8, 8.3 |
 | AC-3 | `design-gate` | 2.3, 2.7, 4.2, 4.3, 4.5 |
 | AC-4 | `screens-check` | 4.2, 4.3, 4.5 |
 | AC-5 | `ci-green` | 2.5, 2.7, 3.2, 2.8 |
 | AC-6 | `demo-contract` | 2.4, 5.1, 5.2, 5.3, 5.4, 5.5 |
 | AC-7 | `archive-cleanup` | 2.1, 2.6, 2.7, 3.2 |
 | AC-8 | `portable-hooks` | 1.5, 1.6, 2.1, 6.2 |
-| AC-9 | `repo-adopts` | 1.3, 6.1, 6.2, 6.3, 6.4, 6.5 |
-| AC-10 | `release-ready` | 7.1, 7.2, 7.3, 7.4, 7.5, 7.6 |
+| AC-9 | `repo-adopts` | 1.3, 6.1, 6.2, 6.3, 6.4, 6.5, 8.3 |
+| AC-10 | `release-ready` | 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 8.1, 8.2, 8.5 |
 
 ## 1. The pack and the resolver (AC-1, AC-8)
 
@@ -206,8 +213,8 @@ and 4.
   screen map of a real project, proving the format the gate requires is the one already written.
 - [x] 4.4 Extend `compozy-setup/SKILL.md` (written in 1.4) and `plugins/compozy/README.md` with the `design:` block:
   its two keys, where it goes in `openspec/config.yaml`, and the two things the map must carry. The
-  devkit's own `openspec-setup` template is not touched, so `devkit-openspec` keeps its version and
-  this release creates no tag.
+  devkit's own `openspec-setup` *template* is not touched by this task; task 8.1 does add the new
+  pack to that skill's `PACKS` list, which is what bumps `devkit-openspec` and tags the release.
 - [x] 4.5 Gate: `node --test plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs && python3 scripts/check.py`
 
 ## 5. The demo (AC-6)
@@ -270,11 +277,64 @@ else.
 - [x] 7.4 Add the `CHANGELOG.md` entry for the release: the new pack and what the loop gained.
 - [x] 7.5 Run `python3 scripts/gen-catalog.py` to fill `plugins/compozy/README.md`'s catalog markers
   and regenerate `docs/catalog.md`.
-- [ ] 7.6 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/openspec/hooks/guard.test.mjs`
+- [ ] 7.6 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate .`
+
+## 8. What the first review round found (AC-2, AC-9, AC-10)
+
+Five findings of the round at `e10b21d`, in the order that unblocks the gate: the two that make the
+guard suite red first, then the two the reviewers raised against the plan, then the gate. Nothing
+here changes the loop's graph, its gates or the acceptance criteria.
+
+- [ ] 8.1 Make the new pack installable: add `devkit-compozy` to `PACKS` in
+  `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs` (keeping `DEFAULT_PACKS` as
+  it is — the pack is opt-in), which is what `project-settings.test.mjs`'s "PACKS equals the plugin
+  names in marketplace.json" asserts and what lets `openspec-setup --packs devkit-compozy` install
+  it instead of refusing it. Bump `devkit-openspec` from `0.13.0` to `0.14.0` in
+  `plugins/openspec/.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json`, and
+  correct the `CHANGELOG.md` entry of 7.4: it currently says `devkit-openspec` is untouched and the
+  release creates no tag; it now carries the `devkit-openspec` 0.14.0 line and names the tag
+  (design D13). The marketplace `metadata.version` stays `0.17.0`: one release, one marketplace
+  version.
+- [ ] 8.2 Record the posture as an ADR (design D12). Write
+  `docs/adr/0009-compozy-loop-as-a-second-driver.md` in the shape of the others (`- Status:`,
+  `- Date:`, `- Change: compozy-loop-v2`, Context, Decision, Consequences with a `### Review
+  trigger`, Alternatives considered as a table): the Context names ADR 0001's fired review trigger,
+  the daemon-held run state, ADR 0006's rejected "Compozy-style daemon" row and the fact that
+  PR #29 already merged `.compozy/` here; the Decision is the one D12 states, in the form the owner
+  approved at the plan review. Add the Note sentence to ADR 0001 next to the ADR 0006 and ADR 0008
+  exceptions it already lists, add a pointer from ADR 0006's rejected row to ADR 0009, add `0009` to
+  the ADR line of `openspec/config.yaml`'s `context`, and cite the ADR from `docs/compozy-kit.md`.
+  Leave ADR 0001's own `- Status: accepted` untouched unless the owner chose the superseding form at
+  the plan review, in which case ADR 0001 gains `- Superseded by ADR 0009` and ADR 0009 says so too.
+- [ ] 8.3 Guard the skipped design node and pin it (design Risks, "A skipped node's output"). In
+  `plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml`, change
+  `implement`'s prompt guard from the nested field (`{{ if .nodes.design.output.worktree_path }}`)
+  to the parent (`{{ if .nodes.design.output }}`), as `approve_plan` and `deliver` already do, so a
+  screenless run does not dot a field on a nil output. Re-run the adoption of 6.1 so
+  `.compozy/loops/openspec-change/loop.yaml` carries the same guard. Add to
+  `loop-template.test.mjs` an `AC-2 loop-shape: ...` assertion that every occurrence of
+  `.nodes.design.output` in the file is either the guard itself or inside an `{{ if ... }}` block
+  that guards the parent — an assertion that fails on the shape this task repairs, in both the
+  template and the installed copy (`AC-9 repo-adopts: ...`).
+- [ ] 8.4 Reword the two lines of `docs/compozy-kit.md` that claim the loop "never merges" without
+  naming a ship mode on the same line (the table row for the merge wait, and the paragraph under
+  the table). `deliver-check.test.mjs`'s docs sweep is line-based and wants a backticked `plan`,
+  `pr` or `merge` followed by the word `mode`, the literal "ship mode", or `commit-and-pr` on that
+  same line; `` `ship: merge` `` matches none of them. Both lines describe the loop correctly today,
+  so this is wording: keep the meaning, put "ship mode" on the line that makes the claim. Then
+  re-run `python3 scripts/gen-catalog.py` if any catalog text moved.
+- [ ] 8.5 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && node --test plugins/openspec/hooks/guard.test.mjs`
 
 ## Workflow follow-up
 
 - After the merge: `chacal88/whatsapp-platform` adopts the kit with `compozy-setup`, declares its
   `design:` block over `docs/design/2b-screen-map.md`, and runs the first change with screens. The
   first real design gate and the first recorded demo are observed there and written into `retro.md`.
-- After the merge: no tag. This release changes no `devkit-openspec` version (`CONTRIBUTING.md`).
+- After the merge: tag it. This release bumps `devkit-openspec` to `0.14.0` (task 8.1), so
+  `CONTRIBUTING.md` asks for the lightweight tag on the merge commit on `main`:
+  `git tag v0.14.0 <merge sha>`, then `git push origin v0.14.0`. Recorded in `retro.md`.
+- After the merge: enable the pack here. Add `"devkit-compozy@devkit": true` to
+  `.claude/settings.json`'s `enabledPlugins` in its own commit, once the pack is on `main` and
+  reachable through the `devkit` marketplace — the order `devkit-panel` followed (the pack in
+  PR #18, the enablement in PR #20). Enabling it before the merge would point the marketplace at a
+  pack that does not exist yet.
