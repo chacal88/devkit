@@ -216,7 +216,7 @@ Answers OD-4, the smallest of the four decisions, but not a single-phase one: th
 runner" answer changes 5.2 and 5.3 here and the `demo` prompt of task 2.4 in phase 2, and nothing
 else.
 
-- [ ] 5.1 Write `plugins/compozy/skills/screen-demo/SKILL.md`: the matrix (themes light and dark ×
+- [x] 5.1 Write `plugins/compozy/skills/screen-demo/SKILL.md`: the matrix (themes light and dark ×
   widths desktop 1440×900 and phone 390×844), the file names
   `evidence/<screen-id>-<theme>-<width>.png` and `evidence/journey.webm` under
   `openspec/changes/<id>/`, that the journey video is short and covers the change's path through the
