@@ -146,7 +146,7 @@ D2 fixes the node ids, the order and the edges; the validated probe is the refer
   sentence in `definition_of_done`. Last, when `compozy` is on `PATH` and answers, run
   `compozy loop validate --file <template> -o json` and assert `valid: true`; skip that assertion
   otherwise.
-- [ ] 2.8 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && python3 scripts/check.py`
+- [x] 2.8 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && python3 scripts/check.py`
 
 ## 3. The four role shells and the project skeleton (AC-5, AC-7, AC-9)
 

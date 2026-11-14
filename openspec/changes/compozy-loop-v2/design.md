@@ -113,6 +113,14 @@ that waits that way never wakes. The gates that follow — `checks_green` (`gh p
 `checks_green` and `merged` fail to `escalate`: the agent already looped on the fixes, so a failure
 is a question for the owner, not a reason to replan the change from `propose`.
 
+*Settled in phase 2, as `CONTRIBUTING.md` requires.* AC-5 says no step of the template waits with
+`sleep`, `gh pr checks --watch`, `gh run watch` or a polling loop, and task 2.5 says the two
+waiting prompts must forbid those four forms *by name* — so the forms appear in the file either
+way. The test resolves this by scanning the only node text the engine itself executes, the gate
+criteria's `check:` commands and `contract.verification`, and asserting separately that both
+prompts carry the prohibition. A prohibition in prose and a command that waits are different
+things, and only the second can block a turn.
+
 **D8 — The loop ends at `archived`, and the cleanup can fail without failing the run.** `archive`
 runs the `ship-change` archive steps (retro, the owner's answer per proposal, `openspec archive`,
 the roadmap tick, the archive pull request). `cleanup` is an action node whose `kind` is the literal
