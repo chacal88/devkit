@@ -28,8 +28,11 @@ rules:
     - Ask the owner; never answer your own grill questions
   proposal:
     - Keep it under two pages; the how belongs in design.md
+    - Every sentence stating a fact about the repository is true at the commit that ships it; a task that corrects such a claim names every file that repeats it
   design:
     - Record any decision that changes an ADR as a proposal for a new ADR, not as a silent deviation
+    - A sentence saying a test pins a behaviour names that test file
+    - Read the ADRs' rejected alternatives: an approach an ADR rejected needs its own ADR before readiness, never a line concluding none is needed
   tasks:
     - One "## N." group per phase, each ending with a gate task that names the test command
     - Every acceptance criterion id appears in at least one task

@@ -36,3 +36,11 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 
 ## Round 11: review round tooling
 - [ ] review-writer-prompt — `review-round.mjs outcomes` returns each outcome's stage-3 writer prompt (`writerPrompt`), as `review-change`'s agents path says (evidence-before-review retro, item 3)
+
+## Round 12: the CompozyOS loop as a kit
+- [x] compozy-loop-v2 — devkit-compozy ships the twelve-stage loop, the four role shells, the design gate and the demo as a kit any project installs; this repository adopts it; ADR 0009; release tagged v0.14.0
+
+## Round 13: what the bench caught late
+- [ ] ac-clause-coverage — a gate reads each acceptance criterion's clauses against the tests named for its slug, so a clause with no red test fails before the review (compozy-loop-v2 retro, item 4)
+- [ ] compozy-loop-v2-dogfood (after: ac-clause-coverage) — the first change driven end to end by loop v2, with its design gate and recorded demo, written back into this retro (compozy-loop-v2 retro, item 7)
+- [ ] release-pin-in-release-files — the CI pin of `docs/openspec-flow.md` joins `RELEASE_FILE` in `deliver-check`, since every `devkit-openspec` bump drags the pin and the archive gate then refuses a file no retro proposal names (compozy-loop-v2 retro, the pin decision)

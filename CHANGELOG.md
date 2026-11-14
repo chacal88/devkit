@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.18.0 — findChangePr's own branch
+
+- **devkit-openspec** 0.14.1: `findChangePr` no longer treats a worktree branch that merely
+  resolves to the single active change (`resolveChange`'s last fallback) as that change's own
+  branch; the branch's own name must now name the change (exact tail or contained), so a merged
+  PR is still found by its body link instead of reported as `none` (compozy-loop-v2 retro). The
+  CI snippet pins `v0.14.1`, as two tests of `deliver-check.test.mjs` require of any
+  `devkit-openspec` bump.
+- **devkit-core** 0.6.3: `review-change` records `git status --porcelain` before stage 1 of a
+  review round, and a stage-1 finding whose only evidence is an uncommitted edit that record does
+  not show is refuted in stage 2 without a verifier.
+- Docs/rules: `openspec/config.yaml` gains a proposal rule (a corrected factual claim names every
+  file that repeats it) and two design rules (a sentence saying a test pins a behaviour names that
+  test file; an ADR's rejected alternative needs its own ADR before readiness, never a line
+  concluding none is needed); `openspec/roadmap.md` records round 12 (compozy-loop-v2) and queues
+  round 13's two follow-ups. No other pack changes version; this release is tagged `v0.14.1` on
+  its merge commit.
+
 ## 0.17.0 — the CompozyOS kit
 
 - **devkit-compozy** 0.1.0: a new pack. `compozy-setup` installs `.compozy/` into a project (four
