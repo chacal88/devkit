@@ -245,7 +245,7 @@ else.
 - [x] 6.2 Replace `.compozy/agents/{tech-lead,dev,qa}/AGENT.md` with the shipped shells, add
   `.compozy/agents/design/AGENT.md`, and install `.compozy/bin/devkit-kit` (executable). Keep each
   shell's `appearance` block; the `design` role gets its own icon and the same colour.
-- [ ] 6.3 Update `.compozy/config.toml` and `.compozy/README.md` from the templates: the roles table
+- [x] 6.3 Update `.compozy/config.toml` and `.compozy/README.md` from the templates: the roles table
   gains `design`, and the stage line becomes the twelve stages of version 2. No `design:` block is
   added to `openspec/config.yaml`: this repository has no screens.
 - [ ] 6.4 Write `plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs`:
