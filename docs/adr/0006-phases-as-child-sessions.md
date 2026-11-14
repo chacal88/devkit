@@ -59,4 +59,4 @@ host; `bind_pr` binds more than one PR per session.
 | Remove `/conduct` (`remove-conduct`) | Simplest | The owner is the loop again; the orquestrador panel has no engine to read | low |
 | A session per step (plan, reviews, PR too) | Everything visible | More starts, more places for the chain to break; reviews are read-only fan-out that subagents fit | medium |
 | Fall back to a subagent on a refused start | Never stops | Hides the phases the owner asked to see; the conductor edits product code through a side door | low |
-| A daemon that starts sessions (Compozy-style) | Unattended | A harness outside the app; state outside the repository (ADR 0001) | high |
+| A daemon that starts sessions (Compozy-style) | Unattended | A harness outside the app; state outside the repository (ADR 0001) — accepted on its own terms as a second, opt-in driver in ADR 0009 (0009-compozy-loop-as-a-second-driver.md) | high |

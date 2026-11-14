@@ -38,7 +38,9 @@ PR) stay as they are, and the owner's plan approval remains a human gate.
   (0005-parallel-steps-and-a-session-wake-up.md), and in ADR 0007 (0007-one-change-on-request.md),
   which amends it. Running the reviewer round as one
   Workflow script inside the session is an exception recorded in ADR 0008
-  (0008-reviews-as-a-workflow.md). This ADR's Decision governs everything else.
+  (0008-reviews-as-a-workflow.md). A CompozyOS run driving the same flow from outside the session,
+  opt-in per project (ADR 0004), is a second driver recorded as an exception in ADR 0009
+  (0009-compozy-loop-as-a-second-driver.md). This ADR's Decision governs everything else.
 
 ### Review trigger
 

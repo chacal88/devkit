@@ -2,7 +2,7 @@
 
 Reusable [Claude Code](https://docs.claude.com/en/docs/claude-code) agents and skills, plus a spec-driven workflow on top of [OpenSpec](https://github.com/Fission-AI/OpenSpec) that you can enforce without a harness.
 
-devkit is a plugin marketplace with five packs. Install the packs per project: each project's `.claude/settings.json` names the packs it uses, so they load only in the projects that chose them and every other project pays no context for them (every installed skill's description is loaded into context on every turn).
+devkit is a plugin marketplace with seven packs. Install the packs per project: each project's `.claude/settings.json` names the packs it uses, so they load only in the projects that chose them and every other project pays no context for them (every installed skill's description is loaded into context on every turn).
 
 | Pack | What it gives you |
 |---|---|
@@ -11,6 +11,8 @@ devkit is a plugin marketplace with five packs. Install the packs per project: e
 | [**devkit-design**](plugins/design/README.md) | Greenfield design in four DDD phases: business discovery, domain model, architecture (with ADRs), implementation plan |
 | [**devkit-stack**](plugins/stack/README.md) | Technology references: Postgres, Neon, React performance, Vitest, multi-tenant SaaS, threat modeling |
 | [**devkit-ai-engineering**](plugins/ai-engineering/README.md) | Building with LLMs: evaluation, multi-agent patterns, tool and CLI design for agents, context compression, skill vetting |
+| [**devkit-panel**](plugins/panel/README.md) | A side pane in the Claude desktop app over the devkit checkers: the change this session conducts with its next step, phases, PR, delivery items and child sessions, and buttons that put the owner's next command in the prompt box |
+| [**devkit-compozy**](plugins/compozy/README.md) | The CompozyOS delivery loop, version 2, over the devkit flow: `compozy-setup` installs `.compozy/` (a design gate, a demo step, a CI wait, archive and cleanup) into a project. See [docs/compozy-kit.md](docs/compozy-kit.md) |
 
 The full list, generated from the files: [docs/catalog.md](docs/catalog.md).
 
