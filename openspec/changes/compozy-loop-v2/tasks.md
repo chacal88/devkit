@@ -277,7 +277,7 @@ else.
 - [x] 7.4 Add the `CHANGELOG.md` entry for the release: the new pack and what the loop gained.
 - [x] 7.5 Run `python3 scripts/gen-catalog.py` to fill `plugins/compozy/README.md`'s catalog markers
   and regenerate `docs/catalog.md`.
-- [ ] 7.6 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate .`
+- [x] 7.6 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate .`
 
 ## 8. What the first review round found (AC-2, AC-9, AC-10)
 
