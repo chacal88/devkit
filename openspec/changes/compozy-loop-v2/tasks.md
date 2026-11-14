@@ -59,7 +59,7 @@ move before 1.1 rather than after any later phase.
   must provide (`verify_command`, optionally `demo_command`, `demo_url` and a `design:` block), and
   an `## Assets` section holding the `<!-- catalog:begin -->` / `<!-- catalog:end -->` markers,
   empty for now (7.5 fills them).
-- [ ] 1.3 Write `plugins/compozy/skills/compozy-setup/templates/substitutions.json`: the one place
+- [x] 1.3 Write `plugins/compozy/skills/compozy-setup/templates/substitutions.json`: the one place
   that names every placeholder the templates carry (the change-independent ones: the agent names,
   `verify_command`, `demo_command`, `demo_url`, the timezone, the screen-map keys), each with its
   meaning and its default. `compozy-setup` reads it to fill the templates, and the adoption test of
