@@ -18,6 +18,12 @@ regression net at the end of the last phase. After the first review round that e
 "never merges") are answered by phase 8, so running it at 7.6 could only fail. The suite is not
 weakened and no part of it is dropped; it moves to the new last gate.
 
+It stays at gate 8.5 after the second review round: phase 9 touches `plugins/compozy/` tests, this
+change's own folder and nothing under `plugins/openspec/` or `docs/`, which are the surfaces that
+suite reads, so its green run at `307e1f5` still describes phase 9's head. Gate 9.6 re-runs the
+three suites phase 9 edits instead. A phase 9 task that ends up touching `plugins/openspec/` or a
+documentation page puts the suite back on the last gate.
+
 `compozy loop validate` exits 0 even when it reports `"valid": false`, so it is never a gate part on
 its own (design D-risks). The loop-template test of 2.7 runs it, asserts `valid: true`, and skips
 that assertion when the CLI or the daemon is absent.
@@ -40,14 +46,14 @@ definition of done says.
 |---|---|---|
 | AC-1 | `kit-pack` | 1.1, 1.2, 7.3, 7.5, 7.6 |
 | AC-2 | `loop-shape` | 2.1, 2.2, 2.5, 2.6, 2.7, 2.8, 8.3 |
-| AC-3 | `design-gate` | 2.3, 2.7, 4.2, 4.3, 4.5 |
-| AC-4 | `screens-check` | 4.2, 4.3, 4.5 |
+| AC-3 | `design-gate` | 2.3, 2.7, 4.2, 4.3, 4.5, 9.5 |
+| AC-4 | `screens-check` | 4.2, 4.3, 4.5, 9.3 |
 | AC-5 | `ci-green` | 2.5, 2.7, 3.2, 2.8 |
-| AC-6 | `demo-contract` | 2.4, 5.1, 5.2, 5.3, 5.4, 5.5 |
+| AC-6 | `demo-contract` | 2.4, 5.1, 5.2, 5.3, 5.4, 5.5, 9.2 |
 | AC-7 | `archive-cleanup` | 2.1, 2.6, 2.7, 3.2 |
 | AC-8 | `portable-hooks` | 1.5, 1.6, 2.1, 6.2 |
-| AC-9 | `repo-adopts` | 1.3, 6.1, 6.2, 6.3, 6.4, 6.5, 8.3 |
-| AC-10 | `release-ready` | 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 8.1, 8.2, 8.5 |
+| AC-9 | `repo-adopts` | 1.3, 6.1, 6.2, 6.3, 6.4, 6.5, 8.3, 9.2 |
+| AC-10 | `release-ready` | 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 8.1, 8.2, 8.5, 9.1 |
 
 ## 1. The pack and the resolver (AC-1, AC-8)
 
@@ -324,6 +330,54 @@ here changes the loop's graph, its gates or the acceptance criteria.
   so this is wording: keep the meaning, put "ship mode" on the line that makes the claim. Then
   re-run `python3 scripts/gen-catalog.py` if any catalog text moved.
 - [x] 8.5 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && node --test plugins/openspec/hooks/guard.test.mjs`
+
+## 9. What the second review round found (AC-3, AC-4, AC-6, AC-9, AC-10)
+
+Round 2 at `307e1f5` left three dispositions open — one blocking contradiction inside the plan and
+two important coverage gaps — and `deliver-check` item 1 still reads the guard suite's row as
+missing, because the cell that records its pass starts with bold markers and the checker counts
+only a Result cell that begins with `pass`. Nothing here changes the loop's graph, its gates, the
+shipped templates' behaviour or the acceptance criteria: one plan sentence, three assertions and
+one table cell. The order is the plan first, then the tests, then the evidence, then the gate.
+
+- [x] 9.1 Commit the plan correction (`code-quality-reviewer`, round 2, blocking,
+  `proposal.md:64-65`). This revision rewrote the "Docs and release" bullet: it no longer claims
+  `devkit-openspec` is untouched and the release creates no tag, which contradicted the same file's
+  Impact section, AC-10, design D13 and task 8.1's own `CHANGELOG.md` correction. It now says what
+  the other four say — the `PACKS` entry bumps `devkit-openspec` to `0.14.0`, so `CONTRIBUTING.md`
+  asks for the `v0.14.0` tag after the merge. Commit that file, by itself or with the rest of this
+  phase, and give the bench the sha: the finding is disposed by the re-review writing
+  `· fixed in <sha>` on its line, not by this task.
+- [ ] 9.2 Pin `deliver`'s guarded evidence link (`test-coverage-reviewer`, round 2, important;
+  AC-6, AC-9). AC-6 requires `deliver` to link the change's `evidence/` folder from the pull-request
+  body when the demo ran, and no assertion reads that text today, so deleting it leaves every suite
+  green. Add to `plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs` an
+  `AC-6 demo-contract: ...` assertion that `deliver`'s prompt links
+  `openspec/changes/<id>/evidence/` and that the sentence sits inside an `{{ if .nodes.demo.output }}`
+  block guarded on the parent output — one assertion that fails both when the link is removed and
+  when the guard is loosened to a nested field. Mirror it over the installed copy in
+  `adoption.test.mjs` as an `AC-9 repo-adopts: ...` assertion, the way task 8.3 mirrored the design
+  guard. No template file changes: the text being pinned already exists.
+- [ ] 9.3 Cover `screens-check`'s argument parsing (`test-coverage-reviewer`, round 2, important;
+  AC-4). `parseArgs`'s negative half — an unknown option, `--change` with no value, and the `.`,
+  `..` and `archive` exclusions that keep the checker inside a change folder — has no test, so
+  loosening the regex or dropping the exclusion list stays green. Add `AC-4 screens-check: ...`
+  cases to `plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs` for each of those
+  inputs plus `--change=` with an empty value and no `--change` at all: each exits 3 as a setup
+  error, naming the offending argument on stderr, and reads no file outside the change folder. Keep
+  them real subprocess runs over fixtures, as the rest of that file does. The script is not changed:
+  these cases pin the behaviour it already has.
+- [ ] 9.4 Make the guard suite's pass readable to the checker (`deliver-check` item 1). In
+  `evidence.md`, the gate-8.5 row for `node --test plugins/openspec/hooks/guard.test.mjs` records
+  `**pass: 668 tests ...**`; item 1 counts a row only when its last cell begins with `pass`, so the
+  bold markers hide a green run. Drop them from that cell, keep every word, and leave the other
+  rows alone. Then re-stamp `evidence.md`'s `Commit:` line at this phase's head and add the gate-9.6
+  rows, as every phase does.
+- [ ] 9.5 Pin `propose`'s `screens` output (`test-coverage-reviewer`, round 2, nit; AC-3). One
+  `AC-3 design-gate: ...` assertion in `loop-template.test.mjs` that `propose`'s `output_schema`
+  declares `screens` as an array of strings and lists it in `required`, instead of proving it only
+  through the two branch conditions that read the same path.
+- [ ] 9.6 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && node --test plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check`
 
 ## Workflow follow-up
 

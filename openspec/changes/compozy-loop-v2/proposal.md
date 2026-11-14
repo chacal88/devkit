@@ -61,8 +61,10 @@ the owner's, by hand, in another session.
   alternatives. Shipping that daemon's loop for any project is a decision the repository records
   where it records decisions, not inside a design doc.
 - **Docs and release**: a kit page under `docs/`, the pack row in `docs/conventions.md`, the
-  marketplace entry, the regenerated catalog and a `CHANGELOG.md` line. `devkit-openspec` is not
-  touched, so this release creates no tag (`CONTRIBUTING.md`).
+  marketplace entry, the regenerated catalog and a `CHANGELOG.md` line. The `PACKS` entry above is
+  an edit inside `plugins/openspec/`, so `devkit-openspec` is bumped from `0.13.0` to `0.14.0` and
+  `CONTRIBUTING.md` makes this a tagged release: `v0.14.0`, pushed after the merge (Impact, AC-10,
+  `design.md` D13).
 
 Non-goals (`requirements.md`, Out of scope): `chacal88/whatsapp-platform` adopting the kit;
 publishing the loop to the daemon; the pilot's `lead` role, heartbeats and automations; any change
