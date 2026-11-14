@@ -257,7 +257,7 @@ else.
 
 ## 7. Documentation and release (AC-1, AC-10)
 
-- [ ] 7.1 Write `docs/compozy-kit.md`: what the kit is, the twelve stages with who runs each and
+- [x] 7.1 Write `docs/compozy-kit.md`: what the kit is, the twelve stages with who runs each and
   which gate follows, the two optional branches and what turns them on, what a project must provide,
   how to adopt it (`compozy-setup`, then the operator's `compozy loop create --fork-from-name` and
   `compozy loop run`), and how it relates to `/conduct` (two ways to drive the same flow).
