@@ -377,7 +377,7 @@ one table cell. The order is the plan first, then the tests, then the evidence, 
   bold markers hide a green run. Drop them from that cell, keep every word, and leave the other
   rows alone. Then re-stamp `evidence.md`'s `Commit:` line at this phase's head and add the gate-9.6
   rows, as every phase does.
-- [ ] 9.5 Pin `propose`'s `screens` output (`test-coverage-reviewer`, round 2, nit; AC-3). One
+- [x] 9.5 Pin `propose`'s `screens` output (`test-coverage-reviewer`, round 2, nit; AC-3). One
   `AC-3 design-gate: ...` assertion in `loop-template.test.mjs` that `propose`'s `output_schema`
   declares `screens` as an array of strings and lists it in `required`, instead of proving it only
   through the two branch conditions that read the same path.

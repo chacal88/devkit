@@ -328,6 +328,29 @@ test('AC-2 loop-shape: every .nodes.design.output read is the parent guard itsel
   assert.deepEqual(designOutputViolations(text), []);
 });
 
+// AC-3 design-gate, round 2 nit: 2.7 already proves the screens list drives both branch
+// conditions, but neither branch reads output_schema itself, so a schema that silently dropped
+// screens from required (or stopped typing its items) would still turn the loop the right way
+// while leaving the contract propose actually returns unpinned. This states the schema's own
+// shape directly.
+test('AC-3 design-gate: propose\'s output_schema declares screens as a required array of strings', () => {
+  const block = nodeBlock('propose');
+  const osStart = block.indexOf('output_schema:');
+  assert.ok(osStart >= 0, 'propose must declare output_schema');
+  const outputSchema = block.slice(osStart);
+  const required = outputSchema.match(/required:\s*\[([^\]]*)\]/);
+  assert.ok(required, 'output_schema must declare required');
+  assert.ok(
+    required[1].split(',').map((s) => s.trim()).includes('screens'),
+    'required must list screens',
+  );
+  assert.match(
+    outputSchema,
+    /screens:\s*\n\s*type:\s*array\s*\n(?:\s*description:.*\n)?\s*items:\s*\{\s*type:\s*string,[^}]*\}/,
+    'screens must be typed as an array of strings',
+  );
+});
+
 // AC-6 demo-contract, AC-9 repo-adopts, round 2 important: AC-6 requires deliver to link the
 // change's evidence folder from the pull-request body when the demo ran, and nothing read that
 // text before this, so deleting the sentence (or loosening the guard to a nested field, which
