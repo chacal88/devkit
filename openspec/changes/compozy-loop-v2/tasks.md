@@ -192,7 +192,7 @@ and 4.
   mockup version, what a proposed row must carry (id, screen, what it shows and allows, the stage,
   the level of detail in the mockup), that the rows land on the change branch so map and code merge
   together, and that the owner approves plan and design in the same review, before any code.
-- [ ] 4.2 Write `plugins/compozy/skills/screen-design/scripts/screens-check.mjs`
+- [x] 4.2 Write `plugins/compozy/skills/screen-design/scripts/screens-check.mjs`
   (`--change <id> [--json]`): read the `design:` block of `openspec/config.yaml` (`screen_map:`,
   optional `mockup:`), the change's `proposal.md` `## Screens` list and the map. Exit 0 when every
   declared id is the first cell of a row of the map and the map holds a line starting with `Mockup:`
