@@ -110,6 +110,46 @@ function fieldValue(block, field, indent = 6) {
   return m ? m[1].trim() : undefined;
 }
 
+// design.md Risks, "A skipped node's output": a skipped node settles with a skip marker rather
+// than a filled schema, and the compiler's Go templates raise `nil pointer evaluating %s.%s` when
+// a field is dotted on a nil output. So every reader of `.nodes.design.output` must either be the
+// bare parent guard itself (`{{ if .nodes.design.output }}`) or sit inside the body of such a
+// guard, never dot a field (`.worktree_path`, `.screens`, `.mockup`, `.mockup_version`, ...)
+// outside one. `{{ if }}`/`{{ end }}` pairs never nest in this template, so a sequential
+// open/close scan is enough: the only token that opens the guard is the exact bare condition, and
+// the next `{{ end }}` after it always closes that same guard.
+//
+// One exemption, named by the line it sits on rather than by node id so both this file and
+// adoption.test.mjs can share the same check text: `screens_ok`'s `check:` dots
+// `.worktree_path` with no guard at all, and that is correct, not an oversight - `screens_ok` is
+// reachable only by the edge `design -> screens_ok`, so its output is always filled when that
+// gate's criterion runs.
+function designOutputViolations(text) {
+  const EXEMPT_LINE = '.compozy/bin/devkit-kit screens-check';
+  const tokenRe = /(\{\{\s*if\s+\.nodes\.design\.output\s*\}\})|(\{\{\s*end\s*\}\})|(\.nodes\.design\.output(?:\.\w+)?)/g;
+  let insideGuard = false;
+  const violations = [];
+  let m;
+  while ((m = tokenRe.exec(text))) {
+    const [, guardOpen, end, field] = m;
+    if (guardOpen) {
+      insideGuard = true;
+      continue;
+    }
+    if (end) {
+      insideGuard = false;
+      continue;
+    }
+    if (field === '.nodes.design.output' || insideGuard) continue;
+    const lineStart = text.lastIndexOf('\n', m.index) + 1;
+    const lineEndIdx = text.indexOf('\n', m.index);
+    const line = text.slice(lineStart, lineEndIdx === -1 ? text.length : lineEndIdx);
+    if (line.includes(EXEMPT_LINE)) continue;
+    violations.push(`${field} at offset ${m.index}: ${line.trim()}`);
+  }
+  return violations;
+}
+
 test('AC-2 loop-shape: the node ids are exactly design D2\'s seventeen, in order', () => {
   assert.deepEqual(nodeIds(), EXPECTED_NODE_IDS);
 });
@@ -270,6 +310,10 @@ test('AC-7 archive-cleanup: contract.verification checks the archived folder on 
   assert.doesNotMatch(verification, /\.nodes\./);
   assert.match(verification, /origin\/HEAD/);
   assert.match(verification, /openspec\/changes\/archive/);
+});
+
+test('AC-2 loop-shape: every .nodes.design.output read is the parent guard itself or sits inside one (design Risks, "A skipped node\'s output")', () => {
+  assert.deepEqual(designOutputViolations(text), []);
 });
 
 // The strongest proof of the template, but it needs a running CompozyOS daemon (design.md

@@ -91,6 +91,18 @@ test('AC-9 repo-adopts: the four role shells are the shipped ones, installed for
   }
 });
 
+// design.md Risks, "A skipped node's output". The structural scan over every
+// `.nodes.design.output` read lives in loop-template.test.mjs, which owns the template; what this
+// file owns is the installed copy, and the render-and-compare above already proves it is the
+// template byte for byte. This narrow assertion states the repaired shape directly, so AC-9 is
+// provable without reasoning through that equality: the guard conditions on the parent output,
+// never on a field of it, which is what a skipped node leaves nil.
+test('AC-9 repo-adopts: the installed loop.yaml guards the skipped design node on the parent output', () => {
+  const installed = readInstalled('loops', 'openspec-change', 'loop.yaml');
+  assert.match(installed, /\{\{ if \.nodes\.design\.output \}\}/);
+  assert.doesNotMatch(installed, /\{\{\s*if\s+\.nodes\.design\.output\.\w+/);
+});
+
 test('AC-9 repo-adopts: .compozy/bin/devkit-kit is the shipped resolver, verbatim (no placeholder)', () => {
   const templateText = readTemplate('bin', 'devkit-kit');
   const actual = readInstalled('bin', 'devkit-kit');

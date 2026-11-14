@@ -262,7 +262,7 @@ graph:
         prompt: |
           Implement the approved OpenSpec change `{{ .inputs.change_id }}` following your procedure.
 
-          {{ if .nodes.design.output.worktree_path }}
+          {{ if .nodes.design.output }}
           Continue in the worktree the design role already created, at
           {{ .nodes.design.output.worktree_path }}, on branch `{{ .inputs.change_id }}`.
           {{ else }}

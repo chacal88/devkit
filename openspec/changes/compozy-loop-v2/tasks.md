@@ -306,7 +306,7 @@ here changes the loop's graph, its gates or the acceptance criteria.
   the ADR line of `openspec/config.yaml`'s `context`, and cite the ADR from `docs/compozy-kit.md`.
   Leave ADR 0001's own `- Status: accepted` untouched unless the owner chose the superseding form at
   the plan review, in which case ADR 0001 gains `- Superseded by ADR 0009` and ADR 0009 says so too.
-- [ ] 8.3 Guard the skipped design node and pin it (design Risks, "A skipped node's output"). In
+- [x] 8.3 Guard the skipped design node and pin it (design Risks, "A skipped node's output"). In
   `plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml`, change
   `implement`'s prompt guard from the nested field (`{{ if .nodes.design.output.worktree_path }}`)
   to the parent (`{{ if .nodes.design.output }}`), as `approve_plan` and `deliver` already do, so a
