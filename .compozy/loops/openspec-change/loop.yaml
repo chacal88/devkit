@@ -1,0 +1,319 @@
+# Deliver one OpenSpec change with the devkit, supervised by CompozyOS.
+#
+# The devkit (OpenSpec change files, hooks that keep product code closed until the plan is
+# ready, reviewer agents, checkers) does the real work inside each run-agent node. CompozyOS
+# only sequences the stages, holds the human gates, runs the project check and ends with a
+# named outcome. In this repository the devkit is the source tree itself: the checkers run
+# from plugins/openspec/hooks/.
+apiVersion: compozy.loop/v1
+kind: Loop
+meta:
+  name: openspec-change
+  description: Plan an OpenSpec change with the devkit, wait for operator approval, implement it in a worktree, review, verify and open a PR.
+  catalog:
+    use_when: "A change from the roadmap should go through the devkit/OpenSpec process end to end, supervised by CompozyOS."
+    keywords: [devkit, openspec, change, delivery]
+    category: Engineering
+
+concurrency: allow
+
+inputs:
+  change_id:
+    type: string
+    required: true
+    description: OpenSpec change id (kebab-case), used as openspec/changes/<change_id>/ and as the worktree and branch name (the devkit guards resolve the active change from the branch name).
+  brief:
+    type: string
+    required: true
+    description: What the change must achieve, in the operator's words (the roadmap line is a good start).
+  schema:
+    type: string
+    default: devkit-lite
+    enum: [devkit-lite, devkit]
+    description: OpenSpec schema. devkit adds the grill and an independent readiness gate; use it for new capabilities, public contracts, data model, auth/money/personal data or hard-to-roll-back work.
+  verify_command:
+    type: string
+    default: "python3 scripts/gen-catalog.py --check && python3 scripts/check.py"
+    description: The project's focused check, run inside the worktree after implementation and again at the verify gate. The full hook suite (about 13 minutes) belongs to the phase gate tasks and to CI.
+  planner:
+    type: agent
+    default: tech-lead
+  implementer:
+    type: agent
+    default: dev
+  reviewer:
+    type: agent
+    default: qa
+
+contract:
+  goal: "Deliver the OpenSpec change {{ .inputs.change_id }}: {{ .inputs.brief }}"
+  definition_of_done: >
+    The change under openspec/changes/{{ .inputs.change_id }}/ validates strictly and its plan was
+    approved by the operator; every task in tasks.md is implemented and committed on branch
+    {{ .inputs.change_id }} in a worktree, except tasks the operator deferred by a dated decision
+    recorded in tasks.md; the project's focused check passes; the devkit review bench approved
+    with no blocking issue and evidence.md names the branch head; a pull request is open and the
+    repository's ship mode (openspec/config.yaml) decides the merge.
+  constraints:
+    - "Never push without the operator's explicit approval recorded in this run; never merge by hand."
+    - "Never use destructive Git (reset, checkout --, clean, rm, branch -D, stash)."
+    - "Project instructions (CLAUDE.md), openspec/config.yaml and the devkit hooks remain in force inside every session."
+  iteration_cap: 3
+  no_progress:
+    window: 2
+  budget:
+    tokens: 0
+    wall_clock_sec: 0
+    on_exceeded: halt
+  verification:
+    # The change files live on the change branch, so validate inside its worktree when one
+    # exists (the root checkout may hold no copy at all).
+    - id: change_valid
+      type: command
+      check: "d=$(git worktree list --porcelain | awk -v b={{ .inputs.change_id | shellQuote }} '/^worktree /{p=$2} $0==\"branch refs/heads/\"b{print p}'); cd \"${d:-.}\" && openspec validate {{ .inputs.change_id | shellQuote }} --strict"
+      expect: exit_zero
+  terminal_states: [done, no-op, blocked, failed, exhausted, stalled, canceled]
+
+graph:
+  nodes:
+    # 1. Plan: the tech lead runs the devkit planning steps (create, proposal, design, tasks,
+    #    spec deltas; grill + readiness for the devkit schema) and stops before implement.
+    - id: propose
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.planner }}"
+        prompt: |
+          Plan the OpenSpec change `{{ .inputs.change_id }}` with schema `{{ .inputs.schema }}`.
+          Brief from the operator:
+
+          {{ .inputs.brief }}
+
+          This is generation {{ .generation }}.
+          {{ if .previous.generation }}
+          The previous generation ended without approval. Operator feedback and gate verdicts:
+          {{ toJson .previous.verdicts }}
+          Revise the plan to address them; do not start over. When the plan itself needs no
+          change, return status `unchanged`.
+          {{ end }}
+
+          Follow your procedure: ask the devkit checker what is next and do the planning steps
+          until the next step is `implement`, then stop. Write only under
+          openspec/changes/{{ .inputs.change_id }}/. Run
+          `openspec validate {{ .inputs.change_id }} --strict` and fix every error before
+          returning. Return only the structured result below. `tasks` lists every task from
+          tasks.md in order; `open_questions` lists decisions the operator must take before
+          implementation (empty when none).
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [status, change_dir, summary, tasks, open_questions]
+          properties:
+            status:
+              type: string
+              enum: [created, updated, unchanged]
+            change_dir:
+              type: string
+              pattern: '^openspec/changes/[a-z0-9][a-z0-9-]*/$'
+            summary:
+              type: string
+              minLength: 1
+            tasks:
+              type: array
+              minItems: 1
+              maxItems: 60
+              items:
+                type: object
+                additionalProperties: false
+                required: [id, title]
+                properties:
+                  id: { type: string, minLength: 1 }
+                  title: { type: string, minLength: 1 }
+            open_questions:
+              type: array
+              items: { type: string, minLength: 1 }
+      timeout: 40m
+      retry:
+        max_attempts: 2
+
+    # 2. Gate: strict validation by command. The operator's approval of the plan is the
+    #    `review` block on the implement node below (a gate cannot mix command and human
+    #    criteria at runtime). A failed validation sends the loop back to propose.
+    - id: approve_plan
+      class: control
+      kind: gate
+      criteria:
+        - id: change_valid
+          type: command
+          check: "d=$(git worktree list --porcelain | awk -v b={{ .inputs.change_id | shellQuote }} '/^worktree /{p=$2} $0==\"branch refs/heads/\"b{print p}'); cd \"${d:-.}\" && openspec validate {{ .inputs.change_id | shellQuote }} --strict"
+          expect: exit_zero
+      verdict_policy: fixed_passes
+      on_result:
+        fail: next_generation
+
+    # 3. Implement: TDD implementer per phase, in a worktree, one commit per task. The timeout
+    #    is generous; the worktree keeps the committed phases and a new generation resumes
+    #    from them.
+    - id: implement
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.implementer }}"
+        prompt: |
+          Implement the approved OpenSpec change `{{ .inputs.change_id }}` following your procedure.
+
+          Work only inside a worktree on branch `{{ .inputs.change_id }}`; create it with the
+          Compozy worktree tools when it does not exist, never in the workspace root. The change
+          files under {{ .nodes.propose.output.change_dir }} must be committed on that branch
+          first when they are not yet. Follow tasks.md phase by phase with the
+          devkit-core:tdd-implementer agent, ticking each task as it lands. Tests first, then code.
+          Stage files by name, one commit per task. Never push, never merge, never rebase onto a
+          shared branch.
+
+          {{ if .previous.generation }}
+          Previous reviewer verdicts to address first:
+          {{ toJson .previous.verdicts }}
+          {{ end }}
+
+          Run `{{ .inputs.verify_command }}` inside the worktree before returning; it must pass.
+          Return only the structured result below; `head` is the exact commit SHA of the branch.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [worktree_path, branch, head, tasks_done, verification, blockers]
+          properties:
+            worktree_path: { type: string, minLength: 1 }
+            branch: { type: string, pattern: '^[a-z0-9][a-z0-9-]*$' }
+            head: { type: string, pattern: '^[0-9a-f]{7,40}$' }
+            tasks_done:
+              type: array
+              items: { type: string, minLength: 1 }
+            verification:
+              type: array
+              description: Commands run and their results.
+              items: { type: string, minLength: 1 }
+            blockers:
+              type: array
+              items: { type: string, minLength: 1 }
+      review:
+        prompt: |
+          Approve the plan for change `{{ .inputs.change_id }}` ({{ .inputs.schema }}) and start
+          the implementation?
+
+          Summary: {{ .nodes.propose.output.summary }}
+          Tasks: {{ toJson .nodes.propose.output.tasks }}
+          Open questions: {{ toJson .nodes.propose.output.open_questions }}
+
+          Read {{ .nodes.propose.output.change_dir }} (proposal, design, tasks, readiness) before
+          deciding. Reject ends this run without code; fix the plan with the tech lead and
+          start a new run, which refines the existing change files.
+        decisions: [approve, reject]
+        responders:
+          agents: deny
+      timeout: 12h
+      retry:
+        max_attempts: 1
+
+    # 4. Review: the independent reviewer runs the devkit bench and the pr-verifier and commits
+    #    reviews/, review.md and evidence.md on the change branch. A run-agent node, not a
+    #    judge: a judge session cannot start for an approve-all agent, and the bench writes files.
+    - id: review
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.reviewer }}"
+        prompt: |
+          Review change `{{ .inputs.change_id }}` on branch {{ .nodes.implement.output.branch }}
+          at commit {{ .nodes.implement.output.head }} in
+          {{ .nodes.implement.output.worktree_path }} against
+          {{ .nodes.propose.output.change_dir }} (proposal, design, tasks, spec deltas) following
+          your procedure: the devkit review bench writes reviews/<reviewer>.md and the
+          pr-verifier writes evidence.md for that exact commit; commit those files on the branch.
+          Tasks the operator deferred by a dated decision recorded in tasks.md are not findings.
+          Blocking issues: a task from tasks.md not implemented, a spec delta not honoured, a
+          failing or weakened test, a security defect, destructive Git, any push or merge.
+          Approve only with evidence you read the diff and saw the focused check pass. Use stable
+          snake_case ids for blocking issues. Return only the structured result below.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [verdict, head, blocking, important]
+          properties:
+            verdict:
+              type: string
+              enum: [approved, rejected]
+            head: { type: string, pattern: '^[0-9a-f]{7,40}$' }
+            blocking:
+              type: array
+              items: { type: string, minLength: 1 }
+            important:
+              type: array
+              items: { type: string, minLength: 1 }
+      timeout: 3h
+      retry:
+        max_attempts: 1
+
+    # 5. Gate: the focused check and the devkit's own deliver-check, both inside the worktree.
+    #    deliver-check --ci reads readiness, tasks, reviews and evidence the way CI will. A fail
+    #    starts the next generation: the planner keeps the plan, the implementer addresses the
+    #    verdicts, the reviewer runs again.
+    - id: verify
+      class: control
+      kind: gate
+      criteria:
+        - id: focused_check
+          type: command
+          check: "cd {{ .nodes.implement.output.worktree_path | shellQuote }} && sh -c {{ .inputs.verify_command | shellQuote }}"
+          expect: exit_zero
+        - id: deliver_check
+          type: command
+          check: "cd {{ .nodes.implement.output.worktree_path | shellQuote }} && DEVKIT_BRANCH={{ .inputs.change_id | shellQuote }} node plugins/openspec/hooks/deliver-check.mjs --ci"
+          expect: exit_zero
+      verdict_policy: fixed_passes
+      on_result:
+        fail: next_generation
+
+    # 6. Deliver: devkit ship-change / commit-and-pr. The operator admits the push first; the
+    #    repository's ship mode (openspec/config.yaml) decides what happens after the PR.
+    - id: deliver
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.implementer }}"
+        prompt: |
+          In worktree {{ .nodes.implement.output.worktree_path }} on branch
+          {{ .nodes.implement.output.branch }} (head {{ .nodes.review.output.head }}), use the
+          devkit's ship-change skill to push the branch and open a pull request for change
+          `{{ .inputs.change_id }}`, following the ship mode of openspec/config.yaml. Title from
+          the proposal, body with summary, tasks, review disposition and verification. Never merge
+          by hand and do not archive the OpenSpec change. Return only the structured result below.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [branch, head, pr_url]
+          properties:
+            branch: { type: string, minLength: 1 }
+            head: { type: string, pattern: '^[0-9a-f]{7,40}$' }
+            pr_url: { type: string, pattern: '^https://' }
+      review:
+        prompt: "Push `{{ .nodes.implement.output.branch }}` and open the pull request for `{{ .inputs.change_id }}`?"
+        decisions: [approve, reject]
+        responders:
+          agents: deny
+      timeout: 30m
+      retry:
+        max_attempts: 1
+
+  edges:
+    - { from: propose, to: approve_plan }
+    - { from: approve_plan, to: implement }
+    - { from: implement, to: review }
+    - { from: review, to: verify }
+    - { from: verify, to: deliver }
+
+start:
+  - kind: manual
+  - kind: cli
+  - kind: http
+  - kind: uds
+  - kind: native_tool
