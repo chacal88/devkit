@@ -323,7 +323,7 @@ here changes the loop's graph, its gates or the acceptance criteria.
   same line; `` `ship: merge` `` matches none of them. Both lines describe the loop correctly today,
   so this is wording: keep the meaning, put "ship mode" on the line that makes the claim. Then
   re-run `python3 scripts/gen-catalog.py` if any catalog text moved.
-- [ ] 8.5 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && node --test plugins/openspec/hooks/guard.test.mjs`
+- [x] 8.5 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && node --test plugins/openspec/hooks/guard.test.mjs`
 
 ## Workflow follow-up
 
