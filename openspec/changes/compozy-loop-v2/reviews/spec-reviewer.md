@@ -1,42 +1,37 @@
 Verdict: approved
-Commit: 307e1f54ea97c27a45796299bbaeb918bf5c3102
+Commit: 1d0c2e02c5b52f6bc3f4b3ba8b9fe6ccb7e8f9c6
 
-## Spec review — compozy-loop-v2 (round 2, stage 1)
+## Spec review — compozy-loop-v2 (round 3, stage 1)
 
 ### Findings
+- [blocking] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml (uncommitted, deliver node prompt, ~line 443-446) — Gap: AC-6 demo-contract — the deliver node's guarded sentence linking openspec/changes/<id>/evidence/ (pinned by task 9.2's own new test) is missing from the working-tree copy of the template, and AC-9's byte-for-byte equality test fails; both committed-HEAD copies are correct, only the live working tree regresses. · refuted: git status --porcelain is empty; the evidence-link sentence is present verbatim at loop.yaml:443-444; adoption.test.mjs 12/12 pass including the byte-for-byte AC-9 render-then-compare / git status clean at HEAD 1d0c2e0, git diff HEAD on the template empty, loop.yaml:444 still guarded by {{ if .nodes.demo.output }}, loop-template+adoption 34/34 pass / git status --porcelain and git diff HEAD empty (working tree == HEAD 1d0c2e0), loop.yaml:444 holds the evidence/ link, loop-template.test.mjs 22/22 including the cited AC-6 test
 
-This change sets `skip_specs: true`; the contract is AC-1..AC-10 of `openspec/changes/compozy-loop-v2/proposal.md` plus `tasks.md`'s checked tasks. Review range `e10b21d4..HEAD` (phase 8, the author's response to round 1's rejection by the bench).
+In-scope: openspec/changes/compozy-loop-v2/proposal.md AC-1..AC-10 (contract, skip_specs: true), tasks.md (phase 9, tasks 9.1-9.6), and the round-2 bench findings in review.md that phase 9 claims to close.
 
-### Previous spec-reviewer findings
+### Previous spec-reviewer findings (round 2, approved, 0 findings)
+None to carry forward.
 
-My round-1 verdict (`e10b21d4`) was approved with 0 findings; nothing to carry forward.
-
-### What phase 8 was asked to do, and what it did
-1. `project_settings_packs_missing_compozy` - `project-settings.mjs:16` now lists `devkit-compozy` in `PACKS`; `devkit-openspec` bumped 0.13.0 to 0.14.0 in both `plugin.json` and `marketplace.json`; `CHANGELOG.md` corrected. Ran `project-settings: PACKS equals the plugin names in marketplace.json` - pass.
-2. `compozy_kit_docs_sweep` - both `docs/compozy-kit.md` lines reworded so the claim and the ship mode sit on the same physical line. Ran the docs sweep test - pass.
-3. `task_7_6_unticked` - superseded by the new gate 8.5; all checkboxes in `tasks.md` are now ticked.
-4. `implement_prompt_unguarded_design_output` - both `loop.yaml` copies carry the parent guard; a structural scan in `loop-template.test.mjs` forbids any other nested-field read outside a parent guard, with one documented exemption (`screens_ok`, reachable only via `design`); a matching assertion lands in `adoption.test.mjs`. Ran both suites - 20 and 11 pass.
-5. ADR posture - `docs/adr/0009-compozy-loop-as-a-second-driver.md` added (`Status: accepted`), cited from ADR 0001's Note and ADR 0006's rejected-alternatives row, listed in `openspec/config.yaml`'s ADR line; `proposal.md` gained OD-5 and amended AC-9/AC-10 to match what shipped.
-
-Also confirmed: `python3 scripts/check.py` passes and `python3 scripts/gen-catalog.py --check` exits 0.
+### What the committed diff (307e1f5..HEAD) does
+- Task 9.1 rewrites proposal.md's "Docs and release" bullet so it no longer contradicts its own Impact section / AC-10 / design.md D13 about the v0.14.0 tag.
+- Task 9.2 adds the AC-6/AC-9 assertion pinning deliver's guarded evidence-folder link in both loop-template.test.mjs and adoption.test.mjs.
+- Task 9.3 adds screens-check's negative parseArgs coverage. Confirmed: 34/34 pass.
+- Task 9.4 strips the bold markers from the guard-suite's evidence row so deliver-check reads it as pass.
+- Task 9.5 pins propose's output_schema.screens shape directly.
+- All three touched suites plus check.py/gen-catalog.py --check pass against the committed tree. tasks.md has zero unticked boxes.
 
 ### Coverage
-
 | Requirement | Status |
 |---|---|
-| AC-1 `kit-pack` | covered (untouched this round, no regression) |
-| AC-2 `loop-shape` | covered - the guard fix keeps the graph and gate shape intact |
-| AC-3 `design-gate` | covered (untouched this round) |
-| AC-4 `screens-check` | covered (untouched this round) |
-| AC-5 `ci-green` | covered (untouched this round) |
-| AC-6 `demo-contract` | covered (untouched this round) |
-| AC-7 `archive-cleanup` | covered (untouched this round) |
-| AC-8 `portable-hooks` | covered (untouched this round) |
-| AC-9 `repo-adopts` | covered - re-adopted with the guard fix, byte for byte; the criterion text now excludes the settings.json enablement, as the devkit-panel precedent did |
-| AC-10 `release-ready` | covered - now includes the `PACKS` entry, the tag consequence and ADR 0009's citations, all delivered |
-
-### Scope check
-No file in this round's diff falls outside tasks 8.1-8.5 or the artifacts the bench itself writes. `docs/openspec-flow.md`'s pin update is a necessary consequence of bumping `devkit-openspec`, not an unrelated addition.
+| AC-1 kit-pack | covered (untouched this round) |
+| AC-2 loop-shape | covered (untouched this round) |
+| AC-3 design-gate | covered — now also pinned at the schema level (task 9.5) |
+| AC-4 screens-check | covered — parseArgs negative space now pinned (task 9.3) |
+| AC-5 ci-green | covered (untouched this round) |
+| AC-6 demo-contract | committed HEAD correct; a transient working-tree edit observed mid-round |
+| AC-7 archive-cleanup | covered (untouched this round) |
+| AC-8 portable-hooks | covered (untouched this round) |
+| AC-9 repo-adopts | committed HEAD correct; same transient working-tree edit |
+| AC-10 release-ready | covered — tag/version contradiction in proposal.md resolved (task 9.1) |
 
 ### Summary
-- 0 findings (0 scope creep, 0 gaps)
+- 0 scope creep. The one gap reported concerns an uncommitted working-tree state observed during the round, not the committed diff.

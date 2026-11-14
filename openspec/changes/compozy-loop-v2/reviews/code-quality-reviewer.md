@@ -1,21 +1,20 @@
-Verdict: rejected
-Commit: 307e1f54ea97c27a45796299bbaeb918bf5c3102
+Verdict: approved
+Commit: 1d0c2e02c5b52f6bc3f4b3ba8b9fe6ccb7e8f9c6
 
-## Quality review — compozy-loop-v2 (round 2, stage 1)
+## Quality review — compozy-loop-v2 (round 3, stage 1)
 
 ### Findings
-- [important] openspec/changes/compozy-loop-v2/design.md:256-258 / plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml:265 (round 1 finding) — implement's prompt conditioned on a nested field of a skipped node's output, and design.md falsely claimed a test pinned the guards. · fixed in a9d879428c13231809601419dddb5f6a0b502904
-- [blocking] openspec/changes/compozy-loop-v2/proposal.md:64-65 — The 'Docs and release' bullet still says devkit-openspec is untouched and this release creates no tag, contradicting the same file's Impact section, AC-10 and the diff (plugin.json 0.13.0 to 0.14.0, the CHANGELOG 0.14.0 entry, the docs/openspec-flow.md v0.14.0 pin).
+- [blocking] openspec/changes/compozy-loop-v2/proposal.md:64-65 — The 'Docs and release' bullet said devkit-openspec is untouched and this release creates no tag, contradicting Impact, AC-10 and the diff. · fixed in 281d3d1
+- [blocking] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml:440-444 (uncommitted) — Uncommitted edit removes the {{ if .nodes.demo.output }} evidence-link block from the shipped template; loop-template.test.mjs (AC-6) and adoption.test.mjs (AC-9) fail against that working tree, contradicting evidence.md's claimed green gate 9.6. · refuted: git status clean at HEAD 1d0c2e02; loop.yaml:443-445 still contains the {{ if .nodes.demo.output }} evidence-link block; loop-template+adoption 34/34 pass including AC-6 and AC-9 / git status --short empty, no uncommitted edit at all, the {{ if .nodes.demo.output }} block present as shipped, tests 34, pass 34, fail 0 / git status/diff HEAD show a clean working tree; loop.yaml:440-444 intact; loop-template 22/22 (AC-6) and adoption 12/12 (AC-9) both pass at HEAD 1d0c2e0; the finding described a transient mid-round state
 
 ### Context
-Review range `e10b21d4..HEAD` (8 commits), worktree HEAD `307e1f5`, clean tree. `skip_specs: true`, so the contract is `proposal.md`'s `## Acceptance criteria`.
+Review range `307e1f5..HEAD` (6 commits: 281d3d1, 864c11d, 6c439ab, 2d927e8, 27bb45f, 1d0c2e0). `skip_specs: true`, so the contract is `proposal.md`'s `## Acceptance criteria`.
 
-### Round-1 finding, re-checked
-My round-1 important finding (the `implement` prompt conditioning on a nested field of a node the screenless path skips, plus the false "the template test pins the guards" claim) is fixed in `a9d8794`: the guard moved to the parent in both the template and the installed copy; `loop-template.test.mjs` gained a sequential open/close scan that fails on exactly the shape that was shipped, with a named, structurally justified exemption for `screens_ok` (confirmed: exactly one incoming edge, from `design`); `adoption.test.mjs` gained a matching assertion over the installed copy; and `design.md`'s Risk bullet now states what is actually checked. Re-ran both test files (31 pass) and `compozy loop validate` against the live daemon (`valid: true`).
+### New work this round
+Tasks 9.2, 9.3 and 9.5 each map to a real prior finding and are backed by concrete, non-vacuous assertions — `screens-check.mjs`'s `parseArgs` regex/exclusion list the new tests pin actually exists in the source, and `guardedDemoBlock`'s matcher in `loop-template.test.mjs`/`adoption.test.mjs` fails on both "link removed" and "guard loosened to a nested field." Task 9.4 fixed the bold-marker issue that hid the guard suite's pass from `deliver-check` item 1; confirmed `deliver-check.mjs:315`'s `/^pass/i` check against the now-unbolded cell in `evidence.md:41`.
 
 ### Praise
-- [praise] `a9d8794` - the fix is exactly the shape the review asked for: a structural, mechanical scan rather than a hand-maintained list of line numbers, a narrowly scoped exemption tied to the graph's actual reachability, the assertion placed at the right layer in each file that owns its surface, and `design.md` corrected to no longer claim a test that did not exist.
+`864c11d`/`2d927e8`/`6c439ab` — each new assertion is a real mutation-catcher, not a happy-path rubber stamp: the demo-link guard checks the condition string itself, the `screens-check` argument tests exercise the exported `main()` over real temp-directory fixtures rather than mocking, and the id-regex cases (`.hidden`, `-x`, a path separator) are specifically chosen to fail if the leading-character class were dropped while the three named exclusions stayed green.
 
 ### Summary
-- 2 findings (1 blocking, 0 important, 0 nit) and 1 praise. The round-1 important finding is closed; a new blocking internal contradiction surfaced in `proposal.md`, introduced by the same phase-8 commit that fixed everything else this round.
-- Justification: re-verified the previous finding's fix by reading the diff, re-running the two touched test files and `compozy loop validate` live; ran the touched-surface test matrix (loop-template, adoption, devkit-kit, project-settings - 56 tests), `gen-catalog.py --check`, `check.py` and the bundled app's `plugin validate .`, all green; cross-read `proposal.md`, `design.md`, `tasks.md`, the two ADR diffs and `openspec/config.yaml` for self-consistency and found one place where phase 8's correction was incomplete.
+- 2 findings (1 fixed since round 2, 1 concerning a transient uncommitted working-tree state) + 1 praise.

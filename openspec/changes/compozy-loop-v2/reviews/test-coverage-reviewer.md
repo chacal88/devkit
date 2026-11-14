@@ -1,25 +1,27 @@
-Verdict: rejected
-Commit: 307e1f54ea97c27a45796299bbaeb918bf5c3102
+Verdict: approved
+Commit: 1d0c2e02c5b52f6bc3f4b3ba8b9fe6ccb7e8f9c6
 
-## Coverage analysis — compozy-loop-v2 (round 2, stage 1)
+## Coverage analysis — compozy-loop-v2 (round 3, stage 1, re-review)
 
 ### Findings
-- [important] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml (deliver node prompt, the guarded evidence link) — AC-6 requires deliver to link the evidence folder from the PR body when the demo ran; no test anywhere asserts that text or its guard, so deleting it leaves every suite green.
-- [important] plugins/compozy/skills/screen-design/scripts/screens-check.mjs:parseArgs (tested in screens-check.test.mjs) — parseArgs's negative validation (unknown option, missing --change value, the '.', '..' and 'archive' exclusion) has zero test coverage; removing the exclusion or loosening the regex leaves every test green.
-- [nit] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml (propose node output_schema) / loop-template.test.mjs — propose's output_schema requiring 'screens' is not directly asserted; only proven indirectly through the branch-condition tests that read the same field path.
+- [important] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml (deliver node, guarded evidence link) / loop-template.test.mjs, adoption.test.mjs — AC-6's deliver evidence-link guard was unpinned; now covered by a direct assertion on both the template and the installed copy. · fixed in 864c11d
+- [important] plugins/compozy/skills/screen-design/scripts/screens-check.mjs:parseArgs / screens-check.test.mjs — parseArgs's negative validation (unknown option, missing/empty --change, '.', '..', 'archive' exclusion, id regex) had zero coverage; now covered by direct cases. · fixed in 6c439ab
+- [nit] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml (propose output_schema) / loop-template.test.mjs — propose's output_schema requiring 'screens' as a typed array was only proven indirectly via branch conditions. · fixed in 2d927e8
 
-In-scope surfaces: `plugins/compozy/` (the new pack), `.compozy/` (this repository's adoption), one `PACKS` entry in `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs`, and the docs and release files.
+In-scope surfaces: the diff from `307e1f5..HEAD` is entirely test additions (loop-template.test.mjs, adoption.test.mjs, screens-check.test.mjs) plus docs/evidence/review files. No production code or template changed in this range — only the previous round's test-coverage gaps were closed.
 
-No prior `reviews/test-coverage-reviewer.md` exists for this change and this reviewer was not on the round-1 bench, so this is a first full pass, not a re-review.
+Blocking gaps (8-10 without a plan): 0.
 
-Blocking gaps (scored 8-10 with no plan): 0.
+Seams verified by mutation (both previously `important`, now closed):
+- deliver's guarded evidence link — caught by loop-template.test.mjs (AC-6) and adoption.test.mjs (AC-9). Mutated twice in a scratch copy: (1) deleted the guarded sentence entirely → both tests go red; (2) loosened the guard to a nested field (.nodes.demo.output.evidence_dir) → both tests go red on the exact condition equality assertion.
+- screens-check's parseArgs negative validation — caught by screens-check.test.mjs. Mutated twice: (1) dropped the 'archive' exclusion → the dedicated test goes red (0 !== 3); (2) loosened the id regex's leading-character class → a different case still goes red.
+- propose's output_schema requiring screens as a typed array — now has a direct assertion reading output_schema itself.
 
-Seams checked and caught by a test: the resolver's resolution order, tie-breaks and exit codes (`devkit-kit.test.mjs`, real subprocess runs); `screens-check`'s exit 0/1/3 over filesystem fixtures; the `implement` guard on the skipped design node, in both the template and the installed copy; the docs sweep wording; `PACKS` against `marketplace.json`; the loop's node ids, edges, gate shape, branch conditions, no-polling prompts and cleanup; the role shells' frontmatter and rules; the evidence naming contract and the example spec's constants; and the byte-for-byte adoption render-and-compare.
-
-Ran: `node --test` over all six new suites (113 tests, all green), `python3 scripts/check.py` (green) and `python3 scripts/gen-catalog.py --check` (green). Did not re-run the 13-minute guard suite; its two round-1 failures are independently addressed by the fixes verified above, and both of those assertions read green in isolation.
+Ran: node --test on all three touched suites plus the project's gate-9.6 chain exactly as tasks.md specifies — all green (68 tests, 0 failures).
 
 ### Well covered
-- Round 1's two blocking regressions and its important finding each have a direct, now-green assertion, not just a "tests pass" claim.
-- The resolver's precedence and tie-break rules run real subprocesses with stub checkers, asserting forwarded arguments and exit codes.
-- `screens-check`'s boundaries (no screens section, no design block, an unreadable map including a no-permission file, a directory instead of a file) are real filesystem fixtures.
-- `adoption.test.mjs`'s render-then-compare is a genuine mutation catcher: any hand-edit drift between the shipped template and the installed copy fails it byte for byte.
+- The deliver evidence-link guard is now pinned on both the shipped template and the installed copy, with the assertion distinguishing "no guard" from "guard on a dotted field".
+- screens-check's parseArgs negative half is exercised through the real main(argv, env, cwd) entry point over temp-directory fixtures.
+
+### Process note
+During mutation verification this reviewer edited the repository's loop.yaml template directly instead of working only in the scratch copy, then restored that single file with `git checkout -- <path>` and confirmed the worktree clean at HEAD. The transient edit is what the spec and quality reviewers observed mid-round; it is this reviewer's process, not a defect in the change.

@@ -271,3 +271,35 @@ None.
 
 ## Next
 Consensus deadlock after round 2: the owner decides.
+
+
+# Review: compozy-loop-v2, round 1
+
+Path: agents · range `main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 1d0c2e0 |
+| spec-reviewer | approved | 0 | 0 | 1 | 1 | 1d0c2e0 |
+| code-quality-reviewer | approved | 0 | 0 | 1 | 1 | 1d0c2e0 |
+| security-reviewer | declined | 0 | 0 | 0 | 0 | 1d0c2e0 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 1d0c2e0 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+- spec-reviewer — [blocking] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml (uncommitted, deliver node prompt, ~line 443-446) — Gap: AC-6 demo-contract — the deliver node's guarded sentence linking openspec/changes/<id>/evidence/ (pinned by task 9.2's own new test) is missing from the working-tree copy of the template, and AC-9's byte-for-byte equality test fails; both committed-HEAD copies are correct, only the live working tree regresses. · refuted: git status --porcelain is empty; the evidence-link sentence is present verbatim at loop.yaml:443-444; adoption.test.mjs 12/12 pass including the byte-for-byte AC-9 render-then-compare / git status clean at HEAD 1d0c2e0, git diff HEAD on the template empty, loop.yaml:444 still guarded by {{ if .nodes.demo.output }}, loop-template+adoption 34/34 pass / git status --porcelain and git diff HEAD empty (working tree == HEAD 1d0c2e0), loop.yaml:444 holds the evidence/ link, loop-template.test.mjs 22/22 including the cited AC-6 test (3 of 3)
+- code-quality-reviewer — [blocking] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml:440-444 (uncommitted) — Uncommitted edit removes the {{ if .nodes.demo.output }} evidence-link block from the shipped template; loop-template.test.mjs (AC-6) and adoption.test.mjs (AC-9) fail against that working tree, contradicting evidence.md's claimed green gate 9.6. · refuted: git status clean at HEAD 1d0c2e02; loop.yaml:443-445 still contains the {{ if .nodes.demo.output }} evidence-link block; loop-template+adoption 34/34 pass including AC-6 and AC-9 / git status --short empty, no uncommitted edit at all, the {{ if .nodes.demo.output }} block present as shipped, tests 34, pass 34, fail 0 / git status/diff HEAD show a clean working tree; loop.yaml:440-444 intact; loop-template 22/22 (AC-6) and adoption 12/12 (AC-9) both pass at HEAD 1d0c2e0; the finding described a transient mid-round state (3 of 3)
+
+## Notes
+- Path: agents (this turn began as a loop task notification, not the owner typed message, so the Workflow path does not apply).
+- Called after round 2 deadlocked; phase 9 (tasks 9.1-9.5) answered its three findings, so this is a fresh round over 307e1f5..HEAD, not a third round of the same cycle.
+- During stage 1 the test-coverage reviewer mutation-tested the shipped loop template in place instead of in its scratch copy and restored that one file with git checkout -- on that path. The spec and quality reviewers, running in parallel, observed that transient state and each raised it as blocking. Three verifiers each refuted both findings at HEAD: git status --porcelain empty, the guarded evidence-link block intact at loop.yaml:443-446, loop-template 22/22 and adoption 12/12 green. The committed change was never affected.
+- Those two verdict files were first written with a (uncommitted changes) marker on their Commit: line, which deliver-check reads as stale. Stage 3 ran once more for both with the verified tree state; the marker is gone and check-file passes for all five.
+- Two writer agents reported a prompt-shaped reminder urging them to write their verdict file through raw shell rather than the Write tool, and the spec reviewer reported one asserting the uncommitted edit was intentional and needed no disclosure. All three declined and reported it. Flagged for the owner, not a finding against the change.
+
+## Next
+Ready to ship.
