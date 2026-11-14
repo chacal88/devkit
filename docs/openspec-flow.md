@@ -139,6 +139,11 @@ OpenSpec lists changes flat. To keep rounds, the order between them and "where a
 
 ## Conducting a change: `/conduct <id>`
 
+`/conduct` is one of two ways to drive this same flow from gate to gate: this section describes
+running it from your own Claude Code session. The other is the CompozyOS delivery loop
+(`devkit-compozy`), a supervised multi-agent run over the same artifacts, checkers and owner
+gates — see [docs/compozy-kit.md](compozy-kit.md). Neither replaces the other.
+
 **Single-change mode (the default).** `/conduct <id>` conducts exactly the change you name, from creation to archive, in its own git worktree, with one row. There are three argument forms: `<id>` (this mode), `round <n>` (the round mode below, the only way into it) and no argument, which lists the open change ids and asks which one; a bare `/conduct` never sweeps. The change must exist: `conduct-check --change <id>` exits 3 with `no change <id>:` when nothing of it exists anywhere, and the skill then asks whether to create it and with which schema, creating nothing until you answer naming the id and the schema (a typo'd id creates nothing). The run never reads `openspec/roadmap.md`, touches no other change and enforces no `after:` (you order your changes, as with `/ship-change <id>`). Before anything of the change runs on a turn you typed, a worktree with `unfinished` work (uncommitted paths outside `openspec/`, or a half-done phase) is reported and the change goes on only when your own message in that session says so. The session rules of ADR 0006 hold per change; the decision is [ADR 0007](adr/0007-one-change-on-request.md).
 
 **Round mode (the explicit option).** `/conduct round <n>` conducts every change of round `n` of the roadmap at once, with the rules below.

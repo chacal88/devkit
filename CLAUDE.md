@@ -17,6 +17,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 | How to contribute, test and release | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Conventions (commits, language, versions) | [docs/conventions.md](docs/conventions.md) |
 | The OpenSpec flow, its checkers and CI | [docs/openspec-flow.md](docs/openspec-flow.md) |
+| The CompozyOS delivery loop (`devkit-compozy`) | [docs/compozy-kit.md](docs/compozy-kit.md) |
 | Decisions | [docs/adr/](docs/adr/) |
 | Context and rules the agents get in every artifact | [openspec/config.yaml](openspec/config.yaml) |
 

@@ -261,7 +261,7 @@ else.
   which gate follows, the two optional branches and what turns them on, what a project must provide,
   how to adopt it (`compozy-setup`, then the operator's `compozy loop create --fork-from-name` and
   `compozy loop run`), and how it relates to `/conduct` (two ways to drive the same flow).
-- [ ] 7.2 Link it: a row in the table of `CLAUDE.md`, a line in `README.md` (and its pack-count
+- [x] 7.2 Link it: a row in the table of `CLAUDE.md`, a line in `README.md` (and its pack-count
   sentence, which says five packs today), the `compozy` row in the pack table of
   `docs/conventions.md`, and a pointer from `docs/openspec-flow.md` next to the `/conduct` section.
 - [ ] 7.3 Add `devkit-compozy` to `.claude-plugin/marketplace.json` (source `./plugins/compozy`,
