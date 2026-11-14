@@ -170,6 +170,20 @@ same change, and a separate "demo" role would be a shell with one instruction. T
 land on the change branch, so the map and the code that implements it merge together and
 `screens-check` reads the branch's map, not `main`'s.
 
+**D14 — What "project-agnostic" removes from the pilot's shells.** (Settled in phase 3.) The three
+pilot shells name paths that exist only here: `plugins/openspec/hooks/conduct-check.mjs`,
+`python3 scripts/check.py`, `docs/openspec-flow.md`, `docs/conventions.md`, `docs/adr/`, and the
+sentence "This repository is the devkit itself". The shipped shells keep the procedure and the
+rules and name those documents by their role instead ("the project's own contributing guide, when
+it keeps one"), reaching the checkers through `.compozy/bin/devkit-kit`. Two conventions survive by
+name, because every project adopting this kit has them: `CLAUDE.md` and `openspec/config.yaml`. One
+rule generalises rather than disappears: the pilot's "a changed pack gets its version bumped in
+`plugin.json` and `marketplace.json` plus a `CHANGELOG.md` line" is the devkit marketplace's own
+shape of a rule every project has, so the shipped `dev` shell says a changed package gets its
+version bumped and a changelog entry under the project's own versioning convention, when it keeps
+one. The role-shell test pins the removals as an explicit deny-list, so the next hand-edit that
+pastes a path back fails.
+
 **D11 — Evidence names, and why they are the testable part of the demo.** The demo writes
 `openspec/changes/<id>/evidence/<screen-id>-<light|dark>-<desktop|phone>.png` — desktop 1440×900,
 phone 390×844 — and one `evidence/journey.webm`; `deliver` links the folder from the pull-request

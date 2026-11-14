@@ -180,7 +180,7 @@ they are CompozyOS roles, not Claude Code agents.
   and a body; `AC-5 ci-green: ...` asserts the `dev` shell names the monitor and forbids the four
   polling forms; `AC-7 archive-cleanup: ...` asserts the `qa` shell keeps the deferred-task rule and
   the `dev` shell the archive steps; and that no shell contains a path specific to one repository.
-- [ ] 3.7 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/role-shells.test.mjs && python3 scripts/check.py`
+- [x] 3.7 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/role-shells.test.mjs && python3 scripts/check.py`
 
 ## 4. The design gate (AC-3, AC-4)
 
