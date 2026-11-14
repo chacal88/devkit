@@ -1,69 +1,21 @@
 Verdict: rejected
-Commit: e10b21d46af3cc79a5977063f55fa74776073875
+Commit: 307e1f54ea97c27a45796299bbaeb918bf5c3102
 
-## Quality review — compozy-loop-v2 (round 1)
+## Quality review — compozy-loop-v2 (round 2, stage 1)
 
 ### Findings
+- [important] openspec/changes/compozy-loop-v2/design.md:256-258 / plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml:265 (round 1 finding) — implement's prompt conditioned on a nested field of a skipped node's output, and design.md falsely claimed a test pinned the guards. · fixed in a9d879428c13231809601419dddb5f6a0b502904
+- [blocking] openspec/changes/compozy-loop-v2/proposal.md:64-65 — The 'Docs and release' bullet still says devkit-openspec is untouched and this release creates no tag, contradicting the same file's Impact section, AC-10 and the diff (plugin.json 0.13.0 to 0.14.0, the CHANGELOG 0.14.0 entry, the docs/openspec-flow.md v0.14.0 pin).
 
-- [important] `openspec/changes/compozy-loop-v2/design.md:256-258` and
-  `plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml:265` — design.md's
-  own Risk bullet claims "The template test pins the guards; a missed guard shows up in
-  `compozy loop validate`." That claim is false for the test half: I grepped
-  `plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs` for `worktree_path`,
-  `guard` and `if .nodes` and the only hit is the unrelated `cleanup.params.path` assertion
-  (line 240) — nothing in the suite asserts that `.nodes.design.output.*` or
-  `.nodes.demo.output.*` references are guarded. The `compozy loop validate` half of the claim is
-  also weaker than stated: I ran it for real (`compozy` 0.6.2 is on PATH here) —
-  `compozy loop validate --file plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml -o json`
-  → `{"resolution_source":"session_identity","valid":true}` — but `loop validate` only checks the
-  definition without executing it, so it cannot simulate a skipped node's output and catch a
-  `nil`-field panic at render time. The file is also internally inconsistent about how to guard a
-  skipped node's output: `implement`'s prompt conditions directly on the nested field,
-  `{{ if .nodes.design.output.worktree_path }}` (loop.yaml:265), while `implement`'s `review` block
-  and `deliver`'s prompt guard the parent first, `{{ if .nodes.design.output }}` /
-  `{{ if .nodes.demo.output }}`, and only dot deeper *inside* that block (loop.yaml:310-312, 443).
-  If a skipped node's `.output` is represented as `nil`/absent (as the same Risk bullet says —
-  "a skipped node settles with a skip marker rather than a filled schema") and the templating
-  engine is Go-template-like, `.output.worktree_path` directly inside the `if` condition is the
-  classic "nil pointer evaluating interface {}.worktree_path" panic. This is exactly the path this
-  repository's own adopted loop exercises on every run (it declares no screens, so `design` is
-  always skipped) and exactly the behaviour AC-3 claims ("implement still runs"). No test, and no
-  demonstration with real output (an actual `compozy loop run` with a skipped design branch — not
-  just `loop validate`), proves `implement`'s prompt renders without crashing in this case. · fix:
-  either add an assertion to `loop-template.test.mjs` that every `.nodes.design.output.<field>` /
-  `.nodes.demo.output.<field>` reference is textually inside a block already opened by
-  `{{ if .nodes.design.output }}` / `{{ if .nodes.demo.output }}` (never conditions on the nested
-  field itself), make `implement`'s guard consistent with the safer pattern already used at
-  loop.yaml:310, and correct design.md's claim to say what is actually checked.
+### Context
+Review range `e10b21d4..HEAD` (8 commits), worktree HEAD `307e1f5`, clean tree. `skip_specs: true`, so the contract is `proposal.md`'s `## Acceptance criteria`.
+
+### Round-1 finding, re-checked
+My round-1 important finding (the `implement` prompt conditioning on a nested field of a node the screenless path skips, plus the false "the template test pins the guards" claim) is fixed in `a9d8794`: the guard moved to the parent in both the template and the installed copy; `loop-template.test.mjs` gained a sequential open/close scan that fails on exactly the shape that was shipped, with a named, structurally justified exemption for `screens_ok` (confirmed: exactly one incoming edge, from `design`); `adoption.test.mjs` gained a matching assertion over the installed copy; and `design.md`'s Risk bullet now states what is actually checked. Re-ran both test files (31 pass) and `compozy loop validate` against the live daemon (`valid: true`).
+
+### Praise
+- [praise] `a9d8794` - the fix is exactly the shape the review asked for: a structural, mechanical scan rather than a hand-maintained list of line numbers, a narrowly scoped exemption tied to the graph's actual reachability, the assertion placed at the right layer in each file that owns its surface, and `design.md` corrected to no longer claim a test that did not exist.
 
 ### Summary
-- 1 finding (0 blocking, 1 important, 0 nit) + 3 praise
-  - [praise] `plugins/compozy/skills/compozy-setup/templates/bin/devkit-kit` — the resolver avoids
-    the classic `find | while read` subshell-loses-state bug by feeding `find`'s output through a
-    heredoc instead of a pipe, so `best_path`/`best_version` survive across iterations; the
-    tie-break order (integer-field version compare, then `LC_ALL=C` lexicographic path compare) is
-    exactly what `devkit-kit.test.mjs` exercises with real fixtures (older-but-higher-version,
-    `0.13.0` vs `0.9.0`, and an equal-version tie), not just happy-path coverage.
-  - [praise] `plugins/compozy/skills/screen-design/scripts/screens-check.mjs` — the exit-3 boundary
-    (setup error) vs exit-1 boundary (real failure) is sharp and each of the four setup-error shapes
-    (no `screen_map` key, a path that doesn't exist, a path that is a directory, an unreadable file)
-    has its own fixture in `screens-check.test.mjs`, including a real `chmod 000` test skipped only
-    for root/Windows — this is a meaningfully adversarial test, not a mock of the implementation.
-  - [praise] `plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs` — a genuine
-    render-then-compare (template + `substitutions.json` defaults, with this repository's two
-    overridden values, byte-for-byte against the installed `.compozy/`), which I independently
-    reproduced outside the test (`diff` after a manual placeholder substitution) and it matches
-    exactly; this is real drift protection, not a test that only asserts its own fixture.
-- Justification: reviewed the four named executable surfaces end to end (resolver script, its
-  sh-quoting and tie-break logic; `screens-check.mjs`'s YAML/Markdown parsing and exit codes;
-  `evidence-names.mjs`'s pure path builders; the shipped and regenerated `loop.yaml`'s graph, gates
-  and shell-quoting), ran all five new test files (98/98 passing), ran `compozy loop validate`
-  against the live daemon, diffed the regenerated `.compozy/loop.yaml` against the template by hand,
-  and cross-checked `DEVKIT_BRANCH`/`gh pr checks --required` usages against the existing hooks they
-  call into. No shell-injection, YAML-compile, or silently-passing-parse defect found in the four
-  named files; found one place where a documented safety net (a guard-pinning test) does not exist
-  and the only other proof offered (`loop validate`) does not cover the claimed hazard. That is an
-  unconfirmed-but-plausible runtime defect on the single most common path of this very loop (a
-  change with no screens), guarded by nothing but a static validator that cannot see it, and it sits
-  under a demonstrably false claim in `design.md` — enough to reject pending either a stronger test
-  or a corrected claim.
+- 2 findings (1 blocking, 0 important, 0 nit) and 1 praise. The round-1 important finding is closed; a new blocking internal contradiction surfaced in `proposal.md`, introduced by the same phase-8 commit that fixed everything else this round.
+- Justification: re-verified the previous finding's fix by reading the diff, re-running the two touched test files and `compozy loop validate` live; ran the touched-surface test matrix (loop-template, adoption, devkit-kit, project-settings - 56 tests), `gen-catalog.py --check`, `check.py` and the bundled app's `plugin validate .`, all green; cross-read `proposal.md`, `design.md`, `tasks.md`, the two ADR diffs and `openspec/config.yaml` for self-consistency and found one place where phase 8's correction was incomplete.

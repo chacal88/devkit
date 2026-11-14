@@ -127,3 +127,147 @@ it means for ADR 0001 and ADR 0006.
 
 Evidence for this commit is in `evidence.md`: all ten acceptance criteria have reproduced proof;
 the Gates table records the guard suite's failure and the Defects section names the two regressions.
+
+
+---
+
+# Review — compozy-loop-v2, round 2
+
+- Change: `compozy-loop-v2`
+- Branch: `compozy-loop-v2`
+- Commit: `307e1f54ea97c27a45796299bbaeb918bf5c3102`
+- Reviewer: qa (independent; did not write this code)
+- Verdict: **rejected** — one blocking issue, two important ones
+
+## What I read and ran
+
+I read the diff at this head (`git diff main...HEAD`, 58 files) and the round-2 range
+(`git diff e10b21d..HEAD`, 23 files) line by line, the plan (`proposal.md`, `design.md`,
+`tasks.md`, `requirements.md`, `readiness.md`), `openspec/config.yaml`, `CLAUDE.md`,
+`CONTRIBUTING.md`, ADR 0009 in full and the two ADRs it amends.
+
+Structural: `openspec validate compozy-loop-v2 --strict` reports the change valid (with the
+expected `skip_specs` info line).
+
+Gates, run by me in this worktree at this commit as one `&&` chain in a background terminal
+(`term-f3203c82dfac`), exit 0 — gate 8.5 as `tasks.md` writes it:
+
+- `python3 scripts/gen-catalog.py --check` — exit 0
+- `python3 scripts/check.py` — "all checks passed"
+- bundled `claude plugin validate .` (2.1.321) — "Validation passed"
+- `node --test .../loop-template.test.mjs` — 20/20
+- `node --test .../adoption.test.mjs` — 11/11
+- `node --test plugins/openspec/hooks/guard.test.mjs` — **668 tests, 668 pass, 0 fail, 655 s**
+
+The guard suite was red at the previous head (2 of 668). Both failures are gone, and I confirmed
+each fix in the diff rather than taking the green run on trust.
+
+## Round 1's blocking issues, re-checked
+
+- `project_settings_packs_missing_compozy` — **fixed** (task 8.1). `PACKS` in
+  `project-settings.mjs` now holds seven entries matching `marketplace.json`; `devkit-openspec`
+  moved 0.13.0 to 0.14.0 in its `plugin.json` and in `marketplace.json`; the CI pin in
+  `docs/openspec-flow.md` moved to `v0.14.0`.
+- `compozy_kit_docs_sweep` — **fixed** (task 8.4). Both `docs/compozy-kit.md` lines now carry the
+  literal "ship mode" on the line that makes the claim; the meaning is unchanged.
+- `task_7_6_unticked` — **resolved**. Every box in `tasks.md` is ticked. Gate 7.6 no longer carries
+  the guard suite; it moved to the new last gate, 8.5, which runs it unweakened. I checked that no
+  part of the suite was dropped: 668 tests ran, the same count as the red run.
+
+Round 1's two important findings are also closed: the `implement` prompt now guards on the parent
+`.nodes.design.output` in both the template and the installed copy, pinned by a structural scan
+that fails on the shape that shipped (`screens_ok`'s unguarded read is exempted by line, and I
+confirmed it is reachable only by the single edge `design -> screens_ok`); and ADR 0009 records the
+CompozyOS posture in the exception form, which is the form the owner approved — the plan-approval
+review of generation 2 put OD-5 to them explicitly and they answered `approve` on 2026-11-14.
+
+## Blocking
+
+### 1. `proposal_release_claim_contradicts_itself`
+
+`openspec/changes/compozy-loop-v2/proposal.md:64-65`, the `## What Changes` bullet "Docs and
+release", still ends: "`devkit-openspec` is not touched, so this release creates no tag
+(`CONTRIBUTING.md`)."
+
+That is false at this commit and contradicted three times inside the same file: the bullet seven
+lines above it says the `PACKS` entry "is what makes this release a tagged one"; AC-10 says the
+`openspec-setup` change "bumps `devkit-openspec` and makes the release a tagged one"; and Impact
+says it "bumps `devkit-openspec` to `0.14.0`, and `CONTRIBUTING.md` makes this a tagged release
+(`v0.14.0`, pushed after the merge)". The diff agrees with those three and not with the bullet.
+
+Task 8.1 corrected this claim in `CHANGELOG.md` and named no other place, so the proposal's own
+copy of it survived. `skip_specs: true` makes this file the change's contract, and the sentence
+sits in the prose that frames it. The practical cost is not cosmetic: the tag is a post-merge step
+the owner performs by hand, and `openspec-setup` resolves that tag to a commit when it pins a
+project's CI, so a reader who believes the bullet skips `v0.14.0` and leaves every project that
+installs this release pinned to a tag that does not exist.
+
+Verified by three independent verifiers; none could refute it. It is not a deferred task: no dated
+decision in `tasks.md` covers it.
+
+## Important
+
+### `deliver_evidence_link_untested`
+
+`plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml:443-446` — the
+`deliver` prompt's guarded sentence that links `openspec/changes/<id>/evidence/` from the pull
+request body is the last clause of AC-6, and no test asserts it or its `{{ if .nodes.demo.output }}`
+guard. A verifier deleted the block from both the template and the installed copy and all 47 tests
+of the three relevant suites still passed (the files were restored; I confirmed the tree clean at
+`307e1f5`). Upheld 3 of 3.
+
+### `screens_check_parseargs_untested`
+
+`plugins/compozy/skills/screen-design/scripts/screens-check.mjs:202-220` — `parseArgs`'s negative
+branches (an unknown option, a missing `--change` value, and the `.`, `..` and `archive` exclusion)
+have no test. The 25 tests of `screens-check.test.mjs` all pass a well-formed id, so loosening the
+regex or dropping the exclusion list would stay green — and that exclusion is what keeps a change
+id from escaping its folder. Upheld 3 of 3.
+
+Neither is a failing or weakened test, so neither blocks on its own; both are gaps in what the new
+suites pin, on behaviour the acceptance criteria name.
+
+## Not findings
+
+- The guard suite moving from gate 7.6 to gate 8.5. It is documented in `tasks.md`'s preamble with
+  its reason, no assertion was dropped, and the suite runs green at the new last gate.
+- `.claude/settings.json` not enabling `devkit-compozy@devkit`. AC-9 now excludes it explicitly and
+  `tasks.md` records it under `## Workflow follow-up`, dated, with the `devkit-panel` precedent.
+- The `git push origin v0.14.0` line in `tasks.md`. It is an instruction for the owner after the
+  merge, not a push this change performs. No remote branch exists for `compozy-loop-v2`, there are
+  no merge commits, and the diff introduces no destructive Git.
+
+## Evidence
+
+`evidence.md` is rewritten for this commit: all ten acceptance criteria pass with proof gathered
+here, the Gates table records gate 8.5 green including the 668-test guard suite, and the Defects
+section is empty. The two defects it recorded at `e10b21d` are confirmed fixed.
+
+
+# Review: compozy-loop-v2, round 2
+
+Path: agents · range `main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 307e1f5 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 307e1f5 |
+| code-quality-reviewer | rejected | 1 | 0 | 1 | 0 | 307e1f5 |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 307e1f5 |
+| test-coverage-reviewer | rejected | 0 | 2 | 2 | 0 | 307e1f5 |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- code-quality-reviewer — [blocking] openspec/changes/compozy-loop-v2/proposal.md:64-65 — The 'Docs and release' bullet still says devkit-openspec is untouched and this release creates no tag, contradicting the same file's Impact section, AC-10 and the diff (plugin.json 0.13.0 to 0.14.0, the CHANGELOG 0.14.0 entry, the docs/openspec-flow.md v0.14.0 pin).
+- test-coverage-reviewer — [important] plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml (deliver node prompt, the guarded evidence link) — AC-6 requires deliver to link the evidence folder from the PR body when the demo ran; no test anywhere asserts that text or its guard, so deleting it leaves every suite green.
+- test-coverage-reviewer — [important] plugins/compozy/skills/screen-design/scripts/screens-check.mjs:parseArgs (tested in screens-check.test.mjs) — parseArgs's negative validation (unknown option, missing --change value, the '.', '..' and 'archive' exclusion) has zero test coverage; removing the exclusion or loosening the regex leaves every test green.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path: agents (this turn began as a loop task notification, not the owner's typed message, so the Workflow path does not apply).
+
+## Next
+Consensus deadlock after round 2: the owner decides.
