@@ -71,7 +71,7 @@ move before 1.1 rather than after any later phase.
   `openspec/config.yaml` only when the project has screens), what it never does (publish the loop —
   that is the operator's `compozy loop create --fork-from-name` — start a run, or write product
   code), and how to re-run it over an existing `.compozy/`.
-- [ ] 1.5 Write the resolver `plugins/compozy/skills/compozy-setup/templates/bin/devkit-kit` (POSIX
+- [x] 1.5 Write the resolver `plugins/compozy/skills/compozy-setup/templates/bin/devkit-kit` (POSIX
   `sh`, executable): resolve the hooks directory in the order `$DEVKIT_HOOKS`, a repository checkout
   (`plugins/openspec/hooks/` walking up from the caller's directory), then the installed
   `devkit-openspec` under the Claude Code plugins directory with the highest `version` in its
