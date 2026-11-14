@@ -2,3 +2,6 @@
 node_modules/
 __pycache__/
 plugins/*/.claude-plugin/types/
+
+# CompozyOS registration of this machine
+.compozy/workspace.toml
