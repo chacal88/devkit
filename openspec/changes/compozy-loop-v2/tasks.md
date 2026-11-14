@@ -49,7 +49,7 @@ Answers OD-1. A different answer (the kit as a skill inside `devkit-openspec`) m
 and 7.5; no file's content changes, and that pack's version and tag are then part of 7.3. Make the
 move before 1.1 rather than after any later phase.
 
-- [ ] 1.1 Create `plugins/compozy/.claude-plugin/plugin.json`: `name: devkit-compozy`,
+- [x] 1.1 Create `plugins/compozy/.claude-plugin/plugin.json`: `name: devkit-compozy`,
   `version: 0.1.0`, a one-sentence description naming the CompozyOS delivery loop over the devkit
   flow, `keywords`, and the same `author`, `license`, `homepage` and `repository` the other packs
   carry.
