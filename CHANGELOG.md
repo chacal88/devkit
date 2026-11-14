@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.17.0 — the CompozyOS kit
+
+- **devkit-compozy** 0.1.0: a new pack. `compozy-setup` installs `.compozy/` into a project (four
+  role shells, the loop template, `config.toml`, the portable resolver `bin/devkit-kit`), and the
+  `screen-design` and `screen-demo` skills back the new roles it calls. Loop v2 adds a design gate
+  between the approved plan and implementation (a `screens-check` command gate, skipped for a
+  change that declares no screen), a demo step (screenshots in both themes and widths plus a
+  journey video, skipped without a `demo_command`), a wait on the pull request's checks with a
+  CompozyOS pull-request monitor, and the `ship-change` archive steps and a worktree cleanup after
+  the merge. This repository's own `.compozy/` is regenerated from the templates to prove them.
+- Docs: a new `docs/compozy-kit.md`, the pack row in `docs/conventions.md`, `README.md` and
+  `CLAUDE.md`, and a pointer from `docs/openspec-flow.md`'s `/conduct` section. No other pack
+  changes version; `devkit-openspec` is untouched, so this release creates no tag.
+
 ## 0.16.0 — evidence before review
 
 - **devkit-openspec** 0.13.0: `deliver-check` reports `verify` (`pr-verifier` records `evidence.md`) and `fix-defect` before `review`, so a review round never runs on code with missing or stale evidence or a failing criterion; the instructions, skills and docs of the flow follow. The CI snippet pins `v0.13.0`.

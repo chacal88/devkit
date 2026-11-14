@@ -267,7 +267,7 @@ else.
 - [x] 7.3 Add `devkit-compozy` to `.claude-plugin/marketplace.json` (source `./plugins/compozy`,
   version `0.1.0`, category `development`, the description of 1.1) and bump the marketplace
   `metadata.version` to `0.17.0`. No other pack changes version.
-- [ ] 7.4 Add the `CHANGELOG.md` entry for the release: the new pack and what the loop gained.
+- [x] 7.4 Add the `CHANGELOG.md` entry for the release: the new pack and what the loop gained.
 - [ ] 7.5 Run `python3 scripts/gen-catalog.py` to fill `plugins/compozy/README.md`'s catalog markers
   and regenerate `docs/catalog.md`.
 - [ ] 7.6 Gate: `python3 scripts/gen-catalog.py --check && python3 scripts/check.py && "$(for c in "$HOME/Library/Application Support/Claude/claude-code/"*/*/claude.app/Contents/MacOS/claude; do :; done; echo "$c")" plugin validate . && node --test plugins/openspec/hooks/guard.test.mjs`
