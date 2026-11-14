@@ -208,6 +208,18 @@ finished Playwright runner and making the project install Playwright, rejected b
 not impose a stack; the project supplies `demo_command` and `demo_url`, and an empty `demo_command`
 skips the branch.
 
+*Settled in phase 5, as `CONTRIBUTING.md` requires.* The helper exports `THEMES`, `WIDTHS`,
+`VIEWPORTS`, `evidenceDir`, `shotPath(changeId, screenId, theme, width)`, `shotPaths` (the four
+for one screen) and `videoPath`, and throws a named `InvalidEvidenceNameError` on a theme or width
+outside the matrix rather than quietly producing a path outside the contract. The demo step passes
+its inputs to the project's command through the environment — `DEMO_CHANGE_ID`, `DEMO_SCREENS`
+(comma-separated ids) and `DEMO_URL` — named in `screen-demo`'s skill so a project knows what its
+`demo_command` must set. And the shipped Playwright spec imports nothing from the kit: a file whose
+whole purpose is to be copied cannot depend on a relative path that only resolves inside this
+pack, so it inlines the matrix and the path builders. The drift protection that import would have
+given is a test instead: it parses the spec's inlined constants and template literals out of its
+text and asserts they equal the helper's exports for the same inputs.
+
 **D12 — No new ADR, and no ADR changes.** The kit sequences the existing flow and changes none of
 its decisions: the gates still live in the checkers (ADR 0001), the ship mode still decides the
 merge and the loop still never merges by hand (ADR 0002, ADR 0003), the devkit is still installed

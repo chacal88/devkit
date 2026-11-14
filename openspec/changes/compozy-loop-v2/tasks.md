@@ -234,7 +234,7 @@ else.
   `AC-6 demo-contract: ...` asserts the eight paths and the video path for a change and two screens,
   the two viewport constants, and that the shipped spec text declares both themes, both widths, the
   video and the same name pattern.
-- [ ] 5.5 Gate: `node --test plugins/compozy/skills/screen-demo/scripts/evidence-names.test.mjs && python3 scripts/check.py`
+- [x] 5.5 Gate: `node --test plugins/compozy/skills/screen-demo/scripts/evidence-names.test.mjs && python3 scripts/check.py`
 
 ## 6. This repository adopts version 2 (AC-9)
 
