@@ -208,7 +208,7 @@ and 4.
   its two keys, where it goes in `openspec/config.yaml`, and the two things the map must carry. The
   devkit's own `openspec-setup` template is not touched, so `devkit-openspec` keeps its version and
   this release creates no tag.
-- [ ] 4.5 Gate: `node --test plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs && python3 scripts/check.py`
+- [x] 4.5 Gate: `node --test plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs && python3 scripts/check.py`
 
 ## 5. The demo (AC-6)
 

@@ -97,6 +97,18 @@ UI. The map format it requires is the one `chacal88/whatsapp-platform` already w
 map is `docs/design/2b-screen-map.md` and renaming a reviewed document to adopt a kit is the wrong
 cost; parsing the mockup itself, rejected because a mockup is a published artifact, not a file.
 
+*Settled in phase 4, as `CONTRIBUTING.md` requires.* The `design:` block's `mockup:` key is
+informational: it names the tool or document the mockup lives in, travels into the `--json`
+verdict as `mockupTool`, and plays no part in pass or fail — only the map's own `Mockup:` line
+does. The exit-3 boundary is sharp and has four fixtures: a `design:` block with no `screen_map`,
+a `screen_map` naming a path that does not exist, a path that is a directory, and a file with no
+read permission. A readable map that merely lacks a row or a `Mockup:` version is exit 1, the
+real failure. `--json` prints one object on stdout, `{version, change, screens, designConfigured,
+screenMap, mockupTool, mapped, missing, mapMockup, mapMockupOk, noop, pass}`, and on a setup error
+`{version, error}`, the shape `conduct-check` and `deliver-check` already use. The project root is
+the current directory, with no upward search: the gate `cd`s into the worktree before calling the
+script.
+
 **D6 — The plan declares the screens.** (OD-3, unconfirmed.) `proposal.md` gains a `## Screens`
 section listing the ids, and the `propose` node's `output_schema` gains a `screens` array that
 mirrors it. The branch condition reads the node output; `screens-check` reads the file, so the gate
