@@ -132,6 +132,28 @@ filled per project, rejected because a hard-coded plugin path rots at the next p
 vendoring the checkers into `.compozy/`, rejected because a vendored copy drifts from the schema
 that CI pins.
 
+*Mechanics settled in phase 1, as `CONTRIBUTING.md` requires of a decision the design did not
+state.* A plugin copy is matched by the `name` and `version` fields of its own
+`.claude-plugin/plugin.json` plus a required sibling script, never by its directory name: the
+marketplace checkout of this repository is folder-named `openspec`, not `devkit-openspec`, and only
+matches by content. The plugins directory searched is `$CLAUDE_CONFIG_DIR/plugins`, falling back to
+`$HOME/.claude/plugins` — the same variable Claude Code itself honours to relocate its config, so
+the resolver needs no variable of its own and the tests point it at a temporary tree. And
+`screens-check` names two sources in its exit-3 message, not three: it ships with this pack, so
+`$DEVKIT_HOOKS` (which names the `devkit-openspec` hooks directory) does not apply to it, and
+padding a third line for symmetry with `deliver-check` would name a source it never tried.
+
+**D13 — The templates carry `__UPPER_SNAKE__` tokens, listed once in `substitutions.json`.** The
+placeholder syntax is `__NAME__`, deliberately unlike the `{{ }}` CompozyOS itself evaluates inside
+`loop.yaml` at run time: a reader can tell at a glance which braces the installer fills and which
+the daemon does. `templates/substitutions.json` names the ten change-independent tokens — the four
+agent ids (`__PLANNER__`, `__IMPLEMENTER__`, `__REVIEWER__`, `__DESIGNER__`, named after the loop's
+own inputs and defaulting to the matching role shell), `__VERIFY_COMMAND__`, `__DEMO_COMMAND__`,
+`__DEMO_URL__`, `__TIMEZONE__`, `__SCREEN_MAP__` and `__MOCKUP__` — each with its meaning and its
+default. `compozy-setup` reads that file to install the templates and the adoption test of task 6.4
+reads it to render them, so neither can drift from the other. *Alternative:* `{{ }}` for both,
+rejected because the installer would have to know which braces are not its own.
+
 **D10 — The design role owns both the design and the demo.** One new shell, `design`, calling two
 skills: `screen-design` (propose the rows and the mockup version, write
 `openspec/changes/<id>/mock/screens.md` and the screen-map rows, commit on the change branch) and

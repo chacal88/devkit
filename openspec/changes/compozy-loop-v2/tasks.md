@@ -88,7 +88,7 @@ move before 1.1 rather than after any later phase.
   earlier name (so neither mtime nor directory order can pass by accident), `0.13.0` beating `0.9.0`
   (so the comparison is by integer field, not by string), and two copies at the same version, where
   the lexicographically last path wins.
-- [ ] 1.7 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs && python3 scripts/check.py`
+- [x] 1.7 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs && python3 scripts/check.py`
 
 ## 2. Loop v2, the shipped template (AC-2, AC-3, AC-5, AC-6, AC-7, AC-8)
 
