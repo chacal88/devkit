@@ -163,7 +163,7 @@ they are CompozyOS roles, not Claude Code agents.
   wait on it with a CompozyOS pull-request monitor and fix until the check is green — never `sleep`,
   `gh pr checks --watch`, `gh run watch` or a polling loop; after the merge run the `ship-change`
   archive steps; never merge by hand, whatever the ship mode.
-- [ ] 3.3 `qa/AGENT.md`: the pilot's shell, project-agnostic, keeping the rule that a task the owner
+- [x] 3.3 `qa/AGENT.md`: the pilot's shell, project-agnostic, keeping the rule that a task the owner
   deferred by a dated decision in `tasks.md` is not a finding, and the blocking-issue list.
 - [ ] 3.4 `design/AGENT.md`, new: reads the project's screen map and mockup (from the `design:` block
   of `openspec/config.yaml`), and for the screens the change declares either confirms they are
