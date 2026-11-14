@@ -316,7 +316,7 @@ here changes the loop's graph, its gates or the acceptance criteria.
   `.nodes.design.output` in the file is either the guard itself or inside an `{{ if ... }}` block
   that guards the parent — an assertion that fails on the shape this task repairs, in both the
   template and the installed copy (`AC-9 repo-adopts: ...`).
-- [ ] 8.4 Reword the two lines of `docs/compozy-kit.md` that claim the loop "never merges" without
+- [x] 8.4 Reword the two lines of `docs/compozy-kit.md` that claim the loop "never merges" without
   naming a ship mode on the same line (the table row for the merge wait, and the paragraph under
   the table). `deliver-check.test.mjs`'s docs sweep is line-based and wants a backticked `plan`,
   `pr` or `merge` followed by the word `mode`, the literal "ship mode", or `commit-and-pr` on that
