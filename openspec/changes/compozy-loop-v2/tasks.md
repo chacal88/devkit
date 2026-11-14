@@ -100,7 +100,7 @@ shape stay as they are.
 The file is `plugins/compozy/skills/compozy-setup/templates/loops/openspec-change/loop.yaml`. Design
 D2 fixes the node ids, the order and the edges; the validated probe is the reference.
 
-- [ ] 2.1 Header, inputs and contract: `apiVersion: compozy.loop/v1`, `meta` with `name`,
+- [x] 2.1 Header, inputs and contract: `apiVersion: compozy.loop/v1`, `meta` with `name`,
   `description` and `catalog`; inputs `change_id`, `brief`, `schema`, `verify_command`,
   `demo_command` (default empty), `demo_url` (default empty) and the four agent inputs `planner`,
   `implementer`, `reviewer`, `designer`; `contract` with `goal`, a `definition_of_done` that ends at
@@ -109,21 +109,21 @@ D2 fixes the node ids, the order and the edges; the validated probe is the refer
   `verification` as one `command` over `inputs` only that the change's archived folder is on
   `origin/<base>` (design D8). Every checker call in this file goes through
   `.compozy/bin/devkit-kit` (design D9).
-- [ ] 2.2 The five kept nodes, with the pilot's ids, prompts and output schemas: `propose` (its
+- [x] 2.2 The five kept nodes, with the pilot's ids, prompts and output schemas: `propose` (its
   `output_schema` gains a required `screens` array of strings, documented as the ids of
   `proposal.md`'s `## Screens`), `approve_plan`, `implement` (its `review` block now also shows the
   design output, guarded with `{{ if ... }}`), `review` and `verify` (its `deliver_check` criterion
   now reads `.compozy/bin/devkit-kit deliver-check --ci`).
-- [ ] 2.3 The design branch: `touches_screens` (`class: control`, `kind: branch`,
+- [x] 2.3 The design branch: `touches_screens` (`class: control`, `kind: branch`,
   `condition: "size(nodes.propose.output.screens) > 0"`), `design` (`run-agent` on `designer`,
   output `screens`, `mockup`, `mockup_version`, `worktree_path`) and `screens_ok` (gate, one
   `command` criterion running `.compozy/bin/devkit-kit screens-check --change <id>` inside the
   worktree, `on_result.fail: next_generation`).
-- [ ] 2.4 The demo branch: `has_demo` (branch on the same list and a non-empty `demo_command`) and
+- [x] 2.4 The demo branch: `has_demo` (branch on the same list and a non-empty `demo_command`) and
   `demo` (`run-agent` on `designer`, prompt naming the `screen-demo` skill, `demo_command` and
   `demo_url`; output `evidence_dir`, `shots`, `video`). `deliver`'s prompt links
   `openspec/changes/<id>/evidence/` from the pull-request body when the demo ran.
-- [ ] 2.5 The pull-request stages: `deliver` (kept, with its `review` block), `ci_fix` (`run-agent`
+- [x] 2.5 The pull-request stages: `deliver` (kept, with its `review` block), `ci_fix` (`run-agent`
   on `implementer`, prompt: register a CompozyOS pull-request monitor on the pull request, fix until
   the check is green, never wait with `sleep`, `gh pr checks --watch`, `gh run watch` or a polling
   loop), `checks_green` (gate, `gh pr checks <url> --required`, `on_result.fail: escalate`),
@@ -131,7 +131,7 @@ D2 fixes the node ids, the order and the edges; the validated probe is the refer
   `gh pr view <url> --json state --jq .state` piped to `grep -qx MERGED`; the `| shellQuote` value
   stays outside every authored quote, or the compiler rejects it as
   `unsafe_command_interpolation`).
-- [ ] 2.6 The end: `archive` (`run-agent`, the `ship-change` archive steps, output `archived`,
+- [x] 2.6 The end: `archive` (`run-agent`, the `ship-change` archive steps, output `archived`,
   `worktree_path`, `archive_pr`), `cleanup` (`class: action`, `kind: compozy__worktree_remove`,
   `params.path` from `archive`'s output, `on_error: { allow_fail: true }`), and the eighteen edges
   of design D2 including the two skip edges `approve_plan → implement` and `verify → deliver`.

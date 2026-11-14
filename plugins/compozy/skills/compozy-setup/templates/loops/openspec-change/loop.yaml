@@ -1,0 +1,619 @@
+# Deliver one OpenSpec change with the devkit, supervised by CompozyOS.
+#
+# The devkit (OpenSpec change files, hooks that keep product code closed until the plan is
+# ready, reviewer agents, checkers) does the real work inside each run-agent node. CompozyOS
+# only sequences the stages, holds the human gates, runs the project checks and ends with a
+# named outcome. Every devkit checker this file calls goes through .compozy/bin/devkit-kit
+# (design D9), never through a path that exists in only one repository.
+#
+# The first six nodes (propose, approve_plan, implement, review, verify, deliver) are version 1
+# of this loop, unchanged in id, prompt and output shape except where noted below, so a project
+# moving from version 1 reads a diff, not a rewrite. Version 2 adds an optional design gate
+# before implementation, an optional demo step before the pull request, a wait on the pull
+# request's checks and its merge, and the archive and the worktree cleanup after the merge.
+apiVersion: compozy.loop/v1
+kind: Loop
+meta:
+  name: openspec-change
+  description: Plan an OpenSpec change with the devkit, wait for operator approval, run an optional design gate and demo, implement in a worktree, review, verify, open a PR, wait for it to go green and merge, then archive and clean up.
+  catalog:
+    use_when: "A change from the roadmap should go through the devkit/OpenSpec process end to end, supervised by CompozyOS, including a design gate for changes with screens."
+    keywords: [devkit, openspec, change, delivery, design]
+    category: Engineering
+
+concurrency: allow
+
+inputs:
+  change_id:
+    type: string
+    required: true
+    description: OpenSpec change id (kebab-case), used as openspec/changes/<change_id>/ and as the worktree and branch name (the devkit guards resolve the active change from the branch name).
+  brief:
+    type: string
+    required: true
+    description: What the change must achieve, in the operator's words (the roadmap line is a good start).
+  schema:
+    type: string
+    default: devkit-lite
+    enum: [devkit-lite, devkit]
+    description: OpenSpec schema. devkit adds the grill and an independent readiness gate; use it for new capabilities, public contracts, data model, auth/money/personal data or hard-to-roll-back work.
+  verify_command:
+    type: string
+    default: "__VERIFY_COMMAND__"
+    description: The project's focused check, run inside the worktree after implementation and again at the verify gate. The full hook suite belongs to the phase gate tasks and to CI.
+  demo_command:
+    type: string
+    default: "__DEMO_COMMAND__"
+    description: The shell command that captures the demo evidence (screenshots and a video) for a change with screens. Empty means the project has no demo, and the demo branch is skipped.
+  demo_url:
+    type: string
+    default: "__DEMO_URL__"
+    description: The base URL demo_command runs the demo against. Empty when there is no demo.
+  planner:
+    type: agent
+    default: __PLANNER__
+  implementer:
+    type: agent
+    default: __IMPLEMENTER__
+  reviewer:
+    type: agent
+    default: __REVIEWER__
+  designer:
+    type: agent
+    default: __DESIGNER__
+
+contract:
+  goal: "Deliver the OpenSpec change {{ .inputs.change_id }}: {{ .inputs.brief }}"
+  definition_of_done: >
+    The change under openspec/changes/{{ .inputs.change_id }}/ validates strictly and its plan
+    (and, for a change with screens, its design) was approved by the operator; every task in
+    tasks.md is implemented and committed on branch {{ .inputs.change_id }} in a worktree, except
+    tasks the operator deferred by a dated decision recorded in tasks.md; the project's focused
+    check passes; the devkit review bench approved with no blocking issue and evidence.md names
+    the branch head; the pull request's required checks are green and it has merged; the change
+    reads archived (retro, the operator's answer to each proposal, openspec archive, the roadmap
+    tick and the archive pull request) and its worktree is removed.
+  constraints:
+    - "Never push without the operator's explicit approval recorded in this run; never merge by hand."
+    - "Never use destructive Git (reset, checkout --, clean, rm, branch -D, stash)."
+    - "Project instructions (CLAUDE.md), openspec/config.yaml and the devkit hooks remain in force inside every session."
+  iteration_cap: 3
+  no_progress:
+    window: 2
+  budget:
+    tokens: 0
+    wall_clock_sec: 0
+    on_exceeded: halt
+  verification:
+    # Over inputs only (design D8): openspec validate stops resolving once the change is
+    # archived, so the loop's own definition of done is that the archived folder landed on the
+    # default branch, not a strict validation of a change folder that may no longer exist.
+    - id: change_archived
+      type: command
+      check: "git fetch origin --quiet && git ls-tree -d --name-only origin/HEAD -- openspec/changes/archive/ | grep -qE -- -{{ .inputs.change_id | shellQuote }}$"
+      expect: exit_zero
+  terminal_states: [done, no-op, blocked, failed, exhausted, stalled, canceled]
+
+graph:
+  nodes:
+    # 1. Plan: the tech lead runs the devkit planning steps (create, proposal, design, tasks,
+    #    spec deltas; grill + readiness for the devkit schema) and stops before implement. The
+    #    plan also declares the screens the change touches (design D6), an empty list when none.
+    - id: propose
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.planner }}"
+        prompt: |
+          Plan the OpenSpec change `{{ .inputs.change_id }}` with schema `{{ .inputs.schema }}`.
+          Brief from the operator:
+
+          {{ .inputs.brief }}
+
+          This is generation {{ .generation }}.
+          {{ if .previous.generation }}
+          The previous generation ended without approval. Operator feedback and gate verdicts:
+          {{ toJson .previous.verdicts }}
+          Revise the plan to address them; do not start over. When the plan itself needs no
+          change, return status `unchanged`.
+          {{ end }}
+
+          Follow your procedure: ask the devkit checker what is next and do the planning steps
+          until the next step is `implement`, then stop. Write only under
+          openspec/changes/{{ .inputs.change_id }}/. List every screen the change touches in
+          proposal.md's `## Screens` section; an empty section means no screen. Run
+          `openspec validate {{ .inputs.change_id }} --strict` and fix every error before
+          returning. Return only the structured result below. `tasks` lists every task from
+          tasks.md in order; `open_questions` lists decisions the operator must take before
+          implementation (empty when none); `screens` mirrors `## Screens` exactly, in the same
+          order (empty array when the change touches no screen, never a guess).
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [status, change_dir, summary, tasks, open_questions, screens]
+          properties:
+            status:
+              type: string
+              enum: [created, updated, unchanged]
+            change_dir:
+              type: string
+              pattern: '^openspec/changes/[a-z0-9][a-z0-9-]*/$'
+            summary:
+              type: string
+              minLength: 1
+            tasks:
+              type: array
+              minItems: 1
+              maxItems: 60
+              items:
+                type: object
+                additionalProperties: false
+                required: [id, title]
+                properties:
+                  id: { type: string, minLength: 1 }
+                  title: { type: string, minLength: 1 }
+            open_questions:
+              type: array
+              items: { type: string, minLength: 1 }
+            screens:
+              type: array
+              description: The ids of proposal.md's `## Screens` section, in order; empty when the change touches no screen.
+              items: { type: string, minLength: 1 }
+      timeout: 40m
+      retry:
+        max_attempts: 2
+
+    # 2. Gate: strict validation by command. The operator's approval of the plan (and, when the
+    #    design ran, of the design) is the `review` block on the implement node below (a gate
+    #    cannot mix command and human criteria at runtime). A failed validation sends the loop
+    #    back to propose.
+    - id: approve_plan
+      class: control
+      kind: gate
+      criteria:
+        - id: change_valid
+          type: command
+          check: "d=$(git worktree list --porcelain | awk -v b={{ .inputs.change_id | shellQuote }} '/^worktree /{p=$2} $0==\"branch refs/heads/\"b{print p}'); cd \"${d:-.}\" && openspec validate {{ .inputs.change_id | shellQuote }} --strict"
+          expect: exit_zero
+      verdict_policy: fixed_passes
+      on_result:
+        fail: next_generation
+
+    # 3. Design branch (design D3): free for a change without screens. touches_screens is a
+    #    branch on the plan's own screens list; its exclusive descendants design and screens_ok
+    #    are skipped when the list is empty, and implement's second incoming edge from
+    #    approve_plan lets it run exactly as it does in version 1 once every predecessor has
+    #    settled, a skip included.
+    - id: touches_screens
+      class: control
+      kind: branch
+      condition: "size(nodes.propose.output.screens) > 0"
+
+    # 4. Design: the design role proposes the screen-map rows and a mockup version for every
+    #    screen the plan declared (design D5, D10), in a worktree it creates on the change
+    #    branch, and commits them there, so the map and the code that implements it merge
+    #    together.
+    - id: design
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.designer }}"
+        prompt: |
+          Change `{{ .inputs.change_id }}` declares these screens:
+          {{ toJson .nodes.propose.output.screens }}
+
+          Using the screen-design skill, work in a worktree on branch
+          `{{ .inputs.change_id }}` (create it with the Compozy worktree tools when it does not
+          exist). Read the project's configured screen map and mockup
+          (openspec/config.yaml's `design:` block). For every declared screen, either confirm it
+          is already mapped with a versioned mockup, or propose the row (id, screen, what it
+          shows and allows, the stage, the level of detail in the mockup) and a mockup version.
+          Write openspec/changes/{{ .inputs.change_id }}/mock/screens.md and the screen-map rows,
+          and commit them on the branch. Write no product code, no test and no spec, and do not
+          approve your own proposal. Return only the structured result below.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [screens, mockup, mockup_version, worktree_path]
+          properties:
+            screens:
+              type: array
+              minItems: 1
+              items: { type: string, minLength: 1 }
+            mockup:
+              type: string
+              minLength: 1
+            mockup_version:
+              type: string
+              minLength: 1
+            worktree_path:
+              type: string
+              minLength: 1
+      timeout: 2h
+      retry:
+        max_attempts: 2
+
+    # 5. Gate: the mechanical half of the design gate (design D5). A missing row or a missing
+    #    mockup version starts the next generation, where the plan and the design are revised
+    #    together: the screens the plan declares and the rows the design proposes are one
+    #    decision, and the operator has not approved either yet.
+    - id: screens_ok
+      class: control
+      kind: gate
+      criteria:
+        - id: screens_mapped
+          type: command
+          check: "cd {{ .nodes.design.output.worktree_path | shellQuote }} && .compozy/bin/devkit-kit screens-check --change {{ .inputs.change_id | shellQuote }}"
+          expect: exit_zero
+      verdict_policy: fixed_passes
+      on_result:
+        fail: next_generation
+
+    # 6. Implement: TDD implementer per phase, in a worktree, one commit per task. Reuses the
+    #    worktree the design node created when the design branch ran (guarded: a skipped node
+    #    settles with a skip marker, not a filled schema); otherwise creates its own, exactly as
+    #    version 1. The timeout is generous; the worktree keeps the committed phases and a new
+    #    generation resumes from them.
+    - id: implement
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.implementer }}"
+        prompt: |
+          Implement the approved OpenSpec change `{{ .inputs.change_id }}` following your procedure.
+
+          {{ if .nodes.design.output.worktree_path }}
+          Continue in the worktree the design role already created, at
+          {{ .nodes.design.output.worktree_path }}, on branch `{{ .inputs.change_id }}`.
+          {{ else }}
+          Work only inside a worktree on branch `{{ .inputs.change_id }}`; create it with the
+          Compozy worktree tools when it does not exist, never in the workspace root.
+          {{ end }}
+          The change files under {{ .nodes.propose.output.change_dir }} must be committed on that
+          branch first when they are not yet. Follow tasks.md phase by phase with the
+          devkit-core:tdd-implementer agent, ticking each task as it lands. Tests first, then code.
+          Stage files by name, one commit per task. Never push, never merge, never rebase onto a
+          shared branch.
+
+          {{ if .previous.generation }}
+          Previous reviewer verdicts to address first:
+          {{ toJson .previous.verdicts }}
+          {{ end }}
+
+          Run `{{ .inputs.verify_command }}` inside the worktree before returning; it must pass.
+          Return only the structured result below; `head` is the exact commit SHA of the branch.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [worktree_path, branch, head, tasks_done, verification, blockers]
+          properties:
+            worktree_path: { type: string, minLength: 1 }
+            branch: { type: string, pattern: '^[a-z0-9][a-z0-9-]*$' }
+            head: { type: string, pattern: '^[0-9a-f]{7,40}$' }
+            tasks_done:
+              type: array
+              items: { type: string, minLength: 1 }
+            verification:
+              type: array
+              description: Commands run and their results.
+              items: { type: string, minLength: 1 }
+            blockers:
+              type: array
+              items: { type: string, minLength: 1 }
+      review:
+        prompt: |
+          Approve the plan for change `{{ .inputs.change_id }}` ({{ .inputs.schema }}){{ if .nodes.design.output }} and its design{{ end }} and start the implementation?
+
+          Summary: {{ .nodes.propose.output.summary }}
+          Tasks: {{ toJson .nodes.propose.output.tasks }}
+          Open questions: {{ toJson .nodes.propose.output.open_questions }}
+          {{ if .nodes.design.output }}
+          Proposed screens: {{ toJson .nodes.design.output.screens }}
+          Mockup: {{ .nodes.design.output.mockup }} ({{ .nodes.design.output.mockup_version }})
+          {{ end }}
+
+          Read {{ .nodes.propose.output.change_dir }} (proposal, design, tasks, readiness) before
+          deciding. Reject ends this run without code; fix the plan (and the design, when one
+          ran) with the tech lead and start a new run, which refines the existing change files.
+        decisions: [approve, reject]
+        responders:
+          agents: deny
+      timeout: 12h
+      retry:
+        max_attempts: 1
+
+    # 7. Review: the independent reviewer runs the devkit bench and the pr-verifier and commits
+    #    reviews/, review.md and evidence.md on the change branch. A run-agent node, not a
+    #    judge: a judge session cannot start for an approve-all agent, and the bench writes files.
+    - id: review
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.reviewer }}"
+        prompt: |
+          Review change `{{ .inputs.change_id }}` on branch {{ .nodes.implement.output.branch }}
+          at commit {{ .nodes.implement.output.head }} in
+          {{ .nodes.implement.output.worktree_path }} against
+          {{ .nodes.propose.output.change_dir }} (proposal, design, tasks, spec deltas) following
+          your procedure: the devkit review bench writes reviews/<reviewer>.md and the
+          pr-verifier writes evidence.md for that exact commit; commit those files on the branch.
+          Tasks the operator deferred by a dated decision recorded in tasks.md are not findings.
+          Blocking issues: a task from tasks.md not implemented, a spec delta not honoured, a
+          failing or weakened test, a security defect, destructive Git, any push or merge.
+          Approve only with evidence you read the diff and saw the focused check pass. Use stable
+          snake_case ids for blocking issues. Return only the structured result below.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [verdict, head, blocking, important]
+          properties:
+            verdict:
+              type: string
+              enum: [approved, rejected]
+            head: { type: string, pattern: '^[0-9a-f]{7,40}$' }
+            blocking:
+              type: array
+              items: { type: string, minLength: 1 }
+            important:
+              type: array
+              items: { type: string, minLength: 1 }
+      timeout: 3h
+      retry:
+        max_attempts: 1
+
+    # 8. Gate: the focused check and the devkit's own deliver-check, both inside the worktree.
+    #    deliver-check --ci reads readiness, tasks, reviews and evidence the way CI will, through
+    #    the resolver so no path here names only this repository. A fail starts the next
+    #    generation: the planner keeps the plan, the implementer addresses the verdicts, the
+    #    reviewer runs again.
+    - id: verify
+      class: control
+      kind: gate
+      criteria:
+        - id: focused_check
+          type: command
+          check: "cd {{ .nodes.implement.output.worktree_path | shellQuote }} && sh -c {{ .inputs.verify_command | shellQuote }}"
+          expect: exit_zero
+        - id: deliver_check
+          type: command
+          check: "cd {{ .nodes.implement.output.worktree_path | shellQuote }} && DEVKIT_BRANCH={{ .inputs.change_id | shellQuote }} .compozy/bin/devkit-kit deliver-check --ci"
+          expect: exit_zero
+      verdict_policy: fixed_passes
+      on_result:
+        fail: next_generation
+
+    # 9. Demo branch (design D3, D10): free for a change without screens, or without a
+    #    demo_command. has_demo joins the same screens list as touches_screens with a non-empty
+    #    demo_command; deliver's second incoming edge from verify lets it run whether or not the
+    #    demo ran.
+    - id: has_demo
+      class: control
+      kind: branch
+      condition: "size(nodes.propose.output.screens) > 0 && size(inputs.demo_command) > 0"
+
+    # 10. Demo: the design role records the demo evidence (design D10, D11) for every declared
+    #     screen, in both themes and both widths, plus one video of the journey, under the
+    #     change's evidence/ folder, committed on the branch.
+    - id: demo
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.designer }}"
+        prompt: |
+          Using the screen-demo skill, record the demo evidence for change
+          `{{ .inputs.change_id }}` in worktree {{ .nodes.implement.output.worktree_path }} on
+          branch {{ .nodes.implement.output.branch }}. Run
+          `{{ .inputs.demo_command }}` against `{{ .inputs.demo_url }}` for every screen in
+          {{ toJson .nodes.propose.output.screens }}. Write one screenshot per screen for each
+          theme (light, dark) and each width (desktop, phone) plus one video of the journey under
+          openspec/changes/{{ .inputs.change_id }}/evidence/, and commit them on the branch.
+          Return only the structured result below.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [evidence_dir, shots, video]
+          properties:
+            evidence_dir:
+              type: string
+              minLength: 1
+            shots:
+              type: array
+              minItems: 1
+              items: { type: string, minLength: 1 }
+            video:
+              type: string
+              minLength: 1
+      timeout: 1h
+      retry:
+        max_attempts: 2
+
+    # 11. Deliver: devkit ship-change / commit-and-pr. The operator admits the push first; the
+    #     repository's ship mode (openspec/config.yaml) decides what happens after the PR.
+    - id: deliver
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.implementer }}"
+        prompt: |
+          In worktree {{ .nodes.implement.output.worktree_path }} on branch
+          {{ .nodes.implement.output.branch }} (head {{ .nodes.review.output.head }}), use the
+          devkit's ship-change skill to push the branch and open a pull request for change
+          `{{ .inputs.change_id }}`, following the ship mode of openspec/config.yaml. Title from
+          the proposal, body with summary, tasks, review disposition and verification.
+          {{ if .nodes.demo.output }}
+          Link openspec/changes/{{ .inputs.change_id }}/evidence/ from the pull request body as
+          the demo evidence.
+          {{ end }}
+          Never merge by hand and do not archive the OpenSpec change. Return only the structured
+          result below.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [branch, head, pr_url]
+          properties:
+            branch: { type: string, minLength: 1 }
+            head: { type: string, pattern: '^[0-9a-f]{7,40}$' }
+            pr_url: { type: string, pattern: '^https://' }
+      review:
+        prompt: "Push `{{ .nodes.implement.output.branch }}` and open the pull request for `{{ .inputs.change_id }}`?"
+        decisions: [approve, reject]
+        responders:
+          agents: deny
+      timeout: 30m
+      retry:
+        max_attempts: 1
+
+    # 12. Wait on the pull request's checks (design D7): a monitor, never a shell. The
+    #     CompozyOS runtime cannot observe a sleep, a `gh pr checks --watch` or a polling loop,
+    #     so the implementer registers a CompozyOS pull-request monitor and fixes while it is
+    #     armed; the gate that follows only confirms the state the wait reached, in one
+    #     non-blocking command.
+    - id: ci_fix
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.implementer }}"
+        prompt: |
+          Register a CompozyOS pull-request monitor on {{ .nodes.deliver.output.pr_url }} and,
+          while it stays armed, fix the branch in worktree
+          {{ .nodes.implement.output.worktree_path }} on branch
+          {{ .nodes.implement.output.branch }} until its required checks are green. Never wait
+          with `sleep`, `gh pr checks --watch`, `gh run watch` or a polling loop: this runtime
+          cannot observe them, and a turn that waits that way never wakes. Commit and push each
+          fix. Return only the structured result below once the checks are green.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [status, head]
+          properties:
+            status:
+              type: string
+              enum: [green]
+            head: { type: string, pattern: '^[0-9a-f]{7,40}$' }
+      timeout: 12h
+      retry:
+        max_attempts: 2
+
+    # 13. Gate: confirms the state the wait reached, in one non-blocking command. Fails to
+    #     escalate (design D7): the implementer already looped on the fixes, so a failure here is
+    #     a question for the operator, not a reason to replan the change from propose.
+    - id: checks_green
+      class: control
+      kind: gate
+      criteria:
+        - id: required_checks
+          type: command
+          check: "gh pr checks {{ .nodes.deliver.output.pr_url | shellQuote }} --required"
+          expect: exit_zero
+      verdict_policy: fixed_passes
+      on_result:
+        fail: escalate
+
+    # 14. Wait on the merge (design D7): the same monitor, kept armed until the operator (or, in
+    #     merge ship mode, GitHub) merges the pull request. Takes no action of its own; it never
+    #     merges by hand.
+    - id: await_merge
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.implementer }}"
+        prompt: |
+          Keep the CompozyOS pull-request monitor on {{ .nodes.deliver.output.pr_url }} armed and
+          wait for it to report the pull request has merged, by the operator or, in merge ship
+          mode, by GitHub. Never wait with `sleep`, `gh pr checks --watch`, `gh run watch` or a
+          polling loop, and never merge it yourself. Return only the structured result below once
+          it has merged.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [merged]
+      timeout: 12h
+      retry:
+        max_attempts: 1
+
+    # 15. Gate: confirms the merge in one non-blocking command. Fails to escalate, for the same
+    #     reason as checks_green.
+    - id: merged
+      class: control
+      kind: gate
+      criteria:
+        - id: pr_merged
+          type: command
+          check: "gh pr view {{ .nodes.deliver.output.pr_url | shellQuote }} --json state --jq .state | grep -qx MERGED"
+          expect: exit_zero
+      verdict_policy: fixed_passes
+      on_result:
+        fail: escalate
+
+    # 16. Archive (design D8): the ship-change archive steps, continued from where the merge left
+    #     it off (retro, the operator's answer per proposal, openspec archive, the roadmap tick,
+    #     the archive pull request), following the repository's ship mode until the change reads
+    #     archived.
+    - id: archive
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .inputs.implementer }}"
+        prompt: |
+          The pull request for change `{{ .inputs.change_id }}` has merged. Using the devkit's
+          ship-change skill, continue driving it through its archive: the retro, the operator's
+          answer to each proposal, `openspec archive`, the roadmap tick and the archive pull
+          request, following the repository's ship mode (openspec/config.yaml), until the change
+          reads `archived`. Never merge anything by hand. Return only the structured result below.
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [archived, worktree_path, archive_pr]
+          properties:
+            archived:
+              type: boolean
+            worktree_path:
+              type: string
+              minLength: 1
+            archive_pr:
+              type: string
+              pattern: '^https://'
+      timeout: 2h
+      retry:
+        max_attempts: 1
+
+    # 17. Cleanup (design D8): the worktree tool refuses a dirty worktree, and a refused cleanup
+    #     after a merged and archived change must not turn the run into a failure.
+    - id: cleanup
+      class: action
+      kind: compozy__worktree_remove
+      params:
+        path: "{{ .nodes.archive.output.worktree_path }}"
+      on_error:
+        allow_fail: true
+
+  edges:
+    - { from: propose, to: approve_plan }
+    - { from: approve_plan, to: touches_screens }
+    - { from: approve_plan, to: implement }
+    - { from: touches_screens, to: design }
+    - { from: design, to: screens_ok }
+    - { from: screens_ok, to: implement }
+    - { from: implement, to: review }
+    - { from: review, to: verify }
+    - { from: verify, to: has_demo }
+    - { from: verify, to: deliver }
+    - { from: has_demo, to: demo }
+    - { from: demo, to: deliver }
+    - { from: deliver, to: ci_fix }
+    - { from: ci_fix, to: checks_green }
+    - { from: checks_green, to: await_merge }
+    - { from: await_merge, to: merged }
+    - { from: merged, to: archive }
+    - { from: archive, to: cleanup }
+
+start:
+  - kind: manual
+  - kind: cli
+  - kind: http
+  - kind: uds
+  - kind: native_tool
