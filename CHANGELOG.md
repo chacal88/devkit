@@ -10,9 +10,12 @@
   journey video, skipped without a `demo_command`), a wait on the pull request's checks with a
   CompozyOS pull-request monitor, and the `ship-change` archive steps and a worktree cleanup after
   the merge. This repository's own `.compozy/` is regenerated from the templates to prove them.
+- **devkit-openspec** 0.14.0: `devkit-compozy` joins `PACKS` in `project-settings.mjs`, so
+  `openspec-setup --packs devkit-compozy` installs the new pack instead of refusing it
+  (`DEFAULT_PACKS` unchanged). The CI snippet pins `v0.14.0`.
 - Docs: a new `docs/compozy-kit.md`, the pack row in `docs/conventions.md`, `README.md` and
-  `CLAUDE.md`, and a pointer from `docs/openspec-flow.md`'s `/conduct` section. No other pack
-  changes version; `devkit-openspec` is untouched, so this release creates no tag.
+  `CLAUDE.md`, a pointer from `docs/openspec-flow.md`'s `/conduct` section, and ADR 0009. No other
+  pack changes version; this release is tagged `v0.14.0` on its merge commit.
 
 ## 0.16.0 — evidence before review
 

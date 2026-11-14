@@ -285,7 +285,7 @@ Five findings of the round at `e10b21d`, in the order that unblocks the gate: th
 guard suite red first, then the two the reviewers raised against the plan, then the gate. Nothing
 here changes the loop's graph, its gates or the acceptance criteria.
 
-- [ ] 8.1 Make the new pack installable: add `devkit-compozy` to `PACKS` in
+- [x] 8.1 Make the new pack installable: add `devkit-compozy` to `PACKS` in
   `plugins/openspec/skills/openspec-setup/scripts/project-settings.mjs` (keeping `DEFAULT_PACKS` as
   it is — the pack is opt-in), which is what `project-settings.test.mjs`'s "PACKS equals the plugin
   names in marketplace.json" asserts and what lets `openspec-setup --packs devkit-compozy` install
