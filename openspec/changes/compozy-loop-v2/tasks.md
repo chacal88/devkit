@@ -165,7 +165,7 @@ they are CompozyOS roles, not Claude Code agents.
   archive steps; never merge by hand, whatever the ship mode.
 - [x] 3.3 `qa/AGENT.md`: the pilot's shell, project-agnostic, keeping the rule that a task the owner
   deferred by a dated decision in `tasks.md` is not a finding, and the blocking-issue list.
-- [ ] 3.4 `design/AGENT.md`, new: reads the project's screen map and mockup (from the `design:` block
+- [x] 3.4 `design/AGENT.md`, new: reads the project's screen map and mockup (from the `design:` block
   of `openspec/config.yaml`), and for the screens the change declares either confirms they are
   mapped with a versioned mockup or proposes them — `screen-design` writes
   `openspec/changes/<id>/mock/screens.md` and the screen-map rows, committed on the change branch;
