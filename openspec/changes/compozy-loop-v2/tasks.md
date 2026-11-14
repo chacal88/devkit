@@ -171,7 +171,7 @@ they are CompozyOS roles, not Claude Code agents.
   `openspec/changes/<id>/mock/screens.md` and the screen-map rows, committed on the change branch;
   `screen-demo` records the evidence. It writes no product code, no test and no spec, and it never
   approves its own proposal.
-- [ ] 3.5 Write `templates/config.toml` (the workspace overlay: default agent, provider,
+- [x] 3.5 Write `templates/config.toml` (the workspace overlay: default agent, provider,
   `permissions.mode`, skills sources, timezone placeholder) and `templates/README.md` (the project's
   `.compozy/README.md`: the roles table, the stage line of the loop, and the one command that starts
   a run), both with the placeholders `compozy-setup` fills.
