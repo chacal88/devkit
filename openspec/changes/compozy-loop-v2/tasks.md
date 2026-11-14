@@ -238,7 +238,7 @@ else.
 
 ## 6. This repository adopts version 2 (AC-9)
 
-- [ ] 6.1 Replace `.compozy/loops/openspec-change/loop.yaml` with the template filled for this
+- [x] 6.1 Replace `.compozy/loops/openspec-change/loop.yaml` with the template filled for this
   repository: `verify_command` as today
   (`python3 scripts/gen-catalog.py --check && python3 scripts/check.py`), `demo_command` and
   `demo_url` empty, the four agent defaults.
