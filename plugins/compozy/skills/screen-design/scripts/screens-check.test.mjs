@@ -232,6 +232,89 @@ test('AC-4 screens-check: --json on a setup error prints {version, error} and st
   assert.match(body.error, /no-such-change/);
 });
 
+// ---------------------------------------------------------------- AC-4 screens-check: parseArgs's negative half
+
+// parseArgs's negative half (round 2, important): an unknown option, a --change with no value,
+// and the ., .. and archive exclusions that keep the checker inside one change folder - none of
+// it had a test, so loosening the regex or dropping the exclusion list stayed green. Every
+// fixture below is an empty project (no openspec/ at all, or in the archive case a fixture that
+// would read as pass if the exclusion were missing); the asserted stderr text is parseArgs's own
+// message, which is reachable only before compute() ever looks at a file, so a different message
+// (an "unknown change" error, for instance) would mean the bad argument slipped through and
+// something under openspec/ outside the change folder got read.
+
+test('AC-4 screens-check: an unknown option exits 3, naming it', () => {
+  const root = tmp();
+  const r = run(root, ['--bogus', '--change', 'demo-change']);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /unknown option --bogus/);
+});
+
+test('AC-4 screens-check: --change with no value following exits 3', () => {
+  const root = tmp();
+  const r = run(root, ['--change']);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /--change expects a change id, not ""/);
+});
+
+test('AC-4 screens-check: --change= with an empty value exits 3', () => {
+  const root = tmp();
+  const r = run(root, ['--change=']);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /--change expects a change id, not ""/);
+});
+
+test('AC-4 screens-check: no --change at all exits 3 with the usage message', () => {
+  const root = tmp();
+  const r = run(root, []);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /usage: screens-check --change <id> \[--json\]/);
+});
+
+test('AC-4 screens-check: --change . exits 3, naming it, not a path lookup', () => {
+  const root = tmp();
+  const r = run(root, ['--change', '.']);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /--change expects a change id, not "\."/);
+});
+
+test('AC-4 screens-check: --change .. exits 3, naming it, not a path lookup', () => {
+  const root = tmp();
+  const r = run(root, ['--change', '..']);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /--change expects a change id, not "\.\."/);
+});
+
+// The regex itself, not just the exclusion list: a change id starts with a letter or a digit and
+// holds no path separator, so neither a traversal nor a dotfile name can reach compute() and send
+// it reading outside openspec/changes/<id>/. Dropping the leading-character class leaves the three
+// exclusions above green, so these two cases are what pins it.
+test('AC-4 screens-check: --change with a path separator exits 3, never a traversal', () => {
+  const root = tmp();
+  const r = run(root, ['--change', '../other-change']);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /--change expects a change id, not "\.\.\/other-change"/);
+});
+
+test('AC-4 screens-check: --change not starting with a letter or a digit exits 3', () => {
+  const root = tmp();
+  for (const bad of ['.hidden', '-x', '_tmp']) {
+    const r = run(root, ['--change', bad]);
+    assert.equal(r.code, 3, `${bad} must be refused`);
+    assert.match(r.stderr, /--change expects a change id/);
+  }
+});
+
+test('AC-4 screens-check: --change archive exits 3, even when openspec/changes/archive/ holds a real proposal.md', () => {
+  const root = tmp();
+  // Shaped like the real OpenSpec archive folder: if the exclusion were dropped, compute() would
+  // happily treat this as a change named "archive" and read this very file.
+  write(root, 'openspec/changes/archive/proposal.md', '# Proposal\n\n## Screens\n\n- chat-list\n');
+  const r = run(root, ['--change', 'archive']);
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /--change expects a change id, not "archive"/);
+});
+
 // ---------------------------------------------------------------- AC-3 design-gate: the format the gate requires
 
 test('AC-3 design-gate: a map shaped like a real project\'s screen map (a table + a Mockup: line) is exactly what the gate reads', () => {

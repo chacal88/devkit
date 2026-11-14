@@ -358,15 +358,19 @@ one table cell. The order is the plan first, then the tests, then the evidence, 
   when the guard is loosened to a nested field. Mirror it over the installed copy in
   `adoption.test.mjs` as an `AC-9 repo-adopts: ...` assertion, the way task 8.3 mirrored the design
   guard. No template file changes: the text being pinned already exists.
-- [ ] 9.3 Cover `screens-check`'s argument parsing (`test-coverage-reviewer`, round 2, important;
+- [x] 9.3 Cover `screens-check`'s argument parsing (`test-coverage-reviewer`, round 2, important;
   AC-4). `parseArgs`'s negative half — an unknown option, `--change` with no value, and the `.`,
   `..` and `archive` exclusions that keep the checker inside a change folder — has no test, so
   loosening the regex or dropping the exclusion list stays green. Add `AC-4 screens-check: ...`
   cases to `plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs` for each of those
   inputs plus `--change=` with an empty value and no `--change` at all: each exits 3 as a setup
   error, naming the offending argument on stderr, and reads no file outside the change folder. Keep
-  them real subprocess runs over fixtures, as the rest of that file does. The script is not changed:
-  these cases pin the behaviour it already has.
+  them real runs over real temporary-directory fixtures, the way the rest of that file does: it
+  calls the exported `main(argv, env, cwd)`, not a subprocess (`devkit-kit.test.mjs` is the suite
+  that spawns one), so the exit code and the stderr text are read from the same entry point the
+  resolver calls. Two further cases pin the id regex itself — a path separator and an id not
+  starting with a letter or a digit — without which dropping its leading-character class leaves the
+  three exclusions green. The script is not changed: these cases pin the behaviour it already has.
 - [ ] 9.4 Make the guard suite's pass readable to the checker (`deliver-check` item 1). In
   `evidence.md`, the gate-8.5 row for `node --test plugins/openspec/hooks/guard.test.mjs` records
   `**pass: 668 tests ...**`; item 1 counts a row only when its last cell begins with `pass`, so the
