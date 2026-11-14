@@ -155,7 +155,7 @@ rule that already lives in `CLAUDE.md`, `openspec/config.yaml` or a devkit skill
 `plugins/compozy/skills/compozy-setup/templates/agents/<role>/AGENT.md`, not in `plugins/<pack>/agents/`:
 they are CompozyOS roles, not Claude Code agents.
 
-- [ ] 3.1 `tech-lead/AGENT.md`: the pilot's shell, project-agnostic (no path from one repository: the
+- [x] 3.1 `tech-lead/AGENT.md`: the pilot's shell, project-agnostic (no path from one repository: the
   checkers through `.compozy/bin/devkit-kit`), plus one rule — list in `proposal.md`'s `## Screens`
   every screen the change touches, and return the same ids in the structured result; no screen means
   an empty list, never a guess.
