@@ -242,7 +242,7 @@ else.
   repository: `verify_command` as today
   (`python3 scripts/gen-catalog.py --check && python3 scripts/check.py`), `demo_command` and
   `demo_url` empty, the four agent defaults.
-- [ ] 6.2 Replace `.compozy/agents/{tech-lead,dev,qa}/AGENT.md` with the shipped shells, add
+- [x] 6.2 Replace `.compozy/agents/{tech-lead,dev,qa}/AGENT.md` with the shipped shells, add
   `.compozy/agents/design/AGENT.md`, and install `.compozy/bin/devkit-kit` (executable). Keep each
   shell's `appearance` block; the `design` role gets its own icon and the same colour.
 - [ ] 6.3 Update `.compozy/config.toml` and `.compozy/README.md` from the templates: the roles table
