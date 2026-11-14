@@ -53,7 +53,7 @@ move before 1.1 rather than after any later phase.
   `version: 0.1.0`, a one-sentence description naming the CompozyOS delivery loop over the devkit
   flow, `keywords`, and the same `author`, `license`, `homepage` and `repository` the other packs
   carry.
-- [ ] 1.2 Create `plugins/compozy/README.md` following the shape of `plugins/design/README.md`: what
+- [x] 1.2 Create `plugins/compozy/README.md` following the shape of `plugins/design/README.md`: what
   the kit is, the install line, the stage diagram of the loop (propose → plan gate → design →
   implement → review → verify → demo → deliver → CI → merge → archive → cleanup), what a project
   must provide (`verify_command`, optionally `demo_command`, `demo_url` and a `design:` block), and
