@@ -80,7 +80,7 @@ move before 1.1 rather than after any later phase.
   (`deliver-check`, `conduct-check` or `screens-check`) with the remaining arguments to the matching
   script; exit 3 naming the three paths it tried when none resolves, and exit 3 on an unknown
   subcommand. `screens-check` resolves inside this pack, not in `devkit-openspec`.
-- [ ] 1.6 Write `plugins/compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs` over temporary
+- [x] 1.6 Write `plugins/compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs` over temporary
   directories: `AC-8 portable-hooks: ...` covering each of the three sources winning in order, the
   argument pass-through and the exit code of the resolved script, exit 3 with the three paths when
   nothing resolves, and exit 3 on an unknown subcommand. One scenario per rule of 1.5's tie-break:
