@@ -371,7 +371,7 @@ one table cell. The order is the plan first, then the tests, then the evidence, 
   resolver calls. Two further cases pin the id regex itself — a path separator and an id not
   starting with a letter or a digit — without which dropping its leading-character class leaves the
   three exclusions green. The script is not changed: these cases pin the behaviour it already has.
-- [ ] 9.4 Make the guard suite's pass readable to the checker (`deliver-check` item 1). In
+- [x] 9.4 Make the guard suite's pass readable to the checker (`deliver-check` item 1). In
   `evidence.md`, the gate-8.5 row for `node --test plugins/openspec/hooks/guard.test.mjs` records
   `**pass: 668 tests ...**`; item 1 counts a row only when its last cell begins with `pass`, so the
   bold markers hide a green run. Drop them from that cell, keep every word, and leave the other
