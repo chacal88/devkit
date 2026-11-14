@@ -159,7 +159,7 @@ they are CompozyOS roles, not Claude Code agents.
   checkers through `.compozy/bin/devkit-kit`), plus one rule — list in `proposal.md`'s `## Screens`
   every screen the change touches, and return the same ids in the structured result; no screen means
   an empty list, never a guess.
-- [ ] 3.2 `dev/AGENT.md`: the pilot's shell, project-agnostic, plus: after the pull request is open,
+- [x] 3.2 `dev/AGENT.md`: the pilot's shell, project-agnostic, plus: after the pull request is open,
   wait on it with a CompozyOS pull-request monitor and fix until the check is green — never `sleep`,
   `gh pr checks --watch`, `gh run watch` or a polling loop; after the merge run the `ship-change`
   archive steps; never merge by hand, whatever the ship mode.
