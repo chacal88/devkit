@@ -99,6 +99,8 @@ Then check every file and consolidate (Output below). A `failed` entry `review s
 
 Every prompt starts with the worktree preamble when there is one, the verifiers' too. The target is the change id and its artifact paths, or the range for a bare diff, plus where the project keeps its ADRs and specs.
 
+Record `git status --porcelain` before stage 1 and put it in every prompt. Reviewers run in parallel over one tree: none of them writes to it, and a reviewer that needs to mutate a file copies it to the scratch folder first. A stage-1 finding whose only evidence is an uncommitted edit that this record does not show is refuted in stage 2 without a verifier, and noted in `review.md` as a transient tree state.
+
 ### 5. Adversarial posture
 
 Reviewers refute; they don't confirm. A generic approval ("LGTM", "looks good") is an invalid verdict and goes back for re-emission. Push-back on a finding is valid only with technical evidence (code, test or output that disproves it). `code-quality-reviewer` and `architecture-reviewer` name at least one good point, to avoid hunt-only bias.

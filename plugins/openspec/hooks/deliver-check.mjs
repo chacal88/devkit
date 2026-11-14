@@ -453,16 +453,22 @@ const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
 
 // The change's PR, whichever branch the checkout is on (archive-after-merge D4):
 // { pr, via } | { none: true } | { error }. `via` is 'branch' when the current
-// branch is the change's own, 'list' when found among the merged PRs.
+// branch is the change's own, 'list' when found among the merged PRs. "The
+// change's own branch" means the branch's own name identifies it (the exact
+// tail or a contained match, as resolveChange's own arms do) — never
+// resolveChange's single-active-change fallback, which answers with the sole
+// active change whatever the branch is called (compozy-loop-v2 retro).
 //  1. plan mode, a known number, or the change branch: fetchPr as before (the
 //     head-branch fallback also runs in pr mode);
 //  2. otherwise, in pr and merge modes: the newest merged PR whose body links
 //     the change's evidence.md, else the newest whose head's last segment is the
 //     id. Archive heads are dropped first and there is no "contains" match.
+const branchNamesChange = (branch, id) => branch.split('/').pop() === id || branch.includes(id);
+
 export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = process.env, number = null } = {}) {
   const merge = ship === 'merge';
   const selected = resolveChange(root, env, branch);
-  const own = selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch) && !archiveHeads(id).includes(branch);
+  const own = selected?.name === id && Boolean(branch) && branchNamesChange(branch, id) && !defaultBranches(root).includes(branch) && !archiveHeads(id).includes(branch);
   if (ship === 'plan' || number || own) {
     const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan' });
     return r.pr ? { ...r, via: 'branch' } : r;

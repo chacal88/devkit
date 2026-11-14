@@ -3521,6 +3521,13 @@ test('findChangePr: a body that cannot be read is an error, never a silent miss 
   assert.deepEqual(t.find('main'), { error: 'gh: boom' });
 });
 
+test('findChangePr: on a branch that names neither the change nor an archive head the merged PR is still found by its body link, never reported as none (compozy-loop-v2 retro)', () => {
+  const t = findRepo([AUTO_DOCS, AUTO_ARCHIVE, AUTO]);
+  const found = t.find('calm-badger');
+  assert.equal(found.pr?.number, 5, JSON.stringify(found));
+  assert.equal(found.via, 'list');
+});
+
 test('makeGh/ghError: output past maxBuffer is named, not a bare exit code (review finding 4)', () => {
   const t = findRepo([AUTO]);
   const r = t.run(['pr', 'list', '--state', 'merged', '--json', 'number'], { maxBuffer: 4 });
