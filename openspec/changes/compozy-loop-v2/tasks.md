@@ -264,7 +264,7 @@ else.
 - [x] 7.2 Link it: a row in the table of `CLAUDE.md`, a line in `README.md` (and its pack-count
   sentence, which says five packs today), the `compozy` row in the pack table of
   `docs/conventions.md`, and a pointer from `docs/openspec-flow.md` next to the `/conduct` section.
-- [ ] 7.3 Add `devkit-compozy` to `.claude-plugin/marketplace.json` (source `./plugins/compozy`,
+- [x] 7.3 Add `devkit-compozy` to `.claude-plugin/marketplace.json` (source `./plugins/compozy`,
   version `0.1.0`, category `development`, the description of 1.1) and bump the marketplace
   `metadata.version` to `0.17.0`. No other pack changes version.
 - [ ] 7.4 Add the `CHANGELOG.md` entry for the release: the new pack and what the loop gained.

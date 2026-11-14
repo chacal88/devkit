@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Reusable Claude Code agents, skills and an OpenSpec-based workflow, split into packs you install per project.",
-    "version": "0.16.0"
+    "version": "0.17.0"
   },
   "plugins": [
     {
@@ -49,6 +49,13 @@
       "source": "./plugins/panel",
       "description": "Side pane in the Claude desktop app over the devkit checkers: the change this session conducts with its next step, phases, PR, delivery items and child sessions, the other changes in progress, and buttons that put the owner's next command in the prompt box. Read-only.",
       "version": "0.2.1",
+      "category": "development"
+    },
+    {
+      "name": "devkit-compozy",
+      "source": "./plugins/compozy",
+      "description": "Ships the CompozyOS delivery loop (version 2) over the devkit flow: a design gate, a demo step, a CI wait and the archive and cleanup after the merge, installed into any project by compozy-setup.",
+      "version": "0.1.0",
       "category": "development"
     }
   ]
