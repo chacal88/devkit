@@ -381,7 +381,7 @@ one table cell. The order is the plan first, then the tests, then the evidence, 
   `AC-3 design-gate: ...` assertion in `loop-template.test.mjs` that `propose`'s `output_schema`
   declares `screens` as an array of strings and lists it in `required`, instead of proving it only
   through the two branch conditions that read the same path.
-- [ ] 9.6 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && node --test plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check`
+- [x] 9.6 Gate: `node --test plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs && node --test plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs && node --test plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check`
 
 ## Workflow follow-up
 
