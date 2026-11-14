@@ -111,6 +111,13 @@ Record this change and queue what it left open: the untested-clause gap and the 
 - Answer: approved
 - Applied: yes
 
+### `docs/openspec-flow.md` (tooling)
+The CI pin follows the `devkit-openspec` version bumped by proposal 1 (0.14.1). `CONTRIBUTING.md` tags a release that changes that pack's version, two tests of `deliver-check.test.mjs` require the pin to name it, and `RELEASE_FILE` does not exempt this file, so the pin needs a proposal of its own. Raised at the archive gate, approved by the owner.
+- before: pinned to the commit of v0.14.0 (the pin at the three places docs/openspec-flow.md names it)
++ after: pinned to the commit of v0.14.1
+- Answer: approved
+- Applied: yes
+
 ### user memory (memory-only)
 A devkit checker that resolves the change from the branch (`deliver-check`, `conduct-check`) answers from the single active change whatever the worktree branch is called; run it from a branch named after the change or `chore/archive-<id>`, and check the branch before trusting its `next.step`.
 - Answer: approved

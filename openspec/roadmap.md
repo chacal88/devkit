@@ -43,3 +43,4 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 ## Round 13: what the bench caught late
 - [ ] ac-clause-coverage — a gate reads each acceptance criterion's clauses against the tests named for its slug, so a clause with no red test fails before the review (compozy-loop-v2 retro, item 4)
 - [ ] compozy-loop-v2-dogfood (after: ac-clause-coverage) — the first change driven end to end by loop v2, with its design gate and recorded demo, written back into this retro (compozy-loop-v2 retro, item 7)
+- [ ] release-pin-in-release-files — the CI pin of `docs/openspec-flow.md` joins `RELEASE_FILE` in `deliver-check`, since every `devkit-openspec` bump drags the pin and the archive gate then refuses a file no retro proposal names (compozy-loop-v2 retro, the pin decision)
