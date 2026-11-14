@@ -199,7 +199,7 @@ and 4.
   carrying a version or an ISO date; exit 1 naming the missing ids or the missing version; exit 3 on
   a setup error (unknown change, unreadable map, a `design:` block pointing nowhere). No
   `## Screens` section, or no `design:` block, is exit 0: a project without a UI is a no-op.
-- [ ] 4.3 Write `plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs` over fixtures:
+- [x] 4.3 Write `plugins/compozy/skills/screen-design/scripts/screens-check.test.mjs` over fixtures:
   `AC-4 screens-check: ...` for every id mapped (0), one id missing (1, named), a map with no
   `Mockup:` version (1), no `## Screens` (0), no `design:` block (0), an unreadable map (3), an
   unknown change (3), and the `--json` shape; `AC-3 design-gate: ...` for a fixture shaped like the
