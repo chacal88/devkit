@@ -21,7 +21,7 @@ kit only when it runs CompozyOS: a project that doesn't never pays for its skill
 | 7 | the demo branch (`has_demo` → `demo`) | `design`, with the `screen-demo` skill: screenshots and a journey video under `openspec/changes/<id>/evidence/` | none directly — joins `deliver` |
 | 8 | `deliver` | `dev`, with the devkit's `ship-change`/`commit-and-pr`: pushes the branch and opens the pull request | preceded by the owner's review (approves the push and the pull request) |
 | 9 | the CI wait and its gate (`ci_fix` → `checks_green`) | `dev` registers a CompozyOS pull-request monitor and fixes the branch while it stays armed, until the required checks are green | `checks_green` — command: `gh pr checks <url> --required` |
-| 10 | the merge wait (`await_merge` → `merged`) | `dev` keeps the monitor armed until the pull request merges (by the owner, or by GitHub in `ship: merge`); it never merges by hand | `merged` — command: `gh pr view <url> --json state --jq .state \| grep -qx MERGED` |
+| 10 | the merge wait (`await_merge` → `merged`) | `dev` keeps the monitor armed until the pull request merges (by the owner, or by GitHub when the project's ship mode is `merge`); it never merges by hand | `merged` — command: `gh pr view <url> --json state --jq .state \| grep -qx MERGED` |
 | 11 | `archive` | `dev`, with the devkit's `ship-change` archive steps (retro, the owner's answer per proposal, `openspec archive`, the roadmap tick, the archive pull request) | none directly — next is `cleanup` |
 | 12 | the worktree cleanup (`cleanup`) | automated action (`compozy__worktree_remove`), allowed to fail without failing the run | terminal |
 
@@ -32,9 +32,9 @@ confirm, in one non-blocking command, the state the wait reached, and fail by es
 owner rather than by replanning the change — the agent already looped on the fixes.
 
 The merge itself stays the owner's unless the project's ship mode says `merge`
-([ADR 0002](adr/0002-merge-without-the-owner-opt-in.md)); whichever mode a project runs, the loop
-never merges a pull request by hand — only the waiting stage confirms that the owner, or GitHub,
-already did.
+([ADR 0002](adr/0002-merge-without-the-owner-opt-in.md)).
+Whatever the ship mode, the loop never merges a pull request by hand — only the waiting stage
+confirms that the owner, or GitHub, already did.
 
 ## The two optional branches
 
@@ -94,7 +94,9 @@ the mode is not `merge`). `/conduct <id>` runs the flow from the owner's own Cla
 turn by turn, in a git worktree, with the owner typing the go-aheads; the CompozyOS loop runs it as
 a supervised multi-agent run (`compozy loop run`) across the four role shells, with the owner's
 decisions as `review` blocks the loop stops on. Neither replaces the other: a project picks the one
-that fits how it works, or uses both on different changes.
+that fits how it works, or uses both on different changes. The posture — CompozyOS as a second,
+opt-in driver of the devkit flow, never a harness that replaces it — is recorded in
+[ADR 0009](adr/0009-compozy-loop-as-a-second-driver.md).
 
 ## Checker portability
 

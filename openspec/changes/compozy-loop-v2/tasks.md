@@ -295,7 +295,7 @@ here changes the loop's graph, its gates or the acceptance criteria.
   release creates no tag; it now carries the `devkit-openspec` 0.14.0 line and names the tag
   (design D13). The marketplace `metadata.version` stays `0.17.0`: one release, one marketplace
   version.
-- [ ] 8.2 Record the posture as an ADR (design D12). Write
+- [x] 8.2 Record the posture as an ADR (design D12). Write
   `docs/adr/0009-compozy-loop-as-a-second-driver.md` in the shape of the others (`- Status:`,
   `- Date:`, `- Change: compozy-loop-v2`, Context, Decision, Consequences with a `### Review
   trigger`, Alternatives considered as a table): the Context names ADR 0001's fired review trigger,
