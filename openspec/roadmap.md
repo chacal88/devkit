@@ -33,7 +33,7 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 ## Round 12: the CompozyOS loop as a kit
 - [x] compozy-loop-v2 — devkit-compozy ships the twelve-stage loop, the four role shells, the design gate and the demo as a kit any project installs; this repository adopts it; ADR 0009; release tagged v0.14.0
 
-Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-design.md` (ADR 0010); step 1 is the change `orchestrator-replan`, which recorded it. Rounds 5, 11 and 13 held follow-ups of the coordination model ADR 0010 replaces; `orchestrator-replan` withdrew them (the design document lists them).
+Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-design.md` (ADR 0010); step 1 is the change `orchestrator-replan`, which recorded it. Rounds 5, 11 and 13 held follow-ups of the coordination model ADR 0010 replaces; `orchestrator-replan` withdrew them (the design document lists them); `review-writer-prompt` returned as round 25. Rounds 25 and 26 are follow-ups from the `orchestrator-replan` retro, not steps of the build order.
 
 ## Round 14: the script and the checker
 - [ ] flow-script-checker — the `devkit` schema declares every stage of a change, each stage file opens with the fixed header (status, attempt, commit), a checker without AI says which stage passed and which is next, and the schema names roles instead of Claude tool names (D-4, D-8)
@@ -67,3 +67,9 @@ Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-desig
 
 ## Round 24: the cleanup
 - [ ] coordination-cleanup (after: coordination-panels, compozy-driver) — remove what the new coordination replaced: the old next-step scripts, the child-session code, the old panel and the old CompozyOS loop, and finish the documentation (D-11)
+
+## Round 25: review round tooling
+- [ ] review-writer-prompt — `review-round.mjs outcomes` returns each outcome's stage-3 writer prompt, as `review-change`'s agents path says, and the stage 1 prompt says a disposition names one sha (orchestrator-replan retro, items 1 and 2)
+
+## Round 26: project setup
+- [ ] project-setup (after: delivery-models) — one setup step writes the `devkit:` block, installs the schemas and the checker into the project and wires its driver (orchestrator-replan retro, item 3)

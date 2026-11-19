@@ -55,6 +55,7 @@ You can run on the branch before the PR exists (some workflows require evidence.
    - A `### Gates` table with one row per command named by a gate task in `tasks.md` (split on `&&`: one row per part): `| <gate> | \`<command>\` | pass: <summary> |`, or `fail: <summary>`. The command is in backticks and the last cell starts with `pass` or `fail`. The command cell holds the part exactly as `tasks.md` writes it, never abbreviated (no `$VAR` standing for a long path): `deliver-check` matches the part's text inside backticks.
    - A table with one row per acceptance criterion: `| AC-N | <criterion> | <proof and where it is> | pass |`. The last cell starts with `pass`, `fail` or `no proof: <reason>`; never leave a criterion without a row.
 2. **A commit of `evidence.md`** on the PR branch, staged by name, only when the caller asks for it or the project's workflow expects evidence in the PR. If you commit, re-run the check afterwards and record that output too, so the recorded check ran on the code the PR merges.
+   - Every number you record (a count, a line range, a total) is one you counted at this commit; never carry a number from memory, from the plan or from an earlier evidence file.
 3. **A PR comment** (`gh pr comment <n>`) with the same summary, when asked: include a description of each screenshot (screen, width, what it shows).
 4. **Screenshots** handed to the caller as files or paths. Never commit them or attach them to the PR.
 

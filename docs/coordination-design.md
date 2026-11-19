@@ -427,6 +427,10 @@ Every item nobody has decided yet:
 - The configuration's field names (section 8).
 - Whether CompozyOS can choose the role at each turn (section 10).
 - The script driver for an AI other than Claude (section 10).
+- Project setup (proposed; to be built in round 26): one setup step per project writes the `devkit:`
+  block of `openspec/config.yaml` (driver, language of the files, delivery model, test commands, task
+  source), installs the schemas and the checker under the project's `openspec/` and wires the chosen
+  driver. It replaces what `openspec-setup` and `compozy-setup` do today.
 
 ## What stays shipped until its round
 
@@ -450,5 +454,9 @@ The owner withdrew six unticked lines of the old model from `openspec/roadmap.md
 "take out the old ones"). Each came from a retro of the model ADR 0010 replaces:
 
 - `commit-and-pr-trailer` and `conventions-trailer` (round 5).
-- `review-writer-prompt` (round 11).
+- `review-writer-prompt` (round 11); it returned as round 25 (see below).
 - `ac-clause-coverage`, `compozy-loop-v2-dogfood` and `release-pin-in-release-files` (round 13).
+
+Five lines stay withdrawn. `review-writer-prompt` returned as round 25 (review round tooling): the
+defect it names was hit in both review rounds of `orchestrator-replan`, and the review stage stays in
+the new flow.
