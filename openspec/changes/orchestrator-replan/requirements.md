@@ -373,8 +373,9 @@ at once produce conflicts and stale reviews (seen in 7 of the 14 archived change
   hook reads today.
 - A-4. Nothing that runs changes: no agent, skill, hook, checker or schema is edited, so
   `/conduct` and `ship-change` keep working exactly as today until their own round. There are
-  two exceptions: AC-7, and the one ADR 0007 status assertion of
-  `plugins/openspec/hooks/guard.test.mjs`, because the suite pins ADR 0007's status line.
+  two exceptions: AC-7, and test code in `plugins/openspec/hooks/guard.test.mjs`: the ADR 0007
+  status assertion, because the suite pins that line, and the two tests the review of round 1
+  asked for (the ADR 0010 supersession and the `rules:` entries of `openspec/config.yaml`).
 - A-5. Truthfulness at the commit that ships: every sentence in `README.md`, `CLAUDE.md`,
   `CONTRIBUTING.md`, `docs/*.md`, the pack READMEs and `openspec/config.yaml` that states ADR 0001
   or ADR 0007 as the rule in force (for example README's "Why no harness" section and "Coordination
@@ -425,7 +426,8 @@ change makes on the plan, and is confirmed for real by change 2 of D-11.
   `claude plugin validate .` and `node --test plugins/openspec/hooks/guard.test.mjs` pass at the
   delivered commit, and `git diff --stat origin/main...HEAD` shows no change under any
   `plugins/*/agents`, `plugins/*/skills` or `plugins/*/schemas` path, and under `plugins/*/hooks`
-  only the ADR 0007 status assertion of `plugins/openspec/hooks/guard.test.mjs`. The delivered
+  only test code in `plugins/openspec/hooks/guard.test.mjs` (the ADR status assertions and the
+  two tests the review of round 1 asked for). The delivered
   commit carries the `devkit-openspec` 0.14.2 release (marketplace 0.18.1, `CHANGELOG.md` entry, CI
   pin at `v0.14.2`).
 - AC-7 `design-rules-load` — `openspec instructions design --change orchestrator-replan --json`

@@ -1,7 +1,7 @@
 # ADR 0006: Phases run as child sessions started by the conducting session
 
 - Status: accepted
-- Amended by ADR 0007 (0007-one-change-on-request.md)
+- Amended by ADR 0007 (0007-one-change-on-request.md) (superseded by ADR 0010)
 - Date: 2026-11-10
 - Change: conduct-sessions
 

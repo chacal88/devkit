@@ -1,6 +1,6 @@
 # devkit-openspec
 
-Runs the devkit workflow on top of [OpenSpec](https://github.com/Fission-AI/OpenSpec), which is its harness ([ADR 0010](../../docs/adr/0010-openspec-as-the-harness.md)). The flow is an OpenSpec schema; the OpenSpec CLI decides what comes next; a few hooks refuse what must never happen. No coordinator session, no state machine: the state is the change's files on disk.
+Runs the devkit workflow on top of [OpenSpec](https://github.com/Fission-AI/OpenSpec), which is its harness ([ADR 0010](../../docs/adr/0010-openspec-as-the-harness.md)). The flow is an OpenSpec schema; the OpenSpec CLI decides what comes next; a few hooks refuse what must never happen. Today no coordinator session and no state machine run it (ADR 0010 adds two coordinators, built in the rounds of `openspec/roadmap.md`): the state is the change's files on disk.
 
 ```bash
 claude plugin install devkit-core@devkit --scope project

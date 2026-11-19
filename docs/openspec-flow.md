@@ -1,6 +1,6 @@
 # The OpenSpec flow
 
-devkit-openspec turns the devkit workflow into something OpenSpec and a few hooks enforce, with no orchestrator session in the middle. This page explains the moving parts, how to adopt them in a project, and what to do when something blocks you.
+devkit-openspec turns the devkit workflow into something OpenSpec and a few hooks enforce, with no orchestrator session in the middle today (ADR 0010 adds coordinators in later rounds). This page explains the moving parts, how to adopt them in a project, and what to do when something blocks you.
 
 How changes are coordinated is being redone: [ADR 0010](adr/0010-openspec-as-the-harness.md) supersedes ADR 0001 and ADR 0007, and [the coordination design](coordination-design.md) holds the design and its build order. This page describes what ships today; each part stays as described here until the round of `openspec/roadmap.md` that replaces it.
 
