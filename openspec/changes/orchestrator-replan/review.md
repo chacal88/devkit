@@ -25,3 +25,29 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: orchestrator-replan, round 2
+
+Path: agents · range `e6ea4e53955bdd5d53848413ba381083bec4ce7d..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 683ef5e |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 683ef5e |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 683ef5e |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path agents: the round ran on a turn the owner did not type.
+- code-quality-reviewer re-emitted its stage 1 object once: its first reply gave finding F1 the disposition "fixed in d3a9928 and 683ef5e", which the validator refuses (one sha per disposition).
+- The outcomes command returned no writer prompt; the stage 3 prompts were built with the writerPrompt rule exported by review-round.mjs.
+
+## Next
+Ready to ship.
