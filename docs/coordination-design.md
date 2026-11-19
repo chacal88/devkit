@@ -8,9 +8,13 @@ is the change `orchestrator-replan`, which recorded this design; it builds none 
 
 Every item below is marked with who decided it:
 
-- **decided**: the owner said it.
+- **decided**: the owner said it, or the owner delegated it and the item names who decided it.
 - **proposed**: shown to the owner and not objected to.
 - **open**: nobody decided it yet.
+
+On 2026-11-19, after this page first shipped, the owner answered most of its open points; the
+change `design-open-points` recorded the answers, and each answered item says who decided it and
+when.
 
 Tense: a sentence in the present tense is about what exists at the commit that ships this page. The
 `devkit` and `devkit-lite` schemas, `openspec/config.yaml`, `openspec/roadmap.md`, the hooks and
@@ -29,7 +33,7 @@ command outside the session. The owner wants to open a session, type one simple 
 content, and have it run, including when the project runs on CompozyOS. Ease of use is a first-class
 requirement.
 
-**The commands (proposed; the names are examples and are not confirmed).** One `/devkit` command with
+**The commands (decided by the owner on 2026-11-19: the names stay as proposed).** One `/devkit` command with
 few verbs, to be built in rounds 15, 18, 19 and 20:
 
 | Example | What it does | Round |
@@ -51,12 +55,13 @@ few verbs, to be built in rounds 15, 18, 19 and 20:
 - Calling the command again resumes where it stopped.
 - Every reply says what happened and what comes next, without internal terms.
 
-**Writing back to Jira (open).** Whether devkit writes back to Jira is not decided; the design
-assumes it is read-only.
+**Writing back to Jira (decided by the owner on 2026-11-19).** devkit reads Jira by default and
+writes back (a comment with the pull request link, a status change) only when the developer asks:
+the developer decides.
 
 ## 2. Two coordinators and three entries (D-2)
 
-**The roadmap coordinator (decided; the name `manager` is proposed).** To be built in round 18. It
+**The roadmap coordinator, `manager` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** To be built in round 18. It
 reads `openspec/roadmap.md`, sees what is ready to start and what waits on another change, and
 starts the next changes on its own, without asking first. It may have several change coordinators
 running at once, one per change, only among changes that do not depend on each other. How many is
@@ -64,11 +69,11 @@ not a project setting: the owner chooses it per run and can change it mid-run, b
 the task, on the machine at that moment and on the other projects running. Lowering it never
 interrupts a change under way.
 
-**Holding a start while the machine is loaded (proposed and open).** Proposed: the roadmap
-coordinator holds the start of a change while the machine is loaded. Whether it does, and how load
-is measured, is open.
+**Holding a start while the machine is loaded (decided by the owner on 2026-11-19).** The roadmap
+coordinator holds the start of a new change while the machine is loaded, and what is under way
+finishes first. How it measures load is open.
 
-**The change coordinator (decided; the name `tech lead` is proposed).** To be built in round 15. It
+**The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** To be built in round 15. It
 takes one change from its opening to its archive. It asks OpenSpec which stage comes next, hands that
 stage to its subagent, checks the gate and asks again. It writes no code and does not decide the
 order. It replaces the `/conduct` skill, which retires in round 15.
@@ -76,8 +81,13 @@ order. It replaces the `/conduct` skill, which retires in round 15.
 **Three entries (decided).** The owner defines a project (section 7), calls the roadmap coordinator
 for the whole roadmap, or calls the change coordinator directly for one task.
 
-**Names (open).** The owner suggested team-like names and said naming is not important. The CompozyOS
-kit already uses `tech-lead` for its planner role, so one of the two is renamed; which one is open.
+**Names (decided by the assistant on the owner's delegation, 2026-11-19).** The owner suggested
+team-like names, said naming is not important, and left the choice to the assistant, noting that
+the CompozyOS kit's `tech-lead` role is a planner today. `manager` is the roadmap coordinator and
+`tech-lead` the change coordinator; the CompozyOS kit's present `tech-lead` role, which plans, is
+renamed `planner`, so every driver uses the same role names: `manager`, `tech-lead`, `planner`,
+`dev`, `qa` and `design`. The rename is to be built in round 21 (CompozyOS driver); until then the
+kit's planner keeps the name `tech-lead`.
 
 ## 3. What the orchestrator is (D-3)
 
@@ -151,9 +161,11 @@ Owner decisions inside this table (decided unless marked):
   records it as text inside the change, which is archived afterwards. No screenshots and no videos
   are kept. The pull request is not the place for that record. Where a project accepts automatic
   merge, the agent's validation is the validation and the merge goes on without the owner.
-- **A lean pull-request template (open)**: an idea of the owner's for later, with less text. Today
-  `deliver-check` requires the PR body to name the change, every acceptance criterion and the
-  evidence path.
+- **A lean pull-request template (decided by the owner on 2026-11-19: a debt for later)**: an idea
+  of the owner's, with less text. It is a debt item on `openspec/roadmap.md` (round 27), and the
+  owner researches models of a template first. Today `deliver-check` requires the PR body to name
+  the change, every acceptance criterion and the evidence path, so that rule changes with the
+  template.
 
 ## 5. Delivery models (D-5)
 
@@ -173,7 +185,7 @@ round 17):
 devkit knows only the last two today.
 
 **The conflict with `develop` (open).** What to do when the task branch conflicts with `develop` is
-not decided.
+not decided; it is settled in the grill of round 17 (delivery models).
 
 ## 6. Panels (D-6)
 
@@ -211,8 +223,9 @@ a change backlog inside `docs/design/4-implementation-plan.md`, not in `openspec
 fifth stage that writes the roadmap, appending to an existing one (proposed). The phases are
 conversations with the owner, so they run in the owner's session (proposed).
 
-**A one-off feature entering a roadmap (open).** How a small one-off feature enters an existing
-roadmap is not decided.
+**The roadmap and small work (decided by the owner on 2026-11-19).** The four phases are one
+optional way to produce a roadmap, never a prerequisite. A developer who knows what they want
+writes `openspec/roadmap.md` directly, and a one-off feature goes straight onto it.
 
 ## 8. The harness (D-8)
 
@@ -332,8 +345,9 @@ All proposed. The three drivers are to be built in rounds 15, 21 and 22.
   subagents (Claude Code documents nesting three levels below the main conversation). When a change
   needs the owner, the question goes up and the roadmap coordinator asks it in the session.
 - **CompozyOS (round 21).** One short, generic loop (ask, run the role, check) in place of the
-  619-line flow written apart. `/devkit` starts the run. Not verified: whether CompozyOS can choose
-  the role at each turn (open).
+  619-line flow written apart. `/devkit` starts the run. The kit's planning role is renamed from
+  `tech-lead` to `planner` (section 2). Not verified: whether CompozyOS can choose the role at each
+  turn (open).
 - **Script (round 22).** A small program running the same loop and calling the AI from the command
   line. Documented for Claude (`claude -p`); not verified for any other AI (open). Built when the
   owner needs it.
@@ -355,7 +369,7 @@ changes run one at a time.
 | 6 | The roadmap coordinator and `/devkit roadmap` | 18 | `roadmap-coordinator` | `change-coordinator` |
 | 7 | The four phases and `/devkit project` | 19 | `project-phases` | `roadmap-coordinator` |
 | 8 | The Jira entry | 20 | `jira-entry` | `change-coordinator` |
-| 9 | The CompozyOS driver | 21 | `compozy-driver` | `change-coordinator` |
+| 9 | The CompozyOS driver, and the kit's planning role renamed `planner` | 21 | `compozy-driver` | `change-coordinator` |
 | 10 | The script driver, for another AI, when the owner needs it | 22 | `script-driver` | `change-coordinator` |
 | 11 | The panels: roadmap coordinator, change coordinator and help, read-only, from the approved mock | 23 | `coordination-panels` | `roadmap-coordinator` |
 | 12 | The cleanup: the old scripts, the child-session code, the old panel, the final documentation | 24 | `coordination-cleanup` | `coordination-panels`, `compozy-driver` |
@@ -390,7 +404,7 @@ findings).
 
 ## 13. Still to prove live, and risks (D-13)
 
-All proposed.
+All proposed, except how the points below are proved (decided).
 
 **To prove before trusting:**
 
@@ -399,6 +413,9 @@ All proposed.
 - CompozyOS accepts the generic loop.
 - Jira can be read on each platform.
 - Grouped sessions work as a view.
+
+The points still to prove are proved together, in one live test session, when their round comes
+(decided by the owner on 2026-11-19: testing several things at once saves time).
 
 **Risks and their mitigations:**
 
@@ -411,15 +428,13 @@ All proposed.
 
 ## Open points
 
-Every item nobody has decided yet:
+Every item nobody has decided yet. The command names, the role names, holding a start while the
+machine is loaded, writing back to Jira, small work and the roadmap, and the lean pull-request
+template were answered on 2026-11-19 and are recorded in their sections.
 
-- The command names of `/devkit` (section 1).
-- The role names, and the clash of `tech lead` with the CompozyOS kit's `tech-lead` role (section 2).
-- Holding the start of a change while the machine is loaded (section 2).
-- Whether devkit writes back to Jira; assumed read-only (section 1).
-- What to do when the task branch conflicts with `develop` (section 5).
-- How a small one-off feature enters an existing roadmap (section 7).
-- The lean pull-request template (section 4).
+- How the roadmap coordinator measures load before it holds a start (section 2).
+- What to do when the task branch conflicts with `develop`; settled in the grill of round 17
+  (section 5).
 - Which rules of ADR 0007 the change coordinator keeps: unfinished work reported before anything
   runs, a missing change created only on the owner's answer (ADR 0010).
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
