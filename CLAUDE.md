@@ -14,8 +14,8 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 
 | Topic | Document |
 | --- | --- |
-| How to contribute, test and release | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Conventions (commits, language, versions) | [docs/conventions.md](docs/conventions.md) |
+| How to contribute, test and release (version bumps, tags) | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Conventions (names, commits, language) | [docs/conventions.md](docs/conventions.md) |
 | The OpenSpec flow, its checkers and CI | [docs/openspec-flow.md](docs/openspec-flow.md) |
 | The CompozyOS delivery loop (`devkit-compozy`) | [docs/compozy-kit.md](docs/compozy-kit.md) |
 | The coordination design (ADR 0010) and its build order | [docs/coordination-design.md](docs/coordination-design.md) |

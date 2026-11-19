@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.18.2 — the verifier counts its own numbers
+
+- **devkit-core** 0.6.4: `pr-verifier` records only numbers it counted at the verified commit (a
+  count, a line range, a total), never one carried from memory, the plan or an earlier evidence file
+  (orchestrator-replan retro).
+- Docs/rules: `openspec/roadmap.md` gains rounds 25 (review round tooling, the withdrawn
+  `review-writer-prompt` returned) and 26 (project setup); `docs/coordination-design.md` records
+  both and the project-setup open point; `CLAUDE.md` points at the files holding the version rule.
+  No other pack changes version.
+
 ## 0.18.1 — the coordination design recorded
 
 - **devkit-openspec** 0.14.2: the pack README's first sentence names OpenSpec as the flow's harness
