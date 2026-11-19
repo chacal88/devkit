@@ -1,11 +1,17 @@
 # ADR 0006: Phases run as child sessions started by the conducting session
 
 - Status: accepted
-- Amended by ADR 0007 (0007-one-change-on-request.md)
+- Amended by ADR 0007 (0007-one-change-on-request.md) (superseded by ADR 0010)
 - Date: 2026-11-10
 - Change: conduct-sessions
 
 ## Context
+
+Note (ADR 0010, 2026-11-19): ADR 0010 supersedes ADR 0001 and ADR 0007. In the new flow each stage
+is a subagent of the change coordinator, and grouped sessions are at most an optional view. Until
+round 15 (change-coordinator) retires /conduct and round 24 (coordination-cleanup) removes the
+child-session code, this ADR still governs how /conduct runs implementation phases as child sessions
+in the desktop app.
 
 ADR 0001 ruled out starting or driving sessions because the app could not start a session from an
 automated turn, and both it and ADR 0005 named "Claude Code lets automation start sessions" as

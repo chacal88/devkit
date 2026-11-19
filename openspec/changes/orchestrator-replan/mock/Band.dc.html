@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Faixas acima da caixa de texto</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1A1A19;background:#FFFFFF}
+</style>
+</helmet>
+<div style="width: 760px; height: 132px; box-sizing: border-box; padding: 12px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px; justify-content: center">
+<div style="display: flex; align-items: center; gap: 10px; background: #F6F5F2; border-radius: 10px; padding: 8px 8px 8px 14px; font-size: 13px">
+<span aria-hidden="true" style="color: #2F7D4F">◐</span>
+<span style="font-weight: 600">commit-and-pr-trailer</span>
+<span style="color: #6B6965">· implementação, fase 2 de 3 · 6 de 11 tarefas · Claude age</span>
+<span style="flex: 1"></span>
+<button style="border: 0; background: transparent; color: #3D3B37; font-size: 13px; padding: 6px 10px; border-radius: 6px; font-family: inherit; cursor: pointer">Abrir painel</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; background: #F6F5F2; border-radius: 10px; padding: 8px 8px 8px 14px; font-size: 13px">
+<span aria-hidden="true" style="color: #B0502C">●</span>
+<span style="font-weight: 600">roadmap</span>
+<span style="color: #6B6965">· 2 em andamento · 1 espera você · 11 de 17 arquivadas</span>
+<span style="flex: 1"></span>
+<button style="border: 0; background: transparent; color: #3D3B37; font-size: 13px; padding: 6px 10px; border-radius: 6px; font-family: inherit; cursor: pointer">Abrir painel</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":760,"height":132}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

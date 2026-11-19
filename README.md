@@ -1,6 +1,6 @@
 # devkit
 
-Reusable [Claude Code](https://docs.claude.com/en/docs/claude-code) agents and skills, plus a spec-driven workflow on top of [OpenSpec](https://github.com/Fission-AI/OpenSpec) that you can enforce without a harness.
+Reusable [Claude Code](https://docs.claude.com/en/docs/claude-code) agents and skills, plus a spec-driven workflow on top of [OpenSpec](https://github.com/Fission-AI/OpenSpec) that its schema and a few hooks enforce.
 
 devkit is a plugin marketplace with seven packs. Install the packs per project: each project's `.claude/settings.json` names the packs it uses, so they load only in the projects that chose them and every other project pays no context for them (every installed skill's description is loaded into context on every turn).
 
@@ -51,7 +51,7 @@ requirements-grill ─▶ change-planner ─▶ plan-readiness-reviewer ──[A
 
 Each step works on its own: ask Claude to "review this diff" or "is this plan ready?" and the matching asset picks it up. With **devkit-openspec**, the same path becomes an OpenSpec schema: `openspec status` always tells you the next step, and the hooks block skipping the gates. See [docs/openspec-flow.md](docs/openspec-flow.md).
 
-## Why no harness
+## How the flow holds
 
 Earlier attempts orchestrated changes with a coordinator session driving a state machine. It worked, but it was slow, rigid, and lost its place. devkit keeps the state in files and the rules in three layers that don't depend on a long-running process:
 
@@ -61,17 +61,18 @@ Earlier attempts orchestrated changes with a coordinator session driving a state
 
 Edit an artifact by hand, use another agent, or pick the lighter `devkit-lite` schema for small changes; the flow still holds.
 
-Coordination is allowed; a harness is not. The `ship-change` skill drives one approved change to a ready PR from your own session, re-reading the files and GitHub each time it runs, and stops with a reason. No long-running process, no state outside the repository and GitHub. See [ADR 0001](docs/adr/0001-coordination-without-a-harness.md). The reviewer round may run as one Workflow script inside your session, an exception recorded in [ADR 0008](docs/adr/0008-reviews-as-a-workflow.md).
+How changes are coordinated is decided by [ADR 0010](docs/adr/0010-openspec-as-the-harness.md), which supersedes ADR 0001 (coordination without a harness) and ADR 0007 (one change on request): OpenSpec is the harness, a roadmap coordinator starts the changes that are ready, and a change coordinator runs each one as a loop over its files, under the driver each project chooses. The design and its build order are in [docs/coordination-design.md](docs/coordination-design.md). None of it is built yet: until a round of `openspec/roadmap.md` replaces a piece, what ships is what follows. The `ship-change` skill drives one approved change to a ready PR from your own session, re-reading the files and GitHub each time it runs, and stops with a reason. The reviewer round may run as one Workflow script inside your session, recorded in [ADR 0008](docs/adr/0008-reviews-as-a-workflow.md).
 
 The merge stays the owner's unless a repository opts in, per schema, to GitHub merging a change on its own once the `devkit-reviews` check passes at the PR head; the opt-in is a rule with a review trigger, not a default. See [ADR 0002](docs/adr/0002-merge-without-the-owner-opt-in.md). After the merge, `ship-change` archives the change through a PR that GitHub merges in `merge` mode; see [ADR 0003](docs/adr/0003-auto-merge-the-archive-pr.md).
 
-`/conduct <id>` conducts one change: it runs the next steps in the change's own git worktree, asks you only at owner gates, and, in the desktop app, starts each implementation phase as a child session (grouped in the sidebar by change, archived when the phase's gate is green); while it waits on GitHub it does one capped watch and leaves the rest to the app's PR Auto-fix, with no cron. `/conduct round <n>` is the explicit option that conducts every change of a roadmap round at once (at most three at a time). It is an exception to ADR 0001, recorded in [ADR 0006](docs/adr/0006-phases-as-child-sessions.md) and [ADR 0007](docs/adr/0007-one-change-on-request.md).
+`/conduct <id>` conducts one change: it runs the next steps in the change's own git worktree, asks you only at owner gates, and, in the desktop app, starts each implementation phase as a child session (grouped in the sidebar by change, archived when the phase's gate is green); while it waits on GitHub it does one capped watch and leaves the rest to the app's PR Auto-fix, with no cron. `/conduct round <n>` is the explicit option that conducts every change of a roadmap round at once (at most three at a time). Its rules are recorded in [ADR 0006](docs/adr/0006-phases-as-child-sessions.md) and [ADR 0007](docs/adr/0007-one-change-on-request.md); ADR 0010 supersedes ADR 0007, and `/conduct` stays as described here until round 15 (`change-coordinator`) replaces it.
 
 ## Documentation
 
 - [Getting started](docs/getting-started.md): opt a project in, pick packs, first change
 - [Migrate to project scope](docs/migrate-to-project-scope.md): remove the old user-scope install, item by item
 - [The OpenSpec flow](docs/openspec-flow.md): schemas, config, hooks, CI, troubleshooting
+- [The coordination design](docs/coordination-design.md): the roadmap and change coordinators, OpenSpec as the harness, and the build order (ADR 0010)
 - [Catalog](docs/catalog.md): every agent and skill
 - [Conventions](docs/conventions.md): how assets are named and written
 - [Contributing](CONTRIBUTING.md)

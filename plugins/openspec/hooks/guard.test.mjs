@@ -1288,6 +1288,42 @@ test('README and the pack README describe the session flow with no cron (2.5) an
   assert.match(check, /`unfinished`/);
 });
 
+test('ADR 0010 is accepted, supersedes ADR 0001 and ADR 0007, and the config names it', () => {
+  const root = join(here, '..', '..', '..');
+  const dir = join(root, 'docs', 'adr');
+  const file = join(dir, '0010-openspec-as-the-harness.md');
+  assert.ok(existsSync(file), 'ADR 0010 file');
+  const adr10 = readFileSync(file, 'utf8');
+  assert.match(adr10, /^- Status: accepted$/m);
+  for (const h of ['Decision', 'Consequences', 'Review trigger', 'Alternatives considered']) {
+    assert.match(adr10, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0010 has ${h}`);
+  }
+  for (const f of ['0001-coordination-without-a-harness.md', '0007-one-change-on-request.md']) {
+    assert.match(readFileSync(join(dir, f), 'utf8'), /^- Status: superseded by ADR 0010/m, `${f} is superseded by ADR 0010`);
+  }
+  const cfg = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8');
+  const adrs = cfg.split('\n').find((l) => l.trim().startsWith('ADRs:'));
+  assert.match(adrs, /0010/, 'the ADRs line names 0010');
+});
+
+test('config.yaml rules: no list item is an unquoted string holding ": " (YAML would read a mapping)', () => {
+  const root = join(here, '..', '..', '..');
+  const lines = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8').split('\n');
+  const start = lines.findIndex((l) => /^rules:\s*$/.test(l));
+  assert.ok(start >= 0, 'config.yaml has a rules: block');
+  let items = 0;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^\S/.test(lines[i])) break; // next top-level key ends the block
+    const m = /^\s+-\s+(.*)$/.exec(lines[i]);
+    if (!m) continue;
+    items++;
+    const text = m[1].trim();
+    if (/^["']/.test(text)) continue; // quoted: always a string
+    assert.ok(!/:(\s|$)/.test(text), `line ${i + 1} is unquoted and holds ": ", YAML reads it as a mapping: ${text}`);
+  }
+  assert.ok(items > 0, 'rules: has list items');
+});
+
 // ---------------------------------------------------------------- ADR 0005 (conduct-rounds D13)
 
 test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', () => {
@@ -1309,11 +1345,10 @@ test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', ()
   assert.match(cfg, /0006 phases as child sessions/);
   assert.match(cfg, /0007 one change on request/);
   const adr7 = readFileSync(join(root, 'docs', 'adr', '0007-one-change-on-request.md'), 'utf8');
-  assert.match(adr7, /^- Status: accepted$/m);
   for (const h of ['Decision', 'Consequences', 'Review trigger', 'Alternatives considered']) {
     assert.match(adr7, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0007 has ${h}`);
   }
-  assert.match(adr6, /^- Amended by ADR 0007 \(0007-one-change-on-request\.md\)$/m);
+  assert.match(adr6, /^- Amended by ADR 0007 \(0007-one-change-on-request\.md\)/m);
   const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });

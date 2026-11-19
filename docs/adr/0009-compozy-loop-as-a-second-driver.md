@@ -6,6 +6,12 @@
 
 ## Context
 
+Note (ADR 0010, 2026-11-19): ADR 0010 supersedes ADR 0001, whose Note this ADR extended, and keeps
+CompozyOS as one of the drivers a project chooses. Until round 21 (compozy-driver) replaces it with
+the short generic loop, the twelve-stage loop of devkit-compozy, its gates that shell out to
+deliver-check, conduct-check and screens-check, and its opt-in per project hold as decided here;
+round 24 (coordination-cleanup) removes the old loop.
+
 ADR 0001 forbids coordination through a harness and names its own review trigger: "a coordinator
 needs state that cannot be derived from the repository or GitHub". A CompozyOS run holds exactly
 that state — `iteration_cap`, `no_progress.window`, `budget.wall_clock_sec`, an armed
