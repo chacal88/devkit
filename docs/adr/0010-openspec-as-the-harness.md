@@ -7,6 +7,16 @@
 
 ## Context
 
+Note (design-open-points, 2026-11-19): the owner answered points this ADR left open, and
+[docs/coordination-design.md](../coordination-design.md) records each answer with who decided it.
+The names are decided, by the assistant on the owner's delegation: `manager` is the roadmap
+coordinator and `tech-lead` the change coordinator, and the CompozyOS kit's present `tech-lead`
+role, which plans, is renamed `planner` in round 21 (compozy-driver). This answers the last
+sentence of decision 2 and the last sentence of the Negative consequences, which call the names
+proposed and open. The roadmap coordinator holds the start of a new change while the machine is
+loaded, and what is under way finishes first; the four design phases are one optional way to write
+the roadmap, never a prerequisite. Decisions 1 to 8 are otherwise unchanged.
+
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions
 (ADR 0006), one change on request and never a sweep (ADR 0007), the reviewer round as a Workflow

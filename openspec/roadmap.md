@@ -33,7 +33,7 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 ## Round 12: the CompozyOS loop as a kit
 - [x] compozy-loop-v2 — devkit-compozy ships the twelve-stage loop, the four role shells, the design gate and the demo as a kit any project installs; this repository adopts it; ADR 0009; release tagged v0.14.0
 
-Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-design.md` (ADR 0010); step 1 is the change `orchestrator-replan`, which recorded it. Rounds 5, 11 and 13 held follow-ups of the coordination model ADR 0010 replaces; `orchestrator-replan` withdrew them (the design document lists them); `review-writer-prompt` returned as round 25. Rounds 25 and 26 are follow-ups from the `orchestrator-replan` retro, not steps of the build order.
+Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-design.md` (ADR 0010); step 1 is the change `orchestrator-replan`, which recorded it. Rounds 5, 11 and 13 held follow-ups of the coordination model ADR 0010 replaces; `orchestrator-replan` withdrew them (the design document lists them); `review-writer-prompt` returned as round 25. Rounds 25 and 26 are follow-ups from the `orchestrator-replan` retro, and round 27 holds debts the owner recorded on 2026-11-19 (`design-open-points`); none is a step of the build order.
 
 ## Round 14: the script and the checker
 - [ ] flow-script-checker — the `devkit` schema declares every stage of a change, each stage file opens with the fixed header (status, attempt, commit), a checker without AI says which stage passed and which is next, and the schema names roles instead of Claude tool names (D-4, D-8)
@@ -48,16 +48,16 @@ Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-desig
 - [ ] delivery-models (after: change-coordinator) — the delivery model chosen per project: two pull requests from the same branch with the lock that keeps `develop` out of the task branch, trunk-based, and trunk-based with automatic merge (D-5, D-8)
 
 ## Round 18: the roadmap coordinator and `/devkit roadmap`
-- [ ] roadmap-coordinator (after: change-coordinator) — the roadmap coordinator starts every change whose `after:` dependencies are archived, several at once up to the number the owner sets per run, with `/devkit roadmap` and `/devkit status` (D-1, D-2)
+- [ ] roadmap-coordinator (after: change-coordinator) — the roadmap coordinator starts every change whose `after:` dependencies are archived, several at once up to the number the owner sets per run, and holds a new start while the machine is loaded so that what is under way finishes first, with `/devkit roadmap` and `/devkit status` (D-1, D-2)
 
 ## Round 19: defining a project
 - [ ] project-phases (after: roadmap-coordinator) — the four design phases as the `devkit-project` flow, with a fifth stage that writes or appends to `openspec/roadmap.md`, started by `/devkit project` (D-7)
 
 ## Round 20: the Jira entry
-- [ ] jira-entry (after: change-coordinator) — `/devkit change <key or link>` reads a Jira task as the request, read-only, and the grill asks only what the task does not answer (D-1)
+- [ ] jira-entry (after: change-coordinator) — `/devkit change <key or link>` reads a Jira task as the request and writes back to it (a comment with the pull request link, a status change) only when the developer asks, and the grill asks only what the task does not answer (D-1)
 
 ## Round 21: the CompozyOS driver
-- [ ] compozy-driver (after: change-coordinator) — CompozyOS runs the same short loop (ask the checker, run the role, check the gate) in place of the twelve-stage loop, and `/devkit` starts the run when the project's driver is CompozyOS (D-3, D-10)
+- [ ] compozy-driver (after: change-coordinator) — CompozyOS runs the same short loop (ask the checker, run the role, check the gate) in place of the twelve-stage loop, `/devkit` starts the run when the project's driver is CompozyOS, and the kit's planning role is renamed from `tech-lead` to `planner` (D-2, D-3, D-10)
 
 ## Round 22: the script driver
 - [ ] script-driver (after: change-coordinator) — a small program runs the same loop and calls the AI from the command line (documented for `claude -p`), for a project whose driver is a script; built when the owner needs it (D-10)
@@ -73,3 +73,6 @@ Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-desig
 
 ## Round 26: project setup
 - [ ] project-setup (after: delivery-models) — one setup step writes the `devkit:` block, installs the schemas and the checker into the project and wires its driver (orchestrator-replan retro, item 3)
+
+## Round 27: debts
+- [ ] lean-pr-template — a lean pull-request template with less text, built once the owner has researched models; `deliver-check`'s rule that the PR body names the change, every acceptance criterion and the evidence path changes with it (D-4; design-open-points)
