@@ -36,7 +36,7 @@ requirement.
 **The commands (decided by the owner on 2026-11-19: the names stay as proposed).** One `/devkit` command with
 few verbs, to be built in rounds 15, 18, 19 and 20:
 
-| Example | What it does | Round |
+| Command | What it does | Round |
 |---|---|---|
 | `/devkit change PROJ-482` | one task, read from Jira by its key or link | 20 |
 | `/devkit change <free text>` | one task, described in text | 15 |
@@ -404,7 +404,7 @@ findings).
 
 ## 13. Still to prove live, and risks (D-13)
 
-All proposed, except how the points below are proved (decided).
+All proposed.
 
 **To prove before trusting:**
 
@@ -440,6 +440,12 @@ template were answered on 2026-11-19 and are recorded in their sections.
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
 - The header's field names (section 8).
 - The configuration's field names (section 8).
+- How the change coordinator waits on GitHub without anybody's message: today green checks wake
+  nothing, and on 2026-11-19 the owner had to write twice for the flow to go on; settled in the
+  grill of round 15 (section 10).
+- How the two roles called `tech-lead` are told apart between round 15, which builds the change
+  coordinator, and round 21, which renames the CompozyOS kit's planner; settled in the grill of
+  round 15 (section 2).
 - Whether CompozyOS can choose the role at each turn (section 10).
 - The script driver for an AI other than Claude (section 10).
 - Project setup (proposed; to be built in round 26): one setup step per project writes the `devkit:`
