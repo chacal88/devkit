@@ -1,0 +1,454 @@
+# The coordination design
+
+This page is the design of how devkit coordinates the work of a change and of a roadmap. [ADR
+0010](adr/0010-openspec-as-the-harness.md) governs it: OpenSpec is the harness, and two coordinators
+drive the flow as a loop over files. The page is written so that a reader who never saw the planning
+conversation can plan the second step of the build order (section 11) from it alone. The first step
+is the change `orchestrator-replan`, which recorded this design; it builds none of it.
+
+Every item below is marked with who decided it:
+
+- **decided**: the owner said it.
+- **proposed**: shown to the owner and not objected to.
+- **open**: nobody decided it yet.
+
+Tense: a sentence in the present tense is about what exists at the commit that ships this page. The
+`devkit` and `devkit-lite` schemas, `openspec/config.yaml`, `openspec/roadmap.md`, the hooks and
+their locks, `ship-change`, `/conduct`, `conduct-check`, `deliver-check`, the review Workflow script,
+the panel and the CompozyOS loop exist today. Everything else (the `/devkit` command and its verbs,
+the two coordinators, the checker and the stage header, the new roles and skills, the `devkit:`
+configuration block, the `devkit-project` schema, the three drivers, the two-PR model and its lock,
+the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
+builds it. The section "What stays shipped until its round" lists what keeps working meanwhile.
+
+## 1. How the owner uses it (D-1)
+
+**The need (decided).** The owner has had `muita dificuldade` using the current tools: `/conduct`
+accepts only a change id, with nowhere to say what is wanted, and a CompozyOS run starts from another
+command outside the session. The owner wants to open a session, type one simple command with the
+content, and have it run, including when the project runs on CompozyOS. Ease of use is a first-class
+requirement.
+
+**The commands (proposed; the names are examples and are not confirmed).** One `/devkit` command with
+few verbs, to be built in rounds 15, 18, 19 and 20:
+
+| Example | What it does | Round |
+|---|---|---|
+| `/devkit change PROJ-482` | one task, read from Jira by its key or link | 20 |
+| `/devkit change <free text>` | one task, described in text | 15 |
+| `/devkit roadmap` | the whole roadmap, one change at a time | 18 |
+| `/devkit roadmap 3` | the whole roadmap, up to three changes at once | 18 |
+| `/devkit project <name>` | deeper planning of a new project or slice, in the four phases | 19 |
+| `/devkit status` | where everything is and what waits on the owner | 18 |
+| `/devkit help` | opens the help panel | 23 |
+
+**The rules behind them (proposed).**
+
+- The same command in every project: the driver comes from the project's configuration, and the
+  command starts a CompozyOS run for the owner when that is the driver.
+- The request travels with the command.
+- A Jira task becomes the request, and the grill asks only what the task does not answer.
+- Calling the command again resumes where it stopped.
+- Every reply says what happened and what comes next, without internal terms.
+
+**Writing back to Jira (open).** Whether devkit writes back to Jira is not decided; the design
+assumes it is read-only.
+
+## 2. Two coordinators and three entries (D-2)
+
+**The roadmap coordinator (decided; the name `manager` is proposed).** To be built in round 18. It
+reads `openspec/roadmap.md`, sees what is ready to start and what waits on another change, and
+starts the next changes on its own, without asking first. It may have several change coordinators
+running at once, one per change, only among changes that do not depend on each other. How many is
+not a project setting: the owner chooses it per run and can change it mid-run, because it depends on
+the task, on the machine at that moment and on the other projects running. Lowering it never
+interrupts a change under way.
+
+**Holding a start while the machine is loaded (proposed and open).** Proposed: the roadmap
+coordinator holds the start of a change while the machine is loaded. Whether it does, and how load
+is measured, is open.
+
+**The change coordinator (decided; the name `tech lead` is proposed).** To be built in round 15. It
+takes one change from its opening to its archive. It asks OpenSpec which stage comes next, hands that
+stage to its subagent, checks the gate and asks again. It writes no code and does not decide the
+order. It replaces the `/conduct` skill, which retires in round 15.
+
+**Three entries (decided).** The owner defines a project (section 7), calls the roadmap coordinator
+for the whole roadmap, or calls the change coordinator directly for one task.
+
+**Names (open).** The owner suggested team-like names and said naming is not important. The CompozyOS
+kit already uses `tech-lead` for its planner role, so one of the two is renamed; which one is open.
+
+## 3. What the orchestrator is (D-3)
+
+**A command and a loop, never a session that remembers (proposed, on the owner's failure report).**
+The owner's past failure, in the owner's words:
+`a sessão parou de acompanhar; a sub-sessão terminou e não avisou, então a comunicação se perdeu`
+("the session stopped following; the sub-session finished and did not notify, so the communication
+was lost"). The orchestrator is therefore a command the owner starts and a loop
+behind it, never a session that has to remember where it is. Each turn of the loop reads the files,
+runs the stage that is ready and checks its gate. A lost notification or a dead session costs
+nothing: the next turn reads the files again. The loop and its checker are to be built in rounds 14
+and 15.
+
+**Three layers (proposed).** They let the same flow serve several projects and platforms (the owner:
+it has to work wherever we are running, with Codex as the example):
+
+- **Script**: the OpenSpec schema and configuration (stages, order, the role of each stage, gates,
+  the delivery model). The same on every platform.
+- **Roles**: the roadmap coordinator, the change coordinator and the stage agents with their skills,
+  as plain text. Each platform receives the same roles in its own format.
+- **Driver**: who runs the loop, chosen per project: a Claude session, CompozyOS, or a script that
+  calls another AI from the command line. CompozyOS is not frozen; it becomes one of the drivers
+  (decided by the owner).
+
+**The script names roles (proposed).** The script names roles, never one platform's tool. Today the
+`devkit` schema does the opposite: its `schema.yaml` names Claude's Agent tool and the `devkit-core:*`
+subagent types. Round 14 replaces those names with roles.
+
+**Stages are subagents (proposed; decided by the assistant, because the owner asked only for
+something that works).** Each stage is a subagent of the change coordinator. The owner likes a parent
+session with grouped child sessions; that stays as an optional way to watch the work in the Claude
+driver if a live test shows it holds (open until that test). The flow never depends on it.
+
+## 4. The stages of one change (D-4)
+
+The stages are the owner's (decided); the agents, skills and gates are proposed. `new` marks what
+does not exist today. The new roles and skills are to be built in round 16, the change coordinator
+in round 15, the roadmap coordinator in round 18 and the second pull request in round 17.
+
+| # | Stage | Who and skills | Produces | Gate |
+|---|---|---|---|---|
+| 0 | Choose the next change (roadmap coordinator entry only) | roadmap coordinator (new, round 18) | the start request | its `after:` dependencies are archived |
+| 1 | Open the change | change coordinator (new, round 15) | `openspec new change`, a worktree and branch named after the change, cut from the base the delivery model names | schema confirmed |
+| 2 | Requirements (grill) | change coordinator with the owner; `requirements-grill`; `codebase-researcher` | `requirements.md` | the owner answered |
+| 3 | Mock-up, only when the change alters a screen, before any plan | `screen-designer` (new), skill `screen-mockup` (new), `screen-design` | the screens drawn with real example data, saved in the change's `mock/` | the owner approves; what the mock reveals goes back into the requirements |
+| 4 | Decisions and ADRs | `adr-author` (new), skill `adr-authoring` (new) | proposed ADRs in the project's ADR folder, when the change needs them | the agent first analyses whether an ADR is needed; if not, it leaves one line saying so |
+| 5 | Plan | `change-planner`, `openspec-validator` | proposal, specs, design, tasks | `openspec validate --strict` |
+| 6 | Plan readiness | `plan-readiness-reviewer`, `plan-reality-auditor`, `adr-reviewer`; `plan-readiness-review` | `readiness.md` | approved; a rejection returns to the plan, three times at most |
+| 7 | The owner's approval | the owner | `approval.md`, of the plan and the ADRs together | it came from the owner's own message |
+| 8 | Implementation, one subagent per phase | `tdd-implementer`; `test-driven-development`, `systematic-debugging` | code, tests, ticked tasks | the phase's test command is green |
+| 9 | Unit tests | `test-runner` (new); `test-and-coverage`, `systematic-debugging` | the whole suite and its coverage | suite green, coverage within the project's target |
+| 10 | E2E tests, only where the project has E2E configured | `e2e-tester` (new), skill `e2e-testing` (new) | E2E tests written from the acceptance criteria, apart from the implementer, and their result | green; it is a delivery condition |
+| 11 | Demonstration | `pr-verifier` | `evidence.md`, as text, inside the change: per acceptance criterion, what the agent did, what it observed and whether it passed | every criterion demonstrated and recorded |
+| 12 | Code review | the six reviewers, `finding-verifier` x3; `review-change` | `reviews/*.md`, `review.md` | consensus; two rounds at most |
+| 13 | Delivery | `commit-and-pr`; `commit-message-guidelines` | commit, push, the pull request to the base of the delivery model | GitHub checks green and the merge the model defines |
+| 14 | Second pull request, two-PR model only (new, round 17) | `commit-and-pr` | the pull request from the same branch to `master` | the first one was approved on `develop`; checks green; merged |
+| 15 | Retro and archive | change coordinator with the owner; `retro` | `retro.md`, `openspec archive`, the roadmap line ticked | the owner answered each proposal |
+
+Owner decisions inside this table (decided unless marked):
+
+- **Mock-up** (stage 3): whenever a change alters a screen, before anything else, before planning.
+  Today no agent draws one: `screen-design` only records screen-map rows that point at a mock made
+  elsewhere, runs after the plan, and ships only in the CompozyOS pack.
+- **ADRs** (stage 4): every feature has an agent responsible for analysing what will be done and
+  defining the ADRs; it analyses first, writes when needed, does not when not.
+- **Tests** (stages 8 to 10): a strong focus on tests, a specialist for each kind. The owner accepts
+  that the implementer's TDD covers unit tests; E2E matters even for the delivery. A project without
+  E2E structure does not run stage 10; adding E2E tests as new tasks are done is each project's
+  choice. Decided by the assistant: no second author of unit tests.
+- **Demonstration** (stage 11): the agent, not the owner, demonstrates what was delivered and
+  records it as text inside the change, which is archived afterwards. No screenshots and no videos
+  are kept. The pull request is not the place for that record. Where a project accepts automatic
+  merge, the agent's validation is the validation and the merge goes on without the owner.
+- **A lean pull-request template (open)**: an idea of the owner's for later, with less text. Today
+  `deliver-check` requires the PR body to name the change, every acceptance criterion and the
+  evidence path.
+
+## 5. Delivery models (D-5)
+
+Chosen per project, in configuration (decided by the owner; the configuration is to be built in
+round 17):
+
+- **Two pull requests from the same branch (decided; new in devkit, round 17).** How one of the owner's
+  projects works. Every task branch is cut from `master` or `main`; a first pull request goes to
+  `develop`, for testing; once approved, a second pull request from the same task branch goes to
+  `master`. `develop` never goes to `master`, so the task branch never receives `develop` either,
+  not even to solve a conflict. The lock that keeps `develop` out of the task branch is in section 8.
+- **Trunk-based (decided; exists today).** A short branch, a pull request to the main branch, the
+  owner merges.
+- **Trunk-based with automatic merge (decided; exists today).** The same, and GitHub merges when the
+  gates are green.
+
+devkit knows only the last two today.
+
+**The conflict with `develop` (open).** What to do when the task branch conflicts with `develop` is
+not decided.
+
+## 6. Panels (D-6)
+
+**Read-only panels (decided; to be built in round 23).** The panels follow the work; the owner does
+not want to start anything from a panel. There is one for the roadmap coordinator, one for the change
+coordinator (the change, the stage it is in, the subagents), and a small help panel showing how to
+use the project and its commands.
+
+**The mock (decided).** The mock was drawn as a Claude Design canvas with five screens (roadmap
+coordinator, change coordinator, the detail of one stage, the band above the prompt box, help) and
+approved on 2026-11-19 (`Ficou perfeito`, "it came out perfect"). No button starts, sends or changes
+anything; the only presses open a detail or a document, or refresh.
+
+**Where the approved mock lives.** In the `mock/` folder of the change `orchestrator-replan`:
+`openspec/changes/orchestrator-replan/mock/` until the change is archived, then under
+`openspec/changes/archive/`. It holds the five `.dc.html` screens, `canvas.json` and the owner's
+planning page (`planning-page.pt-BR.html`, in Portuguese). They are working files, not
+documentation.
+
+**Language (decided).** The panels' language comes from the plugin's own configuration, per person
+(section 9).
+
+## 7. Defining a project: the four phases (D-7)
+
+**The flow (decided; to be built in round 19).** A flow for the four phases the owner usually runs
+(the `devkit-design` skills: business, domain model, architecture with ADRs, implementation plan),
+from which the roadmap comes out for the roadmap coordinator to orchestrate. It serves any project,
+new or ongoing, whenever the owner judges that a new slice deserves deeper planning before starting,
+including as research on how to do it. What already exists in a project does not go through it.
+
+**Today.** The five `devkit-design` skills exist, each only points at the next, and phase 4 ends in
+a change backlog inside `docs/design/4-implementation-plan.md`, not in `openspec/roadmap.md`.
+
+**The proposal.** Declare the phases as an OpenSpec flow (the `devkit-project` schema) and add a
+fifth stage that writes the roadmap, appending to an existing one (proposed). The phases are
+conversations with the owner, so they run in the owner's session (proposed).
+
+**A one-off feature entering a roadmap (open).** How a small one-off feature enters an existing
+roadmap is not decided.
+
+## 8. The harness (D-8)
+
+**Decided by the owner.** OpenSpec is the harness: through OpenSpec's configuration it runs this
+approach of sub-sessions and subagents. If the two coordinators have to stay outside OpenSpec, that
+is fine. The idea is to centralise on OpenSpec so it is more compatible with other projects and other
+people, without depending so much on devkit's own library.
+
+**The OpenSpec 2.0.0 test (decided as a finding, tested on 2026-11-19 with a throwaway schema).**
+
+It covers:
+
+- Every stage as an artifact, the ones after implementation included.
+- `openspec status --json` answers ready, blocked or done per stage.
+- `openspec instructions <stage> --json` returns the stage's instruction text together with the
+  project's `context` and `rules`.
+- `openspec instructions apply --json` reports task progress.
+- A custom top-level block in `openspec/config.yaml` is tolerated by `status` and `validate`.
+
+It does not cover:
+
+- A file that exists counts as a stage done (a `readiness.md` saying NEEDS-REVISION unlocked the next
+  stage).
+- Stages after implementation became ready with zero tasks done.
+- Pull requests, checks and the owner's approval.
+- Retries, attempt limits and a way back to an earlier stage.
+- Extra keys on an artifact (`agent`, `skills`) pass validation and are dropped from the output.
+
+OpenSpec prints that its `schema` commands are experimental and may change.
+
+**The harness rules (proposed; to be built in rounds 14 and 15 unless a round is named).**
+
+- Everything that defines the flow lives under the project's `openspec/`: `config.yaml` (language of
+  the files, driver, delivery model, test commands, task source), `roadmap.md`, and the schemas
+  `devkit` (one change), `devkit-lite` (a small change) and `devkit-project` (the four phases, round
+  19). The configuration block is filled by the rounds that need it: the language and the driver in
+  round 15, the test commands in round 16, the delivery model in round 17, the task source in round
+  20.
+- A small checker, without AI, travels with the script and says whether each stage really passed and
+  which is next (round 14). It replaces `conduct-check.mjs` and `deliver-check.mjs` as the next-step
+  oracle (about 2,300 lines that parse prose today); those two stay until round 24.
+- Every stage file opens with a fixed header: the status (passed, failed, not applicable), the
+  attempt, and the commit it was produced at. The checker reads only the header, never the prose.
+- Stages after implementation unlock only when OpenSpec reports zero pending tasks.
+- A stage that does not apply (a mock-up with no screen, an ADR not needed, E2E with no structure)
+  still leaves its file, saying so and why.
+- Stale work: when the code changed after a stage, the commit in its header no longer matches and
+  only that stage runs again.
+- Attempt ceilings, counted by the checker, move from skill prose to configuration: a plan rejected
+  at readiness three times; two review rounds; three fixes of the same item; the same stage coming
+  back twice with nothing changed stops.
+- The loop ends in exactly one of four states, each with its reason: archived, waiting for the owner,
+  waiting on GitHub, blocked.
+
+**The locks and how each is enforced (proposed).** "Exists" marks a lock that ships today; "new"
+marks one to be built (the two stop locks in round 15, the `develop` lock in round 17).
+
+| Lock | In the Claude driver | In other drivers |
+|---|---|---|
+| Product code closed until the plan is approved | the edit is refused before it happens (exists) | the GitHub check refuses the pull request |
+| One writer per gate file | the edit is refused by the writer's role (exists) | only where the driver can refuse |
+| Destructive Git refused | the command is refused (exists) | the driver's own rule |
+| The change coordinator does not stop while a stage is ready | refused when it tries to stop, with the next stage named (new) | not needed: the loop is a program |
+| A subagent does not stop without delivering | refused when it tries to stop and its stage file is missing (new) | the program checks the file before going on |
+| The change coordinator calls only the listed roles and edits no code | from the role's definition: it has no edit tool (new) | the role's definition in the driver |
+| The task branch never receives `develop` | the command is refused (new) | a GitHub check on the pull request to `master` |
+| Approval only from the owner's message | the file is writable only by the main session (exists; the weakest lock) | the driver's human-review step |
+
+**What the hooks can do (checked on 2026-11-19 in the Claude Code hooks reference).** `Stop` and
+`SubagentStop` hooks can refuse a stop with a reason, receive `stop_hook_active`, and hold at most
+eight consecutive continuations. A `PreToolUse` hook on the `Agent` tool sees `subagent_type` and
+`prompt`. Hook input carries `agent_type` inside a subagent and under `--agent`. No hook field marks a
+prompt as typed by a person, which is why the approval lock stays the weakest.
+
+**An example of the project configuration (proposed; field names not final, so open).** To be built
+in rounds 15 to 20:
+
+```yaml
+devkit:
+  driver: claude            # claude | compozy | script
+  language: en              # the language of the project's files
+  delivery:
+    model: two-prs          # two-prs | trunk | trunk-auto
+    base: master
+    test_branch: develop
+  tests:
+    unit: "npm test"
+    e2e: "npm run e2e"      # without this line the E2E stage does not run
+  tasks:
+    source: jira
+```
+
+**The header's field names (open).** The three facts are decided; the field names and the file format
+of the header are not.
+
+## 9. Language and documentation (D-9)
+
+All decided by the owner.
+
+- Two language settings in two places (to be built in round 15). The language of the project's files
+  lives in the project's OpenSpec configuration and holds for everyone. The person's language lives in
+  the plugin's own configuration, per person, and drives the conversation and the panels. The owner
+  works in Portuguese on projects whose files are in English; other people may use the same project
+  in English.
+- All documentation is in English. The repository's English-only rule stays.
+- The design is recorded inside the repository (this page) and the documentation is updated as the
+  work is redone.
+- Mock-ups are saved in the project, in the change's `mock/` folder, to be viewed or edited later.
+
+## 10. The drivers (D-10)
+
+All proposed. The three drivers are to be built in rounds 15, 21 and 22.
+
+- **Claude (round 15).** The owner types `/devkit` in the session. For one task the session is the
+  change coordinator and each stage is a subagent. For the roadmap the session is the roadmap
+  coordinator and each change has its change coordinator as a subagent, which in turn calls the stage
+  subagents (Claude Code documents nesting three levels below the main conversation). When a change
+  needs the owner, the question goes up and the roadmap coordinator asks it in the session.
+- **CompozyOS (round 21).** One short, generic loop (ask, run the role, check) in place of the
+  619-line flow written apart. `/devkit` starts the run. Not verified: whether CompozyOS can choose
+  the role at each turn (open).
+- **Script (round 22).** A small program running the same loop and calling the AI from the command
+  line. Documented for Claude (`claude -p`); not verified for any other AI (open). Built when the
+  owner needs it.
+
+## 11. Build order (D-11)
+
+Approved by the owner with the plan (decided). The steps are small changes, each proved live on the
+next one. Until step 3 is ready they are driven by the `ship-change` skill in one session, which is
+the part of today's conduction that does not depend on child sessions. Between round 15 and round 18
+changes run one at a time.
+
+| Step | What | Round | Change id | `after:` |
+|---|---|---|---|---|
+| 1 | Record the design in the repository | none (recorded) | `orchestrator-replan` | none |
+| 2 | The script and the checker: the schema with every stage, the fixed header, the checker; roles in place of Claude tool names | 14 | `flow-script-checker` | none |
+| 3 | The change coordinator and `/devkit change`: the loop, the new locks, skills wired into the agents, the language settings; retires `/conduct` | 15 | `change-coordinator` | `flow-script-checker` |
+| 4 | The new roles: ADRs, the unit-test suite, E2E, mock-up, the demonstration as text | 16 | `stage-roles` | `change-coordinator` |
+| 5 | The delivery models: two pull requests from the same branch and the `develop` lock | 17 | `delivery-models` | `change-coordinator` |
+| 6 | The roadmap coordinator and `/devkit roadmap` | 18 | `roadmap-coordinator` | `change-coordinator` |
+| 7 | The four phases and `/devkit project` | 19 | `project-phases` | `roadmap-coordinator` |
+| 8 | The Jira entry | 20 | `jira-entry` | `change-coordinator` |
+| 9 | The CompozyOS driver | 21 | `compozy-driver` | `change-coordinator` |
+| 10 | The script driver, for another AI, when the owner needs it | 22 | `script-driver` | `change-coordinator` |
+| 11 | The panels: roadmap coordinator, change coordinator and help, read-only, from the approved mock | 23 | `coordination-panels` | `roadmap-coordinator` |
+| 12 | The cleanup: the old scripts, the child-session code, the old panel, the final documentation | 24 | `coordination-cleanup` | `coordination-panels`, `compozy-driver` |
+
+Step 1 has no round of its own in `openspec/roadmap.md`: listing it unticked would make it the
+current round. Each `after:` is the real dependency of the step: round 15 asks round 14's checker;
+rounds 16, 17, 20, 21 and 22 are stages, entries or drivers of round 15's loop; round 18 starts
+round 15's coordinators; round 19 writes the roadmap round 18 reads; round 23 shows the state of
+rounds 18 and 15; round 24 removes the old panel once round 23 replaces it and the old loop once
+round 21 replaces it.
+
+## 12. What the survey found (D-12)
+
+Read on 2026-11-19: the 14 archived retros, the coordination scripts and the earlier
+`chacal88/orchestrator` plugin. This is the context ADR 0010 gives in short form (decided as
+findings).
+
+- 13 of the 14 archived changes fixed the coordination machinery itself or its view; the conduct
+  model changed three times in three releases.
+- The gates work: the readiness review, the review bench with its three refuting verifiers, the
+  proof per acceptance criterion and the automatic merge caught real defects and draw no complaint.
+- Starting child sessions is what breaks: the app starts a session only on a turn the owner typed or
+  on the unbroken chain that follows a child's end; each phase cost a retyped `/conduct`. In the
+  earlier orchestrator plugin, six of its last seven fixes were workarounds for the same thing, and
+  its last version replaced app sessions with subagents.
+- The rules live in prose: the conducting skill is 157 lines the model is expected to follow, and
+  nine retros record a rule that existed and that nothing enforced.
+- The next step is guessed: the two checkers derive it by parsing prose, and six retros record a
+  wrong step.
+- What was solid in the earlier orchestrator: a declared flow and a coordinator that asks for the
+  next step instead of deciding it. That part never needed a fix.
+
+## 13. Still to prove live, and risks (D-13)
+
+All proposed.
+
+**To prove before trusting:**
+
+- A subagent inside a subagent reports its end, many times in a row (the owner's past failure).
+- The two stop locks hold without looping.
+- CompozyOS accepts the generic loop.
+- Jira can be read on each platform.
+- Grouped sessions work as a view.
+
+**Risks and their mitigations:**
+
+- OpenSpec's schema commands are experimental. Mitigation: pin the OpenSpec version per project.
+- More stages cost more time per change. Mitigation: the short script (`devkit-lite`) serves the
+  small change.
+- Several change coordinators at once produce conflicts and stale reviews, seen in 7 of the 14
+  archived changes. Mitigation: only changes that do not depend on each other run at once, the owner
+  sets how many, and a stale stage runs again alone.
+
+## Open points
+
+Every item nobody has decided yet:
+
+- The command names of `/devkit` (section 1).
+- The role names, and the clash of `tech lead` with the CompozyOS kit's `tech-lead` role (section 2).
+- Holding the start of a change while the machine is loaded (section 2).
+- Whether devkit writes back to Jira; assumed read-only (section 1).
+- What to do when the task branch conflicts with `develop` (section 5).
+- How a small one-off feature enters an existing roadmap (section 7).
+- The lean pull-request template (section 4).
+- Which rules of ADR 0007 the change coordinator keeps: unfinished work reported before anything
+  runs, a missing change created only on the owner's answer (ADR 0010).
+- Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
+- The header's field names (section 8).
+- The configuration's field names (section 8).
+- Whether CompozyOS can choose the role at each turn (section 10).
+- The script driver for an AI other than Claude (section 10).
+
+## What stays shipped until its round
+
+What was built under ADRs 0001, 0006, 0007, 0008 and 0009 stays shipped and documented as it is until
+the round that replaces it:
+
+| What exists today | Replaced or removed in |
+|---|---|
+| `ship-change` (drives the build order until step 3 is ready) | stays; the change coordinator takes over its loop in round 15 |
+| `/conduct`, round mode included | round 15 (change coordinator) retires it |
+| `conduct-check.mjs` | round 24 (cleanup), after round 14's checker |
+| `deliver-check.mjs` as the next-step oracle | round 24 (cleanup), after round 14's checker |
+| The child-session rules and code (ADR 0006) | round 24 (cleanup) |
+| The review Workflow script (ADR 0008) | stays; whether it stays is open |
+| `devkit-panel`, the current panel | round 24 (cleanup), after round 23's panels |
+| The CompozyOS twelve-stage loop (ADR 0009) | round 21 (CompozyOS driver) replaces it; round 24 removes the old loop |
+
+## Withdrawn roadmap items
+
+The owner withdrew six unticked lines of the old model from `openspec/roadmap.md` (decided: `Tirar as antigas`,
+"take out the old ones"). Each came from a retro of the model ADR 0010 replaces:
+
+- `commit-and-pr-trailer` and `conventions-trailer` (round 5).
+- `review-writer-prompt` (round 11).
+- `ac-clause-coverage`, `compozy-loop-v2-dogfood` and `release-pin-in-release-files` (round 13).

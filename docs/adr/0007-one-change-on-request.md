@@ -1,10 +1,17 @@
 # ADR 0007: One change on request, never a sweep
 
-- Status: accepted
+- Status: superseded by ADR 0010 (0010-openspec-as-the-harness.md)
 - Date: 2026-11-10
 - Change: conduct-one-change
 
 ## Context
+
+Superseded by ADR 0010: a roadmap coordinator now starts the changes that are ready from
+`openspec/roadmap.md` on its own, and one task enters through the change coordinator. `/conduct
+<id>` and `/conduct round <n>` keep working as this ADR describes until round 15
+(change-coordinator) of `openspec/roadmap.md` replaces them. Whether the change coordinator keeps
+this ADR's other rules (unfinished work reported before anything runs, a missing change created only
+on the owner's answer) is open in docs/coordination-design.md.
 
 ADR 0006 lets a conducting skill start one child session per implementation phase, in the change's
 worktree, from the owner's turn and the chain of continuation turns that follows it. It says nothing

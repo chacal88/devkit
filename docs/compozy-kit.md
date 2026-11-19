@@ -85,8 +85,7 @@ See [the pack's README](../plugins/compozy/README.md) for the full contract.
 
 ## How it relates to `/conduct`
 
-`/conduct` ([ADR 0006](adr/0006-phases-as-child-sessions.md),
-[ADR 0007](adr/0007-one-change-on-request.md)) and the CompozyOS loop are **two ways to drive the
+`/conduct` ([ADR 0006](adr/0006-phases-as-child-sessions.md), [ADR 0007](adr/0007-one-change-on-request.md), superseded by ADR 0010) and the CompozyOS loop are **two ways to drive the
 same devkit flow**, not two flows: the same artifacts (`proposal.md`, `design.md`, `tasks.md`,
 `reviews/`, `evidence.md`), the same checkers (`deliver-check`, `conduct-check`, and this kit's own
 `screens-check`) and the same owner gates (plan and design approval, the push, the PR merge when
@@ -94,9 +93,7 @@ the mode is not `merge`). `/conduct <id>` runs the flow from the owner's own Cla
 turn by turn, in a git worktree, with the owner typing the go-aheads; the CompozyOS loop runs it as
 a supervised multi-agent run (`compozy loop run`) across the four role shells, with the owner's
 decisions as `review` blocks the loop stops on. Neither replaces the other: a project picks the one
-that fits how it works, or uses both on different changes. The posture — CompozyOS as a second,
-opt-in driver of the devkit flow, never a harness that replaces it — is recorded in
-[ADR 0009](adr/0009-compozy-loop-as-a-second-driver.md).
+that fits how it works, or uses both on different changes. The posture — CompozyOS as a second, opt-in driver of the devkit flow — is recorded in [ADR 0009](adr/0009-compozy-loop-as-a-second-driver.md). [ADR 0010](adr/0010-openspec-as-the-harness.md) supersedes ADR 0001 and ADR 0007 and keeps CompozyOS as one of the drivers a project chooses: round 21 (`compozy-driver`) replaces this loop with the short generic one and round 15 (`change-coordinator`) replaces `/conduct`; until then both work as this page describes.
 
 ## Checker portability
 

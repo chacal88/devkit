@@ -6,6 +6,11 @@
 
 ## Context
 
+Note (ADR 0010, 2026-11-19): ADR 0010 supersedes ADR 0001, on which this ADR's Context rests. The
+reviewer round as one Workflow script still holds as decided here: no round of the build order
+removes it yet, and whether the review stage keeps the Workflow path in the Claude driver is open in
+docs/coordination-design.md. ADR 0010 adds no other use of the Workflow tool.
+
 ADR 0001 lets devkit coordinate, never through a harness: a coordinating skill runs only the next
 step as a subagent of the session the owner typed in, with no state outside the repository and
 GitHub. The reviewer round is one such step, and the costliest: the matrix picks two to six

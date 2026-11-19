@@ -1,10 +1,17 @@
 # ADR 0001: Coordination without a harness
 
-- Status: accepted
+- Status: superseded by ADR 0010 (0010-openspec-as-the-harness.md)
 - Date: 2026-11-08
 - Change: ship-modes
 
 ## Context
+
+Superseded by ADR 0010: OpenSpec is now the harness, and a roadmap coordinator and a change
+coordinator drive the flow as a loop over files. What survives: every gate this ADR kept, the state
+in the repository and GitHub, every step recomputed from them, and the owner's plan approval as a
+human gate. What does not: the rule that devkit has no harness and no roadmap-driven coordination.
+`ship-change` and `/conduct`, built under this ADR, stay shipped as they are until their rounds of
+`openspec/roadmap.md`.
 
 devkit replaced an orchestrator that drove changes through a coordinator session and a state
 machine; it was slow, rigid and lost its place. README "Why no harness" and the 0.3.0 change

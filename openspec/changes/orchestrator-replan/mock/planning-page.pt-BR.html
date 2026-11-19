@@ -1,0 +1,770 @@
+<title>Replanejamento devkit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; the design comes first, the evidence after. Flows are tracks of rows. */
+:root {
+  --bg: #f4f6f7; --surface: #ffffff; --fg: #17222c; --muted: #586874; --line: #d5dce1;
+  --exists: #0a6f65; --exists-bg: #dff1ee;
+  --new: #6238bd; --new-bg: #ece6fa;
+  --owner: #9a5200; --owner-bg: #faeed8;
+  --accent: #1d5a9e;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151a; --surface: #172029; --fg: #e5ecf1; --muted: #94a4b1; --line: #2a3843;
+    --exists: #55d3c2; --exists-bg: #11322e;
+    --new: #b9a0f6; --new-bg: #292046;
+    --owner: #f0b45e; --owner-bg: #38290f;
+    --accent: #80b6f1; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151a; --surface: #172029; --fg: #e5ecf1; --muted: #94a4b1; --line: #2a3843;
+  --exists: #55d3c2; --exists-bg: #11322e;
+  --new: #b9a0f6; --new-bg: #292046;
+  --owner: #f0b45e; --owner-bg: #38290f;
+  --accent: #80b6f1; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 920px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 44px; }
+header h1 { font-size: 28px; font-weight: 600; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+section { display: flex; flex-direction: column; gap: 14px; }
+h2 { font-size: 19px; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); }
+.part { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+code { font-family: var(--mono); font-size: 0.88em; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; color: var(--muted); align-items: center; }
+.chip { display: inline-block; font-family: var(--mono); font-size: 12.5px; line-height: 1.3; padding: 2px 7px; border-radius: 4px; border: 1px solid transparent; white-space: nowrap; }
+.chip.exists { color: var(--exists); background: var(--exists-bg); }
+.chip.new { color: var(--new); background: var(--new-bg); }
+.chip.owner { color: var(--owner); background: var(--owner-bg); }
+.chip.skill { color: var(--fg); border-color: var(--line); background: transparent; }
+.plain { margin: 0; padding-left: 20px; }
+.plain li { margin-bottom: 5px; max-width: 68ch; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; min-width: 0; }
+.fact b { display: block; font-weight: 600; margin-bottom: 4px; }
+.fact span { color: var(--muted); font-size: 14px; }
+/* who coordinates whom */
+.tiers { display: flex; flex-direction: column; align-items: stretch; }
+.tier { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; min-width: 0; }
+.tier .name { font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tier .does { color: var(--muted); font-size: 14px; margin-top: 4px; max-width: none; }
+.tier.owner-t { border-color: var(--owner); }
+.tier.new-t { border-color: var(--new); }
+.link { text-align: center; color: var(--muted); font-size: 13px; padding: 6px 0; }
+.link::before { content: "↓ "; }
+.pair { display: grid; grid-template-columns: minmax(0, 3fr) auto minmax(0, 2fr); gap: 10px; align-items: stretch; }
+.pair .swap { align-self: center; color: var(--muted); font-size: 13px; text-align: center; }
+.agents { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.locks { border: 1px dashed var(--line); border-radius: 6px; padding: 12px 16px; font-size: 14px; color: var(--muted); }
+.locks b { color: var(--fg); font-weight: 600; }
+.locks ul { margin: 6px 0 0; padding-left: 18px; }
+.locks li { margin-bottom: 3px; }
+/* stage track */
+.track { display: flex; flex-direction: column; gap: 8px; counter-reset: stage -1; padding: 0; margin: 0; list-style: none; }
+.stage { counter-increment: stage; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; grid-template-columns: 34px minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 1.5fr); gap: 6px 14px; align-items: start; }
+.stage::before { content: counter(stage); font-family: var(--mono); font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+.code { font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: pre; line-height: 1.55; margin: 0; }
+.cmds { display: flex; flex-direction: column; gap: 8px; }
+.cmd { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 4px 16px; align-items: baseline; }
+.cmd code { font-size: 13.5px; overflow-wrap: anywhere; }
+.cmd span { color: var(--muted); font-size: 14px; }
+.reply { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0; padding: 12px 16px; font-size: 14px; }
+.reply p { max-width: none; margin-bottom: 4px; }
+.reply .who { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+@media (max-width: 640px) { .cmd { grid-template-columns: 1fr; } }
+.track.from1 { counter-reset: stage 0; }
+.stage.gate-owner { border-color: var(--owner); }
+.stage .t { font-weight: 600; }
+.stage .t small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+.stage .cell { min-width: 0; font-size: 14px; }
+.stage .cell .lbl { display: block; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+.stage .cell .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.stage .gate { grid-column: 2 / -1; font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; }
+.stage .gate b { color: var(--fg); font-weight: 600; }
+/* delivery lanes */
+.lanes { display: flex; flex-direction: column; gap: 10px; }
+.lane { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; min-width: 0; }
+.lane .lane-name { font-weight: 600; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lane .steps { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: 14px; }
+.lane .step { border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px; background: var(--bg); }
+.lane .arrow { color: var(--muted); }
+.lane .note { color: var(--muted); font-size: 13.5px; margin-top: 8px; max-width: none; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; min-width: 0; }
+.card ul, .card ol { margin: 0; padding-left: 20px; }
+.card li { margin-bottom: 6px; }
+.card li small { display: block; color: var(--muted); font-size: 13.5px; }
+.notes { margin: 0; padding-left: 22px; }
+.notes li { margin-bottom: 5px; max-width: 68ch; }
+.notes li::marker { font-family: var(--mono); color: var(--muted); }
+@media (max-width: 640px) {
+  .pair { grid-template-columns: 1fr; }
+  .stage { grid-template-columns: 30px minmax(0, 1fr); }
+  .stage .cell, .stage .gate { grid-column: 2; }
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1>Replanejamento da coordenação do devkit</h1>
+  <p>Rascunho 18 · 19 nov 2026 · desenho e plano do harness, para você avaliar antes de qualquer código</p>
+</header>
+
+<section>
+  <h2>O desenho em resumo</h2>
+  <ul class="plain">
+    <li>Um fluxo de quatro fases define o projeto e termina no roadmap.</li>
+    <li>Dois papéis coordenam a execução: o <b>manager</b> cuida do roadmap, o <b>tech lead</b> conduz uma change.</li>
+    <li>Você tem três entradas: definir o projeto, chamar o manager para o roadmap inteiro, ou o tech lead para uma tarefa só.</li>
+    <li>Tudo começa por um comando só, <code>/devkit</code>, que recebe o pedido em texto ou pela tarefa do Jira.</li>
+    <li>O roteiro mora no OpenSpec. Os dois coordenadores só perguntam a ele o que vem agora.</li>
+    <li>Cada etapa é entregue a um subagente, com as suas skills e um portão que confere o resultado.</li>
+    <li>O projeto escolhe o motor (Claude, CompozyOS ou outra IA) e o modelo de entrega.</li>
+  </ul>
+  <div class="legend">
+    <span><span class="chip exists">já existe</span></span>
+    <span><span class="chip new">novo</span></span>
+    <span><span class="chip owner">você</span></span>
+    <span><span class="chip skill">skill</span></span>
+  </div>
+</section>
+
+<div class="part">Parte 1 · o desenho</div>
+
+<section>
+  <h2>Como você usa</h2>
+  <p>Um comando só, com poucas palavras para lembrar, digitado na sessão em que você já está. Você passa o pedido do jeito que ele estiver: em texto, pelo código da tarefa no Jira ou pelo link dela.</p>
+  <div class="cmds">
+    <div class="cmd"><code>/devkit change PROJ-482</code><span>Uma tarefa só, a partir do Jira. O devkit lê a tarefa e abre a change com ela.</span></div>
+    <div class="cmd"><code>/devkit change permitir exportar relatórios em CSV</code><span>Uma tarefa só, descrita em texto.</span></div>
+    <div class="cmd"><code>/devkit roadmap</code><span>O roadmap inteiro. O manager assume.</span></div>
+    <div class="cmd"><code>/devkit roadmap 3</code><span>O roadmap inteiro, com até três changes ao mesmo tempo.</span></div>
+    <div class="cmd"><code>/devkit project microservice de notificações</code><span>Planejar a fundo um projeto novo ou uma fatia nova, nas quatro fases.</span></div>
+    <div class="cmd"><code>/devkit status</code><span>Onde está cada coisa e o que espera você, em português simples.</span></div>
+  </div>
+  <p class="lead">Os nomes dos comandos e a tarefa PROJ-482 são exemplos.</p>
+  <h3>O que você recebe de volta</h3>
+  <div class="reply">
+    <p class="who">exemplo de resposta</p>
+    <p>Li a tarefa PROJ-482, "Exportar relatório em CSV".</p>
+    <p>Abri a change <code>proj-482-exportar-csv</code>, a partir da master.</p>
+    <p>Este projeto roda no CompozyOS. Já iniciei a execução lá.</p>
+    <p>Antes de planejar, preciso de duas respostas suas.</p>
+  </div>
+  <h3>As regras por trás</h3>
+  <ul class="plain">
+    <li><b>O mesmo comando em todo projeto.</b> Você não diz qual motor usar. O projeto já tem isso na configuração, e o comando inicia o CompozyOS por você quando for o caso.</li>
+    <li><b>O pedido entra junto com o comando.</b> Hoje o <code>/conduct</code> só aceita o nome da change e não tem onde escrever o que você quer.</li>
+    <li><b>A tarefa do Jira vira o pedido.</b> Título, descrição e critérios vão para os requisitos da change. O grill só pergunta o que a tarefa não responde.</li>
+    <li><b>Chamar de novo continua de onde parou.</b> Não existe comando separado para retomar.</li>
+    <li><b>Toda resposta diz o que aconteceu e o que vem agora</b>, sem termos internos.</li>
+    <li><b>A conversa é no seu idioma, os arquivos no idioma do projeto.</b> São duas configurações separadas.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Como você acompanha: os painéis</h2>
+  <p>Três painéis ao lado da conversa, só de leitura. Nenhum botão inicia, envia ou altera nada. Os únicos cliques abrem um detalhe, um documento ou atualizam a leitura.</p>
+  <ul class="plain">
+    <li><b>Painel do manager.</b> O roadmap: o que está em andamento, o que espera você, o que está pronto para começar, o que espera outra change e o que travou.</li>
+    <li><b>Painel do tech lead.</b> Uma change: a etapa de agora, todas as etapas com a situação de cada uma, os subagentes rodando e os que já entregaram, e os documentos.</li>
+    <li><b>Como usar.</b> Os comandos, com uma linha sobre cada um, e a configuração do projeto.</li>
+  </ul>
+  <p>O mock-up está desenhado em <a href="https://claude.ai/artifact/Y52Raj6yG2fQbKtmLwHu9a">Painéis devkit</a>, com cinco telas. Você aprovou em 19/11. Ele segue a linguagem do painel anterior. O idioma dos painéis vem da configuração do plugin de cada pessoa, não do projeto.</p>
+  <p>Os arquivos de um mock-up ficam salvos no projeto, na pasta <code>mock/</code> da change, e podem ser abertos e editados depois. O mock-up do painel anterior já está guardado assim no repositório.</p>
+</section>
+
+<section>
+  <h2>Definir o projeto: as quatro fases que geram o roadmap</h2>
+  <p>Vem antes de tudo. As quatro fases já existem como skills no pack de design. O que falta é o fluxo que as liga e a quinta etapa, que transforma o resultado no roadmap que o manager orquestra.</p>
+  <p>Vale para qualquer projeto, novo ou em andamento. Você usa quando vai desenvolver uma fatia nova e acha que ela merece um planejamento mais a fundo antes de começar, inclusive como pesquisa de como fazer. Um microservice novo é um exemplo. A escolha é sua, a cada fatia.</p>
+  <p>O que já existe no projeto não passa pelas fases. Quando a definição é de uma fatia nova num projeto em andamento, a última etapa acrescenta as changes ao roadmap que já existe, em vez de criar outro.</p>
+  <div class="lanes">
+    <div class="lane">
+      <div class="steps">
+        <span class="step">1 · negócio</span><span class="arrow">→</span>
+        <span class="step">2 · modelo de domínio</span><span class="arrow">→</span>
+        <span class="step">3 · arquitetura e ADRs</span><span class="arrow">→</span>
+        <span class="step">4 · plano de implementação</span><span class="arrow">→</span>
+        <span class="step">roadmap</span><span class="arrow">→</span>
+        <span class="step">manager</span>
+      </div>
+    </div>
+  </div>
+  <ol class="track from1">
+    <li class="stage gate-owner">
+      <div class="t">Negócio</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip owner">você</span><span class="chip skill">design-business-discovery</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>1-business-vision.md</code></div>
+      <div class="gate"><b>Portão:</b> você aprova a visão do negócio.</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Modelo de domínio</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip owner">você</span><span class="chip skill">design-domain-model</span><span class="chip skill">ddd-strategic-design</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>2-domain-model.md</code></div>
+      <div class="gate"><b>Portão:</b> você aprova o modelo.</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Arquitetura</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip owner">você</span><span class="chip skill">design-architecture</span><span class="chip new">adr-author</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>3-architecture.md</code> e uma ADR por decisão estrutural</div>
+      <div class="gate"><b>Portão:</b> você aprova a arquitetura e as ADRs.</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Plano de implementação</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip owner">você</span><span class="chip skill">design-implementation-plan</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>4-implementation-plan.md</code>, com a lista de changes: nome, escopo, critério de aceite e dependências</div>
+      <div class="gate"><b>Portão:</b> você aprova o plano.</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Roadmap<small>etapa nova</small></div>
+      <div class="cell"><span class="lbl">Quem</span><div class="chips"><span class="chip new">etapa de roadmap</span><span class="chip owner">você</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>openspec/roadmap.md</code>, com as changes em rodadas, na ordem e com as dependências</div>
+      <div class="gate"><b>Portão:</b> toda change do plano está no roadmap, e você aprova. A partir daqui o manager assume.</div>
+    </li>
+  </ol>
+  <p>As quatro fases são conversas com você, então rodam na sessão em que você está, como o grill. O que muda é que a ordem e os portões passam a ser declarados no OpenSpec, como no fluxo de uma change, em vez de cada skill só apontar para a seguinte.</p>
+</section>
+
+<section>
+  <h2>Quem coordena quem</h2>
+  <div class="tiers">
+    <div class="tier owner-t">
+      <div class="name">Você <span class="chip owner">dono do projeto</span></div>
+      <p class="does">Com o roadmap definido, inicia a execução por uma das duas entradas abaixo. Depois disso responde o grill, aprova o plano e as ADRs e responde o retro.</p>
+    </div>
+    <div class="link">entrada 1: o roadmap inteiro</div>
+    <div class="tier new-t">
+      <div class="name">Manager <span class="chip new">novo · orquestrador do roadmap</span></div>
+      <p class="does">Lê <code>openspec/roadmap.md</code>, vê o que está pronto para começar e o que depende de outra change, e inicia as próximas sozinho, cada uma com o seu tech lead, até o limite que você der naquela execução. Você pode mudar o limite no meio. Quando uma termina, escolhe a seguinte. Só para onde o trabalho precisa de você.</p>
+    </div>
+    <div class="link">"inicie a change X", sem esperar por você · um tech lead por change, vários ao mesmo tempo</div>
+    <div class="pair">
+      <div class="tier new-t">
+        <div class="name">Tech lead <span class="chip new">novo · coordenador da change</span> <span class="chip owner">entrada 2: uma tarefa só</span></div>
+        <p class="does">Uma change, do começo ao arquivo. Pergunta ao OpenSpec qual etapa vem agora, entrega a etapa ao subagente dela, confere o portão e pergunta de novo. Não escreve código nem decide a ordem. Entra no lugar da skill <code>/conduct</code>.</p>
+      </div>
+      <div class="swap">pergunta<br>e responde</div>
+      <div class="tier">
+        <div class="name">OpenSpec <span class="chip exists">o roteiro</span></div>
+        <p class="does">O schema declara as etapas, a ordem e quem executa cada uma. <code>openspec status</code> diz o que está pronto, bloqueado e feito.</p>
+      </div>
+    </div>
+    <div class="link">um subagente por etapa</div>
+    <div class="tier">
+      <div class="name">Subagentes de etapa</div>
+      <div class="agents">
+        <span class="chip new">screen-designer</span>
+        <span class="chip new">adr-author</span>
+        <span class="chip exists">change-planner</span>
+        <span class="chip exists">plan-readiness-reviewer</span>
+        <span class="chip exists">tdd-implementer</span>
+        <span class="chip new">test-runner</span>
+        <span class="chip new">e2e-tester</span>
+        <span class="chip exists">pr-verifier</span>
+        <span class="chip exists">6 revisores</span>
+        <span class="chip exists">commit-and-pr</span>
+      </div>
+      <p class="does">Cada um recebe uma etapa, trabalha em contexto próprio, entrega o arquivo daquela etapa e encerra.</p>
+    </div>
+  </div>
+  <div class="locks">
+    <b>Travas em volta de tudo isso</b>
+    <ul>
+      <li>Código fechado até o plano estar aprovado. <span class="chip exists">já existe</span></li>
+      <li>Cada arquivo de portão só pode ser escrito pelo seu agente. <span class="chip exists">já existe</span></li>
+      <li>Comandos destrutivos de git recusados. <span class="chip exists">já existe</span></li>
+      <li>O tech lead não encerra enquanto houver etapa pronta para rodar. <span class="chip new">novo</span></li>
+      <li>Um subagente não encerra sem entregar o arquivo da sua etapa. <span class="chip new">novo</span></li>
+      <li>O tech lead só consegue chamar os subagentes da lista. <span class="chip new">novo</span></li>
+      <li>No modelo de dois PRs, a branch da tarefa nunca recebe a develop. <span class="chip new">novo</span></li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>O que é o orquestrador</h2>
+  <p>É um comando que você inicia, e por trás dele um laço. Não é uma sessão que precisa lembrar onde está.</p>
+  <p>O que falhou na sua experiência foi a sessão depender de um aviso para continuar. Quando o aviso se perdia, ela parava. Aqui o orquestrador não guarda nada de cabeça: a cada volta ele lê os arquivos, roda a etapa que estiver pronta e confere o portão. Se um aviso se perder ou a sessão cair, a volta seguinte lê os arquivos de novo e continua do mesmo ponto.</p>
+  <div class="facts">
+    <div class="fact"><b>Roteiro</b><span>O schema e a configuração do OpenSpec: etapas, ordem, papel de cada etapa, portões e o modelo de entrega. Vale igual em qualquer plataforma.</span></div>
+    <div class="fact"><b>Papéis</b><span>Manager, tech lead e os agentes de etapa, com suas skills. Cada plataforma recebe os mesmos papéis no formato dela.</span></div>
+    <div class="fact"><b>Motor</b><span>Quem roda o laço. O projeto escolhe na configuração: uma sessão do Claude, o CompozyOS, ou um script que chama outra IA de linha de comando.</span></div>
+  </div>
+  <p>As sessões agrupadas do app do Claude, que você gosta, ficam como forma de ver o trabalho nesse motor, se um teste ao vivo mostrar que seguram. O fluxo não depende delas.</p>
+  <h3>O que vale em qualquer plataforma e o que muda</h3>
+  <div class="two">
+    <div class="card">
+      <h3>Igual em todo lugar</h3>
+      <ul>
+        <li>O roteiro: etapas, ordem e portões, no schema e na configuração do OpenSpec.</li>
+        <li>O método de cada etapa: as skills, que são texto.</li>
+        <li>A descrição de cada papel: o que faz, o que entrega, o que nunca faz.</li>
+        <li>As conferências dos portões: scripts simples, sem IA.</li>
+        <li>A conferência final no GitHub, que recusa o PR não importa qual IA escreveu.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Muda por plataforma: o adaptador</h3>
+      <ul>
+        <li>O formato em que os papéis são registrados.</li>
+        <li>Como um subagente é iniciado.</li>
+        <li>Como as travas em tempo real são ligadas.</li>
+        <li>A instalação.</li>
+      </ul>
+    </div>
+  </div>
+  <p>A regra que sustenta isso: o roteiro fala em papéis, nunca na ferramenta de uma plataforma. Cada adaptador traduz o papel para o jeito dela.</p>
+  <p>Onde a plataforma não tiver como barrar na hora, a proteção cai para a conferência no GitHub. O erro é pego no PR em vez de ser impedido antes.</p>
+</section>
+
+<section>
+  <h2>As etapas de uma change</h2>
+  <p class="lead">Fluxo completo (schema <code>devkit</code>). Borda âmbar marca onde o trabalho espera você.</p>
+  <ol class="track">
+    <li class="stage">
+      <div class="t">Escolher a próxima change<small>só na entrada pelo manager</small></div>
+      <div class="cell"><span class="lbl">Quem</span><div class="chips"><span class="chip new">manager</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>O pedido de início ao tech lead, automático</div>
+      <div class="gate"><b>Portão:</b> as dependências (<code>after:</code>) já estão arquivadas.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Abrir a change</div>
+      <div class="cell"><span class="lbl">Quem</span><div class="chips"><span class="chip new">tech lead</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>openspec new change</code>, worktree e branch com o nome da change, a partir da base que o modelo de entrega define</div>
+      <div class="gate"><b>Portão:</b> schema confirmado (completo ou leve).</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Requisitos (grill)</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip new">tech lead</span><span class="chip owner">você</span><span class="chip skill">requirements-grill</span><span class="chip exists">codebase-researcher</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>requirements.md</code> com os critérios de aceite</div>
+      <div class="gate"><b>Portão:</b> você respondeu as perguntas.</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Mock-up<small>só quando a change mexe em tela · antes de qualquer plano</small></div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip new">screen-designer</span><span class="chip new">skill screen-mockup</span><span class="chip skill">screen-design</span><span class="chip owner">você</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>O desenho das telas com dados de exemplo reais, guardado na change em <code>mock/</code></div>
+      <div class="gate"><b>Portão:</b> você aprova o mock-up. O que ele revelar volta para os requisitos antes de o plano começar.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Decisões e ADRs</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip new">adr-author</span><span class="chip new">skill adr-authoring</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>As ADRs propostas em <code>docs/adr/</code>, quando a change precisa delas</div>
+      <div class="gate"><b>Portão:</b> o agente analisa primeiro se a change precisa de ADR. Se precisa, escreve. Se não precisa, deixa uma linha dizendo isso e a etapa segue.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Plano</div>
+      <div class="cell"><span class="lbl">Quem</span><div class="chips"><span class="chip exists">change-planner</span><span class="chip exists">openspec-validator</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>proposal</code>, <code>specs</code>, <code>design</code>, <code>tasks</code></div>
+      <div class="gate"><b>Portão:</b> <code>openspec validate --strict</code> passa.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Prontidão do plano</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip exists">plan-readiness-reviewer</span><span class="chip exists">plan-reality-auditor</span><span class="chip exists">adr-reviewer</span><span class="chip skill">plan-readiness-review</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>readiness.md</code></div>
+      <div class="gate"><b>Portão:</b> aprovado. Reprovado volta ao plano, no máximo três vezes, depois sobe para você.</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Sua aprovação</div>
+      <div class="cell"><span class="lbl">Quem</span><div class="chips"><span class="chip owner">você</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>approval.md</code>, do plano e das ADRs juntos</div>
+      <div class="gate"><b>Portão:</b> a aprovação veio de uma mensagem sua.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Implementação<small>um subagente por fase</small></div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip exists">tdd-implementer</span><span class="chip skill">test-driven-development</span><span class="chip skill">systematic-debugging</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>Código, testes e as tarefas marcadas em <code>tasks.md</code></div>
+      <div class="gate"><b>Portão:</b> o comando de teste da fase sai verde.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Testes unitários<small>a suíte inteira, depois das fases</small></div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip new">test-runner</span><span class="chip skill">test-and-coverage</span><span class="chip skill">systematic-debugging</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>Resultado da suíte inteira e da cobertura. Os testes em si já nasceram na implementação, por TDD</div>
+      <div class="gate"><b>Portão:</b> suíte verde e cobertura dentro da meta do projeto. Falha volta à implementação.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Testes E2E<small>só em projeto que tem E2E configurado</small></div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip new">e2e-tester</span><span class="chip new">skill e2e-testing</span><span class="chip skill">systematic-debugging</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>Os testes E2E escritos a partir dos critérios de aceite, e o resultado deles com o sistema rodando</div>
+      <div class="gate"><b>Portão:</b> os testes E2E estão verdes. É condição para a entrega. Falha volta à implementação. Projeto sem estrutura de E2E não roda esta etapa. Cada projeto decide se acrescenta testes E2E conforme faz novas tarefas.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Demonstração<small>o agente usa o que foi entregue, no seu lugar</small></div>
+      <div class="cell"><span class="lbl">Quem</span><div class="chips"><span class="chip exists">pr-verifier</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>evidence.md</code>, em texto, dentro da change: para cada critério de aceite, o que o agente fez, o que observou e se passou. Prints e vídeos não são guardados</div>
+      <div class="gate"><b>Portão:</b> todo critério foi demonstrado e registrado. Com isso a validação está feita: no modelo com merge automático, o merge segue sem esperar você. Defeito volta à implementação.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Code review</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip exists">code-quality</span><span class="chip exists">test-coverage</span><span class="chip exists">spec</span><span class="chip exists">adr</span><span class="chip exists">security</span><span class="chip exists">architecture</span><span class="chip exists">finding-verifier ×3</span><span class="chip skill">review-change</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>reviews/*.md</code> e <code>review.md</code></div>
+      <div class="gate"><b>Portão:</b> consenso. Achado que bloqueia volta à implementação, no máximo duas rodadas.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Entrega</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip exists">commit-and-pr</span><span class="chip skill">commit-message-guidelines</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>Commit, push e o pull request para a base do modelo: a principal, ou a develop no modelo de dois PRs. O PR fica enxuto. O registro das validações fica na change e é arquivado com ela</div>
+      <div class="gate"><b>Portão:</b> checks do GitHub verdes e o merge, seu ou do GitHub conforme o modelo.</div>
+    </li>
+    <li class="stage">
+      <div class="t">Segundo PR<small>só no modelo de dois PRs · etapa nova</small></div>
+      <div class="cell"><span class="lbl">Quem</span><div class="chips"><span class="chip exists">commit-and-pr</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span>O pull request da mesma branch para master</div>
+      <div class="gate"><b>Portão:</b> o primeiro PR foi aprovado nos testes da develop, checks verdes e o merge em master.</div>
+    </li>
+    <li class="stage gate-owner">
+      <div class="t">Retro e arquivamento</div>
+      <div class="cell"><span class="lbl">Quem e skills</span><div class="chips"><span class="chip new">tech lead</span><span class="chip owner">você</span><span class="chip skill">retro</span></div></div>
+      <div class="cell"><span class="lbl">Produz</span><code>retro.md</code>, <code>openspec archive</code>, a linha do roadmap marcada</div>
+      <div class="gate"><b>Portão:</b> você respondeu cada proposta do retro. Depois o manager escolhe a próxima.</div>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <h2>Modelos de entrega</h2>
+  <p class="lead">Cada projeto escolhe o seu na configuração. As etapas de entrega seguem o caminho escolhido.</p>
+  <div class="lanes">
+    <div class="lane">
+      <div class="lane-name">Dois PRs da mesma branch <span class="chip new">novo no devkit</span> <span class="chip skill">como num projeto seu</span></div>
+      <div class="steps">
+        <span class="step">master</span><span class="arrow">→</span>
+        <span class="step">branch da tarefa</span><span class="arrow">→</span>
+        <span class="step">PR para develop, testes</span><span class="arrow">→</span>
+        <span class="step">PR da mesma branch para master</span>
+      </div>
+      <p class="note">A develop nunca vai para master. Por isso a branch da tarefa também nunca recebe a develop, nem para resolver conflito.</p>
+    </div>
+    <div class="lane">
+      <div class="lane-name">Trunk-based <span class="chip exists">já existe</span></div>
+      <div class="steps">
+        <span class="step">principal</span><span class="arrow">→</span>
+        <span class="step">branch curta</span><span class="arrow">→</span>
+        <span class="step">PR para a principal</span><span class="arrow">→</span>
+        <span class="step">merge seu</span>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="lane-name">Trunk-based com merge automático <span class="chip exists">já existe</span></div>
+      <div class="steps">
+        <span class="step">principal</span><span class="arrow">→</span>
+        <span class="step">branch curta</span><span class="arrow">→</span>
+        <span class="step">PR para a principal</span><span class="arrow">→</span>
+        <span class="step">merge do GitHub, com os portões verdes</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="part">Parte 2 · de onde isso vem</div>
+
+<section>
+  <h2>O que o levantamento mostrou</h2>
+  <p class="lead">Li os 14 retros arquivados, os scripts de coordenação e o orquestrador antigo.</p>
+  <div class="facts">
+    <div class="fact"><b>13 de 14 changes consertaram a própria coordenação</b><span>Só uma entregou outra coisa. O modelo de condução mudou três vezes em três versões.</span></div>
+    <div class="fact"><b>Os portões funcionam</b><span>A revisão de prontidão, a bancada de review com três verificadores, a prova por critério de aceite e o merge automático pegaram erros reais e não geram queixa.</span></div>
+    <div class="fact"><b>Abrir sessões filhas é o que quebra</b><span>O app só abre sessão em turno digitado por você. Cada fase custou um <code>/conduct</code> redigitado. No orquestrador antigo, 6 das últimas 7 correções foram contornos para isso.</span></div>
+    <div class="fact"><b>As regras estão em prosa</b><span>A condução é um texto de 157 linhas que o modelo deveria seguir. Nove retros registram regra existente que ninguém obrigou.</span></div>
+    <div class="fact"><b>O próximo passo é adivinhado</b><span>Dois scripts, 2.300 linhas, leem texto solto para decidir o que vem agora. Seis retros registram o passo errado.</span></div>
+    <div class="fact"><b>O que era bom no orquestrador antigo</b><span>O fluxo declarado em arquivo e o coordenador que pergunta o próximo passo em vez de decidir. Essa parte nunca precisou de conserto.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>O que temos e o que falta</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Peça</th><th>Hoje</th><th>O que fazer</th></tr></thead>
+      <tbody>
+        <tr><td>Skills do core (8)</td><td>Existem e funcionam</td><td>Manter</td></tr>
+        <tr><td>Agentes (15)</td><td>Existem. Nenhum declara suas skills, só citam em texto</td><td>Manter e ligar as skills no cabeçalho de cada agente</td></tr>
+        <tr><td>Comandos de uso</td><td><code>/conduct</code> aceita só o nome da change. O CompozyOS se inicia por outro comando, fora da sessão, com vários parâmetros</td><td>Um comando <code>/devkit</code> com poucas palavras, que recebe o pedido e inicia o motor do projeto</td></tr>
+        <tr><td>Entrada pelo Jira</td><td>Não existe no devkit. O orquestrador antigo tinha uma integração</td><td>Aceitar o código ou o link da tarefa como pedido. A leitura do Jira é parte do adaptador de cada plataforma</td></tr>
+        <tr><td>Definição do projeto em 4 fases</td><td>As cinco skills existem. Cada uma só aponta para a seguinte, e o resultado final é uma lista de changes num documento, não o roadmap</td><td>Declarar as fases como um fluxo no OpenSpec e criar a etapa que gera o <code>roadmap.md</code></td></tr>
+        <tr><td>Manager</td><td>Não existe</td><td>Criar</td></tr>
+        <tr><td>Tech lead</td><td>É a skill <code>/conduct</code>, em prosa</td><td>Trocar por um agente com lista fechada de subagentes e sem permissão de editar código</td></tr>
+        <tr><td>Agente de ADRs</td><td>Não existe. O planejador decide sozinho, e o padrão dele é "não precisa"</td><td>Criar <code>adr-author</code> e a skill <code>adr-authoring</code></td></tr>
+        <tr><td>Mock-up</td><td>Nenhum agente desenha. A skill <code>screen-design</code> só registra as telas e aponta para um mock-up feito em outra ferramenta, roda depois do plano, e só existe no pack do CompozyOS</td><td>Criar <code>screen-designer</code> e a skill <code>screen-mockup</code> no fluxo principal, antes do plano</td></tr>
+        <tr><td>Demonstração</td><td>O <code>pr-verifier</code> prova cada critério, mas não guarda os prints. A skill <code>screen-demo</code>, com prints e vídeo, só existe no pack do CompozyOS</td><td>Uma etapa de demonstração no fluxo principal, para toda change, com o registro em texto guardado na change. Sem prints nem vídeos</td></tr>
+        <tr><td>Testes unitários</td><td>O <code>tdd-implementer</code> escreve por TDD e o <code>test-coverage-reviewer</code> audita na revisão. Ninguém roda a suíte inteira como etapa. A skill <code>test-and-coverage</code> existe e nenhum agente a usa</td><td>Criar <code>test-runner</code> para a suíte inteira e a cobertura</td></tr>
+        <tr><td>Testes E2E</td><td>Não existe agente nem skill</td><td>Criar <code>e2e-tester</code> e a skill <code>e2e-testing</code>. Ele escreve os testes a partir dos critérios de aceite, separado de quem implementou</td></tr>
+        <tr><td>Fluxo no schema do OpenSpec</td><td>Vai só até a prontidão. Evidência, review, aprovação e retro ficam fora</td><td>Levar todas as etapas para o schema</td></tr>
+        <tr><td>Texto do roteiro</td><td>O schema manda usar a ferramenta de subagente do Claude, pelo nome</td><td>Trocar por papéis. Cada adaptador traduz o papel para a sua plataforma</td></tr>
+        <tr><td>Scripts que calculam o próximo passo</td><td><code>conduct-check</code> e <code>deliver-check</code>, 2.300 linhas</td><td>Aposentar esse papel. Fica só a conferência de entrega que roda no GitHub</td></tr>
+        <tr><td>Sessões filhas por fase, grupos, Auto-fix, Workflow</td><td>É onde a condução quebra</td><td>Tirar do fluxo. Sessões agrupadas voltam só como visualização, se o teste aprovar</td></tr>
+        <tr><td>Loop do CompozyOS</td><td>Um segundo fluxo, escrito à parte, com 619 linhas próprias</td><td>Vira um dos motores, lendo o mesmo roteiro do OpenSpec</td></tr>
+        <tr><td>Motor para outra IA</td><td>Não existe</td><td>Um script que roda o mesmo laço chamando a IA por linha de comando</td></tr>
+        <tr><td>Modelos de entrega</td><td>Só trunk-based, com ou sem merge automático</td><td>Acrescentar os dois PRs da mesma branch, tudo por configuração</td></tr>
+        <tr><td>Painéis</td><td>Um painel, que lê os scripts de condução e as sessões filhas, com botões que preenchem a caixa de texto</td><td>Três painéis só de leitura: manager, tech lead e como usar. Leem o conferidor novo</td></tr>
+        <tr><td>Idioma</td><td>Tudo no repositório em inglês, por regra. A conversa em português é só um costume desta máquina</td><td>Duas configurações: idioma dos arquivos, por projeto, e idioma da conversa, por pessoa</td></tr>
+        <tr><td>Documentação</td><td>Descreve o <code>/conduct</code> e os scripts que serão aposentados. Só em inglês</td><td>Reescrever junto com cada change, em inglês</td></tr>
+        <tr><td>Decisões registradas</td><td>ADR 0001 proíbe harness. ADR 0007 proíbe condução pelo roadmap</td><td>Uma ADR nova que substitui as duas, antes do plano</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>OpenSpec como harness: o teste</h2>
+  <p class="lead">Montei um schema de exemplo com todas as etapas e rodei no OpenSpec 2.0.0 instalado na sua máquina.</p>
+  <div class="two">
+    <div class="card">
+      <h3>O que ele cobre</h3>
+      <ul>
+        <li>Aceita todas as etapas como artefatos, inclusive as de depois da implementação.</li>
+        <li><code>openspec status</code> responde o que está pronto, bloqueado e feito. É a pergunta "o que vem agora".</li>
+        <li><code>openspec instructions</code> entrega o texto da etapa, onde vão o agente e as skills dela.</li>
+        <li>Informa quantas tarefas faltam na implementação.</li>
+        <li>Qualquer pessoa com OpenSpec recebe o mesmo roteiro, com ou sem o devkit.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>O que ele não cobre</h3>
+      <ul>
+        <li>Para ele, arquivo existente é etapa feita. Um <code>readiness.md</code> reprovado liberou a etapa seguinte no teste.</li>
+        <li>As etapas de depois da implementação ficaram prontas com zero tarefas feitas.</li>
+        <li>Não conhece pull request, checks do GitHub nem a sua aprovação.</li>
+        <li>Não tem repetição, limite de tentativas nem volta para uma etapa anterior.</li>
+        <li>Campos extras no schema (agente, skills) são aceitos e ignorados na saída.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="part">Parte 3 · onde estamos</div>
+
+<section>
+  <h2>Suas anotações</h2>
+  <ol class="notes">
+    <li>Facilidade de uso em primeiro lugar. Um comando simples na sessão, passando o conteúdo, e ele roda. Inclusive para iniciar o CompozyOS.</li>
+    <li>Você trabalha muito com o Jira e quer abrir uma change passando a tarefa de lá.</li>
+    <li>Mock-up sempre que a change alterar tela, antes de mais nada, antes de planejar. É ali que aparecem os pequenos detalhes.</li>
+    <li>Uma etapa de demonstração do que foi entregue. O agente demonstra, você não. Ele prova o que fez e registra em texto, dentro da change, que depois é arquivada: passou no teste, está funcionando. Prints e vídeos não precisam ser guardados, e o PR não é o lugar desse registro.</li>
+    <li>Foco forte em testes. Unitários e E2E são importantes, com um especialista para cada. O TDD do implementador já cobre os unitários. O E2E é importante até para a entrega.</li>
+    <li>Painéis para acompanhar, sem iniciar nada por eles: um do manager e um do tech lead, este com a change, a fase e os subagentes. E um painelzinho mostrando como usar o projeto e os comandos.</li>
+    <li>Os mock-ups devem poder ser salvos nos projetos, para editar ou ver no futuro.</li>
+    <li>Idioma por configuração. Você gosta de trabalhar em português, a maioria dos projetos é em inglês, e outras pessoas podem preferir inglês.</li>
+    <li>Guardar bem este planejamento. Dentro do repositório, a documentação precisa ser atualizada. Pode ser toda em inglês.</li>
+    <li>Manter as skills e os agentes. Refazer só a coordenação.</li>
+    <li>Um fluxo para definir o projeto nas 4 fases que você costuma fazer. Dele sai o roadmap que o manager orquestra.</li>
+    <li>As 4 fases servem para qualquer projeto. Sempre que você for desenvolver uma fatia nova que mereça planejamento mais a fundo, até como pesquisa de como fazer, vale passar por elas.</li>
+    <li>Dois orquestradores: um do roadmap, que vê o que precisa ser feito e pede o início; um coordenador, que pega uma tarefa e a conduz.</li>
+    <li>Duas entradas: o coordenador direto para uma tarefa só, o orquestrador para o roadmap inteiro. O orquestrador inicia cada change sozinho.</li>
+    <li>O manager pode ter vários tech leads rodando ao mesmo tempo, um por change. Quantos, varia com a tarefa, com a máquina no momento e com os outros projetos que estiverem rodando.</li>
+    <li>A change nasce pelo OpenSpec, como hoje.</li>
+    <li>Um subagente por etapa: especificação, grill, planejamento, implementação, testes, code review, entrega.</li>
+    <li>O coordenador faz o que for preciso para os outros agentes não pararem.</li>
+    <li>O orquestrador não pode depender de um aviso para continuar. Foi assim que as tentativas anteriores perderam o fio.</li>
+    <li>Toda funcionalidade tem um agente responsável pelas ADRs. Ele analisa se precisa: se precisa, faz; se não, não faz.</li>
+    <li>O OpenSpec é o harness. O roteiro fica na configuração dele, para servir a outros projetos e pessoas sem depender da nossa biblioteca. Os orquestradores podem ficar fora.</li>
+    <li>Não é só para o Claude. O devkit é instalado e configurado por projeto: alguns rodam no Claude, outros no CompozyOS, outros em outra IA.</li>
+    <li>Se amanhã você quiser usar no Codex, a integração tem que ser fácil. O que explica como tudo funciona vale igual, não importa onde estiver rodando.</li>
+    <li>O modelo de entrega muda por projeto. Num dos seus projetos a branch nasce da master e gera dois PRs, um para develop e depois um para master. A develop nunca vai para master.</li>
+    <li>Você gosta da sessão pai com subsessões agrupadas. Tem que ser algo que funcione.</li>
+    <li>Nomes em aberto. Você sugeriu algo de time de desenvolvimento, como manager e tech lead.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Decisões e pendências</h2>
+  <div class="two">
+    <div class="card">
+      <h3>Decidido</h3>
+      <ul>
+        <li>O manager inicia a próxima change sozinho.<small>Você, 19/11.</small></li>
+        <li>A etapa de ADR só escreve quando a change precisa.<small>Você, 19/11.</small></li>
+        <li>O CompozyOS não é congelado, vira um dos motores.<small>Você, 19/11.</small></li>
+        <li>Num dos seus projetos, dois PRs por change, da mesma branch.<small>Você, 19/11.</small></li>
+        <li>O número de tech leads ao mesmo tempo é escolhido a cada execução, não fixo no projeto.<small>Você, 19/11. Depende da tarefa, da máquina e do que mais estiver rodando.</small></li>
+        <li>Mock-up antes do plano, sempre que a change mexer em tela, com a sua aprovação.<small>Você, 19/11.</small></li>
+        <li>O agente prova o que fez e registra em texto, dentro da change, que depois é arquivada. Prints e vídeos não são guardados, e nada disso vai anexado ao PR.<small>Você, 19/11.</small></li>
+        <li>Onde o projeto aceita merge automático, a validação do agente basta e o merge segue sozinho.<small>Você, 19/11.</small></li>
+        <li>Projeto sem estrutura de E2E não roda a etapa de E2E. Acrescentar testes é escolha de cada projeto.<small>Você, 19/11.</small></li>
+        <li>Um especialista para testes E2E, e o E2E verde como condição para a entrega.<small>Você, 19/11.</small></li>
+        <li>Nos unitários, o especialista é o próprio implementador por TDD, mais quem roda a suíte inteira e quem audita na revisão.<small>Escolha minha, 19/11. Um segundo agente escrevendo os mesmos testes daria dois autores para o mesmo arquivo.</small></li>
+        <li>O mock-up dos painéis, com cinco telas só de leitura.<small>Você aprovou em 19/11: "Ficou perfeito".</small></li>
+        <li>Dois idiomas configuráveis. O dos arquivos fica na configuração do projeto. O da pessoa fica na configuração do plugin e vale para a conversa e para os painéis.<small>Você, 19/11.</small></li>
+        <li>O desenho fica registrado no repositório, com a documentação atualizada, toda em inglês.<small>Você, 19/11. É a primeira change da ordem de construção.</small></li>
+        <li>As quatro fases valem para qualquer projeto, sempre que uma fatia nova merecer planejamento mais a fundo. Você decide quando.<small>Você, 19/11. Servem também como pesquisa de como fazer.</small></li>
+        <li>Cada etapa é um subagente do tech lead. Sessões agrupadas ficam como visualização.<small>Escolha minha, 19/11, porque você pediu algo que funcione.</small></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Em aberto</h3>
+      <ul>
+        <li>O plano do harness, na Parte 4.<small>Proposta minha, aguardando a sua aprovação.</small></li>        <li>Os nomes.<small>No kit do CompozyOS, <code>tech-lead</code> hoje é o planejador, então um dos dois muda.</small></li>
+        <li>O manager deve segurar o início de uma change quando a máquina está carregada?<small>Proposta minha para o plano do harness. Ele nunca interromperia uma change já em andamento.</small></li>
+        <li>O que fazer quando a branch da tarefa conflita com a develop.<small>Fica para o grill.</small></li>
+        <li>Como o roadmap recebe trabalho pequeno depois de pronto.<small>Uma fatia grande entra pelas quatro fases. Uma funcionalidade avulsa, que não justifica as fases, ainda precisa de uma entrada.</small></li>
+        <li>Um modelo de PR com menos texto, para facilitar a leitura.<small>Ideia sua para mais adiante.</small></li>
+        <li>O devkit escreve de volta no Jira?<small>Por exemplo, comentar o link do PR ou mudar o status da tarefa. Assumi que ele só lê.</small></li>
+        <li>Os nomes dos comandos.<small>Usei <code>change</code>, <code>roadmap</code>, <code>project</code> e <code>status</code> como exemplo.</small></li>
+        <li>Teste ao vivo das sessões agrupadas no app.<small>Ainda não feito.</small></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="part">Parte 4 · o plano do harness</div>
+
+<section>
+  <h2>A ideia</h2>
+  <p>Tudo o que define o fluxo mora na pasta <code>openspec/</code> do projeto. Os motores só leem dali. Quem tem o projeto e o OpenSpec tem o roteiro inteiro, com ou sem o devkit instalado.</p>
+  <pre class="code">openspec/
+  config.yaml              idioma, motor, modelo de entrega, comandos de teste, origem das tarefas
+  roadmap.md               o que fazer e em que ordem
+  schemas/devkit/          o roteiro de uma change: etapas, ordem, papel e skills de cada uma
+  schemas/devkit-lite/     o roteiro curto, para change pequena
+  schemas/devkit-project/  o roteiro das quatro fases
+  changes/&lt;nome&gt;/          os arquivos de cada etapa, com o registro das validações</pre>
+  <p>Junto do roteiro vai um conferidor: um programa pequeno, sem IA, que diz se cada etapa passou de verdade e qual é a próxima. Ele substitui os dois scripts de 2.300 linhas.</p>
+  <p class="lead">Testado hoje no OpenSpec 2.0.0: a configuração aceita um bloco próprio do devkit sem reclamar, e as regras do projeto chegam junto com a instrução de cada etapa.</p>
+</section>
+
+<section>
+  <h2>Como o laço roda</h2>
+  <ol class="notes">
+    <li>Pergunta ao OpenSpec quais etapas estão liberadas.</li>
+    <li>O conferidor diz quais passaram de verdade e qual é a próxima.</li>
+    <li>O papel daquela etapa roda e deixa o arquivo dela.</li>
+    <li>Volta ao primeiro passo.</li>
+  </ol>
+  <p>O laço só termina em um de quatro estados, sempre com o motivo escrito: arquivada, esperando você, esperando o GitHub, ou travada.</p>
+</section>
+
+<section>
+  <h2>Como os buracos do OpenSpec são fechados</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Buraco</th><th>Regra</th></tr></thead>
+      <tbody>
+        <tr><td>Arquivo existente conta como etapa feita</td><td>Todo arquivo de etapa abre com um cabeçalho fixo: a situação (passou, reprovou, não se aplica), a tentativa e o commit em que foi feito. O conferidor lê só o cabeçalho, nunca o texto</td></tr>
+        <tr><td>Etapas finais liberadas cedo</td><td>O conferidor só libera testes, demonstração e review quando o OpenSpec informa zero tarefas pendentes</td></tr>
+        <tr><td>Não conhece PR, checks nem a sua aprovação</td><td>Nas etapas de entrega o conferidor consulta o GitHub, pelo modelo do projeto. A sua aprovação é um arquivo que só nasce de uma mensagem sua</td></tr>
+        <tr><td>Sem repetição nem limite</td><td>O cabeçalho conta as tentativas. Cada etapa tem um teto. Passou do teto, sobe para você</td></tr>
+        <tr><td>Etapa que não se aplica</td><td>O arquivo existe e diz "não se aplica", com o motivo. Vale para mock-up sem tela, ADR desnecessária e E2E sem estrutura</td></tr>
+        <tr><td>Trabalho vencido</td><td>Se o código mudou depois de uma etapa, o commit do cabeçalho não bate e só aquela etapa roda de novo</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>O cabeçalho fixo é o que acaba com o "próximo passo adivinhado". Hoje os scripts leem frases soltas dentro dos arquivos, e foi aí que seis retros registraram o passo errado.</p>
+</section>
+
+<section>
+  <h2>As travas e como cada uma é obrigada</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Trava</th><th>No Claude</th><th>Nos outros motores</th></tr></thead>
+      <tbody>
+        <tr><td>Código fechado até o plano aprovado</td><td>A edição é barrada antes de acontecer. Já existe</td><td>Conferência no GitHub recusa o PR</td></tr>
+        <tr><td>Um autor por arquivo de portão</td><td>A edição é barrada pelo papel de quem tenta. Já existe</td><td>Só onde o motor souber barrar</td></tr>
+        <tr><td>Git destrutivo recusado</td><td>O comando é barrado. Já existe</td><td>Regra do próprio motor</td></tr>
+        <tr><td>O tech lead não encerra com etapa pronta</td><td>Ao tentar encerrar, é barrado e recebe o nome da próxima etapa. Novo</td><td>Não precisa: o laço é um programa</td></tr>
+        <tr><td>O subagente não encerra sem entregar</td><td>Ao tentar encerrar, é barrado se o arquivo da etapa não existe. Novo</td><td>O programa confere o arquivo antes de seguir</td></tr>
+        <tr><td>O tech lead só chama os papéis da lista e não edita código</td><td>Vem da definição do papel: ele não recebe a ferramenta de edição. Novo</td><td>Definição do papel no motor</td></tr>
+        <tr><td>A branch da tarefa nunca recebe a develop</td><td>O comando é barrado. Novo</td><td>Conferência no GitHub, no PR para master</td></tr>
+        <tr><td>Aprovação só de mensagem sua</td><td>O arquivo só pode ser escrito na sessão principal. Já existe, e é a trava mais fraca</td><td>Etapa de revisão humana do motor</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="lead">Conferido hoje na documentação do Claude Code: as travas de encerramento existem, informam quando já estão segurando para não entrar em laço, e seguram no máximo oito vezes seguidas. O que a documentação não oferece é um jeito de provar que uma mensagem foi digitada por você. Por isso a trava da aprovação continua a mais fraca.</p>
+</section>
+
+<section>
+  <h2>Tetos de tentativa</h2>
+  <ul class="plain">
+    <li>Plano reprovado na prontidão: três vezes, depois sobe para você.</li>
+    <li>Rodadas de review: duas, depois sobe para você com os pontos em disputa.</li>
+    <li>Conserto do mesmo item: três vezes.</li>
+    <li>A mesma etapa voltar duas vezes sem nada ter mudado: para, com o motivo.</li>
+  </ul>
+  <p>Esses números já existem hoje, escritos em prosa nas skills. Passam para a configuração, e quem conta é o conferidor.</p>
+</section>
+
+<section>
+  <h2>A configuração de um projeto</h2>
+  <pre class="code">devkit:
+  driver: claude            # claude | compozy | script
+  language: en              # idioma dos arquivos do projeto
+  delivery:
+    model: two-prs          # two-prs | trunk | trunk-auto
+    base: master
+    test_branch: develop
+  tests:
+    unit: "npm test"
+    e2e: "npm run e2e"      # sem esta linha, a etapa de E2E não roda
+  tasks:
+    source: jira</pre>
+  <p class="lead">Exemplo. Os nomes dos campos ainda não estão fechados.</p>
+  <p>O idioma tem duas configurações, em dois lugares. A dos arquivos fica na configuração do projeto, acima, e vale para todo mundo. A da pessoa fica na configuração do plugin, na máquina de cada um, e vale para a conversa e para os painéis. Assim você trabalha em português num projeto cujos arquivos saem em inglês, e outra pessoa usa o mesmo projeto em inglês.</p>
+  <p class="lead">O painel atual já funciona assim: a opção de idioma dele é do plugin, com português como padrão.</p>
+</section>
+
+<section>
+  <h2>Os três motores</h2>
+  <div class="facts">
+    <div class="fact"><b>Claude</b><span>Você digita <code>/devkit</code> na sessão. Para uma tarefa, a sessão vira o tech lead e cada etapa é um subagente. Para o roadmap, a sessão vira o manager e cada change tem o seu tech lead como subagente. Quando uma change precisa de você, a pergunta sobe e o manager pergunta na sessão.</span></div>
+    <div class="fact"><b>CompozyOS</b><span>Um laço curto e genérico, de perguntar, rodar o papel e conferir, no lugar do fluxo de 619 linhas escrito à parte. O <code>/devkit</code> inicia a execução por você. Falta confirmar se o CompozyOS aceita escolher o papel a cada volta.</span></div>
+    <div class="fact"><b>Script</b><span>Um programa pequeno que roda o mesmo laço chamando a IA pela linha de comando. No Claude isso está documentado. Em outra IA, não verifiquei.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Ordem de construção</h2>
+  <p class="lead">Changes pequenas, cada uma provada ao vivo na seguinte. Até a terceira ficar pronta, elas são conduzidas pelo <code>ship-change</code> numa sessão só, que é a parte da condução atual que não depende de sessões filhas.</p>
+  <ol class="notes">
+    <li><b>Registrar o desenho no repositório.</b> Uma ADR nova que substitui a 0001 e a 0007 e revê a 0006, a 0008 e a 0009. O documento do desenho, em inglês. As rodadas no roadmap.</li>
+    <li><b>O roteiro e o conferidor.</b> O schema com todas as etapas, o cabeçalho fixo e o conferidor. Papéis no lugar dos nomes de ferramenta do Claude.</li>
+    <li><b>O tech lead e o <code>/devkit change</code>.</b> O laço, as travas novas, as skills ligadas nos agentes e o idioma. Aposenta o <code>/conduct</code>.</li>
+    <li><b>Os papéis novos.</b> ADRs, suíte de testes unitários, E2E, mock-up e demonstração em texto.</li>
+    <li><b>Os modelos de entrega.</b> Os dois PRs da mesma branch e a trava da develop.</li>
+    <li><b>O manager e o <code>/devkit roadmap</code>.</b> Vários tech leads, o limite por execução.</li>
+    <li><b>As quatro fases e o <code>/devkit project</code>.</b> Com a etapa que gera o roadmap.</li>
+    <li><b>A entrada pelo Jira.</b></li>
+    <li><b>O motor CompozyOS.</b></li>
+    <li><b>O motor script</b>, para outra IA, quando você precisar.</li>
+    <li><b>Os painéis.</b> Manager, tech lead e como usar, só de leitura, a partir do mock-up aprovado.</li>
+    <li><b>A limpeza.</b> Scripts antigos, sessões filhas, o painel antigo e a documentação final.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>O que provar ao vivo e os riscos</h2>
+  <div class="two">
+    <div class="card">
+      <h3>Provar antes de confiar</h3>
+      <ul>
+        <li>Um subagente dentro de outro avisa quando termina, repetidas vezes seguidas.<small>É o defeito que você já viveu.</small></li>
+        <li>As duas travas de encerramento seguram sem entrar em laço.</li>
+        <li>O CompozyOS aceita o laço genérico.</li>
+        <li>A leitura do Jira em cada plataforma.</li>
+        <li>As sessões agrupadas como forma de ver o trabalho.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Riscos</h3>
+      <ul>
+        <li>O OpenSpec avisa que os comandos de schema são experimentais e podem mudar.<small>Fixar a versão do OpenSpec em cada projeto.</small></li>
+        <li>Mais etapas custam mais tempo por change.<small>O roteiro curto serve à change pequena.</small></li>
+        <li>Vários tech leads ao mesmo tempo geram conflito e revisão vencida.<small>Já aconteceu em 7 das 14 changes.</small></li>      </ul>
+    </div>
+  </div>
+</section>
+
+</div>

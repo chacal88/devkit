@@ -1309,7 +1309,7 @@ test('ADR 0006 supersedes ADR 0005, and ADR 0001 and the config point to it', ()
   assert.match(cfg, /0006 phases as child sessions/);
   assert.match(cfg, /0007 one change on request/);
   const adr7 = readFileSync(join(root, 'docs', 'adr', '0007-one-change-on-request.md'), 'utf8');
-  assert.match(adr7, /^- Status: accepted$/m);
+  assert.match(adr7, /^- Status: superseded by ADR 0010 \(0010-openspec-as-the-harness\.md\)$/m);
   for (const h of ['Decision', 'Consequences', 'Review trigger', 'Alternatives considered']) {
     assert.match(adr7, new RegExp(`^#+ ${h}$`, 'm'), `ADR 0007 has ${h}`);
   }

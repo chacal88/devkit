@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Painel do manager acompanhando o roadmap</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1A1A19;background:#FFFFFF}
+a{color:#1A1A19;text-decoration:none}a:hover{color:#000000}
+</style>
+</helmet>
+<div style="width: 400px; min-height: 1040px; box-sizing: border-box; background: #FFFFFF; padding: 20px 24px 28px; display: flex; flex-direction: column; gap: 0px; font-size: 14px; line-height: 1.4">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px">
+<span style="font-weight: 600; font-size: 15px">devkit · manager</span>
+<button style="border: 0; background: transparent; color: #6B6965; font-size: 13px; padding: 6px 8px; border-radius: 6px; font-family: inherit; cursor: pointer">↻ Atualizar</button>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; padding: 16px 0 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; color: #6B6965">Esta conversa cuida do roadmap</span>
+<span style="font-size: 17px; font-weight: 600">devkit</span>
+<span style="color: #3D3B37">11 de 17 changes arquivadas. Faltam 6.</span>
+<span style="font-size: 12px; color: #6B6965">até 2 changes ao mesmo tempo, nesta execução</span>
+</div>
+
+<div style="background: #F6F5F2; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 12px; color: #6B6965">Agora</span>
+<span style="font-size: 12px; color: #FFFFFF; background: {{accent}}; padding: 2px 8px; border-radius: 999px">você age</span>
+</div>
+<span style="font-weight: 600">1 change espera a sua aprovação</span>
+<span style="font-size: 13px; color: #3D3B37">ac-clause-coverage tem o plano pronto, desde as 10h12. A outra change em andamento segue sozinha.</span>
+<span style="font-size: 12px; color: #6B6965; padding-top: 4px">Responda na conversa. O painel só mostra.</span>
+</div>
+
+<div style="padding: 20px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Em andamento</span>
+<span style="font-size: 12px; color: #6B6965">2 de 2</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0">
+<span style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 16px; color: #2F7D4F">◐</span><span style="flex: 1; font-weight: 600">commit-and-pr-trailer</span><span style="font-size: 12px; color: #6B6965">6 de 13 etapas ›</span></span>
+<span style="font-size: 12px; color: #6B6965; padding-left: 26px">implementação, fase 2 de 3 · Claude age</span>
+</a>
+<a href="Main.dc.html" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 8px; margin: 0 -8px; background: #FBF1EC; border-radius: 6px">
+<span style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 16px; color: {{accent}}">●</span><span style="flex: 1; font-weight: 600">ac-clause-coverage</span><span style="font-size: 12px; color: #6B6965">5 de 13 etapas ›</span></span>
+<span style="font-size: 12px; color: #6B6965; padding-left: 26px">plano pronto · espera a sua aprovação</span>
+</a>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Prontas para começar</span>
+<span style="font-size: 12px; color: #6B6965">2</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span aria-hidden="true" style="width: 16px; color: #A8A49C">○</span><span style="flex: 1">review-writer-prompt</span><span style="font-size: 12px; color: #6B6965">próxima da fila</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 6px 0"><span aria-hidden="true" style="width: 16px; color: #A8A49C">○</span><span style="flex: 1">release-pin-in-release-files</span></div>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Esperando outra change</span>
+<span style="font-size: 12px; color: #6B6965">2</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 6px 0">
+<span style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 16px; color: #A8A49C">○</span><span style="flex: 1; color: #3D3B37">conventions-trailer</span></span>
+<span style="font-size: 12px; color: #6B6965; padding-left: 26px">depois de commit-and-pr-trailer</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 6px 0">
+<span style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 16px; color: #A8A49C">○</span><span style="flex: 1; color: #3D3B37">compozy-loop-v2-dogfood</span></span>
+<span style="font-size: 12px; color: #6B6965; padding-left: 26px">depois de ac-clause-coverage</span>
+</div>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 6px; display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-weight: 600">Travadas</span>
+<span style="font-size: 12px; color: #6B6965">0</span>
+</div>
+<span style="font-size: 13px; color: #6B6965">Nenhuma. Uma change travada aparece aqui com o motivo.</span>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 0; display: flex; align-items: baseline; justify-content: space-between">
+<span style="color: #6B6965">› Arquivadas</span>
+<span style="font-size: 12px; color: #6B6965">11</span>
+</div>
+
+<div style="border-top: 1px solid #E7E5E0; margin-top: 16px; padding: 16px 0 0; display: flex; align-items: baseline; justify-content: space-between">
+<a href="Help.dc.html" style="color: #6B6965">› Como usar</a>
+<span style="font-size: 12px; color: #6B6965">comandos</span>
+</div>
+
+<div style="margin-top: 24px; font-size: 12px; color: #6B6965">Atualizado há 6 s · próxima em 54 s</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#B0502C","options":["#B0502C","#2563EB","#2F7D4F"]},"$preview":{"width":400,"height":1040}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#B0502C' };
+}
+}
+</script>
+</body>
+</html>

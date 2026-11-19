@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.18.1 — the coordination design recorded
+
+- **devkit-openspec** 0.14.2: the pack README's first sentence names OpenSpec as the flow's harness
+  and links ADR 0010, and one assertion of `guard.test.mjs` follows ADR 0007's new status. The CI
+  snippet pins `v0.14.2`, as two tests of `deliver-check.test.mjs` require of any
+  `devkit-openspec` bump.
+- Docs/rules: ADR 0010 supersedes ADR 0001 and ADR 0007 (OpenSpec is the harness, driven by a
+  roadmap coordinator and a change coordinator as a loop over files), `docs/coordination-design.md`
+  holds the design and its build order, `openspec/roadmap.md` lists rounds 14 to 24 and drops the
+  follow-ups of rounds 5, 11 and 13, and `openspec/config.yaml` quotes its third design rule so
+  OpenSpec stops ignoring the design rules. No other pack changes version; this release is tagged
+  `v0.14.2` on its merge commit.
+
 ## 0.18.0 — findChangePr's own branch
 
 - **devkit-openspec** 0.14.1: `findChangePr` no longer treats a worktree branch that merely

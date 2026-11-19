@@ -19,7 +19,7 @@ context: |
   Stack: Claude Code plugin marketplace - Markdown agents/skills, OpenSpec schemas (YAML), Node.js hooks (plugins/openspec/hooks/guard.mjs), Python scripts
   Test command: node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py
   Lint / typecheck: claude plugin validate . ; python3 scripts/gen-catalog.py must leave no diff
-  ADRs: docs/adr/ (0001 coordination without a harness, 0002 merge without the owner by opt-in, 0003 auto-merge the archive PR, 0004 devkit per project, 0005 parallel steps and a session wake-up, superseded by 0006; 0006 phases as child sessions, amended by 0007 one change on request; 0008 reviews as a workflow; 0009 the CompozyOS loop as a second driver)
+  ADRs: docs/adr/ (0001 coordination without a harness, superseded by 0010; 0002 merge without the owner by opt-in; 0003 auto-merge the archive PR; 0004 devkit per project; 0005 parallel steps and a session wake-up, superseded by 0006; 0006 phases as child sessions, amended by 0007; 0007 one change on request, superseded by 0010; 0008 reviews as a workflow; 0009 the CompozyOS loop as a second driver; 0010 OpenSpec as the harness with a roadmap coordinator and a change coordinator, supersedes 0001 and 0007)
   Default branch: main
   Conventions: conventional commits; docs and assets in English; bump the version of each changed pack in plugin.json and marketplace.json, plus a CHANGELOG line
 
@@ -32,7 +32,7 @@ rules:
   design:
     - Record any decision that changes an ADR as a proposal for a new ADR, not as a silent deviation
     - A sentence saying a test pins a behaviour names that test file
-    - Read the ADRs' rejected alternatives: an approach an ADR rejected needs its own ADR before readiness, never a line concluding none is needed
+    - "Read the ADRs' rejected alternatives: an approach an ADR rejected needs its own ADR before readiness, never a line concluding none is needed"
   tasks:
     - One "## N." group per phase, each ending with a gate task that names the test command
     - Every acceptance criterion id appears in at least one task
