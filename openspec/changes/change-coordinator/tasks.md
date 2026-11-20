@@ -305,7 +305,7 @@ Test first: the 6.1 tests fail until 6.2 to 6.7. Task 6.3 depends on the owner's
 
 ## 7. The live test (AC-14, and the live parts of AC-1, AC-3, AC-5, AC-6, AC-7, AC-10, AC-11)
 
-- [ ] 7.1 Owner-run, by the conducting session (no implementer, no child session): with every change
+- [x] 7.1 Owner-run, by the conducting session (no implementer, no child session): with every change
   committed (`git status --porcelain` prints nothing outside `openspec/`), run the procedure of
   `design.md` D-12, L0 to L5, as background commands, keeping every output in
   `${TMPDIR%/}/devkit-live-change-coordinator/` (`commit.txt`, `version.txt`, `turn1.json` to `turn5.json`, `record-1.txt` to
@@ -319,7 +319,7 @@ Test first: the 6.1 tests fail until 6.2 to 6.7. Task 6.3 depends on the owner's
   path each turn took). Verify: `hooks.jsonl` holds at least one `stop` and one `subagent-stop` line
   with `refuse`, and `turn4.json`'s `result` is the approval reply in Portuguese. (AC-5, AC-6, AC-11,
   AC-14)
-- [ ] 7.2 Gate: `grep -q '"mode":"stop",.*"decision":"refuse"' "${TMPDIR%/}/devkit-live-change-coordinator/hooks.jsonl" && grep -q '"mode":"subagent-stop",.*"decision":"refuse"' "${TMPDIR%/}/devkit-live-change-coordinator/hooks.jsonl" && test -s "${TMPDIR%/}/devkit-live-change-coordinator/turn4.json" && test -s "${TMPDIR%/}/devkit-live-change-coordinator/record-5.txt"` green; covers AC-14. Owner-run, by the conducting session (no implementer, no child session): ticked only once 7.1's records exist.
+- [x] 7.2 Gate: `grep -q '"mode":"stop",.*"decision":"refuse"' "${TMPDIR%/}/devkit-live-change-coordinator/hooks.jsonl" && grep -q '"mode":"subagent-stop",.*"decision":"refuse"' "${TMPDIR%/}/devkit-live-change-coordinator/hooks.jsonl" && test -s "${TMPDIR%/}/devkit-live-change-coordinator/turn4.json" && test -s "${TMPDIR%/}/devkit-live-change-coordinator/record-5.txt"` green; covers AC-14. Owner-run, by the conducting session (no implementer, no child session): ticked only once 7.1's records exist.
 
 ## Workflow follow-up
 
