@@ -1369,3 +1369,46 @@ test('ADR 0008 records the reviewer round as a Workflow script; ADR 0001 and the
   const nums = readdirSync(join(root, 'docs', 'adr')).map((f) => f.slice(0, 4));
   assert.equal(new Set(nums).size, nums.length, 'no duplicate ADR number');
 });
+
+// ---- a test fixture never depends on the branch variables of the machine that runs it
+
+const BLANKS_BRANCH = /DEVKIT_BRANCH:\s*(''|"")/;
+const BLANKS_HEAD_REF = /GITHUB_HEAD_REF:\s*(''|"")/;
+
+// The lines of a test file that blank DEVKIT_BRANCH without blanking GITHUB_HEAD_REF, directly or by
+// spreading a constant of the same file that holds both.
+function branchBlankedAlone(text) {
+  const lines = text.split('\n');
+  const safeSets = new Set();
+  for (const line of lines) {
+    const def = /^\s*(?:export\s+)?const\s+(\w+)\s*=/.exec(line);
+    if (def && BLANKS_BRANCH.test(line) && BLANKS_HEAD_REF.test(line)) safeSets.add(def[1]);
+  }
+  const bad = [];
+  lines.forEach((line, i) => {
+    if (!BLANKS_BRANCH.test(line) || BLANKS_HEAD_REF.test(line)) return;
+    const spread = [...line.matchAll(/\.\.\.(\w+)/g)].some((m) => safeSets.has(m[1]));
+    if (!spread) bad.push(i + 1);
+  });
+  return bad;
+}
+
+function testFilesUnder(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    if (e.name === 'node_modules') return [];
+    const p = join(dir, e.name);
+    return e.isDirectory() ? testFilesUnder(p) : e.name.endsWith('.test.mjs') ? [p] : [];
+  });
+}
+
+test('no test env blanks DEVKIT_BRANCH without also blanking GITHUB_HEAD_REF', () => {
+  const alone = ['const env = { ...base, DEVKIT_BRANCH', ": '' };"].join('');
+  const both = ['const env = { ...base, DEVKIT_BRANCH', ": '', GITHUB_HEAD_REF: '' };"].join('');
+  const set = ['const SET = { DEVKIT_BRANCH', ": '', GITHUB_HEAD_REF: '' };\nconst env = { ...SET };"].join('');
+  assert.deepEqual(branchBlankedAlone(alone), [1], 'a line that blanks DEVKIT_BRANCH alone is refused');
+  assert.deepEqual(branchBlankedAlone(both), [], 'both blanked on the line is accepted');
+  assert.deepEqual(branchBlankedAlone(set), [], 'a spread of a set that holds both is accepted');
+  const plugins = join(here, '..', '..');
+  const offenders = testFilesUnder(plugins).flatMap((f) => branchBlankedAlone(readFileSync(f, 'utf8')).map((n) => `${f.slice(plugins.length + 1)}:${n}`));
+  assert.deepEqual(offenders, [], 'blank GITHUB_HEAD_REF next to DEVKIT_BRANCH (CONTRIBUTING.md, testing rules)');
+});

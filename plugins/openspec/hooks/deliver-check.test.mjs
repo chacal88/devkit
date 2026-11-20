@@ -4042,6 +4042,44 @@ test('P13 stops with stop-archive apply-proposals listing every offending path (
   }
 });
 
+// openspec archive writes the canonical spec of each capability the change has a delta for.
+const DELTA = `${ARCHIVED_DIR}/specs/cap/spec.md`;
+
+test('unnamedFiles: the canonical spec of a capability the archived folder has a delta for is part of the archive record; nothing else under openspec/specs/ is', () => {
+  const d = 'openspec/changes/archive/2026-11-09-feat/specs/cap/spec.md';
+  assert.deepEqual(unnamedFiles([d, 'openspec/specs/cap/spec.md'], []), []);
+  assert.deepEqual(unnamedFiles([d, 'openspec/specs/other/spec.md'], []), ['openspec/specs/other/spec.md']);
+  assert.deepEqual(unnamedFiles([d, 'openspec/specs/cap/notes.md', 'openspec/specs/cap/sub/spec.md'], []), ['openspec/specs/cap/notes.md', 'openspec/specs/cap/sub/spec.md']);
+  assert.deepEqual(unnamedFiles(['openspec/specs/cap/spec.md'], []), ['openspec/specs/cap/spec.md']);
+});
+
+test('P13 passes to open-archive-pr when the archived change has a delta and the tree changes its canonical spec; any other canonical file stops (archive record)', () => {
+  const ok = approvedBy(['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', [DELTA]: 'd\n', 'openspec/specs/cap/spec.md': 'c\n' });
+  const n = ok.next();
+  assert.equal(n.step, 'open-archive-pr', n.reason);
+  for (const [label, extra, offending] of [
+    ['a canonical spec the change has no delta for', { 'openspec/specs/other/spec.md': 'o\n' }, 'openspec/specs/other/spec.md'],
+    ['another file under the capability', { 'openspec/specs/cap/notes.md': 'o\n' }, 'openspec/specs/cap/notes.md'],
+  ]) {
+    const t = approvedBy(['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n', [DELTA]: 'd\n', 'openspec/specs/cap/spec.md': 'c\n', ...extra });
+    const b = t.next();
+    assert.deepEqual([b.step, b.archiveStep], ['stop-archive', 'apply-proposals'], `${label}: ${b.reason}`);
+    assert.ok(b.reason.includes(offending), label);
+    assert.ok(!b.reason.includes('openspec/specs/cap/spec.md'), label);
+  }
+});
+
+test('--ci on an archive branch: the canonical spec of a delta the archived folder holds passes; a canonical spec it has no delta for fails, naming it (archive record)', () => {
+  const env = { GITHUB_BASE_REF: 'main' };
+  const delta = { 'openspec/changes/archive/2026-11-09-x/specs/cap/spec.md': 'd\n', 'openspec/specs/cap/spec.md': 'c\n' };
+  const ok = runCi(archivePrRepo({ files: delta }), [], env);
+  assert.equal(ok.code, 0, ok.out + ok.err);
+  const bad = archivePrRepo({ files: { ...delta, 'openspec/specs/other/spec.md': 'o\n' } });
+  const r = runCi(bad, [], env);
+  assert.equal(r.code, 1, r.out + r.err);
+  assert.deepEqual(runCi(bad, ['--json'], env).json().archive.unnamed, ['openspec/specs/other/spec.md']);
+});
+
 test('P13: a file named only by a rejected proposal stops; so do uncommitted and untracked product files (AC-3)', () => {
   const t = onArchiveBranch({ proposals: [proposal(['docs/x.md'], { answer: 'rejected: no' })], files: { 'docs/x.md': 'x\n' } });
   const n = t.next();
@@ -4095,7 +4133,7 @@ test('deliver-check on an id that is only archived does not exit 3; an id in nei
   const missing = runCli(t, ['nope', '--json']);
   assert.equal(missing.code, 3);
   assert.equal(JSON.parse(missing.out).error, 'unknown change "nope": no openspec/changes/nope/ and no openspec/changes/archive/<date>-nope/ in this checkout; switch to the default branch and pull, or to the change\'s branch');
-  const ci = spawnSync('node', [cli, '--ci', 'feat'], { cwd: t.root, encoding: 'utf8', env: { ...t.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' } });
+  const ci = spawnSync('node', [cli, '--ci', 'feat'], { cwd: t.root, encoding: 'utf8', env: { ...t.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' } });
   assert.equal(ci.status, 3, 'an archived change is not selectable by --ci');
   assert.match(ci.stderr, /archived changes do not count/);
 });

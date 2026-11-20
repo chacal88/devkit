@@ -87,7 +87,7 @@ Mandatory before the verdict. For every claim in the proposal or design about th
 
 ### 6. Review the specs
 
-Normative language (`SHALL`/`MUST`) where appropriate; every requirement has testable WHEN/THEN scenarios (OpenSpec uses `#### Scenario:`; follow the project's format); modified capabilities carry full requirement deltas, not vague references; edge cases, failure, idempotency, rollout, compatibility covered when relevant; specs align with proposal and design; no requirement lives only in support docs.
+Normative language (`SHALL`/`MUST`) where appropriate; every requirement has testable WHEN/THEN scenarios (OpenSpec uses `#### Scenario:`; follow the project's format); modified capabilities carry full requirement deltas, not vague references; edge cases, failure, idempotency, rollout, compatibility covered when relevant; specs align with proposal and design; every outcome row of a decision table in design.md (a state, an exit code, a refusal, a next step) has a scenario in the spec delta, and a row without one is a Mandatory finding; no requirement lives only in support docs.
 
 ### 7. Review the tasks
 

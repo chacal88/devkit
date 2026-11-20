@@ -1,8 +1,8 @@
 # Design
 
 Change: `flow-script-checker` · Date: 2026-11-19 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(design sources: `requirements.md`, [ADR 0010](../../../docs/adr/0010-openspec-as-the-harness.md),
-[docs/coordination-design.md](../../../docs/coordination-design.md))
+(design sources: `requirements.md`, [ADR 0010](../../../../docs/adr/0010-openspec-as-the-harness.md),
+[docs/coordination-design.md](../../../../docs/coordination-design.md))
 
 ## Context
 
