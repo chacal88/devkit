@@ -2863,7 +2863,7 @@ test('AC-6 instructions-follow: the schema copies are identical and dispatch pr-
   }
 });
 
-test('AC-6 instructions-follow: configs, ship-change, conduct, flow doc and READMEs name evidence before review', () => {
+test('AC-6 instructions-follow: configs, ship-change, devkit, flow doc and READMEs name evidence before review', () => {
   for (const f of [['plugins', 'openspec', 'skills', 'openspec-setup', 'templates', 'config.yaml'], ['openspec', 'config.yaml']]) {
     const t = textOf(...f);
     const line = t.split('\n').find((l) => l.includes('devkit-core:pr-verifier') && l.includes('review-change'));
@@ -2876,9 +2876,9 @@ test('AC-6 instructions-follow: configs, ship-change, conduct, flow doc and READ
   assert.ok(mode, 'ship-change Mode paragraph');
   before(mode, '`pr-verifier`', '`review-change`', 'ship-change Mode');
   assert.match(ship, /verifies, reviews, opens the PR/);
-  const conduct = textOf('plugins', 'openspec', 'skills', 'conduct', 'SKILL.md');
-  const delivery = conduct.slice(conduct.indexOf('Delivery rows'));
-  before(delivery, '`verify`', '`review`', 'conduct Delivery rows');
+  const devkit = textOf('plugins', 'openspec', 'skills', 'devkit', 'SKILL.md');
+  const loop = devkit.slice(devkit.indexOf('## Loop'), devkit.indexOf('## Owner gates'));
+  before(loop, '`verify`', '`review`', 'devkit Loop');
   const flow = textOf('docs', 'openspec-flow.md');
   const applyLine = flow.split('\n').find((l) => l.startsWith('`apply` requires `approval`'));
   assert.ok(applyLine, 'flow doc apply paragraph');

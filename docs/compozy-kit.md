@@ -83,17 +83,17 @@ See [the pack's README](../plugins/compozy/README.md) for the full contract.
 
    Nothing starts a run on its own; the operator starts every one.
 
-## How it relates to `/conduct`
+## How it relates to `/devkit change`
 
-`/conduct` ([ADR 0006](adr/0006-phases-as-child-sessions.md), [ADR 0007](adr/0007-one-change-on-request.md), superseded by ADR 0010) and the CompozyOS loop are **two ways to drive the
+`/devkit change` ([ADR 0010](adr/0010-openspec-as-the-harness.md), [ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md); it replaced `/conduct`, ADR 0006 and ADR 0007) and the CompozyOS loop are **two ways to drive the
 same devkit flow**, not two flows: the same artifacts (`proposal.md`, `design.md`, `tasks.md`,
-`reviews/`, `evidence.md`), the same checkers (`deliver-check`, `conduct-check`, and this kit's own
+`reviews/`, `evidence.md`), the same checkers (`deliver-check`, `conduct-check` (a checker the `/devkit change` loop calls), and this kit's own
 `screens-check`) and the same owner gates (plan and design approval, the push, the PR merge when
-the mode is not `merge`). `/conduct <id>` runs the flow from the owner's own Claude Code session,
-turn by turn, in a git worktree, with the owner typing the go-aheads; the CompozyOS loop runs it as
+the mode is not `merge`). `/devkit change <what you want>` runs the flow from the owner's own Claude Code session,
+stage by stage, in a git worktree, asking the owner only at the owner's gates; the CompozyOS loop runs it as
 a supervised multi-agent run (`compozy loop run`) across the four role shells, with the owner's
 decisions as `review` blocks the loop stops on. Neither replaces the other: a project picks the one
-that fits how it works, or uses both on different changes. The posture — CompozyOS as a second, opt-in driver of the devkit flow — is recorded in [ADR 0009](adr/0009-compozy-loop-as-a-second-driver.md). [ADR 0010](adr/0010-openspec-as-the-harness.md) supersedes ADR 0001 and ADR 0007 and keeps CompozyOS as one of the drivers a project chooses: round 21 (`compozy-driver`) replaces this loop with the short generic one and round 15 (`change-coordinator`) replaces `/conduct`; until then both work as this page describes.
+that fits how it works, or uses both on different changes. The posture — CompozyOS as a second, opt-in driver of the devkit flow — is recorded in [ADR 0009](adr/0009-compozy-loop-as-a-second-driver.md). [ADR 0010](adr/0010-openspec-as-the-harness.md) supersedes ADR 0001 and ADR 0007 and keeps CompozyOS as one of the drivers a project chooses: round 21 (`compozy-driver`) replaces this loop with the short generic one and round 15 (`change-coordinator`) replaced `/conduct` with `/devkit change`; the CompozyOS loop works as this page describes until round 21.
 
 ## Checker portability
 

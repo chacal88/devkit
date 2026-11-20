@@ -14,20 +14,32 @@ export type Msg = Pick<SessionMessage, 'role' | 'text'> & { toolUses: readonly P
 // what a sentence or a quoting leaves around an id the owner typed
 const EDGE_NOISE_RE = /^["'`.,;:!?\s]+|["'`.,;:!?\s]+$/g
 
-// `/conduct` or `/<plugin>:conduct`
-const COMMAND = String.raw`\/(?:[^\s:<>/]+:)?conduct`
-const TAGGED_RE = new RegExp(String.raw`<command-name>${COMMAND}<\/command-name>`)
+// `/conduct` or `/<plugin>:conduct` (the retired skill, still read in old transcripts), and `/devkit change <id>` or
+// `/<plugin>:devkit change <id>` (its command: the skill cannot be called through `Skill`)
+const PREFIX = String.raw`\/(?:[^\s:<>/]+:)?`
+const COMMAND = String.raw`${PREFIX}(?:conduct|devkit)`
+const TAGGED_RE = new RegExp(String.raw`<command-name>(${COMMAND})<\/command-name>`)
 const ARGS_RE = /<command-args>([\s\S]*?)<\/command-args>/
-const PLAIN_RE = new RegExp(String.raw`^${COMMAND}(?:[ \t]+(.*))?$`)
+const PLAIN_RE = new RegExp(String.raw`^(${COMMAND})(?:[ \t]+(.*))?$`)
 const SKILL_RE = /(^|:)conduct$/
+const DEVKIT_COMMAND_RE = /(^|[/:])devkit$/
+const CHANGE_ARGS_RE = /^change(?:[ \t]+([\s\S]*))?$/
+
+/** What a command's ARGS name: those of the retired `/conduct` as typed in old transcripts; for `/devkit change` the text after `change`, else nothing (free text names no change). */
+const argsOf = (command: string, args: string): string => {
+  if (!DEVKIT_COMMAND_RE.test(command)) return args
+  const change = CHANGE_ARGS_RE.exec(args)
+  return change === null ? '' : (change[1] ?? '')
+}
 
 /** The ARGS of the conduct invocation a message holds, in any of the three forms; undefined when it holds none. */
 const invocationArgs = (message: Msg): string | undefined => {
   if (message.role === 'user') {
-    if (TAGGED_RE.test(message.text)) return (ARGS_RE.exec(message.text)?.[1] ?? '').trim()
+    const tagged = TAGGED_RE.exec(message.text)
+    if (tagged !== null) return argsOf(tagged[1] ?? '', (ARGS_RE.exec(message.text)?.[1] ?? '').trim()).trim()
     const first = message.text.split('\n')[0]?.trim() ?? ''
     const plain = PLAIN_RE.exec(first)
-    return plain === null ? undefined : (plain[1] ?? '').trim()
+    return plain === null ? undefined : argsOf(plain[1] ?? '', (plain[2] ?? '').trim()).trim()
   }
   for (const use of message.toolUses) {
     if (use.tool !== 'Skill') continue
@@ -40,7 +52,7 @@ const invocationArgs = (message: Msg): string | undefined => {
 }
 
 /**
- * The change id of the newest conduct invocation (oldest first in `messages`), when its ARGS is one id, read like the conduct skill does (sentence punctuation and quotes around it trimmed). `round <n>`,
+ * The change id of the newest `/conduct <id>` or `/devkit change <id>` invocation (oldest first in `messages`), when its ARGS is one id, read like the skill did (sentence punctuation and quotes around it trimmed). `round <n>`,
  * an empty ARGS and anything else give none, and an older invocation is never used: the owner has moved on.
  */
 export const conductArgs = (messages: readonly Msg[]): string | undefined => {

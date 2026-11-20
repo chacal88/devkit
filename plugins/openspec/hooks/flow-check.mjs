@@ -154,7 +154,7 @@ const isPreviousScript = (files) => hasStageFile(files) && !hasHeader(files);
 
 // What changes the work: the head, the working tree against it and the bytes of every untracked file
 // outside .claude/ (design D-6, no progress). Twelve hex characters.
-function fingerprint(root, head) {
+export function fingerprint(root, head) {
   const git = (args) => {
     try { return execFileSync('git', ['-C', root, ...args], { maxBuffer: MAX_BUFFER, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return Buffer.alloc(0); }
   };
@@ -254,7 +254,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
 const FRESH_MS = 2000; // the tolerance conduct-check uses for "newer"
 
 // A stage's title as it reads inside a sentence: "Code review" becomes "code review", "E2E tests" stays.
-const inSentence = (title) => (/^.[A-Z0-9]/.test(title) ? title : title.charAt(0).toLowerCase() + title.slice(1));
+export const inSentence = (title) => (/^.[A-Z0-9]/.test(title) ? title : title.charAt(0).toLowerCase() + title.slice(1));
 const nameOf = (names, id) => names[id] ?? id;
 
 // One sentence per reason code, in each language (design D-7); the readout and the JSON `reason` both read it.

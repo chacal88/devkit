@@ -13,6 +13,7 @@ import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflo
 import './conduct-check.test.mjs'; // conduct-rounds: the round computation
 import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
 import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
+import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
 import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
@@ -1076,213 +1077,21 @@ test('ship-change SKILL.md pins the stop-plan-approval row: only the owner\'s ow
   assert.match(md.slice(0, md.indexOf('## Loop')), /approval\.md/, 'the go-ahead names the recorded approval');
 });
 
-// ---------------------------------------------------------------- the conduct skill (conduct-rounds D14)
-
-const conductMd = () => readFileSync(join(here, '..', 'skills', 'conduct', 'SKILL.md'), 'utf8');
-
-test('conduct SKILL.md: at most three steps at once, the worktree preamble, never a subagent for a whole change', () => {
-  const md = conductMd();
-  assert.match(md, /at most three/);
-  assert.ok(md.includes('Work only in `<worktree>` on branch `<branch>`; every file path is absolute under it; start every Bash command with `cd <worktree> && `; do not fetch.'));
-  const never = md.slice(md.indexOf('## Never'));
-  assert.match(never, /Dispatch a subagent for a whole change/);
-  assert.match(never, /Create a conduct cron/);
-  assert.doesNotMatch(never, /Create a second conduct cron/);
-  assert.match(never, /Run a phase as a subagent in the app host/);
-  assert.match(never, /Start a session from a step other than `implement`/);
-  assert.match(never, /Start a session from a turn the owner did not type, except the continuation of a child's end/);
-  assert.doesNotMatch(never, /Start or drive another session/);
-});
-
-test('conduct SKILL.md: the cron migration rule, and no cron is ever created (D7, AC-8)', () => {
-  const md = conductMd();
-  assert.doesNotMatch(md, /\| (true|false) \|/, 'the reconciliation table is gone');
-  assert.match(md, /`CronList`/);
-  assert.match(md, /delete every job whose prompt starts with `\/conduct`/);
-  assert.match(md, /never create one/);
-  assert.doesNotMatch(md, /CronCreate|every 20 minutes|`--wake`|--wake|wake\.cron|wake-up cron/);
-  const desc = md.split('\n').find((l) => l.startsWith('description:'));
-  assert.doesNotMatch(desc, /cron|wake-up/);
-  assert.match(desc, /\bUse when\b/);
-});
-
-test('conduct SKILL.md: approval.md and retro answers only from the owner\'s own message', () => {
-  const md = conductMd();
-  assert.match(md, /Plan approval and retro answers are written only from the owner's own message/);
-  assert.match(md, /Write `approval\.md` or a retro answer except from the owner's own message/);
-  assert.doesNotMatch(md, /cron-started run/);
-  assert.match(md, /The owner's typed `\/conduct` is the only go-ahead/);
-  assert.match(md, /a continuation turn advances what is under way and may start the next session of a change under way/i);
-  assert.match(md, /an `approval\.md` recording the current readiness/);
-  assert.match(md, /never writes `approval\.md` or a retro answer/);
-  assert.match(md, /An Auto-fix wake or any other turn the owner did not type runs GitHub-side steps only and starts no session/);
-  assert.match(md, /a schema, grill, approval or retro gate reached by a turn the owner did not type is asked and left for the owner/i);
-  assert.match(md, /by the message that started the turn, never by a flag in the prompt/);
-});
-
-test('conduct SKILL.md: the schema is asked for every new change before git worktree add, devkit-lite included; then /conduct is the go-ahead', () => {
-  const md = conductMd();
-  const create = md.split('\n').find((l) => l.startsWith('| `create`')) ?? '';
-  assert.match(create, /for every new change, `devkit-lite` included/);
-  assert.match(create, /Only after the answer run `git worktree add -b <id> <path> origin\/<base>`/);
-  assert.ok(create.indexOf('Ask the owner') < create.indexOf('git worktree add'), 'the question comes first');
-  assert.match(md, /After that answer, the owner invoking `\/conduct` is the go-ahead for every `devkit-lite` change/);
-});
-
-test('conduct SKILL.md: the report names the five states', () => {
-  const rep = conductMd().split('## Report')[1].split('## Never')[0];
-  for (const form of ['`archived`', '`waiting on <ids>`', '`waiting for the owner: <what>`', '`waiting on GitHub: <what>`', '`blocked: <why>`']) {
-    assert.ok(rep.includes(form), form);
-  }
-  assert.doesNotMatch(rep, /wake-up:/);
-  assert.match(rep, /Auto-fix wakes this session on a CI failure, a merge conflict or a review comment; green checks do not wake it: run `\/conduct <id>` \(or `\/conduct round <n>`\) again to go on/);
-  assert.match(rep, /not archived: <name> \(<why>\)/);
-  assert.match(rep, /not grouped: <name> \(<why>\)/);
-  assert.match(rep, /not bound: <url> \(<why>\)/);
-  assert.match(rep, /sessions left to start/);
-});
-
-test('conduct SKILL.md: the GitHub wait is one capped watch, then Auto-fix; the PR is bound after open-pr (AC-9)', () => {
-  const md = conductMd();
-  assert.match(md, /one capped watch/);
-  assert.match(md, /mcp__ccd_pr__get_status/);
-  assert.match(md, /mcp__ccd_pr__bind_pr/);
-  assert.ok(md.indexOf('`open-pr`') < md.indexOf('mcp__ccd_pr__bind_pr'), 'bound after open-pr');
-  assert.match(md, /one PR bound per session/);
-  assert.match(md, /the PR opened last/);
-  const rep = md.split('## Report')[1].split('## Never')[0];
-  assert.match(rep, /the PR opened last/, 'the report names the bound PR');
-  assert.match(md, /waiting on GitHub: <what>/);
-});
-
-// ---------------------------------------------------------------- the conduct skill: child sessions (conduct-sessions D5, D6, D13)
-
-test('conduct SKILL.md: the app starts one child session per session row, with the start fields (AC-3)', () => {
-  const md = conductMd();
-  assert.match(md, /mcp__ccd_session__start_session/);
-  for (const f of ['initiation: "user_asked"', 'context: "fresh"', 'use_worktree: false', 'wake_when_done: true', '`session.brief`', '`session.background`', '`session.name`', '`session.title`', '`session.cwd`']) {
-    assert.ok(md.includes(f), f);
-  }
-  assert.match(md, /`model`, `effort` and `permission_mode` are omitted/);
-  assert.match(md, /In the app:/);
-});
-
-test('conduct SKILL.md: --busy comes from list_sessions by isRunning, isArchived and sessionPrefix (AC-7)', () => {
-  const md = conductMd();
-  assert.ok(md.includes('mcp__ccd_session_mgmt__list_sessions({ linked: true, limit: 100 })'));
-  assert.match(md, /`isRunning`/);
-  assert.match(md, /`isArchived`/);
-  assert.match(md, /`sessionPrefix`/);
-  assert.match(md, /followed by digits only/);
-  assert.ok(md.includes('^<prefix>[0-9]+$'));
-  assert.match(md, /never a bare starts-with/);
-  assert.match(md, /recomputes once without `--busy`/);
-  assert.match(md, /recomputes again with `--busy`/);
-});
-
-test('conduct SKILL.md: a refused start waits for the owner and never becomes a subagent (AC-6)', () => {
-  const md = conductMd();
-  assert.ok(md.includes('waiting for the owner: start session <id> phase <n>'));
-  assert.match(md, /never a subagent in its place/);
-  assert.match(md, /each is attempted once/);
-  assert.match(md, /sessions left to start/);
-});
-
-test('conduct SKILL.md: a continuation turn reads Outcome, recomputes and starts the next session of a change under way (AC-5)', () => {
-  const md = conductMd();
-  assert.match(md, /`<side-sessions-event>`/);
-  assert.match(md, /reads the child's `Outcome:` line/);
-  assert.match(md, /the next phase of the same change starts with no message from the owner/);
-  assert.match(md, /under way/);
-  assert.match(md, /a ticked task in `tasks\.md`, or, in the `devkit` schema, an `approval\.md` that records the current readiness/);
-  assert.match(md, /never from the app's list of sessions/);
-  assert.ok(md.includes('blocked: phase <n>: <reason>'));
-  assert.ok(md.includes('blocked: phase <n>: child ended without ticking tasks'));
-});
-
-test('conduct SKILL.md: the sidebar group, the archive and the one rule for a refused call (AC-8)', () => {
-  const md = conductMd();
-  assert.match(md, /mcp__ccd_sidebar__list_groups/);
-  assert.match(md, /mcp__ccd_sidebar__create_group/);
-  assert.match(md, /mcp__ccd_sidebar__move_sessions/);
-  assert.match(md, /group named exactly `<id>`/);
-  assert.match(md, /mcp__ccd_session_mgmt__archive_session/);
-  assert.match(md, /gate task of the phase is ticked/);
-  assert.match(md, /every idle linked session/);
-  assert.ok(md.includes('whose `name` is `<sessionPrefix><n>`, where `n` is the phase whose gate task just ticked'), 'archive names the phase from the gate task');
-  assert.ok(!md.includes("is that phase's `session.name`"), 'the old wording read a name a non-session row lacks');
-  assert.ok(md.includes('phase <n> of <id>: gate green'));
-  assert.match(md, /stopped phase is left unarchived/);
-  for (const f of ['not archived: <name> (<why>)', 'not grouped: <name> (<why>)', 'not bound: <url> (<why>)']) assert.ok(md.includes(f), f);
-  assert.match(md, /not retried in the run/);
-  assert.match(md, /never a stop/);
-  assert.match(md, /git worktree list/);
-});
-
-// ---------------------------------------------------------------- the conduct skill: one change on request (conduct-one-change AC-4 to AC-7)
-
-test('conduct SKILL.md: /conduct <id> comes first, every call carries --change, a bare /conduct never sweeps (AC-4)', () => {
-  const md = conductMd();
-  const afterTitle = md.slice(md.indexOf('# Conduct one change'));
-  assert.match(afterTitle.split('\n\n')[1], /^`\/conduct <id>` takes the one change/);
-  assert.ok(md.includes('--json --change <id>'));
-  assert.ok(md.includes('--json (--change <id> | --round <n>) [--busy <id,id>]'));
-  assert.ok(md.includes('--json --watch --change <id>'));
-  assert.match(md, /A bare `conduct-check` is never run: it would sweep the round/);
-  assert.match(md, /`round <n>`/);
-  assert.match(md, /the only way into the round mode/);
-  assert.match(md, /never sweeps/);
-  assert.match(md, /never reads `openspec\/roadmap\.md`/);
-  assert.match(md, /touches no other change/);
-  assert.match(md, /reads and writes only that change's worktree/);
-  assert.match(md, /AskUserQuestion/);
-  const desc = md.split('\n').find((l) => l.startsWith('description:'));
-  assert.match(desc, /\bUse when\b/);
-  assert.ok(desc.indexOf('/conduct <id>') < desc.indexOf('round <n>'), 'the single change comes first');
-  const never = md.slice(md.indexOf('## Never'));
-  assert.match(never, /Sweep a round without an explicit `round <n>`/);
-  assert.match(never, /Pick a change on your own/);
-  assert.match(never, /Read `openspec\/roadmap\.md` or touch another change in single-change mode/);
-  assert.match(never, /Run `conduct-check` without `--change <id>` or `--round <n>`/);
-});
-
-test('conduct SKILL.md: a missing change is created only on the owner\'s answer (AC-7)', () => {
-  const md = conductMd();
-  for (const p of ['`no change <id>:`', '`change <id> has a worktree without a folder:`', '`change <id> is on another branch:`']) assert.ok(md.includes(p), p);
-  assert.ok(md.includes('`openspec new change <id> --schema <answer>`'));
-  assert.match(md, /Only on the owner's answer run `git worktree add -b <id>/);
-  assert.match(md, /no `git worktree add`/);
-  assert.match(md, /this run creates nothing/);
-  assert.match(md, /A typo'd id creates nothing/);
-  assert.match(md, /in one question whether to create `<id>` and with which schema/);
-});
-
-test('conduct SKILL.md: unfinished work is asked on the owner\'s turn only (AC-6)', () => {
-  const md = conductMd();
-  assert.ok(md.includes('`<id> has unfinished work in <worktree>: <summary>`'));
-  assert.match(md, /only when the owner's own message/i);
-  assert.ok(md.includes('waiting for the owner: unfinished work in <worktree>'));
-  assert.match(md, /never ask it/);
-  const rep = md.split('## Report')[1].split('## Never')[0];
-  assert.match(rep, /a single-change run has no `round:`, `roadmap:` or `skipped rounds:` line/);
-});
-
-test('README and the pack README describe the session flow with no cron (2.5) and one change on request (AC-4)', () => {
+test('README and the pack README describe how one change runs, with no cron', () => {
   const root = join(here, '..', '..', '..');
   const top = readFileSync(join(root, 'README.md'), 'utf8');
-  const para = top.split('\n').find((l) => l.startsWith('`/conduct <id>` conducts one change')) ?? '';
-  assert.match(para, /child session/);
-  assert.match(para, /0006-phases-as-child-sessions\.md/);
-  assert.match(para, /0007-one-change-on-request\.md/);
-  assert.match(para, /one change/);
-  assert.match(para, /`\/conduct round <n>`/);
-  assert.doesNotMatch(para, /every 20 minutes|session cron/);
+  const para = top.split('\n').find((l) => l.startsWith('`/devkit change`')) ?? '';
+  assert.ok(para, 'a paragraph that starts with /devkit change');
+  assert.match(para, /0010-openspec-as-the-harness\.md/);
+  assert.match(para, /worktree/);
+  assert.doesNotMatch(para, /every 20 minutes|session cron|\bcron\b/);
   const pack = readFileSync(join(root, 'plugins', 'openspec', 'README.md'), 'utf8');
-  const rows = pack.split('\n').filter((l) => /conduct/.test(l) && l.startsWith('|'));
-  assert.ok(rows.length >= 3);
+  const rows = pack.split('\n').filter((l) => /conduct-check/.test(l) && l.startsWith('|'));
+  assert.ok(rows.length >= 1);
   for (const r of rows) assert.doesNotMatch(r, /every 20 minutes|session cron|`wake`/);
-  assert.match(pack.split('\n').find((l) => l.startsWith('| `conduct` skill')), /child session/);
-  assert.match(pack.split('\n').find((l) => l.startsWith('| `conduct` skill')), /#conducting-a-change-conduct-id/);
+  const skill = pack.split('\n').find((l) => l.startsWith('| `devkit` skill'));
+  assert.ok(skill, 'a devkit skill row');
+  assert.match(skill, /docs\/openspec-flow\.md#the-change-coordinator-devkit-change/);
   const check = pack.split('\n').find((l) => l.startsWith('| [`hooks/conduct-check.mjs`'));
   assert.match(check, /`session`/);
   assert.match(check, /--change/);

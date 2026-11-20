@@ -250,8 +250,10 @@ const world = (on: On, { devkit = true, checker = true }: { devkit?: boolean; ch
     w.forbidden.push('fs.write')
     return { deny: 'the panel never writes' }
   })
-  // the engine beneath: what a band the panel leaves alone draws, and a command it hands on
-  on('ui.render', ($, e) => {
+  // the engine beneath: what a band the panel leaves alone draws, and a command it hands on.
+  // The matcher names the panel: a bare hook is read as the test file's own plugin (`test`) and
+  // adds a band row of its own beside the panel's, instead of sitting beneath it.
+  on('ui.render', { plugin: PLUGIN }, ($, e) => {
     const { Text } = $.ui.resolve(e)
     return <Text>engine</Text>
   })
@@ -374,7 +376,7 @@ const CHECKS_PENDING = { status: 'open', details: { required: 3, failing: [], pe
 const THREE_CHILDREN = () => [childRow('panel-conduct-view-p1', { isArchived: true }), childRow('panel-conduct-view-p2', { isRunning: true })]
 const SUMMARY = "The devkit pane shows the change this conversation conducts (what it is, where it stands in the flow, what is pending, its documents) and the other open changes, as the owner's approved mock draws it."
 
-test('AC-15 summary-and-documents, AC-19 now-box, AC-14 flow-steps-you-are-here, AC-2 phase-progress, AC-20 pending-list: a /conduct <id> transcript draws screen 1 in the mock\'s order', async ($, on) => {
+test('AC-15 summary-and-documents, AC-19 now-box, AC-14 flow-steps-you-are-here, AC-2 phase-progress, AC-20 pending-list: a /devkit change <id> transcript draws screen 1 in the mock\'s order', async ($, on) => {
   const w = flowWorld(on, MID_IMPLEMENTATION)
   w.rows = THREE_CHILDREN()
   await start($)
@@ -394,7 +396,7 @@ test('AC-15 summary-and-documents, AC-19 now-box, AC-14 flow-steps-you-are-here,
       'Implementar a fase 2: The pane',
       'Faltam 2 tarefas nesta fase.',
       'Depois: provas, revisão, PR e checks.',
-      'Continuar aqui põe /conduct panel-conduct-view na caixa',
+      'Continuar aqui põe /devkit change panel-conduct-view na caixa',
       '─',
       'Passos 4 de 10',
       '✓ Requisitos 21 critérios',
@@ -499,7 +501,7 @@ test('AC-3 pr-and-checks: item 6 open with a failing check reads red', checksRea
 test('AC-3 pr-and-checks: item 6 open with only pending checks reads running', checksRead(CHECKS_PENDING, 'PR #31 · rodando'))
 test('AC-3 pr-and-checks: item 6 open with neither failing nor pending, and a blocked item 6, read unreadable', checksRead({ status: 'open', details: { required: 3, failing: [], pending: [] } }, 'PR #31 · ilegível'))
 
-/** One transcript form of `/conduct panel-conduct-view` finds the change on top, via command. */
+/** One transcript form of `/conduct` or `/devkit change` with `panel-conduct-view` finds the change on top, via command. */
 const formFindsChange = (message: SessionMessage): TestBody => async ($, on) => {
   const w = world(on)
   w.messages = [message]
@@ -514,6 +516,9 @@ const formFindsChange = (message: SessionMessage): TestBody => async ($, on) => 
 
 test('AC-1 conducted-change-on-top: a first line /conduct <id> finds the change on top', formFindsChange(plainCommand('/conduct panel-conduct-view')))
 test('AC-1 conducted-change-on-top: a first line /<plugin>:conduct <id> finds the change on top', formFindsChange(plainCommand('/devkit-openspec:conduct panel-conduct-view')))
+test('AC-1 conducted-change-on-top: a first line /devkit change <id> finds the change on top', formFindsChange(plainCommand('/devkit change panel-conduct-view')))
+test('AC-1 conducted-change-on-top: a first line /<plugin>:devkit change <id> finds the change on top', formFindsChange(plainCommand('/devkit-openspec:devkit change panel-conduct-view')))
+test('AC-1 conducted-change-on-top: /devkit change <id> as command tags finds the change on top', formFindsChange(commandTags('change panel-conduct-view', 'devkit-openspec:devkit')))
 test('AC-1 conducted-change-on-top: a Skill tool use finds the change on top', formFindsChange(skillToolUse('panel-conduct-view')))
 
 test('AC-1 conducted-change-on-top: a conducted id the checker does not know is its id and the checker\'s line, and nothing else', async ($, on) => {
@@ -1315,7 +1320,7 @@ const buttonFills = (step: string, actor: string, buttons: [key: string, label: 
   expect(w.submits).toEqual([])
 }
 
-test('AC-8 buttons-visibly-fill: Continue here fills /conduct <id> and reads the filled label; there is no Ship button', buttonFills('implement', 'session', [['conduct:panel-conduct-view', 'Continuar aqui', '/conduct panel-conduct-view']]))
+test('AC-8 buttons-visibly-fill: Continue here fills /devkit change <id> and reads the filled label; there is no Ship button', buttonFills('implement', 'session', [['conduct:panel-conduct-view', 'Continuar aqui', '/devkit change panel-conduct-view']]))
 test('AC-8 buttons-visibly-fill: Approve plan fills the plan approval text', buttonFills('stop-plan-approval', 'owner', [['approve:panel-conduct-view', 'Aprovar plano', 'Aprovo o plano de panel-conduct-view']]))
 test('AC-8 buttons-visibly-fill: Answer retro fills the retro answer text', buttonFills('stop-retro-answers', 'owner', [['answer:panel-conduct-view', 'Responder retro', 'Approve proposal 1 of panel-conduct-view']]))
 
@@ -1327,10 +1332,10 @@ test('AC-8 buttons-visibly-fill: a second press on the filled button, while the 
   const key = 'conduct:panel-conduct-view'
   await ui.press({ key })
   await ui.redraw()
-  expect(w.prompt).toBe('/conduct panel-conduct-view')
+  expect(w.prompt).toBe('/devkit change panel-conduct-view')
   await ui.press({ key })
   await ui.redraw()
-  expect(w.fills).toEqual([{ text: '/conduct panel-conduct-view', mode: 'replace' }])
+  expect(w.fills).toEqual([{ text: '/devkit change panel-conduct-view', mode: 'replace' }])
   expect(w.toasts).toEqual([FILLED])
   expect((await ui.find({ key }))?.text).toBe('✓ Continuar aqui')
   await ui.unmount()
@@ -1348,11 +1353,11 @@ test('AC-8 buttons-visibly-fill: after the box changes, a press on the marked bu
   await ui.redraw()
   expect(w.fills).toHaveLength(2)
   expect(w.toasts).toEqual([FILLED, FILLED])
-  expect(w.prompt).toBe('/conduct panel-conduct-view')
+  expect(w.prompt).toBe('/devkit change panel-conduct-view')
   await ui.unmount()
 })
 
-test('AC-8 buttons-visibly-fill: an other-change row fills /conduct <id>, reads ✓ Conduzir, keeps its whole progress and adds one dim line', async ($, on) => {
+test('AC-8 buttons-visibly-fill: an other-change row fills /devkit change <id>, reads ✓ Conduzir, keeps its whole progress and adds one dim line', async ($, on) => {
   const w = world(on)
   await start($)
   await settle(w)
@@ -1360,7 +1365,7 @@ test('AC-8 buttons-visibly-fill: an other-change row fills /conduct <id>, reads 
   const key = 'conduct:commit-and-pr-trailer'
   await ui.press({ key })
   await ui.redraw()
-  expect(w.fills).toEqual([{ text: '/conduct commit-and-pr-trailer', mode: 'replace' }])
+  expect(w.fills).toEqual([{ text: '/devkit change commit-and-pr-trailer', mode: 'replace' }])
   expect((await ui.find({ key }))?.text).toBe('✓ Conduzir')
   const all = await lines(ui)
   const at = all.indexOf('● commit-and-pr-trailer ✓ Conduzir')
@@ -1409,7 +1414,7 @@ test('AC-8 buttons-visibly-fill: when no box can take the text the command itsel
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   await ui.press({ key: 'conduct:panel-conduct-view' })
   await ui.redraw()
-  expect(w.toasts).toEqual(['/conduct panel-conduct-view'])
+  expect(w.toasts).toEqual(['/devkit change panel-conduct-view'])
   expect((await ui.find({ key: 'conduct:panel-conduct-view' }))?.text).toBe('Continuar aqui')
   expect(w.submits).toEqual([])
   await ui.unmount()
@@ -1716,12 +1721,12 @@ test('AC-16 detail-pane: another change and an error line open their own subject
   const ui = await $.ui.mount({ ...DETAIL_PANE, surface: 'desktop' })
   const all = await lines(ui)
   expect(all[0]).toBe('getting-started-roadmap aprovar o plano ✕')
-  expect(all).toContain('planeja e executa aqui, com sessões filhas')
+  expect(all).toContain('planeja e executa aqui, etapa por etapa')
   w.panes = [DETAIL]
   w.closes = []
   w.toasts = []
   await ui.press({ key: 'conduct:getting-started-roadmap' })
-  expect(w.fills).toEqual([{ text: '/conduct getting-started-roadmap', mode: 'replace' }])
+  expect(w.fills).toEqual([{ text: '/devkit change getting-started-roadmap', mode: 'replace' }])
   expect(w.closes).toEqual([DETAIL])
   expect(w.toasts).toEqual([FILLED])
   await ui.unmount()
@@ -2056,7 +2061,7 @@ test('AC-20 pending-list: the real 5.1, 5.2 and 5.9 of this change read as phras
       '- [ ] 5.1 Owner-run, by the conducting session (no implementer, no child session): load the 0.2.0 pack from `plugins/panel` of this worktree into the session that conducts',
       '  `panel-conduct-view`, in place of the installed 0.1.0.',
       '- [ ] 5.2 Owner-run, by the conducting session (no implementer, no child session): with',
-      '  `/conduct panel-conduct-view` running and its phase sessions present:',
+      '  `/devkit change panel-conduct-view` running and its phase sessions present:',
       '  - read `mcp__devkit-panel__status` (or the owner\'s `/devkit-panel status`): the change on top',
       '    with its next step, who acts, the phases;',
       '  - the owner presses a child session, `Continuar aqui`, a step.',

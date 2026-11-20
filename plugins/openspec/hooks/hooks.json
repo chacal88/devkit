@@ -1,5 +1,5 @@
 {
-  "description": "devkit guards for OpenSpec: product code needs an approved readiness, a PR needs an approved review and evidence, destructive git is refused. Active only in projects whose openspec/config.yaml selects devkit or devkit-lite (opted in); silent elsewhere.",
+  "description": "devkit guards for OpenSpec: product code needs an approved readiness, a PR needs an approved review and evidence, destructive git is refused; in a /devkit change run the session writes no product code, hands work only to the script's roles, and does not stop while a stage is ready (stop locks), and a stage agent does not stop before its stage file is delivered. Active only in projects whose openspec/config.yaml selects devkit or devkit-lite (opted in); silent elsewhere.",
   "hooks": {
     "SessionStart": [
       {
@@ -19,6 +19,26 @@
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" bash", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" agent", "timeout": 10 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" stop", "timeout": 60 }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" subagent-stop", "timeout": 60 }
         ]
       }
     ]

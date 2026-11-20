@@ -3,6 +3,8 @@ name: commit-and-pr
 description: Ships reviewed work mechanically — stages files by name, writes a conventional commit, pushes the branch and opens the PR with gh — then stops; never merges. Refuses secrets, never skips hooks or amends. Use after review passed, when the user says "commit and open the PR", "ship it", "push this and open a pull request".
 tools: Bash, Read
 model: sonnet
+skills:
+  - commit-message-guidelines
 ---
 
 # Commit and PR

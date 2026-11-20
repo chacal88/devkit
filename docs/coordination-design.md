@@ -18,10 +18,14 @@ when.
 
 Tense: a sentence in the present tense is about what exists at the commit that ships this page. The
 `devkit` and `devkit-lite` schemas (each with its `flow.json`), the stage header and the checker `flow-check` (built by the change `flow-script-checker`), `openspec/config.yaml`, `openspec/roadmap.md`, the hooks and
-their locks, `ship-change`, `/conduct`, `conduct-check`, `deliver-check`, the review Workflow script,
-the panel and the CompozyOS loop exist today. Everything else (the `/devkit` command and its verbs,
-the two coordinators, the new roles and skills, the `devkit:`
-configuration block, the `devkit-project` schema, the three drivers, the two-PR model and its lock,
+their locks, `ship-change`, `conduct-check`, `deliver-check`, the review Workflow script,
+the panel and the CompozyOS loop exist today. So do, since the change `change-coordinator` (round 15),
+the command `/devkit change`, the change coordinator of the Claude driver (the owner's session, run by
+the script `change-loop.mjs`), its two stop locks and its edit and hand-off locks
+([ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md)), and the two settings
+`devkit.language` and `devkit.driver`. `/conduct` no longer exists. Everything else (the other verbs of
+`/devkit`, the roadmap coordinator, the new roles and skills, the rest of the `devkit:`
+configuration block, the `devkit-project` schema, the other two drivers, the two-PR model and its lock,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
 builds it. The section "What stays shipped until its round" lists what keeps working meanwhile.
 
@@ -73,10 +77,18 @@ interrupts a change under way.
 coordinator holds the start of a new change while the machine is loaded, and what is under way
 finishes first. How it measures load is open.
 
-**The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** To be built in round 15. It
-takes one change from its opening to its archive. It asks OpenSpec which stage comes next, hands that
-stage to its subagent, checks the gate and asks again. It writes no code and does not decide the
-order. It replaces the `/conduct` skill, which retires in round 15.
+**The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 15
+(`change-coordinator`). It takes one change from its opening to its archive. It asks the script which
+stage comes next, hands that stage to its subagent, checks the gate and asks again. It writes no code
+and does not decide the order. It replaced the `/conduct` skill in round 15. In the Claude driver it is
+the session the owner typed `/devkit change` in, held by hooks ([ADR
+0011](adr/0011-the-change-coordinator-is-the-owners-session.md)).
+
+**The ADR 0007 rules the coordinator keeps. Decided by the owner on 2026-11-20 (round 15 grill, question 2), and by A-4.** Unfinished work is named with where it stopped, and the owner is asked
+before anything is created or run: a new request while another change is unfinished asks to continue
+or to start the new one. Typing `/devkit change <text>` is the owner's answer that creates the change:
+the session names the id and the script and says why, without a question. Resuming a named or the only
+unfinished change asks nothing.
 
 **Three entries (decided).** The owner defines a project (section 7), calls the roadmap coordinator
 for the whole roadmap, or calls the change coordinator directly for one task.
@@ -89,6 +101,10 @@ renamed `planner`, so every driver uses the same role names: `manager`, `tech-le
 `dev`, `qa` and `design`. The rename is to be built in round 21 (CompozyOS driver); until then the
 kit's planner keeps the name `tech-lead`.
 
+**The two roles called `tech-lead`. Decided on 2026-11-20 (A-7).** The script, the agents and
+`docs/roles.md` use the role id `change-coordinator`; `tech-lead` stays the team name of that role in
+this document. The CompozyOS kit's `tech-lead` (its planner) is untouched until round 21.
+
 ## 3. What the orchestrator is (D-3)
 
 **A command and a loop, never a session that remembers (proposed, on the owner's failure report).**
@@ -99,7 +115,7 @@ was lost"). The orchestrator is therefore a command the owner starts and a loop
 behind it, never a session that has to remember where it is. Each turn of the loop reads the files,
 runs the stage that is ready and checks its gate. A lost notification or a dead session costs
 nothing: the next turn reads the files again. The checker exists (`flow-check`, built by the change
-`flow-script-checker`); the loop is to be built in round 15.
+`flow-script-checker`), and the loop is built (`change-loop.mjs`, round 15).
 
 **Three layers (proposed).** They let the same flow serve several projects and platforms (the owner:
 it has to work wherever we are running, with Codex as the example):
@@ -124,8 +140,8 @@ driver if a live test shows it holds (open until that test). The flow never depe
 ## 4. The stages of one change (D-4)
 
 The stages are the owner's (decided); the agents, skills and gates are proposed. `new` marks what
-does not exist today. The new roles and skills are to be built in round 16, the change coordinator
-in round 15, the roadmap coordinator in round 18 and the second pull request in round 17.
+does not exist today. The new roles and skills are to be built in round 16 (the change coordinator
+exists since round 15), the roadmap coordinator in round 18 and the second pull request in round 17.
 
 | # | Stage | Who and skills | Produces | Gate |
 |---|---|---|---|---|
@@ -281,17 +297,18 @@ OpenSpec prints that its `schema` commands are experimental and may change.
 - The loop ends in exactly one of four states, each with its reason: archived, waiting for the owner,
   waiting on GitHub, blocked.
 
-**The locks and how each is enforced (proposed).** "Exists" marks a lock that ships today; "new"
-marks one to be built (the two stop locks in round 15, the `develop` lock in round 17).
+**The locks and how each is enforced (proposed).** "Exists" marks a lock that ships today (the two stop
+locks and the coordinator's lock since round 15); "new" marks one to be built (the `develop` lock in
+round 17).
 
 | Lock | In the Claude driver | In other drivers |
 |---|---|---|
 | Product code closed until the plan is approved | the edit is refused before it happens (exists) | the GitHub check refuses the pull request |
 | One writer per gate file | the edit is refused by the writer's role (exists) | only where the driver can refuse |
 | Destructive Git refused | the command is refused (exists) | the driver's own rule |
-| The change coordinator does not stop while a stage is ready | refused when it tries to stop, with the next stage named (new) | not needed: the loop is a program |
-| A subagent does not stop without delivering | refused when it tries to stop and its stage file is missing (new) | the program checks the file before going on |
-| The change coordinator calls only the listed roles and edits no code | from the role's definition: it has no edit tool (new) | the role's definition in the driver |
+| The change coordinator does not stop while a stage is ready | refused when it tries to stop, with the next stage named (exists) | not needed: the loop is a program |
+| A subagent does not stop without delivering | refused when it tries to stop and its stage file is missing (exists) | the program checks the file before going on |
+| The change coordinator calls only the listed roles and edits no code | refused when it edits product code or hands work to a role the script does not list: the coordinator is the owner's session, held by a hook (ADR 0011) (exists) | the role's definition in the driver |
 | The task branch never receives `develop` | the command is refused (new) | a GitHub check on the pull request to `master` |
 | Approval only from the owner's message | the file is writable only by the main session (exists; the weakest lock) | the driver's human-review step |
 
@@ -319,6 +336,11 @@ devkit:
     source: jira
 ```
 
+**The configuration's field names. Decided by `change-coordinator` on 2026-11-20 (A-8).**
+`devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,
+`compozy` or `script`; default `claude`) are final. The other fields stay proposed, for rounds 16, 17
+and 20.
+
 **The header's field names (decided by `flow-script-checker`).** The three facts are `result`, `attempt` and
 `commit`, in one comment line at the top of each stage file:
 `<!-- devkit-stage <stage> result=<result> attempt=<n> commit=<sha> -->`.
@@ -327,7 +349,7 @@ devkit:
 
 All decided by the owner.
 
-- Two language settings in two places (to be built in round 15). The language of the project's files
+- Two language settings in two places (built in round 15). The language of the project's files
   lives in the project's OpenSpec configuration and holds for everyone. The person's language lives in
   the plugin's own configuration, per person, and drives the conversation and the panels. The owner
   works in Portuguese on projects whose files are in English; other people may use the same project
@@ -346,6 +368,9 @@ All proposed. The three drivers are to be built in rounds 15, 21 and 22.
   coordinator and each change has its change coordinator as a subagent, which in turn calls the stage
   subagents (Claude Code documents nesting three levels below the main conversation). When a change
   needs the owner, the question goes up and the roadmap coordinator asks it in the session.
+  **Waiting on GitHub. Decided by the owner on 2026-11-20 (round 15 grill, question 1): wait with no
+  time limit and go on alone.** Built as a background command of the session that ends when GitHub
+  answers; the session is called back, runs the loop again and goes on. The command holds no state.
 - **CompozyOS (round 21).** One short, generic loop (ask, run the role, check) in place of the
   619-line flow written apart. `/devkit` starts the run. The kit's planning role is renamed from
   `tech-lead` to `planner` (section 2). Not verified: whether CompozyOS can choose the role at each
@@ -411,7 +436,8 @@ All proposed.
 **To prove before trusting:**
 
 - A subagent inside a subagent reports its end, many times in a row (the owner's past failure).
-- The two stop locks hold without looping.
+- The two stop locks hold without looping (shown live by the live test of `change-coordinator`, with the
+  hook log it records; the interrupt case rests on the documented fact that an interrupt fires no stop event).
 - CompozyOS accepts the generic loop.
 - Jira can be read on each platform.
 - Grouped sessions work as a view.
@@ -432,21 +458,12 @@ The points still to prove are proved together, in one live test session, when th
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
 machine is loaded, writing back to Jira, small work and the roadmap, and the lean pull-request
-template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`.
+template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
 
 - How the roadmap coordinator measures load before it holds a start (section 2).
 - What to do when the task branch conflicts with `develop`; settled in the grill of round 17
   (section 5).
-- Which rules of ADR 0007 the change coordinator keeps: unfinished work reported before anything
-  runs, a missing change created only on the owner's answer (ADR 0010).
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
-- The configuration's field names (section 8).
-- How the change coordinator waits on GitHub without anybody's message: today green checks wake
-  nothing, and on 2026-11-19 the owner had to write twice for the flow to go on; settled in the
-  grill of round 15 (section 10).
-- How the two roles called `tech-lead` are told apart between round 15, which builds the change
-  coordinator, and round 21, which renames the CompozyOS kit's planner; settled in the grill of
-  round 15 (section 2).
 - Whether CompozyOS can choose the role at each turn (section 10).
 - The script driver for an AI other than Claude (section 10).
 - Project setup (proposed; to be built in round 26): one setup step per project writes the `devkit:`
@@ -462,7 +479,7 @@ the round that replaces it:
 | What exists today | Replaced or removed in |
 |---|---|
 | `ship-change` (drives the build order until step 3 is ready) | stays; the change coordinator takes over its loop in round 15 |
-| `/conduct`, round mode included | round 15 (change coordinator) retires it |
+| `/conduct`, round mode included | retired in round 15 (`change-coordinator`) |
 | `conduct-check.mjs` | round 24 (cleanup), after the checker `flow-check` |
 | `deliver-check.mjs` as the next-step oracle | round 24 (cleanup), after the checker `flow-check` |
 | The child-session rules and code (ADR 0006) | round 24 (cleanup) |

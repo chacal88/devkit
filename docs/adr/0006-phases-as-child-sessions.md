@@ -7,6 +7,8 @@
 
 ## Context
 
+Note (change-coordinator, 2026-11-20): `/conduct` was retired in round 15; one change now runs with `/devkit change` (ADR 0010); the child-session code stays in `conduct-check.mjs` until round 24.
+
 Note (ADR 0010, 2026-11-19): ADR 0010 supersedes ADR 0001 and ADR 0007. In the new flow each stage
 is a subagent of the change coordinator, and grouped sessions are at most an optional view. Until
 round 15 (change-coordinator) retires /conduct and round 24 (coordination-cleanup) removes the

@@ -738,7 +738,7 @@ test('review round: text review-change holds the lost-round row and drops the bu
   assert.match(s.slice(i - 900, i + 600), /drop/);
 });
 
-test('review round: text the ship-change review row and conduct Delivery item 5 name the Workflow tool, the agents path and the lost round', () => {
+test('review round: text the ship-change review row and the devkit skill review sentence name the Workflow tool, the agents path and the lost round', () => {
   const ship = readRoot('plugins/openspec/skills/ship-change/SKILL.md');
   const row = ship.split('\n').find((l) => l.startsWith('| `review` |'));
   assert.ok(row);
@@ -747,12 +747,12 @@ test('review round: text the ship-change review row and conduct Delivery item 5 
   assert.match(row, /declares the round lost/);
   const fixRow = ship.split('\n').find((l) => l.startsWith('| `fix-review`'));
   assert.match(fixRow, /approved review/);
-  const conduct = readRoot('plugins/openspec/skills/conduct/SKILL.md');
-  const item = conduct.split('\n').find((l) => l.startsWith('5. `review`'));
+  const devkit = readRoot('plugins/openspec/skills/devkit/SKILL.md');
+  const item = devkit.split('\n').find((l) => l.startsWith('- `review`'));
   assert.ok(item);
+  assert.match(item, /`ship-change` `review` row/);
   assert.match(item, /Workflow tool/);
   assert.match(item, /`agents` path/);
-  assert.match(item, /--busy/);
   assert.match(item, /declared lost/);
 });
 

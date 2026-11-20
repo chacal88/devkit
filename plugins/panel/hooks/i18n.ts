@@ -309,7 +309,7 @@ const PT_BR: UiText = {
     seeFile: file => `Ver ${file}`,
   },
   fill: {
-    conduct: id => `/conduct ${id}`,
+    conduct: id => `/devkit change ${id}`,
     approve: id => `Aprovo o plano de ${id}`,
     answer: id => `Approve proposal 1 of ${id}`,
   },
@@ -333,7 +333,7 @@ const PT_BR: UiText = {
     nowLeft: k => (k === 1 ? 'Falta 1 tarefa nesta fase.' : `Faltam ${k} tarefas nesta fase.`),
     bandLeft: k => `faltam ${k}`,
     nowThen: steps => `Depois: ${steps}.`,
-    hint: id => `põe /conduct ${id} na caixa`,
+    hint: id => `põe /devkit change ${id} na caixa`,
     steps: 'Passos',
     stepsCount: k => `${k} de 10`,
     stepName: key => STEP_NAMES[key][0],
@@ -381,7 +381,7 @@ const PT_BR: UiText = {
     count: n => `${n} pendências`,
     nothingPending: 'nada pendente',
     noLongerOpen: 'não está mais aberta',
-    conductMeaning: 'planeja e executa aqui, com sessões filhas',
+    conductMeaning: 'planeja e executa aqui, etapa por etapa',
   },
   detail: {
     pendingTitle: 'Pendências',
@@ -438,7 +438,7 @@ const EN: UiText = {
     seeFile: file => `See ${file}`,
   },
   fill: {
-    conduct: id => `/conduct ${id}`,
+    conduct: id => `/devkit change ${id}`,
     approve: id => `I approve the plan of ${id}`,
     answer: id => `Approve proposal 1 of ${id}`,
   },
@@ -462,7 +462,7 @@ const EN: UiText = {
     nowLeft: k => (k === 1 ? '1 task left in this phase.' : `${k} tasks left in this phase.`),
     bandLeft: k => `${k} left`,
     nowThen: steps => `Then: ${steps}.`,
-    hint: id => `puts /conduct ${id} in the box`,
+    hint: id => `puts /devkit change ${id} in the box`,
     steps: 'Steps',
     stepsCount: k => `${k} of 10`,
     stepName: key => STEP_NAMES[key][1],
@@ -510,7 +510,7 @@ const EN: UiText = {
     count: n => `${n} pending`,
     nothingPending: 'nothing pending',
     noLongerOpen: 'no longer open',
-    conductMeaning: 'plans and runs it here, with child sessions',
+    conductMeaning: 'plans and runs it here, stage by stage',
   },
   detail: {
     pendingTitle: 'Pending',
