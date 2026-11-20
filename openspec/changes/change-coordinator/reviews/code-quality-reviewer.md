@@ -1,20 +1,24 @@
 Verdict: approved
-Commit: 551ee6383b99eabd4589e6154ba08c730ad9748b
+Commit: c45c6b6467d7d3a3bce4efafd1eca890cc587a14
 
-## Quality review — change-coordinator (round 1)
+## Quality review — change-coordinator (round 2)
 
 ### Findings
-- [nit] plugins/openspec/skills/devkit/SKILL.md:61 — The `agent` bullet reads 'with `subagent_type` is `agent`'; it should say `subagent_type` set to the action's `agent` field. A session reading this literally could pass the wrong value.
-- [nit] plugins/openspec/hooks/change-loop.mjs:429-431 — Section banner 'the command line (D-5)' is immediately followed by the banner 'the locks (D-8)', so the first one heads nothing. The command-line code starts at line 541. Move or drop the empty banner.
-- [nit] plugins/openspec/hooks/change-loop.mjs:364 — In openChange's cleanup, `worktree remove` and `branch -D` share one try block. If the remove throws, the branch is never deleted and the id stays 'name-taken'. Put each in its own try.
-- [nit] plugins/openspec/hooks/guard.mjs:379-386 — The `devkit-run: <id>` marker is trusted from any tool result in the transcript. Any later tool output with that line at line start (a cat of a doc) would re-point the run to another change. No such line exists in the repo today, and the lock fails open and only follows the newest id. Worth a comment, or a check that the id names a real change.
-- [praise] plugins/openspec/hooks/change-loop.mjs:decide / ROWS — The decision core is pure and table-driven: facts in, one action out. The K1/K2 no-progress and not-delivered guards sit in one place, and messages are keyed by language with one render path. That is why 149 tests can cover it cheaply.
-- [praise] plugins/openspec/hooks/guard.mjs:lock, change-loop.mjs:refuseOnce — Each lock fails open on any error. A refusal that cannot be recorded is let through, so a lock cannot loop forever. Decisions are logged to an opt-in DEVKIT_HOOK_LOG. runOf was timed on a 92 MB transcript at about 164 ms, so the pre-filter on user lines keeps the edit hot path cheap.
-- [praise] plugins/panel/hooks/conducted.ts:argsOf — The panel reads `/devkit change <id>` and the retired `/conduct <id>` in old transcripts. Free text after `/devkit` names no change, and `changes foo` is rejected. The tests cover each form.
+- [nit] plugins/openspec/skills/devkit/SKILL.md agent bullet — subagent_type wording now says 'set to the action's agent field' · fixed in 2d48034
+- [nit] plugins/openspec/hooks/change-loop.mjs command line banner — empty banner moved onto USAGE and the parser; a test checks no banner is followed by another banner · fixed in 2d48034
+- [nit] plugins/openspec/hooks/change-loop.mjs openChange cleanup — each cleanup step runs in its own try and the original error is kept; tests cover it · fixed in 2d48034
+- [nit] plugins/openspec/hooks/guard.mjs:370 — the devkit-run marker is still trusted from any tool result, with no comment or id check
+- [nit] plugins/openspec/hooks/guard.mjs:370-396 — devkit-end is accepted from any tool result and its id is not compared with the run's change; a stray line ends the stop lock until the next run line
+- [nit] plugins/openspec/skills/devkit/SKILL.md resolve-release-conflict bullet — its failure ends the run blocked but is not told to go through reply blocked, so the stop lock refuses once
+- [praise] plugins/openspec/hooks/change-loop.mjs:loopOutput, END_OF_KEY — the end marker is printed by the command that decides the end, in one place, and tested for every end state
+- [praise] plugins/openspec/hooks/change-loop.mjs:PACKS, agentDecision — the pack check closes the same-name and no-type bypasses, and a test holds the table to docs/roles.md
+- [praise] plugins/openspec/hooks/change-loop.mjs:agent() — the delivery agent comes from the checker row with a parity test against actorOf, removing the duplicated table
 
 ### Summary
-- 7 findings (0 blocking, 0 important, 4 nit) + 3 praise
-- Justification: I read the diff of the hook files (`change-loop.mjs` whole, `guard.mjs` and `hooks.json`), `SKILL.md`, the panel pack's `conducted.ts`, `i18n.ts`, `commands.ts` and `project.ts`, and the core agents' `skills:` lists. I also read the plugin manifests and the touched hunks of `conduct-check.mjs` and `flow-check.mjs`. I sampled the tests and listed the other test files by diffstat without reading them in full. I checked cross-package consistency by grep: no live references to the removed `conduct` skill remain except the panel's intended read of old transcripts, and the review-round test was moved to the new skill text. The exports added to `flow-check` and `conduct-check` are used by the loop, and the guard/loop import cycle is safe (the loop imports the guard statically, the guard imports the loop dynamically). The three locks match the declared design: each refuses at most once per state and fails open. Product-code edits and shell writes are gated only for the main session in a run, and subagents are exempt. The version bumps (openspec 0.16.0, core 0.8.0, panel 0.3.0, marketplace 0.20.0) are consistent. I did not re-run the suites; I rely on the gate results given in the prompt. The acceptance proof (evidence.md, 15 of 15 with the live command test and stated limits) was taken as given.
+- 6 findings (0 blocking, 0 important, 3 open nits and 3 fixed nits) + 3 praise.
+- Verdict: approved; only nits remain open.
+- Read in full every changed line of change-loop.mjs, guard.mjs, SKILL.md, CHANGELOG.md, docs/openspec-flow.md and ADR 0008 in 551ee63..HEAD, plus the new tests in the remit (O5 rollback, end marker, T3a, H4a, packs-versus-roles, banner, skill text). The filtered run '^change-loop' gave 167 tests, 167 pass, 0 fail, with GITHUB_HEAD_REF and GITHUB_BASE_REF set. The full suite and evidence.md were taken from the gate results given.
+- Checked the 'Review round 1: what changed' table against the code for rows 1, 2, 3, 5 and 6, and for the id rule and the ADR 0008 note; the NAME regex equals the old rule plus the dash rules; the rmSync in the rollback only touches the worktree this call created; T3a sits after the background-task check in stopDecision.
 
 ### Files read
-plugins/openspec/hooks/change-loop.mjs, guard.mjs, hooks.json, conduct-check.mjs (diff), flow-check.mjs (diff); plugins/openspec/skills/devkit/SKILL.md; plugins/panel/hooks/conducted.ts, i18n.ts, commands.ts, project.ts (diffs); plugins/core/agents/commit-and-pr.md, plan-readiness-reviewer.md, tdd-implementer.md (diffs); the three plugin.json files and marketplace.json (diffs); review-round.test.mjs (diff); a grep of the tests of guard, change-loop and the panel pack (listed, not read in full).
+plugins/openspec/hooks/change-loop.mjs, guard.mjs, change-loop.test.mjs (new tests); plugins/openspec/skills/devkit/SKILL.md; docs/openspec-flow.md; docs/adr/0008-reviews-as-a-workflow.md; CHANGELOG.md; openspec/changes/change-coordinator/design.md (last section); openspec/changes/change-coordinator/reviews/code-quality-reviewer.md
