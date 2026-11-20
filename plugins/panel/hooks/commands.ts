@@ -9,11 +9,11 @@ export type OwnerButton = { key: string; label: string; text: string }
 
 const APPROVE_STEPS: readonly string[] = ['stop-plan-approval', 'approve']
 
-/** `Conduzir`: `/conduct <id>`, on every other open change (and its detail). On a change not yet created that is the create path. */
+/** `Conduzir`: `/devkit change <id>`, on every other open change (and its detail). On a change not yet created that is the create path. */
 export const conductButton = (id: string, text: UiText): OwnerButton => ({ key: `conduct:${id}`, label: text.labels.conduct, text: text.fill.conduct(id) })
 
 /**
- * The buttons of the conducted change's `Agora` box, in order: `Continuar aqui` (always, `/conduct <id>`), then `Aprovar plano`
+ * The buttons of the conducted change's `Agora` box, in order: `Continuar aqui` (always, `/devkit change <id>`), then `Aprovar plano`
  * on `approve` and `stop-plan-approval`, or `Responder retro` on `stop-retro-answers`. There is no Ship button (design D24).
  */
 export const nowButtons = (row: ChangeRow, text: UiText): OwnerButton[] => {

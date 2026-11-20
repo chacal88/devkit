@@ -3,6 +3,9 @@ name: tdd-implementer
 description: Implements an approved change plan with strict TDD (red → green → refactor), one phase at a time, stopping at each phase gate; re-inspects the repo before coding and returns a parseable outcome. Never commits or opens PRs. Use when a change has an approved tasks.md and it's time to write the code — "implement this change", "execute phase 2", "apply the plan".
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
+skills:
+  - test-driven-development
+  - systematic-debugging
 ---
 
 # TDD implementer

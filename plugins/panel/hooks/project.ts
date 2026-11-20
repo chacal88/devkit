@@ -120,7 +120,7 @@ export type Candidate = { id: string; source: 'folder' | 'branch' }
 
 
 /**
- * The open change ids, the way the conduct skill's no-argument form lists them (design D4): the folders under
+ * The open change ids, the way `change-loop.mjs start` lists them (design D4): the folders under
  * `openspec/changes` of every worktree path (the root when git listed none), minus `archive`, plus the branches
  * of every worktree but the first that are change ids; de-duplicated, a folder winning over the same branch.
  */

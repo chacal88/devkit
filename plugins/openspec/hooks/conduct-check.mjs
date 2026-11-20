@@ -420,7 +420,7 @@ function releaseConflict(ctx, row, state, report) {
 
 // deliver-check's report as a conduct row, after the overrides that need git (D9): a rewritten branch first,
 // except that auto-merge is switched off before anything else.
-function deliveryRow(ctx, row, d) {
+export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
   if (d.report.next.step === 'disable-auto-merge') return { ...plain, ...info };

@@ -211,7 +211,7 @@ test('then the user scope, else no checker', async () => {
   expect(await locateChecker({ fs: broken, env: home }, '/w')).toBeUndefined()
 })
 
-/** The conduct skill's no-argument wording (`plugins/openspec/skills/conduct/SKILL.md`, step "No argument"), as of devkit-openspec 0.12.0. */
+/** The wording of the `conduct` skill's no-argument step as it shipped up to devkit-openspec 0.15.1 (removed in 0.16.0); the panel keeps listing candidates this way until round 23. */
 const SKILL_NO_ARGUMENT =
   'list the open change ids (the folders under `openspec/changes/` in the current checkout and in every path of `git worktree list`, minus `archive`, plus the worktree branches that are change ids, deduplicated)'
 
@@ -422,6 +422,29 @@ test('AC-1 conducted-change-on-top: the three forms of /conduct <id> give the id
   expect(conductArgs([commandTags('old-one'), chat('assistant', 'ok'), plainCommand('/conduct newer-one')])).toBe('newer-one')
 })
 
+test('AC-1 conducted-change-on-top: /devkit change <id> gives the id as command tags, as a first line and with a plugin prefix; the old /conduct forms still count', () => {
+  expect(conductArgs([commandTags('change add-x', 'devkit')])).toBe('add-x')
+  expect(conductArgs([commandTags('change add-x', 'devkit-openspec:devkit')])).toBe('add-x')
+  expect(conductArgs([plainCommand('/devkit change add-x')])).toBe('add-x')
+  expect(conductArgs([plainCommand('/devkit-openspec:devkit change add-x\nand some more text')])).toBe('add-x')
+  expect(conductArgs([plainCommand('/devkit change "add-x".')])).toBe('add-x')
+  // the newest invocation wins, across the two commands
+  expect(conductArgs([plainCommand('/devkit change old-one'), plainCommand('/conduct newer-one')])).toBe('newer-one')
+  expect(conductArgs([plainCommand('/conduct old-one'), commandTags('change newer-one', 'devkit')])).toBe('newer-one')
+})
+
+test('AC-1 conducted-change-on-top: /devkit with free text, no id or several words names no change, and it ends the older id', () => {
+  expect(conductArgs([plainCommand('/devkit add a rate limiter to the api')])).toBeUndefined()
+  expect(conductArgs([commandTags('add a rate limiter', 'devkit')])).toBeUndefined()
+  expect(conductArgs([plainCommand('/devkit add-x')])).toBeUndefined()
+  expect(conductArgs([plainCommand('/devkit change')])).toBeUndefined()
+  expect(conductArgs([plainCommand('/devkit change add a rate limiter')])).toBeUndefined()
+  expect(conductArgs([plainCommand('/devkit changeling add-x')])).toBeUndefined()
+  expect(conductArgs([plainCommand('/devkit change old-one'), plainCommand('/devkit fix the build')])).toBeUndefined()
+  // another command that starts with the word, and a Skill tool use of the devkit skill, are not invocations
+  expect(conductArgs([plainCommand('/devkit-panel change add-x'), skillToolUse('change add-x', 'devkit-openspec:devkit')])).toBeUndefined()
+})
+
 test('AC-1 conducted-change-on-top: a trailing sentence period (or other punctuation, quotes, backticks) is trimmed in each of the three forms', () => {
   expect(conductArgs([commandTags('panel-conduct-view.')])).toBe('panel-conduct-view')
   expect(conductArgs([plainCommand('/conduct panel-conduct-view.')])).toBe('panel-conduct-view')
@@ -529,20 +552,20 @@ test('AC-5 child-sessions-with-icons: the previous children-found id is kept onl
 const change = (step: string, actor = 'main'): ChangeRow => ({ id: 'add-x', next: { step, actor }, state: '' })
 const texts = (buttons: { key: string; label: string; text: string }[]) => buttons.map(b => [b.key, b.text])
 
-test('AC-8 buttons-visibly-fill: Continue here is always /conduct <id>; Approve plan and Answer retro come on their steps only; there is no Ship button', () => {
+test('AC-8 buttons-visibly-fill: Continue here is always /devkit change <id>; Approve plan and Answer retro come on their steps only; there is no Ship button', () => {
   for (const lang of ['pt-BR', 'en'] as const) {
     const text = uiText(lang)
     const approve = lang === 'en' ? 'I approve the plan of add-x' : 'Aprovo o plano de add-x'
-    expect(texts(nowButtons(change('gate', 'gate'), text))).toEqual([['conduct:add-x', '/conduct add-x']])
-    expect(texts(nowButtons(change('implement', 'session'), text))).toEqual([['conduct:add-x', '/conduct add-x']])
-    expect(texts(nowButtons(change('stop-plan-approval', 'owner'), text))).toEqual([['conduct:add-x', '/conduct add-x'], ['approve:add-x', approve]])
-    expect(texts(nowButtons(change('approve', 'owner'), text))).toEqual([['conduct:add-x', '/conduct add-x'], ['approve:add-x', approve]])
-    // a creation row has only Continue: `/conduct <id>` on a missing change is the create path
-    expect(texts(nowButtons(change('create', 'main'), text))).toEqual([['conduct:add-x', '/conduct add-x']])
-    expect(texts(nowButtons(change('stop-retro-answers', 'owner'), text))).toEqual([['conduct:add-x', '/conduct add-x'], ['answer:add-x', 'Approve proposal 1 of add-x']])
-    expect(texts(nowButtons(change('ready', 'owner'), text))).toEqual([['conduct:add-x', '/conduct add-x']])
+    expect(texts(nowButtons(change('gate', 'gate'), text))).toEqual([['conduct:add-x', '/devkit change add-x']])
+    expect(texts(nowButtons(change('implement', 'session'), text))).toEqual([['conduct:add-x', '/devkit change add-x']])
+    expect(texts(nowButtons(change('stop-plan-approval', 'owner'), text))).toEqual([['conduct:add-x', '/devkit change add-x'], ['approve:add-x', approve]])
+    expect(texts(nowButtons(change('approve', 'owner'), text))).toEqual([['conduct:add-x', '/devkit change add-x'], ['approve:add-x', approve]])
+    // a creation row has only Continue: `/devkit change <id>` on a missing change is the create path
+    expect(texts(nowButtons(change('create', 'main'), text))).toEqual([['conduct:add-x', '/devkit change add-x']])
+    expect(texts(nowButtons(change('stop-retro-answers', 'owner'), text))).toEqual([['conduct:add-x', '/devkit change add-x'], ['answer:add-x', 'Approve proposal 1 of add-x']])
+    expect(texts(nowButtons(change('ready', 'owner'), text))).toEqual([['conduct:add-x', '/devkit change add-x']])
     expect(nowButtons(change('stop-plan-approval', 'owner'), text).map(b => b.label)).toEqual([text.labels.continueHere, text.labels.approve])
-    expect(texts([conductButton('add-x', text)])).toEqual([['conduct:add-x', '/conduct add-x']])
+    expect(texts([conductButton('add-x', text)])).toEqual([['conduct:add-x', '/devkit change add-x']])
     expect(conductButton('add-x', text).label).toBe(text.labels.conduct)
   }
   expect(uiText('pt-BR').labels.continueHere).toBe('Continuar aqui')
@@ -581,10 +604,10 @@ test('uiText: pt-BR and en carry the same keys, the pane, detail, band, toast, c
   expect(uiText('pt-BR').pane.openFromSidebar).toBe('abra pela barra lateral')
 })
 
-test('the three fill texts match design D24 in each language: Conduct is always /conduct <id>', () => {
+test('the three fill texts match design D24 in each language: Conduct is always /devkit change <id>', () => {
   for (const lang of ['pt-BR', 'en'] as const) {
     const { fill } = uiText(lang)
-    expect(fill.conduct('add-x')).toBe('/conduct add-x')
+    expect(fill.conduct('add-x')).toBe('/devkit change add-x')
     expect(fill.answer('add-x')).toBe('Approve proposal 1 of add-x')
   }
   expect(uiText('pt-BR').fill.approve('add-x')).toBe('Aprovo o plano de add-x')
@@ -606,7 +629,7 @@ test('AC-17 sections-say-what-they-are: every text of design D12 is written as t
   expect([pt.pane.nowThen('provas, revisão'), en.pane.nowThen('proofs, review')]).toEqual(['Depois: provas, revisão.', 'Then: proofs, review.'])
   expect([pt.labels.continueHere, pt.labels.approve, pt.labels.answer, pt.labels.conduct]).toEqual(['Continuar aqui', 'Aprovar plano', 'Responder retro', 'Conduzir'])
   expect([en.labels.continueHere, en.labels.approve, en.labels.answer, en.labels.conduct]).toEqual(['Continue here', 'Approve plan', 'Answer retro', 'Conduct'])
-  expect([pt.pane.hint('x'), en.pane.hint('x')]).toEqual(['põe /conduct x na caixa', 'puts /conduct x in the box'])
+  expect([pt.pane.hint('x'), en.pane.hint('x')]).toEqual(['põe /devkit change x na caixa', 'puts /devkit change x in the box'])
   // 1 · steps, names, facts
   expect([pt.pane.steps, pt.pane.stepsCount(4), en.pane.steps, en.pane.stepsCount(4)]).toEqual(['Passos', '4 de 10', 'Steps', '4 of 10'])
   expect(STEP_KEYS.map(k => pt.pane.stepName(k))).toEqual(['Requisitos', 'Plano', 'Prontidão', 'Sua aprovação', 'Implementação', 'Provas', 'Revisão', 'PR e checks', 'Merge', 'Retro e arquivo'])
@@ -658,8 +681,8 @@ test('AC-17 sections-say-what-they-are: every text of design D12 is written as t
   expect([pt.toast.filled, en.toast.filled]).toEqual(['clique na caixa de texto e aperte Enter', 'click the prompt box and press Enter'])
   expect(WORD_KEYS.map(k => pt.pane.word(k))).toEqual(['aberta', 'sem prova', 'ausente', 'desatualizada', 'rejeitada', 'falhou', 'rodando', 'o dono decide'])
   expect(WORD_KEYS.map(k => en.pane.word(k))).toEqual(['open', 'no proof', 'missing', 'stale', 'rejected', 'failing', 'running', 'owner weighs'])
-  expect([pt.pane.nothingPending, pt.pane.noLongerOpen, pt.pane.conductMeaning]).toEqual(['nada pendente', 'não está mais aberta', 'planeja e executa aqui, com sessões filhas'])
-  expect([en.pane.nothingPending, en.pane.noLongerOpen, en.pane.conductMeaning]).toEqual(['nothing pending', 'no longer open', 'plans and runs it here, with child sessions'])
+  expect([pt.pane.nothingPending, pt.pane.noLongerOpen, pt.pane.conductMeaning]).toEqual(['nada pendente', 'não está mais aberta', 'planeja e executa aqui, etapa por etapa'])
+  expect([en.pane.nothingPending, en.pane.noLongerOpen, en.pane.conductMeaning]).toEqual(['nothing pending', 'no longer open', 'plans and runs it here, stage by stage'])
   expect([pt.detail.noApproval, pt.pane.noPr, pt.detail.stepDone, pt.detail.fullTextShort, pt.labels.seeFile('design.md')]).toEqual(['sem aprovação ainda', 'sem PR ainda', 'feito', '› Texto completo', 'Ver design.md'])
   expect([en.detail.noApproval, en.pane.noPr, en.detail.stepDone, en.detail.fullTextShort, en.labels.seeFile('design.md')]).toEqual(['no approval yet', 'no PR yet', 'done', '› Full text', 'See design.md'])
   expect([pt.pane.permission('t'), en.pane.permission('t')]).toEqual(['permita t para ver as sessões filhas', 'allow t to see the child sessions'])

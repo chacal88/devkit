@@ -6,6 +6,8 @@
 
 ## Context
 
+Note (change-coordinator, 2026-11-20): `/conduct` was retired in round 15; one change now runs with `/devkit change` (ADR 0010).
+
 Superseded by ADR 0006: the parallel dispatch (at most three steps at once, one step per change) survives; the session cron and its `--wake` marker do not.
 
 This ADR builds on ADR 0001 and makes two exceptions to it; ADR 0002 and ADR 0003 are unchanged.

@@ -12,11 +12,13 @@ and not to the change folder.
 
 ## change-coordinator
 
+In `docs/coordination-design.md` this role is the team's `tech-lead`; the CompozyOS kit's `tech-lead` is a different role, its planner, renamed `planner` in round 21.
+
 - Does: Runs the change from its opening to its retro: opens the folder, grills the owner for the requirements, hands each stage to its role, reads the checker after every stage and asks the owner only where a stage says so.
 - Delivers: The change folder, `requirements.md` and `retro.md`, each with its stage header.
 - Never: Writes product code, approves its own change, or skips a stage the checker has not passed.
 - Stages: `open`, `requirements`, `retro` (both scripts).
-- Played today by: The main session running the `ship-change` skill or the `/conduct` command; the `requirements-grill` and `retro` skills carry its two writing steps.
+- Played today by: The main session running `/devkit change` (the `devkit` skill of devkit-openspec), held by the stop and hand-off locks; `ship-change` still finishes a change begun under the previous script. The `requirements-grill` and `retro` skills carry its two writing steps.
 
 ## owner
 

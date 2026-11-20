@@ -6,6 +6,8 @@
 
 ## Context
 
+Note (change-coordinator, 2026-11-20): `/conduct` was retired in round 15; one change now runs with `/devkit change` (ADR 0010); which of its rules the change coordinator keeps is recorded in `docs/coordination-design.md` section 2.
+
 Superseded by ADR 0010: a roadmap coordinator now starts the changes that are ready from
 `openspec/roadmap.md` on its own, and one task enters through the change coordinator. `/conduct
 <id>` and `/conduct round <n>` keep working as this ADR describes until round 15

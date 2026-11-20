@@ -273,7 +273,7 @@ test('flow-check AC-2: the session hook names the checker and the roles', () => 
   assert.equal(code, 0);
   assert.match(out, /flow-check\.mjs/);
   assert.match(out, /a role is the devkit-core agent of the same name/);
-  assert.match(out, /`ship-change` or `\/conduct` drives the change today/);
+  assert.match(out, /`\/devkit change` runs a change/);
   assert.match(out, /`flow-check` is the read-only readout of the stages/);
   assert.doesNotMatch(out, /the next step is what `openspec status` says/);
 });
@@ -1253,8 +1253,9 @@ test('flow-check AC-3: every writer of a stage file names the stage header', () 
     assert.ok(line.includes('<!-- devkit-stage'), `ship-change row ${id} names the header`);
     assert.ok(line.includes(stage), `ship-change row ${id} names ${stage}`);
   }
-  const grill = row(read('plugins/openspec/skills/conduct/SKILL.md'), 'grill');
-  assert.ok(grill.includes('<!-- devkit-stage') && grill.includes('requirements'), 'conduct grill row');
+  const grill = read('plugins/openspec/skills/devkit/SKILL.md').split('\n').find((l) => l.startsWith('- `grill`'));
+  assert.ok(grill, 'the devkit skill has a grill item');
+  assert.ok(grill.includes('<!-- devkit-stage') && grill.includes('requirements'), 'devkit grill paragraph');
   const agents = { 'plan-readiness-reviewer': 'readiness', 'pr-verifier': 'evidence', 'change-planner': 'proposal' };
   for (const [name, stage] of Object.entries(agents)) {
     const text = read(`plugins/core/agents/${name}.md`);

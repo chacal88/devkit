@@ -3,6 +3,8 @@ name: plan-readiness-reviewer
 description: "Independent reviewer that decides whether a change plan is ready to implement, using the plan-readiness-review method, and writes the change's readiness.md with \"- Status: APPROVED | NEEDS-REVISION | BLOCKED\". It is not the plan's author and ignores any verdict the caller suggests. Use when a change's tasks are written and the plan needs its readiness gate, or when the user asks \"is this plan ready?\" for a change folder."
 tools: Read, Glob, Grep, Bash, Write, Skill
 model: sonnet
+skills:
+  - plan-readiness-review
 ---
 
 # Plan readiness reviewer

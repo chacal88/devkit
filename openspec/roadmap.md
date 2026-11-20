@@ -69,7 +69,7 @@ Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-desig
 - [ ] coordination-cleanup (after: coordination-panels, compozy-driver) — remove what the new coordination replaced: the old next-step scripts, the child-session code, the old panel and the old CompozyOS loop, and finish the documentation (D-11)
 
 ## Round 25: review round tooling
-- [ ] review-writer-prompt — `review-round.mjs outcomes` returns each outcome's stage-3 writer prompt, as `review-change`'s agents path says, and the stage 1 prompt says a disposition names one sha (orchestrator-replan retro, items 1 and 2); and the stage 1 prompt asks for the sha `git rev-parse HEAD` printed and for the list of files read, so a partial review is seen before the verify stage (flow-script-checker retro, item 4)
+- [ ] review-writer-prompt — `review-round.mjs outcomes` returns each outcome's stage-3 writer prompt, as `review-change`'s agents path says, and the stage 1 prompt says a disposition names one sha (orchestrator-replan retro, items 1 and 2); and the stage 1 prompt asks for the sha `git rev-parse HEAD` printed and for the list of files read, so a partial review is seen before the verify stage (flow-script-checker retro, item 4); and two findings of the flow-script-checker retro carried by change-coordinator: a commit that touches only tests makes stale only the reviewers it concerns, and `deliver-check` stops counting a checkbox inside a fenced example of `tasks.md` (as `flow-check` already does)
 
 ## Round 26: project setup
 - [ ] project-setup (after: delivery-models) — one setup step writes the `devkit:` block, installs the schemas and the checker into the project and wires its driver (orchestrator-replan retro, item 3)

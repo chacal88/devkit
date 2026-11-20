@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.20.0 — the change coordinator and /devkit change
+
+- **devkit-openspec** 0.16.0: the `devkit` skill, `/devkit change <what you want>`, runs one change
+  from the owner's request to its archive in the owner's session. The new script `change-loop.mjs`
+  (`start`, `open`, `script`, `next`, `wait`, `reply`) decides every step over `flow-check` and the
+  delivery rows, opens the change in its own worktree, waits on GitHub with no time limit through a
+  background command, and replies in the person's language with no internal terms. `guard.mjs` gains
+  three modes and `hooks.json` three entries: `stop` and `subagent-stop` keep the session and a stage
+  agent from stopping early, and `agent` limits the hand-offs of a run; the edit and shell-write
+  locks keep the session from writing product code in a run (ADR 0011). A user setting `language`
+  (`pt-BR` or `en`) and a `devkit:` block in `openspec/config.yaml` (`language`, `driver`) hold the two
+  languages. The CI snippet pins `v0.16.0`.
+- **devkit-core** 0.8.0: `plan-readiness-reviewer`, `tdd-implementer` and `commit-and-pr` declare the
+  skills of their stage in `skills:`.
+- **devkit-panel** 0.3.0: the owner buttons fill `/devkit change <id>`, and the conducted change is
+  also named by a typed `/devkit change <id>` (older `/conduct <id>` transcripts still count). The
+  panel's test world names the panel in its band stand-in, so its tests pass on Claude Code 2.1.326.
+- Replaces: `/conduct` (both modes) is removed; type `/devkit change <what you want>` to start a
+  change, `/devkit change` to continue one; a change begun under the previous script is still
+  finished with `ship-change`.
+- Docs: ADR 0011 (the change coordinator is the owner's session, held by hooks) amends one sentence
+  of ADR 0010 decision 8; dated Notes in ADRs 0005, 0006, 0007, 0009 and 0010;
+  `docs/coordination-design.md` records four answered open points; `docs/openspec-flow.md` has the
+  section "The change coordinator: `/devkit change`".
+
 ## 0.19.1 — retro of flow-script-checker
 
 - **devkit-openspec** 0.15.1: a test of `guard.test.mjs` refuses a test env that blanks

@@ -6,6 +6,9 @@
 //   node guard.mjs session  SessionStart: prints where the active change stands,
 //                           and the current round of openspec/roadmap.md if any
 //   node guard.mjs ci       CI: the devkit-reviews check, run by deliver-check.mjs --ci (exit 1)
+//   node guard.mjs stop          Stop: in a `/devkit change` run, the session does not end its turn while a stage is ready
+//   node guard.mjs subagent-stop SubagentStop: a stage agent does not stop before its stage file is delivered
+//   node guard.mjs agent         PreToolUse on Agent: in a run, work goes only to the roles of the change's script
 //
 // It only vetoes (exit 2 + reason on stderr). The flow lives in the OpenSpec
 // schema; this file enforces what the CLI can't see:
@@ -22,6 +25,12 @@
 //    approved (code-quality-reviewer and test-coverage-reviewer at least) and an
 //    evidence.md.
 // 3. Destructive git is refused.
+// 4. A `/devkit change` run (the newest slash command typed in the session, and the
+//    `devkit-run: <id>` line the loop printed after it, both read from the transcript):
+//    the session itself writes no product code, hands work only to the script's roles,
+//    and does not stop while the loop has a stage ready; a stage agent does not stop
+//    before delivering its file. These locks refuse at most once for an unchanged state
+//    and let everything through on any error of their own (design change-coordinator D-8).
 //
 // Only in projects whose openspec/config.yaml selects the devkit or devkit-lite
 // schema (ADR 0004). Anywhere else session, edit and bash print nothing and
@@ -35,7 +44,7 @@
 // Bypass: start Claude Code with DEVKIT_BYPASS=1 (a prefix inside the command
 // string does not reach this process). CI ignores it.
 
-import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync, appendFileSync } from 'node:fs';
 import { join, resolve, relative, dirname, isAbsolute, sep, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
@@ -331,6 +340,64 @@ function prViolation(root, ch) {
   return null;
 }
 
+// ---------------------------------------------------------------- the run (D-2)
+
+// The run a session is in, read from its transcript (`input.transcript_path`): { change, command } when the newest
+// slash command typed in the session is `/devkit change ...` (bare or plugin-scoped) and a tool result carrying a
+// line `devkit-run: <id>` follows it (the newest such id is the run's change), else null. Only lines of type `user`
+// count: a typed command has a string `message.content`, the printed line sits in a `tool_result` block (or its
+// `toolUseResult.stdout`). The skill's own body (`isMeta`), the `api-request-*` lines and a sidechain are not read.
+// Pure: it reads the one file and returns null when it cannot (the locks then let everything through).
+export function runOf(input) {
+  const file = input && input.transcript_path;
+  if (typeof file !== 'string' || !file) return null;
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch { return null; }
+  const typedOf = (content) => {
+    const tag = /<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/.exec(content);
+    if (tag) {
+      const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(content)?.[1] ?? '';
+      return { name: tag[1], args: args.trim() };
+    }
+    const first = /^\s*\/([A-Za-z][\w:-]*)(?:[ \t]+([^\n]*))?$/m.exec(content.split('\n')[0]);
+    return first ? { name: first[1], args: (first[2] ?? '').trim() } : null;
+  };
+  const textOf = (block) => (typeof block.content === 'string' ? block.content
+    : Array.isArray(block.content) ? block.content.map((b) => (typeof b?.text === 'string' ? b.text : '')).join('\n') : '');
+  const lastId = (s) => [...String(s).matchAll(/^devkit-run: ([A-Za-z0-9][\w.-]*)[ \t]*\r?$/gm)].pop()?.[1] ?? null;
+  let command = null;
+  let change = null;
+  for (const line of text.split('\n')) {
+    if (!/"type"\s*:\s*"user"/.test(line)) continue;
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; }
+    if (rec?.type !== 'user' || rec.isMeta || rec.isSidechain) continue;
+    const content = rec.message?.content;
+    if (typeof content === 'string') {
+      const typed = typedOf(content);
+      if (typed) {
+        command = /^(?:[\w-]+:)?devkit$/.test(typed.name) && /^change(?:\s|$)/.test(typed.args) ? typed : null;
+        change = null;
+      }
+      continue;
+    }
+    if (!command || !Array.isArray(content)) continue;
+    let id = null;
+    for (const block of content) if (block?.type === 'tool_result') id = lastId(textOf(block)) ?? id;
+    id ??= lastId(typeof rec.toolUseResult?.stdout === 'string' ? rec.toolUseResult.stdout : '');
+    if (id) change = id;
+  }
+  return command && change ? { change, command: `change ${command.args.replace(/^change\s*/, '')}`.trim() } : null;
+}
+
+const RUN_CODE_REASON = 'in a /devkit change run this session writes no product code; the implementation is handed to tdd-implementer by the loop';
+
+// The main session (no agent_type) in a run. Fails open: an unreadable record is no run.
+function mainInRun(input) {
+  if (role(input) || typeof input.transcript_path !== 'string') return false;
+  try { return runOf(input) !== null; } catch { return false; }
+}
+
 // ---------------------------------------------------------------- modes
 
 function guardEdit(input) {
@@ -341,6 +408,7 @@ function guardEdit(input) {
   // is gated by that worktree's change, and by that root's own opt-in.
   const root = findRoot(dirname(resolve(input.cwd || process.cwd(), file)));
   if (!root || !optedIn(root)) return;
+  if (classify(root, null, file).kind === 'code' && mainInRun(input)) block(RUN_CODE_REASON);
   const ch = resolveChange(root);
   if (!ch) return;
   if (ch.ambiguous) {
@@ -367,8 +435,13 @@ function guardBash(input) {
     if (!changes.has(root)) changes.set(root, resolveChange(root));
     return changes.get(root);
   };
+  let inRun; // asked once, and only when a write targets product code
   for (const t of bashWrites(cmd, cwd)) {
     const root = findRoot(dirname(t));
+    if (root && optedIn(root) && classify(root, null, t).kind === 'code') {
+      inRun ??= mainInRun(input);
+      if (inRun) block(`${RUN_CODE_REASON}. (Writing it through the shell is gated the same way.)`);
+    }
     const ch = root && optedIn(root) && changeAt(root);
     if (!ch) continue;
     if (ch.ambiguous) {
@@ -390,6 +463,34 @@ function guardBash(input) {
     const v = prViolation(root, ch);
     if (v) block(v);
   }
+}
+
+// ---------------------------------------------------------------- the stop and hand-off locks (D-8)
+
+const LOCKS = { stop: 'stopDecision', 'subagent-stop': 'subagentStopDecision', agent: 'agentDecision' };
+
+// `stop`, `subagent-stop` and `agent`: the decision is change-loop.mjs's (imported dynamically, as `ci` imports
+// deliver-check.mjs), refusing with exit 2 and the reason on stderr. Any error of the lock lets the action through.
+// With DEVKIT_HOOK_LOG naming a file, every decision is appended to it as one JSON line.
+async function lock(mode, input) {
+  const root = findRoot(input.cwd);
+  if (!root || !optedIn(root)) return;
+  let d;
+  try {
+    const loop = await import('./change-loop.mjs');
+    d = loop[LOCKS[mode]](input, { env: process.env });
+  } catch { d = { decision: 'allow', why: 'error' }; }
+  const file = process.env.DEVKIT_HOOK_LOG;
+  if (file) {
+    try {
+      appendFileSync(file, `${JSON.stringify({
+        at: new Date().toISOString(), mode, session: input.session_id ?? null,
+        agentType: input.agent_type ?? input.tool_input?.subagent_type ?? null, change: d.change ?? null,
+        decision: d.decision, why: d.why,
+      })}\n`);
+    } catch { /* a log that cannot be written never blocks anything */ }
+  }
+  if (d.decision === 'refuse') block(d.reason);
 }
 
 // ---------------------------------------------------------------- roadmap
@@ -476,7 +577,7 @@ function sessionChange(root) {
       { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000 });
   } catch { /* openspec not installed: still point at the change */ }
   process.stdout.write(`[devkit] Active OpenSpec change: ${ch.name} (schema ${changeSchema(root, ch.name)}).\n${status}`
-    + `Follow the schema: \`ship-change\` or \`/conduct\` drives the change today, and \`flow-check\` is the read-only readout of the stages (\`node ${dirname(fileURLToPath(import.meta.url))}/flow-check.mjs ${ch.name}\` says which passed and which is next); \`openspec instructions <artifact> --change <name>\` says how each stage is written. `
+    + `Follow the schema: \`/devkit change\` runs a change from your request to its archive (\`ship-change\` still finishes a change begun under the previous script), and \`flow-check\` is the read-only readout of the stages (\`node ${dirname(fileURLToPath(import.meta.url))}/flow-check.mjs ${ch.name}\` says which passed and which is next); \`openspec instructions <artifact> --change <name>\` says how each stage is written. `
     + 'A stage\'s instruction names its role; in Claude Code a role is the devkit-core agent of the same name, dispatched with the Agent tool (`owner` is you asking the owner, `change-coordinator` is this session, `review-bench` is the review-change skill). '
     + 'Gate files have one writer each (readiness.md: plan-readiness-reviewer; reviews/<reviewer>.md: that reviewer; evidence.md: pr-verifier); '
     + 'in the devkit schema, product code is written by tdd-implementer after readiness is APPROVED. Dispatch those agents with the Agent tool.\n');
@@ -517,4 +618,5 @@ if (isMain()) {
   else if (mode === 'edit') guardEdit(readStdin());
   else if (mode === 'bash') guardBash(readStdin());
   else if (mode === 'session') session(readStdin());
+  else if (Object.hasOwn(LOCKS, mode)) lock(mode, readStdin());
 }

@@ -17,8 +17,8 @@ The pane draws only in an OpenSpec devkit project: a root whose `openspec/config
 
 Two signals, read in this order at every refresh; the first one that gives a change id wins.
 
-1. **The newest conduct invocation in this session's transcript** (`$.session.messages()`): the `<command-name>`/`<command-args>` text, a first line `/conduct ARGS` or `/<plugin>:conduct ARGS`, or a `Skill` tool use. It counts when ARGS is one change id. `round <n>`, an empty ARGS or anything else gives nothing, and an older single id is not used.
-2. **This session's own child sessions**: the rows of the app's `mcp__ccd_session_mgmt__list_sessions` whose `startedBy` is this session, named `<sessionPrefix><n>`. This covers `/conduct round <n>` and a transcript compacted past the command. Two changes that share a prefix are never told apart this way: one line names the other id.
+1. **The newest run invocation in this session's transcript** (`$.session.messages()`): the `<command-name>`/`<command-args>` text or a first line `/devkit change ID` or `/<plugin>:devkit change ID` (the skill cannot be called through `Skill`), and the retired forms `/conduct ARGS`, `/<plugin>:conduct ARGS` or a `Skill` tool use of `conduct`, which old transcripts still hold. It counts when what follows `change` is one change id; free text after `/devkit` names no change. `round <n>`, an empty ARGS or anything else gives nothing, and an older single id is not used.
+2. **This session's own child sessions**: the rows of the app's `mcp__ccd_session_mgmt__list_sessions` whose `startedBy` is this session, named `<sessionPrefix><n>`. This covers a run that names no id (free text after `/devkit change`, or the retired `/conduct round <n>` of an old transcript, from before `/devkit change`) and a transcript compacted past the command. Two changes that share a prefix are never told apart this way: one line names the other id.
 
 With neither signal the pane says no change is conducted and lists the changes in progress.
 
@@ -55,12 +55,12 @@ Every owner button calls `prompt.fill` with one exact text and nothing else: no 
 
 | Button | On | Text filled |
 |---|---|---|
-| Continuar aqui | the Now box, always | `/conduct <id>` |
-| Conduzir | every other open change | `/conduct <id>` |
+| Continuar aqui | the Now box, always | `/devkit change <id>` |
+| Conduzir | every other open change | `/devkit change <id>` |
 | Aprovar plano | `stop-plan-approval`, `approve` | pt-BR `Aprovo o plano de <id>` · en `I approve the plan of <id>` |
 | Responder retro | `stop-retro-answers` | `Approve proposal 1 of <id>` (edit the number and the verdict) |
 
-There is no Ship button: `/conduct <id>` carries a change to its archive, and `/ship-change <id>` stays a command you can type. After a press the button reads `✓ ` plus its label and the hint reads `clique na caixa de texto e aperte Enter`.
+There is no Ship button: `/devkit change <id>` carries a change to its archive, and `/ship-change <id>` stays a command you can type. After a press the button reads `✓ ` plus its label and the hint reads `clique na caixa de texto e aperte Enter`.
 
 ## Language
 

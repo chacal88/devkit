@@ -6,6 +6,8 @@
 
 ## Context
 
+Note (change-coordinator, 2026-11-20): `/conduct` was retired in round 15; the in-session driver is now `/devkit change` (ADR 0010).
+
 Note (ADR 0010, 2026-11-19): ADR 0010 supersedes ADR 0001, whose Note this ADR extended, and keeps
 CompozyOS as one of the drivers a project chooses. Until round 21 (compozy-driver) replaces it with
 the short generic loop, the twelve-stage loop of devkit-compozy, its gates that shell out to

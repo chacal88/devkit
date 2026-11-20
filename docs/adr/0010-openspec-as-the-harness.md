@@ -1,6 +1,7 @@
 # ADR 0010: OpenSpec is the harness, and two coordinators drive it as a loop over files
 
 - Status: accepted
+- Amended by ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -20,6 +21,16 @@ the roadmap, never a prerequisite. Decisions 1 to 8 are otherwise unchanged.
 Note (flow-script-checker, 2026-11-19): the checker reads OpenSpec's task list
 less the lines inside fenced examples of `tasks.md`, which are not tasks; decisions 1 to 8 are
 unchanged.
+
+Note (change-coordinator, 2026-11-20): the change coordinator of the Claude driver is the session the
+owner typed `/devkit change` in; its product edits and its hand-offs to a role the script does not
+list are refused by a hook. [ADR 0011](0011-the-change-coordinator-is-the-owners-session.md) amends
+the sentence of decision 8 that says the change coordinator has no edit tool. It waits on GitHub
+through a background command of the session that ends when GitHub answers, holding no state. Of ADR
+0007's rules it keeps the unfinished-work question for a new request, and the owner's typed command is
+the answer that creates a change. The project settings `devkit.language` and `devkit.driver` are
+decided; the person's language is the plugin's own setting. `/conduct` is retired. Decisions 1 to 8
+are otherwise unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions
