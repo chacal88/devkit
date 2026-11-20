@@ -42,7 +42,7 @@ Stack-agnostic dev workflow: research, plan, implement, review, ship, debug and 
 
 ## devkit-openspec
 
-Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (grill → plan → readiness → TDD → evidence → review) and hooks that keep product code closed until readiness is APPROVED and refuse a PR without an approved review and evidence. — [README](../plugins/openspec/README.md)
+Runs the devkit flow on top of OpenSpec: the devkit and devkit-lite schemas (grill → plan → readiness → TDD → evidence → review) and hooks that keep product code closed until readiness is APPROVED and refuse a PR without an approved review and evidence, and flow-check, which reads each stage file's header and says which stage passed and which comes next. — [README](../plugins/openspec/README.md)
 
 **Agents**
 

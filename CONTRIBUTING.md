@@ -63,6 +63,8 @@ cd "$(mktemp -d)" && git init -q && openspec init --tools none
 bash <repo>/plugins/openspec/skills/openspec-setup/scripts/install-schemas.sh .
 ```
 
+Each schema lives in two copies (`plugins/openspec/schemas/` and this repository's `openspec/schemas/`, kept byte-identical by `install-schemas.sh`), and each folder holds `flow.json` and the templates with their stage header: change `schema.yaml`, `flow.json` and the templates together, because `flow-check` reads all three. The suite needs the `openspec` CLI (major 2) on `PATH`: the schema tests create a change with it.
+
 The hooks depend on the artifact id `readiness` and on the `- Status:` / `Verdict:` lines; keep them, or change `plugins/openspec/hooks/guard.mjs` and its tests together.
 
 ## Testing a pack locally

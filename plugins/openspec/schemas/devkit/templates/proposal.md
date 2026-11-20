@@ -1,3 +1,4 @@
+<!-- devkit-stage proposal result=pending attempt=1 commit=none -->
 # Proposal
 
 ## Why

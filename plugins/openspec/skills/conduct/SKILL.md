@@ -84,7 +84,7 @@ The planning steps come before any delivery step. `next.step` of a change in `ch
 | `create` | No worktree, branch or change yet. Ask the owner to confirm `proposedSchema`, with its `reason` in the question, for every new change, `devkit-lite` included. Only after the answer run `git worktree add -b <id> <path> origin/<base>`, then `openspec new change <id> --schema <answer>` in the worktree, back to back. For `devkit` this question is the grill's first question. Ask it before `git worktree add`, never after. |
 | `new-change` | The worktree exists, the change does not. Ask the same schema question, then run `next.command` in the worktree. |
 | `worktree` | Run `next.command` (a branch that exists on the remote only). |
-| `grill` | Run the requirements-grill skill in this session, writing `requirements.md` in the change's worktree. The schema is already confirmed, so it is not asked again. |
+| `grill` | Run the requirements-grill skill in this session, writing `requirements.md` in the change's worktree. Open it with the template's stage header line (`<!-- devkit-stage requirements ... -->`), and set `result=passed` once the owner has answered. The schema is already confirmed, so it is not asked again. |
 | `plan`, `revise-plan` | Dispatch `devkit-core:change-planner` with the worktree preamble and the `request` or `findings` the step names. |
 | `readiness` | Dispatch `devkit-core:plan-readiness-reviewer` with the preamble. |
 | `approve` | As the ship-change skill's `stop-plan-approval` row: summarize the plan and ask the owner to approve it. Write `openspec/changes/<id>/approval.md` in the worktree, in the form that row gives and with `next.readiness` as the hash, only from the owner's own message. |

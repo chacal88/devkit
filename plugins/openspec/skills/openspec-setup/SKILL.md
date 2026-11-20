@@ -15,7 +15,7 @@ Paths below are relative to this skill's directory:
 
 ## Steps
 
-1. **Check the CLI.** `openspec --version`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@latest`) and stop. If `npm view @fission-ai/openspec version` is newer than the installed version, say so and ask whether to upgrade.
+1. **Check the CLI.** `openspec --version`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.
 
 2. **Opt the project in.** Run `node <skill-dir>/scripts/project-settings.mjs <project-root>`. It adds the `devkit` marketplace and enables `devkit-core` and `devkit-openspec` in `<project-root>/.claude/settings.json`, keeping every other key; it never touches `settings.local.json` or `~/.claude`. Show its lines and `git diff -- .claude/settings.json`, and tell the user the packs load in this project after a restart of Claude Code (or `/plugin` to accept the project's plugins). Other packs only on request: add `--packs <pack,...>`.
 

@@ -476,7 +476,8 @@ function sessionChange(root) {
       { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000 });
   } catch { /* openspec not installed: still point at the change */ }
   process.stdout.write(`[devkit] Active OpenSpec change: ${ch.name} (schema ${changeSchema(root, ch.name)}).\n${status}`
-    + 'Follow the schema: the next step is what `openspec status` says, and `openspec instructions <artifact> --change <name>` says how. '
+    + `Follow the schema: \`ship-change\` or \`/conduct\` drives the change today, and \`flow-check\` is the read-only readout of the stages (\`node ${dirname(fileURLToPath(import.meta.url))}/flow-check.mjs ${ch.name}\` says which passed and which is next); \`openspec instructions <artifact> --change <name>\` says how each stage is written. `
+    + 'A stage\'s instruction names its role; in Claude Code a role is the devkit-core agent of the same name, dispatched with the Agent tool (`owner` is you asking the owner, `change-coordinator` is this session, `review-bench` is the review-change skill). '
     + 'Gate files have one writer each (readiness.md: plan-readiness-reviewer; reviews/<reviewer>.md: that reviewer; evidence.md: pr-verifier); '
     + 'in the devkit schema, product code is written by tdd-implementer after readiness is APPROVED. Dispatch those agents with the Agent tool.\n');
 }

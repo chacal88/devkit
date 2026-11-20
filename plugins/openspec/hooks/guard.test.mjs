@@ -11,6 +11,7 @@ import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewCon
 import { gitRepo, put, commitAll, git as gitIn } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
 import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
 import './conduct-check.test.mjs'; // conduct-rounds: the round computation
+import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
 import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms

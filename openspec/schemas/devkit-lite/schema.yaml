@@ -1,12 +1,102 @@
 name: devkit-lite
-version: 1
-description: devkit for small, contained changes - proposal → (optional spec delta) → tasks → apply (TDD) → evidence + review before the PR. No grill, no readiness gate.
+version: 2
+description: devkit for small, contained changes - requirements (grill) → proposal → (optional spec delta) → tasks → apply (TDD) → evidence + review before the PR. No readiness gate, no separate plan approval.
 artifacts:
+  - id: requirements
+    generates: requirements.md
+    description: Owner-confirmed assumptions and acceptance criteria, before any spec
+    template: requirements.md
+    instruction: |
+      Role: change-coordinator. Skills: requirements-grill. Helpers: codebase-researcher.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage requirements result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Load the requirements-grill skill and interview the owner (ask one
+      question at a time) across scope, end effect, edge cases and conflicts
+      with the project's rules. Do not answer the questions yourself.
+
+      Write requirements.md with:
+      - **Request**: the owner's request, in their words; when the project's docs must be in another language than the request, the faithful translation, marked "(translated from <language>)".
+      - **Assumptions**: each one confirmed by the owner, written literally
+        (exact paths, fields, names).
+      - **Acceptance criteria**: stable ids (AC-1, AC-2, ...), each observable
+        and testable. These ids are carried into specs, tasks and evidence.
+      - **Out of scope**.
+
+      If the owner opts out of the grill ("skip it", "no questions"), write the
+      request, the criteria you can derive from it, and the line
+      `Grill: skipped by owner`.
+
+      Gate: the owner answered.
+    requires: []
+
+  - id: mockup
+    generates: mockup.md
+    description: Screens drawn with real example data, when the change alters a screen
+    template: mockup.md
+    instruction: |
+      Role: screen-designer. Skills: screen-mockup, screen-design.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage mockup result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Draw the screens this change alters, with real example data, and save them under the
+      change's `mock/` folder, one file per screen. Write mockup.md listing each screen, the file that
+      holds it and the data it shows. What the mock reveals goes back into requirements.md.
+      When the change alters no screen, write the header with `result=not-applicable` and one line
+      saying why.
+
+      Until this stage's role ships, nobody is required to write this file, and the checker
+      reports the stage as not applying.
+
+      Gate: the owner approves the mock; what it reveals goes back into the requirements.
+    requires:
+      - requirements
+
+  - id: decisions
+    generates: decisions.md
+    description: Proposed ADRs for the decisions this change needs, or one line saying none
+    template: decisions.md
+    instruction: |
+      Role: adr-author. Skills: adr-authoring.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage decisions result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Analyse what this change will do and decide whether it needs an ADR. When it does, write
+      each proposed ADR in the project's ADR folder and list them in decisions.md. When it does not,
+      write the header with `result=not-applicable` and one line saying so.
+
+      Until this stage's role ships, nobody is required to write this file, and the checker
+      reports the stage as not applying.
+
+      Gate: the role first analyses whether an ADR is needed; if not, it leaves one line saying so.
+    requires:
+      - requirements
+
   - id: proposal
     generates: proposal.md
     description: Initial proposal document outlining the change
     template: proposal.md
     instruction: |
+      Role: change-planner. Skills: none. Helpers: openspec-validator.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage proposal result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
       Create the proposal document that establishes WHY this change is needed.
 
       Sections:
@@ -55,20 +145,30 @@ artifacts:
       - the change is hard to roll back;
       - the request is ambiguous enough to need the owner grilled.
 
-      Write 1-3 acceptance criteria (AC-1, ...) in an
-      "## Acceptance criteria" section. If spec-level behavior changes, list
+      Copy the acceptance criteria of requirements.md, with their ids
+      (1-3 of them), into an "## Acceptance criteria" section. If spec-level behavior changes, list
       the capability under Capabilities and write its delta in the specs
       artifact; if it doesn't (refactor, tooling, docs, a fix restoring
       specified behavior), skip Capabilities and set `skip_specs: true` in
       the change's .openspec.yaml.
 
-    requires: []
+      Gate: `openspec validate <id> --strict` passes.
+    requires:
+      - requirements
 
   - id: specs
     generates: "specs/**/*.md"
     description: Detailed specifications for the change
     template: spec.md
     instruction: |
+      Role: change-planner. Skills: none. Helpers: openspec-validator.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage specs result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
       Create specification files that define WHAT the system should do.
 
       A spec is a behavior contract, not an implementation plan.
@@ -178,6 +278,10 @@ artifacts:
 
       devkit-lite: optional. Write it only when the proposal lists a
       capability; otherwise skip it (skip_specs: true).
+
+      Every spec file carries the stage header on line 1, above `# Spec Delta`; the stage takes the worst result of its files.
+
+      Gate: `openspec validate <id> --strict` passes.
     requires:
       - proposal
 
@@ -186,6 +290,14 @@ artifacts:
     description: Implementation checklist with trackable tasks
     template: tasks.md
     instruction: |
+      Role: change-planner. Skills: none. Helpers: openspec-validator.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage tasks result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
       Create the task list that breaks down the implementation work.
 
       Before writing tasks, check design.md for Open Questions. If any of them
@@ -252,25 +364,146 @@ artifacts:
       Every acceptance criterion id from requirements.md is covered by at
       least one task.
 
+      Gate: `openspec validate <id> --strict` passes.
     requires:
       - proposal
+
+  - id: unit-tests
+    generates: unit-tests.md
+    description: The whole suite and its coverage, run apart from the implementer
+    template: unit-tests.md
+    instruction: |
+      Role: test-runner. Skills: test-and-coverage, systematic-debugging.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage unit-tests result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Run the project's whole test suite with its own command, apart from the implementer, and
+      record in unit-tests.md the command, its result and the coverage against the project's target.
+      Fix nothing: a red suite is recorded with `result=failed` and goes back to the implementation.
+
+      Until this stage's role ships, nobody is required to write this file, and the checker
+      reports the stage as not applying.
+
+      Gate: the whole suite is green and its coverage is within the project's target.
+    requires:
+      - tasks
+
+  - id: e2e-tests
+    generates: e2e-tests.md
+    description: E2E tests written from the acceptance criteria, and their result
+    template: e2e-tests.md
+    instruction: |
+      Role: e2e-tester. Skills: e2e-testing.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage e2e-tests result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Where the project has E2E tests configured, write E2E tests from the acceptance criteria,
+      apart from the implementer, run them and record in e2e-tests.md what they cover and their result.
+      When the project has no E2E structure, write the header with `result=not-applicable` and one line
+      saying why.
+
+      Until this stage's role ships, nobody is required to write this file, and the checker
+      reports the stage as not applying.
+
+      Gate: the E2E tests are green; it is a delivery condition.
+    requires:
+      - tasks
+
+  - id: evidence
+    generates: evidence.md
+    description: Per acceptance criterion, what was done, what was observed and whether it passed
+    template: evidence.md
+    instruction: |
+      Role: pr-verifier. Skills: none.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage evidence result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Do NOT write evidence.md yourself: hand this stage to the pr-verifier role, the independent
+      verifier. It runs the touched surfaces' gate commands and writes evidence.md: the stage header on
+      line 1, `Commit: <sha>` (the full `git rev-parse HEAD` it verified) on line 2, then a `### Gates`
+      table with one row per gate command and a table with one row of proof per acceptance criterion id.
+      `result=passed` when it verified, `result=failed` when it records a defect; a defect goes back to
+      the implementation.
+
+      Gate: every acceptance criterion is demonstrated and recorded.
+    requires:
+      - tasks
+
+  - id: review
+    generates: review.md
+    description: The code review rounds and their consensus
+    template: review.md
+    instruction: |
+      Role: review-bench. Skills: review-change. Helpers: code-quality-reviewer, test-coverage-reviewer, architecture-reviewer, security-reviewer, adr-reviewer, spec-reviewer, finding-verifier.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage review result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Run the review-change skill for this change. Each reviewer writes reviews/<reviewer>.md with
+      `Verdict:` on line 1 and `Commit:` on line 2; those files take no stage header. After each round,
+      append the round's summary, with its `Consensus:` line, to review.md and keep the stage header on
+      line 1: `result=passed` when the consensus is PASS, `result=failed` when it is FAIL, `attempt` the
+      round and `commit` the reviewed commit.
+
+      Gate: the reviewers reach consensus; two rounds at most.
+    requires:
+      - evidence
+
+  - id: retro
+    generates: retro.md
+    description: What the change taught, as proposed updates for the owner to approve
+    template: retro.md
+    instruction: |
+      Role: change-coordinator. Skills: retro.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage retro result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Run the retro skill for this change, writing retro.md in the format of its Output section:
+      `## Retro: <id>` and `## Proposed updates`, with no `Answer:` lines. The stage header stays
+      `result=pending` while proposals wait for the owner; once the owner answered each proposal and
+      each answer is recorded under it, set `result=passed`.
+
+      Gate: the owner answered each proposal.
+    requires:
+      - review
 
 apply:
   requires: [ tasks ]
   tracks: tasks.md
   instruction: |
+    Role: tdd-implementer. Skills: test-driven-development, systematic-debugging.
+
     Small change: implement it directly, test first (red, green, refactor),
-    or dispatch devkit-core:tdd-implementer with the Agent tool.
+    or hand it to the tdd-implementer role.
 
     Then:
-    1. Dispatch devkit-core:pr-verifier: it writes evidence.md. If it
-       records a defect, fix it (test first), then dispatch pr-verifier
+    1. Hand the demonstration to the pr-verifier role: it writes evidence.md. If it
+       records a defect, fix it (test first), then hand the demonstration to pr-verifier
        again.
-    2. Run the review-change skill for this change. Each reviewer agent
+    2. Hand the code review to the review-bench role: run the review-change skill for this change. Each reviewer
        writes reviews/<reviewer>.md; code-quality-reviewer and
        test-coverage-reviewer are always required. After a fix,
-       dispatch pr-verifier again, then re-run the reviewers concerned.
-    3. Dispatch devkit-core:commit-and-pr. The hooks refuse `gh pr create`
+       hand the demonstration to pr-verifier again, then re-run the reviewers concerned.
+    3. Hand the delivery to the commit-and-pr role. The hooks refuse `gh pr create`
        until the reviews are approved and evidence.md exists.
 
     Pause if you hit blockers or need clarification.

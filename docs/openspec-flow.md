@@ -16,7 +16,7 @@ The OpenSpec CLI reads the first two and hands the result to the agent: `openspe
 
 ## Choosing a schema
 
-Every gate costs agent runs, so the flow scales with the change. `devkit-lite` is the default in the project template; choose `devkit` when the change needs the owner grilled, an independent plan approval and implementation by a dedicated agent.
+Every gate costs agent runs, so the flow scales with the change. `devkit-lite` is the default in the project template; both schemas start with the requirements grill, and you choose `devkit` when the change also needs an independent plan review, the owner's plan approval and implementation by a dedicated agent.
 
 | Use `devkit` (full) when ANY holds | Otherwise `devkit-lite` (default) |
 |---|---|
@@ -36,31 +36,59 @@ openspec new change greet-language
 
 ## The `devkit` schema
 
+Every stage the flow runs is declared in the schema, in order, and each stage names a role, not a tool (see [roles.md](roles.md)).
+
 ```text
-requirements ─▶ proposal ─▶ specs ─┐
-                     └──▶ design ──┴─▶ tasks ─▶ readiness ─▶ apply
+requirements ─▶ (mockup, decisions) ─▶ proposal ─▶ specs ─┐
+                                            └──▶ design ──┴─▶ tasks ─▶ readiness ─▶ approval ─▶ apply
+apply (implementation ─▶ unit-tests, e2e-tests ─▶ evidence ─▶ review) ─▶ delivery ─▶ retro
 ```
 
-| Artifact | Produced with | Contents |
+| Artifact | Role | Contents |
 |---|---|---|
-| `requirements.md` | `requirements-grill` skill | The request in the owner's words, confirmed assumptions, acceptance criteria with ids (`AC-1`...), out of scope. If the owner skips the grill: the derived criteria and `Grill: skipped by owner` |
-| `proposal.md` | OpenSpec's instruction | Why, what changes, acceptance criteria (copied with their ids), capabilities, impact |
-| `specs/**/spec.md` | OpenSpec's instruction | Requirement deltas with WHEN/THEN scenarios |
-| `design.md` | OpenSpec's instruction | Context, decisions with alternatives, risks, migration |
-| `tasks.md` | OpenSpec's instruction | One `## N.` group per phase, each ending with a gate task naming the test command; every AC id covered |
-| `readiness.md` | `plan-readiness-reviewer` agent (dispatched, never written by the author) | The readiness report; its Decision section has exactly one `- Status: APPROVED`, `NEEDS-REVISION` or `BLOCKED` |
+| `requirements.md` | `change-coordinator` with the owner (`requirements-grill`) | The request in the owner's words, confirmed assumptions, acceptance criteria with ids (`AC-1`...), out of scope. If the owner skips the grill: the derived criteria and `Grill: skipped by owner` |
+| `mockup.md` | `screen-designer` (role not shipped yet) | The screen mock-up, for a change with a screen |
+| `decisions.md` | `adr-author` (role not shipped yet) | The decisions and ADRs the change needs |
+| `proposal.md` | `change-planner` | Why, what changes, acceptance criteria (copied with their ids), capabilities, impact |
+| `specs/**/spec.md` | `change-planner` | Requirement deltas with WHEN/THEN scenarios |
+| `design.md` | `change-planner` | Context, decisions with alternatives, risks, migration |
+| `tasks.md` | `change-planner` | One `## N.` group per phase, each ending with a gate task naming the test command; every AC id covered |
+| `readiness.md` | `plan-readiness-reviewer` (never written by the author) | The readiness report; its Decision section has exactly one `- Status: APPROVED`, `NEEDS-REVISION` or `BLOCKED` |
+| `approval.md` | the owner | The owner's plan approval, written by the main session from the owner's message |
+| `unit-tests.md`, `e2e-tests.md` | `test-runner`, `e2e-tester` (roles not shipped yet) | The test runs of a change that needs them |
+| `evidence.md` | `pr-verifier` | The gates and criteria proof, with its `Commit:` line |
+| `review.md` | `review-bench` | The summary of each review round |
+| `retro.md` | `change-coordinator` with the owner | What the change taught and the proposed updates |
 
-`apply` requires `readiness`. Its instruction tells the main session to dispatch the `tdd-implementer` agent once per phase, run `pr-verifier` (it writes `evidence.md`; a defect it records is fixed by `tdd-implementer` and verified again), then run `review-change` (each reviewer agent writes `reviews/<reviewer>.md`) and finally `commit-and-pr`. The main session coordinates; the subagents do the work, and the hooks make sure of it.
+`apply` requires `approval`. Its instruction tells the main session to dispatch the `tdd-implementer` agent once per phase, run `pr-verifier` (it writes `evidence.md`; a defect it records is fixed by `tdd-implementer` and verified again), then run `review-change` (each reviewer agent writes `reviews/<reviewer>.md`) and finally `commit-and-pr`. The main session coordinates; the subagents do the work, and the hooks make sure of it. Until a role ships, nobody is required to write its file, and `flow-check` reports the stage as not applying.
 
 ## The `devkit-lite` schema
 
 For small, contained changes, with or without a spec-level behavior change.
 
 ```text
-proposal ─▶ specs (optional) ─▶ tasks ─▶ apply
+requirements ─▶ proposal ─▶ specs (optional) ─▶ tasks ─▶ apply
 ```
 
-No grill and no readiness gate, and the main session may write the code itself. Write a spec delta when the proposal lists a capability; otherwise set `skip_specs: true` in the change's `.openspec.yaml`. The PR still needs `evidence.md` and the reviews (`code-quality-reviewer` and `test-coverage-reviewer` at least). If the change turns out to meet a full-flow criterion, recreate it with `--schema devkit`.
+The same stages as `devkit` without `design`, `readiness` and `approval`: it starts with the requirements grill, has no readiness gate and no separate plan approval (the go-ahead is the owner's message to ship), and the main session may write the code itself. Write a spec delta when the proposal lists a capability; otherwise set `skip_specs: true` in the change's `.openspec.yaml`. The PR still needs `evidence.md` and the reviews (`code-quality-reviewer` and `test-coverage-reviewer` at least). If the change turns out to meet a full-flow criterion, recreate it with `--schema devkit`.
+
+## The stage header and `flow-check`
+
+Line 1 of every stage file is a comment, so OpenSpec's strict validation and GitHub's rendering ignore it:
+
+```text
+<!-- devkit-stage <stage> result=<passed|failed|not-applicable|pending> attempt=<n> commit=<sha|none> -->
+```
+
+`<stage>` is the stage id of the schema; `pending` is what a template says (written, not judged yet); `attempt` is 1 on the first write and one more on each rewrite; `commit` is `git rev-parse HEAD` when the stage was produced. The reviewers' own files under `reviews/` keep `Verdict:` on line 1 and carry no header; `review.md` does. Each schema folder also holds `flow.json`, which declares the stages in order with their role, their file or source, and how many failed attempts they get.
+
+`flow-check` is a script that reads those headers, OpenSpec's own status, the task list and git, and says which stage passed and which comes next. It runs no model and no network call except `gh`:
+
+```bash
+node <devkit>/plugins/openspec/hooks/flow-check.mjs add-csv-export
+```
+
+The output is a line per stage, then the next stage, who runs it and why, or one of four ends (archived, waiting for the owner, waiting on GitHub, blocked). `--json` prints the same facts (`version` 1), `--lang pt-BR|en` picks the language (default `pt-BR`), and `--after <progressKey>` stops a loop that changed nothing. Exit codes: `0` next stage, archived or previous script; `1` waiting; `2` blocked; `3` usage error or an OpenSpec other than 2.x. A change whose files carry no header began under the previous script: the readout says so and today's flow (`ship-change`, led by `deliver-check`) finishes it. The tested OpenSpec version is 2.0.0. The checker counts the task list as OpenSpec does, less the lines inside fenced examples, which are not tasks.
 
 ## Adopting it in a project
 
@@ -69,7 +97,7 @@ The `openspec-setup` skill does all of this; here is what it does, if you prefer
 1. Install the OpenSpec CLI and initialize the project:
 
    ```bash
-   npm i -g @fission-ai/openspec@latest
+   npm i -g @fission-ai/openspec@2
    ```
 
    ```bash
@@ -104,7 +132,13 @@ Then tell Claude what you want ("continue the change add-csv-export"). At any po
 openspec status --change add-csv-export
 ```
 
-shows what's done and what's next. A new session starts by printing the same, from the session hook, plus the current round of `openspec/roadmap.md` if the project has one (see [Grouping changes](#grouping-changes-the-roadmap)).
+shows what is done. To know what is next, run the checker, which reads each stage file's header (see [The stage header and `flow-check`](#the-stage-header-and-flow-check)):
+
+```bash
+node <devkit>/plugins/openspec/hooks/flow-check.mjs add-csv-export
+```
+
+A new session starts by printing the same, from the session hook, plus the current round of `openspec/roadmap.md` if the project has one (see [Grouping changes](#grouping-changes-the-roadmap)).
 
 Name the branch after the change: the hooks use it to know which change you're working on.
 
@@ -324,7 +358,7 @@ The rule goes by author type, not by intent: the checker cannot tell whether a b
 
 **JSON.** `--json` prints `{ "version": 1, "change", "schema", "ship", "host", "head", "pr", "phases", "items", "met", "summary", "next" }`. `version` changes only when a field is removed or changes meaning. On exit 3 it prints `{ "version": 1, "error": "<message>" }`. `host` is `app` in the Claude desktop app and `cli` otherwise (`DEVKIT_HOST=app|cli` overrides it). In `merge` mode only, the report also has a `merge` object (below), and after the merge an `archive` object (below); `version` stays `1` because both fields are additive.
 
-**The `Commit:` staleness rule.** A reviewer's verdict file and `evidence.md` start with a `Commit: <sha>` line, placed before the first markdown heading (a line under a heading is not read). It is current when the sha resolves, is an ancestor of `HEAD`, every later commit touches only `openspec/`, the line has no `(uncommitted changes)` marker, and the working tree has no change outside `openspec/` and `.claude/`. A later commit to product code (or to a path such as `openspecx/`) makes it stale, and only the reviews or evidence that carry that sha are redone.
+**The `Commit:` staleness rule.** A reviewer's verdict file starts with a `Commit: <sha>` line, and `evidence.md` has it right after its stage header line; both are placed before the first markdown heading (a line under a heading is not read). It is current when the sha resolves, is an ancestor of `HEAD`, every later commit touches only `openspec/`, the line has no `(uncommitted changes)` marker, and the working tree has no change outside `openspec/` and `.claude/`. A later commit to product code (or to a path such as `openspecx/`) makes it stale, and only the reviews or evidence that carry that sha are redone.
 
 **Order of the delivery steps.** After the phases and the `commit`, `deliver-check` returns the first row that matches: `stop-review-deadlock` (the owner's stop: a current rejected review at `FAIL (round 2/2)`), `fix-review` (a current rejected review, or an approved one with an undisposed finding), `fix-defect` (a `fail` or `defect` row on current evidence), `verify` (evidence missing or stale, a gate or criterion row missing), `review` (a reviewer missing or stale) and, last, `blocked`. The evidence comes before the reviews, so a review round never runs on code with a known failing criterion, and a fix outside `openspec/` makes both stale again: `verify`, then `review`. A rejected review is fixed before the evidence is recorded, because the fix commit would stale it. Reviews and evidence never stale each other: both live under `openspec/changes/<id>/`, so writing either one, committed or not, leaves the other current; only a later commit outside `openspec/` stales both. The PR gate still needs both, approved reviews and evidence.
 
@@ -486,17 +520,17 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.14.2 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.14.2>/plugins/openspec/hooks
+          # pinned to the commit of v0.15.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.15.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.14.2` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.14.2` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.15.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.15.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
-If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@latest` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
+If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
 ```yaml
 # .github/workflows/devkit.yml (optional, unchanged from 0.4.0 apart from the missing guard step)
@@ -509,7 +543,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm i -g @fission-ai/openspec@latest
+      - run: npm i -g @fission-ai/openspec@2
       - run: openspec validate --all --strict
 ```
 

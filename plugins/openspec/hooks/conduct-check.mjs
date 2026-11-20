@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHasArtifact } from './guard.mjs';
 import { readRepoSettings } from './merge-setup.mjs';
+import { readFlow, FlowUsageError } from './flow-check.mjs';
 import {
   UsageError, gitFacts, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
 } from './deliver-check.mjs';
@@ -172,8 +173,18 @@ export function proposeSchema(text, notes) {
 
 // ---------------------------------------------------------------- planning rows (design D6)
 
-// The artifacts of `schema` that are plain files, except requirements and readiness.
+// The plan files of `schema`: the plan stages of its flow.json (design flow-script-checker D-10) when it
+// has one; else the artifacts of its schema.yaml that are plain files, except requirements and readiness.
 function planArtifactsOf(root, schema) {
+  let flow = null;
+  try { flow = schema ? readFlow(root, schema) : null; } catch (e) { if (!(e instanceof FlowUsageError)) throw e; }
+  if (flow) {
+    const files = flow.stages
+      .filter((s) => s.part === 'plan' && s.source === 'artifact' && s.shipped !== false && !s.file.includes('*')
+        && !['requirements', 'readiness', 'approval'].includes(s.id))
+      .map((s) => s.file);
+    if (files.length) return files;
+  }
   const f = schemaFile(root, schema);
   if (!f) return ['proposal.md', 'tasks.md'];
   const names = [];
