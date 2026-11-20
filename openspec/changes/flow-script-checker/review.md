@@ -55,3 +55,29 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: flow-script-checker, round 1
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 19d8c27 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 19d8c27 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 19d8c27 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 19d8c27 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 19d8c27 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- This call is a re-review made only because the five reviews went stale: the check job of PR 36 failed at eb4ebc2 (11 flow-check delivery tests read GITHUB_HEAD_REF from the CI run) and c38d327 fixed the test fixtures. It consumes no round budget.
+
+## Next
+Ready to ship.

@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: eb371666a3303892c4a7ebc861aa9a3908fd760a
+Commit: 19d8c2761b400d4bdfe39e8886b80ff2d9c1c183
 
-## Architecture review — flow-script-checker (round 2, 07a85c4..HEAD)
+## Architecture review — flow-script-checker (round 3, eb37166..HEAD)
 
 ### Findings
 - [important] plugins/openspec/hooks/flow-check.mjs:179-191 — branchOf and offOwnBranch copied deliver-check's currentBranch, defaultBranches and archiveHeads; the three are now exported and imported, offOwnBranch is one line over them · fixed in 7013137
@@ -11,4 +11,4 @@ Commit: eb371666a3303892c4a7ebc861aa9a3908fd760a
 
 Verdict: approved
 
-Analyzed: owners (deliver-check now sole owner of currentBranch, defaultBranches and archiveHeads; flow-check imports them); boundaries (no import cycle; deliver-check change is the export keyword only); contract consumers (no existing consumer of deliver-check affected; guard.mjs session text is wording only); deletion tests (no new module in the delta). Only my previous findings and the lines changed since 07a85c4 were checked.
+Analyzed: owners (no new capability or home; the delta reuses the one SHIP_ENV set already defined in flow-check.test.mjs, so the CI-variable blanking has a single owner in the test file); boundaries (the only file outside openspec/ that changed is flow-check.test.mjs, with no product file touched and no import change); contract consumers (none affected, since no contract, route, schema or export changed); deletion tests (no new module in the delta). Only the lines changed since eb37166 were checked: SHIP_ENV now also blanks DEVKIT_BYPASS, and the ten env-building sites (collectFlow, FC.main, spawned flow-check.mjs) spread it instead of blanking DEVKIT_BRANCH alone. This removes seven repeated ad-hoc env literals in favour of one definition. The earlier nits stand as they were.

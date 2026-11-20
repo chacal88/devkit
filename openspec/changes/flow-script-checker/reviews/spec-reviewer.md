@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: eb371666a3303892c4a7ebc861aa9a3908fd760a
+Commit: 19d8c2761b400d4bdfe39e8886b80ff2d9c1c183
 
 ## Spec review — flow-script-checker
 
@@ -11,6 +11,13 @@ Commit: eb371666a3303892c4a7ebc861aa9a3908fd760a
 - [nit] evidence.md AC-5 row — The owner reading of the sample is now recorded as the caller's statement with the approval.md words; the verifier did not witness it. · fixed in 7013137
 - [nit] docs/adr/0010-openspec-as-the-harness.md Note — A dated Note was added to a recorded ADR with no requirement behind it; it reverses nothing, so the owner should just know the ADR text was touched.
 
+Verdict: approved
+Commit: 19d8c2761b400d4bdfe39e8886b80ff2d9c1c183
+
+Re-review scoped to c38d327 (test-only, `plugins/openspec/hooks/flow-check.test.mjs`, 10 lines). It makes the flow-check test environments hermetic against CI branch variables (`DEVKIT_BYPASS`, `DEVKIT_BRANCH`, `DEVKIT_CHANGE`, `GITHUB_HEAD_REF`, `GITHUB_BASE_REF`, `GITHUB_EVENT_PATH`). No product file, spec or requirement changed; no new finding. Spec review: pass. Full coverage; no scope creep.
+
+In-scope specs: /Users/kauesantos/Documents/devkit/.claude/worktrees/panel-conduct-view-404c57/openspec/changes/flow-script-checker/specs/change-stages/spec.md (the only spec; no canonical specs under openspec/specs/).
+
 ### Coverage
 | Requirement | Status |
 |---|---|
@@ -20,28 +27,18 @@ Commit: eb371666a3303892c4a7ebc861aa9a3908fd760a
 | Every stage file opens with the stage header | covered |
 | Today's flow reads a change written with the header | covered |
 | The checker reports each stage from headers and facts, never prose | covered |
-| A failed stage offers its fix, then itself (new) | covered |
+| A failed stage offers its fix, then itself | covered |
 | No stage after the implementation while a task is pending | covered |
 | A stale stage runs again alone | covered |
-| A plan stage is stale after a plan file changes, until the work starts (new) | covered |
+| A plan stage is stale after a plan file changes, until the work starts | covered |
 | Attempt ceilings and no progress stop the run | covered |
 | Every run ends in one of four states or names the next stage | covered |
-| The delivery follows the change's pull request (new) | covered |
-| After a merge the walk resumes at the retro (new) | covered |
+| The delivery follows the change's pull request | covered |
+| After a merge the walk resumes at the retro | covered |
 | The readout is plain text in Portuguese or English | covered |
-| The checker refuses an OpenSpec it cannot read (new) | covered |
+| The checker refuses an OpenSpec it cannot read | covered |
 | A change begun under the previous script is recognised | covered |
 | The checker needs no AI | covered |
 
-In-scope specs: /Users/kauesantos/Documents/devkit/.claude/worktrees/panel-conduct-view-404c57/openspec/changes/flow-script-checker/specs/change-stages/spec.md (the only spec; no canonical specs under openspec/specs/).
-
-### Implementer decisions
-- Skipping plan staleness once a task is ticked is now a requirement; design D-6 records the blind spot.
-- The guard.mjs session text and the coordination-design.md sentence trace to existing requirements and add no behaviour.
-- Moving the branch helpers into deliver-check.mjs is internal and does not touch the spec.
-
-### Scope creep
-None found.
-
 ### Summary
-No new blocking or important finding in the lines changed since 07a85c4. Verdict: approved, with one open nit (F6). The suites were not re-run, per the task.
+- 0 new findings (0 scope creep, 0 gaps); previous findings keep their dispositions.

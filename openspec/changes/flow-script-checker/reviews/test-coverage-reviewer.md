@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: eb371666a3303892c4a7ebc861aa9a3908fd760a
+Commit: 19d8c2761b400d4bdfe39e8886b80ff2d9c1c183
 
-## Coverage analysis — flow-script-checker (07a85c4..HEAD, round 2)
+## Coverage analysis — flow-script-checker (re-review after c38d327, test-only)
 
 ### Findings
 - [important] plugins/openspec/hooks/flow-check.mjs:366-371 — Header validation (no-header, bad-header, header-other-stage) was never asserted through the walk. · fixed in 7013137
@@ -11,12 +11,14 @@ Commit: eb371666a3303892c4a7ebc861aa9a3908fd760a
 - [nit] plugins/openspec/hooks/flow-check.mjs:157-171 — The fingerprint now covers a tracked edit, bytes changed inside an untracked file, and the .claude/ exclusion.
 - [nit] plugins/openspec/hooks/flow-check.test.mjs — The failed approval asserts the exact code no-role, and a merged PR seen from the change's own branch keeps the staleness checks (control on main).
 - [praise] plugins/openspec/hooks/flow-check.test.mjs — The new tests pin the seams: header-through-walk across three cases, per-file staleness stale only on the second file, no PATH exits 3, and flow.json against schema.yaml generates parity.
+- [praise] plugins/openspec/hooks/flow-check.test.mjs:285 — c38d327 routes every collectFlow, FC.main and spawned flow-check env through one SHIP_ENV that also blanks DEVKIT_BYPASS and the GITHUB_* variables; no unblanked site remains, and the CI-variable run (741 of 741) is the evidence.
 
-In-scope surfaces: plugins/openspec/hooks (flow-check, deliver-check exports, guard), flow.json parity with the schemas.
+In-scope surfaces: plugins/openspec/hooks/flow-check.test.mjs (test-only change since the previous approval); no product file changed.
 Blocking gaps (8-10 without a plan): 0
-Seams checked (mutation runs: 0): header -> artifactState -> caught by 'a stage file with no header, a bad header or another stage's header is pending' (asserts state, reasonCode, params, next.stage, delivery blocked) | files[] -> worst-of -> caught by 'takes the worst result of its files' (pending, failed, mixed not-applicable, all not-applicable, null header in the second file) | per-file staleness -> caught by 'staleness is read for every file' (stale only for the second file, both the code and plan paths) | offOwnBranch over the exported deliver-check helpers -> caught by the merged-PR test on the own branch vs main | post-merge plan staleness -> caught by the control vs postMerge test | skipped -> caught | commit=none -> caught | fingerprint -> caught | no openspec on PATH -> caught (exit 3, stderr, --json error) | flow.json vs schema.yaml generates -> caught by the parity test | guard session text -> caught by two asserts on the new wording.
+Seams checked (mutation runs: 0): all seams from the previous round stand, since no assertion changed; the env isolation of every collectFlow, FC.main and spawned flow-check site is now uniform through SHIP_ENV (grep finds no site that bypasses it; the guard runner at line 262 already blanks the same variables).
 
-New-issue scan: nothing blocking. One small observation, not a finding: the parity test reads schema.yaml with a line regex rather than a YAML parser. If `generates` is ever reformatted (for example folded), the regex returns undefined and the assert fails loudly, so it cannot pass silently.
+No test pins the behaviour 'flow-check ignores GITHUB_HEAD_REF under a pull_request run'. The suite relies on the fixtures blanking the variable, and the CI-variable run is the evidence. This is not a gap of this change, because the checker reads GITHUB_HEAD_REF in currentBranch by design.
 
 ### Well covered
-- Header validation, multi-file worst-of, per-file staleness, skipped, commit=none, the fingerprint paths, the exact approval reason code, the own-branch merged PR, the no-PATH exit and the flow.json parity, each with a test whose assertion fails if the production logic breaks.
+- Environment isolation of the flow-check fixtures: one SHIP_ENV set, spread at every env site, proven by the 741 of 741 run with the CI variables set and 69 of 69 without them.
+- Every seam from round 2 (header-through-walk, worst-of, per-file staleness, skipped, commit=none, fingerprint, own-branch merged PR, no PATH, flow.json parity), unchanged and still protected by its test.
