@@ -460,7 +460,7 @@ Every item nobody has decided yet. The command names, the role names, holding a 
 machine is loaded, writing back to Jira, small work and the roadmap, and the lean pull-request
 template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
 
-- How the roadmap coordinator measures load before it holds a start (section 2).
+- How the roadmap coordinator measures load before it holds a start (section 2; the proposed section "Where a change runs" also answers it).
 - What to do when the task branch conflicts with `develop`; settled in the grill of round 17
   (section 5).
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
@@ -486,6 +486,29 @@ the round that replaces it:
 | The review Workflow script (ADR 0008) | stays; whether it stays is open |
 | `devkit-panel`, the current panel | round 24 (cleanup), after round 23's panels |
 | The CompozyOS twelve-stage loop (ADR 0009) | round 21 (CompozyOS driver) replaces it; round 24 removes the old loop |
+
+## Where a change runs (proposed)
+
+Proposed, not built; requested by the owner on 2026-11-20. It is planned as round 28 (`remote-worker`,
+after `roadmap-coordinator`) and changes nothing today.
+
+**Any machine.** A change can run on another machine. The project configures one command that starts
+a change there and one that asks its state, and the roadmap coordinator chooses where each change
+runs. The loop keeps no memory, so where its session runs does not matter.
+
+**State by asking.** State is read by asking `flow-check --json` over the connection, never by
+reading the other machine's screen.
+
+**The owner's gates.** No session types the owner's gates on the owner's behalf. Either the owner
+answers in the remote session, or planning and approval happen locally and only the part after the
+approval runs remotely. The second way needs the approved plan pushed to the branch first, which the
+flow does not do today.
+
+**What the worker needs.** The same devkit plugin version, the same OpenSpec CLI and a restricted
+GitHub credential.
+
+**Load.** It also answers the open point of how the roadmap coordinator holds a start while the
+machine is loaded: it can send the start to another machine.
 
 ## Withdrawn roadmap items
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.20.1 — retro of change-coordinator
+
+- **devkit-core** 0.8.1: the plan-readiness review runs every phase gate command that already exists
+  on the base and counts a gate that is red there as a Mandatory finding; the planner's rule for
+  `tasks.md` says a gate's command exits 0 when its phase is done, so a step that expects a failing
+  run is a task with its own check, never a gate.
+- Docs/roadmap: `openspec/roadmap.md` carries the retro's findings into rounds 16 and 25 and adds
+  round 28 (`remote-worker`); `docs/coordination-design.md` records it as a proposed section, "Where
+  a change runs", requested by the owner on 2026-11-20.
+
 ## 0.20.0 — the change coordinator and /devkit change
 
 - **devkit-openspec** 0.16.0: the `devkit` skill, `/devkit change <what you want>`, runs one change
