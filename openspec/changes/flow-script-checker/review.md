@@ -29,3 +29,29 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: flow-script-checker, round 2
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | eb37166 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | eb37166 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | eb37166 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | eb37166 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | eb37166 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 re-ran all five reviewers: the three that rejected in round 1, and the two that had approved, whose reviews went stale when the fix commit 7013137 changed product code.
+
+## Next
+Ready to ship.
