@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.1 — retro of flow-script-checker
+
+- **devkit-openspec** 0.15.1: a test of `guard.test.mjs` refuses a test env that blanks
+  `DEVKIT_BRANCH` without also blanking `GITHUB_HEAD_REF` (so a pull-request CI run cannot change a
+  fixture's branch), and the one `deliver-check.test.mjs` line that did is fixed. `deliver-check`
+  no longer refuses the canonical `openspec/specs/<capability>/spec.md` that `openspec archive`
+  writes for each capability the archived change has a spec delta for. The CI snippet
+  pins `v0.15.1`.
+- **devkit-core** 0.7.1: the plan-readiness review checks that every outcome row of a decision table
+  in `design.md` has a scenario in the spec delta; `tdd-implementer` leaves no backup or scratch
+  file in the tree.
+- Docs/rules: `CONTRIBUTING.md` states the test-environment rule; `openspec/roadmap.md` carries the
+  retro's findings into rounds 15 and 25.
 ## 0.19.0 — the script and the checker
 
 - **devkit-openspec** 0.15.0: the `devkit` and `devkit-lite` schemas declare every stage of the flow

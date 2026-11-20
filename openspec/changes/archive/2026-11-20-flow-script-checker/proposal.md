@@ -1,8 +1,8 @@
 # Proposal
 
 Change: `flow-script-checker` · Date: 2026-11-19 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(`requirements.md` holds the grill; the design is [ADR 0010](../../../docs/adr/0010-openspec-as-the-harness.md)
-and [docs/coordination-design.md](../../../docs/coordination-design.md), sections 3, 4 and 8)
+(`requirements.md` holds the grill; the design is [ADR 0010](../../../../docs/adr/0010-openspec-as-the-harness.md)
+and [docs/coordination-design.md](../../../../docs/coordination-design.md), sections 3, 4 and 8)
 
 Summary: round 14 of `openspec/roadmap.md`. The `devkit` and `devkit-lite` schemas declare every
 stage of a change and name roles instead of Claude tools; every stage file opens with a one-line

@@ -36,10 +36,10 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-design.md` (ADR 0010); step 1 is the change `orchestrator-replan`, which recorded it. Rounds 5, 11 and 13 held follow-ups of the coordination model ADR 0010 replaces; `orchestrator-replan` withdrew them (the design document lists them); `review-writer-prompt` returned as round 25. Rounds 25 and 26 are follow-ups from the `orchestrator-replan` retro, and round 27 holds debts the owner recorded on 2026-11-19 (`design-open-points`); none is a step of the build order.
 
 ## Round 14: the script and the checker
-- [ ] flow-script-checker — the `devkit` schema declares every stage of a change, each stage file opens with the fixed header (status, attempt, commit), a checker without AI says which stage passed and which is next, and the schema names roles instead of Claude tool names (D-4, D-8)
+- [x] flow-script-checker — the `devkit` schema declares every stage of a change, each stage file opens with the fixed header (status, attempt, commit), a checker without AI says which stage passed and which is next, and the schema names roles instead of Claude tool names (D-4, D-8)
 
 ## Round 15: the change coordinator and `/devkit change`
-- [ ] change-coordinator (after: flow-script-checker) — the change coordinator runs one change as a loop over the checker, with `/devkit change`, the two stop locks, the skills wired into the agents and the two language settings; retires `/conduct` (D-1, D-2, D-3, D-8, D-9)
+- [ ] change-coordinator (after: flow-script-checker) — the change coordinator runs one change as a loop over the checker, with `/devkit change`, the two stop locks, the skills wired into the agents and the two language settings; retires `/conduct` (D-1, D-2, D-3, D-8, D-9). Carried from the flow-script-checker retro for its grill: the questions the design did not answer (requirements.md of that change lists them), a commit that touches only tests should make stale only the reviewers it concerns, the wait on GitHub without the owner's message, and deliver-check still counting a checkbox inside a fenced example.
 
 ## Round 16: the new stage roles
 - [ ] stage-roles (after: change-coordinator) — the ADR author, the unit-test suite, the E2E tester, the screen designer and the demonstration recorded as text in the change (D-4 stages 3, 4, 9, 10, 11)
@@ -69,7 +69,7 @@ Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-desig
 - [ ] coordination-cleanup (after: coordination-panels, compozy-driver) — remove what the new coordination replaced: the old next-step scripts, the child-session code, the old panel and the old CompozyOS loop, and finish the documentation (D-11)
 
 ## Round 25: review round tooling
-- [ ] review-writer-prompt — `review-round.mjs outcomes` returns each outcome's stage-3 writer prompt, as `review-change`'s agents path says, and the stage 1 prompt says a disposition names one sha (orchestrator-replan retro, items 1 and 2)
+- [ ] review-writer-prompt — `review-round.mjs outcomes` returns each outcome's stage-3 writer prompt, as `review-change`'s agents path says, and the stage 1 prompt says a disposition names one sha (orchestrator-replan retro, items 1 and 2); and the stage 1 prompt asks for the sha `git rev-parse HEAD` printed and for the list of files read, so a partial review is seen before the verify stage (flow-script-checker retro, item 4)
 
 ## Round 26: project setup
 - [ ] project-setup (after: delivery-models) — one setup step writes the `devkit:` block, installs the schemas and the checker into the project and wires its driver (orchestrator-replan retro, item 3)

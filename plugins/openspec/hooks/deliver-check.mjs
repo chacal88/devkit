@@ -764,7 +764,15 @@ export const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.c
 // no directory, prefix or glob matching.
 export function unnamedFiles(paths, proposals) {
   const named = new Set(proposals.filter((p) => p.answer === 'approved').flatMap((p) => p.targets.map(normalizePath)));
-  return paths.filter((p) => !isArchiveRecord(p) && !RELEASE_FILE.test(p) && !named.has(p));
+  const canonical = canonicalSpecs(paths);
+  return paths.filter((p) => !isArchiveRecord(p) && !canonical.has(p) && !RELEASE_FILE.test(p) && !named.has(p));
+}
+
+// openspec archive writes openspec/specs/<capability>/spec.md for each capability the archived
+// folder has a spec delta for: exactly those paths, no directory or glob matching.
+function canonicalSpecs(paths) {
+  const caps = paths.map((p) => /^openspec\/changes\/archive\/\d{4}-\d{2}-\d{2}-[^/]+\/specs\/([^/]+)\/spec\.md$/.exec(p)?.[1]).filter(Boolean);
+  return new Set(caps.map((c) => `openspec/specs/${c}/spec.md`));
 }
 
 const ARCHIVE_NAME = (id) => new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${id.replace(/[.]/g, '\\.')}$`);
