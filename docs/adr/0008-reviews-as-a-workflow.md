@@ -6,6 +6,8 @@
 
 ## Context
 
+Note (change-coordinator, 2026-11-20): `/conduct` was retired in round 15; one change now runs with `/devkit change` (ADR 0010), whose review step is the `ship-change` `review` row, unchanged.
+
 Note (ADR 0010, 2026-11-19): ADR 0010 supersedes ADR 0001, on which this ADR's Context rests. The
 reviewer round as one Workflow script still holds as decided here: no round of the build order
 removes it yet, and whether the review stage keeps the Workflow path in the Claude driver is open in

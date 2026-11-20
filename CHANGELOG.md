@@ -8,7 +8,7 @@
   delivery rows, opens the change in its own worktree, waits on GitHub with no time limit through a
   background command, and replies in the person's language with no internal terms. `guard.mjs` gains
   three modes and `hooks.json` three entries: `stop` and `subagent-stop` keep the session and a stage
-  agent from stopping early, and `agent` limits the hand-offs of a run; the edit and shell-write
+  agent from stopping early (an end the run recorded with its `devkit-end:` line lets the turn end), and `agent` limits the hand-offs of a run to the script's roles by their pack; the edit and shell-write
   locks keep the session from writing product code in a run (ADR 0011). A user setting `language`
   (`pt-BR` or `en`) and a `devkit:` block in `openspec/config.yaml` (`language`, `driver`) hold the two
   languages. The CI snippet pins `v0.16.0`.

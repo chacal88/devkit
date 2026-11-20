@@ -11,10 +11,17 @@
 // `start --lang <l>` (the request on standard input: what `/devkit` does with it, D-3), `open <id> --script <s>
 // --why <code> --lang <l>` (creates the worktree, the change and its requirements file, D-4), `script <id> <s>
 // --why <code> --lang <l>` (the correction of the script, D-4) and `wait --change <id> --lang <l> [--interval <s>]`
-// (waits on GitHub with no limit, D-7). Only `open` and `script` write; `start` and `next` do not.
+// (waits on GitHub with no limit, D-7). Only `open` and `script` write; `start` and `next` do not. `next` and `wait` print
+// `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
+//
+// It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
+// end its turn while a stage is ready), `subagentStopDecision` (a stage agent does not stop before its file is delivered) and
+// `agentDecision` (in a run, work goes only to the script's roles). Each returns { decision, why, change, reason } and fails
+// open. The two stop locks refuse once per unchanged state: they record the progress key of the state refused in
+// `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
 // No dependencies.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -115,6 +122,7 @@ export const MESSAGES = {
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
     blocked: 'The change {id} stopped: {why}. Nothing more runs until this is sorted out.',
+    'request-unreadable': 'I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue.',
     'script.devkit': 'full script',
     'script.devkit-lite': 'short script',
     'why.small': 'it is a small change that is easy to undo',
@@ -183,6 +191,7 @@ export const MESSAGES = {
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
     blocked: 'A change {id} parou: {why}. Nada mais roda até isso ser resolvido.',
+    'request-unreadable': 'Não consegui ler esse pedido. Digite /devkit change e o que você quer fazer, ou só /devkit change para continuar.',
     'script.devkit': 'roteiro completo',
     'script.devkit-lite': 'roteiro curto',
     'why.small': 'é uma mudança pequena e fácil de desfazer',
@@ -282,7 +291,8 @@ const detailOf = (next) => {
 };
 
 // How each step of the delivery checker (and the two overrides of conduct-check) is handled: the stage it belongs to
-// and, for a hand-off, the role's agent; `end` rows build their own end.
+// and, for a hand-off, the role (its agent comes from the checker's row, `AGENT` below only as the fallback); `end` rows
+// build their own end.
 const handOff = (stage, role) => ({ stage, role });
 const session = (stage) => ({ stage, session: true });
 const ROWS = {
@@ -379,8 +389,10 @@ export function decide(facts) {
     }
     return action;
   };
-  const agent = (stage, role, step, what, detail) => guard({
-    ...base, kind: 'agent', ...stageFields(stage), agent: AGENT[role], ...(step ? { step } : {}), ...(detail ? { detail } : {}),
+  // The agent of a delivery hand-off is the checker's row's (`conduct-check`'s actorOf owns the fact); the role's map only
+  // when the row names none, and for the plan stages, which have no row.
+  const agent = (stage, role, step, what, detail, named) => guard({
+    ...base, kind: 'agent', ...stageFields(stage), agent: named ?? AGENT[role], ...(step ? { step } : {}), ...(detail ? { detail } : {}),
     brief: brief(stage, what), progressKey: key(stage, step),
   });
   const sessionAction = (stage, step, detail, extra = {}) => guard({
@@ -447,7 +459,7 @@ export function decide(facts) {
     const spec = ROWS[step];
     if (!spec) return blocked('unknown-step', {}, currentId);
     const detail = detailOf(row.next);
-    if (spec.role) return agent(spec.stage, spec.role, step, `step ${step} ${JSON.stringify(detail)}`, detail);
+    if (spec.role) return agent(spec.stage, spec.role, step, `step ${step} ${JSON.stringify(detail)}`, detail, row.next.agent);
     if (spec.session) return sessionAction(spec.stage, step, detail);
     switch (spec.end) {
       case 'github': return waiting('waiting-on-github', 'waiting-github', currentId, { what: step === 'wait-checks' ? 'checks' : facts.archiving ? 'archive-merge' : 'merge' });
@@ -695,7 +707,8 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
 
 const SCRIPTS = ['devkit', 'devkit-lite'];
 const WHY_CODES = ['small', 'doubt', 'architecture', 'contract', 'ui', 'capability', 'risk'];
-const NAME = /^[a-z0-9][a-z0-9-]{1,47}$/;
+// O1: 2 to 48 characters, lowercase letters and digits in words joined by single dashes (no dash first or last, no two in a row).
+const NAME = /^(?=.{2,48}$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const otherScript = (script) => SCRIPTS.find((s) => s !== script);
 
 function gitRun(root, args) {
@@ -728,7 +741,7 @@ function nameTaken(start, main, id) {
 export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
-  if (!NAME.test(id) || id.includes('--') || id === 'archive') throw refuse('name-invalid', { id });
+  if (!NAME.test(id) || id === 'archive') throw refuse('name-invalid', { id });
   if (!SCRIPTS.includes(script)) throw new LoopUsageError(`open needs --script ${SCRIPTS.join(' or ')}`);
   if (!WHY_CODES.includes(why)) throw new LoopUsageError(`open needs --why with one of: ${WHY_CODES.join(', ')}`);
   const text = String(request ?? '').trim();
@@ -759,8 +772,17 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
     mkdirSync(join(worktree, 'openspec', 'changes', id), { recursive: true });
     writeFileSync(join(worktree, 'openspec', 'changes', id, 'requirements.md'), requirementsFor(readFileSync(template, 'utf8'), text));
   } catch (e) {
-    // Leave nothing half made: the worktree and branch this call just created.
-    try { gitRun(main, ['worktree', 'remove', '--force', worktree]); gitRun(main, ['branch', '-D', id]); } catch { /* best effort */ }
+    // O5: leave nothing half made. Each step is tried on its own (a failed one does not skip the next) and none of their
+    // errors replaces the original one: the worktree, its folder if still there (and its registration, which git keeps
+    // while the branch is "used by" it), then the branch this call just created.
+    for (const cleanup of [
+      () => gitRun(main, ['worktree', 'remove', '--force', worktree]),
+      () => rmSync(worktree, { recursive: true, force: true }),
+      () => gitRun(main, ['worktree', 'prune']),
+      () => gitRun(main, ['branch', '-D', id]),
+    ]) {
+      try { cleanup(); } catch { /* best effort: the original error is the one reported */ }
+    }
     throw e;
   }
   return { version: 1, change: id, script, worktree, branch: id, base, reply: render(l, 'opened', { id, script, other: otherScript(script), why }) };
@@ -825,8 +847,6 @@ export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 
   }
 }
 
-// ---------------------------------------------------------------- the command line (D-5)
-
 // ---------------------------------------------------------------- the locks (D-8)
 
 const allow = (why, change = null) => ({ decision: 'allow', why, change });
@@ -859,6 +879,7 @@ export function stopDecision(input, { env = process.env } = {}) {
     if (!run) return allow('no-run');
     change = run.change;
     if (hasTasks(input.background_tasks)) return allow('background-task', change);
+    if (run.ended) return allow('end-recorded', change); // T3a: the run's last recorded action is an end
     const lang = normalizeLang(env.CLAUDE_PLUGIN_OPTION_LANGUAGE);
     const action = nextAction(input.cwd ?? process.cwd(), change, { env, lang });
     if (action.kind === 'end') return allow('end', change);
@@ -912,7 +933,17 @@ function scriptAgents(flow) {
   return [...new Set(flow.stages.flatMap((s) => [s.role, ...(s.helpers ?? [])]))].filter((r) => !NOT_AGENTS.includes(r));
 }
 
-// `guard.mjs agent` (H1 to H5): in a run the session hands work only to the roles of the change's script.
+// The devkit pack that ships the agent of each role and helper that has one (`<pack>:<role>`), as docs/roles.md names
+// them in its "Played today by" lines; a test holds the two together. A role with no agent (`shipped: false`) has none.
+export const PACKS = {
+  ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
+    'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
+    'spec-reviewer', 'finding-verifier'].map((r) => [r, 'devkit-core'])),
+  'openspec-validator': 'devkit-openspec',
+};
+
+// `guard.mjs agent` (H1 to H5): in a run the session hands work only to the roles of the change's script, named with no
+// prefix or with the prefix of the pack that ships that role's agent; no agent type is a general-purpose agent: refused.
 export function agentDecision(input) {
   let change = null;
   try {
@@ -920,8 +951,6 @@ export function agentDecision(input) {
     const run = runOf(input);
     if (!run) return allow('no-run');
     change = run.change;
-    const type = input.tool_input?.subagent_type;
-    if (typeof type !== 'string' || !type) return allow('no-type', change);
     const start = findRoot(input.cwd ?? process.cwd());
     if (!start) return allow('no-project', change);
     const found = locate(start, change);
@@ -929,13 +958,25 @@ export function agentDecision(input) {
     const flow = readFlow(found.root, schema);
     if (!flow) return allow('no-script', change);
     const roles = scriptAgents(flow);
-    if (roles.includes(roleOf(type))) return allow('script-role', change);
+    const type = input.tool_input?.subagent_type;
+    if (typeof type !== 'string' || !type.trim()) {
+      return {
+        decision: 'refuse', why: 'no-type', change,
+        reason: `in a /devkit change run this session hands work only to the roles of the ${schema} script: ${roles.join(', ')}; name one of them as subagent_type`,
+      };
+    }
+    const colon = type.indexOf(':');
+    const pack = colon === -1 ? null : type.slice(0, colon);
+    const role = colon === -1 ? type : type.slice(colon + 1);
+    if (roles.includes(role) && (pack === null || PACKS[role] === pack)) return allow('script-role', change);
     return {
       decision: 'refuse', why: 'not-a-role', change,
       reason: `in a /devkit change run this session hands work only to the roles of the ${schema} script: ${roles.join(', ')}; ${type} is not one of them`,
     };
   } catch { return allow('error', change); }
 }
+
+// ---------------------------------------------------------------- the command line (D-5)
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
@@ -957,11 +998,18 @@ function parseArgs(argv, { values = [], multi = [] } = {}) {
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
+// What `next` and `wait` print: `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end (the record
+// the stop lock reads, D-2), then the JSON action.
+const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ? `devkit-end: ${id} ${action.end.state}\n` : ''}${json(action)}`;
+
+// The keys the session renders itself that end the run, and the state each one records.
+const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-owner' };
+
 function runNext(args, { env, cwd, openspec, gh }) {
   const opts = parseArgs(args, { values: ['--change', '--lang', '--after'] });
   if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
   const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh });
-  return { code: exitCodeOf(action), stdout: `devkit-run: ${opts.change}\n${json(action)}`, stderr: '' };
+  return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
 
 function runReply(args) {
@@ -973,7 +1021,9 @@ function runReply(args) {
     if (eq < 1) throw new LoopUsageError(`--param needs name=value, got ${p}`);
     params[p.slice(0, eq)] = p.slice(eq + 1);
   }
-  return { code: 0, stdout: `${render(opts.lang, opts.positional[0], params)}\n`, stderr: '' };
+  const text = `${render(opts.lang, opts.positional[0], params)}\n`;
+  const state = END_OF_KEY[opts.positional[0]];
+  return { code: 0, stdout: state ? `devkit-end: ${params.id} ${state}\n${text}` : text, stderr: '' };
 }
 
 function runStart(args, { env, cwd, stdin, openspec, gh }) {
@@ -1008,14 +1058,14 @@ async function runWait(args, { env, cwd, openspec, gh, sleep = realSleep }) {
   const lang = normalizeLang(opts.lang);
   const poll = async () => nextAction(cwd, opts.change, { env, lang, openspec, gh });
   const action = await waitLoop({ poll, sleep, interval, id: opts.change, lang });
-  return { code: 0, stdout: `devkit-run: ${opts.change}\n${json(action)}`, stderr: '' };
+  return { code: 0, stdout: loopOutput(opts.change, action), stderr: '' };
 }
 
 // The usage-error form of every subcommand: exit 3 with `{ version: 1, error, reply }`, nothing created or run.
 function failure(argv, e) {
   const message = e instanceof Error ? e.message : String(e);
-  const at = (flag) => { const i = argv.indexOf(flag); return i === -1 ? undefined : argv[i + 1]; };
-  const reply = e instanceof LoopRefusal ? e.reply : render(at('--lang'), 'blocked', { id: at('--change') ?? '?', why: 'unreadable', error: message });
+  const lang = argv.indexOf('--lang') === -1 ? undefined : argv[argv.indexOf('--lang') + 1];
+  const reply = e instanceof LoopRefusal ? e.reply : render(lang, 'request-unreadable'); // the raw message stays in `error`, never shown
   return { code: 3, stdout: `${JSON.stringify({ version: 1, error: message, reply })}\n`, stderr: `change-loop: ${message}\n` };
 }
 

@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=2 commit=6e4c0635215b4a1da287461e3713c9efe010db4d -->
+<!-- devkit-stage design result=passed attempt=3 commit=551ee6383b99eabd4589e6154ba08c730ad9748b -->
 # Design
 
 Change: `change-coordinator` · Date: 2026-11-20 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
@@ -136,7 +136,12 @@ session can ask the owner (P5) and only the main session may write `approval.md`
    `change` as its first argument word. A newer typed slash command of any other name ends it.
 2. The change of the run: every `change-loop.mjs` command that names a change prints, as line 1 of
    its output, `devkit-run: <change-id>` (D-5). The hook takes the newest such line written after
-   that command; with none, no change is under way yet and nothing is refused.
+   that command; with none, no change is under way yet and nothing is refused. Every command that
+   ends the run also prints `devkit-end: <change-id> <state>` after it (D-5, D-7), and so does the
+   session's own declaration of an end (`change-loop.mjs reply` of an end key, D-9). When the newest
+   of the two markers is an end, the run's last recorded action is an end: the stop lock lets the
+   turn end (D-8 T3a) until a later `devkit-run:` line. The other locks do not read it: a run that
+   ended is still a run for them (review round 1, spec-reviewer F1).
 
 What the run needs next is never remembered: the hook asks the same decision the loop asks
 (`change-loop.mjs`, D-5), which reads `flow-check`, `deliver-check`, the stage headers, git and
@@ -199,9 +204,14 @@ every call).
 | S10 | free text, and one or more unfinished changes | `ask-unfinished` | `ask-unfinished` | 0 |
 | S11 | free text, and no unfinished change | `new` | none (the model proposes the id and script, D-4) | 0 |
 
-Row S0, before S1: a usage error (an unknown option, an unreadable `openspec/config.yaml`) exits 3
-with `{ "version": 1, "error": ... }` and the reply `blocked` with the reason `unreadable`; nothing is
-created or run.
+Row S0, before S1: a usage error (an unknown option, a missing argument, an unreadable
+`openspec/config.yaml`) exits 3 with `{ "version": 1, "error", "reply" }`: `reply` is the D-9 key
+`request-unreadable` (the request could not be read; type `/devkit change` and what you want done),
+with no script name, option, file name or placeholder for a missing change; `error` holds the raw
+message, which the skill never shows. Nothing is created or run. This is the form of every
+subcommand's usage error (`failure` in `change-loop.mjs`), `next`, `open`, `script`, `wait` and
+`reply` included; a refusal with its own reply (`name-invalid`, `name-taken`, the S3 to S5 replies of
+O3) keeps it (review round 1, spec-reviewer F3).
 
 **Unfinished.** A change is unfinished when its folder is active (`openspec/changes/<id>/`, not
 `archive`) in the main checkout or in any worktree of `git worktree list --porcelain`
@@ -248,10 +258,17 @@ standard input (the same quoted heredoc as `start`):
 
 | # | Input | Result | Exit |
 |---|---|---|---|
-| O1 | `<id>` does not match `^[a-z0-9][a-z0-9-]{1,47}$`, holds `--`, or is `archive` | nothing created; reply `name-invalid` | 3 |
+| O1 | `<id>` is not 2 to 48 characters matching `^[a-z0-9]+(?:-[a-z0-9]+)*$` (lowercase letters and digits in words joined by single dashes: no dash first or last, no two dashes in a row), or is `archive` | nothing created; reply `name-invalid` | 3 |
 | O2 | a folder `openspec/changes/<id>/` (active) or an archived `*-<id>` exists in the main checkout or a worktree, a local branch `<id>` or `chore/archive-<id>` exists, `origin/<id>` exists, or `<main>/.claude/worktrees/<id>` exists | nothing created; reply `name-taken` (the session picks another id and calls `open` again) | 3 |
 | O3 | the project is not set up (S3), or a setting is unknown (S4, S5) | nothing created; the `start` reply of that row | 3 |
 | O4 | otherwise | `git fetch origin --prune --quiet` when a remote `origin` exists; `git worktree add -b <id> <main>/.claude/worktrees/<id> <start>` where `<start>` is `origin/<default>` (`<default>` from `refs/remotes/origin/HEAD`, else `main`, else `master`) or, with no remote, the main checkout's `HEAD`; `openspec new change <id> --schema <script>` in the worktree; then `requirements.md` written from the schema's template with `result=pending` and the request, verbatim, as a quoted block under `## Request`. Prints `devkit-run: <id>` then the JSON `{ "version": 1, "change", "script", "worktree", "branch", "base", "reply" }` with reply `opened` | 0 |
+| O5 | a step of O4 after `git worktree add` fails: `openspec new change` exits non-zero, the schema has no `templates/requirements.md`, or the template has no `## Request` section | rolled back: `git worktree remove --force <worktree>`, then the worktree folder removed if it is still there, then `git branch -D <id>`, each attempted on its own (a failed step does not skip the next) and none of their errors replacing the original one; exit 3 with the usage-error form (S0); the same `open <id>` succeeds once the cause is fixed, since O2 then finds no folder, branch or worktree of that id | 3 |
+
+O5 answers test-coverage-reviewer F2 of review round 1: the rollback had no test and removed the
+worktree and the branch inside one `try`, so a failed worktree removal left the branch behind and the
+id taken. Its test makes `openspec new change` fail through the injected `openspec` runner, and makes
+the template lack its request section in a fixture schema, then checks `git worktree list`, the
+folder and `git branch --list <id>`, and opens the same id again.
 
 `<main>` is the parent of `git rev-parse --path-format=absolute --git-common-dir`, as `/conduct` used
 (`plugins/openspec/skills/conduct/SKILL.md:36`). Writing the request into `requirements.md` at once
@@ -310,6 +327,18 @@ commands stay in one place and no behaviour of `conduct-check` changes (its suit
 Override 3 of `conduct-check` (archives serialized between changes, `:432-446`) belongs to the round
 mode, which ran several changes at once; one run conducts one change (D-6), so it does not apply.
 
+**One owner for the step-to-agent fact (review round 1, architecture-reviewer F1).** Which agent runs
+a delivery step is already stated by `conduct-check`: `actorOf(step)` (`conduct-check.mjs:62-70`,
+exported) and its `SUBAGENT` map, which `deliveryRow` spreads into every row it returns
+(`row.next.agent`). The loop's `ROWS` table decides only what kind of action a step is (a hand-off, a
+session step or an end) and its stage; for a hand-off row the agent is `row.next.agent` when the row
+carries one, and the loop's own role-to-agent map (`AGENT`, D-10) only when it does not. The test
+`change-loop decide: the loop's step agents match conduct-check's actorOf` compares, for every step
+that `ROWS` hands to an agent and `actorOf` gives an agent, `AGENT[ROWS[step].role]` with
+`actorOf(step).agent`, and fails on any difference. `retro` is the one step `actorOf` gives to an agent
+(`general-purpose`) that the loop runs in the session (its B6 row, below): its row is a session row,
+so the row's agent is never read for it, and the test lists it as the one stated exception.
+
 | Alternative | Why not |
 |---|---|
 | `flow-check` alone | It has no gate command, no scoped review round, no pull-request body or conversation, no `update-branch`, no archive pull request: a change could never reach its archive. Its `uncommitted` reason names the implementation, whose role never commits. Rebuilding those steps in it is round 24's work. |
@@ -324,7 +353,8 @@ the main checkout when it holds `openspec/changes/<id>/`, else the main checkout
 folder), runs `flow-check`'s `collectFlow` and `computeFlow` there with no `--after`, and, in the
 build-to-archive part, `deliver-check`'s `collectState` and `buildReport` passed through
 `conduct-check`'s `deliveryRow` (above). It prints
-`devkit-run: <id>` and then one JSON action:
+`devkit-run: <id>`, then, when the action is an end, `devkit-end: <id> <end.state>` (`archived`,
+`waiting-for-owner`, `waiting-on-github` or `blocked`; K1 and K2 included), and then one JSON action:
 
     { "version": 1, "change", "script", "root", "branch", "filesLanguage",
       "kind": "agent" | "session" | "grill" | "end",
@@ -337,7 +367,7 @@ build-to-archive part, `deliver-check`'s `collectState` and `buildReport` passed
 
 Exit codes, as `flow-check`'s (`flow-check.mjs:606`): 0 for an `agent`, `session` or `grill` action
 and for `archived`; 1 waiting for the owner or on GitHub; 2 blocked; 3 a usage or preflight error
-(`{ "version": 1, "error" }` with the reply `blocked`/`unreadable`).
+(the S0 form: `{ "version": 1, "error", "reply" }` with the reply `request-unreadable`).
 
 **The progress key and the two loop guards.** `progressKey` is `<stage>/<step or stage>@<fingerprint>`,
 the fingerprint being `flow-check`'s (head, working tree, untracked bytes outside `.claude/`,
@@ -378,11 +408,11 @@ old change reads archived offline too.
 | # | Input | Action |
 |---|---|---|
 | B0 | `flow-check` ends blocked (`ceiling-reached`, `no-progress`, `gh-error`, `checks-unreadable`, `pr-closed`) | end blocked with that why |
-| B1 | `implement`, `fix-review`, `fix-defect`, `fix-checks`, `apply-proposals` (all `deliver-check`) | `agent` `devkit-core:tdd-implementer` (the role of `implementation`, and of every `onFail` from `evidence`, `review` and `delivery`), `step` and `detail` = the step's object |
-| B1a | `resolve-release-conflict` (override 1: the conflict is in release files only) | `agent` `devkit-core:tdd-implementer`, `detail.command` = the `release-rebase.mjs` command and `detail.paths`; the brief's sentence is the one `/conduct` used: run the command in the worktree, then the project's test command, report the JSON and the result, change nothing else (`plugins/openspec/skills/conduct/SKILL.md:102`, carried into the `devkit` skill); `Outcome: failure` ends the run blocked, why `pr-problem` |
-| B2 | `commit`, `open-pr`, `push`, `open-archive-pr` (all `deliver-check`) | `agent` `devkit-core:commit-and-pr` (the role of `delivery`) |
-| B2a | `push-rebased` (override 2: our own rebase rewrote the branch) | `agent` `devkit-core:commit-and-pr`, `detail` = `oldHead`, `paths`, `command`; the brief's sentence: commit these files by name if any, then push with `git push --force-with-lease=<branch>:<oldHead> origin <branch>`, no pull-request edit (`conduct/SKILL.md:103`, carried into the `devkit` skill) |
-| B3 | `verify` | `agent` `devkit-core:pr-verifier` (the role of `evidence`) |
+| B1 | `implement`, `fix-review`, `fix-defect`, `fix-checks`, `apply-proposals` (all `deliver-check`) | `agent` = the row's `agent` (`devkit-core:tdd-implementer`, the role of `implementation`, and of every `onFail` from `evidence`, `review` and `delivery`), `step` and `detail` = the step's object |
+| B1a | `resolve-release-conflict` (override 1: the conflict is in release files only) | `agent` = the row's `agent` (`devkit-core:tdd-implementer`), `detail.command` = the `release-rebase.mjs` command and `detail.paths`; the brief's sentence is the one `/conduct` used: run the command in the worktree, then the project's test command, report the JSON and the result, change nothing else (`plugins/openspec/skills/conduct/SKILL.md:102`, carried into the `devkit` skill); `Outcome: failure` ends the run blocked, why `pr-problem` |
+| B2 | `commit`, `open-pr`, `push`, `open-archive-pr` (all `deliver-check`) | `agent` = the row's `agent` (`devkit-core:commit-and-pr`, the role of `delivery`) |
+| B2a | `push-rebased` (override 2: our own rebase rewrote the branch) | `agent` = the row's `agent` (`devkit-core:commit-and-pr`), `detail` = `oldHead`, `paths`, `command`; the brief's sentence: commit these files by name if any, then push with `git push --force-with-lease=<branch>:<oldHead> origin <branch>`, no pull-request edit (`conduct/SKILL.md:103`, carried into the `devkit` skill) |
+| B3 | `verify` | `agent` = the row's `agent` (`devkit-core:pr-verifier`, the role of `evidence`) |
 | B4 | `review` | `session`, step `review`: the `review-change` skill as the `ship-change` `review` row says (`SKILL.md:41`), then `review.md`'s header (the role `review-bench` is that skill, `docs/roles.md:93-99`) |
 | B5 | `gate` | `session`, step `gate`, `detail.command` and `detail.task`: run the command alone; green ticks the task; red ends the run blocked, why `tests-red` |
 | B6 | `edit-pr-body`, `enable-auto-merge`, `disable-auto-merge`, `update-branch` (from `deliver-check`, or from override 1 when GitHub's conflict merges cleanly), `answer`, `retro`, `archive`, `tick-roadmap` | `session`, that step, done as its `ship-change` row says; an `answer` the row leaves to the owner ends the run waiting for the owner, reply `waiting-pr-decision` |
@@ -395,7 +425,7 @@ old change reads archived offline too.
 | B13 | `stop-plan-mode` | end waiting for the owner, reply `waiting-by-hand` (the project delivers by hand; the session writes no code) |
 | B14 | `stop-branch`, `stop-merge-setup`, `stop-archive`, `stop-not-approved`, `blocked` (from `deliver-check`, or from override 1 for a conflict outside the release files) | end blocked, why `wrong-branch`, `merge-setup`, `archive-failed`, `plan-not-approved`, `pr-problem` |
 | B15 | `archived` | end archived, reply `archived` |
-| B16 | any other step | end blocked, why `unknown-step`. The test `change-loop decide: the B rows are exactly the steps the checkers can return` reads every step name `deliver-check.mjs` can return and the two override names `conduct-check.mjs` adds, and fails both on a returnable step this table lacks and on a row naming a step no checker returns |
+| B16 | any other step | end blocked, why `unknown-step`. The test `change-loop decide: the B rows are exactly the steps the checkers can return` reads every step name `deliver-check.mjs` can return and the two override names `conduct-check.mjs` adds, and fails both on a returnable step this table lacks and on a row naming a step no checker returns; the test `change-loop decide: the loop's step agents match conduct-check's actorOf` holds the agents of B1 to B3 to the checker's mapping (above) |
 | B17 | `deliver-check` throws (`UsageError`, `ShipConfigError`), or `deliveryRow` throws | exit 3, end blocked, why `unreadable` |
 
 The retro (`retro` and `stop-retro-answers`) is the coordinator's own stage: it runs in the session
@@ -436,7 +466,10 @@ Portuguese`, else the tag).
 `subagent_type` = `agent`, prompt = `brief` (plus the row sentence), in the foreground; `session`:
 the step as the named `ship-change` row says, in `root`; `grill`: the grill; `end`: D-5 table above.
 Then run `next` again. It never chooses the order, never runs two stages at once, and never dispatches
-a subagent for a whole change.
+a subagent for a whole change. An end the session itself declares (an agent's `Outcome: failure`, a
+red gate, a pull-request decision left to the owner) is rendered with `change-loop.mjs reply <key>
+--param id=<id> ...`, which prints the `devkit-end:` marker (D-9) so the stop lock sees it; the skill
+shows only the reply lines after the marker.
 
 ## D-6 ADR 0007's rules, unfinished work and resuming (AC-3, AC-4, AC-15)
 
@@ -470,8 +503,8 @@ and then says the reply (`waiting-github`: it is waiting, with no time limit, an
 
 run with the Bash tool's background option. `wait` takes the decision `next` gives now, then every
 `--interval` seconds (default 60, at least 5) computes it again, holding no state but that first
-decision. It exits 0, printing `devkit-run: <id>` and the new action exactly as `next` prints it,
-as soon as the decision is anything else; GitHub's answer then reaches the session through the
+decision. It exits 0, printing `devkit-run: <id>` and the new action exactly as `next` prints it
+(with the `devkit-end:` line when that action is an end, D-5), as soon as the decision is anything else; GitHub's answer then reaches the session through the
 command's end, which starts its next turn (P8; S3 for an interactive session). The turn runs `next`
 and goes on.
 
@@ -519,9 +552,11 @@ roles are held without a hook change. As every guard mode, the new ones act only
 project (`optedIn`, `guard.mjs:146`; ADR 0004) and exit 0 under `DEVKIT_BYPASS=1` (`:516`). The
 three new modes import `change-loop.mjs` dynamically, as `ci` imports `deliver-check.mjs`
 (`:489-503`), so `guard.mjs ci` in a project's CI still needs only its three downloaded files. The
-transcript reader (`runOf(input)`: the newest typed command and the newest `devkit-run:` line after
-it, D-2) is a pure function exported by `guard.mjs`, with no imports, so the edit lock stays
-synchronous.
+transcript reader (`runOf(input)`: the newest typed command, the newest `devkit-run:` line after
+it, and whether the newest of the `devkit-run:` and `devkit-end:` lines after it is an end, D-2;
+it returns `{ change, command, ended }`, `ended` being the end's state or `null`) is a pure function
+exported by `guard.mjs`, with no imports, so the edit lock stays synchronous. Only `stopDecision`
+reads `ended`.
 
 Refusal texts are addressed to the model, in English like every guard refusal; they name the stage
 id and the file because the model acts on them. With `DEVKIT_HOOK_LOG=<file>` in the environment
@@ -546,12 +581,19 @@ refusal needs a changed state, and changing it takes a tool call.
 | T1 | no run in this session (no typed `/devkit change`, or a newer typed slash command, or no `devkit-run:` line after it) | allow |
 | T2 | `background_tasks` is not empty (a background wait, a gate run in the background, a review round as a Workflow) | allow: the session will be called back (S2) |
 | T3 | the run's decision (D-5 `next`) is `end` (any of the four states) | allow |
+| T3a | the run's last recorded action is an end (`runOf(input).ended` is set: the newest marker after the typed command is a `devkit-end:` line, printed by `next` or `wait` on an end, the K1 and K2 ends of `next --after` included, or by the session's `reply` of an end key) | allow, checked before the decision is asked; a later `devkit-run:` line (the owner asked to go on and the session called `next` again) clears it, and T5 applies again |
 | T4 | the decision is `grill` (the grill waits for the owner's answers) | allow |
-| T5 | the decision is `agent` or `session`, and its key is not the recorded one | refuse: "the change <id> has the stage <stage> ready (<agent or step>); run it, or end the run as blocked and say why. The next action comes from: node <hooks-dir>/change-loop.mjs next --change <id> --lang <l>" (the absolute path of the hook's own folder, and the person's language from `CLAUDE_PLUGIN_OPTION_LANGUAGE`, so a session that lost the skill's text after a compaction can still act); record the key |
+| T5 | no end is recorded (T3a), the decision is `agent` or `session`, and its key is not the recorded one | refuse: "the change <id> has the stage <stage> ready (<agent or step>); run it, or end the run as blocked and say why. The next action comes from: node <hooks-dir>/change-loop.mjs next --change <id> --lang <l>" (the absolute path of the hook's own folder, and the person's language from `CLAUDE_PLUGIN_OPTION_LANGUAGE`, so a session that lost the skill's text after a compaction can still act); record the key |
 | T6 | the same, and its key is the recorded one | allow |
 | T7 | any error (transcript, checker, git, GitHub) | allow (fail open) |
 
 An interrupt by the person fires no `Stop` (P2): nothing is refused, and nothing needs to be.
+
+T3a answers spec-reviewer F1 of review round 1. `stopDecision` asks `next` with no `--after` (the
+hook has no previous key), so it cannot compute an end the session declared or one that only
+`--after` produces: a stage agent's `Outcome: failure`, a red gate, K1 and K2. Without T3a the first
+stop after such an end was refused once, against AC-6. T5 and T6 still hold a session that stops with
+a stage ready and no end recorded.
 
 **`guard.mjs subagent-stop` (AC-7).**
 
@@ -568,6 +610,17 @@ An interrupt by the person fires no `Stop` (P2): nothing is refused, and nothing
 `flow-check` alone decides U3 to U5: a stage file's state is read from its header, and the walk
 reaches no GitHub call before the delivery stage.
 
+**The real topology (review round 1, test-coverage-reviewer F1).** In a run the change lives in its
+own worktree (`<main>/.claude/worktrees/<id>`, D-4) and the session, so the hook's `cwd`, is usually
+the main checkout, which has no folder for an active change. `subagentStopDecision` and
+`agentDecision` find the change through `locate(start, change)` (the worktree on branch `<id>`), as
+`next` does. No behaviour changes; the tests `change-loop lock subagent-stop: a change in its own
+worktree, the session in the main checkout` and `change-loop lock agent: a change in its own
+worktree, the session in the main checkout` build that layout (a main checkout with a worktree on
+`<id>` holding the change) and give the hook the main checkout as `cwd`: the planner's stop with no
+`proposal.md` in the worktree is refused naming it, and a hand-off to `devkit-core:change-planner` is
+allowed while one to `general-purpose` is refused.
+
 **The edit lock (AC-8).** In `guardEdit` and `guardBash` (`guard.mjs:336-393`), before the existing
 rules: when the actor is the main session (no `agent_type`), `runOf(input)` finds a run, and the
 target classifies as `code` (`classify`, `:197-215`), refuse: "in a /devkit change run this session
@@ -581,10 +634,21 @@ every subagent, the existing rules apply unchanged (the existing tests' inputs c
 | # | Input | Decision |
 |---|---|---|
 | H1 | the caller is a subagent (`agent_type` set) | allow (a readiness reviewer calling its auditor) |
-| H2 | no run | allow |
-| H3 | `subagent_type`'s role (after its last `:`) is a role or a helper of a stage of the change's script (`flow.json`), other than `owner`, `change-coordinator` and `review-bench` | allow |
-| H4 | any other agent (`general-purpose`, `Explore`, another plugin's agent) | refuse: "in a /devkit change run this session hands work only to the roles of the <script> script: <list>; <type> is not one of them" |
+| H2 | no run | allow, whatever `subagent_type` is (absent, empty, any prefix): outside a run nothing changes |
+| H3 | `subagent_type` has no `:` and is a role or a helper of a stage of the change's script (`flow.json`), other than `owner`, `change-coordinator` and `review-bench` | allow (a project's own agent of that name) |
+| H3a | `subagent_type` is `<pack>:<role>`, `<role>` is such a role or helper, and `<pack>` is the devkit pack that ships that role's agent (`PACKS` in `change-loop.mjs`: `devkit-core` for every role and helper with an agent, `devkit-openspec` for `openspec-validator`) | allow |
+| H4 | any other agent: `general-purpose`, `Explore`, another plugin's agent whatever its name (`other-plugin:change-planner` included), a devkit pack that does not ship that role (`devkit-openspec:change-planner`) | refuse: "in a /devkit change run this session hands work only to the roles of the <script> script: <list>; <type> is not one of them" |
+| H4a | `subagent_type` is absent or empty (the agent tool then starts a general-purpose agent) | refuse: "in a /devkit change run this session hands work only to the roles of the <script> script: <list>; name one of them as subagent_type" |
 | H5 | any error | allow |
+
+H3a's `PACKS` is written from `docs/roles.md`, whose "Played today by: The agent `<pack>:<role>`" line
+names the pack of every role and helper with an agent; the test `change-loop lock agent: the accepted
+packs are the ones docs/roles.md names` reads those lines and fails when a role or helper of either
+`flow.json` is played by a `<pack>:<role>` that `PACKS` does not hold, or `PACKS` holds a pair that
+`docs/roles.md` does not name. A role marked `"shipped": false` has no agent and is accepted only
+unprefixed. H2 to H4a answer spec-reviewer F2 of review round 1: an `Agent` call with no
+`subagent_type` was allowed, and the role was matched on the text after the last `:`, so another
+plugin's agent named like a role passed.
 
 **Alternatives rejected.** `stop_hook_active` as the "second attempt" signal: whether it stays set
 across tool calls of the continued turn is not documented, and a refusal must be tied to an unchanged
@@ -651,7 +715,11 @@ are English and the replies Portuguese.
 "pt-BR": {...} }`, with the same keys in both; every `reply` and `where` of `start`, `open`, `script`,
 `next` and `wait` comes from it, and `change-loop.mjs reply <key> --lang <l> [--param name=value]...`
 renders one for the endings the session itself decides (a red gate, an agent's `Outcome: failure`, an
-owner decision on the pull request). `<stage>` is the stage's title in the person's language, as a
+owner decision on the pull request). For a key that ends the run (`blocked`, and
+`waiting-pr-decision`, the owner decision B6 leaves to the owner) `reply` takes the change from
+`--param id=<id>` and prints `devkit-end: <id> blocked` (or `devkit-end: <id> waiting-for-owner`) as
+line 1 and the reply on the lines after it; every other key prints the reply alone. The skill shows
+only the reply lines. `<stage>` is the stage's title in the person's language, as a
 noun phrase: en `the` + the title in sentence case (`the plan readiness`), pt-BR `a etapa` + the
 title (`a etapa Revisão do plano`). The grill's own questions come from the `requirements-grill`
 skill in the person's language; they are not in the table.
@@ -685,6 +753,7 @@ skill in the person's language; they are not in the table.
 | `waiting-github` | `{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.` | `{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.` |
 | `archived` | `The change {id} is archived: merged, with its retro. Nothing is left to do.` | `A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.` |
 | `blocked` | `The change {id} stopped: {why}. Nothing more runs until this is sorted out.` | `A change {id} parou: {why}. Nada mais roda até isso ser resolvido.` |
+| `request-unreadable` | `I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue.` | `Não consegui ler esse pedido. Digite /devkit change e o que você quer fazer, ou só /devkit change para continuar.` |
 
 Parameters rendered from the same table:
 
@@ -705,9 +774,13 @@ backtick; a file name (`[\w.-]+\.(md|json|mjs|js|ts|ya?ml)`); any stage id, role
 both `flow.json` files that holds a hyphen; every step name `deliver-check.mjs` can return (read from
 its source) that holds a hyphen; every `flow-check` reason code (the keys of its `TEXT`); the words
 `flow-check`, `deliver-check`, `conduct-check`, `change-loop`, `devkit-core`, `devkit-openspec`,
-`devkit-lite`, `subagent`, `progressKey`, `reasonCode`, `onFail`; and a `name=value` shape. It also
-fails when the two languages do not have the same keys, or when a Portuguese message (not a
-parameter such as `CompozyOS`) equals its English one. One-word stage ids (`review`, `retro`) are English words the owner uses and are not refused.
+`devkit-lite`, `subagent`, `progressKey`, `reasonCode`, `onFail`; a `name=value` shape; an option
+(`--` followed by a letter); and a lone `?` where an id goes. It renders the usage error's reply too
+(`request-unreadable`, and the exit-3 `reply` of `main` on an unknown option, in both languages,
+whose `error` field alone may hold the script's name and the option). It also fails when the two
+languages do not have the same keys, or when a Portuguese string equals its English one, with
+exactly two exemptions, the strings that are the same word in both languages: the driver's name
+`CompozyOS` (`driver.compozy`) and the setting name `driver` (`setting.driver`). One-word stage ids (`review`, `retro`) are English words the owner uses and are not refused.
 
 ## D-10 Skills wired into the stage agents (AC-9)
 
@@ -777,7 +850,8 @@ the whole repository, `conduct-check` mentions set aside (that script stays, unc
 | `plugins/panel/README.md:20-21`, `:49`, `:58-59`, `:63` | how the conducted change is found; the fill table | the new forms; the fill table says `/devkit change <id>` |
 | `plugins/panel/hooks/report.test.tsx:214` | the doc comment of `SKILL_NO_ARGUMENT`, naming `plugins/openspec/skills/conduct/SKILL.md` | the comment says the wording is that of the `conduct` skill as it shipped up to devkit-openspec 0.15.1, removed in 0.16.0, and that the panel keeps listing candidates this way until round 23; the constant and its test do not change |
 | `docs/adr/0009-compozy-loop-as-a-second-driver.md:42` | "`/conduct` (ADR 0006, ADR 0007) stays the in-session driver" | unchanged text; a dated Note (D-13) says `/devkit change` is now the in-session driver |
-| `CHANGELOG.md`, `openspec/roadmap.md` (ticked lines), `openspec/changes/archive/**`, the history sentences of ADRs 0001, 0008, 0009, 0010 and of `docs/coordination-design.md` (`:30`, `:368`, `:397`) | records of what was | unchanged |
+| `docs/adr/0008-reviews-as-a-workflow.md:29`, `:55` | `/conduct` named as a driver whose review step runs the Workflow | unchanged text; a dated Note (D-13), the same as the other ADRs that name `/conduct` (review round 1) |
+| `CHANGELOG.md`, `openspec/roadmap.md` (ticked lines), `openspec/changes/archive/**`, the history sentences of ADRs 0001, 0009, 0010 and of `docs/coordination-design.md` (`:30`, `:368`, `:397`) | records of what was | unchanged |
 | `.compozy/`, `plugins/compozy/`, `scripts/check.py`, `docs/conventions.md:23`, `openspec/specs/change-stages/spec.md:59`, `.claude-plugin/marketplace.json` | `conduct-check` only | unchanged |
 
 **Tests that read `/conduct` today.** Each is changed only as stated, with its invariant, the layer
@@ -963,7 +1037,11 @@ the change coordinator keeps is recorded in `docs/coordination-design.md` sectio
 change (the tests at `plugins/openspec/hooks/guard.test.mjs:1330-1371` read them). ADR 0009
 (`docs/adr/0009-compozy-loop-as-a-second-driver.md`), whose Decision says `/conduct` "stays the
 in-session driver" (`:42`), gains the same kind of Note: "Note (change-coordinator, 2026-11-2x):
-`/conduct` was retired in round 15; the in-session driver is now `/devkit change` (ADR 0010)."
+`/conduct` was retired in round 15; the in-session driver is now `/devkit change` (ADR 0010)." ADR
+0008 (`docs/adr/0008-reviews-as-a-workflow.md`), which names `/conduct` as a driver of the review
+step (`:29`, `:55`), gains the same dated Note before its existing one: "Note (change-coordinator,
+2026-11-2x): `/conduct` was retired in round 15; one change now runs with `/devkit change` (ADR
+0010), whose review step is the `ship-change` `review` row, unchanged." Its status stays.
 
 **`openspec/config.yaml`.** The `ADRs:` line of `context` (`:22`) gains "0011 the change coordinator
 is the owner's session, held by hooks (proposed)", changed to "amends 0010" once accepted; the test
@@ -1052,7 +1130,7 @@ guarantee than a role without an edit tool. `openspec/config.yaml:34-35` asks fo
 case, so ADR 0011 amends that one sentence and the locks-table row of `docs/coordination-design.md:294`.
 It is written with status `proposed` (task 6.2); the owner accepts or refuses it with the plan
 (`approval.md`), and only a recorded acceptance flips it to `accepted` (task 6.3). The ADR 0010 Note
-points at it; the Notes of ADRs 0005, 0006, 0007 and 0009 change no decision.
+points at it; the Notes of ADRs 0005, 0006, 0007, 0008 and 0009 change no decision.
 
 ## D-16 ADR 0011, proposed with this plan (readiness finding 2)
 
@@ -1131,21 +1209,21 @@ evidence row (task 7.1).
 
 | AC | Proved here by | Stated limit | Proved next |
 |---|---|---|---|
-| AC-1 | `change-loop open:` tests (O1 to O4, the reply's id, script and reason in both languages); the skill-text test for the script rule; live L1 | the script choice itself is the model's judgment under the skill's rule; the tests prove the rule's text and the correction after the grill | the first real `/devkit change` (round 16) |
-| AC-2 | `change-loop decide:` tests, one per row P1 to P10, A0, B0 to B17 (B1a and B2a included), K1, K2, over fixtures of every end state; `change-loop decide: the B rows are exactly the steps the checkers can return`; `change-loop next:` CLI tests on real fixture repositories (approval, ceiling, archived, waiting on GitHub with a fake `gh`, a release-file conflict) | - | a whole change from opening to archive (round 16) |
+| AC-1 | `change-loop open:` tests (O1 to O5, the reply's id, script and reason in both languages; O1's dash rules; O5 the half-way failure rolled back and the id opened again); the skill-text test for the script rule; live L1 | the script choice itself is the model's judgment under the skill's rule; the tests prove the rule's text and the correction after the grill | the first real `/devkit change` (round 16) |
+| AC-2 | `change-loop decide:` tests, one per row P1 to P10, A0, B0 to B17 (B1a and B2a included), K1, K2, over fixtures of every end state; `change-loop decide: the B rows are exactly the steps the checkers can return`; `change-loop decide: the loop's step agents match conduct-check's actorOf` and a B1 case whose row's `agent` decides the hand-off; `change-loop next:` the `devkit-end:` line on every end and on no other action; `change-loop next:` CLI tests on real fixture repositories (approval, ceiling, archived, waiting on GitHub with a fake `gh`, a release-file conflict) | - | a whole change from opening to archive (round 16) |
 | AC-3 | `change-loop start:` S6, S7 (with the `resumed` reply); `change-loop resume:` the same files give the same action before and after a simulated kill; live L4 | - | - |
 | AC-4 | `change-loop start:` S8, S10 (read-only: no folder, branch or worktree created) | - | - |
 | AC-5 | `change-loop wait:` W1 to W9 with an injected decision sequence and no limit of iterations; `change-loop decide:` B7, B8 reply text; live L5 (re-invocation under `-p`) | the unattended wait is shown live only under `-p`, which caps a background command (P8), in a scratch project with no pull request; an interactive session's call-back is undocumented (S3) | the interactive unattended wait (round 16) |
-| AC-6 | `change-loop lock stop:` T1 to T7 (subprocess, transcript fixtures in the probed forms); live L3 | "not refused when the owner interrupts" rests on the documented platform fact that an interrupt fires no `Stop` event (P2); no test and no `-p` run can send an interrupt | - |
-| AC-7 | `change-loop lock subagent-stop:` U1 to U7; `change-loop decide:` K2; live L2 | - | - |
-| AC-8 | `change-loop lock edit:` (a run refuses the main session's code edit on both scripts, allows planning files, leaves subagents and non-runs as today); `change-loop lock agent:` H1 to H5 | the refusal fails open on an error (ADR 0011, Consequences) | - |
+| AC-6 | `change-loop lock stop:` T1 to T7 and T3a (subprocess, transcript fixtures in the probed forms): a declared end after a failed stage agent, after a red gate and after a K1 end of `next --after` is not refused, and a later `devkit-run:` line with a ready stage is refused again; `runOf` reads `ended`; `change-loop reply:` an end key prints its marker; live L3 | "not refused when the owner interrupts" rests on the documented platform fact that an interrupt fires no `Stop` event (P2); no test and no `-p` run can send an interrupt | - |
+| AC-7 | `change-loop lock subagent-stop:` U1 to U7, and the change in its own worktree with the session in the main checkout; `change-loop decide:` K2; live L2 | - | - |
+| AC-8 | `change-loop lock edit:` (a run refuses the main session's code edit on both scripts, allows planning files, leaves subagents and non-runs as today); `change-loop lock agent:` H1 to H5 with H3a and H4a (an unprefixed role, the shipping pack's prefix, another plugin's agent named like a role, no `subagent_type`, and outside a run all of them allowed), the change in its own worktree with the session in the main checkout, and the accepted packs against `docs/roles.md` | the refusal fails open on an error (ADR 0011, Consequences) | - |
 | AC-9 | `change-loop skills: every shipped stage agent declares its stage's skills`; `change-loop brief:` the brief names role, change, stage and holds no skill text; live L4 record (S4) | - | - |
 | AC-10 | `change-loop settings:` (defaults, the block, S4); `change-loop replies:` the owner's settings case (files `en` in `filesLanguage` and the brief, replies `pt-BR`); live L1 to L4 | - | - |
-| AC-11 | `change-loop replies: no internal term in either language` | the test covers the message table, which renders every reply the command composes; the model's own wording around a reply, and the grill's questions (written by the `requirements-grill` skill), are not tested | - |
+| AC-11 | `change-loop replies: no internal term in either language` (the usage error's reply included, with the two stated exemptions) | the test covers the message table, which renders every reply the command composes; the model's own wording around a reply, and the grill's questions (written by the `requirements-grill` skill), are not tested | - |
 | AC-12 | `change-loop start:` S4, S5 (compozy round 21, script round 22, nothing run), no block and `claude` run | - | - |
 | AC-13 | `change-loop retire: /conduct is not shipped and nothing points at it`; the changed tests of D-11; the `git diff` rows in evidence (D-11); the panel's tests | - | - |
 | AC-14 | the live test record (D-12) in `evidence.md` | the model is not deterministic: the record states which path each turn took | - |
-| AC-15 | `change-loop docs: the design records the answers` (the four points absent from "Open points" and present, marked decided, in their sections; ADR 0010's Note names `change-coordinator` and ADR 0011; ADR 0011 exists with the four headings; ADRs 0005, 0006, 0007 and 0009 name `/devkit change`; `docs/openspec-flow.md` has the section "The change coordinator: `/devkit change`") | - | - |
+| AC-15 | `change-loop docs: the design records the answers` (the four points absent from "Open points" and present, marked decided, in their sections; ADR 0010's Note names `change-coordinator` and ADR 0011; ADR 0011 exists with the four headings; ADRs 0005, 0006, 0007, 0008 and 0009 name `/devkit change`; `docs/openspec-flow.md` has the section "The change coordinator: `/devkit change`") | - | - |
 
 ## Risks / Trade-offs
 
@@ -1240,3 +1318,22 @@ about one.
 `flow.json` files; ADR 0010 and `docs/coordination-design.md` with the owner's answers of
 `design-open-points` (`1fd10d3`); the desktop app's bundled Claude Code for the panel's tests and the
 live test (`CONTRIBUTING.md`, "Testing a mod pack").
+
+## Review round 1: what changed
+
+The review round on `551ee63` kept six findings. Each is fixed by the plan as below; the implementer's
+tests cite the scenarios named here.
+
+| # | Finding | What the plan now says | Scenarios |
+|---|---|---|---|
+| 1 | spec-reviewer F1: the stop lock refused once after an end the session declared (a failed stage agent, a red gate, the K1 and K2 ends that only `--after` produces), against AC-6 | every command that ends a run prints `devkit-end: <id> <state>` (`next`, `wait`, `reply` of an end key); `runOf` reports `ended`; new row T3a lets the stop through until a later `devkit-run:` line; T5 and T6 unchanged (D-2, D-5, D-7, D-8, D-9) | locks: "The run's last recorded action is an end", "A new action after an end", "The other locks after an end", "An end the session declared after a failed stage agent", "An end the session declared after a red gate", "A no-progress end", "The owner goes on after a declared end"; coordination: requirement "Every end of a run is marked in the session's record" and its four scenarios |
+| 2 | spec-reviewer F2: a hand-off with no `subagent_type` was allowed, and another plugin's agent named like a role passed | rows H2 to H5 rewritten, H3a and H4a added; `PACKS` held to `docs/roles.md` by a test (D-8) | locks: "A role of the script", "A project's own agent named like a role", "Another agent", "Another plugin's agent named like a role", "A hand-off with no agent type", "Outside a run" |
+| 3 | spec-reviewer F3: a usage or settings error showed the raw error, the script's name, its options and a `?` as the change id | the usage-error reply is the new key `request-unreadable`; the raw message stays in `error` (D-3 S0, D-5, D-9) | coordination: "A usage error", "The message table is checked", "A usage error's reply in both languages" |
+| 4 | test-coverage-reviewer F1: no lock test had the change in its own worktree and the session in the main checkout | no behaviour change; two tests in that layout (D-8, proof map AC-7, AC-8) | locks: "A stage agent of a change in its own worktree", "A hand-off from the main checkout to a change in its own worktree" |
+| 5 | test-coverage-reviewer F2: the rollback of `open` had no test and removed the worktree and the branch in one `try` | row O5: each cleanup step attempted on its own, the original error kept, the id free again (D-4) | coordination: "Opening fails half-way: nothing is left behind and the same name can be opened again" |
+| 6 | architecture-reviewer F1: the step-to-agent table existed twice, in the loop and in `conduct-check` | the agent of a delivery hand-off comes from the row's `agent`; a parity test with `actorOf`, `retro` the one stated exception (D-5) | coordination: "The agent of a delivery step comes from the checker's row", "The loop and the checker name the same agent for each step" |
+
+Settled in the same pass: the message-table scenario names its two exemptions (`CompozyOS` and the
+setting name `driver`); the id rule says no dash first or last and no two dashes in a row (O1, and
+the scenario "An id that cannot be a change name"); ADR 0008 gets the same dated Note as the other
+ADRs that name `/conduct` (D-11, D-13, proof map AC-15).

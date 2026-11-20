@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=2 commit=6e4c0635215b4a1da287461e3713c9efe010db4d -->
+<!-- devkit-stage specs result=passed attempt=3 commit=551ee6383b99eabd4589e6154ba08c730ad9748b -->
 # Spec Delta
 
 ## Purpose
@@ -23,8 +23,8 @@ or run nothing.
 - **THEN** the reply says in one sentence that only `/devkit change` exists, and nothing is created or run
 
 #### Scenario: A usage error
-- **WHEN** the command's script meets an unknown option or an unreadable `openspec/config.yaml`
-- **THEN** it exits 3 with an error, the reply says the change cannot be read, and nothing is created or run
+- **WHEN** the command's script meets an unknown option, a missing argument or an unreadable `openspec/config.yaml`
+- **THEN** it exits 3, its reply says in plain words that the request could not be read and to type `/devkit change` with what the person wants done, the reply holds no script name, no option, no file name and no placeholder for a missing change, the raw message is only in the separate error field, which the session does not show, and nothing is created or run
 
 ### Requirement: The command runs only in a project set up for devkit
 `/devkit change` SHALL run nothing in a folder without `openspec/`, or whose project schema is not
@@ -94,8 +94,12 @@ into the requirements file, and reply with the id, the script, the reason and wh
 - **THEN** nothing is created, the reply is the one the typed command gives for that case, and the exit code is 3
 
 #### Scenario: An id that cannot be a change name
-- **WHEN** the proposed id is not lowercase letters, digits and single dashes of at most 48 characters, or is `archive`
+- **WHEN** the proposed id is not 2 to 48 characters of lowercase letters, digits and dashes, starts or ends with a dash, holds two dashes in a row, or is `archive`
 - **THEN** nothing is created and the reply says the name cannot be used
+
+#### Scenario: Opening fails half-way: nothing is left behind and the same name can be opened again
+- **WHEN** opening fails after the worktree and its branch were created (the OpenSpec command that creates the change fails, or the script's requirements template is missing or has no request section)
+- **THEN** the command exits 3, the worktree, its folder and the branch it created are gone, each removed on its own so that one failed removal does not skip the next, and opening the same id again once the cause is fixed creates the change
 
 #### Scenario: An id already in use
 - **WHEN** a change folder, archived change, branch, archive branch, remote branch or worktree already has the proposed id
@@ -185,6 +189,10 @@ checker's blocked ends SHALL win.
 - **WHEN** the delivery checker's step is `implement`, `fix-review`, `fix-defect`, `fix-checks` or `apply-proposals`
 - **THEN** the next action hands it to the implementer's agent
 
+#### Scenario: The agent of a delivery step comes from the checker's row
+- **WHEN** the row the delivery checker returns for a step the loop hands to an agent names that step's agent
+- **THEN** the next action's agent is the one the row names
+
 #### Scenario: Commits and pull requests
 - **WHEN** the step is `commit`, `open-pr`, `push` or `open-archive-pr`
 - **THEN** the next action hands it to the commit-and-pr agent
@@ -232,6 +240,10 @@ checker's blocked ends SHALL win.
 #### Scenario: The loop's rows match what the checkers return
 - **WHEN** the loop's rows are compared with every step the delivery checker and the two overrides can return
 - **THEN** every returnable step has a row and no row names a step that no checker returns
+
+#### Scenario: The loop and the checker name the same agent for each step
+- **WHEN** the loop's own step-to-agent rows are compared with the delivery checker's step-to-agent mapping for every step both name as a hand-off to an agent
+- **THEN** both name the same agent, and the one step the checker gives to an agent that the loop runs in the session, the retro, is the only one left out
 
 #### Scenario: The delivery checker cannot read the change
 - **WHEN** the delivery checker fails with a usage or settings error
@@ -285,6 +297,28 @@ a wait, 2 for blocked and 3 for an error.
 #### Scenario: A stop of the delivery checker
 - **WHEN** the delivery checker's step is `stop-branch`, `stop-merge-setup`, `stop-archive`, `stop-not-approved` or `blocked`
 - **THEN** the run ends blocked with the matching plain reason
+
+### Requirement: Every end of a run is marked in the session's record
+Every command of the loop that ends a run SHALL print the line `devkit-end: <id> <state>` (the state
+`archived`, `waiting-for-owner`, `waiting-on-github` or `blocked`), after its `devkit-run: <id>` line
+where it prints one. No other output SHALL hold that line, and the reply the session shows SHALL NOT
+hold it.
+
+#### Scenario: An end computed by the loop
+- **WHEN** the next action, or the action the background wait ends with, is an end
+- **THEN** the output's first line is `devkit-run: <id>`, its second is `devkit-end: <id> <state>` with the end's state, and the action follows
+
+#### Scenario: A no-progress or not-delivered end
+- **WHEN** the loop is called with the previous action's progress key and ends the run blocked for no progress or for a stage that was not delivered
+- **THEN** its output holds `devkit-end: <id> blocked` after its `devkit-run: <id>` line
+
+#### Scenario: An end the session declares
+- **WHEN** the session renders the blocked reply for a failed stage agent or a red gate, or the reply for a pull-request decision left to the owner, naming the change
+- **THEN** the output's first line is `devkit-end: <id> blocked` (or `devkit-end: <id> waiting-for-owner`), the reply follows on its own lines, and the session shows only the reply
+
+#### Scenario: An action that is not an end
+- **WHEN** the next action hands a stage to an agent, is a session step or is the grill
+- **THEN** the output holds no `devkit-end:` line
 
 ### Requirement: The loop does not repeat a stage that made no progress
 Given the progress key of the previous action, the loop SHALL end the run blocked when the same
@@ -356,11 +390,15 @@ changes; the reply SHALL say the session is waiting and that calling the command
 ### Requirement: Replies use no internal term
 Every reply of the command SHALL come from one message table with the same keys in English and in
 Brazilian Portuguese, and SHALL hold no stage id or role id with a dash, no step name of a checker,
-no file name and no checker name.
+no file name and no checker name; the reply of a usage error is one of them.
 
 #### Scenario: The message table is checked
-- **WHEN** every message and parameter of the table is rendered in both languages
-- **THEN** none holds a backtick, a file name, a hyphenated stage, role or step id, a checker's reason code or a checker's name, both languages have the same keys, and no Portuguese message equals its English one
+- **WHEN** every message and parameter of the table is rendered in both languages, the usage error's reply included
+- **THEN** none holds a backtick, a file name, a hyphenated stage, role or step id, a checker's reason code, a checker's name, the loop script's name, an option or a placeholder for a missing change, both languages have the same keys, and no Portuguese string equals its English one except the two that are the same word in both languages: the driver's name CompozyOS and the setting name driver
+
+#### Scenario: A usage error's reply in both languages
+- **WHEN** the command's script exits 3 on an unknown option, in English and in Brazilian Portuguese
+- **THEN** the reply is the usage error's message of the table in that language, and the raw error, with the script's name and options, is only in the error field
 
 ### Requirement: The conduct command is no longer shipped
 The `devkit-openspec` pack SHALL NOT ship the `conduct` skill in either mode; the session text, the

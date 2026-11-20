@@ -342,9 +342,12 @@ function prViolation(root, ch) {
 
 // ---------------------------------------------------------------- the run (D-2)
 
-// The run a session is in, read from its transcript (`input.transcript_path`): { change, command } when the newest
+// The run a session is in, read from its transcript (`input.transcript_path`): { change, command, ended } when the newest
 // slash command typed in the session is `/devkit change ...` (bare or plugin-scoped) and a tool result carrying a
-// line `devkit-run: <id>` follows it (the newest such id is the run's change), else null. Only lines of type `user`
+// line `devkit-run: <id>` follows it (the newest such id is the run's change), else null. `ended` is the state of the
+// newest of the `devkit-run:` and `devkit-end: <id> <state>` lines after that command when it is an end line (printed
+// by the loop on an end, or by the session's own `reply` of an end key), else null: the run's last recorded action is
+// an end until a later `devkit-run:` line. Only lines of type `user`
 // count: a typed command has a string `message.content`, the printed line sits in a `tool_result` block (or its
 // `toolUseResult.stdout`). The skill's own body (`isMeta`), the `api-request-*` lines and a sidechain are not read.
 // Pure: it reads the one file and returns null when it cannot (the locks then let everything through).
@@ -364,9 +367,11 @@ export function runOf(input) {
   };
   const textOf = (block) => (typeof block.content === 'string' ? block.content
     : Array.isArray(block.content) ? block.content.map((b) => (typeof b?.text === 'string' ? b.text : '')).join('\n') : '');
-  const lastId = (s) => [...String(s).matchAll(/^devkit-run: ([A-Za-z0-9][\w.-]*)[ \t]*\r?$/gm)].pop()?.[1] ?? null;
+  const markers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: [A-Za-z0-9][\w.-]* (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
+    .map((m) => (m[1] ? { run: m[1] } : { end: m[2] }));
   let command = null;
   let change = null;
+  let ended = null;
   for (const line of text.split('\n')) {
     if (!/"type"\s*:\s*"user"/.test(line)) continue;
     let rec;
@@ -378,16 +383,18 @@ export function runOf(input) {
       if (typed) {
         command = /^(?:[\w-]+:)?devkit$/.test(typed.name) && /^change(?:\s|$)/.test(typed.args) ? typed : null;
         change = null;
+        ended = null;
       }
       continue;
     }
     if (!command || !Array.isArray(content)) continue;
-    let id = null;
-    for (const block of content) if (block?.type === 'tool_result') id = lastId(textOf(block)) ?? id;
-    id ??= lastId(typeof rec.toolUseResult?.stdout === 'string' ? rec.toolUseResult.stdout : '');
-    if (id) change = id;
+    let found = content.filter((block) => block?.type === 'tool_result').flatMap((block) => markers(textOf(block)));
+    if (!found.length) found = markers(typeof rec.toolUseResult?.stdout === 'string' ? rec.toolUseResult.stdout : '');
+    for (const mark of found) {
+      if (mark.run) { change = mark.run; ended = null; } else ended = mark.end;
+    }
   }
-  return command && change ? { change, command: `change ${command.args.replace(/^change\s*/, '')}`.trim() } : null;
+  return command && change ? { change, command: `change ${command.args.replace(/^change\s*/, '')}`.trim(), ended } : null;
 }
 
 const RUN_CODE_REASON = 'in a /devkit change run this session writes no product code; the implementation is handed to tdd-implementer by the loop';

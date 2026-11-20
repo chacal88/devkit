@@ -1,0 +1,20 @@
+Verdict: approved
+Commit: 551ee6383b99eabd4589e6154ba08c730ad9748b
+
+## Quality review — change-coordinator (round 1)
+
+### Findings
+- [nit] plugins/openspec/skills/devkit/SKILL.md:61 — The `agent` bullet reads 'with `subagent_type` is `agent`'; it should say `subagent_type` set to the action's `agent` field. A session reading this literally could pass the wrong value.
+- [nit] plugins/openspec/hooks/change-loop.mjs:429-431 — Section banner 'the command line (D-5)' is immediately followed by the banner 'the locks (D-8)', so the first one heads nothing. The command-line code starts at line 541. Move or drop the empty banner.
+- [nit] plugins/openspec/hooks/change-loop.mjs:364 — In openChange's cleanup, `worktree remove` and `branch -D` share one try block. If the remove throws, the branch is never deleted and the id stays 'name-taken'. Put each in its own try.
+- [nit] plugins/openspec/hooks/guard.mjs:379-386 — The `devkit-run: <id>` marker is trusted from any tool result in the transcript. Any later tool output with that line at line start (a cat of a doc) would re-point the run to another change. No such line exists in the repo today, and the lock fails open and only follows the newest id. Worth a comment, or a check that the id names a real change.
+- [praise] plugins/openspec/hooks/change-loop.mjs:decide / ROWS — The decision core is pure and table-driven: facts in, one action out. The K1/K2 no-progress and not-delivered guards sit in one place, and messages are keyed by language with one render path. That is why 149 tests can cover it cheaply.
+- [praise] plugins/openspec/hooks/guard.mjs:lock, change-loop.mjs:refuseOnce — Each lock fails open on any error. A refusal that cannot be recorded is let through, so a lock cannot loop forever. Decisions are logged to an opt-in DEVKIT_HOOK_LOG. runOf was timed on a 92 MB transcript at about 164 ms, so the pre-filter on user lines keeps the edit hot path cheap.
+- [praise] plugins/panel/hooks/conducted.ts:argsOf — The panel reads `/devkit change <id>` and the retired `/conduct <id>` in old transcripts. Free text after `/devkit` names no change, and `changes foo` is rejected. The tests cover each form.
+
+### Summary
+- 7 findings (0 blocking, 0 important, 4 nit) + 3 praise
+- Justification: I read the diff of the hook files (`change-loop.mjs` whole, `guard.mjs` and `hooks.json`), `SKILL.md`, the panel pack's `conducted.ts`, `i18n.ts`, `commands.ts` and `project.ts`, and the core agents' `skills:` lists. I also read the plugin manifests and the touched hunks of `conduct-check.mjs` and `flow-check.mjs`. I sampled the tests and listed the other test files by diffstat without reading them in full. I checked cross-package consistency by grep: no live references to the removed `conduct` skill remain except the panel's intended read of old transcripts, and the review-round test was moved to the new skill text. The exports added to `flow-check` and `conduct-check` are used by the loop, and the guard/loop import cycle is safe (the loop imports the guard statically, the guard imports the loop dynamically). The three locks match the declared design: each refuses at most once per state and fails open. Product-code edits and shell writes are gated only for the main session in a run, and subagents are exempt. The version bumps (openspec 0.16.0, core 0.8.0, panel 0.3.0, marketplace 0.20.0) are consistent. I did not re-run the suites; I rely on the gate results given in the prompt. The acceptance proof (evidence.md, 15 of 15 with the live command test and stated limits) was taken as given.
+
+### Files read
+plugins/openspec/hooks/change-loop.mjs, guard.mjs, hooks.json, conduct-check.mjs (diff), flow-check.mjs (diff); plugins/openspec/skills/devkit/SKILL.md; plugins/panel/hooks/conducted.ts, i18n.ts, commands.ts, project.ts (diffs); plugins/core/agents/commit-and-pr.md, plan-readiness-reviewer.md, tdd-implementer.md (diffs); the three plugin.json files and marketplace.json (diffs); review-round.test.mjs (diff); a grep of the tests of guard, change-loop and the panel pack (listed, not read in full).

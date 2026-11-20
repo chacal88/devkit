@@ -2,7 +2,7 @@
 // change-coordinator: the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -11,11 +11,12 @@ import { spawnSync } from 'node:child_process';
 import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { shipConfig, collectState, buildReport } from './deliver-check.mjs';
+import { actorOf } from './conduct-check.mjs';
 import { TEXT } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
 import {
   readDevkitSettings, normalizeLang, MESSAGES, render, decide, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError,
-  runCommand, waitLoop,
+  runCommand, waitLoop, PACKS,
 } from './change-loop.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -123,8 +124,25 @@ test('change-loop replies: no internal term in either language', () => {
       assert.ok(!/[\w.-]+\.(md|json|mjs|js|ts|ya?ml)\b/.test(text), `${lang} ${key} names a file: ${text}`);
       assert.ok(!/\b[a-z][\w-]*=\S/i.test(text), `${lang} ${key} has a name=value shape: ${text}`);
       for (const name of [...refusedIds, ...refusedWords]) assert.ok(!wordRe(name).test(text), `${lang} ${key} holds ${name}: ${text}`);
+      assert.ok(!/(^|\s)--[a-z]/i.test(text), `${lang} ${key} holds an option: ${text}`);
+      assert.ok(!/(^|\s)\?(\s|$)/.test(text), `${lang} ${key} holds a lone ?: ${text}`);
     }
   }
+  // The usage error's reply (exit 3 of main on an unknown option, a missing change) is one more message of the table.
+  for (const lang of ['en', 'pt-BR']) {
+    for (const argv of [['next', '--lang', lang, '--bogus'], ['next', '--lang', lang], ['open', '--lang', lang, '--script', 'devkit'], ['reply', 'no-such-key', '--lang', lang], ['teleport', '--lang', lang]]) {
+      const r = main(argv, { cwd: tmpdir(), env: cleanEnv });
+      const { reply, error } = JSON.parse(r.stdout);
+      assert.equal(r.code, 3, argv.join(' '));
+      assert.equal(reply, MESSAGES[lang]['request-unreadable'], `${lang}: ${argv.join(' ')}`);
+      assert.ok(!/(^|\s)--[a-z]/i.test(reply) && !/(^|\s)\?(\s|$)/.test(reply) && !/change-loop|\.mjs/.test(reply), reply);
+      assert.ok(error.length > 0, 'the raw message stays in the error field');
+    }
+  }
+  assert.ok(MESSAGES.en['request-unreadable'] && MESSAGES['pt-BR']['request-unreadable'], 'the key is in both languages');
+  // The two checks above refuse what the old reply held: an option and a lone question mark.
+  assert.ok(/(^|\s)--[a-z]/i.test('stopped (unknown option --bogus; usage: change-loop.mjs next --change x)'));
+  assert.ok(/(^|\s)\?(\s|$)/.test('The change ? stopped'));
   for (const key of Object.keys(MESSAGES.en)) {
     if (EXEMPT_EQUAL.includes(key)) continue;
     assert.notEqual(MESSAGES.en[key], MESSAGES['pt-BR'][key], `${key} is translated`);
@@ -461,6 +479,35 @@ test('change-loop decide: the B rows are exactly the steps the checkers can retu
   assert.deepEqual([...rows].filter((s) => !returnable.has(s)), [], 'a row naming a step no checker returns');
 });
 
+test('change-loop decide: the agent of a delivery hand-off is the one the checker\'s row names, and the loop\'s own map only when the row names none', () => {
+  for (const step of ['implement', 'commit', 'verify', 'resolve-release-conflict', 'push-rebased']) {
+    const named = build(rowOf(step, { agent: 'devkit-core:named-by-the-row', paths: [] }));
+    assert.equal(named.kind, 'agent', step);
+    assert.equal(named.agent, 'devkit-core:named-by-the-row', `${step}: from the row`);
+    assert.equal(named.detail.agent, undefined, 'the agent is not part of the detail');
+    const unnamed = build(rowOf(step, { paths: [] }));
+    assert.equal(unnamed.agent, actorOf(step).agent, `${step}: the loop's map says what the checker says when the row names none`);
+  }
+});
+
+test('change-loop decide: the loop\'s step agents match conduct-check\'s actorOf', () => {
+  // `retro` is the one step actorOf gives to an agent (general-purpose) that the loop runs in the session (B6, D-8).
+  const stated = { retro: 'general-purpose' };
+  let handedOff = 0;
+  for (const step of ROW_STEPS) {
+    const a = build(rowOf(step, { phase: 1, number: 12, paths: [] }));
+    const checker = actorOf(step).agent;
+    if (a.kind === 'agent') {
+      handedOff += 1;
+      assert.equal(a.agent, checker, `${step}: the loop hands it to ${a.agent}, the checker to ${checker}`);
+    } else if (checker) {
+      assert.equal(stated[step], checker, `${step}: the checker names an agent the loop runs in the session`);
+      assert.equal(a.kind, 'session', step);
+    }
+  }
+  assert.ok(handedOff >= 11, `the loop hands ${handedOff} steps to an agent`);
+});
+
 test('change-loop decide: K1 the same action back with nothing changed ends blocked', () => {
   const next = nextOf(FLOWS.devkit, 'proposal', 'no-file');
   const stages = { proposal: { state: 'pending', reasonCode: 'no-file' } };
@@ -532,7 +579,7 @@ test('change-loop reply: renders a key in both languages and an unknown key exit
   const en = main(['reply', 'waiting-merge', '--lang', 'en', '--param', 'id=add-csv-export', '--param', 'number=12'], { env: cleanEnv });
   assert.deepEqual([en.code, en.stdout], [0, 'Pull request #12 of add-csv-export is ready: in this project, merging it is up to you.\n']);
   const pt = main(['reply', 'blocked', '--lang', 'pt-BR', '--param', 'id=x', '--param', 'why=tests-red', '--param', 'phase=2'], { env: cleanEnv });
-  assert.deepEqual([pt.code, pt.stdout], [0, 'A change x parou: os testes da fase 2 falharam. Nada mais roda até isso ser resolvido.\n']);
+  assert.deepEqual([pt.code, pt.stdout], [0, 'devkit-end: x blocked\nA change x parou: os testes da fase 2 falharam. Nada mais roda até isso ser resolvido.\n'], 'a key that ends the run starts with its end line');
   const odd = main(['reply', 'waiting-merge', '--lang', '${user_config.language}', '--param', 'id=x', '--param', 'number=1'], { env: cleanEnv });
   assert.match(odd.stdout, /^O pull request #1 de x está pronto/);
   const unknown = main(['reply', 'no-such-key', '--lang', 'en'], { env: cleanEnv });
@@ -542,6 +589,36 @@ test('change-loop reply: renders a key in both languages and an unknown key exit
   assert.equal(main(['reply'], { env: cleanEnv }).code, 3);
   assert.equal(main(['teleport'], { env: cleanEnv }).code, 3);
   assert.throws(() => render('en', 'waiting-merge', { id: 'x' }), LoopUsageError);
+});
+
+test('change-loop reply: the keys that end the run print the end line first, every other key the reply alone', () => {
+  const blocked = main(['reply', 'blocked', '--lang', 'en', '--param', 'id=feat', '--param', 'why=role-failed', '--param', 'stage=Code review'], { env: cleanEnv });
+  assert.equal(blocked.stdout, `devkit-end: feat blocked\n${render('en', 'blocked', { id: 'feat', why: 'role-failed', stage: 'Code review' })}\n`);
+  const decision = main(['reply', 'waiting-pr-decision', '--lang', 'pt-BR', '--param', 'id=feat', '--param', 'url=https://github.com/o/r/pull/1'], { env: cleanEnv });
+  assert.equal(decision.stdout, `devkit-end: feat waiting-for-owner\n${render('pt-BR', 'waiting-pr-decision', { id: 'feat', url: 'https://github.com/o/r/pull/1' })}\n`);
+  for (const [key, params] of [['waiting-merge', ['id=feat', 'number=3']], ['script-locked', ['id=feat']], ['nothing-to-resume', []]]) {
+    const r = main(['reply', key, '--lang', 'en', ...params.flatMap((p) => ['--param', p])], { env: cleanEnv });
+    assert.doesNotMatch(r.stdout, /devkit-(run|end):/, key);
+  }
+  // The other commands print no end line unless the action is an end: open, start, a stage hand-off.
+  assert.doesNotMatch(startRun(devkitRepo(), 'roadmap').stdout, /devkit-end:/);
+  assert.doesNotMatch(next(planChange({ have: ['requirements'] })).stdout, /devkit-end:/, 'a stage hand-off is not an end');
+});
+
+test('change-loop next and wait: an end prints devkit-end as the second line, after the run line, with the end\'s state', async () => {
+  const waiting = planChange({ have: [...PLAN_UP_TO_TASKS, 'readiness'] });
+  const n = next(waiting);
+  assert.equal(n.code, 1);
+  assert.deepEqual(n.stdout.split('\n').slice(0, 2), ['devkit-run: feat', 'devkit-end: feat waiting-for-owner']);
+  assert.equal(parsed(n).action.end.state, 'waiting-for-owner');
+  const archived = gitRepo({ config: 'schema: devkit\n', changes: { 'archive/2026-11-19-feat': { '.openspec.yaml': 'schema: devkit\n' } } });
+  assert.deepEqual(next(archived).stdout.split('\n').slice(0, 2), ['devkit-run: feat', 'devkit-end: feat archived']);
+  const ceiling = planChange({ have: [...PLAN_UP_TO_TASKS, 'readiness'], results: { readiness: 'failed' }, attempts: { readiness: 3 } });
+  assert.deepEqual(next(ceiling).stdout.split('\n').slice(0, 2), ['devkit-run: feat', 'devkit-end: feat blocked']);
+  const w = await runCommand(['wait', '--change', 'feat', '--lang', 'en'], { cwd: waiting, env: cleanEnv, sleep: async () => {} });
+  assert.equal(w.stdout, n.stdout, 'wait prints the end exactly as next does');
+  const { t, env } = deliveredChange();
+  assert.deepEqual(next(t.main, [], env).stdout.split('\n').slice(0, 2), ['devkit-run: feat', 'devkit-end: feat waiting-on-github']);
 });
 
 test('change-loop reply: the script runs from its file and prints nothing when imported', () => {
@@ -571,10 +648,9 @@ function planChange({ have, results = {}, attempts = {}, headerless = false } = 
   return root;
 }
 const next = (cwd, extra = [], env = cleanEnv, opts = {}) => main(['next', '--change', 'feat', '--lang', 'en', ...extra], { cwd, env, ...opts });
-const parsed = (r) => {
-  const [first, ...rest] = r.stdout.split('\n');
-  return { first, action: JSON.parse(rest.join('\n')) };
-};
+// The marker lines come first (`devkit-run:`, then `devkit-end:` on an end); the JSON action follows them.
+const actionOf = (stdout) => JSON.parse(stdout.split('\n').filter((l) => !/^devkit-(run|end): /.test(l)).join('\n'));
+const parsed = (r) => ({ first: r.stdout.split('\n')[0], action: actionOf(r.stdout) });
 
 test('change-loop next: the approval awaited exits 1 and carries the readiness hash', () => {
   const root = planChange({ have: ['requirements', 'proposal', 'specs', 'design', 'tasks', 'readiness'] });
@@ -644,7 +720,8 @@ test('change-loop next: an unknown change, an unknown option and a missing chang
     const body = JSON.parse(r.stdout);
     assert.equal(body.version, 1);
     assert.ok(body.error.length > 0);
-    assert.match(body.reply, /^The change .* stopped/);
+    assert.equal(body.reply, render('en', 'request-unreadable'), argv.join(' '));
+    assert.doesNotMatch(body.reply, /change-loop|--|\?/, 'no script name, option or placeholder');
   }
   assert.equal(main(['next', '--change', 'feat', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv }).code, 3, 'no openspec folder above');
 });
@@ -790,7 +867,8 @@ test('change-loop start: S0 a usage error exits 3 and creates nothing', () => {
   const b = body(bogus);
   assert.equal(b.version, 1);
   assert.ok(b.error.length > 0);
-  assert.match(b.reply, /stopped.*cannot be read/);
+  assert.equal(b.reply, render('en', 'request-unreadable'));
+  assert.match(b.error, /unknown option --bogus/, 'the raw message stays in the error field');
   assert.equal(main(['start'], { cwd: root, env: cleanEnv, stdin: 'change x' }).code, 0, 'no --lang is not an error: the language is Brazilian Portuguese');
   // An unreadable openspec/config.yaml (a directory in its place) is a usage error even for a verb of a later round.
   const broken = mkdtempSync(join(tmpdir(), 'change-loop-broken-'));
@@ -988,7 +1066,7 @@ const wtOf = (t, id) => join(t.main, '.claude', 'worktrees', id);
 test('change-loop open: O1 an id that cannot be a change name creates nothing', () => {
   const t = freshProject();
   const before = snapshot(t.main);
-  for (const id of ['Bad', 'a', 'x--y', 'archive', 'a'.repeat(49), '-x', 'has space', 'a_b', '../x']) {
+  for (const id of ['Bad', 'a', 'x--y', 'archive', 'a'.repeat(49), '-x', 'has space', 'a_b', '../x', 'ab-', 'a-', 'x-y-', 'a--b-c', '-']) {
     const r = openRun(t.main, id);
     assert.equal(r.code, 3, id);
     assert.equal(r.stdout.startsWith('devkit-run:'), false);
@@ -996,6 +1074,7 @@ test('change-loop open: O1 an id that cannot be a change name creates nothing', 
     assert.equal(b.reply, render('en', 'name-invalid', { id }), id);
   }
   assert.equal(openRun(t.main, 'ab').code, 0, 'two characters is the shortest valid id');
+  assert.equal(openRun(t.main, 'a-b-1').code, 0, 'words and digits joined by single dashes');
   assert.equal(openRun(t.main, 'a'.repeat(48)).code, 0, '48 characters is the longest');
   assert.notEqual(snapshot(t.main), before);
 });
@@ -1101,6 +1180,65 @@ test('change-loop open: O4 with no remote starts from HEAD', () => {
   assert.equal(b.base, 'HEAD');
   assert.equal(git(join(root, '.claude', 'worktrees', 'local-only'), 'rev-parse', 'HEAD'), sha);
   assert.ok(existsSync(join(root, '.claude', 'worktrees', 'local-only', 'openspec', 'changes', 'local-only', 'requirements.md')));
+});
+
+// O5: a step after `git worktree add` fails. Nothing is left (the same snapshot), the reply is the usage-error one with the
+// raw cause in `error`, and the same id opens once the cause is fixed.
+const TEMPLATE = 'openspec/schemas/devkit/templates/requirements.md';
+const failedOpen = (t, runner) => main(['open', 'half-made', '--script', 'devkit', '--why', 'doubt', '--lang', 'en'], { cwd: t.main, env: cleanEnv, stdin: 'Add a thing', openspec: runner });
+const exploded = () => ({ status: 1, stdout: '', stderr: 'openspec exploded' });
+
+test('change-loop open: O5 an OpenSpec command that fails leaves nothing behind and the same id opens afterwards', () => {
+  const t = freshProject();
+  const before = snapshot(t.main);
+  const r = failedOpen(t, exploded);
+  assert.equal(r.code, 3, r.stdout);
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  const b = body(r);
+  assert.match(b.error, /openspec new change failed: openspec exploded/);
+  assert.equal(b.reply, render('en', 'request-unreadable'));
+  assert.equal(snapshot(t.main), before, 'no worktree, no folder, no branch');
+  assert.equal(git(t.main, 'branch', '--list', 'half-made'), '');
+  assert.equal(existsSync(wtOf(t, 'half-made')), false);
+  const again = openRun(t.main, 'half-made');
+  assert.equal(again.code, 0, again.stdout + again.stderr);
+  assert.ok(existsSync(join(wtOf(t, 'half-made'), 'openspec', 'changes', 'half-made', 'requirements.md')));
+});
+
+test('change-loop open: O5 a requirements template that is missing or has no request section leaves nothing behind and the same id opens afterwards', () => {
+  const breakers = {
+    'a template with no request section': (t) => t.commitOrigin({ [TEMPLATE]: '<!-- devkit-stage requirements result=pending attempt=1 commit=none -->\n# Requirements\n\n## Assumptions\n\n- \n' }, 'break the template'),
+    'a schema with no requirements template': (t) => { rmSync(join(t.main, TEMPLATE)); const sha = commitAll(t.main, 'drop the template'); git(t.main, 'push', '-q', 'origin', 'main'); return sha; },
+  };
+  for (const [label, breakIt] of Object.entries(breakers)) {
+    const t = freshProject();
+    const good = readFileSync(join(t.main, TEMPLATE), 'utf8');
+    breakIt(t);
+    const before = snapshot(t.main);
+    const r = failedOpen(t, undefined);
+    assert.equal(r.code, 3, `${label}: ${r.stdout}`);
+    assert.match(body(r).error, /requirements template/, label);
+    assert.equal(body(r).reply, render('en', 'request-unreadable'), label);
+    assert.equal(snapshot(t.main), before, `${label}: nothing is left`);
+    assert.equal(git(t.main, 'branch', '--list', 'half-made'), '', label);
+    t.commitOrigin({ [TEMPLATE]: good }, 'fix the template');
+    const again = failedOpen(t, undefined);
+    assert.equal(again.code, 0, `${label}: the same id opens once the cause is fixed: ${again.stdout}${again.stderr}`);
+  }
+});
+
+test('change-loop open: O5 each cleanup step is tried on its own: a worktree removal that fails does not leave the branch behind', () => {
+  const t = freshProject();
+  const before = snapshot(t.main);
+  // The runner breaks the worktree (its .git file is gone) and fails: `git worktree remove` then cannot succeed, and the
+  // folder and the registration are left for the next steps.
+  const vanish = () => { rmSync(join(wtOf(t, 'half-made'), '.git')); return exploded(); };
+  const r = failedOpen(t, vanish);
+  assert.equal(r.code, 3, r.stdout);
+  assert.match(body(r).error, /openspec exploded/, 'the original error is kept, not the cleanup\'s');
+  assert.equal(git(t.main, 'branch', '--list', 'half-made'), '', 'the branch is gone although the first step failed');
+  assert.equal(snapshot(t.main), before);
+  assert.equal(openRun(t.main, 'half-made').code, 0, 'the same id opens afterwards');
 });
 
 test('change-loop open: a missing request, an unknown script or an unknown reason is a usage error and creates nothing', () => {
@@ -1351,12 +1489,19 @@ const typedLine = (args, name = '/devkit') => stored({ type: 'user', message: { 
 const plainLine = (text) => stored({ type: 'user', message: { role: 'user', content: text } });
 // The skill body that follows the typed command: type user, isMeta, a list holding one text block.
 const skillBodyLine = (args) => stored({ type: 'user', isMeta: true, message: { role: 'user', content: [{ type: 'text', text: `Base directory for this skill: /plugin/skills/devkit\n\nRun the loop. A line devkit-run: some-id is printed by it.\n\nARGUMENTS: ${args}` }] } });
-// The tool result of a command that printed `devkit-run: <id>`: content a string, and toolUseResult.stdout.
-const runLine = (id) => stored({
+// The tool result of a command that printed `text`, in one of the three stored forms: `both` (content a string, and
+// toolUseResult.stdout), `stdout` (the marker only in toolUseResult.stdout) and `blocks` (content a list of text blocks).
+const toolResultLine = (text, form = 'both') => stored({
   type: 'user',
-  message: { role: 'user', content: [{ tool_use_id: 'toolu-0001', type: 'tool_result', content: `devkit-run: ${id}\n{"version":1}`, is_error: false }] },
-  toolUseResult: { stdout: `devkit-run: ${id}\n{"version":1}`, stderr: '', interrupted: false, isImage: false, noOutputExpected: false },
+  message: { role: 'user', content: [{ tool_use_id: 'toolu-0001', type: 'tool_result', content: form === 'blocks' ? [{ type: 'text', text: 'first block' }, { type: 'text', text }] : form === 'stdout' ? 'ok' : text, is_error: false }] },
+  ...(form === 'blocks' ? {} : { toolUseResult: { stdout: text, stderr: '', interrupted: false, isImage: false, noOutputExpected: false } }),
 });
+// A command that printed `devkit-run: <id>`.
+const runLine = (id, form = 'both') => toolResultLine(`devkit-run: ${id}\n{"version":1}`, form);
+// A command that ended the run: `next` or `wait` (the run line first, then the end line, then the action) or the session's own
+// `reply` of an end key (the end line alone, then the reply).
+const nextEndLine = (id, state, form = 'both') => toolResultLine(`devkit-run: ${id}\ndevkit-end: ${id} ${state}\n{"version":1}`, form);
+const endLine = (id, state, form = 'both') => toolResultLine(`devkit-end: ${id} ${state}\nThe change ${id} stopped: x.`, form);
 // The api-request-blob lines repeat the command text inside text blocks: never the typed command.
 const blobLine = (text) => stored({ type: 'api-request-blob', message: { role: 'user', content: [{ type: 'text', text }] } });
 const assistantLine = () => stored({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'working' }] } });
@@ -1418,6 +1563,29 @@ test('change-loop lock run: no transcript, an unreadable one or a broken line is
   assert.equal(runOf({ transcript_path: transcriptOf(['{not json', typedLine('change x'), '{"type":"user", broken', runLine('feat')]) })?.change, 'feat');
 });
 
+test('change-loop lock run: the marker is found in each stored form of a tool result (string, stdout only, list of text blocks)', () => {
+  for (const form of ['both', 'stdout', 'blocks']) {
+    assert.equal(runOf({ transcript_path: transcriptOf([typedLine('change x'), runLine('feat', form)]) })?.change, 'feat', form);
+    assert.equal(runOf({ transcript_path: transcriptOf([typedLine('change x'), runLine('feat'), endLine('feat', 'blocked', form)]) })?.ended, 'blocked', `${form}: an end the session declared`);
+    assert.equal(runOf({ transcript_path: transcriptOf([typedLine('change x'), nextEndLine('feat', 'waiting-for-owner', form)]) })?.ended, 'waiting-for-owner', `${form}: an end the loop printed`);
+  }
+});
+
+test('change-loop lock run: the run\'s last recorded action is an end while the newest marker is an end line', () => {
+  const ended = (lines) => runOf({ transcript_path: transcriptOf([typedLine('change x'), ...lines]) });
+  assert.equal(ended([runLine('feat')])?.ended, null, 'a run line alone');
+  assert.deepEqual(ended([nextEndLine('feat', 'blocked')]), { change: 'feat', command: 'change x', ended: 'blocked' }, 'the run line and the end line of one output');
+  assert.equal(ended([runLine('feat'), assistantLine(), endLine('feat', 'blocked')])?.ended, 'blocked', 'the session\'s own declaration');
+  for (const state of ['archived', 'waiting-for-owner', 'waiting-on-github', 'blocked']) assert.equal(ended([nextEndLine('feat', state)])?.ended, state, state);
+  assert.equal(ended([nextEndLine('feat', 'blocked'), runLine('feat')])?.ended, null, 'a new action after an end');
+  assert.equal(ended([nextEndLine('feat', 'blocked'), runLine('feat'), endLine('feat', 'waiting-on-github')])?.ended, 'waiting-on-github', 'the newest marker wins');
+  assert.equal(ended([endLine('feat', 'blocked')]), null, 'an end line alone is not a run');
+  assert.equal(runOf({ transcript_path: transcriptOf([typedLine('change x'), nextEndLine('feat', 'blocked'), typedLine('change y')]) }), null, 'a newer typed command ends the run');
+  assert.equal(runOf({ transcript_path: transcriptOf([typedLine('change x'), nextEndLine('feat', 'blocked'), typedLine('change y'), runLine('other')]) })?.ended, null, 'and the new run starts with no end');
+  assert.equal(ended([runLine('feat'), blobLine('devkit-end: feat blocked\n'), skillBodyLine('change x')])?.ended, null, 'a blob and the skill body hold no end line');
+  assert.equal(ended([runLine('feat'), toolResultLine('see devkit-end: feat blocked in the text\nnot at the start')])?.ended, null, 'only a line that starts with the marker counts');
+});
+
 // ---- the modes, as subprocesses of guard.mjs
 
 function hook(mode, input, env = {}) {
@@ -1445,6 +1613,13 @@ test('change-loop lock stop: T2 a background task running lets the stop through'
   assert.equal(r.code, 0, r.err);
 });
 
+test('change-loop lock stop: T2 background_tasks given as an object lets the stop through, an empty one does not', () => {
+  const root = planChange({ have: ['requirements'] });
+  const task = { id: 'byxlntme1', type: 'shell', status: 'running', description: 'Wait 30 seconds in background', command: 'sleep 30' };
+  assert.equal(hook('stop', stopInput(root, runTranscript(), { background_tasks: { byxlntme1: task } }), { TMPDIR: sandbox() }).code, 0);
+  assert.equal(hook('stop', stopInput(root, runTranscript(), { background_tasks: {} }), { TMPDIR: sandbox() }).code, 2, 'an empty object is no task');
+});
+
 test('change-loop lock stop: T3 an end state of the loop lets the stop through', () => {
   const approval = planChange({ have: [...PLAN_UP_TO_TASKS, 'readiness'] });
   const archived = gitRepo({ config: 'schema: devkit\n', changes: { 'archive/2026-11-19-feat': { '.openspec.yaml': 'schema: devkit\n' } } });
@@ -1453,6 +1628,45 @@ test('change-loop lock stop: T3 an end state of the loop lets the stop through',
     const r = hook('stop', stopInput(root, runTranscript()), { TMPDIR: sandbox() });
     assert.equal(r.code, 0, `${name}: ${r.err}`);
   }
+});
+
+test('change-loop lock stop: T3a an end the session declared or the loop printed lets the stop through at the first attempt, until a later run line', () => {
+  // The state is a ready planner stage: with no end recorded the first stop is refused (T5); the end is all that differs.
+  const root = planChange({ have: ['requirements'] });
+  const stop = (lines, tmp = sandbox()) => hook('stop', stopInput(root, transcriptOf([typedLine('change x'), ...lines])), { TMPDIR: tmp });
+  assert.equal(stop([runLine('feat')]).code, 2, 'no end recorded: refused');
+  const cases = {
+    'a stage agent returned a failure and the session declared the run blocked': [runLine('feat'), assistantLine(), endLine('feat', 'blocked')],
+    'a phase gate ran red and the session declared the run blocked': [runLine('feat'), endLine('feat', 'blocked', 'blocks')],
+    'a pull-request decision was left to the owner': [runLine('feat'), endLine('feat', 'waiting-for-owner', 'stdout')],
+    'the loop ended the run for no progress or a stage not delivered (next --after)': [nextEndLine('feat', 'blocked')],
+  };
+  for (const [label, lines] of Object.entries(cases)) {
+    const tmp = sandbox();
+    const r = stop(lines, tmp);
+    assert.equal(r.code, 0, `${label}: ${r.err}`);
+    assert.equal(existsSync(join(tmp, 'devkit-stop')), false, `${label}: nothing was refused, nothing recorded`);
+  }
+  const again = sandbox();
+  assert.equal(stop([nextEndLine('feat', 'blocked'), runLine('feat')], again).code, 2, 'the owner went on: a later run line, the stage is ready again');
+  assert.equal(stop([nextEndLine('feat', 'blocked'), runLine('feat')], again).code, 0, 'and the same state a second time is let through (T6)');
+});
+
+test('change-loop lock stop: T3a reads a real no-progress end of next --after, the other locks still refuse after an end', () => {
+  const root = planChange({ have: ['requirements'] });
+  const first = next(root);
+  const key = parsed(first).action.progressKey;
+  const stuck = next(root, ['--after', key]);
+  assert.equal(parsed(stuck).action.end.why, 'no-progress');
+  assert.match(stuck.stdout, /^devkit-run: feat\ndevkit-end: feat blocked\n/);
+  const transcript = transcriptOf([typedLine('change x'), toolResultLine(stuck.stdout)]);
+  assert.equal(hook('stop', stopInput(root, transcript), { TMPDIR: sandbox() }).code, 0, 'the stop is let through');
+  // Only the stop lock reads the end: a run that ended is still a run for the edit and the hand-off locks.
+  const lite = liteChange();
+  const edit = hook('edit', editInput(lite, 'src/a.ts', transcript));
+  assert.equal(edit.code, 2, edit.err);
+  assert.match(edit.err, LOCK_TEXT);
+  assert.equal(hook('agent', agentInput(lite, transcript, 'general-purpose')).code, 2);
 });
 
 test('change-loop lock stop: T4 the grill, waiting for the owner, lets the stop through', () => {
@@ -1572,6 +1786,48 @@ test('change-loop lock subagent-stop: U7 an error lets the stop through', () => 
   assert.equal(existsSync(join(tmp, 'devkit-stop')), false);
 });
 
+// ---- the real topology: the change in its own worktree, the hook's cwd the main checkout (the layout `open` creates)
+
+// The main checkout (its default schema `devkit`) with no folder for `feat`, and a worktree on branch `feat` holding the
+// change's files, committed there. Returns { main, wt }.
+function worktreeChange({ schema = 'devkit', have = ['requirements'] } = {}) {
+  const main = gitRepo({ config: 'schema: devkit\n' });
+  const wt = join(mkdtempSync(join(tmpdir(), 'change-loop-wtlayout-')), 'feat');
+  git(main, 'worktree', 'add', '-q', '-b', 'feat', wt);
+  const c0 = git(wt, 'rev-parse', 'HEAD');
+  put(wt, { 'openspec/changes/feat/.openspec.yaml': `schema: ${schema}\n`, ...Object.fromEntries(have.map((stage) => [`openspec/changes/feat/${PLAN_FILES[stage]}`, `${head(stage, c0)}# ${stage}\n`])) });
+  commitAll(wt, 'change files');
+  assert.equal(existsSync(join(main, 'openspec', 'changes', 'feat')), false, 'the main checkout has no folder for the change');
+  return { main, wt };
+}
+
+test('change-loop lock subagent-stop: a change in its own worktree, the session in the main checkout', () => {
+  const { main, wt } = worktreeChange({ have: ['requirements'] });
+  const r = hook('subagent-stop', subInput(main, runTranscript(), 'change-planner'), { TMPDIR: sandbox() });
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, /proposal\.md of stage proposal does not exist: write it, with its stage header, before you stop/);
+  // The same state read from the worktree itself agrees, and once the file is delivered the stop is let through.
+  assert.equal(hook('subagent-stop', subInput(wt, runTranscript(), 'change-planner'), { TMPDIR: sandbox() }).code, 2);
+  put(wt, { 'openspec/changes/feat/proposal.md': `${head('proposal', git(wt, 'rev-parse', 'HEAD'))}# proposal\n`, 'openspec/changes/feat/specs/s/spec.md': `${head('specs', git(wt, 'rev-parse', 'HEAD'))}# s\n` });
+  commitAll(wt, 'proposal and specs');
+  const delivered = hook('subagent-stop', subInput(main, runTranscript(), 'change-planner'), { TMPDIR: sandbox() });
+  assert.equal(delivered.code, 2, 'the next stage (design) is still the planner\'s and its file is missing');
+  assert.match(delivered.err, /design\.md of stage design does not exist/);
+});
+
+test('change-loop lock agent: a change in its own worktree, the session in the main checkout', () => {
+  // The change is on the short script, the main checkout's project default is the full one: the roles come from the worktree's script.
+  const { main } = worktreeChange({ schema: 'devkit-lite', have: ['requirements'] });
+  const transcript = runTranscript();
+  assert.equal(hook('agent', agentInput(main, transcript, 'devkit-core:change-planner')).code, 0, 'a role of the script is allowed');
+  const general = hook('agent', agentInput(main, transcript, 'general-purpose'));
+  assert.equal(general.code, 2, general.err);
+  assert.match(general.err, /roles of the devkit-lite script/);
+  const full = hook('agent', agentInput(main, transcript, 'devkit-core:plan-readiness-reviewer'));
+  assert.equal(full.code, 2, 'a role of the full script only: read from the worktree\'s script, not the main checkout\'s');
+  assert.match(full.err, /roles of the devkit-lite script/);
+});
+
 // ---- the edit lock
 
 const editInput = (root, file, transcript, role) => ({
@@ -1659,7 +1915,7 @@ test('change-loop lock agent: H3 a role or a helper of the script is allowed, th
   const full = approvedChange();
   for (const root of [liteChange(), full]) {
     const types = ['devkit-core:change-planner', 'devkit-core:tdd-implementer', 'devkit-core:pr-verifier', 'devkit-core:commit-and-pr',
-      'devkit-core:code-quality-reviewer', 'devkit-core:openspec-validator', 'devkit-core:codebase-researcher', 'change-planner'];
+      'devkit-core:code-quality-reviewer', 'devkit-openspec:openspec-validator', 'devkit-core:codebase-researcher', 'change-planner', 'openspec-validator'];
     if (root === full) types.push('devkit-core:plan-readiness-reviewer', 'devkit-core:plan-reality-auditor');
     for (const type of types) {
       const r = hook('agent', agentInput(root, transcript, type));
@@ -1673,7 +1929,7 @@ test('change-loop lock agent: H3 a role or a helper of the script is allowed, th
 test('change-loop lock agent: H4 any other agent is refused naming the script and the roles', () => {
   const transcript = runTranscript();
   for (const [script, root] of [['devkit-lite', liteChange()], ['devkit', approvedChange()]]) {
-    for (const type of ['general-purpose', 'Explore', 'other-plugin:fixer']) {
+    for (const type of ['general-purpose', 'Explore', 'other-plugin:fixer', 'other-plugin:change-planner', 'other:tdd-implementer', 'devkit-openspec:change-planner', 'devkit-core:openspec-validator', 'devkit-core:devkit-core:change-planner']) {
       const r = hook('agent', agentInput(root, transcript, type));
       assert.equal(r.code, 2, `${type}: ${r.err}`);
       assert.match(r.err, new RegExp(`in a /devkit change run this session hands work only to the roles of the ${script} script: .*change-planner.*tdd-implementer.*; ${type.replace('/', '\\/')} is not one of them`));
@@ -1687,7 +1943,49 @@ test('change-loop lock agent: H5 an error lets the hand-off through', () => {
   put(root, { 'openspec/schemas/devkit-lite/flow.json': '{ not json' });
   assert.equal(hook('agent', agentInput(root, runTranscript(), 'general-purpose')).code, 0, 'a malformed flow.json');
   assert.equal(hook('agent', agentInput(liteChange(), join(sandbox(), 'gone.jsonl'), 'general-purpose')).code, 0, 'an unreadable transcript');
-  assert.equal(hook('agent', { cwd: liteChange(), tool_name: 'Agent', tool_input: {}, transcript_path: runTranscript() }).code, 0, 'no subagent_type');
+});
+
+test('change-loop lock agent: H4a no agent type, or an empty one, is refused naming the script and the roles', () => {
+  const transcript = runTranscript();
+  for (const [script, root] of [['devkit-lite', liteChange()], ['devkit', approvedChange()]]) {
+    for (const input of [
+      { cwd: root, tool_name: 'Agent', tool_input: { prompt: 'do it' }, transcript_path: transcript },
+      { cwd: root, tool_name: 'Agent', tool_input: {}, transcript_path: transcript },
+      { cwd: root, tool_name: 'Agent', transcript_path: transcript },
+      agentInput(root, transcript, ''),
+      agentInput(root, transcript, undefined),
+      agentInput(root, transcript, null),
+    ]) {
+      const r = hook('agent', input);
+      assert.equal(r.code, 2, `${JSON.stringify(input.tool_input)}: ${r.err}`);
+      assert.match(r.err, new RegExp(`in a /devkit change run this session hands work only to the roles of the ${script} script: .*change-planner.*tdd-implementer.*; name one of them as subagent_type`));
+    }
+  }
+  assert.equal(hook('agent', { cwd: liteChange(), tool_name: 'Agent', tool_input: {}, transcript_path: transcriptOf([assistantLine()]) }).code, 0, 'outside a run an absent type is allowed (H2)');
+  assert.equal(hook('agent', { cwd: liteChange(), tool_name: 'Agent', tool_input: {}, transcript_path: transcript, agent_type: 'devkit-core:plan-readiness-reviewer', agent_id: 'agent-0001' }).code, 0, 'a subagent may call any agent (H1)');
+});
+
+test('change-loop lock agent: the accepted packs are the ones docs/roles.md names', () => {
+  // docs/roles.md: "## <role>" then "- Played today by: The agent `<pack>:<role>`" for a role or helper that ships an agent.
+  const named = {};
+  let role = null;
+  for (const line of readRepo('docs', 'roles.md').split('\n')) {
+    const h = /^## ([\w-]+)$/.exec(line);
+    if (h) role = h[1];
+    const m = /^- Played today by: The agent `([\w-]+):([\w-]+)`/.exec(line);
+    if (m && role) {
+      assert.equal(m[2], role, `${role}: the agent is named like its role`);
+      named[role] = m[1];
+    }
+  }
+  assert.ok(Object.keys(named).length >= 14 && named['openspec-validator'] === 'devkit-openspec', 'the scan found the roles');
+  const inFlow = new Set(Object.values(FLOWS).flatMap((f) => f.stages.flatMap((st) => [st.role, ...(st.helpers ?? [])])));
+  for (const r of inFlow) {
+    if (named[r]) assert.equal(PACKS[r], named[r], `${r} is played by ${named[r]}:${r} and PACKS holds ${PACKS[r]}`);
+    else assert.equal(PACKS[r], undefined, `${r} ships no agent, PACKS holds ${PACKS[r]}`);
+  }
+  for (const [r, pack] of Object.entries(PACKS)) assert.equal(named[r], pack, `PACKS holds ${pack}:${r}, docs/roles.md names ${named[r] ?? 'nothing'}`);
+  for (const r of Object.keys(PACKS)) assert.ok(inFlow.has(r), `${r} is a role or helper of a script`);
 });
 
 // ---- the log, hooks.json, bypass and opt-in
@@ -1717,6 +2015,18 @@ test('change-loop lock log: one JSON line per decision with DEVKIT_HOOK_LOG, non
   hook('stop', stopInput(root, transcript), { TMPDIR: quiet });
   assert.deepEqual(readdirSync(quiet), ['devkit-stop'], 'no file but the refusal record');
   assert.equal(readFileSync(log, 'utf8').split('\n').filter(Boolean).length, 4, 'the log is not touched without the variable');
+});
+
+test('change-loop lock: the module header names the lock decisions and their refusal record, and the command line banner sits on its code', () => {
+  const lines = read('change-loop.mjs').split('\n');
+  const header = lines.slice(0, 30).join('\n');
+  for (const name of ['stopDecision', 'subagentStopDecision', 'agentDecision', 'devkit-stop', 'devkit-end:']) assert.ok(header.includes(name), `the header names ${name}`);
+  const banners = lines.map((l, i) => [l, i]).filter(([l]) => l.startsWith('// ------'));
+  for (const [i, [banner, at]] of banners.entries()) {
+    const following = lines.slice(at + 1, banners[i + 1]?.[1] ?? lines.length).filter((l) => l.trim() !== '');
+    assert.ok(following.length > 0, `the banner ${banner.slice(-30)} is followed by code, not by another banner`);
+  }
+  assert.ok(banners.some(([l]) => l.includes('the command line')), 'the command line banner exists');
 });
 
 test('change-loop lock hooks.json: Stop, SubagentStop without a matcher and PreToolUse Agent call guard.mjs', () => {
@@ -1898,13 +2208,24 @@ test('change-loop skill: one stage per hand-off, in the foreground, never a suba
   const loop = section(md, '## Loop', '## Owner gates');
   assert.match(loop, /one Agent call/);
   assert.match(loop, /in the foreground/);
-  assert.match(loop, /`subagent_type` is `agent`/);
+  assert.match(loop, /the call's `subagent_type` set to the action's `agent` field/);
   assert.match(loop, /`--after`/);
   const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /Dispatch a subagent for a whole change/);
   assert.match(never, /Choose the order of the stages or run two stages at once/);
   assert.match(never, /Edit product code in this session/);
   assert.match(never, /Bypass a hook or a gate/);
+});
+
+test('change-loop skill: an end the session declares goes through reply, and the marker lines are never shown (F1)', () => {
+  const md = skillText();
+  const loop = section(md, '## Loop', '## Owner gates');
+  assert.match(loop, /a second line `devkit-end: <id> <state>` follows/);
+  assert.match(loop, /never show one to the owner/);
+  assert.match(loop, /An end the session declares itself \(an agent's failure, a red gate, a pull-request decision left to the owner\) goes through `reply`/);
+  assert.match(loop, /only the lines after it are shown to the owner/);
+  for (const key of ['reply blocked --param id=<id> --param why=role-failed', 'reply blocked --param id=<id> --param why=tests-red', 'reply waiting-pr-decision --param id=<id>']) assert.ok(loop.includes(key), key);
+  assert.doesNotMatch(loop, /\bsay `node/, 'the declared ends are run, not said');
 });
 
 test('change-loop skill: the review sentence points at the ship-change review row, and verify comes before review', () => {
@@ -2029,14 +2350,22 @@ test('change-loop docs: the design records the answers', () => {
   const adr10 = readRepo('docs', 'adr', '0010-openspec-as-the-harness.md');
   const ctx10 = adr10.slice(adr10.indexOf('## Context'), adr10.indexOf('ADR 0001 let devkit coordinate'));
   assert.match(ctx10, /Note \(change-coordinator, \d{4}-\d{2}-\d{2}\)[\s\S]*ADR 0011/);
-  for (const f of ['0005-parallel-steps-and-a-session-wake-up.md', '0006-phases-as-child-sessions.md', '0007-one-change-on-request.md', '0009-compozy-loop-as-a-second-driver.md']) {
+  for (const f of ['0005-parallel-steps-and-a-session-wake-up.md', '0006-phases-as-child-sessions.md', '0007-one-change-on-request.md', '0008-reviews-as-a-workflow.md', '0009-compozy-loop-as-a-second-driver.md']) {
     assert.match(readRepo('docs', 'adr', f), /Note \(change-coordinator, \d{4}-\d{2}-\d{2}\):[^\n]*(\n[^\n]+)*?\/devkit change/, `${f} names /devkit change`);
   }
+  const adr8 = readRepo('docs', 'adr', '0008-reviews-as-a-workflow.md');
+  const ctx8 = adr8.slice(adr8.indexOf('## Context'), adr8.indexOf('Note (ADR 0010'));
+  assert.match(ctx8, /Note \(change-coordinator, \d{4}-\d{2}-\d{2}\): `\/conduct` was retired in round 15; one change now runs with `\/devkit change` \(ADR 0010\), whose review step is the `ship-change` `review` row, unchanged\./, 'ADR 0008 has the dated Note before its existing one');
+  assert.match(adr8, /^- Status: accepted$/m, 'its status does not change');
   const adrs = readRepo('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
   assert.match(flow, /v0\.16\.0/);
+  assert.match(flow, /prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end/, 'the loop paragraph names the end marker');
+  assert.match(flow, /an end the run already recorded/, 'the stop lock reads a recorded end');
+  assert.match(flow, /refuses a hand-off with no agent type, to a general-purpose agent, to another plugin's agent even when it is named like a role/, 'the hand-off rule');
+  assert.match(flow, /a usage error included[^\n]*keeps its raw message in the JSON's `error` field/, 'the usage-error reply');
   assert.doesNotMatch(flow, /v0\.15\.1/);
   const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => l.startsWith('- [ ] review-writer-prompt'));
   assert.match(road, /touches only tests/);
