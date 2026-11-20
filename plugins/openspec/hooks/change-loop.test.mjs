@@ -1949,6 +1949,32 @@ test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () 
   assert.doesNotMatch(md, /conduct-check|CronCreate|start_session/);
 });
 
+test('change-loop skill: every reply not yet shown ends the turn, in order, before anything else (AC-1)', () => {
+  const md = skillText();
+  const settings = section(md, '## Settings', '## Start');
+  assert.match(settings, /Only the last message of a turn reaches the owner/);
+  assert.match(settings, /every `reply` the script printed in this turn that the owner has not been shown is part of the message that ends the turn, in order, before anything else/);
+  assert.match(settings, /opens a change ends with the opening reply and then the grill's first question/);
+  assert.match(settings, /`resume` reply and a `switch-script` reply likewise/);
+  assert.doesNotMatch(md, /say `reply`, then enter the Loop/i);
+  const resume = md.split('\n').find((l) => l.startsWith('- `resume`'));
+  assert.ok(resume && /keep `reply` for the message that ends the turn/.test(resume), 'resume keeps its reply');
+  const fresh = section(md, '## A new change', '## Loop');
+  assert.match(fresh, /Keep `reply` for the message that ends the turn, then enter the Loop with the id/);
+  const sw = md.split('\n').find((l) => l.startsWith('- `session`'));
+  assert.ok(sw && /keeps `reply` for the message that ends the turn/.test(sw), 'switch-script keeps its reply');
+});
+
+test('change-loop skill: what the session writes itself follows the message table\'s rule (AC-11)', () => {
+  const md = skillText();
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Show the owner an internal term/);
+  for (const term of ['progress key', 'agent or role id', 'reason code', 'step name of a checker']) assert.ok(never.includes(term), term);
+  assert.match(never, /`stageTitle`/);
+  assert.match(never, /call `\/devkit change` again/);
+  assert.match(never, /file name the owner needs in order to act/);
+});
+
 // ---------------------------------------------------------------- /conduct retired, the documents and ADR 0011 (phase 6: D-11, D-13, D-16)
 
 function repoFiles() {
