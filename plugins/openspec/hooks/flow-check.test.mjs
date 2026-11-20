@@ -282,7 +282,7 @@ test('flow-check AC-2: the session hook names the checker and the roles', () => 
 
 const HEADER = (stage, result = 'passed') => `<!-- devkit-stage ${stage} result=${result} attempt=1 commit=none -->\n`;
 const headed = (on, stage, text) => (on ? HEADER(stage) + text : text);
-const SHIP_ENV = { DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const SHIP_ENV = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
 const CHANGE = 'openspec/changes/feat';
 const PLAN_PROPOSAL = '# Proposal\n\n## Why\n\nx\n\n## Acceptance criteria\n\n- AC-1: a thing\n';
 const hashOfFile = (file) => `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 12)}`;
@@ -823,7 +823,7 @@ function deliveryReport({ ship = 'merge', fill = () => {}, branch = 'feat' } = {
   if (branch !== 'main') git(root, 'checkout', '-q', '-b', branch);
   const gh = fakeGh();
   fill(gh.set.bind(gh), git(root, 'rev-parse', 'HEAD'));
-  const env = { ...gh.env, DEVKIT_BRANCH: '' };
+  const env = { ...gh.env, ...SHIP_ENV };
   const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
   return { report: computeFlow(facts, flow, {}), gh, root };
 }
@@ -865,7 +865,7 @@ test('flow-check delivery: after a squash merge the walk resumes at the retro', 
   const reportWith = (list) => {
     const gh = fakeGh();
     gh.set('pr-list-state-merged', { stdout: list });
-    const env = { ...gh.env, DEVKIT_BRANCH: '' };
+    const env = { ...gh.env, ...SHIP_ENV };
     const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
     return computeFlow(facts, flow, {});
   };
@@ -890,7 +890,7 @@ test('flow-check delivery: a merged pull request seen from the change\'s own bra
     const gh = fakeGh();
     gh.set('pr-view', { stdout: prView(git(root, 'rev-parse', 'HEAD'), { state: 'MERGED', headRefName: 'feat' }) });
     gh.set('pr-list-state-merged', { stdout: [prView('f'.repeat(40), { state: 'MERGED', headRefName: 'feat', body: 'evidence: openspec/changes/feat/evidence.md' })] });
-    const env = { ...gh.env, DEVKIT_BRANCH: '' };
+    const env = { ...gh.env, ...SHIP_ENV };
     const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
     return computeFlow(facts, flow, {});
   };
@@ -956,7 +956,7 @@ test('flow-check stages: termination simulation: every run ends in one of four s
 // ---- the command line
 
 const withVersion = (inner) => (args) => (args[0] === '--version' ? { status: 0, stdout: '2.0.0\n', stderr: '' } : inner(args));
-const cli = (root, argv, extra = {}) => FC.main(argv, { cwd: root, env: { ...process.env, DEVKIT_BRANCH: '' }, openspec: withVersion(fakeOpenspec(root)), ...extra });
+const cli = (root, argv, extra = {}) => FC.main(argv, { cwd: root, env: { ...process.env, ...SHIP_ENV }, openspec: withVersion(fakeOpenspec(root)), ...extra });
 
 test('flow-check readout: exit codes', () => {
   const code = (root, ...argv) => cli(root, ['feat', ...argv]).code;
@@ -1075,7 +1075,7 @@ export function sampleChange() {
 }
 
 const FLOW_CHECK = join(HERE, 'flow-check.mjs');
-const runCli = (cwd, args, env = process.env) => spawnSync(process.execPath, [FLOW_CHECK, ...args], { cwd, env, encoding: 'utf8' });
+const runCli = (cwd, args, env = { ...process.env, ...SHIP_ENV }) => spawnSync(process.execPath, [FLOW_CHECK, ...args], { cwd, env, encoding: 'utf8' });
 
 test('flow-check readout: the sample change prints the approved text', () => {
   const root = sampleChange();
@@ -1127,7 +1127,7 @@ function wrapperDir(script) {
   chmodSync(join(dir, 'openspec'), 0o755);
   return dir;
 }
-const withPath = (dir, extra = {}) => ({ ...process.env, PATH: `${dir}:${process.env.PATH}`, DEVKIT_BRANCH: '', ...extra });
+const withPath = (dir, extra = {}) => ({ ...process.env, PATH: `${dir}:${process.env.PATH}`, ...SHIP_ENV, ...extra });
 
 test('flow-check readout: an archived change ends archived without asking OpenSpec for its status', () => {
   const root = mkdtempSync(join(tmpdir(), 'flow-check-arch-'));
@@ -1173,7 +1173,7 @@ test('flow-check readout: an OpenSpec answer without artifacts exits 3', () => {
 test('flow-check readout: no openspec command on PATH exits 3 and names the cause', () => {
   const root = liveChange();
   const empty = mkdtempSync(join(tmpdir(), 'flow-check-nopath-'));
-  const env = { ...process.env, PATH: empty, DEVKIT_BRANCH: '' };
+  const env = { ...process.env, PATH: empty, ...SHIP_ENV };
   const r = runCli(root, ['feat'], env);
   assert.equal(r.status, 3);
   assert.match(r.stderr, /the openspec CLI is not installed or not on PATH/);
@@ -1231,8 +1231,8 @@ test('flow-check AC-9: it runs with only node, git, openspec and a fake gh on PA
   symlinkSync(which('openspec'), join(bin, 'openspec'));
   const gh = fakeGh();
   symlinkSync(join(gh.bin, 'gh'), join(bin, 'gh'));
-  const lean = { ...gh.env, PATH: bin, DEVKIT_BRANCH: '' };
-  const full = runCli(root, ['add-csv-export', '--json'], { ...process.env, DEVKIT_BRANCH: '' });
+  const lean = { ...gh.env, PATH: bin, ...SHIP_ENV };
+  const full = runCli(root, ['add-csv-export', '--json'], { ...process.env, ...SHIP_ENV });
   const small = runCli(root, ['add-csv-export', '--json'], lean);
   assert.equal(small.status, 0, small.stderr);
   assert.equal(JSON.parse(small.stdout).version, 1);
