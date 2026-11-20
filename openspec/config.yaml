@@ -1,9 +1,9 @@
-# Default flow: devkit-lite (proposal → optional spec delta → tasks → apply →
-# evidence + reviews). Use the full flow, with the owner grilled, an
-# independent readiness gate and code written only by tdd-implementer,
-# for changes that are new capabilities, cross areas, change a public
-# contract or data model, touch auth/money/personal data, or are hard to
-# roll back:
+# Default flow: devkit-lite (requirements grill → proposal → optional spec delta →
+# tasks → apply → evidence + reviews). Use the full flow, which adds an
+# independent readiness gate, the owner's plan approval and code written only
+# by tdd-implementer, for changes that are new capabilities, cross areas,
+# change a public contract or data model, touch auth/money/personal data, or
+# are hard to roll back:
 #   openspec new change <name> --schema devkit
 schema: devkit-lite
 

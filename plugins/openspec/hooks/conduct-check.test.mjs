@@ -78,8 +78,8 @@ const TASKS = '# Tasks\n\n## 1. First\n- [ ] 1.1 code\n';
 
 // A change whose plan files exist in `wt`, mtimes fixed (plan files at T0, readiness at T0+5, approval and audit later).
 function planFiles(wt, id, { schema = 'devkit-lite', readiness = null, approved = false, tasks = TASKS } = {}) {
-  const files = { '.openspec.yaml': `schema: ${schema}\n`, 'proposal.md': PROPOSAL, 'tasks.md': tasks };
-  if (schema === 'devkit') Object.assign(files, { 'requirements.md': '# Requirements\n', 'design.md': '# Design\n' });
+  const files = { '.openspec.yaml': `schema: ${schema}\n`, 'requirements.md': '# Requirements\n', 'proposal.md': PROPOSAL, 'tasks.md': tasks };
+  if (schema === 'devkit') files['design.md'] = '# Design\n';
   writeChange(wt, id, files);
   for (const f of ['proposal.md', 'tasks.md', 'requirements.md', 'design.md']) if (existsSync(cf(wt, id, f))) at(cf(wt, id, f), T0);
   if (readiness) {
@@ -167,9 +167,28 @@ test('conduct: --round 2 skips an unticked round 1 into skipped; --round 9 is a 
 test('conduct: an after: id that is missing from the roadmap or in a skipped round keeps its dependent waiting', () => {
   const t = roundRepo({ roadmap: roadmapOf(['Round 1: first', '- [ ] a'], ['Round 2: second', '- [ ] b (after: a, ghost)']) });
   const b = t.addWt('b');
-  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit-lite\n', 'proposal.md': PROPOSAL, 'tasks.md': TASKS });
+  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit-lite\n', 'requirements.md': '# Requirements\n', 'proposal.md': PROPOSAL, 'tasks.md': TASKS });
   const res = t.state({ round: 2 });
   assert.equal(byId(res, 'b').state, 'waiting on a, ghost');
+});
+
+test('conduct: plan files come from the stage declaration', () => {
+  const t = oneChange();
+  const b = t.addWt('b');
+  const missing = (schema, flow = null) => {
+    writeChange(b, 'b', { '.openspec.yaml': `schema: ${schema}\n`, 'requirements.md': '# Requirements\n' });
+    if (flow) put(b, { [`openspec/schemas/${schema}/flow.json`]: JSON.stringify(flow) });
+    return byId(t.state(), 'b').next.missing;
+  };
+  assert.deepEqual(missing('devkit'), ['proposal.md', 'design.md', 'tasks.md']);
+  assert.deepEqual(missing('devkit-lite'), ['proposal.md', 'tasks.md']);
+  const stage = (id, file, extra = {}) => ({ id, source: 'artifact', file, role: 'change-planner', part: 'plan', title: { en: id, 'pt-BR': id }, ...extra });
+  const flow = { version: 1, script: 'devkit-lite', ceilings: { default: 3 }, stages: [
+    stage('requirements', 'requirements.md'), stage('mockup', 'mockup.md', { shipped: false }), stage('proposal', 'proposal.md'),
+    stage('specs', 'specs/**/*.md'), stage('extra', 'extra.md'), stage('approval', 'approval.md', { role: 'owner' }),
+    stage('evidence', 'evidence.md', { part: 'after' }),
+  ] };
+  assert.deepEqual(missing('devkit-lite', flow), ['proposal.md', 'extra.md']);
 });
 
 test('conduct: a worktree at a non-standard path is reused: no worktree or create step (AC-11)', () => {
@@ -350,11 +369,14 @@ test('conduct: a worktree with no change folder gives new-change, askable, with 
   assert.match(c.next.command, /^openspec new change b --schema /);
 });
 
-test('conduct: devkit-lite: proposal and tasks go straight to delivery; no planning row of it is an owner row (AC-4)', () => {
+test('conduct: devkit-lite: with its requirements written, proposal and tasks go straight to delivery; the grill is its only owner row (AC-4)', () => {
   const t = oneChange();
   const b = t.addWt('b');
   planFiles(b, 'b');
   assert.deepEqual(planStep(byId(t.state(), 'b')), ['implement', 'subagent']);
+  rmSync(cf(b, 'b', 'requirements.md'));
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['grill', 'owner']);
+  writeChange(b, 'b', { 'requirements.md': '# Requirements\n' });
   rmSync(cf(b, 'b', 'tasks.md'));
   const c = byId(t.state(), 'b');
   assert.deepEqual(planStep(c), ['plan', 'subagent']);

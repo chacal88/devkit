@@ -49,7 +49,7 @@ requirements-grill ─▶ change-planner ─▶ plan-readiness-reviewer ──[A
                        retro ◀── commit-and-pr ◀── review-change ◀── pr-verifier ◀──────┘
 ```
 
-Each step works on its own: ask Claude to "review this diff" or "is this plan ready?" and the matching asset picks it up. With **devkit-openspec**, the same path becomes an OpenSpec schema: `openspec status` always tells you the next step, and the hooks block skipping the gates. See [docs/openspec-flow.md](docs/openspec-flow.md).
+Each step works on its own: ask Claude to "review this diff" or "is this plan ready?" and the matching asset picks it up. With **devkit-openspec**, the same path becomes an OpenSpec schema: the schema declares every stage and `flow-check` says which stage passed and which comes next, and the hooks block skipping the gates. See [docs/openspec-flow.md](docs/openspec-flow.md).
 
 ## How the flow holds
 

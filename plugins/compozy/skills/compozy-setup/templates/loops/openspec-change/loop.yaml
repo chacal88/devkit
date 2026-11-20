@@ -36,7 +36,7 @@ inputs:
     type: string
     default: devkit-lite
     enum: [devkit-lite, devkit]
-    description: OpenSpec schema. devkit adds the grill and an independent readiness gate; use it for new capabilities, public contracts, data model, auth/money/personal data or hard-to-roll-back work.
+    description: OpenSpec schema. devkit adds an independent readiness gate and the owner's plan approval; both schemas start with the grill, and devkit is for new capabilities, public contracts, data model, auth/money/personal data or hard-to-roll-back work.
   verify_command:
     type: string
     default: "__VERIFY_COMMAND__"
@@ -97,7 +97,7 @@ contract:
 graph:
   nodes:
     # 1. Plan: the tech lead runs the devkit planning steps (create, proposal, design, tasks,
-    #    spec deltas; grill + readiness for the devkit schema) and stops before implement. The
+    #    spec deltas; the grill when the schema has a `requirements` artifact, readiness for the devkit schema) and stops before implement. The
     #    plan also declares the screens the change touches (design D6), an empty list when none.
     - id: propose
       class: action

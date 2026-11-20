@@ -17,6 +17,10 @@ proposed and open. The roadmap coordinator holds the start of a new change while
 loaded, and what is under way finishes first; the four design phases are one optional way to write
 the roadmap, never a prerequisite. Decisions 1 to 8 are otherwise unchanged.
 
+Note (flow-script-checker, 2026-11-19): the checker reads OpenSpec's task list
+less the lines inside fenced examples of `tasks.md`, which are not tasks; decisions 1 to 8 are
+unchanged.
+
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions
 (ADR 0006), one change on request and never a sweep (ADR 0007), the reviewer round as a Workflow

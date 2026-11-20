@@ -17,10 +17,10 @@ change `design-open-points` recorded the answers, and each answered item says wh
 when.
 
 Tense: a sentence in the present tense is about what exists at the commit that ships this page. The
-`devkit` and `devkit-lite` schemas, `openspec/config.yaml`, `openspec/roadmap.md`, the hooks and
+`devkit` and `devkit-lite` schemas (each with its `flow.json`), the stage header and the checker `flow-check` (built by the change `flow-script-checker`), `openspec/config.yaml`, `openspec/roadmap.md`, the hooks and
 their locks, `ship-change`, `/conduct`, `conduct-check`, `deliver-check`, the review Workflow script,
 the panel and the CompozyOS loop exist today. Everything else (the `/devkit` command and its verbs,
-the two coordinators, the checker and the stage header, the new roles and skills, the `devkit:`
+the two coordinators, the new roles and skills, the `devkit:`
 configuration block, the `devkit-project` schema, the three drivers, the two-PR model and its lock,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
 builds it. The section "What stays shipped until its round" lists what keeps working meanwhile.
@@ -98,8 +98,8 @@ The owner's past failure, in the owner's words:
 was lost"). The orchestrator is therefore a command the owner starts and a loop
 behind it, never a session that has to remember where it is. Each turn of the loop reads the files,
 runs the stage that is ready and checks its gate. A lost notification or a dead session costs
-nothing: the next turn reads the files again. The loop and its checker are to be built in rounds 14
-and 15.
+nothing: the next turn reads the files again. The checker exists (`flow-check`, built by the change
+`flow-script-checker`); the loop is to be built in round 15.
 
 **Three layers (proposed).** They let the same flow serve several projects and platforms (the owner:
 it has to work wherever we are running, with Codex as the example):
@@ -112,9 +112,9 @@ it has to work wherever we are running, with Codex as the example):
   calls another AI from the command line. CompozyOS is not frozen; it becomes one of the drivers
   (decided by the owner).
 
-**The script names roles (proposed).** The script names roles, never one platform's tool. Today the
-`devkit` schema does the opposite: its `schema.yaml` names Claude's Agent tool and the `devkit-core:*`
-subagent types. Round 14 replaces those names with roles.
+**The script names roles (built).** The script names roles, never one platform's tool. The `flow-script-checker`
+change replaced the Claude names in both schemas with roles; [roles.md](roles.md) says what each role
+does and who plays it in Claude Code today.
 
 **Stages are subagents (proposed; decided by the assistant, because the owner asked only for
 something that works).** Each stage is a subagent of the change coordinator. The owner likes a parent
@@ -256,7 +256,7 @@ It does not cover:
 
 OpenSpec prints that its `schema` commands are experimental and may change.
 
-**The harness rules (proposed; to be built in rounds 14 and 15 unless a round is named).**
+**The harness rules (the checker and the header are built by `flow-script-checker`; the rest is to be built in the rounds named).**
 
 - Everything that defines the flow lives under the project's `openspec/`: `config.yaml` (language of
   the files, driver, delivery model, test commands, task source), `roadmap.md`, and the schemas
@@ -265,9 +265,9 @@ OpenSpec prints that its `schema` commands are experimental and may change.
   round 15, the test commands in round 16, the delivery model in round 17, the task source in round
   20.
 - A small checker, without AI, travels with the script and says whether each stage really passed and
-  which is next (round 14). It replaces `conduct-check.mjs` and `deliver-check.mjs` as the next-step
+  which is next (built: `flow-check`). It will replace `conduct-check.mjs` and `deliver-check.mjs` as the next-step
   oracle (about 2,300 lines that parse prose today); those two stay until round 24.
-- Every stage file opens with a fixed header: the status (passed, failed, not applicable), the
+- Every stage file opens with a fixed header (built): the status (passed, failed, not applicable), the
   attempt, and the commit it was produced at. The checker reads only the header, never the prose.
 - Stages after implementation unlock only when OpenSpec reports zero pending tasks.
 - A stage that does not apply (a mock-up with no screen, an ADR not needed, E2E with no structure)
@@ -318,8 +318,9 @@ devkit:
     source: jira
 ```
 
-**The header's field names (open).** The three facts are decided; the field names and the file format
-of the header are not.
+**The header's field names (decided by `flow-script-checker`).** The three facts are `result`, `attempt` and
+`commit`, in one comment line at the top of each stage file:
+`<!-- devkit-stage <stage> result=<result> attempt=<n> commit=<sha> -->`.
 
 ## 9. Language and documentation (D-9)
 
@@ -430,7 +431,7 @@ The points still to prove are proved together, in one live test session, when th
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
 machine is loaded, writing back to Jira, small work and the roadmap, and the lean pull-request
-template were answered on 2026-11-19 and are recorded in their sections.
+template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`.
 
 - How the roadmap coordinator measures load before it holds a start (section 2).
 - What to do when the task branch conflicts with `develop`; settled in the grill of round 17
@@ -438,7 +439,6 @@ template were answered on 2026-11-19 and are recorded in their sections.
 - Which rules of ADR 0007 the change coordinator keeps: unfinished work reported before anything
   runs, a missing change created only on the owner's answer (ADR 0010).
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
-- The header's field names (section 8).
 - The configuration's field names (section 8).
 - How the change coordinator waits on GitHub without anybody's message: today green checks wake
   nothing, and on 2026-11-19 the owner had to write twice for the flow to go on; settled in the
@@ -462,8 +462,8 @@ the round that replaces it:
 |---|---|
 | `ship-change` (drives the build order until step 3 is ready) | stays; the change coordinator takes over its loop in round 15 |
 | `/conduct`, round mode included | round 15 (change coordinator) retires it |
-| `conduct-check.mjs` | round 24 (cleanup), after round 14's checker |
-| `deliver-check.mjs` as the next-step oracle | round 24 (cleanup), after round 14's checker |
+| `conduct-check.mjs` | round 24 (cleanup), after the checker `flow-check` |
+| `deliver-check.mjs` as the next-step oracle | round 24 (cleanup), after the checker `flow-check` |
 | The child-session rules and code (ADR 0006) | round 24 (cleanup) |
 | The review Workflow script (ADR 0008) | stays; whether it stays is open |
 | `devkit-panel`, the current panel | round 24 (cleanup), after round 23's panels |

@@ -28,8 +28,8 @@ Procedure for a change `<id>`:
    `.compozy/bin/devkit-kit conduct-check --json --change <id>`. Follow its `next.step` through
    the planning steps only: create the change with the schema the operator chose
    (`openspec new change <id> --schema devkit-lite|devkit`), author proposal, design, tasks and
-   spec deltas with the `devkit-core:change-planner` agent, and for the `devkit` schema run the
-   grill and the `devkit-core:plan-readiness-reviewer` agent.
+   spec deltas with the `devkit-core:change-planner` agent, run the grill when the schema has a
+   `requirements` artifact, and for the `devkit` schema the `devkit-core:plan-readiness-reviewer` agent.
 2. List in `proposal.md`'s `## Screens` section every screen the change touches. No screen means
    an empty section, never a guess.
 3. Stop when the next step is `implement`. Never implement, never start sessions, never tick a

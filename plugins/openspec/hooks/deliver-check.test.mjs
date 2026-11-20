@@ -2880,7 +2880,7 @@ test('AC-6 instructions-follow: configs, ship-change, conduct, flow doc and READ
   const delivery = conduct.slice(conduct.indexOf('Delivery rows'));
   before(delivery, '`verify`', '`review`', 'conduct Delivery rows');
   const flow = textOf('docs', 'openspec-flow.md');
-  const applyLine = flow.split('\n').find((l) => l.startsWith('`apply` requires `readiness`'));
+  const applyLine = flow.split('\n').find((l) => l.startsWith('`apply` requires `approval`'));
   assert.ok(applyLine, 'flow doc apply paragraph');
   before(applyLine, '`pr-verifier`', '`review-change`', 'flow doc apply');
   assert.match(flow, /\*\*Order of the delivery steps\.\*\*/);

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.19.0 — the script and the checker
+
+- **devkit-openspec** 0.15.0: the `devkit` and `devkit-lite` schemas declare every stage of the flow
+  in order (`flow.json` next to each `schema.yaml`), name roles instead of Claude tools, and start
+  every stage file with a one-line stage header. `devkit-lite` now starts with the requirements
+  grill, so `/conduct` grills a not-started lite change. `flow-check` reads the headers, OpenSpec's
+  status, the task list (less fenced examples) and git, and says which stage passed and which comes
+  next, with no AI; `conduct-check` reads the plan files from `flow.json`; the session text names the
+  checker and the roles. `apply` requires `approval` in `devkit`. Projects re-run `openspec-setup` to
+  get the new schemas; open changes finish on today's flow. The CI snippet pins `v0.15.0`.
+- **devkit-core** 0.7.0: the plan-readiness reviewer, the verifier and the planner write the stage
+  header line.
+- **devkit-compozy** 0.1.1: the loop's and the tech-lead's grill wording (the grill runs when the
+  schema has a `requirements` artifact).
+- Docs: `docs/roles.md`, the flow page (the two schemas, the stage header and `flow-check`, OpenSpec
+  2.x), the coordination design's tense. CI installs OpenSpec 2.0.0. Tagged `v0.15.0` after the merge.
+
 ## 0.18.2 — the verifier counts its own numbers
 
 - **devkit-core** 0.6.4: `pr-verifier` records only numbers it counted at the verified commit (a

@@ -1,3 +1,4 @@
+<!-- devkit-stage specs result=pending attempt=1 commit=none -->
 # Spec Delta
 
 ## Purpose

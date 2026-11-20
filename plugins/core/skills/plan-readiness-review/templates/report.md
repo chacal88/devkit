@@ -1,3 +1,4 @@
+<!-- devkit-stage readiness result=pending attempt=1 commit=none -->
 # Readiness review: <change-id>
 
 ## 1. Decision

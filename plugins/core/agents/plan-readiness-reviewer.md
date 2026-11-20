@@ -27,7 +27,7 @@ Scale to the plan. For a plan of one or two phases touching one area, keep the r
 
 ## Delivers
 
-`readiness.md` in the change folder, overwriting the previous round. Its Decision section contains exactly one of:
+`readiness.md` in the change folder, overwriting the previous round. Line 1 is the stage header `<!-- devkit-stage readiness result=<passed for APPROVED, failed for NEEDS-REVISION or BLOCKED> attempt=<n> commit=<git rev-parse HEAD> -->`, with `<n>` one more than the attempt of the header of the file you replace (1 when there is none). Its Decision section contains exactly one of:
 
 ```
 - Status: APPROVED
