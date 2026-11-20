@@ -273,6 +273,8 @@ test('flow-check AC-2: the session hook names the checker and the roles', () => 
   assert.equal(code, 0);
   assert.match(out, /flow-check\.mjs/);
   assert.match(out, /a role is the devkit-core agent of the same name/);
+  assert.match(out, /`ship-change` or `\/conduct` drives the change today/);
+  assert.match(out, /`flow-check` is the read-only readout of the stages/);
   assert.doesNotMatch(out, /the next step is what `openspec status` says/);
 });
 
@@ -417,8 +419,11 @@ function synth(over = {}, extra = {}) {
   for (const s of FLOW_DEVKIT.stages.filter((x) => x.source === 'artifact')) {
     const o = over[s.id] === undefined ? {} : over[s.id];
     if (o === null) { files[s.id] = []; continue; }
-    const header = 'header' in o ? o.header : { stage: s.id, result: o.result ?? 'passed', attempt: o.attempt ?? 1, commit: o.commit ?? 'c000000' };
-    files[s.id] = [{ path: s.file.replace('**/*.md', 'x/spec.md'), header, mtimeMs: T0 + (o.at ?? 0) }];
+    const one = (f, i) => {
+      const header = 'header' in f ? f.header : { stage: s.id, result: f.result ?? 'passed', attempt: f.attempt ?? 1, commit: f.commit ?? 'c000000' };
+      return { path: s.file.replace('**/*.md', i === 0 ? 'x/spec.md' : `x${i}/spec.md`), header, mtimeMs: T0 + (f.at ?? 0) };
+    };
+    files[s.id] = (o.files ?? [o]).map(one);
   }
   return {
     id: 'feat', schema: 'devkit', archived: false, head: 'c000000', opened: true, skipped: [], files,
@@ -554,6 +559,18 @@ test('flow-check stages: the same stage with nothing changed ends blocked', () =
   assert.equal(moved.end, null);
   assert.equal(moved.next.stage, 'implementation');
   assert.notEqual(moved.next.progressKey, first.next.progressKey);
+  // Bytes inside an already untracked file move it; so does an edit of a tracked file.
+  put(root, { 'src/a.ts': 'another edit\n' });
+  const rewritten = liveReport(root, first.next.progressKey).next.progressKey;
+  assert.notEqual(rewritten, moved.next.progressKey);
+  put(root, { 'openspec/config.yaml': 'schema: devkit\n# edited\n' });
+  const tracked = liveReport(root, first.next.progressKey).next.progressKey;
+  assert.notEqual(tracked, rewritten);
+  // A file under .claude/ is not work: once listed, its bytes leave the key alone.
+  put(root, { '.claude/scratch.md': 'one\n' });
+  const listed = liveReport(root, first.next.progressKey).next.progressKey;
+  put(root, { '.claude/scratch.md': 'two\n' });
+  assert.equal(liveReport(root, first.next.progressKey).next.progressKey, listed);
 });
 
 test('flow-check stages: the owner\'s approval and an unanswered retro wait for the owner', () => {
@@ -580,7 +597,109 @@ test('flow-check stages: a stale approval waits for the owner', () => {
   assert.equal(r.end.stage, 'approval');
   assert.equal(r.end.reasonCode, 'approval-stale');
   // A failed approval is not a stale one.
-  assert.notEqual(walk({ approval: { result: 'failed' } }).end.reasonCode, 'approval-stale');
+  const failed = walk({ approval: { result: 'failed' } });
+  assert.equal(failed.end.state, 'waiting-for-owner');
+  assert.equal(failed.end.stage, 'approval');
+  assert.equal(failed.end.reasonCode, 'no-role');
+});
+
+test('flow-check stages: a stage file with no header, a bad header or another stage\'s header is pending', () => {
+  const cases = [
+    ['no-header', { header: null }, {}],
+    ['bad-header', { header: { malformed: true } }, {}],
+    ['header-other-stage', { header: { stage: 'proposal', result: 'passed', attempt: 1, commit: 'c000000' } }, { found: 'proposal' }],
+  ];
+  for (const [code, review, params] of cases) {
+    const r = walk({ review });
+    const st = stageOf(r, 'review');
+    assert.equal(st.state, 'pending', code);
+    assert.equal(st.reasonCode, code);
+    assert.deepEqual(st.params, { file: 'review.md', ...params }, code);
+    assert.equal(r.next.stage, 'review', code);
+    assert.equal(r.next.reasonCode, code);
+    assert.equal(stageOf(r, 'delivery').state, 'blocked', code);
+  }
+});
+
+test('flow-check stages: a stage of several files takes the worst result of its files', () => {
+  const two = (a, b) => walk({ specs: { files: [a, b] } });
+  const pendingOne = two({ result: 'passed' }, { result: 'pending' });
+  assert.equal(stageOf(pendingOne, 'specs').state, 'pending');
+  assert.equal(stageOf(pendingOne, 'specs').reasonCode, 'not-judged');
+  assert.equal(pendingOne.next.stage, 'specs');
+  const failedOne = two({ result: 'passed' }, { result: 'failed' });
+  assert.equal(stageOf(failedOne, 'specs').state, 'failed');
+  assert.equal(stageOf(failedOne, 'specs').reasonCode, 'header-failed');
+  assert.equal(two({ result: 'failed' }, { result: 'pending' }).stages.find((s) => s.id === 'specs').state, 'failed');
+  const mixed = two({ result: 'passed' }, { result: 'not-applicable' });
+  assert.equal(stageOf(mixed, 'specs').state, 'passed');
+  const none = two({ result: 'not-applicable' }, { result: 'not-applicable' });
+  assert.equal(stageOf(none, 'specs').state, 'not-applicable');
+  assert.equal(none.next.reasonCode, 'archive');
+  // A header in the second file that is not specs' own is read too.
+  const other = two({ result: 'passed' }, { header: null });
+  assert.equal(stageOf(other, 'specs').reasonCode, 'no-header');
+});
+
+test('flow-check stages: staleness is read for every file of a stage, not the first', () => {
+  const codeBound = { ...FLOW_DEVKIT, stages: FLOW_DEVKIT.stages.map((s) => (s.id === 'specs' ? { ...s, codeBound: true } : s)) };
+  const staleSecond = computeFlow(synth({ specs: { files: [{ commit: 'c000000' }, { commit: 'c111111' }] } }, { staleness: (sha) => (sha === 'c111111' ? 'behind' : null) }), codeBound, {});
+  assert.equal(stageOf(staleSecond, 'specs').state, 'stale');
+  assert.equal(stageOf(staleSecond, 'specs').reasonCode, 'stale-code');
+  assert.equal(staleSecond.next.stage, 'specs');
+  // A plan file stale for readiness only through the second spec file.
+  const late = walk({ specs: { files: [{ at: 0 }, { at: 10_000 }] } });
+  assert.equal(stageOf(late, 'readiness').state, 'stale');
+  assert.equal(stageOf(late, 'readiness').params.by, 'specs');
+  assert.equal(stageOf(walk({ specs: { files: [{ at: 0 }, { at: 1_000 }] } }), 'readiness').state, 'passed');
+});
+
+test('flow-check stages: after a merged pull request a newer plan file does not make a stage stale', () => {
+  const newerDesign = { design: { at: 10_000 } };
+  const control = walk(newerDesign);
+  assert.equal(stageOf(control, 'readiness').state, 'stale');
+  assert.equal(stageOf(control, 'readiness').reasonCode, 'stale-plan');
+  const merged = walk(newerDesign, { postMerge: true });
+  assert.equal(stageOf(merged, 'readiness').state, 'passed');
+  assert.equal(merged.next.reasonCode, 'archive');
+});
+
+test('flow-check stages: an artifact that OpenSpec reports skipped does not apply', () => {
+  const r = walk({ mockup: null }, { skipped: ['mockup'] });
+  assert.equal(stageOf(r, 'mockup').state, 'not-applicable');
+  assert.equal(stageOf(r, 'mockup').reasonCode, 'skipped');
+  assert.equal(r.next.reasonCode, 'archive');
+  const withFile = walk({}, { skipped: ['design'] });
+  assert.equal(stageOf(withFile, 'design').reasonCode, 'skipped');
+});
+
+test('flow-check stages: a code-bound stage whose header records no commit is stale', () => {
+  const root = liveChange();
+  put(root, { 'openspec/changes/feat/evidence.md': '<!-- devkit-stage evidence result=passed attempt=1 commit=none -->\n# Evidence\n' });
+  commitAll(root, 'evidence with no commit');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'evidence').state, 'stale');
+  assert.equal(stageOf(r, 'evidence').reasonCode, 'stale-code');
+  assert.match(stageOf(r, 'evidence').params.why, /no commit/);
+  assert.equal(r.next.stage, 'evidence');
+});
+
+test('flow-check parity: each stage file of flow.json is the generates of its artifact in schema.yaml', () => {
+  for (const schema of ['devkit', 'devkit-lite']) {
+    const flow = JSON.parse(readFileSync(join(PLUGIN_SCHEMAS, schema, 'flow.json'), 'utf8'));
+    const yaml = readFileSync(join(PLUGIN_SCHEMAS, schema, 'schema.yaml'), 'utf8');
+    const generates = new Map();
+    let id = null;
+    for (const line of yaml.split('\n')) {
+      const m = /^  - id:\s*(\S+)/.exec(line);
+      if (m) id = m[1];
+      const g = /^    generates:\s*["']?([^"'\s]+)["']?/.exec(line);
+      if (g && id) generates.set(id, g[1]);
+    }
+    const artifacts = flow.stages.filter((s) => s.source === 'artifact');
+    assert.ok(artifacts.length > 0, schema);
+    for (const s of artifacts) assert.equal(s.file, generates.get(s.id), `${schema}: ${s.id}`);
+  }
 });
 
 test('flow-check stages: a pending file of an unshipped role waits for the owner', () => {
@@ -759,9 +878,32 @@ test('flow-check delivery: after a squash merge the walk resumes at the retro', 
   assert.equal(before.next.stage, 'evidence');
 });
 
+test('flow-check delivery: a merged pull request seen from the change\'s own branch keeps the staleness checks', () => {
+  const root = liveChange({ ship: 'merge', skip: ['retro'] });
+  for (const f of ['evidence.md', 'review.md']) {
+    const file = join(root, 'openspec', 'changes', 'feat', f);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/commit=[0-9a-f]+/, 'commit=deadbee'));
+  }
+  commitAll(root, 'headers of squashed commits');
+  const report = (branch) => {
+    git(root, 'checkout', '-q', ...(branch === 'main' ? [] : ['-B']), branch);
+    const gh = fakeGh();
+    gh.set('pr-view', { stdout: prView(git(root, 'rev-parse', 'HEAD'), { state: 'MERGED', headRefName: 'feat' }) });
+    gh.set('pr-list-state-merged', { stdout: [prView('f'.repeat(40), { state: 'MERGED', headRefName: 'feat', body: 'evidence: openspec/changes/feat/evidence.md' })] });
+    const env = { ...gh.env, DEVKIT_BRANCH: '' };
+    const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+    return computeFlow(facts, flow, {});
+  };
+  const own = report('feat');
+  assert.equal(own.stages.find((s) => s.id === 'evidence').state, 'stale');
+  assert.equal(own.next.stage, 'evidence');
+  const off = report('main');
+  assert.equal(off.stages.find((s) => s.id === 'evidence').state, 'passed');
+});
+
 // ---- the walk always ends
 
-test('flow-check stages: every run ends in one of four states or names one next stage', () => {
+test('flow-check stages: termination simulation: every run ends in one of four states or names one next stage', () => {
   const failed = (attempt) => ({ result: 'failed', attempt });
   const delivery = (st) => () => (st.delivered ? { state: 'passed' } : st.delivery());
   const fixtures = [
@@ -1026,6 +1168,19 @@ test('flow-check readout: an OpenSpec answer without artifacts exits 3', () => {
   const j = runCli(root, ['feat', '--json'], withPath(dir));
   assert.equal(j.status, 3);
   assert.match(JSON.parse(j.stdout).error, /\bx\b/);
+});
+
+test('flow-check readout: no openspec command on PATH exits 3 and names the cause', () => {
+  const root = liveChange();
+  const empty = mkdtempSync(join(tmpdir(), 'flow-check-nopath-'));
+  const env = { ...process.env, PATH: empty, DEVKIT_BRANCH: '' };
+  const r = runCli(root, ['feat'], env);
+  assert.equal(r.status, 3);
+  assert.match(r.stderr, /the openspec CLI is not installed or not on PATH/);
+  assert.equal(r.stdout, '');
+  const j = runCli(root, ['feat', '--json'], env);
+  assert.equal(j.status, 3);
+  assert.match(JSON.parse(j.stdout).error, /not installed or not on PATH/);
 });
 
 test('flow-check readout: an OpenSpec other than 2.x exits 3', () => {

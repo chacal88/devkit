@@ -85,6 +85,19 @@ GitHub; it SHALL read no sentence of a stage file.
 - **WHEN** a declared stage's role is marked as not shipped and its file does not exist
 - **THEN** the stage is reported as not applying, with the reason that nobody runs it yet
 
+### Requirement: A failed stage offers its fix, then itself
+A failed stage below its attempt ceiling SHALL offer its declared fix stage (`onFail`, or itself
+when it declares none) while nothing changed since the failure, and SHALL offer itself again once
+the fix changed its inputs, until its attempt ceiling is reached.
+
+#### Scenario: A failed stage offers its fix stage first
+- **WHEN** the code review's header says `result=failed attempt=1`, its ceiling is 2, its declared fix stage is the implementation, and no product commit came after its header commit
+- **THEN** the next stage is the implementation, with the reason that the review failed at attempt 1 of 2 and the fix comes first
+
+#### Scenario: After the fix the failed stage runs again
+- **WHEN** the same failed review's header commit is behind a later commit that changes product code
+- **THEN** the review is still reported failed and the next stage is the review itself, with the reason that the work changed since the failure
+
 ### Requirement: No stage after the implementation while a task is pending
 The checker SHALL offer no stage after the implementation while `tasks.md` has an unticked task.
 A checkbox line inside a fenced block of `tasks.md` SHALL NOT count as a task.
@@ -105,6 +118,29 @@ be offered again.
 #### Scenario: Only the stale stage is offered
 - **WHEN** the demonstration's header commit is behind a product commit and the review's header commit is that product commit
 - **THEN** the demonstration is reported stale and is the next stage, and the review is reported passed
+
+### Requirement: A plan stage is stale after a plan file changes, until the work starts
+A stage that declares `staleAfter` stages (the plan readiness after the proposal, specs, design
+and tasks; the owner's approval after the readiness) SHALL be reported stale when a file of one of
+those stages is newer than its own file by more than two seconds. This check SHALL NOT apply once
+any task of `tasks.md` is ticked (the implementer ticks tasks, which changes `tasks.md`), nor in the
+walk after a merged pull request.
+
+#### Scenario: A plan file edited after the readiness review
+- **WHEN** no task is ticked and `design.md` is newer than `readiness.md` by more than two seconds
+- **THEN** the plan readiness is reported stale, naming the design, and it is the next stage
+
+#### Scenario: A plan file within the tolerance
+- **WHEN** no task is ticked and `design.md` is newer than `readiness.md` by less than two seconds
+- **THEN** the plan readiness is reported passed
+
+#### Scenario: Ticking a task does not make the plan stale
+- **WHEN** one task of `tasks.md` is ticked, others are pending, and `tasks.md` is newer than `readiness.md`
+- **THEN** the plan readiness is reported passed and the next stage is the implementation
+
+#### Scenario: No plan staleness after the merge
+- **WHEN** the checker runs the walk after a merged pull request
+- **THEN** no stage is reported stale by a newer plan file
 
 ### Requirement: Attempt ceilings and no progress stop the run
 A failed stage whose header attempt reaches its declared ceiling SHALL end the run as blocked with
@@ -140,6 +176,66 @@ and never neither, except for a change begun under the previous script.
 - **WHEN** every stage before the delivery passed and the change's pull request has a pending check
 - **THEN** the run ends waiting on GitHub
 
+### Requirement: The delivery follows the change's pull request
+When every stage before the delivery passed, the checker SHALL decide the delivery from the
+project's ship mode and the change's pull request, read with `gh` only in the `pr` and `merge`
+modes, as the scenarios below state. A merged pull request SHALL pass the delivery and the walk
+SHALL go on to the retro.
+
+#### Scenario: Ship mode plan
+- **WHEN** the project's ship mode is `plan`
+- **THEN** the run ends waiting for the owner, who opens and merges the pull request, and nothing is read from GitHub
+
+#### Scenario: GitHub cannot be read
+- **WHEN** `gh` is missing or fails while looking for the change's pull request
+- **THEN** the run ends blocked, quoting the error
+
+#### Scenario: No pull request yet
+- **WHEN** the change has no pull request
+- **THEN** the next stage is the delivery, with the reason that there is no pull request yet
+
+#### Scenario: The head is not pushed
+- **WHEN** the change's open pull request is not at the local head commit
+- **THEN** the next stage is the delivery, with the reason that the work must be pushed first
+
+#### Scenario: The checks cannot be read
+- **WHEN** the change's open pull request is at the local head and its checks cannot be read
+- **THEN** the run ends blocked, quoting the error
+
+#### Scenario: A check fails
+- **WHEN** a check of the change's open pull request fails
+- **THEN** the next stage is the implementation, with the failing checks named and linked
+
+#### Scenario: Green checks in pr mode
+- **WHEN** the ship mode is `pr` and every check of the change's open pull request passed
+- **THEN** the run ends waiting for the owner, who merges the pull request
+
+#### Scenario: Green checks in merge mode with auto-merge off
+- **WHEN** the ship mode is `merge`, every check passed and auto-merge is not on
+- **THEN** the next stage is the delivery, with the reason that auto-merge is not on yet
+
+#### Scenario: Green checks in merge mode with auto-merge on
+- **WHEN** the ship mode is `merge`, every check passed and auto-merge is on
+- **THEN** the run ends waiting on GitHub, naming what GitHub waits for before it merges
+
+#### Scenario: A merged pull request
+- **WHEN** the change's pull request is merged and the retro has not been written
+- **THEN** the delivery is reported passed and the next stage is the retro
+
+#### Scenario: A closed pull request
+- **WHEN** the change's pull request was closed without merging
+- **THEN** the run ends blocked, naming the pull request
+
+### Requirement: After a merge the walk resumes at the retro
+Off the change's own branch (a default branch, the archive branch or no branch), in the `pr` and
+`merge` modes, a merged pull request SHALL switch the checker to the walk after the merge, which
+reports every stage before the delivery from its header alone, with no staleness check and no task
+count, passes the delivery and offers the retro.
+
+#### Scenario: Resuming at the retro after a squash merge
+- **WHEN** the checkout is on the default branch, the change's pull request was squash-merged, and the header commits of the demonstration and the review are no longer in the history
+- **THEN** the implementation, the demonstration, the review and the delivery are reported passed, no stage is reported stale, and the next stage is the retro
+
 ### Requirement: The readout is plain text in Portuguese or English
 The checker SHALL print, for a change, each stage with its situation, then the next stage, who runs
 it and why (or the end state and why), in Brazilian Portuguese or English as chosen, and the same
@@ -156,6 +252,24 @@ facts as versioned JSON with `--json`.
 #### Scenario: The readout in Portuguese
 - **WHEN** the checker runs with `--lang pt-BR` on a change mid-flow
 - **THEN** it prints one line per stage, then `Próxima etapa:`, `Quem executa:` and `Por quê:` lines
+
+### Requirement: The checker refuses an OpenSpec it cannot read
+The checker SHALL exit 3, naming the cause, when the `openspec` command is missing, when
+`openspec --version` gives no version or a major other than 2, or when OpenSpec's answer for a live
+change has no `artifacts` list (or `instructions apply` has no `tasks` list); with `--json` the
+cause SHALL be the `error` field of `{ "version": 1, "error": ... }`.
+
+#### Scenario: An OpenSpec other than 2.x
+- **WHEN** `openspec --version` prints `3.0.0`
+- **THEN** the checker exits 3 and its message names `3.0.0`
+
+#### Scenario: No openspec command
+- **WHEN** the `openspec` command is not on the `PATH`
+- **THEN** the checker exits 3 and its message says the OpenSpec CLI is not installed
+
+#### Scenario: An OpenSpec answer without artifacts
+- **WHEN** `openspec status` for a live change answers with an error body and no `artifacts` list
+- **THEN** the checker exits 3 and its message, in text and under `--json`, quotes OpenSpec's message
 
 ### Requirement: A change begun under the previous script is recognised
 When the change's schema has no stage declaration, or none of the change's stage files carries a

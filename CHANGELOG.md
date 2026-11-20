@@ -8,7 +8,8 @@
   grill, so `/conduct` grills a not-started lite change. `flow-check` reads the headers, OpenSpec's
   status, the task list (less fenced examples) and git, and says which stage passed and which comes
   next, with no AI; `conduct-check` reads the plan files from `flow.json`; the session text names the
-  checker and the roles. `apply` requires `approval` in `devkit`. Projects re-run `openspec-setup` to
+  checker and the roles; `deliver-check` exports `currentBranch`, `defaultBranches` and `archiveHeads` so the
+  "own branch" rule has one owner. `apply` requires `approval` in `devkit`. Projects re-run `openspec-setup` to
   get the new schemas; open changes finish on today's flow. The CI snippet pins `v0.15.0`.
 - **devkit-core** 0.7.0: the plan-readiness reviewer, the verifier and the planner write the stage
   header line.

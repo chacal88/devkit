@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { schemaFile, findRoot, DEVKIT_SCHEMAS } from './guard.mjs';
-import { gitFacts, staleness, locateChange, schemaOf, shipConfig, ShipConfigError, findChangePr, checksItem, waitingFor } from './deliver-check.mjs';
+import { gitFacts, staleness, locateChange, schemaOf, shipConfig, ShipConfigError, findChangePr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 export class FlowUsageError extends Error {
@@ -176,18 +176,10 @@ function archivedSchema(dir) {
   try { return /^schema:\s*["']?([\w.-]+)/m.exec(readFileSync(join(dir, '.openspec.yaml'), 'utf8'))?.[1] ?? null; } catch { return null; }
 }
 
-function branchOf(root, env) {
-  if (env.DEVKIT_BRANCH || env.GITHUB_HEAD_REF) return env.DEVKIT_BRANCH || env.GITHUB_HEAD_REF;
-  try { return execFileSync('git', ['-C', root, 'symbolic-ref', '--short', '-q', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; }
-}
-
 // A checkout that is not on the change's own branch: no branch, a default branch or the archive branch.
+// The rule has one owner, deliver-check (currentBranch, defaultBranches, archiveHeads).
 function offOwnBranch(root, id, branch) {
-  if (!branch || ['main', 'master', `chore/archive-${id}`, `archive-${id}`].includes(branch)) return true;
-  try {
-    const head = execFileSync('git', ['-C', root, 'symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().replace(/^origin\//, '');
-    return head === branch;
-  } catch { return false; }
+  return !branch || defaultBranches(root).includes(branch) || archiveHeads(id).includes(branch);
 }
 
 // The delivery of design D-6, read only when the walk reaches it:
@@ -235,7 +227,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   // The change's pull request, asked once and only when needed. Off the change's own branch a merged pull
   // request switches to the post-merge walk: the header commits were squashed away, so the stale check and
   // the task count give way to the headers themselves.
-  const branch = branchOf(root, env);
+  const branch = currentBranch(root, env);
   let lookup = null;
   const fetched = () => (lookup ??= findChangePr(gh, root, id, { ship: config.ship, branch, env }));
   const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && fetched().pr?.state === 'MERGED';

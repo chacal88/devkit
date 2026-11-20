@@ -204,7 +204,7 @@ Test first: every 5.1 test fails before 5.2 and 5.3.
 
 - [x] 5.1 Write `flow-check delivery: <row>` for each row of the D-6 delivery table (with `fakeGh`
   of `deliver-check.test.mjs`), `flow-check delivery: after a squash merge the walk resumes at the
-  retro`, `flow-check stages: every run ends in one of four states or names one next stage` (a loop
+  retro`, `flow-check stages: termination simulation: every run ends in one of four states or names one next stage` (a loop
   over twelve fixtures that applies each `next` stage's outcome until an `end`; every report has
   exactly one of `next` and `end`, and every end is one of the four states with a reason),
   `flow-check readout: an archived change ends archived without asking OpenSpec for its status` (a

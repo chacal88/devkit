@@ -449,7 +449,7 @@ export function fetchPr(gh, { merge = false, number = null, branch = '', list: l
 const NO_PR = 'no pull request for this branch yet';
 
 // The branches the archive PR of change `id` is opened from: never the change branch.
-const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
+export const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
 
 // The change's PR, whichever branch the checkout is on (archive-after-merge D4):
 // { pr, via } | { none: true } | { error }. `via` is 'branch' when the current
@@ -1066,12 +1066,12 @@ export function nextStep(state) {
 
 // ---------------------------------------------------------------- collecting the facts
 
-function currentBranch(root, env) {
+export function currentBranch(root, env) {
   if (env.DEVKIT_BRANCH || env.GITHUB_HEAD_REF) return env.DEVKIT_BRANCH || env.GITHUB_HEAD_REF;
   try { return git(root, ['symbolic-ref', '--short', '-q', 'HEAD']).trim(); } catch { return ''; }
 }
 
-function defaultBranches(root) {
+export function defaultBranches(root) {
   const names = ['main', 'master'];
   try { names.push(git(root, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD']).trim().replace(/^origin\//, '')); } catch { /* no remote */ }
   return names;

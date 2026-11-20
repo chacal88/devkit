@@ -269,7 +269,8 @@ OpenSpec prints that its `schema` commands are experimental and may change.
   oracle (about 2,300 lines that parse prose today); those two stay until round 24.
 - Every stage file opens with a fixed header (built): the status (passed, failed, not applicable), the
   attempt, and the commit it was produced at. The checker reads only the header, never the prose.
-- Stages after implementation unlock only when OpenSpec reports zero pending tasks.
+- Stages after implementation unlock only when OpenSpec reports zero pending tasks (lines inside fenced
+  examples of `tasks.md` are not tasks; see the ADR 0010 Note, flow-script-checker).
 - A stage that does not apply (a mock-up with no screen, an ADR not needed, E2E with no structure)
   still leaves its file, saying so and why.
 - Stale work: when the code changed after a stage, the commit in its header no longer matches and

@@ -422,6 +422,33 @@ replace (about 2,300 lines, ADR 0010), because it parses no prose and imports th
 **AC-9.** The source's `import` lines name only `node:` modules and `./deliver-check.mjs`,
 `./guard.mjs`, `./merge-setup.mjs`; the only programs it spawns are `git`, `openspec` and `gh`.
 
+### Decisions taken while implementing
+
+Recorded after the build, where this design left a point open; the spec delta states each one
+(`specs/change-stages/spec.md`).
+
+1. **`staleAfter` stops once a task is ticked.** The mtime check of a `staleAfter` stage (the plan
+   readiness, the owner's approval) runs only while no task of `tasks.md` is ticked, and not in the
+   post-merge walk: the implementer ticks `tasks.md`, which would otherwise make the plan review
+   stale on every tick. This is `conduct-check`'s rule (`started`, `FRESH_MS` of 2 s). Known blind
+   spot: a plan file edited after the work started is not flagged; the code-bound stages after the
+   implementation still go stale on the next product commit.
+2. **An unshipped role's pending file.** A stage whose `shipped` is `false` and whose file exists
+   with `result=pending` ends `waiting-for-owner` with `unshipped-role-pending`, even when the stage
+   also has `owner: true` (the screen mock-up). `approval-stale` is used only for a stale
+   `approval.md` (role `owner`).
+3. **An archived change's schema.** It is read only from the archived folder's own `.openspec.yaml`;
+   no OpenSpec call other than `--version` is made for it.
+4. **The post-merge walk.** Off the change's own branch (no branch, a default branch, the archive
+   branch), and only when `ship` is not `plan`, the checker asks `findChangePr` first; a merged pull
+   request sets `postMerge`, which reports every stage before the delivery from its header alone (no
+   commit staleness, no `staleAfter` check, the implementation passed whatever the task count) and
+   passes the delivery, so the walk resumes at the retro.
+5. **The OpenSpec pin.** The four install lines (`docs/openspec-flow.md` three times,
+   `plugins/openspec/skills/openspec-setup/SKILL.md:18`) say `npm i -g @fission-ai/openspec@2`; CI
+   pins `@fission-ai/openspec@2.0.0`; the checker exits 3 on a missing `openspec`, an unreadable
+   version or a major other than 2.
+
 ## D-7 The readout (point 6, AC-5, A-6)
 
 The command is the checker without `--json`. Text form: a title line, one line per stage
