@@ -23,8 +23,12 @@ the panel and the CompozyOS loop exist today. So do, since the change `change-co
 the command `/devkit change`, the change coordinator of the Claude driver (the owner's session, run by
 the script `change-loop.mjs`), its two stop locks and its edit and hand-off locks
 ([ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md)), and the two settings
-`devkit.language` and `devkit.driver`. `/conduct` no longer exists. Everything else (the other verbs of
-`/devkit`, the roadmap coordinator, the new roles and skills, the rest of the `devkit:`
+`devkit.language` and `devkit.driver`. So do, since the change `roadmap-coordinator` (round 18), the
+commands `/devkit roadmap` and `/devkit status`, the roadmap coordinator of the Claude driver (the
+owner's session, run by the script `roadmap-loop.mjs`, each stage a subagent in the background;
+[ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)), its run locks and the pack
+setting `load_limit`. `/conduct` no longer exists. Everything else (the other verbs of
+`/devkit`, the new roles and skills, the rest of the `devkit:`
 configuration block, the `devkit-project` schema, the other two drivers, the two-PR model and its lock,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
 builds it. The section "What stays shipped until its round" lists what keeps working meanwhile.
@@ -44,10 +48,10 @@ few verbs, to be built in rounds 15, 18, 19 and 20:
 |---|---|---|
 | `/devkit change PROJ-482` | one task, read from Jira by its key or link | 20 |
 | `/devkit change <free text>` | one task, described in text | 15 |
-| `/devkit roadmap` | the whole roadmap, one change at a time | 18 |
-| `/devkit roadmap 3` | the whole roadmap, up to three changes at once | 18 |
+| `/devkit roadmap` | the whole roadmap, one change at a time | 18 (built) |
+| `/devkit roadmap 3` | the whole roadmap, up to three changes at once | 18 (built) |
 | `/devkit project <name>` | deeper planning of a new project or slice, in the four phases | 19 |
-| `/devkit status` | where everything is and what waits on the owner | 18 |
+| `/devkit status` | where everything is and what waits on the owner | 18 (built) |
 | `/devkit help` | opens the help panel | 23 |
 
 **The rules behind them (proposed).**
@@ -65,7 +69,8 @@ the developer decides.
 
 ## 2. Two coordinators and three entries (D-2)
 
-**The roadmap coordinator, `manager` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** To be built in round 18. It
+**The roadmap coordinator, `manager` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 18
+(`roadmap-coordinator`). It
 reads `openspec/roadmap.md`, sees what is ready to start and what waits on another change, and
 starts the next changes on its own, without asking first. It may have several change coordinators
 running at once, one per change, only among changes that do not depend on each other. How many is
@@ -75,7 +80,10 @@ interrupts a change under way.
 
 **Holding a start while the machine is loaded (decided by the owner on 2026-11-19).** The roadmap
 coordinator holds the start of a new change while the machine is loaded, and what is under way
-finishes first. How it measures load is open.
+finishes first. **Decided by
+`roadmap-coordinator` on 2026-11-21 (A-6, grill questions 8 and 9):** it measures the processor load of
+the last minute per logical core against the per-person `load_limit` (80 by default); memory is not
+measured; a held start is announced once and checked every minute.
 
 **The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 15
 (`change-coordinator`). It takes one change from its opening to its archive. It asks the script which
@@ -145,7 +153,7 @@ exists since round 15), the roadmap coordinator in round 18 and the second pull 
 
 | # | Stage | Who and skills | Produces | Gate |
 |---|---|---|---|---|
-| 0 | Choose the next change (roadmap coordinator entry only) | roadmap coordinator (new, round 18) | the start request | its `after:` dependencies are archived |
+| 0 | Choose the next change (roadmap coordinator entry only) | roadmap coordinator (built, round 18) | the start request | its `after:` dependencies are archived |
 | 1 | Open the change | change coordinator (new, round 15) | `openspec new change`, a worktree and branch named after the change, cut from the base the delivery model names | schema confirmed |
 | 2 | Requirements (grill) | change coordinator with the owner; `requirements-grill`; `codebase-researcher` | `requirements.md` | the owner answered |
 | 3 | Mock-up, only when the change alters a screen, before any plan | `screen-designer` (new), skill `screen-mockup` (new), `screen-design` | the screens drawn with real example data, saved in the change's `mock/` | the owner approves; what the mock reveals goes back into the requirements |
@@ -365,9 +373,9 @@ All proposed. The three drivers are to be built in rounds 15, 21 and 22.
 
 - **Claude (round 15).** The owner types `/devkit` in the session. For one task the session is the
   change coordinator and each stage is a subagent. For the roadmap the session is the roadmap
-  coordinator and each change has its change coordinator as a subagent, which in turn calls the stage
-  subagents (Claude Code documents nesting three levels below the main conversation). When a change
-  needs the owner, the question goes up and the roadmap coordinator asks it in the session.
+  coordinator and the change coordinator of every open change; each stage runs as a subagent in the
+  background ([ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)). When a change
+  needs the owner, the session asks it, one change at a time.
   **Waiting on GitHub. Decided by the owner on 2026-11-20 (round 15 grill, question 1): wait with no
   time limit and go on alone.** Built as a background command of the session that ends when GitHub
   answers; the session is called back, runs the loop again and goes on. The command holds no state.
@@ -435,7 +443,7 @@ All proposed.
 
 **To prove before trusting:**
 
-- A subagent inside a subagent reports its end, many times in a row (the owner's past failure).
+- Many background subagent ends in a row over whole changes (round 19 proves it).
 - The two stop locks hold without looping (shown live by the live test of `change-coordinator`, with the
   hook log it records; the interrupt case rests on the documented fact that an interrupt fires no stop event).
 - CompozyOS accepts the generic loop.
@@ -457,10 +465,9 @@ The points still to prove are proved together, in one live test session, when th
 ## Open points
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
-machine is loaded, writing back to Jira, small work and the roadmap, and the lean pull-request
+machine is loaded (and how the load is measured, answered by the change `roadmap-coordinator` on 2026-11-21, section 2), writing back to Jira, small work and the roadmap, and the lean pull-request
 template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
 
-- How the roadmap coordinator measures load before it holds a start (section 2; the proposed section "Where a change runs" also answers it).
 - What to do when the task branch conflicts with `develop`; settled in the grill of round 17
   (section 5).
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).

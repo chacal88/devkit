@@ -213,34 +213,34 @@ Starts only when the probe record of task 1.1 shows B1, B2 and B3 true.
 
 Run as soon as phase 3 is committed, before the documents and the review.
 
-- [ ] 4.1 Owner-run task, done by the session that conducts this change: commit phase 3, then run the
+- [x] 4.1 Owner-run task, done by the session that conducts this change: commit phase 3, then run the
   live test of `design.md` D-17, turns L0 to L5, as background commands, and write
   `${TMPDIR%/}/devkit-live-roadmap-coordinator/record-<n>.txt` after each turn. A defect the run
   shows is fixed test first in the phase that owns it (a new `roadmap-loop` test, then the fix, then
   that phase's gate again), and the turn is run again; the record says so. Check: the six records exist
   and the hook log holds a roadmap `stop` refusal, `agent` allows for both changes and `subagent-stop`
   allows for at least three stages of each.
-- [ ] 4.2 Gate: `grep -q '"mode":"stop",.*"decision":"refuse"' "${TMPDIR%/}/devkit-live-roadmap-coordinator/hooks.jsonl" && grep -q '"mode":"subagent-stop",.*"decision":"allow"' "${TMPDIR%/}/devkit-live-roadmap-coordinator/hooks.jsonl" && test -s "${TMPDIR%/}/devkit-live-roadmap-coordinator/record-5.txt"` green; covers the live parts of AC-1, AC-4, AC-6, AC-7, AC-12, AC-13 and AC-14.
+- [x] 4.2 Gate: `grep -q '"mode":"stop",.*"decision":"refuse"' "${TMPDIR%/}/devkit-live-roadmap-coordinator/hooks.jsonl" && grep -q '"mode":"subagent-stop",.*"decision":"allow"' "${TMPDIR%/}/devkit-live-roadmap-coordinator/hooks.jsonl" && test -s "${TMPDIR%/}/devkit-live-roadmap-coordinator/record-5.txt"` green; covers the live parts of AC-1, AC-4, AC-6, AC-7, AC-12, AC-13 and AC-14.
 
 ## 5. ADR 0013, the documents, the release and the whole suite (AC-15, AC-16)
 
-- [ ] 5.1 Write `docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md` with the text of
+- [x] 5.1 Write `docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md` with the text of
   `design.md` D-14, status `proposed`, the date of the day. Check: the file has the headings the
   ADR tests read (`## Context`, `## Decision`, `## Consequences`, `### Review trigger`, `## Alternatives
   considered`).
-- [ ] 5.2 Only when `approval.md`'s owner's words accept ADR 0013 and the probe record shows B1 to B3
+- [x] 5.2 Only when `approval.md`'s owner's words accept ADR 0013 and the probe record shows B1 to B3
   true: set its status to `accepted` with an `Accepted by:` line in ADR 0011's form, and add `- Amended
   by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)` to the headers of
   `docs/adr/0010-openspec-as-the-harness.md` and `docs/adr/0011-the-change-coordinator-is-the-owners-session.md`;
   otherwise stop and report. Check: the three headers read as D-15 says.
-- [ ] 5.3 Write the dated Notes of D-15 in `docs/adr/0010-openspec-as-the-harness.md` and
+- [x] 5.3 Write the dated Notes of D-15 in `docs/adr/0010-openspec-as-the-harness.md` and
   `docs/adr/0011-the-change-coordinator-is-the-owners-session.md`, and the ADR 0013 entry of the `ADRs:`
   line of `openspec/config.yaml`. Check: `ADR 0010 is accepted, supersedes ADR 0001 and ADR 0007, and
   the config names it` (`guard.test.mjs`) passes unchanged.
-- [ ] 5.4 Update `docs/coordination-design.md` as D-15 says (tense paragraph, sections 1, 2, 4, 10 and
+- [x] 5.4 Update `docs/coordination-design.md` as D-15 says (tense paragraph, sections 1, 2, 4, 10 and
   13, the open point on load out of "Open points" and named among the answered ones). Check:
   `roadmap-loop docs: the documents follow` (written in 5.5) passes for this file.
-- [ ] 5.5 Update `docs/openspec-flow.md` as D-15 says (the verbs line, the roadmap section, the new
+- [x] 5.5 Update `docs/openspec-flow.md` as D-15 says (the verbs line, the roadmap section, the new
   section "The roadmap coordinator: `/devkit roadmap` and `/devkit status`", Troubleshooting, Limits, the
   CI pin `v0.18.0`). Change T-3, `change-loop docs: the design records the answers` in
   `plugins/openspec/hooks/change-loop.test.mjs` (invariant: the CI snippet pins the current release
@@ -250,11 +250,11 @@ Run as soon as phase 3 is committed, before the documents and the review.
   Notes naming ADR 0013, the config line naming 0013, the flow section's heading, `docs/roles.md`'s
   `## roadmap-coordinator`, both READMEs naming `/devkit roadmap` and `/devkit status`). Check: both
   tests pass.
-- [ ] 5.6 Update `docs/roles.md`, `plugins/openspec/README.md` and `README.md` as D-15 says. Check:
+- [x] 5.6 Update `docs/roles.md`, `plugins/openspec/README.md` and `README.md` as D-15 says. Check:
   `flow-check AC-2: the role document covers every role` and `change-loop lock agent: the accepted
   packs are the ones docs/roles.md names` pass unchanged, and `roadmap-loop docs: the documents
   follow` passes.
-- [ ] 5.7 Release as D-16 says: `plugins/openspec/.claude-plugin/plugin.json` (0.18.0, the
+- [x] 5.7 Release as D-16 says: `plugins/openspec/.claude-plugin/plugin.json` (0.18.0, the
   description), `.claude-plugin/marketplace.json` (devkit-openspec 0.18.0 with the same description,
   marketplace 0.22.0), `CHANGELOG.md` (`## 0.22.0 — the roadmap coordinator, /devkit roadmap and
   /devkit status`), then `python3 scripts/gen-catalog.py` to regenerate `docs/catalog.md`. Check:

@@ -1870,3 +1870,51 @@ test('roadmap-loop skill: every hand-off of a roadmap run starts with the change
   assert.match(roadmap, /every hand-off, the reviewers and verifiers of a review round included, starts with the line of the change's brief that names the change and its script \(`Change <id> \(<script> script\), stage \.\.\.`\)/);
   assert.match(roadmap, /a setting that arrives unfilled is used at its default without a word to the owner/);
 });
+
+// ---------------------------------------------------------------- the documents (phase 5: design D-14, D-15, D-16)
+
+// Invariant (AC-16): the design, ADR 0013, the two Notes, the config, the flow page, the role document and both READMEs
+// say what the roadmap coordinator is. Layer: the documents. Suite: this file.
+test('roadmap-loop docs: the documents follow', () => {
+  const REPO = join(HERE, '..', '..', '..');
+  const read = (...p) => readFileSync(join(REPO, ...p), 'utf8');
+  const part = (md, from, to) => { const a = md.indexOf(from); assert.ok(a >= 0, from); const b = md.indexOf(to, a + from.length); return md.slice(a, b < 0 ? md.length : b); };
+  const design = read('docs', 'coordination-design.md');
+  assert.match(design, /Built in round 18\s+\(`roadmap-coordinator`\)/, 'section 2 says built');
+  assert.doesNotMatch(design, /To be built in round 18/);
+  assert.match(design, /Decided by\s+`roadmap-coordinator` on 2026-11-2\d \(A-6, grill questions 8 and 9\)/, 'the load is decided');
+  assert.doesNotMatch(design, /How it measures load is open/);
+  assert.match(design, /roadmap coordinator \(built, round 18\)/, 'stage 0 is built');
+  assert.match(part(design, '## 10. ', '## 11. '), /each stage runs as a subagent in the\s+background/, 'section 10 names the background stages');
+  assert.doesNotMatch(design, /each change has its change coordinator as a subagent/);
+  assert.match(part(design, '## 13. ', '## Open points'), /Many background subagent ends in a row over whole changes \(round 19 proves it\)/);
+  const open = part(design, '## Open points', '## What stays shipped');
+  assert.doesNotMatch(open, /How the roadmap coordinator measures load/, 'the load point left Open points');
+  assert.match(open, /how the load is measured/, 'the sentence names the load among the answered ones');
+  const adr = read('docs', 'adr', '0013-the-roadmap-coordinator-is-the-owners-session.md');
+  assert.match(adr, /^- Status: (proposed|accepted)$/m);
+  for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
+    assert.ok(adr.split('\n').includes(h), `ADR 0013 has ${h}`);
+  }
+  const link = '[ADR 0013](0013-the-roadmap-coordinator-is-the-owners-session.md)';
+  const adr10 = read('docs', 'adr', '0010-openspec-as-the-harness.md');
+  const adr11 = read('docs', 'adr', '0011-the-change-coordinator-is-the-owners-session.md');
+  for (const t of [adr10, adr11]) {
+    assert.match(t, /Note \(roadmap-coordinator, \d{4}-\d{2}-\d{2}\):/);
+    assert.ok(t.includes(link), 'the Note links ADR 0013');
+  }
+  if (/^- Status: accepted$/m.test(adr)) {
+    for (const t of [adr10, adr11]) assert.match(t, /^- Amended by ADR 0013 \(0013-the-roadmap-coordinator-is-the-owners-session\.md\)$/m);
+    assert.match(adr, /^- Accepted by: /m);
+  }
+  const adrs = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
+  assert.match(adrs, /0013/, 'the ADRs line names 0013');
+  const flow = read('docs', 'openspec-flow.md');
+  assert.ok(flow.split('\n').includes('## The roadmap coordinator: `/devkit roadmap` and `/devkit status`'), 'the flow page has the section');
+  assert.match(read('docs', 'roles.md'), /^## roadmap-coordinator$/m);
+  for (const f of [['plugins', 'openspec', 'README.md'], ['README.md']]) {
+    const md = read(...f);
+    assert.match(md, /\/devkit roadmap/, `${f.join('/')} names /devkit roadmap`);
+    assert.match(md, /\/devkit status/, `${f.join('/')} names /devkit status`);
+  }
+});
