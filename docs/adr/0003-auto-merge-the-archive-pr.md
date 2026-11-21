@@ -6,6 +6,8 @@
 
 ## Context
 
+Note (coordinator-field-fixes, 2026-11-20): ADR 0012 judges an archive PR per archived folder by its schema; a devkit-script folder without retro.md still fails, with a message that explains. The archive starts after the change is delivered, its own pull request merged and every task ticked on the default branch (a change may ship over several pull requests). The Decision is unchanged.
+
 This ADR builds on ADR 0001 and ADR 0002 and leaves both decisions unchanged. Under ADR 0002,
 `ship-change` enables auto-merge on a change PR only when `deliver-check` reports 8/8, and
 `devkit-reviews` re-checks reviews, findings, gates and acceptance proof at the PR head. Round 3

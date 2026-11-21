@@ -589,22 +589,39 @@ function activeIds(root) {
   return readdirSync(dir).filter((n) => n !== 'archive' && !n.startsWith('.') && statSync(join(dir, n)).isDirectory());
 }
 
+// The ids archived on the default branch (D-3): the union of every source that can be read, since an archived folder
+// never leaves the default branch. GitHub's default branch, the remote-tracking one, the local one and the main
+// checkout's working tree; a source that cannot be read adds nothing.
+const ARCHIVED = /^\d{4}-\d{2}-\d{2}-(.+)$/;
+export function archivedOnDefault(start, { env = process.env, gh } = {}) {
+  const main = realpathSync(mainRoot(start));
+  const base = defaultBase(main);
+  const ids = new Set();
+  const addNames = (names) => { for (const name of names) { const m = ARCHIVED.exec(name); if (m) ids.add(m[1]); } };
+  const folder = 'openspec/changes/archive';
+  try {
+    const run = (gh ?? makeGh(main, cleanOf(env)))(['api', `repos/{owner}/{repo}/contents/${folder}?ref=${base}`]);
+    const listing = run.status === 0 ? JSON.parse(run.stdout) : [];
+    if (Array.isArray(listing)) addNames(listing.map((e) => String(e?.name ?? '')));
+  } catch { /* GitHub could not be read: the other sources answer */ }
+  for (const ref of [`refs/remotes/origin/${base}`, `refs/heads/${base}`]) addNames(tryGit(main, ['ls-tree', '--name-only', `${ref}:${folder}`]).split('\n'));
+  const dir = join(main, folder);
+  if (existsSync(dir)) addNames(readdirSync(dir));
+  return ids;
+}
+
 // The unfinished changes (D-3): an active folder in the main checkout or any worktree, or a worktree on
 // `chore/archive-<id>` (its archive pull request is not merged yet). Each once; a worktree on the archive branch wins,
-// then one on the change's own branch, then any other checkout. An active folder that only another change's worktree
-// still carries, from before the change was archived on the main checkout, is not unfinished work.
-export function unfinished(start) {
-  const main = realpathSync(mainRoot(start));
+// then one on the change's own branch, then any other checkout. A change archived on the default branch is never
+// unfinished, whatever old checkout still holds its folder or its branch.
+export function unfinished(start, { env = process.env, gh } = {}) {
+  const archived = archivedOnDefault(start, { env, gh });
   const found = new Map();
-  const note = (id, c, rank) => { if (!found.has(id) || found.get(id).rank < rank) found.set(id, { id, root: c.root, branch: c.branch, rank }); };
-  const checkouts = checkoutsOf(start);
-  for (const c of checkouts) {
+  const note = (id, c, rank) => { if (!archived.has(id) && (!found.has(id) || found.get(id).rank < rank)) found.set(id, { id, root: c.root, branch: c.branch, rank }); };
+  for (const c of checkoutsOf(start)) {
     const archive = /^chore\/archive-(.+)$/.exec(c.branch);
     if (archive) note(archive[1], c, 3);
-    for (const id of activeIds(c.root)) {
-      if (c.branch === id) note(id, c, 2);
-      else if (!locateChange(main, id)?.archived) note(id, c, 1);
-    }
+    for (const id of activeIds(c.root)) note(id, c, c.branch === id ? 2 : 1);
   }
   return [...found.values()].sort((a, b) => a.id.localeCompare(b.id)).map(({ id, root, branch }) => ({ id, root, branch }));
 }
@@ -683,7 +700,7 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   if (gate) return out(gate.mode, { reply: say(gate.key, gate.params) });
 
   const read = { lang: l, env, openspec, gh };
-  const list = unfinished(start).map((u) => {
+  const list = unfinished(start, { env, gh }).map((u) => {
     let where = null;
     try { where = whereOf(u, u.id, read); } catch (e) { if (!(e instanceof LoopUsageError)) throw e; }
     return { id: u.id, root: u.root, where };

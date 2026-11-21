@@ -1,0 +1,52 @@
+# node plugins/openspec/hooks/change-loop.mjs start --lang en < /dev/null
+{
+  "version": 1,
+  "mode": "unknown-verb",
+  "verb": "",
+  "text": "",
+  "change": null,
+  "unfinished": [],
+  "settings": {
+    "driver": "claude",
+    "filesLanguage": "en",
+    "personLanguage": "en"
+  },
+  "reply": "So far only /devkit change exists: type /devkit change and what you want done."
+}
+
+# The same with the request "change" on standard input (the list is read only for the change verb)
+{
+  "version": 1,
+  "mode": "choose",
+  "verb": "change",
+  "text": "",
+  "change": null,
+  "unfinished": [
+    {
+      "id": "commit-and-pr-trailer",
+      "root": "/Users/kauesantos/Documents/devkit/.claude/worktrees/commit-and-pr-trailer",
+      "where": "begun under the previous script"
+    },
+    {
+      "id": "conventions-trailer",
+      "root": "/Users/kauesantos/Documents/devkit/.claude/worktrees/conventions-trailer",
+      "where": "begun under the previous script"
+    },
+    {
+      "id": "coordinator-field-fixes",
+      "root": "/Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes",
+      "where": "next is the implementation"
+    },
+    {
+      "id": "getting-started-roadmap",
+      "root": "/Users/kauesantos/Documents/devkit/.claude/worktrees/getting-started-roadmap",
+      "where": "begun under the previous script"
+    }
+  ],
+  "settings": {
+    "driver": "claude",
+    "filesLanguage": "en",
+    "personLanguage": "en"
+  },
+  "reply": "There are 4 unfinished changes: commit-and-pr-trailer (begun under the previous script); conventions-trailer (begun under the previous script); coordinator-field-fixes (next is the implementation); getting-started-roadmap (begun under the previous script). Which one should I continue?"
+}

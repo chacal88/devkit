@@ -36,6 +36,29 @@ else
   validate_dir="$root"
 fi
 
+# The project forms use the project's OpenSpec CLI (guard.mjs#openspecCli): its installed one, else the one on PATH.
+# A pinned CLI that is not 2.x, or a pin declared and not installed, stops here with nothing replaced; a CLI on PATH
+# keeps the copy-then-best-effort-validation below. Without node there is no pin to read, so PATH is used.
+openspec_bin=openspec
+if [[ ${root:-} != "" ]] && command -v node >/dev/null; then
+  guard="$(dirname "$src")/hooks/guard.mjs"
+  resolve='
+    import { execFileSync } from "node:child_process";
+    const [root, guard] = process.argv.slice(1);
+    const { openspecCli, openspecRefusal } = await import(guard);
+    const cli = openspecCli(root);
+    if (cli.error) { console.error(cli.error); process.exit(1); }
+    if (cli.pinned) {
+      let text = "";
+      try { text = execFileSync(cli.bin, ["--version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); } catch { /* refused below */ }
+      const refusal = openspecRefusal(cli, text);
+      if (refusal) { console.error(refusal); process.exit(1); }
+    }
+    console.log(cli.bin);
+  '
+  openspec_bin="$(node --input-type=module -e "$resolve" "$root" "$guard")" || exit 1
+fi
+
 mkdir -p "$dest"
 for name in devkit devkit-lite; do
   if [[ -e "$dest/$name" ]]; then
@@ -46,8 +69,8 @@ for name in devkit devkit-lite; do
   echo "installed $dest/$name"
 done
 
-if command -v openspec >/dev/null; then
+if [[ $openspec_bin != openspec ]] || command -v openspec >/dev/null; then
   for name in devkit devkit-lite; do
-    (cd "$validate_dir" && openspec schema validate "$name" 2>/dev/null | tail -1) || true
+    (cd "$validate_dir" && "$openspec_bin" schema validate "$name" 2>/dev/null | tail -1) || true
   done
 fi

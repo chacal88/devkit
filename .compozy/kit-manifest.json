@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "pack": "0.1.1",
+  "inputs": {
+    "__PLANNER__": "tech-lead",
+    "__IMPLEMENTER__": "dev",
+    "__REVIEWER__": "qa",
+    "__DESIGNER__": "design",
+    "__VERIFY_COMMAND__": "python3 scripts/gen-catalog.py --check && python3 scripts/check.py",
+    "__DEMO_COMMAND__": "",
+    "__DEMO_URL__": "",
+    "__TIMEZONE__": "America/Sao_Paulo",
+    "__SCREEN_MAP__": "",
+    "__MOCKUP__": ""
+  },
+  "files": {
+    "README.md": "sha256:67fe9d57afdb1b17648f51334c40ccc8659a0958f82fb5b69d12089a8e842138",
+    "agents/design/AGENT.md": "sha256:f16e2bab1e6f9d846ab7502e15b063ac325168bc891c8af9c41b03833b1e66c0",
+    "agents/dev/AGENT.md": "sha256:81ae62490dc5eaf4a63d5b58c65c9b322047b3bc02c06ee7652c28c158c49080",
+    "agents/qa/AGENT.md": "sha256:ed0f8e96e192445eef3b8dace0499950ad450d2e4d5807f94b99385e74ecef38",
+    "agents/tech-lead/AGENT.md": "sha256:d90ea0c48e0de4b5f70b10411a50f840cb06ce2290a686f43a0db38701b29a78",
+    "bin/devkit-kit": "sha256:6b5cf4c55224ecc54dc096d6df59ddb26b7f94afcf3e4b4f17535584d77e38df",
+    "config.toml": "sha256:637d1bbbe68b47c1d16ffa4ef5f9a68b627f1f42dd77082d523eb70729fffc19",
+    "loops/openspec-change/loop.yaml": "sha256:d9ecbf88d41170803eb149e984a5264d6e5ac7e4d42644d87e00ecad8fa5e2e3"
+  }
+}

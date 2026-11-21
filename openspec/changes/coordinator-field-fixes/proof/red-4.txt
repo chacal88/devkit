@@ -1,0 +1,202 @@
+✖ field-fixes 3 reviews-check: a change on another schema passes with a note from both entries, whatever it lacks (315.005334ms)
+✔ field-fixes 3 reviews-check: a devkit-lite change with a missing review still fails naming it (229.45525ms)
+✖ field-fixes 3 reviews-check: two delivered changes both passing print one result each and pass (366.579709ms)
+✖ field-fixes 3 reviews-check: one of two delivered changes failing prints both results, names what it lacks and fails (313.022292ms)
+✖ field-fixes 3 reviews-check: a plan and a change on another schema ride along as notes and fail nothing (434.447375ms)
+✔ field-fixes 3 reviews-check: the branch named after one change still selects it, and the other touched change is not judged (455.541167ms)
+✔ field-fixes 3 reviews-check: one plan-only change is judged as before and fails on its unticked tasks (255.270875ms)
+✖ field-fixes 3 reviews-check: several plan-only changes fail saying the pull request delivers no change, naming both (407.873708ms)
+✖ field-fixes 3 reviews-check: a pull request touching only changes on other schemas passes with one note each (413.8095ms)
+✖ field-fixes 3 reviews-check: the archive of a change on another schema passes with a note from both entries, with no retro (568.065417ms)
+✔ field-fixes 3 reviews-check: the archive of a devkit change with an unanswered proposal still fails naming it (487.544792ms)
+✖ field-fixes 3 reviews-check: a missing retro and a retro without the section each say what the file holds and which step writes it (322.469917ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 4
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4619.08025
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3325:1
+✖ field-fixes 3 reviews-check: a change on another schema passes with a note from both entries, whatever it lacks (315.005334ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: legacy (schema spec-driven, head ce2db6a)
+    1 open     tasks and gates: evidence.md is missing; no passing row in evidence.md for `node -e 0`
+    2 open     reviews at head: missing code-quality-reviewer, test-coverage-reviewer
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is missing; no proof row for AC-1
+  fail: item 1, item 2, item 4
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3328:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3345:1
+✖ field-fixes 3 reviews-check: two delivered changes both passing print one result each and pass (366.579709ms)
+  AssertionError [ERR_ASSERTION]: deliver-check: several changes are touched by this PR (a, b); name the branch after one
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3348:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3358:1
+✖ field-fixes 3 reviews-check: one of two delivered changes failing prints both results, names what it lacks and fails (313.022292ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /devkit-reviews: a \(schema/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3362:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /devkit-reviews: a \(schema/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3371:1
+✖ field-fixes 3 reviews-check: a plan and a change on another schema ride along as notes and fail nothing (434.447375ms)
+  AssertionError [ERR_ASSERTION]: deliver-check: several changes are touched by this PR (a, legacy, next); name the branch after one
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3374:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3402:1
+✖ field-fixes 3 reviews-check: several plan-only changes fail saying the pull request delivers no change, naming both (407.873708ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^fail: this PR delivers no change: later, next hold only a plan \(no ticked task in tasks\.md\)$/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3406:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /^fail: this PR delivers no change: later, next hold only a plan \(no ticked task in tasks\.md\)$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3411:1
+✖ field-fixes 3 reviews-check: a pull request touching only changes on other schemas passes with one note each (413.8095ms)
+  AssertionError [ERR_ASSERTION]: deliver-check: several changes are touched by this PR (legacy, old); name the branch after one
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3414:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3423:1
+✖ field-fixes 3 reviews-check: the archive of a change on another schema passes with a note from both entries, with no retro (568.065417ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: archive openspec/changes/archive/2026-11-09-x
+    openspec/changes/archive/2026-11-09-x/retro.md is missing or has no "## Proposed updates"
+    files no approved proposal names: src/a.ts
+  fail: openspec/changes/archive/2026-11-09-x/retro.md is missing or has no "## Proposed updates"; files no approved proposal names: src/a.ts
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3426:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3440:1
+✖ field-fixes 3 reviews-check: a missing retro and a retro without the section each say what the file holds and which step writes it (322.469917ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: archive openspec/changes/archive/2026-11-09-x
+    openspec/changes/archive/2026-11-09-x/retro.md is missing or has no "## Proposed updates"
+    files no approved proposal names: src/a.ts
+  fail: openspec/changes/archive/2026-11-09-x/retro.md is missing or has no "## Proposed updates"; files no approved proposal names: src/a.ts
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:3444:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -4,7 +4,7 @@
 // Items: workflow, auto-merge, delete-branch, ruleset. Without --apply it only
 // reads and prints the plan: no `gh api -X` call and no file written. With
 // --apply it changes only the items named, and only those in state create/update.
-// Exit: 0 done, 1 a read or write failed, 2 usage.
+// Exit: 0 done, 1 a read or write failed or a state is blocked, 2 usage.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -94,13 +94,49 @@ function settingsItems(settings, method) {
   return [auto, del];
 }
 
-// Every check-run name of the default branch, across all pages (`--paginate` runs
-// the jq per page, so the names come one per line, not as one array).
-function discoverContexts(cwd, branch) {
-  const r = runGh(['api', '--paginate', `${REPO}/commits/${encodeURIComponent(branch)}/check-runs?per_page=100`, '--jq', '.check_runs[].name'], cwd);
-  if (r.status !== 0) return { error: ghError(r) };
-  const names = r.stdout.split('\n').map((n) => n.trim()).filter(Boolean);
+// The check-run names reported on the head commits of the repository's newest pull requests
+// (a job that runs only on push to the default branch never reports there), across all pages
+// (`--paginate` runs the jq per page, so the names come one per line, not as one array).
+function discoverContexts(cwd) {
+  const prs = runGh(['pr', 'list', '--state', 'all', '--limit', '5', '--json', 'number,headRefOid'], cwd);
+  const list = prs.status === 0 ? parse(prs.stdout) : undefined;
+  if (!Array.isArray(list)) return { error: prs.status === 0 ? 'the pull request list is unreadable JSON' : ghError(prs) };
+  const names = [];
+  for (const pr of list) {
+    const r = runGh(['api', '--paginate', `${REPO}/commits/${pr.headRefOid}/check-runs?per_page=100`, '--jq', '.check_runs[].name'], cwd);
+    if (r.status !== 0) return { error: ghError(r) };
+    names.push(...r.stdout.split('\n').map((n) => n.trim()).filter(Boolean));
+  }
   return { contexts: [...new Set(names)].filter((n) => n !== DEVKIT_REVIEWS_CHECK) };
+}
+
+// The two repository-level reads: GitHub Actions enabled, and runs that failed without starting.
+// A state that cannot be read is `unknown`, never `blocked`.
+function repositoryChecks(cwd) {
+  const perm = runGh(['api', `${REPO}/actions/permissions`], cwd);
+  const enabled = perm.status === 0 ? parse(perm.stdout)?.enabled : undefined;
+  let actions;
+  if (typeof enabled !== 'boolean') {
+    actions = { check: 'actions', state: 'unknown', why: `cannot read whether GitHub Actions is enabled: ${perm.status === 0 ? 'the answer is unreadable' : ghError(perm)}` };
+  } else if (enabled === false) {
+    actions = { check: 'actions', state: 'blocked', why: 'GitHub Actions is disabled for this repository: no check runs, devkit-reviews included; enable it in Settings > Actions > General' };
+  } else actions = { check: 'actions', state: 'ok', why: 'GitHub Actions is enabled' };
+  return [actions, runsCheck(cwd)];
+}
+
+function runsCheck(cwd) {
+  const unknown = (why) => ({ check: 'runs', state: 'unknown', why: `cannot read the newest workflow runs: ${why}` });
+  const r = runGh(['api', `${REPO}/actions/runs?status=completed&per_page=3`], cwd);
+  const runs = r.status === 0 ? parse(r.stdout)?.workflow_runs : undefined;
+  if (!Array.isArray(runs)) return unknown(r.status === 0 ? 'the answer is unreadable' : ghError(r));
+  if (!runs.length || !runs.every((x) => x.conclusion === 'failure')) return { check: 'runs', state: 'ok', why: 'the newest runs did not all fail' };
+  for (const run of runs) {
+    const j = runGh(['api', `${REPO}/actions/runs/${run.id}/jobs`], cwd);
+    const jobs = j.status === 0 ? parse(j.stdout)?.jobs : undefined;
+    if (!Array.isArray(jobs)) return unknown(j.status === 0 ? 'the jobs answer is unreadable' : ghError(j));
+    if (jobs.some((job) => (job.steps ?? []).some((st) => st.started_at))) return { check: 'runs', state: 'ok', why: 'a job of the newest runs started a step' };
+  }
+  return { check: 'runs', state: 'blocked', why: "the newest runs failed without starting (no job ran a step); one possible cause is GitHub Actions billing (a failed payment or a spending limit): check Settings > Billing and plans; the repository's API does not say which" };
 }
 
 const contextsOf = (rs) => (rs.rules ?? []).filter((x) => x.type === 'required_status_checks').flatMap((x) => (x.parameters?.required_status_checks ?? []).map((c) => c.context));
@@ -138,7 +174,14 @@ function otherOpenPrs(cwd, current) {
 
 function rulesetItem(cwd, { branch, contexts, current }) {
   const list = runGh(['api', `${REPO}/rulesets`], cwd);
-  if (list.status !== 0) return { item: 'ruleset', state: 'error', why: `cannot read the rulesets: ${ghError(list)}` };
+  if (list.status !== 0) {
+    const first = ghError(list);
+    // GitHub refuses rulesets to a plan: a 403 whose message names an upgrade, a plan or a public repository.
+    if (/HTTP 403/.test(list.stderr) && /upgrade|plan|public/i.test(first)) {
+      return { item: 'ruleset', state: 'blocked', why: `GitHub refuses rulesets for this repository's plan (${first}): make the repository public, or move it to a plan with rulesets; merge mode needs the ruleset (ADR 0002), so auto-merge is not applied either` };
+    }
+    return { item: 'ruleset', state: 'error', why: `cannot read the rulesets: ${first}` };
+  }
   const all = parse(list.stdout);
   if (!Array.isArray(all)) return { item: 'ruleset', state: 'error', why: 'rulesets returned unreadable JSON' };
   const found = all.find((r) => r.name === RULESET_NAME);
@@ -169,7 +212,7 @@ function rulesetItem(cwd, { branch, contexts, current }) {
 }
 
 function plan(cwd, root, opts) {
-  const result = { items: [], contexts: [], defaultBranch: null, method: opts.method };
+  const result = { repository: [], items: [], contexts: [], defaultBranch: null, method: opts.method };
   const wf = workflowItem(root, cwd);
   const read = readRepoSettings((args) => runGh(args, cwd));
   if (read.error) {
@@ -181,17 +224,20 @@ function plan(cwd, root, opts) {
   const { settings } = read;
   const branch = settings.default_branch;
   result.defaultBranch = branch;
+  result.repository = repositoryChecks(cwd);
   let contexts = opts.checks;
   let discoverError = null;
   if (!contexts) {
-    const found = discoverContexts(cwd, branch);
-    if (found.error) { discoverError = `cannot read the checks of ${branch}: ${found.error}`; contexts = []; } else contexts = found.contexts;
+    const found = discoverContexts(cwd);
+    if (found.error) { discoverError = `cannot read the checks of the newest pull requests: ${found.error}`; contexts = []; } else contexts = found.contexts;
   }
   result.contexts = contexts;
   const current = git(cwd, ['symbolic-ref', '--short', '-q', 'HEAD']).stdout.trim();
   const [auto, del] = settingsItems(settings, opts.method);
   const rs = discoverError ? { item: 'ruleset', state: 'error', why: discoverError } : rulesetItem(cwd, { branch, contexts, current });
-  result.items = [wf, auto, del, rs];
+  // Merge mode needs the ruleset (ADR 0002): with it refused, auto-merge is not applied either.
+  const autoItem = rs.state === 'blocked' ? { item: 'auto-merge', state: 'deferred', why: 'the ruleset is refused; merge mode needs it (ADR 0002)' } : auto;
+  result.items = [wf, autoItem, del, rs];
   return result;
 }
 
@@ -215,8 +261,9 @@ function applyItem(cwd, root, it) {
 // ------------------------------------------------------------ output
 
 function render(result, applied) {
-  const lines = [`repository: default branch ${result.defaultBranch ?? 'unknown'}, merge method ${result.method}`,
-    `the ruleset will require these checks, found on ${result.defaultBranch ?? 'the default branch'} (confirm them, or pass --checks): ${result.contexts.join(', ') || 'none'}`];
+  const lines = [`repository: default branch ${result.defaultBranch ?? 'unknown'}, merge method ${result.method}`];
+  for (const c of result.repository) lines.push(`${c.check.padEnd(14)} ${c.state.padEnd(9)} ${c.why}`.trimEnd());
+  lines.push(`the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): ${result.contexts.join(', ') || 'none: no pull request has a check reported yet; pass --checks'}`);
   for (const it of result.items) {
     lines.push(`${it.item.padEnd(14)} ${it.state.padEnd(9)} ${it.why ?? ''}`.trimEnd());
     if (['create', 'update'].includes(it.state) && it.payload) {
@@ -260,7 +307,7 @@ function main(argv) {
   }
   result.applied = applied;
   result.version = 1;
-  const hadError = Boolean(result.error) || result.items.some((i) => i.state === 'error');
+  const hadError = Boolean(result.error) || result.items.some((i) => ['error', 'blocked'].includes(i.state)) || result.repository.some((c) => c.state === 'blocked');
   process.stdout.write(opts.json ? `${JSON.stringify(result, null, 2)}\n` : `${render(result, applied)}\n`);
   return hadError ? 1 : 0;
 }

@@ -33,7 +33,7 @@ Carry-over from the ship-modes review (closed by auto-merge: `guard.mjs ci` now 
 ## Round 12: the CompozyOS loop as a kit
 - [x] compozy-loop-v2 — devkit-compozy ships the twelve-stage loop, the four role shells, the design gate and the demo as a kit any project installs; this repository adopts it; ADR 0009; release tagged v0.14.0
 
-Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-design.md` (ADR 0010); step 1 is the change `orchestrator-replan`, which recorded it. Rounds 5, 11 and 13 held follow-ups of the coordination model ADR 0010 replaces; `orchestrator-replan` withdrew them (the design document lists them); `review-writer-prompt` returned as round 25. Rounds 25 and 26 are follow-ups from the `orchestrator-replan` retro, and round 27 holds debts the owner recorded on 2026-11-19 (`design-open-points`); none is a step of the build order.
+Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-design.md` (ADR 0010); step 1 is the change `orchestrator-replan`, which recorded it. Rounds 5, 11 and 13 held follow-ups of the coordination model ADR 0010 replaces; `orchestrator-replan` withdrew them (the design document lists them); `review-writer-prompt` returned as round 25. Rounds 25 and 26 are follow-ups from the `orchestrator-replan` retro, and round 27 holds debts the owner recorded on 2026-11-19 (`design-open-points`); none is a step of the build order. Round 17b holds the fixes of the defects 0.16.0 showed in the field on 2026-11-20; it is not a step of the build order either and runs before round 18, which would multiply them.
 
 ## Round 14: the script and the checker
 - [x] flow-script-checker — the `devkit` schema declares every stage of a change, each stage file opens with the fixed header (status, attempt, commit), a checker without AI says which stage passed and which is next, and the schema names roles instead of Claude tool names (D-4, D-8)
@@ -46,6 +46,9 @@ Rounds 14 to 24 are steps 2 to 12 of the build order in `docs/coordination-desig
 
 ## Round 17: the delivery models
 - [ ] delivery-models (after: change-coordinator) — the delivery model chosen per project: two pull requests from the same branch with the lock that keeps `develop` out of the task branch, trunk-based, and trunk-based with automatic merge (D-5, D-8)
+
+## Round 17b: field fixes of 0.16.0
+- [ ] coordinator-field-fixes (after: change-coordinator) — the eight defects devkit 0.16.0 showed when it was installed in three other projects on 2026-11-20: an archived change listed as unfinished, a previous-script change read as current after one headed file, the `devkit-reviews` check failing changes of other scripts and pull requests that touch several changes, a change read as delivered from any merged pull request that names it, `github-setup` silent on what the repository refuses, the OpenSpec CLI taken from PATH instead of the project's, a schema upgrade over changes under way, and the CompozyOS kit's re-run overwriting local edits
 
 ## Round 18: the roadmap coordinator and `/devkit roadmap`
 - [ ] roadmap-coordinator (after: change-coordinator) — the roadmap coordinator starts every change whose `after:` dependencies are archived, several at once up to the number the owner sets per run, and holds a new start while the machine is loaded so that what is under way finishes first, with `/devkit roadmap` and `/devkit status` (D-1, D-2)

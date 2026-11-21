@@ -1,0 +1,244 @@
+✖ field-fixes 1 archived: an old worktree on another branch that holds the active folder does not list the change (3130.669584ms)
+✖ field-fixes 1 archived: an old worktree on the change's own branch does not list the change (3041.955292ms)
+✖ field-fixes 1 archived: an archive branch whose pull request merged does not list the change (380.198333ms)
+✔ field-fixes 1 archived: an archive pull request not merged yet stays listed as being archived (296.560416ms)
+✖ field-fixes 1 archived: a main checkout whose default branch is behind still sees the remote one archive the change (1854.168708ms)
+✖ field-fixes 1 archived: a failing gh falls back to the remote-tracking default branch (1933.150375ms)
+✔ field-fixes 1 archived: resuming an archived change by its id still ends archived (542.252375ms)
+✖ field-fixes 2 change-loop: next on a headerless plan with a later headed evidence.md ends blocked, previous-script (1708.233708ms)
+✖ field-fixes 2 change-loop: next on the old devkit-lite form with no requirements.md ends blocked, previous-script (1556.556958ms)
+✖ field-fixes 2 previous-script: a headed evidence.md over a headerless plan is still the previous script (296.741ms)
+✖ field-fixes 2 previous-script: a headed readiness.md over a headerless plan is still the previous script (217.240083ms)
+✔ field-fixes 2 previous-script: a headed reviews file over a headerless plan is still the previous script (135.733875ms)
+✔ field-fixes 2 previous-script: a headed requirements.md with a headerless proposal.md stays current and reports no-header (194.581958ms)
+✖ field-fixes 2 previous-script: isPreviousScript reads only the earliest stage file the flow lists (0.109042ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 4
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14517.904083
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2424:1
+✖ field-fixes 1 archived: an old worktree on another branch that holds the active folder does not list the change (3130.669584ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'foo'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2428:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'foo' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2431:1
+✖ field-fixes 1 archived: an old worktree on the change's own branch does not list the change (3041.955292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'bar'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2435:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'bar' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2438:1
+✖ field-fixes 1 archived: an archive branch whose pull request merged does not list the change (380.198333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'foo'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2442:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'foo' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2452:1
+✖ field-fixes 1 archived: a main checkout whose default branch is behind still sees the remote one archive the change (1854.168708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'foo'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2457:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'foo' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2460:1
+✖ field-fixes 1 archived: a failing gh falls back to the remote-tracking default branch (1933.150375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'foo'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2464:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'foo' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2480:1
+✖ field-fixes 2 change-loop: next on a headerless plan with a later headed evidence.md ends blocked, previous-script (1708.233708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2485:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2491:1
+✖ field-fixes 2 change-loop: next on the old devkit-lite form with no requirements.md ends blocked, previous-script (1556.556958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2501:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1328:1
+✖ field-fixes 2 previous-script: a headed evidence.md over a headerless plan is still the previous script (296.741ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'current'
+  - 'previous'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:1331:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'current',
+    expected: 'previous',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1335:1
+✖ field-fixes 2 previous-script: a headed readiness.md over a headerless plan is still the previous script (217.240083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'current'
+  - 'previous'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:1337:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'current',
+    expected: 'previous',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1353:1
+✖ field-fixes 2 previous-script: isPreviousScript reads only the earliest stage file the flow lists (0.109042ms)
+  TypeError [Error]: FC.isPreviousScript is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:1357:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

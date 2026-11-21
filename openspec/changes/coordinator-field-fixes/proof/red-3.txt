@@ -1,0 +1,875 @@
+✔ field-fixes 4 fake gh: an unset pull request files or tasks key fails loudly naming the key (435.020875ms)
+✖ field-fixes 4 delivered: isArchiveHead is true for every change's archive head and for nothing else (0.469583ms)
+✖ field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head (0.134583ms)
+✖ field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error (0.1025ms)
+✖ field-fixes 4 delivered: tasksOnDefault reads the tasks left on the default branch, absent on a 404 and an error otherwise (0.079208ms)
+✖ field-fixes 4 delivered: a body that links the evidence is not the change's own pull request (249.974584ms)
+✖ field-fixes 4 delivered: another change's archive pull request that names the change is not its own (290.035375ms)
+✖ field-fixes 4 delivered: an unrelated head that ends in the id and touches no file of the change is not its own (258.106583ms)
+✖ field-fixes 4 delivered: a head that does not name the change is its own when it changes a file of the change folder (248.713083ms)
+✖ field-fixes 4 delivered: among several own pull requests the newest mergedAt wins, and a body link is not proof (268.579625ms)
+✖ field-fixes 4 delivered: a files read that fails is an error, never a silent miss (242.881583ms)
+✖ field-fixes 4 delivered: with tasks left on the default branch the change's own merged PR leads to no archive step, and stop-branch names the PR, the tasks and the branch (571.7795ms)
+✖ field-fixes 4 delivered: a pull request that only links the evidence leads to no archive step (618.043708ms)
+✖ field-fixes 4 delivered: another change's archive pull request that names the change leads to no archive step (610.721792ms)
+✖ field-fixes 4 delivered: on the change's branch with the work ticked and no open pull request the step is open-pr (3329.126917ms)
+✖ field-fixes 4 delivered: with every task ticked on the default branch the change's own merged PR answers the retro, even a further PR whose head does not name the change (587.439833ms)
+✖ field-fixes 4 delivered: a tasks.md absent on the default branch is not delivered, and one that cannot be read blocks the pull request item (558.430041ms)
+✔ field-fixes 4 fake gh: an unset pull request files or tasks key fails loudly naming the key (521.123459ms)
+✖ field-fixes 4 delivered: isArchiveHead is true for every change's archive head and for nothing else (0.5305ms)
+✖ field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head (0.098542ms)
+✖ field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error (0.089291ms)
+✖ field-fixes 4 delivered: tasksOnDefault reads the tasks left on the default branch, absent on a 404 and an error otherwise (0.066416ms)
+✖ field-fixes 4 delivered: a body that links the evidence is not the change's own pull request (266.690875ms)
+✖ field-fixes 4 delivered: another change's archive pull request that names the change is not its own (280.391417ms)
+✖ field-fixes 4 delivered: an unrelated head that ends in the id and touches no file of the change is not its own (274.805958ms)
+✖ field-fixes 4 delivered: a head that does not name the change is its own when it changes a file of the change folder (238.897875ms)
+✖ field-fixes 4 delivered: among several own pull requests the newest mergedAt wins, and a body link is not proof (273.321834ms)
+✖ field-fixes 4 delivered: a files read that fails is an error, never a silent miss (253.9325ms)
+✖ field-fixes 4 delivered: with tasks left on the default branch the change's own merged PR leads to no archive step, and stop-branch names the PR, the tasks and the branch (574.725166ms)
+✖ field-fixes 4 delivered: a pull request that only links the evidence leads to no archive step (676.836333ms)
+✖ field-fixes 4 delivered: another change's archive pull request that names the change leads to no archive step (589.443417ms)
+✖ field-fixes 4 delivered: on the change's branch with the work ticked and no open pull request the step is open-pr (3281.230666ms)
+✖ field-fixes 4 delivered: with every task ticked on the default branch the change's own merged PR answers the retro, even a further PR whose head does not name the change (580.076833ms)
+✖ field-fixes 4 delivered: a tasks.md absent on the default branch is not delivered, and one that cannot be read blocks the pull request item (552.723084ms)
+✖ field-fixes 4 delivered: a merged pull request with tasks left is not delivered; the next stage is the implementation naming the pull request and the tasks (433.964125ms)
+✖ field-fixes 4 delivered: a pull request that only links the evidence does not switch to the walk after the merge (471.540917ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 2
+ℹ fail 34
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9343.420708
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4443:1
+✖ field-fixes 4 delivered: isArchiveHead is true for every change's archive head and for nothing else (0.469583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4444:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4449:1
+✖ field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head (0.134583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4450:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4459:1
+✖ field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error (0.1025ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4460:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4470:1
+✖ field-fixes 4 delivered: tasksOnDefault reads the tasks left on the default branch, absent on a 404 and an error otherwise (0.079208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4471:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4489:1
+✖ field-fixes 4 delivered: a body that links the evidence is not the change's own pull request (249.974584ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n',
+  +     headRefName: 'auto-merge',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 5,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   none: true
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4491:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 5, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'auto-merge', mergedAt: '2026-11-09T14:56:00Z', body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n' }, via: 'list' },
+    expected: { none: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4494:1
+✖ field-fixes 4 delivered: another change's archive pull request that names the change is not its own (290.035375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     body: 'Archive bar. Mentions auto-merge: openspec/changes/auto-merge/evidence.md\n',
+  +     headRefName: 'chore/archive-bar',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 7,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   none: true
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4497:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 7, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'chore/archive-bar', mergedAt: '2026-11-09T14:56:00Z', body: 'Archive bar. Mentions auto-merge: openspec/changes/auto-merge/evidence.md\n' }, via: 'list' },
+    expected: { none: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4500:1
+✖ field-fixes 4 delivered: an unrelated head that ends in the id and touches no file of the change is not its own (258.106583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     headRefName: 'fix/auto-merge',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 8,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   none: true
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4503:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 8, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'fix/auto-merge', mergedAt: '2026-11-09T14:56:00Z' }, via: 'list' },
+    expected: { none: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4506:1
+✖ field-fixes 4 delivered: a head that does not name the change is its own when it changes a file of the change folder (248.713083ms)
+  AssertionError [ERR_ASSERTION]: {"none":true}
+  
+  undefined !== 9
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4510:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 9,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4514:1
+✖ field-fixes 4 delivered: among several own pull requests the newest mergedAt wins, and a body link is not proof (268.579625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 4
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4518:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 4,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4521:1
+✖ field-fixes 4 delivered: a files read that fails is an error, never a silent miss (242.881583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n',
+  +     headRefName: 'auto-merge',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 5,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   error: 'gh: boom'
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4524:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 5, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'auto-merge', mergedAt: '2026-11-09T14:56:00Z', body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n' }, via: 'list' },
+    expected: { error: 'gh: boom' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4531:1
+✖ field-fixes 4 delivered: with tasks left on the default branch the change's own merged PR leads to no archive step, and stop-branch names the PR, the tasks and the branch (571.7795ms)
+  AssertionError [ERR_ASSERTION]: no archive facts: the change is not delivered
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4536:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4544:1
+✖ field-fixes 4 delivered: a pull request that only links the evidence leads to no archive step (618.043708ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!s.archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4548:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4554:1
+✖ field-fixes 4 delivered: another change's archive pull request that names the change leads to no archive step (610.721792ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!t.state().archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4558:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4562:1
+✖ field-fixes 4 delivered: on the change's branch with the work ticked and no open pull request the step is open-pr (3329.126917ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!s.archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4570:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4574:1
+✖ field-fixes 4 delivered: with every task ticked on the default branch the change's own merged PR answers the retro, even a further PR whose head does not name the change (587.439833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  12 !== 14
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4582:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 12,
+    expected: 14,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4586:1
+✖ field-fixes 4 delivered: a tasks.md absent on the default branch is not delivered, and one that cannot be read blocks the pull request item (558.430041ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!absent.state().archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4590:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4443:1
+✖ field-fixes 4 delivered: isArchiveHead is true for every change's archive head and for nothing else (0.5305ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4444:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4449:1
+✖ field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head (0.098542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4450:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4459:1
+✖ field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error (0.089291ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4460:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4470:1
+✖ field-fixes 4 delivered: tasksOnDefault reads the tasks left on the default branch, absent on a 404 and an error otherwise (0.066416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4471:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4489:1
+✖ field-fixes 4 delivered: a body that links the evidence is not the change's own pull request (266.690875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n',
+  +     headRefName: 'auto-merge',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 5,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   none: true
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4491:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 5, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'auto-merge', mergedAt: '2026-11-09T14:56:00Z', body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n' }, via: 'list' },
+    expected: { none: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4494:1
+✖ field-fixes 4 delivered: another change's archive pull request that names the change is not its own (280.391417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     body: 'Archive bar. Mentions auto-merge: openspec/changes/auto-merge/evidence.md\n',
+  +     headRefName: 'chore/archive-bar',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 7,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   none: true
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4497:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 7, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'chore/archive-bar', mergedAt: '2026-11-09T14:56:00Z', body: 'Archive bar. Mentions auto-merge: openspec/changes/auto-merge/evidence.md\n' }, via: 'list' },
+    expected: { none: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4500:1
+✖ field-fixes 4 delivered: an unrelated head that ends in the id and touches no file of the change is not its own (274.805958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     headRefName: 'fix/auto-merge',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 8,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   none: true
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4503:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 8, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'fix/auto-merge', mergedAt: '2026-11-09T14:56:00Z' }, via: 'list' },
+    expected: { none: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4506:1
+✖ field-fixes 4 delivered: a head that does not name the change is its own when it changes a file of the change folder (238.897875ms)
+  AssertionError [ERR_ASSERTION]: {"none":true}
+  
+  undefined !== 9
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4510:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 9,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4514:1
+✖ field-fixes 4 delivered: among several own pull requests the newest mergedAt wins, and a body link is not proof (273.321834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 4
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4518:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 4,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4521:1
+✖ field-fixes 4 delivered: a files read that fails is an error, never a silent miss (253.9325ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   pr: {
+  +     body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n',
+  +     headRefName: 'auto-merge',
+  +     headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  +     mergedAt: '2026-11-09T14:56:00Z',
+  +     number: 5,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/5'
+  +   },
+  +   via: 'list'
+  -   error: 'gh: boom'
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4524:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { pr: { number: 5, url: 'https://github.com/o/r/pull/5', state: 'MERGED', headRefOid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', headRefName: 'auto-merge', mergedAt: '2026-11-09T14:56:00Z', body: 'auto-merge\nopenspec/changes/auto-merge/evidence.md\n' }, via: 'list' },
+    expected: { error: 'gh: boom' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4531:1
+✖ field-fixes 4 delivered: with tasks left on the default branch the change's own merged PR leads to no archive step, and stop-branch names the PR, the tasks and the branch (574.725166ms)
+  AssertionError [ERR_ASSERTION]: no archive facts: the change is not delivered
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4536:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4544:1
+✖ field-fixes 4 delivered: a pull request that only links the evidence leads to no archive step (676.836333ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!s.archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4548:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4554:1
+✖ field-fixes 4 delivered: another change's archive pull request that names the change leads to no archive step (589.443417ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!t.state().archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4558:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4562:1
+✖ field-fixes 4 delivered: on the change's branch with the work ticked and no open pull request the step is open-pr (3281.230666ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!s.archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4570:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4574:1
+✖ field-fixes 4 delivered: with every task ticked on the default branch the change's own merged PR answers the retro, even a further PR whose head does not name the change (580.076833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  12 !== 14
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4582:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 12,
+    expected: 14,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4586:1
+✖ field-fixes 4 delivered: a tasks.md absent on the default branch is not delivered, and one that cannot be read blocks the pull request item (552.723084ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!absent.state().archive)
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:4590:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:910:1
+✖ field-fixes 4 delivered: a merged pull request with tasks left is not delivered; the next stage is the implementation naming the pull request and the tasks (433.964125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   next: 'retro',
+  +   reasonCode: 'archive'
+  -   next: 'implementation',
+  -   reasonCode: 'tasks-left-after-merge'
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:917:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { next: 'retro', reasonCode: 'archive' },
+    expected: { next: 'implementation', reasonCode: 'tasks-left-after-merge' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:923:1
+✖ field-fixes 4 delivered: a pull request that only links the evidence does not switch to the walk after the merge (471.540917ms)
+  AssertionError [ERR_ASSERTION]: the squashed header commits still read as stale
+  
+  'passed' !== 'stale'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:937:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'passed',
+    expected: 'stale',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

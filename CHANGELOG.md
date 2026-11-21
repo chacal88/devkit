@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.21.0 — field fixes of 0.16.0
+
+- **devkit-openspec** 0.17.0: the eight defects 0.16.0 showed in three other projects. An archived
+  change is no longer listed as unfinished; a change is on the previous script when its earliest
+  stage file has no header; a change is delivered when its own pull request is merged and every task
+  is ticked (a further pull request carries tasks left); the `devkit-reviews` check judges only
+  changes on a devkit script, each delivered change of a pull request that touches several, and
+  explains a missing `retro.md` (ADR 0012); `github-setup` names Actions disabled, runs that fail
+  without starting, refused rulesets and the checks the ruleset will require; every script and hook
+  starts the project's pinned OpenSpec CLI, and `install-schemas.sh` refuses a project pin that is
+  not 2.x; the new `changes-under-way.mjs` keeps a change under way from being sent back to the
+  grill by a schema upgrade. The CI snippet pins `v0.17.0`.
+- **devkit-compozy** 0.2.0: `compozy-setup` installs the kit with the new `install-kit.mjs` and a
+  manifest, so a re-run keeps the files the project edited and replaces only the ones it did not.
+- Projects: bump the pinned `devkit-reviews` workflow to the commit of `v0.17.0` to get the CI fix.
+  `install-schemas.sh` now refuses a project pin of `@fission-ai/openspec` that is not 2.x.
+
 ## 0.20.1 — retro of change-coordinator
 
 - **devkit-core** 0.8.1: the plan-readiness review runs every phase gate command that already exists

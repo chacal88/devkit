@@ -69,6 +69,14 @@ See [the pack's README](../plugins/compozy/README.md) for the full contract.
    (`loops/openspec-change/loop.yaml`) and the resolver `bin/devkit-kit`; it adds the `design:`
    block to `openspec/config.yaml` only when the project has screens. It never publishes the loop,
    starts a run, or writes product code.
+
+   The files are installed by a script, `install-kit.mjs`, which records the inputs and a digest of
+   every file in `.compozy/kit-manifest.json`. Running it again updates the files the project did
+   not edit with the current templates and the recorded inputs, and reports a file already equal to
+   its rendering as `same`. A file the project edited is shown (its difference from the current
+   template) and kept until the owner says yes for that file, one question per file; the run is then
+   repeated with `--accept <path>` for it. The first re-run of an install made before the manifest
+   existed treats every file that differs from the template as edited.
 2. **Publish the loop.** The operator runs `compozy loop create --fork-from-name` once the files
    are in place and reviewed — a CompozyOS act, not the kit's.
 3. **Run it.** The operator starts a run with `compozy loop run`, naming the loop, a workspace and

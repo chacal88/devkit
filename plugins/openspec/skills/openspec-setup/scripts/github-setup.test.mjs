@@ -19,6 +19,11 @@ const K = {
   rulesets: 'api-GET-repos__owner___repo__rulesets',
   ruleset: (id) => `api-GET-repos__owner___repo__rulesets_${id}`,
   runs: 'api-GET-repos__owner___repo__commits_main_check-runs_per_page=100',
+  actions: 'api-GET-repos__owner___repo__actions_permissions',
+  actionRuns: 'api-GET-repos__owner___repo__actions_runs_status=completed&per_page=3',
+  runJobs: (id) => `api-GET-repos__owner___repo__actions_runs_${id}_jobs`,
+  headRuns: (oid) => `api-GET-repos__owner___repo__commits_${oid}_check-runs_per_page=100`,
+  prsAll: 'pr-list-state-all',
   tag: (v) => `api-GET-repos_chacal88_devkit_git_ref_tags_v${v}`,
   tagObj: (sha) => `api-GET-repos_chacal88_devkit_git_tags_${sha}`,
   contents: 'api-GET-repos__owner___repo__contents_.github_workflows_devkit-reviews.yml_ref=main',
@@ -27,6 +32,8 @@ const K = {
   put: (id) => `api-PUT-repos__owner___repo__rulesets_${id}`,
 };
 const SHA = 'a'.repeat(40);
+const HEAD1 = 'c'.repeat(40);
+const HEAD2 = 'd'.repeat(40);
 const TAG_SHA = 'b'.repeat(40);
 const SETTINGS_OFF = { default_branch: 'main', allow_auto_merge: false, delete_branch_on_merge: false, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true };
 const SETTINGS_ON = { ...SETTINGS_OFF, allow_auto_merge: true, delete_branch_on_merge: true };
@@ -43,7 +50,7 @@ const D8 = (contexts) => ({
 const stored = (contexts, over = {}) => ({ id: 7, source_type: 'Repository', source: 'o/r', ...D8(contexts), ...over });
 
 // A temp repo, a fake gh answering a repository in the given state, and a runner for the script.
-function world({ settings = SETTINGS_OFF, runs = ['check'], tag = { stdout: { object: { type: 'commit', sha: SHA } } }, rulesets = [], existing = null, workflow = 'missing', workflowOnMain = false, prChecks = null, prList = [], branch = 'feat' } = {}) {
+function world({ settings = SETTINGS_OFF, runs = ['check'], tag = { stdout: { object: { type: 'commit', sha: SHA } } }, rulesets = [], existing = null, workflow = 'missing', workflowOnMain = false, prChecks = null, prList = [], branch = 'feat', heads = null, actions = { stdout: { enabled: true } }, actionRuns = { stdout: { workflow_runs: [] } }, jobs = {} } = {}) {
   const root = gitRepo({ branch });
   const gh = fakeGh();
   if (workflow === 'template') put(root, { [WORKFLOW_PATH]: 'on: pull_request\njobs:\n  devkit-reviews:\n    steps:\n      - run: node plugins/openspec/hooks/deliver-check.mjs --ci\n' });
@@ -51,6 +58,13 @@ function world({ settings = SETTINGS_OFF, runs = ['check'], tag = { stdout: { ob
   gh.set(K.repo, { stdout: settings });
   // gh --paginate --jq '.check_runs[].name' prints one name per line, across pages
   gh.set(K.runs, { stdout: runs.map((n) => `${n}\n`).join('') });
+  // the checks a ruleset would require come from the newest pull requests' heads (field-fixes 5)
+  const reported = heads ?? [{ oid: HEAD1, names: runs }];
+  gh.set(K.prsAll, { stdout: reported.map((h, i) => ({ number: i + 1, headRefOid: h.oid })) });
+  for (const h of reported) gh.set(K.headRuns(h.oid), { stdout: h.names.map((n) => `${n}\n`).join('') });
+  gh.set(K.actions, actions);
+  gh.set(K.actionRuns, actionRuns);
+  for (const [id, fixture] of Object.entries(jobs)) gh.set(K.runJobs(id), fixture);
   if (tag) gh.set(K.tag(pluginVersion), tag);
   gh.set(K.rulesets, { stdout: rulesets });
   if (existing) gh.set(K.ruleset(existing.id ?? 7), { stdout: existing });
@@ -93,7 +107,7 @@ test('plan (no --apply): four items with state and payload, no -X call, no file 
   assert.deepEqual(w.writes(), []);
 });
 
-test('plan: contexts come from the default branch check-runs without devkit-reviews; --checks replaces them', () => {
+test('plan: contexts come from the newest pull requests heads without devkit-reviews; --checks replaces them', () => {
   const w = world({ runs: ['check', 'devkit-reviews', 'lint'], workflowOnMain: true });
   const j = w.run('--json').json();
   assert.deepEqual(j.contexts, ['check', 'lint']);
@@ -103,7 +117,7 @@ test('plan: contexts come from the default branch check-runs without devkit-revi
   assert.deepEqual(k.items.find((i) => i.item === 'ruleset').payload, D8(['ci', 'build', 'devkit-reviews']));
 });
 
-test('plan: check runs are read across pages (--paginate), so more than 30 checks all reach the ruleset, and the list is shown for confirmation (completeness)', () => {
+test('plan: check runs of each head are read across pages (--paginate), so more than 30 checks all reach the ruleset, and the list is shown for confirmation (completeness)', () => {
   const names = Array.from({ length: 45 }, (_, i) => `job-${i}`);
   const w = world({ runs: [...names, 'job-3', 'devkit-reviews'], workflowOnMain: true });
   const r = w.run('--json');
@@ -111,8 +125,9 @@ test('plan: check runs are read across pages (--paginate), so more than 30 check
   assert.equal(w.item(r, 'ruleset').payload.rules[1].parameters.required_status_checks.length, 46);
   const call = w.gh.calls().find((c) => c.some((a) => a.includes('/check-runs')));
   assert.ok(call.includes('--paginate'), call.join(' '));
+  assert.ok(call.some((a) => a.includes(`commits/${HEAD1}/check-runs`)), 'read on the pull request head, not on the default branch');
   const human = w.run().out;
-  assert.match(human, /the ruleset will require these checks, found on main \(confirm them, or pass --checks\): job-0, job-1/);
+  assert.match(human, /the ruleset will require these checks, reported on the newest pull requests \(confirm them, or pass --checks\): job-0, job-1/);
   assert.match(human, /job-44/);
 });
 
@@ -331,4 +346,147 @@ test('format: the config template says who merges per mode and shows a commented
   assert.match(yml, /^# merge_method: squash/m);
   assert.match(yml, /merge is the owner's in `plan` and `pr` mode, GitHub's in `merge` mode/);
   assert.doesNotMatch(yml, /^ship:/m, 'only a comment: the key is the owner\'s choice');
+});
+
+// ---------------------------------------------------------------- field-fixes 5: what the plan names, which checks it proposes
+
+const NO_STEP = { stdout: { jobs: [{ steps: [{ name: 'Set up job' }] }] } };
+const STEP_RAN = { stdout: { jobs: [{ steps: [{ name: 'Set up job', started_at: '2026-11-20T10:00:00Z' }] }] } };
+const FAILED_RUNS = { stdout: { workflow_runs: [{ id: 11, conclusion: 'failure' }, { id: 12, conclusion: 'failure' }] } };
+const repoCheck = (r, name) => r.json().repository.find((c) => c.check === name);
+
+test('field-fixes 5 actions: Actions disabled for the repository is blocked, names where to enable it and exits 1', () => {
+  const w = world({ actions: { stdout: { enabled: false } } });
+  const r = w.run();
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /^actions\s+blocked\s+GitHub Actions is disabled for this repository: no check runs, devkit-reviews included; enable it in Settings > Actions > General$/m);
+  assert.deepEqual(w.writes(), []);
+  assert.equal(repoCheck(w.run('--json'), 'actions').state, 'blocked');
+});
+
+test('field-fixes 5 actions: Actions permissions that cannot be read are unknown, never blocked, and the exit code stays 0', () => {
+  const w = world({ actions: { exit: 1, stderr: 'gh: Must have admin rights to Repository. (HTTP 403)\n' } });
+  const r = w.run();
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /^actions\s+unknown\s+cannot read whether GitHub Actions is enabled: gh: Must have admin rights/m);
+  assert.equal(repoCheck(w.run('--json'), 'actions').state, 'unknown');
+});
+
+test('field-fixes 5 actions: Actions enabled is ok', () => {
+  const w = world();
+  assert.equal(repoCheck(w.run('--json'), 'actions').state, 'ok');
+  assert.equal(w.run().code, 0);
+});
+
+test('field-fixes 5 runs: the newest runs all failed without a job starting a step is blocked, naming billing as one possible cause', () => {
+  const w = world({ actionRuns: FAILED_RUNS, jobs: { 11: NO_STEP, 12: NO_STEP } });
+  const r = w.run();
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /^runs\s+blocked\s+the newest runs failed without starting \(no job ran a step\); one possible cause is GitHub Actions billing \(a failed payment or a spending limit\): check Settings > Billing and plans; the repository's API does not say which$/m);
+  assert.deepEqual(w.writes(), []);
+});
+
+test('field-fixes 5 runs: a failed run whose job started a step is ok, and so is a run that succeeded', () => {
+  const started = world({ actionRuns: FAILED_RUNS, jobs: { 11: NO_STEP, 12: STEP_RAN } });
+  assert.equal(repoCheck(started.run('--json'), 'runs').state, 'ok');
+  assert.equal(started.run().code, 0);
+  const passed = world({ actionRuns: { stdout: { workflow_runs: [{ id: 11, conclusion: 'success' }] } } });
+  assert.equal(repoCheck(passed.run('--json'), 'runs').state, 'ok');
+  assert.equal(repoCheck(world().run('--json'), 'runs').state, 'ok', 'no completed run at all is not blocked');
+});
+
+test('field-fixes 5 runs: runs or jobs that cannot be read are unknown, never blocked, and the exit code stays 0', () => {
+  const runs = world({ actionRuns: { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' } });
+  const r = runs.run();
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /^runs\s+unknown\s+cannot read the newest workflow runs: gh: Not Found/m);
+  const jobs = world({ actionRuns: FAILED_RUNS, jobs: { 11: { exit: 1, stderr: 'gh: boom\n' }, 12: NO_STEP } });
+  assert.equal(repoCheck(jobs.run('--json'), 'runs').state, 'unknown');
+  assert.equal(jobs.run().code, 0);
+});
+
+const REFUSED = { exit: 1, stderr: 'gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)\n' };
+
+test('field-fixes 5 rulesets: a 403 naming the plan blocks the ruleset with the line, defers auto-merge and exits 1', () => {
+  const w = world({ workflowOnMain: true });
+  w.gh.set(K.rulesets, REFUSED);
+  const r = w.run();
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /^ruleset\s+blocked\s+GitHub refuses rulesets for this repository's plan \(gh: Upgrade to GitHub Pro or make this repository public to enable this feature\. \(HTTP 403\)\): make the repository public, or move it to a plan with rulesets; merge mode needs the ruleset \(ADR 0002\), so auto-merge is not applied either$/m);
+  assert.match(r.out, /^auto-merge\s+deferred\s+the ruleset is refused; merge mode needs it \(ADR 0002\)$/m);
+  assert.deepEqual(w.writes(), []);
+});
+
+test('field-fixes 5 rulesets: a read failure that is not about the plan stays an error', () => {
+  const w = world({ workflowOnMain: true });
+  w.gh.set(K.rulesets, { exit: 1, stderr: 'gh: Must have admin rights to Repository. (HTTP 403)\n' });
+  const j = w.run('--json').json();
+  assert.ok(Array.isArray(j.repository), 'the repository checks are part of the result');
+  assert.equal(j.items.find((i) => i.item === 'ruleset').state, 'error');
+  assert.equal(j.items.find((i) => i.item === 'auto-merge').state, 'update', 'auto-merge is not deferred by another error');
+  assert.equal(w.run().code, 1);
+});
+
+test('field-fixes 5 rulesets: --apply with the rulesets refused writes no ruleset and no auto-merge, and applies the workflow and delete-branch', () => {
+  const w = world({ workflowOnMain: true });
+  w.gh.set(K.rulesets, REFUSED);
+  w.gh.set(K.patch, { stdout: {} });
+  const r = w.run('--apply', 'workflow,auto-merge,delete-branch,ruleset', '--json');
+  const j = r.json();
+  assert.deepEqual(j.applied, ['workflow', 'delete-branch']);
+  assert.deepEqual(w.writes(), [['api', '-X', 'PATCH', 'repos/{owner}/{repo}', '-F', 'delete_branch_on_merge=true']]);
+  assert.ok(existsSync(join(w.root, WORKFLOW_PATH)), 'the workflow is written');
+  assert.match(j.items.find((i) => i.item === 'auto-merge').why, /the ruleset is refused/);
+  assert.match(j.items.find((i) => i.item === 'ruleset').why, /GitHub refuses rulesets/);
+  assert.equal(r.code, 1, 'the blocked ruleset still exits 1');
+});
+
+test('field-fixes 5 checks: the proposed checks are the ones reported on pull request heads, never a job that runs only on the default branch', () => {
+  const w = world({ heads: [{ oid: HEAD1, names: ['test', 'devkit-reviews'] }, { oid: HEAD2, names: ['test', 'lint'] }], workflowOnMain: true });
+  w.gh.set(K.runs, { stdout: 'test\npublish\n' });
+  const j = w.run('--json').json();
+  assert.deepEqual(j.contexts, ['test', 'lint']);
+  assert.ok(!j.contexts.includes('publish'));
+  assert.deepEqual(j.items.find((i) => i.item === 'ruleset').payload, D8(['test', 'lint', 'devkit-reviews']));
+  assert.ok(!w.gh.calls().some((c) => c.some((a) => a.includes('commits/main/check-runs'))), 'the default branch checks are not read');
+  const list = w.gh.calls().find((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('all'));
+  assert.deepEqual([list[list.indexOf('--limit') + 1], list[list.indexOf('--json') + 1]], ['5', 'number,headRefOid']);
+  for (const oid of [HEAD1, HEAD2]) assert.ok(w.gh.calls().some((c) => c.includes('--paginate') && c.some((a) => a.includes(`commits/${oid}/check-runs`))), oid);
+  assert.match(w.run().out, /^the ruleset will require these checks, reported on the newest pull requests \(confirm them, or pass --checks\): test, lint$/m);
+});
+
+test('field-fixes 5 checks: with no pull request check reported the list is empty and the plan says to pass --checks', () => {
+  const w = world({ heads: [] });
+  assert.deepEqual(w.run('--json').json().contexts, []);
+  assert.match(w.run().out, /none: no pull request has a check reported yet; pass --checks/);
+  const bare = world({ heads: [{ oid: HEAD1, names: [] }] });
+  assert.deepEqual(bare.run('--json').json().contexts, []);
+});
+
+test('field-fixes 5 checks: --checks still replaces the proposed list and reads no pull request', () => {
+  const w = world();
+  assert.deepEqual(w.run('--json', '--checks', 'ci').json().contexts, ['ci']);
+  assert.deepEqual(w.run('--json', '--checks', 'ci').json().repository.map((c) => c.check), ['actions', 'runs']);
+  assert.ok(!w.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('all')));
+});
+
+test('field-fixes 5 nothing written: no gh api -X call and no file in any blocked or unknown state', () => {
+  const w = world({ actions: { stdout: { enabled: false } }, actionRuns: FAILED_RUNS, jobs: { 11: NO_STEP, 12: NO_STEP } });
+  w.gh.set(K.rulesets, REFUSED);
+  const r = w.run();
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^actions\s+blocked/m);
+  assert.match(r.out, /^runs\s+blocked/m);
+  assert.match(r.out, /^ruleset\s+blocked/m);
+  assert.deepEqual(w.writes(), []);
+  assert.equal(existsSync(join(w.root, WORKFLOW_PATH)), false);
+});
+
+test('field-fixes 5 skill: step 7 names the repository states, that billing is only a possible cause, and that a blocked ruleset means merge mode is not available', () => {
+  const md = readFileSync(join(skillDir, 'SKILL.md'), 'utf8');
+  const step = md.slice(md.indexOf('GitHub (merge mode)'));
+  assert.match(step, /`blocked`/);
+  assert.match(step, /`unknown`/);
+  assert.match(step, /billing[^\n]*(possible cause|cannot be read)|(possible cause|cannot be read)[^\n]*billing/i);
+  assert.match(step, /`merge` mode is not available/);
 });

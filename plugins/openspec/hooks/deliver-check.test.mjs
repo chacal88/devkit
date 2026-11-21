@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { ghError } from './merge-setup.mjs';
 import { archiveBranchChange, resolveChange } from './guard.mjs';
 import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, readReviewMd, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, unnamedFiles, ciMain } from './deliver-check.mjs';
+import * as DC from './deliver-check.mjs';
 import { createHash } from 'node:crypto';
 import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
 
@@ -48,6 +49,16 @@ export function put(root, files) {
     mkdirSync(dirname(join(root, f)), { recursive: true });
     writeFileSync(join(root, f), body);
   }
+}
+
+// An `openspec` stand-in in `dir`: `--version` answers `version`; any other call is logged as "<label> <args>" in
+// `marker`, then answers one error status. It lets a test prove which CLI a pack started (field-fixes 6).
+export function openspecStub(dir, { version, label, marker }) {
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, 'openspec');
+  writeFileSync(file, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo ${version}; exit 0; fi\necho "${label} $*" >> "${marker}"\necho '{"status":[{"severity":"error","message":"stub"}]}'\nexit 1\n`);
+  chmodSync(file, 0o755);
+  return dir;
 }
 
 // Stage everything and commit; returns the new full sha.
@@ -722,6 +733,9 @@ export function fakeGh() {
     dir,
     env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_GH_DIR: dir },
     set(key, fixture, n) { writeFileSync(join(dir, n ? `${key}.${n}.json` : `${key}.json`), JSON.stringify(fixture)); },
+    // The files pull request <n> changed, and the tasks.md of <id> on the default branch (field-fixes 4).
+    prFiles(n, files) { this.set(PR_FILES_KEY(n), filesFixture(files)); },
+    tasksOnDefault(id, text, base = 'main') { this.set(TASKS_ON_KEY(id, base), tasksFixture(text)); },
     // Start counting calls to `key` from 1 again (per-call fixtures).
     resetCount(key) { fsRm(join(dir, `${key}.count`), { force: true }); },
     calls() {
@@ -730,6 +744,15 @@ export function fakeGh() {
     },
   };
 }
+
+// The fixture keys of the two GitHub reads the delivery makes (field-fixes 4): the files a pull request changed
+// and the tasks.md of a change on the default branch. An unset key fails loudly, as every fake gh key does.
+export const PR_FILES_KEY = (n) => `api-GET-repos__owner___repo__pulls_${n}_files`;
+export const TASKS_ON_KEY = (id, base = 'main') => `api-GET-repos__owner___repo__contents_openspec_changes_${id}_tasks.md_ref=${base}`;
+export const filesFixture = (files) => ({ stdout: files.map((f) => `${f}\n`).join('') });
+export const tasksFixture = (text) => ({ stdout: { name: 'tasks.md', encoding: 'base64', content: Buffer.from(text).toString('base64') } });
+// A tasks.md with the given ticked and unticked task ids, one task per line under phase headings.
+export const tasksText = ({ ticked = [], unticked = [] } = {}) => `# Tasks\n\n${[...ticked.map((id) => `- [x] ${id} done`), ...unticked.map((id) => `- [ ] ${id} left`)].join('\n')}\n`;
 
 const callGh = (gh, ...args) => spawnSync('gh', args, { env: gh.env, encoding: 'utf8' });
 
@@ -1971,6 +1994,8 @@ test('merge mode through the collector: a MERGED PR at the head meets items 5, 6
   const t = shipRepo({ ship: 'merge' });
   driveToReady(t);
   t.gh.set('pr-view', { stdout: prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY }) });
+  t.gh.prFiles(12, ['openspec/changes/feat/tasks.md', 'src/a.ts']);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1', '1.2'] }));
   const before = t.gh.calls().length;
   const s = collectState(t.root, 'feat', { env: t.env });
   assert.deepEqual(s.items.map((i) => i.status), Array(8).fill('met'));
@@ -2245,6 +2270,9 @@ test('merge mode: a MERGED PR is the first archive step (retro), exit 0, and the
 
 // The GitHub reads of the post-merge phase for a change whose folder is still on main and has no archive PR.
 function presetArchiveReads(t) {
+  // The change's own pull request #12 changed its folder and every task is ticked on main (field-fixes D-4).
+  t.gh.prFiles(12, ['openspec/changes/feat/tasks.md', 'src/a.ts']);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1', '1.2'] }));
   t.gh.set(ARCHIVE_LISTING, { stdout: [] });
   t.gh.set(ACTIVE_ON_MAIN, { stdout: {} });
   t.gh.set(ARCHIVE_PRS, { stdout: [] });
@@ -3128,7 +3156,8 @@ test('--ci selection 2: the branch tail, or the single change the branch contain
   assert.equal(several.json().pass, false);
 });
 
-test('--ci selection 3: with GITHUB_BASE_REF the one active change the PR diff touches is selected, two fail (R-3)', () => {
+// Invariant (field-fixes 3, ADR 0012): the one touched change is selected; two touched changes are each judged when delivered.
+test('--ci selection 3: with GITHUB_BASE_REF the one active change the PR diff touches is selected, two are each judged (R-3)', () => {
   const root = ciRepo({ branch: 'main', names: ['feat', 'other'] });
   git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   git(root, 'switch', '-q', '-c', 'chore/tidy');
@@ -3140,8 +3169,8 @@ test('--ci selection 3: with GITHUB_BASE_REF the one active change the PR diff t
   put(root, { 'openspec/changes/feat/notes.md': 'n\n', 'openspec/changes/archive/2026-01-01-old/x.md': 'x\n' });
   commitAll(root, 'touch feat');
   const two = runCi(root, [], env);
-  assert.equal(two.code, 1);
-  assert.match(two.err, /several changes are touched by this PR \(feat, other\); name the branch after one/);
+  assert.equal(two.code, 0, two.out + two.err);
+  assert.match(two.out, /^devkit-reviews: 2 changes touched by this PR \(feat, other\)$/m);
 });
 
 test('--ci selection 3: a squash-merged change still active on the base and untouched by the PR is not checked; the run passes with a note (AC-5, R-3)', () => {
@@ -3166,8 +3195,8 @@ test('--ci selection 3: a squash-merged change still active on the base and unto
 // A base where `x` was squash-merged (still active, unproven) next to the `others`, and a PR branch that archives it.
 // The retro approves `src/a.ts` by default; `retro` and `files` override what the PR carries.
 const X_RETRO = '## Proposed updates\n\n### `src/a.ts` (process-friction)\nSummary.\n- Answer: approved\n- Applied: yes\n';
-function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {} } = {}) {
-  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, changeFilesOf()])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n' } });
+function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {}, schema = 'devkit-lite' } = {}) {
+  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, { ...changeFilesOf(), ...(n === 'x' ? { '.openspec.yaml': `schema: ${schema}\n` } : {}) }])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n' } });
   git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   git(root, 'switch', '-q', '-c', branch);
   git(root, 'mv', 'openspec/changes/x', 'openspec/changes/archive/2026-11-09-x');
@@ -3268,6 +3297,155 @@ test('--ci selection 4: without GITHUB_BASE_REF the only open change is checked;
   const n = runCi(gitRepo({ branch: 'main' }));
   assert.equal(n.code, 0);
   assert.match(n.out, /nothing to check/);
+});
+
+// ---- field-fixes 3: the devkit-reviews check follows the change's script (spec reviews-check, ADR 0012)
+
+const GUARD_FILE = join(here, 'guard.mjs');
+// The same check through both entries: deliver-check.mjs --ci and guard.mjs ci.
+function bothEntries(root, args = [], env = {}) {
+  const viaDeliver = runCi(root, args, env);
+  const r = spawnSync(process.execPath, [GUARD_FILE, 'ci', ...args], { cwd: root, encoding: 'utf8', env: { ...process.env, ...CI_ENV, ...env } });
+  return [viaDeliver, { code: r.status, out: r.stdout, err: r.stderr, json: () => JSON.parse(r.stdout) }];
+}
+const PLAN_TASKS = '## 1. First\n- [ ] 1.1 code\n- [ ] 1.2 Gate: `node -e 0` green\n';
+// A repo whose `spec` changes sit on `main`, a PR branch that touches each of them, and (for `prove`) proves them at head.
+// spec: { name: { schema = 'devkit-lite', tasks = CI_TASKS } }
+function severalRepo(spec, { prove = [], branch = 'chore/tidy' } = {}) {
+  const changes = Object.fromEntries(Object.entries(spec).map(([n, o]) => [n, { ...changeFilesOf(), '.openspec.yaml': `schema: ${o.schema ?? 'devkit-lite'}\n`, 'tasks.md': o.tasks ?? CI_TASKS }]));
+  const root = gitRepo({ branch: 'main', changes, files: { 'src/a.ts': 'a\n' } });
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(root, 'switch', '-q', '-c', branch);
+  put(root, Object.fromEntries(Object.keys(spec).map((n) => [`openspec/changes/${n}/notes.md`, 'n\n'])));
+  commitAll(root, 'touch every change');
+  for (const n of prove) ciProve(root, n);
+  return root;
+}
+const BASE = { GITHUB_BASE_REF: 'main' };
+
+test('field-fixes 3 reviews-check: a change on another schema passes with a note from both entries, whatever it lacks', () => {
+  const root = severalRepo({ legacy: { schema: 'spec-driven' } }, { branch: 'ship/legacy' });
+  for (const r of bothEntries(root, [], BASE)) {
+    assert.equal(r.code, 0, r.out + r.err);
+    assert.deepEqual(r.out.trimEnd().split('\n'), ['devkit-reviews: legacy is on the spec-driven script, not a devkit script (devkit, devkit-lite); nothing was checked', 'pass']);
+  }
+  for (const r of bothEntries(root, ['--json'], BASE)) {
+    const j = r.json();
+    assert.deepEqual([j.version, j.mode, j.change, j.schema, j.pass], [1, 'ci', 'legacy', 'spec-driven', true]);
+    assert.match(j.note, /legacy is on the spec-driven script, not a devkit script \(devkit, devkit-lite\); nothing was checked/);
+  }
+});
+
+test('field-fixes 3 reviews-check: a devkit-lite change with a missing review still fails naming it', () => {
+  const root = severalRepo({ feat: {} }, { branch: 'ship/feat' });
+  const r = runCi(root, [], BASE);
+  assert.equal(r.code, 1, r.out + r.err);
+  assert.match(r.out.trimEnd().split('\n').at(-1), /^fail: .*item 2/);
+});
+
+test('field-fixes 3 reviews-check: two delivered changes both passing print one result each and pass', () => {
+  const root = severalRepo({ a: {}, b: {} }, { prove: ['a', 'b'] });
+  const r = runCi(root, [], BASE);
+  assert.equal(r.code, 0, r.out + r.err);
+  const lines = r.out.trimEnd().split('\n');
+  assert.equal(lines[0], 'devkit-reviews: 2 changes touched by this PR (a, b)');
+  assert.ok(lines.some((l) => /^devkit-reviews: a \(schema devkit-lite, head [0-9a-f]{7}\)$/.test(l)), r.out);
+  assert.ok(lines.some((l) => /^devkit-reviews: b \(schema devkit-lite, head [0-9a-f]{7}\)$/.test(l)), r.out);
+  assert.equal(lines.at(-1), 'pass');
+  const j = runCi(root, ['--json'], BASE).json();
+  assert.deepEqual([j.version, j.mode, j.change, j.pass, j.changes.map((c) => c.change), j.notes], [1, 'ci', null, true, ['a', 'b'], []]);
+});
+
+test('field-fixes 3 reviews-check: one of two delivered changes failing prints both results, names what it lacks and fails', () => {
+  const root = severalRepo({ a: {}, b: {} }, { prove: ['a'] });
+  const r = runCi(root, [], BASE);
+  assert.equal(r.code, 1, r.out + r.err);
+  assert.match(r.out, /devkit-reviews: a \(schema/);
+  assert.match(r.out, /devkit-reviews: b \(schema/);
+  const last = r.out.trimEnd().split('\n').at(-1);
+  assert.match(last, /^fail: b: item /);
+  assert.doesNotMatch(last, /\ba:/);
+  const j = runCi(root, ['--json'], BASE).json();
+  assert.deepEqual([j.pass, j.changes.map((c) => [c.change, c.pass])], [false, [['a', true], ['b', false]]]);
+});
+
+test('field-fixes 3 reviews-check: a plan and a change on another schema ride along as notes and fail nothing', () => {
+  const root = severalRepo({ a: {}, next: { schema: 'devkit', tasks: PLAN_TASKS }, legacy: { schema: 'spec-driven' } }, { prove: ['a'] });
+  for (const r of bothEntries(root, [], BASE)) {
+    assert.equal(r.code, 0, r.out + r.err);
+    assert.match(r.out, /devkit-reviews: a \(schema/);
+    assert.doesNotMatch(r.out, /devkit-reviews: (next|legacy) \(schema/);
+    assert.match(r.out, /^ {2}note: next holds only a plan \(no ticked task in tasks\.md\); not checked$/m);
+    assert.match(r.out, /^ {2}note: legacy is on the spec-driven script, not a devkit script; nothing was checked$/m);
+    assert.equal(r.out.trimEnd().split('\n').at(-1), 'pass');
+  }
+  const j = runCi(root, ['--json'], BASE).json();
+  assert.deepEqual(j.changes.map((c) => c.change), ['a']);
+  assert.deepEqual(j.notes, [{ change: 'legacy', why: 'other-script', schema: 'spec-driven' }, { change: 'next', why: 'plan-only', schema: 'devkit' }]);
+});
+
+test('field-fixes 3 reviews-check: the branch named after one change still selects it, and the other touched change is not judged', () => {
+  const root = severalRepo({ a: {}, b: {} }, { prove: ['a'], branch: 'ship/a' });
+  const r = runCi(root, [], BASE);
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.match(r.out, /^devkit-reviews: a \(schema devkit-lite/);
+  assert.doesNotMatch(r.out, /touched by this PR/);
+});
+
+test('field-fixes 3 reviews-check: one plan-only change is judged as before and fails on its unticked tasks', () => {
+  const root = severalRepo({ next: { schema: 'devkit-lite', tasks: PLAN_TASKS } });
+  const r = runCi(root, [], BASE);
+  assert.equal(r.code, 1, r.out + r.err);
+  assert.match(r.out, /^devkit-reviews: next \(schema devkit-lite/);
+  assert.match(r.out.trimEnd().split('\n').at(-1), /^fail: .*item 1/);
+});
+
+test('field-fixes 3 reviews-check: several plan-only changes fail saying the pull request delivers no change, naming both', () => {
+  const root = severalRepo({ next: { schema: 'devkit', tasks: PLAN_TASKS }, later: { schema: 'devkit-lite', tasks: PLAN_TASKS } });
+  for (const r of bothEntries(root, [], BASE)) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out.trimEnd().split('\n').at(-1), /^fail: this PR delivers no change: later, next hold only a plan \(no ticked task in tasks\.md\)$/);
+  }
+  assert.equal(runCi(root, ['--json'], BASE).json().pass, false);
+});
+
+test('field-fixes 3 reviews-check: a pull request touching only changes on other schemas passes with one note each', () => {
+  const root = severalRepo({ legacy: { schema: 'spec-driven' }, old: { schema: 'spec-driven' } });
+  for (const r of bothEntries(root, [], BASE)) {
+    assert.equal(r.code, 0, r.out + r.err);
+    assert.match(r.out, /note: legacy is on the spec-driven script/);
+    assert.match(r.out, /note: old is on the spec-driven script/);
+    assert.equal(r.out.trimEnd().split('\n').at(-1), 'pass');
+  }
+  const j = runCi(root, ['--json'], BASE).json();
+  assert.deepEqual([j.pass, j.changes, j.notes.map((n) => n.change)], [true, [], ['legacy', 'old']]);
+});
+
+test('field-fixes 3 reviews-check: the archive of a change on another schema passes with a note from both entries, with no retro', () => {
+  const root = archivePrRepo({ retro: null, schema: 'spec-driven' });
+  for (const r of bothEntries(root, [], BASE)) {
+    assert.equal(r.code, 0, r.out + r.err);
+    assert.match(r.out, /x is on the spec-driven script, not a devkit script; nothing was checked/);
+    assert.equal(r.out.trimEnd().split('\n').at(-1), 'pass');
+  }
+});
+
+test('field-fixes 3 reviews-check: the archive of a devkit change with an unanswered proposal still fails naming it', () => {
+  const root = archivePrRepo({ retro: X_RETRO.replace('- Answer: approved\n', '') });
+  for (const r of bothEntries(root, [], BASE)) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out, /unanswered proposals: 1/);
+  }
+});
+
+test('field-fixes 3 reviews-check: a missing retro and a retro without the section each say what the file holds and which step writes it', () => {
+  const folder = 'openspec/changes/archive/2026-11-09-x';
+  const missing = runCi(archivePrRepo({ retro: null }), [], BASE);
+  assert.equal(missing.code, 1, missing.out + missing.err);
+  assert.ok(missing.out.includes(`${folder}/retro.md is missing: it holds the change's retro, with a "## Proposed updates" section listing each proposal and the owner's answer to it; the retro step of the archive writes it (/devkit change, or ship-change for a change begun under the previous script, after the change's pull request merges)`), missing.out);
+  const bare = runCi(archivePrRepo({ retro: '# Retro\n' }), [], BASE);
+  assert.equal(bare.code, 1, bare.out + bare.err);
+  assert.ok(bare.out.includes(`${folder}/retro.md has no "## Proposed updates" section: it must list each proposal with the owner's answer; the retro step of the archive writes it`), bare.out);
 });
 
 // ---- checkout preflight (design D5)
@@ -3405,6 +3583,9 @@ function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs 
     git(t.root, 'switch', '-q', ...(exists ? [] : ['-c']), branch);
   }
   presetSetup(t.gh);
+  // Each merged PR changed the change's folder and every task is ticked on main (field-fixes D-4).
+  for (const p of mergedPrs) t.gh.prFiles(p.number, ['openspec/changes/feat/tasks.md', 'src/a.ts']);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1', '1.2'] }));
   t.gh.set('pr-list-state-merged', { stdout: mergedPrs });
   t.gh.set(ARCHIVE_LISTING, { stdout: onDefault === 'archived' ? [{ name: '2026-11-09-feat' }, { name: '2026-10-01-other' }] : [{ name: '2026-10-01-other' }] });
   t.gh.set(ACTIVE_ON_MAIN, onDefault === 'absent' ? NOT_FOUND : { stdout: { name: 'feat' } });
@@ -3438,6 +3619,11 @@ function findRepo(prs, { ship = 'merge' } = {}) {
   const gh = fakeGh();
   gh.set('pr-list-state-merged', { stdout: prs });
   gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch\n' });
+  // Each PR changed a file of the change only when it is #5 (field-fixes D-4: files, not names, prove ownership);
+  // the default branch holds every task ticked.
+  for (const p of prs) gh.prFiles(p.number, p.number === 5 ? ['openspec/changes/auto-merge/evidence.md', 'src/a.ts'] : ['src/other.ts']);
+  gh.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main' } });
+  gh.tasksOnDefault('auto-merge', tasksText({ ticked: ['1.1', '1.2'] }));
   return { root, gh, run: makeGh(root, gh.env), find: (branch, over = {}) => findChangePr(makeGh(root, gh.env), root, 'auto-merge', { ship, branch, env: {}, ...over }) };
 }
 
@@ -3451,31 +3637,33 @@ test('findChangePr: this repository\'s history — id auto-merge is PR #5, never
   }
 });
 
-test('findChangePr: with no body link the exact last head segment matches; a head that merely contains the id never does (D4)', () => {
+test('findChangePr: a head name is never proof of ownership; the files are (D4, field-fixes D-4)', () => {
   const noLink = { ...AUTO, body: 'nothing\n' };
   const t = findRepo([AUTO_DOCS, AUTO_ARCHIVE, noLink]);
-  assert.equal(t.find('main').pr.number, 5);
+  assert.equal(t.find('main').pr.number, 5, 'PR #5 changed a file of the change');
   const other = findRepo([AUTO_DOCS, AUTO_ARCHIVE]);
   assert.deepEqual(other.find('main'), { none: true });
-  const slash = findRepo([{ ...AUTO, headRefName: 'ship/auto-merge', body: '' }, AUTO_DOCS]);
-  assert.equal(slash.find('main').pr.number, 5, 'the last segment of ship/auto-merge');
+  const slash = findRepo([{ ...AUTO, number: 8, headRefName: 'ship/auto-merge', body: '' }, AUTO_DOCS]);
+  assert.deepEqual(slash.find('main'), { none: true }, 'the last segment of ship/auto-merge names the change but its files do not');
 });
 
-test('findChangePr: among several PRs with the evidence link the newest mergedAt wins; a body link beats a head match (D4)', () => {
+test('findChangePr: among several own PRs the newest mergedAt wins; a body link is not proof (D4, field-fixes D-4)', () => {
   const older = { ...AUTO, number: 3, mergedAt: '2026-11-01T00:00:00Z' };
-  assert.equal(findRepo([older, AUTO]).find('main').pr.number, 5);
-  assert.equal(findRepo([AUTO, older]).find('main').pr.number, 5);
-  const headOnly = { ...AUTO, number: 8, body: '', mergedAt: '2026-12-01T00:00:00Z' };
-  assert.equal(findRepo([headOnly, AUTO]).find('main').pr.number, 5, 'the link wins even though the head match is newer');
+  const own = (n) => ['openspec/changes/auto-merge/tasks.md', `src/${n}.ts`];
+  const both = (prs) => { const t = findRepo(prs); t.gh.prFiles(3, own(3)); t.gh.prFiles(5, own(5)); return t; };
+  assert.equal(both([older, AUTO]).find('main').pr.number, 5);
+  assert.equal(both([AUTO, older]).find('main').pr.number, 5);
+  const linkOnly = { ...AUTO, number: 8, mergedAt: '2026-12-01T00:00:00Z' };
+  assert.equal(findRepo([linkOnly, AUTO]).find('main').pr.number, 5, 'the newer PR links the evidence but changes no file of the change');
 });
 
 test('findChangePr: on the change branch a MERGED PR is found by pr view, and by pr list --head --state all once the branch is deleted, in pr mode too (D4)', () => {
   for (const ship of ['pr', 'merge']) {
-    const view = findRepo([], { ship });
+    const view = findRepo([AUTO], { ship });
     view.gh.set('pr-view', { stdout: { ...AUTO, mergeable: 'UNKNOWN', baseRefName: 'main' } });
     assert.equal(view.find('ship/auto-merge').pr.number, 5, ship);
     assert.ok(!view.gh.calls().some((c) => c[1] === 'list'), `${ship}: pr view answered`);
-    const gone = findRepo([], { ship });
+    const gone = findRepo([AUTO], { ship });
     gone.gh.set('pr-list-head-ship_auto-merge', { stdout: [AUTO] });
     assert.equal(gone.find('ship/auto-merge').pr.number, 5, ship);
     const call = gone.gh.calls().find((c) => c[1] === 'list');
@@ -3500,28 +3688,32 @@ test('findChangePr: a failing list is an error, never a silent none (D4)', () =>
   assert.deepEqual(t.find('main'), { error: 'gh: boom' });
 });
 
-test('findChangePr: lists light fields only and reads a body one candidate at a time, newest first, so 100 long bodies never overflow the buffer (review finding 4)', () => {
+test('findChangePr: lists light fields only and reads the files of one candidate at a time, newest first, so 100 long bodies never overflow the buffer (review finding 4, field-fixes D-4)', () => {
   const filler = 'x'.repeat(12000);
   const mk = (n, over = {}) => ({ ...AUTO, number: n, headRefName: `feat/other-${n}`, headRefOid: String(n).padStart(40, '0'), mergedAt: `2026-11-01T00:${String(n % 60).padStart(2, '0')}:00Z`, body: `${filler}\nnothing\n`, ...over });
   const prs = Array.from({ length: 99 }, (_, i) => mk(i + 100));
   const target = mk(1, { headRefName: 'ship/auto-merge', mergedAt: '2026-10-01T00:00:00Z', body: `${filler}\nopenspec/changes/auto-merge/evidence.md\n` });
   const t = findRepo([...prs, target]);
+  t.gh.prFiles(1, ['openspec/changes/auto-merge/tasks.md']);
   assert.ok(JSON.stringify([...prs, target]).length > 1024 * 1024, 'the full list is past 1 MiB');
   const found = t.find('main');
   assert.equal(found.pr?.number, 1, JSON.stringify(found).slice(0, 200));
   const list = t.gh.calls().find((c) => c[1] === 'list');
   assert.doesNotMatch(list[list.indexOf('--json') + 1], /\bbody\b/, 'the list asks for no body');
-  const views = t.gh.calls().filter((c) => c[1] === 'view');
-  assert.ok(views.length > 0 && views.every((c) => /^\d+$/.test(c[2]) && c[c.indexOf('--json') + 1] === 'body'), 'a body is read per candidate, by number');
+  assert.ok(!t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view'), 'no body is read');
+  const reads = t.gh.calls().filter((c) => c[0] === 'api');
+  assert.equal(reads.length, 100, 'the files of one candidate per call');
+  assert.ok(reads.every((c) => /^repos\/\{owner\}\/\{repo\}\/pulls\/\d+\/files$/.test(c[1])), 'by number');
+  assert.equal(reads.at(-1)[1], 'repos/{owner}/{repo}/pulls/1/files', 'newest first: the oldest is read last');
 });
 
-test('findChangePr: a body that cannot be read is an error, never a silent miss (review finding 4)', () => {
+test('findChangePr: a files read that cannot be read is an error, never a silent miss (review finding 4, field-fixes D-4)', () => {
   const t = findRepo([AUTO]);
-  t.gh.set('pr-view-5', { exit: 1, stderr: 'gh: boom\n' });
+  t.gh.set(PR_FILES_KEY(5), { exit: 1, stderr: 'gh: boom\n' });
   assert.deepEqual(t.find('main'), { error: 'gh: boom' });
 });
 
-test('findChangePr: on a branch that names neither the change nor an archive head the merged PR is still found by its body link, never reported as none (compozy-loop-v2 retro)', () => {
+test('findChangePr: on a branch that names neither the change nor an archive head the merged PR is still found by its files, never reported as none (compozy-loop-v2 retro, field-fixes D-4)', () => {
   const t = findRepo([AUTO_DOCS, AUTO_ARCHIVE, AUTO]);
   const found = t.find('calm-badger');
   assert.equal(found.pr?.number, 5, JSON.stringify(found));
@@ -4209,9 +4401,7 @@ test('walkthrough (merge): enable at 8/8, merged, retro, owner answers, archive,
   git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   t.gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "main"\n' });
   t.gh.set('pr-list-state-merged', { stdout: [mergedPr()] });
-  t.gh.set(ARCHIVE_LISTING, { stdout: [] });
-  t.gh.set(ACTIVE_ON_MAIN, { stdout: {} });
-  t.gh.set(ARCHIVE_PRS, { stdout: [] });
+  presetArchiveReads(t);
   t.gh.set('pr-checks', { stdout: [check('check', 'pass')] });
   const next = () => nextStep(collectState(t.root, 'feat', { env: t.env }));
   const seen = [];
@@ -4401,4 +4591,175 @@ test('release list: RELEASE_FILE is unchanged and unnamedFiles still reports doc
   assert.equal(RELEASE_FILE.test('docs/openspec-flow.md'), false);
   assert.deepEqual(unnamedFiles(['docs/openspec-flow.md', 'CHANGELOG.md', 'openspec/roadmap.md'], []), ['docs/openspec-flow.md']);
   assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [{ answer: 'approved', targets: ['docs/openspec-flow.md'] }]), []);
+});
+
+// ================================================================ field-fixes 4: delivered is its own pull request and every task
+
+test('field-fixes 4 fake gh: an unset pull request files or tasks key fails loudly naming the key', () => {
+  const gh = fakeGh();
+  const files = callGh(gh, 'api', 'repos/{owner}/{repo}/pulls/12/files', '--paginate', '--jq', '.[].filename');
+  assert.equal(files.status, 99);
+  assert.match(files.stderr, /no fixture for "api-GET-repos__owner___repo__pulls_12_files"/);
+  const tasks = callGh(gh, 'api', 'repos/{owner}/{repo}/contents/openspec/changes/feat/tasks.md?ref=main');
+  assert.equal(tasks.status, 99);
+  assert.match(tasks.stderr, /no fixture for "api-GET-repos__owner___repo__contents_openspec_changes_feat_tasks.md_ref=main"/);
+  gh.prFiles(12, ['a.md', 'b.md']);
+  assert.equal(callGh(gh, 'api', 'repos/{owner}/{repo}/pulls/12/files', '--paginate', '--jq', '.[].filename').stdout, 'a.md\nb.md\n');
+});
+
+test('field-fixes 4 delivered: isArchiveHead is true for every change\'s archive head and for nothing else', () => {
+  assert.equal(typeof DC.isArchiveHead, 'function');
+  for (const name of ['chore/archive-foo', 'archive-bar', 'chore/archive-auto-merge']) assert.equal(DC.isArchiveHead(name), true, name);
+  for (const name of ['ship/foo', 'fix/archive-foo', 'feat/archive', 'archived-foo', '']) assert.equal(DC.isArchiveHead(name), false, name);
+});
+
+test('field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head', () => {
+  assert.equal(typeof DC.isOwnPr, 'function');
+  const own = (head, files) => DC.isOwnPr('foo', { headRefName: head }, files);
+  assert.equal(own('calm-badger', ['openspec/changes/foo/tasks.md']), true);
+  assert.equal(own('ship/foo', ['src/a.ts']), false, 'a head naming the change is not proof');
+  assert.equal(own('ship/foo', ['openspec/changes/foo-two/tasks.md']), false, 'another change whose id starts the same');
+  assert.equal(own('chore/archive-bar', ['openspec/changes/foo/tasks.md']), false, 'an archive head');
+  assert.equal(own('ship/foo', ['openspec/changes/foo/tasks.md', 'openspec/changes/archive/2026-11-09-foo/retro.md']), false, 'it brings an archive folder');
+});
+
+test('field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error', () => {
+  assert.equal(typeof DC.prFiles, 'function');
+  const t = findRepo([]);
+  t.gh.prFiles(7, ['a.md', 'dir/b.md']);
+  assert.deepEqual(DC.prFiles(t.run, 7), { files: ['a.md', 'dir/b.md'] });
+  const call = t.gh.calls().find((c) => c[0] === 'api');
+  assert.deepEqual(call, ['api', 'repos/{owner}/{repo}/pulls/7/files', '--paginate', '--jq', '.[].filename']);
+  t.gh.set(PR_FILES_KEY(8), { exit: 1, stderr: 'gh: boom\n' });
+  assert.deepEqual(DC.prFiles(t.run, 8), { error: 'gh: boom' });
+});
+
+test('field-fixes 4 delivered: tasksOnDefault reads the tasks left on the default branch, absent on a 404 and an error otherwise', () => {
+  assert.equal(typeof DC.tasksOnDefault, 'function');
+  const t = findRepo([]);
+  t.gh.tasksOnDefault('auto-merge', tasksText({ ticked: ['1.1'], unticked: ['3.1', '3.2'] }));
+  assert.deepEqual(DC.tasksOnDefault(t.run, 'auto-merge', 'main'), { unticked: ['3.1', '3.2'] });
+  t.gh.set(TASKS_ON_KEY('auto-merge'), NOT_FOUND);
+  assert.deepEqual(DC.tasksOnDefault(t.run, 'auto-merge', 'main'), { absent: true });
+  t.gh.set(TASKS_ON_KEY('auto-merge'), { exit: 1, stderr: 'gh: boom\n' });
+  assert.deepEqual(DC.tasksOnDefault(t.run, 'auto-merge', 'main'), { error: 'gh: boom' });
+});
+
+// A merged-PR list for change `auto-merge` with each PR's files; `find` as findRepo's.
+function ownRepo(prs, filesOf) {
+  const t = findRepo(prs);
+  for (const p of prs) t.gh.prFiles(p.number, filesOf[p.number] ?? []);
+  return t;
+}
+const FOLDER_TASKS = 'openspec/changes/auto-merge/tasks.md';
+
+test('field-fixes 4 delivered: a body that links the evidence is not the change\'s own pull request', () => {
+  const t = ownRepo([AUTO], { 5: ['docs/auto-merge.md'] });
+  assert.deepEqual(t.find('main'), { none: true });
+});
+
+test('field-fixes 4 delivered: another change\'s archive pull request that names the change is not its own', () => {
+  const bar = { ...AUTO, number: 7, headRefName: 'chore/archive-bar', body: 'Archive bar. Mentions auto-merge: openspec/changes/auto-merge/evidence.md\n' };
+  const t = ownRepo([bar], { 7: ['openspec/changes/archive/2026-11-09-bar/retro.md', 'openspec/changes/bar/tasks.md'] });
+  assert.deepEqual(t.find('main'), { none: true });
+});
+
+test('field-fixes 4 delivered: an unrelated head that ends in the id and touches no file of the change is not its own', () => {
+  const fix = { ...AUTO, number: 8, headRefName: 'fix/auto-merge', body: '' };
+  const t = ownRepo([fix], { 8: ['src/auto-merge.ts'] });
+  assert.deepEqual(t.find('main'), { none: true });
+});
+
+test('field-fixes 4 delivered: a head that does not name the change is its own when it changes a file of the change folder', () => {
+  const calm = { ...AUTO, number: 9, headRefName: 'calm-badger', body: '' };
+  const t = ownRepo([calm], { 9: [FOLDER_TASKS, 'src/a.ts'] });
+  const found = t.find('main');
+  assert.equal(found.pr?.number, 9, JSON.stringify(found));
+  assert.equal(found.via, 'list');
+});
+
+test('field-fixes 4 delivered: among several own pull requests the newest mergedAt wins, and a body link is not proof', () => {
+  const older = { ...AUTO, number: 3, mergedAt: '2026-11-01T00:00:00Z' };
+  const newer = { ...AUTO, number: 4, body: '', headRefName: 'calm-badger', mergedAt: '2026-11-12T00:00:00Z' };
+  const t = ownRepo([older, newer], { 3: [FOLDER_TASKS], 4: [FOLDER_TASKS] });
+  assert.equal(t.find('main').pr.number, 4);
+});
+
+test('field-fixes 4 delivered: a files read that fails is an error, never a silent miss', () => {
+  const t = findRepo([AUTO]);
+  t.gh.set(PR_FILES_KEY(5), { exit: 1, stderr: 'gh: boom\n' });
+  assert.deepEqual(t.find('main'), { error: 'gh: boom' });
+});
+
+// ---- the delivery through the collector and the next step
+
+const FEAT_TASKS = 'openspec/changes/feat/tasks.md';
+
+test('field-fixes 4 delivered: with tasks left on the default branch the change\'s own merged PR leads to no archive step, and stop-branch names the PR, the tasks and the branch', () => {
+  const t = pm();
+  t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1', '3.2'] }));
+  const s = t.state();
+  assert.ok(!s.archive, 'no archive facts: the change is not delivered');
+  const n = nextStep(s);
+  assert.equal(n.step, 'stop-branch');
+  assert.equal(n.reason, 'PR #12 of feat merged with tasks left (3.1, 3.2); continue on branch feat and open a further pull request');
+  assert.deepEqual([n.number, n.tasks], [12, ['3.1', '3.2']]);
+  assert.equal(t.json().next.step, 'stop-branch');
+});
+
+test('field-fixes 4 delivered: a pull request that only links the evidence leads to no archive step', () => {
+  const t = pm();
+  t.gh.prFiles(12, ['docs/notes.md']);
+  const s = t.state();
+  assert.ok(!s.archive);
+  const n = nextStep(s);
+  assert.equal(n.step, 'stop-branch');
+  assert.doesNotMatch(n.reason, /merged with tasks left/);
+});
+
+test('field-fixes 4 delivered: another change\'s archive pull request that names the change leads to no archive step', () => {
+  const bar = mergedPr({ number: 13, headRefName: 'chore/archive-bar' });
+  const t = pm({ mergedPrs: [bar] });
+  t.gh.prFiles(13, ['openspec/changes/archive/2026-11-09-bar/retro.md']);
+  assert.ok(!t.state().archive);
+  assert.equal(t.next().step, 'stop-branch');
+});
+
+test('field-fixes 4 delivered: on the change\'s branch with the work ticked and no open pull request the step is open-pr', () => {
+  const t = shipRepo({ ship: 'merge' });
+  driveToReady(t);
+  t.gh.set('pr-view', { stdout: prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY }) });
+  t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1'] }));
+  t.gh.set('pr-list', { stdout: [] });
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.ok(!s.archive);
+  assert.equal(nextStep(s).step, 'open-pr');
+});
+
+test('field-fixes 4 delivered: with every task ticked on the default branch the change\'s own merged PR answers the retro, even a further PR whose head does not name the change', () => {
+  const first = mergedPr({ number: 12, mergedAt: '2026-11-09T14:56:00Z' });
+  const further = mergedPr({ number: 14, headRefName: 'calm-badger', body: '', mergedAt: '2026-11-12T10:00:00Z' });
+  const t = pm({ mergedPrs: [first, further] });
+  t.gh.prFiles(12, [FEAT_TASKS]);
+  t.gh.prFiles(14, [FEAT_TASKS]);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1', '3.1'] }));
+  const s = t.state();
+  assert.equal(s.pr.number, 14);
+  assert.equal(nextStep(s).step, 'retro');
+});
+
+test('field-fixes 4 delivered: a tasks.md absent on the default branch is not delivered, and one that cannot be read blocks the pull request item', () => {
+  const absent = pm();
+  absent.gh.prFiles(12, [FEAT_TASKS]);
+  absent.gh.set(TASKS_ON_KEY('feat'), NOT_FOUND);
+  assert.ok(!absent.state().archive);
+  const broken = pm();
+  broken.gh.prFiles(12, [FEAT_TASKS]);
+  broken.gh.set(TASKS_ON_KEY('feat'), { exit: 1, stderr: 'gh: boom\n' });
+  const s = broken.state();
+  assert.ok(!s.archive);
+  assert.equal(s.items[4].status, 'blocked');
+  assert.match(s.items[4].reason, /gh: boom/);
 });

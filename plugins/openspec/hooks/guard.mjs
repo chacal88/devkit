@@ -562,6 +562,73 @@ function roadmapReport(root) {
     + 'openspec/roadmap.md only reports; it gates nothing. Tick a change there once it is archived.\n';
 }
 
+// ---------------------------------------------------------------- the project's OpenSpec CLI (design D-1)
+
+const OPENSPEC_PACKAGE = '@fission-ai/openspec';
+const PIN_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies'];
+
+// The main checkout of a worktree: the parent of git's common dir. Null outside a git checkout.
+function mainCheckout(root) {
+  try {
+    const common = execFileSync('git', ['-C', root, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return common ? dirname(common) : null;
+  } catch { return null; }
+}
+
+// The range of @fission-ai/openspec a package.json declares, or null (also when the file is unreadable).
+function declaredPin(packageJson) {
+  try {
+    const pkg = JSON.parse(readFileSync(packageJson, 'utf8'));
+    for (const section of PIN_SECTIONS) {
+      const range = pkg?.[section]?.[OPENSPEC_PACKAGE];
+      if (typeof range === 'string') return range;
+    }
+  } catch { /* no file, or not JSON: no pin declared there */ }
+  return null;
+}
+
+// Which OpenSpec CLI the packs start for the checkout `root`: the project's installed one when there is one,
+// the one on PATH when the project pins none, an { error } when it declares a pin that is not installed.
+export function openspecCli(root) {
+  const main = mainCheckout(root);
+  const roots = main && main !== root ? [root, main] : [root];
+  for (const r of roots) {
+    const bin = join(r, 'node_modules', '.bin', 'openspec');
+    if (existsSync(bin)) return { bin, where: bin, pinned: true };
+  }
+  for (const r of roots) {
+    const file = join(r, 'package.json');
+    const range = declaredPin(file);
+    if (range !== null) {
+      return { error: `the project pins ${OPENSPEC_PACKAGE} ${range} in ${file} but it is not installed; run the project install (npm install, or its package manager) and run again` };
+    }
+  }
+  return { bin: 'openspec', where: 'PATH', pinned: false };
+}
+
+// Null when `versionText` is an OpenSpec 2.x, else the message that refuses it.
+export function openspecRefusal(cli, versionText) {
+  const version = /\d+\.\d+\.\d+\S*/.exec(versionText ?? '')?.[0];
+  if (version?.split('.')[0] === '2') return null;
+  if (cli.pinned) {
+    return `openspec ${version ?? 'with no readable version'} at ${cli.where} is not supported: devkit needs OpenSpec 2.x; move the project's pin to 2.x (npm i -D ${OPENSPEC_PACKAGE}@2)`;
+  }
+  if (!version) return `cannot read the openspec version from "${String(versionText ?? '').trim().slice(0, 60)}"`;
+  return `openspec ${version} is not supported: flow-check reads OpenSpec 2.x`;
+}
+
+// The one line the session prints over a CLI it cannot use, or null when the CLI is usable (a PATH one is not checked).
+function cliRefusalLine(root, cli) {
+  if (cli.error) return cli.error;
+  if (!cli.pinned) return null;
+  let text = '';
+  try {
+    text = execFileSync(cli.bin, ['--version'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000 });
+  } catch { /* an unreadable version is refused below */ }
+  return openspecRefusal(cli, text);
+}
+
 function session(input) {
   const root = findRoot(input.cwd);
   if (!root || !optedIn(root)) return;
@@ -578,9 +645,15 @@ function sessionChange(root) {
     process.stdout.write(`[devkit] Open OpenSpec changes: ${ch.ambiguous.join(', ')}. Ask which one to work on; the branch name (or DEVKIT_CHANGE) selects it for the guards.\n`);
     return;
   }
+  const cli = openspecCli(root);
+  const refusal = cliRefusalLine(root, cli);
+  if (refusal) {
+    process.stdout.write(`[devkit] ${refusal}\n`);
+    return;
+  }
   let status = '';
   try {
-    status = execFileSync('openspec', ['status', '--change', ch.name],
+    status = execFileSync(cli.bin, ['status', '--change', ch.name],
       { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000 });
   } catch { /* openspec not installed: still point at the change */ }
   process.stdout.write(`[devkit] Active OpenSpec change: ${ch.name} (schema ${changeSchema(root, ch.name)}).\n${status}`
