@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=9307ba1dd24843a444fabc6594695db1888dc830 -->
+<!-- devkit-stage review result=passed attempt=2 commit=ba000172e43ae6b2bfc979d744bcc6da7b045c13 -->
 # Review: roadmap-coordinator, round 1
 
 Path: agents · range `6918c0d9f79ec5774fd1d243a544a14d16b87119..HEAD` · structural: PASS
@@ -30,3 +30,33 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: roadmap-coordinator, round 2
+
+Path: agents · range `9307ba1dd24843a444fabc6594695db1888dc830..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | ba00017 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | ba00017 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | ba00017 |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | ba00017 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | ba00017 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | ba00017 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- The agents path ran because the turn that reached the review was started by a background task, not typed by the owner.
+- Round 2 summoned all six reviewers, each with its round-1 verdict and the range 9307ba1..HEAD: the refactor commit a6df7b9 made every round-1 verdict stale, and the loop named the six.
+- No verification job was needed: the three important findings of round 1 carry a fixed-in disposition (a6df7b9 for the two architecture findings, ba00017 for the evidence finding) and no new blocking or important finding was raised.
+- Stage 1 and stage 3 prompts were built by the round own rules and handed to each reviewer as a file to read, because `review-round.mjs outcomes` returns no writer prompt (roadmap round 25, review-writer-prompt).
+
+## Next
+Ready to ship.

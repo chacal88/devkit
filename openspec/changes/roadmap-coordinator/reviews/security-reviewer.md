@@ -1,14 +1,24 @@
 Verdict: approved
-Commit: 9307ba1dd24843a444fabc6594695db1888dc830
+Commit: ba000172e43ae6b2bfc979d744bcc6da7b045c13
 
-## Security audit — roadmap-coordinator (round 1)
+## Security audit — roadmap-coordinator (round 2)
 
 ### Findings
 
-Triaged scope: high = roadmap-loop.mjs, guard.mjs, change-loop.mjs, plugin.json (load_limit); medium = SKILL.md roadmap and status sections; low = docs, ADR 0013, specs, tests, proof records.
+Verdict: approved
+
+Triaged scope: high = the changes to guard.mjs (transcriptEvents, runOf, roadmapRunOf, mainInRun, lock), change-loop.mjs (withLockFile, withOpenLock, the three decision functions) and roadmap-loop.mjs (updateRun); low = evidence records and review files.
 
 Categories walked: injection, authn/authz/IDOR, exposure, crypto, secret, config.
 
-Discarded false positives: injection (execFileSync with argument arrays, quoted heredoc, strict word parser, run file path from git common dir); fail-open locks (documented design, product-code edit block kept for roadmap runs); load_limit (invalid values fall back to 80 and only gate starts); data exposure (run file holds ids and timestamps, generic reply on failure); crypto and secrets (none introduced); lock races (bookkeeping only, no security boundary); roadmap.md text into the start request (committed repo content, same trust as code); forged brief in hand-off (limited to open roadmap changes, handOffFor still checks the role).
+Round 1 had no findings, so there is nothing to re-list.
 
-Out-of-round: none. Suite not re-run, per the hand-over (1105 of 1105 passing).
+What I checked in the refactor:
+- The scan now happens once and the events are passed on. The filters are unchanged: `isMeta`, `isSidechain` and non-`user` lines are skipped, and typed commands and tool-result markers are read as before. `runOf` and `roadmapRunOf` still return null when the file cannot be read. Both are fail-open as before, and the lock stays fail-open by design. The edit block on product code for runs (`mainInRun`) still sees both run kinds.
+- A forged marker in a transcript event is read exactly as it was before. The refactor adds no new input path.
+- `withLockFile` keeps the same logic as before. The lock is created with `wx`, retried, taken over when stale and removed in `finally`. `updateRun` passes `sleep: undefined`, so the default applies. The lock path still comes from the git common directory or the run file directory, with no request input in it. The open lock still writes its pid and timestamp; the run lock writes no holder, as before.
+- No secrets, no crypto and no new config defaults.
+
+Discarded false positives: injection (no new sink; paths and arguments are unchanged); lock race or stale takeover (bookkeeping only, no security boundary, same as round 1); events passed into the decisions (internal call from guard.mjs, and the hook input was already the trust boundary).
+
+Out-of-round: none.

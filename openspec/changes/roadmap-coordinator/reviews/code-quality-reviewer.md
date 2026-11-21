@@ -1,22 +1,25 @@
-Verdict: rejected
-Commit: 9307ba1dd24843a444fabc6594695db1888dc830
+Verdict: approved
+Commit: ba000172e43ae6b2bfc979d744bcc6da7b045c13
 
-## Quality review — roadmap-coordinator (round 1)
+## Quality review — roadmap-coordinator (round 2)
 
 ### Findings
-- [important] openspec/changes/roadmap-coordinator/evidence.md (AC-8, AC-10) — AC-8 (stop word) and AC-10 (draft offered when there is no roadmap) are marked pass on tests alone; the evidence itself says no live run exists, so there is no real command output. Both are cheap to run for real.
-- [nit] plugins/openspec/hooks/roadmap-loop.mjs:373-381 and change-loop.mjs withOpenLock — Stale-lock takeover is a check-then-unlink: two waiters can both judge the lock stale, and the second unlink can delete the first one's fresh lock, so both enter the critical section. The window is tiny and only follows a crash.
-- [nit] plugins/openspec/hooks/roadmap-loop.mjs:743,684 — Ids from `--param id=` and `--after <id>=` become keys of plain objects (`run.declared[id]`, `after[...]`) with no check against the roadmap. An id such as `__proto__` mutates the object's prototype instead of recording an entry. Validate with the BRIEF_OF id pattern or use Object.create(null).
-- [nit] plugins/openspec/hooks/roadmap-loop.mjs:387-389 — If writeFileSync of the temporary run file throws, `roadmap-run.json.<pid>.tmp` is left behind; the lock is released but the temporary file is never removed.
-- [nit] plugins/openspec/hooks/hooks.json:27 vs roadmap-loop.mjs:334 — The `agent` hook times out at 10 s, but `updateRun` can wait up to 10 s for the run-file lock, plus the flow reads. A contended lock could hit the hook timeout; the lock is normally held for milliseconds. Lower `LOCK.waitMs` for the hook path or raise the timeout.
-- [nit] plugins/openspec/hooks/roadmap-loop.mjs:344-364 (holding/inflight) — A killed `hold` or `wait` leaves `holding` or `inflight` set, and a same-session `/devkit roadmap` keeps them (U4). The run then neither ends nor re-emits the hold until `--fresh` or a new session. The design lists this risk and its way out, so it is a nit.
-- [praise] plugins/openspec/hooks/change-loop.mjs (subagentStopFor, handOffFor) — The change run's stop-lock and hand-off logic was extracted into shared functions that the roadmap locks reuse, instead of copying it. The one-change behaviour is kept, and the 1105-test suite stayed green.
-- [praise] plugins/openspec/hooks/roadmap-loop.mjs:125-253 — The decision core (`classifyLines`, `entriesOf`, `decideRoadmap`, `boardOf`) is pure: facts in, decision out, no AI calls and no hidden I/O. The pure part is cleanly split from the I/O in `collectRoadmap` and `updateRun`.
-- [praise] openspec/changes/roadmap-coordinator/evidence.md — Each acceptance criterion separates what was shown live from what the tests prove, and names what is left for the next change. The probe and two live runs show defects found, fixed test first and re-run.
+- [important] openspec/changes/roadmap-coordinator/evidence.md (AC-8, AC-10) — AC-8 (stop word) and AC-10 (draft offered when there is no roadmap) were marked pass on tests alone, with no real command output. · fixed in ba000172e43ae6b2bfc979d744bcc6da7b045c13
+- [nit] plugins/openspec/hooks/change-loop.mjs:889-893 (withLockFile) — Stale-lock takeover is a check-then-unlink. Two waiters can both judge the lock stale, and the second unlink can delete the first one's fresh lock. The refactor moved this into the one shared helper, so it now covers both the open lock and the run file. The window is tiny and only follows a crash.
+- [nit] plugins/openspec/hooks/roadmap-loop.mjs (run.declared[id], after[...]) — Ids from `--param id=` and `--after <id>=` become keys of plain objects with no check against the roadmap. An id such as `__proto__` changes the prototype instead of recording an entry.
+- [nit] plugins/openspec/hooks/roadmap-loop.mjs:377-379 (updateRun) — If writing the temporary run file throws, `roadmap-run.json.<pid>.tmp` is left behind. The lock is released, but the temporary file is never removed.
+- [nit] plugins/openspec/hooks/hooks.json:27 vs roadmap-loop.mjs LOCK.waitMs — The `agent` hook times out at 10 s, but `updateRun` can wait up to 10 s for the run-file lock, plus the flow reads. A contended lock could hit the hook timeout.
+- [nit] plugins/openspec/hooks/roadmap-loop.mjs (holding/inflight) — A killed `hold` or `wait` leaves `holding` or `inflight` set, and a same-session `/devkit roadmap` keeps them. The design names this risk and its way out (`--fresh` or a new session).
+- [praise] plugins/openspec/hooks/guard.mjs:355-445 (transcriptEvents, runOf, roadmapRunOf, mainInRun, lock) — One transcript scan with two interpreters over it. `mainInRun` and `lock()` scan once and pass the events on, and the optional `events` parameter keeps the old call shapes working.
+- [praise] plugins/openspec/hooks/change-loop.mjs:876-912 (withLockFile) — The lock loop that was duplicated in two files is now one helper with an injectable `sleep` and `timeout`. The callers keep their own error messages and timings, and the new tests exercise the helper directly.
+- [praise] openspec/changes/roadmap-coordinator/evidence.md (AC-8, AC-10 rows), proof/evidence-runs/ac8.out and ac10.out — Real runs in scratch projects, with the stop word, the resume and the untracked draft shown step by step. The rows state what is not shown (the session side) instead of overclaiming.
+
+Verdict: approved
 
 ### Summary
-- 9 findings (0 blocking, 1 important, 5 nit) + 3 praise
-- Justification: I read roadmap-loop.mjs in full, the diffs of guard.mjs and change-loop.mjs, the plugin and marketplace version bump, the CHANGELOG line, the ADR list in config.yaml, tasks.md (24 of 24 ticked) and evidence.md. I did not re-run the suite, as instructed.
-- The intent matches the diff. The roadmap locks hang off `roadmapRunOf`, which is read from the transcript the same way as `runOf`. The `lock()` dispatch falls back to the change loop, and every lock fails open on its own errors. The shared extraction leaves `/devkit change` unchanged. I found no contradiction between the ADR 0013 / design text and the code, no variant (class N1 to N8, RH, RS, RU) without a test, and no listing or N+1 problem on a hot path beyond what the existing change lock already does.
-- F1 is the only item that blocks approval as written. Acceptance rule 3 asks for real output. AC-8 and AC-10 are honestly labelled test-only, a deliberate proof-versus-dogfood split, so I rated it `important` rather than `blocking`. The fix is to run `roadmap-loop.mjs draft` in a scratch repository with no roadmap and `run` with the word `stop` against a started run, then add the output to evidence.md. Alternatively, contest it by recording in evidence that the split is the owner's decision. With F1 closed or contested with evidence, the verdict stands as approved; until then the round does not satisfy the open-`important` rule.
-- The nits do not change the verdict and are the implementer's to decide.
+- 9 findings (0 blocking, 0 important open, 5 nit) + 3 praise; the one round-1 important (F1) is fixed.
+- Justification: I checked F1 against the real output in ac8.out and ac10.out. The runs match what evidence.md says: `devkit-roadmap: stop` with empty actions and a `stopped` end, then the resume; and the draft written untracked, with the commit count staying at 1.
+- I read the full diff of a6df7b9 for change-loop.mjs, guard.mjs and roadmap-loop.mjs. `withLockFile` keeps the old lock semantics: the `wx` create, the stale takeover, the timeout and the release in `finally`. An undefined `sleep` falls back to the default parameter, and the run file lock still creates an empty file because no `holder` is given.
+- `runOf` and `roadmapRunOf` interpret the same events as before. Typed commands, tool-result texts and the stdout fallback are preserved, and a read error still returns null so the locks fail open.
+- Each hook call now reads the transcript once on every path.
+- I found no new defect, so the nits from round 1 stand and I did not widen the review. The suite result was handed over (1112 of 1112 pass) and I did not re-run it.
