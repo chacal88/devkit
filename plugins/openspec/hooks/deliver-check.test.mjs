@@ -4738,6 +4738,32 @@ test('field-fixes 4 delivered: on the change\'s branch with the work ticked and 
   assert.equal(nextStep(s).step, 'open-pr');
 });
 
+test('field-fixes 4 delivered: a further open pull request on the same head after a merge with tasks left is the pull request, not open-pr', () => {
+  const t = shipRepo({ ship: 'merge' });
+  driveToReady(t);
+  t.gh.set('pr-view', { stdout: prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY }) });
+  t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1'] }));
+  const further = prJson({ number: 15, state: 'OPEN', headRefOid: head(t.root), body: PR_BODY });
+  t.gh.set('pr-list', { stdout: [further] });
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.equal(s.pr.number, 15, 'the open pull request of the same head is the pull request');
+  assert.notEqual(nextStep(s).step, 'open-pr');
+});
+
+test('field-fixes 4 delivered: with no open pull request on the head after a merge with tasks left, the answer names the merged one and the tasks', () => {
+  const t = shipRepo({ ship: 'merge' });
+  driveToReady(t);
+  t.gh.set('pr-view', { stdout: prJson({ state: 'MERGED', headRefOid: head(t.root), body: PR_BODY }) });
+  t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
+  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1'] }));
+  t.gh.set('pr-list', { stdout: [] });
+  const r = findChangePr(makeGh(t.root, t.env), t.root, 'feat', { ship: 'merge', branch: 'feat', env: t.env });
+  assert.equal(r.none, true);
+  assert.equal(r.mergedBefore, 12);
+  assert.deepEqual(r.tasks.unticked, ['3.1']);
+});
+
 test('field-fixes 4 delivered: with every task ticked on the default branch the change\'s own merged PR answers the retro, even a further PR whose head does not name the change', () => {
   const first = mergedPr({ number: 12, mergedAt: '2026-11-09T14:56:00Z' });
   const further = mergedPr({ number: 14, headRefName: 'calm-badger', body: '', mergedAt: '2026-11-12T10:00:00Z' });

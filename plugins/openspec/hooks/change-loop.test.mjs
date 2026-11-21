@@ -2436,6 +2436,21 @@ test('field-fixes 1 archived: an old worktree on the change\'s own branch does n
   assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-bar'])), []);
 });
 
+// An active folder whose `.openspec.yaml` records the day it was created, as `openspec new change` writes it.
+const withCreated = (wt, id, created) => put(wt, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\ncreated: ${created}\n` });
+
+test('field-fixes 1 archived: a new change that reuses an archived id, created after the archive, stays listed', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  const own = t.addWt('foo');
+  addChange(own, 'foo', ['requirements'], { commit: false });
+  withCreated(own, 'foo', '2026-11-21');
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), ['foo'], 'created the day after the archive: a new change');
+  withCreated(own, 'foo', '2026-11-10');
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), [], 'created before the archive: the stale copy');
+  withCreated(own, 'foo', '2026-11-20');
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), [], 'created the day of the archive: the stale copy');
+});
+
 test('field-fixes 1 archived: an archive branch whose pull request merged does not list the change', () => {
   const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
   put(t.addWt('foo', { branch: 'chore/archive-foo' }), archivedFolder('2026-11-20', 'foo'));
