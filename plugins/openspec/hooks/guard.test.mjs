@@ -1,14 +1,15 @@
 // node --test plugins/openspec/hooks/guard.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
-import { gitRepo, put, commitAll, git as gitIn } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
+import * as GUARD from './guard.mjs';
+import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
 import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
 import './conduct-check.test.mjs'; // conduct-rounds: the round computation
 import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
@@ -16,6 +17,7 @@ import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
+import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way
 import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
 import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
 
@@ -1220,4 +1222,94 @@ test('no test env blanks DEVKIT_BRANCH without also blanking GITHUB_HEAD_REF', (
   const plugins = join(here, '..', '..');
   const offenders = testFilesUnder(plugins).flatMap((f) => branchBlankedAlone(readFileSync(f, 'utf8')).map((n) => `${f.slice(plugins.length + 1)}:${n}`));
   assert.deepEqual(offenders, [], 'blank GITHUB_HEAD_REF next to DEVKIT_BRANCH (CONTRIBUTING.md, testing rules)');
+});
+
+// ---------------------------------------------------------------- field-fixes 6: the project's OpenSpec CLI (D-1)
+
+const SEEN = (marker) => (existsSync(marker) ? readFileSync(marker, 'utf8') : '');
+const pinnedBin = (root) => join(root, 'node_modules', '.bin', 'openspec');
+function cliWorld(version = '2.0.0') {
+  const root = repo({ changes: { x: lite } });
+  const marker = join(root, 'seen.log');
+  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'cli-path-')), { version: '2.1.0', label: 'path', marker });
+  const env = { PATH: `${pathDir}:${process.env.PATH}` };
+  const pin = (v = version) => openspecStub(join(root, 'node_modules', '.bin'), { version: v, label: 'pinned', marker });
+  return { root, marker, env, pin };
+}
+
+test('field-fixes 6 cli: a checkout\'s node_modules/.bin/openspec wins over the one on PATH', () => {
+  const w = cliWorld();
+  w.pin();
+  assert.deepEqual(GUARD.openspecCli(w.root), { bin: pinnedBin(w.root), where: pinnedBin(w.root), pinned: true });
+});
+
+test('field-fixes 6 cli: a worktree with none finds the main checkout\'s', () => {
+  const main = gitRepo();
+  const wt = join(mkdtempSync(join(tmpdir(), 'cli-wt-')), 'wt');
+  gitIn(main, 'worktree', 'add', '-q', '-b', 'wt', wt);
+  assert.equal(GUARD.openspecCli(wt).pinned, false, 'no pin anywhere: PATH');
+  openspecStub(join(main, 'node_modules', '.bin'), { version: '2.0.0', label: 'pinned', marker: join(main, 'seen.log') });
+  const want = pinnedBin(realpathSync(main));
+  assert.deepEqual(GUARD.openspecCli(wt), { bin: want, where: want, pinned: true });
+});
+
+test('field-fixes 6 cli: a package.json declaring the pin with nothing installed is an error naming the file, the range and the install', () => {
+  const w = cliWorld();
+  writeFileSync(join(w.root, 'package.json'), JSON.stringify({ devDependencies: { '@fission-ai/openspec': '^2.0.0' } }));
+  const r = GUARD.openspecCli(w.root);
+  assert.equal(r.bin, undefined);
+  assert.ok(r.error.includes(`pins @fission-ai/openspec ^2.0.0 in ${join(w.root, 'package.json')}`), r.error);
+  assert.match(r.error, /not installed; run the project install/);
+});
+
+test('field-fixes 6 cli: no pin gives the openspec on PATH', () => {
+  const w = cliWorld();
+  writeFileSync(join(w.root, 'package.json'), JSON.stringify({ dependencies: { left: '1' } }));
+  assert.deepEqual(GUARD.openspecCli(w.root), { bin: 'openspec', where: 'PATH', pinned: false });
+});
+
+test('field-fixes 6 cli: the session text runs the pinned CLI, never the one on PATH', () => {
+  const w = cliWorld();
+  w.pin('2.0.0');
+  const { out } = session(w.root, w.env);
+  assert.match(out, /Active OpenSpec change: x/);
+  assert.match(SEEN(w.marker), /^pinned status --change x/m);
+  assert.doesNotMatch(SEEN(w.marker), /^path /m);
+});
+
+test('field-fixes 6 cli: the session text over a pinned 1.16.0 is one line naming the version, the path and the move to 2.x', () => {
+  const w = cliWorld();
+  w.pin('1.16.0');
+  const { code, out } = session(w.root, w.env);
+  assert.equal(code, 0);
+  assert.match(out, /^\[devkit\] [^\n]*\n$/);
+  assert.match(out, /1\.16\.0/);
+  assert.ok(out.includes(pinnedBin(w.root)), out);
+  assert.match(out, /2\.x/);
+  assert.equal(SEEN(w.marker), '', 'no openspec status was run, by either CLI');
+});
+
+test('field-fixes 6 cli: the session text over a declared, uninstalled pin is one line naming the install and starts no openspec', () => {
+  const w = cliWorld();
+  writeFileSync(join(w.root, 'package.json'), JSON.stringify({ devDependencies: { '@fission-ai/openspec': '^2.0.0' } }));
+  const { code, out } = session(w.root, w.env);
+  assert.equal(code, 0);
+  assert.match(out, /^\[devkit\] [^\n]*\n$/);
+  assert.match(out, /package\.json/);
+  assert.match(out, /install/);
+  assert.equal(SEEN(w.marker), '', 'no openspec was started');
+});
+
+// ---------------------------------------------------------------- field-fixes 12: the roadmap line (AC-12)
+test('field-fixes 12 roadmap: the round 17b line is read before round 18', () => {
+  const rounds = readRoadmap(join(here, '..', '..', '..'));
+  const titles = rounds.map((r) => r.title);
+  const at17b = titles.indexOf('Round 17b: field fixes of 0.16.0');
+  assert.ok(at17b >= 0, `no round 17b in ${titles.join(' | ')}`);
+  assert.ok(titles.findIndex((t) => t.startsWith('Round 17:')) < at17b, 'after round 17');
+  assert.ok(at17b < titles.findIndex((t) => t.startsWith('Round 18:')), 'before round 18');
+  const item = rounds[at17b].items.find((i) => i.id === 'coordinator-field-fixes');
+  assert.ok(item, 'the change is on the line');
+  assert.equal(item.done, false);
+  assert.deepEqual(item.after, ['change-coordinator']);
 });

@@ -1,0 +1,246 @@
+✖ field-fixes 7 listing: every change under way with its script, checkout and what the upgrade changes for it; nothing is written (278.872041ms)
+✖ field-fixes 7 listing: a project with no change under way says so and --apply writes nothing (90.838167ms)
+✖ field-fixes 7 apply: --apply without --owner-answer exits 2 and writes no file (275.095875ms)
+✖ field-fixes 7 apply: with the owner answer only the started full-script change gets an approval.md that records no approval; a change on another schema gets no file (277.198625ms)
+✖ field-fixes 7 apply: the owner answer is cut to 200 characters, and an existing approval.md is never overwritten (271.069375ms)
+✖ field-fixes 7 upgrade: after the listing, the answer and install-schemas the started change is not blocked, the plan-ready one asks the owner once, the short one is not sent to the grill (271.889292ms)
+✖ field-fixes 7 upgrade: without the owner answer no schema is replaced and no file is written (the listing alone changes nothing) (272.131834ms)
+✖ field-fixes 7 flow-check: readFlowFile reads a flow.json by path, readFlow still reads it by schema, and a malformed one names the path (0.09575ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 0
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1784.153083
+
+✖ failing tests:
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:75:1
+✖ field-fixes 7 listing: every change under way with its script, checkout and what the upgrade changes for it; nothing is written (278.872041ms)
+  AssertionError [ERR_ASSERTION]: node:internal/modules/cjs/loader:1568
+    throw err;
+    ^
+  
+  Error: Cannot find module '/Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.mjs'
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1564:15)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1169:12)
+      at Module._load (node:internal/modules/cjs/loader:1341:5)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+      at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+      at node:internal/main/run_main_module:33:47 {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: []
+  }
+  
+  Node.js v24.22.2
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:78:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:94:1
+✖ field-fixes 7 listing: a project with no change under way says so and --apply writes nothing (90.838167ms)
+  AssertionError [ERR_ASSERTION]: node:internal/modules/cjs/loader:1568
+    throw err;
+    ^
+  
+  Error: Cannot find module '/Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.mjs'
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1564:15)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1169:12)
+      at Module._load (node:internal/modules/cjs/loader:1341:5)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+      at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+      at node:internal/main/run_main_module:33:47 {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: []
+  }
+  
+  Node.js v24.22.2
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:98:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:103:1
+✖ field-fixes 7 apply: --apply without --owner-answer exits 2 and writes no file (275.095875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:106:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:114:1
+✖ field-fixes 7 apply: with the owner answer only the started full-script change gets an approval.md that records no approval; a change on another schema gets no file (277.198625ms)
+  AssertionError [ERR_ASSERTION]: node:internal/modules/cjs/loader:1568
+    throw err;
+    ^
+  
+  Error: Cannot find module '/Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.mjs'
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1564:15)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1169:12)
+      at Module._load (node:internal/modules/cjs/loader:1341:5)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+      at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+      at node:internal/main/run_main_module:33:47 {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: []
+  }
+  
+  Node.js v24.22.2
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:117:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:134:1
+✖ field-fixes 7 apply: the owner answer is cut to 200 characters, and an existing approval.md is never overwritten (271.069375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:137:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:146:1
+✖ field-fixes 7 upgrade: after the listing, the answer and install-schemas the started change is not blocked, the plan-ready one asks the owner once, the short one is not sent to the grill (271.889292ms)
+  AssertionError [ERR_ASSERTION]: node:internal/modules/cjs/loader:1568
+    throw err;
+    ^
+  
+  Error: Cannot find module '/Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.mjs'
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1564:15)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1169:12)
+      at Module._load (node:internal/modules/cjs/loader:1341:5)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+      at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+      at node:internal/main/run_main_module:33:47 {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: []
+  }
+  
+  Node.js v24.22.2
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:149:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:176:1
+✖ field-fixes 7 upgrade: without the owner answer no schema is replaced and no file is written (the listing alone changes nothing) (272.131834ms)
+  AssertionError [ERR_ASSERTION]: the listing runs
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:178:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:183:1
+✖ field-fixes 7 flow-check: readFlowFile reads a flow.json by path, readFlow still reads it by schema, and a malformed one names the path (0.09575ms)
+  TypeError [Error]: flowCheck.readFlowFile is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs:185:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

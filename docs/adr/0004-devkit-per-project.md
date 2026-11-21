@@ -6,6 +6,8 @@
 
 ## Context
 
+Note (coordinator-field-fixes, 2026-11-20): the CI check still does not depend on the project's opt-in; ADR 0012 makes it judge only changes whose own schema is devkit or devkit-lite. The Decision is unchanged.
+
 This ADR builds on ADR 0001 and leaves ADRs 0001-0003 unchanged. devkit was taught as a user-scope install ("install it once"). Every project on a machine then loaded the packs' context and hooks: plain OpenSpec projects got devkit's session report and gates, and every folder had destructive git refused. Owners use devkit in some projects and plain OpenSpec, or nothing, in others.
 
 ## Decision

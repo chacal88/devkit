@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { shipConfig, collectState, buildReport } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
@@ -2361,7 +2361,8 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.16\.0/);
+  assert.match(flow, /v0\.17\.0/, 'the CI snippet pins the current release (field-fixes: 0.17.0)');
+  assert.doesNotMatch(flow, /v0\.16\.0/, 'no pin left on the previous release');
   assert.match(flow, /prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end/, 'the loop paragraph names the end marker');
   assert.match(flow, /an end the run already recorded/, 'the stop lock reads a recorded end');
   assert.match(flow, /refuses a hand-off with no agent type, to a general-purpose agent, to another plugin's agent even when it is named like a role/, 'the hand-off rule');
@@ -2370,4 +2371,151 @@ test('change-loop docs: the design records the answers', () => {
   const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => l.startsWith('- [ ] review-writer-prompt'));
   assert.match(road, /touches only tests/);
   assert.match(road, /fenced example/);
+});
+
+// ---- field-fixes 6: the project's OpenSpec CLI (D-1)
+
+function pinnedLoop(version) {
+  const root = planChange({ have: ['requirements'] });
+  const marker = join(root, '..', `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'loop-pathcli-')), { version: '2.1.0', label: 'path', marker });
+  openspecStub(join(root, 'node_modules', '.bin'), { version, label: 'pinned', marker });
+  const env = { ...cleanEnv, PATH: `${pathDir}:${process.env.PATH}` };
+  return { root, marker, env };
+}
+const seenBy = (marker) => (existsSync(marker) ? readFileSync(marker, 'utf8') : '');
+
+test('field-fixes 6 change-loop: next with a pinned 1.16.0 exits 3 with the message in error, and the PATH CLI never runs', () => {
+  const w = pinnedLoop('1.16.0');
+  const r = next(w.root, [], w.env);
+  assert.equal(r.code, 3, r.stderr);
+  const body = JSON.parse(r.stdout);
+  assert.match(body.error, /1\.16\.0/);
+  assert.match(body.error, /2\.x/);
+  assert.ok(body.error.includes(join(w.root, 'node_modules', '.bin', 'openspec')), body.error);
+  assert.equal(seenBy(w.marker), '');
+});
+
+test('field-fixes 6 change-loop: next with a pinned 2.x is answered by the pinned CLI', () => {
+  const w = pinnedLoop('2.0.0');
+  next(w.root, [], w.env);
+  assert.match(seenBy(w.marker), /^pinned status --change feat/m);
+  assert.doesNotMatch(seenBy(w.marker), /^path /m);
+});
+
+// ---- field-fixes 1: a change archived on the default branch is not unfinished (D-3)
+
+// A gh that lists `names` as the archived folders of the default branch, or fails (`fail`), and nothing else.
+const archiveGh = (names, { fail = false } = {}) => (args) => (
+  !fail && args[0] === 'api' && /contents\/openspec\/changes\/archive\?ref=/.test(args[1])
+    ? { status: 0, stdout: JSON.stringify(names.map((name) => ({ name }))), stderr: '', missing: false, timedOut: false }
+    : { status: 1, stdout: '', stderr: 'gh: not reachable', missing: false, timedOut: false });
+const listedBy = (cwd, gh) => body(main(['start', '--lang', 'en'], { cwd, env: cleanEnv, stdin: 'change add a thing', gh })).unfinished.map((u) => u.id);
+const archivedFolder = (date, id) => ({ [`openspec/changes/archive/${date}-${id}/.openspec.yaml`]: 'schema: devkit\n' });
+
+// The default branch on origin gains the archived folder of `id` while the main checkout stays where it was.
+function archiveOnOrigin(t, id) {
+  const pusher = t.addWt('pusher');
+  put(pusher, archivedFolder('2026-11-20', id));
+  commitAll(pusher, `archive ${id}`);
+  git(pusher, 'push', '-q', 'origin', 'HEAD:main');
+  git(t.main, 'fetch', '-q', 'origin');
+}
+
+test('field-fixes 1 archived: an old worktree on another branch that holds the active folder does not list the change', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  addChange(t.addWt('old-wt'), 'foo', ['requirements'], { commit: false });
+  assert.deepEqual(listedBy(t.main, archiveGh([])), ['foo'], 'listed while GitHub does not show it archived');
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), []);
+});
+
+test('field-fixes 1 archived: an old worktree on the change\'s own branch does not list the change', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  addChange(t.addWt('bar'), 'bar', ['requirements'], { commit: false });
+  assert.deepEqual(listedBy(t.main, archiveGh([])), ['bar']);
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-bar'])), []);
+});
+
+// An active folder whose `.openspec.yaml` records the day it was created, as `openspec new change` writes it.
+const withCreated = (wt, id, created) => put(wt, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\ncreated: ${created}\n` });
+
+test('field-fixes 1 archived: a new change that reuses an archived id, created after the archive, stays listed', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  const own = t.addWt('foo');
+  addChange(own, 'foo', ['requirements'], { commit: false });
+  withCreated(own, 'foo', '2026-11-21');
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), ['foo'], 'created the day after the archive: a new change');
+  withCreated(own, 'foo', '2026-11-10');
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), [], 'created before the archive: the stale copy');
+  withCreated(own, 'foo', '2026-11-20');
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), [], 'created the day of the archive: the stale copy');
+});
+
+test('field-fixes 1 archived: an archive branch whose pull request merged does not list the change', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  put(t.addWt('foo', { branch: 'chore/archive-foo' }), archivedFolder('2026-11-20', 'foo'));
+  assert.deepEqual(listedBy(t.main, archiveGh([])), ['foo']);
+  assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-foo'])), []);
+});
+
+test('field-fixes 1 archived: an archive pull request not merged yet stays listed as being archived', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  put(t.addWt('baz', { branch: 'chore/archive-baz' }), archivedFolder('2026-11-20', 'baz'));
+  const b = body(main(['start', '--lang', 'en'], { cwd: t.main, env: cleanEnv, stdin: 'change add a thing', gh: archiveGh(['2026-11-20-other']) }));
+  assert.deepEqual(b.unfinished.map((u) => [u.id, u.where]), [['baz', render('en', 'where.archiving')]]);
+});
+
+test('field-fixes 1 archived: a main checkout whose default branch is behind still sees the remote one archive the change', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  addChange(t.addWt('old-wt'), 'foo', ['requirements'], { commit: false });
+  archiveOnOrigin(t, 'foo');
+  assert.equal(existsSync(join(t.main, 'openspec', 'changes', 'archive', '2026-11-20-foo')), false, 'the main checkout is behind');
+  assert.deepEqual(listedBy(t.main, archiveGh([])), []);
+});
+
+test('field-fixes 1 archived: a failing gh falls back to the remote-tracking default branch', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  addChange(t.addWt('old-wt'), 'foo', ['requirements'], { commit: false });
+  archiveOnOrigin(t, 'foo');
+  assert.deepEqual(listedBy(t.main, archiveGh([], { fail: true })), []);
+});
+
+test('field-fixes 1 archived: resuming an archived change by its id still ends archived', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
+  addChange(t.addWt('old-wt'), 'foo', ['requirements'], { commit: false });
+  put(t.main, archivedFolder('2026-11-20', 'foo'));
+  commitAll(t.main, 'archive foo');
+  const b = body(main(['start', '--lang', 'en'], { cwd: t.main, env: cleanEnv, stdin: 'change foo', gh: archiveGh(['2026-11-20-foo']) }));
+  assert.deepEqual([b.mode, b.change], ['resume', 'foo']);
+  assert.equal(b.reply, render('en', 'resumed', { id: 'foo', where: render('en', 'where.archived') }));
+  assert.deepEqual(b.unfinished, []);
+});
+
+// ---- field-fixes 2: a change begun under the previous script ends blocked, never at the grill (D-2)
+
+test('field-fixes 2 change-loop: next on a headerless plan with a later headed evidence.md ends blocked, previous-script', () => {
+  const root = planChange({ have: ['proposal', 'design', 'tasks'], headerless: true });
+  put(root, { 'openspec/changes/feat/evidence.md': `${head('evidence', git(root, 'rev-parse', 'HEAD'))}# Evidence\n` });
+  commitAll(root, 'evidence');
+  const r = next(root);
+  assert.equal(r.code, 2, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.end.state, action.end.why], ['blocked', 'previous-script']);
+  assert.notEqual(action.kind, 'grill');
+});
+
+test('field-fixes 2 change-loop: next on the old devkit-lite form with no requirements.md ends blocked, previous-script', () => {
+  const root = gitRepo({ config: 'schema: devkit-lite\n' });
+  put(root, {
+    'openspec/changes/feat/.openspec.yaml': 'schema: devkit-lite\n',
+    'openspec/changes/feat/proposal.md': '# Proposal\n',
+    'openspec/changes/feat/tasks.md': '# Tasks\n\n- [ ] 1.1 a\n',
+    'openspec/changes/feat/evidence.md': `${head('evidence', 'none')}# Evidence\n`,
+  });
+  commitAll(root, 'old lite form');
+  const r = next(root);
+  assert.equal(r.code, 2, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.end.state, action.end.why], ['blocked', 'previous-script']);
+  assert.notEqual(action.kind, 'grill');
 });

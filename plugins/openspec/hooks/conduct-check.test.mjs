@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, realpa
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
-import { gitRepo, put, commitAll, git, fakeGh } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
 import { makeGh } from './merge-setup.mjs';
 import { pinDoc } from './release-rebase.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
@@ -776,6 +776,9 @@ const CONTENTS = 'api-GET-repos__owner___repo__contents_';
 function archiveGh(t, wt, id, prs, { onDefault = 'active' } = {}) {
   const g = t.ghAt(wt);
   g.set('pr-list-state-merged', { stdout: [MERGED_PR(id)] });
+  // The merged PR is the change's own (it changed the folder) and every task is ticked on main (field-fixes D-4).
+  g.set(PR_FILES_KEY(12), filesFixture([`openspec/changes/${id}/tasks.md`]));
+  g.set(TASKS_ON_KEY(id), tasksFixture(tasksText({ ticked: ['1.1'] })));
   g.set(`${CONTENTS}openspec_changes_archive_ref=main`, { stdout: onDefault === 'archived' ? [{ name: `2026-11-09-${id}` }] : [] });
   g.set(`${CONTENTS}openspec_changes_${id}_ref=main`, { stdout: { name: id } });
   g.set(`pr-list-head-chore_archive-${id}`, { stdout: prs });

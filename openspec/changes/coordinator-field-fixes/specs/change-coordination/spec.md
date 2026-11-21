@@ -1,0 +1,74 @@
+<!-- devkit-stage specs result=passed attempt=1 commit=9184debf298ce02dbf1268f0ccbc8417947dce3d -->
+# Spec Delta
+
+## MODIFIED Requirements
+
+### Requirement: Unfinished work is asked about before a new request
+When a new request is typed while another change is unfinished, the command SHALL name each
+unfinished change and where it stopped and ask whether to continue it or start the new request,
+before anything is created or run.
+
+#### Scenario: A new request while a change is unfinished
+- **WHEN** `/devkit change <text>` is typed and another change that is not archived on the default branch, or that is a new change reusing an archived id on a later day, has an active folder or an archive branch in the main checkout or a worktree
+- **THEN** the reply names that change and where it stopped and asks continue or new, and no folder, branch or worktree is created
+
+## ADDED Requirements
+
+### Requirement: A change archived on the default branch is not unfinished
+The command SHALL NOT list as unfinished a change whose archived folder
+(`openspec/changes/archive/<date>-<id>/`) is on the default branch, read from GitHub, else from the
+remote-tracking default branch, else from the main checkout, whatever old checkout still holds its
+active folder, sits on its branch or its archive branch, except a new change reusing the id (next
+requirement). It SHALL still list a change on its archive branch whose archive is not on the
+default branch yet.
+
+#### Scenario: An old worktree holds the active folder
+- **WHEN** `foo` is archived on the default branch and a worktree on another branch still holds the old copy of `openspec/changes/foo/`
+- **THEN** `change-loop.mjs start` does not list `foo`
+
+#### Scenario: An old worktree on the change's branch
+- **WHEN** `bar` is archived on the default branch and a worktree on branch `bar` still holds the old copy of `openspec/changes/bar/`
+- **THEN** `change-loop.mjs start` does not list `bar`
+
+#### Scenario: An archive branch whose pull request merged
+- **WHEN** `foo` is archived on the default branch and a worktree still sits on `chore/archive-foo`
+- **THEN** `change-loop.mjs start` does not list `foo`
+
+#### Scenario: An archive pull request not merged yet
+- **WHEN** a worktree sits on `chore/archive-baz` and the default branch has no archived folder of `baz`
+- **THEN** `change-loop.mjs start` lists `baz` as being archived
+
+#### Scenario: The main checkout's default branch is behind
+- **WHEN** the main checkout's local default branch is eight commits behind the remote one, which archived `foo`
+- **THEN** `change-loop.mjs start` does not list `foo`
+
+#### Scenario: GitHub cannot be read
+- **WHEN** `gh` fails and the remote-tracking default branch holds the archived folder of `foo`
+- **THEN** `change-loop.mjs start` does not list `foo`
+
+#### Scenario: Resuming an archived change by its id
+- **WHEN** `/devkit change foo` names a change archived on the default branch
+- **THEN** the run continues `foo` as before this change, ending archived
+
+### Requirement: A new change that reuses an archived id is unfinished
+An active folder `openspec/changes/<id>/` whose `.openspec.yaml` records a `created:` day later
+than the latest archived day of `<id>` on the default branch is a new change that reuses the id; the
+command SHALL list it as unfinished. The comparison is by day, as an archived folder's name carries
+only its day: a folder created on the archive's day or before, or whose `.openspec.yaml` records no
+`created:` day, is the old copy of the archived change and SHALL NOT be listed.
+
+#### Scenario: A new change reuses an archived id on a later day
+- **WHEN** the latest archived folder of `foo` on the default branch is `2026-11-20-foo` and a worktree holds `openspec/changes/foo/` whose `.openspec.yaml` records `created: 2026-11-21`
+- **THEN** `change-loop.mjs start` lists `foo`
+
+#### Scenario: An active folder created on the day of the archive
+- **WHEN** the latest archived folder of `foo` on the default branch is `2026-11-20-foo` and a worktree holds `openspec/changes/foo/` whose `.openspec.yaml` records `created: 2026-11-20`
+- **THEN** `change-loop.mjs start` does not list `foo`
+
+#### Scenario: An active folder created before the archive
+- **WHEN** the latest archived folder of `foo` on the default branch is `2026-11-20-foo` and a worktree holds `openspec/changes/foo/` whose `.openspec.yaml` records `created: 2026-11-10`
+- **THEN** `change-loop.mjs start` does not list `foo`
+
+#### Scenario: An active folder that records no creation day
+- **WHEN** `foo` is archived on the default branch and a worktree holds `openspec/changes/foo/` whose `.openspec.yaml` has no `created:` line
+- **THEN** `change-loop.mjs start` does not list `foo`

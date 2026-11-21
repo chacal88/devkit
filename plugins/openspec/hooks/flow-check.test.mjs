@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
 import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, TEXT, reasonText } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
-import { gitRepo, put, commitAll, git, fakeGh } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { conductState } from './conduct-check.mjs';
@@ -758,7 +758,8 @@ test('flow-check AC-7: a folder in the previous form is recognised', () => {
   assert.equal(computeFlow({ ...synth(), files: headless }, FLOW_DEVKIT, {}).script, 'previous');
   const none = Object.fromEntries(Object.keys(files).map((k) => [k, []]));
   assert.equal(computeFlow({ ...synth(), files: none }, FLOW_DEVKIT, {}).script, 'current');
-  assert.equal(walk({ requirements: { header: null } }).script, 'current');
+  assert.equal(walk({ proposal: { header: null } }).script, 'current', 'a headed earliest file makes it current');
+  assert.equal(walk({ requirements: { header: null } }).script, 'previous', 'a headerless earliest file with later headed ones is the previous script (D-2)');
 });
 
 test('flow-check AC-7: a schema without flow.json is the previous script', () => {
@@ -829,6 +830,14 @@ function deliveryReport({ ship = 'merge', fill = () => {}, branch = 'feat' } = {
 }
 const outcome = (r) => (r.next ? { next: r.next.stage, reasonCode: r.next.reasonCode } : { end: r.end.state, reasonCode: r.end.reasonCode });
 
+// The GitHub answers of a merged pull request #12 that is the change's own with every task ticked on the default
+// branch (field-fixes D-4: the files say whose it is, tasks.md on the default branch says it is done).
+const ownMerged = (set) => {
+  set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main' } });
+  set(PR_FILES_KEY(12), filesFixture(['openspec/changes/feat/tasks.md', 'src/a.ts']));
+  set(TASKS_ON_KEY('feat'), tasksFixture(tasksText({ ticked: ['1.1', '1.2'] })));
+};
+
 const DELIVERY_ROWS = [
   ['ship plan waits for the owner', { ship: 'plan' }, { end: 'waiting-for-owner', reasonCode: 'ship-plan' }],
   ['a gh error blocks', { fill: (set) => set('pr-view', { exit: 1, stderr: 'HTTP 502: bad gateway\n' }) }, { end: 'blocked', reasonCode: 'gh-error' }],
@@ -840,7 +849,7 @@ const DELIVERY_ROWS = [
   ['a green pull request in pr mode waits for the owner to merge', { ship: 'pr', fill: (set, head) => { set('pr-view', { stdout: prView(head) }); set('pr-checks', { stdout: [check('build', 'pass')] }); } }, { end: 'waiting-for-owner', reasonCode: 'owner-merges' }],
   ['a green pull request with auto-merge on waits on GitHub', { fill: (set, head) => { set('pr-view', { stdout: prView(head, { autoMergeRequest: { enabledAt: 'x' } }) }); set('pr-checks', { stdout: [check('build', 'pass')] }); } }, { end: 'waiting-on-github', reasonCode: 'auto-merge-on' }],
   ['a green pull request with auto-merge off offers the delivery', { fill: (set, head) => { set('pr-view', { stdout: prView(head) }); set('pr-checks', { stdout: [check('build', 'pass')] }); } }, { next: 'delivery', reasonCode: 'enable-auto-merge' }],
-  ['a merged pull request passes the delivery and the walk goes to the archive', { fill: (set, head) => set('pr-view', { stdout: prView(head, { state: 'MERGED' }) }) }, { next: 'retro', reasonCode: 'archive' }],
+  ['a merged pull request passes the delivery and the walk goes to the archive', { fill: (set, head) => { set('pr-view', { stdout: prView(head, { state: 'MERGED' }) }); ownMerged(set); } }, { next: 'retro', reasonCode: 'archive' }],
   ['a closed pull request blocks', { fill: (set, head) => set('pr-view', { stdout: prView(head, { state: 'CLOSED' }) }) }, { end: 'blocked', reasonCode: 'pr-closed' }],
 ];
 for (const [row, opts, want] of DELIVERY_ROWS) {
@@ -865,6 +874,7 @@ test('flow-check delivery: after a squash merge the walk resumes at the retro', 
   const reportWith = (list) => {
     const gh = fakeGh();
     gh.set('pr-list-state-merged', { stdout: list });
+    ownMerged(gh.set.bind(gh));
     const env = { ...gh.env, ...SHIP_ENV };
     const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
     return computeFlow(facts, flow, {});
@@ -890,6 +900,7 @@ test('flow-check delivery: a merged pull request seen from the change\'s own bra
     const gh = fakeGh();
     gh.set('pr-view', { stdout: prView(git(root, 'rev-parse', 'HEAD'), { state: 'MERGED', headRefName: 'feat' }) });
     gh.set('pr-list-state-merged', { stdout: [prView('f'.repeat(40), { state: 'MERGED', headRefName: 'feat', body: 'evidence: openspec/changes/feat/evidence.md' })] });
+    ownMerged(gh.set.bind(gh));
     const env = { ...gh.env, ...SHIP_ENV };
     const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
     return computeFlow(facts, flow, {});
@@ -899,6 +910,43 @@ test('flow-check delivery: a merged pull request seen from the change\'s own bra
   assert.equal(own.next.stage, 'evidence');
   const off = report('main');
   assert.equal(off.stages.find((s) => s.id === 'evidence').state, 'passed');
+});
+
+// ---- field-fixes 4: a merged pull request delivers only when it is the change's own and every task is ticked
+
+const MERGED_OWN = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefOid: 'f'.repeat(40), baseRefName: 'main', mergeable: 'UNKNOWN', autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', headRefName: 'feat', mergedAt: '2026-11-19T10:00:00Z', body: 'evidence: openspec/changes/feat/evidence.md' };
+const repoMain = { stdout: { default_branch: 'main' } };
+
+test('field-fixes 4 delivered: a merged pull request with tasks left is not delivered; the next stage is the implementation naming the pull request and the tasks', () => {
+  const { report } = deliveryReport({ branch: 'main', fill: (set) => {
+    set('pr-list-state-merged', { stdout: [MERGED_OWN] });
+    set('api-GET-repos__owner___repo_', repoMain);
+    set(PR_FILES_KEY(12), filesFixture(['openspec/changes/feat/tasks.md', 'src/a.ts']));
+    set(TASKS_ON_KEY('feat'), tasksFixture(tasksText({ ticked: ['1.1'], unticked: ['3.1', '3.2'] })));
+  } });
+  assert.deepEqual(outcome(report), { next: 'implementation', reasonCode: 'tasks-left-after-merge' });
+  assert.match(report.next.reason, /#12/);
+  assert.match(report.next.reason, /3\.1, 3\.2/);
+  assert.notEqual(report.stages.find((s) => s.id === 'delivery').state, 'passed');
+});
+
+test('field-fixes 4 delivered: a pull request that only links the evidence does not switch to the walk after the merge', () => {
+  const root = liveChange({ ship: 'merge', skip: ['retro'] });
+  for (const f of ['evidence.md', 'review.md']) {
+    const file = join(root, 'openspec', 'changes', 'feat', f);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/commit=[0-9a-f]+/, 'commit=deadbee'));
+  }
+  commitAll(root, 'headers of squashed commits');
+  const gh = fakeGh();
+  gh.set('pr-list-state-merged', { stdout: [MERGED_OWN] });
+  gh.set('api-GET-repos__owner___repo_', repoMain);
+  gh.prFiles(12, ['docs/notes.md']);
+  const env = { ...gh.env, ...SHIP_ENV };
+  const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+  const report = computeFlow(facts, flow, {});
+  assert.equal(report.stages.find((s) => s.id === 'evidence').state, 'stale', 'the squashed header commits still read as stale');
+  assert.notEqual(report.next?.reasonCode, 'archive');
+  assert.equal(report.next.stage, 'evidence');
 });
 
 // ---- the walk always ends
@@ -1109,7 +1157,7 @@ test('flow-check readout: both languages cover every reason code', () => {
     'no-role': { stage: 'review', role: 'owner' }, archive: {}, archived: {}, 'previous-script': {}, 'schema-without-declaration': {},
     'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' },
     'check-failing': { checks: 'build (https://ci/build)' }, 'checks-pending': { checks: 'e2e' }, 'owner-merges': { number: 12 },
-    'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 },
+    'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },
   };
   assert.deepEqual(Object.keys(P).sort(), en, 'the table below names every code');
   for (const code of en) {
@@ -1264,4 +1312,98 @@ test('flow-check AC-3: every writer of a stage file names the stage header', () 
   }
   const first = read('plugins/core/skills/plan-readiness-review/templates/report.md').split('\n')[0];
   assert.deepEqual(parseStageHeader(first + '\n'), { stage: 'readiness', result: 'pending', attempt: 1, commit: 'none' });
+});
+
+// ---- field-fixes 6: the project's OpenSpec CLI (D-1)
+
+// A live change with a 2.x `openspec` on PATH that logs to `marker` and the project's own, labelled `pinned`.
+function pinWorld({ version = '1.16.0', pin = true } = {}) {
+  const root = liveChange();
+  const marker = join(root, '..', `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'flow-check-pathcli-')), { version: '2.1.0', label: 'path', marker });
+  if (pin) openspecStub(join(root, 'node_modules', '.bin'), { version, label: 'pinned', marker });
+  const env = { ...process.env, PATH: `${pathDir}:${process.env.PATH}`, ...SHIP_ENV };
+  return { root, marker, env };
+}
+const seen = (marker) => (existsSync(marker) ? readFileSync(marker, 'utf8') : '');
+
+test('field-fixes 6 flow-check: a pinned 1.16.0 and a 2.x on PATH exits 3 naming the version, the path and the move, and the PATH one never runs', () => {
+  const w = pinWorld();
+  const r = runCli(w.root, ['feat'], w.env);
+  assert.equal(r.status, 3);
+  assert.match(r.stderr, /1\.16\.0/);
+  assert.ok(r.stderr.includes(join(w.root, 'node_modules', '.bin', 'openspec')), r.stderr);
+  assert.match(r.stderr, /2\.x/);
+  assert.equal(seen(w.marker), '', 'neither CLI was asked anything but its version');
+  const j = runCli(w.root, ['feat', '--json'], w.env);
+  assert.equal(j.status, 3);
+  assert.match(JSON.parse(j.stdout).error, /1\.16\.0/);
+});
+
+test('field-fixes 6 flow-check: a declared pin that is not installed exits 3 and the PATH one never runs', () => {
+  const w = pinWorld({ pin: false });
+  writeFileSync(join(w.root, 'package.json'), JSON.stringify({ devDependencies: { '@fission-ai/openspec': '^2.0.0' } }));
+  const r = runCli(w.root, ['feat'], w.env);
+  assert.equal(r.status, 3);
+  assert.match(r.stderr, /package\.json/);
+  assert.match(r.stderr, /\^2\.0\.0/);
+  assert.match(r.stderr, /install/);
+  assert.equal(seen(w.marker), '', 'no openspec was started');
+});
+
+test('field-fixes 6 flow-check: a pinned 2.x answers the status calls, never the one on PATH', () => {
+  const w = pinWorld({ version: '2.0.0' });
+  runCli(w.root, ['feat'], w.env);
+  assert.match(seen(w.marker), /^pinned status --change feat/m);
+  assert.doesNotMatch(seen(w.marker), /^path /m);
+});
+
+// ---- field-fixes 2: the previous script, read from the earliest stage file (D-2)
+
+// A committed change `feat` with exactly the files of `files` (name -> { stage, body } written with a header, or a
+// string written as is), for the reading of the script.
+function formChange(files, schema = 'devkit') {
+  const root = gitRepo({ config: `schema: ${schema}\n` });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const out = { '.openspec.yaml': `schema: ${schema}\n` };
+  for (const [name, f] of Object.entries(files)) out[name] = typeof f === 'string' ? f : `<!-- devkit-stage ${f.stage} result=passed attempt=1 commit=${c0} -->\n${f.body ?? `# ${f.stage}\n`}`;
+  put(root, Object.fromEntries(Object.entries(out).map(([f, b]) => [`openspec/changes/feat/${f}`, b])));
+  commitAll(root, 'change files');
+  return root;
+}
+const PLAIN_PLAN = { 'proposal.md': '# Proposal\n', 'design.md': '# Design\n', 'tasks.md': '# Tasks\n\n- [x] 1.1 a\n' };
+
+test('field-fixes 2 previous-script: a headed evidence.md over a headerless plan is still the previous script', () => {
+  const root = formChange({ ...PLAIN_PLAN, 'evidence.md': { stage: 'evidence' } });
+  const r = liveReport(root);
+  assert.equal(r.script, 'previous');
+  assert.deepEqual([r.stages, r.next, r.end], [[], null, null]);
+});
+
+test('field-fixes 2 previous-script: a headed readiness.md over a headerless plan is still the previous script', () => {
+  const root = formChange({ ...PLAIN_PLAN, 'readiness.md': { stage: 'readiness', body: '# Readiness\n\n- Status: APPROVED\n' } });
+  assert.equal(liveReport(root).script, 'previous');
+});
+
+test('field-fixes 2 previous-script: a headed reviews file over a headerless plan is still the previous script', () => {
+  const root = formChange({ ...PLAIN_PLAN, 'reviews/code-quality-reviewer.md': { stage: 'review' } });
+  assert.equal(liveReport(root).script, 'previous');
+});
+
+test('field-fixes 2 previous-script: a headed requirements.md with a headerless proposal.md stays current and reports no-header', () => {
+  const root = formChange({ 'requirements.md': { stage: 'requirements' }, 'proposal.md': '# Proposal\n' });
+  const r = liveReport(root);
+  assert.equal(r.script, 'current');
+  const proposal = r.stages.find((s) => s.id === 'proposal');
+  assert.deepEqual([proposal.state, proposal.reasonCode], ['pending', 'no-header']);
+});
+
+test('field-fixes 2 previous-script: isPreviousScript reads only the earliest stage file the flow lists', () => {
+  const file = (header) => [{ path: 'x.md', header, mtimeMs: 0 }];
+  const headed = { stage: 'x', result: 'passed', attempt: 1, commit: 'none' };
+  const flow = { stages: [{ id: 'open', source: 'folder' }, { id: 'a', source: 'artifact' }, { id: 'b', source: 'artifact' }] };
+  assert.equal(FC.isPreviousScript({ a: file(null), b: file(headed) }, flow), true);
+  assert.equal(FC.isPreviousScript({ a: file(headed), b: file(null) }, flow), false);
+  assert.equal(FC.isPreviousScript({ a: [], b: file(null) }, flow), true, 'the first stage with a file decides');
+  assert.equal(FC.isPreviousScript({ a: [], b: [] }, flow), false, 'no file at all is a change being opened');
 });

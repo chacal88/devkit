@@ -97,7 +97,8 @@ contract:
 graph:
   nodes:
     # 1. Plan: the tech lead runs the devkit planning steps (create, proposal, design, tasks,
-    #    spec deltas; the grill when the schema has a `requirements` artifact, readiness for the devkit schema) and stops before implement. The
+    #    spec deltas; the grill's questions as open questions for the operator (both schemas open
+    #    with the grill), readiness for the devkit schema) and stops before implement. The
     #    plan also declares the screens the change touches (design D6), an empty list when none.
     - id: propose
       class: action
@@ -119,7 +120,9 @@ graph:
           {{ end }}
 
           Follow your procedure: ask the devkit checker what is next and do the planning steps
-          until the next step is `implement`, then stop. Write only under
+          until the next step is `implement`, then stop. Both schemas open with the grill: never
+          answer its questions yourself; record each assumption as `strict-assumed` in
+          requirements.md and return every question in `open_questions`. Write only under
           openspec/changes/{{ .inputs.change_id }}/. List every screen the change touches in
           proposal.md's `## Screens` section; an empty section means no screen. Run
           `openspec validate {{ .inputs.change_id }} --strict` and fix every error before
@@ -312,8 +315,8 @@ graph:
           Mockup: {{ .nodes.design.output.mockup }} ({{ .nodes.design.output.mockup_version }})
           {{ end }}
 
-          Read {{ .nodes.propose.output.change_dir }} (proposal, design, tasks, readiness) before
-          deciding. Reject ends this run without code; fix the plan (and the design, when one
+          Read {{ .nodes.propose.output.change_dir }} (requirements and its open questions,
+          proposal, tasks, and design and readiness on the devkit schema) before deciding. Reject ends this run without code; fix the plan (and the design, when one
           ran) with the tech lead and start a new run, which refines the existing change files.
         decisions: [approve, reject]
         responders:

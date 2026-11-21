@@ -10,18 +10,27 @@ Leaves the project ready for `openspec new change <name>` to run the devkit flow
 Paths below are relative to this skill's directory:
 - `scripts/project-settings.mjs` writes the project's `.claude/settings.json` (step 2).
 - `scripts/install-schemas.sh` installs the schemas.
+- `scripts/changes-under-way.mjs` lists the changes under way and what the schema upgrade changes for each (step 4).
 - `templates/config.yaml` is the starting `openspec/config.yaml`.
 - `scripts/github-setup.mjs` plans and applies the GitHub settings of `merge` mode (step 7).
 
 ## Steps
 
-1. **Check the CLI.** `openspec --version`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.
+1. **Check the CLI.** The packs start the project's own OpenSpec: the one installed in the project (`node_modules/.bin/openspec` of the checkout, or of the main checkout when this is a worktree) wins over the one on `PATH`. Run that one with `--version`.
+   - A project that declares `@fission-ai/openspec` in its `package.json` and has it not installed: say so, name the file and the range, tell the user to run the project's install (`npm install` or its package manager), and stop. Never fall back to the one on `PATH`: a project that pins its CLI may forbid the global one.
+   - A pinned CLI that is not 2.x: say so and tell the user to move the project's pin to 2.x (`npm i -D @fission-ai/openspec@2`); stop.
+   - No pin: `openspec --version` on `PATH`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.
 
 2. **Opt the project in.** Run `node <skill-dir>/scripts/project-settings.mjs <project-root>`. It adds the `devkit` marketplace and enables `devkit-core` and `devkit-openspec` in `<project-root>/.claude/settings.json`, keeping every other key; it never touches `settings.local.json` or `~/.claude`. Show its lines and `git diff -- .claude/settings.json`, and tell the user the packs load in this project after a restart of Claude Code (or `/plugin` to accept the project's plugins). Other packs only on request: add `--packs <pack,...>`.
 
 3. **Initialize OpenSpec** if the project has no `openspec/` folder: `openspec init --tools claude`. If it already has one, run `openspec update` so the generated `openspec-*` skills match the installed CLI.
 
-4. **Install the schemas** into the project, with no question: `bash <skill-dir>/scripts/install-schemas.sh <project-root>`. It is versioned with the repo, so the whole team and CI get the same flow. Use the machine-wide form (`bash <skill-dir>/scripts/install-schemas.sh --user`) only when the owner asks for it explicitly, and say why it matters: it applies to every project on the machine.
+4. **Install the schemas** into the project. Replacing them changes the flow of the changes already under way, so first list those: `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` (read-only; it covers the main checkout and every worktree).
+   - With `no change under way`, install with no question: `bash <skill-dir>/scripts/install-schemas.sh <project-root>`.
+   - Otherwise show every line it printed, each with its script, checkout and what the upgrade changes for it (a change on another schema is listed as untouched), and ask the owner one question: upgrade with these effects, yes or no. Without a yes, replace nothing and write nothing.
+   - On yes, run `node <skill-dir>/scripts/changes-under-way.mjs <project-root> --apply --owner-answer "<the owner's words>"` first, then `bash <skill-dir>/scripts/install-schemas.sh <project-root>`. The first writes `approval.md`, as not applying and only from that answer, for each full-script change whose implementation had started (so it continues where it was and is not asked an approval that did not exist when it began); it never overwrites a file. A full-script change with only its plan ready asks the owner's approval once, before its implementation. A short-script change begun on the previous script is not sent back to the grill.
+   - A worktree gets the new schemas when its branch takes the default branch.
+   - The schemas are versioned with the repo, so the whole team and CI get the same flow. Use the machine-wide form (`bash <skill-dir>/scripts/install-schemas.sh --user`) only when the owner asks for it explicitly, and say why it matters: it applies to every project on the machine.
 
 5. **Write `openspec/config.yaml`.**
    - If it doesn't exist, start from `templates/config.yaml`.
@@ -36,13 +45,17 @@ Paths below are relative to this skill's directory:
    - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent.
 
 6. **Check.**
-   - `openspec schema validate devkit` and `openspec schema validate devkit-lite` both pass.
+   - With the project's CLI (step 1): `openspec schema validate devkit` and `openspec schema validate devkit-lite` both pass.
    - `openspec schema which devkit` resolves under the project.
+   - Run `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` again: each change the owner said yes for now has its `approval.md`, and no other change got a file.
    - `.claude/settings.json` lists the packs (step 2).
 
 7. **GitHub (merge mode).** Ask only when the owner wants `ship: merge` or asks for this step; skip it otherwise. It changes repository settings, so nothing is applied without the owner's confirmation of that item.
    - Run the plan, which reads and writes nothing: `node <skill-dir>/scripts/github-setup.mjs` (add `--method <squash|merge|rebase>` for another merge method, `--checks <a,b>` to replace the checks it found). Show every line, with its payload, and the list of checks the ruleset will require: the owner confirms that list (or gives `--checks`) before the `ruleset` item is applied.
-   - Items: `workflow` (`.github/workflows/devkit-reviews.yml`, written from the template, pinned to the commit sha of the release tag `v<devkit-openspec version>`, and never committed by the script; `deferred` while that tag does not exist), `auto-merge`, `delete-branch`, `ruleset` (`devkit`: a pull request, the existing checks plus `devkit-reviews`, up to date, no force pushes, no bypass). States: `ok`, `create`, `update`, `deferred: <why>`. A `deferred` item is not applied; follow its reason (for `ruleset`: commit the workflow and merge it through a normal PR first, because a required check that never reports blocks every PR).
+   - The plan also prints the repository's own state before the items: `actions` (is GitHub Actions enabled for the repository) and `runs` (did the newest runs fail without a job starting a step). States: `ok`, `blocked: <why>`, `unknown: <why>`. `unknown` means GitHub did not let the plan read that state (usually missing admin rights): say so, and do not treat it as a fault. Show every `blocked` line to the owner as it is printed. Billing cannot be read from the repository's API: a `runs` line names it only as one possible cause, and the owner checks it in Settings > Billing and plans.
+   - A `ruleset` that reads `blocked` means GitHub refuses rulesets for the repository's plan (the owner makes the repository public or moves to a plan with rulesets). Then `merge` mode is not available on that plan: the plan shows `auto-merge` as `deferred` and `--apply` writes neither; say so plainly and stay in `plan` or `pr` mode (ADR 0002).
+   - The ruleset's proposed checks are the ones reported on the newest pull requests (a job that runs only after the merge never appears), so the owner confirms them as the plan lists them.
+   - Items: `workflow` (`.github/workflows/devkit-reviews.yml`, written from the template, pinned to the commit sha of the release tag `v<devkit-openspec version>`, and never committed by the script; `deferred` while that tag does not exist), `auto-merge`, `delete-branch`, `ruleset` (`devkit`: a pull request, the existing checks plus `devkit-reviews`, up to date, no force pushes, no bypass). States: `ok`, `create`, `update`, `deferred: <why>`, `blocked: <why>`, `error`. A `deferred` item is not applied; follow its reason (for `ruleset`: commit the workflow and merge it through a normal PR first, because a required check that never reports blocks every PR).
    - Before asking, say plainly: once the `ruleset` is active, `main` will refuse direct pushes from everyone, the owner included, so every change, archive commits too, lands through a PR; and when it is applied from a PR, the other open PRs listed will wait for `devkit-reviews` until updated with the default branch.
    - Ask the owner to confirm each item that is not `ok`: one question per item. Run `node <skill-dir>/scripts/github-setup.mjs --apply <confirmed items>` with only the items that got a yes. Then run the plan again and show it; every confirmed item must read `ok`. A write error is reported per item (usually missing admin rights); report it and stop that item.
    - Add `ship` and `merge_method` to `openspec/config.yaml` only if the owner asks (the template has a commented example). Re-running the step is safe: items already `ok` are not touched.

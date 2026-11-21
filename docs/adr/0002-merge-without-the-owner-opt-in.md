@@ -6,6 +6,8 @@
 
 ## Context
 
+Note (coordinator-field-fixes, 2026-11-20): ADR 0012 limits what devkit-reviews judges to changes on a devkit script, judges each delivered change of a pull request that touches several, and passes other changes with a note; for every change it judges it still recomputes reviews, findings, gates and acceptance proof at the PR head. The Decision is otherwise unchanged.
+
 This ADR builds on ADR 0001 and leaves its gates unchanged. Since ADR 0001, `ship-change` takes an approved change to a PR that `deliver-check` reports
 as ready (8/8), and the owner merges it. Owners of some repositories want that merge to happen
 on its own. An agent saying "ready" is not enough to merge on: until this change, CI checked

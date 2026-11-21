@@ -13,7 +13,7 @@ import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_RE
 
 // The shared gh runner (merge-setup.mjs), kept importable from here.
 export { makeGh };
-import { archiveBranchChange, changeDir, changeSchema, changeSchemaAt, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
+import { archiveBranchChange, changeDir, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -451,7 +451,46 @@ const NO_PR = 'no pull request for this branch yet';
 // The branches the archive PR of change `id` is opened from: never the change branch.
 export const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
 
-// The change's PR, whichever branch the checkout is on (archive-after-merge D4):
+// Every change's archive head, not only one id's (`chore/archive-<name>` or `archive-<name>`).
+export const isArchiveHead = (name) => /^(chore\/)?archive-/.test(String(name ?? ''));
+
+// The files a pull request changed, read by number and paginated (gh pr view --json files stops at 100):
+// { files } | { error }.
+export function prFiles(gh, number) {
+  const r = gh(['api', `repos/{owner}/{repo}/pulls/${number}/files`, '--paginate', '--jq', '.[].filename']);
+  if (r.status !== 0) return { error: ghError(r) };
+  return { files: String(r.stdout).split(/\r?\n/).filter(Boolean) };
+}
+
+// The change's own pull request (field-fixes D-4): not an archive head, no archive folder among its files,
+// and some file under the change's active folder. A body or a head name that names the change is never proof.
+export function isOwnPr(id, pr, files) {
+  if (isArchiveHead(pr?.headRefName)) return false;
+  if (files.some((f) => f.startsWith('openspec/changes/archive/'))) return false;
+  return files.some((f) => f.startsWith(`openspec/changes/${id}/`));
+}
+
+// The tasks of the change still unticked in its tasks.md on `base`:
+// { unticked: [ids] } | { absent: true } | { error }.
+export function tasksOnDefault(gh, id, base) {
+  const got = readContents(gh, `openspec/changes/${id}/tasks.md`, base);
+  if (got.notFound) return { absent: true };
+  if (got.error) return { error: got.error };
+  if (typeof got.json?.content !== 'string') return { error: `openspec/changes/${id}/tasks.md on ${base} has no content` };
+  const text = Buffer.from(got.json.content, 'base64').toString('utf8');
+  return { unticked: parseTasks(text).filter((t) => !t.done).map((t) => t.id) };
+}
+
+// tasksOnDefault on the repository's default branch, with the repository settings read to find it (the
+// caller reuses them): { unticked } | { absent } | { error }, each with `repo`.
+function defaultTasks(gh, id) {
+  const repo = readRepoSettings(gh);
+  const base = repo.settings?.default_branch;
+  if (!base) return { error: `cannot read the default branch on GitHub: ${repo.error ?? 'the answer has no default branch'}`, repo };
+  return { ...tasksOnDefault(gh, id, base), repo };
+}
+
+// The change's PR, whichever branch the checkout is on (archive-after-merge D4, field-fixes D-4):
 // { pr, via } | { none: true } | { error }. `via` is 'branch' when the current
 // branch is the change's own, 'list' when found among the merged PRs. "The
 // change's own branch" means the branch's own name identifies it (the exact
@@ -459,11 +498,28 @@ export const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
 // resolveChange's single-active-change fallback, which answers with the sole
 // active change whatever the branch is called (compozy-loop-v2 retro).
 //  1. plan mode, a known number, or the change branch: fetchPr as before (the
-//     head-branch fallback also runs in pr mode);
-//  2. otherwise, in pr and merge modes: the newest merged PR whose body links
-//     the change's evidence.md, else the newest whose head's last segment is the
-//     id. Archive heads are dropped first and there is no "contains" match.
+//     head-branch fallback also runs in pr mode). A MERGED PR found this way must be
+//     the change's own (its files say so); with tasks left on the default branch an
+//     open PR of the same head is the PR, else `{ none: true, mergedBefore }`;
+//  2. otherwise, in pr and merge modes: the newest merged PR that is the change's
+//     own (isOwnPr over its files), archive heads dropped first.
 const branchNamesChange = (branch, id) => branch.split('/').pop() === id || branch.includes(id);
+
+function mergedOnBranch(gh, id, found, branch, merge) {
+  const files = prFiles(gh, found.pr.number);
+  if (files.error) return { error: files.error };
+  if (!isOwnPr(id, { headRefName: found.pr.headRefName ?? branch }, files.files)) return { none: true };
+  const tasks = defaultTasks(gh, id);
+  if (tasks.error) return { error: tasks.error };
+  const known = { tasks, repo: tasks.repo };
+  if (tasks.unticked?.length === 0 || !branch) return { ...found, ...known };
+  const l = gh(['pr', 'list', '--head', branch, '--state', 'open', '--limit', '10', '--json', merge ? MERGE_FIELDS : PR_FIELDS]);
+  if (l.status !== 0) return { error: ghError(l) };
+  let list;
+  try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
+  const open = Array.isArray(list) ? list.find((p) => p.state === 'OPEN') : null;
+  return open ? { pr: open, via: 'branch' } : { none: true, mergedBefore: found.pr.number, ...known };
+}
 
 export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = process.env, number = null } = {}) {
   const merge = ship === 'merge';
@@ -471,28 +527,48 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
   const own = selected?.name === id && Boolean(branch) && branchNamesChange(branch, id) && !defaultBranches(root).includes(branch) && !archiveHeads(id).includes(branch);
   if (ship === 'plan' || number || own) {
     const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan' });
-    return r.pr ? { ...r, via: 'branch' } : r;
+    if (!r.pr) return r;
+    const found = { ...r, via: 'branch' };
+    return ship !== 'plan' && r.pr.state === 'MERGED' ? mergedOnBranch(gh, id, found, own ? branch : '', merge) : found;
   }
-  // Light fields only: 100 PRs with their bodies can pass spawnSync's buffer. A body is read,
-  // by number and newest first, only while no PR has been found by its link.
+  // Light fields only: 100 PRs with their bodies can pass spawnSync's buffer. A PR's files are read,
+  // by number and newest first, only while no PR has been found to be the change's own.
   const light = `${(merge ? MERGE_FIELDS : PR_FIELDS).replace(',body', '')},headRefName,mergedAt`;
   const l = gh(['pr', 'list', '--state', 'merged', '--limit', '100', '--json', light]);
   if (l.status !== 0) return { error: ghError(l) };
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
   if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
-  const heads = archiveHeads(id);
-  const rest = list.filter((p) => !heads.includes(p.headRefName)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
-  const link = `openspec/changes/${id}/evidence.md`;
+  const rest = list.filter((p) => !isArchiveHead(p.headRefName)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
   for (const p of rest) {
-    const b = gh(['pr', 'view', String(p.number), '--json', 'body']);
-    if (b.status !== 0) return { error: ghError(b) };
-    let body;
-    try { body = JSON.parse(b.stdout)?.body; } catch { return { error: 'gh pr view returned unreadable JSON' }; }
-    if (String(body ?? '').includes(link)) return { pr: { ...p, body }, via: 'list' };
+    const f = prFiles(gh, p.number);
+    if (f.error) return { error: f.error };
+    if (isOwnPr(id, p, f.files)) return { pr: p, via: 'list' };
   }
-  const byHead = rest.find((p) => String(p.headRefName).split('/').pop() === id);
-  return byHead ? { pr: byHead, via: 'list' } : { none: true };
+  return { none: true };
+}
+
+// What the delivery of change `id` is (field-fixes D-4): its PR as findChangePr answers it, and whether the
+// change is delivered: archived, or its own PR merged with every task ticked on the default branch.
+// { fetched, delivered, merged, left: [ids], absent, repo, error }.
+export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = process.env, located = null, number = null } = {}) {
+  let fetched = findChangePr(gh, root, id, { ship, branch, env, number });
+  const archived = Boolean(located?.archived);
+  const mergedPr = fetched.pr?.state === 'MERGED';
+  let tasks = fetched.tasks ?? null;
+  if (mergedPr && !archived && ship !== 'plan' && !tasks) tasks = defaultTasks(gh, id);
+  if (tasks?.error) fetched = { error: tasks.error };
+  const left = tasks?.unticked ?? [];
+  const delivered = archived || (ship !== 'plan' && mergedPr && Boolean(tasks) && !tasks.error && !tasks.absent && left.length === 0);
+  return {
+    fetched,
+    delivered,
+    merged: mergedPr || fetched.mergedBefore != null,
+    left,
+    absent: Boolean(tasks?.absent),
+    repo: tasks?.repo ?? null,
+    error: fetched.error ?? null,
+  };
 }
 
 // Paths git sees as changed (tracked or untracked) under a pathspec.
@@ -981,7 +1057,11 @@ export function nextStep(state) {
   }
   if (state.ship === 'plan') return step('stop-plan-mode', `ship mode for ${state.schema} is plan; follow the usual apply flow`);
   if (state.archive) return archiveNext(state);
-  if (!state.branchOk) return step('stop-branch', `the current branch does not select change ${state.id} for the hooks; create or switch to a branch named after it`);
+  if (!state.branchOk) {
+    const m = state.mergedLeft;
+    if (m) return step('stop-branch', `PR #${m.number} of ${state.id} merged with tasks left (${m.tasks.join(', ')}); continue on branch ${state.id} and open a further pull request`, { number: m.number, tasks: m.tasks });
+    return step('stop-branch', `the current branch does not select change ${state.id} for the hooks; create or switch to a branch named after it`);
+  }
   if (state.needsReadiness && state.readiness !== 'APPROVED') {
     return step('stop-not-approved', `readiness.md Status is ${state.readiness || 'missing'}, expected APPROVED; the plan needs its approval first`);
   }
@@ -1104,10 +1184,15 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
   const branch = currentBranch(root, env);
   const selected = resolveChange(root, env, branch);
   const merge = ship === 'merge';
-  const fetched = findChangePr(gh, root, id, { ship, branch, env, number: prNumber });
-  // The post-merge phase: the change PR is merged, or the folder already moved (design D4).
-  const postMerge = ship !== 'plan' && (located.archived || fetched.pr?.state === 'MERGED');
-  const repo = merge || postMerge ? readRepoSettings(gh) : null;
+  const delivery = deliveryOf(gh, root, id, { ship, branch, env, located, number: prNumber });
+  const fetched = delivery.fetched;
+  // The post-merge phase: the change is delivered, its own PR merged with every task ticked on the default
+  // branch, or its folder already moved (design D4, field-fixes D-4).
+  const postMerge = ship !== 'plan' && delivery.delivered;
+  const repo = merge || postMerge ? (delivery.repo ?? readRepoSettings(gh)) : null;
+  const mergedLeft = delivery.merged && !delivery.delivered && delivery.left.length
+    ? { number: fetched.pr?.number ?? fetched.mergedBefore, tasks: delivery.left }
+    : null;
   const common = {
     id,
     schema,
@@ -1116,6 +1201,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     branch,
     head: facts.head,
     dirty: facts.dirty,
+    mergedLeft,
     ...(merge ? { setup: mergeSetup(gh, root, mergeMethod, repo) } : {}),
   };
   const prFacts = (f) => (f.pr
@@ -1381,7 +1467,7 @@ function touchedChanges(root, base, active) {
   return [...new Set(names)].sort();
 }
 
-// { name } | { none: true }; throws UsageError (exit 3) or CiFailure (exit 1).
+// { name } | { several: [ids] } | { none: true }; throws UsageError (exit 3) or CiFailure (exit 1).
 // First match wins: the argument or DEVKIT_CHANGE, the branch, the folders the
 // PR touches (with GITHUB_BASE_REF), the only open change (local runs).
 function selectCiChange(root, id, env, branch) {
@@ -1408,7 +1494,7 @@ function selectCiChange(root, id, env, branch) {
   if (env.GITHUB_BASE_REF) {
     const touched = touchedChanges(root, env.GITHUB_BASE_REF, active);
     if (touched.length === 1) return { name: touched[0] };
-    if (touched.length > 1) throw new CiFailure(`several changes are touched by this PR (${touched.join(', ')}); name the branch after one`);
+    if (touched.length > 1) return { several: touched };
     return { none: true };
   }
   if (archiving) return { none: true };
@@ -1416,6 +1502,12 @@ function selectCiChange(root, id, env, branch) {
   if (active.length > 1) throw new CiFailure(`several open changes (${active.join(', ')}); name the branch after one, or set DEVKIT_CHANGE`);
   return { none: true };
 }
+
+// A devkit script is the schema named devkit or devkit-lite, the rule the hooks' opt-in reads (ADR 0012).
+export const isDevkitScript = (schema) => DEVKIT_SCHEMAS.includes(schema);
+const archivedId = (folder) => basename(folder).replace(/^\d{4}-\d{2}-\d{2}-/, '');
+const otherScriptNote = (id, schema) => `${id} is on the ${schema} script, not a devkit script; nothing was checked`;
+const planOnlyNote = (id) => `${id} holds only a plan (no ticked task in tasks.md); not checked`;
 
 // A shallow clone, or a checkout of something other than the PR head, would
 // make every recorded Commit: read as stale: refuse both (exit 3).
@@ -1439,13 +1531,19 @@ function archivePrCheck(root, base) {
   if (changes.missing) throw new UsageError(`GITHUB_BASE_REF is ${base} but origin/${base} is not available; fetch the full history (actions/checkout with fetch-depth: 0)`);
   const folders = [...new Set(changes.paths.map((p) => /^(openspec\/changes\/archive\/\d{4}-\d{2}-\d{2}-[^/]+)\//.exec(p)?.[1]).filter(Boolean))].sort();
   if (!folders.length) return null;
-  const retros = folders.map((f) => ({ folder: f, retro: readRetro(join(root, f, 'retro.md')) }));
+  // Each folder is judged by the schema its own .openspec.yaml names (ADR 0012); another script is a note.
+  const schemaOfFolder = (f) => changeSchemaAt(root, join(root, f));
+  const devkit = folders.filter((f) => isDevkitScript(schemaOfFolder(f)));
+  const notes = folders.filter((f) => !devkit.includes(f)).map((f) => ({ change: archivedId(f), why: 'other-script', schema: schemaOfFolder(f) }));
+  const retros = devkit.map((f) => ({ folder: f, retro: readRetro(join(root, f, 'retro.md')) }));
   const proposals = retros.flatMap((r) => r.retro.proposals);
   return {
     folders,
     noRetro: retros.filter((r) => !r.retro.readable).map((r) => r.folder),
+    missingRetro: retros.filter((r) => !r.retro.exists).map((r) => r.folder),
     unanswered: proposals.filter((p) => p.answer === null).map((p) => p.n),
-    unnamed: unnamedFiles(changes.paths, proposals),
+    unnamed: devkit.length ? unnamedFiles(changes.paths, proposals) : [],
+    notes,
   };
 }
 
@@ -1470,21 +1568,35 @@ function runCi(opts, env, cwd) {
   if (selected.none && env.GITHUB_BASE_REF) {
     const a = archivePrCheck(root, env.GITHUB_BASE_REF);
     if (a) {
+      const retroOf = (f) => `${f}/retro.md`;
       const problems = [
-        ...a.noRetro.map((f) => `${f}/retro.md is missing or has no "## Proposed updates"`),
+        ...a.missingRetro.map((f) => `${retroOf(f)} is missing: it holds the change's retro, with a "## Proposed updates" section listing each proposal and the owner's answer to it; the retro step of the archive writes it (/devkit change, or ship-change for a change begun under the previous script, after the change's pull request merges)`),
+        ...a.noRetro.filter((f) => !a.missingRetro.includes(f)).map((f) => `${retroOf(f)} has no "## Proposed updates" section: it must list each proposal with the owner's answer; the retro step of the archive writes it`),
         ...(a.unanswered.length ? [`unanswered proposals: ${a.unanswered.length}`] : []),
         ...(a.unnamed.length ? [`files no approved proposal names: ${a.unnamed.join(', ')}`] : []),
       ];
       const pass = problems.length === 0;
-      const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
+      const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...a.notes.map((n) => `  note: ${otherScriptNote(n.change, n.schema)}`), ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
       return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, pass, archive: a }, text);
     }
   }
+  if (selected.several) return runSeveral(root, selected.several, facts, finish);
   if (selected.none) {
     const note = `no change selected by branch ${currentBranch(root, env) || '(detached)'} or touched by this PR; nothing to check`;
     return finish(0, { version: 1, mode: 'ci', change: null, pass: true, note }, `devkit-reviews: ${note}\n`);
   }
   const id = selected.name;
+  const schema = changeSchema(root, id);
+  if (!isDevkitScript(schema)) {
+    const note = `${id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')}); nothing was checked`;
+    return finish(0, { version: 1, mode: 'ci', change: id, schema, pass: true, note }, `devkit-reviews: ${note}\npass\n`);
+  }
+  const one = checkOne(root, id, facts);
+  return finish(one.pass ? 0 : 1, one.report, [...one.lines, one.pass ? 'pass' : `fail: ${one.failed.join(', ')}`].join('\n') + '\n');
+}
+
+// Today's single-change check, unchanged: { report, lines, failed, pass } for a change on a devkit script.
+function checkOne(root, id, facts) {
   const schema = changeSchema(root, id);
   const needsReadiness = schemaHasArtifact(root, schema, 'readiness');
   const status = needsReadiness ? readValue(join(changeDir(root, id), 'readiness.md'), 'Status') : null;
@@ -1498,13 +1610,38 @@ function runCi(opts, env, cwd) {
     pass,
   };
   const failed = [...(readinessMet ? [] : ['readiness']), ...items.filter((i) => i.status !== 'met').map((i) => `item ${i.id}`)];
-  const text = [
+  const lines = [
     `devkit-reviews: ${id} (schema ${schema}, head ${facts.head ? facts.head.slice(0, 7) : 'none'})`,
     ...(needsReadiness ? [`  readiness ${(readinessMet ? 'met' : 'open').padEnd(9)}Status: ${status || 'missing'}`] : []),
     ...items.map((i) => `  ${i.id} ${i.status.padEnd(9)}${LABELS[i.id - 1]}: ${i.reason}`),
-    pass ? 'pass' : `fail: ${failed.join(', ')}`,
-  ].join('\n') + '\n';
-  return finish(pass ? 0 : 1, report, text);
+  ];
+  return { report, lines, failed, pass };
+}
+
+// A pull request that touches several changes and is named after none (ADR 0012): each touched devkit-script
+// change with a ticked task is judged on its own; a plan or another script is a note.
+function runSeveral(root, ids, facts, finish) {
+  const judged = [];
+  const notes = [];
+  for (const id of ids) {
+    const schema = changeSchema(root, id);
+    if (!isDevkitScript(schema)) { notes.push({ change: id, why: 'other-script', schema }); continue; }
+    const tasksFile = join(changeDir(root, id), 'tasks.md');
+    const ticked = existsSync(tasksFile) && parseTasks(readFileSync(tasksFile, 'utf8')).some((t) => t.done);
+    if (ticked) judged.push(id); else notes.push({ change: id, why: 'plan-only', schema });
+  }
+  const plans = notes.filter((n) => n.why === 'plan-only');
+  const noteLines = notes.map((n) => `  note: ${n.why === 'plan-only' ? planOnlyNote(n.change) : otherScriptNote(n.change, n.schema)}`);
+  const header = `devkit-reviews: ${ids.length} changes touched by this PR (${ids.join(', ')})`;
+  if (!judged.length && plans.length) {
+    const message = `this PR delivers no change: ${plans.map((n) => n.change).join(', ')} hold only a plan (no ticked task in tasks.md)`;
+    return finish(1, { version: 1, mode: 'ci', change: null, changes: [], notes, pass: false, error: message }, [header, ...noteLines, `fail: ${message}`].join('\n') + '\n');
+  }
+  const results = judged.map((id) => ({ id, ...checkOne(root, id, facts) }));
+  const pass = results.every((r) => r.pass);
+  const failedText = results.filter((r) => !r.pass).map((r) => `${r.id}: ${r.failed.join(', ')}`).join('; ');
+  const text = [header, ...results.flatMap((r) => r.lines), ...noteLines, pass ? 'pass' : `fail: ${failedText}`].join('\n') + '\n';
+  return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, changes: results.map((r) => r.report), notes, pass }, text);
 }
 
 // Runs the checker: { code, stdout, stderr }. Exit 0 only when 8/8 are met,

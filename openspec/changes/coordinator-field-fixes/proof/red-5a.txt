@@ -1,0 +1,358 @@
+✖ field-fixes 5 actions: Actions disabled for the repository is blocked, names where to enable it and exits 1 (689.135625ms)
+✖ field-fixes 5 actions: Actions permissions that cannot be read are unknown, never blocked, and the exit code stays 0 (696.863084ms)
+✖ field-fixes 5 actions: Actions enabled is ok (693.400375ms)
+✖ field-fixes 5 runs: the newest runs all failed without a job starting a step is blocked, naming billing as one possible cause (691.32725ms)
+✖ field-fixes 5 runs: a failed run whose job started a step is ok, and so is a run that succeeded (709.096875ms)
+✖ field-fixes 5 runs: runs or jobs that cannot be read are unknown, never blocked, and the exit code stays 0 (712.168584ms)
+✖ field-fixes 5 rulesets: a 403 naming the plan blocks the ruleset with the line, defers auto-merge and exits 1 (651.422791ms)
+✖ field-fixes 5 rulesets: a read failure that is not about the plan stays an error (645.360875ms)
+✖ field-fixes 5 rulesets: --apply with the rulesets refused writes no ruleset and no auto-merge, and applies the workflow and delete-branch (786.695458ms)
+✖ field-fixes 5 checks: the proposed checks are the ones reported on pull request heads, never a job that runs only on the default branch (659.112458ms)
+✖ field-fixes 5 checks: with no pull request check reported the list is empty and the plan says to pass --checks (678.476083ms)
+✖ field-fixes 5 checks: --checks still replaces the proposed list and reads no pull request (835.246833ms)
+✖ field-fixes 5 nothing written: no gh api -X call and no file in any blocked or unknown state (634.850583ms)
+✖ field-fixes 5 skill: step 7 names the repository states, that billing is only a possible cause, and that a blocked ruleset means merge mode is not available (0.237625ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 0
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9131.39525
+
+✖ failing tests:
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:358:1
+✖ field-fixes 5 actions: Actions disabled for the repository is blocked, names where to enable it and exits 1 (689.135625ms)
+  AssertionError [ERR_ASSERTION]: repository: default branch main, merge method squash
+  the ruleset will require these checks, found on main (confirm them, or pass --checks): check
+  workflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it
+  auto-merge     update    allow_auto_merge is off
+    gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true
+  delete-branch  update    delete_branch_on_merge is off
+    gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true
+  ruleset        deferred  devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:361:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:367:1
+✖ field-fixes 5 actions: Actions permissions that cannot be read are unknown, never blocked, and the exit code stays 0 (696.863084ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^actions\s+unknown\s+cannot read whether GitHub Actions is enabled: gh: Must have admin rights/m. Input:
+  
+  'repository: default branch main, merge method squash\n' +
+    'the ruleset will require these checks, found on main (confirm them, or pass --checks): check\n' +
+    'workflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\n' +
+    'auto-merge     update    allow_auto_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\n' +
+    'delete-branch  update    delete_branch_on_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\n' +
+    'ruleset        deferred  devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:371:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'repository: default branch main, merge method squash\nthe ruleset will require these checks, found on main (confirm them, or pass --checks): check\nworkflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\nauto-merge     update    allow_auto_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\ndelete-branch  update    delete_branch_on_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\nruleset        deferred  devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)\n',
+    expected: /^actions\s+unknown\s+cannot read whether GitHub Actions is enabled: gh: Must have admin rights/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:375:1
+✖ field-fixes 5 actions: Actions enabled is ok (693.400375ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'find')
+      at repoCheck (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:356:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:377:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:381:1
+✖ field-fixes 5 runs: the newest runs all failed without a job starting a step is blocked, naming billing as one possible cause (691.32725ms)
+  AssertionError [ERR_ASSERTION]: repository: default branch main, merge method squash
+  the ruleset will require these checks, found on main (confirm them, or pass --checks): check
+  workflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it
+  auto-merge     update    allow_auto_merge is off
+    gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true
+  delete-branch  update    delete_branch_on_merge is off
+    gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true
+  ruleset        deferred  devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:384:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:389:1
+✖ field-fixes 5 runs: a failed run whose job started a step is ok, and so is a run that succeeded (709.096875ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'find')
+      at repoCheck (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:356:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:391:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:398:1
+✖ field-fixes 5 runs: runs or jobs that cannot be read are unknown, never blocked, and the exit code stays 0 (712.168584ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^runs\s+unknown\s+cannot read the newest workflow runs: gh: Not Found/m. Input:
+  
+  'repository: default branch main, merge method squash\n' +
+    'the ruleset will require these checks, found on main (confirm them, or pass --checks): check\n' +
+    'workflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\n' +
+    'auto-merge     update    allow_auto_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\n' +
+    'delete-branch  update    delete_branch_on_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\n' +
+    'ruleset        deferred  devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:402:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'repository: default branch main, merge method squash\nthe ruleset will require these checks, found on main (confirm them, or pass --checks): check\nworkflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\nauto-merge     update    allow_auto_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\ndelete-branch  update    delete_branch_on_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\nruleset        deferred  devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)\n',
+    expected: /^runs\s+unknown\s+cannot read the newest workflow runs: gh: Not Found/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:410:1
+✖ field-fixes 5 rulesets: a 403 naming the plan blocks the ruleset with the line, defers auto-merge and exits 1 (651.422791ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^ruleset\s+blocked\s+GitHub refuses rulesets for this repository's plan \(gh: Upgrade to GitHub Pro or make this repository public to enable this feature\. \(HTTP 403\)\): make the repository public, or move it to a plan with rulesets; merge mode needs the ruleset \(ADR 0002\), so auto-merge is not applied either$/m. Input:
+  
+  'repository: default branch main, merge method squash\n' +
+    'the ruleset will require these checks, found on main (confirm them, or pass --checks): check\n' +
+    'workflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\n' +
+    'auto-merge     update    allow_auto_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\n' +
+    'delete-branch  update    delete_branch_on_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\n' +
+    'ruleset        error     cannot read the rulesets: gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:415:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'repository: default branch main, merge method squash\nthe ruleset will require these checks, found on main (confirm them, or pass --checks): check\nworkflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\nauto-merge     update    allow_auto_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\ndelete-branch  update    delete_branch_on_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\nruleset        error     cannot read the rulesets: gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)\n',
+    expected: /^ruleset\s+blocked\s+GitHub refuses rulesets for this repository's plan \(gh: Upgrade to GitHub Pro or make this repository public to enable this feature\. \(HTTP 403\)\): make the repository public, or move it to a plan with rulesets; merge mode needs the ruleset \(ADR 0002\), so auto-merge is not applied either$/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:420:1
+✖ field-fixes 5 rulesets: a read failure that is not about the plan stays an error (645.360875ms)
+  AssertionError [ERR_ASSERTION]: the repository checks are part of the result
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:424:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:430:1
+✖ field-fixes 5 rulesets: --apply with the rulesets refused writes no ruleset and no auto-merge, and applies the workflow and delete-branch (786.695458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'workflow',
+  +   'auto-merge',
+      'delete-branch'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:436:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'workflow', 'auto-merge', 'delete-branch' ],
+    expected: [ 'workflow', 'delete-branch' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:444:1
+✖ field-fixes 5 checks: the proposed checks are the ones reported on pull request heads, never a job that runs only on the default branch (659.112458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'test',
+  +   'publish'
+  -   'lint'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:448:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'test', 'publish' ],
+    expected: [ 'test', 'lint' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:458:1
+✖ field-fixes 5 checks: with no pull request check reported the list is empty and the plan says to pass --checks (678.476083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'check'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:460:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'check' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:466:1
+✖ field-fixes 5 checks: --checks still replaces the proposed list and reads no pull request (835.246833ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'map')
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:469:71)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:473:1
+✖ field-fixes 5 nothing written: no gh api -X call and no file in any blocked or unknown state (634.850583ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^actions\s+blocked/m. Input:
+  
+  'repository: default branch main, merge method squash\n' +
+    'the ruleset will require these checks, found on main (confirm them, or pass --checks): check\n' +
+    'workflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\n' +
+    'auto-merge     update    allow_auto_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\n' +
+    'delete-branch  update    delete_branch_on_merge is off\n' +
+    '  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\n' +
+    'ruleset        error     cannot read the rulesets: gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:478:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'repository: default branch main, merge method squash\nthe ruleset will require these checks, found on main (confirm them, or pass --checks): check\nworkflow       create    .github/workflows/devkit-reviews.yml is missing; the script writes it from the template, pinned to aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (v0.16.0); the owner commits it\nauto-merge     update    allow_auto_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true\ndelete-branch  update    delete_branch_on_merge is off\n  gh api -X PATCH repos/{owner}/{repo} -F delete_branch_on_merge=true\nruleset        error     cannot read the rulesets: gh: Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)\n',
+    expected: /^actions\s+blocked/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:485:1
+✖ field-fixes 5 skill: step 7 names the repository states, that billing is only a possible cause, and that a blocked ruleset means merge mode is not available (0.237625ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /`blocked`/. Input:
+  
+  "GitHub (merge mode).** Ask only when the owner wants `ship: merge` or asks for this step; skip it otherwise. It changes repository settings, so nothing is applied without the owner's confirmation of that item.\n" +
+    '   - Run the plan, which reads and writes nothing: `node <skill-dir>/scripts/github-setup.mjs` (add `--method <squash|merge|rebase>` for another merge method, `--checks <a,b>` to replace the checks it found). Show every line, with its payload, and the list of checks the ruleset will require: the owner confirms that list (or gives `--checks`) before the `ruleset` item is applied.\n' +
+    '   - Items: `workflow` (`.github/workflows/devkit-reviews.yml`, written from the template, pinned to the commit sha of the release tag `v<devkit-openspec version>`, and never committed by the script; `deferred` while that tag does not exist), `auto-merge`, `delete-branch`, `ruleset` (`devkit`: a pull request, the existing checks plus `devkit-reviews`, up to date, no force pushes, no bypass). States: `ok`, `create`, `update`, `deferred: <why>`. A `deferred` item is not applied; follow its reason (for `ruleset`: commit the workflow and merge it through a normal PR first, because a required check that never reports blocks every PR).\n' +
+    '   - Before asking, say plainly: once the `ruleset` is active, `main` will refuse direct pushes from everyone, the owner included, so every change, archive commits too, lands through a PR; and when it is applied from a PR, the other open PRs listed will wait for `devkit-reviews` until updated with the default branch.\n' +
+    '   - Ask the owner to confirm each item that is not `ok`: one question per item. Run `node <skill-dir>/scripts/github-setup.mjs --apply <confirmed items>` with only the items that got a yes. Then run the plan again and show it; every confirmed item must read `ok`. A write error is reported per item (usually missing admin rights); report it and stop that item.\n' +
+    '   - Add `ship` and `merge_method` to `openspec/config.yaml` only if the owner asks (the template has a commented example). Re-running the step is safe: items already `ok` are not touched.\n' +
+    '\n' +
+    "8. **Report** what was created or changed, and the first command to run: `openspec new change <name>` (default, `devkit-lite`) or `openspec new change <name> --schema devkit` (full flow, for the changes the config's header comment lists).\n" +
+    '\n' +
+    '## Never\n' +
+    '\n' +
+    "- Overwrite an existing `openspec/config.yaml` wholesale, or remove the user's rules.\n" +
+    '- Leave `<placeholder>` values in `context`.\n' +
+    '- Commit. Show the diff and leave committing to the user.\n' +
+    '- Install a pack at user scope, run `claude plugin install` without `--scope project`, or edit `~/.claude/` or `.claude/settings.local.json`.\n' +
+    "- Change GitHub settings without the owner's confirmation of that item, or apply an item that was not confirmed.\n"
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:488:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "GitHub (merge mode).** Ask only when the owner wants `ship: merge` or asks for this step; skip it otherwise. It changes repository settings, so nothing is applied without the owner's confirmation of that item.\n   - Run the plan, which reads and writes nothing: `node <skill-dir>/scripts/github-setup.mjs` (add `--method <squash|merge|rebase>` for another merge method, `--checks <a,b>` to replace the checks it found). Show every line, with its payload, and the list of checks the ruleset will require: the owner confirms that list (or gives `--checks`) before the `ruleset` item is applied.\n   - Items: `workflow` (`.github/workflows/devkit-reviews.yml`, written from the template, pinned to the commit sha of the release tag `v<devkit-openspec version>`, and never committed by the script; `deferred` while that tag does not exist), `auto-merge`, `delete-branch`, `ruleset` (`devkit`: a pull request, the existing checks plus `devkit-reviews`, up to date, no force pushes, no bypass). States: `ok`, `create`, `update`, `deferred: <why>`. A `deferred` item is not applied; follow its reason (for `ruleset`: commit the workflow and merge it through a normal PR first, because a required check that never reports blocks every PR).\n   - Before asking, say plainly: once the `ruleset` is active, `main` will refuse direct pushes from everyone, the owner included, so every change, archive commits too, lands through a PR; and when it is applied from a PR, the other open PRs listed will wait for `devkit-reviews` until updated with the default branch.\n   - Ask the owner to confirm each item that is not `ok`: one question per item. Run `node <skill-dir>/scripts/github-setup.mjs --apply <confirmed items>` with only the items that got a yes. Then run the plan again and show it; every confirmed item must read `ok`. A write error is reported per item (usually missing admin rights); report it and stop that item.\n   - Add `ship` and `merge_method` to `openspec/config.yaml` only if the owner asks (the template has a commented example). Re-running the step is safe: items already `ok` are not touched.\n\n8. **Report** what was created or changed, and the first command to run: `openspec new change <name>` (default, `devkit-lite`) or `openspec new change <name> --schema devkit` (full flow, for the changes the config's header comment lists).\n\n## Never\n\n- Overwrite an existing `openspec/config.yaml` wholesale, or remove the user's rules.\n- Leave `<placeholder>` values in `context`.\n- Commit. Show the diff and leave committing to the user.\n- Install a pack at user scope, run `claude plugin install` without `--scope project`, or edit `~/.claude/` or `.claude/settings.local.json`.\n- Change GitHub settings without the owner's confirmation of that item, or apply an item that was not confirmed.\n",
+    expected: /`blocked`/,
+    operator: 'match',
+    diff: 'simple'
+  }

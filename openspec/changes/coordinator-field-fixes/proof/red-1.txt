@@ -1,0 +1,296 @@
+✖ field-fixes 6 flow-check: a pinned 1.16.0 and a 2.x on PATH exits 3 naming the version, the path and the move, and the PATH one never runs (524.850375ms)
+✖ field-fixes 6 flow-check: a declared pin that is not installed exits 3 and the PATH one never runs (511.082ms)
+✖ field-fixes 6 flow-check: a pinned 2.x answers the status calls, never the one on PATH (511.048542ms)
+✖ field-fixes 6 change-loop: next with a pinned 1.16.0 exits 3 with the message in error, and the PATH CLI never runs (532.354584ms)
+✖ field-fixes 6 change-loop: next with a pinned 2.x is answered by the pinned CLI (524.885834ms)
+✖ field-fixes 6 install-schemas: a pinned 1.16.0 exits 1 naming version, path and the move, replaces no schema, and the PATH CLI never runs (335.088458ms)
+✖ field-fixes 6 install-schemas: a pinned 2.x validates the schemas with the pinned CLI (366.212958ms)
+✖ field-fixes 6 install-schemas: a declared pin with nothing installed exits 1 and replaces no schema (330.027708ms)
+✔ field-fixes 6 install-schemas: a 1.x on PATH with no pin keeps today's copy (332.799625ms)
+✖ field-fixes 6 cli: a checkout's node_modules/.bin/openspec wins over the one on PATH (21.043459ms)
+✖ field-fixes 6 cli: a worktree with none finds the main checkout's (101.252125ms)
+✖ field-fixes 6 cli: a package.json declaring the pin with nothing installed is an error naming the file, the range and the install (20.354ms)
+✖ field-fixes 6 cli: no pin gives the openspec on PATH (21.092542ms)
+✖ field-fixes 6 cli: the session text runs the pinned CLI, never the one on PATH (349.183542ms)
+✖ field-fixes 6 cli: the session text over a pinned 1.16.0 is one line naming the version, the path and the move to 2.x (362.169167ms)
+✖ field-fixes 6 cli: the session text over a declared, uninstalled pin is one line naming the install and starts no openspec (336.336792ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 1
+ℹ fail 15
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5260.922334
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1282:1
+✖ field-fixes 6 flow-check: a pinned 1.16.0 and a 2.x on PATH exits 3 naming the version, the path and the move, and the PATH one never runs (524.850375ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /1\.16\.0/. Input:
+  
+  'flow-check: openspec status --change gave no artifacts list: stub\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:1286:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'flow-check: openspec status --change gave no artifacts list: stub\n',
+    expected: /1\.16\.0/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1295:1
+✖ field-fixes 6 flow-check: a declared pin that is not installed exits 3 and the PATH one never runs (511.082ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /package\.json/. Input:
+  
+  'flow-check: openspec status --change gave no artifacts list: stub\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:1300:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'flow-check: openspec status --change gave no artifacts list: stub\n',
+    expected: /package\.json/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1306:1
+✖ field-fixes 6 flow-check: a pinned 2.x answers the status calls, never the one on PATH (511.048542ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^pinned status --change feat/m. Input:
+  
+  'path status --change feat --json\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.test.mjs:1309:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'path status --change feat --json\n',
+    expected: /^pinned status --change feat/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2387:1
+✖ field-fixes 6 change-loop: next with a pinned 1.16.0 exits 3 with the message in error, and the PATH CLI never runs (532.354584ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /1\.16\.0/. Input:
+  
+  'openspec status --change gave no artifacts list: stub'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2392:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'openspec status --change gave no artifacts list: stub',
+    expected: /1\.16\.0/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2398:1
+✖ field-fixes 6 change-loop: next with a pinned 2.x is answered by the pinned CLI (524.885834ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^pinned status --change feat/m. Input:
+  
+  'path status --change feat --json\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/change-loop.test.mjs:2401:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'path status --change feat --json\n',
+    expected: /^pinned status --change feat/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/install-schemas.test.mjs:110:1
+✖ field-fixes 6 install-schemas: a pinned 1.16.0 exits 1 naming version, path and the move, replaces no schema, and the PATH CLI never runs (335.088458ms)
+  AssertionError [ERR_ASSERTION]: installed /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/inst-6JGwou/repo/openspec/schemas/devkit
+  installed /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/inst-6JGwou/repo/openspec/schemas/devkit-lite
+  {"status":[{"severity":"error","message":"stub"}]}
+  {"status":[{"severity":"error","message":"stub"}]}
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/install-schemas.test.mjs:113:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/install-schemas.test.mjs:121:1
+✖ field-fixes 6 install-schemas: a pinned 2.x validates the schemas with the pinned CLI (366.212958ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^pinned schema validate devkit$/m. Input:
+  
+  'path schema validate devkit\npath schema validate devkit-lite\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/install-schemas.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'path schema validate devkit\npath schema validate devkit-lite\n',
+    expected: /^pinned schema validate devkit$/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/install-schemas.test.mjs:130:1
+✖ field-fixes 6 install-schemas: a declared pin with nothing installed exits 1 and replaces no schema (330.027708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/skills/openspec-setup/scripts/install-schemas.test.mjs:134:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1239:1
+✖ field-fixes 6 cli: a checkout's node_modules/.bin/openspec wins over the one on PATH (21.043459ms)
+  TypeError [Error]: GUARD.openspecCli is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/guard.test.mjs:1242:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+
+test at plugins/openspec/hooks/guard.test.mjs:1245:1
+✖ field-fixes 6 cli: a worktree with none finds the main checkout's (101.252125ms)
+  TypeError [Error]: GUARD.openspecCli is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/guard.test.mjs:1249:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/guard.test.mjs:1255:1
+✖ field-fixes 6 cli: a package.json declaring the pin with nothing installed is an error naming the file, the range and the install (20.354ms)
+  TypeError [Error]: GUARD.openspecCli is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/guard.test.mjs:1258:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/guard.test.mjs:1264:1
+✖ field-fixes 6 cli: no pin gives the openspec on PATH (21.092542ms)
+  TypeError [Error]: GUARD.openspecCli is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/guard.test.mjs:1267:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/guard.test.mjs:1270:1
+✖ field-fixes 6 cli: the session text runs the pinned CLI, never the one on PATH (349.183542ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^pinned status --change x/m. Input:
+  
+  'path status --change x\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/guard.test.mjs:1275:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'path status --change x\n',
+    expected: /^pinned status --change x/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1279:1
+✖ field-fixes 6 cli: the session text over a pinned 1.16.0 is one line naming the version, the path and the move to 2.x (362.169167ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^\[devkit\] [^\n]*\n$/. Input:
+  
+  '[devkit] Active OpenSpec change: x (schema devkit-lite).\n' +
+    "Follow the schema: `/devkit change` runs a change from your request to its archive (`ship-change` still finishes a change begun under the previous script), and `flow-check` is the read-only readout of the stages (`node /Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.mjs x` says which passed and which is next); `openspec instructions <artifact> --change <name>` says how each stage is written. A stage's instruction names its role; in Claude Code a role is the devkit-core agent of the same name, dispatched with the Agent tool (`owner` is you asking the owner, `change-coordinator` is this session, `review-bench` is the review-change skill). Gate files have one writer each (readiness.md: plan-readiness-reviewer; reviews/<reviewer>.md: that reviewer; evidence.md: pr-verifier); in the devkit schema, product code is written by tdd-implementer after readiness is APPROVED. Dispatch those agents with the Agent tool.\n"
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/guard.test.mjs:1284:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "[devkit] Active OpenSpec change: x (schema devkit-lite).\nFollow the schema: `/devkit change` runs a change from your request to its archive (`ship-change` still finishes a change begun under the previous script), and `flow-check` is the read-only readout of the stages (`node /Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.mjs x` says which passed and which is next); `openspec instructions <artifact> --change <name>` says how each stage is written. A stage's instruction names its role; in Claude Code a role is the devkit-core agent of the same name, dispatched with the Agent tool (`owner` is you asking the owner, `change-coordinator` is this session, `review-bench` is the review-change skill). Gate files have one writer each (readiness.md: plan-readiness-reviewer; reviews/<reviewer>.md: that reviewer; evidence.md: pr-verifier); in the devkit schema, product code is written by tdd-implementer after readiness is APPROVED. Dispatch those agents with the Agent tool.\n",
+    expected: /^\[devkit\] [^\n]*\n$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1291:1
+✖ field-fixes 6 cli: the session text over a declared, uninstalled pin is one line naming the install and starts no openspec (336.336792ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^\[devkit\] [^\n]*\n$/. Input:
+  
+  '[devkit] Active OpenSpec change: x (schema devkit-lite).\n' +
+    "Follow the schema: `/devkit change` runs a change from your request to its archive (`ship-change` still finishes a change begun under the previous script), and `flow-check` is the read-only readout of the stages (`node /Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.mjs x` says which passed and which is next); `openspec instructions <artifact> --change <name>` says how each stage is written. A stage's instruction names its role; in Claude Code a role is the devkit-core agent of the same name, dispatched with the Agent tool (`owner` is you asking the owner, `change-coordinator` is this session, `review-bench` is the review-change skill). Gate files have one writer each (readiness.md: plan-readiness-reviewer; reviews/<reviewer>.md: that reviewer; evidence.md: pr-verifier); in the devkit schema, product code is written by tdd-implementer after readiness is APPROVED. Dispatch those agents with the Agent tool.\n"
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/guard.test.mjs:1296:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "[devkit] Active OpenSpec change: x (schema devkit-lite).\nFollow the schema: `/devkit change` runs a change from your request to its archive (`ship-change` still finishes a change begun under the previous script), and `flow-check` is the read-only readout of the stages (`node /Users/kauesantos/Documents/devkit/.claude/worktrees/coordinator-field-fixes/plugins/openspec/hooks/flow-check.mjs x` says which passed and which is next); `openspec instructions <artifact> --change <name>` says how each stage is written. A stage's instruction names its role; in Claude Code a role is the devkit-core agent of the same name, dispatched with the Agent tool (`owner` is you asking the owner, `change-coordinator` is this session, `review-bench` is the review-change skill). Gate files have one writer each (readiness.md: plan-readiness-reviewer; reviews/<reviewer>.md: that reviewer; evidence.md: pr-verifier); in the devkit schema, product code is written by tdd-implementer after readiness is APPROVED. Dispatch those agents with the Agent tool.\n",
+    expected: /^\[devkit\] [^\n]*\n$/,
+    operator: 'match',
+    diff: 'simple'
+  }

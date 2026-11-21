@@ -3,12 +3,12 @@
 // and GitHub, the readout and the command line; it runs nothing when imported. It calls no AI: its imports
 // are node built-ins and the pack's hook modules, and the only programs it starts are git, openspec and gh.
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { schemaFile, findRoot, DEVKIT_SCHEMAS } from './guard.mjs';
-import { gitFacts, staleness, locateChange, schemaOf, shipConfig, ShipConfigError, findChangePr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
+import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal } from './guard.mjs';
+import { gitFacts, staleness, locateChange, schemaOf, shipConfig, ShipConfigError, deliveryOf, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 export class FlowUsageError extends Error {
@@ -41,7 +41,12 @@ export function readFlow(root, schema) {
   if (!sf) return null;
   const f = join(dirname(sf), 'flow.json');
   if (!existsSync(f)) return null;
-  const bad = (why) => new FlowUsageError(`flow.json of ${schema} is malformed: ${why}`);
+  return readFlowFile(f, schema);
+}
+
+// The declaration in the flow.json at `f`, checked; `name` is what its error messages call it (a schema name or a path).
+export function readFlowFile(f, name = f) {
+  const bad = (why) => new FlowUsageError(`flow.json of ${name} is malformed: ${why}`);
   let flow;
   try { flow = JSON.parse(readFileSync(f, 'utf8')); } catch (e) { throw bad(`not JSON (${e.message})`); }
   if (!flow || typeof flow !== 'object' || !Array.isArray(flow.stages) || flow.stages.length === 0) throw bad('no stages');
@@ -105,18 +110,37 @@ export function pendingTasks(openspecTasks, tasksText) {
 const MAX_BUFFER = 64 * 1024 * 1024;
 const OPENSPEC_TIMEOUT_MS = 60000;
 
-// The runner of the `openspec` CLI, shaped like makeGh: (args) => { status, stdout, stderr, missing, timedOut }.
+// The runner of the project's `openspec` CLI (guard.mjs#openspecCli), shaped like makeGh:
+// (args) => { status, stdout, stderr, missing, timedOut, refused? }. `refused` is the message of a CLI the packs
+// cannot use (a declared pin not installed, a pinned CLI that is not 2.x); nothing is started then. `.cli` says which.
 export function makeOpenspec(cwd, env = process.env, timeoutMs = OPENSPEC_TIMEOUT_MS) {
-  return (args) => {
-    const r = spawnSync('openspec', args, { cwd, env, encoding: 'utf8', timeout: timeoutMs, maxBuffer: MAX_BUFFER });
+  const cli = openspecCli(findRoot(cwd) ?? cwd);
+  // A pinned CLI runs by its folder going first on PATH, so the program started is still the one named `openspec`
+  // (the AC-9 scan lists the programs this checker starts) and is never the PATH one.
+  const startEnv = cli.pinned ? { ...env, PATH: `${dirname(cli.bin)}${delimiter}${env.PATH ?? ''}` } : env;
+  const start = (args) => {
+    const r = spawnSync('openspec', args, { cwd, env: startEnv, encoding: 'utf8', timeout: timeoutMs, maxBuffer: MAX_BUFFER });
     return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '', missing: r.error?.code === 'ENOENT', timedOut: r.error?.code === 'ETIMEDOUT' };
   };
+  const refusedAnswer = (message) => ({ status: null, stdout: '', stderr: '', missing: false, timedOut: false, refused: message });
+  let pinRefusal; // undefined until the pinned CLI's version was read once
+  const run = (args) => {
+    if (cli.error) return refusedAnswer(cli.error);
+    if (cli.pinned) {
+      pinRefusal ??= openspecRefusal(cli, start(['--version']).stdout);
+      if (pinRefusal) return refusedAnswer(pinRefusal);
+    }
+    return start(args);
+  };
+  run.cli = cli;
+  return run;
 }
 
 // The JSON an openspec call printed, or a FlowUsageError quoting what it said.
 function openspecJson(run, args, need) {
   const r = run(args);
   const what = `openspec ${args.slice(0, 2).join(' ')}`;
+  if (r.refused) throw new FlowUsageError(r.refused);
   if (r.missing) throw new FlowUsageError('the openspec CLI is not installed or not on PATH');
   if (r.timedOut) throw new FlowUsageError(`${what} timed out`);
   let body = null;
@@ -129,7 +153,7 @@ function openspecJson(run, args, need) {
 }
 
 // The files of one artifact stage: every .md under a glob's base folder, or the one named file.
-function stageFiles(dir, file) {
+export function stageFiles(dir, file) {
   const paths = [];
   if (file.includes('*')) {
     const base = file.slice(0, file.indexOf('*')).replace(/\/+$/, '');
@@ -148,9 +172,14 @@ function stageFiles(dir, file) {
   return paths.map((path) => ({ path, header: parseStageHeader(readFileSync(join(dir, path), 'utf8')), mtimeMs: statSync(join(dir, path)).mtimeMs }));
 }
 
-const hasStageFile = (files) => Object.values(files).some((fs) => fs.length > 0);
-const hasHeader = (files) => Object.values(files).some((fs) => fs.some((f) => f.header !== null));
-const isPreviousScript = (files) => hasStageFile(files) && !hasHeader(files);
+// A change begun under the previous script (D-2): the earliest artifact stage that has a file, in the order the
+// declaration lists them, has no header on any of its files. A header on a later file (a readiness, an evidence or a
+// review the current agents wrote) does not change that. No file at all is a change being opened: current.
+export function isPreviousScript(files, flow) {
+  const order = flow.stages.filter((s) => s.source === 'artifact').map((s) => s.id);
+  const earliest = order.find((id) => (files[id] ?? []).length > 0);
+  return earliest !== undefined && files[earliest].every((f) => f.header === null);
+}
 
 // What changes the work: the head, the working tree against it and the bytes of every untracked file
 // outside .claude/ (design D-6, no progress). Twelve hex characters.
@@ -184,15 +213,15 @@ function offOwnBranch(root, id, branch) {
 
 // The delivery of design D-6, read only when the walk reaches it:
 // { state: 'passed' } | { next: { stage, reasonCode, params } } | { end: { state, reasonCode, params } }.
-function readDelivery({ ship, gh, head, fetched }) {
+function readDelivery({ ship, gh, head, delivery }) {
   const next = (stage, reasonCode, params = {}) => ({ next: { stage, reasonCode, params } });
   const end = (state, reasonCode, params = {}) => ({ end: { state, reasonCode, params } });
   if (ship === 'plan') return end('waiting-for-owner', 'ship-plan');
-  const found = fetched();
+  const { fetched: found, delivered, left } = delivery();
   if (found.error) return end('blocked', 'gh-error', { error: found.error });
   if (found.none) return next('delivery', 'no-pr');
   const pr = found.pr;
-  if (pr.state === 'MERGED') return { state: 'passed' };
+  if (pr.state === 'MERGED') return delivered ? { state: 'passed' } : next('implementation', 'tasks-left-after-merge', { number: pr.number, tasks: left.join(', ') });
   if (pr.state !== 'OPEN') return end('blocked', 'pr-closed', { number: pr.number });
   if (pr.headRefOid !== head) return next('delivery', 'not-pushed', { number: pr.number });
   const checks = checksItem(found, gh);
@@ -217,7 +246,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const files = {};
   for (const s of flow.stages) if (s.source === 'artifact') files[s.id] = stageFiles(located.dir, s.file);
   Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null });
-  if (isPreviousScript(files)) return { facts, flow };
+  if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
   try { config = shipConfig(root, schema); } catch (e) {
     if (e instanceof ShipConfigError) throw new FlowUsageError(e.message);
@@ -229,12 +258,12 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   // the task count give way to the headers themselves.
   const branch = currentBranch(root, env);
   let lookup = null;
-  const fetched = () => (lookup ??= findChangePr(gh, root, id, { ship: config.ship, branch, env }));
-  const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && fetched().pr?.state === 'MERGED';
+  const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located }));
+  const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf)),
-    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, fetched }),
+    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery }),
   });
   const status = openspecJson(openspec, ['status', '--change', id, '--json'], 'artifacts');
   facts.skipped = status.artifacts.filter((a) => a.status === 'skipped').map((a) => a.id);
@@ -300,6 +329,7 @@ export const TEXT = {
     'auto-merge-on': (p) => `auto-merge is on for pull request #${p.number}; waiting for ${p.waiting}`,
     'enable-auto-merge': (p) => `pull request #${p.number} is green; auto-merge is not on yet`,
     'pr-closed': (p) => `pull request #${p.number} was closed without merging`,
+    'tasks-left-after-merge': (p) => `pull request #${p.number} merged with tasks left (${p.tasks}); they go in a further pull request`,
   },
   'pt-BR': {
     passed: (p) => (p.attempt > 1 ? `passou na tentativa ${p.attempt}` : 'passou'),
@@ -341,6 +371,7 @@ export const TEXT = {
     'auto-merge-on': (p) => `o auto-merge está ligado no pull request #${p.number}; esperando ${p.waiting}`,
     'enable-auto-merge': (p) => `o pull request #${p.number} está verde; o auto-merge ainda não está ligado`,
     'pr-closed': (p) => `o pull request #${p.number} foi fechado sem mesclar`,
+    'tasks-left-after-merge': (p) => `o pull request #${p.number} foi mesclado com tarefas pendentes (${p.tasks}); elas vão num novo pull request`,
   },
 };
 export const reasonText = (lang, code, params = {}, names = {}) => (TEXT[lang] ?? TEXT.en)[code](params, names);
@@ -422,7 +453,7 @@ export function computeFlow(facts, flow, { after = null } = {}) {
   }
   const previous = (code) => ({ ...report, script: 'previous', previous: { finishedBy: 'ship-change', ...note(code, {}) } });
   if (!flow) return previous('schema-without-declaration');
-  if (isPreviousScript(facts.files)) return previous('previous-script');
+  if (isPreviousScript(facts.files, flow)) return previous('previous-script');
 
   const stages = flow.stages;
   const started = Boolean(facts.tasks?.done);
@@ -597,10 +628,10 @@ function parseArgs(argv) {
 // Fails unless the openspec CLI answers a 2.x version.
 function checkOpenspecVersion(openspec) {
   const r = openspec(['--version']);
+  if (r.refused) throw new FlowUsageError(r.refused);
   if (r.missing) throw new FlowUsageError('the openspec CLI is not installed or not on PATH');
-  const version = /\d+\.\d+\.\d+\S*/.exec(r.stdout)?.[0];
-  if (!version) throw new FlowUsageError(`cannot read the openspec version from "${r.stdout.trim().slice(0, 60)}"`);
-  if (version.split('.')[0] !== '2') throw new FlowUsageError(`openspec ${version} is not supported: flow-check reads OpenSpec 2.x`);
+  const refusal = openspecRefusal(openspec.cli ?? { pinned: false, where: 'PATH' }, r.stdout);
+  if (refusal) throw new FlowUsageError(refusal);
 }
 
 const EXIT = { archived: 0, 'waiting-for-owner': 1, 'waiting-on-github': 1, blocked: 2 };
