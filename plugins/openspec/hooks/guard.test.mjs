@@ -15,6 +15,7 @@ import './conduct-check.test.mjs'; // conduct-rounds: the round computation
 import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
 import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
+import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
 import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way

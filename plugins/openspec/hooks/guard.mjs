@@ -31,6 +31,8 @@
 //    and does not stop while the loop has a stage ready; a stage agent does not stop
 //    before delivering its file. These locks refuse at most once for an unchanged state
 //    and let everything through on any error of their own (design change-coordinator D-8).
+//    A `/devkit roadmap` run (`devkit-roadmap: <n>` printed after the typed command) holds the same
+//    locks for every change the run has open (design roadmap-coordinator D-11).
 //
 // Only in projects whose openspec/config.yaml selects the devkit or devkit-lite
 // schema (ADR 0004). Anywhere else session, edit and bash print nothing and
@@ -356,17 +358,6 @@ export function runOf(input) {
   if (typeof file !== 'string' || !file) return null;
   let text;
   try { text = readFileSync(file, 'utf8'); } catch { return null; }
-  const typedOf = (content) => {
-    const tag = /<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/.exec(content);
-    if (tag) {
-      const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(content)?.[1] ?? '';
-      return { name: tag[1], args: args.trim() };
-    }
-    const first = /^\s*\/([A-Za-z][\w:-]*)(?:[ \t]+([^\n]*))?$/m.exec(content.split('\n')[0]);
-    return first ? { name: first[1], args: (first[2] ?? '').trim() } : null;
-  };
-  const textOf = (block) => (typeof block.content === 'string' ? block.content
-    : Array.isArray(block.content) ? block.content.map((b) => (typeof b?.text === 'string' ? b.text : '')).join('\n') : '');
   const markers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: [A-Za-z0-9][\w.-]* (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
     .map((m) => (m[1] ? { run: m[1] } : { end: m[2] }));
   let command = null;
@@ -381,7 +372,7 @@ export function runOf(input) {
     if (typeof content === 'string') {
       const typed = typedOf(content);
       if (typed) {
-        command = /^(?:[\w-]+:)?devkit$/.test(typed.name) && /^change(?:\s|$)/.test(typed.args) ? typed : null;
+        command = isDevkitVerb(typed, 'change') ? typed : null;
         change = null;
         ended = null;
       }
@@ -397,12 +388,69 @@ export function runOf(input) {
   return command && change ? { change, command: `change ${command.args.replace(/^change\s*/, '')}`.trim(), ended } : null;
 }
 
-const RUN_CODE_REASON = 'in a /devkit change run this session writes no product code; the implementation is handed to tdd-implementer by the loop';
+// The slash command typed in a `user` line of the transcript: { name, args } from the `<command-name>` tag, else from a first line
+// that starts with `/`; null when the line is no typed command.
+function typedOf(content) {
+  const tag = /<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/.exec(content);
+  if (tag) {
+    const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(content)?.[1] ?? '';
+    return { name: tag[1], args: args.trim() };
+  }
+  const first = /^\s*\/([A-Za-z][\w:-]*)(?:[ \t]+([^\n]*))?$/m.exec(content.split('\n')[0]);
+  return first ? { name: first[1], args: (first[2] ?? '').trim() } : null;
+}
 
-// The main session (no agent_type) in a run. Fails open: an unreadable record is no run.
+// The text of a tool result block (a string, or a list of text blocks).
+const textOf = (block) => (typeof block.content === 'string' ? block.content
+  : Array.isArray(block.content) ? block.content.map((b) => (typeof b?.text === 'string' ? b.text : '')).join('\n') : '');
+
+// True when the typed command is `/devkit <verb> ...`, bare or plugin-scoped.
+const isDevkitVerb = (typed, verb) => /^(?:[\w-]+:)?devkit$/.test(typed.name) && new RegExp(`^${verb}(?:\\s|$)`).test(typed.args);
+
+// The roadmap run a session is in, read from its transcript like `runOf` (design roadmap-coordinator D-11): { command, stopping }
+// when the newest typed slash command is `/devkit roadmap ...` (bare or plugin-scoped) and a tool result carrying a line
+// `devkit-roadmap: <n>` or `devkit-roadmap: stop` follows it; `stopping` is whether the newest such line says stop. A typed
+// `/devkit status` neither starts nor ends a run; any other typed slash command ends it. Pure: null when it cannot read the file.
+export function roadmapRunOf(input) {
+  const file = input && input.transcript_path;
+  if (typeof file !== 'string' || !file) return null;
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch { return null; }
+  const markers = (s) => [...String(s).matchAll(/^devkit-roadmap: (\d{1,2}|stop)[ \t]*\r?$/gm)].map((m) => m[1]);
+  let command = null;
+  let stopping = null;
+  for (const line of text.split('\n')) {
+    if (!/"type"\s*:\s*"user"/.test(line)) continue;
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; }
+    if (rec?.type !== 'user' || rec.isMeta || rec.isSidechain) continue;
+    const content = rec.message?.content;
+    if (typeof content === 'string') {
+      const typed = typedOf(content);
+      if (typed && !isDevkitVerb(typed, 'status')) {
+        command = isDevkitVerb(typed, 'roadmap') ? typed : null;
+        stopping = null;
+      }
+      continue;
+    }
+    if (!command || !Array.isArray(content)) continue;
+    let found = content.filter((block) => block?.type === 'tool_result').flatMap((block) => markers(textOf(block)));
+    if (!found.length) found = markers(typeof rec.toolUseResult?.stdout === 'string' ? rec.toolUseResult.stdout : '');
+    for (const word of found) stopping = word === 'stop';
+  }
+  return command && stopping !== null ? { command: `roadmap ${command.args.replace(/^roadmap\s*/, '')}`.trim(), stopping } : null;
+}
+
+const runCodeReason = (kind) => `in a /devkit ${kind} run this session writes no product code; the implementation is handed to tdd-implementer by the loop`;
+
+// The main session (no agent_type) in a run: 'change', 'roadmap' or null. Fails open: an unreadable record is no run.
 function mainInRun(input) {
-  if (role(input) || typeof input.transcript_path !== 'string') return false;
-  try { return runOf(input) !== null; } catch { return false; }
+  if (role(input) || typeof input.transcript_path !== 'string') return null;
+  try {
+    if (runOf(input) !== null) return 'change';
+    if (roadmapRunOf(input) !== null) return 'roadmap';
+  } catch { /* an unreadable record is no run */ }
+  return null;
 }
 
 // ---------------------------------------------------------------- modes
@@ -415,7 +463,10 @@ function guardEdit(input) {
   // is gated by that worktree's change, and by that root's own opt-in.
   const root = findRoot(dirname(resolve(input.cwd || process.cwd(), file)));
   if (!root || !optedIn(root)) return;
-  if (classify(root, null, file).kind === 'code' && mainInRun(input)) block(RUN_CODE_REASON);
+  if (classify(root, null, file).kind === 'code') {
+    const run = mainInRun(input);
+    if (run) block(runCodeReason(run));
+  }
   const ch = resolveChange(root);
   if (!ch) return;
   if (ch.ambiguous) {
@@ -442,12 +493,12 @@ function guardBash(input) {
     if (!changes.has(root)) changes.set(root, resolveChange(root));
     return changes.get(root);
   };
-  let inRun; // asked once, and only when a write targets product code
+  let inRun; // the run's command, asked once, and only when a write targets product code
   for (const t of bashWrites(cmd, cwd)) {
     const root = findRoot(dirname(t));
     if (root && optedIn(root) && classify(root, null, t).kind === 'code') {
-      inRun ??= mainInRun(input);
-      if (inRun) block(`${RUN_CODE_REASON}. (Writing it through the shell is gated the same way.)`);
+      inRun ??= mainInRun(input) ?? '';
+      if (inRun) block(`${runCodeReason(inRun)}. (Writing it through the shell is gated the same way.)`);
     }
     const ch = root && optedIn(root) && changeAt(root);
     if (!ch) continue;
@@ -475,17 +526,24 @@ function guardBash(input) {
 // ---------------------------------------------------------------- the stop and hand-off locks (D-8)
 
 const LOCKS = { stop: 'stopDecision', 'subagent-stop': 'subagentStopDecision', agent: 'agentDecision' };
+const ROADMAP_LOCKS = { stop: 'roadmapStopDecision', 'subagent-stop': 'roadmapSubagentStopDecision', agent: 'roadmapAgentDecision' };
 
-// `stop`, `subagent-stop` and `agent`: the decision is change-loop.mjs's (imported dynamically, as `ci` imports
-// deliver-check.mjs), refusing with exit 2 and the reason on stderr. Any error of the lock lets the action through.
-// With DEVKIT_HOOK_LOG naming a file, every decision is appended to it as one JSON line.
+// `stop`, `subagent-stop` and `agent`: the decision is roadmap-loop.mjs's in a `/devkit roadmap` run (`roadmapRunOf`), else
+// change-loop.mjs's (each imported dynamically, as `ci` imports deliver-check.mjs), refusing with exit 2 and the reason on stderr.
+// Any error of the lock lets the action through. With DEVKIT_HOOK_LOG naming a file, every decision is appended to it as one JSON line.
 async function lock(mode, input) {
   const root = findRoot(input.cwd);
   if (!root || !optedIn(root)) return;
   let d;
   try {
-    const loop = await import('./change-loop.mjs');
-    d = loop[LOCKS[mode]](input, { env: process.env });
+    const run = roadmapRunOf(input);
+    if (run) {
+      const loop = await import('./roadmap-loop.mjs');
+      d = loop[ROADMAP_LOCKS[mode]](input, { env: process.env, run });
+    } else {
+      const loop = await import('./change-loop.mjs');
+      d = loop[LOCKS[mode]](input, { env: process.env });
+    }
   } catch { d = { decision: 'allow', why: 'error' }; }
   const file = process.env.DEVKIT_HOOK_LOG;
   if (file) {

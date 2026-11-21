@@ -22,6 +22,12 @@
       "title": "Language",
       "description": "Language of the /devkit replies and of the stage readout: pt-BR or en",
       "default": "pt-BR"
+    },
+    "load_limit": {
+      "type": "string",
+      "title": "Load limit",
+      "description": "Processor load, in percent, above which /devkit roadmap starts no new change: a whole number from 1 up (default 80)",
+      "default": "80"
     }
   }
 }
