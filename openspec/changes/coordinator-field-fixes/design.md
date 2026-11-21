@@ -120,25 +120,54 @@ today (scenario "A change opened on the current script").
 `computeFlow` and `collectFlow` call it with `flow`; `change-loop.mjs#decide` already ends
 `blocked` / `previous-script` for `report.script === 'previous'` (no change there).
 
-## D-3 Archived on the default branch (defect 1, A-2, AC-1)
+## D-3 Archived on the default branch (defect 1, A-2, A-18, AC-1)
 
-New in `change-loop.mjs`: `archivedOnDefault(start, { env, gh })` → a `Set` of change ids, the
-union of every source it can read (an archived folder never leaves the default branch, so a union
-cannot list a change that is not archived):
+New in `change-loop.mjs`: `archivedDates(start, { env, gh })` → a `Map` from each archived change
+id to the latest day (`YYYY-MM-DD`) among its archived folders `<date>-<id>`, the union of every
+source it can read (an archived folder never leaves the default branch, so a union cannot list a
+change that is not archived; an id archived more than once keeps its latest day).
+`archivedOnDefault(start, { env, gh })`, exported, is the `Set` of that map's keys. The sources:
 
 1. GitHub: `gh api repos/{owner}/{repo}/contents/openspec/changes/archive?ref=<default>` through
    `makeGh(main, cleanOf(env))` (the `gh` option in tests), the names matching
    `^\d{4}-\d{2}-\d{2}-(.+)$`. A failure is ignored.
 2. `git -C <main> ls-tree --name-only refs/remotes/origin/<default>:openspec/changes/archive`.
 3. The same on `refs/heads/<default>`.
-4. The main checkout's working tree (today's source, `locateChange(main, id)?.archived`).
+4. The main checkout's working tree (`openspec/changes/archive/` read with `readdirSync`).
 
 `<default>` is `defaultBase(main)` (origin/HEAD, else `main`, else `master`). `unfinished(start, { env, gh })`
-reads the set once and skips an id in it at every rank (archive branch, own branch, any other
-checkout). A checkout on `chore/archive-<id>` with no archived folder of `<id>` on the default
-branch stays listed (its archive PR is not merged). `startMode` passes its `env` and `gh` through.
-`knownChange` and resuming by id are unchanged (scenario "Resuming an archived change by its id").
-Nothing removes a worktree.
+reads the map once and skips an id in it at every rank (archive branch, own branch, any other
+checkout), with one exception (A-18): an active folder of an archived id is listed when
+`createdAfter(root, id, day)` is true, that is when the `created:` line of that checkout's
+`openspec/changes/<id>/.openspec.yaml` (written by `openspec new change`) holds a day strictly
+later than the id's latest archived day. Such a folder is a new change that reuses the id, not the
+old copy of the archived one. A folder created on the day of the archive or before it, one with no
+`created:` line, or one whose `.openspec.yaml` cannot be read (the code reads it as recording no
+day) is the old copy and is not listed. No test covers the unreadable file, so the
+`change-coordination` delta does not state that case. A
+checkout on `chore/archive-<id>` is never under the exception: it is listed only while no archived
+folder of `<id>` is on the default branch (its archive PR is not merged). `startMode` passes its
+`env` and `gh` through. `knownChange` and resuming by id are unchanged (scenario "Resuming an
+archived change by its id"). Nothing removes a worktree.
+
+The comparison is by day because the archived folder's name is the only record of the archive on
+the default branch and it carries only a day; the archive commit's time would need one more read
+per source and is not in GitHub's contents listing. The known limit: a change reopened under the
+same id on the very day of its archive is treated as the old copy and not listed. It reaches only a
+hand-made folder: `/devkit change` (`openChange`) already refuses a new change under an id that has
+a change folder, active or archived, in any checkout, or a branch of that name, through `nameTaken`
+(`name-taken`).
+
+Plan revision: the exception was added in fix commit `fb91e5f` after review round 1
+(code-quality-reviewer: 0.16.0 listed a new change that reuses an archived id, and this change hid
+it), and stated in this plan and the `change-coordination` delta on 2026-11-21 after review round 2, as
+its own requirement "A new change that reuses an archived id is unfinished", which the archived
+requirement now names as its exception
+(spec-reviewer: the delta said SHALL NOT with no exception), as the owner decided (A-18,
+requirements question 9). Proved by `field-fixes 1 archived: a new change that reuses an archived
+id, created after the archive, stays listed` (later day, earlier day, same day); the other
+`field-fixes 1` tests use active folders whose `.openspec.yaml` has no `created:` line, so they
+prove the no-day case.
 
 ## D-4 Delivered: its own pull request and every task ticked (defect 4, A-9, AC-6)
 
@@ -578,7 +607,7 @@ fail the check`) passes unchanged because both new messages keep its pattern.
 
 | AC | Tasks | Proved by |
 |---|---|---|
-| AC-1 | 2.1, 2.3, 2.5 | `field-fixes 1` tests (`change-loop.test.mjs`); `proof/start-this-repo.txt` |
+| AC-1 | 2.1, 2.3, 2.5 | `field-fixes 1` tests (`change-loop.test.mjs`), the reuse rule (A-18) by `field-fixes 1 archived: a new change that reuses an archived id, created after the archive, stays listed`; `proof/start-this-repo.txt` |
 | AC-2 | 2.1, 2.2, 2.5 | `field-fixes 2` tests (`flow-check.test.mjs`, `change-loop.test.mjs`) |
 | AC-3 | 4.1, 4.2, 4.5 | `field-fixes 3 other-script` tests, through `deliver-check.mjs --ci` and `guard.mjs ci` |
 | AC-4 | 4.1, 4.2, 4.5 | `field-fixes 3 several` tests |

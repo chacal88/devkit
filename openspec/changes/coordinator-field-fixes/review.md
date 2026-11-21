@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=403b38c5370d0279c75d0c2ad20824c72570e014 -->
+<!-- devkit-stage review result=failed attempt=2 commit=4f6d958d353b78c317244ddf0763268d7829e5bd -->
 # Review: coordinator-field-fixes, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -31,3 +31,34 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: coordinator-field-fixes, round 2
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 4f6d958 |
+| spec-reviewer | rejected | 0 | 1 | 1 | 0 | 4f6d958 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 4f6d958 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 4f6d958 |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 4f6d958 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 4f6d958 |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- spec-reviewer — [important] plugins/openspec/hooks/change-loop.mjs:614-620,627-637 vs specs/change-coordination/spec.md (A change archived on the default branch is not unfinished) — A new change that reuses an archived id and was created after the archive is now listed, which the SHALL NOT requirement forbids; no scenario or design text states the exception. Extend the spec (reuse scenario, day-granularity rule) or drop the behavior.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path agents: the turn that started this round was not typed by the owner.
+- All six reviewers were summoned, as the delivery checker named them: the fixing commit fb91e5f touched code, so the four round-1 approvals at 403b38c were stale.
+- The fix of code-quality-reviewer's round-1 finding (fb91e5f: a new change that reuses an archived id, created after the archive, is listed again) is what spec-reviewer now rejects: the change-coordination delta says SHALL NOT list a change archived on the default branch, with no reuse exception. The two findings pull in opposite directions unless the spec delta gains the exception, and the spec delta is a plan file the owner approved.
+- adr-reviewer answered round 2 with an empty findings list and said its three round-1 nits still stand; they are in the round 1 section above and in no verdict file now.
+- The stage-3 prompts were built with the script's own `writerPrompt` rule (`loadRules`), as in round 1.
+
+## Next
+Consensus deadlock after round 2: the owner decides.

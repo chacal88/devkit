@@ -76,7 +76,8 @@ All on scratch repositories, with `gh` and `openspec` stubbed the way the test f
   `chore/archive-<id>`. A checkout on `chore/archive-<id>` whose archive pull request is not merged
   is still listed as being archived. The reading does not depend on the main checkout's local
   default branch being up to date (here it was eight commits behind `origin/main`). Nothing removes
-  or cleans a worktree. Where the archived state is read from is the planner's.
+  or cleans a worktree. Where the archived state is read from is the planner's. The one exception,
+  a new change that reuses the id on a later day, is A-18.
 - A-3. Defect 2. A change that began on the previous script stays read as on the previous script
   (`plugins/openspec/hooks/flow-check.mjs#isPreviousScript`) when later files of it gain a stage
   header, as the agents of devkit-core 0.8.1 write `evidence.md`, `readiness.md` and the review
@@ -164,6 +165,14 @@ All on scratch repositories, with `gh` and `openspec` stubbed the way the test f
   check recorded for the next change, outside the criteria.
 - A-17. This change is conducted with `/devkit change`. What that shows about the nine points on
   the round 16 line goes to the retro, not into this change.
+- A-18. A new change that reuses the id of a change archived on the default branch is not the
+  archived change. It is listed as unfinished when the `created:` day in its active folder's
+  `openspec/changes/<id>/.openspec.yaml` is later than the day of the latest archived folder of
+  that id (`openspec/changes/archive/<date>-<id>/`). A folder created on the day of the archive or
+  before it, or one that records no day, is the old copy of the archived change and is not listed.
+  Decided by the owner on 2026-11-21, when review round 2 ended with one reviewer asking for this
+  behaviour (round 1) and another refusing it because the specification did not state it: the
+  owner chose to state the exception in the specification.
 
 ## Acceptance criteria
 
@@ -173,7 +182,9 @@ All proved here: by tests of this change on scratch repositories unless the crit
   on the default branch when an old checkout holds its active folder, its branch or its archive
   branch with the archive pull request merged; it still lists one whose archive pull request is not
   merged. Run in this repository, it no longer lists `change-coordinator`, `release-rebase-pin` and
-  `review-workflow` (recorded in `evidence.md`).
+  `review-workflow` (recorded in `evidence.md`). A new change that reuses an archived id and was
+  created on a later day than the archive is still listed; one created on the day of the archive
+  or before it is not (A-18).
 - AC-2 `previous-script-stays-previous` — a change with headerless plan files to which a headed
   `evidence.md`, `readiness.md` or review file is added is still reported as begun on the previous
   script by `flow-check.mjs`, and `change-loop.mjs next` ends `blocked` with `previous-script`.
@@ -237,6 +248,8 @@ All proved here: by tests of this change on scratch repositories unless the crit
 7. [end effect] What proves the fixes → tests here, with this repository's own list clean; the
    three projects are checked after the release, outside the criteria.
 8. [edges] Whether a plan-only pull request should pass the check → not answered (A-6).
+9. [edges] After review round 2: a new change that reuses an archived id, listed or hidden → state
+   the exception in the specification (A-18), rather than remove the behaviour.
 
 ## Escalations
 

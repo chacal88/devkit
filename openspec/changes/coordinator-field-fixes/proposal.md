@@ -19,7 +19,8 @@ upgrade breaks changes under way, and the CompozyOS kit's re-run overwrites loca
 
 - `/devkit change` with no text no longer lists a change archived on the default branch, read from
   the default branch's own tree (GitHub, else `origin/<default>`), whatever old checkout still
-  holds its folder or branch (defect 1).
+  holds its folder or branch (defect 1). An active folder of that id created on a later day than
+  the archive is a new change that reuses the id and is still listed (A-18, `design.md` D-3).
 - A change begun on the previous script stays on it when a later file of it gains a stage header:
   the earliest stage file the change has decides (defect 2).
 - **BREAKING** (CI contract): `devkit-reviews` (`deliver-check --ci`, `guard.mjs ci`) checks only
@@ -60,7 +61,9 @@ All proved here: by tests of this change on scratch repositories unless the crit
   on the default branch when an old checkout holds its active folder, its branch or its archive
   branch with the archive pull request merged; it still lists one whose archive pull request is not
   merged. Run in this repository, it no longer lists `change-coordinator`, `release-rebase-pin` and
-  `review-workflow` (recorded in `evidence.md`).
+  `review-workflow` (recorded in `evidence.md`). A new change that reuses an archived id and was
+  created on a later day than the archive is still listed; one created on the day of the archive
+  or before it is not (A-18).
 - AC-2 `previous-script-stays-previous` — a change with headerless plan files to which a headed
   `evidence.md`, `readiness.md` or review file is added is still reported as begun on the previous
   script by `flow-check.mjs`, and `change-loop.mjs next` ends `blocked` with `previous-script`.

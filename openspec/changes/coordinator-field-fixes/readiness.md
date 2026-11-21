@@ -1,84 +1,90 @@
-<!-- devkit-stage readiness result=passed attempt=2 commit=9184debf298ce02dbf1268f0ccbc8417947dce3d -->
+<!-- devkit-stage readiness result=passed attempt=3 commit=4f6d958d353b78c317244ddf0763268d7829e5bd -->
 # Readiness review: coordinator-field-fixes
 
 ## 1. Decision
 - Status: APPROVED
 - Confidence: high
-- Ready to implement: yes, once the owner approves the plan (`approval.md`)
+- Ready to implement: the tasks are all ticked; the plan as revised is consistent with the code at HEAD
 
-`openspec validate coordinator-field-fixes --strict` is valid. Round 1 found four decision-table
-outcomes with no spec scenario; all four are now in `specs/` and carry a task. No open blocker.
+Attempt 3 re-reviews the one revision made after review round 2: the specification now states the
+reuse exception (A-18) that fix commit `fb91e5f` built. `openspec validate coordinator-field-fixes
+--strict` is valid. No open blocker. The rest of the plan was judged at attempt 2 and is not reopened.
 
 ## 2. Scope validation
-Classification: correct. Eight defects, each with an AC, a decision (D-1 to D-8), a spec and tasks;
-non-goals are explicit (`proposal.md:51-53`, `design.md:45-51`).
+Classification: correct. The revision adds no behaviour: it records what the code already does and
+what the owner decided (`requirements.md:167-174` A-18, `:250` question 9). Proposal (`proposal.md:20-23`,
+`:60-66`), requirements AC-1 (`requirements.md:180-187`), design D-3 and the proof map
+(`design.md:610`) say the same thing.
 
 ## 3. Proposal review
-Problem, goal, capabilities (five new, two modified), impact, exit criteria and the owner's
-approval items are clear (`proposal.md:159-176`). The breaking CI contract is flagged and tied to
-ADR 0012. The roadmap line is in `openspec/roadmap.md` (still uncommitted in the working tree; it
-travels with the change and task 7.1 checks it).
+Defect-1 bullet and AC-1 carry the exception with the same day rule as A-18. No finding.
 
-## 4. Design review
-HEAD is still `9184deb`, the commit round 1 verified; claims re-derived again:
-- `flow-check.mjs:153` `isPreviousScript = hasStageFile && !hasHeader`, called at `:220` and `:425`: as D-2 says.
-- OpenSpec starts: only `flow-check.mjs:111` and `guard.mjs:583` spawn `openspec` in the hooks: the D-1 callers are the whole set.
-- `deliver-check.mjs:468` `findChangePr`, `:1387` `selectCiChange`, `:1437` `archivePrCheck`; `guard.mjs:136` `changeSchemaAt`, `:145` `DEVKIT_SCHEMAS`: exist as D-4 and D-5 describe.
-- Round 1 verified `change-loop.mjs#unfinished` ranks, the D-7 approval mechanism, the flow order and ADR numbering (last ADR is 0011); nothing in those files changed since.
-- Gates on the base: `python3 scripts/check.py` passes. `python3 scripts/gen-catalog.py --check` passed in round 1 and nothing it reads changed. The other gates run new tests that fail by design before their phase.
-- Tag `v0.13.0` exists locally (task 5.3 fixture source).
+## 4. Design review (claims re-derived at HEAD 4f6d958)
+- `archivedDates` returns the latest `YYYY-MM-DD` per id, union of GitHub, `origin/<default>`, local
+  default and the main working tree; `archivedOnDefault` is the `Set` of its keys, exported
+  (`change-loop.mjs:597-613`): as D-3 says.
+- `createdAfter` reads `created:` from `openspec/changes/<id>/.openspec.yaml`, true only for a day
+  strictly later than the archive day; no line or an unreadable file returns false
+  (`change-loop.mjs:617-622`): matches D-3, including the "no day / unreadable is the old copy" rule.
+- `unfinished` skips an archived id at every rank unless `reused`; the `chore/archive-<id>` rank
+  passes no `reused`, so that checkout is never under the exception (`:632-636`): matches D-3.
+- `nameTaken` counts active and archived folders in every checkout through `locateChange`, plus the
+  branch names, and `openChange` refuses with `name-taken` (`:760-766`, `:786`): the D-3 claim that
+  only a hand-made folder can reopen an id the same day holds.
+- Test `field-fixes 1 archived: a new change that reuses an archived id, created after the archive,
+  stays listed` (`change-loop.test.mjs` about `:2442`) covers later day, earlier day and same day;
+  the 8 `field-fixes 1` tests pass here (8/8). The no-day case is covered by the other tests, whose
+  active folders have no `created:` line, as D-3 states.
 
 No failed re-derivation.
 
 ## 5. Specs review
-Seven capability specs with normative text and WHEN/THEN scenarios. The four round 1 gaps are closed:
-- D-7 "any other" row: `specs/project-setup/spec.md:76-78`.
-- D-8 `same`: `specs/compozy-kit-setup/spec.md:31-33`.
-- D-6 `unknown`: `specs/project-setup/spec.md:34-41`.
-- D-1 session text: `specs/openspec-cli/spec.md:51-63`.
-Every outcome row of the D-2 to D-8 decision tables has a scenario.
+`specs/change-coordination/spec.md` agrees with A-18, the design and the code:
+- The archived requirement (`:17-22`) names the exception and points to the next requirement; its
+  scenarios say "old copy", which is what the code treats a no-day or same-day folder as.
+- The MODIFIED scenario (`:12`) lists a change that is "not archived ... or a new change reusing an
+  archived id on a later day": consistent.
+- New requirement (`:53-74`) has four scenarios: later day (listed), archive day, earlier day and no
+  `created:` line (all not listed). Every outcome of the D-3 rule has a scenario except the
+  unreadable `.openspec.yaml`, which D-3 says is deliberately not stated because no test covers it
+  (`design.md` D-3). That is a recorded decision, not a gap.
+No contradiction with another spec delta; `grep` finds no other file that says an archived id is
+never listed without the exception beyond the lines below.
 
 ## 6. Tasks review
-Ordered by dependency; every phase starts with red tests and saved failing output and has one
-backticked gate without `|`. The four new scenarios are named in tasks 1.1, 5.1, 5.3 and 6.1. Task
-4.4 now says which fenced block to copy; task 6.4 says the owner's yes is the plan approval. Paths
-fall under real directories; the proof map covers AC-1 to AC-14. Ticked tasks stay a pure checkbox
-list (the `Workflow follow-up` items are bullets).
+Unchanged and all ticked. Task 2.3 names only `archivedOnDefault` (`tasks.md:96`); the Map and the
+rule were added as a review fix, and the plan records that in `design.md` D-3 ("Plan revision").
 
 ## 7. Omission detection
-Validation, errors, idempotency (`--apply` never overwrites), rollback (Migration Plan), legacy
-records (previous script, first re-run with no manifest), compatibility (a `PATH` 1.x keeps
-today's copy) and test strategy are stated. No finding.
+Day-granularity limit (same-day reopen) is stated with its guard (`nameTaken`). No finding.
 
-## 8. Execution risks (top 5 failures)
-1. `findChangePr` rewrite breaks a delivery path covered only by fixtures. Prevention: D-11 names each test; phase 3 gate runs all three modules' tests.
-2. One `gh` call per merged PR for the files. Prevention: newest first, stop at the first own PR.
-3. `changes-under-way.mjs --apply` writes `approval.md` into other checkouts. Prevention: only the `approval-not-applicable` rows, never overwrites, tested.
-4. Real `gh` behaviour for `pulls/<n>/files` and the rulesets 403 text is assumed (Assumptions list); tests use fakes, so the next change's field check (A-16) is where it surfaces.
-5. A project keeps the 0.16.0 workflow pin and sees no CI fix. Prevention: CHANGELOG and CI docs say to bump.
+## 8. Execution risks
+1. A change reopened under an archived id on the archive's own day is hidden: stated, reaches only a hand-made folder.
+2. An unreadable `.openspec.yaml` hides a genuinely new change: stated in D-3, untested.
 
 ## 9. Mandatory fixes before implementation
 None.
 
 ## 10. Optional improvements (within scope)
-- [ ] Commit `openspec/roadmap.md` with the plan so task 7.1's test reads a tracked file.
+- [ ] Low, Nice to have: `requirements.md:73-79` (A-2) and `proposal.md:132` say the list "leaves out" an archived change with no exception; A-18 follows 90 lines later and the spec carries it, so nothing misleads an implementer. A one-clause pointer to A-18 would remove the doubt.
+- [ ] Low, Nice to have: `tasks.md:96` (task 2.3) could name `archivedDates` and `createdAfter`; the code is built and the design records it, so this is documentation only.
 
 ## 11. Explicitly out of scope
-- Moving a previous-script change to the current script; OpenSpec 1.x; the round 16 points; worktree removal.
+- Comparing by commit time rather than day; the unreadable-file scenario; any other defect.
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes, eight reproductions in `requirements.md`.
-2. Is the result measurable? Yes, AC-1 to AC-14 with red-then-green proof files.
-3. Are error behaviors defined? Yes, including the unreadable GitHub state.
-4. Are edge cases covered? Yes (stale local main, worktree, no manifest, declared pin not installed, another schema).
-5. Are dependencies clear? Yes, order and the CI three-file import constraint.
-6. Are contracts defined? Yes: messages, JSON shapes, manifest, header form.
-7. Can two developers interpret this differently? Not materially; texts to copy are in the design.
-8. Are any decisions implicit? No; A-4, A-6, A-9, A-11 are resolved in writing.
-9. Do the tasks fully deliver the intended outcome? Yes.
-10. What will be discovered too late? Real `gh` responses (see risk 4).
+1. Is the problem objectively defined? Yes.
+2. Is the result measurable? Yes, AC-1 has later-day, earlier-day and same-day outcomes with a named test.
+3. Are error behaviors defined? Yes; GitHub unreadable falls back, unreadable `.openspec.yaml` is the old copy (design only).
+4. Are edge cases covered? Yes (same day, earlier, no line, archive branch).
+5. Are dependencies clear? Yes.
+6. Are contracts defined? Yes: the `created:` line, the day comparison, the folder name pattern.
+7. Can two developers interpret this differently? No.
+8. Are any decisions implicit? No; A-18 is written and owner-decided.
+9. Do the tasks fully deliver the intended outcome? Yes; the behaviour is built and tested.
+10. What will be discovered too late? Nothing new.
 
 ## 13. Final conclusion
-- Can we start? Yes, after the owner's plan approval and acceptance of ADR 0012.
+- Can we start? Yes; the revised plan agrees with itself, with A-18 and with the code and test at HEAD.
 - What must be fixed? Nothing.
-- Main risk if ignored? Not applicable; the remaining risk is the unverified real `gh` behaviour, checked in the next change's field run.
+- Main risk if ignored? Not applicable.
