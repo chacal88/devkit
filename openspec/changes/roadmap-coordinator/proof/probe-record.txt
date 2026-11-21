@@ -1,0 +1,146 @@
+Probe record: change roadmap-coordinator, task 1.1 (design.md D-2)
+Run: Claude Code bundled with the desktop app, -p "/probe", start 2026-11-21T14:36:55Z; exit=0; end 2026-11-21T14:37:37Z
+Files: probe1.jsonl (57 events), agent-inputs.jsonl (4), subagent-stop-inputs.jsonl (4), stop-inputs.jsonl (3)
+
+B1: true - both Agent calls with run_in_background true returned "Async agent launched" at once; the session ended its first turn ("Launched.", 6794 ms) while both sleepers were still in their sleep 20: the first Stop input lists both under background_tasks with status running.
+B2: true - under -p the session took 2 more turns by itself after the first one ended (3 result events in probe1.jsonl), each started by a subagent's end. In the desktop app the same was seen in the session that conducts this change on 2026-11-21: the end of each background subagent it started (the planner twice, the readiness reviewer twice) started a new turn of the session with no message from the owner.
+B3: true - two background subagents at once: two task_notification events of the sleepers reached the session, and its later turns name probe-a and then probe-b ("The probe-a agent finished: it slept for 20 seconds, then started a helper agent, which re..." and "Both probe agents have now finished. The probe-b agent finished its 20-second sleep with n...").
+B4: true - the PreToolUse input of both background Agent calls carries tool_input.prompt ("Change probe-a (devkit script), stage proposal: sleep", "Change probe-b (devkit script), stage proposal: sleep"), tool_input.subagent_type and tool_input.run_in_background true.
+B5: true - the SubagentStop input of each background subagent carries agent_type "sleeper", agent_id and agent_transcript_path, and the first user line of that transcript is the prompt ("Change probe-a (devkit script), stage proposal: sleep", "Change probe-b (devkit script), stage proposal: sleep").
+B6: true - ${CLAUDE_SESSION_ID} in the skill's body was replaced by the session's id: the id the session printed with echo equals session_id of the hook inputs.
+B7: true - inside each sleeper the Agent tool started a general-purpose subagent (two more PreToolUse inputs, with agent_type "sleeper" and the sleeper's agent_id), its end reached the sleeper as a tool result, and its SubagentStop fired with agent_type "general-purpose". Recorded for ADR 0013 only.
+
+Stop inputs: 3; background_tasks of each: ["subagent:sleeper:running","subagent:sleeper:running"] ; [] ; []
+
+Stored form: PreToolUse on Agent, a background call of the session (ids replaced)
+{
+ "session_id": "<session-id>",
+ "transcript_path": "<home>/.claude/projects/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>.jsonl",
+ "cwd": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-probe-roadmap-coordinator/project",
+ "scratchpad_dir": "/private/tmp/claude-501/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>/scratchpad",
+ "prompt_id": "<session-id>",
+ "permission_mode": "bypassPermissions",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PreToolUse",
+ "tool_name": "Agent",
+ "tool_input": {
+  "description": "Probe change A sleep",
+  "prompt": "Change probe-a (devkit script), stage proposal: sleep",
+  "subagent_type": "sleeper",
+  "run_in_background": true
+ },
+ "tool_use_id": "toolu_01DhBFnZoHxLW5CgfRT6yTfM"
+}
+
+Stored form: PreToolUse on Agent, a call made inside a subagent (ids replaced)
+{
+ "session_id": "<session-id>",
+ "transcript_path": "<home>/.claude/projects/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>.jsonl",
+ "cwd": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-probe-roadmap-coordinator/project",
+ "scratchpad_dir": "/private/tmp/claude-501/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>/scratchpad",
+ "prompt_id": "<session-id>",
+ "permission_mode": "bypassPermissions",
+ "agent_id": "a3eed8456c9aedaae",
+ "agent_type": "sleeper",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PreToolUse",
+ "tool_name": "Agent",
+ "tool_input": {
+  "description": "Say ok",
+  "prompt": "say ok",
+  "subagent_type": "general-purpose",
+  "run_in_background": false
+ },
+ "tool_use_id": "toolu_01CTCAcP8j3QEQas7byCNTHr"
+}
+
+Stored form: SubagentStop of a background subagent (ids replaced)
+{
+ "session_id": "<session-id>",
+ "transcript_path": "<home>/.claude/projects/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>.jsonl",
+ "cwd": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-probe-roadmap-coordinator/project",
+ "scratchpad_dir": "/private/tmp/claude-501/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>/scratchpad",
+ "prompt_id": "<session-id>",
+ "permission_mode": "bypassPermissions",
+ "agent_id": "a3eed8456c9aedaae",
+ "agent_type": "sleeper",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "SubagentStop",
+ "stop_hook_active": false,
+ "agent_transcript_path": "<home>/.claude/projects/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>/subagents/agent-a3eed8456c9aedaae.jsonl",
+ "last_assistant_message": "done. I ran the 20-second sleep, then started a general-purpose agent with the prompt \"say ok\", and it replied \"ok\".",
+ "background_tasks": [
+  {
+   "id": "a3eed8456c9aedaae",
+   "type": "subagent",
+   "status": "running",
+   "description": "Probe change A sleep",
+   "agent_type": "sleeper"
+  },
+  {
+   "id": "a53515fd9605f7368",
+   "type": "subagent",
+   "status": "running",
+   "description": "Probe change B sleep",
+   "agent_type": "sleeper"
+  }
+ ],
+ "session_crons": []
+}
+
+Stored form: Stop of the session with two subagents under way (ids replaced)
+{
+ "session_id": "<session-id>",
+ "transcript_path": "<home>/.claude/projects/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>.jsonl",
+ "cwd": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-probe-roadmap-coordinator/project",
+ "scratchpad_dir": "/private/tmp/claude-501/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>/scratchpad",
+ "prompt_id": "<session-id>",
+ "permission_mode": "bypassPermissions",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "Stop",
+ "stop_hook_active": false,
+ "last_assistant_message": "Launched.",
+ "background_tasks": [
+  {
+   "id": "a3eed8456c9aedaae",
+   "type": "subagent",
+   "status": "running",
+   "description": "Probe change A sleep",
+   "agent_type": "sleeper"
+  },
+  {
+   "id": "a53515fd9605f7368",
+   "type": "subagent",
+   "status": "running",
+   "description": "Probe change B sleep",
+   "agent_type": "sleeper"
+  }
+ ],
+ "session_crons": []
+}
+
+Stored form: Stop of the session with none under way (ids replaced)
+{
+ "session_id": "<session-id>",
+ "transcript_path": "<home>/.claude/projects/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>.jsonl",
+ "cwd": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-probe-roadmap-coordinator/project",
+ "scratchpad_dir": "/private/tmp/claude-501/-private-var-folders-b1-774bgwmx7-dbxb8139455dkw0000gn-T-devkit-probe-roadmap-coordinator-project/<session-id>/scratchpad",
+ "prompt_id": "<session-id>",
+ "permission_mode": "bypassPermissions",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "Stop",
+ "stop_hook_active": false,
+ "last_assistant_message": "The probe-a agent finished: it slept for 20 seconds, then started a helper agent, which replied \"ok\". The probe-b agent is still running. This turn came from an automatic event, so I'm not starting the next phase. That waits for your next message.",
+ "background_tasks": [],
+ "session_crons": []
+}

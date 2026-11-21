@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.0 — the roadmap coordinator, /devkit roadmap and /devkit status
+
+- **devkit-openspec** 0.18.0: `/devkit roadmap [<n>]` runs the roadmap's ready changes, several at
+  once, in the owner's session with each stage a subagent in the background; `/devkit status` shows
+  where everything is and what waits on the owner. A new script, `roadmap-loop.mjs`, decides each
+  call; a start is held while the processor load per core is at or above the new per-person
+  `load_limit` option (80 by default); the stop, hand-off and edit locks follow every change of a
+  roadmap run; one run's bookkeeping lives in the git directory; opening two changes at once is
+  serialized. The CI snippet now pins `v0.18.0`, the release's tag.
+- Docs: ADR 0013 (accepted) amends ADR 0010 and ADR 0011; the coordination design, the flow
+  document, the role document and both READMEs follow.
+
 ## 0.21.1 — retro of coordinator-field-fixes
 
 - **devkit-openspec** 0.17.1: the `ship-change` fix-step row says that a finding asking for a

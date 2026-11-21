@@ -1,12 +1,17 @@
 # ADR 0011: The change coordinator is the owner's session, held by hooks
 
 - Status: accepted
+- Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
 - Date: 2026-11-20
 - Change: change-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), one sentence of decision 8
 - Accepted by: the owner, on 2026-11-20, in the message that approved the plan of the change: `Aprovo com o ADR 0011` ("I approve, with ADR 0011"); recorded in `openspec/changes/change-coordinator/approval.md`
 
 ## Context
+
+Note (roadmap-coordinator, 2026-11-21): the same session is the coordinator of every change of a
+`/devkit roadmap` run, and the locks follow every change of that run ([ADR 0013](0013-the-roadmap-coordinator-is-the-owners-session.md)). For `/devkit change`
+nothing here changes.
 
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
 edit tool and product code is still written only by the implementer role under the same hooks",

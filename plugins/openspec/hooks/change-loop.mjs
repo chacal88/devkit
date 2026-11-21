@@ -21,7 +21,7 @@
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
 // No dependencies.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -96,7 +96,7 @@ const filesLanguageName = (tag) => ({ en: 'English', 'pt-BR': 'Brazilian Portugu
 export const MESSAGES = {
   en: {
     'verb-not-built': '/devkit {verb} is not built yet: it arrives in round {round}. Nothing was done.',
-    'verb-unknown': 'So far only /devkit change exists: type /devkit change and what you want done.',
+    'verb-unknown': 'So far /devkit change, /devkit roadmap and /devkit status exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, or /devkit status to see where everything is.',
     'not-set-up': 'This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.',
     'setting-unknown': 'The project\'s devkit settings have an unknown {setting}, "{value}"; use one of: {accepted}. Nothing was run.',
     'driver-not-built': 'This project is set to run on {driver}, which is not built yet (round {round}). Nothing was run.',
@@ -123,6 +123,55 @@ export const MESSAGES = {
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
     blocked: 'The change {id} stopped: {why}. Nothing more runs until this is sorted out.',
     'request-unreadable': 'I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue.',
+    'roadmap-invalid': '/devkit roadmap takes a whole number from 1 up, or stop: "{word}" is neither. Nothing was started.',
+    'roadmap-none': 'This project has no roadmap yet. Should I write a draft with its unfinished changes, for you to review? Nothing starts now.',
+    'roadmap-drafted': 'I wrote a draft roadmap with {list}, not committed. Review it, deliver it as this project does, then call /devkit roadmap again.',
+    'roadmap-drafted-empty': 'I wrote a draft roadmap with no change in it, not committed: add one line per change, deliver it, then call /devkit roadmap again.',
+    'roadmap-drafted-left': 'Left out, because they began under the previous script: {list}.',
+    'roadmap-draft-declined': 'Nothing was created.',
+    'roadmap-places': 'The run now takes up to {places} changes at once ({open} open).',
+    'roadmap-started': 'Started {id} ({open} of {places} under way).',
+    'roadmap-resumed': 'Resumed {id}, which was already open: {where} ({open} of {places} under way).',
+    'roadmap-held': '{id} is ready to start, but the machine is loaded (processor at {load}%, limit {limit}%): I hold the start until it eases.',
+    'roadmap-gate': '{id} waits for {gate}. The others go on.',
+    'roadmap-archived': '{id} was archived.',
+    'roadmap-blocked': '{id} stopped: {why}. The others go on, and the changes after it wait.',
+    'roadmap-skipped': '{id} began under the previous script, so the roadmap leaves it alone; the changes after it wait.',
+    'roadmap-stopping': 'Stopping: nothing new starts, and each change finishes the stage it is in.',
+    'roadmap-stayed': '{id}: {where}.',
+    'roadmap-ended-done': 'Every change of the roadmap is archived. The run is over.',
+    'roadmap-ended-stopped': 'The run stopped. Call /devkit roadmap to go on from where each change stayed.',
+    'roadmap-ended-stuck': 'Nothing more can start or run on its own. Each open change needs: {list}.',
+    'need.owner': '{id}, {gate}',
+    'need.blocked': '{id}, a fix: {why}',
+    'need.after': '{id}, {after} archived first',
+    'gate.grill': 'your answers about its request',
+    'gate.approval': 'your approval of the plan',
+    'gate.retro': 'your answers to its retro',
+    'gate.merge': 'your merge of its pull request',
+    'gate.decision': 'a decision only you can take',
+    'gate.dispute': 'your decision on the disputed review points',
+    'gate.stage': 'your result for an unfinished file',
+    'gate.by-hand': 'your delivery by hand',
+    'status-count': 'Roadmap: {open} open of {places} · {queue} in the queue · {archived} archived',
+    'status-held': 'Starts held: processor at {load}% (limit {limit}%)',
+    'status-owner': 'Waiting for you',
+    'status-running': 'Under way',
+    'status-blocked': 'Blocked',
+    'status-queue': 'In the queue',
+    'status-outside': 'Outside the roadmap (the roadmap does not touch them)',
+    'queue.place': 'ready, waits for a place',
+    'queue.load': 'ready, held by the load',
+    'queue.after': 'waits for {after}',
+    'outside.previous': 'began under the previous script',
+    'outside.ticked': 'ticked on the roadmap but not archived',
+    'outside.unticked': 'archived, its line not ticked yet',
+    'outside.other': 'not on the roadmap: {where}',
+    'running.stage': '{title}',
+    'running.phase': '{title}, phase {phase} of {phases}',
+    'running.github': 'waiting on GitHub ({what})',
+    'status-no-roadmap': 'This project has no roadmap. Unfinished changes:',
+    'status-nothing': 'This project has no roadmap and no unfinished change.',
     'script.devkit': 'full script',
     'script.devkit-lite': 'short script',
     'why.small': 'it is a small change that is easy to undo',
@@ -148,12 +197,14 @@ export const MESSAGES = {
     'blocked-why.pr-problem': 'the pull request has a problem the session cannot fix alone',
     'blocked-why.unknown-step': 'the next step is one this version does not know',
     'blocked-why.unreadable': 'the change cannot be read ({error})',
+    'blocked-why.cannot-open': 'it could not be opened ({error})',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
     'where.next': 'next is {stage}',
     'where.owner': 'waiting for you at {stage}',
     'where.github': 'waiting on GitHub',
+    'where.finishing': 'finishing {stage}',
     'where.blocked': 'stopped at {stage}',
     'where.previous': 'begun under the previous script',
     'where.archiving': 'being archived',
@@ -165,7 +216,7 @@ export const MESSAGES = {
   },
   'pt-BR': {
     'verb-not-built': '/devkit {verb} ainda não existe: chega na rodada {round}. Nada foi feito.',
-    'verb-unknown': 'Por enquanto só existe /devkit change: digite /devkit change e o que você quer fazer.',
+    'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap e /devkit status: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, ou /devkit status para ver onde está tudo.',
     'not-set-up': 'Este projeto ainda não está preparado para o devkit: rode /openspec-setup primeiro. Nada foi executado.',
     'setting-unknown': 'As configurações devkit do projeto têm {setting} desconhecido, "{value}"; use um de: {accepted}. Nada foi executado.',
     'driver-not-built': 'Este projeto está configurado para rodar em {driver}, que ainda não existe (rodada {round}). Nada foi executado.',
@@ -192,6 +243,55 @@ export const MESSAGES = {
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
     blocked: 'A change {id} parou: {why}. Nada mais roda até isso ser resolvido.',
     'request-unreadable': 'Não consegui ler esse pedido. Digite /devkit change e o que você quer fazer, ou só /devkit change para continuar.',
+    'roadmap-invalid': '/devkit roadmap aceita um número inteiro a partir de 1, ou stop: "{word}" não é nenhum dos dois. Nada foi começado.',
+    'roadmap-none': 'Este projeto ainda não tem roadmap. Escrevo um rascunho com as changes por terminar, para você revisar? Nada começa agora.',
+    'roadmap-drafted': 'Escrevi um rascunho de roadmap com {list}, sem commit. Revise, entregue como este projeto entrega e chame /devkit roadmap de novo.',
+    'roadmap-drafted-empty': 'Escrevi um rascunho de roadmap sem nenhuma change, sem commit: acrescente uma linha por change, entregue e chame /devkit roadmap de novo.',
+    'roadmap-drafted-left': 'Deixei de fora, porque começaram no roteiro anterior: {list}.',
+    'roadmap-draft-declined': 'Nada foi criado.',
+    'roadmap-places': 'A rodada agora vai até {places} changes ao mesmo tempo ({open} abertas).',
+    'roadmap-started': 'Comecei {id} ({open} de {places} em andamento).',
+    'roadmap-resumed': 'Retomei {id}, que já estava aberta: {where} ({open} de {places} em andamento).',
+    'roadmap-held': '{id} está pronta para começar, mas a máquina está carregada (processador em {load}%, limite {limit}%): seguro o começo até aliviar.',
+    'roadmap-gate': '{id} espera {gate}. As outras seguem.',
+    'roadmap-archived': '{id} foi arquivada.',
+    'roadmap-blocked': '{id} parou: {why}. As outras seguem, e as que dependem dela esperam.',
+    'roadmap-skipped': '{id} começou no roteiro anterior, então o roadmap não mexe nela; as que dependem dela esperam.',
+    'roadmap-stopping': 'Parando: nada novo começa, e cada change termina a etapa em que está.',
+    'roadmap-stayed': '{id}: {where}.',
+    'roadmap-ended-done': 'Todas as changes do roadmap estão arquivadas. A rodada terminou.',
+    'roadmap-ended-stopped': 'A rodada parou. Chame /devkit roadmap para seguir de onde cada change ficou.',
+    'roadmap-ended-stuck': 'Nada mais pode começar ou rodar sozinho. Cada change aberta precisa de: {list}.',
+    'need.owner': '{id}, {gate}',
+    'need.blocked': '{id}, uma correção: {why}',
+    'need.after': '{id}, que {after} seja arquivada antes',
+    'gate.grill': 'as suas respostas sobre o pedido',
+    'gate.approval': 'a sua aprovação do plano',
+    'gate.retro': 'as suas respostas à retro',
+    'gate.merge': 'o seu merge do pull request',
+    'gate.decision': 'uma decisão que só você pode tomar',
+    'gate.dispute': 'a sua decisão sobre os pontos em disputa da revisão',
+    'gate.stage': 'o resultado de um arquivo inacabado',
+    'gate.by-hand': 'a sua entrega à mão',
+    'status-count': 'Roadmap: {open} abertas de {places} · {queue} na fila · {archived} arquivadas',
+    'status-held': 'Começos segurados: processador em {load}% (limite {limit}%)',
+    'status-owner': 'Esperando você',
+    'status-running': 'Em andamento',
+    'status-blocked': 'Travadas',
+    'status-queue': 'Na fila',
+    'status-outside': 'Fora do roadmap (o roadmap não toca)',
+    'queue.place': 'pronta, espera vaga',
+    'queue.load': 'pronta, segurada pela carga',
+    'queue.after': 'espera {after}',
+    'outside.previous': 'começada no roteiro anterior',
+    'outside.ticked': 'marcada no roadmap, mas não arquivada',
+    'outside.unticked': 'arquivada, falta marcar a linha',
+    'outside.other': 'fora do roadmap: {where}',
+    'running.stage': '{title}',
+    'running.phase': '{title}, fase {phase} de {phases}',
+    'running.github': 'esperando o GitHub ({what})',
+    'status-no-roadmap': 'Este projeto não tem roadmap. Changes por terminar:',
+    'status-nothing': 'Este projeto não tem roadmap nem change por terminar.',
     'script.devkit': 'roteiro completo',
     'script.devkit-lite': 'roteiro curto',
     'why.small': 'é uma mudança pequena e fácil de desfazer',
@@ -217,13 +317,15 @@ export const MESSAGES = {
     'blocked-why.pr-problem': 'o pull request tem um problema que a sessão não resolve sozinha',
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
+    'blocked-why.cannot-open': 'não foi possível abrir ({error})',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
     'where.next': 'a próxima é {stage}',
-    'where.owner': 'esperando você em {stage}',
+    'where.owner': 'esperando você {inStage}',
     'where.github': 'esperando o GitHub',
-    'where.blocked': 'parada em {stage}',
+    'where.finishing': 'terminando {stage}',
+    'where.blocked': 'parada {inStage}',
     'where.previous': 'começada no roteiro anterior',
     'where.archiving': 'sendo arquivada',
     'where.archived': 'arquivada',
@@ -236,11 +338,15 @@ export const MESSAGES = {
 
 // A stage as a noun phrase inside a sentence: en `the` + the title in sentence case, pt-BR `a etapa` + the title.
 const stagePhrase = (lang, title) => (lang === 'en' ? `the ${inSentence(title)}` : `a etapa ${title}`);
+// The same phrase after `at` (en) or `em` (pt-BR, which contracts `em a` to `na`).
+const inStagePhrase = (lang, title) => (lang === 'en' ? `at ${stagePhrase(lang, title)}` : `na etapa ${title}`);
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
-const FAMILY = { script: 'script.', other: 'script.', what: 'what.', driver: 'driver.', setting: 'setting.' };
+const FAMILY = { script: 'script.', other: 'script.', what: 'what.', driver: 'driver.', setting: 'setting.', gate: 'gate.' };
+// The keys whose `{why}` is a blocked reason (`blocked-why.` codes); any other key's `{why}` is a `why.` code.
+const BLOCKED_WHY_KEYS = ['blocked', 'roadmap-blocked', 'need.blocked'];
 
 // One message, in the person's language, its `{name}` parameters filled. A code parameter (`script`, `other`, `why`,
-// `what`, `driver`, `setting`) is looked up in its family of the same table; `stage` is the stage's title in the
+// `what`, `driver`, `setting`, `gate`) is looked up in its family of the same table; `stage` is the stage's title in the
 // person's language. An unknown key or a missing parameter is a LoopUsageError.
 export function render(lang, key, params = {}) {
   const l = normalizeLang(lang);
@@ -252,8 +358,9 @@ export function render(lang, key, params = {}) {
   };
   return template.replace(/\{(\w+)\}/g, (_, name) => {
     if (name === 'stage') return stagePhrase(l, need('stage'));
+    if (name === 'inStage') return inStagePhrase(l, need('stage'));
     if (name === 'Stage') return capital(stagePhrase(l, need('stage')));
-    if (name === 'why') return render(l, `${key === 'blocked' ? 'blocked-why' : 'why'}.${need('why')}`, params);
+    if (name === 'why') return render(l, `${BLOCKED_WHY_KEYS.includes(key) ? 'blocked-why' : 'why'}.${need('why')}`, params);
     if (FAMILY[name]) return render(l, `${FAMILY[name]}${need(name)}`, params);
     return need(name);
   });
@@ -366,7 +473,7 @@ export function decide(facts) {
     return { stage: s ? id : null, stageTitle: s ? s.title[lang] : null, role: s?.role ?? null, skills: s?.skills ?? [] };
   };
   const finish = (state, why, key, params, stageId, detail) => ({
-    ...base, kind: 'end', ...stageFields(stageId), end: { state, why }, ...(detail ? { detail } : {}), reply: say(key, params),
+    ...base, kind: 'end', ...stageFields(stageId), end: { state, why }, params: { id: ctx.id, ...params }, ...(detail ? { detail } : {}), reply: say(key, params),
   });
   const blocked = (why, params = {}, stageId = null, detail) => finish('blocked', why, 'blocked', { why, ...params }, stageId, detail);
   const waiting = (state, key, stageId, params = {}, detail) => finish(state, key, key, params, stageId, detail);
@@ -480,7 +587,7 @@ export function decide(facts) {
 
 // Environment the delivery checkers must not see: conduct-check's cleanOf (the same names).
 const CLEAN_KEYS = ['DEVKIT_CHANGE', 'DEVKIT_BRANCH', 'GITHUB_HEAD_REF', 'GITHUB_BASE_REF', 'DEVKIT_BYPASS'];
-function cleanOf(env) {
+export function cleanOf(env) {
   const clean = { ...env };
   for (const k of CLEAN_KEYS) delete clean[k];
   return clean;
@@ -673,7 +780,7 @@ export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec
 
 // ---------------------------------------------------------------- start (D-3)
 
-const VERB_ROUND = { roadmap: 18, status: 18, project: 19, help: 23 };
+const VERB_ROUND = { project: 19, help: 23 };
 const DRIVER_ROUND = { compozy: 21, script: 22 };
 
 // The verb is the first word, lower-cased; the text is the rest, trimmed.
@@ -684,7 +791,7 @@ export function parseStart(input) {
 
 // Rows S3 to S5 (and O3): the project is set up, its settings are known and its driver is built; else the reply of
 // the row that stops it.
-function projectGate(start, settings) {
+export function projectGate(start, settings) {
   if (!start || !optedIn(start)) return { mode: 'not-set-up', key: 'not-set-up', params: {} };
   const unknown = settings.unknown[0];
   if (unknown) return { mode: 'setting-unknown', key: 'setting-unknown', params: { setting: unknown.setting, value: unknown.value, accepted: unknown.accepted } };
@@ -707,9 +814,10 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   });
   const say = (key, params = {}) => render(l, key, params);
   if (VERB_ROUND[verb]) return out('not-built', { reply: say('verb-not-built', { verb, round: VERB_ROUND[verb] }) });
-  if (verb !== 'change') return out('unknown-verb', { reply: say('verb-unknown') });
+  if (!['change', 'roadmap', 'status'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
   const gate = projectGate(start, settings);
   if (gate) return out(gate.mode, { reply: say(gate.key, gate.params) });
+  if (verb !== 'change') return out(verb); // the skill calls roadmap-loop.mjs for these (roadmap-coordinator D-3)
 
   const read = { lang: l, env, openspec, gh };
   const list = unfinished(start, { env, gh }).map((u) => {
@@ -765,6 +873,44 @@ function nameTaken(start, main, id) {
   return existsSync(join(main, '.claude', 'worktrees', id));
 }
 
+// Waits between tries without a busy loop, so the callers of a lock stay synchronous.
+export const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+// Runs `work` holding the lock file `lock`, created with `wx` (holding `holder` when given), retried every `stepMs` for up to
+// `waitMs` (then `timeout()` is thrown), taken over when older than `staleMs`, removed when the work ends. `sleep` is injectable.
+// Shared by `open` (below) and the roadmap run file (roadmap-loop.mjs).
+export function withLockFile({ lock, stepMs, waitMs, staleMs, holder, timeout, sleep = sleepSync }, work) {
+  for (let waited = 0; ;) {
+    try {
+      const fd = openSync(lock, 'wx');
+      try { if (holder !== undefined) writeFileSync(fd, holder); } finally { closeSync(fd); }
+      break;
+    } catch (e) {
+      if (e?.code !== 'EEXIST') throw e;
+      let age = 0;
+      try { age = Date.now() - statSync(lock).mtimeMs; } catch { continue; } // released between the two calls: try again
+      if (age > staleMs) { try { unlinkSync(lock); } catch { /* another call took it over first */ } continue; }
+      if (waited >= waitMs) throw timeout();
+      sleep(stepMs);
+      waited += stepMs;
+    }
+  }
+  try { return work(); } finally { try { unlinkSync(lock); } catch { /* already gone */ } }
+}
+
+// Two `open` calls at once take turns (roadmap-coordinator D-10): one lock file in the git common directory, 200 ms steps for
+// up to 60 s, taken over when older than ten minutes. `openChange` and its callers stay synchronous.
+const OPEN_LOCK = { stepMs: 200, waitMs: 60_000, staleMs: 10 * 60_000 };
+
+function withOpenLock(main, work) {
+  const common = tryGit(main, ['rev-parse', '--path-format=absolute', '--git-common-dir']) || join(main, '.git');
+  return withLockFile({
+    ...OPEN_LOCK, lock: join(common, 'devkit-open.lock'),
+    holder: `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`,
+    timeout: () => new LoopUsageError('another open call holds the lock for too long'),
+  }, work);
+}
+
 // `open <id> --script <s> --why <code>`, the request on standard input. Creates the worktree, the change and its
 // requirements file; refusals are LoopRefusal (exit 3, nothing created).
 export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec } = {}) {
@@ -781,6 +927,11 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
   if (gate) throw refuse(gate.key, gate.params);
 
   const main = mainRoot(start);
+  return withOpenLock(main, () => openUnderLock({ start, main, id, script, why, text, l, refuse, openspec, env }));
+}
+
+// What `open` does while it holds the lock: the fetch, the id check, the worktree, the change and its requirements file.
+function openUnderLock({ start, main, id, script, why, text, l, refuse, openspec, env }) {
   const hasOrigin = gitRun(main, ['remote']).split('\n').includes('origin');
   if (hasOrigin) gitRun(main, ['fetch', 'origin', '--prune', '--quiet']);
   if (nameTaken(start, main, id)) throw refuse('name-taken', { id });
@@ -878,7 +1029,7 @@ export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 
 
 // ---------------------------------------------------------------- the locks (D-8)
 
-const allow = (why, change = null) => ({ decision: 'allow', why, change });
+export const allow = (why, change = null) => ({ decision: 'allow', why, change });
 
 // The refusal record of a session (`<session_id>.json`) or of a subagent (`<session_id>-<agent_id>.json`) under
 // `<os.tmpdir()>/devkit-stop/`: the progress key of the state last refused.
@@ -890,7 +1041,7 @@ function recordedKey(file) {
 
 // Refuses once for a state: the same key as the record is let through; a refusal that cannot be recorded would repeat
 // forever, so it is let through too (the caller's catch).
-function refuseOnce(input, key, why, change, reason) {
+export function refuseOnce(input, key, why, change, reason) {
   const file = recordFile(input);
   if (recordedKey(file) === key) return allow('same-state', change);
   mkdirSync(dirname(file), { recursive: true });
@@ -900,11 +1051,12 @@ function refuseOnce(input, key, why, change, reason) {
 
 const hasTasks = (tasks) => (Array.isArray(tasks) ? tasks.length > 0 : Boolean(tasks) && typeof tasks === 'object' && Object.keys(tasks).length > 0);
 
-// `guard.mjs stop` (T1 to T7): the session in a run does not end its turn while the loop has a stage ready.
-export function stopDecision(input, { env = process.env } = {}) {
+// `guard.mjs stop` (T1 to T7): the session in a run does not end its turn while the loop has a stage ready. `events` are the
+// transcript's events the guard already scanned (`transcriptEvents`); absent, `runOf` scans the file itself. The same for the two below.
+export function stopDecision(input, { env = process.env, events } = {}) {
   let change = null;
   try {
-    const run = runOf(input);
+    const run = runOf(input, events);
     if (!run) return allow('no-run');
     change = run.change;
     if (hasTasks(input.background_tasks)) return allow('background-task', change);
@@ -926,39 +1078,45 @@ const roleOf = (agentType) => String(agentType || '').split(':').pop();
 const UNDELIVERED = ['no-header', 'bad-header', 'header-other-stage', 'not-judged'];
 
 // `guard.mjs subagent-stop` (U1 to U7): a stage agent does not stop before its stage file is delivered.
-export function subagentStopDecision(input, { env = process.env } = {}) {
+export function subagentStopDecision(input, { env = process.env, events } = {}) {
   let change = null;
   try {
-    const run = runOf(input);
+    const run = runOf(input, events);
     if (!run) return allow('no-run');
     change = run.change;
-    const role = roleOf(input.agent_type);
-    const start = findRoot(input.cwd ?? process.cwd());
-    if (!start) return allow('no-project', change);
-    const found = locate(start, change);
-    const clean = cleanOf(env);
-    const flow0 = readFlow(found.root, changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change)));
-    if (!flow0 || !flow0.stages.some((s) => s.source === 'artifact' && s.role === role)) return allow('no-stage-file', change);
-    const { facts, flow } = collectFlow(found.root, change, { env: clean, openspec: makeOpenspec(found.root, clean) });
-    const report = computeFlow(facts, flow, {});
-    const next = report.next;
-    const stage = next && flow.stages.find((s) => s.id === next.stage);
-    if (!stage || stage.source !== 'artifact' || stage.role !== role) return allow('delivered', change);
-    const key = `${stage.id}/${next.reasonCode}@${facts.fingerprint ?? ''}`;
-    if (next.reasonCode === 'no-file') {
-      return refuseOnce(input, key, 'no-file', change, `${stage.file} of stage ${stage.id} does not exist: write it, with its stage header, before you stop`);
-    }
-    if (UNDELIVERED.includes(next.reasonCode)) {
-      return refuseOnce(input, key, next.reasonCode, change, `${stage.file} of stage ${stage.id} still says result=pending (or has no valid header): set its header before you stop`);
-    }
-    return allow('not-pending', change);
+    return subagentStopFor(input, change, { env });
   } catch { return allow('error', change); }
+}
+
+// U2 to U6 over the change `change`, found by the caller (the change run's reader or the roadmap run's brief). Throws on an
+// error: the caller lets the stop through.
+export function subagentStopFor(input, change, { env = process.env } = {}) {
+  const role = roleOf(input.agent_type);
+  const start = findRoot(input.cwd ?? process.cwd());
+  if (!start) return allow('no-project', change);
+  const found = locate(start, change);
+  const clean = cleanOf(env);
+  const flow0 = readFlow(found.root, changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change)));
+  if (!flow0 || !flow0.stages.some((s) => s.source === 'artifact' && s.role === role)) return allow('no-stage-file', change);
+  const { facts, flow } = collectFlow(found.root, change, { env: clean, openspec: makeOpenspec(found.root, clean) });
+  const report = computeFlow(facts, flow, {});
+  const next = report.next;
+  const stage = next && flow.stages.find((s) => s.id === next.stage);
+  if (!stage || stage.source !== 'artifact' || stage.role !== role) return allow('delivered', change);
+  const key = `${stage.id}/${next.reasonCode}@${facts.fingerprint ?? ''}`;
+  if (next.reasonCode === 'no-file') {
+    return refuseOnce(input, key, 'no-file', change, `${stage.file} of stage ${stage.id} does not exist: write it, with its stage header, before you stop`);
+  }
+  if (UNDELIVERED.includes(next.reasonCode)) {
+    return refuseOnce(input, key, next.reasonCode, change, `${stage.file} of stage ${stage.id} still says result=pending (or has no valid header): set its header before you stop`);
+  }
+  return allow('not-pending', change);
 }
 
 // The agents a run may hand work to: the roles and helpers of the script's stages, but not the owner, the coordinator
 // itself or the review bench (a skill, not an agent).
 const NOT_AGENTS = ['owner', 'change-coordinator', 'review-bench'];
-function scriptAgents(flow) {
+export function scriptAgents(flow) {
   return [...new Set(flow.stages.flatMap((s) => [s.role, ...(s.helpers ?? [])]))].filter((r) => !NOT_AGENTS.includes(r));
 }
 
@@ -973,36 +1131,35 @@ export const PACKS = {
 
 // `guard.mjs agent` (H1 to H5): in a run the session hands work only to the roles of the change's script, named with no
 // prefix or with the prefix of the pack that ships that role's agent; no agent type is a general-purpose agent: refused.
-export function agentDecision(input) {
+export function agentDecision(input, { events } = {}) {
   let change = null;
   try {
     if (input.agent_type) return allow('subagent');
-    const run = runOf(input);
+    const run = runOf(input, events);
     if (!run) return allow('no-run');
     change = run.change;
-    const start = findRoot(input.cwd ?? process.cwd());
-    if (!start) return allow('no-project', change);
-    const found = locate(start, change);
-    const schema = changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change));
-    const flow = readFlow(found.root, schema);
-    if (!flow) return allow('no-script', change);
-    const roles = scriptAgents(flow);
-    const type = input.tool_input?.subagent_type;
-    if (typeof type !== 'string' || !type.trim()) {
-      return {
-        decision: 'refuse', why: 'no-type', change,
-        reason: `in a /devkit change run this session hands work only to the roles of the ${schema} script: ${roles.join(', ')}; name one of them as subagent_type`,
-      };
-    }
-    const colon = type.indexOf(':');
-    const pack = colon === -1 ? null : type.slice(0, colon);
-    const role = colon === -1 ? type : type.slice(colon + 1);
-    if (roles.includes(role) && (pack === null || PACKS[role] === pack)) return allow('script-role', change);
-    return {
-      decision: 'refuse', why: 'not-a-role', change,
-      reason: `in a /devkit change run this session hands work only to the roles of the ${schema} script: ${roles.join(', ')}; ${type} is not one of them`,
-    };
+    return handOffFor(input, change);
   } catch { return allow('error', change); }
+}
+
+// H3 to H4a over the change `change`, found by the caller; `command` is the run's command as the refusal names it (a roadmap run
+// also names the change). Throws on an error: the caller lets the hand-off through.
+export function handOffFor(input, change, { command = 'change' } = {}) {
+  const start = findRoot(input.cwd ?? process.cwd());
+  if (!start) return allow('no-project', change);
+  const found = locate(start, change);
+  const schema = changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change));
+  const flow = readFlow(found.root, schema);
+  if (!flow) return allow('no-script', change);
+  const roles = scriptAgents(flow);
+  const lead = `in a /devkit ${command} run this session hands work${command === 'change' ? '' : ` for ${change}`} only to the roles of the ${schema} script: ${roles.join(', ')}`;
+  const type = input.tool_input?.subagent_type;
+  if (typeof type !== 'string' || !type.trim()) return { decision: 'refuse', why: 'no-type', change, reason: `${lead}; name one of them as subagent_type` };
+  const colon = type.indexOf(':');
+  const pack = colon === -1 ? null : type.slice(0, colon);
+  const role = colon === -1 ? type : type.slice(colon + 1);
+  if (roles.includes(role) && (pack === null || PACKS[role] === pack)) return allow('script-role', change);
+  return { decision: 'refuse', why: 'not-a-role', change, reason: `${lead}; ${type} is not one of them` };
 }
 
 // ---------------------------------------------------------------- the command line (D-5)
@@ -1125,9 +1282,28 @@ export async function runCommand(argv, opts = {}) {
 }
 
 // The request on standard input, for `start` and `open` (empty when there is none to read).
-function readStdin() {
+// A pipe that is still empty makes the read fail with EAGAIN: wait a little and read again, up to STDIN_WAIT.ms in all.
+const STDIN_WAIT = { stepMs: 20, ms: 10_000 };
+export function readStdin() {
   if (process.stdin.isTTY) return '';
-  try { return readFileSync(0, 'utf8'); } catch { return ''; }
+  const chunks = [];
+  const buf = Buffer.alloc(65_536);
+  let waited = 0;
+  for (;;) {
+    let n;
+    try {
+      n = readSync(0, buf, 0, buf.length, null);
+    } catch (e) {
+      if (e?.code !== 'EAGAIN') return '';
+      if (waited >= STDIN_WAIT.ms) break;
+      sleepSync(STDIN_WAIT.stepMs);
+      waited += STDIN_WAIT.stepMs;
+      continue;
+    }
+    if (n === 0) break;
+    chunks.push(Buffer.from(buf.subarray(0, n)));
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 function isMain() {

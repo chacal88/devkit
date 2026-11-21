@@ -2,12 +2,12 @@
 // change-coordinator: the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, spawn } from 'node:child_process';
 import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { shipConfig, collectState, buildReport } from './deliver-check.mjs';
@@ -16,7 +16,7 @@ import { TEXT } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
 import {
   readDevkitSettings, normalizeLang, MESSAGES, render, decide, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError,
-  runCommand, waitLoop, PACKS,
+  runCommand, waitLoop, PACKS, withLockFile,
 } from './change-loop.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -82,23 +82,28 @@ test('change-loop settings: shipConfig of deliver-check gives the same with and 
 const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
+  places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
 };
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
 const codes = (lang, prefix) => Object.keys(MESSAGES[lang]).filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length));
 
+// The keys whose `{why}` is a blocked reason (`blocked-why.` codes); written out here so the test pins the list of `render`.
+const BLOCKED_WHY_KEYS = ['blocked', 'roadmap-blocked', 'need.blocked'];
+
 // Every combination the table can render: a key, and for a parameter that names a code, each code of its family.
 function renderings(lang) {
   const out = [];
   for (const [key, template] of Object.entries(MESSAGES[lang])) {
-    const base = { ...SAMPLE, stage: STAGE_SAMPLE[lang], script: 'devkit', other: 'devkit-lite', setting: 'driver', driver: 'compozy', what: 'checks', why: 'small' };
+    const base = { ...SAMPLE, stage: STAGE_SAMPLE[lang], title: STAGE_SAMPLE[lang], script: 'devkit', other: 'devkit-lite', setting: 'driver', driver: 'compozy', what: 'checks', why: 'small' };
     const tokens = tokensOf(template);
-    const family = tokens.includes('why') ? (key === 'blocked' ? codes(lang, 'blocked-why.') : codes(lang, 'why.'))
+    const family = tokens.includes('why') ? (BLOCKED_WHY_KEYS.includes(key) ? codes(lang, 'blocked-why.') : codes(lang, 'why.'))
       : tokens.includes('what') ? codes(lang, 'what.')
         : tokens.includes('driver') ? codes(lang, 'driver.')
           : tokens.includes('setting') ? codes(lang, 'setting.')
-            : tokens.includes('script') ? codes(lang, 'script.') : [null];
-    const slot = ['why', 'what', 'driver', 'setting', 'script'].find((t) => tokens.includes(t));
+            : tokens.includes('gate') ? codes(lang, 'gate.')
+              : tokens.includes('script') ? codes(lang, 'script.') : [null];
+    const slot = ['why', 'what', 'driver', 'setting', 'gate', 'script'].find((t) => tokens.includes(t));
     for (const code of family) out.push({ key, text: render(lang, key, slot && code ? { ...base, [slot]: code } : base) });
   }
   return out;
@@ -112,11 +117,11 @@ test('change-loop replies: no internal term in either language', () => {
   const deliverSteps = [...read('deliver-check.mjs').matchAll(/\bstep\('([a-z][a-z-]*)'/g)].map((m) => m[1]);
   // One-word ids, steps and reason codes (review, retro, archived) are English words the owner uses and stay allowed.
   const refusedIds = [...new Set([...hyphenated(ids), ...hyphenated(deliverSteps), ...hyphenated(Object.keys(TEXT.en))])];
-  const refusedWords = ['flow-check', 'deliver-check', 'conduct-check', 'change-loop', 'devkit-core', 'devkit-openspec', 'devkit-lite', 'subagent', 'progressKey', 'reasonCode', 'onFail'];
+  const refusedWords = ['flow-check', 'deliver-check', 'conduct-check', 'change-loop', 'roadmap-loop', 'load_limit', 'devkit-core', 'devkit-openspec', 'devkit-lite', 'subagent', 'progressKey', 'reasonCode', 'onFail'];
   assert.ok(refusedIds.length > 20 && refusedIds.includes('code-quality-reviewer') && refusedIds.includes('stop-branch') && refusedIds.includes('no-progress'));
   assert.deepEqual(Object.keys(MESSAGES.en).sort(), Object.keys(MESSAGES['pt-BR']).sort(), 'the same keys in both languages');
   // Parameter texts the design table gives identically in both languages (a product name and a word that is the same).
-  const EXEMPT_EQUAL = ['driver.compozy', 'setting.driver'];
+  const EXEMPT_EQUAL = ['driver.compozy', 'setting.driver', 'roadmap-stayed', 'need.owner', 'running.stage'];
   for (const lang of ['en', 'pt-BR']) {
     for (const { key, text } of renderings(lang)) {
       assert.ok(typeof text === 'string' && text.length > 0 && !/undefined|NaN|\[object|\{\w+\}/.test(text), `${lang} ${key}: ${text}`);
@@ -881,7 +886,7 @@ test('change-loop start: S0 a usage error exits 3 and creates nothing', () => {
 test('change-loop start: S1 a verb of a later round says its round and creates nothing', () => {
   const root = devkitRepo();
   const before = snapshot(root);
-  for (const [verb, round] of [['roadmap', 18], ['status', 18], ['project', 19], ['help', 23]]) {
+  for (const [verb, round] of [['project', 19], ['help', 23]]) {
     const r = startRun(root, `${verb.toUpperCase()} now please`);
     assert.equal(r.code, 0, verb);
     const b = body(r);
@@ -893,14 +898,14 @@ test('change-loop start: S1 a verb of a later round says its round and creates n
   assert.equal(snapshot(root), before);
 });
 
-test('change-loop start: S2 no verb or an unknown verb says only change exists', () => {
+test('change-loop start: S2 no verb or an unknown verb names the commands that exist', () => {
   const root = devkitRepo();
   for (const text of ['', '   \n', 'frobnicate the thing', 'add a csv export']) {
     const b = body(startRun(root, text));
     assert.equal(b.mode, 'unknown-verb', JSON.stringify(text));
     assert.equal(b.reply, render('en', 'verb-unknown'));
   }
-  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto só existe \/devkit change/);
+  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap e \/devkit status/);
   assert.equal(body(startRun(root, '', { lang: '${user_config.language}' })).reply, render('pt-BR', 'verb-unknown'));
 });
 
@@ -1255,6 +1260,55 @@ test('change-loop open: a missing request, an unknown script or an unknown reaso
   assert.equal(openRun(t.main, 'new-thing').code, 0, 'the same call with all three given opens the change');
 });
 
+// roadmap-coordinator D-10: two `open` calls at once take turns on one lock in the git common directory.
+const openChild = (cwd, id) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [LOOP, 'open', id, '--script', 'devkit', '--why', 'doubt', '--lang', 'en'], { cwd, env: cleanEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.on('error', reject);
+  child.on('exit', (code) => resolve({ code, stdout }));
+  child.stdin.end('Add a thing\n');
+});
+
+test('change-loop open: two opens at once for two ids both open their change, and for one id open it once', async () => {
+  const t = freshProject();
+  const two = await Promise.all([openChild(t.main, 'first-change'), openChild(t.main, 'second-change')]);
+  assert.deepEqual(two.map((r) => r.code), [0, 0], two.map((r) => r.stdout).join('\n'));
+  for (const id of ['first-change', 'second-change']) assert.ok(existsSync(join(wtOf(t, id), 'openspec', 'changes', id, 'requirements.md')), id);
+  assert.equal(git(t.main, 'worktree', 'list').split('\n').length, 3);
+  assert.equal(existsSync(join(t.main, '.git', 'devkit-open.lock')), false, 'the lock is removed');
+
+  const same = await Promise.all([openChild(t.main, 'same-change'), openChild(t.main, 'same-change')]);
+  assert.deepEqual(same.map((r) => r.code).sort(), [0, 3], same.map((r) => r.stdout).join('\n'));
+  const refused = same.find((r) => r.code === 3);
+  assert.equal(JSON.parse(refused.stdout).reply, render('en', 'name-taken', { id: 'same-change' }), 'the loser is told the name is taken');
+  assert.equal(git(t.main, 'worktree', 'list').split('\n').length, 4, 'one worktree for the id');
+  assert.equal(git(t.main, 'branch', '--list', 'same-change').split('\n').length, 1);
+  assert.equal(existsSync(join(t.main, '.git', 'devkit-open.lock')), false);
+});
+
+test('change-loop open: a lock held by another call is waited for, and one older than ten minutes is taken over', async () => {
+  const t = freshProject();
+  const lock = join(t.main, '.git', 'devkit-open.lock');
+  writeFileSync(lock, `${JSON.stringify({ pid: 1, at: new Date().toISOString() })}\n`);
+  const waiting = openChild(t.main, 'waits-for-lock');
+  let done = false;
+  waiting.then(() => { done = true; });
+  await new Promise((resolve) => { setTimeout(resolve, 900); });
+  assert.equal(done, false, 'the call waits while the lock is held');
+  rmSync(lock);
+  const r = await waiting;
+  assert.equal(r.code, 0, r.stdout);
+  assert.equal(existsSync(lock), false);
+
+  writeFileSync(lock, '');
+  const old = new Date(Date.now() - 11 * 60_000);
+  utimesSync(lock, old, old);
+  const taken = openRun(t.main, 'takes-over');
+  assert.equal(taken.code, 0, taken.stdout);
+  assert.equal(existsSync(lock), false);
+});
+
 // ---------------------------------------------------------------- script (D-4)
 
 const scriptRun = (cwd, id, script, why, lang = 'en') => main(['script', id, script, ...(why ? ['--why', why] : []), '--lang', lang], { cwd, env: cleanEnv });
@@ -1563,6 +1617,28 @@ test('change-loop lock run: no transcript, an unreadable one or a broken line is
   assert.equal(runOf({ transcript_path: transcriptOf(['{not json', typedLine('change x'), '{"type":"user", broken', runLine('feat')]) })?.change, 'feat');
 });
 
+test('change-loop lock run: one scan of the transcript yields the typed commands and the tool results in order, and no more', () => {
+  const file = transcriptOf([typedLine('change x'), skillBodyLine('change x'), blobLine('/devkit change y'), assistantLine(), runLine('feat', 'blocks'), runLine('other', 'stdout'), typedLine('status')]);
+  const events = guardModule.transcriptEvents({ transcript_path: file });
+  assert.deepEqual(events.map((e) => (e.typed ? `typed:${e.typed.name} ${e.typed.args}` : 'results')), ['typed:devkit change x', 'results', 'results', 'typed:devkit status']);
+  assert.match(events[1].texts.join('\n'), /devkit-run: feat/);
+  assert.match(events[2].stdout, /devkit-run: other/);
+});
+
+test('change-loop lock run: an unreadable transcript scans to null and never throws', () => {
+  assert.equal(guardModule.transcriptEvents({ transcript_path: join(sandbox(), 'missing.jsonl') }), null);
+  assert.equal(guardModule.transcriptEvents({}), null);
+  assert.equal(guardModule.transcriptEvents(null), null);
+});
+
+test('change-loop lock run: both readers interpret events already scanned, without reading the file again', () => {
+  const file = transcriptOf([typedLine('change x'), runLine('feat')]);
+  const events = guardModule.transcriptEvents({ transcript_path: file });
+  const gone = { transcript_path: join(sandbox(), 'missing.jsonl') };
+  assert.equal(guardModule.runOf(gone, events)?.change, 'feat');
+  assert.equal(guardModule.roadmapRunOf(gone, events), null);
+});
+
 test('change-loop lock run: the marker is found in each stored form of a tool result (string, stdout only, list of text blocks)', () => {
   for (const form of ['both', 'stdout', 'blocks']) {
     assert.equal(runOf({ transcript_path: transcriptOf([typedLine('change x'), runLine('feat', form)]) })?.change, 'feat', form);
@@ -1604,6 +1680,39 @@ test('change-loop lock stop: T1 no run in the session lets the stop through', ()
     assert.equal(r.code, 0, r.err);
   }
   assert.equal(existsSync(join(tmp, 'devkit-stop')), false, 'nothing recorded');
+});
+
+// A preload that appends one line to COUNT_FILE for every readFileSync of the file named by WATCH_FILE.
+const readCounter = () => {
+  const dir = sandbox();
+  const preload = join(dir, 'count-reads.mjs');
+  writeFileSync(preload, [
+    "import fs, { appendFileSync } from 'node:fs';",
+    "import { syncBuiltinESMExports } from 'node:module';",
+    'const real = fs.readFileSync;',
+    'fs.readFileSync = (file, ...rest) => { if (String(file) === process.env.WATCH_FILE) appendFileSync(process.env.COUNT_FILE, "read\\n"); return real(file, ...rest); };',
+    'syncBuiltinESMExports();',
+  ].join('\n'));
+  const count = join(dir, 'reads.log');
+  return {
+    env: (watch) => ({ NODE_OPTIONS: `--import=${preload}`, WATCH_FILE: watch, COUNT_FILE: count }),
+    reads: () => (existsSync(count) ? readFileSync(count, 'utf8').split('\n').filter(Boolean).length : 0),
+  };
+};
+
+test('change-loop lock: a hook call in a change run reads the transcript once on every lock, and decides as before', () => {
+  const root = planChange({ have: ['requirements'] });
+  for (const [mode, input, code] of [
+    ['stop', (t) => stopInput(root, t), 2],
+    ['subagent-stop', (t) => subInput(root, t, 'change-planner'), 2],
+    ['agent', (t) => stopInput(root, t, { tool_input: { subagent_type: 'general-purpose' } }), 2],
+  ]) {
+    const transcript = runTranscript();
+    const spy = readCounter();
+    const r = hook(mode, input(transcript), { TMPDIR: sandbox(), ...spy.env(transcript) });
+    assert.equal(r.code, code, `${mode}: ${r.err}`);
+    assert.equal(spy.reads(), 1, `${mode}: the transcript is read once`);
+  }
 });
 
 test('change-loop lock stop: T2 a background task running lets the stop through', () => {
@@ -2262,8 +2371,8 @@ test('change-loop skill: the grill paragraph names the stage header and requirem
 test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () => {
   const md = skillText();
   const heads = md.split('\n').filter((l) => l.startsWith('## '));
-  assert.deepEqual(heads, ['## Settings', '## Start', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Never']);
-  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new']) {
+  assert.deepEqual(heads, ['## Settings', '## Start', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Roadmap', '## Status', '## Never']);
+  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status']) {
     assert.ok(md.includes(`\`${mode}\``), `mode ${mode}`);
   }
   assert.match(md, /AskUserQuestion/);
@@ -2361,7 +2470,8 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.17\.1/, 'the CI snippet pins the current release (field-fixes retro: 0.17.1)');
+  assert.match(flow, /v0\.18\.0/, 'the CI snippet pins the current release (roadmap-coordinator: 0.18.0)');
+  assert.doesNotMatch(flow, /v0\.17\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.16\.0/, 'no pin left on the previous release');
   assert.match(flow, /prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end/, 'the loop paragraph names the end marker');
   assert.match(flow, /an end the run already recorded/, 'the stop lock reads a recorded end');
@@ -2518,4 +2628,49 @@ test('field-fixes 2 change-loop: next on the old devkit-lite form with no requir
   const { action } = parsed(r);
   assert.deepEqual([action.end.state, action.end.why], ['blocked', 'previous-script']);
   assert.notEqual(action.kind, 'grill');
+});
+
+// roadmap-coordinator: the request is read even when the writer of the pipe is slow (the read of an empty pipe waits, it does not give up).
+const lateChild = (script, args, cwd, text, delayMs) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [script, ...args], { cwd, env: cleanEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.on('error', reject);
+  child.on('exit', (code) => resolve({ code, stdout }));
+  setTimeout(() => child.stdin.end(text), delayMs);
+});
+
+test('change-loop start: a request written to the pipe after a delay is still read', async () => {
+  const root = devkitRepo();
+  const late = await lateChild(LOOP, ['start', '--lang', 'en'], root, 'change add a thing', 400);
+  assert.equal(late.code, 0, late.stdout);
+  assert.deepEqual(JSON.parse(late.stdout), JSON.parse(startRun(root, 'change add a thing').stdout), 'the same answer as for a request there from the start');
+});
+
+const lockDir = () => mkdtempSync(join(tmpdir(), 'devkit-lockfile-'));
+
+test('change-loop withLockFile: holds the lock while the work runs, stores the holder text, removes the lock after', () => {
+  const lock = join(lockDir(), 'x.lock');
+  const seen = withLockFile({ lock, stepMs: 1, waitMs: 5, staleMs: 1000, holder: 'me\n', timeout: () => new Error('late'), sleep: () => {} }, () => readFileSync(lock, 'utf8'));
+  assert.equal(seen, 'me\n');
+  assert.equal(existsSync(lock), false);
+});
+
+test('change-loop withLockFile: a held lock is waited for with the injected sleep, then the caller\'s error is thrown', () => {
+  const lock = join(lockDir(), 'x.lock');
+  writeFileSync(lock, 'other');
+  const sleeps = [];
+  class Late extends Error {}
+  assert.throws(() => withLockFile({ lock, stepMs: 10, waitMs: 30, staleMs: 60_000, timeout: () => new Late('late'), sleep: (ms) => sleeps.push(ms) }, () => 'never'), Late);
+  assert.deepEqual(sleeps, [10, 10, 10]);
+  assert.equal(readFileSync(lock, 'utf8'), 'other', 'the other holder\'s lock is left alone');
+});
+
+test('change-loop withLockFile: a lock older than staleMs is taken over', () => {
+  const lock = join(lockDir(), 'x.lock');
+  writeFileSync(lock, 'old');
+  const past = new Date(Date.now() - 5000);
+  utimesSync(lock, past, past);
+  assert.equal(withLockFile({ lock, stepMs: 1, waitMs: 5, staleMs: 1000, timeout: () => new Error('late'), sleep: () => {} }, () => 'ran'), 'ran');
+  assert.equal(existsSync(lock), false);
 });
