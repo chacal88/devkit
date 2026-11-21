@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.1 — field fixes of 0.16.0, the rest
+
+- **devkit-openspec** 0.18.1: `deliver-check --watch` also waits at `stop-merge-setup` when the
+  change's open pull request has pending checks, and the step stays `stop-merge-setup` (field
+  item 9); the verdict readers count the first `Verdict:` line of a review file and ignore a later
+  one (field item 10); the openspec-setup line about the ruleset's checks always lists
+  `devkit-reviews` and no longer says "none" (field item 11). The CI snippet now pins `v0.18.1`,
+  the release's tag.
+- Docs: the flow document says what the watch waits for and which `Verdict:` line counts.
+
 ## 0.22.0 — the roadmap coordinator, /devkit roadmap and /devkit status
 
 - **devkit-openspec** 0.18.0: `/devkit roadmap [<n>]` runs the roadmap's ready changes, several at

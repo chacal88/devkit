@@ -1313,3 +1313,35 @@ test('field-fixes 12 roadmap: the round 17b line is read before round 18', () =>
   assert.ok(item, 'the change is on the line');
   assert.deepEqual(item.after, ['change-coordinator']);
 });
+
+// ---------------------------------------------------------------- field-fixes 10: the first Verdict line (spec verdict-files, design D-3)
+
+const twoVerdicts = (first, second) => `Verdict: ${first}\n\n### Findings\nVerdict: ${second}\n`;
+const verdictReviews = (first, second) => ({ ...goodReviews, 'reviews/security-reviewer.md': twoVerdicts(first, second) });
+
+test('field-fixes 10 verdict: readValue returns the first Verdict line whichever order the two come in (AC-3)', () => {
+  const root = repo({ changes: { a: { 'x.md': twoVerdicts('approved', 'rejected') }, b: { 'x.md': twoVerdicts('rejected', 'approved') } } });
+  assert.equal(readValue(join(root, 'openspec/changes/a/x.md'), 'Verdict'), 'APPROVED');
+  assert.equal(readValue(join(root, 'openspec/changes/b/x.md'), 'Verdict'), 'REJECTED');
+});
+
+test('field-fixes 10 verdict: reviewConsensus passes on approved then rejected and fails on the reverse, naming the reviewer (AC-3)', () => {
+  const root = repo({ changes: { a: verdictReviews('approved', 'rejected'), b: verdictReviews('rejected', 'approved') } });
+  const d = (n) => join(root, 'openspec/changes', n);
+  assert.equal(reviewConsensus(d('a')).ok, true);
+  assert.equal(JSON.stringify(reviewConsensus(d('a'))).includes('rejected'), false, 'nothing is said about the second line');
+  const b = reviewConsensus(d('b'));
+  assert.equal(b.ok, false);
+  assert.match(JSON.stringify(b), /security-reviewer/);
+});
+
+test('field-fixes 10 verdict: gh pr create is not refused for a reviewer whose first Verdict line approves, and is refused naming one whose first rejects (AC-3)', () => {
+  const ok = repo({ changes: { feat: { ...approved, ...verdictReviews('approved', 'rejected'), ...evidence } } });
+  const pass = bash(ok, 'gh pr create --title x --body y');
+  assert.equal(pass.code, 0, pass.err);
+  assert.doesNotMatch(pass.err, /rejected/);
+  const bad = repo({ changes: { feat: { ...approved, ...verdictReviews('rejected', 'approved'), ...evidence } } });
+  const refused = bash(bad, 'gh pr create --title x --body y');
+  assert.equal(refused.code, 2);
+  assert.match(refused.err, /security-reviewer/);
+});

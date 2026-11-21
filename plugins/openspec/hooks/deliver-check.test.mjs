@@ -2754,6 +2754,70 @@ test('CLI without --watch never watches', () => {
   assert.equal(watchCalls(t).length, 0);
 });
 
+// ---- field item 9: --watch also waits at stop-merge-setup (merge-setup-field-fixes, D-1)
+
+// A merge-mode change whose repository has no rule requiring devkit-reviews, with a check pending.
+function setupPending() {
+  const t = mergeReady();
+  presetSetup(t.gh, { rules: [] });
+  t.gh.set('pr-checks', { exit: 8, stdout: [check('build', 'pass'), check('e2e', 'pending')] });
+  t.gh.resetCount('pr-checks');
+  return t;
+}
+
+test('field-fixes 9 watch: at stop-merge-setup with a check pending, one gh pr checks --watch runs and the report shows the final checks (AC-1)', () => {
+  const t = setupPending();
+  t.gh.set('pr-checks-watch', { exit: 0, stdout: '' });
+  t.gh.set('pr-checks', { stdout: [check('build', 'pass'), check('e2e', 'pass')] }, 2);
+  t.gh.set('pr-checks', { exit: 8, stdout: [check('build', 'pass'), check('e2e', 'pending')] }, 1);
+  const r = runCli(t, ['feat', '--watch=1']);
+  assert.equal(r.code, 2, r.out + r.err);
+  assert.deepEqual(watchCalls(t), [['pr', 'checks', '12', '--watch', '--interval', '30', '--required']]);
+  assert.match(r.out, /^ {2}6 met\s/m);
+  assert.match(r.out, /^next: stop-merge-setup: /m);
+  assert.match(r.out, /^8\/8 met: blocked: merge setup$/m);
+  assert.match(r.out, /^watch: ended$/m);
+  const u = setupPending();
+  u.gh.set('pr-checks-watch', { exit: 0, stdout: '' });
+  u.gh.set('pr-checks', { stdout: [check('build', 'pass'), check('e2e', 'pass')] }, 2);
+  u.gh.set('pr-checks', { exit: 8, stdout: [check('build', 'pass'), check('e2e', 'pending')] }, 1);
+  const j = JSON.parse(runCli(u, ['feat', '--json', '--watch=1']).out);
+  assert.equal(j.next.step, 'stop-merge-setup');
+  assert.deepEqual(j.watch, { minutes: 1, timedOut: false });
+});
+
+test('field-fixes 9 watch: the cap stops the watch, item 6 still names the pending check and the step is stop-merge-setup (AC-1)', () => {
+  const t = setupPending();
+  t.gh.set('pr-checks-watch', { exit: 0, sleep: 20000 });
+  const started = Date.now();
+  const r = runCli(t, ['feat', '--watch=0.02']);
+  assert.ok(Date.now() - started < 15000, 'the cap ended the watch');
+  assert.equal(r.code, 2, r.out + r.err);
+  assert.match(r.out, /^watch: stopped after 0\.02 minutes$/m);
+  assert.match(r.out, /^ {2}6 \S+\s.*e2e/m);
+  assert.match(r.out, /^next: stop-merge-setup: /m);
+  assert.equal(watchCalls(t).length, 1, 'exactly one watch');
+});
+
+test('field-fixes 9 watch: no pending check, or no pull request, starts no watch (AC-1)', () => {
+  const t = mergeReady();
+  presetSetup(t.gh, { rules: [] });
+  runCli(t, ['feat', '--watch=1']);
+  assert.equal(watchCalls(t).length, 0, 'no check pending');
+  const u = shipRepo({ ship: 'merge' });
+  presetSetup(u.gh, { rules: [] });
+  runCli(u, ['feat', '--watch=1']);
+  assert.equal(watchCalls(u).length, 0, 'no pull request');
+});
+
+test('field-fixes 9 watch: without --watch no watch starts at stop-merge-setup (AC-1)', () => {
+  const t = setupPending();
+  const r = runCli(t, ['feat']);
+  assert.equal(r.code, 2, r.out + r.err);
+  assert.match(r.out, /^next: stop-merge-setup: /m);
+  assert.equal(watchCalls(t).length, 0);
+});
+
 // ---------------------------------------------------------------------------
 // Format contracts: the agent and skill markdown that deliver-check parses
 // (design D5, D8, D9). A rename here must fail a test, not a live run.
@@ -4788,4 +4852,46 @@ test('field-fixes 4 delivered: a tasks.md absent on the default branch is not de
   assert.ok(!s.archive);
   assert.equal(s.items[4].status, 'blocked');
   assert.match(s.items[4].reason, /gh: boom/);
+});
+
+// ---- field-fixes 10: a verdict file is read from its first Verdict line (spec verdict-files, design D-3)
+const SECOND = (verdict) => `\n\n### Findings\nVerdict: ${verdict}`;
+
+test('field-fixes 10 verdict: item 2 counts the first Verdict line, approved then rejected, and prints nothing about the second (AC-3)', () => {
+  const t = shipRepo();
+  put(t.root, withReviews(reviews(head(t.root), { 'test-coverage-reviewer': review('approved', head(t.root), SECOND('rejected')) })));
+  commitAll(t.root, 'reviews');
+  const r = runCli(t, ['feat']);
+  const line = r.out.split('\n').find((l) => /^ {2}2 /.test(l));
+  assert.match(line, /^ {2}2 met\s/, r.out);
+  assert.doesNotMatch(r.out + r.err, /rejected/);
+  assert.deepEqual(JSON.parse(runCli(t, ['feat', '--json']).out).items[1].details.rejected, []);
+});
+
+test('field-fixes 10 verdict: item 2 counts the first Verdict line, rejected then approved, and reports the reviewer as rejected (AC-3)', () => {
+  const t = shipRepo();
+  put(t.root, withReviews(reviews(head(t.root), { 'test-coverage-reviewer': review('rejected', head(t.root), SECOND('approved')) })));
+  commitAll(t.root, 'reviews');
+  const it = JSON.parse(runCli(t, ['feat', '--json']).out).items[1];
+  assert.equal(it.status, 'open');
+  assert.deepEqual(it.details.rejected, ['test-coverage-reviewer']);
+  assert.deepEqual(it.details.missing, []);
+});
+
+test('field-fixes 10 verdict: the devkit-reviews check from both entries passes on approved then rejected and fails on the reverse naming the reviewer (AC-3)', () => {
+  const rewrite = (first, second) => {
+    const root = ciRepo();
+    const sha = head(root);
+    put(root, { 'openspec/changes/feat/reviews/test-coverage-reviewer.md': review(first, sha, SECOND(second)) });
+    commitAll(root, 'rewrite one reviewer');
+    return root;
+  };
+  for (const r of bothEntries(rewrite('approved', 'rejected'))) {
+    assert.equal(r.code, 0, r.out + r.err);
+    assert.doesNotMatch(r.out + r.err, /rejected/);
+  }
+  for (const r of bothEntries(rewrite('rejected', 'approved'))) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out, /not approved: test-coverage-reviewer \(rejected\)/);
+  }
 });

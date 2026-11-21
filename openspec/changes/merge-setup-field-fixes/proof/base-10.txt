@@ -1,0 +1,15 @@
+✔ field-fixes 10 verdict: item 2 counts the first Verdict line, approved then rejected, and prints nothing about the second (AC-3) (972.948167ms)
+✔ field-fixes 10 verdict: item 2 counts the first Verdict line, rejected then approved, and reports the reviewer as rejected (AC-3) (626.823292ms)
+✔ field-fixes 10 verdict: the devkit-reviews check from both entries passes on approved then rejected and fails on the reverse naming the reviewer (AC-3) (1597.184875ms)
+✔ field-fixes 10 verdict: an audit with ACCURATE first and OUTDATED later is not revise-plan, and the reverse is (AC-3) (1614.126584ms)
+✔ field-fixes 10 verdict: readValue returns the first Verdict line whichever order the two come in (AC-3) (19.758792ms)
+✔ field-fixes 10 verdict: reviewConsensus passes on approved then rejected and fails on the reverse, naming the reviewer (AC-3) (19.355625ms)
+✔ field-fixes 10 verdict: gh pr create is not refused for a reviewer whose first Verdict line approves, and is refused naming one whose first rejects (AC-3) (108.511666ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5030.547917

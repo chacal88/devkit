@@ -127,7 +127,8 @@ test('plan: check runs of each head are read across pages (--paginate), so more 
   assert.ok(call.includes('--paginate'), call.join(' '));
   assert.ok(call.some((a) => a.includes(`commits/${HEAD1}/check-runs`)), 'read on the pull request head, not on the default branch');
   const human = w.run().out;
-  assert.match(human, /the ruleset will require these checks, reported on the newest pull requests \(confirm them, or pass --checks\): job-0, job-1/);
+  assert.match(human, /the ruleset will require these checks \(confirm them, or pass --checks\): job-0, job-1/);
+  assert.match(human, /job-44, devkit-reviews \(devkit-reviews always; job-0, .* reported on the newest pull requests\)/);
   assert.match(human, /job-44/);
 });
 
@@ -452,13 +453,13 @@ test('field-fixes 5 checks: the proposed checks are the ones reported on pull re
   const list = w.gh.calls().find((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('all'));
   assert.deepEqual([list[list.indexOf('--limit') + 1], list[list.indexOf('--json') + 1]], ['5', 'number,headRefOid']);
   for (const oid of [HEAD1, HEAD2]) assert.ok(w.gh.calls().some((c) => c.includes('--paginate') && c.some((a) => a.includes(`commits/${oid}/check-runs`))), oid);
-  assert.match(w.run().out, /^the ruleset will require these checks, reported on the newest pull requests \(confirm them, or pass --checks\): test, lint$/m);
+  assert.match(w.run().out, /^the ruleset will require these checks \(confirm them, or pass --checks\): test, lint, devkit-reviews \(devkit-reviews always; test, lint reported on the newest pull requests\)$/m);
 });
 
 test('field-fixes 5 checks: with no pull request check reported the list is empty and the plan says to pass --checks', () => {
   const w = world({ heads: [] });
   assert.deepEqual(w.run('--json').json().contexts, []);
-  assert.match(w.run().out, /none: no pull request has a check reported yet; pass --checks/);
+  assert.match(w.run().out, /no other check reported on the newest pull requests yet; pass --checks to add one/);
   const bare = world({ heads: [{ oid: HEAD1, names: [] }] });
   assert.deepEqual(bare.run('--json').json().contexts, []);
 });
@@ -489,4 +490,53 @@ test('field-fixes 5 skill: step 7 names the repository states, that billing is o
   assert.match(step, /`unknown`/);
   assert.match(step, /billing[^\n]*(possible cause|cannot be read)|(possible cause|cannot be read)[^\n]*billing/i);
   assert.match(step, /`merge` mode is not available/);
+});
+
+const LINE = 'the ruleset will require these checks (confirm them, or pass --checks): ';
+const requiresLine = (out) => out.split('\n').find((l) => l.startsWith('the ruleset will require these checks'));
+
+test('field-fixes 11 setup: --checks "" with no ruleset lists devkit-reviews, says it is always required and holds no none', () => {
+  const w = world();
+  const line = requiresLine(w.run('--checks', '').out);
+  assert.equal(line, `${LINE}devkit-reviews (devkit-reviews always; no other check given with --checks)`);
+  assert.doesNotMatch(line, /none/);
+  const j = w.run('--json', '--checks', '').json();
+  assert.deepEqual(j.requires, ['devkit-reviews']);
+  assert.equal(j.checksFrom, 'option');
+  assert.deepEqual(j.contexts, []);
+});
+
+test('field-fixes 11 setup: checks found on the newest pull requests are listed with devkit-reviews and labelled', () => {
+  const w = world({ runs: ['test', 'lint'] });
+  assert.equal(requiresLine(w.run().out), `${LINE}test, lint, devkit-reviews (devkit-reviews always; test, lint reported on the newest pull requests)`);
+  const j = w.run('--json').json();
+  assert.deepEqual(j.requires, ['test', 'lint', 'devkit-reviews']);
+  assert.equal(j.checksFrom, 'pull-requests');
+  assert.deepEqual(j.contexts, ['test', 'lint']);
+});
+
+test('field-fixes 11 setup: no check reported lists devkit-reviews and says to pass --checks', () => {
+  const w = world({ heads: [] });
+  assert.equal(requiresLine(w.run().out), `${LINE}devkit-reviews (devkit-reviews always; no other check reported on the newest pull requests yet; pass --checks to add one)`);
+  assert.deepEqual(w.run('--json').json().requires, ['devkit-reviews']);
+});
+
+test('field-fixes 11 setup: a check the stored ruleset requires is kept, listed and labelled', () => {
+  const w = world({ rulesets: [{ id: 7, name: 'devkit' }], existing: stored(['e2e']), workflowOnMain: true });
+  assert.equal(requiresLine(w.run('--checks', 'test').out), `${LINE}e2e, test, devkit-reviews (devkit-reviews always; test given with --checks; e2e already required by ruleset devkit)`);
+  const j = w.run('--json', '--checks', 'test').json();
+  assert.deepEqual(j.requires, ['e2e', 'test', 'devkit-reviews']);
+  assert.deepEqual(j.contexts, ['test']);
+  assert.deepEqual(j.items.find((i) => i.item === 'ruleset').payload, D8(['e2e', 'test', 'devkit-reviews']));
+});
+
+test('field-fixes 11 setup: with the rulesets refused the line still lists devkit-reviews, and requires equals the printed list', () => {
+  const w = world();
+  w.gh.set(K.rulesets, REFUSED);
+  const line = requiresLine(w.run().out);
+  assert.match(line, /: check, devkit-reviews \(/);
+  const j = w.run('--json').json();
+  assert.deepEqual(j.requires, ['check', 'devkit-reviews']);
+  assert.deepEqual(j.contexts, ['check']);
+  assert.equal(j.items.find((i) => i.item === 'ruleset').requires, undefined, 'items[3] keeps today\'s fields');
 });
