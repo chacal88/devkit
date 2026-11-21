@@ -209,9 +209,13 @@ export function decideRoadmap(f) {
     announced[id] = key;
     lines.push(`▸ ${say(message, params)}`);
   };
-  const counts = { open: open.length, places };
-  for (const e of entries) if (startedNow.includes(e.id) && e.line.cls === 'open') emit(e.id, 'started', 'roadmap-started', { id: e.id, ...counts });
-  for (const e of entries) if (e.line.cls === 'open' && e.state !== 'archived' && announced[e.id] === undefined) emit(e.id, 'resumed', 'roadmap-resumed', { id: e.id, where: f.wheres?.[e.id] ?? '', ...counts });
+  // A started or resumed line counts the open changes up to its own change, in the order the lines print: the changes already
+  // open and announced count first.
+  const begun = entries.filter((e) => startedNow.includes(e.id) && e.line.cls === 'open' && announced[e.id] !== 'started');
+  const resumes = entries.filter((e) => e.line.cls === 'open' && e.state !== 'archived' && announced[e.id] === undefined && !begun.includes(e));
+  let counted = open.length - begun.length - resumes.length;
+  for (const e of begun) emit(e.id, 'started', 'roadmap-started', { id: e.id, open: ++counted, places });
+  for (const e of resumes) emit(e.id, 'resumed', 'roadmap-resumed', { id: e.id, where: f.wheres?.[e.id] ?? '', open: ++counted, places });
   for (const e of entries) if (e.state === 'owner') emit(e.id, `gate:${e.gate}`, 'roadmap-gate', { id: e.id, gate: e.gate });
   for (const e of entries) if (e.state === 'blocked') emit(e.id, `blocked:${e.why}`, 'roadmap-blocked', e.params);
   for (const l of f.lines) {

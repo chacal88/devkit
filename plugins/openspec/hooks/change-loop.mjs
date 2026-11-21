@@ -322,10 +322,10 @@ export const MESSAGES = {
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
     'where.next': 'a próxima é {stage}',
-    'where.owner': 'esperando você em {stage}',
+    'where.owner': 'esperando você {inStage}',
     'where.github': 'esperando o GitHub',
     'where.finishing': 'terminando {stage}',
-    'where.blocked': 'parada em {stage}',
+    'where.blocked': 'parada {inStage}',
     'where.previous': 'começada no roteiro anterior',
     'where.archiving': 'sendo arquivada',
     'where.archived': 'arquivada',
@@ -338,6 +338,8 @@ export const MESSAGES = {
 
 // A stage as a noun phrase inside a sentence: en `the` + the title in sentence case, pt-BR `a etapa` + the title.
 const stagePhrase = (lang, title) => (lang === 'en' ? `the ${inSentence(title)}` : `a etapa ${title}`);
+// The same phrase after `at` (en) or `em` (pt-BR, which contracts `em a` to `na`).
+const inStagePhrase = (lang, title) => (lang === 'en' ? `at ${stagePhrase(lang, title)}` : `na etapa ${title}`);
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const FAMILY = { script: 'script.', other: 'script.', what: 'what.', driver: 'driver.', setting: 'setting.', gate: 'gate.' };
 // The keys whose `{why}` is a blocked reason (`blocked-why.` codes); any other key's `{why}` is a `why.` code.
@@ -356,6 +358,7 @@ export function render(lang, key, params = {}) {
   };
   return template.replace(/\{(\w+)\}/g, (_, name) => {
     if (name === 'stage') return stagePhrase(l, need('stage'));
+    if (name === 'inStage') return inStagePhrase(l, need('stage'));
     if (name === 'Stage') return capital(stagePhrase(l, need('stage')));
     if (name === 'why') return render(l, `${BLOCKED_WHY_KEYS.includes(key) ? 'blocked-why' : 'why'}.${need('why')}`, params);
     if (FAMILY[name]) return render(l, `${FAMILY[name]}${need(name)}`, params);

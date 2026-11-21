@@ -248,6 +248,39 @@ test('roadmap-loop decide: places a change open before the run is resumed first 
   assert.deepEqual(r.lines, [say('roadmap-resumed', { id: 'b', where: 'next is the proposal', open: 1, places: 1 })]);
 });
 
+test('roadmap-loop decide: the count on a started or resumed line is the open changes up to that line, as the lines print', () => {
+  const lines = ['[ ] a', '[ ] b'];
+  const started = decideRoadmap(world({ lines, places: 2, actions: { a: agentAct('a'), b: agentAct('b') }, starting: ['a', 'b'] }));
+  assert.deepEqual(started.lines, [say('roadmap-started', { id: 'a', open: 1, places: 2 }), say('roadmap-started', { id: 'b', open: 2, places: 2 })]);
+  const resumed = decideRoadmap(world({ lines, places: 2, actions: { a: agentAct('a'), b: agentAct('b') }, wheres: { a: 'next is the proposal', b: 'next is the proposal' } }));
+  assert.deepEqual(resumed.lines, [
+    say('roadmap-resumed', { id: 'a', where: 'next is the proposal', open: 1, places: 2 }),
+    say('roadmap-resumed', { id: 'b', where: 'next is the proposal', open: 2, places: 2 }),
+  ]);
+  const earlier = decideRoadmap(world({ lines, places: 2, actions: { a: agentAct('a'), b: agentAct('b') }, announced: { a: 'started' }, starting: ['b'] }));
+  assert.deepEqual(earlier.lines, [say('roadmap-started', { id: 'b', open: 2, places: 2 })], 'a change open and announced before counts first');
+});
+
+test('roadmap-loop decide: the resumed line reads right for every form of where, in both languages', () => {
+  const stage = { en: 'Delivery', 'pt-BR': 'Entrega' };
+  for (const lang of ['en', 'pt-BR']) {
+    const wheres = [
+      render(lang, 'where.next', { stage: stage[lang] }), render(lang, 'where.owner', { stage: stage[lang] }), render(lang, 'where.github'),
+      render(lang, 'where.finishing', { stage: stage[lang] }), render(lang, 'where.blocked', { stage: stage[lang] }),
+      render(lang, 'where.previous'), render(lang, 'where.archiving'), render(lang, 'where.archived'),
+    ];
+    for (const where of wheres) {
+      const line = render(lang, 'roadmap-resumed', { id: 'a', where, open: 1, places: 2 });
+      assert.ok(line.includes(where), line);
+      if (lang === 'pt-BR') assert.doesNotMatch(line, /\bem (a|o|as|os) /, line);
+    }
+    if (lang === 'pt-BR') {
+      assert.equal(render(lang, 'where.blocked', { stage: 'Entrega' }), 'parada na etapa Entrega');
+      assert.equal(render(lang, 'where.owner', { stage: 'Entrega' }), 'esperando você na etapa Entrega');
+    }
+  }
+});
+
 test('roadmap-loop decide: places a lower number starts nothing, interrupts nothing and hands no stop', () => {
   const actions = { a: agentAct('a'), b: sessionAct('b'), c: agentAct('c', 'design') };
   const r = decideRoadmap(world({ lines: ['[ ] a', '[ ] b', '[ ] c', '[ ] d'], places: 1, actions }));
@@ -403,7 +436,7 @@ test('roadmap-loop decide: events each of the table once, in order, none for a s
   });
   const r = decideRoadmap(facts());
   assert.deepEqual(r.lines, [
-    say('roadmap-started', { id: 'a', open: 4, places: 5 }),
+    say('roadmap-started', { id: 'a', open: 3, places: 5 }),
     say('roadmap-resumed', { id: 'b', where: 'next is the proposal', open: 4, places: 5 }),
     say('roadmap-gate', { id: 'a', gate: 'grill' }),
     say('roadmap-gate', { id: 'c', gate: 'approval' }),
@@ -1830,4 +1863,10 @@ test('roadmap-loop setting: the load_limit user setting', () => {
   const used = new Set([...skillMd().matchAll(/\$\{user_config\.(\w+)\}/g)].map((m) => m[1]));
   for (const key of used) assert.ok(key in plugin.userConfig, `the skill uses ${key}, which the plugin declares`);
   assert.ok(used.has('load_limit'));
+});
+
+test('roadmap-loop skill: every hand-off of a roadmap run starts with the change\'s brief line, and an unfilled setting is used silently', () => {
+  const roadmap = sectionOf(skillMd(), '## Roadmap', '## Status');
+  assert.match(roadmap, /every hand-off, the reviewers and verifiers of a review round included, starts with the line of the change's brief that names the change and its script \(`Change <id> \(<script> script\), stage \.\.\.`\)/);
+  assert.match(roadmap, /a setting that arrives unfilled is used at its default without a word to the owner/);
 });
