@@ -7,6 +7,7 @@ Field item 9 (the watch at stop-merge-setup), proof file: proof/red-9.txt (red o
   - field-fixes 9 watch: the cap stops the watch, item 6 still names the pending check and the step is stop-merge-setup (AC-1)
   - field-fixes 9 watch: no pending check, or no pull request, starts no watch (AC-1)
   - field-fixes 9 watch: without --watch no watch starts at stop-merge-setup (AC-1)
+  - field-fixes 9 watch: no watch target in the archive phase or for a MERGED or CLOSED pull request, even with a check pending (AC-1)
   Command: node --test --test-name-pattern="^field-fixes 9 " plugins/openspec/hooks/deliver-check.test.mjs
 
 Field item 10 (the first Verdict line), proof file: proof/base-10.txt (green on the unchanged code:
@@ -30,4 +31,5 @@ Field item 11 (the setup line), proof file: proof/red-11.txt (red on the unchang
   - field-fixes 11 setup: no check reported lists devkit-reviews and says to pass --checks
   - field-fixes 11 setup: a check the stored ruleset requires is kept, listed and labelled
   - field-fixes 11 setup: with the rulesets refused the line still lists devkit-reviews, and requires equals the printed list
+  - field-fixes 11 setup: with the newest pull requests unreadable the line says so, and checksFrom is unreadable
   Command: node --test --test-name-pattern="^field-fixes 11 " plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs

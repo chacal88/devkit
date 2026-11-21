@@ -530,6 +530,18 @@ test('field-fixes 11 setup: a check the stored ruleset requires is kept, listed 
   assert.deepEqual(j.items.find((i) => i.item === 'ruleset').payload, D8(['e2e', 'test', 'devkit-reviews']));
 });
 
+test('field-fixes 11 setup: with the newest pull requests unreadable the line says so, and checksFrom is unreadable', () => {
+  const w = world();
+  w.gh.set(K.prsAll, { exit: 1, stderr: 'gh: Bad gateway (HTTP 502)\n' });
+  const line = requiresLine(w.run().out);
+  assert.match(line, /: devkit-reviews \(devkit-reviews always; the newest pull requests could not be read\)/);
+  assert.doesNotMatch(line, /reported on the newest pull requests/);
+  assert.doesNotMatch(line, /given with --checks/);
+  const j = w.run('--json').json();
+  assert.equal(j.checksFrom, 'unreadable');
+  assert.deepEqual(j.requires, ['devkit-reviews']);
+});
+
 test('field-fixes 11 setup: with the rulesets refused the line still lists devkit-reviews, and requires equals the printed list', () => {
   const w = world();
   w.gh.set(K.rulesets, REFUSED);

@@ -2818,6 +2818,18 @@ test('field-fixes 9 watch: without --watch no watch starts at stop-merge-setup (
   assert.equal(watchCalls(t).length, 0);
 });
 
+test('field-fixes 9 watch: no watch target in the archive phase or for a MERGED or CLOSED pull request, even with a check pending (AC-1)', () => {
+  const t = setupPending();
+  const state = DC.collectState(t.root, 'feat', { env: t.env });
+  const next = { step: 'stop-merge-setup' };
+  assert.deepEqual(DC.checksToWatch(state, next), { number: 12, required: state.items[5].details.required }, 'the open pull request with a check pending is watched');
+  assert.deepEqual(state.items[5].details.pending, ['e2e']);
+  for (const prState of ['MERGED', 'CLOSED']) {
+    assert.equal(DC.checksToWatch({ ...state, pr: { ...state.pr, state: prState } }, next), null, `${prState} pull request`);
+  }
+  assert.equal(DC.checksToWatch({ ...state, archive: { branch: 'chore/archive-feat' } }, next), null, 'archive phase');
+});
+
 // ---------------------------------------------------------------------------
 // Format contracts: the agent and skill markdown that deliver-check parses
 // (design D5, D8, D9). A rename here must fail a test, not a live run.
