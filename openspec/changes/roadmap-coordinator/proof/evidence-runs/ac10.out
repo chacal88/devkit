@@ -1,0 +1,40 @@
+## step 1: run with no openspec/roadmap.md (stdin: empty word)
+$ node roadmap-loop.mjs run --lang en --load-limit 80 --session S1 <<< "" 
+This project has no roadmap yet. Should I write a draft with its unfinished changes, for you to review? Nothing starts now.
+exit=0
+run file present?
+. .. changes config.yaml schemas 
+worktrees:
+/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac10  5300bac [main]
+## step 2: open one change
+$ node change-loop.mjs open one-change --script devkit --why doubt --lang en <<< "add a thing"
+devkit-run: one-change
+{
+  "version": 1,
+  "change": "one-change",
+  "script": "devkit",
+  "worktree": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac10/.claude/worktrees/one-change",
+  "branch": "one-change",
+  "base": "HEAD",
+  "reply": "I opened the change one-change on the full script, because it is not clearly small, and the full script is the safe choice. Next come a few questions about your request; to use the short script instead, say so before the plan is written."
+}
+exit=0
+?? .claude/
+1
+## step 3: draft
+$ node roadmap-loop.mjs draft --lang en --load-limit 80
+I wrote a draft roadmap with one-change, not committed. Review it, deliver it as this project does, then call /devkit roadmap again.
+exit=0
+$ cat openspec/roadmap.md
+# Roadmap
+
+## Round 1: unfinished changes
+
+- [ ] one-change
+$ git status --short
+?? .claude/
+?? openspec/roadmap.md
+$ git rev-list --count HEAD
+1
+run file after draft:
+. .. changes config.yaml roadmap.md schemas 

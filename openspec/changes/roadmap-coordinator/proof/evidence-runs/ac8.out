@@ -1,0 +1,206 @@
+
+## 1 run 2
+$ printf 2 | roadmap-loop run --lang en --load-limit 80 --session S1
+devkit-roadmap: 2
+{
+  "version": 1,
+  "places": 2,
+  "open": [],
+  "stopping": false,
+  "lines": [],
+  "actions": [
+    {
+      "change": "add-version-flag",
+      "kind": "start",
+      "request": "print the version",
+      "progressKey": "start"
+    },
+    {
+      "change": "add-help-flag",
+      "kind": "start",
+      "request": "print help",
+      "progressKey": "start"
+    }
+  ],
+  "ask": null,
+  "end": null
+}
+exit=0
+
+## 2 open the two started changes (as the skill does)
+$ change-loop open add-version-flag --script devkit --why doubt --lang en
+devkit-run: add-version-flag
+{
+}
+exit=0
+$ change-loop open add-help-flag --script devkit --why doubt --lang en
+devkit-run: add-help-flag
+{
+}
+exit=0
+
+## 3 requirements answered in add-version-flag (setup: a passed requirements header in its worktree)
+
+## 4 next (hands a stage action)
+$ roadmap-loop next --lang en --load-limit 80
+devkit-roadmap: 2
+{
+  "version": 1,
+  "places": 2,
+  "open": [
+    "add-version-flag",
+    "add-help-flag"
+  ],
+  "stopping": false,
+  "lines": [
+    "▸ Started add-version-flag (1 of 2 under way).",
+    "▸ Started add-help-flag (2 of 2 under way).",
+    "▸ add-help-flag waits for your answers about its request. The others go on."
+  ],
+  "actions": [
+    {
+      "version": 1,
+      "change": "add-version-flag",
+      "script": "devkit",
+      "root": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-version-flag",
+      "branch": "add-version-flag",
+      "filesLanguage": "en",
+      "kind": "agent",
+      "stage": "proposal",
+      "stageTitle": "Proposal",
+      "role": "change-planner",
+      "skills": [],
+      "agent": "devkit-core:change-planner",
+      "brief": "Change add-version-flag (devkit script), stage proposal: write the plan files the script still lacks, from proposal on, each from `openspec instructions <artifact> --change add-version-flag`. Work only in /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-version-flag on branch add-version-flag; every file path is absolute under it; start every Bash command with cd /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-version-flag && ; do not fetch. Write the change's files in English.",
+      "progressKey": "proposal/proposal@ad5c31b0fb0a"
+    }
+  ],
+  "ask": {
+    "change": "add-help-flag",
+    "kind": "grill",
+    "action": {
+      "version": 1,
+      "change": "add-help-flag",
+      "script": "devkit",
+      "root": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-help-flag",
+      "branch": "add-help-flag",
+      "filesLanguage": "en",
+      "kind": "grill",
+      "stage": "requirements",
+      "stageTitle": "Requirements (grill)",
+      "role": "change-coordinator",
+      "skills": [
+        "requirements-grill"
+      ],
+      "progressKey": "requirements/requirements@8fa18400317a"
+    }
+  },
+  "end": null
+}
+exit=0
+
+## 5 run stop (the word arrives on stdin)
+$ printf stop | roadmap-loop run --lang en --load-limit 80 --session S1
+devkit-roadmap: stop
+Stopping: nothing new starts, and each change finishes the stage it is in.
+add-version-flag: next is the proposal.
+add-help-flag: waiting for you at the requirements (grill).
+{
+  "version": 1,
+  "places": 2,
+  "open": [
+    "add-version-flag",
+    "add-help-flag"
+  ],
+  "stopping": true,
+  "lines": [],
+  "actions": [],
+  "ask": null,
+  "end": {
+    "why": "stopped",
+    "reply": "The run stopped. Call /devkit roadmap to go on from where each change stayed.\nadd-version-flag: next is the proposal.\nadd-help-flag: waiting for you at the requirements (grill)."
+  }
+}
+exit=0
+
+## 6 next after stop
+$ roadmap-loop next --lang en --load-limit 80
+devkit-roadmap: stop
+{
+  "version": 1,
+  "places": 2,
+  "open": [
+    "add-version-flag",
+    "add-help-flag"
+  ],
+  "stopping": true,
+  "lines": [],
+  "actions": [],
+  "ask": null,
+  "end": {
+    "why": "stopped",
+    "reply": "The run stopped. Call /devkit roadmap to go on from where each change stayed.\nadd-version-flag: next is the proposal.\nadd-help-flag: waiting for you at the requirements (grill)."
+  }
+}
+exit=0
+run file:
+/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.git/devkit/roadmap-run.json
+
+## 7 run 2 again (resume)
+$ printf 2 | roadmap-loop run --lang en --load-limit 80 --session S1
+devkit-roadmap: 2
+{
+  "version": 1,
+  "places": 2,
+  "open": [
+    "add-version-flag",
+    "add-help-flag"
+  ],
+  "stopping": false,
+  "lines": [],
+  "actions": [
+    {
+      "version": 1,
+      "change": "add-version-flag",
+      "script": "devkit",
+      "root": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-version-flag",
+      "branch": "add-version-flag",
+      "filesLanguage": "en",
+      "kind": "agent",
+      "stage": "proposal",
+      "stageTitle": "Proposal",
+      "role": "change-planner",
+      "skills": [],
+      "agent": "devkit-core:change-planner",
+      "brief": "Change add-version-flag (devkit script), stage proposal: write the plan files the script still lacks, from proposal on, each from `openspec instructions <artifact> --change add-version-flag`. Work only in /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-version-flag on branch add-version-flag; every file path is absolute under it; start every Bash command with cd /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-version-flag && ; do not fetch. Write the change's files in English.",
+      "progressKey": "proposal/proposal@ad5c31b0fb0a"
+    }
+  ],
+  "ask": {
+    "change": "add-help-flag",
+    "kind": "grill",
+    "action": {
+      "version": 1,
+      "change": "add-help-flag",
+      "script": "devkit",
+      "root": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-help-flag",
+      "branch": "add-help-flag",
+      "filesLanguage": "en",
+      "kind": "grill",
+      "stage": "requirements",
+      "stageTitle": "Requirements (grill)",
+      "role": "change-coordinator",
+      "skills": [
+        "requirements-grill"
+      ],
+      "progressKey": "requirements/requirements@8fa18400317a"
+    }
+  },
+  "end": null
+}
+exit=0
+
+## 8 worktrees
+/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8                                     917bb9d [main]
+/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-help-flag     917bb9d [add-help-flag]
+/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-evidence-roadmap-coordinator/ac8/.claude/worktrees/add-version-flag  917bb9d [add-version-flag]
