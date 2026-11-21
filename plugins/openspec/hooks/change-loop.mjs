@@ -873,31 +873,42 @@ function nameTaken(start, main, id) {
   return existsSync(join(main, '.claude', 'worktrees', id));
 }
 
-// Two `open` calls at once take turns (roadmap-coordinator D-10): one lock file in the git common directory, created with
-// `wx`, retried every 200 ms for up to 60 s, taken over when older than ten minutes, removed when the call ends. The wait is
-// synchronous, so `openChange` and its callers stay synchronous.
-const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-const OPEN_LOCK = { stepMs: 200, waitMs: 60_000, staleMs: 10 * 60_000 };
+// Waits between tries without a busy loop, so the callers of a lock stay synchronous.
+export const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-function withOpenLock(main, work) {
-  const common = tryGit(main, ['rev-parse', '--path-format=absolute', '--git-common-dir']) || join(main, '.git');
-  const lock = join(common, 'devkit-open.lock');
+// Runs `work` holding the lock file `lock`, created with `wx` (holding `holder` when given), retried every `stepMs` for up to
+// `waitMs` (then `timeout()` is thrown), taken over when older than `staleMs`, removed when the work ends. `sleep` is injectable.
+// Shared by `open` (below) and the roadmap run file (roadmap-loop.mjs).
+export function withLockFile({ lock, stepMs, waitMs, staleMs, holder, timeout, sleep = sleepSync }, work) {
   for (let waited = 0; ;) {
     try {
       const fd = openSync(lock, 'wx');
-      try { writeFileSync(fd, `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`); } finally { closeSync(fd); }
+      try { if (holder !== undefined) writeFileSync(fd, holder); } finally { closeSync(fd); }
       break;
     } catch (e) {
       if (e?.code !== 'EEXIST') throw e;
       let age = 0;
       try { age = Date.now() - statSync(lock).mtimeMs; } catch { continue; } // released between the two calls: try again
-      if (age > OPEN_LOCK.staleMs) { try { unlinkSync(lock); } catch { /* another call took it over first */ } continue; }
-      if (waited >= OPEN_LOCK.waitMs) throw new LoopUsageError('another open call holds the lock for too long');
-      sleepSync(OPEN_LOCK.stepMs);
-      waited += OPEN_LOCK.stepMs;
+      if (age > staleMs) { try { unlinkSync(lock); } catch { /* another call took it over first */ } continue; }
+      if (waited >= waitMs) throw timeout();
+      sleep(stepMs);
+      waited += stepMs;
     }
   }
   try { return work(); } finally { try { unlinkSync(lock); } catch { /* already gone */ } }
+}
+
+// Two `open` calls at once take turns (roadmap-coordinator D-10): one lock file in the git common directory, 200 ms steps for
+// up to 60 s, taken over when older than ten minutes. `openChange` and its callers stay synchronous.
+const OPEN_LOCK = { stepMs: 200, waitMs: 60_000, staleMs: 10 * 60_000 };
+
+function withOpenLock(main, work) {
+  const common = tryGit(main, ['rev-parse', '--path-format=absolute', '--git-common-dir']) || join(main, '.git');
+  return withLockFile({
+    ...OPEN_LOCK, lock: join(common, 'devkit-open.lock'),
+    holder: `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`,
+    timeout: () => new LoopUsageError('another open call holds the lock for too long'),
+  }, work);
 }
 
 // `open <id> --script <s> --why <code>`, the request on standard input. Creates the worktree, the change and its
@@ -1040,11 +1051,12 @@ export function refuseOnce(input, key, why, change, reason) {
 
 const hasTasks = (tasks) => (Array.isArray(tasks) ? tasks.length > 0 : Boolean(tasks) && typeof tasks === 'object' && Object.keys(tasks).length > 0);
 
-// `guard.mjs stop` (T1 to T7): the session in a run does not end its turn while the loop has a stage ready.
-export function stopDecision(input, { env = process.env } = {}) {
+// `guard.mjs stop` (T1 to T7): the session in a run does not end its turn while the loop has a stage ready. `events` are the
+// transcript's events the guard already scanned (`transcriptEvents`); absent, `runOf` scans the file itself. The same for the two below.
+export function stopDecision(input, { env = process.env, events } = {}) {
   let change = null;
   try {
-    const run = runOf(input);
+    const run = runOf(input, events);
     if (!run) return allow('no-run');
     change = run.change;
     if (hasTasks(input.background_tasks)) return allow('background-task', change);
@@ -1066,10 +1078,10 @@ const roleOf = (agentType) => String(agentType || '').split(':').pop();
 const UNDELIVERED = ['no-header', 'bad-header', 'header-other-stage', 'not-judged'];
 
 // `guard.mjs subagent-stop` (U1 to U7): a stage agent does not stop before its stage file is delivered.
-export function subagentStopDecision(input, { env = process.env } = {}) {
+export function subagentStopDecision(input, { env = process.env, events } = {}) {
   let change = null;
   try {
-    const run = runOf(input);
+    const run = runOf(input, events);
     if (!run) return allow('no-run');
     change = run.change;
     return subagentStopFor(input, change, { env });
@@ -1119,11 +1131,11 @@ export const PACKS = {
 
 // `guard.mjs agent` (H1 to H5): in a run the session hands work only to the roles of the change's script, named with no
 // prefix or with the prefix of the pack that ships that role's agent; no agent type is a general-purpose agent: refused.
-export function agentDecision(input) {
+export function agentDecision(input, { events } = {}) {
   let change = null;
   try {
     if (input.agent_type) return allow('subagent');
-    const run = runOf(input);
+    const run = runOf(input, events);
     if (!run) return allow('no-run');
     change = run.change;
     return handOffFor(input, change);

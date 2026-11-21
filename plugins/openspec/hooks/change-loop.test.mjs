@@ -16,7 +16,7 @@ import { TEXT } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
 import {
   readDevkitSettings, normalizeLang, MESSAGES, render, decide, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError,
-  runCommand, waitLoop, PACKS,
+  runCommand, waitLoop, PACKS, withLockFile,
 } from './change-loop.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -1617,6 +1617,28 @@ test('change-loop lock run: no transcript, an unreadable one or a broken line is
   assert.equal(runOf({ transcript_path: transcriptOf(['{not json', typedLine('change x'), '{"type":"user", broken', runLine('feat')]) })?.change, 'feat');
 });
 
+test('change-loop lock run: one scan of the transcript yields the typed commands and the tool results in order, and no more', () => {
+  const file = transcriptOf([typedLine('change x'), skillBodyLine('change x'), blobLine('/devkit change y'), assistantLine(), runLine('feat', 'blocks'), runLine('other', 'stdout'), typedLine('status')]);
+  const events = guardModule.transcriptEvents({ transcript_path: file });
+  assert.deepEqual(events.map((e) => (e.typed ? `typed:${e.typed.name} ${e.typed.args}` : 'results')), ['typed:devkit change x', 'results', 'results', 'typed:devkit status']);
+  assert.match(events[1].texts.join('\n'), /devkit-run: feat/);
+  assert.match(events[2].stdout, /devkit-run: other/);
+});
+
+test('change-loop lock run: an unreadable transcript scans to null and never throws', () => {
+  assert.equal(guardModule.transcriptEvents({ transcript_path: join(sandbox(), 'missing.jsonl') }), null);
+  assert.equal(guardModule.transcriptEvents({}), null);
+  assert.equal(guardModule.transcriptEvents(null), null);
+});
+
+test('change-loop lock run: both readers interpret events already scanned, without reading the file again', () => {
+  const file = transcriptOf([typedLine('change x'), runLine('feat')]);
+  const events = guardModule.transcriptEvents({ transcript_path: file });
+  const gone = { transcript_path: join(sandbox(), 'missing.jsonl') };
+  assert.equal(guardModule.runOf(gone, events)?.change, 'feat');
+  assert.equal(guardModule.roadmapRunOf(gone, events), null);
+});
+
 test('change-loop lock run: the marker is found in each stored form of a tool result (string, stdout only, list of text blocks)', () => {
   for (const form of ['both', 'stdout', 'blocks']) {
     assert.equal(runOf({ transcript_path: transcriptOf([typedLine('change x'), runLine('feat', form)]) })?.change, 'feat', form);
@@ -1658,6 +1680,39 @@ test('change-loop lock stop: T1 no run in the session lets the stop through', ()
     assert.equal(r.code, 0, r.err);
   }
   assert.equal(existsSync(join(tmp, 'devkit-stop')), false, 'nothing recorded');
+});
+
+// A preload that appends one line to COUNT_FILE for every readFileSync of the file named by WATCH_FILE.
+const readCounter = () => {
+  const dir = sandbox();
+  const preload = join(dir, 'count-reads.mjs');
+  writeFileSync(preload, [
+    "import fs, { appendFileSync } from 'node:fs';",
+    "import { syncBuiltinESMExports } from 'node:module';",
+    'const real = fs.readFileSync;',
+    'fs.readFileSync = (file, ...rest) => { if (String(file) === process.env.WATCH_FILE) appendFileSync(process.env.COUNT_FILE, "read\\n"); return real(file, ...rest); };',
+    'syncBuiltinESMExports();',
+  ].join('\n'));
+  const count = join(dir, 'reads.log');
+  return {
+    env: (watch) => ({ NODE_OPTIONS: `--import=${preload}`, WATCH_FILE: watch, COUNT_FILE: count }),
+    reads: () => (existsSync(count) ? readFileSync(count, 'utf8').split('\n').filter(Boolean).length : 0),
+  };
+};
+
+test('change-loop lock: a hook call in a change run reads the transcript once on every lock, and decides as before', () => {
+  const root = planChange({ have: ['requirements'] });
+  for (const [mode, input, code] of [
+    ['stop', (t) => stopInput(root, t), 2],
+    ['subagent-stop', (t) => subInput(root, t, 'change-planner'), 2],
+    ['agent', (t) => stopInput(root, t, { tool_input: { subagent_type: 'general-purpose' } }), 2],
+  ]) {
+    const transcript = runTranscript();
+    const spy = readCounter();
+    const r = hook(mode, input(transcript), { TMPDIR: sandbox(), ...spy.env(transcript) });
+    assert.equal(r.code, code, `${mode}: ${r.err}`);
+    assert.equal(spy.reads(), 1, `${mode}: the transcript is read once`);
+  }
 });
 
 test('change-loop lock stop: T2 a background task running lets the stop through', () => {
@@ -2590,4 +2645,32 @@ test('change-loop start: a request written to the pipe after a delay is still re
   const late = await lateChild(LOOP, ['start', '--lang', 'en'], root, 'change add a thing', 400);
   assert.equal(late.code, 0, late.stdout);
   assert.deepEqual(JSON.parse(late.stdout), JSON.parse(startRun(root, 'change add a thing').stdout), 'the same answer as for a request there from the start');
+});
+
+const lockDir = () => mkdtempSync(join(tmpdir(), 'devkit-lockfile-'));
+
+test('change-loop withLockFile: holds the lock while the work runs, stores the holder text, removes the lock after', () => {
+  const lock = join(lockDir(), 'x.lock');
+  const seen = withLockFile({ lock, stepMs: 1, waitMs: 5, staleMs: 1000, holder: 'me\n', timeout: () => new Error('late'), sleep: () => {} }, () => readFileSync(lock, 'utf8'));
+  assert.equal(seen, 'me\n');
+  assert.equal(existsSync(lock), false);
+});
+
+test('change-loop withLockFile: a held lock is waited for with the injected sleep, then the caller\'s error is thrown', () => {
+  const lock = join(lockDir(), 'x.lock');
+  writeFileSync(lock, 'other');
+  const sleeps = [];
+  class Late extends Error {}
+  assert.throws(() => withLockFile({ lock, stepMs: 10, waitMs: 30, staleMs: 60_000, timeout: () => new Late('late'), sleep: (ms) => sleeps.push(ms) }, () => 'never'), Late);
+  assert.deepEqual(sleeps, [10, 10, 10]);
+  assert.equal(readFileSync(lock, 'utf8'), 'other', 'the other holder\'s lock is left alone');
+});
+
+test('change-loop withLockFile: a lock older than staleMs is taken over', () => {
+  const lock = join(lockDir(), 'x.lock');
+  writeFileSync(lock, 'old');
+  const past = new Date(Date.now() - 5000);
+  utimesSync(lock, past, past);
+  assert.equal(withLockFile({ lock, stepMs: 1, waitMs: 5, staleMs: 1000, timeout: () => new Error('late'), sleep: () => {} }, () => 'ran'), 'ran');
+  assert.equal(existsSync(lock), false);
 });

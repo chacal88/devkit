@@ -22,7 +22,7 @@
 //   wheres     - { <id>: where it stopped } and phaseTotals - { <id>: phases of tasks.md } for the lines that name them,
 //   unfinished - [{ id, where }] every unfinished change, for the board's "outside the roadmap".
 
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -32,7 +32,7 @@ import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.m
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings,
-  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin,
+  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile,
 } from './change-loop.mjs';
 
 // ---------------------------------------------------------------- the setting, the load and the word (D-6, D-3)
@@ -328,8 +328,6 @@ export function draftText(lang, ids) {
 
 // ---------------------------------------------------------------- the run file (D-5)
 
-// Waits between tries without a busy loop, as deliver-check.mjs does, so the writers of the file stay synchronous.
-const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const LOCK = { stepMs: 100, waitMs: 10_000, staleMs: 60_000 };
 
@@ -366,21 +364,12 @@ export function readRun(file) {
 
 // Read, change and write the file under its lock (created with `wx`, retried, taken over when old), through a temporary file and a rename.
 // `change` receives the run and may return a new one; the run written is returned.
-export function updateRun(file, change, { sleep = sleepSync } = {}) {
+export function updateRun(file, change, { sleep } = {}) {
   mkdirSync(dirname(file), { recursive: true });
-  const lock = join(dirname(file), 'roadmap-run.lock');
-  for (let waited = 0; ;) {
-    try { closeSync(openSync(lock, 'wx')); break; } catch (e) {
-      if (e?.code !== 'EEXIST') throw e;
-      let age = 0;
-      try { age = Date.now() - statSync(lock).mtimeMs; } catch { continue; } // released between the two calls
-      if (age > LOCK.staleMs) { try { unlinkSync(lock); } catch { /* another call took it over first */ } continue; }
-      if (waited >= LOCK.waitMs) throw new LoopUsageError('the run file is locked by another call');
-      sleep(LOCK.stepMs);
-      waited += LOCK.stepMs;
-    }
-  }
-  try {
+  return withLockFile({
+    ...LOCK, lock: join(dirname(file), 'roadmap-run.lock'), sleep,
+    timeout: () => new LoopUsageError('the run file is locked by another call'),
+  }, () => {
     const run = readRun(file);
     const next = change(run) ?? run;
     next.updatedAt = new Date().toISOString();
@@ -388,7 +377,7 @@ export function updateRun(file, change, { sleep = sleepSync } = {}) {
     writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`);
     renameSync(temporary, file);
     return next;
-  } finally { try { unlinkSync(lock); } catch { /* already gone */ } }
+  });
 }
 
 // ---------------------------------------------------------------- the facts of a run (D-4, D-7)
