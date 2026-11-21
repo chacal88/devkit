@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=2 commit=4f6d958d353b78c317244ddf0763268d7829e5bd -->
+<!-- devkit-stage review result=passed attempt=3 commit=7b3b6b8b12dbed5e6a7a378cc14030af8a28e318 -->
 # Review: coordinator-field-fixes, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -62,3 +62,30 @@ None.
 
 ## Next
 Consensus deadlock after round 2: the owner decides.
+
+# Review: coordinator-field-fixes, round 2
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 7b3b6b8 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path agents: the turn that started this call was not typed by the owner.
+- This is the third review call of the change. The owner authorized it on 2026-11-21 after the deadlock of round 2 (approval.md, History); the round script accepts only rounds 1 and 2, so the call ran as its round 2 and the heading and the Consensus line say round 2.
+- Scoped call: only spec-reviewer was summoned, the one reviewer that rejected at 4f6d958. The five approvals at 4f6d958 (adr-reviewer, code-quality-reviewer, test-coverage-reviewer, security-reviewer, architecture-reviewer; table of the section above) stay current: the one commit since, 7b3b6b8, touches only files under openspec/.
+- What changed between the two calls: the owner chose to state the reused archived id in the specification (requirements.md A-18); 7b3b6b8 adds the requirement "A new change that reuses an archived id is unfinished" to the change-coordination delta and describes the rule in design.md D-3 and proposal.md, after a new plan readiness review (attempt 3) and the owner's approval of the revised plan. No product code or test changed.
+- No finding went to the verifiers: spec-reviewer's only important finding came back with the disposition `fixed in 7b3b6b8`, and its two nits are never verified.
+- The stage-3 prompt was built with the script's own `writerPrompt` rule (`loadRules`), as in the earlier rounds.
+
+## Next
+Ready to ship.
