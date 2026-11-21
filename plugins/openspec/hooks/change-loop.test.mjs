@@ -2574,3 +2574,20 @@ test('field-fixes 2 change-loop: next on the old devkit-lite form with no requir
   assert.deepEqual([action.end.state, action.end.why], ['blocked', 'previous-script']);
   assert.notEqual(action.kind, 'grill');
 });
+
+// roadmap-coordinator: the request is read even when the writer of the pipe is slow (the read of an empty pipe waits, it does not give up).
+const lateChild = (script, args, cwd, text, delayMs) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [script, ...args], { cwd, env: cleanEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.on('error', reject);
+  child.on('exit', (code) => resolve({ code, stdout }));
+  setTimeout(() => child.stdin.end(text), delayMs);
+});
+
+test('change-loop start: a request written to the pipe after a delay is still read', async () => {
+  const root = devkitRepo();
+  const late = await lateChild(LOOP, ['start', '--lang', 'en'], root, 'change add a thing', 400);
+  assert.equal(late.code, 0, late.stdout);
+  assert.deepEqual(JSON.parse(late.stdout), JSON.parse(startRun(root, 'change add a thing').stdout), 'the same answer as for a request there from the start');
+});

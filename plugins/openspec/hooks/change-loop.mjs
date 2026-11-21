@@ -21,7 +21,7 @@
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
 // No dependencies.
 
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -1270,9 +1270,28 @@ export async function runCommand(argv, opts = {}) {
 }
 
 // The request on standard input, for `start` and `open` (empty when there is none to read).
-function readStdin() {
+// A pipe that is still empty makes the read fail with EAGAIN: wait a little and read again, up to STDIN_WAIT.ms in all.
+const STDIN_WAIT = { stepMs: 20, ms: 10_000 };
+export function readStdin() {
   if (process.stdin.isTTY) return '';
-  try { return readFileSync(0, 'utf8'); } catch { return ''; }
+  const chunks = [];
+  const buf = Buffer.alloc(65_536);
+  let waited = 0;
+  for (;;) {
+    let n;
+    try {
+      n = readSync(0, buf, 0, buf.length, null);
+    } catch (e) {
+      if (e?.code !== 'EAGAIN') return '';
+      if (waited >= STDIN_WAIT.ms) break;
+      sleepSync(STDIN_WAIT.stepMs);
+      waited += STDIN_WAIT.stepMs;
+      continue;
+    }
+    if (n === 0) break;
+    chunks.push(Buffer.from(buf.subarray(0, n)));
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 function isMain() {

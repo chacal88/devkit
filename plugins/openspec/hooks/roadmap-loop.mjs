@@ -32,7 +32,7 @@ import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.m
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings,
-  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor,
+  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin,
 } from './change-loop.mjs';
 
 // ---------------------------------------------------------------- the setting, the load and the word (D-6, D-3)
@@ -820,12 +820,6 @@ export async function runCommand(argv, opts = {}) {
   } catch (e) {
     return failure(argv, e);
   }
-}
-
-// The word after `roadmap` on standard input, for `run` (empty when there is none to read).
-function readStdin() {
-  if (process.stdin.isTTY) return '';
-  try { return readFileSync(0, 'utf8'); } catch { return ''; }
 }
 
 function isMain() {

@@ -259,11 +259,11 @@ Run as soon as phase 3 is committed, before the documents and the review.
   marketplace 0.22.0), `CHANGELOG.md` (`## 0.22.0 — the roadmap coordinator, /devkit roadmap and
   /devkit status`), then `python3 scripts/gen-catalog.py` to regenerate `docs/catalog.md`. Check:
   `python3 scripts/gen-catalog.py --check` passes.
-- [ ] 5.8 Owner-run task, done by the session that conducts this change (never `tdd-implementer`),
+- [x] 5.8 Owner-run task, done by the session that conducts this change (never `tdd-implementer`),
   after task 5.7: run the marketplace validation as task 3.4 does, into
   `${TMPDIR%/}/devkit-validate-roadmap-coordinator/phase-5.txt`. Check: the record holds "Validation
   passed" and the commit of the release; a failure is fixed in task 5.7 and the run repeated.
-- [ ] 5.9 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-roadmap-coordinator/phase-5.txt"` green, the whole suite run once as a background command; covers AC-15 (every existing test of `/devkit change` passes) and AC-16.
+- [x] 5.9 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-roadmap-coordinator/phase-5.txt"` green, the whole suite run once as a background command; covers AC-15 (every existing test of `/devkit change` passes) and AC-16.
 
 ## Workflow follow-up
 

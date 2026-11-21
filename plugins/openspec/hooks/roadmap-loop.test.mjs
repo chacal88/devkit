@@ -1918,3 +1918,16 @@ test('roadmap-loop docs: the documents follow', () => {
     assert.match(md, /\/devkit status/, `${f.join('/')} names /devkit status`);
   }
 });
+
+test('roadmap-loop run: a word written to the pipe after a delay is still read', async () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  const late = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [LOOP_FILE, 'run', ...FLAGS, '--session', 'S1'], { cwd: root, env: cleanEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.on('error', reject);
+    child.on('exit', (code) => resolve({ code, stdout }));
+    setTimeout(() => child.stdin.end('many'), 400);
+  });
+  assert.deepEqual([late.code, late.stdout], [0, `${render('en', 'roadmap-invalid', { word: 'many' })}\n`]);
+});
