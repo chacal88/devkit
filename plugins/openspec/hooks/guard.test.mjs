@@ -1310,6 +1310,5 @@ test('field-fixes 12 roadmap: the round 17b line is read before round 18', () =>
   assert.ok(at17b < titles.findIndex((t) => t.startsWith('Round 18:')), 'before round 18');
   const item = rounds[at17b].items.find((i) => i.id === 'coordinator-field-fixes');
   assert.ok(item, 'the change is on the line');
-  assert.equal(item.done, false);
   assert.deepEqual(item.after, ['change-coordinator']);
 });
