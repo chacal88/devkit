@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.1 — retro of coordinator-field-fixes
+
+- **devkit-openspec** 0.17.1: the `ship-change` fix-step row says that a finding asking for a
+  behaviour the spec deltas do not state sends the plan back for revision, readiness and the
+  owner's approval before the fix. The CI snippet now pins `v0.17.1`, the release's tag.
+- Docs: the flow document says a new change that reuses an archived id, created on a later day, is
+  listed as unfinished; the roadmap carries the retro's findings into rounds 16 and 25.
+
 ## 0.21.0 — field fixes of 0.16.0
 
 - **devkit-openspec** 0.17.0: the eight defects 0.16.0 showed in three other projects. An archived

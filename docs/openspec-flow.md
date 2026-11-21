@@ -144,7 +144,7 @@ A new session starts by printing the same, from the session hook, plus the curre
 
 Name the branch after the change: the hooks use it to know which change you're working on.
 
-A change is delivered when its own pull request is merged and every task of its `tasks.md` is ticked on the default branch. A pull request that only names the change in its body or in its branch name does not count, and neither does an archive pull request. A task that can only be done after the merge is ticked in a further pull request of the same change, opened before the archive. A checkout that is not the change's branch then stops with the `stop-branch` step, whose reason says `PR #<n> of <id> merged with tasks left (<ids>); continue on branch <id> and open a further pull request`. A change whose archived folder is already on the default branch is not listed as unfinished, whatever checkout still holds its branch.
+A change is delivered when its own pull request is merged and every task of its `tasks.md` is ticked on the default branch. A pull request that only names the change in its body or in its branch name does not count, and neither does an archive pull request. A task that can only be done after the merge is ticked in a further pull request of the same change, opened before the archive. A checkout that is not the change's branch then stops with the `stop-branch` step, whose reason says `PR #<n> of <id> merged with tasks left (<ids>); continue on branch <id> and open a further pull request`. A change whose archived folder is already on the default branch is not listed as unfinished, whatever checkout still holds its branch; a new change that reuses the id, created on a later day than the archive, is listed.
 
 ## Grouping changes: the roadmap
 
@@ -531,15 +531,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.17.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.17.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.17.1 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.17.1>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.17.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.17.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.17.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.17.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
