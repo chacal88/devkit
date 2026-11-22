@@ -555,7 +555,7 @@ test('roadmap-loop decide: after clears the stage in flight and passes its key, 
 
 // ---------------------------------------------------------------- replies (D-12)
 
-const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main' };
+const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main', installed: '2.46.0', minimum: '2.50.0', verb: 'change' };
 
 test('roadmap-loop replies: a blocked line renders every blocked reason in both languages', () => {
   for (const lang of ['en', 'pt-BR']) {

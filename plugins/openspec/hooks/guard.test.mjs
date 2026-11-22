@@ -22,6 +22,7 @@ import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit pe
 import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way
 import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
 import '../skills/openspec-setup/scripts/ship-entry.test.mjs'; // project-phases: the ship entry of devkit-project
+import '../skills/openspec-setup/scripts/gh-version.test.mjs'; // gh-version-check: the setup's gh version line
 import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
 
 const here = dirname(fileURLToPath(import.meta.url));
