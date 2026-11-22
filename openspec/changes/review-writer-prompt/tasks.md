@@ -113,9 +113,9 @@ end every task with `git status --short`.
 ## 3. Release and the whole suite (AC-1 to AC-9)
 
 - [x] 3.1 Release as D-10 says. Bump devkit-core to 0.9.0 in `plugins/core/.claude-plugin/plugin.json`
-  and devkit-openspec to 0.19.0 in `plugins/openspec/.claude-plugin/plugin.json`, both also in
-  `.claude-plugin/marketplace.json`, and bump the marketplace to 0.23.0. Add the `CHANGELOG.md` section.
-  Turn the three `v0.18.1` lines of `docs/openspec-flow.md` into `v0.19.0`. Make the two D-9 changes in
+  and devkit-openspec to 0.20.0 in `plugins/openspec/.claude-plugin/plugin.json`, both also in
+  `.claude-plugin/marketplace.json`, and bump the marketplace to 0.24.0. Add the `CHANGELOG.md` section.
+  Turn the three `v0.18.1` lines of `docs/openspec-flow.md` into `v0.20.0`. Make the two D-9 changes in
   "change-loop docs: the design records the answers" of `plugins/openspec/hooks/change-loop.test.mjs`
   (the pin, and the roadmap line found ticked or not), naming each invariant in the commit message.
   Check: `python3 scripts/gen-catalog.py --check` passes; `grep -c "v0.18.1" docs/openspec-flow.md`
@@ -145,7 +145,7 @@ end every task with `git status --short`.
 
 ## Workflow follow-up
 
-- After the merge, tag `v0.19.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
+- After the merge, tag `v0.20.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
 - Archive with the retro; the archive ticks the round 25 line of `openspec/roadmap.md`.
 - In the projects that use devkit, update devkit-core and devkit-openspec, and move the pinned
-  `devkit-reviews` workflow to `v0.19.0` through each project's own pull request.
+  `devkit-reviews` workflow to `v0.20.0` through each project's own pull request.
