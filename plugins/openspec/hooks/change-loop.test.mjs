@@ -2473,7 +2473,8 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.19\.0/, 'the CI snippet pins the current release (roadmap-coordinator-followups: 0.19.0)');
+  assert.match(flow, /v0\.19\.1/, 'the CI snippet pins the current release (merge-staleness-first-parent: 0.19.1)');
+  assert.doesNotMatch(flow, /v0\.19\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.18\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.17\.1/, 'no pin left on the previous release');
