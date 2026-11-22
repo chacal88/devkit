@@ -381,3 +381,25 @@ end the run as blocked, naming the stage the script lacks, instead of offering i
 #### Scenario: A failing check on a script with no implementation stage
 - **WHEN** the delivery of an active `devkit-project` change reads a failing check on its pull request
 - **THEN** the run ends blocked saying the script declares no implementation stage, and names the failing check
+
+### Requirement: The review stage is stale while a reviewer is stale
+The checker SHALL report the review stage stale whenever the delivery checker's reviews item lists a
+stale reviewer, also when the review stage's header commit is current, and the reason SHALL name
+those reviewers. This SHALL NOT apply in the walk after the merge. The review stage SHALL otherwise
+keep the staleness rule of every stage after the implementation.
+
+#### Scenario: A commit of tests only after the review
+- **WHEN** `review.md`'s header and the reviewers' files record commit A, and one later commit touches only test files
+- **THEN** the checker reports the review stage stale, and the delivery checker's `review` step, once the evidence is current again, names only `code-quality-reviewer` and `test-coverage-reviewer`
+
+#### Scenario: A stale reviewer under a current header
+- **WHEN** `review.md`'s header records the head, `reviews/code-quality-reviewer.md` records the head, and `reviews/spec-reviewer.md` records an older commit followed by a commit that touches `src/a.ts`
+- **THEN** the checker reports the review stage stale with a reason that names `spec-reviewer`, and the review stage is the next stage once the stages before it passed
+
+#### Scenario: Every reviewer current
+- **WHEN** `review.md`'s header and every reviewer's file are current at the head
+- **THEN** the checker reports the review stage passed
+
+#### Scenario: After the merge
+- **WHEN** the checker runs the walk after the merge of a delivered change whose reviewer files record commits squashed away
+- **THEN** the review stage is reported from its header alone, and not stale
