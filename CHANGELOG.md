@@ -1,14 +1,25 @@
 # Changelog
 
-## 0.25.2 — test fixtures clean up after themselves
+## 0.25.3 — test fixtures clean up after themselves
 
-- **devkit-openspec** 0.21.2: `test-tmp.mjs` makes every temporary folder of the hook tests and
+- **devkit-openspec** 0.21.3: `test-tmp.mjs` makes every temporary folder of the hook tests and
   removes it when its test ends, passed or failed, and sweeps the rest at the end of the run or on
-  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.21.2`.
+  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.21.3`.
 - **devkit-core** 0.9.1: the same helper, a byte-identical copy, for the `review-round` tests.
 - **devkit-compozy** 0.2.1: the same helper, a byte-identical copy, for the compozy tests.
 - CI: the hook tests run on an empty `TMPDIR` and a new step fails the job when anything is left in
   it. `CONTRIBUTING.md` states the rule: a test makes its folders through `test-tmp.mjs`.
+
+## 0.25.2 — follow-ups of the project phases
+
+- **devkit-openspec** 0.21.2: the slice contract refuses an ADR verdict recorded with uncommitted
+  changes, from `devkit-reviews` and the `gh pr create` hook, and `/devkit project` neither records
+  it nor moves on: it hands the review back to the ADR reviewer. New tests pin the contract's
+  fail-closed branches and a merge that brings an ADR. The CI snippet now pins `v0.21.2`, the
+  release's tag.
+- Docs: the slice contract says what a current ADR verdict is; the archived `project-phases` plan
+  and the pack README name ADR 0015 for the slice decision; the roadmap gives the dogfood of the
+  first real slice a line of its own (`project-slice-dogfood`).
 
 ## 0.25.1 — retro of review-writer-prompt
 

@@ -415,6 +415,66 @@ test('project-loop ci: a merge of a base with an unrelated product commit keeps 
   for (const r of bothCi(root)) { assert.equal(r.code, 0, r.out + r.err); assert.match(r.out, /passed the slice contract/); }
 });
 
+const ADR_VERDICT_UNCOMMITTED = ({ docSha }) => `Verdict: APPROVED\nCommit: ${docSha} (uncommitted changes)\n\n# ADR review\n`;
+
+test('project-loop ci: followups 1: an ADR verdict whose Commit resolves to no commit is named', () => {
+  failsWith(sliceRepo({ review: () => 'Verdict: APPROVED\nCommit: ' + 'ab12'.repeat(10) + '\n\n# ADR review\n' }), /reviews\/adr-reviewer\.md: Commit ab12ab1 does not resolve to a commit/);
+});
+
+test('project-loop ci: followups 2: a record whose first line is not a stage header is named', () => {
+  for (const text of ['# business\n', '', '\n' + header('business')]) {
+    failsWith(sliceRepo({ records: { 'business.md': text } }), /business\.md has no stage header on its first line/);
+  }
+});
+
+test('project-loop ci: followups 3: a record whose first line starts like a stage header and is not one is named malformed', () => {
+  for (const text of ['<!-- devkit-stage architecture result=done attempt=1 commit=none -->\n# a\n', '<!-- devkit-stage architecture result=passed attempt=1 commit=none\n# a\n']) {
+    failsWith(sliceRepo({ records: { 'architecture.md': text } }), /architecture\.md has a malformed stage header/);
+  }
+});
+
+test('project-loop ci: followups 4: the slice contract with no base ref names it and does not throw', () => {
+  const root = sliceRepo();
+  let problems;
+  assert.doesNotThrow(() => { problems = GUARD.sliceProblems(root, ARCHIVE, { base: 'origin/nope' }); });
+  assert.deepEqual(problems, ['origin/nope is not available to compare the slice with; fetch the full history']);
+});
+
+test('project-loop hook: followups 5: gh pr create is refused when the default branch shares no history with the slice', () => {
+  const root = sliceRepo({ after: (r) => gitq(r, 'update-ref', 'refs/remotes/origin/main', gitq(r, 'commit-tree', 'HEAD^{tree}', '-m', 'unrelated').trim()) });
+  const r = prCreate(root);
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, /origin\/main is not available to compare the slice with; fetch the full history/);
+});
+
+test('project-loop ci: followups 6: an ADR verdict recorded with uncommitted changes is named, whatever its commit', () => {
+  const seen = { docSha: '' };
+  const marked = sliceRepo({ review: (ctx) => { seen.docSha = ctx.docSha; return ADR_VERDICT_UNCOMMITTED(ctx); } });
+  failsWith(marked, new RegExp(`reviews/adr-reviewer\\.md: Commit ${seen.docSha.slice(0, 7)} was recorded with uncommitted changes`));
+  const root = sliceRepo({ review: () => 'Verdict: APPROVED\nCommit: ' + 'ab12'.repeat(10) + ' (uncommitted changes)\n\n# ADR review\n' });
+  failsWith(root, /Commit ab12ab1 was recorded with uncommitted changes/);
+  for (const r of bothCi(root)) assert.doesNotMatch(r.out, /does not resolve/);
+});
+
+test('project-loop hook: followups 7: gh pr create is refused for an ADR verdict recorded with uncommitted changes', () => {
+  const seen = { docSha: '' };
+  const root = sliceRepo({ review: (ctx) => { seen.docSha = ctx.docSha; return ADR_VERDICT_UNCOMMITTED(ctx); } });
+  const r = prCreate(root);
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, new RegExp(`reviews/adr-reviewer\\.md: Commit ${seen.docSha.slice(0, 7)} was recorded with uncommitted changes`));
+});
+
+test('project-loop ci: followups 10: a merge of a base that brings an ADR makes the review stale', () => {
+  const root = sliceRepo({ after: (r) => {
+    gitq(r, 'switch', '-q', 'main');
+    withNewCommit(r, 'docs/adr/0002-other.md');
+    gitq(r, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    gitq(r, 'switch', '-q', 'billing');
+    gitq(r, 'merge', '-q', '--no-edit', 'main');
+  } });
+  failsWith(root, new RegExp('the ADR review is behind ' + headOf(root).slice(0, 7) + ', which changes docs/adr/0002-other\\.md'));
+});
+
 test('project-loop ci: a selected active slice fails saying it reaches the default branch archived', () => {
   const root = sliceRepo({ before: (r) => { renameSync(join(r, ARCHIVE), join(r, 'openspec/changes/billing')); } });
   failsWith(root, /a slice reaches the default branch with its folder archived in its pull request.*\/devkit project billing/s);
@@ -1033,6 +1093,20 @@ test('project-loop next: S15 a review behind a later ADR change goes back to the
   assert.equal(act(t.main, 'billing', { gh: scriptedGh() }).step, 'open-pr');
 });
 
+test('project-loop next: followups 9: a verdict for HEAD recorded with uncommitted changes goes back to the ADR reviewer, active or archived', () => {
+  const expected = ['agent', 'devkit-core:adr-reviewer', 'review', 'review'];
+  const active = loopProject();
+  const wtA = readySlice(active);
+  verdictFor(wtA, 'billing', `${headOf2(wtA)} (uncommitted changes)`);
+  const a = act(active.main, 'billing', { gh: scriptedGh() });
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage], expected, 'active');
+  const archived = loopProject();
+  const wtB = archivedSlice(archived, 'billing', { commit: true });
+  verdictFor(wtB, 'billing', `${headOf2(wtB)} (uncommitted changes)`, 'APPROVED', `openspec/changes/archive/${archivedDirOf(wtB).split('/').pop()}`);
+  const b = act(archived.main, 'billing', { gh: scriptedGh() });
+  assert.deepEqual([b.kind, b.agent, b.step, b.stage], expected, 'archived');
+});
+
 test('project-loop next: S16 an archived slice with no pull request opens one', () => {
   const t = loopProject();
   const wt = archivedSlice(t, 'billing', { commit: true });
@@ -1324,6 +1398,24 @@ test('project-loop review: a verdict that is missing, has no verdict word, no co
     const r = lp(wt, ['record-review', 'billing']);
     assert.equal(r.code, 2, why);
     assert.deepEqual([body(r).result, body(r).reply], ['verdict-unusable', CL.render('en', 'verdict-unusable', { id: 'billing', why })], why);
+    assert.equal(existsSync(join(wt, 'openspec/changes/billing/review.md')), false, 'nothing recorded');
+  }
+});
+
+test('project-loop review: followups 8: a verdict recorded with uncommitted changes is refused and nothing is recorded', () => {
+  const t = loopProject();
+  const wt = readySlice(t);
+  for (const sha of [headOf2(wt), '1'.repeat(40)]) {
+    verdictFor(wt, 'billing', `${sha} (uncommitted changes)`);
+    const en = lp(wt, ['record-review', 'billing']);
+    assert.equal(en.code, 2, sha);
+    assert.equal(body(en).result, 'verdict-unusable', sha);
+    assert.equal(body(en).reply, CL.render('en', 'verdict-unusable', { id: 'billing', why: 'uncommitted' }), sha);
+    assert.equal(existsSync(join(wt, 'openspec/changes/billing/review.md')), false, 'nothing recorded');
+    const pt = lp(wt, ['record-review', 'billing'], { lang: 'pt-BR' });
+    assert.equal(pt.code, 2, sha);
+    assert.equal(body(pt).reply, CL.render('pt-BR', 'verdict-unusable', { id: 'billing', why: 'uncommitted' }), sha);
+    assert.notEqual(body(pt).reply, body(en).reply, sha);
     assert.equal(existsSync(join(wt, 'openspec/changes/billing/review.md')), false, 'nothing recorded');
   }
 });
