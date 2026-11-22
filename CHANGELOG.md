@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.1 — retro of project-phases
+
+- **devkit-core** 0.8.2: the reviewer prompt of the review round names the finding id format and the
+  commit command, so a stage-1 object is not refused for ids or a placeholder sha; `tdd-implementer`
+  never stops a process by pattern.
+- Docs: CONTRIBUTING covers version and ADR numbers when changes run in parallel; a roadmap line for the
+  project flow's follow-ups.
+
 ## 0.24.0 — the project phases, /devkit project
 
 - **devkit-openspec** 0.20.0: `/devkit project <slice>` takes a new project or one slice of it through

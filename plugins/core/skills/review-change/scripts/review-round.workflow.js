@@ -237,7 +237,8 @@ function reviewerPrompt(args, entry) {
     + 'End your reply with one fenced json block holding one object: '
     + '{ declined: boolean, commit: "<full 40 hex sha of HEAD>", uncommitted: boolean, heading: "<your ## title line>", '
     + 'findings: [ { id: "F1", severity: "blocking|important|nit|praise", location: "<file:line or section>", text: "<one line>", disposition: null or "fixed in <sha>" or "refuted: <evidence>" } ], '
-    + 'sections: "<the rest of your output as Markdown, without the findings list>" }.\n';
+    + 'sections: "<the rest of your output as Markdown, without the findings list>" }.\n'
+    + 'Finding ids are F1, F2, ... in order, one per finding, praise included. The commit is the output of git rev-parse HEAD, never a short or padded sha.\n';
 }
 
 function verifierPrompt(args, entry, finding) {

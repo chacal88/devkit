@@ -9,21 +9,25 @@ plain reply in the person's language, and resumes from the files alone.
 
 ### Requirement: The devkit command reads its verb
 `/devkit` SHALL read the first word of its arguments as the verb and the rest as the request. Only
-the verbs `change`, `roadmap` and `status` SHALL run anything (`roadmap` and `status` as the
-roadmap-coordination capability says); every other verb SHALL answer in one plain sentence and create
-or run nothing.
+the verbs `change`, `roadmap`, `status` and `project` SHALL run anything (`roadmap` and `status` as the
+roadmap-coordination capability says, `project` as the project-definition capability says); every
+other verb SHALL answer in one plain sentence and create or run nothing.
 
 #### Scenario: A verb of a later round
-- **WHEN** the person types `/devkit project` or `/devkit help`
-- **THEN** the reply says in one sentence that the verb is not built yet and names round 19 or 23 respectively, and no file, branch or worktree is created
+- **WHEN** the person types `/devkit help`
+- **THEN** the reply says in one sentence that the verb is not built yet and names round 23, and no file, branch or worktree is created
 
 #### Scenario: The roadmap and status verbs
 - **WHEN** the person types `/devkit roadmap`, `/devkit roadmap 3`, `/devkit roadmap stop` or `/devkit status` in a project set up for devkit with the `claude` driver
 - **THEN** the command's script answers that verb's mode with the rest of the arguments, creates nothing itself, and the session carries on as the roadmap-coordination capability says
 
+#### Scenario: The project verb
+- **WHEN** the person types `/devkit project` or `/devkit project billing` in a project set up for devkit with the `claude` driver
+- **THEN** the command's script answers the `project` mode with the rest of the arguments, creates nothing itself, and the session carries on as the project-definition capability says
+
 #### Scenario: No verb or an unknown verb
 - **WHEN** the person types `/devkit` alone or `/devkit` with a word that is not a verb
-- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap` and `/devkit status` exist and what each is for, and nothing is created or run
+- **THEN** the reply says in one sentence that `/devkit change`, `/devkit roadmap`, `/devkit status` and `/devkit project` exist and what each is for, and nothing is created or run
 
 #### Scenario: A usage error
 - **WHEN** the command's script meets an unknown option, a missing argument or an unreadable `openspec/config.yaml`

@@ -89,7 +89,10 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 - [x] roadmap-coordinator (after: change-coordinator) — the roadmap coordinator starts every change whose `after:` dependencies are archived, several at once up to the number the owner sets per run, and holds a new start while the machine is loaded so that what is under way finishes first, with `/devkit roadmap` and `/devkit status` (D-1, D-2)
 
 ## Round 19: defining a project
-- [ ] project-phases (after: roadmap-coordinator) — the four design phases as the `devkit-project` flow, with a fifth stage that writes or appends to `openspec/roadmap.md`, started by `/devkit project` (D-7)
+- [x] project-phases (after: roadmap-coordinator) — the four design phases as the `devkit-project` flow, with a fifth stage that writes or appends to `openspec/roadmap.md`, started by `/devkit project` (D-7)
+
+## Round 19b: follow-ups of the project flow
+- [ ] project-phases-followups (after: project-phases) — tests for the fail-closed branches of `sliceProblems` (a Commit that does not resolve, a missing or malformed record header, no base ref, the verdict's uncommitted marker), `sliceReviewStale` judging a merge by its first parent, the plan's ADR 0014 mentions, and the dogfood of the first real slice in one of the owner's projects (the phases' conversations, the real GitHub auto-merge)
 
 ## Round 20: the Jira entry
 - [ ] jira-entry (after: change-coordinator) — `/devkit change <key or link>` reads a Jira task as the request and writes back to it (a comment with the pull request link, a status change) only when the developer asks, and the grill asks only what the task does not answer (D-1)
