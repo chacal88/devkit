@@ -1,6 +1,6 @@
 {
   "name": "devkit-compozy",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Ships the CompozyOS delivery loop (version 2) over the devkit flow: a design gate, a demo step, a CI wait and the archive and cleanup after the merge, installed into any project by compozy-setup.",
   "author": {
     "name": "kaue rodrigues dos santos",

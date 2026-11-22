@@ -10,12 +10,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
-  cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync,
+  cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from '../../test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SETUP_DIR = join(here, '..');
@@ -32,10 +32,9 @@ const LOOP = 'loops/openspec-change/loop.yaml';
 
 const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
-// A project root and its own copy of compozy-setup, removed at the end of the test.
+// A project root and its own copy of compozy-setup, removed when the test ends (by test-tmp.mjs).
 function sandbox(t) {
-  const dir = mkdtempSync(join(tmpdir(), 'install-kit-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tmpFolder('devkit-install-kit-');
   const setup = join(dir, 'kit', 'compozy-setup');
   cpSync(SETUP_DIR, setup, { recursive: true, filter: (src) => !src.endsWith('.test.mjs') });
   const root = join(dir, 'project');

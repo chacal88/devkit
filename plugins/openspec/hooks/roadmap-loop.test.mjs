@@ -2,8 +2,8 @@
 // roadmap-coordinator: the roadmap loop, its commands and its locks (phase 1: the previous-script fixtures and the pure core; phase 2: the commands; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, readdirSync, utimesSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, utimesSync, realpathSync } from 'node:fs';
+import { tmpFolder } from './test-tmp.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -1195,7 +1195,7 @@ test('roadmap-loop reply: an end key records declared and prints the end line fi
 
 const GUARD = join(HERE, 'guard.mjs');
 const LK_SESSION = 'session-roadmap-0001';
-const lkSandbox = () => mkdtempSync(join(tmpdir(), 'roadmap-loop-lock-'));
+const lkSandbox = () => tmpFolder('devkit-roadmap-loop-lock-');
 
 // Transcript lines and hook inputs in the stored forms the probe of this change recorded (Claude Code 2.1.326, ids replaced).
 const LK_BASE = { parentUuid: null, isSidechain: false, userType: 'external', entrypoint: 'claude-desktop', cwd: '/scratch/project', sessionId: LK_SESSION, version: '2.1.326', gitBranch: 'main' };
@@ -1265,7 +1265,7 @@ function lkProject(lines, changes = {}, { config = 'schema: devkit\n' } = {}) {
 }
 const LK_ENV = { ...cleanEnv, CLAUDE_PLUGIN_OPTION_LANGUAGE: 'en' };
 const lkOpts = (over = {}) => ({ env: LK_ENV, gh: OFFLINE, load: () => 10, ...over });
-// Runs `work(tmp)` with a fresh temporary folder, where the refusal records are written (os.tmpdir() reads TMPDIR at each call).
+// Runs `work(tmp)` with a fresh temporary folder, where the refusal records are written (os.tmpdir reads TMPDIR at each call).
 function withTmp(work) {
   const saved = process.env.TMPDIR;
   const tmp = lkSandbox();

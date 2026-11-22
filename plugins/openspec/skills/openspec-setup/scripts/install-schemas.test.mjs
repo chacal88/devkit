@@ -2,18 +2,18 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, existsSync, readdirSync, realpathSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
+import { mkdirSync, existsSync, readdirSync, realpathSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { join, dirname, delimiter } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, 'install-schemas.sh');
 const folderOf = (bin) => dirname(execFileSync('sh', ['-c', `command -v ${bin}`], { encoding: 'utf8' }).trim());
 // bash and git only, so `openspec` is not found and the validate step is skipped
 const PATH = [...new Set([folderOf('bash'), folderOf('git')])].join(delimiter);
-const tmp = () => realpathSync(mkdtempSync(join(tmpdir(), 'inst-')));
+const tmp = () => realpathSync(tmpFolder('devkit-inst-'));
 
 function world({ openspec = true } = {}) {
   const base = tmp();

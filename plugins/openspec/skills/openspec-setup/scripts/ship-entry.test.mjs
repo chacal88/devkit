@@ -2,11 +2,11 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, 'ship-entry.mjs');
@@ -16,7 +16,7 @@ const PIN = /CI pin/;
 
 // A project root whose openspec/config.yaml holds `text` (or no config at all when `text` is null).
 function project(text) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'ship-entry-')));
+  const root = realpathSync(tmpFolder('devkit-ship-entry-'));
   mkdirSync(join(root, 'openspec'));
   const file = join(root, 'openspec', 'config.yaml');
   if (text !== null) writeFileSync(file, text);
