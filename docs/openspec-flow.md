@@ -389,7 +389,7 @@ The rule goes by author type, not by intent: the checker cannot tell whether a b
 
 **JSON.** `--json` prints `{ "version": 1, "change", "schema", "ship", "host", "head", "pr", "phases", "items", "met", "summary", "next" }`. `version` changes only when a field is removed or changes meaning. On exit 3 it prints `{ "version": 1, "error": "<message>" }`. `host` is `app` in the Claude desktop app and `cli` otherwise (`DEVKIT_HOST=app|cli` overrides it). In `merge` mode only, the report also has a `merge` object (below), and after the merge an `archive` object (below); `version` stays `1` because both fields are additive.
 
-**The `Commit:` staleness rule.** A reviewer's verdict file starts with a `Commit: <sha>` line, and `evidence.md` has it right after its stage header line; both are placed before the first markdown heading (a line under a heading is not read). It is current when the sha resolves, is an ancestor of `HEAD`, every later commit touches only `openspec/`, the line has no `(uncommitted changes)` marker, and the working tree has no change outside `openspec/` and `.claude/`. A later commit to product code (or to a path such as `openspecx/`) makes it stale, and only the reviews or evidence that carry that sha are redone.
+**The `Commit:` staleness rule.** A reviewer's verdict file starts with a `Commit: <sha>` line, and `evidence.md` has it right after its stage header line; both are placed before the first markdown heading (a line under a heading is not read). It is current when the sha resolves, is an ancestor of `HEAD`, every later commit touches only `openspec/` (a merge commit counts the files that differ between its first parent and itself, that is, what it brought into the branch, with the edits made while resolving and the files moved out of product code; the commits it brings in are still checked one by one, so an update of the branch that brings only `openspec/` files leaves reviews and evidence current), the line has no `(uncommitted changes)` marker, and the working tree has no change outside `openspec/` and `.claude/`. A later commit to product code (or to a path such as `openspecx/`) makes it stale, and only the reviews or evidence that carry that sha are redone.
 
 **Order of the delivery steps.** After the phases and the `commit`, `deliver-check` returns the first row that matches: `stop-review-deadlock` (the owner's stop: a current rejected review at `FAIL (round 2/2)`), `fix-review` (a current rejected review, or an approved one with an undisposed finding), `fix-defect` (a `fail` or `defect` row on current evidence), `verify` (evidence missing or stale, a gate or criterion row missing), `review` (a reviewer missing or stale) and, last, `blocked`. The evidence comes before the reviews, so a review round never runs on code with a known failing criterion, and a fix outside `openspec/` makes both stale again: `verify`, then `review`. A rejected review is fixed before the evidence is recorded, because the fix commit would stale it. Reviews and evidence never stale each other: both live under `openspec/changes/<id>/`, so writing either one, committed or not, leaves the other current; only a later commit outside `openspec/` stales both. The PR gate still needs both, approved reviews and evidence.
 
@@ -500,7 +500,7 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 |---|---|
 | `stop-merge-setup` | Stops: `blocked: merge setup (<missing>)`. Run the GitHub step of `openspec-setup` |
 | `disable-auto-merge` | `gh pr merge <n> --disable-auto`, then continues |
-| `update-branch` | `gh pr update-branch <n>`, then `git pull --ff-only`. The ruleset requires the branch to be up to date, so a PR behind its base waits; the update brings base commits, which makes older reviews stale and re-runs them |
+| `update-branch` | `gh pr update-branch <n>`, then `git pull --ff-only`. The ruleset requires the branch to be up to date, so a PR behind its base waits; the update brings base commits; when they or the merge change a file outside `openspec/`, the older reviews and evidence go stale and run again, and an update that brings only `openspec/` files leaves them current |
 | `enable-auto-merge` | `gh pr merge <n> --auto --<method> --match-head-commit <head>`: GitHub refuses it if the head moved since the check |
 | `wait-merge` | One capped `deliver-check <id> --json --watch`, then reports `archived` or `auto-merge on: waiting for <what>` (`archive PR open: waiting for <what>` for the archive PR) |
 | `retro` | Runs the `retro` skill on the merged PR and writes `retro.md` in the change folder |
@@ -551,15 +551,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.18.1 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.18.1>/plugins/openspec/hooks
+          # pinned to the commit of v0.18.2 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.18.2>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.18.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.18.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.18.2` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.18.2` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 

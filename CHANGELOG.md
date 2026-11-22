@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.2 — merge staleness by the first parent
+
+- **devkit-openspec** 0.18.2: a merge commit counts the files that differ between its first parent
+  and itself (what it brought into the branch, edits made while resolving and moved files
+  included), and the commits it brings in are still checked one by one; an update of the branch
+  that brings only `openspec/` files leaves reviews and evidence current. The CI snippet now pins
+  `v0.18.2`, the release's tag.
+- Docs: the staleness rule and the `update-branch` row of the flow document say how a merge commit
+  is read.
+
 ## 0.22.1 — field fixes of 0.16.0, the rest
 
 - **devkit-openspec** 0.18.1: `deliver-check --watch` also waits at `stop-merge-setup` when the

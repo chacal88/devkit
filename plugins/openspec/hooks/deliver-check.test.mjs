@@ -313,6 +313,111 @@ test('staleness: uncommitted work outside openspec/ and .claude/ makes everythin
   assert.equal(stale(root, sha), null, 'a tracked edit inside openspec/ is allowed');
 });
 
+// ---- merge-staleness-first-parent (D-1 to D-3): a merge commit counts what it brought into the branch
+
+// base() on main; feat with a product commit R, both reviews and evidence at R; then `onMain(root)` builds the base's
+// commits on main and `merge(root)` makes the merge on feat. Returns { root, R }.
+function mergeHistory(onMain, merge) {
+  const root = base();
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, { 'src/a.ts': 'changed\n' });
+  const R = commitAll(root, 'product commit');
+  put(root, { ...withReviews(reviews(R)), 'openspec/changes/feat/evidence.md': `Commit: ${R}\n\n# Evidence\n` });
+  commitAll(root, 'reviews and evidence');
+  git(root, 'switch', '-q', 'main');
+  onMain(root);
+  git(root, 'switch', '-q', 'feat');
+  merge(root);
+  return { root, R };
+}
+const mergeMain = (root) => git(root, 'merge', '-q', '--no-ff', '-m', 'merge main', 'main');
+const onlyOpenspec = (root) => { put(root, { 'openspec/changes/other.md': 'o\n' }); commitAll(root, 'plan only on main'); };
+const s7 = (sha) => sha.slice(0, 7);
+
+test('merge-staleness 1: a merge of main that brings only openspec/ into a branch with product commits before the record is current', () => {
+  const { root, R } = mergeHistory(onlyOpenspec, mergeMain);
+  assert.match(git(root, 'diff', '--name-only', 'HEAD^2', 'HEAD'), /^src\/a\.ts$/m, 'the history that broke -m');
+  assert.equal(stale(root, R), null);
+  const it = reviewsItem(root, 'feat');
+  assert.equal(it.status, 'met', it.reason);
+  assert.deepEqual(it.details.stale, []);
+  assert.equal(tasksItem(root, 'feat').details.evidence, 'current');
+  assert.equal(acceptanceItem(root, 'feat').details.evidence, 'current');
+});
+
+test('merge-staleness 2: a merge of main that brings a product file is stale and names it', () => {
+  const { root, R } = mergeHistory((r) => { put(r, { 'src/base.ts': 'b\n' }); commitAll(r, 'product on main'); }, mergeMain);
+  assert.equal(stale(root, R), `${s7(R)} is behind ${s7(head(root))}, which touches src/base.ts`);
+  assert.deepEqual(reviewsItem(root, 'feat').details.stale.length, 2);
+  assert.equal(tasksItem(root, 'feat').details.evidence, 'stale');
+});
+
+test('merge-staleness 3: a merge commit that changes a product file while resolving is stale and names it', () => {
+  const { root, R } = mergeHistory(onlyOpenspec, (r) => {
+    git(r, 'merge', '-q', '--no-ff', '--no-commit', 'main');
+    put(r, { 'src/a.ts': 'resolved\n' });
+    git(r, 'add', 'src/a.ts');
+    git(r, 'commit', '-q', '-m', 'merge main, resolving');
+  });
+  assert.equal(stale(root, R), `${s7(R)} is behind ${s7(head(root))}, which touches src/a.ts`);
+});
+
+test('merge-staleness 4: a merge that moves a product file under openspec/ is stale and names the old path', () => {
+  const { root, R } = mergeHistory(onlyOpenspec, (r) => {
+    git(r, 'merge', '-q', '--no-ff', '--no-commit', 'main');
+    git(r, 'mv', 'src/a.ts', 'openspec/a.md');
+    git(r, 'commit', '-q', '-m', 'merge main, moving');
+  });
+  assert.equal(stale(root, R), `${s7(R)} is behind ${s7(head(root))}, which touches src/a.ts`);
+});
+
+test('merge-staleness 5: a product commit the merge brings in is stale even when the merge itself brings only openspec/', () => {
+  let X; let Y;
+  const { root, R } = mergeHistory((r) => {
+    put(r, { 'src/base.ts': 'b\n' });
+    X = commitAll(r, 'X adds a product file');
+    git(r, 'rm', '-q', 'src/base.ts');
+    put(r, { 'openspec/changes/other.md': 'o\n' });
+    Y = commitAll(r, 'Y removes it');
+  }, mergeMain);
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^1', 'HEAD'), 'openspec/changes/other.md');
+  const why = stale(root, R);
+  assert.match(why, new RegExp(`^${s7(R)} is behind (${s7(X)}|${s7(Y)}), which touches src/base\\.ts$`));
+  assert.ok(!why.includes(s7(head(root))), why);
+});
+
+test('merge-staleness 6: a merge whose first parent is the base is read against that parent', () => {
+  const { root, R } = mergeHistory(onlyOpenspec, (r) => {
+    git(r, 'switch', '-q', 'main');
+    git(r, 'merge', '-q', '--no-ff', '-m', 'merge feat', 'feat');
+    git(r, 'switch', '-q', '-C', 'feat', 'main');
+  });
+  assert.equal(stale(root, R), `${s7(R)} is behind ${s7(head(root))}, which touches src/a.ts`);
+});
+
+test('merge-staleness 7: a root commit a merge brings in is judged by its own files', () => {
+  let O;
+  const { root, R } = mergeHistory(() => {}, (r) => {
+    git(r, 'switch', '-q', '--orphan', 'other');
+    put(r, { 'src/x.ts': 'x\n', 'openspec/y.md': 'y\n' });
+    O = commitAll(r, 'root of another history');
+    git(r, 'switch', '-q', 'feat');
+    git(r, 'merge', '-q', '--no-commit', '--allow-unrelated-histories', 'other');
+    git(r, 'rm', '-q', '-f', 'src/x.ts');
+    git(r, 'commit', '-q', '-m', 'merge other');
+  });
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^1', 'HEAD'), 'openspec/y.md');
+  assert.equal(stale(root, R), `${s7(R)} is behind ${s7(O)}, which touches src/x.ts`);
+});
+
+test('merge-staleness 8: a plain product commit after an openspec-only merge is still stale', () => {
+  const { root, R } = mergeHistory(onlyOpenspec, mergeMain);
+  assert.equal(stale(root, R), null);
+  put(root, { 'src/a.ts': 'again\n' });
+  const P = commitAll(root, 'product after the merge');
+  assert.equal(stale(root, R), `${s7(R)} is behind ${s7(P)}, which touches src/a.ts`);
+});
+
 test('item 2: met when both required reviewers are approved at the head', () => {
   const root = base();
   put(root, withReviews(reviews(head(root))));
