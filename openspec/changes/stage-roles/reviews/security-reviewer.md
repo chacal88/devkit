@@ -1,10 +1,16 @@
 Verdict: approved
-Commit: e8af242187a7d1be2f8253c2667205c5a0027a74
+Commit: 371b272a0f4df62022dc6e79f81b8ef53ff23793
 
-## Security audit — stage-roles (round 2)
+## Security audit — stage-roles (round 3, re-review after the merge from main)
 
 ### Findings
 
-Verdict: approved
+Triaged scope: high: plugins/openspec/hooks/guard.mjs, plugins/openspec/hooks/change-loop.mjs (merge resolution, symlink guard); medium: flow-check and roadmap-loop tests, spec delta; low: ADR rename, versions, changelog, docs.
 
-The round 1 verdict had no findings, so none are re-listed. Round 2 covered db34efd..e8af242: `readRecord` in `plugins/openspec/hooks/change-loop.mjs` now compares real paths, so a symlinked decision record that points outside the repository is refused, and the `..` prefix test matches only `..` or `..` followed by a separator. The new test covers the symlink case and checks the outside file is untouched. Discarded: a TOCTOU symlink swap (needs repository write access, no trigger), and writes through `abs` (the real path was validated, so they stay inside the repository). Categories walked: injection, authn/authz/IDOR, exposure, crypto, secret, config.
+Previous findings: none (round 1 and round 2 were approved with no findings).
+
+Checked since e8af242: the 16 merge conflicts were resolved by keeping both sides, with no leftover markers in hooks or ADRs. The realpath guard on decision records in change-loop.mjs:871 survived the merge. guard.mjs carries both main's slice-contract code and stage-roles' adr-author and e2e-tester write rules, with the readiness gate before the e2e-tester check. The ADR 0016 rename, the version moves and the v0.22.0 pin have no security surface. No secret-like files were added. 8d07aa0 only adds a requirement scenario to the spec delta and updates evidence text.
+
+Categories walked: injection, authn/authz/IDOR, exposure, crypto, secret, config.
+
+Discarded false positives: injection, no new request-input sink in the merge resolution; config, the stale-pin assertions in the tests fail closed.

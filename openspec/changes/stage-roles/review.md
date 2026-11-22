@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=e8af242187a7d1be2f8253c2667205c5a0027a74 -->
+<!-- devkit-stage review result=passed attempt=3 commit=371b272a0f4df62022dc6e79f81b8ef53ff23793 -->
 # Review: stage-roles, round 1
 
 Path: agents · range `2300f84..db34efd` · structural: PASS
@@ -55,3 +55,32 @@ None.
 Ready to ship.
 
 Note: the round 2 verdict files were first written with "(uncommitted changes)" on line 2, although the only uncommitted file was evidence.md under openspec/; each reviewer rewrote its file without the marker (stage 3 again, same findings).
+
+# Review: stage-roles, round 1
+
+Path: agents · range `e8af242187a7d1be2f8253c2667205c5a0027a74..371b272a0f4df62022dc6e79f81b8ef53ff23793` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 371b272 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 371b272 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 371b272 |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 371b272 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 371b272 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 371b272 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Re-review after the update from main (merge 21f6596 of 8c8b7b8), the spec delta fix 8d07aa0 and the evidence 371b272; called because every verdict went stale, so it starts at round 1 and uses no round budget.
+- The merge resolution changed one ADR path inside reviews/adr-reviewer.md (written by the implementer, not the reviewer); the adr-reviewer rewrote its own file in this round.
+- Path agents: the turn was not typed by the owner; the round ran with the worktree review-round.mjs (devkit-core 0.10.0).
+
+## Next
+Ready to ship.
