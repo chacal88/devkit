@@ -194,8 +194,10 @@ const commitPaths = (root, sha) => (gitPasses(root, ['rev-parse', '--verify', '-
 const reviewedPaths = (slice) => [`docs/design/${slice}/`, 'docs/adr/', 'docs/decisions/'];
 
 // Why the ADR review of `slice`, written at commit `sha`, is behind `head`, or null: a commit after `sha` changes, against its
-// first parent, a file under the slice's design folder or an ADR folder. A merge of the default branch that brings none of those
-// files keeps the review current.
+// first parent, a file under the slice's design folder or an ADR folder.
+// A merge counts what it brought into the branch (its first-parent diff): a merge of the default branch that brings none
+// of those files keeps the review current, and one that brings a file under an ADR folder (another change's new ADR) makes
+// it stale, because a new ADR may conflict with the slice and the ADR reviewer must read it (project-phases-followups).
 export function sliceReviewStale(root, sha, slice, head = 'HEAD') {
   const folders = reviewedPaths(slice);
   for (const c of gitRead(root, ['rev-list', `${sha}..${head}`]).split('\n').filter(Boolean)) {
@@ -234,7 +236,8 @@ export function sliceProblems(root, folder, { base, head = 'HEAD' }) {
       const short = recorded.sha.slice(0, 7);
       let full = '';
       try { full = gitRead(root, ['rev-parse', '--verify', '--quiet', `${recorded.sha}^{commit}`]).trim(); } catch { /* unresolved */ }
-      if (!full) problems.push(`reviews/adr-reviewer.md: Commit ${short} does not resolve to a commit`);
+      if (recorded.uncommitted) problems.push(`reviews/adr-reviewer.md: Commit ${short} was recorded with uncommitted changes`);
+      else if (!full) problems.push(`reviews/adr-reviewer.md: Commit ${short} does not resolve to a commit`);
       else if (!gitPasses(root, ['merge-base', '--is-ancestor', full, head])) problems.push(`reviews/adr-reviewer.md: Commit ${short} is not an ancestor of ${head}`);
       else { const why = sliceReviewStale(root, full, slice, head); if (why) problems.push(why); }
     }

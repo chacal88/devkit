@@ -2479,6 +2479,7 @@ test('change-loop docs: the design records the answers', () => {
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
   // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); stage-roles moves it to 0.22.0 (release 0.26.0).
   assert.match(flow, /v0\.22\.0/, 'the CI snippet pins the current release (stage-roles: 0.22.0)');
+  assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
   const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
