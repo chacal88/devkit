@@ -1,0 +1,121 @@
+✔ project-loop ci: followups 1: an ADR verdict whose Commit resolves to no commit is named (312.497635ms)
+✔ project-loop ci: followups 2: a record whose first line is not a stage header is named (950.664968ms)
+✔ project-loop ci: followups 3: a record whose first line starts like a stage header and is not one is named malformed (565.429316ms)
+✔ project-loop ci: followups 4: the slice contract with no base ref names it and does not throw (78.013915ms)
+✔ project-loop hook: followups 5: gh pr create is refused when the default branch shares no history with the slice (133.240686ms)
+✖ project-loop ci: followups 6: an ADR verdict recorded with uncommitted changes is named, whatever its commit (269.416199ms)
+✖ project-loop hook: followups 7: gh pr create is refused for an ADR verdict recorded with uncommitted changes (126.185989ms)
+✔ project-loop ci: followups 10: a merge of a base that brings an ADR makes the review stale (337.937276ms)
+✖ project-loop next: followups 9: a verdict for HEAD recorded with uncommitted changes goes back to the ADR reviewer, active or archived (1891.374981ms)
+✖ project-loop review: followups 8: a verdict recorded with uncommitted changes is refused and nothing is recorded (1111.230237ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 6
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5903.939105
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/project-loop.test.mjs:448:1
+✖ project-loop ci: followups 6: an ADR verdict recorded with uncommitted changes is named, whatever its commit (269.416199ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: archive openspec/changes/archive/2026-11-21-billing
+    slice billing: passed the slice contract
+  pass
+  
+  
+  0 !== 1
+  
+      at failsWith (file:///home/kaue/repos/devkit/.claude/worktrees/project-phases-followups/plugins/openspec/hooks/project-loop.test.mjs:301:12)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-phases-followups/plugins/openspec/hooks/project-loop.test.mjs:451:3)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:457:1
+✖ project-loop hook: followups 7: gh pr create is refused for an ADR verdict recorded with uncommitted changes (126.185989ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-phases-followups/plugins/openspec/hooks/project-loop.test.mjs:461:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:1094:1
+✖ project-loop next: followups 9: a verdict for HEAD recorded with uncommitted changes goes back to the ADR reviewer, active or archived (1891.374981ms)
+  AssertionError [ERR_ASSERTION]: active
+  + actual - expected
+  
+    [
+  +   'session',
+  +   undefined,
+  +   'record-review',
+  -   'agent',
+  -   'devkit-core:adr-reviewer',
+      'review',
+  -   'review'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-phases-followups/plugins/openspec/hooks/project-loop.test.mjs:1100:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at node:internal/test_runner/test:1305:31
+      at node:internal/process/task_queues:158:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:226:14)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:155:8) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'session', undefined, 'record-review', 'review' ],
+    expected: [ 'agent', 'devkit-core:adr-reviewer', 'review', 'review' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:1403:1
+✖ project-loop review: followups 8: a verdict recorded with uncommitted changes is refused and nothing is recorded (1111.230237ms)
+  AssertionError [ERR_ASSERTION]: 2b757ee8e5e376bab6247c7e6a2d1cdc292dfbad
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/project-phases-followups/plugins/openspec/hooks/project-loop.test.mjs:1409:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at node:internal/test_runner/test:1305:31
+      at node:internal/process/task_queues:158:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:226:14)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:155:8) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

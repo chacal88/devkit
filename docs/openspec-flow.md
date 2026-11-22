@@ -320,7 +320,7 @@ Planning of a dependent change (grill, plan, readiness, approval) runs while its
 
 **The delivery.** The ADR reviewer checks the new ADRs against the existing ones; its verdict is the slice's only review. The slice's folder is then archived on its branch, and one pull request carries the documents, the ADRs, the appended rounds and the archived folder. It follows `ship: devkit-project:` as any script follows its entry: in `merge` mode GitHub merges it once the checks pass. No archive pull request or retro follows.
 
-**The slice contract.** `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one contract: every stage record passed or not applicable, the ADR reviewer's verdict approved or declined and current, only the slice's documents, the ADR folders, the roadmap (appended to, or untouched when the roadmap stage does not apply) and the archived folder in the diff. A selected active slice fails the check. `/devkit status` shows each slice's readout: its five stages, then the review and the pull request.
+**The slice contract.** `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one contract: every stage record passed or not applicable, the ADR reviewer's verdict approved or declined, recorded with no uncommitted changes, and current (no later commit changes, against its first parent, a file under the slice's design folder or an ADR folder, so a merge of the default branch that brings another change's ADR sends the slice back to the ADR reviewer), only the slice's documents, the ADR folders, the roadmap (appended to, or untouched when the roadmap stage does not apply) and the archived folder in the diff. A selected active slice fails the check. `/devkit status` shows each slice's readout: its five stages, then the review and the pull request.
 
 ## The panel: devkit-panel
 
@@ -575,8 +575,8 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.21.1 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.21.1>/plugins/openspec/hooks
+          # pinned to the commit of v0.21.2 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.21.2>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
@@ -585,7 +585,7 @@ jobs:
 
 The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.20.0` or later first, because older releases pass a slice with a note.
 
-Pin the commit sha of the release tag (`v0.21.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.21.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.21.2` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.21.2` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
