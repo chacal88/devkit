@@ -30,6 +30,10 @@ keeps one, and the change's `proposal.md`, `design.md`, `tasks.md` and spec delt
 - Work only inside a worktree named `<id>` on branch `<id>` (the change id: the devkit guards and
   `conduct-check` resolve the active change from that name), never in the workspace root. Create
   it with the Compozy worktree tools when it does not exist (fallback: `git worktree add`).
+- Before the first phase of a change the operator approved: have `devkit-core:tdd-implementer`
+  set each record `decisions.md` lists to accepted, with an `Accepted by:` line naming the
+  operator's approval in this run, and set `mockup.md`'s header to `result=passed` with that
+  approval as the owner's words.
 - One phase of `tasks.md` at a time, each dispatched to the `devkit-core:tdd-implementer` agent:
   tests first, then code, stop at the phase gate task and run the test command it names.
 - Tick each task in `tasks.md` as it lands. Stage files by name (never `git add -A`), one commit

@@ -1,0 +1,1 @@
+This change's release was renumbered to devkit-openspec 0.23.0 and marketplace 0.27.0 because the stage-roles change (PR 58) released devkit-openspec 0.22.0 and marketplace 0.26.0 first. The plan files still name 0.22.0 and 0.26.0 as written when the plan was approved; the manifests, the changelog entry and the CI pins in docs/openspec-flow.md carry the renumbered release.
