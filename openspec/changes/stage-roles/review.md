@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=4 commit=cea2ee6cc9ea02d9b56d26b3a617d6fa29b11bfa -->
+<!-- devkit-stage review result=passed attempt=5 commit=0ee2c29e02e770a6054aef65cbb1971a5dcdef19 -->
 # Review: stage-roles, round 1
 
 Path: agents · range `2300f84..db34efd` · structural: PASS
@@ -109,6 +109,30 @@ None.
 ## Notes
 - Re-review after three more updates from main (merges 87487e3 of c561553, ef7ed05 of 262ce6b and 128d4bb of 393a5c8) and the evidence at cea2ee6; called because every verdict went stale, so it starts at round 1 and uses no round budget.
 - The demonstration ran past its limit of 3 on the owner's authorization after the first merge exposed a spec delta gap (fixed in 8d07aa0); attempts 5 and 6 followed the later merges.
+- Path agents: the turn was not typed by the owner; the round ran with the worktree review-round.mjs (devkit-core 0.10.0).
+
+## Next
+Ready to ship.
+
+# Review: stage-roles, round 1
+
+Path: agents · range `cea2ee6cc9ea02d9b56d26b3a617d6fa29b11bfa..0ee2c29e02e770a6054aef65cbb1971a5dcdef19` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 0ee2c29 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 0ee2c29 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Re-review after the CI fix c057cd7 (the AC-1 roadmap test read git history that a depth-1 CI checkout lacks) and the clean merge of main #63 (94bd345); a test-only commit stales only these two reviewers, so this call starts at round 1 and uses no round budget.
 - Path agents: the turn was not typed by the owner; the round ran with the worktree review-round.mjs (devkit-core 0.10.0).
 
 ## Next
