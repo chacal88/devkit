@@ -1,0 +1,126 @@
+✖ field-fixes 11 setup: --checks "" with no ruleset lists devkit-reviews, says it is always required and holds no none (736.724667ms)
+✖ field-fixes 11 setup: checks found on the newest pull requests are listed with devkit-reviews and labelled (783.359875ms)
+✖ field-fixes 11 setup: no check reported lists devkit-reviews and says to pass --checks (774.03375ms)
+✖ field-fixes 11 setup: a check the stored ruleset requires is kept, listed and labelled (742.968291ms)
+✖ field-fixes 11 setup: with the rulesets refused the line still lists devkit-reviews, and requires equals the printed list (725.969917ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3811.351375
+
+✖ failing tests:
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:497:1
+✖ field-fixes 11 setup: --checks "" with no ruleset lists devkit-reviews, says it is always required and holds no none (736.724667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): none: no pull request has a check reported yet; pass --checks'
+  - 'the ruleset will require these checks (confirm them, or pass --checks): devkit-reviews (devkit-reviews always; no other check given with --checks)'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:500:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): none: no pull request has a check reported yet; pass --checks',
+    expected: 'the ruleset will require these checks (confirm them, or pass --checks): devkit-reviews (devkit-reviews always; no other check given with --checks)',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:508:1
+✖ field-fixes 11 setup: checks found on the newest pull requests are listed with devkit-reviews and labelled (783.359875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): test, lint'
+  - 'the ruleset will require these checks (confirm them, or pass --checks): test, lint, devkit-reviews (devkit-reviews always; test, lint reported on the newest pull requests)'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:510:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): test, lint',
+    expected: 'the ruleset will require these checks (confirm them, or pass --checks): test, lint, devkit-reviews (devkit-reviews always; test, lint reported on the newest pull requests)',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:517:1
+✖ field-fixes 11 setup: no check reported lists devkit-reviews and says to pass --checks (774.03375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): none: no pull request has a check reported yet; pass --checks'
+  - 'the ruleset will require these checks (confirm them, or pass --checks): devkit-reviews (devkit-reviews always; no other check reported on the newest pull requests yet; pass --checks to add one)'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:519:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): none: no pull request has a check reported yet; pass --checks',
+    expected: 'the ruleset will require these checks (confirm them, or pass --checks): devkit-reviews (devkit-reviews always; no other check reported on the newest pull requests yet; pass --checks to add one)',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:523:1
+✖ field-fixes 11 setup: a check the stored ruleset requires is kept, listed and labelled (742.968291ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): test'
+  - 'the ruleset will require these checks (confirm them, or pass --checks): e2e, test, devkit-reviews (devkit-reviews always; test given with --checks; e2e already required by ruleset devkit)'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:525:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): test',
+    expected: 'the ruleset will require these checks (confirm them, or pass --checks): e2e, test, devkit-reviews (devkit-reviews always; test given with --checks; e2e already required by ruleset devkit)',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:532:1
+✖ field-fixes 11 setup: with the rulesets refused the line still lists devkit-reviews, and requires equals the printed list (725.969917ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /: check, devkit-reviews \(/. Input:
+  
+  'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): check'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs:536:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): check',
+    expected: /: check, devkit-reviews \(/,
+    operator: 'match',
+    diff: 'simple'
+  }

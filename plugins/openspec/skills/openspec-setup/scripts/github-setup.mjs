@@ -172,6 +172,9 @@ function otherOpenPrs(cwd, current) {
   return Array.isArray(list) ? list.filter((p) => p.headRefName !== current) : [];
 }
 
+// The ruleset devkit wants for `contexts`, keeping what `stored` already requires.
+const wantedRuleset = (contexts, stored) => desiredRuleset(stored ? [...new Set([...contextsOf(stored), ...contexts])] : contexts);
+
 function rulesetItem(cwd, { branch, contexts, current }) {
   const list = runGh(['api', `${REPO}/rulesets`], cwd);
   if (list.status !== 0) {
@@ -192,16 +195,17 @@ function rulesetItem(cwd, { branch, contexts, current }) {
     if (!stored) return { item: 'ruleset', state: 'error', why: `cannot read ruleset ${found.id}: ${ghError(one)}` };
   }
   // Extra contexts already in the stored ruleset are kept.
-  const want = desiredRuleset(stored ? [...new Set([...contextsOf(stored), ...contexts])] : contexts);
-  if (stored && rulesetMatches(stored, want)) return { item: 'ruleset', state: 'ok', why: `ruleset ${RULESET_NAME} (#${stored.id}) already requires ${contextsOf(stored).join(', ')}` };
+  const want = wantedRuleset(contexts, stored);
+  const requires = contextsOf(want);
+  if (stored && rulesetMatches(stored, want)) return { item: 'ruleset', state: 'ok', requires, why: `ruleset ${RULESET_NAME} (#${stored.id}) already requires ${contextsOf(stored).join(', ')}` };
 
   const where = reportedWhere(cwd, branch);
   if (!where) {
-    return { item: 'ruleset', state: 'deferred', why: 'devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)' };
+    return { item: 'ruleset', state: 'deferred', requires, why: 'devkit-reviews has not reported yet; merge the workflow first (a required check that never reports blocks every PR)' };
   }
   const state = stored ? 'update' : 'create';
   const out = {
-    item: 'ruleset', state,
+    item: 'ruleset', state, requires,
     why: `${state === 'update' ? `ruleset ${RULESET_NAME} (#${stored.id}) lacks part of the desired rules` : `no ruleset named ${RULESET_NAME}`}; main will refuse direct pushes from everyone, the owner included`,
     payload: want,
     id: stored?.id,
@@ -237,7 +241,10 @@ function plan(cwd, root, opts) {
   const rs = discoverError ? { item: 'ruleset', state: 'error', why: discoverError } : rulesetItem(cwd, { branch, contexts, current });
   // Merge mode needs the ruleset (ADR 0002): with it refused, auto-merge is not applied either.
   const autoItem = rs.state === 'blocked' ? { item: 'auto-merge', state: 'deferred', why: 'the ruleset is refused; merge mode needs it (ADR 0002)' } : auto;
-  result.items = [wf, autoItem, del, rs];
+  const { requires, ...rsItem } = rs;
+  result.requires = requires ?? contextsOf(wantedRuleset(contexts, null));
+  result.checksFrom = opts.checks ? 'option' : discoverError ? 'unreadable' : 'pull-requests';
+  result.items = [wf, autoItem, del, rsItem];
   return result;
 }
 
@@ -260,10 +267,23 @@ function applyItem(cwd, root, it) {
 
 // ------------------------------------------------------------ output
 
+// Where each required check comes from, in the order the line prints them.
+function requirementSources(result) {
+  const { contexts, checksFrom, requires } = result;
+  const sources = [`${DEVKIT_REVIEWS_CHECK} always`];
+  if (checksFrom === 'unreadable') sources.push('the newest pull requests could not be read');
+  else if (checksFrom === 'option') sources.push(contexts.length ? `${contexts.join(', ')} given with --checks` : 'no other check given with --checks');
+  else sources.push(contexts.length ? `${contexts.join(', ')} reported on the newest pull requests` : 'no other check reported on the newest pull requests yet; pass --checks to add one');
+  const kept = requires.filter((c) => !contexts.includes(c) && c !== DEVKIT_REVIEWS_CHECK);
+  if (kept.length) sources.push(`${kept.join(', ')} already required by ruleset ${RULESET_NAME}`);
+  return sources;
+}
+
 function render(result, applied) {
   const lines = [`repository: default branch ${result.defaultBranch ?? 'unknown'}, merge method ${result.method}`];
   for (const c of result.repository) lines.push(`${c.check.padEnd(14)} ${c.state.padEnd(9)} ${c.why}`.trimEnd());
-  lines.push(`the ruleset will require these checks, reported on the newest pull requests (confirm them, or pass --checks): ${result.contexts.join(', ') || 'none: no pull request has a check reported yet; pass --checks'}`);
+  // A plan that stopped at the repository read has no list to show.
+  if (result.requires) lines.push(`the ruleset will require these checks (confirm them, or pass --checks): ${result.requires.join(', ')} (${requirementSources(result).join('; ')})`);
   for (const it of result.items) {
     lines.push(`${it.item.padEnd(14)} ${it.state.padEnd(9)} ${it.why ?? ''}`.trimEnd());
     if (['create', 'update'].includes(it.state) && it.payload) {

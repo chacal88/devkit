@@ -371,7 +371,7 @@ Run it from anywhere inside the repository. It prints one line per item (`met`, 
 | # | Item | Read from | `open` means the flow can fix it | `blocked` means it needs someone outside the flow |
 |---|---|---|---|---|
 | 1 | Tasks and gates | `tasks.md`, `evidence.md` | unticked tasks; a gate command without a `pass` row in `evidence.md`; evidence missing or stale | no `tasks.md`; a gate task with no backticked command |
-| 2 | Reviews approved at head | `reviews/*.md` | a required reviewer missing, `rejected`, or its `Commit:` stale | none |
+| 2 | Reviews approved at head | `reviews/*.md` | a required reviewer missing, `rejected`, or its `Commit:` stale; only the first `Verdict:` line of a file counts, and any later one is ignored without a message | none |
 | 3 | Findings disposed | `reviews/*.md` | a `[blocking]` or `[important]` line without `· fixed in <sha>` or `· refuted: <evidence>` | none |
 | 4 | Acceptance criteria proven | `proposal.md` (else `requirements.md`), `evidence.md` | evidence missing or stale; a criterion without a `pass`/`verified` row; a `fail`/`defect` row | a criterion with only `no proof` rows; no criteria ids at all |
 | 5 | PR open at local head | `gh pr view`, git | no PR yet; local commits not pushed; uncommitted files in the change folder | PR closed; its head not in local history; a merge conflict; `gh` missing or failing (a PR merged at your local head is not blocked: it leads to the archive steps, below) |
@@ -393,7 +393,7 @@ The rule goes by author type, not by intent: the checker cannot tell whether a b
 
 **Order of the delivery steps.** After the phases and the `commit`, `deliver-check` returns the first row that matches: `stop-review-deadlock` (the owner's stop: a current rejected review at `FAIL (round 2/2)`), `fix-review` (a current rejected review, or an approved one with an undisposed finding), `fix-defect` (a `fail` or `defect` row on current evidence), `verify` (evidence missing or stale, a gate or criterion row missing), `review` (a reviewer missing or stale) and, last, `blocked`. The evidence comes before the reviews, so a review round never runs on code with a known failing criterion, and a fix outside `openspec/` makes both stale again: `verify`, then `review`. A rejected review is fixed before the evidence is recorded, because the fix commit would stale it. Reviews and evidence never stale each other: both live under `openspec/changes/<id>/`, so writing either one, committed or not, leaves the other current; only a later commit outside `openspec/` stales both. The PR gate still needs both, approved reviews and evidence.
 
-**Waiting.** `--watch[=<minutes>]` runs one `gh pr checks <n> --watch --interval 30` (default 9 minutes, at most 30) when the next step is waiting for checks, then computes the contract again. A watch that outlives the cap is stopped and the result is `in progress: item 6`.
+**Waiting.** `--watch[=<minutes>]` runs one `gh pr checks <n> --watch --interval 30` (default 9 minutes, at most 30) when the next step is waiting for checks, then computes the contract again. A watch that outlives the cap is stopped and the result is `in progress: item 6`. In `merge` mode it also waits at `stop-merge-setup` when the change's open pull request has pending checks (the first pull request, merged by hand before the ruleset exists); the step stays `stop-merge-setup` and the report shows the checks' final state.
 
 **Merge mode.** With `ship: merge` the contract ends differently: GitHub merges the PR, and the repository must be prepared first. A merged PR is not the end in `pr` or `merge` mode: it leads to the archive steps ("After the merge", below). `plan` mode is unchanged: it asks `gh pr view` for the same fields as before and stops at `stop-plan-mode` whatever the PR says.
 
@@ -515,7 +515,7 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 
 **Preparing the repository (setup order).** In the project, run the GitHub step of `/openspec-setup` (`scripts/github-setup.mjs`). It prints a plan of four items (`workflow`, `auto-merge`, `delete-branch`, `ruleset`), applies nothing until you confirm each one, and is safe to run again.
 
-1. Write the workflow (`.github/workflows/devkit-reviews.yml`); commit it and merge it through a normal PR, so `devkit-reviews` reports at least once. The `ruleset` item stays `deferred` until then, because a required check that never reports blocks every PR.
+1. Write the workflow (`.github/workflows/devkit-reviews.yml`); commit it and merge it through a normal PR, so `devkit-reviews` reports at least once (`--watch` waits for that pull request's pending checks at `stop-merge-setup`). The `ruleset` item stays `deferred` until then, because a required check that never reports blocks every PR.
 2. Apply `auto-merge` (allow auto-merge and the merge method) and `delete-branch`.
 3. Apply the `ruleset` `devkit`: a pull request with zero approvals, the existing checks plus `devkit-reviews`, branch up to date, no force pushes, no bypass actors. **From then on, `main` refuses direct pushes from everyone, you included**; every change, archive commits too, goes through a PR. Other open PRs wait for `devkit-reviews` until updated with the default branch.
 4. Add `ship: { <schema>: merge }` (and `merge_method`) to `openspec/config.yaml`.
@@ -551,15 +551,15 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.18.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.18.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.18.1 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.18.1>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.18.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.18.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.18.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.18.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -603,7 +603,7 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 
 - **Rules for one project**: add them under `rules.<artifact>` in `openspec/config.yaml`. They reach the agent with that artifact's instructions.
 - **Change the flow itself**: copy the schema into the project (`openspec/schemas/devkit/`) and edit it; project schemas take precedence over the machine-wide ones. Validate with `openspec schema validate devkit`. Keep the artifact id `readiness` if you want the code gate. Keep the name too: the hooks act only where `openspec/config.yaml` selects `devkit` or `devkit-lite`, so a renamed schema turns them off, and the `devkit-reviews` check turns into a note on that pull request (`nothing was checked`).
-- **A different gate**: the hooks only look for the `readiness` artifact id and the `Status:` / `Verdict:` lines, so a renamed or reworded artifact must keep those.
+- **A different gate**: the hooks only look for the `readiness` artifact id and the `Status:` / `Verdict:` lines, so a renamed or reworded artifact must keep those. The first `Verdict:` line of a file counts; every reader ignores a later one.
 
 ## Troubleshooting
 

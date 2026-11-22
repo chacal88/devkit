@@ -1479,3 +1479,18 @@ test('conduct pin: an archive PR conflicting in the CI pin only is resolve-relea
   const beyond = conflict(pinDoc('0.10.1', { top: 'TOP B' }), pinDoc('0.11.0', { top: 'TOP A' }));
   assert.equal(beyond.state, `blocked: archive (archive-pr): conflict in ${PIN_DOC}`);
 });
+
+// ---- field-fixes 10: the plan audit is read from its first Verdict line (spec verdict-files, design D-3)
+function twoVerdictAudit(first, second) {
+  const { t, b } = rebased();
+  writeChange(b, 'b', { 'audit.md': `# Plan audit: b\n\n- Verdict: ${first}\n- Base: ${t.originSha()}\n- Date: 2026-11-09\n\n### Notes\n- Verdict: ${second}\n` });
+  at(cf(b, 'b', 'audit.md'), T0 + 100);
+  return byId(t.state(), 'b');
+}
+
+test('field-fixes 10 verdict: an audit with ACCURATE first and OUTDATED later is not revise-plan, and the reverse is (AC-3)', () => {
+  const accurate = twoVerdictAudit('ACCURATE', 'OUTDATED');
+  assert.deepEqual(planStep(accurate), ['implement', 'subagent']);
+  assert.doesNotMatch(JSON.stringify(accurate.next), /OUTDATED/);
+  assert.deepEqual(planStep(twoVerdictAudit('OUTDATED', 'ACCURATE')), ['revise-plan', 'subagent']);
+});

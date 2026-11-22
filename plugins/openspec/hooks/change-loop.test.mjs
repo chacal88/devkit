@@ -2470,7 +2470,8 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.18\.0/, 'the CI snippet pins the current release (roadmap-coordinator: 0.18.0)');
+  assert.match(flow, /v0\.18\.1/, 'the CI snippet pins the current release (merge-setup-field-fixes: 0.18.1)');
+  assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.17\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.16\.0/, 'no pin left on the previous release');
   assert.match(flow, /prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end/, 'the loop paragraph names the end marker');
