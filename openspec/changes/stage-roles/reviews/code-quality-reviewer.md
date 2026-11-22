@@ -1,20 +1,19 @@
 Verdict: approved
-Commit: db34efd887c7e8f8eb2cda8411708d611fe3c774
+Commit: e8af242187a7d1be2f8253c2667205c5a0027a74
 
-## Quality review — stage-roles (round 1, stage 1)
+## Quality review — stage-roles (round 2, stage 1)
 
 ### Findings
-- [nit] plugins/openspec/hooks/change-loop.mjs:readRecord — Containment check uses resolve/relative with no realpath, so a symlink inside an adr folder that points outside the repo passes and accept-decisions would write through it. Also rel.startsWith('..') wrongly rejects a record whose folder or file name begins with '..'. Fix: realpath the target, and test rel === '..' || rel.startsWith('..' + sep).
-- [nit] plugins/openspec/hooks/change-loop.mjs:acceptDecisions — Every check runs before the first write, but the writes are not atomic. A failure on the second writeFileSync leaves one record accepted and one proposed. A re-run recovers it because accepted records are skipped, so this is only worth a comment.
-- [nit] plugins/openspec/hooks/guard.mjs:isTestFile — The 'specs?' folder name and the `[._-](spec)` file form match openspec/specs and similar paths in a project. e2e-tester is allowed to write these only as code-kind files after approval, so the blast radius is small. Consider narrowing.
-- [praise] plugins/openspec/hooks/flow-check.mjs:readFlowFile — New flow.json keys (appliesWhen, notAfter, ceiling 'owner') are validated strictly at load time with a specific error for each, and the stage's first-match order is documented in the code.
-- [praise] plugins/openspec/hooks/change-loop.mjs:acceptDecisions — A refusal changes no file (checks before writes), the status keeps its letter case and line endings, and the accepted-by line points to the approval record.
-- [praise] plugins/openspec/hooks/guard.test.mjs — Pure helpers (isDecisionRecord, isTestFile) and the change-loop decide() branches, including the unreadable-record case, have table-style tests with both positive and negative cases.
+- [nit] plugins/openspec/hooks/change-loop.mjs:readRecord — Previous nit (lexical containment, '..'-prefixed names): the real path is now checked and the test is rel === '..' || startsWith('..' + sep); covered by the new symlink test. · fixed in e8af242
+- [nit] plugins/openspec/hooks/change-loop.mjs:acceptDecisions — Previous nit: writes are not atomic across records; a re-run recovers because accepted records are skipped. Still only worth a comment.
+- [nit] plugins/openspec/hooks/guard.mjs:isTestFile — Previous nit: 'specs?' folder and '.spec' file forms are broad. Blast radius small (e2e-tester, after approval). Unchanged.
+- [nit] plugins/openspec/hooks/change-loop.test.mjs:3029 — The symlink test removes its outside temp dir only on the success path; wrap the assertions in try/finally so a failure does not leak it.
+- [praise] plugins/openspec/hooks/change-loop.mjs:readRecord — The real-path check sits inside the existing try, so a dangling symlink or missing file still yields the same 'does not exist' refusal, and the root is resolved too, so a symlinked checkout root does not cause false refusals.
+- [praise] openspec/changes/stage-roles/specs/file-writers/spec.md — The lite-script behavior is stated in the ADR and as a spec scenario at the same time, so the decision and the requirement no longer drift.
 
 ### Summary
-- 6 findings (0 blocking, 0 important, 3 nit) + 3 praise
-- Justification: I read the full change-loop.mjs, flow-check.mjs and guard.mjs hook diffs. I did not re-read the docs, agents, schemas, kit shells and spec deltas line by line; I relied on the evidence file, check.py and the catalog check for those. I ran `python3 scripts/check.py` and `python3 scripts/gen-catalog.py --check`; both pass. I did not re-run the hook suite (about 13 minutes). Instead I relied on the verifier's evidence.md at the same commit, which shows the full suite at 1254/1254, the kit tests at 78 pass and 1 skipped, and openspec validate --strict and claude plugin validate passing.
-
-The evidence gives a text demonstration for each of AC-1 to AC-16, and no AC is claimed without proof. I found no contradiction between the proposal and the diff, no layering violation, no N+1 or unbounded read on a hot path, and no swallowed error. I did not check ADR conformance (the adr-reviewer agent owns it); the diff adds ADR 0014 and touches ADRs 0010 and 0013 additively. The AC-15 note that the D-4 'built' marks were not individually re-counted is covered by pinned tests, so I did not raise it.
+- 6 findings (0 blocking, 0 important, 3 nit open or fixed as listed, F1 fixed) + 2 praise
+- Justification: Re-review scoped to the db34efd..e8af242 diff. Round 1 had no blocking or important findings from this reviewer, only three nits; F1 is fixed, F2 and F3 stand as nits. The round-1 important findings raised by other reviewers were addressed: the symlink containment fix with a red-before-fix style test, and the ADR 0014 plus spec wording for devkit-lite. I ran the accept-decisions tests (17 pass) and scripts/check.py (passes). I did not re-run the full 13-minute hook suite.
+- The tree has an uncommitted change to openspec/changes/stage-roles/evidence.md only, which is outside product code.
 
 Verdict: approved. Only nits remain.

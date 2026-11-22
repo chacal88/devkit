@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=db34efd887c7e8f8eb2cda8411708d611fe3c774 -->
+<!-- devkit-stage review result=passed attempt=2 commit=e8af242187a7d1be2f8253c2667205c5a0027a74 -->
 # Review: stage-roles, round 1
 
 Path: agents · range `2300f84..db34efd` · structural: PASS
@@ -26,3 +26,32 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: stage-roles, round 2
+
+Path: agents · range `db34efd..e8af242` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | e8af242 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | e8af242 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | e8af242 |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | e8af242 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | e8af242 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | e8af242 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+None.
+
+## Next
+Ready to ship.
+
+Note: the round 2 verdict files were first written with "(uncommitted changes)" on line 2, although the only uncommitted file was evidence.md under openspec/; each reviewer rewrote its file without the marker (stage 3 again, same findings).
