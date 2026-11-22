@@ -20,6 +20,14 @@
 - Docs: ADR 0016 (stage roles write their own files, amends 0010 and 0011), `docs/roles.md`, the
   flow and design pages, the roadmap (round 16b `coordinator-loop-fixes` carries the retros' items).
 
+## 0.25.1 — retro of review-writer-prompt
+
+- **devkit-openspec** 0.21.1: the `ship-change` `stop-plan-approval` row writes the owner's words
+  inside backticks, so the language check never reads them as prose. The CI snippet now pins
+  `v0.21.1`, the release's tag.
+- Docs: the roadmap gains round 17h (`fresh-base-check`, `delivery-merge-hold`); the config context
+  asks a plan that moves or writes a parser to decide what unterminated input does.
+
 ## 0.25.0 — review round tooling
 
 - **devkit-core** 0.9.0: the review round script takes `args.head`, the full sha of HEAD, and
