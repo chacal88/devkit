@@ -1,7 +1,7 @@
 ---
 name: devkit
-description: "Runs one change from the owner's request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner's gates (the grill, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit roadmap [<n>] runs the roadmap's ready changes, several at once, and /devkit status shows where everything is. Every decision comes from the change-loop and roadmap-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change to continue, /devkit roadmap [<n> | stop] or /devkit status."
-argument-hint: "change [<request> | <change-id>] | roadmap [<n> | stop] | status"
+description: "Runs one change from the owner's request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner's gates (the grill, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit roadmap [<n>] runs the roadmap's ready changes, several at once, and /devkit status shows where everything is. /devkit project [<name>] plans a new project or slice phase by phase with the owner (business, domain model, architecture, implementation plan, roadmap), then delivers it as one pull request. Every decision comes from the change-loop, roadmap-loop and project-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change to continue, /devkit roadmap [<n> | stop], /devkit status or /devkit project [<name>]."
+argument-hint: "change [<request> | <change-id>] | roadmap [<n> | stop] | status | project [<name>]"
 disable-model-invocation: true
 ---
 
@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 `/devkit change <request>` takes one change from the owner's words to its archive, in this session, with one script that decides. This skill is the session's side of it: the script `change-loop.mjs` says what comes next, and this text says how to carry it out. It keeps no state: every call re-reads the change's files, git and GitHub. The session is the change coordinator; it never writes product code itself.
 
-Path used below: `<skill-dir>/../../hooks/change-loop.mjs`, where `<skill-dir>` is this skill's directory. Every call of the script carries `--lang ${user_config.language}`. The roadmap sections below use `<skill-dir>/../../hooks/roadmap-loop.mjs`, whose every call also carries `--load-limit ${user_config.load_limit}`.
+Path used below: `<skill-dir>/../../hooks/change-loop.mjs`, where `<skill-dir>` is this skill's directory. Every call of the script carries `--lang ${user_config.language}`. The roadmap sections below use `<skill-dir>/../../hooks/roadmap-loop.mjs`, whose every call also carries `--load-limit ${user_config.load_limit}`. The Project section uses `<skill-dir>/../../hooks/project-loop.mjs`.
 
 ## Settings
 
@@ -38,6 +38,8 @@ When a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by 
 - `new`: a new change, below.
 - `roadmap`: the Roadmap section below, with `text` as the word after `roadmap`.
 - `status`: the Status section below.
+- `project`: the Project section below, with `text` as the words after `project`.
+- `is-slice`: say `reply` and end the turn: the slice continues with `/devkit project` and its name.
 
 ## A new change
 
@@ -120,6 +122,33 @@ Calling `/devkit roadmap` again at any time is safe: it keeps what is under way 
 
 `/devkit status` shows where everything is, and writes nothing. Run `node <skill-dir>/../../hooks/roadmap-loop.mjs status --lang ${user_config.language} --load-limit ${user_config.load_limit}` and show its output exactly as it is. A typed `/devkit status` does not end a roadmap run; it ends a `/devkit change` run, which `/devkit change` resumes.
 
+## Project
+
+`/devkit project [<name>]` takes a new project or one slice of it from the owner's words through its design phases to one pull request, in this session. A slice is a change on the `devkit-project` script; `project-loop.mjs` decides, this text carries it out, and the session keeps no state. Every call below carries `--lang ${user_config.language}`.
+
+1. Start: run the script with the words after `project` on standard input, through the quoted heredoc of the Start section (the same terminator rule):
+
+```
+node <skill-dir>/../../hooks/project-loop.mjs start --lang ${user_config.language} <<'DEVKIT_ARGS'
+<the words after project>
+DEVKIT_ARGS
+```
+
+   The script prints JSON with a `mode` and a `reply`. Act on the mode:
+   - `not-set-up`, `setting-unknown`, `driver-not-built`, `design-pack-missing`, `project-name-needed`, `name-invalid`, `project-done-already`, `is-change` and `project-folder-exists`: say `reply` and end the turn.
+   - `choose`: ask `reply` as one question with AskUserQuestion (else say it and end the turn); the options are each listed slice. The answer is `resume` of that slice.
+   - `resume`: keep `reply` for the message that ends the turn, then enter the loop with `slice`.
+   - `new`: the words are the slice's name. Run `node <skill-dir>/../../hooks/project-loop.mjs open <id> --lang ${user_config.language}` and keep its `reply` for the message that ends the turn, then enter the loop with the id. On any exit 3, say `reply` and end the turn.
+2. Loop: run `node <skill-dir>/../../hooks/project-loop.mjs next --slice <id> --lang ${user_config.language}`, with `--after` and the `progressKey` of the action after every `agent` or `session` action. The script prints one JSON action and no marker line. Carry it out by its `kind`:
+   - `phase`: run the design skill named in `skills` with the owner in this session, in the person's language. Write the document, `STATE.md`, the new ADRs and the stage record in `filesLanguage`, at the absolute paths of `detail`, all under `root`: never a relative path, because the session's own working directory is the checkout the command was typed in, which stays clean. Ask one question at a time with AskUserQuestion. Write the record with `result=pending` when the document is shown for approval, and `result=passed` only from the owner's explicit approval, quoting it. Agree that a phase does not apply only with the owner, writing the document and the record with the reason. On the step `revise`, show the findings file first. A question the owner must answer ends the turn.
+   - `rounds`: propose the rounds into `detail.record` (absolute, under `root`), run `detail.checkCommand`, show the rounds with `reply`, and record the approval as for a phase. Never edit `openspec/roadmap.md` by hand: the script appends the approved rounds with `detail.writeCommand`.
+   - `agent`: as the Loop of the change sections says for the same kind: one foreground Agent call with `subagent_type` set to the action's `agent` field and the prompt `brief`; when it returns `Outcome: failure`, say so plainly and end the run. For the ADR review, write the verdict file the brief names and run `node <skill-dir>/../../hooks/project-loop.mjs record-review <id> --lang ${user_config.language}`.
+   - `session`: do the step in `root`, as the `ship-change` row of the same name says, with `detail` as its `next` object. It runs `detail.command`, except `enable-auto-merge` and `update-branch`, which follow the `ship-change` rows of those names.
+   - `end`: say `reply`. `delivered` and `blocked` end the run. `waiting-for-owner` ends the turn: the owner's next message is the answer. `waiting-on-github`: start `node <skill-dir>/../../hooks/project-loop.mjs wait --slice <id> --lang ${user_config.language}` with the Bash tool's background option, then say `reply`; its end starts the next turn, which runs `next` again.
+   Then run `next` again. The session never chooses the order of the stages and never runs two at once.
+3. When the owner asks where the slice stands: `node <skill-dir>/../../hooks/project-loop.mjs status <id> --lang ${user_config.language}`, and show its output exactly as it is.
+4. The end of a slice names `/devkit roadmap` as what runs its rounds and never starts it.
+
 ## Never
 
 - Show the owner an internal term in a sentence of your own: no progress key, no agent or role id, no reason code and no step name of a checker, and no agent's internal outcome word. Name a stage by its title in the person's language (`stageTitle`), and say that resuming is always to call `/devkit change` again. A file name the owner needs in order to act (a file to read or approve) may be named.
@@ -132,3 +161,4 @@ Calling `/devkit roadmap` again at any time is safe: it keeps what is under way 
 - Push to or commit on the default branch.
 - Bypass a hook or a gate (`--no-verify`, `DEVKIT_BYPASS`).
 - In a roadmap run: hand two stages of one change at once, start a change `next` did not return, dispatch a subagent for a whole change, write the run file by hand, ask the owner about two changes in one question, or show a `devkit-roadmap:` or `devkit-end:` line.
+- In a project run: start `/devkit roadmap`, edit `openspec/roadmap.md` by hand, set a stage record to passed without the owner's approval, or edit a file of a flat `docs/design/` or of another slice.

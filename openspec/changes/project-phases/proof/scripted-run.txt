@@ -1,0 +1,24 @@
+1. start billing: mode new
+1. open billing: worktree <project>/.claude/worktrees/billing, schema devkit-project
+1. session report on the open slice: exit 0
+2. next from the main checkout: phase interview (stage business)
+2. next after the document and a pending record: phase approval (stage business)
+2. status: Business: ready (business.md is written and not judged yet) | Domain model: blocked ...
+2. next after the owner approves business: phase interview (stage domain-model)
+3. domain model not applicable: next is phase interview (stage architecture)
+4. architecture with two ADRs passed: next is phase interview (stage implementation-plan)
+5. next after the plan: rounds propose (stage roadmap)
+5. rounds --write with the record pending: exit 2, roadmap unchanged
+5. next after the owner approves the rounds: session write-rounds (stage roadmap)
+5. roadmap-loop status lists invoice-export and invoice-mail, which waits for invoice-export
+6. next: agent commit (stage review, devkit-core:commit-and-pr)
+6. next after the commit: agent review (stage review, devkit-core:adr-reviewer)
+6. next after the verdict file for HEAD: session record-review (stage review)
+6. next after the record: session archive (stage delivery)
+7. start with no text: mode resume, slice billing
+8. next: agent open-pr (stage delivery, devkit-core:commit-and-pr)
+8. the pull request hook (sliceProblems): passes
+8. deliver-check.mjs --ci and guard.mjs ci: passed the slice contract
+8. next with green checks: session enable-auto-merge (stage delivery) at b2b1621
+8. next after the merge: end delivered (project-delivered)
+9. docs/design/STATE.md (the flat file) has the bytes it had before

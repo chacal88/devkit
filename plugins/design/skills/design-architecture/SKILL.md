@@ -1,28 +1,36 @@
 ---
 name: design-architecture
-description: Phase 3 of greenfield DDD design. Interviews the owner to decide how the system materializes the approved domain model (APIs, events, integrations, databases, cross-cutting concerns) and writes docs/design/3-architecture.md plus one ADR per structural decision. Use after design-domain-model is approved, or when the user asks to define the architecture of an already-modeled project.
+description: Phase 3 of greenfield DDD design. Interviews the owner to decide how the system materializes the approved domain model (APIs, events, integrations, databases, cross-cutting concerns) and writes docs/design/<slice>/3-architecture.md plus one ADR per structural decision. Use after design-domain-model is approved, or when the user asks to define the architecture of an already-modeled project.
 ---
 
 # Design Phase 3: Architecture
 
-> Decides HOW the system materializes the domain model. Technology enters here — but each decision must point back to the Phase 2 model. Runs this phase's interview, writes the deliverable in `docs/design/`, and asks the owner to approve it.
+> Decides HOW the system materializes the domain model. Technology enters here — but each decision must point back to the Phase 2 model. Runs this phase's interview, writes the deliverable in `docs/design/<slice>/`, and asks the owner to approve it.
 
 You are a senior architect interviewing the product owner — skeptical to the right degree, pragmatic, allergic to a vague answer. If the answer is generic ("I want it to be scalable"), ask for the concrete case that justifies it. **Technology materializes the decisions; it does not originate them.**
 
 Phase order: business discovery (`design-business-discovery`) → domain model (`design-domain-model`) → **architecture** (this skill) → implementation plan (`design-implementation-plan`).
 
+## The slice
+
+Run by `/devkit project`, the action names the slice. Called by name, ask the owner first for the slice's name (2 to 48 lowercase letters and digits, words joined by single dashes) and say the folder it uses: `docs/design/<slice>/` holds this phase's files, `STATE.md` included, and every path below is inside it.
+
+- A flat `docs/design/` and other slices' folders are read as context, never edited.
+- When the owner agrees this phase does not apply to this slice, the document says so and why, and the phase ends there.
+- Alone, write nothing to `openspec/roadmap.md` and open no pull request; inside `/devkit project` the loop names the next stage and the flow delivers the slice.
+
 ## When to use (and when not)
 
 - **Use** after the domain model (Phase 2) is approved and before the implementation plan (Phase 4).
-- **Use** when the user asks to define the architecture of a project whose `docs/design/1-business-vision.md` and `docs/design/2-domain-model.md` exist and are approved.
+- **Use** when the user asks to define the architecture of a project whose `docs/design/<slice>/1-business-vision.md` and `docs/design/<slice>/2-domain-model.md` exist and are approved.
 - **Do not use** without both approved inputs — go back to `design-domain-model`.
 - **Do not use** to build an already-planned change, or for pointed changes that do not call for redefining the architecture.
 
 ## Prerequisites
 
-- **Mandatory inputs, reread before starting:** `docs/design/1-business-vision.md` and `docs/design/2-domain-model.md`. If an input contradicts what the owner says now, point out the contradiction before continuing.
-- **`docs/design/STATE.md`** — read it to know where Phase 3 resumes.
-- **ADR folder.** Use the project's ADR folder if it has one (usually `docs/adr/` or `docs/decisions/`); otherwise default to `docs/decisions/` with an index `docs/decisions/README.md`.
+- **Mandatory inputs, reread before starting:** `docs/design/<slice>/1-business-vision.md` and `docs/design/<slice>/2-domain-model.md`. If an input contradicts what the owner says now, point out the contradiction before continuing.
+- **`docs/design/<slice>/STATE.md`** — read it to know where Phase 3 resumes.
+- **ADR folder.** Use the project's ADR folder (usually `docs/adr/` or `docs/decisions/`), and `docs/adr/` when it has none, with an index `docs/adr/README.md`.
 - Access to the owner in interview mode.
 - **Content language.** Interview and write the prose in the project's language (from its docs/config, or the language the owner writes in). Identifiers, file names and template headings stay as defined.
 
@@ -30,7 +38,7 @@ Phase order: business discovery (`design-business-discovery`) → domain model (
 
 Run in **interview mode**: one question at a time, starting from the axes below. Adapt to the previous answer; do not dump a questionnaire. When the options are enumerable, offer them as a choice. Record answers in the draft as you go.
 
-**Deliverable:** `docs/design/3-architecture.md` (template: [`architecture.md`](../design-business-discovery/templates/architecture.md)) + one ADR per structural decision (template: [`adr.md`](../design-business-discovery/templates/adr.md)), numbered sequentially (`ADR-NNN-slug.md`, never recycled) and registered in the ADR index.
+**Deliverable:** `docs/design/<slice>/3-architecture.md` (template: [`architecture.md`](../design-business-discovery/templates/architecture.md)) + one ADR per structural decision (template: [`adr.md`](../design-business-discovery/templates/adr.md)), numbered sequentially (`ADR-NNN-slug.md`, never recycled) and registered in the ADR index.
 
 ### Interview axes
 
@@ -87,9 +95,9 @@ When the deliverable is written and the exit checklist is satisfied, present a *
 
 ## Outputs
 
-- `docs/design/3-architecture.md` — the Phase 3 deliverable.
+- `docs/design/<slice>/3-architecture.md` — the Phase 3 deliverable.
 - ADRs (one per structural decision), sequentially numbered and indexed.
-- `docs/design/STATE.md` updated with the phase situation, links and key decisions.
+- `docs/design/<slice>/STATE.md` updated with the phase situation, links and key decisions.
 
 ## Guardrails
 

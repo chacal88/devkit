@@ -72,6 +72,16 @@ requirements ─▶ proposal ─▶ specs (optional) ─▶ tasks ─▶ apply
 
 The same stages as `devkit` without `design`, `readiness` and `approval`: it starts with the requirements grill, has no readiness gate and no separate plan approval (the go-ahead is the owner's message to ship), and the main session may write the code itself. Write a spec delta when the proposal lists a capability; otherwise set `skip_specs: true` in the change's `.openspec.yaml`. The PR still needs `evidence.md` and the reviews (`code-quality-reviewer` and `test-coverage-reviewer` at least). If the change turns out to meet a full-flow criterion, recreate it with `--schema devkit`.
 
+## The `devkit-project` schema
+
+For defining a new project, or one slice of it, before building it. It is not a change flow and not an opt-in schema: a project still opts the hooks in by selecting `devkit` or `devkit-lite`.
+
+```text
+open ─▶ business ─▶ domain-model ─▶ architecture ─▶ implementation-plan ─▶ roadmap ─▶ review ─▶ delivery
+```
+
+Each stage record (`business.md`, `domain-model.md`, `architecture.md`, `implementation-plan.md`, `roadmap.md`, `review.md`) opens with the stage header and is `passed` only from the owner's own words, or `not-applicable` with its reason. The documents themselves live in `docs/design/<slice>/` and the new ADRs in the ADR folder. The `review` stage is the `adr-reviewer`'s verdict on the new ADRs. There is no readiness, approval or tasks stage, and no spec delta: OpenSpec marks the change `skip_specs`.
+
 ## The stage header and `flow-check`
 
 Line 1 of every stage file is a comment, so OpenSpec's strict validation and GitHub's rendering ignore it:
@@ -297,6 +307,18 @@ Planning of a dependent change (grill, plan, readiness, approval) runs while its
 **The locks.** The three locks of `/devkit change` hold a roadmap run for every change it holds open. A run is under way when the newest slash command typed in the session, `/devkit status` aside, is `/devkit roadmap` and the loop printed its `devkit-roadmap:` line after it, both read from the transcript. In it: `stop` refuses the session's attempt to end its turn while any change has a stage ready that is not under way, or a start could happen, once per unchanged state (a run whose every change is under way, waiting, blocked or at your gate ends its turn freely, and the ends call it back); a hand-off must start with the brief that names its change, name an open roadmap change and a role of that change's script, and it marks the stage as under way, which that subagent's stop clears; and the main session's product edits are refused. The end of one change releases no other. Every lock lets the action through when it cannot read what it needs.
 
 **What the live test showed.** Run on a scratch project: `/devkit roadmap 2` opened two independent changes and left the third waiting for its dependency; both went from the proposal to the review at once, each stage a background subagent (20 hand-offs allowed, 20 subagent ends recorded, none lost); the stop lock refused once while a stage was ready; a new session resumed both changes and opened none twice; the session's product edit was refused; and on a loaded machine the first start was held and began by itself when the load fell. No change reached the delivery part there (a scratch project has no remote), so a run through the pull request and the archive, many ends in a row over whole changes, and a project with many old changes are still to be proved in the first real run.
+
+## Defining a project: `/devkit project`
+
+`/devkit project <slice>` takes a new project, or one slice of an ongoing one, from your words through its four design phases (business, domain model, architecture, implementation plan) to one pull request, in your own session. The decision is [ADR 0014](adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md): a slice is a change on the `devkit-project` script, named after the slice, in its own worktree and branch. `project-loop.mjs` decides each call and the session carries it out; the session keeps no state, so typing the command again after the session stops resumes from the files.
+
+**The phases.** Each phase is a conversation with you in the session; its document goes to `docs/design/<slice>/` and its record to the slice's folder. You approve each phase, or you and the session agree that it does not apply and say why. A flat `docs/design/` (today's `1-` to `4-` files and `STATE.md`) is read as context and never written. The five `devkit-design` skills still work by name; called alone they ask for the slice, write under `docs/design/<slice>/`, write no roadmap and open no pull request.
+
+**The roadmap.** The fifth stage shows you the rounds and changes it proposes (each with its id, description and `after:`). Only after you approve them does the script append them to `openspec/roadmap.md`; a slice that ends with no change to build marks the stage not applicable, and the roadmap keeps its bytes. The flow then names `/devkit roadmap` as what runs the rounds and never starts it.
+
+**The delivery.** The ADR reviewer checks the new ADRs against the existing ones; its verdict is the slice's only review. The slice's folder is then archived on its branch, and one pull request carries the documents, the ADRs, the appended rounds and the archived folder. It follows `ship: devkit-project:` as any script follows its entry: in `merge` mode GitHub merges it once the checks pass. No archive pull request or retro follows.
+
+**The slice contract.** `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one contract: every stage record passed or not applicable, the ADR reviewer's verdict approved or declined and current, only the slice's documents, the ADR folders, the roadmap (appended to, or untouched when the roadmap stage does not apply) and the archived folder in the diff. A selected active slice fails the check. `/devkit status` shows each slice's readout: its five stages, then the review and the pull request.
 
 ## The panel: devkit-panel
 
@@ -551,15 +573,17 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.18.1 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.18.1>/plugins/openspec/hooks
+          # pinned to the commit of v0.19.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.19.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
-Pin the commit sha of the release tag (`v0.18.1` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.18.1` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.19.0` or later first, because older releases pass a slice with a note.
+
+Pin the commit sha of the release tag (`v0.19.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.19.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 

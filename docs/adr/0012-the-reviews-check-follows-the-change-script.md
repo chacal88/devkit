@@ -5,6 +5,7 @@
 - Change: coordinator-field-fixes
 - Amends: ADR 0002 (0002-merge-without-the-owner-opt-in.md), the sentence of its Decision on what `devkit-reviews` recomputes; ADR 0003 (0003-auto-merge-the-archive-pr.md), the Negative consequence on archive PRs; ADR 0004 (0004-devkit-per-project.md), the sentence on the CI check
 - Accepted by: the owner, on 2026-11-20, in the message that approved the plan of the change: `Aprovo com o ADR 0012` ("I approve, with ADR 0012"); recorded in `openspec/changes/coordinator-field-fixes/approval.md`
+- Amended by ADR 0014 (0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
 
 ## Context
 
@@ -37,6 +38,10 @@ ADR 0004's alternatives table rejected "Per-change schema as the marker" for tur
 ("projects with their own schema lose their gates; the git rule depends on which change is open").
 This ADR uses the change's schema as the marker of what the CI check judges, not of whether the
 hooks act; it answers that rejection under Consequences.
+
+Note (project-phases, 2026-11-22): [ADR 0014](0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
+amends decisions 1 and 3 for `devkit-project`: its active changes fail and its archived folders are judged
+by the slice contract. The Decision is otherwise unchanged.
 
 ## Decision
 

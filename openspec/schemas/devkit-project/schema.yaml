@@ -1,0 +1,157 @@
+name: devkit-project
+version: 1
+description: devkit for a new project or a slice of one - business, domain model, architecture, implementation plan and roadmap, each phase ending at the owner's approval (or not applying), then one ADR review and one pull request. No spec artifact, no apply step.
+artifacts:
+  - id: business
+    generates: business.md
+    description: The business vision of the slice
+    template: business.md
+    instruction: |
+      Role: project-coordinator. Skills: design-business-discovery.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage business result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Run the `design-business-discovery` skill with the owner, in the session, for the slice named by the change id: its
+      document is `docs/design/<id>/1-business-vision.md`, its notes `docs/design/<id>/STATE.md`, and every new ADR goes
+      to the project's ADR folder (`docs/adr/` when it has none). Read the earlier phases' documents of
+      this slice and, as context only, a flat `docs/design/` and other slices' folders; never edit them.
+      Write this record with `result=pending` when the document is shown to the owner for approval; set
+      `result=passed` only from the owner's explicit approval, quoting the owner's words under
+      `## Owner's approval`. When the owner and the session agree the phase does not apply, write the
+      document with one paragraph saying so and why, and this record with `result=not-applicable` and the
+      reason under `## Not applicable`.
+
+      Gate: the owner approved, or the phase does not apply with its reason.
+    requires: []
+
+  - id: domain-model
+    generates: domain-model.md
+    description: The domain model of the slice
+    template: domain-model.md
+    instruction: |
+      Role: project-coordinator. Skills: design-domain-model, ddd-strategic-design.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage domain-model result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Run the `design-domain-model` skill (and `ddd-strategic-design` for its strategic artifacts, which go into the same
+      document) with the owner, in the session, for the slice named by the change id: its
+      document is `docs/design/<id>/2-domain-model.md`, its notes `docs/design/<id>/STATE.md`, and every new ADR goes
+      to the project's ADR folder (`docs/adr/` when it has none). Read the earlier phases' documents of
+      this slice and, as context only, a flat `docs/design/` and other slices' folders; never edit them.
+      Write this record with `result=pending` when the document is shown to the owner for approval; set
+      `result=passed` only from the owner's explicit approval, quoting the owner's words under
+      `## Owner's approval`. When the owner and the session agree the phase does not apply, write the
+      document with one paragraph saying so and why, and this record with `result=not-applicable` and the
+      reason under `## Not applicable`.
+
+      Gate: the owner approved, or the phase does not apply with its reason.
+    requires:
+      - business
+
+  - id: architecture
+    generates: architecture.md
+    description: The architecture of the slice and its ADRs
+    template: architecture.md
+    instruction: |
+      Role: project-coordinator. Skills: design-architecture.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage architecture result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Run the `design-architecture` skill with the owner, in the session, for the slice named by the change id: its
+      document is `docs/design/<id>/3-architecture.md`, its notes `docs/design/<id>/STATE.md`, and every new ADR goes
+      to the project's ADR folder (`docs/adr/` when it has none). Read the earlier phases' documents of
+      this slice and, as context only, a flat `docs/design/` and other slices' folders; never edit them.
+      Write this record with `result=pending` when the document is shown to the owner for approval; set
+      `result=passed` only from the owner's explicit approval, quoting the owner's words under
+      `## Owner's approval`. When the owner and the session agree the phase does not apply, write the
+      document with one paragraph saying so and why, and this record with `result=not-applicable` and the
+      reason under `## Not applicable`.
+
+      List the ADR files this phase added under `## ADRs`.
+
+      Gate: the owner approved, or the phase does not apply with its reason.
+    requires:
+      - domain-model
+
+  - id: implementation-plan
+    generates: implementation-plan.md
+    description: The implementation plan and change backlog of the slice
+    template: implementation-plan.md
+    instruction: |
+      Role: project-coordinator. Skills: design-implementation-plan.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage implementation-plan result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Run the `design-implementation-plan` skill with the owner, in the session, for the slice named by the change id: its
+      document is `docs/design/<id>/4-implementation-plan.md`, its notes `docs/design/<id>/STATE.md`, and every new ADR goes
+      to the project's ADR folder (`docs/adr/` when it has none). Read the earlier phases' documents of
+      this slice and, as context only, a flat `docs/design/` and other slices' folders; never edit them.
+      Write this record with `result=pending` when the document is shown to the owner for approval; set
+      `result=passed` only from the owner's explicit approval, quoting the owner's words under
+      `## Owner's approval`. When the owner and the session agree the phase does not apply, write the
+      document with one paragraph saying so and why, and this record with `result=not-applicable` and the
+      reason under `## Not applicable`.
+
+      List the ADR files this phase added under `## ADRs`.
+
+      Gate: the owner approved, or the phase does not apply with its reason.
+    requires:
+      - architecture
+
+  - id: roadmap
+    generates: roadmap.md
+    description: The rounds and changes the slice adds to the roadmap
+    template: roadmap.md
+    instruction: |
+      Role: project-coordinator.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage roadmap result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      From the change backlog of `docs/design/<id>/4-implementation-plan.md`, propose rounds and changes in
+      the roadmap's own format between the two markers of the template; check them with the check command
+      the action gives; show them to the owner; set `result=passed` only from the owner's approval, quoting
+      it. When no change comes out of the slice, `result=not-applicable` with the reason;
+      `openspec/roadmap.md` is never edited by hand.
+
+      Gate: the owner approved, or not applicable.
+    requires:
+      - implementation-plan
+
+  - id: review
+    generates: review.md
+    description: The ADR reviewer's verdict on the slice
+    template: review.md
+    instruction: |
+      Role: adr-reviewer.
+
+      The file's first line is the stage header of the template:
+      `<!-- devkit-stage review result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
+      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
+      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
+      rewrite, and `commit` to `git rev-parse HEAD`.
+
+      Written by the loop from `reviews/adr-reviewer.md`, never by hand.
+
+      Gate: the reviewer's verdict is recorded and current.
+    requires:
+      - roadmap

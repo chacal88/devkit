@@ -30,6 +30,16 @@ In `docs/coordination-design.md` this role is the team's `manager`.
 - Stages: none; it starts changes.
 - Played today by: The main session running `/devkit roadmap` (the `devkit` skill of devkit-openspec), held by the roadmap run's locks; each stage runs as a subagent in the background ([ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)).
 
+## project-coordinator
+
+In `docs/coordination-design.md` this role is the team's `tech-lead` for a new project: it plans, it does not build.
+
+- Does: Runs a slice of a project from its opening to its pull request: opens the slice, takes the owner through the business, domain model, architecture and implementation plan phases one question at a time, proposes the roadmap rounds, and hands the ADR review and the commits to their roles.
+- Delivers: The slice's stage records, each with its stage header, and the documents under `docs/design/<slice>/` and the new ADRs the owner approved.
+- Never: Writes product code, sets a stage record to passed without the owner's approval, edits `openspec/roadmap.md` by hand, edits a flat `docs/design/` or another slice's folder, or merges.
+- Stages: `open`, `business`, `domain-model`, `architecture`, `implementation-plan`, `roadmap` (`devkit-project` only).
+- Played today by: The main session running `/devkit project` (the `devkit` skill of devkit-openspec); it has no agent file, as `change-coordinator` has none.
+
 ## owner
 
 - Does: The person who owns the change. Answers the grill, approves the plan and answers the retro's proposals.
@@ -115,7 +125,7 @@ In `docs/coordination-design.md` this role is the team's `manager`.
 - Does: Commits the change in the project's convention and opens or updates its pull request.
 - Delivers: Commits, the pushed branch and the pull request, whose body names every acceptance criterion.
 - Never: Merges a pull request the project has not set to merge, pushes to the default branch or skips the hooks.
-- Stages: `delivery`.
+- Stages: `delivery` (every script).
 - Played today by: The agent `devkit-core:commit-and-pr`.
 
 ## codebase-researcher
@@ -147,7 +157,7 @@ In `docs/coordination-design.md` this role is the team's `manager`.
 - Does: Checks the plan, or the change, against the accepted decision records.
 - Delivers: A verdict with the records cited.
 - Never: Writes or changes a record.
-- Stages: `readiness` (helper) and `review` (helper).
+- Stages: `readiness` (helper) and `review` (helper); `review` (main role, `devkit-project` only).
 - Played today by: The agent `devkit-core:adr-reviewer`.
 
 ## code-quality-reviewer

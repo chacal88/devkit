@@ -7,7 +7,7 @@ import { dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal } from './guard.mjs';
+import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader } from './guard.mjs';
 import { gitFacts, staleness, locateChange, schemaOf, shipConfig, ShipConfigError, deliveryOf, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
@@ -15,18 +15,8 @@ export class FlowUsageError extends Error {
   constructor(message) { super(message); this.name = 'FlowUsageError'; }
 }
 
-// Line 1 of every stage file (design D-3).
-export const STAGE_HEADER = /^<!-- devkit-stage ([a-z0-9][a-z0-9-]*) result=(passed|failed|not-applicable|pending) attempt=([1-9][0-9]{0,2}) commit=([0-9a-f]{7,40}|none) -->\r?$/;
-
-// { stage, result, attempt, commit } for a well-formed header, { malformed: true } for a line that
-// starts like one and is not, null for any other first line (or no text).
-export function parseStageHeader(text) {
-  const first = String(text ?? '').split('\n', 1)[0];
-  if (!first.startsWith('<!-- devkit-stage')) return null;
-  const m = STAGE_HEADER.exec(first);
-  if (!m) return { malformed: true };
-  return { stage: m[1], result: m[2], attempt: Number(m[3]), commit: m[4] };
-}
+// The stage header reader lives in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
+export { STAGE_HEADER, parseStageHeader };
 
 const SOURCES = ['folder', 'artifact', 'tasks', 'github'];
 const PARTS = ['open', 'plan', 'build', 'after', 'delivery', 'close'];
@@ -312,6 +302,7 @@ export const TEXT = {
     'no-progress': (p, n) => `the ${nameOf(n, p.stage)} came back with nothing changed since the last run`,
     'owner-pending': (p, n) => `the ${nameOf(n, p.stage)} waits for the owner`,
     'approval-stale': (p, n) => `the ${nameOf(n, p.stage)} is stale: the owner approves the revised plan again`,
+    'undeclared-stage': (p) => `the script declares no ${p.stage} stage (${p.why})`,
     'unshipped-role-pending': (p, n) => `the ${nameOf(n, p.stage)} is pending and no role in this version can finish it: the owner sets its result or removes the file`,
     'no-role': (p, n) => `the ${nameOf(n, p.stage)} needs ${p.role}, which cannot act here`,
     archive: () => 'every stage passed; the change is archived with openspec archive',
@@ -354,6 +345,7 @@ export const TEXT = {
     'no-progress': (p, n) => `a etapa ${nameOf(n, p.stage)} voltou sem nada ter mudado desde a última execução`,
     'owner-pending': (p, n) => `a etapa ${nameOf(n, p.stage)} espera o dono`,
     'approval-stale': (p, n) => `a etapa ${nameOf(n, p.stage)} está desatualizada: o dono aprova de novo o plano revisado`,
+    'undeclared-stage': (p) => `o roteiro não declara a etapa ${p.stage} (${p.why})`,
     'unshipped-role-pending': (p, n) => `a etapa ${nameOf(n, p.stage)} está pendente e nenhum papel desta versão consegue concluí-la: o dono define o resultado ou remove o arquivo`,
     'no-role': (p, n) => `a etapa ${nameOf(n, p.stage)} precisa de ${p.role}, que não pode agir aqui`,
     archive: () => 'todas as etapas passaram; a change é arquivada com openspec archive',
@@ -506,6 +498,8 @@ export function computeFlow(facts, flow, { after = null } = {}) {
   const finishEnd = (state, stage, code, params) => { report.end = { state, stage, ...note(code, params) }; return report; };
   const offer = (stageId, code, params) => {
     const i = stages.findIndex((x) => x.id === stageId);
+    // A script that declares no such stage (a slice has no retro and no implementation) ends blocked, not thrown (D-3).
+    if (i === -1) return finishEnd('blocked', stageId, 'undeclared-stage', { stage: stageId, why: reasonText('en', code, params, names) });
     const s = stages[i];
     // Last guard: a next stage never names the owner or a role that is not shipped.
     if (s.shipped === false) return finishEnd('waiting-for-owner', s.id, 'unshipped-role-pending', { stage: s.id });

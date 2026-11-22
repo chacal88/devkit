@@ -13,7 +13,9 @@ import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_RE
 
 // The shared gh runner (merge-setup.mjs), kept importable from here.
 export { makeGh };
-import { archiveBranchChange, changeDir, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
+// The `Commit:` line reader moved to guard.mjs, which the slice contract reads it from; still importable from here.
+export { parseCommitLine };
+import { archiveBranchChange, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -168,22 +170,6 @@ export function gitFacts(root) {
   let head = null;
   try { head = git(root, ['rev-parse', 'HEAD']).trim(); } catch { /* no commit yet */ }
   return { head, dirty: dirtyPaths(root) };
-}
-
-// The `Commit: <sha>` line of a verdict or evidence file header (before the
-// first markdown heading): { sha, uncommitted } or null.
-export function parseCommitLine(text) {
-  const header = [];
-  for (const line of String(text).split(/\r?\n/)) {
-    if (/^#{1,6}\s/.test(line)) break;
-    header.push(line);
-  }
-  const re = /^[ \t]*(?:[-*][ \t]+)?\**Commit[ \t]*:\**[ \t]*`?([0-9a-f]{7,40})\b(.*)$/i;
-  for (const line of header) {
-    const m = line.match(re);
-    if (m) return { sha: m[1].toLowerCase(), uncommitted: /\(uncommitted changes\)/i.test(m[2]) };
-  }
-  return null;
 }
 
 // Why a recorded Commit is not current at HEAD, or null when it is: it
@@ -1505,6 +1491,7 @@ function selectCiChange(root, id, env, branch) {
 
 // A devkit script is the schema named devkit or devkit-lite, the rule the hooks' opt-in reads (ADR 0012).
 export const isDevkitScript = (schema) => DEVKIT_SCHEMAS.includes(schema);
+const PROJECT_SCHEMA = 'devkit-project';
 const archivedId = (folder) => basename(folder).replace(/^\d{4}-\d{2}-\d{2}-/, '');
 const otherScriptNote = (id, schema) => `${id} is on the ${schema} script, not a devkit script; nothing was checked`;
 const planOnlyNote = (id) => `${id} holds only a plan (no ticked task in tasks.md); not checked`;
@@ -1534,7 +1521,9 @@ function archivePrCheck(root, base) {
   // Each folder is judged by the schema its own .openspec.yaml names (ADR 0012); another script is a note.
   const schemaOfFolder = (f) => changeSchemaAt(root, join(root, f));
   const devkit = folders.filter((f) => isDevkitScript(schemaOfFolder(f)));
-  const notes = folders.filter((f) => !devkit.includes(f)).map((f) => ({ change: archivedId(f), why: 'other-script', schema: schemaOfFolder(f) }));
+  // A slice folder is judged by the slice contract against the PR's base (design D-11).
+  const slices = folders.filter((f) => schemaOfFolder(f) === PROJECT_SCHEMA).map((f) => ({ folder: f, id: archivedId(f), problems: sliceProblems(root, f, { base: `origin/${base}` }) }));
+  const notes = folders.filter((f) => !devkit.includes(f) && !slices.some((s) => s.folder === f)).map((f) => ({ change: archivedId(f), why: 'other-script', schema: schemaOfFolder(f) }));
   const retros = devkit.map((f) => ({ folder: f, retro: readRetro(join(root, f, 'retro.md')) }));
   const proposals = retros.flatMap((r) => r.retro.proposals);
   return {
@@ -1543,6 +1532,7 @@ function archivePrCheck(root, base) {
     missingRetro: retros.filter((r) => !r.retro.exists).map((r) => r.folder),
     unanswered: proposals.filter((p) => p.answer === null).map((p) => p.n),
     unnamed: devkit.length ? unnamedFiles(changes.paths, proposals) : [],
+    slices,
     notes,
   };
 }
@@ -1574,9 +1564,11 @@ function runCi(opts, env, cwd) {
         ...a.noRetro.filter((f) => !a.missingRetro.includes(f)).map((f) => `${retroOf(f)} has no "## Proposed updates" section: it must list each proposal with the owner's answer; the retro step of the archive writes it`),
         ...(a.unanswered.length ? [`unanswered proposals: ${a.unanswered.length}`] : []),
         ...(a.unnamed.length ? [`files no approved proposal names: ${a.unnamed.join(', ')}`] : []),
+        ...a.slices.flatMap((s) => s.problems.map((m) => `slice ${s.id}: ${m}`)),
       ];
+      const sliceLines = a.slices.filter((s) => !s.problems.length).map((s) => `  slice ${s.id}: passed the slice contract`);
       const pass = problems.length === 0;
-      const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...a.notes.map((n) => `  note: ${otherScriptNote(n.change, n.schema)}`), ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
+      const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...a.notes.map((n) => `  note: ${otherScriptNote(n.change, n.schema)}`), ...sliceLines, ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
       return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, pass, archive: a }, text);
     }
   }
@@ -1587,6 +1579,10 @@ function runCi(opts, env, cwd) {
   }
   const id = selected.name;
   const schema = changeSchema(root, id);
+  if (schema === PROJECT_SCHEMA) {
+    const error = `${id} is a slice of a project and its folder is not archived: a slice reaches the default branch with its folder archived in its pull request; /devkit project ${id} archives it`;
+    return finish(1, { version: 1, mode: 'ci', change: id, schema, pass: false, error }, `devkit-reviews: ${error}\nfail: ${error}\n`);
+  }
   if (!isDevkitScript(schema)) {
     const note = `${id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')}); nothing was checked`;
     return finish(0, { version: 1, mode: 'ci', change: id, schema, pass: true, note }, `devkit-reviews: ${note}\npass\n`);

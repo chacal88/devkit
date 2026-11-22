@@ -27,9 +27,12 @@ the script `change-loop.mjs`), its two stop locks and its edit and hand-off lock
 commands `/devkit roadmap` and `/devkit status`, the roadmap coordinator of the Claude driver (the
 owner's session, run by the script `roadmap-loop.mjs`, each stage a subagent in the background;
 [ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)), its run locks and the pack
-setting `load_limit`. `/conduct` no longer exists. Everything else (the other verbs of
-`/devkit`, the new roles and skills, the rest of the `devkit:`
-configuration block, the `devkit-project` schema, the other two drivers, the two-PR model and its lock,
+setting `load_limit`. So do, since the change `project-phases` (round 19), the command `/devkit project`,
+the `devkit-project` schema (with its `flow.json`), the script `project-loop.mjs` and the slice contract
+the `devkit-reviews` check applies to a slice's pull request
+([ADR 0014](adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). `/conduct` no longer
+exists. Everything else (the other verbs of `/devkit`, the new roles and skills, the rest of the `devkit:`
+configuration block, the other two drivers, the two-PR model and its lock,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
 builds it. The section "What stays shipped until its round" lists what keeps working meanwhile.
 
@@ -50,7 +53,7 @@ few verbs, to be built in rounds 15, 18, 19 and 20:
 | `/devkit change <free text>` | one task, described in text | 15 |
 | `/devkit roadmap` | the whole roadmap, one change at a time | 18 (built) |
 | `/devkit roadmap 3` | the whole roadmap, up to three changes at once | 18 (built) |
-| `/devkit project <name>` | deeper planning of a new project or slice, in the four phases | 19 |
+| `/devkit project <name>` | deeper planning of a new project or slice, in the four phases | 19 (built) |
 | `/devkit status` | where everything is and what waits on the owner | 18 (built) |
 | `/devkit help` | opens the help panel | 23 |
 
@@ -234,18 +237,37 @@ documentation.
 
 ## 7. Defining a project: the four phases (D-7)
 
-**The flow (decided; to be built in round 19).** A flow for the four phases the owner usually runs
+**The flow (decided; built in round 19).** A flow for the four phases the owner usually runs
 (the `devkit-design` skills: business, domain model, architecture with ADRs, implementation plan),
 from which the roadmap comes out for the roadmap coordinator to orchestrate. It serves any project,
 new or ongoing, whenever the owner judges that a new slice deserves deeper planning before starting,
 including as research on how to do it. What already exists in a project does not go through it.
 
-**Today.** The five `devkit-design` skills exist, each only points at the next, and phase 4 ends in
-a change backlog inside `docs/design/4-implementation-plan.md`, not in `openspec/roadmap.md`.
+**What exists (built by `project-phases`, round 19).** The `devkit-project` schema declares the
+stages `open`, the four phases, the roadmap, the review and the delivery; `/devkit project <slice>`
+opens the slice as an OpenSpec change in its own worktree, and the script `project-loop.mjs` says what comes
+next. The phases are conversations with the owner, so they run in the owner's session. Each slice's
+documents live in `docs/design/<slice>/`, its ADRs in `docs/adr/`, and it reaches the default branch in one
+pull request that the ADR reviewer clears
+([ADR 0014](adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)).
 
-**The proposal.** Declare the phases as an OpenSpec flow (the `devkit-project` schema) and add a
-fifth stage that writes the roadmap, appending to an existing one (proposed). The phases are
-conversations with the owner, so they run in the owner's session (proposed).
+**Decided by `project-phases` on 2026-11-21 (the grill's nine answers).**
+
+1. Each slice's documents are in `docs/design/<slice>/`, one folder per slice (grill question 1).
+2. Any of the four phases may be marked not applicable, with its reason (grill question 2).
+3. The fifth stage shows the proposed rounds, the owner approves them, and only then it appends them to
+   `openspec/roadmap.md` and names `/devkit roadmap` without starting it (grill question 3).
+4. One pull request at the end, cleared by the ADR reviewer alone and merged by GitHub once the checks pass
+   (grill question 4).
+5. The phases run in the session where the command was typed, in a worktree named after the slice; typing
+   it again resumes (grill question 5).
+6. A flat `docs/design/` stays untouched (grill question 6).
+7. The five `devkit-design` skills still work by name, asking for the slice and writing no roadmap and no
+   pull request (grill question 7).
+8. A slice may end with no new change: the fifth stage is then not applicable and the roadmap does not
+   change (grill question 8).
+9. The change proves the flow with a scripted run; the first real slice is the dogfood of a next change
+   (grill question 9).
 
 **The roadmap and small work (decided by the owner on 2026-11-19).** The four phases are one
 optional way to produce a roadmap, never a prerequisite. A developer who knows what they want
@@ -284,7 +306,7 @@ OpenSpec prints that its `schema` commands are experimental and may change.
 
 - Everything that defines the flow lives under the project's `openspec/`: `config.yaml` (language of
   the files, driver, delivery model, test commands, task source), `roadmap.md`, and the schemas
-  `devkit` (one change), `devkit-lite` (a small change) and `devkit-project` (the four phases, round
+  `devkit` (one change), `devkit-lite` (a small change) and `devkit-project` (the four phases, built in round
   19). The configuration block is filled by the rounds that need it: the language and the driver in
   round 15, the test commands in round 16, the delivery model in round 17, the task source in round
   20.
@@ -443,7 +465,7 @@ All proposed.
 
 **To prove before trusting:**
 
-- Many background subagent ends in a row over whole changes (round 19 proves it).
+- Many background subagent ends in a row over whole changes (not proved by round 19, whose phases run in the session; the first `/devkit roadmap` run that carries several changes to their ends records it).
 - The two stop locks hold without looping (shown live by the live test of `change-coordinator`, with the
   hook log it records; the interrupt case rests on the documented fact that an interrupt fires no stop event).
 - CompozyOS accepts the generic loop.
