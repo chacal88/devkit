@@ -380,6 +380,18 @@ test('project-loop ci: the roadmap touched while roadmap.md is not applicable is
   failsWith(root, /openspec\/roadmap\.md must stay as it was: roadmap\.md of the slice is not applicable/);
 });
 
+test('project-loop ci: a slice that deletes the roadmap is refused, not thrown', () => {
+  const root = sliceRepo({ before: (r) => rmSync(join(r, 'openspec', 'roadmap.md')) });
+  failsWith(root, /openspec\/roadmap\.md may only be appended to by a slice: the slice deleted it/);
+});
+
+test('project-loop hook: gh pr create is refused when the slice deletes the roadmap', () => {
+  const root = sliceRepo({ before: (r) => rmSync(join(r, 'openspec', 'roadmap.md')) });
+  const r = prCreate(root);
+  assert.equal(r.code, 2);
+  assert.match(r.err, /openspec\/roadmap\.md may only be appended to by a slice: the slice deleted it/);
+});
+
 test('project-loop ci: rounds appended after the base\'s bytes pass', () => {
   const root = sliceRepo({ roadmap: `${BASE_ROADMAP}\n## Round 2\n- [ ] second\n` });
   for (const r of bothCi(root)) { assert.equal(r.code, 0, r.out + r.err); assert.match(r.out, /passed the slice contract/); }

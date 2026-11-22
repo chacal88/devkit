@@ -252,8 +252,10 @@ export function sliceProblems(root, folder, { base, head = 'HEAD' }) {
     else if (mergeBase) {
       let before = null;
       try { before = gitRead(root, ['show', `${mergeBase}:openspec/roadmap.md`]); } catch { /* absent at the base: anything goes */ }
-      const after = gitRead(root, ['show', `${head}:openspec/roadmap.md`]);
-      if (before !== null && !after.startsWith(before)) problems.push('openspec/roadmap.md may only be appended to by a slice: an existing line changed');
+      let after = null;
+      try { after = gitRead(root, ['show', `${head}:openspec/roadmap.md`]); } catch { /* absent at the head: the slice deleted it */ }
+      if (after === null) problems.push('openspec/roadmap.md may only be appended to by a slice: the slice deleted it');
+      else if (before !== null && !after.startsWith(before)) problems.push('openspec/roadmap.md may only be appended to by a slice: an existing line changed');
     }
   }
   return problems;

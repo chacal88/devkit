@@ -1,0 +1,23 @@
+<!-- devkit-stage review result=failed attempt=1 commit=42e107d26510be9337224cc5f8297260b1488fa4 -->
+# Review: project-phases, round 1
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | rejected | 0 | 1 | 1 | 0 | 42e107d |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 42e107d |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- code-quality-reviewer — [important] plugins/openspec/hooks/guard.mjs:262-266 — sliceProblems throws when a slice PR deletes openspec/roadmap.md. The path is in the diff and the roadmap stage is not not-applicable, so `git show ${head}:openspec/roadmap.md` runs outside any try and exits 128. The exception escapes into deliver-check runCi (line 1525) and the gh-pr-create guard instead of becoming a diagnosable problem. No test covers a deleted roadmap.
+
+## Refuted by verification
+None.
+
+## Notes
+None.
+
+## Next
+Fix the open findings, then run review-change again (round 2).
