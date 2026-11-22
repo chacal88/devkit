@@ -1,19 +1,21 @@
 Verdict: approved
-Commit: 7f8fceca2aacfbd44451b470dbead17efc9a0686
+Commit: 8936416f5669f917e8b0d6b08667773ff4d4f1b3
 
-## Coverage analysis — test-fixture-cleanup (c561553..7f8fcec)
+## Coverage analysis — test-fixture-cleanup (7f8fcec..8936416, merge side)
 
 ### Findings
-- [nit] plugins/openspec/hooks/test-tmp.test.mjs:RAW_TEMP_CALL — The AC-3 regex matches only mkdtempSync( and tmpdir(; a future async mkdtemp( (fs.promises) or a hardcoded /tmp path in a test would pass the static refusal.
+- [nit] plugins/openspec/hooks/test-tmp.test.mjs:RAW_TEMP_CALL — The AC-3 regex matches only mkdtempSync( and tmpdir(; an async mkdtemp( or a hardcoded /tmp path in a test would pass the static refusal.
 - [nit] plugins/openspec/hooks/test-tmp.mjs:afterEach — The removal-failure branches (afterEach throws 'could not remove', sweep writes 'left') have no test; a regression that swallows a failed removal would stay green.
-- [nit] plugins/openspec/hooks/test-tmp.test.mjs:AC-5 test — The CI test is implementation-coupled: it asserts substrings of ci.yml (including the exact step names) instead of the behavior, so a legitimate reformat of the step goes red while a logically broken script that still contains the substrings stays green. The text check is the only possible local proof, so this is acceptable.
-- [praise] plugins/openspec/hooks/test-tmp.test.mjs:probe — The helper is proven through a real child node --test process with its own TMPDIR root, so the tests would go red if the helper broke; they are not mock-only.
+- [nit] plugins/openspec/hooks/test-tmp.test.mjs:AC-5 test — The CI test is implementation-coupled: it asserts substrings of ci.yml (including exact step names) instead of the behavior; acceptable because the text check is the only local proof.
+- [praise] plugins/openspec/hooks/test-tmp.test.mjs:probe — The helper is proven through a real child node --test process with its own TMPDIR root, so the tests go red if the helper breaks; they are not mock-only.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs:2478 — The docs test now asserts the v0.21.3 pin and the absence of v0.21.2, so a stale CI pin after the release move would go red.
 
-In-scope surfaces: plugins/openspec/hooks, plugins/core/skills/review-change/scripts, plugins/compozy/skills, .github/workflows/ci.yml
+In-scope surfaces: CHANGELOG.md, .claude-plugin/marketplace.json, the three plugin.json files, docs/openspec-flow.md, plugins/openspec/hooks (change-loop.test.mjs, project-loop.test.mjs, test-tmp.test.mjs).
+
 Blocking gaps (8-10 without a plan): 0
-Seams checked (mutation runs: 0): helper removal on pass and fail (AC-1 probe test); prefix refusal (AC-1 prefix test); exit sweep (module-level probe); SIGINT and SIGTERM sweep (two probe tests); copy identity (AC-4 tests, with a one-byte mutation sanity test); raw-call refusal (AC-3 tests on a fake tree and on the real repository); CI step (AC-5 text test, string check only); test-tmp.test.mjs imported by guard.test.mjs:20.
+
+Seams checked (mutation runs: 0): release pin in the flow doc -> caught by the change-loop docs test; versions across plugin.json, marketplace.json and CHANGELOG consistent (read); raw temp calls in main's new project-loop tests -> caught by the AC-3 repository scan (test-tmp.test.mjs, 10 of 10 pass); CI step text -> AC-5 text test; helper removal and sweep -> probe tests; byte-identical copies -> AC-4 tests.
 
 ### Well covered
-- Removal after a passing and a failing test, proven in a real child process.
-- Signal sweep of module-level and in-flight test folders.
-- The AC-3 and AC-4 scans each have a test proving the scan itself can fail.
+- Release pin move: asserted both present (v0.21.3) and absent (v0.21.2, v0.21.1) in docs/openspec-flow.md.
+- The merge from main introduced no raw temporary-folder call; the AC-3 scan over plugins passes.

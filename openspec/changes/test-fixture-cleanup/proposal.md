@@ -79,7 +79,7 @@ None.
 
 ## Impact
 
-- devkit-openspec (0.21.1 to 0.21.2): `hooks/test-tmp.mjs` and `hooks/test-tmp.test.mjs` (new); the
+- devkit-openspec (0.21.1 to 0.21.3; 0.21.2 went to project-phases-followups, #61): `hooks/test-tmp.mjs` and `hooks/test-tmp.test.mjs` (new); the
   nine hook test files (`guard`, `deliver-check`, `flow-check`, `conduct-check`, `merge-setup`,
   `release-rebase`, `change-loop`, `roadmap-loop`, `project-loop`) and the five
   `skills/openspec-setup/scripts/` test files (`github-setup`, `install-schemas`,
@@ -92,9 +92,9 @@ None.
 - CI: `.github/workflows/ci.yml` (the `check` job keeps its id, so the ruleset's required check is
   unchanged).
 - Docs and release: `CONTRIBUTING.md`, `CHANGELOG.md`, `.claude-plugin/marketplace.json` (0.25.1 to
-  0.25.2), the three `v0.21.1` pins of `docs/openspec-flow.md` and their assertion in
+  0.25.3), the three `v0.21.1` pins of `docs/openspec-flow.md` and their assertion in
   `plugins/openspec/hooks/change-loop.test.mjs` ("change-loop docs: the design records the
-  answers"); the tag `v0.21.2` after the merge.
+  answers"); the tag `v0.21.3` after the merge.
 - Runtime: each test removes its folders as it ends, so the peak of a run on the worker's temporary
   folder drops from hundreds of thousands of inodes to the folders of the test under way plus the
   module-level fixtures; the removals add some seconds to a run.
