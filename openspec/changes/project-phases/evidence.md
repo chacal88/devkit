@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=1 commit=d4d3448f4c04c9af87cd23cbb5ca7386aad3bad6 -->
-Commit: d4d3448f4c04c9af87cd23cbb5ca7386aad3bad6
+<!-- devkit-stage evidence result=passed attempt=2 commit=319ac33310d47f1ec736e431552510ce3c56137a -->
+Commit: 319ac33310d47f1ec736e431552510ce3c56137a
 
 # Evidence: project-phases
 
-Verified on branch `project-phases` at the commit above (tree clean). The conducting session ran the
+Verified on branch `project-phases` at the commit above (tree clean). Attempt 2 follows commit 319ac33, which makes `sliceProblems` refuse a slice that deletes `openspec/roadmap.md` (two new tests). The conducting session ran the
 13-minute suite on this exact tree; the short gates and checks below were re-run here and say so.
 
 ### Gates
@@ -25,12 +25,12 @@ Verified on branch `project-phases` at the commit above (tree clean). The conduc
 | 5.4 | `test -s openspec/changes/project-phases/proof/scripted-run-no-rounds.txt` | pass: file is non-empty (checked here) |
 | 5.4 | `test -s openspec/changes/project-phases/proof/live-l1.txt` | pass: file is non-empty (checked here) |
 | 5.4 | `test -s openspec/changes/project-phases/proof/live-l2.txt` | pass: file is non-empty (checked here) |
-| 6.8 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1263 tests, 1263 pass, 0 fail (conducting session, same tree) |
+| 6.8 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1265 tests, 1265 pass, 0 fail (conducting session, same tree) |
 | 6.8 | `python3 scripts/check.py` | pass: all checks passed (re-run here, exit 0) |
 | 6.8 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 (re-run here) |
 | 6.8 | `grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-project-phases/phase-6.txt"` | pass: phase-6.txt holds `Validation passed` (checked here) |
 
-Also re-run here: `openspec validate project-phases --strict` passes. `claude plugin validate .`
+Also re-run here at 319ac33: `openspec validate project-phases --strict` passes; the `^project-loop` subset exits 0, including `project-loop ci: a slice that deletes the roadmap is refused, not thrown` and `project-loop hook: gh pr create is refused when the slice deletes the roadmap` (both listed as passing). `phase-6.txt` still holds "Validation passed" (no plugin manifest changed since). `claude plugin validate .`
 (bundled Claude Code 2.1.326, run by the conducting session) printed "Validation passed" in
 `phase-4.txt` and `phase-6.txt`; both files were checked here.
 
@@ -39,12 +39,12 @@ Also re-run here: `openspec validate project-phases --strict` passes. `claude pl
 | AC | Criterion | Proof | Result |
 | --- | --- | --- | --- |
 | AC-1 | `/devkit project <slice>` opens the slice in a worktree and resumes at the stopped stage | `project-loop scripted` tests (2/2 re-run here); `proof/scripted-run.txt`; live check `proof/live-l1.txt` (session 1 opened worktree and asked first question, session 2 resumed at domain model) | pass |
-| AC-2 | `devkit-project` schema installed by `openspec-setup`; readout lists five stages with states | `project-loop schema`, `install-schemas` and readout tests inside the 1263-test suite; `proof/scripted-run.txt` | pass |
+| AC-2 | `devkit-project` schema installed by `openspec-setup`; readout lists five stages with states | `project-loop schema`, `install-schemas` and readout tests inside the 1265-test suite; `proof/scripted-run.txt` | pass |
 | AC-3 | Each phase writes its document under `docs/design/<slice>/`, ADRs to `docs/adr/`; passes only with explicit approval | `project-loop` phase-row tests in the suite; `proof/scripted-run.txt` (files and order). Conversation quality is the dogfood | pass |
 | AC-4 | A not-applicable phase leaves its file with the reason; next stage ready | `project-loop` phase-row tests; `proof/scripted-run-no-rounds.txt` | pass |
-| AC-5 | Roadmap proposed, written only after approval, appended; `/devkit roadmap` reads it | `project-loop` round tests and `roadmap-loop` tests in the suite; `proof/scripted-run.txt` | pass |
+| AC-5 | Roadmap proposed, written only after approval, appended; `/devkit roadmap` reads it | `project-loop` round tests and `roadmap-loop` tests in the suite; roadmap-deletion refusal tests of 319ac33 (re-run here, pass); `proof/scripted-run.txt` | pass |
 | AC-6 | Roadmap not applicable: reason recorded, `openspec/roadmap.md` unchanged | `proof/scripted-run-no-rounds.txt`; `project-loop scripted` tests (re-run here) | pass |
-| AC-7 | One pull request with documents, ADRs and rounds; ADR review is the only review; auto-merge enabled | `project-loop` review/archive/pull-request tests and CI-rule tests in the suite; scripted run on a scratch repository in `proof/scripted-run.txt` | pass |
+| AC-7 | One pull request with documents, ADRs and rounds; ADR review is the only review; auto-merge enabled | `project-loop` review/archive/pull-request tests and CI-rule tests in the suite, plus the two roadmap-deletion tests of 319ac33 (re-run here, pass); scripted run on a scratch repository in `proof/scripted-run.txt` | pass |
 | AC-8 | Flat `docs/design/` files byte for byte unchanged | `project-loop` flat-layout tests in the suite; `proof/scripted-run.txt` | pass |
 | AC-9 | Each `devkit-design` skill called alone asks for the slice, writes only under `docs/design/<slice>/`, no roadmap, no PR | skill text tests (`^change-loop skill`, `^roadmap-loop skill`, project-loop skill tests) in the suite; live check `proof/live-l2.txt` (asked for the slice, changed nothing) | pass |
 
