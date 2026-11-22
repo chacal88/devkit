@@ -11,6 +11,7 @@ import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
 import { parseRoadmap } from './guard.mjs';
 import * as guardModule from './guard.mjs';
 import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, main as changeMain } from './change-loop.mjs';
+import { readCounter } from './change-loop.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
 import { limitOf, readLoad, parseWord, gateOf, isPrevious, classifyLines, decideRoadmap, boardOf, draftText } from './roadmap-loop.mjs';
@@ -438,9 +439,9 @@ test('roadmap-loop decide: events each of the table once, in order, none for a s
   assert.deepEqual(r.lines, [
     say('roadmap-started', { id: 'a', open: 3, places: 5 }),
     say('roadmap-resumed', { id: 'b', where: 'next is the proposal', open: 4, places: 5 }),
-    say('roadmap-gate', { id: 'a', gate: 'grill' }),
-    say('roadmap-gate', { id: 'c', gate: 'approval' }),
-    say('roadmap-blocked', { id: 'd', why: 'ceiling', stage: 'Plan readiness', attempt: 3 }),
+    say('roadmap-gate-others', { id: 'a', gate: 'grill' }),
+    say('roadmap-gate-others', { id: 'c', gate: 'approval' }),
+    say('roadmap-blocked-others', { id: 'd', why: 'ceiling', stage: 'Plan readiness', attempt: 3 }),
     say('roadmap-archived', { id: 'e' }),
     say('roadmap-skipped', { id: 'f' }),
     say('roadmap-held', { id: 'g', load: 92, limit: 80 }),
@@ -461,7 +462,7 @@ test('roadmap-loop decide: events each of the table once, in order, none for a s
 test('roadmap-loop decide: events speak the person\'s language', () => {
   const r = decideRoadmap(world({ lang: 'pt-BR', lines: ['[ ] a'], actions: { a: ownerAct('a') }, announced: { a: 'started' } }));
   assert.deepEqual(r.lines, [say('roadmap-gate', { id: 'a', gate: 'approval' }, 'pt-BR')]);
-  assert.match(r.lines[0], /^▸ a espera a sua aprovação do plano\. As outras seguem\.$/);
+  assert.match(r.lines[0], /^▸ a espera a sua aprovação do plano\.$/);
 });
 
 // ---------------------------------------------------------------- decide: stopping, blocked, the end and --after
@@ -562,12 +563,13 @@ test('roadmap-loop replies: a blocked line renders every blocked reason in both 
     assert.ok(codes.includes('previous-script') && codes.includes('ceiling') && codes.includes('cannot-open'), `${lang}: the codes of the table`);
     for (const code of codes) {
       const reason = render(lang, `blocked-why.${code}`, BLOCKED_PARAMS);
-      for (const key of ['roadmap-blocked', 'need.blocked']) {
+      for (const key of ['roadmap-blocked', 'roadmap-blocked-others', 'need.blocked']) {
         const text = render(lang, key, { ...BLOCKED_PARAMS, why: code });
         assert.ok(text.includes(reason), `${lang} ${key} ${code}: ${text}`);
       }
     }
     assert.throws(() => render(lang, 'roadmap-blocked', { ...BLOCKED_PARAMS, why: 'small' }), LoopUsageError, 'a why. code is not a blocked reason');
+    assert.throws(() => render(lang, 'roadmap-blocked-others', { ...BLOCKED_PARAMS, why: 'small' }), LoopUsageError);
     assert.throws(() => render(lang, 'need.blocked', { ...BLOCKED_PARAMS, why: 'small' }), LoopUsageError);
   }
 });
@@ -765,11 +767,16 @@ const runFileOf = (cwd) => loopModule.runFilePath(cwd);
 const stateOf = (cwd) => JSON.parse(readFileSync(runFileOf(cwd), 'utf8'));
 const putRun = (cwd, patch) => {
   mkdirSync(dirname(runFileOf(cwd)), { recursive: true });
-  writeFileSync(runFileOf(cwd), JSON.stringify({ version: 1, session: 'S1', places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [], held: false, holding: false, ...patch }));
+  writeFileSync(runFileOf(cwd), JSON.stringify({
+    version: 1, session: 'S1', places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [], held: false, holding: false,
+    changeSessions: false, startedSessions: {}, turn: null, ...patch,
+  }));
 };
 // The event lines a command shows: the ones it printed itself, then the `lines` of its decision.
 const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsWith('▸ ')), ...jsonOf(stdout).lines];
 const addOpen = (root, id) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit\n' }); commitAll(root, `open ${id}`); };
+// The mark of a watch of the load that runs: this process (design roadmap-coordinator-followups D-7).
+const WATCH = { pid: process.pid, at: '2026-11-21T10:00:00.000Z' };
 const inFlight = (stage = 'proposal') => ({ kind: 'agent', stage, agentType: 'change-planner', at: '2026-11-21T10:00:00.000Z' });
 const picture = (cwd) => [git(cwd, 'status', '--porcelain'), git(cwd, 'branch', '--list', '--all'), git(cwd, 'worktree', 'list'), git(cwd, 'rev-list', '--count', '--all')].join('\n--\n');
 
@@ -850,7 +857,7 @@ test('roadmap-loop run: U4 the same session keeps what is under way and changes 
   doRun(root, '2');
   assert.deepEqual([stateOf(root).session, stateOf(root).places], ['S1', 2]);
   putRun(root, {
-    session: 'S1', places: 2, stopping: true, held: true, holding: true, inflight: { a: inFlight() }, announced: { a: 'resumed' },
+    session: 'S1', places: 2, stopping: true, held: true, holding: WATCH, inflight: { a: inFlight() }, announced: { a: 'resumed' },
     declared: { c: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } },
   });
   const again = doRun(root, '3');
@@ -858,16 +865,16 @@ test('roadmap-loop run: U4 the same session keeps what is under way and changes 
   assert.ok(events(again.stdout).includes(`▸ ${render('en', 'roadmap-places', { places: 3, open: 1 })}`), 'the number changed: said once');
   assert.ok(!events(again.stdout).some((l) => l.includes('Resumed a')), 'a was announced before: not again');
   const kept = stateOf(root);
-  assert.deepEqual([kept.places, kept.stopping, kept.declared, kept.holding, Object.keys(kept.inflight)], [3, false, {}, true, ['a']]);
+  assert.deepEqual([kept.places, kept.stopping, kept.declared, kept.holding, Object.keys(kept.inflight)], [3, false, {}, WATCH, ['a']]);
   assert.deepEqual(jsonOf(again.stdout).actions.map((x) => [x.change, x.kind]), [['b', 'start'], ['c', 'start']], 'a stays in flight; the cleared declared change is handed again');
   assert.ok(!events(doRun(root, '3').stdout).some((l) => l.includes('changes at once')), 'the same number says nothing');
 
   const other = doRun(root, '2', { session: 'S2' });
   assert.ok(!events(other.stdout).some((l) => l.includes('changes at once')));
-  assert.deepEqual([stateOf(root).session, stateOf(root).places, stateOf(root).inflight, stateOf(root).holding], ['S2', 2, {}, false]);
-  putRun(root, { session: 'S2', places: 2, inflight: { a: inFlight() }, holding: true });
+  assert.deepEqual([stateOf(root).session, stateOf(root).places, stateOf(root).inflight, stateOf(root).holding], ['S2', 2, {}, null]);
+  putRun(root, { session: 'S2', places: 2, inflight: { a: inFlight() }, holding: WATCH });
   doRun(root, '2', { session: 'S2', extra: ['--fresh'] });
-  assert.deepEqual([stateOf(root).inflight, stateOf(root).holding], [{}, false], '--fresh starts from empty in the same session');
+  assert.deepEqual([stateOf(root).inflight, stateOf(root).holding], [{}, null], '--fresh starts from empty in the same session');
 });
 
 // ---------------------------------------------------------------- the run file (D-5)
@@ -1134,23 +1141,23 @@ test('roadmap-loop hold: polls the load, exits below the limit or on stop, and s
   const sleeps = [];
   const sleep = (stop = false) => async (s) => {
     sleeps.push(s);
-    holdingAt.push(stateOf(root).holding);
+    holdingAt.push(stateOf(root).holding?.pid ?? null);
     if (stop && sleeps.length === 2) loopModule.updateRun(runFileOf(root), (run) => { run.stopping = true; });
   };
   const loads = [95, 90, 70];
   const below = await loopModule.runCommand(args, { cwd: root, env: cleanEnv, load: () => loads.shift(), sleep: sleep() });
   assert.equal(below.code, 0);
   assert.deepEqual(JSON.parse(below.stdout), { load: 70, limit: 80 });
-  assert.deepEqual([sleeps, holdingAt, stateOf(root).holding], [[5, 5, 5], [true, true, true], false]);
+  assert.deepEqual([sleeps, holdingAt, stateOf(root).holding], [[5, 5, 5], [process.pid, process.pid, process.pid], null]);
 
   sleeps.length = 0;
   holdingAt.length = 0;
   const stopped = await loopModule.runCommand(args, { cwd: root, env: cleanEnv, load: () => 99, sleep: sleep(true) });
   assert.equal(stopped.code, 0);
-  assert.deepEqual([sleeps.length, stateOf(root).holding], [2, false], 'a stop ends the hold with the load still high');
+  assert.deepEqual([sleeps.length, stateOf(root).holding], [2, null], 'a stop ends the hold with the load still high');
 
   const broken = await loopModule.runCommand(args, { cwd: root, env: cleanEnv, load: () => { throw new Error('no load'); }, sleep: async () => {} });
-  assert.deepEqual([broken.code, stateOf(root).holding], [3, false], 'cleared on error');
+  assert.deepEqual([broken.code, stateOf(root).holding], [3, null], 'cleared on error');
 
   const raw = readFileSync(runFileOf(root), 'utf8');
   for (const interval of ['4', '0', 'x']) {
@@ -1389,7 +1396,7 @@ test('roadmap-loop lock stop: RS2 a change that could start is refused, and a st
 
   const loaded = { opts: { load: () => 95 } };
   assert.equal(stopOf(root, lkRun(1), loaded).d.decision, 'refuse', 'a held start nobody watches is a hold to start');
-  putRun(root, { places: 1, holding: true });
+  putRun(root, { places: 1, holding: WATCH });
   const watched = stopOf(root, lkRun(1), loaded);
   assert.equal(watched.d.decision, 'allow', 'a watched hold');
   nothingRecorded(watched.tmp);
@@ -1820,7 +1827,9 @@ test('roadmap-loop skill: the frontmatter and the start modes name the roadmap a
 
 test('roadmap-loop skill: background hand-offs, one change per question, and the message that ends a turn', () => {
   const md = skillMd();
-  const roadmap = sectionOf(md, '## Roadmap', '## Status');
+  // Invariant: where the host cannot start sessions, the coordinator hands each stage in the background, asks one change at a time and ends a
+  // turn with its message. Layer: skill text. Suite: roadmap-loop. The opening paragraph and step 1 plus the part of today's steps 2 to 5.
+  const roadmap = sectionOf(md, '## Roadmap', '### A session per change') + sectionOf(md, '### Every change in this session', '## Status');
   // The stages of every change are handed in the background, in one message; the starts and the session steps one at a time.
   assert.match(roadmap, /hand every one to its agent in one message, each as an Agent call with `run_in_background: true`/);
   assert.match(roadmap, /`subagent_type` set to the action's `agent` field and the prompt `brief` exactly as given/);
@@ -1930,4 +1939,759 @@ test('roadmap-loop run: a word written to the pipe after a delay is still read',
     setTimeout(() => child.stdin.end('many'), 400);
   });
   assert.deepEqual([late.code, late.stdout], [0, `${render('en', 'roadmap-invalid', { word: 'many' })}\n`]);
+});
+
+// ================================================================ roadmap-coordinator-followups: phase 1 (the run file and its locks)
+
+const BAD_IDS = ['__proto__', '../x', '-a'];
+// A process that has ended: its pid names no live process.
+const deadPid = () => spawnSync(process.execPath, ['-e', '']).pid;
+const heldRoot = (over = {}) => {
+  const root = projectWith(roadmapText('[ ] a'));
+  putRun(root, { session: 'S1', places: 1, ...over });
+  return root;
+};
+const lockFileOf = (root) => join(dirname(runFileOf(root)), 'roadmap-run.lock');
+
+test('followups AC-4 next: an --after id that is not a change id exits 3 and writes nothing', () => {
+  for (const id of BAD_IDS) {
+    const root = heldRoot();
+    addOpen(root, 'a');
+    const raw = readFileSync(runFileOf(root), 'utf8');
+    const r = doNext(root, ['--after', `${id}=proposal`]);
+    assert.equal(r.code, 3, `${id}: ${r.stdout}`);
+    assert.ok(r.stderr.includes(JSON.stringify(id)), `${id}: the message names the id: ${r.stderr}`);
+    assert.equal(readFileSync(runFileOf(root), 'utf8'), raw, `${id}: the run file's bytes are unchanged`);
+  }
+});
+
+test('followups AC-4 reply: an end declared for an id that is not a change id exits 3 and records nothing', () => {
+  for (const id of BAD_IDS) {
+    for (const extra of [['blocked', '--param', 'why=cannot-open', '--param', 'error=taken'], ['waiting-pr-decision', '--param', 'url=https://example.test/pr/1']]) {
+      const root = heldRoot();
+      const raw = readFileSync(runFileOf(root), 'utf8');
+      const r = cmd(root, ['reply', extra[0], ...FLAGS, '--param', `id=${id}`, ...extra.slice(1)]);
+      assert.equal(r.code, 3, `${id} ${extra[0]}: ${r.stdout}`);
+      assert.ok(r.stderr.includes(JSON.stringify(id)), `${id}: ${r.stderr}`);
+      assert.equal(readFileSync(runFileOf(root), 'utf8'), raw, `${id} ${extra[0]}: nothing recorded`);
+    }
+  }
+});
+
+test('followups AC-4 wait: a --change that is not a change id exits 3 and marks nothing in flight', async () => {
+  for (const id of BAD_IDS) {
+    const root = heldRoot();
+    const raw = readFileSync(runFileOf(root), 'utf8');
+    const marked = [];
+    const r = await loopModule.runCommand(['wait', '--change', id, ...FLAGS, '--interval', '5'], {
+      cwd: root, env: cleanEnv, gh: OFFLINE, sleep: async () => { marked.push(stateOf(root).inflight); },
+    });
+    assert.equal(r.code, 3, `${id}: ${r.stdout}`);
+    assert.ok(r.stderr.includes(JSON.stringify(id)), `${id}: ${r.stderr}`);
+    assert.deepEqual(marked, [], `${id}: it never waited`);
+    assert.equal(readFileSync(runFileOf(root), 'utf8'), raw, `${id}: marks nothing in flight`);
+  }
+});
+
+test('followups AC-5 run file: a write that fails leaves no temporary file and throws', () => {
+  const root = heldRoot();
+  const file = join(root, 'scratch-run', 'roadmap-run.json');
+  mkdirSync(file, { recursive: true }); // the path of the run file is a directory: the rename fails
+  assert.throws(() => loopModule.updateRun(file, (run) => run));
+  assert.deepEqual(readdirSync(dirname(file)).filter((name) => name.endsWith('.tmp')), [], 'no temporary file is left');
+  assert.equal(existsSync(join(dirname(file), 'roadmap-run.lock')), false, 'the lock is released');
+});
+
+test('followups AC-6 lock: the run file\'s wait is at most half the agent hook\'s timeout', () => {
+  const hooks = JSON.parse(readFileSync(join(HERE, 'hooks.json'), 'utf8')).hooks;
+  const entry = hooks.PreToolUse.find((h) => h.matcher === 'Agent');
+  const timeout = entry.hooks[0].timeout;
+  assert.ok(Number.isInteger(timeout) && timeout > 0, 'the agent hook has a timeout');
+  assert.ok(loopModule.LOCK.waitMs <= (timeout * 1000) / 2, `${loopModule.LOCK.waitMs} ms is more than half of ${timeout} s`);
+});
+
+test('followups AC-6 lock agent: a hand-off while the run file is locked is let through within the hook\'s time and logged run-file-busy', () => {
+  const root = lkProject(['[ ] a'], { a: {} });
+  putRun(root, { places: 1 });
+  writeFileSync(lockFileOf(root), ''); // another call holds the run file: a fresh lock
+  const log = join(lkSandbox(), 'hooks.jsonl');
+  const started = Date.now();
+  const r = lkHook('agent', lkAgentInput(root, lkRun(1), PLANNER_TYPE, BRIEF('a')), { TMPDIR: lkSandbox(), DEVKIT_HOOK_LOG: log, CLAUDE_PLUGIN_OPTION_LANGUAGE: 'en' });
+  const took = Date.now() - started;
+  assert.equal(r.code, 0, r.err);
+  assert.ok(took < 10_000, `answered in ${took} ms`);
+  const records = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  assert.deepEqual(records.map((x) => [x.mode, x.decision, x.why, x.change]), [['agent', 'allow', 'run-file-busy', 'a']]);
+  assert.deepEqual(stateOf(root).inflight, {}, 'the stage is not marked in flight');
+});
+
+test('followups AC-7 next: a hold whose process ended asks for a new hold while loaded, and starts below the limit', () => {
+  const dead = { pid: deadPid(), at: '2026-11-21T10:00:00.000Z' };
+  for (const [name, holding] of [['an object with a dead pid', dead], ['the boolean of 0.18.0', true]]) {
+    const root = heldRoot({ held: true, holding });
+    const loaded = jsonOf(doNext(root, [], { load: 95 }).stdout);
+    assert.deepEqual(loaded.actions.map((x) => [x.change, x.kind]), [['a', 'hold']], `${name}: a new watch is asked for`);
+    const below = jsonOf(doNext(root, [], { load: 40 }).stdout);
+    assert.deepEqual(below.actions.map((x) => [x.change, x.kind]), [['a', 'start']], `${name}: the held change starts`);
+  }
+  const alive = heldRoot({ held: true, holding: { pid: process.pid, at: '2026-11-21T10:00:00.000Z' } });
+  assert.deepEqual(jsonOf(doNext(alive, [], { load: 95 }).stdout).actions, [], 'a watch still running: no second watch');
+});
+
+test('followups AC-7 hold: a killed hold process leaves a mark the next next does not trust', async () => {
+  const root = heldRoot();
+  const child = spawn(process.execPath, [LOOP_FILE, 'hold', '--lang', 'en', '--load-limit', '1', '--interval', '5'], { cwd: root, env: cleanEnv, stdio: 'ignore' });
+  const ended = new Promise((resolve) => { child.on('exit', resolve); });
+  try {
+    let named = false;
+    for (let i = 0; i < 80 && !named; i++) {
+      await new Promise((resolve) => { setTimeout(resolve, 50); });
+      named = stateOf(root).holding?.pid === child.pid;
+    }
+    assert.ok(named, 'the run file names the pid of the hold');
+  } finally {
+    child.kill('SIGKILL');
+    await ended;
+  }
+  assert.equal(stateOf(root).holding?.pid, child.pid, 'a killed process cleared nothing');
+  assert.deepEqual(jsonOf(doNext(root, [], { load: 95 }).stdout).actions.map((x) => x.kind), ['hold']);
+  assert.deepEqual(jsonOf(doNext(root, [], { load: 40 }).stdout).actions.map((x) => x.kind), ['start']);
+});
+
+test('followups AC-7 lock stop: a held start whose watch process ended is refused once, naming the watch to start', () => {
+  const lkRoot = (holding) => { const root = lkProject(['[ ] a'], {}); putRun(root, { places: 1, held: true, holding }); return root; };
+  for (const [name, holding] of [['a dead pid', { pid: deadPid(), at: '2026-11-21T10:00:00.000Z' }], ['the boolean of 0.18.0', true]]) {
+    const root = lkRoot(holding);
+    withTmp(() => {
+      const opts = { opts: { load: () => 95 } };
+      const first = stopOf(root, lkRun(1), opts).d;
+      assert.deepEqual([first.decision, first.change], ['refuse', 'a'], name);
+      assert.match(first.reason, /watch it with hold/, name);
+    });
+  }
+  const alive = lkRoot({ pid: process.pid, at: '2026-11-21T10:00:00.000Z' });
+  assert.equal(stopOf(alive, lkRun(1), { opts: { load: () => 95 } }).d.decision, 'allow', 'a watch still running lets the stop through');
+});
+
+test('followups AC-10 run: run without --session exits 3 and writes no run file', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  const r = cmd(root, ['run', ...FLAGS], { stdin: '2' });
+  assert.equal(r.code, 3, r.stdout);
+  assert.match(r.stderr, /run needs --session/);
+  assert.equal(existsSync(runFileOf(root)), false, 'no run file');
+});
+
+test('followups AC-10 lock: updateRun on a held lock throws RunFileBusy after its wait, without sleeping for real', () => {
+  const root = heldRoot();
+  const lock = lockFileOf(root);
+  writeFileSync(lock, '');
+  const sleeps = [];
+  assert.throws(() => loopModule.updateRun(runFileOf(root), (run) => run, { sleep: (ms) => { sleeps.push(ms); } }), loopModule.RunFileBusy);
+  assert.equal(sleeps.reduce((a, b) => a + b, 0), loopModule.LOCK.waitMs, 'the sleeps add up to the wait');
+  assert.equal(existsSync(lock), true, 'the other holder\'s lock is untouched');
+});
+
+test('followups AC-10 lock: next on a held run file lock exits 3 and leaves the file as it was', () => {
+  const root = heldRoot();
+  addOpen(root, 'a');
+  writeFileSync(lockFileOf(root), '');
+  const raw = readFileSync(runFileOf(root), 'utf8');
+  const sleeps = [];
+  const r = doNext(root, [], { lockSleep: (ms) => { sleeps.push(ms); } });
+  assert.equal(r.code, 3, r.stdout);
+  assert.match(r.stderr, /the run file is locked by another call/);
+  assert.equal(sleeps.reduce((a, b) => a + b, 0), loopModule.LOCK.waitMs, 'it waited through the injected sleep');
+  assert.equal(readFileSync(runFileOf(root), 'utf8'), raw);
+});
+
+test('followups AC-10 draft: an unknown files\' language writes the draft in English', () => {
+  const root = gitRepo({ config: 'schema: devkit\ndevkit:\n  language: fr\n' });
+  put(root, { 'openspec/changes/one/.openspec.yaml': 'schema: devkit\n' });
+  commitAll(root, 'one');
+  const r = cmd(root, ['draft', '--lang', 'pt-BR', '--load-limit', '80']);
+  assert.equal(r.code, 0, r.stdout);
+  assert.equal(r.stdout, `${render('pt-BR', 'roadmap-drafted', { list: 'one' })}\n`, 'the reply is in the person\'s language');
+  assert.equal(readFileSync(join(root, 'openspec', 'roadmap.md'), 'utf8'), '# Roadmap\n\n## Round 1: unfinished changes\n\n- [ ] one\n');
+});
+
+test('followups AC-10 guard: an edit and a shell write in a roadmap run read the transcript once', () => {
+  const root = lkProject(['[ ] a'], { a: { have: UP_TO_READINESS } });
+  for (const [mode, input] of [
+    ['edit', (t) => lkEdit(root, 'src/a.ts', t)],
+    ['bash', (t) => lkBash(root, 'echo x > src/a.ts', t)],
+  ]) {
+    const transcript = lkRun(2);
+    const spy = readCounter();
+    const r = lkHook(mode, input(transcript), { TMPDIR: lkSandbox(), ...spy.env(transcript) });
+    assert.equal(r.code, 2, `${mode}: ${r.err}`);
+    assert.equal(spy.reads(), 1, `${mode}: the transcript is read once`);
+  }
+});
+
+// ================================================================ roadmap-coordinator-followups, phase 2: the arguments, start anyway, the board
+
+test('followups F-1 run: the arguments as typed start the run on the first call', () => {
+  const roadmap = roadmapText('[ ] a', '[ ] b', '[ ] c');
+  for (const [typed, marker, places] of [['roadmap 2', 'devkit-roadmap: 2', 2], ['Roadmap 3', 'devkit-roadmap: 3', 3], ['roadmap', 'devkit-roadmap: 1', 1], ['roadmap\n', 'devkit-roadmap: 1', 1], ['2', 'devkit-roadmap: 2', 2]]) {
+    const root = projectWith(roadmap);
+    const r = doRun(root, typed);
+    assert.equal(r.code, 0, `${typed}: ${r.stdout}`);
+    assert.equal(r.stdout.split('\n')[0], marker, typed);
+    assert.equal(stateOf(root).places, places, typed);
+  }
+  // `roadmap many` is answered by name, nothing written.
+  const many = projectWith(roadmap);
+  const refused = doRun(many, 'roadmap many');
+  assert.deepEqual([refused.code, refused.stdout], [0, `${render('en', 'roadmap-invalid', { word: 'many' })}\n`]);
+  assert.equal(existsSync(runFileOf(many)), false);
+  // `roadmap roadmap` drops one word only: the second is the invalid word.
+  assert.equal(doRun(projectWith(roadmap), 'roadmap roadmap').stdout, `${render('en', 'roadmap-invalid', { word: 'roadmap' })}\n`);
+  // `ROADMAP stop` after a run stops it.
+  const run = projectWith(roadmap);
+  doRun(run, 'roadmap 2');
+  const stopped = doRun(run, 'ROADMAP stop');
+  assert.equal(stopped.stdout.split('\n')[0], 'devkit-roadmap: stop');
+  assert.equal(stateOf(run).stopping, true);
+  // The parser itself.
+  assert.deepEqual(loopModule.parseRunInput('roadmap 2'), { kind: 'places', places: 2 });
+  assert.deepEqual(loopModule.parseRunInput('roadmap'), { kind: 'places', places: 1 });
+  assert.deepEqual(loopModule.parseRunInput('ROADMAP stop'), { kind: 'stop' });
+  assert.deepEqual(loopModule.parseRunInput('roadmap many'), { kind: 'invalid', word: 'many' });
+  assert.deepEqual(loopModule.parseRunInput('2'), { kind: 'places', places: 2 });
+  assert.deepEqual(loopModule.parseRunInput(undefined), { kind: 'places', places: 1 });
+});
+
+test('followups F-2 decide: start anyway starts the held changes once', () => {
+  const lines = ['[ ] a', '[ ] b'];
+  const held = decideRoadmap(world({ lines, places: 2, load: 95, limit: 80 }));
+  assert.deepEqual(changesOf(held), [['a', 'hold']]);
+  const anyway = decideRoadmap(world({ lines, places: 2, load: 95, limit: 80, startAnyway: true }));
+  assert.deepEqual(changesOf(anyway), [['a', 'start'], ['b', 'start']], 'both held changes start whatever the load');
+  assert.deepEqual(anyway.lines, [], 'no hold line is shown');
+  assert.equal(anyway.state.held, false, 'the next hold is said again');
+  assert.deepEqual(anyway.state.starting, ['a', 'b']);
+  // Only the places that are free: the rest stays in the queue.
+  assert.deepEqual(changesOf(decideRoadmap(world({ lines: [...lines, '[ ] c'], places: 2, load: 95, limit: 80, startAnyway: true }))), [['a', 'start'], ['b', 'start']]);
+  // A start never goes past the stop.
+  assert.deepEqual(changesOf(decideRoadmap(world({ lines, places: 2, load: 95, limit: 80, startAnyway: true, stopping: true }))), []);
+});
+
+test('followups AC-8 next: start anyway starts what is held now, and a change ready later is held and said again', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] b'));
+  putRun(root, { places: 3 });
+  const before = Object.keys(stateOf(root)).sort();
+  const first = doNext(root, ['--start-anyway'], { load: 95 });
+  assert.equal(first.code, 0, first.stdout);
+  assert.deepEqual(jsonOf(first.stdout).actions.map((x) => [x.change, x.kind]), [['a', 'start'], ['b', 'start']]);
+  assert.ok(!events(first.stdout).some((l) => l.includes('machine is loaded')), 'no line about the hold');
+  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt').sort(), before, 'the run file gains no field but the time of its write');
+  assert.equal(JSON.stringify(stateOf(root)).toLowerCase().includes('anyway'), false, 'nothing keeps the permission');
+  // Later in the same run: a and b are open, c is ready, a place is free, the load is still high, and the call has no flag.
+  addOpen(root, 'a');
+  addOpen(root, 'b');
+  writeFileSync(join(root, 'openspec', 'roadmap.md'), roadmapText('[ ] a', '[ ] b', '[ ] c'));
+  const later = doNext(root, [], { load: 95 });
+  assert.ok(jsonOf(later.stdout).actions.some((x) => x.change === 'c' && x.kind === 'hold'), 'c is held');
+  assert.ok(events(later.stdout).includes(`▸ ${render('en', 'roadmap-held', { id: 'c', load: 95, limit: 80 })}`), 'its hold line is shown again');
+  // The hold line ends with the start-anyway sentence, in both languages.
+  assert.match(render('en', 'roadmap-held', { id: 'c', load: 95, limit: 80 }), /Tell me to start anyway and it starts now\.$/);
+  assert.match(render('pt-BR', 'roadmap-held', { id: 'c', load: 95, limit: 80 }), /Se quiser começar mesmo assim, é só dizer\.$/);
+  // Only `next` takes the flag.
+  assert.equal(cmd(root, ['status', ...FLAGS, '--start-anyway']).code, 3);
+});
+
+test('followups AC-1 status: a ready line waits for a place only when the places are taken', () => {
+  const lines = ['[ ] d', '[ ] a', '[ ] b', '[ ] c'];
+  const text = boardOf(world({ lines, places: 3, load: 10, actions: { d: agentAct('d') } }));
+  assert.match(text, /a {3}ready to start\n/);
+  assert.match(text, /b {3}ready to start\n/);
+  assert.match(text, /c {3}ready, waits for a place$/);
+  assert.doesNotMatch(text, /Starts held|held by the load/);
+  const pt = boardOf(world({ lang: 'pt-BR', lines, places: 3, load: 10, actions: { d: agentAct('d') } }));
+  assert.match(pt, /a {3}pronta para começar\n/);
+  assert.match(pt, /c {3}pronta, espera vaga$/);
+  // Every place taken: waits for a place whatever the load.
+  for (const load of [10, 95]) assert.match(boardOf(world({ lines: ['[ ] d', '[ ] a'], places: 1, load, actions: { d: agentAct('d') } })), /a {3}ready, waits for a place$/, `load ${load}`);
+  // A free place and a loaded machine: the load holds both.
+  const loaded = boardOf(world({ lines: ['[ ] a', '[ ] b'], places: 2, load: 92 }));
+  assert.match(loaded, /Starts held/);
+  assert.match(loaded, /a {3}ready, held by the load\n/);
+  assert.match(loaded, /b {3}ready, held by the load$/);
+});
+
+test('followups AC-2 decide: a gate or blocked line says the others go on only when another change is under way', () => {
+  const ceiling = (id) => blockedAct(id, 'ceiling', { stage: 'Plan readiness', attempt: 3 });
+  const gateLine = (r) => r.lines.find((l) => /waits for|espera/.test(l));
+  const blockedLine = (r) => r.lines.find((l) => /stopped|parou/.test(l));
+  const announced = { a: 'started', b: 'started' };
+  const alone = decideRoadmap(world({ lines: ['[ ] a'], actions: { a: ownerAct('a') }, announced }));
+  assert.equal(gateLine(alone), say('roadmap-gate', { id: 'a', gate: 'approval' }));
+  assert.doesNotMatch(gateLine(alone), /others go on/);
+  const aloneBlocked = decideRoadmap(world({ lines: ['[ ] a'], actions: { a: ceiling('a') }, announced }));
+  assert.equal(blockedLine(aloneBlocked), say('roadmap-blocked', { id: 'a', why: 'ceiling', stage: 'Plan readiness', attempt: 3 }));
+  assert.doesNotMatch(blockedLine(aloneBlocked), /others go on/);
+  assert.match(blockedLine(aloneBlocked), /The changes after it wait\.$/);
+  // Another change under way: a stage handed, a stage in flight, a wait on GitHub, a start.
+  const others = [
+    ['a stage handed', { lines: ['[ ] a', '[ ] b'], actions: (own) => ({ a: own, b: agentAct('b') }) }],
+    ['a stage in flight', { lines: ['[ ] a', '[ ] b'], actions: (own) => ({ a: own, b: agentAct('b') }), inflight: { b: FLYING } }],
+    ['a wait', { lines: ['[ ] a', '[ ] b'], actions: (own) => ({ a: own, b: githubAct('b') }) }],
+    ['a start', { lines: ['[ ] a', '[ ] b'], places: 2, actions: (own) => ({ a: own }) }],
+  ];
+  for (const [name, { actions, ...rest }] of others) {
+    const gate = decideRoadmap(world({ ...rest, actions: actions(ownerAct('a')), announced }));
+    assert.equal(gateLine(gate), say('roadmap-gate-others', { id: 'a', gate: 'approval' }), name);
+    assert.match(gateLine(gate), /The others go on\.$/, name);
+    const blocked = decideRoadmap(world({ ...rest, actions: actions(ceiling('a')), announced }));
+    assert.equal(blockedLine(blocked), say('roadmap-blocked-others', { id: 'a', why: 'ceiling', stage: 'Plan readiness', attempt: 3 }), name);
+    assert.match(blockedLine(blocked), /The others go on, and the changes after it wait\.$/, name);
+    assert.equal(blocked.state.announced.a, 'blocked:ceiling', `${name}: the announced key does not change`);
+  }
+  // The same state is still said once.
+  const first = decideRoadmap(world({ lines: ['[ ] a', '[ ] b'], actions: { a: ownerAct('a'), b: agentAct('b') }, announced }));
+  assert.equal(decideRoadmap(world({ lines: ['[ ] a', '[ ] b'], actions: { a: ownerAct('a'), b: agentAct('b') }, announced: first.state.announced })).lines.length, 0);
+  // Brazilian Portuguese.
+  const pt = decideRoadmap(world({ lang: 'pt-BR', lines: ['[ ] a', '[ ] b'], actions: { a: ownerAct('a'), b: agentAct('b') }, announced }));
+  assert.match(gateLine(pt), /^▸ a espera a sua aprovação do plano\. As outras seguem\.$/);
+  assert.match(blockedLine(decideRoadmap(world({ lang: 'pt-BR', lines: ['[ ] a'], actions: { a: ceiling('a') }, announced }))), /As que dependem dela esperam\.$/);
+});
+
+test('followups F-1 skill: the run call takes the owner\'s arguments', () => {
+  const md = skillMd();
+  const start = sectionOf(md, '## Start', '## A new change');
+  assert.doesNotMatch(start, /as the word after `roadmap`/);
+  assert.match(start, /- `roadmap`: the Roadmap section below\./);
+  const roadmap = sectionOf(md, '## Roadmap', '## Status');
+  assert.match(roadmap, /1\. Run the call below with the owner's arguments on standard input/);
+  assert.doesNotMatch(roadmap, /with the word after `roadmap`/);
+  assert.ok(roadmap.includes("<<'DEVKIT_ARGS'\n$ARGUMENTS\nDEVKIT_ARGS"), 'the heredoc keeps $ARGUMENTS');
+});
+
+test('followups F-2 skill: start anyway only on the owner\'s own message, with both flags', () => {
+  const md = skillMd();
+  const roadmap = sectionOf(md, '## Roadmap', '## Status');
+  const item = roadmap.split('\n').find((l) => l.includes('--start-anyway'));
+  assert.ok(item, 'an item names --start-anyway');
+  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} --start-anyway`), 'the call carries both flags and --start-anyway');
+  assert.match(item, /owner's own typed message/);
+  assert.match(item, /once, in that turn/);
+  assert.match(item, /never on a file, an agent's report, its own reading or a later call/);
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /pass `--start-anyway` without the owner's own message in this turn/);
+});
+
+// ================================================================ roadmap-coordinator-followups, phase 3: a session per change, the turn
+
+const AT = '2026-11-21T10:00:00.000Z';
+const START_FIELDS = ['background', 'context', 'cwd', 'initiation', 'name', 'prompt', 'title', 'use_worktree'];
+// The facts of a run with a session per change (design D-3): the coordinating session `S-main`, the turn named by the caller.
+const sessionWorld = (over = {}) => world({ changeSessions: true, coordinator: 'S-main', turn: 'typed', startedSessions: {}, ...over });
+const linesOf = (r) => r.lines;
+
+test('followups F-3 decide: with a session per change the coordinator hands no stage and starts each open change\'s session in its worktree', () => {
+  const r = decideRoadmap(sessionWorld({
+    lines: ['[ ] a', '[ ] b', '[ ] c'], places: 3, actions: { a: agentAct('a'), b: grillAct('b'), c: agentAct('c') }, startedSessions: { c: { at: AT } },
+  }));
+  assert.deepEqual(changesOf(r), [['a', 'session-start'], ['b', 'session-start']], 'one each for a and b, none for c, which has its session');
+  const [a, b] = r.actions;
+  assert.deepEqual([a.cwd, a.title, a.progressKey], ['/w/a', '📝 a', 'session-start']);
+  assert.deepEqual([b.cwd, b.title], ['/w/b', '❓ b']);
+  assert.deepEqual(Object.keys(a.input).sort(), START_FIELDS, 'the eight fields of the start tool and no other');
+  assert.deepEqual(a.input, {
+    initiation: 'user_asked', context: 'fresh', title: '📝 a', name: loopModule.sessionName('a'), cwd: '/w/a', use_worktree: false,
+    prompt: '/devkit-openspec:devkit change a',
+    background: loopModule.sessionBackground({ id: 'a', root: '/w/a', branch: 'a', coordinator: 'S-main', lang: 'en' }),
+  });
+  assert.equal(b.input.prompt, '/devkit-openspec:devkit change b');
+  assert.ok(!r.actions.some((x) => ['agent', 'session', 'wait'].includes(x.kind)), 'no stage, step or wait is handed');
+  assert.equal(r.ask, null, 'the change sessions ask their own gates');
+  assert.deepEqual(linesOf(r), [], 'no gate line and no started line');
+  assert.deepEqual(r.state.sessionsStarted, []);
+  // The same facts without the mode keep the stages here, as before.
+  const plainRun = decideRoadmap(world({ lines: ['[ ] a', '[ ] b'], places: 2, actions: { a: agentAct('a'), b: grillAct('b') } }));
+  assert.deepEqual(changesOf(plainRun), [['a', 'agent']]);
+  assert.equal(plainRun.ask.change, 'b');
+});
+
+test('followups AC-13 name: sessionName gives the start\'s name, [a-z0-9-] and at most 24 characters', () => {
+  assert.equal(loopModule.sessionName('roadmap-coordinator-followups'), 'roadmap-coordinator-foll');
+  assert.equal(loopModule.sessionName('A_b.c'), 'a-b-c');
+  assert.equal(loopModule.sessionName('___'), 'change');
+  assert.equal(loopModule.sessionName('x'.repeat(40)), 'x'.repeat(24));
+  assert.equal(loopModule.sessionName('abcdefghijklmnopqrstuvw-xyz'), 'abcdefghijklmnopqrstuvw', 'a dash left at the cut is removed');
+  for (const id of ['a', 'roadmap-coordinator-followups', 'A_b.c', '9.x', 'x'.repeat(60)]) assert.match(loopModule.sessionName(id), /^[a-z0-9]([a-z0-9-]{0,22}[a-z0-9])?$/, id);
+});
+
+test('followups AC-13 run: --change-sessions is recorded, and a run without it keeps the stages in the session', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  const plainRun = doRun(root, 'roadmap');
+  assert.deepEqual([stateOf(root).changeSessions, stateOf(root).turn], [false, 'typed']);
+  assert.deepEqual(jsonOf(plainRun.stdout).actions, [], 'the grill is asked here, nothing is handed');
+  assert.equal(jsonOf(plainRun.stdout).ask.change, 'a');
+  const sessions = doRun(root, 'roadmap', { extra: ['--change-sessions'] });
+  assert.equal(sessions.code, 0, sessions.stdout);
+  assert.equal(stateOf(root).changeSessions, true);
+  const j = jsonOf(sessions.stdout);
+  assert.deepEqual(j.actions.map((x) => [x.change, x.kind]), [['a', 'session-start']]);
+  assert.equal(j.ask, null);
+  assert.equal(j.actions[0].cwd, realpathSync(root));
+  // A stop leaves the mode as it was, and a later run without the flag goes back to the stages in the session.
+  doRun(root, 'stop');
+  assert.equal(stateOf(root).changeSessions, true);
+  doRun(root, 'roadmap');
+  assert.equal(stateOf(root).changeSessions, false);
+});
+
+test('followups AC-13 run: a run from another session keeps the started change sessions and gives them no second session, and --fresh forgets them', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  putRun(root, { session: 'S1', places: 1, changeSessions: true, startedSessions: { a: { at: AT } }, turn: 'typed', announced: { a: 'session' } });
+  const other = doRun(root, 'roadmap', { session: 'S2', extra: ['--change-sessions'] });
+  assert.equal(other.code, 0, other.stdout);
+  assert.equal(stateOf(root).session, 'S2');
+  assert.deepEqual(stateOf(root).startedSessions, { a: { at: AT } }, 'kept');
+  assert.deepEqual(stateOf(root).announced, {}, 'everything else starts empty');
+  assert.deepEqual(jsonOf(other.stdout).actions, [], 'a is not given a second session');
+  const fresh = doRun(root, 'roadmap', { session: 'S2', extra: ['--change-sessions', '--fresh'] });
+  assert.deepEqual(stateOf(root).startedSessions, {}, '--fresh forgets them');
+  assert.deepEqual(jsonOf(fresh.stdout).actions.map((x) => [x.change, x.kind]), [['a', 'session-start']]);
+});
+
+test('followups AC-13 next: a reported session start is recorded once, said once and never started again, and a change no longer open leaves the record', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] b'));
+  addOpen(root, 'a');
+  putRun(root, { places: 2, changeSessions: true, turn: 'typed', startedSessions: { gone: { at: AT } } });
+  const first = doNext(root, ['--turn', 'typed', '--after', 'a=session-start']);
+  assert.equal(first.code, 0, first.stdout);
+  assert.ok(events(first.stdout).includes(say('roadmap-session-started', { id: 'a', open: 1, places: 2 })), events(first.stdout).join('|'));
+  assert.equal(typeof stateOf(root).startedSessions.a.at, 'string');
+  assert.equal('gone' in stateOf(root).startedSessions, false, 'a change that is not an open line leaves the record');
+  assert.deepEqual(jsonOf(first.stdout).actions.map((x) => [x.change, x.kind]), [['b', 'start']], 'only the ready line starts; a gets no second session');
+  const again = doNext(root, ['--turn', 'typed']);
+  assert.deepEqual(events(again.stdout), [], 'said once');
+  assert.ok(!jsonOf(again.stdout).actions.some((x) => x.change === 'a'));
+  assert.deepEqual(Object.keys(stateOf(root).startedSessions), ['a']);
+});
+
+test('followups AC-13 decide: a change in its own session counts as under way for the end of the run, and a stop ends the run with each change staying in its session', () => {
+  const facts = (over = {}) => sessionWorld({ lines: ['[ ] a', '[ ] b'], places: 2, actions: { a: null, b: null }, startedSessions: { a: { at: AT }, b: { at: AT } }, announced: { a: 'session', b: 'session' }, wheres: { a: 'plan', b: 'code' }, ...over });
+  const running = decideRoadmap(facts());
+  assert.deepEqual([running.end, running.actions, running.open], [null, [], ['a', 'b']]);
+  const stopped = decideRoadmap(facts({ stopping: true }));
+  assert.equal(stopped.end.why, 'stopped');
+  assert.equal(stopped.end.reply, [render('en', 'roadmap-ended-stopped'), render('en', 'roadmap-stayed', { id: 'a', where: 'plan' }), render('en', 'roadmap-stayed', { id: 'b', where: 'code' })].join('\n'));
+  assert.deepEqual(stopped.actions, [], 'no session is started');
+});
+
+test('followups AC-13 decide: a change archived in its session frees its place, and on the event turn its report starts, the next ready line gets its line and waits for the owner\'s next message', () => {
+  const facts = (turn, announced = { a: 'session' }) => sessionWorld({ lines: ['[ ] a', '[ ] c'], archived: ['a'], places: 1, turn, announced, startedSessions: { a: { at: AT } } });
+  const event = decideRoadmap(facts('event'));
+  assert.deepEqual(event.lines, [say('roadmap-archived', { id: 'a' }), say('roadmap-waits-turn', { id: 'c' })]);
+  assert.deepEqual(event.actions, [], 'c is not opened on that turn');
+  assert.deepEqual(event.state.starting, []);
+  assert.equal(event.end, null, 'a change waiting for the owner\'s next message is not the end of the run');
+  assert.deepEqual(decideRoadmap(facts('event', event.state.announced)).lines, [], 'said once');
+  const typed = decideRoadmap(facts('typed', event.state.announced));
+  assert.deepEqual(changesOf(typed), [['c', 'start']], 'the owner\'s next message starts it');
+  assert.deepEqual(typed.state.starting, ['c']);
+});
+
+test('followups AC-13 background: the brief names the change, its worktree and branch, the coordinating session, the person\'s language, the title rule and the archive line, and has at least 80 characters', () => {
+  const text = loopModule.sessionBackground({ id: 'a-change', root: '/w/a-change', branch: 'a-change-branch', coordinator: 'S-main', lang: 'pt-BR' });
+  for (const part of ['`a-change`', '/w/a-change', 'a-change-branch', 'S-main', 'pt-BR', '`sessionTitle`', 'devkit roadmap: a-change archived', 'a session of its own', 'who started this session']) {
+    assert.ok(text.includes(part), `names ${part}`);
+  }
+  assert.ok(text.length >= 80);
+  assert.ok(loopModule.sessionBackground({ id: 'x', root: '/', branch: 'x', coordinator: null, lang: 'en' }).length >= 80, 'also for the smallest input');
+});
+
+test('followups AC-13 lock agent: in a run with a session per change every hand-off of the coordinating session is refused and nothing is marked under way', () => {
+  const root = lkProject(['[ ] a'], { a: {} });
+  putRun(root, { places: 1, changeSessions: true });
+  const transcript = lkRun(1);
+  const d = agentOf(lkAgentInput(root, transcript, PLANNER_TYPE, BRIEF('a')));
+  assert.deepEqual([d.decision, d.why, d.change], ['refuse', 'own-sessions', 'a']);
+  assert.match(d.reason, /each change runs in a session of its own: its stages are handed in that session, not here/);
+  assert.deepEqual(stateOf(root).inflight, {}, 'nothing is marked under way');
+  assert.equal(agentOf(lkAgentInput(root, transcript, PLANNER_TYPE, 'do it')).why, 'own-sessions', 'with no brief too');
+  const sub = agentOf({ ...lkAgentInput(root, transcript, PLANNER_TYPE, BRIEF('a')), agent_type: PLANNER_TYPE });
+  assert.deepEqual([sub.decision, sub.why], ['allow', 'subagent'], 'a subagent\'s own hand-off is let through');
+  putRun(root, { places: 1 });
+  assert.equal(agentOf(lkAgentInput(root, transcript, PLANNER_TYPE, BRIEF('a'))).decision, 'allow', 'without the mode the hand-off is allowed as before');
+});
+
+test('followups AC-13 lock stop: a change session to start on a typed turn is refused once, and every change in its own session lets the stop through', () => {
+  const root = lkProject(['[ ] a', '[ ] b'], { a: {}, b: {} });
+  putRun(root, { places: 2, changeSessions: true, turn: 'typed', startedSessions: { a: { at: AT } } });
+  const transcript = lkRun(2);
+  withTmp(() => {
+    const first = loopModule.roadmapStopDecision(lkStopInput(root, transcript), lkOpts());
+    assert.deepEqual([first.decision, first.why, first.change], ['refuse', 'stage-ready', 'b']);
+    assert.match(first.reason, /the change b has no session of its own yet: start it/);
+    assert.deepEqual(loopModule.roadmapStopDecision(lkStopInput(root, transcript), lkOpts()).why, 'same-state', 'once');
+  });
+  putRun(root, { places: 2, changeSessions: true, turn: 'typed', startedSessions: { a: { at: AT }, b: { at: AT } } });
+  withTmp((tmp) => {
+    const d = loopModule.roadmapStopDecision(lkStopInput(root, transcript), lkOpts());
+    assert.deepEqual([d.decision, d.why], ['allow', 'nothing-ready'], 'every change in its own session');
+    nothingRecorded(tmp);
+  });
+});
+
+test('followups AC-15 decide: on a turn nobody typed a start and a session start become one line each, said once, and on the owner\'s next turn they start', () => {
+  const facts = (turn, announced = {}) => sessionWorld({ lines: ['[ ] a', '[ ] b'], places: 3, turn, announced, actions: { a: grillAct('a') } });
+  const typed = decideRoadmap(facts('typed'));
+  assert.deepEqual(changesOf(typed), [['a', 'session-start'], ['b', 'start']]);
+  assert.equal(typed.state.turn, 'typed');
+  const event = decideRoadmap(facts('event'));
+  assert.deepEqual(event.actions, [], 'neither is carried out');
+  assert.deepEqual(event.lines, [say('roadmap-waits-turn', { id: 'a' }), say('roadmap-waits-turn', { id: 'b' })]);
+  assert.deepEqual([event.state.turn, event.state.starting, event.state.announced], ['event', [], { a: 'waits-turn', b: 'waits-turn' }], 'a withheld start is not recorded as handed');
+  assert.deepEqual(decideRoadmap(facts('event', event.state.announced)).lines, [], 'said once');
+  const next = decideRoadmap(facts('typed', event.state.announced));
+  assert.deepEqual(changesOf(next), [['a', 'session-start'], ['b', 'start']], 'the owner\'s next turn starts them');
+  assert.deepEqual(next.lines, []);
+  assert.match(say('roadmap-waits-turn', { id: 'a' }, 'pt-BR'), /^▸ a está pronta e começa numa sessão própria na sua próxima mensagem: o app só abre sessão num turno que você digitou\.$/);
+  // In a run that keeps the stages in this session, the turn changes nothing.
+  assert.deepEqual(changesOf(decideRoadmap(world({ lines: ['[ ] a'], places: 1, turn: 'event' }))), [['a', 'start']]);
+});
+
+test('followups AC-15 decide: the load eases on a turn nobody typed and the held change waits for the owner\'s next message with its line', () => {
+  const facts = (over) => sessionWorld({ lines: ['[ ] a'], places: 1, turn: 'event', ...over });
+  const held = decideRoadmap(facts({ load: 95, limit: 80 }));
+  assert.deepEqual(changesOf(held), [['a', 'hold']], 'a loaded machine is still watched');
+  const eased = decideRoadmap(facts({ load: 40, limit: 80, held: true, holding: false }));
+  assert.deepEqual(eased.actions, []);
+  assert.deepEqual(eased.lines, [say('roadmap-waits-turn', { id: 'a' })]);
+  assert.equal(eased.state.held, false);
+  assert.match(eased.lines[0], /the app starts a session only on a turn you typed/);
+  assert.deepEqual(changesOf(decideRoadmap(facts({ load: 40, limit: 80, held: true, holding: false, turn: 'typed' }))), [['a', 'start']], 'the owner\'s message starts it');
+});
+
+test('followups AC-15 next: a refused session start gives its line, records the turn as event and asks for no other start on that turn', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] b'));
+  addOpen(root, 'a');
+  putRun(root, { places: 2, changeSessions: true, turn: 'typed' });
+  const r = doNext(root, ['--turn', 'typed', '--after', 'a=session-refused']);
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(events(r.stdout), [say('roadmap-waits-refused', { id: 'a' }), say('roadmap-waits-turn', { id: 'b' })]);
+  assert.deepEqual(jsonOf(r.stdout).actions, [], 'no session start and no start on that turn');
+  const state = stateOf(root);
+  assert.deepEqual([state.turn, state.announced.a, state.announced.b, state.startedSessions], ['event', 'waits-refused', 'waits-turn', {}]);
+  assert.deepEqual(events(doNext(root, ['--turn', 'event']).stdout), [], 'said once');
+  assert.match(say('roadmap-waits-refused', { id: 'a' }, 'pt-BR'), /^▸ a não pôde começar numa sessão própria: o app recusou\. Ela começa na sua próxima mensagem\.$/);
+});
+
+test('followups AC-15 next: a start that gave no session id is reported as session-refused, the line shows once and the change starts on the owner\'s next typed turn', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  putRun(root, { places: 1, changeSessions: true, turn: 'typed' });
+  // The key is the outcome of the call, never its text: the skill reports every result but a session id.
+  const skill = readFileSync(new URL('../skills/devkit/SKILL.md', import.meta.url), 'utf8');
+  assert.ok(skill.includes('when the call returns anything but a session id (a refusal of any wording, an error or a missing tool)'), 'the skill keys the refusal on the outcome of the call');
+  const refused = doNext(root, ['--turn', 'event', '--after', 'a=session-refused']);
+  assert.equal(refused.code, 0, refused.stdout);
+  assert.deepEqual(events(refused.stdout), [say('roadmap-waits-refused', { id: 'a' })]);
+  assert.deepEqual(jsonOf(refused.stdout).actions, [], 'nothing starts on the refused turn');
+  assert.equal(stateOf(root).announced.a, 'waits-refused');
+  const again = doNext(root, ['--turn', 'event']);
+  assert.deepEqual([events(again.stdout), jsonOf(again.stdout).actions], [[], []], 'said once, still waiting for a typed turn');
+  const typed = doNext(root, ['--turn', 'typed']);
+  assert.equal(typed.code, 0, typed.stdout);
+  assert.deepEqual(changesOf(jsonOf(typed.stdout)), [['a', 'session-start']], 'the owner\'s typed message starts it');
+});
+
+test('followups AC-15 next: --turn takes typed or event, refuses any other word (message and an empty word included) with exit 3 and the run file\'s bytes unchanged, and no --turn reads as event', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  putRun(root, { places: 1, changeSessions: true, turn: 'typed' });
+  const raw = readFileSync(runFileOf(root), 'utf8');
+  for (const word of ['message', '', 'Typed', 'both']) {
+    const r = doNext(root, ['--turn', word]);
+    assert.equal(r.code, 3, `${JSON.stringify(word)}: ${r.stdout}`);
+    assert.ok(r.stderr.includes(`--turn takes typed or event: got ${word}`), r.stderr);
+    assert.equal(readFileSync(runFileOf(root), 'utf8'), raw, `${JSON.stringify(word)}: the run file's bytes are unchanged`);
+  }
+  const none = doNext(root);
+  assert.equal(none.code, 0, none.stdout);
+  assert.deepEqual(jsonOf(none.stdout).actions, [], 'no start without a typed turn');
+  assert.deepEqual(events(none.stdout), [say('roadmap-waits-turn', { id: 'a' })]);
+  assert.equal(stateOf(root).turn, 'event');
+  const typed = doNext(root, ['--turn', 'typed']);
+  assert.deepEqual(jsonOf(typed.stdout).actions.map((x) => [x.change, x.kind]), [['a', 'start']]);
+  assert.equal(stateOf(root).turn, 'typed');
+});
+
+test('followups AC-15 decide: every withheld start has its line in the same decision or an announced one', () => {
+  const table = {
+    'two ready lines': { lines: ['[ ] a', '[ ] b'], places: 2 },
+    'a ready line and an open change at its grill': { lines: ['[ ] a', '[ ] b'], places: 2, actions: { a: grillAct('a') } },
+    'open changes at a stage, a gate, a wait and blocked': {
+      lines: ['[ ] a', '[ ] b', '[ ] c', '[ ] d', '[ ] e'], places: 5,
+      actions: { a: agentAct('a'), b: ownerAct('b'), c: githubAct('c'), d: blockedAct('d', 'ceiling', { stage: 'Plan readiness', attempt: 3 }) },
+    },
+    'a change in flight from an earlier run': { lines: ['[ ] a', '[ ] b'], places: 2, actions: { a: agentAct('a') }, inflight: { a: FLYING } },
+    'a start held by the load, then eased': { lines: ['[ ] a'], places: 1, load: 30, held: true },
+  };
+  for (const [name, spec] of Object.entries(table)) {
+    const typed = decideRoadmap(sessionWorld({ ...spec, turn: 'typed' }));
+    const withheld = typed.actions.filter((x) => x.kind === 'start' || x.kind === 'session-start').map((x) => x.change);
+    assert.ok(withheld.length > 0, `${name}: the typed turn starts something`);
+    const event = decideRoadmap(sessionWorld({ ...spec, turn: 'event' }));
+    assert.deepEqual(event.actions.filter((x) => x.kind === 'start' || x.kind === 'session-start'), [], `${name}: nothing starts on a turn nobody typed`);
+    for (const id of withheld) {
+      assert.ok(event.lines.some((l) => l.includes(` ${id} `) && /next message/.test(l)) && event.state.announced[id] === 'waits-turn', `${name}: ${id} has its line`);
+      const again = decideRoadmap(sessionWorld({ ...spec, turn: 'event', announced: event.state.announced }));
+      assert.deepEqual(again.lines.filter((l) => /next message/.test(l)), [], `${name}: said once, the state was announced`);
+      assert.equal(again.state.announced[id], 'waits-turn', `${name}: ${id} stays announced`);
+    }
+  }
+});
+
+test('followups AC-15 lock stop: after a decision on a turn nobody typed the stop is let through', () => {
+  const root = lkProject(['[ ] c'], {});
+  putRun(root, { places: 1, changeSessions: true, turn: 'event' });
+  withTmp((tmp) => {
+    const d = loopModule.roadmapStopDecision(lkStopInput(root, lkRun(1)), lkOpts());
+    assert.deepEqual([d.decision, d.why], ['allow', 'nothing-ready'], 'c waits for the owner\'s next message');
+    nothingRecorded(tmp);
+  });
+  putRun(root, { places: 1, changeSessions: true, turn: 'typed' });
+  withTmp(() => {
+    const d = loopModule.roadmapStopDecision(lkStopInput(root, lkRun(1)), lkOpts());
+    assert.deepEqual([d.decision, d.change], ['refuse', 'c'], 'on a typed turn it is ready');
+    assert.match(d.reason, /the change c is ready to start: open it/);
+  });
+});
+
+test('followups AC-15 status: a line left for the owner\'s next message reads so in the queue, and an open change with no session says it starts at the next message', () => {
+  const lines = ['[ ] a', '[ ] b', '[ ] c', '[ ] d', '[ ] e'];
+  const text = boardOf(sessionWorld({
+    lines, places: 5, announced: { a: 'waits-turn', b: 'waits-refused' },
+    actions: { c: agentAct('c'), d: ownerAct('d'), e: agentAct('e') }, startedSessions: { d: { at: AT }, e: { at: AT } },
+  }));
+  assert.match(text, /a {3}ready: starts in a session of its own at your next message\n/);
+  assert.match(text, /b {3}ready: starts in a session of its own at your next message(\n|$)/);
+  assert.match(text, /c {3}no session of its own yet: it starts at your next message\n/);
+  assert.match(text, /Waiting for you\n {2}d {3}your approval of the plan/, 'an own change at its gate shows its gate');
+  assert.match(text, /e {3}Proposal/, 'an own change under way shows its stage');
+  const pt = boardOf(sessionWorld({ lang: 'pt-BR', lines: ['[ ] a', '[ ] c'], places: 3, announced: { a: 'waits-turn' }, actions: { c: agentAct('c') } }));
+  assert.match(pt, /a {3}pronta: começa numa sessão própria na sua próxima mensagem(\n|$)/);
+  assert.match(pt, /c {3}ainda sem sessão própria: começa na sua próxima mensagem/);
+  // Without the mode the same announced state changes no row.
+  assert.match(boardOf(world({ lines: ['[ ] a'], places: 1, announced: { a: 'waits-turn' } })), /a {3}ready to start/);
+});
+
+test('followups AC-13 skill: the session-per-change part names the tools, the list check, the session keys and the turn, and hands nothing', () => {
+  const md = skillMd();
+  const roadmap = sectionOf(md, '## Roadmap', '## Status');
+  const first = roadmap.indexOf('### A session per change');
+  const second = roadmap.indexOf('### Every change in this session');
+  assert.ok(first > 0 && second > first, 'the two parts, in this order');
+  const one = roadmap.slice(roadmap.indexOf('1. Run the call below'), first);
+  assert.ok(one.includes('select:mcp__ccd_session__start_session'), 'step 1 loads the start tool before run');
+  assert.ok(one.includes('`--change-sessions`'), 'and adds the flag when it loads');
+  const part = roadmap.slice(first, second);
+  assert.doesNotMatch(part, /^5\. /m, 'no item starting 5.');
+  for (const text of [
+    'select:mcp__ccd_session_mgmt__list_sessions', 'select:mcp__ccd_session__start_session',
+    '`mcp__ccd_session_mgmt__list_sessions` with `{ "linked": true }`', '`mcp__ccd_session__start_session` with the action\'s `input` exactly as given',
+    '`session-start`', '`session-refused`', '`isArchived`', '`cwd`', 'a `title` ending in the change id', 'one session start at a time',
+    'devkit roadmap: <id> archived', 'the session hands no stage, asks no gate and starts no wait on GitHub',
+  ]) assert.ok(part.includes(text), `the part says ${text}`);
+  assert.match(part, /end-of-turn report[^\n]*`event` turn/);
+  assert.match(part, /--after <id>=session-start/);
+  assert.match(part, /--after <id>=session-refused/);
+  // The other part keeps today's steps 2 to 5, word for word.
+  const every = roadmap.slice(second);
+  assert.ok(every.includes('2. With the JSON of `run` or `next`, carry out its `actions` in this order, all in this turn:'));
+  assert.ok(every.includes('5. The message that ends a turn holds, in order:'));
+  assert.ok(every.includes('Calling `/devkit roadmap` again at any time is safe'));
+  assert.doesNotMatch(md, /wake_when_done|SendMessage/, 'no wake field and no message tool');
+  const never = md.slice(md.indexOf('## Never'));
+  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s gate or start a wait on GitHub from this session, start a change session `next` did not return, or call the session-start tool with any input but the action\'s `input`'));
+});
+
+test('followups AC-14 skill: a change session renames its title from the sessionTitle of each next', () => {
+  const loop = sectionOf(skillMd(), '## Loop', '## Owner gates');
+  const item = loop.split('\n').find((l) => l.includes('mcp__ccd_session_mgmt__set_session_title') && l.includes('sessionTitle'));
+  assert.ok(item, 'a Loop item renames the title');
+  for (const text of ['select:mcp__ccd_session_mgmt__set_session_title', '`mcp__ccd_session_mgmt__set_session_title` with `session_id` `"self"` and `title` the action\'s `sessionTitle`', 'main thread', 'Background (from the session that started this one):', '`/devkit roadmap`']) {
+    assert.ok(item.includes(text), `the item says ${text}`);
+  }
+  assert.match(item, /not retried for the same `sessionTitle`/);
+  assert.match(item, /before carrying out the action/);
+});
+
+test('followups AC-15 skill: the turn\'s two words, event when in doubt or on another session\'s note, and next first on a typed turn', () => {
+  const part = sectionOf(skillMd(), '### A session per change', '### Every change in this session');
+  const item = part.split('\n').find((l) => l.includes('--turn <typed|event>'));
+  assert.ok(item, 'an item names the turn flag');
+  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} --turn <typed|event>`), 'with both settings');
+  assert.match(item, /`typed` when the turn began with the owner's own message/);
+  assert.match(item, /`event` otherwise/);
+  assert.match(item, /another session's message or end-of-turn report/);
+  assert.match(item, /when in doubt/);
+  assert.match(part, /on a turn the owner typed[^\n]*--turn typed` before anything else/);
+  assert.match(part, /start anyway: [^\n]*item 4a of the second part[^\n]*`--turn typed`/, 'start anyway is a typed turn');
+});
+
+// ================================================================ roadmap-coordinator-followups: phase 4 (the ADRs and the documents)
+
+// Invariant (AC-3): every field the run file holds is named in ADR 0013 decision 4, and every field named there is held.
+// Layer: the documents against the run file. Suite: this file.
+test('followups AC-3 run file: every field the run file holds is named in ADR 0013 decision 4, and every field named there is held', async () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  const run = doRun(root, 'roadmap', { extra: ['--change-sessions'] });
+  assert.equal(run.code, 0, run.stdout);
+  const next = doNext(root, ['--turn', 'typed', '--after', 'a=session-start']);
+  assert.equal(next.code, 0, next.stdout);
+  const held = await loopModule.runCommand(['hold', ...FLAGS, '--interval', '5'], { cwd: root, env: cleanEnv, load: () => 1, sleep: async () => {} });
+  assert.equal(held.code, 0, held.stdout);
+  const keys = Object.keys(stateOf(root)).sort();
+  assert.ok(keys.includes('holding') && keys.includes('startedSessions') && keys.includes('turn'), keys.join(','));
+
+  const adr = readFileSync(join(HERE, '..', '..', '..', 'docs', 'adr', '0013-the-roadmap-coordinator-is-the-owners-session.md'), 'utf8');
+  const decision = adr.slice(adr.indexOf('## Decision'), adr.indexOf('## Consequences'));
+  const start = decision.search(/^4\. /m);
+  const end = decision.search(/^5\. /m);
+  assert.ok(start >= 0 && end > start, 'decision 4 is item 4 of the Decision');
+  const named = [...decision.slice(start, end).matchAll(/`([A-Za-z]+)`/g)].map((m) => m[1]).sort();
+  assert.deepEqual(named, keys, 'the fields named in decision 4 are the fields the run file holds');
+});
+
+// Invariant (AC-13, AC-14, AC-15): ADR 0014 is accepted with its six icons, ADRs 0010, 0011 and 0013 carry its Note and
+// header line, and the config names it. Layer: the documents. Suite: this file.
+test('followups ADR 0014: the documents follow', () => {
+  const REPO = join(HERE, '..', '..', '..');
+  const read = (...p) => readFileSync(join(REPO, ...p), 'utf8');
+  const name = '0014-each-roadmap-change-runs-in-a-session-of-its-own.md';
+  const link = `[ADR 0014](${name})`;
+  const adr = read('docs', 'adr', name);
+  for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
+    assert.ok(adr.split('\n').includes(h), `ADR 0014 has ${h}`);
+  }
+  assert.match(adr, /^- Status: accepted$/m);
+  assert.match(adr, /^- Accepted by: .*approval\.md/m);
+  assert.match(adr, /^- Supersedes: ADR 0013 \(0013-the-roadmap-coordinator-is-the-owners-session\.md\)/m);
+  assert.match(adr, /^- Amends: ADR 0013, decisions 3 and 4; ADR 0011 \(0011-the-change-coordinator-is-the-owners-session\.md\)/m);
+  for (const icon of ['❓ requirements', '📝 plan', '🛠️ code', '🔍 review', '🚀 delivery', '📦 archive']) assert.ok(adr.includes(icon), `ADR 0014 names ${icon}`);
+  const amended = `- Amended by ADR 0014 (${name})`;
+  const adr13 = read('docs', 'adr', '0013-the-roadmap-coordinator-is-the-owners-session.md');
+  const adr11 = read('docs', 'adr', '0011-the-change-coordinator-is-the-owners-session.md');
+  const adr10 = read('docs', 'adr', '0010-openspec-as-the-harness.md');
+  for (const t of [adr13, adr11]) assert.ok(t.split('\n').includes(amended), 'the header line');
+  for (const t of [adr13, adr11, adr10]) {
+    assert.match(t, /Note \(roadmap-coordinator-followups, 2026-11-21\):/);
+    assert.ok(t.includes(link), 'the Note links ADR 0014');
+  }
+  const adrs = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
+  assert.match(adrs, /0014 in the desktop app each change of a roadmap run runs in a session of its own, amends 0011 and 0013/);
+  const flow = read('docs', 'openspec-flow.md');
+  assert.ok(flow.split('\n').some((l) => l.startsWith('**A session per change.**')), 'the flow page has the paragraph "A session per change."');
+  assert.doesNotMatch(flow, /\(ready, waits for a place\)/);
+  for (const f of [['README.md'], ['docs', 'roles.md'], ['docs', 'coordination-design.md']]) {
+    assert.match(read(...f), /ADR 0014/, `${f.join('/')} cites ADR 0014`);
+  }
 });
