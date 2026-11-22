@@ -399,7 +399,7 @@ Documents:
     add "(a commit of test files only stales the evidence and the two reviewers that read tests)".
   - CI: after "a later product commit fails the job", add "(after a commit of test files only, the
     reviews of `spec-reviewer`, `adr-reviewer`, `architecture-reviewer` and `security-reviewer` stay
-    current)". The three `v0.18.1` lines become `v0.19.0`.
+    current)". The three `v0.18.1` lines become `v0.21.0`.
 - `plugins/core/skills/review-change/SKILL.md`, as D-5 says. The Cost paragraph's "or an ancestor of
   it with only `openspec/` changes since" adds "(for `spec-reviewer`, `adr-reviewer`,
   `architecture-reviewer` and `security-reviewer`, test files may change too)". The stale bullet adds
@@ -408,14 +408,14 @@ Documents:
 
 Release (`CONTRIBUTING.md`, step 5):
 
-- devkit-core 0.8.1 to 0.9.0 and devkit-openspec 0.18.1 to 0.19.0, in each `plugin.json` and in
+- devkit-core 0.8.1 to 0.9.0 and devkit-openspec 0.18.1 to 0.21.0, in each `plugin.json` and in
   `.claude-plugin/marketplace.json`.
-- The marketplace from 0.22.1 to 0.23.0, with a `CHANGELOG.md` section
-  `## 0.23.0 — review round tooling`: one bullet per pack, a docs bullet, and the line "The CI snippet
-  now pins `v0.19.0`, the release's tag."
+- The marketplace from 0.22.1 to 0.25.0, with a `CHANGELOG.md` section
+  `## 0.25.0 — review round tooling`: one bullet per pack, a docs bullet, and the line "The CI snippet
+  now pins `v0.21.0`, the release's tag."
 - Both are minor bumps: `args.head` is a new required input of devkit-core's script, and the
   staleness rule changes what devkit-openspec's checkers report.
-- The tag `v0.19.0` is pushed after the merge (Workflow follow-up). The sibling
+- The tag `v0.21.0` is pushed after the merge (Workflow follow-up). The sibling
   `roadmap-coordinator-followups` bumps devkit-openspec too, and the release rebase settles that.
 
 ## Decisions and ADRs
@@ -516,7 +516,7 @@ the roadmap line cites them. ADR 0002, 0008 and 0012, as cited.
 
 Projects get the rules when they update the packs. A session's round needs `args.head` from
 devkit-core 0.9.0 on, and the skill text of the same release says so. A project's pinned
-`devkit-reviews` workflow keeps the old staleness rule until the project moves its pin to `v0.19.0`.
+`devkit-reviews` workflow keeps the old staleness rule until the project moves its pin to `v0.21.0`.
 That is stricter, never looser, so a pull request the new rule passes can fail under an old pin until
 its two code reviewers are current. This repository's own workflow runs the tree's
 `deliver-check.mjs`, so this change's pull request is judged by the new rule.

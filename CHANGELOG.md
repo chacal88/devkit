@@ -9,10 +9,10 @@
   outcome's writer prompt as `jobs`, which leaves out the stage-1 `Verdict:` and `Commit:` lines;
   `check-file` refuses a second `Verdict:` or `Commit:` line. The six reviewer agents' Staged round
   paragraph says the same.
-- **devkit-openspec** 0.20.0: a commit of test files only stales only `code-quality-reviewer` and
+- **devkit-openspec** 0.21.0: a commit of test files only stales only `code-quality-reviewer` and
   `test-coverage-reviewer` (and the evidence), and `flow-check` reports the review stage stale
   while any reviewer is stale; `deliver-check` no longer counts a checkbox inside a fenced example
-  of `tasks.md` as a task. The CI snippet now pins `v0.20.0`, the release's tag.
+  of `tasks.md` as a task. The CI snippet now pins `v0.21.0`, the release's tag.
 - Docs: the flow document and the `review-change` and `ship-change` skills follow.
 
 ## 0.24.1 — retro of project-phases

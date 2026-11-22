@@ -86,14 +86,14 @@ Exit criteria: every phase gate of `tasks.md` green, then
 - devkit-core (0.8.1 to 0.9.0): `skills/review-change/scripts/review-round.workflow.js` (the rules
   section), `review-round.mjs`, `review-round.test.mjs`, `skills/review-change/SKILL.md`, and the six
   reviewer agents' "Staged round" paragraph.
-- devkit-openspec (0.18.1 to 0.19.0): `hooks/deliver-check.mjs`, `hooks/flow-check.mjs`, their tests,
+- devkit-openspec (0.18.1 to 0.21.0): `hooks/deliver-check.mjs`, `hooks/flow-check.mjs`, their tests,
   `hooks/change-loop.test.mjs` (the CI pin and the round 25 roadmap test),
   `skills/ship-change/SKILL.md` (the `review` row).
 - The `devkit-reviews` check: it judges with the new staleness rule in this repository at once (its
   workflow runs the tree's `deliver-check.mjs`), and in a project once the project moves its pin to
-  `v0.19.0`. The three downloaded files stay `guard.mjs`, `deliver-check.mjs` and `merge-setup.mjs`.
+  `v0.21.0`. The three downloaded files stay `guard.mjs`, `deliver-check.mjs` and `merge-setup.mjs`.
 - Docs and release: `docs/openspec-flow.md`, `CHANGELOG.md`, `.claude-plugin/marketplace.json`
-  (0.22.1 to 0.23.0); the tag `v0.19.0` after the merge.
+  (0.22.1 to 0.25.0); the tag `v0.21.0` after the merge.
 
 **Dependencies.** `merge-setup-field-fixes` (archived 2026-11-21: the first-`Verdict:`-line rule this
 change's `check-file` rule sits beside). The sibling `roadmap-coordinator-followups` also bumps
