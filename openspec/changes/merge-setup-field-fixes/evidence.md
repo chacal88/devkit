@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=49294bc67cd416846cefd89dc5eed5f1281c5718 -->
-Commit: 49294bc67cd416846cefd89dc5eed5f1281c5718
+<!-- devkit-stage evidence result=passed attempt=3 commit=c292a5dadffebdd027b5ad8305f7bba97684a3e5 -->
+Commit: c292a5dadffebdd027b5ad8305f7bba97684a3e5
 
 # Evidence: merge-setup-field-fixes
 
-Verified on branch `merge-setup-field-fixes` at the commit above, before the PR exists (no PR comment).
+Verified on branch `merge-setup-field-fixes` at the commit above (the merge of `main` into the branch for PR #46).
 The working tree was clean outside `openspec/`. Every gate ran at this commit with
 `GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main`, as a pull-request run on CI does. No UI, no
 screenshots: the change touches scripts and hooks only.
@@ -20,7 +20,7 @@ screenshots: the change touches scripts and hooks only.
 | 2.4 repo check | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
 | 3.4 verdict tests | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^field-fixes 10 " --test-name-pattern="^readValue" --test-name-pattern="^reviewConsensus" --test-name-pattern="^gh pr create" --test-name-pattern="^conduct" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 103 tests, 103 pass, 0 fail, 0 skipped |
 | 3.4 repo check | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
-| 4.3 whole guard suite | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 1130 tests, 1130 pass, 0 fail, 0 skipped, 1044 s |
+| 4.3 whole guard suite | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 1130 tests, 1130 pass, 0 fail, 0 skipped, 1014 s |
 | 4.3 repo check | `python3 scripts/check.py` | pass: exit 0, "all checks passed" (includes the Markdown language check) |
 | 4.3 catalog | `python3 scripts/gen-catalog.py --check` | pass: exit 0, catalog up to date |
 | 4.3 plugin validation | `command claude plugin validate .` | pass: exit 0, "Validation passed" |
@@ -44,6 +44,7 @@ above are what each run printed.
   changed.
 - Item 10's tests cannot be red on the base; the table row says so and cites the owner's acceptance
   recorded in the plan, which this run did not decide.
-- This refresh ran at the HEAD above, which adds two tests (one in each suite) over the first
-  evidence run (58d7a8b, 375 and 419 tests); no production file changed between the two commits.
-  Every gate was re-run at HEAD.
+- This refresh ran at the HEAD above. `git diff 49294bc..HEAD --stat` lists only files under
+  `openspec/` (this evidence, `review.md`, `reviews/`, and `roadmap.md` from the merge of `main`), so
+  no production file or test changed since the 49294bc run; every gate was re-run at HEAD and the
+  counts are the same (376, 421, 103, 1130).
