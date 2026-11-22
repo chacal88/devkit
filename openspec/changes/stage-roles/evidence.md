@@ -1,15 +1,11 @@
-<!-- devkit-stage evidence result=failed attempt=3 commit=21f65966763d8902ad3af8ac7598bfd02d3b9a4a -->
-Commit: 21f65966763d8902ad3af8ac7598bfd02d3b9a4a
+<!-- devkit-stage evidence result=passed attempt=4 commit=8d07aa047214a7491852265c9108dde96e05f24c -->
+Commit: 8d07aa047214a7491852265c9108dde96e05f24c
 
 # Evidence: stage-roles
 
-Verified at the commit above on branch `stage-roles`, working tree clean. This run replaces the evidence of e8af242 (attempt 2, stale) after the merge of origin/main (8c8b7b8) into the branch. Tests ran with `TMPDIR=/var/tmp` and `GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main`. No PR comment posted, no screenshots: the change has no UI surface and the proof is text.
+Verified at the commit above on branch `stage-roles`, working tree clean. This run replaces the evidence of 21f6596 (attempt 3), which failed only on `openspec validate stage-roles --strict`; 8d07aa0 added to the delta `openspec/changes/stage-roles/specs/roadmap-coordination/spec.md` main's scenario "Two changes at their grill, each in its own session" and main's new text of the requirement. Every gate below was re-run at this commit (nothing carried over), with `TMPDIR=/var/tmp` and `GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main` for the hook suites. `git diff --stat 21f6596..HEAD` shows only `openspec/` files (the delta spec and this evidence). No PR comment posted, no screenshots: the change has no UI surface and the proof is text.
 
 ## Verification
-
-### Defect
-
-`openspec validate stage-roles --strict` fails at this commit. The merge brought in main's current `openspec/specs/roadmap-coordination/spec.md`, where the requirement "The owner's gates are asked one change at a time" (spec line 160) now has a fourth scenario, "Two changes at their grill, each in its own session" (spec line 180). The change's delta `openspec/changes/stage-roles/specs/roadmap-coordination/spec.md` MODIFIES that requirement (line 6) with the scenarios "Two changes at their grill", "A gate of a change earlier in the file during another change's grill", "The others keep running" and the new "A mock-up waits while another change is asked", and omits the fourth. A MODIFIED block replaces the whole requirement, so archiving would drop that scenario. Reproduce: `openspec validate stage-roles --strict` (exit 1). Fix (for the implementation stage, not done here): copy the scenario "Two changes at their grill, each in its own session" from the current spec into the MODIFIED block. The full hook suite does not catch it.
 
 ### Gates
 
@@ -28,7 +24,7 @@ Verified at the commit above on branch `stage-roles`, working tree clean. This r
 | 4.5 | `node --test plugins/compozy/skills/compozy-setup/scripts/install-kit.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs plugins/compozy/skills/compozy-setup/scripts/role-shells.test.mjs plugins/compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs` | pass: 79 tests, 78 pass, 0 fail, 1 skipped |
 | 4.5 | `python3 scripts/check.py` | pass: all checks passed |
 | 4.5 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, catalog up to date |
-| 4.5 | `openspec validate stage-roles --strict` | fail: exit 1, `roadmap-coordination/spec.md`: MODIFIED "The owner's gates are asked one change at a time" omits the scenario "Two changes at their grill, each in its own session" that the current spec has |
+| 4.5 | `openspec validate stage-roles --strict` | pass: Change 'stage-roles' is valid, exit 0 |
 | 4.5 | `command claude plugin validate .` | pass: Validation passed |
 
 ### Acceptance criteria
@@ -50,4 +46,4 @@ Verified at the commit above on branch `stage-roles`, working tree clean. This r
 | AC-13 | no-stage-goes-back | The tests for stages arriving after their point (`mockup` and `decisions` past `proposal.md`; `unit-tests` and `e2e-tests` past `evidence.md`) pass in gate 1.10 and the full suite. | pass |
 | AC-14 | compozy-driver-runs-new-stages | `templates/loops/openspec-change/loop.yaml` and the `design`, `tech-lead` and `qa` role shells under `plugins/compozy/skills/compozy-setup/templates/agents/` name `screen-designer`, `adr-author`, `test-runner` and `e2e-tester`; the `stage-roles kit` tests, including "the kit still ships exactly four shells", pass in the kit suite (78 pass, 1 skipped). | pass |
 | AC-15 | roles-doc-current | `docs/roles.md` has sections `screen-designer` (line 51), `adr-author` (59), `test-runner` (91) and `e2e-tester` (99), each with a "Played today by" line naming the `devkit-core` agent; line 53 says `screen-designer` runs only when the grill flags `ui`. `docs/coordination-design.md` lines 167, 168, 173, 174 and 175 (D-4 rows 3, 4, 9, 10, 11) are marked built ("built, round 16"). The `stage-roles roles` and `stage-roles docs` pins pass. | pass |
-| AC-16 | checks-green | Passing at this commit: full hook suite 1512/1512, kit tests 78 pass and 1 skipped, `check.py`, `gen-catalog.py --check`, `claude plugin validate .`. Versions at this commit: marketplace 0.26.0, devkit-core 0.10.0, devkit-openspec 0.22.0, devkit-compozy 0.3.0. FAILING: `openspec validate stage-roles --strict` exits 1 (see Defect), so the criterion is not met. | fail |
+| AC-16 | checks-green | All gates re-run at this commit and green: full hook suite 1512/1512, gate 1.10 suite 516/516, gate 2.10 suite 454/454, kit tests 78 pass and 1 skipped, `check.py`, `gen-catalog.py --check`, `diff -r` of the two schema copies, `openspec validate stage-roles --strict` (exit 0), `claude plugin validate .`. Versions: marketplace 0.26.0, devkit-core 0.10.0, devkit-openspec 0.22.0, devkit-compozy 0.3.0 (unchanged since 21f6596). | pass |
