@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=2300f84524e5c1ec5ed8a0da41e5a5dccff9cc34 -->
-Commit: 2300f84524e5c1ec5ed8a0da41e5a5dccff9cc34
+<!-- devkit-stage evidence result=passed attempt=3 commit=b276eea748f4ff4d4e78db93d1ff91fe018e2f9a -->
+Commit: b276eea748f4ff4d4e78db93d1ff91fe018e2f9a
 
 # Evidence: managed-agents-study
 
-Docs-only change (every uncommitted file is under `openspec/`, so the Commit line carries no uncommitted flag; all gates re-run at this commit): the deliverable is `openspec/changes/managed-agents-study/study.md` and the approved lines in `openspec/roadmap.md`. No API, UI or deploy surface is touched, so no endpoint, screenshot or dry-run proof applies. No PR exists yet, so there is no PR comment.
+Docs-only change (tree clean at the verified commit; all gates re-run at this commit): the deliverable is `openspec/changes/managed-agents-study/study.md` and the approved lines in `openspec/roadmap.md`. No API, UI or deploy surface is touched, so no endpoint, screenshot or dry-run proof applies. HEAD is a merge of origin/main (devkit-openspec 0.19.0 and 0.19.1) into the branch; the gates were re-run on it, the tree clean. The PR is https://github.com/chacal88/devkit/pull/50.
 
 ## Verification
 
@@ -37,5 +37,5 @@ Docs-only change (every uncommitted file is under `openspec/`, so the Commit lin
 | AC-6 | Unstated facts marked and listed as open points | 7 open points (O-n) under `## Open points for the grill of remote-worker`; the check fails any "not stated in the docs" line whose O-n is not listed there | pass |
 | AC-7 | ADR collisions name file and section, line names the replacing ADR | F-3 has ``ADR: `docs/adr/0011-the-change-coordinator-is-the-owners-session.md`, section "Decision"``; the check requires the file to exist and a linked line whose text includes "ADR". All other items say `ADR: none` (not independently judged here) | pass |
 | AC-8 | Each proposed line put to the owner, answer recorded | L-1 to L-5 each record `Answer: approved`; mode 2 of the check requires every line answered. That each was asked on its own happened in the conducting session and cannot be replayed here | pass |
-| AC-9 | Approved lines, and only those, are in roadmap.md; no `[x]` line changed | Diff of `openspec/roadmap.md`: three new lines (change-version-pin, change-state, change-budget) under Rounds 25c, 25d, 25e, and additions to `coordination-panels` and `remote-worker`; 0 removed `[x]` lines; mode 2 of the check matches lines to answers; gate 2.4 diff test exits 0 | pass |
+| AC-9 | Approved lines, and only those, are in roadmap.md; no `[x]` line changed | Diff of `openspec/roadmap.md` against the merge base with origin/main: three new lines (change-version-pin, change-state, change-budget) under Rounds 25c, 25d, 25e, and edits to the host lines `coordination-panels` (adds `change-state` to `after:`) and `remote-worker` (addition); no `[x]` line removed or changed; mode 2 of the check matches lines to answers; gate 2.4 diff test exits 0. `study.md` L-2 and L-3 carry `- Revised:` lines for the owner approvals of 2026-11-21 and 2026-11-22 | pass |
 | AC-10 | check.py and gen-catalog.py --check pass | Gates 1.5 and 2.4 rows above: both exit 0 | pass |
