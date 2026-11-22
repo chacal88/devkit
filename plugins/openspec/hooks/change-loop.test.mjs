@@ -3229,17 +3229,19 @@ test('stage-roles docs: ADR 0010 and ADR 0011 name ADR 0016 in a header line and
   assert.match(adrs, /0016 stage roles write their own files, amends 0010 and 0011/, 'the ADRs line of config.yaml names 0016');
 });
 
+// The roadmap line of stage-roles as commit 2300f84 had it, before the carried items moved. It is a
+// literal, not a `git show`, because CI checks out with depth 1 and the history is not there.
+const STAGE_ROLES_LINE_AT_2300F84 = "- [ ] stage-roles (after: change-coordinator) — the ADR author, the unit-test suite, the E2E tester, the screen designer and the demonstration recorded as text in the change (D-4 stages 3, 4, 9, 10, 11) Carried from the change-coordinator retro for its grill, as the first real use of /devkit change: a declared end for a pause the owner asks for and for a decision outside the script's gates; the end marker's id compared with the run's change; the skill's resolve-release-conflict item naming the declared end; the loop's fallback agent map tied to the pack table; a dated Note on ADR 0011 for the stop lock after a recorded end; the person's language checked with the installed plugin when it was never set; the unlimited wait on GitHub proved in real use; whether a change that creates the project's first spec may run on the short script; and whether the short script gains the owner's plan approval. Carried from the coordinator-field-fixes retro: a declared step for a review round the owner authorizes after the limit (the round script accepts a third round and the loop leaves `blocked` without a header set by hand); a plan file revised after the implementation started makes the readiness review and the approval stale; and the review's open nits of that change (the archive sources worded as a fallback chain in the change-coordination spec while the code takes their union, exit 1 of `github-setup` for a blocked state stated in a scenario, a test for an unreadable `.openspec.yaml`). Carried from the roadmap-coordinator retro, the first whole change run with /devkit change: a declared step for a small fix after a red gate, in place of a run that ends blocked; a way for a task to say that the conducting session does it, so the loop does not hand it to the implementer; how the wait on GitHub lives with a host that has its own pull-request monitor and forbids polling, so that the session still goes on alone when the checks pass; and the verifier allowed to write its runs' output under the change's `proof/` folder.";
+
 test('stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes', () => {
-  const old = spawnSync('git', ['show', '2300f84:openspec/roadmap.md'], { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-  assert.equal(old.status, 0, old.stderr);
   const itemOf = (rounds, id) => rounds.flatMap((r) => r.items).find((i) => i.id === id);
-  const before = itemOf(guardModule.parseRoadmap(old.stdout), 'stage-roles');
+  const before = itemOf(guardModule.parseRoadmap(`## Round 16: the new stage roles\n${STAGE_ROLES_LINE_AT_2300F84}\n`), 'stage-roles');
   const rounds = guardModule.parseRoadmap(readRepo('openspec', 'roadmap.md'));
   const stage = itemOf(rounds, 'stage-roles');
   const fixes = itemOf(rounds, 'coordinator-loop-fixes');
   assert.ok(before && stage && fixes, 'both lines exist');
   const cut = before.text.indexOf(' Carried from');
-  assert.ok(cut > 0, 'the line at 2300f84 holds the carried text');
+  assert.ok(cut > 0, 'the line as it was at 2300f84 holds the carried text');
   const carried = before.text.slice(cut).trim();
   assert.equal(stage.text, before.text.slice(0, cut), 'the stage-roles line keeps the text before the carried items');
   assert.doesNotMatch(stage.text + stage.notes, /Carried from/, 'the stage-roles line holds none of them');
