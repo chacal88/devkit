@@ -2475,7 +2475,8 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.21\.0/, 'the CI snippet pins the current release (review-writer-prompt: 0.21.0)');
+  assert.match(flow, /v0\.21\.1/, 'the CI snippet pins the current release (review-writer-prompt retro: 0.21.1)');
+  assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
   const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
   assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
   assert.match(flow, /moves this pin to `v0\.20\.0` or later first/, 'the slice-merge floor (project-phases) is kept');
