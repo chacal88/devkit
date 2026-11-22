@@ -1,23 +1,27 @@
 Verdict: approved
-Commit: 8719eaa079da564091503bc6ccf8d7b7fc523052
+Commit: be4e2edb7c463dc5e59818e66f5906b9cdce4c4b
 
-## Coverage analysis: review-writer-prompt (round 2, 643bc47..8719eaa)
+## Coverage analysis: review-writer-prompt, round 3 (rebase re-review, c377948..HEAD)
 
 ### Findings
-- [important] plugins/openspec/hooks/deliver-check.mjs fencedLines — An unclosed fence in tasks.md hid every later task and gate. · fixed in 8719eaa
-- [nit] review-round.test.mjs AC-1/AC-3/AC-4 text tests — Exact-prose tests are fragile to rewording; they guard a documented contract.
+- [important] plugins/openspec/hooks/deliver-check.mjs fencedLines — An unclosed fence in tasks.md hid every later task and gate. · fixed in 4d10f6fa80f429203699490b829463e0eff47b22
+- [nit] review-round.test.mjs AC-1/AC-3/AC-4 — Exact-prose tests are fragile to rewording; they guard a documented contract.
 - [nit] review-round.test.mjs 'a file written from the writer prompt...' — The title overstates it: the file is built by the writeVerdictFile helper from the outcome, not from the writer prompt.
 - [nit] openspec/changes/review-writer-prompt/evidence.md gate 2.5 — The standalone run of the two hook test files left no output; the proof is indirect, through the guard suite.
+- [praise] plugins/openspec/hooks/deliver-check.test.mjs AC-8 merge test — The new test pins the combination of the first-parent rule and the test-file sparing: stale without allowed, current with it.
 
-In-scope surfaces: plugins/openspec (deliver-check.mjs fencedLines and its consumers parseTasks, readPhases, tasksItem, nextStep, and flow-check pendingTasks); the rest of the change was covered in round 1 and is unchanged.
+In-scope surfaces: plugins/openspec/hooks (deliver-check.mjs staleness() and touchedPaths, deliver-check.test.mjs, change-loop.test.mjs), the version and pin files, and docs/openspec-flow.md.
 Blocking gaps (8-10 without a plan): 0
 
 Seams checked (mutation runs: 0):
-- Unclosed fence hides nothing: caught by new tests in deliver-check.test.mjs. fencedLines returns [] for an unclosed opener. A closed fence after an unclosed one still hides its own lines ([4,5,6]). parseTasks, readPhases (gate 1.3 and open ['1.2']), tasksItem (unticked ['1.2','1.3']), nextStep (implement, names 1.2) and pendingTasks from flow-check (both pending) all see the later tasks. The fixture uses the literal shape from the round-1 reproduction, and the spec change-delivery now has three scenarios for it, so the rule is settled in the spec first.
-- My scratch reproduction at HEAD: parseTasks on the unclosed text returns 1.1, 1.2, 1.3. fencedLines on a closed fence followed by an unclosed one returns [1,2,3], so the closed fence stays hidden and the unclosed one hides nothing.
-- The rescan loop is quadratic in the worst case (many unclosed openers); tasks.md is small, so this is not a gap.
+- First-parent rule combined with the test-file sparing: staleness() takes `allowed` and applies it to touchedPaths(), which uses the first-parent diff for merges. Caught by the new test 'review-writer-prompt AC-8 a merge whose first-parent diff is only test files is current with allowed and stale without it'. It asserts a stale reason naming src/a.test.ts without allowed and null with it, and it checks the first-parent diff first. Main's merge-staleness 1 to 8 tests cover the first-parent half.
+- `allowed` passed through unchanged: the AC-8 option test still covers the option on a plain commit, and the default stays isOpenspec, which merge-staleness 2 to 8 exercise.
+- Version and pin bump to 0.20.0, marketplace 0.24.0: caught by the change-loop docs test (requires v0.20.0 in the flow doc, refuses v0.19.1, v0.19.0, v0.18.0 and v0.18.1). The pin matches plugin.json, marketplace.json, the CHANGELOG and tasks.md.
+- BLOCKED_WHY_KEYS gained roadmap-blocked-others (from main): the test pins render's list, so a missing key goes red.
 
-Well covered:
-- The unclosed-fence rule, through the helper and every consumer (delivery checker and stage checker), with mixed closed and unclosed fences.
+### Well covered
+- A merge whose first-parent diff holds only test files is current with `allowed` and stale without it.
+- The unclosed-fence rule, through the helper and every consumer.
+- The first-parent staleness rule (merge-staleness 1 to 8), including resolution edits, moved files, root commits and a product commit after an openspec-only merge.
 
-Files read: git diff 643bc47..HEAD for deliver-check.mjs, deliver-check.test.mjs and specs/change-delivery/spec.md in full, and the stat of the whole range; my previous verdict file. Of the range, the rest is change-folder paperwork (approval, design, readiness, review, reviews/*, tasks, evidence), which I did not open; it is outside my test remit. No test file of my remit is left unread. The focused AC-9 test run did not finish in my window, so I relied on the recorded green guard suite (evidence.md, 8719eaa) plus my direct reproduction.
+Files read: git range-diff 2300f84..4933609 c377948..HEAD in full; git diff 4933609 HEAD for deliver-check.mjs, deliver-check.test.mjs and tasks.md; the change-loop.test.mjs, docs/openspec-flow.md, CHANGELOG.md, marketplace.json and plugin.json diffs, mostly through the range-diff because the raw diff against 4933609 was truncated; my previous verdict file. The truncated raw diffs mostly carry main's own changes, so I read the resolution itself through the range-diff. A grep for stale 0.19.0 or 0.19.1 pins in the flow doc and hook tests found none. No file of my remit is left unread. I ran no tests, per the instructions, and relied on the green guard suite recorded in evidence.md.
