@@ -111,7 +111,8 @@ const INSTALL = join(HERE, '..', 'skills', 'openspec-setup', 'scripts', 'install
 
 const DEVKIT_STAGES = ['requirements', 'mockup', 'decisions', 'proposal', 'specs', 'design', 'tasks', 'readiness',
   'approval', 'unit-tests', 'e2e-tests', 'evidence', 'review', 'retro'];
-const LITE_STAGES = DEVKIT_STAGES.filter((s) => !['design', 'readiness', 'approval'].includes(s));
+// Invariant (T-1, schema, flow-check.test.mjs): the short script declares neither the plan review, nor the design, nor the stages the full script alone runs (mock-up, decisions).
+const LITE_STAGES = DEVKIT_STAGES.filter((s) => !['design', 'readiness', 'approval', 'mockup', 'decisions'].includes(s));
 const STAGES_OF = { devkit: DEVKIT_STAGES, 'devkit-lite': LITE_STAGES };
 
 const run = (cwd, cmd, ...args) => {
@@ -453,8 +454,14 @@ test('flow-check stages: not applicable counts as passed', () => {
   assert.equal(r.next.reasonCode, 'no-file');
 });
 
+// The shipped declaration with `shipped: false` set on the named stages and their conditions removed (T-2, T-3): a stage a
+// project's own declaration marks as not shipped.
+const unshippedFlow = (ids) => ({ ...FLOW_DEVKIT, stages: FLOW_DEVKIT.stages.map((s) => (ids.includes(s.id)
+  ? { ...Object.fromEntries(Object.entries(s).filter(([k]) => !['appliesWhen', 'notAfter', 'ceiling'].includes(k))), shipped: false } : s)) });
+
+// Invariant (T-2, checker, flow-check.test.mjs): an unshipped role's stage with no file does not apply.
 test('flow-check stages: a stage whose role is not shipped and has no file does not apply', () => {
-  const r = walk({ mockup: null, decisions: null, design: null });
+  const r = computeFlow(synth({ mockup: null, decisions: null, design: null }), unshippedFlow(['mockup', 'decisions']), {});
   for (const id of ['mockup', 'decisions']) {
     assert.equal(stageOf(r, id).state, 'not-applicable', id);
     assert.equal(stageOf(r, id).reasonCode, 'role-not-shipped', id);
@@ -702,9 +709,11 @@ test('flow-check parity: each stage file of flow.json is the generates of its ar
   }
 });
 
+// Invariant (T-3, checker, flow-check.test.mjs): a pending file no shipped role can finish waits for the owner.
 test('flow-check stages: a pending file of an unshipped role waits for the owner', () => {
+  const declared = unshippedFlow(['mockup', 'decisions', 'unit-tests']);
   for (const id of ['decisions', 'mockup', 'unit-tests']) {
-    const r = walk({ [id]: { result: 'pending' } });
+    const r = computeFlow(synth({ [id]: { result: 'pending' } }), declared, {});
     assert.equal(r.next, null, id);
     assert.equal(r.end.state, 'waiting-for-owner', id);
     assert.equal(r.end.stage, id);
@@ -716,9 +725,9 @@ test('flow-check stages: a pending file of an unshipped role waits for the owner
     { 'unit-tests': { result: 'failed' } }, { 'unit-tests': { result: 'failed', commit: 'c111111' } }, { review: { result: 'failed' } },
     { decisions: { header: null } }, { retro: { result: 'pending' } }, { requirements: { result: 'pending' } },
   ];
-  const byId = Object.fromEntries(FLOW_DEVKIT.stages.map((s) => [s.id, s]));
+  const byId = Object.fromEntries(declared.stages.map((s) => [s.id, s]));
   for (const over of fixtures) {
-    const r = walk(over, { staleness: (sha) => (sha === 'c111111' ? 'behind' : null) });
+    const r = computeFlow(synth(over, { staleness: (sha) => (sha === 'c111111' ? 'behind' : null) }), declared, {});
     if (r.next) {
       assert.notEqual(r.next.role, 'owner', JSON.stringify(over));
       assert.notEqual(byId[r.next.stage].shipped, false, JSON.stringify(over));
@@ -1078,12 +1087,14 @@ test('flow-check readout: --json carries the same facts', () => {
 
 // ---- the readout in both languages
 
+// Invariant (T-8, readout, flow-check.test.mjs): the sample change prints the approved readout in both languages, and a stage
+// the change was already past when it arrived says so and is never offered.
 const SAMPLE_PT = `Change add-csv-export (roteiro devkit)
 
  1  Abrir a change          passou
  2  Requisitos (grill)      passou
- 3  Mock-up de tela         não se aplica: ninguém executa esta etapa ainda (o papel screen-designer não existe nesta versão)
- 4  Decisões e ADRs         não se aplica: ninguém executa esta etapa ainda (o papel adr-author não existe nesta versão)
+ 3  Mock-up de tela         não se aplica: a change já tinha passado da etapa proposta quando esta etapa chegou
+ 4  Decisões e ADRs         não se aplica: a change já tinha passado da etapa proposta quando esta etapa chegou
  5  Proposta                passou
  6  Specs                   passou
  7  Design                  passou
@@ -1091,8 +1102,8 @@ const SAMPLE_PT = `Change add-csv-export (roteiro devkit)
  9  Revisão do plano        passou na tentativa 2
 10  Aprovação do dono       passou
 11  Implementação           passou: 6 de 6 tarefas feitas
-12  Testes unitários        não se aplica: ninguém executa esta etapa ainda (o papel test-runner não existe nesta versão)
-13  Testes E2E              não se aplica: ninguém executa esta etapa ainda (o papel e2e-tester não existe nesta versão)
+12  Testes unitários        não se aplica: a change já tinha passado da etapa demonstração quando esta etapa chegou
+13  Testes E2E              não se aplica: a change já tinha passado da etapa demonstração quando esta etapa chegou
 14  Demonstração            passou
 15  Revisão de código       falhou na tentativa 1 de 2
 16  Entrega                 bloqueada: espera a etapa 15
@@ -1106,8 +1117,8 @@ const SAMPLE_EN = `Change add-csv-export (devkit script)
 
  1  Open the change         passed
  2  Requirements (grill)    passed
- 3  Screen mock-up          does not apply: nobody runs this stage yet (no screen-designer role in this version)
- 4  Decisions and ADRs      does not apply: nobody runs this stage yet (no adr-author role in this version)
+ 3  Screen mock-up          does not apply: the change was already past the proposal when this stage arrived
+ 4  Decisions and ADRs      does not apply: the change was already past the proposal when this stage arrived
  5  Proposal                passed
  6  Specs                   passed
  7  Design                  passed
@@ -1115,8 +1126,8 @@ const SAMPLE_EN = `Change add-csv-export (devkit script)
  9  Plan readiness          passed at attempt 2
 10  Owner's approval        passed
 11  Implementation          passed: 6 of 6 tasks done
-12  Unit tests              does not apply: nobody runs this stage yet (no test-runner role in this version)
-13  E2E tests               does not apply: nobody runs this stage yet (no e2e-tester role in this version)
+12  Unit tests              does not apply: the change was already past the demonstration when this stage arrived
+13  E2E tests               does not apply: the change was already past the demonstration when this stage arrived
 14  Demonstration           passed
 15  Code review             failed at attempt 1 of 2
 16  Delivery                blocked: waits for stage 15
@@ -1192,7 +1203,10 @@ test('flow-check readout: both languages cover every reason code', () => {
     'tasks-pending': { count: 2, ids: ['1.1', '1.2'] }, uncommitted: { paths: ['src/a.ts'] }, 'tasks-done': { done: 6, total: 6 }, 'waits-for': { n: 15 },
     'fix-after-failure': { failed: 'review', attempt: 1, ceiling: 2 }, 'rerun-after-fix': { stage: 'review' }, 'ceiling-reached': { stage: 'review', attempt: 2, ceiling: 2 },
     'no-progress': { stage: 'review' }, 'owner-pending': { stage: 'review' }, 'approval-stale': { stage: 'review' }, 'unshipped-role-pending': { stage: 'review' },
-    'no-role': { stage: 'review', role: 'owner' }, archive: {}, archived: {}, 'previous-script': {}, 'schema-without-declaration': {},
+    'no-role': { stage: 'review', role: 'owner' },
+    // The five codes of stage-roles (T-4): every reason code is said in both languages.
+    'past-point': { after: 'proposal' }, 'flag-absent': { flag: 'ui' }, 'setting-absent': { setting: 'tests.unit' }, 'changes-asked': { attempt: 2 },
+    'owner-changes': { stage: 'mockup', attempt: 2 }, archive: {}, archived: {}, 'previous-script': {}, 'schema-without-declaration': {},
     'undeclared-stage': { stage: 'retro', why: 'every stage passed' },
     'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' },
     'check-failing': { checks: 'build (https://ci/build)' }, 'checks-pending': { checks: 'e2e' }, 'owner-merges': { number: 12 },
@@ -1446,6 +1460,396 @@ test('field-fixes 2 previous-script: isPreviousScript reads only the earliest st
   assert.equal(FC.isPreviousScript({ a: file(headed), b: file(null) }, flow), false);
   assert.equal(FC.isPreviousScript({ a: [], b: file(null) }, flow), true, 'the first stage with a file decides');
   assert.equal(FC.isPreviousScript({ a: [], b: [] }, flow), false, 'no file at all is a change being opened');
+});
+
+// ---------------------------------------------------------------- stage-roles: the declarations, the checker and the settings
+
+const NEW_STAGES = {
+  mockup: { id: 'mockup', source: 'artifact', file: 'mockup.md', role: 'screen-designer', owner: true, skills: ['screen-mockup'], part: 'plan',
+    appliesWhen: { flag: 'ui' }, notAfter: 'proposal', ceiling: 'owner', title: { en: 'Screen mock-up', 'pt-BR': 'Mock-up de tela' } },
+  decisions: { id: 'decisions', source: 'artifact', file: 'decisions.md', role: 'adr-author', skills: ['adr-authoring'], part: 'plan',
+    notAfter: 'proposal', title: { en: 'Decisions and ADRs', 'pt-BR': 'Decisões e ADRs' } },
+  'unit-tests': { id: 'unit-tests', source: 'artifact', file: 'unit-tests.md', role: 'test-runner', skills: ['test-and-coverage', 'systematic-debugging'],
+    part: 'after', codeBound: true, onFail: 'implementation', appliesWhen: { setting: 'tests.unit' }, notAfter: 'evidence', title: { en: 'Unit tests', 'pt-BR': 'Testes unitários' } },
+  'e2e-tests': { id: 'e2e-tests', source: 'artifact', file: 'e2e-tests.md', role: 'e2e-tester', skills: ['e2e-testing'],
+    part: 'after', codeBound: true, onFail: 'implementation', appliesWhen: { setting: 'tests.e2e' }, notAfter: 'evidence', title: { en: 'E2E tests', 'pt-BR': 'Testes E2E' } },
+};
+
+const withStage = (extra) => readFlow(flowRoot(flowOf(stage('a'), stage('b', extra), { ...stage('tail'), source: 'folder' }, stage('c'))), 'devkit');
+
+test('stage-roles flow declaration: appliesWhen holds exactly one of a flag or a setting, each a non-empty string', () => {
+  assert.deepEqual(withStage({ appliesWhen: { flag: 'ui' } }).stages[1].appliesWhen, { flag: 'ui' });
+  assert.deepEqual(withStage({ appliesWhen: { setting: 'tests.unit' } }).stages[1].appliesWhen, { setting: 'tests.unit' });
+  const bad = {
+    'a string': 'ui', 'an array': [], 'no key': {}, 'both keys': { flag: 'ui', setting: 'tests.unit' }, 'an empty flag': { flag: '' },
+    'a number flag': { flag: 3 }, 'an empty setting': { setting: '' }, 'an unknown key': { when: 'ui' },
+  };
+  for (const [why, appliesWhen] of Object.entries(bad)) {
+    assert.throws(() => withStage({ appliesWhen }), (e) => e instanceof FlowUsageError && /stage b/.test(e.message) && /appliesWhen/.test(e.message), why);
+  }
+});
+
+test('stage-roles flow declaration: notAfter names an artifact stage after this one', () => {
+  assert.equal(withStage({ notAfter: 'c' }).stages[1].notAfter, 'c');
+  const bad = { 'an unknown id': 'zzz', 'an earlier stage': 'a', 'its own id': 'b', 'a stage that is not an artifact': 'tail', 'a number': 4 };
+  for (const [why, notAfter] of Object.entries(bad)) {
+    assert.throws(() => withStage({ notAfter }), (e) => e instanceof FlowUsageError && /stage b/.test(e.message) && /notAfter/.test(e.message), why);
+  }
+});
+
+test('stage-roles flow declaration: ceiling is a whole number from 1 or the string owner', () => {
+  for (const ok of [1, 3, 'owner']) assert.equal(withStage({ ceiling: ok }).stages[1].ceiling, ok);
+  for (const bad of [0, -1, 1.5, 'x', '3', 'Owner', null]) {
+    assert.throws(() => withStage({ ceiling: bad }), (e) => e instanceof FlowUsageError && /stage b/.test(e.message) && /ceiling/.test(e.message), String(bad));
+  }
+});
+
+test('stage-roles flow declaration: both shipped declarations carry no shipped key and match the four stages of the design', () => {
+  const devkit = readFlowOf('devkit');
+  const lite = readFlowOf('devkit-lite');
+  for (const [name, stages] of [['devkit', devkit], ['devkit-lite', lite]]) {
+    for (const s of stages) assert.equal('shipped' in s, false, `${name}/${s.id} has no shipped key`);
+  }
+  const pick = (stages, id) => stages.find((s) => s.id === id);
+  for (const id of ['unit-tests', 'e2e-tests']) {
+    assert.deepEqual(pick(devkit, id), NEW_STAGES[id], `devkit/${id}`);
+    assert.deepEqual(pick(lite, id), NEW_STAGES[id], `devkit-lite/${id}`);
+  }
+  for (const id of ['mockup', 'decisions']) {
+    assert.deepEqual(pick(devkit, id), NEW_STAGES[id], `devkit/${id}`);
+    assert.equal(pick(lite, id), undefined, `devkit-lite has no ${id}`);
+  }
+  assert.deepEqual(pick(devkit, 'readiness').staleAfter, ['mockup', 'decisions', 'proposal', 'specs', 'design', 'tasks']);
+  assert.deepEqual(pick(lite, 'unit-tests').part, 'after');
+});
+
+test('stage-roles flow declaration: the lite status lists no mock-up and no decisions, read live through OpenSpec', () => {
+  const { y } = schemaProject();
+  const ids = y.artifacts.map((a) => a.id);
+  assert.deepEqual(ids, ['requirements', 'proposal', 'specs', 'tasks', 'unit-tests', 'e2e-tests', 'evidence', 'review', 'retro']);
+  assert.ok(!ids.includes('mockup') && !ids.includes('decisions'));
+});
+
+test('stage-roles flow declaration: every schema instruction states the stage condition, not the old not-shipped sentence', () => {
+  for (const base of [PLUGIN_SCHEMAS, REPO_SCHEMAS]) {
+    for (const schema of ['devkit', 'devkit-lite']) {
+      const yaml = readFileSync(join(base, schema, 'schema.yaml'), 'utf8');
+      assert.ok(!/Until this stage's role ships/.test(yaml), `${schema}: no stage waits for its role`);
+      assert.match(yaml, /applies only when `devkit\.tests\.unit` is declared/, schema);
+      assert.match(yaml, /applies only when `devkit\.tests\.e2e` is declared/, schema);
+      assert.match(yaml, /not once\s+`evidence\.md` exists/, schema);
+      assert.match(yaml, /as text: per acceptance criterion what was done/, schema);
+      assert.match(yaml, /no screenshot, no image, no pull-request comment/, schema);
+    }
+    const full = readFileSync(join(base, 'devkit', 'schema.yaml'), 'utf8');
+    assert.match(full, /applies only when the grill's classification lists `ui`/);
+    assert.match(full, /does not apply once\s+`proposal\.md` exists/);
+    assert.match(full, /includes `mockup\.md` and the records\s+`decisions\.md` lists/);
+    assert.match(full, /which the approval accepts/);
+    const lite = readFileSync(join(base, 'devkit-lite', 'schema.yaml'), 'utf8');
+    assert.ok(!/id: mockup|id: decisions/.test(lite), 'the lite schema has neither artifact');
+  }
+  for (const base of [PLUGIN_SCHEMAS, REPO_SCHEMAS]) {
+    assert.equal(existsSync(join(base, 'devkit-lite', 'templates', 'mockup.md')), false);
+    assert.equal(existsSync(join(base, 'devkit-lite', 'templates', 'decisions.md')), false);
+    for (const [f, re] of [['mockup.md', /`mock\/`|under `mock\/`|its file under `mock\/`/], ['decisions.md', /proposed/], ['unit-tests.md', /\| Command \| Exit \| Summary \|/],
+      ['e2e-tests.md', /\| Scenario \| Criterion \| File \| Result \|/], ['evidence.md', /as text, no image/]]) {
+      assert.match(readFileSync(join(base, 'devkit', 'templates', f), 'utf8'), re, `devkit/templates/${f}`);
+    }
+  }
+});
+
+// A declaration to walk: the shipped one, or fixtures of it.
+const without = (flow, id, keys) => ({ ...flow, stages: flow.stages.map((s) => (s.id === id ? Object.fromEntries(Object.entries(s).filter(([k]) => !keys.includes(k))) : s)) });
+const walkOn = (flow, over, extra, opts) => computeFlow(synth(over, extra), flow, opts);
+const UI = { flags: ['ui'] };
+const TESTS = { settings: { 'tests.unit': 'npm test', 'tests.e2e': 'npm run e2e' } };
+
+test('stage-roles flow rules: (2) a stage past its point is not applicable, naming the stage it was past', () => {
+  const r = walk({ mockup: null, decisions: null }, UI);
+  for (const id of ['mockup', 'decisions']) {
+    assert.deepEqual([stageOf(r, id).state, stageOf(r, id).reasonCode, stageOf(r, id).params], ['not-applicable', 'past-point', { after: 'proposal' }], id);
+  }
+  assert.equal(r.next.reasonCode, 'archive');
+  const late = walk({ 'unit-tests': null, 'e2e-tests': null }, TESTS);
+  for (const id of ['unit-tests', 'e2e-tests']) {
+    assert.deepEqual([stageOf(late, id).state, stageOf(late, id).reasonCode, stageOf(late, id).params], ['not-applicable', 'past-point', { after: 'evidence' }], id);
+  }
+});
+
+test('stage-roles flow rules: (2) off, a stage not past its point is offered', () => {
+  const r = walk({ proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null, decisions: null, mockup: null }, UI);
+  assert.equal(stageOf(r, 'mockup').state, 'pending');
+  assert.equal(r.next.stage, 'mockup');
+  assert.equal(r.next.role, 'screen-designer');
+  const dec = walk({ proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null, decisions: null, mockup: null });
+  assert.equal(dec.next.stage, 'decisions');
+  assert.equal(dec.next.role, 'adr-author');
+  assert.equal(dec.next.reasonCode, 'no-file');
+  assert.equal(stageOf(dec, 'mockup').reasonCode, 'flag-absent', 'with no ui flag the next stage after the requirements is the decisions');
+});
+
+test('stage-roles flow rules: (3) a flag stage with no file applies only when its flag is listed', () => {
+  const none = { proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null, mockup: null };
+  const off = walk(none, { flags: ['contract'] });
+  assert.deepEqual([stageOf(off, 'mockup').state, stageOf(off, 'mockup').reasonCode, stageOf(off, 'mockup').params], ['not-applicable', 'flag-absent', { flag: 'ui' }]);
+  assert.equal(off.next.stage, 'proposal');
+  const on = walk(none, UI);
+  assert.equal(stageOf(on, 'mockup').state, 'pending');
+  assert.equal(on.next.stage, 'mockup');
+  assert.equal(on.next.reasonCode, 'no-file');
+  assert.equal(walk(none, { flags: [] }).next.stage, 'proposal');
+});
+
+test('stage-roles flow rules: (3) the facts hold no flags at all and the stage does not apply', () => {
+  const none = { proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null, mockup: null };
+  const facts = synth(none);
+  assert.equal('flags' in facts, false);
+  assert.equal(computeFlow(facts, FLOW_DEVKIT, {}).stages.find((s) => s.id === 'mockup').reasonCode, 'flag-absent');
+});
+
+test('stage-roles flow rules: (4) a setting stage with no file applies only when its setting is declared', () => {
+  const open = { evidence: null, review: null, retro: null, 'unit-tests': null, 'e2e-tests': null };
+  const off = walk(open);
+  for (const [id, setting] of [['unit-tests', 'tests.unit'], ['e2e-tests', 'tests.e2e']]) {
+    assert.deepEqual([stageOf(off, id).state, stageOf(off, id).reasonCode, stageOf(off, id).params], ['not-applicable', 'setting-absent', { setting }], id);
+  }
+  assert.equal(off.next.stage, 'evidence');
+  const both = walk(open, TESTS);
+  assert.equal(both.next.stage, 'unit-tests');
+  assert.equal(both.next.role, 'test-runner');
+  assert.deepEqual(both.next.skills, ['test-and-coverage', 'systematic-debugging']);
+  const e2eOnly = walk(open, { settings: { 'tests.e2e': 'npm run e2e' } });
+  assert.equal(stageOf(e2eOnly, 'unit-tests').reasonCode, 'setting-absent');
+  assert.equal(e2eOnly.next.stage, 'e2e-tests');
+  assert.equal(e2eOnly.next.role, 'e2e-tester');
+  const unitOnly = walk({ ...open, 'unit-tests': { result: 'passed' } }, { settings: { 'tests.unit': 'npm test' } });
+  assert.equal(unitOnly.next.stage, 'evidence', 'with no E2E command the next stage is the demonstration');
+});
+
+test('stage-roles flow rules: (5) a stage marked not shipped and with no file is reported as such, where no condition decides first', () => {
+  const unshipped = { ...FLOW_DEVKIT, stages: FLOW_DEVKIT.stages.map((s) => (s.id === 'tasks' ? { ...s, shipped: false } : s)) };
+  const r = walkOn(unshipped, { tasks: null, readiness: null, approval: null });
+  assert.deepEqual([stageOf(r, 'tasks').reasonCode, stageOf(r, 'tasks').params], ['role-not-shipped', { role: 'change-planner' }]);
+  const conditioned = { ...FLOW_DEVKIT, stages: FLOW_DEVKIT.stages.map((s) => (s.id === 'mockup' ? { ...s, shipped: false } : s)) };
+  assert.equal(stageOf(walkOn(conditioned, { mockup: null, proposal: null }), 'mockup').reasonCode, 'flag-absent', 'a condition that does not hold wins over shipped:false');
+  assert.equal(stageOf(walkOn(conditioned, { mockup: null, proposal: null }, UI), 'mockup').reasonCode, 'role-not-shipped');
+  assert.equal(stageOf(walk({ tasks: null }), 'tasks').reasonCode, 'no-file', 'rule (6): a stage that ships and has no file is pending');
+});
+
+test('stage-roles flow rules: (1) a stage OpenSpec skips does not apply, whatever its conditions say', () => {
+  const r = walk({ mockup: null, 'unit-tests': null, proposal: null }, { ...UI, ...TESTS, skipped: ['mockup', 'unit-tests'] });
+  assert.equal(stageOf(r, 'mockup').reasonCode, 'skipped');
+  assert.equal(stageOf(r, 'unit-tests').reasonCode, 'skipped');
+});
+
+test('stage-roles flow rules: a file present wins over each condition and is read from its header', () => {
+  const noFlag = walk({ mockup: { result: 'passed' } });
+  assert.equal(stageOf(noFlag, 'mockup').state, 'passed', 'a mock-up written with no ui flag is passed');
+  assert.equal(stageOf(walk({ mockup: { result: 'failed', attempt: 1 } }), 'mockup').state, 'failed');
+  assert.equal(stageOf(walk({ decisions: { result: 'passed' } }), 'decisions').state, 'passed', 'past its point, a decisions file still reads');
+  assert.equal(stageOf(walk({ decisions: { result: 'not-applicable' } }), 'decisions').state, 'not-applicable');
+  assert.equal(stageOf(walk({ 'unit-tests': { result: 'passed' } }), 'unit-tests').state, 'passed', 'no setting, a file is read');
+  assert.equal(stageOf(walk({ 'e2e-tests': { result: 'failed' } }, { staleness: () => null }), 'e2e-tests').state, 'failed');
+  assert.equal(stageOf(walk({ 'e2e-tests': { header: null } }), 'e2e-tests').reasonCode, 'no-header');
+});
+
+test('stage-roles flow rules: a change past the point of a stage is never sent back to it', () => {
+  const r = walk({ mockup: null, decisions: null, 'unit-tests': null, 'e2e-tests': null, review: null, retro: null }, { ...UI, ...TESTS });
+  assert.equal(r.next.stage, 'review');
+  for (const id of ['mockup', 'decisions', 'unit-tests', 'e2e-tests']) assert.equal(stageOf(r, id).state, 'not-applicable', id);
+});
+
+test('stage-roles flow rules: the decisions of a change not past its proposal are the next stage', () => {
+  const r = walk({ proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null, decisions: null });
+  assert.equal(r.next.stage, 'decisions');
+});
+
+test('stage-roles flow owner: a mock-up the owner sent back at attempt 1 is drawn again, with no ceiling', () => {
+  const r = walk({ mockup: { result: 'failed', attempt: 1 }, proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null });
+  assert.equal(stageOf(r, 'mockup').state, 'failed');
+  assert.equal(stageOf(r, 'mockup').reasonCode, 'changes-asked');
+  assert.deepEqual(stageOf(r, 'mockup').params, { attempt: 1 });
+  assert.equal(r.end, null);
+  assert.deepEqual([r.next.stage, r.next.role, r.next.reasonCode, r.next.params], ['mockup', 'screen-designer', 'owner-changes', { stage: 'mockup', attempt: 1 }]);
+});
+
+test('stage-roles flow owner: a mock-up sent back at attempt 3 and at attempt 40 is never blocked by a ceiling', () => {
+  for (const attempt of [3, 40]) {
+    const r = walk({ mockup: { result: 'failed', attempt }, proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null });
+    assert.equal(r.end, null, `attempt ${attempt}`);
+    assert.equal(r.next.stage, 'mockup', `attempt ${attempt}`);
+    assert.equal(r.next.reasonCode, 'owner-changes', `attempt ${attempt}`);
+    assert.equal(r.next.params.attempt, attempt);
+  }
+  assert.equal(walk({ review: { result: 'failed', attempt: 2 } }).end.reasonCode, 'ceiling-reached', 'a numeric ceiling still blocks');
+});
+
+test('stage-roles flow owner: the no-progress rule still ends a mock-up that came back with nothing changed', () => {
+  const over = { mockup: { result: 'failed', attempt: 2 }, proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null };
+  const first = walk(over);
+  const again = walk(over, {}, { after: first.next.progressKey });
+  assert.equal(again.next, null);
+  assert.deepEqual([again.end.state, again.end.reasonCode, again.end.stage], ['blocked', 'no-progress', 'mockup']);
+});
+
+test('stage-roles flow owner: a drawn mock-up waits for the owner and no next stage is given', () => {
+  const r = walk({ mockup: { result: 'pending' }, proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null });
+  assert.equal(r.next, null);
+  assert.deepEqual([r.end.state, r.end.stage, r.end.reasonCode], ['waiting-for-owner', 'mockup', 'owner-pending']);
+});
+
+test('stage-roles flow owner: the readout says the owner asked for changes at the attempt, in both languages, and names no ceiling', () => {
+  const r = walk({ mockup: { result: 'failed', attempt: 2 }, proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null });
+  const en = FC.renderText(r, FLOW_DEVKIT, 'en').split('\n').find((l) => l.includes('Screen mock-up'));
+  assert.match(en, /^\s*3\s+Screen mock-up\s+the owner asked for changes at attempt 2$/);
+  const pt = FC.renderText(r, FLOW_DEVKIT, 'pt-BR').split('\n').find((l) => l.includes('Mock-up de tela'));
+  assert.match(pt, /^\s*3\s+Mock-up de tela\s+o dono pediu mudanças na tentativa 2$/);
+  assert.equal(/ceiling|limite|failed|falhou/.test(en + pt), false);
+  assert.match(FC.renderText(r, FLOW_DEVKIT, 'en'), /Why: the owner asked for changes to the screen mock-up at attempt 2; it is drawn again\./);
+  assert.match(FC.renderText(r, FLOW_DEVKIT, 'pt-BR'), /Por quê: o dono pediu mudanças na etapa mock-up de tela na tentativa 2; ela é refeita\./);
+});
+
+test('stage-roles flow readout: the stage that does not apply says why, in both languages', () => {
+  const r = walk({ mockup: null, decisions: null, 'unit-tests': null, 'e2e-tests': null, evidence: null, review: null, retro: null, proposal: null, specs: null, design: null, tasks: null, readiness: null, approval: null }, { settings: { 'tests.e2e': 'x' } });
+  const lines = (lang) => FC.renderText(r, FLOW_DEVKIT, lang).split('\n');
+  const line = (lang, title) => lines(lang).find((l) => l.includes(title));
+  assert.match(line('en', 'Screen mock-up'), /does not apply: the requirements' classification has no ui flag$/);
+  assert.match(line('en', 'Unit tests'), /does not apply: openspec\/config\.yaml declares no devkit\.tests\.unit$/);
+  assert.match(line('pt-BR', 'Mock-up de tela'), /não se aplica: a classificação dos requisitos não tem a marca ui$/);
+  assert.match(line('pt-BR', 'Testes unitários'), /não se aplica: o openspec\/config\.yaml não declara devkit\.tests\.unit$/);
+  const past = walk({ mockup: null, decisions: null });
+  assert.match(FC.renderText(past, FLOW_DEVKIT, 'en').split('\n').find((l) => l.includes('Decisions and ADRs')), /does not apply: the change was already past the proposal when this stage arrived$/);
+  assert.match(FC.renderText(past, FLOW_DEVKIT, 'pt-BR').split('\n').find((l) => l.includes('Decisões e ADRs')), /não se aplica: a change já tinha passado da etapa proposta quando esta etapa chegou$/);
+});
+
+test('stage-roles flow stale: a mock-up or a decisions file newer than the readiness makes the readiness stale, naming it', () => {
+  for (const id of ['mockup', 'decisions']) {
+    const r = walk({ [id]: { at: 10_000 } });
+    assert.equal(stageOf(r, 'readiness').state, 'stale', id);
+    assert.equal(stageOf(r, 'readiness').reasonCode, 'stale-plan', id);
+    assert.equal(stageOf(r, 'readiness').params.by, id);
+    assert.equal(r.next.stage, 'readiness', id);
+    assert.equal(stageOf(walk({ [id]: { at: 1_500 } }), 'readiness').state, 'passed', `${id} within the tolerance`);
+    assert.equal(stageOf(walk({ [id]: { at: 10_000 } }, { tasks: { exists: true, total: 3, done: 1, pending: ['1.2'] } }), 'readiness').state, 'passed', `${id} once a task is ticked`);
+  }
+});
+
+// ---- the facts: the flags line and the settings
+
+const reqText = (line) => `<!-- devkit-stage requirements result=passed attempt=1 commit=none -->\n# Requirements\n\n${line}\n`;
+const dirWith = (text) => {
+  const dir = mkdtempSync(join(tmpdir(), 'stage-roles-req-'));
+  if (text !== null) writeFileSync(join(dir, 'requirements.md'), text);
+  return dir;
+};
+
+test('stage-roles flow facts: the flags are read from the classification line, lower-cased', () => {
+  assert.deepEqual(FC.classificationFlags(dirWith(reqText('Classification: domain=process type=feature flags=[ui, contract] (confirmed)'))), ['ui', 'contract']);
+  assert.deepEqual(FC.classificationFlags(dirWith(reqText('Classification: domain=x type=y flags=[UI , Contract ]'))), ['ui', 'contract']);
+  assert.deepEqual(FC.classificationFlags(dirWith(reqText('Classification: domain=x type=y flags=[]'))), []);
+});
+
+test('stage-roles flow facts: no flag comes from a missing file, a missing line or a skipped grill', () => {
+  assert.deepEqual(FC.classificationFlags(dirWith(null)), []);
+  assert.deepEqual(FC.classificationFlags(dirWith(reqText('Grill: skipped by owner'))), []);
+  assert.deepEqual(FC.classificationFlags(dirWith(reqText('Notes: flags=[ui] is what I would say'))), [], 'a line with no Classification: is not read');
+});
+
+test('stage-roles flow facts: only the classification line changes the flags', () => {
+  const text = reqText('Classification: domain=x type=y flags=[contract]\n\nOther: flags=[ui]\n- the ui flag is not set');
+  assert.deepEqual(FC.classificationFlags(dirWith(text)), ['contract']);
+});
+
+const configRoot = (body) => {
+  const root = mkdtempSync(join(tmpdir(), 'stage-roles-cfg-'));
+  if (body !== null) { mkdirSync(join(root, 'openspec')); writeFileSync(join(root, 'openspec', 'config.yaml'), body); }
+  return root;
+};
+
+test('stage-roles flow settings: the nested tests block is read, quoted or not, with comments dropped', () => {
+  const s = FC.readTestSettings(configRoot([
+    'schema: devkit', 'devkit:', '  language: en', '  driver: claude', '  tests:', '    unit: "npm test"   # the whole suite',
+    '    coverage:  # printed total', '      command: npm run coverage', "      target: 80", '    e2e: \'npm run e2e\'', 'other: 1', ''].join('\n')));
+  assert.equal(s.unit, 'npm test');
+  assert.equal(s.e2e, 'npm run e2e');
+  assert.deepEqual(s.coverage, { command: 'npm run coverage', target: 80 });
+  assert.equal(s.paths['tests.unit'], 'npm test');
+  assert.equal(s.paths['tests.e2e'], 'npm run e2e');
+  assert.equal(s.paths['tests.coverage.command'], 'npm run coverage');
+  assert.equal(s.paths['tests.coverage.target'], '80');
+  assert.deepEqual(s.unknown, []);
+});
+
+test('stage-roles flow settings: a key after the tests block closes it, and keys outside the devkit block are not read', () => {
+  const s = FC.readTestSettings(configRoot(['devkit:', '  tests:', '    unit: npm test', '  driver: claude', '  e2e: not-a-tests-key', 'tests:', '  unit: elsewhere', ''].join('\n')));
+  assert.equal(s.unit, 'npm test');
+  assert.equal(s.e2e, null);
+  assert.equal('tests.e2e' in s.paths, false);
+});
+
+test('stage-roles flow settings: no file, no block or no tests key gives null values and no path', () => {
+  for (const body of [null, '', 'schema: devkit\n', 'devkit:\n  language: en\n']) {
+    const s = FC.readTestSettings(configRoot(body));
+    assert.deepEqual([s.unit, s.e2e, s.coverage, s.unknown], [null, null, { command: null, target: null }, []], String(body));
+    assert.equal('tests.unit' in s.paths, false);
+  }
+});
+
+test('stage-roles flow settings: a target is a whole number from 0 to 100, else null and named in unknown', () => {
+  const target = (text) => FC.readTestSettings(configRoot(`devkit:\n  tests:\n    coverage:\n      target: ${text}\n`));
+  assert.equal(target('0').coverage.target, 0);
+  assert.equal(target('100').coverage.target, 100);
+  assert.deepEqual(target('0').unknown, []);
+  for (const bad of ['101', '80%', '-1', '80.5', 'high', '"eighty"']) {
+    const s = target(bad);
+    assert.equal(s.coverage.target, null, bad);
+    assert.equal(s.unknown.length, 1, bad);
+    assert.equal(s.unknown[0].setting, 'coverage-target', bad);
+    assert.equal(s.unknown[0].accepted, 'a whole number from 0 to 100', bad);
+  }
+  assert.equal(target('101').unknown[0].value, '101');
+  assert.equal(target('80%').unknown[0].value, '80%');
+});
+
+test('stage-roles flow settings: an empty value is not declared', () => {
+  const s = FC.readTestSettings(configRoot('devkit:\n  tests:\n    unit: ""\n    e2e:\n'));
+  assert.equal(s.unit, null);
+  assert.equal(s.e2e, null);
+  assert.equal('tests.unit' in s.paths, false);
+  assert.equal('tests.e2e' in s.paths, false);
+});
+
+test('stage-roles flow settings: plainValue is the rule of the devkit block, moved to the checker', () => {
+  assert.equal(FC.plainValue(' "npm test" # x'), 'npm test');
+  assert.equal(FC.plainValue(" 'a b'"), 'a b');
+  assert.equal(FC.plainValue(' npm run x # note\r'), 'npm run x');
+  assert.equal(FC.plainValue(''), '');
+});
+
+test('stage-roles flow facts: collectFlow reads the flags and the settings and the walk offers the unit tests with their role', () => {
+  const root = liveChange({ skip: ['evidence', 'review', 'retro'] });
+  put(root, {
+    'openspec/changes/feat/requirements.md': `<!-- devkit-stage requirements result=passed attempt=1 commit=none -->\nClassification: domain=x type=y flags=[ui, contract]\n`,
+    'openspec/config.yaml': 'schema: devkit\ndevkit:\n  tests:\n    unit: "npm test"\n    coverage:\n      target: 80\n',
+  });
+  commitAll(root, 'requirements and settings');
+  const { facts, flow } = collectFlow(root, 'feat', { openspec: fakeOpenspec(root) });
+  assert.deepEqual(facts.flags, ['ui', 'contract']);
+  assert.equal(facts.settings['tests.unit'], 'npm test');
+  assert.equal(facts.settings['tests.coverage.target'], '80');
+  const r = computeFlow(facts, flow, {});
+  assert.equal(stageOf(r, 'mockup').reasonCode, 'past-point');
+  assert.equal(stageOf(r, 'decisions').reasonCode, 'past-point');
+  assert.equal(stageOf(r, 'e2e-tests').reasonCode, 'setting-absent');
+  assert.deepEqual([r.next.stage, r.next.role], ['unit-tests', 'test-runner']);
+});
+
+test('stage-roles flow facts: a change with no classification line and no settings reads empty facts', () => {
+  const root = liveChange({ skip: ['evidence', 'review', 'retro'] });
+  const { facts } = collectFlow(root, 'feat', { openspec: fakeOpenspec(root) });
+  assert.deepEqual(facts.flags, []);
+  assert.deepEqual(facts.settings, {});
 });
 
 // ---- review-writer-prompt D-7: the review stage is stale while a reviewer is stale (spec change-stages)
