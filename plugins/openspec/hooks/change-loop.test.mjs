@@ -84,6 +84,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
+  branch: 'develop', base: 'master', default: 'main',
 };
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
@@ -501,7 +502,7 @@ test('change-loop decide: the loop\'s step agents match conduct-check\'s actorOf
   const stated = { retro: 'general-purpose' };
   let handedOff = 0;
   for (const step of ROW_STEPS) {
-    const a = build(rowOf(step, { phase: 1, number: 12, paths: [] }));
+    const a = build(rowOf(step, { phase: 1, number: 12, paths: [], branch: 'develop', base: 'main', list: '#12 to main' })); // branch, base and list: the owner ends of two-prs name them
     const checker = actorOf(step).agent;
     if (a.kind === 'agent') {
       handedOff += 1;

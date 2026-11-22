@@ -1,0 +1,24 @@
+# Phase 5 red: GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern=<the phase 5 tests> plugins/openspec/hooks/delivery-models.test.mjs
+ℹ fail 17
+ℹ pass 6
+ℹ tests 23
+✔ delivery-models AC-9 archive: a failing base archive pull request still stops as before, before the test one is opened (neg)
+✔ delivery-models AC-9 archive: both merged is archived
+✔ delivery-models P10: a trunk project's archived ids stay the base branch's (neg)
+✖ delivery-models AC-9 archive: a cherry-pick conflict left in the worktree stops naming its paths and the worktree
+✖ delivery-models AC-9 archive: a test archive pull request closed without merging stops and is never reopened
+✖ delivery-models AC-9 archive: a test archive pull request merged while the test branch lacks the archive stops
+✖ delivery-models AC-9 archive: a test archive pull request with failing checks stops naming them
+✖ delivery-models AC-9 archive: a test branch that is not archived keeps the change from archived even when the base is
+✖ delivery-models AC-9 archive: both archive pull requests open are ready, named together, and nothing is merged
+✖ delivery-models AC-9 archive: the base archive merged and the test one open is ready, naming only the open one
+✖ delivery-models AC-9 archive: the base archive pull request open and no test one opens it from the archive commits
+✖ delivery-models AC-9 archive: the base archived and no test archive pull request opens it too
+✖ delivery-models AC-9 archive: the owner finished the cherry-pick, so the branch is taken as it is (exists: true)
+✖ delivery-models AC-9 archive: the summary names both archive pull requests as ready
+✖ delivery-models P10: in two-prs an id archived on the base branch only is still unfinished, on both it is not
+✖ delivery-models P10: the base archive branch wins over the test archive branch for the same change
+✖ delivery-models P10: the test archive branch is the archive of its change, in two-prs only
+✖ delivery-models conduct: actorOf and the final state name the archive steps
+✖ delivery-models decide: both archive pull requests ready ends waiting for the owner, naming them
+✖ delivery-models decide: every new step has a row, so none stops the change as unknown

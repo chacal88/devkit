@@ -82,6 +82,70 @@ export function findRoot(start) {
   }
 }
 
+// The value of a `key: value` line: quoted or not, with an optional trailing `# comment`.
+export function plainValue(raw) {
+  const text = raw.replace(/\r$/, '').trim();
+  const quote = text[0];
+  if (quote === '"' || quote === "'") {
+    const end = text.indexOf(quote, 1);
+    return end === -1 ? text.slice(1) : text.slice(1, end);
+  }
+  return text.replace(/(^|\s)#.*$/, '').trim();
+}
+
+const DELIVERY_KEYS = ['model', 'base', 'test_branch'];
+
+// The `devkit:` block of openspec/config.yaml, read with one level of nesting (delivery-models D-1, D-11):
+// { driver, language, delivery: { model, base, test_branch } }. A value that is not set, or empty, is undefined; a key
+// nested under `delivery:` never sets `driver` or `language`; other keys of the block are ignored.
+export function parseDevkitBlock(text) {
+  const block = { driver: undefined, language: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined } };
+  let inBlock = false;
+  let indent = null;
+  let inDelivery = false;
+  for (const line of String(text).split('\n')) {
+    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
+    if (!inBlock) continue;
+    if (line.trim() === '' || /^\s*#/.test(line)) continue;
+    if (!/^\s/.test(line)) { inBlock = false; continue; }
+    const m = /^(\s+)([A-Za-z][\w-]*):(.*)$/.exec(line);
+    if (!m) continue;
+    if (indent === null) indent = m[1].length;
+    const value = plainValue(m[3]) || undefined;
+    if (m[1].length > indent) {
+      if (inDelivery && DELIVERY_KEYS.includes(m[2])) block.delivery[m[2]] = value;
+      continue;
+    }
+    inDelivery = m[2] === 'delivery';
+    if (m[2] === 'driver' || m[2] === 'language') block[m[2]] = value;
+  }
+  return block;
+}
+
+export const DELIVERY_MODELS = ['two-prs', 'trunk', 'trunk-auto'];
+
+// { model, base, testBranch, problems } from a parsed block: the table of delivery-models D-1. `base` and `testBranch`
+// are read for `two-prs` only. A problem is { kind: 'unknown', setting, value } or { kind: 'missing', setting }.
+export function deliverySettings(block) {
+  const { model, base, test_branch: testBranch } = block?.delivery ?? {};
+  const none = { model: null, base: null, testBranch: null, problems: [] };
+  if (!model) return none;
+  if (model === 'trunk' || model === 'trunk-auto') return { ...none, model };
+  if (model !== 'two-prs') return { ...none, problems: [{ kind: 'unknown', setting: 'delivery-model', value: model }] };
+  const problems = [];
+  if (!base) problems.push({ kind: 'missing', setting: 'delivery-base' });
+  if (!testBranch) problems.push({ kind: 'missing', setting: 'delivery-test-branch' });
+  if (base && testBranch && base === testBranch) problems.push({ kind: 'unknown', setting: 'delivery-test-branch', value: testBranch });
+  return { model, base: base ?? null, testBranch: testBranch ?? null, problems };
+}
+
+// The delivery settings of the project at `root`; no file, or one that cannot be read, is no model.
+export function readDeliverySettings(root) {
+  try { return deliverySettings(parseDevkitBlock(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'))); } catch {
+    return deliverySettings(null);
+  }
+}
+
 function activeChanges(root) {
   const dir = join(root, 'openspec', 'changes');
   return readdirSync(dir).filter((n) => n !== 'archive' && !n.startsWith('.')
@@ -219,7 +283,7 @@ export function classify(root, change, file) {
   if (inner === 'readiness.md') return { kind: 'gate', owner: 'plan-readiness-reviewer' };
   if (inner === 'evidence.md') return { kind: 'gate', owner: 'pr-verifier' };
   if (inner === 'approval.md') return { kind: 'gate', owner: '' }; // the main session only
-  const rv = inner.match(/^reviews\/([\w-]+)\.md$/);
+  const rv = inner.match(/^reviews\/(?:resolution\/)?([\w-]+)\.md$/); // reviews/resolution/<name>.md is <name>'s too (delivery-models D-8)
   if (rv) return { kind: 'gate', owner: rv[1] };
   if (inner.startsWith('reviews/')) return { kind: 'gate', owner: '(a reviewer, as reviews/<its-name>.md)' };
   return { kind: 'planning' };
@@ -327,6 +391,43 @@ const GIT_RULES = [
 export function gitViolation(cmd) {
   const s = sanitize(cmd);
   for (const [re, why] of GIT_RULES) if (re.test(s)) return why;
+  return null;
+}
+
+// A git word that names the test branch: `src:dst` cut to `src`, a trailing `~n`, `^n` or `@{...}` cut, then the branch, its
+// full ref or the same through one of the remotes (delivery-models D-6 rule 4).
+function namesTestBranch(word, test, remotes) {
+  const ref = word.split(':')[0].replace(/(?:~\d*|\^\d*|@\{[^}]*\})+$/, '');
+  return ref === test || ref === `refs/heads/${test}` || remotes.some((r) => ref === `${r}/${test}` || ref === `refs/remotes/${r}/${test}`);
+}
+
+const gitOut = (dir, args) => {
+  try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; }
+};
+
+// The task branch never receives the test branch (delivery-models D-6): `git merge`, `rebase` or `pull` that names the test
+// branch, run on a branch that is neither the test branch nor a support branch (`<…>-<test>`), in a `two-prs` project. A
+// reason, or null: anything the rule cannot read (a settings problem, no git, a quoted ref) is allowed.
+export function testBranchViolation(cmd, cwd) {
+  for (const { text, dir } of commandSegments(cmd, cwd)) {
+    const m = /^(?:\w+=\S*\s+)*git\s+((?:-C\s+\S+\s+)*)(merge|rebase|pull)(?:\s+(.*))?$/.exec(text);
+    if (!m) continue;
+    let at = dir ?? process.cwd();
+    for (const c of m[1].matchAll(/-C\s+(\S+)/g)) at = resolve(at, c[1].replace(/^~(?=\/|$)/, homedir()));
+    const root = findRoot(at);
+    if (!root || !optedIn(root)) continue;
+    const { model, testBranch, problems } = readDeliverySettings(root);
+    if (model !== 'two-prs' || problems.length) continue;
+    const branch = gitOut(at, ['symbolic-ref', '--short', '-q', 'HEAD']);
+    if (!branch || branch === testBranch || branch.endsWith(`-${testBranch}`)) continue;
+    const remotes = gitOut(at, ['remote']).split('\n').filter(Boolean);
+    const words = (m[3] ?? '').split(/\s+/).filter(Boolean);
+    const bare = m[2] === 'pull' && !words.some((w) => !w.startsWith('-'));
+    const named = bare
+      ? remotes.some((r) => gitOut(at, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']) === `${r}/${testBranch}`)
+      : words.some((w) => namesTestBranch(w, testBranch, remotes));
+    if (named) return `the task branch never receives ${testBranch}: merge ${testBranch} into the support branch ${branch}-${testBranch} instead (the flow creates it when the pull request to ${testBranch} has a conflict)`;
+  }
   return null;
 }
 
@@ -511,7 +612,7 @@ function guardBash(input) {
   const cmd = (input.tool_input || {}).command || '';
   // The git rules follow the session's project; writes and PRs follow their own target root.
   const sessionRoot = findRoot(input.cwd);
-  const why = sessionRoot && optedIn(sessionRoot) ? gitViolation(cmd) : null;
+  const why = sessionRoot && optedIn(sessionRoot) ? gitViolation(cmd) ?? testBranchViolation(cmd, input.cwd) : null;
   if (why) block(`blocked: ${why}. If you really need it, ask the user to run it.`);
   const cwd = input.cwd || process.cwd();
   // Each root's change is resolved once; a target or a segment is judged by its own root.
@@ -657,7 +758,7 @@ const OPENSPEC_PACKAGE = '@fission-ai/openspec';
 const PIN_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies'];
 
 // The main checkout of a worktree: the parent of git's common dir. Null outside a git checkout.
-function mainCheckout(root) {
+export function mainCheckout(root) {
   try {
     const common = execFileSync('git', ['-C', root, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();

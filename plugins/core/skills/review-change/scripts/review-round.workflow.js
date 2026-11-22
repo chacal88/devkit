@@ -69,6 +69,7 @@ function validateArgs(args) {
   if (args.path !== 'workflow' && args.path !== 'agents') invalid("args.path must be 'workflow' or 'agents'");
   if (args.structural !== 'PASS') invalid("args.structural must be 'PASS'");
   if (typeof args.preamble !== 'string') invalid('args.preamble must be a string');
+  if (args.verdictDir !== undefined && (typeof args.verdictDir !== 'string' || !args.verdictDir.trim())) invalid('args.verdictDir must be a non-empty string');
   if (!Array.isArray(args.bench) || args.bench.length < 1 || args.bench.length > 6) invalid('args.bench must hold 1 to 6 entries');
   const seen = [];
   args.bench.forEach((e, i) => {
@@ -255,7 +256,7 @@ function verifierPrompt(args, entry, finding) {
 function writerPrompt(args, outcome) {
   return lead(args)
     + 'This is stage 3 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of 2). Do not review again.\n'
-    + 'Write your verdict file ' + args.changeDir + '/reviews/' + outcome.reviewer + '.md, overwriting it, and write nothing else.\n'
+    + 'Write your verdict file ' + args.changeDir + '/' + (args.verdictDir || 'reviews') + '/' + outcome.reviewer + '.md, overwriting it, and write nothing else.\n'
     + 'Do not change, add or drop a finding, and do not reword a line. The file is, in this order:\n'
     + 'line 1: exactly Verdict: ' + outcome.verdict + ' (the round computed it: approved only when no blocking or important finding is left open)\n'
     + 'line 2: ' + commitLine(outcome) + '\n'

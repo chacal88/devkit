@@ -26,7 +26,7 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, parseDevkitBlock, deliverySettings } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
@@ -47,41 +47,34 @@ export class LoopRefusal extends LoopUsageError {
 export const DRIVERS = ['claude', 'compozy', 'script'];
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
-// The value of a `key: value` line: quoted or not, with an optional trailing `# comment`.
-function plainValue(raw) {
-  const text = raw.replace(/\r$/, '').trim();
-  const quote = text[0];
-  if (quote === '"' || quote === "'") {
-    const end = text.indexOf(quote, 1);
-    return end === -1 ? text.slice(1) : text.slice(1, end);
-  }
-  return text.replace(/(^|\s)#.*$/, '').trim();
-}
-
-// { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml.
-// No block, no file or a missing key gives the defaults (`claude`, `en`); other keys of the block are ignored.
+// { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml, plus
+// `delivery: { model, base, testBranch }` when a delivery model is set and `missing: [{ setting }]` when two pull requests
+// are chosen without a name (delivery-models D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
+// other keys of the block are ignored.
 export function readDevkitSettings(root) {
   let text = '';
   try { text = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'); } catch (e) {
     if (e?.code !== 'ENOENT') throw new LoopUsageError(`openspec/config.yaml cannot be read (${e?.code ?? e})`);
   }
-  const found = {};
-  let inBlock = false;
-  for (const line of text.split('\n')) {
-    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
-    if (!inBlock) continue;
-    if (line.trim() === '' || /^\s*#/.test(line)) continue;
-    if (!/^\s/.test(line)) { inBlock = false; continue; }
-    const m = /^\s+([A-Za-z][\w-]*):(.*)$/.exec(line);
-    if (m) found[m[1]] = plainValue(m[2]);
-  }
-  const driver = found.driver || 'claude';
-  const language = found.language || 'en';
+  const block = parseDevkitBlock(text);
+  const driver = block.driver || 'claude';
+  const language = block.language || 'en';
   const unknown = [];
   if (!DRIVERS.includes(driver)) unknown.push({ setting: 'driver', value: driver, accepted: DRIVERS.join(', ') });
   if (!LANGUAGE_TAG.test(language)) unknown.push({ setting: 'language', value: language, accepted: 'a language tag such as en or pt-BR' });
-  return { driver, language, unknown };
+  const settings = { driver, language, unknown };
+  const { model, base, testBranch, problems } = deliverySettings(block);
+  if (model) settings.delivery = { model, base, testBranch };
+  const missing = [];
+  for (const p of problems) {
+    if (p.kind === 'missing') missing.push({ setting: p.setting });
+    else unknown.push({ setting: p.setting, value: p.value, accepted: DELIVERY_ACCEPTED[p.setting] });
+  }
+  if (missing.length) settings.missing = missing;
+  return settings;
 }
+
+const DELIVERY_ACCEPTED = { 'delivery-model': 'two-prs, trunk, trunk-auto', 'delivery-test-branch': 'a branch other than the base' };
 
 // The person's language: `en`, and `pt-BR` for anything else (an unsubstituted placeholder included).
 export const normalizeLang = (value) => (value === 'en' ? 'en' : 'pt-BR');
@@ -99,6 +92,10 @@ export const MESSAGES = {
     'verb-unknown': 'So far /devkit change, /devkit roadmap and /devkit status exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, or /devkit status to see where everything is.',
     'not-set-up': 'This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.',
     'setting-unknown': 'The project\'s devkit settings have an unknown {setting}, "{value}"; use one of: {accepted}. Nothing was run.',
+    'setting-missing': 'The project\'s devkit settings choose two pull requests but do not name the {setting}. Nothing was run.',
+    'test-branch-missing': 'This project delivers with two pull requests, but its test branch {branch} does not exist on the remote: create it there, then call /devkit change again. Nothing was created.',
+    'base-not-default': 'This project delivers to {base}, but the repository\'s default branch is {default}: they must be the same branch. Nothing was created.',
+    'name-test-suffix': '{id} cannot be a change name here: a name ending in -{branch} is kept for the support branches.',
     'driver-not-built': 'This project is set to run on {driver}, which is not built yet (round {round}). Nothing was run.',
     'nothing-to-resume': 'There is no unfinished change to continue: type /devkit change and what you want done.',
     choose: 'There are {n} unfinished changes: {list}. Which one should I continue?',
@@ -115,6 +112,9 @@ export const MESSAGES = {
     'waiting-retro': 'The retro of {id} has proposals for you: approve or reject each one, and I archive the change.',
     'waiting-merge': 'Pull request #{number} of {id} is ready: in this project, merging it is up to you.',
     'waiting-archive-merge': 'The archive pull request #{number} of {id} is ready: in this project, merging it is up to you.',
+    'waiting-merge-test-branch': 'Pull request #{number} of {id} to {branch} is ready: in this project, merging it is up to you. The pull request to {base} waits for it.',
+    'waiting-merge-base': 'Pull request #{number} of {id} to {base} is ready: in this project, merging it is up to you.',
+    'waiting-archive-merges': 'The archive pull requests of {id} are ready: {list}. In this project, merging them is up to you.',
     'waiting-review-dispute': 'The code review of {id} still disagrees after its second round: the disputed points need your decision.',
     'waiting-by-hand': 'This project delivers each change by hand: {id} stops here, and the session writes no code for it.',
     'waiting-unrun-stage': '{Stage} of {id} has an unfinished file that no role of this version can finish: tell me its result, or remove it.',
@@ -221,12 +221,19 @@ export const MESSAGES = {
     'driver.script': 'a command-line script',
     'setting.driver': 'driver',
     'setting.language': 'language of the files',
+    'setting.delivery-model': 'delivery model',
+    'setting.delivery-base': 'base branch',
+    'setting.delivery-test-branch': 'test branch',
   },
   'pt-BR': {
     'verb-not-built': '/devkit {verb} ainda não existe: chega na rodada {round}. Nada foi feito.',
     'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap e /devkit status: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, ou /devkit status para ver onde está tudo.',
     'not-set-up': 'Este projeto ainda não está preparado para o devkit: rode /openspec-setup primeiro. Nada foi executado.',
     'setting-unknown': 'As configurações devkit do projeto têm {setting} desconhecido, "{value}"; use um de: {accepted}. Nada foi executado.',
+    'setting-missing': 'As configurações devkit do projeto escolhem dois pull requests mas não dizem {setting}. Nada foi executado.',
+    'test-branch-missing': 'Este projeto entrega com dois pull requests, mas a branch de teste {branch} não existe no remoto: crie-a lá e chame /devkit change de novo. Nada foi criado.',
+    'base-not-default': 'Este projeto entrega em {base}, mas a branch padrão do repositório é {default}: elas precisam ser a mesma. Nada foi criado.',
+    'name-test-suffix': '{id} não pode ser nome de change aqui: um nome terminado em -{branch} é reservado às branches de apoio.',
     'driver-not-built': 'Este projeto está configurado para rodar em {driver}, que ainda não existe (rodada {round}). Nada foi executado.',
     'nothing-to-resume': 'Não há change por terminar: digite /devkit change e o que você quer fazer.',
     choose: 'Há {n} changes por terminar: {list}. Qual delas eu continuo?',
@@ -243,6 +250,9 @@ export const MESSAGES = {
     'waiting-retro': 'A retro de {id} tem propostas para você: aprove ou recuse cada uma, e eu arquivo a change.',
     'waiting-merge': 'O pull request #{number} de {id} está pronto: neste projeto, o merge é com você.',
     'waiting-archive-merge': 'O pull request de arquivo #{number} de {id} está pronto: neste projeto, o merge é com você.',
+    'waiting-merge-test-branch': 'O pull request #{number} de {id} para {branch} está pronto: neste projeto, o merge é com você. O pull request para {base} espera por ele.',
+    'waiting-merge-base': 'O pull request #{number} de {id} para {base} está pronto: neste projeto, o merge é com você.',
+    'waiting-archive-merges': 'Os pull requests de arquivo de {id} estão prontos: {list}. Neste projeto, o merge deles é com você.',
     'waiting-review-dispute': 'A revisão de código de {id} ainda discorda depois da segunda rodada: os pontos em disputa precisam da sua decisão.',
     'waiting-by-hand': 'Este projeto entrega cada change à mão: {id} para aqui, e a sessão não escreve código para ela.',
     'waiting-unrun-stage': '{Stage} de {id} tem um arquivo inacabado que nenhum papel desta versão consegue terminar: diga o resultado ou remova o arquivo.',
@@ -349,6 +359,9 @@ export const MESSAGES = {
     'driver.script': 'um script de linha de comando',
     'setting.driver': 'driver',
     'setting.language': 'idioma dos arquivos',
+    'setting.delivery-model': 'modelo de entrega',
+    'setting.delivery-base': 'a branch base',
+    'setting.delivery-test-branch': 'a branch de teste',
   },
 };
 
@@ -454,8 +467,19 @@ const ROWS = {
   push: handOff('delivery', 'commit-and-pr'),
   'open-archive-pr': handOff('delivery', 'commit-and-pr'),
   'push-rebased': handOff('delivery', 'commit-and-pr'),
+  'open-prs': handOff('delivery', 'commit-and-pr'),
+  'open-test-pr': handOff('delivery', 'commit-and-pr'),
+  'push-support': handOff('delivery', 'commit-and-pr'),
+  'move-test-pr': handOff('delivery', 'commit-and-pr'),
+  'open-test-archive-pr': handOff('delivery', 'commit-and-pr'),
+  'resolve-support-conflict': handOff('implementation', 'tdd-implementer'),
+  'fix-resolution': handOff('implementation', 'tdd-implementer'),
   verify: handOff('evidence', 'pr-verifier'),
   review: session('review'),
+  'rerun-checks': session('delivery'),
+  'checkout-support': session('delivery'),
+  'merge-into-support': session('delivery'),
+  'review-resolution': session('review'),
   gate: session('implementation'),
   'edit-pr-body': session('delivery'),
   'enable-auto-merge': session('delivery'),
@@ -469,6 +493,9 @@ const ROWS = {
   'wait-merge': { end: 'github' },
   ready: { end: 'owner' },
   'archive-pr-ready': { end: 'owner' },
+  'archive-prs-ready': { end: 'owner' },
+  'ready-test-branch': { end: 'owner' },
+  'ready-base': { end: 'owner' },
   'stop-review-deadlock': { end: 'owner' },
   'stop-retro-answers': { end: 'owner' },
   'stop-plan-approval': { end: 'owner' },
@@ -484,7 +511,8 @@ export const ROW_STEPS = Object.keys(ROWS);
 const AGENT_STEPS = ROW_STEPS.filter((s) => ROWS[s].role);
 const BLOCKED_STEP = { 'stop-branch': 'wrong-branch', 'stop-merge-setup': 'merge-setup', 'stop-archive': 'archive-failed', 'stop-not-approved': 'plan-not-approved', blocked: 'pr-problem' };
 const OWNER_STEP = {
-  ready: 'waiting-merge', 'archive-pr-ready': 'waiting-archive-merge', 'stop-review-deadlock': 'waiting-review-dispute',
+  ready: 'waiting-merge', 'archive-pr-ready': 'waiting-archive-merge', 'archive-prs-ready': 'waiting-archive-merges', 'stop-review-deadlock': 'waiting-review-dispute',
+  'ready-test-branch': 'waiting-merge-test-branch', 'ready-base': 'waiting-merge-base',
   'stop-retro-answers': 'waiting-retro', 'stop-plan-mode': 'waiting-by-hand',
 };
 
@@ -519,9 +547,14 @@ export function decide(facts) {
   const waiting = (state, key, stageId, params = {}, detail) => finish(state, key, key, params, stageId, detail);
 
   const key = (stage, step) => `${stage}/${step ?? stage}@${facts.fingerprint}`;
-  const brief = (stage, what) => `Change ${ctx.id} (${ctx.script} script), stage ${stage}: ${what}. Work only in ${ctx.root} on branch ${ctx.branch}; `
-    + `every file path is absolute under it; start every Bash command with cd ${ctx.root} && ; do not fetch. `
-    + `Write the change's files in ${filesLanguageName(ctx.filesLanguage)}.`;
+  // A hand-off whose detail names a worktree and a branch (the support branch's) works there, not in the task worktree.
+  const brief = (stage, what, detail) => {
+    const root = detail?.root && detail?.branch ? detail.root : ctx.root;
+    const branch = detail?.root && detail?.branch ? detail.branch : ctx.branch;
+    return `Change ${ctx.id} (${ctx.script} script), stage ${stage}: ${what}. Work only in ${root} on branch ${branch}; `
+      + `every file path is absolute under it; start every Bash command with cd ${root} && ; do not fetch. `
+      + `Write the change's files in ${filesLanguageName(ctx.filesLanguage)}.`;
+  };
 
   // K1 and K2: the loop does not repeat a stage that made no progress, nor one its agent did not deliver.
   const guard = (action) => {
@@ -540,7 +573,7 @@ export function decide(facts) {
   // when the row names none, and for the plan stages, which have no row.
   const agent = (stage, role, step, what, detail, named) => guard({
     ...base, kind: 'agent', ...stageFields(stage), agent: named ?? AGENT[role], ...(step ? { step } : {}), ...(detail ? { detail } : {}),
-    brief: brief(stage, what), progressKey: key(stage, step),
+    brief: brief(stage, what, detail), progressKey: key(stage, step),
   });
   const sessionAction = (stage, step, detail, extra = {}) => guard({
     ...base, kind: 'session', ...stageFields(stage), step, ...(detail ? { detail } : {}), ...extra, progressKey: key(stage, step),
@@ -619,7 +652,8 @@ export function decide(facts) {
       return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, { readiness: facts.approval?.readiness ?? row.next.readiness ?? null });
     }
     const number = row.next.number ?? row.delivered?.next?.number;
-    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? {} : { number });
+    const named = Object.fromEntries(['branch', 'base', 'list'].filter((k) => row.next[k] !== undefined).map((k) => [k, row.next[k]]));
+    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? named : { number, ...named });
   }
 }
 
@@ -745,21 +779,30 @@ function activeIds(root) {
 // checkout's working tree; a source that cannot be read adds nothing.
 const ARCHIVED = /^(\d{4}-\d{2}-\d{2})-(.+)$/;
 // Each archived id with the latest day an archived folder of it carries (an id can be archived more than once).
+// In `two-prs` (D-10) an id counts only once the test branch holds it archived too, read the same way from its own branch.
 function archivedDates(start, { env = process.env, gh } = {}) {
   const main = realpathSync(mainRoot(start));
-  const base = defaultBase(main);
-  const ids = new Map();
-  const addNames = (names) => { for (const name of names) { const m = ARCHIVED.exec(name); if (m && !(ids.get(m[2]) >= m[1])) ids.set(m[2], m[1]); } };
+  const run = gh ?? makeGh(main, cleanOf(env));
   const folder = 'openspec/changes/archive';
-  try {
-    const run = (gh ?? makeGh(main, cleanOf(env)))(['api', `repos/{owner}/{repo}/contents/${folder}?ref=${base}`]);
-    const listing = run.status === 0 ? JSON.parse(run.stdout) : [];
-    if (Array.isArray(listing)) addNames(listing.map((e) => String(e?.name ?? '')));
-  } catch { /* GitHub could not be read: the other sources answer */ }
-  for (const ref of [`refs/remotes/origin/${base}`, `refs/heads/${base}`]) addNames(tryGit(main, ['ls-tree', '--name-only', `${ref}:${folder}`]).split('\n'));
-  const dir = join(main, folder);
-  if (existsSync(dir)) addNames(readdirSync(dir));
-  return ids;
+  // The ids of one branch: GitHub's listing, the remote-tracking and the local branch; the working tree only for the main checkout's own.
+  const datesOn = (branch, withTree) => {
+    const ids = new Map();
+    const addNames = (names) => { for (const name of names) { const m = ARCHIVED.exec(name); if (m && !(ids.get(m[2]) >= m[1])) ids.set(m[2], m[1]); } };
+    try {
+      const got = run(['api', `repos/{owner}/{repo}/contents/${folder}?ref=${branch}`]);
+      const listing = got.status === 0 ? JSON.parse(got.stdout) : [];
+      if (Array.isArray(listing)) addNames(listing.map((e) => String(e?.name ?? '')));
+    } catch { /* GitHub could not be read: the other sources answer */ }
+    for (const ref of [`refs/remotes/origin/${branch}`, `refs/heads/${branch}`]) addNames(tryGit(main, ['ls-tree', '--name-only', `${ref}:${folder}`]).split('\n'));
+    const dir = join(main, folder);
+    if (withTree && existsSync(dir)) addNames(readdirSync(dir));
+    return ids;
+  };
+  const ids = datesOn(defaultBase(main), true);
+  const delivery = readDevkitSettings(main).delivery;
+  if (delivery?.model !== 'two-prs' || !delivery.testBranch) return ids;
+  const onTest = datesOn(delivery.testBranch, false);
+  return new Map([...ids].filter(([id]) => onTest.has(id)));
 }
 export const archivedOnDefault = (start, opts) => new Set(archivedDates(start, opts).keys());
 
@@ -781,9 +824,13 @@ export function unfinished(start, { env = process.env, gh } = {}) {
   const archived = archivedDates(start, { env, gh });
   const found = new Map();
   const note = (id, c, rank, reused = false) => { if ((!archived.has(id) || reused) && (!found.has(id) || found.get(id).rank < rank)) found.set(id, { id, root: c.root, branch: c.branch, rank }); };
+  const delivery = readDevkitSettings(realpathSync(mainRoot(start))).delivery;
+  const testSuffix = delivery?.model === 'two-prs' && delivery.testBranch ? `-${delivery.testBranch}` : null;
   for (const c of checkoutsOf(start)) {
     const archive = /^chore\/archive-(.+)$/.exec(c.branch);
-    if (archive) note(archive[1], c, 3);
+    // The test branch's archive branch (`chore/archive-<id>-<test>`) is the archive of <id> too, behind the base's own.
+    if (archive && testSuffix && archive[1].endsWith(testSuffix)) note(archive[1].slice(0, -testSuffix.length), c, 2.5);
+    else if (archive) note(archive[1], c, 3);
     for (const id of activeIds(c.root)) note(id, c, c.branch === id ? 2 : 1, archived.has(id) && createdAfter(c.root, id, archived.get(id)));
   }
   return [...found.values()].sort((a, b) => a.id.localeCompare(b.id)).map(({ id, root, branch }) => ({ id, root, branch }));
@@ -839,6 +886,8 @@ export function projectGate(start, settings) {
   if (!start || !optedIn(start)) return { mode: 'not-set-up', key: 'not-set-up', params: {} };
   const unknown = settings.unknown[0];
   if (unknown) return { mode: 'setting-unknown', key: 'setting-unknown', params: { setting: unknown.setting, value: unknown.value, accepted: unknown.accepted } };
+  const missing = settings.missing?.[0];
+  if (missing) return { mode: 'setting-missing', key: 'setting-missing', params: { setting: missing.setting } };
   if (DRIVER_ROUND[settings.driver]) return { mode: 'driver-not-built', key: 'driver-not-built', params: { driver: settings.driver, round: DRIVER_ROUND[settings.driver] } };
   return null;
 }
@@ -984,6 +1033,14 @@ function openUnderLock({ start, main, id, script, why, text, l, refuse, openspec
   let base = 'HEAD';
   if (hasOrigin) {
     base = `origin/${defaultBase(main)}`;
+    const delivery = readDevkitSettings(main).delivery;
+    if (delivery?.model === 'two-prs') {
+      const { base: configured, testBranch } = delivery;
+      if (defaultBase(main) !== configured) throw refuse('base-not-default', { base: configured, default: defaultBase(main) });
+      if (!tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${testBranch}`])) throw refuse('test-branch-missing', { branch: testBranch });
+      if (id.endsWith(`-${testBranch}`)) throw refuse('name-test-suffix', { id, branch: testBranch });
+      base = `origin/${configured}`;
+    }
     if (!tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/${base}`])) throw new LoopUsageError(`${base} does not exist: nothing to start the change from`);
   }
   const worktree = join(main, '.claude', 'worktrees', id);

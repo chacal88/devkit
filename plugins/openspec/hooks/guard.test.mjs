@@ -16,6 +16,7 @@ import './flow-check.test.mjs'; // flow-script-checker: the stage header and the
 import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
+import './delivery-models.test.mjs'; // delivery-models: the delivery model per project, its settings and opening
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
 import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way
@@ -1344,4 +1345,24 @@ test('field-fixes 10 verdict: gh pr create is not refused for a reviewer whose f
   const refused = bash(bad, 'gh pr create --title x --body y');
   assert.equal(refused.code, 2);
   assert.match(refused.err, /security-reviewer/);
+});
+
+// ---------------------------------------------------------------- delivery-models P11: the resolution verdict files (D-8)
+
+test('delivery-models P11 classify: reviews/resolution/<name>.md belongs to the reviewer <name>', () => {
+  assert.deepEqual(classify('/r', 'feat', '/r/openspec/changes/feat/reviews/resolution/code-quality-reviewer.md'), { kind: 'gate', owner: 'code-quality-reviewer' });
+  assert.deepEqual(classify('/r', 'feat', '/r/openspec/changes/feat/reviews/resolution/test-coverage-reviewer.md'), { kind: 'gate', owner: 'test-coverage-reviewer' });
+});
+
+test('delivery-models P11 classify: another path under reviews/ keeps its rule (neg)', () => {
+  assert.equal(classify('/r', 'feat', '/r/openspec/changes/feat/reviews/other/x.md').owner, '(a reviewer, as reviews/<its-name>.md)');
+  assert.deepEqual(classify('/r', 'feat', '/r/openspec/changes/feat/reviews/code-quality-reviewer.md'), { kind: 'gate', owner: 'code-quality-reviewer' });
+  assert.equal(classify('/r', 'feat', '/r/openspec/changes/feat/reviews/resolution/deeper/x.md').owner, '(a reviewer, as reviews/<its-name>.md)');
+});
+
+test('delivery-models P11 the hook: a reviewer writes its own resolution verdict only', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(edit(root, 'openspec/changes/feat/reviews/resolution/code-quality-reviewer.md', 'code-quality-reviewer').code, 0);
+  assert.equal(edit(root, 'openspec/changes/feat/reviews/resolution/code-quality-reviewer.md', 'test-coverage-reviewer').code, 2);
+  assert.equal(edit(root, 'openspec/changes/feat/reviews/resolution/code-quality-reviewer.md').code, 2, 'main session');
 });

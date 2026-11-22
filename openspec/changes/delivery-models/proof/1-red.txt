@@ -1,0 +1,552 @@
+✖ delivery-models config: no devkit block gives no model and no problem (1.063792ms)
+✖ delivery-models config: trunk is a model with no names (0.073958ms)
+✖ delivery-models config: trunk-auto is a model with no names (0.052667ms)
+✖ delivery-models config: two-prs with both names is that model with both names (0.038875ms)
+✖ delivery-models config: an unknown model is a problem naming it (0.032333ms)
+✖ delivery-models config: two-prs without base is a missing delivery-base (0.030667ms)
+✖ delivery-models config: two-prs without test_branch is a missing delivery-test-branch (0.025458ms)
+✖ delivery-models config: two-prs with the same name twice is an unknown delivery-test-branch (0.021959ms)
+✖ delivery-models config: names under trunk are ignored (0.042875ms)
+✖ delivery-models config: quoted values and trailing comments are read as the other settings are (0.081958ms)
+✖ delivery-models config: an empty value is unset (0.042333ms)
+✖ delivery-models config: nested keys never set driver or language (0.038833ms)
+✖ delivery-models config: readDeliverySettings reads the file and answers no model without one (1.183917ms)
+✖ delivery-models config: no model gives the ship entry of the schema, as shipConfig does (0.509625ms)
+✖ delivery-models config: trunk alone is pr (0.434125ms)
+✖ delivery-models config: trunk-auto alone is merge (0.894167ms)
+✖ delivery-models config: two-prs alone is pr, with the model and both names (0.462417ms)
+✖ delivery-models config: trunk with a ship entry of pr agrees (0.94525ms)
+✖ delivery-models config: trunk-auto with a ship entry of merge agrees (0.498125ms)
+✖ delivery-models config: trunk with a ship entry of merge disagrees (0.696334ms)
+✖ delivery-models config: trunk-auto with a ship entry of pr disagrees (0.609375ms)
+✖ delivery-models config: two-prs with any ship entry disagrees (0.471417ms)
+✖ delivery-models config: a ship entry of plan disagrees with trunk and trunk-auto (0.666833ms)
+✖ delivery-models config: a settings problem is a ShipConfigError (0.781625ms)
+✖ delivery-models config: merge_method is still validated and read (0.492458ms)
+✔ delivery-models open: a two-prs change starts from origin/<base> (1064.794542ms)
+✖ delivery-models open: a missing test branch on the remote creates nothing (983.951333ms)
+✖ delivery-models open: a base that is not the default branch creates nothing (1048.726917ms)
+✖ delivery-models open: an id ending in the test branch name creates nothing (1032.886458ms)
+✔ delivery-models open: an id ending in another word is fine in two-prs (1084.432583ms)
+✔ delivery-models open: a repository with no remote is not checked and starts from HEAD (965.574834ms)
+✔ delivery-models open: a trunk project opens as today, with no test branch needed (1009.958208ms)
+✖ delivery-models open: a two-prs project without base or test_branch is refused as missing, in both ways in (210.619791ms)
+✖ delivery-models open: an unknown model or a test branch equal to the base is refused as unknown (198.513583ms)
+✖ delivery-models open: the new replies exist in both languages and name no internal word (0.154416ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 4
+ℹ fail 31
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7667.115833
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:38:1
+✖ delivery-models config: no devkit block gives no model and no problem (1.063792ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:40:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:44:1
+✖ delivery-models config: trunk is a model with no names (0.073958ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:45:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:48:1
+✖ delivery-models config: trunk-auto is a model with no names (0.052667ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:49:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:52:1
+✖ delivery-models config: two-prs with both names is that model with both names (0.038875ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:53:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:56:1
+✖ delivery-models config: an unknown model is a problem naming it (0.032333ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:57:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:60:1
+✖ delivery-models config: two-prs without base is a missing delivery-base (0.030667ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:61:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:64:1
+✖ delivery-models config: two-prs without test_branch is a missing delivery-test-branch (0.025458ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:65:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:68:1
+✖ delivery-models config: two-prs with the same name twice is an unknown delivery-test-branch (0.021959ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:69:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:72:1
+✖ delivery-models config: names under trunk are ignored (0.042875ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:73:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:77:1
+✖ delivery-models config: quoted values and trailing comments are read as the other settings are (0.081958ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:78:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:82:1
+✖ delivery-models config: an empty value is unset (0.042333ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at settingsOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:34:47)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:83:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:87:1
+✖ delivery-models config: nested keys never set driver or language (0.038833ms)
+  TypeError [Error]: guard.parseDevkitBlock is not a function
+      at parseDevkitBlock (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:29:42)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:88:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:94:1
+✖ delivery-models config: readDeliverySettings reads the file and answers no model without one (1.183917ms)
+  TypeError [Error]: guard.readDeliverySettings is not a function
+      at readDeliverySettings (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:31:46)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:95:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:103:1
+✖ delivery-models config: no model gives the ship entry of the schema, as shipConfig does (0.509625ms)
+  TypeError [Error]: deliver.deliveryConfig is not a function
+      at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+      at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:106:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:113:1
+✖ delivery-models config: trunk alone is pr (0.434125ms)
+  TypeError [Error]: deliver.deliveryConfig is not a function
+      at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+      at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:114:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:118:1
+✖ delivery-models config: trunk-auto alone is merge (0.894167ms)
+  TypeError [Error]: deliver.deliveryConfig is not a function
+      at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+      at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:119:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:123:1
+✖ delivery-models config: two-prs alone is pr, with the model and both names (0.462417ms)
+  TypeError [Error]: deliver.deliveryConfig is not a function
+      at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+      at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:124:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:128:1
+✖ delivery-models config: trunk with a ship entry of pr agrees (0.94525ms)
+  TypeError [Error]: deliver.deliveryConfig is not a function
+      at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+      at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:129:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:132:1
+✖ delivery-models config: trunk-auto with a ship entry of merge agrees (0.498125ms)
+  TypeError [Error]: deliver.deliveryConfig is not a function
+      at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+      at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:133:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:136:1
+✖ delivery-models config: trunk with a ship entry of merge disagrees (0.696334ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  TypeError: deliver.deliveryConfig is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:137:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: deliver.deliveryConfig is not a function
+        at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+        at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+        at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:137:23
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:137:10)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:140:1
+✖ delivery-models config: trunk-auto with a ship entry of pr disagrees (0.609375ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  TypeError: deliver.deliveryConfig is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:141:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: deliver.deliveryConfig is not a function
+        at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+        at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+        at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:141:23
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:141:10)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:144:1
+✖ delivery-models config: two-prs with any ship entry disagrees (0.471417ms)
+  AssertionError [ERR_ASSERTION]: plan
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:146:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: deliver.deliveryConfig is not a function
+        at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+        at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+        at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:146:25
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:146:12)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:150:1
+✖ delivery-models config: a ship entry of plan disagrees with trunk and trunk-auto (0.666833ms)
+  AssertionError [ERR_ASSERTION]: trunk
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:152:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: deliver.deliveryConfig is not a function
+        at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+        at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+        at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:152:25
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:152:12)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:156:1
+✖ delivery-models config: a settings problem is a ShipConfigError (0.781625ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  TypeError: deliver.deliveryConfig is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:157:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: deliver.deliveryConfig is not a function
+        at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+        at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+        at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:157:23
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:157:10)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:161:1
+✖ delivery-models config: merge_method is still validated and read (0.492458ms)
+  TypeError [Error]: deliver.deliveryConfig is not a function
+      at deliveryConfig (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:32:50)
+      at deliveryOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:101:51)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:162:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:184:1
+✖ delivery-models open: a missing test branch on the remote creates nothing (983.951333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:187:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:193:1
+✖ delivery-models open: a base that is not the default branch creates nothing (1048.726917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:196:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:201:1
+✖ delivery-models open: an id ending in the test branch name creates nothing (1032.886458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:204:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:229:1
+✖ delivery-models open: a two-prs project without base or test_branch is refused as missing, in both ways in (210.619791ms)
+  Error [LoopUsageError]: unknown reply key setting-missing
+      at render (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/change-loop.mjs:370:37)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:232:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:242:1
+✖ delivery-models open: an unknown model or a test branch equal to the base is refused as unknown (198.513583ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'accepted')
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:249:59)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:258:1
+✖ delivery-models open: the new replies exist in both languages and name no internal word (0.154416ms)
+  AssertionError [ERR_ASSERTION]: en setting-missing
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:261:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
