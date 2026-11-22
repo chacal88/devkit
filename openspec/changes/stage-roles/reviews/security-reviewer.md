@@ -1,16 +1,16 @@
 Verdict: approved
-Commit: 371b272a0f4df62022dc6e79f81b8ef53ff23793
+Commit: cea2ee6cc9ea02d9b56d26b3a617d6fa29b11bfa
 
-## Security audit — stage-roles (round 3, re-review after the merge from main)
+## Security audit — stage-roles (round 4, re-review after three merges from main)
 
 ### Findings
 
-Triaged scope: high: plugins/openspec/hooks/guard.mjs, plugins/openspec/hooks/change-loop.mjs (merge resolution, symlink guard); medium: flow-check and roadmap-loop tests, spec delta; low: ADR rename, versions, changelog, docs.
+Triaged scope: high: the merge resolutions of 87487e3 and ef7ed05 (versions, the CI pin, the ship-change approval row) and plugins/openspec/hooks/guard.mjs against main; medium: change-loop.test.mjs pin assertions; low: CHANGELOG, docs.
 
-Previous findings: none (round 1 and round 2 were approved with no findings).
+Previous findings: none (the previous verdict was approved with no findings).
 
-Checked since e8af242: the 16 merge conflicts were resolved by keeping both sides, with no leftover markers in hooks or ADRs. The realpath guard on decision records in change-loop.mjs:871 survived the merge. guard.mjs carries both main's slice-contract code and stage-roles' adr-author and e2e-tester write rules, with the readiness gate before the e2e-tester check. The ADR 0016 rename, the version moves and the v0.22.0 pin have no security surface. No secret-like files were added. 8d07aa0 only adds a requirement scenario to the spec delta and updates evidence text.
+Checked since 371b272: the conflicts in the two remerge diffs all resolved by keeping this change's versions (marketplace 0.26.0, devkit-openspec 0.22.0, CI pin v0.22.0) and keeping main's changelog entries 0.25.1 and 0.25.2 alongside. The pin test refuses v0.21.1 and v0.21.0. The ship-change `stop-plan-approval` row took main's wording (the owner's words inside backticks) on top of this change's accept-decisions text, so the approval-file contract is unchanged in meaning. No conflict markers remain in plugins, docs, the marketplace file or the changelog. `git diff origin/main HEAD` on guard.mjs shows 23 added lines and no removed ones, so main's slice-contract and ADR verdict checks (#61) survived and nothing was weakened. No secret-like files were added.
 
 Categories walked: injection, authn/authz/IDOR, exposure, crypto, secret, config.
 
-Discarded false positives: injection, no new request-input sink in the merge resolution; config, the stale-pin assertions in the tests fail closed.
+Discarded false positives: config, the CI pin moved to v0.22.0 is a deliberate fail-closed pin by commit sha, and the stale-pin test assertions fail closed; injection, no new request-input sink in the merge resolutions.

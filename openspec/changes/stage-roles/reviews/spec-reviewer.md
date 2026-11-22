@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: 371b272a0f4df62022dc6e79f81b8ef53ff23793
+Commit: cea2ee6cc9ea02d9b56d26b3a617d6fa29b11bfa
 
-## Spec review: stage-roles (round 3, e8af242..371b272)
+## Spec review: stage-roles (round 4, 371b272..cea2ee6)
 
 ### Findings
 - [nit] openspec/changes/stage-roles/requirements.md:37 and proposal.md:65 (AC-4) — AC-4 says the owner's approval is recorded by the script command; the change has the session edit mockup.md per design D-5. Align the AC wording with D-5.
@@ -10,7 +10,7 @@ Commit: 371b272a0f4df62022dc6e79f81b8ef53ff23793
 In-scope specs: openspec/changes/stage-roles/specs/{stage-deliverables,file-writers,change-stages,change-coordination,roadmap-coordination,project-setup,compozy-kit-setup}/spec.md
 
 ### Coverage
-All 26 in-scope requirements remain covered after the merge. The roadmap-coordination requirement "The owner's gates are asked one change at a time" now holds both sides: main's scenario "Two changes at their grill, each in its own session" and this change's "A mock-up waits while another change is asked". The merge resolution kept main's ADR 0014 and 0015 references and renamed this change's ADR to 0016 consistently in ADR 0010, ADR 0011, docs/coordination-design.md and the tests. Versions match across the marketplace and each plugin.json. No conflict markers remain. I did not re-run tests or openspec validate, and I could not compare the CI pin from the diff.
+All 26 in-scope requirements remain covered after the three merges from main. No tests were re-run. The remerge diffs of 87487e3 and ef7ed05 show every conflict resolved with this change's versions kept above main's (marketplace 0.26.0, devkit-openspec 0.22.0, CI pin v0.22.0), main's 0.25.1 and 0.25.2 changelog sections kept, the pin test refusing v0.21.0, v0.21.1 and v0.21.2, and the ship-change stop-plan-approval row holding both main's backtick-quoted owner's words and this change's decisions.md and accept-decisions text. 128d4bb only adds 3 roadmap lines. No conflict markers remain and no stale 0.21.x pin is left in docs/openspec-flow.md.
 
 ### Summary
 - 1 finding still open (a nit, F1); 0 scope creep, 0 gaps.

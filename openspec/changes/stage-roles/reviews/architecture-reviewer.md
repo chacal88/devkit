@@ -1,13 +1,13 @@
 Verdict: approved
-Commit: 371b272a0f4df62022dc6e79f81b8ef53ff23793
+Commit: cea2ee6cc9ea02d9b56d26b3a617d6fa29b11bfa
 
-## Architecture review: stage-roles (round 3, e8af242..371b272)
+## Architecture review: stage-roles (round 4, 371b272..cea2ee6)
 
 ### Findings
-- [nit] plugins/openspec/hooks/change-loop.mjs:60 — Two readers of the devkit: block's indentation (readDevkitSettings and flow-check's readTestSettings); fold the first into the second if a third setting is added.
-- [nit] plugins/openspec/hooks/guard.mjs:241 — The test-file folder and name list is written four times (isTestFile, e2e-tester agent, e2e-testing skill, docs); only the guard enforces it, so the prose copies can drift.
+- [nit] plugins/openspec/hooks/change-loop.mjs:60 — Two readers of the devkit: block's indentation; fold readDevkitSettings into readTestSettings if a third setting is added.
+- [nit] plugins/openspec/hooks/guard.mjs:241 — The test-file folder and name list is written four times; only the guard enforces it, so the prose copies can drift.
 - [nit] plugins/openspec/hooks/guard.mjs:254 — test-runner, screen-designer and adr-author are held to their own file by prose only; planning files under openspec/changes/ stay writable to them (pre-existing seam).
 
-Analyzed: the merge resolution of the conflicted files that touch design (change-loop.mjs message tables, flow-check.test.mjs, roadmap-loop.test.mjs, ADR 0010, ADR 0016) via remerge-diff; both sides' behaviour survives in each. The ADR rename 0014 to 0016 is complete: no stale reference to the old file name, and the remaining ADR 0014 mentions are main's roadmap-session ADR. 8d07aa0's roadmap-coordination delta keeps main's per-session gate text and scenario together with this change's mock-up gate. Boundaries unchanged (guard <- flow-check <- change-loop); main's project-loop is not imported by anything this change adds; devkit-project slice paths are not covered by the ADR-folder or test-file write rule. No new module, so no new deletion test; earlier results stand. The version moves and the CI pin were not re-reviewed beyond the evidence.
+Analyzed: the conflict resolutions of merges 87487e3 and ef7ed05 via remerge-diff (docs/openspec-flow.md, change-loop.test.mjs, ship-change SKILL.md; the version files only against the evidence). Both sides' behaviour survives: the CI pin stays at v0.22.0 with no v0.21.x left in the flow doc, the pin test refuses v0.21.0, v0.21.1 and v0.21.2, and the stop-plan-approval row keeps main's backtick wording for the owner's words together with this change's decisions.md and accept-decisions wording; stop-mockup-approval is intact. The third merge (128d4bb, roadmap lines) had no conflicts to resolve. Boundaries unchanged (guard <- flow-check <- change-loop). No new module, so no new deletion test; earlier results stand.
 
 No blocking or important findings; the three earlier nits stand unchanged.
