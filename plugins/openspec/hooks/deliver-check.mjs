@@ -146,6 +146,17 @@ function gitOk(root, args) {
 
 const isOpenspec = (p) => p.startsWith('openspec/');
 
+// A test file (review-writer-prompt D-6): `.test.` or `.spec.` in its file name, or a folder named
+// test, tests, __tests__ or fixtures on its path. A fixed pattern, no setting.
+const TEST_FOLDERS = ['test', 'tests', '__tests__', 'fixtures'];
+export function isTestFile(path) {
+  const parts = String(path).split('/');
+  const name = parts.pop();
+  return name.includes('.test.') || name.includes('.spec.') || parts.some((f) => TEST_FOLDERS.includes(f));
+}
+// The reviewers whose verdict a commit of test files only (and openspec/) leaves current.
+export const TEST_SPARED_REVIEWERS = ['spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer'];
+
 // Paths the working tree changes outside openspec/ (and outside .claude/ for
 // untracked files). Rename sources count as changed paths.
 function dirtyPaths(root) {
@@ -183,10 +194,11 @@ function touchedPaths(root, c, parents) {
 
 // Why a recorded Commit is not current at HEAD, or null when it is: it
 // resolves, is an ancestor of HEAD, every commit since touches only
-// openspec/, it is not marked uncommitted, and the working tree has no change
-// outside openspec/ and .claude/. A merge commit counts what it brought into
-// the branch (its first-parent diff); every commit in the range is still checked.
-export function staleness(root, recorded, facts = gitFacts(root)) {
+// openspec/ (or, with `allowed`, only paths it accepts), it is not marked
+// uncommitted, and the working tree has no change outside openspec/ and .claude/.
+// A merge commit counts what it brought into the branch (its first-parent diff);
+// every commit in the range is still checked.
+export function staleness(root, recorded, facts = gitFacts(root), { allowed = isOpenspec } = {}) {
   if (!recorded) return 'no Commit: line';
   const short = recorded.sha.slice(0, 7);
   if (recorded.uncommitted) return `${short} was recorded with uncommitted changes`;
@@ -198,7 +210,7 @@ export function staleness(root, recorded, facts = gitFacts(root)) {
   if (!gitOk(root, ['merge-base', '--is-ancestor', full, facts.head])) return `${short} is not an ancestor of HEAD`;
   for (const line of git(root, ['rev-list', '--parents', `${full}..${facts.head}`]).split('\n').filter(Boolean)) {
     const [c, ...parents] = line.split(' ');
-    const product = touchedPaths(root, c, parents).find((f) => !isOpenspec(f));
+    const product = touchedPaths(root, c, parents).find((f) => !allowed(f));
     if (product) return `${short} is behind ${c.slice(0, 7)}, which touches ${product}`;
   }
   return null;
@@ -236,10 +248,11 @@ export function readReviews(root, id, facts = gitFacts(root)) {
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
   return files.map((f) => {
     const file = join(dir, f);
+    const name = basename(f, '.md');
     return {
-      name: basename(f, '.md'),
+      name,
       verdict: readValue(file, 'Verdict'),
-      why: staleness(root, parseCommitLine(readFileSync(file, 'utf8')), facts),
+      why: staleness(root, parseCommitLine(readFileSync(file, 'utf8')), facts, TEST_SPARED_REVIEWERS.includes(name) ? { allowed: (p) => isOpenspec(p) || isTestFile(p) } : {}),
     };
   });
 }
@@ -260,12 +273,47 @@ export function reviewsItem(root, id, facts = gitFacts(root)) {
   return item(2, 'reviews', 'open', reasons.join('; '), details);
 }
 
-// The checkbox lines of tasks.md: { phase, id, done, isGate, command }. A gate
+// The 1-based lines of `text` that sit inside a fenced block (and the fence lines themselves). A line
+// opening with three or more backticks or tildes opens a fence; the next line opening with at least as
+// many of the same character closes it. An opening line with no closing line before the end of the text
+// opens no fence.
+export function fencedLines(text) {
+  const lines = String(text).split('\n');
+  const inside = new Set();
+  let from = 0;
+  for (;;) {
+    let open = null;
+    let openedAt = -1;
+    const added = [];
+    for (let i = from; i < lines.length; i++) {
+      const m = /^\s*(`{3,}|~{3,})/.exec(lines[i]);
+      if (open) {
+        added.push(i + 1);
+        if (m && m[1][0] === open.char && m[1].length >= open.len) open = null;
+      } else if (m) {
+        added.push(i + 1);
+        open = { char: m[1][0], len: m[1].length };
+        openedAt = i;
+      }
+    }
+    if (!open) {
+      for (const n of added) inside.add(n);
+      return inside;
+    }
+    // Unclosed: drop the opening line and every line added after it, then rescan after the opening line.
+    for (const n of added) if (n <= openedAt) inside.add(n);
+    from = openedAt + 1;
+  }
+}
+
+// The checkbox lines of tasks.md outside fenced blocks: { phase, id, done, isGate, command }. A gate
 // task's description (the text after its id) starts with "Gate:"; its command is the first backticked text after it.
 export function parseTasks(text) {
   const tasks = [];
   let phase = 1;
-  for (const line of String(text).split(/\r?\n/)) {
+  const fenced = fencedLines(text);
+  for (const [i, line] of String(text).split(/\r?\n/).entries()) {
+    if (fenced.has(i + 1)) continue;
     const h = line.match(/^##\s+(\d+)\./);
     if (h) { phase = Number(h[1]); continue; }
     const m = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(\S+)\s*(.*)$/);

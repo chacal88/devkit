@@ -86,7 +86,7 @@ When the caller names a change with a folder (`openspec/changes/<id>/` or `docs/
 
 When the caller says the round is staged, it runs in stages and you do not review in one pass.
 
-- **Stage 1 (review):** review as usual but write no file. Return the shape the caller asks for: the verdict and the commit as you would write them, the findings with severity, location, text and any disposition, and the rest of your output as the other sections.
+- **Stage 1 (review):** review as usual but write no file. Return the shape the caller asks for: the commit as `git rev-parse HEAD` prints it, the files you opened and the files of your remit you did not open, the findings with severity, location, text and any disposition (`fixed in` names one sha), and the rest of your output as the other sections, without your verdict line and your `Commit:` line, which stage 3 writes.
 - **Stage 3 (write):** the caller gives you your stage-1 output and the outcome of the verification. Write your verdict file exactly as given: refuted findings carry the ` · refuted: <evidence>` you are given, survivors stay open with their severity, and the verdict line follows your own rules from the findings below it. Do not review again, and do not change, add or drop a finding.
 
 ## Output

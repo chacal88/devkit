@@ -10,7 +10,7 @@ export const SCRIPT_FILE = join(here, 'review-round.workflow.js');
 
 const NAMES = [
   'VERIFIERS', 'verifyJobs', 'groupVotes', 'writeMismatch', 'STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation',
-  'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate',
+  'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'isHeaderLine', 'withoutHeaderLines', 'writeJobs',
 ];
 const BEGIN = /^\/\/ ---- rules: begin.*$/m;
 const END = /^\/\/ ---- rules: end.*$/m;
@@ -34,7 +34,7 @@ export function loadRules(file = SCRIPT_FILE) {
 
 export const {
   VERIFIERS, verifyJobs, groupVotes, writeMismatch, STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, validateArgs, validateStage1, needsVerification, isRefutation,
-  decide, oneLine, findingLine, outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate,
+  decide, oneLine, findingLine, outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate, isHeaderLine, withoutHeaderLines, writeJobs,
 } = loadRules();
 
 // ---- the CLI --------------------------------------------------------------
@@ -75,7 +75,7 @@ function readStage1(args, stage1) {
     const value = valueOf(stage1[entry.reviewer], `stage1.${entry.reviewer}`);
     let normalized = null;
     if (value) {
-      try { normalized = validateStage1(entry.reviewer, value); } catch { normalized = null; }
+      try { normalized = validateStage1(entry.reviewer, value, args.head); } catch { normalized = null; }
     }
     if (normalized) passed.push({ entry, stage1: normalized });
     else failed.push(failedReview(entry.reviewer));
@@ -109,7 +109,7 @@ function outcomesCommand({ args, stage1, votes }) {
     }
     return outcomeOf(a, p.stage1, byId);
   });
-  return { outcomes, failed, verifiersFailed: outcomes.reduce((sum, o) => sum + o.voteFailures, 0) };
+  return { outcomes, failed, verifiersFailed: outcomes.reduce((sum, o) => sum + o.voteFailures, 0), jobs: writeJobs(a, outcomes) };
 }
 
 function consolidateCommand({ args, outcomes, failed, notes }) {
@@ -132,6 +132,8 @@ function checkFileCommand({ file, outcome }) {
   if (lines[0] !== verdict) throw mismatch(file, `line 1 is "${lines[0] ?? ''}", expected "${verdict}"`);
   const commit = `Commit: ${outcome.commit}${outcome.uncommitted ? ' (uncommitted changes)' : ''}`;
   if (lines[1] !== commit) throw mismatch(file, `line 2 is "${lines[1] ?? ''}", expected "${commit}"`);
+  const second = lines.findIndex((l, i) => i > 1 && isHeaderLine(l));
+  if (second >= 0) throw mismatch(file, `line ${second + 1} begins with ${lines[second].trim().split(':')[0]}:, which only lines 1 and 2 may`);
   const have = new Set(lines.map((l) => l.trimEnd()));
   for (const line of outcome.lines.filter((l) => /^- \[(?:blocking|important)\]/.test(l))) {
     if (!have.has(line)) throw mismatch(file, `missing the line "${line.slice(0, 120)}"`);

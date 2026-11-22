@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader } from './guard.mjs';
-import { gitFacts, staleness, locateChange, schemaOf, shipConfig, ShipConfigError, deliveryOf, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
+import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, shipConfig, ShipConfigError, deliveryOf, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 export class FlowUsageError extends Error {
@@ -63,25 +63,6 @@ export function readFlowFile(f, name = f) {
     }
   });
   return flow;
-}
-
-// The 1-based lines of `text` that sit inside a fenced block (and the fence lines themselves). A line
-// opening with three or more backticks or tildes opens a fence; the next line opening with at least as
-// many of the same character closes it.
-function fencedLines(text) {
-  const inside = new Set();
-  let open = null;
-  String(text).split('\n').forEach((line, i) => {
-    const m = /^\s*(`{3,}|~{3,})/.exec(line);
-    if (open) {
-      inside.add(i + 1);
-      if (m && m[1][0] === open.char && m[1].length >= open.len) open = null;
-    } else if (m) {
-      inside.add(i + 1);
-      open = { char: m[1][0], len: m[1].length };
-    }
-  });
-  return inside;
 }
 
 // OpenSpec's task list ({ id, done, line }) is the source; a checkbox inside a fenced example of
@@ -253,6 +234,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf)),
+    staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
     delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery }),
   });
   const status = openspecJson(openspec, ['status', '--change', id, '--json'], 'artifacts');
@@ -292,6 +274,7 @@ export const TEXT = {
     'header-failed': (p) => `failed at attempt ${p.attempt} of ${p.ceiling}`,
     'stale-code': (p) => `the code changed since it ran (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} changed after it`,
+    'stale-reviewers': (p) => `the reviews of ${p.names.join(', ')} are stale`,
     'tasks-pending': (p) => `${p.count} task${p.count === 1 ? '' : 's'} pending (${p.ids.join(', ')})`,
     uncommitted: (p) => `code changed and is not committed (${p.paths.join(', ')})`,
     'tasks-done': (p) => `${p.done} of ${p.total} tasks done`,
@@ -335,6 +318,7 @@ export const TEXT = {
     'header-failed': (p) => `falhou na tentativa ${p.attempt} de ${p.ceiling}`,
     'stale-code': (p) => `o código mudou desde que ela rodou (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} mudou depois dela`,
+    'stale-reviewers': (p) => `as revisões de ${p.names.join(', ')} estão desatualizadas`,
     'tasks-pending': (p) => `${p.count} ${p.count === 1 ? 'tarefa pendente' : 'tarefas pendentes'} (${p.ids.join(', ')})`,
     uncommitted: (p) => `há código alterado e não commitado (${p.paths.join(', ')})`,
     'tasks-done': (p) => `${p.done} de ${p.total} tarefas feitas`,
@@ -398,6 +382,11 @@ function artifactState(stage, files, facts, flow, started) {
       const why = facts.staleness(f.header.commit);
       if (why) { stale = { code: 'stale-code', params: { why } }; break; }
     }
+  }
+  // The review stage is also stale while a reviewer's own file is (the header can be current when a file is not).
+  if (!stale && stage.id === 'review' && facts.staleReviewers) {
+    const names = facts.staleReviewers();
+    if (names.length) stale = { code: 'stale-reviewers', params: { names } };
   }
   // Once the work has started, ticking tasks.md must not make the plan review stale (conduct-check's rule).
   if (!stale && !started && !facts.postMerge) {

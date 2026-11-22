@@ -25,7 +25,7 @@ If the target can't be resolved, stop and ask.
 
 ## Cost
 
-Reviewers are the most expensive step of a change. Summon only the reviewers the matrix selects: a small diff that touches no contract, auth, ADR area or spec gets `code-quality-reviewer` and `test-coverage-reviewer` only. Never re-run a reviewer that already approved the current diff: a review is current when its `Commit:` line (the second line of its verdict file) names the commit being shipped, or an ancestor of it with only `openspec/` changes since.
+Reviewers are the most expensive step of a change. Summon only the reviewers the matrix selects: a small diff that touches no contract, auth, ADR area or spec gets `code-quality-reviewer` and `test-coverage-reviewer` only. Never re-run a reviewer that already approved the current diff: a review is current when its `Commit:` line (the second line of its verdict file) names the commit being shipped, or an ancestor of it with only `openspec/` changes since (for `spec-reviewer`, `adr-reviewer`, `architecture-reviewer` and `security-reviewer`, test files may change too).
 
 ## Process
 
@@ -68,9 +68,11 @@ The round has three stages. Each stage runs all its agents in parallel, and the 
 2. **verify**: for each `blocking` or `important` finding with no disposition, three `finding-verifier` agents try to refute it, each in its own context. `nit` and `praise` are never verified.
 3. **write**: each reviewer that passed stage 1 writes its own `reviews/<reviewer>.md` from its findings and the verification outcome.
 
+The script refuses a stage-1 answer whose `commit` is not `args.head`, that lists a path in `notRead`, or whose `read` is empty without declining. That reviewer is in `failed` as `review stage failed: <r> review` before the verify stage, and the first row of the table below applies.
+
 The rules (which findings are verified, the majority, the disposition text, the verdict a file must carry, `review.md`) live once, in `scripts/review-round.workflow.js`; the `agents` path reads them through `scripts/review-round.mjs`.
 
-Build `args` first, after the structural check: `{ change, changeDir, round, path, range, structural: "PASS", preamble, bench: [{ reviewer, previous, range }] }`, where `preamble` is the caller's worktree preamble (or an empty string) and each bench entry holds the reviewer's previous verdict file and its `<Commit>..HEAD` range on a scoped call (else `null`).
+Build `args` first, after the structural check: `{ change, changeDir, round, path, range, head, structural: "PASS", preamble, bench: [{ reviewer, previous, range }] }`, where `head` is the full sha `git rev-parse HEAD` prints in the change's worktree, run right before the round, `preamble` is the caller's worktree preamble (or an empty string) and each bench entry holds the reviewer's previous verdict file and its `<Commit>..HEAD` range on a scoped call (else `null`).
 
 **Which path runs.** The `workflow` path runs only when all of these hold: the Workflow tool is among your tools; the current turn began with the owner's own typed message (not a continuation, an Auto-fix wake, a background task notification or a scheduled prompt); and the skill the owner invoked, or one on its chain, names the Workflow tool (this one does). On any other turn, or when the tool is missing or refuses, run the `agents` path. Set `path` in `args` to the one you run.
 
@@ -93,7 +95,7 @@ The lost round: while the task is still listed as running, the change stays busy
 
 1. `node <skill-dir>/scripts/review-round.mjs stage1 --input <json>` with `{ args }` gives `{ jobs: [{ reviewer, agentType, prompt }] }`. Send one `Agent` call per job (`subagent_type: devkit-core:<reviewer>`, the job's prompt). Each prompt asks for the stage-1 object as the last fenced `json` block.
 2. `node <skill-dir>/scripts/review-round.mjs verify --input <json>` with `{ args, stage1: { <reviewer>: <object or text> } }` gives `{ jobs: [{ reviewer, id, k, agentType, prompt }], failed }`. Send one `Agent` call per job (`subagent_type: devkit-core:finding-verifier`).
-3. `node <skill-dir>/scripts/review-round.mjs outcomes --input <json>` with `{ args, stage1, votes: { "<reviewer>#<id>": [vote, vote, vote] } }` gives `{ outcomes, failed, verifiersFailed }`. Send one `Agent` call per outcome with the reviewer's agent type and the writer prompt the command gives; each writes its own file.
+3. `node <skill-dir>/scripts/review-round.mjs outcomes --input <json>` with `{ args, stage1, votes: { "<reviewer>#<id>": [vote, vote, vote] } }` gives `{ outcomes, failed, verifiersFailed, jobs: [{ reviewer, agentType, prompt }] }`. Send one `Agent` call per job (`subagent_type` the job's `agentType`, the job's prompt) and never build a writer prompt by hand; each writes its own file.
 
 Then check every file and consolidate (Output below). A `failed` entry `review stage failed: <r> review` means re-run that reviewer's stages once with the Agent tool.
 
@@ -171,9 +173,9 @@ Below the table, each reviewer's findings stay in that reviewer's own format. Th
 
 - Each reviewer writes its own verdict to `reviews/<reviewer>.md` in the change folder (stage 3, by its own agent type); first line `Verdict: approved`, `rejected` or (security only) `declined`, second line `Commit: <sha>`.
 - Don't write those files yourself, and don't copy a verdict into them. Projects using the devkit hooks accept `reviews/<reviewer>.md` only from that reviewer, and `gh pr create` requires `code-quality-reviewer` and `test-coverage-reviewer` plus every other review present to be approved.
-- After the round, check every written file: `node <skill-dir>/scripts/review-round.mjs check-file --input <json>` with `{ file, outcome }`. Exit 2 with `review file mismatch:` means stage 3 runs again for that reviewer, once (the table in step 4).
+- After the round, check every written file: `node <skill-dir>/scripts/review-round.mjs check-file --input <json>` with `{ file, outcome }`. The check also refuses a `Verdict:` or `Commit:` line after line 2. Exit 2 with `review file mismatch:` means stage 3 runs again for that reviewer, once (the table in step 4).
 - Append this skill's consolidated report to `review.md` in the same folder, for people to read, one section per call (create the file on the first review). `node <skill-dir>/scripts/review-round.mjs consolidate --input <json>` with `{ args, outcomes, failed, notes }` gives `{ consensus, text }`; append `text`. The section holds a `Path: <workflow|agents>` line, a table of each reviewer's verdict, open blocking and important counts, verified and refuted counts and commit, the `Consensus: PASS | FAIL (round N/2)` line, the open findings, the findings refuted by verification, the notes and the next step. The gate doesn't read it, except the `Consensus:` line for the deadlock stop.
-- Any code edit after a review makes it stale. Stale means the reviewer's `Commit:` line is not the commit being shipped, or a commit after it touched anything outside `openspec/`. Re-run the reviewers that the edit concerns.
+- Any code edit after a review makes it stale. Stale means the reviewer's `Commit:` line is not the commit being shipped, or a commit after it touched anything outside `openspec/`. A commit of test files only stales only `code-quality-reviewer` and `test-coverage-reviewer`, and any reviewer outside the six. Re-run the reviewers that the edit concerns.
 
 For a bare `--diff` with no change folder, create no file.
 

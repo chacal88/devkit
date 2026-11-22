@@ -11,6 +11,7 @@ import { ghError } from './merge-setup.mjs';
 import { archiveBranchChange, resolveChange } from './guard.mjs';
 import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, readReviewMd, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, unnamedFiles, ciMain } from './deliver-check.mjs';
 import * as DC from './deliver-check.mjs';
+import { pendingTasks } from './flow-check.mjs';
 import { createHash } from 'node:crypto';
 import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
 
@@ -1501,7 +1502,7 @@ test("review round: readReviewMd reads consolidate's Consensus line and round", 
   const root = gitRepo();
   const mk = (round, text) => {
     const args = { change: 'feat', changeDir: 'openspec/changes/feat', round, path: 'agents', range: 'main..HEAD', structural: 'PASS', preamble: '', bench: [{ reviewer: 'code-quality-reviewer', previous: null, range: null }] };
-    const s = validateStage1('code-quality-reviewer', { declined: false, commit: 'e'.repeat(40), uncommitted: false, heading: '## h', findings: [{ severity: 'important', location: 'x', text }], sections: '' });
+    const s = validateStage1('code-quality-reviewer', { declined: false, commit: 'e'.repeat(40), uncommitted: false, heading: '## h', read: ['a.mjs'], notRead: [], findings: [{ severity: 'important', location: 'x', text }], sections: '' }, 'e'.repeat(40));
     return consolidate({ args, outcomes: [outcomeOf(args, s, {})], failed: [], notes: [] }).text;
   };
   const file = join(root, 'openspec/changes/feat/review.md');
@@ -5010,5 +5011,221 @@ test('field-fixes 10 verdict: the devkit-reviews check from both entries passes 
   for (const r of bothEntries(rewrite('rejected', 'approved'))) {
     assert.equal(r.code, 1, r.out + r.err);
     assert.match(r.out, /not approved: test-coverage-reviewer \(rejected\)/);
+  }
+});
+
+// ---- review-writer-prompt D-8: a checkbox inside a fenced block is not a task (spec change-delivery)
+
+const FENCE = '`'.repeat(3);
+const fencedTasks = (fence, inner) => `# Tasks\n\n## 1. First\n\n- [x] 1.1 code\n- [x] 1.2 Gate: \`node -e 0\` green\n\n${fence}md\n${inner}\n${fence}\n`;
+
+test('review-writer-prompt AC-9 an unticked checkbox inside a backtick fence is not a task of the delivery checker', () => {
+  const text = fencedTasks(FENCE, '- [ ] 1.9 example task');
+  assert.deepEqual(parseTasks(text).map((t) => t.id), ['1.1', '1.2']);
+  const root = gitRepo({ changes: { feat: { 'tasks.md': text } }, files: { 'src/a.ts': 'a\n' } });
+  const r = tasksItem(root, 'feat', gitFacts(root));
+  assert.deepEqual(r.details.unticked ?? [], [], r.reason);
+  assert.doesNotMatch(r.reason, /unticked/);
+});
+
+test('review-writer-prompt AC-9 a gate inside a fence has no command to run and is not a gate of any phase', () => {
+  const text = fencedTasks(FENCE, '- [ ] 9.9 Gate: run it');
+  const tasks = parseTasks(text);
+  assert.ok(!tasks.some((t) => t.id === '9.9'));
+  const root = gitRepo({ changes: { feat: { 'tasks.md': text } } });
+  const phases = readPhases(join(root, 'openspec/changes/feat/tasks.md'));
+  assert.ok(!phases.some((p) => p.gate?.id === '9.9'), JSON.stringify(phases));
+  assert.doesNotMatch(tasksItem(root, 'feat', gitFacts(root)).reason, /9\.9|without a command/);
+});
+
+test('review-writer-prompt AC-9 a tilde fence hides the checkbox too, and a fenced heading does not start a phase', () => {
+  const text = fencedTasks('~~~~', '## 7. Fenced phase\n- [ ] 7.1 example');
+  assert.deepEqual(parseTasks(text).map((t) => [t.phase, t.id]), [[1, '1.1'], [1, '1.2']]);
+});
+
+test('review-writer-prompt AC-9 a checkbox after the closing fence is counted', () => {
+  const text = `${fencedTasks(FENCE, '- [ ] 1.9 example')}\n- [ ] 1.3 real task\n`;
+  assert.deepEqual(parseTasks(text).filter((t) => !t.done).map((t) => t.id), ['1.3']);
+});
+
+test('review-writer-prompt AC-9 a fenced unticked line on the default branch still answers the retro', () => {
+  const t = pm();
+  t.gh.prFiles(12, [FEAT_TASKS]);
+  t.gh.tasksOnDefault('feat', fencedTasks(FENCE, '- [ ] 1.9 example'));
+  const s = t.state();
+  assert.equal(nextStep(s).step, 'retro');
+});
+
+test('review-writer-prompt AC-9 fencedLines is exported by deliver-check.mjs and flow-check.mjs holds no copy', () => {
+  assert.equal(typeof DC.fencedLines, 'function');
+  assert.deepEqual([...DC.fencedLines('a\n```\nb\n```\nc\n')], [2, 3, 4]);
+  const flow = readFileSync(join(here, 'flow-check.mjs'), 'utf8');
+  assert.doesNotMatch(flow, /function fencedLines/);
+  assert.match(flow, /fencedLines[^;]*from '\.\/deliver-check\.mjs'/s);
+});
+
+// ---- review-writer-prompt D-8: an unclosed fence hides nothing (spec change-delivery, review round 1)
+
+const UNCLOSED = `# Tasks\n\n## 1. First\n\n- [x] 1.1 code\n${FENCE}md\n- [ ] 1.2 more\n- [ ] 1.3 Gate: \`node -e 0\` green\n`;
+
+test('review-writer-prompt AC-9 fencedLines: an opening line with no closing line opens no fence', () => {
+  assert.deepEqual([...DC.fencedLines(UNCLOSED)], []);
+  assert.deepEqual([...DC.fencedLines('a\n```\nb\nc\n')], []);
+});
+
+test('review-writer-prompt AC-9 fencedLines: a closed fence after an unclosed one still hides its own lines', () => {
+  assert.deepEqual([...DC.fencedLines('a\n```\nb\n~~~\nc\n~~~\nd\n')], [4, 5, 6]);
+});
+
+test('review-writer-prompt AC-9 parseTasks counts the task and the gate after an unclosed fence', () => {
+  assert.deepEqual(parseTasks(UNCLOSED).map((t) => [t.id, t.done, t.isGate]), [['1.1', true, false], ['1.2', false, false], ['1.3', false, true]]);
+});
+
+test('review-writer-prompt AC-9 readPhases gives the gate after an unclosed fence to its phase', () => {
+  const root = gitRepo({ changes: { feat: { 'tasks.md': UNCLOSED } } });
+  const [p] = readPhases(join(root, 'openspec/changes/feat/tasks.md'));
+  assert.deepEqual(p.open, ['1.2']);
+  assert.equal(p.gate?.id, '1.3');
+  assert.equal(p.gate?.command, 'node -e 0');
+});
+
+test('review-writer-prompt AC-9 tasksItem lists the tasks after an unclosed fence as unticked', () => {
+  const root = gitRepo({ changes: { feat: { 'tasks.md': UNCLOSED } }, files: { 'src/a.ts': 'a\n' } });
+  const r = tasksItem(root, 'feat', gitFacts(root));
+  assert.notEqual(r.status, 'met', r.reason);
+  assert.deepEqual(r.details.unticked, ['1.2', '1.3']);
+});
+
+test('review-writer-prompt AC-9 nextStep is implement and names 1.2 after an unclosed fence', () => {
+  const t = planRepo({ tasks: UNCLOSED, approval: approvalMd });
+  const n = nextStep(t.state());
+  assert.equal(n.step, 'implement');
+  assert.match(n.reason, /1\.2/);
+});
+
+test('review-writer-prompt AC-9 the stage checker counts the tasks after an unclosed fence as pending', () => {
+  const lines = UNCLOSED.split('\n');
+  const at = (needle) => lines.findIndex((l) => l.includes(needle)) + 1;
+  const open = [{ id: '1.1', line: at('1.1'), done: true }, { id: '1.2', line: at('1.2'), done: false }, { id: '1.3', line: at('1.3'), done: false }];
+  assert.deepEqual(pendingTasks(open, UNCLOSED).map((t) => t.id), ['1.2', '1.3']);
+});
+
+// ---- review-writer-prompt D-6: test files and the scoped staleness (spec verdict-files)
+
+const SIX = ['spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer'];
+const TEST_READERS = ['code-quality-reviewer', 'test-coverage-reviewer'];
+const sixAt = (root, sha = head(root)) => put(root, withReviews(Object.fromEntries(SIX.map((n) => [n, review('approved', sha)]))));
+const staleOf = (root) => reviewsItem(root, 'feat', gitFacts(root)).details.stale.slice().sort();
+// A repo whose six reviewers are recorded and committed at the commit before the head.
+function sixRepo() {
+  const root = base();
+  sixAt(root);
+  commitAll(root, 'reviews');
+  return root;
+}
+const testOnlyCommit = (root, files = { 'src/a.test.ts': 't\n' }) => {
+  put(root, { ...files, 'openspec/changes/feat/tasks.md': '- [x] 1.1 a\n- [x] 1.2 b\n' });
+  return commitAll(root, 'tests only');
+};
+
+test('review-writer-prompt AC-8 isTestFile names the test paths of the spec and refuses the others', () => {
+  for (const p of ['src/a.test.ts', 'plugins/x/b.spec.mjs', 'test/c.js', 'pkg/tests/d.py', 'src/__tests__/e.tsx', 'plugins/panel/hooks/fixtures/f.json']) assert.equal(DC.isTestFile(p), true, p);
+  for (const p of ['src/a.ts', 'src/testing/b.ts', 'src/latest.ts', 'docs/spec.md', 'openspec/specs/x/spec.md', 'src/contest/c.ts']) assert.equal(DC.isTestFile(p), false, p);
+  assert.deepEqual(DC.TEST_SPARED_REVIEWERS, ['spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer']);
+});
+
+test('review-writer-prompt AC-8 a commit of tests only stales only the two reviewers that read tests', () => {
+  const root = sixRepo();
+  testOnlyCommit(root);
+  assert.deepEqual(staleOf(root), [...TEST_READERS].sort());
+});
+
+test('review-writer-prompt AC-8 after a test-only commit the evidence goes stale first, then the review step names the two reviewers', () => {
+  const t = shipRepo();
+  tick(t.root, '1.1', '1.2', '2.1', '2.2', '2.3');
+  commitAll(t.root, 'all code');
+  fullEvidence(t.root, t.env);
+  put(t.root, withReviews(Object.fromEntries(SIX.map((n) => [n, review('approved', head(t.root))]))));
+  commitAll(t.root, 'reviews');
+  assert.equal(t.next().step, 'open-pr', 'control: everything current');
+  put(t.root, { 'tests/b.mjs': 't\n' });
+  commitAll(t.root, 'tests only');
+  assert.equal(t.next().step, 'verify', 'the evidence is stale before any review');
+  fullEvidence(t.root, t.env);
+  const n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['review', TEST_READERS]);
+});
+
+test('review-writer-prompt AC-8 the evidence keeps the default rule and goes stale after a test-only commit', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  put(t.root, { 'tests/b.mjs': 't\n' });
+  commitAll(t.root, 'tests only');
+  assert.deepEqual(bothEvidenceCurrent(t), ['stale', 'stale']);
+});
+
+test('review-writer-prompt AC-8 a product commit later in the range stales all six reviewers', () => {
+  const root = sixRepo();
+  testOnlyCommit(root);
+  put(root, { 'src/a.ts': 'changed\n' });
+  commitAll(root, 'product');
+  assert.deepEqual(staleOf(root), [...SIX].sort());
+});
+
+test('review-writer-prompt AC-8 a commit that mixes a test file and a product file stales all six', () => {
+  const root = sixRepo();
+  put(root, { 'src/a.test.ts': 't\n', 'src/a.ts': 'changed\n' });
+  commitAll(root, 'mixed');
+  assert.deepEqual(staleOf(root), [...SIX].sort());
+});
+
+test('review-writer-prompt AC-8 an uncommitted product edit stales all six after a test-only commit', () => {
+  const root = sixRepo();
+  testOnlyCommit(root);
+  put(root, { 'src/a.ts': 'edited, not committed\n' });
+  assert.deepEqual(staleOf(root), [...SIX].sort());
+});
+
+test('review-writer-prompt AC-8 a reviewer outside the six keeps the default rule', () => {
+  const root = base();
+  put(root, withReviews({ 'perf-reviewer': review('approved', head(root)), ...reviews(head(root)) }));
+  commitAll(root, 'reviews');
+  testOnlyCommit(root);
+  assert.deepEqual(staleOf(root), ['code-quality-reviewer', 'perf-reviewer', 'test-coverage-reviewer']);
+});
+
+test('review-writer-prompt AC-8 staleness takes an allowed option and keeps the default without it', () => {
+  const root = base();
+  const sha = head(root);
+  put(root, { 'src/a.test.ts': 't\n' });
+  commitAll(root, 'tests');
+  const recorded = parseCommitLine(`Commit: ${sha}\n`);
+  assert.match(staleness(root, recorded, gitFacts(root)), /touches src\/a\.test\.ts/);
+  assert.equal(staleness(root, recorded, gitFacts(root), { allowed: (p) => p.startsWith('openspec/') || DC.isTestFile(p) }), null);
+});
+
+test('review-writer-prompt AC-8 a merge whose first-parent diff is only test files is current with allowed and stale without it', () => {
+  const { root, R } = mergeHistory((r) => { put(r, { 'src/a.test.ts': 't\n' }); commitAll(r, 'tests only on main'); }, mergeMain);
+  const recorded = parseCommitLine(`Commit: ${R}\n`);
+  assert.match(git(root, 'diff', '--name-only', 'HEAD^1', 'HEAD'), /^src\/a\.test\.ts$/m);
+  assert.match(staleness(root, recorded, gitFacts(root)), /touches src\/a\.test\.ts/);
+  assert.equal(staleness(root, recorded, gitFacts(root), { allowed: (p) => p.startsWith('openspec/') || DC.isTestFile(p) }), null);
+});
+
+test('review-writer-prompt AC-8 the devkit-reviews check from both entries names only the two reviewers after a test-only commit', () => {
+  const root = ciRepo();
+  const sha = head(root);
+  put(root, Object.fromEntries(SIX.map((n) => [`openspec/changes/feat/reviews/${n}.md`, review('approved', sha)])));
+  commitAll(root, 'six reviews');
+  put(root, { 'src/a.test.ts': 't\n' });
+  commitAll(root, 'tests only');
+  const at = head(root);
+  put(root, { 'openspec/changes/feat/evidence.md': `Commit: ${at}\n\n# Evidence\n\n### Gates\n| gate | command | result |\n|---|---|---|\n${ciGate()}\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n${acRow('AC-1', 'pass: t')}` });
+  commitAll(root, 'evidence again');
+  for (const r of bothEntries(root)) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out, /stale code-quality-reviewer/);
+    assert.match(r.out, /stale test-coverage-reviewer/);
+    assert.doesNotMatch(r.out, /stale (spec|adr|architecture|security)-reviewer/);
   }
 });

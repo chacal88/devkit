@@ -2475,7 +2475,10 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.20\.0/, 'the CI snippet pins the current release (project-phases: 0.20.0)');
+  assert.match(flow, /v0\.21\.0/, 'the CI snippet pins the current release (review-writer-prompt: 0.21.0)');
+  const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
+  assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
+  assert.match(flow, /moves this pin to `v0\.20\.0` or later first/, 'the slice-merge floor (project-phases) is kept');
   assert.doesNotMatch(flow, /v0\.19\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.19\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
@@ -2487,7 +2490,7 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(flow, /refuses a hand-off with no agent type, to a general-purpose agent, to another plugin's agent even when it is named like a role/, 'the hand-off rule');
   assert.match(flow, /a usage error included[^\n]*keeps its raw message in the JSON's `error` field/, 'the usage-error reply');
   assert.doesNotMatch(flow, /v0\.15\.1/);
-  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => l.startsWith('- [ ] review-writer-prompt'));
+  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] review-writer-prompt/.test(l));
   assert.match(road, /touches only tests/);
   assert.match(road, /fenced example/);
 });
