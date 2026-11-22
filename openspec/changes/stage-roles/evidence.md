@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=6 commit=128d4bbc70cfe3edde03b30dcef14c14f62a40d4 -->
-Commit: 128d4bbc70cfe3edde03b30dcef14c14f62a40d4
+<!-- devkit-stage evidence result=passed attempt=7 commit=94bd3459d2cfb21955209d201be81e6bb36cc371 -->
+Commit: 94bd3459d2cfb21955209d201be81e6bb36cc371
 
 # Evidence: stage-roles
 
-Verified at the commit above on branch `stage-roles`, working tree clean. This run replaces the evidence of 87487e3 (attempt 5), written after the owner authorized this stage past its limit. Since then HEAD became 128d4bb: a merge of origin/main's 262ce6b (#61, project-phases follow-ups: `change-loop.mjs`, README, the slice contract, devkit-openspec 0.21.2 on main; conflicts resolved in `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/openspec-flow.md`, `plugins/openspec/.claude-plugin/plugin.json` and `plugins/openspec/hooks/change-loop.test.mjs`, whose CI-pin test now also refuses v0.21.2), then a merge of #60 (a change to `openspec/roadmap.md`). This change's versions stay as before. Every gate below was re-run at this commit (nothing carried over), with `TMPDIR=/var/tmp` and `GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main` for the hook suites; the full guard suite ran as a background command. No PR comment posted, no screenshots: the change has no UI surface and the proof is text.
+Verified at the commit above on branch `stage-roles`, working tree clean. This run replaces the evidence of 128d4bb (attempt 6), written after the owner authorized this stage past its limit. Since then: c057cd7 changed only `plugins/openspec/hooks/change-loop.test.mjs` (the AC-1 roadmap test reads the old stage-roles line from a constant instead of `git show 2300f84`, because CI checks out at depth 1), and the merge 94bd345 brought main's #63 (an archive; only `openspec/` files). Every gate below was re-run at this commit (nothing carried over), with `TMPDIR=/var/tmp` and `GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main` for the hook suites; the full guard suite ran as a background command. No PR comment posted, no screenshots: the change has no UI surface and the proof is text.
 
 ## Verification
 
@@ -31,7 +31,7 @@ Verified at the commit above on branch `stage-roles`, working tree clean. This r
 
 | AC | Criterion | Proof | Result |
 |---|---|---|---|
-| AC-1 | carried-items-split | `openspec/roadmap.md` line 91 (Round 16, after #60) lists `stage-roles (after: change-coordinator)` with the five roles only; line 94 (Round 16b) lists `coordinator-loop-fixes (after: stage-roles)` with the carried items of the three retros. Read at this commit. The `stage-roles docs` roadmap-split test passes in the full suite. | pass |
+| AC-1 | carried-items-split | `openspec/roadmap.md` line 91 (Round 16) lists `stage-roles (after: change-coordinator)` with the five roles only; line 94 (Round 16b) lists `coordinator-loop-fixes (after: stage-roles)` with the carried items of the three retros. Read at this commit. The `stage-roles docs` roadmap-split test passes in the full suite, and it now passes without git history: in a `git clone --depth 1` of this commit (one commit in the log, HEAD 94bd345) the single test `stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes` passed (exit 0); the clone was removed afterwards. | pass |
 | AC-2 | mockup-drawn-when-ui | `plugins/core/agents/screen-designer.md` and `plugins/core/skills/screen-mockup/SKILL.md` exist; `plugins/openspec/schemas/devkit/flow.json` stage ids include `mockup`; the `stage-roles flow`, `stage-roles roles` and `stage-roles loop` tests pass (gates 1.10, 2.10, full suite 1522/1522). | pass |
 | AC-3 | mockup-skipped-without-ui | The `stage-roles flow` rule tests for the `ui` flag (not applying without `ui`) pass in gate 1.10 and the full suite. | pass |
 | AC-4 | mockup-owner-approval | The owner-ceiling and mock-up approval tests (`stage-roles flow`, `stage-roles gates`, `stage-roles loop`) pass in gate 2.10 and the full suite. | pass |
