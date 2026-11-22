@@ -5,9 +5,11 @@
 
 ### Requirement: The owner's gates are asked one change at a time
 When open changes wait at gates of the owner (the grill, the mock-up approval, the plan approval,
-the retro answers, a pull-request decision only the owner can take, a merge left to the owner), the
-session SHALL ask the gates of one change at a time, in the order of the roadmap file, naming the
-change; the next change's questions SHALL come only when that change's gate is answered.
+the retro answers, a pull-request decision only the owner can take, a merge left to the owner) in a
+run whose changes run in the coordinating session, that session SHALL ask the gates of one change at
+a time, in the order of the roadmap file, naming the change; the next change's questions SHALL come
+only when that change's gate is answered. In a run whose changes each have a session of their own,
+each change's gates SHALL be asked in its own session, and the coordinating session SHALL ask none.
 
 #### Scenario: Two changes at their grill
 - **WHEN** two open changes wait for their grill, the first in the file being `a`
@@ -20,6 +22,10 @@ change; the next change's questions SHALL come only when that change's gate is a
 #### Scenario: The others keep running
 - **WHEN** a change waits for the owner and another open change has a stage ready
 - **THEN** the other change's stage is handed in the same decision
+
+#### Scenario: Two changes at their grill, each in its own session
+- **WHEN** in a run whose changes each have a session of their own, `a` and `b` both wait for their grill
+- **THEN** `a`'s questions are asked in `a`'s session and `b`'s in `b`'s, and the coordinating session asks neither
 
 #### Scenario: A mock-up waits while another change is asked
 - **WHEN** `a`'s plan approval is being asked and `b`, later in the file, reaches its mock-up approval

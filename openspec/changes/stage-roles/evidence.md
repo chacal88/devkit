@@ -1,11 +1,15 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=e8af242187a7d1be2f8253c2667205c5a0027a74 -->
-Commit: e8af242187a7d1be2f8253c2667205c5a0027a74
+<!-- devkit-stage evidence result=failed attempt=3 commit=21f65966763d8902ad3af8ac7598bfd02d3b9a4a -->
+Commit: 21f65966763d8902ad3af8ac7598bfd02d3b9a4a
 
 # Evidence: stage-roles
 
-Verified at the commit above on branch `stage-roles`, working tree clean. This run replaces the evidence of db34efd after the review fix at e8af242 (a symlinked decision record is refused; ADR 0014 states the lite e2e writes); the real-path check sits at `plugins/openspec/hooks/change-loop.mjs:730` and the suites below cover it. Tests ran with `TMPDIR` under `/var/tmp` and `GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main`. No PR exists yet; no comment posted. No screenshots: the change has no UI surface.
+Verified at the commit above on branch `stage-roles`, working tree clean. This run replaces the evidence of e8af242 (attempt 2, stale) after the merge of origin/main (8c8b7b8) into the branch. Tests ran with `TMPDIR=/var/tmp` and `GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main`. No PR comment posted, no screenshots: the change has no UI surface and the proof is text.
 
 ## Verification
+
+### Defect
+
+`openspec validate stage-roles --strict` fails at this commit. The merge brought in main's current `openspec/specs/roadmap-coordination/spec.md`, where the requirement "The owner's gates are asked one change at a time" (spec line 160) now has a fourth scenario, "Two changes at their grill, each in its own session" (spec line 180). The change's delta `openspec/changes/stage-roles/specs/roadmap-coordination/spec.md` MODIFIES that requirement (line 6) with the scenarios "Two changes at their grill", "A gate of a change earlier in the file during another change's grill", "The others keep running" and the new "A mock-up waits while another change is asked", and omits the fourth. A MODIFIED block replaces the whole requirement, so archiving would drop that scenario. Reproduce: `openspec validate stage-roles --strict` (exit 1). Fix (for the implementation stage, not done here): copy the scenario "Two changes at their grill, each in its own session" from the current spec into the MODIFIED block. The full hook suite does not catch it.
 
 ### Gates
 
@@ -17,33 +21,33 @@ Verified at the commit above on branch `stage-roles`, working tree clean. This r
 | 1.10 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, catalog up to date |
 | 2.10 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^stage-roles" --test-name-pattern="^change-loop" --test-name-pattern="^roadmap-loop" --test-name-pattern="^ship-change" --test-name-pattern="^format" --test-name-pattern="^openspec-setup" --test-name-pattern="^README" plugins/openspec/hooks/guard.test.mjs` | pass: 454 tests, 454 pass, 0 fail |
 | 2.10 | `python3 scripts/check.py` | pass: all checks passed |
-| 2.10 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
+| 2.10 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, catalog up to date |
 | 3.5 | `node --test plugins/compozy/skills/compozy-setup/scripts/install-kit.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs plugins/compozy/skills/compozy-setup/scripts/role-shells.test.mjs plugins/compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs` | pass: 79 tests, 78 pass, 0 fail, 1 skipped |
 | 3.5 | `python3 scripts/check.py` | pass: all checks passed |
-| 4.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: whole suite, 1255 tests, 1255 pass, 0 fail, 0 skipped |
+| 4.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: whole suite, 1512 tests, 1512 pass, 0 fail, 0 skipped |
 | 4.5 | `node --test plugins/compozy/skills/compozy-setup/scripts/install-kit.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs plugins/compozy/skills/compozy-setup/scripts/loop-template.test.mjs plugins/compozy/skills/compozy-setup/scripts/role-shells.test.mjs plugins/compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs` | pass: 79 tests, 78 pass, 0 fail, 1 skipped |
 | 4.5 | `python3 scripts/check.py` | pass: all checks passed |
-| 4.5 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
-| 4.5 | `openspec validate stage-roles --strict` | pass: Change 'stage-roles' is valid |
+| 4.5 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, catalog up to date |
+| 4.5 | `openspec validate stage-roles --strict` | fail: exit 1, `roadmap-coordination/spec.md`: MODIFIED "The owner's gates are asked one change at a time" omits the scenario "Two changes at their grill, each in its own session" that the current spec has |
 | 4.5 | `command claude plugin validate .` | pass: Validation passed |
 
 ### Acceptance criteria
 
 | AC | Criterion | Proof | Result |
 |---|---|---|---|
-| AC-1 | carried-items-split | `openspec/roadmap.md` lists `stage-roles` (line 62) and `coordinator-loop-fixes` (line 65) as separate items; the second holds the carried items. Read at this commit. | pass |
-| AC-2 | mockup-drawn-when-ui | `screen-designer` agent exists in `plugins/core/agents`; `devkit` `flow.json` declares the `mockup` stage; `stage-roles flow` and `stage-roles roles` tests pass in the 1.10 and full-suite runs. | pass |
-| AC-3 | mockup-skipped-without-ui | `stage-roles flow` rule on/off tests for the ui flag pass (1.10 gate, full suite). | pass |
-| AC-4 | mockup-owner-approval | Owner ceiling and approval tests (`stage-roles flow`, `stage-roles` loop tests) pass in the 2.10 gate and full suite. | pass |
-| AC-5 | decisions-always-analysed | `adr-author` agent exists; `devkit` `flow.json` declares `decisions`; related tests pass in 1.10, 2.10 and the full suite. | pass |
-| AC-6 | adrs-accepted-on-approval | The approval-writer tests (`stage-roles` writers) pass in the 2.10 gate and the full suite (1255/1255). | pass |
-| AC-7 | early-stages-stale-readiness | `staleAfter` tests by `mockup.md` and `decisions.md` pass in the 1.10 gate and full suite. | pass |
-| AC-8 | test-config-declared | `openspec-setup` SKILL.md asks for `unit`, `coverage.command`, `coverage.target` and `e2e` in the `devkit:` `tests:` block; `readTestSettings` tests pass (1.10, 2.10). | pass |
-| AC-9 | unit-tests-stage | `test-runner` agent exists; `unit-tests` stage declared in both `flow.json` files; stage tests pass in 1.10 and the full suite. | pass |
-| AC-10 | e2e-stage | `e2e-tester` agent exists; `e2e-tests` stage declared in both `flow.json` files; conditional-stage tests pass. | pass |
-| AC-11 | demonstration-as-text | `pr-verifier.md` states the per-criterion text proof form and lists taking a screenshot, keeping an image and posting a PR comment as forbidden; `deliver-check` tests pass in the full suite. | pass |
-| AC-12 | lite-runs-tests-only | `plugins/openspec/schemas/devkit-lite/flow.json` stage ids: open, requirements, proposal, specs, tasks, implementation, unit-tests, e2e-tests, evidence, review, delivery, retro; no `mockup` or `decisions`. | pass |
-| AC-13 | no-stage-goes-back | Tests for stages arriving after their point (by `proposal.md` and `evidence.md`) pass in the 1.10 gate and full suite. | pass |
-| AC-14 | compozy-driver-runs-new-stages | `loop.yaml` and the `design`, `tech-lead` and `qa` role shells name `screen-designer`, `adr-author`, `test-runner`, `e2e-tester`; the kit test "still ships exactly four shells" and the kit suite pass (78 pass, 1 skipped). | pass |
-| AC-15 | roles-doc-current | `docs/roles.md` has sections for `screen-designer` (line 41), `test-runner` (line 81) and `e2e-tester` (line 89) with "Played today by" lines; `stage-roles roles` pins pass. `docs/coordination-design.md` D-4 "built" marks were not individually re-counted; the pins in `change-loop.test.mjs` cover them and pass. | pass |
-| AC-16 | checks-green | Every gate row above passes: full hook suite 1255/1255, kit tests, `check.py`, `gen-catalog.py --check`, `claude plugin validate .`, `openspec validate --strict`. Version bumps are covered by the suite's release tests. | pass |
+| AC-1 | carried-items-split | `openspec/roadmap.md` line 83 lists `stage-roles` with the five roles only; line 86 lists `coordinator-loop-fixes (after: stage-roles)` with the carried items of the three retros. Read at this commit. The `stage-roles docs` roadmap-split test passes in the full suite. | pass |
+| AC-2 | mockup-drawn-when-ui | `plugins/core/agents/screen-designer.md` and `plugins/core/skills/screen-mockup/SKILL.md` exist; `plugins/openspec/schemas/devkit/flow.json` stage ids include `mockup`; the `stage-roles flow`, `stage-roles roles` and `stage-roles loop` tests pass (gates 1.10, 2.10, full suite 1512/1512). | pass |
+| AC-3 | mockup-skipped-without-ui | The `stage-roles flow` rule tests for the `ui` flag (not applying without `ui`) pass in gate 1.10 and the full suite. | pass |
+| AC-4 | mockup-owner-approval | The owner-ceiling and mock-up approval tests (`stage-roles flow`, `stage-roles gates`, `stage-roles loop`) pass in gate 2.10 and the full suite. | pass |
+| AC-5 | decisions-always-analysed | `plugins/core/agents/adr-author.md` and `plugins/core/skills/adr-authoring/SKILL.md` exist; `devkit` `flow.json` declares `decisions`; the related tests pass in gates 1.10, 2.10 and the full suite. | pass |
+| AC-6 | adrs-accepted-on-approval | The approval-writer tests (`stage-roles` writers) pass in gate 2.10 and the full suite. | pass |
+| AC-7 | early-stages-stale-readiness | The `staleAfter` tests by `mockup.md` and by `decisions.md` pass in gate 1.10 and the full suite. | pass |
+| AC-8 | test-config-declared | The `openspec-setup` tests and the `readTestSettings` tests (`devkit.tests` block: unit, coverage command and target, e2e) pass in gates 1.10 and 2.10. | pass |
+| AC-9 | unit-tests-stage | `plugins/core/agents/test-runner.md` exists; stage `unit-tests` is declared in both `flow.json` files with no `shipped` key; the stage tests pass in 1.10 and the full suite. | pass |
+| AC-10 | e2e-stage | `plugins/core/agents/e2e-tester.md` and `plugins/core/skills/e2e-testing/SKILL.md` exist; stage `e2e-tests` is declared in both `flow.json` files; the conditional-stage tests pass in 1.10 and the full suite. | pass |
+| AC-11 | demonstration-as-text | `plugins/core/agents/pr-verifier.md` line 57 states the per-criterion text proof form ("no image") and line 81 lists taking a screenshot, keeping an image and posting a pull-request comment as forbidden; the `deliver-check` tests pass in the full suite. This file is itself written in that form. | pass |
+| AC-12 | lite-runs-tests-only | `plugins/openspec/schemas/devkit-lite/flow.json` stage ids at this commit: open, requirements, proposal, specs, tasks, implementation, unit-tests, e2e-tests, evidence, review, delivery, retro; no `mockup`, no `decisions`. | pass |
+| AC-13 | no-stage-goes-back | The tests for stages arriving after their point (`mockup` and `decisions` past `proposal.md`; `unit-tests` and `e2e-tests` past `evidence.md`) pass in gate 1.10 and the full suite. | pass |
+| AC-14 | compozy-driver-runs-new-stages | `templates/loops/openspec-change/loop.yaml` and the `design`, `tech-lead` and `qa` role shells under `plugins/compozy/skills/compozy-setup/templates/agents/` name `screen-designer`, `adr-author`, `test-runner` and `e2e-tester`; the `stage-roles kit` tests, including "the kit still ships exactly four shells", pass in the kit suite (78 pass, 1 skipped). | pass |
+| AC-15 | roles-doc-current | `docs/roles.md` has sections `screen-designer` (line 51), `adr-author` (59), `test-runner` (91) and `e2e-tester` (99), each with a "Played today by" line naming the `devkit-core` agent; line 53 says `screen-designer` runs only when the grill flags `ui`. `docs/coordination-design.md` lines 167, 168, 173, 174 and 175 (D-4 rows 3, 4, 9, 10, 11) are marked built ("built, round 16"). The `stage-roles roles` and `stage-roles docs` pins pass. | pass |
+| AC-16 | checks-green | Passing at this commit: full hook suite 1512/1512, kit tests 78 pass and 1 skipped, `check.py`, `gen-catalog.py --check`, `claude plugin validate .`. Versions at this commit: marketplace 0.26.0, devkit-core 0.10.0, devkit-openspec 0.22.0, devkit-compozy 0.3.0. FAILING: `openspec validate stage-roles --strict` exits 1 (see Defect), so the criterion is not met. | fail |
