@@ -1,0 +1,298 @@
+Red record of phase 1, run on the unchanged code (base 6e803eb plus the new tests only).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" plugins/openspec/hooks/guard.test.mjs
+
+Tests that pass on the base, because they pin behaviour the base already has (AC-10):
+- followups AC-10 run: run without --session exits 3 and writes no run file
+- followups AC-10 draft: an unknown files' language writes the draft in English
+- followups AC-10 guard: an edit and a shell write in a roadmap run read the transcript once
+- followups AC-10 guard: an edit and a shell write in a change run read the transcript once
+
+Every other new test of phase 1 fails below (12 of 16).
+
+----- output -----
+✖ followups AC-10 open lock: open on a held open lock fails with its own message and creates nothing (62338.146791ms)
+✔ followups AC-10 guard: an edit and a shell write in a change run read the transcript once (192.150125ms)
+✖ followups AC-4 next: an --after id that is not a change id exits 3 and writes nothing (2963.52625ms)
+✖ followups AC-4 reply: an end declared for an id that is not a change id exits 3 and records nothing (120.929542ms)
+✖ followups AC-4 wait: a --change that is not a change id exits 3 and marks nothing in flight (170.730166ms)
+✖ followups AC-5 run file: a write that fails leaves no temporary file and throws (94.590417ms)
+✖ followups AC-6 lock: the run file's wait is at most half the agent hook's timeout (0.303917ms)
+✖ followups AC-6 lock agent: a hand-off while the run file is locked is let through within the hook's time and logged run-file-busy (12432.727875ms)
+✖ followups AC-7 next: a hold whose process ended asks for a new hold while loaded, and starts below the limit (771.949167ms)
+✖ followups AC-7 hold: a killed hold process leaves a mark the next next does not trust (5168.935625ms)
+✖ followups AC-7 lock stop: a held start whose watch process ended is refused once, naming the watch to start (669.467458ms)
+✔ followups AC-10 run: run without --session exits 3 and writes no run file (85.322875ms)
+✖ followups AC-10 lock: updateRun on a held lock throws RunFileBusy after its wait, without sleeping for real (130.433375ms)
+✖ followups AC-10 lock: next on a held run file lock exits 3 and leaves the file as it was (13655.834792ms)
+✔ followups AC-10 draft: an unknown files' language writes the draft in English (1539.535958ms)
+✔ followups AC-10 guard: an edit and a shell write in a roadmap run read the transcript once (191.457708ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 4
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100608.772375
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2680:1
+✖ followups AC-10 open lock: open on a held open lock fails with its own message and creates nothing (62338.146791ms)
+  AssertionError [ERR_ASSERTION]: the wait went through the injected sleep
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:2690:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:1948:1
+✖ followups AC-4 next: an --after id that is not a change id exits 3 and writes nothing (2963.52625ms)
+  AssertionError [ERR_ASSERTION]: __proto__: devkit-roadmap: 1
+  {
+    "version": 1,
+    "places": 1,
+    "open": [
+      "a"
+    ],
+    "stopping": false,
+    "lines": [
+      "▸ Resumed a, which was already open: next is the requirements (grill) (1 of 1 under way).",
+      "▸ a waits for your answers about its request. The others go on."
+    ],
+    "actions": [],
+    "ask": {
+      "change": "a",
+      "kind": "grill",
+      "action": {
+        "version": 1,
+        "change": "a",
+        "script": "devkit",
+        "root": "<tmp>
+        "branch": "main",
+        "filesLanguage": "en",
+        "kind": "grill",
+        "stage": "requirements",
+        "stageTitle": "Requirements (grill)",
+        "role": "change-coordinator",
+        "skills": [
+          "requirements-grill"
+        ],
+        "progressKey": "requirements/requirements@1823c08ae228"
+      }
+    },
+    "end": {
+      "why": "stuck",
+      "reply": "Nothing more can start or run on its own. Each open change needs: a, your answers about its request."
+    }
+  }
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:1954:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:1960:1
+✖ followups AC-4 reply: an end declared for an id that is not a change id exits 3 and records nothing (120.929542ms)
+  AssertionError [ERR_ASSERTION]: __proto__ blocked: devkit-end: __proto__ blocked
+  The change __proto__ stopped: it could not be opened (taken). Nothing more runs until this is sorted out.
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:1966:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:1973:1
+✖ followups AC-4 wait: a --change that is not a change id exits 3 and marks nothing in flight (170.730166ms)
+  AssertionError [ERR_ASSERTION]: __proto__: roadmap-loop: no change named __proto__, active or archived
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:1982:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:1988:1
+✖ followups AC-5 run file: a write that fails leaves no temporary file and throws (94.590417ms)
+  AssertionError [ERR_ASSERTION]: no temporary file is left
+  + actual - expected
+  
+  + [
+  +   'roadmap-run.json.22948.tmp'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:1993:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'roadmap-run.json.22948.tmp' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:1997:1
+✖ followups AC-6 lock: the run file's wait is at most half the agent hook's timeout (0.303917ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'waitMs')
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2002:29)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2005:1
+✖ followups AC-6 lock agent: a hand-off while the run file is locked is let through within the hook's time and logged run-file-busy (12432.727875ms)
+  AssertionError [ERR_ASSERTION]: answered in 12276 ms
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2014:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2020:1
+✖ followups AC-7 next: a hold whose process ended asks for a new hold while loaded, and starts below the limit (771.949167ms)
+  AssertionError [ERR_ASSERTION]: the boolean of 0.18.0: a new watch is asked for
+  + actual - expected
+  
+  + []
+  - [
+  -   [
+  -     'a',
+  -     'hold'
+  -   ]
+  - ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2025:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ [ 'a', 'hold' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2033:1
+✖ followups AC-7 hold: a killed hold process leaves a mark the next next does not trust (5168.935625ms)
+  AssertionError [ERR_ASSERTION]: the run file names the pid of the hold
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2043:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2053:1
+✖ followups AC-7 lock stop: a held start whose watch process ended is refused once, naming the watch to start (669.467458ms)
+  AssertionError [ERR_ASSERTION]: the boolean of 0.18.0
+  + actual - expected
+  
+    [
+  +   'allow',
+  +   null
+  -   'refuse',
+  -   'a'
+    ]
+  
+      at file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2060:14
+      at withTmp (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:1266:16)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2057:5)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'allow', null ],
+    expected: [ 'refuse', 'a' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2076:1
+✖ followups AC-10 lock: updateRun on a held lock throws RunFileBusy after its wait, without sleeping for real (130.433375ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'waitMs')
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2082:67)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2086:1
+✖ followups AC-10 lock: next on a held run file lock exits 3 and leaves the file as it was (13655.834792ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'waitMs')
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2095:67)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

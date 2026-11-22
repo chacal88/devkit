@@ -912,6 +912,44 @@ test('flow-check delivery: a merged pull request seen from the change\'s own bra
   assert.equal(off.stages.find((s) => s.id === 'evidence').state, 'passed');
 });
 
+// ---- merge-staleness-first-parent: the stage readout reads a merge of main by what it brought in
+
+// liveChange() on main; feat with a product commit R, the evidence and review headers rewritten to R; the base's file
+// on main; then main merged into feat. Returns the readout's stages.
+function mergedReadout(baseFile) {
+  const root = liveChange({ ship: 'plan' });
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, { 'src/a.ts': 'changed\n' });
+  const R = commitAll(root, 'product commit');
+  for (const f of ['evidence.md', 'review.md']) {
+    const file = join(root, 'openspec', 'changes', 'feat', f);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/commit=[0-9a-f]+/, `commit=${R}`));
+  }
+  commitAll(root, 'headers at the product commit');
+  git(root, 'switch', '-q', 'main');
+  put(root, { [baseFile]: 'b\n' });
+  commitAll(root, 'base commit');
+  git(root, 'switch', '-q', 'feat');
+  git(root, 'merge', '-q', '--no-ff', '-m', 'merge main', 'main');
+  const gh = fakeGh();
+  const env = { ...gh.env, ...SHIP_ENV };
+  const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+  return computeFlow(facts, flow, {});
+}
+
+test('merge-staleness 9: the stage readout keeps evidence and review passed after a merge of main that brings only openspec/', () => {
+  const report = mergedReadout('openspec/changes/other/notes.md');
+  for (const id of ['evidence', 'review']) assert.equal(report.stages.find((s) => s.id === id).state, 'passed', id);
+});
+
+test('merge-staleness 10: the stage readout reports evidence stale after a merge of main that brings a product file', () => {
+  const report = mergedReadout('src/base.ts');
+  const evidence = report.stages.find((s) => s.id === 'evidence');
+  assert.equal(evidence.state, 'stale');
+  assert.equal(evidence.reasonCode, 'stale-code');
+  assert.equal(report.next.stage, 'evidence');
+});
+
 // ---- field-fixes 4: a merged pull request delivers only when it is the change's own and every task is ticked
 
 const MERGED_OWN = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefOid: 'f'.repeat(40), baseRefName: 'main', mergeable: 'UNKNOWN', autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', headRefName: 'feat', mergedAt: '2026-11-19T10:00:00Z', body: 'evidence: openspec/changes/feat/evidence.md' };

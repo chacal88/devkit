@@ -1,0 +1,126 @@
+✖ merge-staleness 1: a merge of main that brings only openspec/ into a branch with product commits before the record is current (384.60175ms)
+✔ merge-staleness 2: a merge of main that brings a product file is stale and names it (588.371042ms)
+✔ merge-staleness 3: a merge commit that changes a product file while resolving is stale and names it (404.116292ms)
+✔ merge-staleness 4: a merge that moves a product file under openspec/ is stale and names the old path (414.76375ms)
+✖ merge-staleness 5: a product commit the merge brings in is stale even when the merge itself brings only openspec/ (450.613ms)
+✔ merge-staleness 6: a merge whose first parent is the base is read against that parent (448.602416ms)
+✖ merge-staleness 7: a root commit a merge brings in is judged by its own files (447.783833ms)
+✖ merge-staleness 8: a plain product commit after an openspec-only merge is still stale (367.763ms)
+✖ merge-staleness 9: the stage readout keeps evidence and review passed after a merge of main that brings only openspec/ (520.402958ms)
+✔ merge-staleness 10: the stage readout reports evidence stale after a merge of main that brings a product file (509.090542ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 5
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4596.589416
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:337:1
+✖ merge-staleness 1: a merge of main that brings only openspec/ into a branch with product commits before the record is current (384.60175ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'ab86546 is behind 0e9a30a, which touches src/a.ts'
+  - null
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-staleness-first-parent/plugins/openspec/hooks/deliver-check.test.mjs:340:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'ab86546 is behind 0e9a30a, which touches src/a.ts',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:374:1
+✖ merge-staleness 5: a product commit the merge brings in is stale even when the merge itself brings only openspec/ (450.613ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^8b236f6 is behind (4a18070|02cc284), which touches src\/base\.ts$/. Input:
+  
+  '8b236f6 is behind 6e26393, which touches src/a.ts'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-staleness-first-parent/plugins/openspec/hooks/deliver-check.test.mjs:385:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '8b236f6 is behind 6e26393, which touches src/a.ts',
+    expected: /^8b236f6 is behind (4a18070|02cc284), which touches src\/base\.ts$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:398:1
+✖ merge-staleness 7: a root commit a merge brings in is judged by its own files (447.783833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'b123466 is behind 57ded2c, which touches src/a.ts'
+  - 'b123466 is behind 69a2f71, which touches src/x.ts'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-staleness-first-parent/plugins/openspec/hooks/deliver-check.test.mjs:410:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'b123466 is behind 57ded2c, which touches src/a.ts',
+    expected: 'b123466 is behind 69a2f71, which touches src/x.ts',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:413:1
+✖ merge-staleness 8: a plain product commit after an openspec-only merge is still stale (367.763ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '5275a1a is behind 1e3163d, which touches src/a.ts'
+  - null
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-staleness-first-parent/plugins/openspec/hooks/deliver-check.test.mjs:415:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '5275a1a is behind 1e3163d, which touches src/a.ts',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:940:1
+✖ merge-staleness 9: the stage readout keeps evidence and review passed after a merge of main that brings only openspec/ (520.402958ms)
+  AssertionError [ERR_ASSERTION]: evidence
+  
+  'stale' !== 'passed'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-staleness-first-parent/plugins/openspec/hooks/flow-check.test.mjs:942:51)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'stale',
+    expected: 'passed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

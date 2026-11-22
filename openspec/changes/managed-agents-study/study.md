@@ -10,6 +10,8 @@ that keeps an ADR's decision cites the ADR in its reasoning and leaves the field
 
 ## devkit today
 
+This baseline is devkit at commit 2300f84 (devkit-openspec 0.18.1), the base the study was written on. devkit-openspec 0.19.0 and 0.19.1 landed on main while the study was under review; where they change a point, the item says so.
+
 **A change's stages and the checker.** A change is a folder under `openspec/changes/<id>/` whose
 stages are declared in `openspec/schemas/devkit/flow.json` (17 stages) and
 `openspec/schemas/devkit-lite/flow.json` (14 stages, without design, readiness and approval), with
@@ -71,9 +73,7 @@ session and for each subagent.
 
 **The panel and the session icons.** `plugins/panel/README.md` describes the old panel, which reads
 the retired `conduct-check`, `deliver-check`, the transcript and the app's session list; round 23
-of `openspec/roadmap.md` (`coordination-panels`) replaces it with read-only panels. The stage icon
-in a session's title (❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery, 📦 archive) is
-written only in the brief a coordinating session gives; no devkit file defines it.
+of `openspec/roadmap.md` (`coordination-panels`) replaces it with read-only panels. When the study was written, the stage icon in a session's title (❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery, 📦 archive) was written only in the brief a coordinating session gives; devkit-openspec 0.19.0 maps it per stage in `plugins/openspec/hooks/change-loop.mjs` (ADR 0014).
 
 ## Pages read
 
@@ -190,10 +190,10 @@ read again from the cut, through the same URL with `.md` appended.
 
 ### F-1 One state per change, derived once and read by every surface
 - Page: https://platform.claude.com/docs/en/managed-agents/session-operations, https://platform.claude.com/docs/en/managed-agents/events-and-streaming, https://platform.claude.com/docs/en/managed-agents/session-threads, https://platform.claude.com/docs/en/managed-agents/budgets
-- Devkit: `docs/adr/0010-openspec-as-the-harness.md`, `plugins/openspec/hooks/change-loop.mjs`, `plugins/openspec/hooks/roadmap-loop.mjs`, `plugins/openspec/hooks/guard.mjs`, `plugins/openspec/skills/devkit/SKILL.md`, `plugins/panel/README.md`
+- Devkit: `docs/adr/0010-openspec-as-the-harness.md`, `plugins/openspec/hooks/change-loop.mjs`, `plugins/openspec/hooks/roadmap-loop.mjs`, `plugins/openspec/hooks/guard.mjs`, `plugins/openspec/skills/devkit/SKILL.md`, `plugins/panel/README.md`, `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`
 - Answers: S-2
-- Reasoning: A session has four statuses (`idle`, `running`, `rescheduling`, `terminated`), an idle session carries one `stop_reason` (`end_turn`, `requires_action`, `budget_reached`; `retries_exhausted` and `refusal` appear in examples without a definition, not stated in the docs, O-4), the session status aggregates its threads, and the budget page tells the client to treat the session-level stop reason as the signal. devkit already has the small set: the loop's four ends with a reason (ADR 0010, decision 3) plus a stage under way. What it lacks is one reader: `/devkit status` assembles the state in `roadmap-loop.mjs`, a run under way is read from the transcript in `guard.mjs`, the old panel reads the retired `conduct-check`, and the session icons exist only in a brief. A stored event log as the source of truth is not proposed: ADR 0010 keeps the state in the repository and GitHub (decisions 3 and 6) and rejected "a session that remembers where it is"; a derived state keeps that decision and gives the surfaces one answer.
-- What changes in devkit: a read-only command of the change loop prints, for one change or all, the state (`running`, `waiting-for-owner`, `waiting-on-github`, `blocked` or `archived`), its reason and the stage, derived from the files, GitHub and the roadmap run file; `/devkit status`, the session title's icon and the round 23 panels read it, and the stage icons move into the `devkit` skill.
+- Reasoning: A session has four statuses (`idle`, `running`, `rescheduling`, `terminated`), an idle session carries one `stop_reason` (`end_turn`, `requires_action`, `budget_reached`; `retries_exhausted` and `refusal` appear in examples without a definition, not stated in the docs, O-4), the session status aggregates its threads, and the budget page tells the client to treat the session-level stop reason as the signal. devkit already has the small set: the loop's four ends with a reason (ADR 0010, decision 3) plus a stage under way. What it lacks is one reader: `/devkit status` assembles the state in `roadmap-loop.mjs`, a run under way is read from the transcript in `guard.mjs`, the old panel reads the retired `conduct-check`, and the session icons, mapped per stage in `change-loop.mjs` since devkit-openspec 0.19.0, read no state. A stored event log as the source of truth is not proposed: ADR 0010 keeps the state in the repository and GitHub (decisions 3 and 6) and rejected "a session that remembers where it is"; a derived state keeps that decision and gives the surfaces one answer.
+- What changes in devkit: a read-only command of the change loop prints, for one change or all, the state (`running`, `waiting-for-owner`, `waiting-on-github`, `blocked` or `archived`), its reason and the stage, derived from the files, GitHub and the roadmap run file; `/devkit status`, the session title's icon (beside the stage icons of `change-loop.mjs`) and the round 23 panels read it.
 - ADR: none
 - Roadmap line: L-2, L-3
 
@@ -279,8 +279,9 @@ read again from the cut, through the same URL with `.md` appended.
 - Round: 25d: one state per change
 - Place: before the heading ## Round 16: the new stage roles
 - From: F-1
-- Text: change-state (after: managed-agents-study) — one read-only command of the change loop derives a change's state from the files, GitHub and the roadmap run file: running, or one of the loop's four ends with its reason (waiting for the owner, waiting on GitHub, blocked, archived), and the stage; `/devkit status`, the session title's icon and the panels read it alike, and the stage icons (❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery, 📦 archive) move from the conducting session's brief into the `devkit` skill, as a Managed Agents session reports one status with one stop reason (managed-agents-study F-1)
+- Text: change-state (after: managed-agents-study) — one read-only command of the change loop derives a change's state from the files, GitHub and the roadmap run file: running, or one of the loop's four ends with its reason (waiting for the owner, waiting on GitHub, blocked, archived), and the stage; `/devkit status`, the session title's icon (beside the stage icons of `change-loop.mjs`, ADR 0014) and the panels read it alike, as a Managed Agents session reports one status with one stop reason (managed-agents-study F-1)
 - Answer: approved
+- Revised: after devkit-openspec 0.19.0 put the stage icons in `change-loop.mjs` (ADR 0014), the owner chose, on 2026-11-22, to drop the move of the icons from this line, and approved the new wording.
 
 ### L-3 The panels read the change's state
 - Kind: addition

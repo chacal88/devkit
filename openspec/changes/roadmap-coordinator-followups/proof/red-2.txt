@@ -1,0 +1,204 @@
+Red record of phase 2, run on the unchanged code (base 6e803eb plus phase 1 and the new phase 2 tests only).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups (F-1|F-2|AC-8|AC-1 |AC-2)" plugins/openspec/hooks/guard.test.mjs
+
+Every new test of phase 2 fails below (7 of 7); none passes on the base.
+
+----- output -----
+✖ followups F-1 run: the arguments as typed start the run on the first call (79.617042ms)
+✖ followups F-2 decide: start anyway starts the held changes once (1.197583ms)
+✖ followups AC-8 next: start anyway starts what is held now, and a change ready later is held and said again (103.744917ms)
+✖ followups AC-1 status: a ready line waits for a place only when the places are taken (0.502459ms)
+✖ followups AC-2 decide: a gate or blocked line says the others go on only when another change is under way (0.343416ms)
+✖ followups F-1 skill: the run call takes the owner's arguments (0.19375ms)
+✖ followups F-2 skill: start anyway only on the owner's own message, with both flags (0.092292ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 0
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 266.170666
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2127:1
+✖ followups F-1 run: the arguments as typed start the run on the first call (79.617042ms)
+  AssertionError [ERR_ASSERTION]: roadmap 2
+  + actual - expected
+  
+  + '/devkit roadmap takes a whole number from 1 up, or stop: "roadmap 2" is neither. Nothing was started.'
+  - 'devkit-roadmap: 2'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2133:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '/devkit roadmap takes a whole number from 1 up, or stop: "roadmap 2" is neither. Nothing was started.',
+    expected: 'devkit-roadmap: 2',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2158:1
+✖ followups F-2 decide: start anyway starts the held changes once (1.197583ms)
+  AssertionError [ERR_ASSERTION]: both held changes start whatever the load
+  + actual - expected
+  
+    [
+      [
+        'a',
+  +     'hold'
+  -     'start'
+      ],
+  -   [
+  -     'b',
+  -     'start'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2163:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'a', 'hold' ] ],
+    expected: [ [ 'a', 'start' ], [ 'b', 'start' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2173:1
+✖ followups AC-8 next: start anyway starts what is held now, and a change ready later is held and said again (103.744917ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"unknown option --start-anyway; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] (the word on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2178:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2197:1
+✖ followups AC-1 status: a ready line waits for a place only when the places are taken (0.502459ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /a {3}ready to start\n/. Input:
+  
+  'Roadmap: 1 open of 3 · 3 in the queue · 0 archived\n' +
+    '\n' +
+    'Under way\n' +
+    '  d   Proposal\n' +
+    'In the queue\n' +
+    '  a   ready, waits for a place\n' +
+    '  b   ready, waits for a place\n' +
+    '  c   ready, waits for a place'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2200:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Roadmap: 1 open of 3 · 3 in the queue · 0 archived\n\nUnder way\n  d   Proposal\nIn the queue\n  a   ready, waits for a place\n  b   ready, waits for a place\n  c   ready, waits for a place',
+    expected: /a {3}ready to start\n/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2216:1
+✖ followups AC-2 decide: a gate or blocked line says the others go on only when another change is under way (0.343416ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /others go on/. Input:
+  
+  '▸ a waits for your approval of the plan. The others go on.'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2223:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '▸ a waits for your approval of the plan. The others go on.',
+    expected: /others go on/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2253:1
+✖ followups F-1 skill: the run call takes the owner's arguments (0.19375ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /as the word after `roadmap`/. Input:
+  
+  '## Start\n' +
+    '\n' +
+    "Run the script with the owner's arguments on standard input, through a quoted heredoc so no character of the request reaches the shell:\n" +
+    '\n' +
+    '```\n' +
+    "node <skill-dir>/../../hooks/change-loop.mjs start --lang ${user_config.language} <<'DEVKIT_ARGS'\n" +
+    '$ARGUMENTS\n' +
+    'DEVKIT_ARGS\n' +
+    '```\n' +
+    '\n' +
+    'When a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by digits that no line of the request holds as the terminator. The script prints JSON with a `mode` and a `reply`. Act on the mode:\n' +
+    '\n' +
+    '- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built` and `nothing`: say `reply` and end the turn.\n' +
+    '- `choose` and `ask-unfinished`: ask `reply` as one question with AskUserQuestion (else say it and end the turn). The options are each listed id and, for `ask-unfinished`, "start the new request". The answer is `resume` of that id, or the new change below.\n' +
+    '- `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`.\n' +
+    '- `new`: a new change, below.\n' +
+    '- `roadmap`: the Roadmap section below, with `text` as the word after `roadmap`.\n' +
+    '- `status`: the Status section below.\n' +
+    '\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2256:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '## Start\n\nRun the script with the owner\'s arguments on standard input, through a quoted heredoc so no character of the request reaches the shell:\n\n```\nnode <skill-dir>/../../hooks/change-loop.mjs start --lang ${user_config.language} <<\'DEVKIT_ARGS\'\n$ARGUMENTS\nDEVKIT_ARGS\n```\n\nWhen a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by digits that no line of the request holds as the terminator. The script prints JSON with a `mode` and a `reply`. Act on the mode:\n\n- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built` and `nothing`: say `reply` and end the turn.\n- `choose` and `ask-unfinished`: ask `reply` as one question with AskUserQuestion (else say it and end the turn). The options are each listed id and, for `ask-unfinished`, "start the new request". The answer is `resume` of that id, or the new change below.\n- `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`.\n- `new`: a new change, below.\n- `roadmap`: the Roadmap section below, with `text` as the word after `roadmap`.\n- `status`: the Status section below.\n\n',
+    expected: /as the word after `roadmap`/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2264:1
+✖ followups F-2 skill: start anyway only on the owner's own message, with both flags (0.092292ms)
+  AssertionError [ERR_ASSERTION]: an item names --start-anyway
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2268:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

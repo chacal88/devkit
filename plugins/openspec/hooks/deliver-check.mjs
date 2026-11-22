@@ -186,10 +186,20 @@ export function parseCommitLine(text) {
   return null;
 }
 
+// The paths commit `c` counts as touching: a merge (more than one parent) against its first
+// parent, what it brought into the branch; any other commit as before (merge-staleness-first-parent).
+function touchedPaths(root, c, parents) {
+  const args = parents.length > 1
+    ? ['diff-tree', '-r', '-z', '--name-only', '--no-commit-id', parents[0], c]
+    : ['diff-tree', '-m', '-r', '-z', '--root', '--name-only', '--no-commit-id', c];
+  return git(root, args).split('\0').filter(Boolean);
+}
+
 // Why a recorded Commit is not current at HEAD, or null when it is: it
 // resolves, is an ancestor of HEAD, every commit since touches only
 // openspec/, it is not marked uncommitted, and the working tree has no change
-// outside openspec/ and .claude/.
+// outside openspec/ and .claude/. A merge commit counts what it brought into
+// the branch (its first-parent diff); every commit in the range is still checked.
 export function staleness(root, recorded, facts = gitFacts(root)) {
   if (!recorded) return 'no Commit: line';
   const short = recorded.sha.slice(0, 7);
@@ -200,10 +210,9 @@ export function staleness(root, recorded, facts = gitFacts(root)) {
   try { full = git(root, ['rev-parse', '--verify', '--quiet', `${recorded.sha}^{commit}`]).trim(); } catch { full = ''; }
   if (!full) return `${short} does not resolve to a commit`;
   if (!gitOk(root, ['merge-base', '--is-ancestor', full, facts.head])) return `${short} is not an ancestor of HEAD`;
-  for (const c of git(root, ['rev-list', `${full}..${facts.head}`]).split('\n').filter(Boolean)) {
-    // -m: a merge commit lists the files it brings against each parent.
-    const files = git(root, ['diff-tree', '-m', '-r', '-z', '--root', '--name-only', '--no-commit-id', c]).split('\0').filter(Boolean);
-    const product = files.find((f) => !isOpenspec(f));
+  for (const line of git(root, ['rev-list', '--parents', `${full}..${facts.head}`]).split('\n').filter(Boolean)) {
+    const [c, ...parents] = line.split(' ');
+    const product = touchedPaths(root, c, parents).find((f) => !isOpenspec(f));
     if (product) return `${short} is behind ${c.slice(0, 7)}, which touches ${product}`;
   }
   return null;

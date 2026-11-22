@@ -1,0 +1,582 @@
+Red record of phase 3, run on the unchanged product code (base 6e803eb plus phases 1 and 2 and the new phase 3 tests only).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups (F-3|F-4|AC-13|AC-14|AC-15)" plugins/openspec/hooks/guard.test.mjs
+
+Every new test of phase 3 fails below (25 of 25); none passes on the base. The F-4 test of a command on a later line first asserts the started form's own task counts (it does not on the base), then pins the boundary.
+
+----- output -----
+✖ followups F-4 guard: the task of a session started by another session makes a change run (2.648791ms)
+✖ followups F-4 guard: a command on a later line of any other message is no typed command (0.727458ms)
+✖ followups AC-14 icon: every stage of both scripts has its icon, and an archived end is the archive's (0.120958ms)
+✖ followups AC-14 next: every action of change-loop next carries the icon of its stage and its session title (1484.3585ms)
+✖ followups AC-14 title: sessionTitle is the icon and the id, cut under 60 code points (0.079458ms)
+✖ followups F-3 decide: with a session per change the coordinator hands no stage and starts each open change's session in its worktree (1.730125ms)
+✖ followups AC-13 name: sessionName gives the start's name, [a-z0-9-] and at most 24 characters (0.066667ms)
+✖ followups AC-13 run: --change-sessions is recorded, and a run without it keeps the stages in the session (2971.021167ms)
+✖ followups AC-13 run: a run from another session keeps the started change sessions and gives them no second session, and --fresh forgets them (144.071583ms)
+✖ followups AC-13 next: a reported session start is recorded once, said once and never started again, and a change no longer open leaves the record (140.505958ms)
+✖ followups AC-13 decide: a change in its own session counts as under way for the end of the run, and a stop ends the run with each change staying in its session (0.152125ms)
+✖ followups AC-13 decide: a change archived in its session frees its place, and on the event turn its report starts, the next ready line gets its line and waits for the owner's next message (0.143375ms)
+✖ followups AC-13 background: the brief names the change, its worktree and branch, the coordinating session, the person's language, the title rule and the archive line, and has at least 80 characters (0.055917ms)
+✖ followups AC-13 lock agent: in a run with a session per change every hand-off of the coordinating session is refused and nothing is marked under way (1736.971ms)
+✖ followups AC-13 lock stop: a change session to start on a typed turn is refused once, and every change in its own session lets the stop through (3021.378334ms)
+✖ followups AC-15 decide: on a turn nobody typed a start and a session start become one line each, said once, and on the owner's next turn they start (0.206042ms)
+✖ followups AC-15 decide: the load eases on a turn nobody typed and the held change waits for the owner's next message with its line (0.220917ms)
+✖ followups AC-15 next: a refused session start gives its line, records the turn as event and asks for no other start on that turn (151.345084ms)
+✖ followups AC-15 next: --turn takes typed or event, refuses any other word (message and an empty word included) with exit 3 and the run file's bytes unchanged, and no --turn reads as event (113.978458ms)
+✖ followups AC-15 decide: every withheld start has its line in the same decision or an announced one (0.359833ms)
+✖ followups AC-15 lock stop: after a decision on a turn nobody typed the stop is let through (369.248667ms)
+✖ followups AC-15 status: a line left for the owner's next message reads so in the queue, and an open change with no session says it starts at the next message (0.649625ms)
+✖ followups AC-13 skill: the session-per-change part names the tools, the list check, the session keys and the turn, and hands nothing (0.148959ms)
+✖ followups AC-14 skill: a change session renames its title from the sessionTitle of each next (0.085792ms)
+✖ followups AC-15 skill: the turn's two words, event when in doubt or on another session's note, and next first on a typed turn (0.308208ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 0
+ℹ fail 25
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10225.124042
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2721:1
+✖ followups F-4 guard: the task of a session started by another session makes a change run (2.648791ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'Background (from the session that started this one):'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/change-loop.test.mjs:2722:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'Background (from the session that started this one):',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2735:1
+✖ followups F-4 guard: a command on a later line of any other message is no typed command (0.727458ms)
+  AssertionError [ERR_ASSERTION]: the started form
+  + actual - expected
+  
+  + undefined
+  - 'feat'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/change-loop.test.mjs:2744:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'feat',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2755:1
+✖ followups AC-14 icon: every stage of both scripts has its icon, and an archived end is the archive's (0.120958ms)
+  TypeError [Error]: changeLoopModule.stageIcon is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/change-loop.test.mjs:2759:37)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2768:1
+✖ followups AC-14 next: every action of change-loop next carries the icon of its stage and its session title (1484.3585ms)
+  TypeError [Error]: changeLoopModule.stageIcon is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/change-loop.test.mjs:2773:48)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2787:1
+✖ followups AC-14 title: sessionTitle is the icon and the id, cut under 60 code points (0.079458ms)
+  TypeError [Error]: changeLoopModule.sessionTitle is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/change-loop.test.mjs:2788:33)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2289:1
+✖ followups F-3 decide: with a session per change the coordinator hands no stage and starts each open change's session in its worktree (1.730125ms)
+  AssertionError [ERR_ASSERTION]: one each for a and b, none for c, which has its session
+  + actual - expected
+  
+    [
+      [
+        'a',
+  +     'agent'
+  -     'session-start'
+      ],
+      [
+  +     'c',
+  +     'agent'
+  -     'b',
+  -     'session-start'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2293:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at node:internal/test_runner/test:1305:31
+      at node:internal/process/task_queues:151:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:227:14)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'a', 'agent' ], [ 'c', 'agent' ] ],
+    expected: [ [ 'a', 'session-start' ], [ 'b', 'session-start' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2314:1
+✖ followups AC-13 name: sessionName gives the start's name, [a-z0-9-] and at most 24 characters (0.066667ms)
+  TypeError [Error]: loopModule.sessionName is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2315:27)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2323:1
+✖ followups AC-13 run: --change-sessions is recorded, and a run without it keeps the stages in the session (2971.021167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   undefined,
+  +   undefined
+  -   false,
+  -   'typed'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2327:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ undefined, undefined ],
+    expected: [ false, 'typed' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2344:1
+✖ followups AC-13 run: a run from another session keeps the started change sessions and gives them no second session, and --fresh forgets them (144.071583ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"unknown option --change-sessions; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] (the word on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--start-anyway] | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2349:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2359:1
+✖ followups AC-13 next: a reported session start is recorded once, said once and never started again, and a change no longer open leaves the record (140.505958ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"unknown option --turn; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] (the word on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--start-anyway] | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2364:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2375:1
+✖ followups AC-13 decide: a change in its own session counts as under way for the end of the run, and a stop ends the run with each change staying in its session (0.152125ms)
+  Error [LoopUsageError]: the open change a has no action and nothing in flight
+      at entriesOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.mjs:154:24)
+      at decideRoadmap (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.mjs:176:33)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2377:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2385:1
+✖ followups AC-13 decide: a change archived in its session frees its place, and on the event turn its report starts, the next ready line gets its line and waits for the owner's next message (0.143375ms)
+  Error [LoopUsageError]: unknown reply key roadmap-waits-turn
+      at render (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/change-loop.mjs:360:37)
+      at say (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:117:48)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2388:72)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2398:1
+✖ followups AC-13 background: the brief names the change, its worktree and branch, the coordinating session, the person's language, the title rule and the archive line, and has at least 80 characters (0.055917ms)
+  TypeError [Error]: loopModule.sessionBackground is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2399:27)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2407:1
+✖ followups AC-13 lock agent: in a run with a session per change every hand-off of the coordinating session is refused and nothing is marked under way (1736.971ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'allow',
+  +   'script-role',
+  -   'refuse',
+  -   'own-sessions',
+      'a'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2412:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'allow', 'script-role', 'a' ],
+    expected: [ 'refuse', 'own-sessions', 'a' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2422:1
+✖ followups AC-13 lock stop: a change session to start on a typed turn is refused once, and every change in its own session lets the stop through (3021.378334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'refuse',
+      'stage-ready',
+  +   'a'
+  -   'b'
+    ]
+  
+      at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2428:12
+      at withTmp (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:1272:16)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2426:3)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'refuse', 'stage-ready', 'a' ],
+    expected: [ 'refuse', 'stage-ready', 'b' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2440:1
+✖ followups AC-15 decide: on a turn nobody typed a start and a session start become one line each, said once, and on the owner's next turn they start (0.206042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      [
+  -     'a',
+  -     'session-start'
+  -   ],
+  -   [
+        'b',
+        'start'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2443:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'b', 'start' ] ],
+    expected: [ [ 'a', 'session-start' ], [ 'b', 'start' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2458:1
+✖ followups AC-15 decide: the load eases on a turn nobody typed and the held change waits for the owner's next message with its line (0.220917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     change: 'a',
+  +     kind: 'start',
+  +     progressKey: 'start',
+  +     request: 'a'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2463:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { change: 'a', kind: 'start', request: 'a', progressKey: 'start' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2470:1
+✖ followups AC-15 next: a refused session start gives its line, records the turn as event and asks for no other start on that turn (151.345084ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"unknown option --turn; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] (the word on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--start-anyway] | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2475:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2484:1
+✖ followups AC-15 next: --turn takes typed or event, refuses any other word (message and an empty word included) with exit 3 and the run file's bytes unchanged, and no --turn reads as event (113.978458ms)
+  AssertionError [ERR_ASSERTION]: roadmap-loop: unknown option --turn; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] (the word on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--start-anyway] | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2491:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2504:1
+✖ followups AC-15 decide: every withheld start has its line in the same decision or an announced one (0.359833ms)
+  AssertionError [ERR_ASSERTION]: two ready lines: nothing starts on a turn nobody typed
+  + actual - expected
+  
+  + [
+  +   {
+  +     change: 'a',
+  +     kind: 'start',
+  +     progressKey: 'start',
+  +     request: 'a'
+  +   },
+  +   {
+  +     change: 'b',
+  +     kind: 'start',
+  +     progressKey: 'start',
+  +     request: 'b'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2520:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { change: 'a', kind: 'start', request: 'a', progressKey: 'start' }, { change: 'b', kind: 'start', request: 'b', progressKey: 'start' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2530:1
+✖ followups AC-15 lock stop: after a decision on a turn nobody typed the stop is let through (369.248667ms)
+  AssertionError [ERR_ASSERTION]: c waits for the owner's next message
+  + actual - expected
+  
+    [
+  +   'refuse',
+  +   'stage-ready'
+  -   'allow',
+  -   'nothing-ready'
+    ]
+  
+      at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2535:12
+      at withTmp (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:1272:16)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2533:3)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'refuse', 'stage-ready' ],
+    expected: [ 'allow', 'nothing-ready' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2546:1
+✖ followups AC-15 status: a line left for the owner's next message reads so in the queue, and an open change with no session says it starts at the next message (0.649625ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /a {3}ready: starts in a session of its own at your next message\n/. Input:
+  
+  'Roadmap: 3 open of 5 · 2 in the queue · 0 archived\n' +
+    '\n' +
+    'Waiting for you\n' +
+    '  d   your approval of the plan\n' +
+    'Under way\n' +
+    '  c   Proposal\n' +
+    '  e   Proposal\n' +
+    'In the queue\n' +
+    '  a   ready to start\n' +
+    '  b   ready to start'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2552:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Roadmap: 3 open of 5 · 2 in the queue · 0 archived\n\nWaiting for you\n  d   your approval of the plan\nUnder way\n  c   Proposal\n  e   Proposal\nIn the queue\n  a   ready to start\n  b   ready to start',
+    expected: /a {3}ready: starts in a session of its own at your next message\n/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2564:1
+✖ followups AC-13 skill: the session-per-change part names the tools, the list check, the session keys and the turn, and hands nothing (0.148959ms)
+  AssertionError [ERR_ASSERTION]: the two parts, in this order
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2569:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2594:1
+✖ followups AC-14 skill: a change session renames its title from the sessionTitle of each next (0.085792ms)
+  AssertionError [ERR_ASSERTION]: a Loop item renames the title
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2597:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2605:1
+✖ followups AC-15 skill: the turn's two words, event when in doubt or on another session's note, and next first on a typed turn (0.308208ms)
+  AssertionError [ERR_ASSERTION]: section ### A session per change
+      at sectionOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:1792:10)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/plugins/openspec/hooks/roadmap-loop.test.mjs:2606:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

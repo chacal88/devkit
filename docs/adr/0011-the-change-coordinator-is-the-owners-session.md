@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
+- Amended by ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md)
 - Date: 2026-11-20
 - Change: change-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), one sentence of decision 8
@@ -12,6 +13,12 @@
 Note (roadmap-coordinator, 2026-11-21): the same session is the coordinator of every change of a
 `/devkit roadmap` run, and the locks follow every change of that run ([ADR 0013](0013-the-roadmap-coordinator-is-the-owners-session.md)). For `/devkit change`
 nothing here changes.
+
+Note (roadmap-coordinator-followups, 2026-11-21): the task another session started a session with,
+in the desktop app's form of a started session, counts as a command typed in it. A change session a
+roadmap run starts is therefore held by these locks
+([ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). Decisions 1 to 3 are
+otherwise unchanged.
 
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
 edit tool and product code is still written only by the implementer role under the same hooks",

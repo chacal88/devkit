@@ -39,6 +39,14 @@ subagent in the background. [ADR 0013](0013-the-roadmap-coordinator-is-the-owner
 the bullet of decision 8 that takes up ADR 0005's "One subagent per whole change". The load is the
 processor's, per core, against a per-person limit. Decisions 1 to 8 are otherwise unchanged.
 
+Note (roadmap-coordinator-followups, 2026-11-21): in the desktop app each change of a roadmap run
+runs in a session of its own, nested under the owner's session
+([ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). A start the app refuses
+waits for the owner's next message with a line, never a subagent in its place. The owner may tell
+the session to start the changes the load holds at that moment anyway, and the hold applies again
+to every later start; that permission is the owner's own message and is kept nowhere. Decisions 1
+to 8 are otherwise unchanged.
+
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions
 (ADR 0006), one change on request and never a sweep (ADR 0007), the reviewer round as a Workflow
