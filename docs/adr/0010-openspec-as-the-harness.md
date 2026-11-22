@@ -3,6 +3,7 @@
 - Status: accepted
 - Amended by ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md)
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
+- Amended by ADR 0014 (0014-stage-roles-write-their-own-files.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -38,6 +39,12 @@ owner typed `/devkit roadmap` in, which runs the loop of every open change and h
 subagent in the background. [ADR 0013](0013-the-roadmap-coordinator-is-the-owners-session.md) amends
 the bullet of decision 8 that takes up ADR 0005's "One subagent per whole change". The load is the
 processor's, per core, against a per-person limit. Decisions 1 to 8 are otherwise unchanged.
+
+Note (stage-roles, 2026-11-21): the roles of D-4 stages 3, 4, 9 and 10 ship and stage 11 is recorded
+as text. [ADR 0014](0014-stage-roles-write-their-own-files.md) amends decision 3 (a stage that does
+not apply because of its declared condition, or that the change had already passed, leaves no file)
+and the sentence of decision 8 on product code. The test commands are the settings `devkit.tests.*`
+(decision 1, round 16). Decisions 1 to 8 are otherwise unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions

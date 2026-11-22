@@ -1,0 +1,979 @@
+✖ stage-roles loop: the mock-up and the decisions are handed to their own roles, each naming its instructions (9.653933ms)
+✔ stage-roles loop: a stale mock-up or decisions file is brought up to date by its own role (0.651628ms)
+✔ stage-roles loop: the planner and the readiness reviewer keep their own texts (0.318041ms)
+✖ stage-roles loop: waiting-mockup the drawn mock-up ends waiting for the owner, naming its folder and file (1.117186ms)
+✖ stage-roles loop: waiting-mockup is said in both languages without an internal term (0.234699ms)
+✖ stage-roles loop: owner-changes the owner asked for changes, the mock-up goes back to its designer naming the next attempt (0.438118ms)
+✖ stage-roles loop: the unit tests are handed to the test runner whatever step the delivery checker would give, with the declared commands (0.537994ms)
+✖ stage-roles loop: the E2E tests are handed to the E2E tester with the declared command (0.340991ms)
+✖ stage-roles loop: fix-tests a red test stage goes back to the implementer, naming the failed stage and its file (0.503021ms)
+✔ stage-roles loop: fix-tests is not the step for an evidence or a review failure, which follow the delivery checker's row (0.344727ms)
+✔ stage-roles loop: the loop's own hand-offs of the test stages carry a role the packs know (0.199517ms)
+✖ stage-roles loop: accept-decisions sets every proposed record accepted with the approval's date, and says what it did (25.632335ms)
+✖ stage-roles loop: accept-decisions keeps the letter case and the prefix of the status line (22.371412ms)
+✖ stage-roles loop: accept-decisions leaves an accepted record alone and lists it as already accepted (22.531765ms)
+✖ stage-roles loop: accept-decisions with no listed record succeeds and writes nothing (26.861877ms)
+✖ stage-roles loop: accept-decisions refuses while the approval is missing, naming it, and changes nothing (23.66262ms)
+✖ stage-roles loop: accept-decisions refuses an approval of an earlier readiness (23.683239ms)
+✖ stage-roles loop: accept-decisions refuses a path outside the repository, an absolute one and a file that does not exist (23.503606ms)
+✖ stage-roles loop: accept-decisions refuses a file that is not Markdown and a folder that is not an ADR folder (23.710969ms)
+✖ stage-roles loop: accept-decisions refuses a record with no status line or a status that is neither proposed nor accepted (23.614737ms)
+✖ stage-roles loop: accept-decisions with a good record and a bad one changes neither (every check runs before a write) (23.707548ms)
+✖ stage-roles loop: accept-decisions names itself in the usage line and needs a change id (0.458928ms)
+✖ stage-roles loop: the accept-decisions step comes with a current approval and a proposed record, carrying its command (0.410973ms)
+✖ stage-roles loop: the accept-decisions step is also taken for a record the loop could not read, so the command can refuse it by name (0.331023ms)
+✔ stage-roles loop: no accept-decisions step while the approval is not current, with nothing proposed, or with no records (0.320064ms)
+✖ stage-roles loop: after accept-decisions the next call offers the implementation (a record accepted is no longer proposed) (1833.22685ms)
+✖ stage-roles loop: setting-unknown a coverage target that is not a whole number from 0 to 100 stops the command like any unknown setting (26.670765ms)
+✔ stage-roles loop: the nested test keys do not disturb the driver and the language (0.577012ms)
+✖ stage-roles loop: a screen designer that stops before redrawing is refused once, like any stage agent that has not delivered (1860.125207ms)
+✔ stage-roles loop: the loop hands a mock-up of a change with a screen to its designer, read from the files (3447.926689ms)
+✖ stage-roles loop: gateOf names the mock-up approval as its own gate, said in both languages (0.623769ms)
+✖ stage-roles guard: isDecisionRecord holds for a Markdown file in an adr, adrs or decisions folder in any letter case (0.64942ms)
+✖ stage-roles guard: isTestFile holds for a test folder or a test file name (0.124593ms)
+✖ stage-roles guard: adr-author is allowed a decision record before the readiness review and after the approval, on both scripts (49.996837ms)
+✖ stage-roles guard: adr-author is refused a product file, naming what it writes (56.931839ms)
+✔ stage-roles guard: adr-author is refused a file that is not Markdown in the folder (99.427328ms)
+✔ stage-roles guard: adr-author keeps writing the change's own files and is refused the gate files of others (91.414474ms)
+✖ stage-roles guard: shell writes of adr-author follow the same rule (54.914003ms)
+✖ stage-roles guard: e2e-tester is allowed a test file past the approved readiness, in each folder name and each file form (49.143084ms)
+✖ stage-roles guard: e2e-tester is refused a product file past the approved readiness, naming the implementer (51.897559ms)
+✔ stage-roles guard: e2e-tester is refused a test file before the approved readiness, with the reason product code is refused today (101.894145ms)
+✔ stage-roles guard: e2e-tester is unrestricted on devkit-lite, as every agent is (97.484947ms)
+✖ stage-roles guard: shell writes of e2e-tester follow the same rule (52.67002ms)
+✔ stage-roles guard: the test runner and the screen designer are refused a code path past the approval, naming the implementer (187.612853ms)
+✔ stage-roles guard: the test runner and the screen designer keep writing the change's own folder (126.572678ms)
+✔ stage-roles guard: the implementer is unchanged, and the main session is still refused code past the approval (138.570803ms)
+✖ stage-roles setup: step 5 fills the four test keys from the repository and asks the owner to confirm each (0.394443ms)
+✖ stage-roles setup: step 5 keeps every value the block already holds and says that a stage with no command does not run (0.389593ms)
+✖ stage-roles setup: the starting config shows the four test keys as a commented block with its heading (0.333182ms)
+✖ stage-roles gates: the stop-mockup-approval row comes after stop-plan-approval and is written only from the owner's own message (0.224771ms)
+✖ stage-roles gates: the mock-up row shows each file mockup.md lists, an .html one by its path (0.2218ms)
+✖ stage-roles gates: an approved mock-up sets result=passed with the same attempt and the current commit, and records the owner's words (0.171287ms)
+✖ stage-roles gates: changes asked for set result=failed with the same attempt and append the owner's notes (0.161784ms)
+✖ stage-roles gates: an approved mock-up adds what it revealed to the requirements (0.219042ms)
+✖ stage-roles gates: the stop-plan-approval row names the records the approval accepts and the loop's accept-decisions step, keeping what it pinned (0.223181ms)
+✖ stage-roles gates: the verify row allows no pull-request comment (0.277987ms)
+✖ stage-roles gates: the devkit skill names the mock-up among the owner's gates and the accept-decisions step (0.360587ms)
+ℹ tests 57
+ℹ suites 0
+ℹ pass 14
+ℹ fail 43
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8810.606408
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2819:1
+✖ stage-roles loop: the mock-up and the decisions are handed to their own roles, each naming its instructions (9.653933ms)
+  AssertionError [ERR_ASSERTION]: Change feat (devkit script), stage mockup: write the plan files the script still lacks, from mockup on, each from `openspec instructions <artifact> --change feat`. Work only in /w/feat on branch feat; every file path is absolute under it; start every Bash command with cd /w/feat && ; do not fetch. Write the change's files in English.
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2823:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2844:1
+✖ stage-roles loop: waiting-mockup the drawn mock-up ends waiting for the owner, naming its folder and file (1.117186ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'end',
+  +   'blocked',
+  +   'unknown-step',
+  +   2
+  -   'waiting-for-owner',
+  -   'waiting-mockup',
+  -   1
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2846:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'end', 'blocked', 'unknown-step', 2 ],
+    expected: [ 'end', 'waiting-for-owner', 'waiting-mockup', 1 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2853:1
+✖ stage-roles loop: waiting-mockup is said in both languages without an internal term (0.234699ms)
+  AssertionError [ERR_ASSERTION]: en has waiting-mockup
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2856:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2869:1
+✖ stage-roles loop: owner-changes the owner asked for changes, the mock-up goes back to its designer naming the next attempt (0.438118ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'end',
+  +   undefined,
+  -   'agent',
+  -   'devkit-core:screen-designer',
+      'mockup',
+  +   2
+  -   0
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2871:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'end', undefined, 'mockup', 2 ],
+    expected: [ 'agent', 'devkit-core:screen-designer', 'mockup', 0 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2877:1
+✖ stage-roles loop: the unit tests are handed to the test runner whatever step the delivery checker would give, with the declared commands (0.537994ms)
+  AssertionError [ERR_ASSERTION]: no-file commit
+  + actual - expected
+  
+    [
+      'agent',
+  +   'devkit-core:commit-and-pr',
+  +   'commit',
+  +   'delivery',
+  +   'commit-and-pr'
+  -   'devkit-core:test-runner',
+  -   'unit-tests',
+  -   'unit-tests',
+  -   'test-runner'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2881:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'devkit-core:commit-and-pr', 'commit', 'delivery', 'commit-and-pr' ],
+    expected: [ 'agent', 'devkit-core:test-runner', 'unit-tests', 'unit-tests', 'test-runner' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2893:1
+✖ stage-roles loop: the E2E tests are handed to the E2E tester with the declared command (0.340991ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'agent',
+  +   'devkit-core:commit-and-pr',
+  +   'commit',
+  +   'delivery',
+  +   'commit-and-pr'
+  -   'devkit-core:e2e-tester',
+  -   'e2e-tests',
+  -   'e2e-tests',
+  -   'e2e-tester'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2895:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'devkit-core:commit-and-pr', 'commit', 'delivery', 'commit-and-pr' ],
+    expected: [ 'agent', 'devkit-core:e2e-tester', 'e2e-tests', 'e2e-tests', 'e2e-tester' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2900:1
+✖ stage-roles loop: fix-tests a red test stage goes back to the implementer, naming the failed stage and its file (0.503021ms)
+  AssertionError [ERR_ASSERTION]: unit-tests
+  + actual - expected
+  
+    [
+      'agent',
+  +   'devkit-core:commit-and-pr',
+  +   'commit',
+  +   'delivery',
+  +   'commit-and-pr',
+  -   'devkit-core:tdd-implementer',
+  -   'fix-tests',
+  -   'implementation',
+  -   'tdd-implementer',
+      0
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2903:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'devkit-core:commit-and-pr', 'commit', 'delivery', 'commit-and-pr', 0 ],
+    expected: [ 'agent', 'devkit-core:tdd-implementer', 'fix-tests', 'implementation', 'tdd-implementer', 0 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2966:1
+✖ stage-roles loop: accept-decisions sets every proposed record accepted with the approval's date, and says what it did (25.632335ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2969:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2976:1
+✖ stage-roles loop: accept-decisions keeps the letter case and the prefix of the status line (22.371412ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2981:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2988:1
+✖ stage-roles loop: accept-decisions leaves an accepted record alone and lists it as already accepted (22.531765ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2992:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3000:1
+✖ stage-roles loop: accept-decisions with no listed record succeeds and writes nothing (26.861877ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3004:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3009:1
+✖ stage-roles loop: accept-decisions refuses while the approval is missing, naming it, and changes nothing (23.66262ms)
+  Error [LoopUsageError]: unknown reply key blocked-why.cannot-accept
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:343:37)
+      at file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:352:32
+      at String.replace (<anonymous>)
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:348:19)
+      at refused (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2961:25)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3011:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3015:1
+✖ stage-roles loop: accept-decisions refuses an approval of an earlier readiness (23.683239ms)
+  Error [LoopUsageError]: unknown reply key blocked-why.cannot-accept
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:343:37)
+      at file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:352:32
+      at String.replace (<anonymous>)
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:348:19)
+      at refused (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2961:25)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3017:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3020:1
+✖ stage-roles loop: accept-decisions refuses a path outside the repository, an absolute one and a file that does not exist (23.503606ms)
+  Error [LoopUsageError]: unknown reply key blocked-why.cannot-accept
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:343:37)
+      at file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:352:32
+      at String.replace (<anonymous>)
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:348:19)
+      at refused (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2961:25)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3022:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3027:1
+✖ stage-roles loop: accept-decisions refuses a file that is not Markdown and a folder that is not an ADR folder (23.710969ms)
+  Error [LoopUsageError]: unknown reply key blocked-why.cannot-accept
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:343:37)
+      at file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:352:32
+      at String.replace (<anonymous>)
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:348:19)
+      at refused (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2961:25)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3028:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3036:1
+✖ stage-roles loop: accept-decisions refuses a record with no status line or a status that is neither proposed nor accepted (23.614737ms)
+  Error [LoopUsageError]: unknown reply key blocked-why.cannot-accept
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:343:37)
+      at file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:352:32
+      at String.replace (<anonymous>)
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:348:19)
+      at refused (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2961:25)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3037:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3041:1
+✖ stage-roles loop: accept-decisions with a good record and a bad one changes neither (every check runs before a write) (23.707548ms)
+  Error [LoopUsageError]: unknown reply key blocked-why.cannot-accept
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:343:37)
+      at file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:352:32
+      at String.replace (<anonymous>)
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.mjs:348:19)
+      at refused (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2961:25)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3043:3)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3047:1
+✖ stage-roles loop: accept-decisions names itself in the usage line and needs a change id (0.458928ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /accept-decisions <id>/. Input:
+  
+  'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3050:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]',
+    expected: /accept-decisions <id>/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3058:1
+✖ stage-roles loop: the accept-decisions step comes with a current approval and a proposed record, carrying its command (0.410973ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'implement',
+  +   'implementation',
+  -   'session',
+  -   'accept-decisions',
+  -   'approval',
+      0
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3060:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'implement', 'implementation', 0 ],
+    expected: [ 'session', 'accept-decisions', 'approval', 0 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3066:1
+✖ stage-roles loop: the accept-decisions step is also taken for a record the loop could not read, so the command can refuse it by name (0.331023ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'implement'
+  - 'accept-decisions'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3068:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'implement',
+    expected: 'accept-decisions',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3084:1
+✖ stage-roles loop: after accept-decisions the next call offers the implementation (a record accepted is no longer proposed) (1833.22685ms)
+  AssertionError [ERR_ASSERTION]: devkit-run: feat
+  {
+    "version": 1,
+    "change": "feat",
+    "script": "devkit",
+    "root": "/var/tmp/stage-roles-tmp/devkit-deliver-Npscxi",
+    "branch": "main",
+    "filesLanguage": "en",
+    "kind": "grill",
+    "stage": "requirements",
+    "stageTitle": "Requirements (grill)",
+    "role": "change-coordinator",
+    "skills": [
+      "requirements-grill"
+    ],
+    "progressKey": "requirements/requirements@da6551332835"
+  }
+  
+  + actual - expected
+  
+  + undefined
+  - 'accept-decisions'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3088:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'accept-decisions',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3094:1
+✖ stage-roles loop: setting-unknown a coverage target that is not a whole number from 0 to 100 stops the command like any unknown setting (26.670765ms)
+  AssertionError [ERR_ASSERTION]: 80%
+  + actual - expected
+  
+  + []
+  - [
+  -   [
+  -     'coverage-target',
+  -     '80%'
+  -   ]
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3098:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ [ 'coverage-target', '80%' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3113:1
+✖ stage-roles loop: a screen designer that stops before redrawing is refused once, like any stage agent that has not delivered (1860.125207ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3123:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:1937:1
+✖ stage-roles loop: gateOf names the mock-up approval as its own gate, said in both languages (0.623769ms)
+  Error [LoopUsageError]: no gate for the action end waiting-mockup
+      at gateOf (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/roadmap-loop.mjs:84:20)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/roadmap-loop.test.mjs:1939:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+
+test at plugins/openspec/hooks/guard.test.mjs:1351:1
+✖ stage-roles guard: isDecisionRecord holds for a Markdown file in an adr, adrs or decisions folder in any letter case (0.64942ms)
+  TypeError [Error]: GUARD.isDecisionRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1352:151)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+
+test at plugins/openspec/hooks/guard.test.mjs:1356:1
+✖ stage-roles guard: isTestFile holds for a test folder or a test file name (0.124593ms)
+  TypeError [Error]: GUARD.isTestFile is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1358:176)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/guard.test.mjs:1362:1
+✖ stage-roles guard: adr-author is allowed a decision record before the readiness review and after the approval, on both scripts (49.996837ms)
+  AssertionError [ERR_ASSERTION]: devkit no readiness: docs/adr/0014-x.md
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1365:105)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1369:1
+✖ stage-roles guard: adr-author is refused a product file, naming what it writes (56.931839ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /adr-author writes only the project's decision records/. Input:
+  
+  'devkit guard: change "feat" has no approved readiness (Status: missing). Product code stays closed until the plan-readiness-reviewer agent writes "- Status: APPROVED" in openspec/changes/feat/readiness.md. Run: openspec status --change feat\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1373:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit guard: change "feat" has no approved readiness (Status: missing). Product code stays closed until the plan-readiness-reviewer agent writes "- Status: APPROVED" in openspec/changes/feat/readiness.md. Run: openspec status --change feat\n',
+    expected: /adr-author writes only the project's decision records/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1391:1
+✖ stage-roles guard: shell writes of adr-author follow the same rule (54.914003ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1393:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1397:1
+✖ stage-roles guard: e2e-tester is allowed a test file past the approved readiness, in each folder name and each file form (49.143084ms)
+  AssertionError [ERR_ASSERTION]: test/a.ts
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1401:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1405:1
+✖ stage-roles guard: e2e-tester is refused a product file past the approved readiness, naming the implementer (51.897559ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /e2e-tester writes only test files/. Input:
+  
+  'devkit guard: in schema devkit, product code is written by the tdd-implementer agent, one phase at a time. Dispatch it with the Agent tool (subagent_type devkit-core:tdd-implementer).\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1409:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit guard: in schema devkit, product code is written by the tdd-implementer agent, one phase at a time. Dispatch it with the Agent tool (subagent_type devkit-core:tdd-implementer).\n',
+    expected: /e2e-tester writes only test files/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1428:1
+✖ stage-roles guard: shell writes of e2e-tester follow the same rule (52.67002ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1430:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1468:1
+✖ stage-roles setup: step 5 fills the four test keys from the repository and asks the owner to confirm each (0.394443ms)
+  AssertionError [ERR_ASSERTION]: tests:
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1470:102)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1476:1
+✖ stage-roles setup: step 5 keeps every value the block already holds and says that a stage with no command does not run (0.389593ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /keep every value the block already holds and ask nothing about\s+it/. Input:
+  
+  '5. **Write `openspec/config.yaml`.**\n' +
+    "   - If it doesn't exist, start from `templates/config.yaml`.\n" +
+    "   - If it exists, keep the user's values: set `schema: devkit-lite` as the default (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.\n" +
+    '   - Fill `context` from the repo, never with placeholders:\n' +
+    '     - stack: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, ...;\n' +
+    '     - test, lint and typecheck commands: package scripts, `Makefile`, CI workflows (`.github/workflows/`);\n' +
+    '     - ADR folder: `docs/adr/`, `docs/decisions/`, `adr/`, or "none";\n' +
+    '     - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;\n' +
+    '     - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.\n' +
+    '   - Run the test command once. If it fails, record it in `context` as failing and tell the user.\n' +
+    '   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent.\n' +
+    '\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1478:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '5. **Write `openspec/config.yaml`.**\n   - If it doesn\'t exist, start from `templates/config.yaml`.\n   - If it exists, keep the user\'s values: set `schema: devkit-lite` as the default (ask first if it names another schema), and merge in only the missing `rules` / `operations` keys.\n   - Fill `context` from the repo, never with placeholders:\n     - stack: `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, ...;\n     - test, lint and typecheck commands: package scripts, `Makefile`, CI workflows (`.github/workflows/`);\n     - ADR folder: `docs/adr/`, `docs/decisions/`, `adr/`, or "none";\n     - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;\n     - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.\n   - Run the test command once. If it fails, record it in `context` as failing and tell the user.\n   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent.\n\n',
+    expected: /keep every value the block already holds and ask nothing about\s+it/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1482:1
+✖ stage-roles setup: the starting config shows the four test keys as a commented block with its heading (0.333182ms)
+  AssertionError [ERR_ASSERTION]: the block comes after the ship comment
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1486:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1498:1
+✖ stage-roles gates: the stop-mockup-approval row comes after stop-plan-approval and is written only from the owner's own message (0.224771ms)
+  AssertionError [ERR_ASSERTION]: the row follows stop-plan-approval
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1502:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1508:1
+✖ stage-roles gates: the mock-up row shows each file mockup.md lists, an .html one by its path (0.2218ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /each file `mockup\.md` lists/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1510:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /each file `mockup\.md` lists/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1515:1
+✖ stage-roles gates: an approved mock-up sets result=passed with the same attempt and the current commit, and records the owner's words (0.171287ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /<!-- devkit-stage mockup result=passed attempt=<same n> commit=<git rev-parse HEAD> -->/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1517:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /<!-- devkit-stage mockup result=passed attempt=<same n> commit=<git rev-parse HEAD> -->/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1523:1
+✖ stage-roles gates: changes asked for set result=failed with the same attempt and append the owner's notes (0.161784ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /result=failed/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1525:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /result=failed/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1529:1
+✖ stage-roles gates: an approved mock-up adds what it revealed to the requirements (0.219042ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /append to `requirements\.md`, under `## What the mock-up revealed`/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1531:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /append to `requirements\.md`, under `## What the mock-up revealed`/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1535:1
+✖ stage-roles gates: the stop-plan-approval row names the records the approval accepts and the loop's accept-decisions step, keeping what it pinned (0.223181ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /the records\s+`decisions\.md` lists, which the approval accepts/. Input:
+  
+  '| `stop-plan-approval` | Stop. Summarize the plan (the proposal\'s What Changes, the design decisions, the tasks\' phases) and ask the owner to approve it. Only when the owner\'s own message approves, write `openspec/changes/<id>/approval.md` in exactly this form, with `next.readiness` as the hash, then run the loop again: line 1 the stage header `<!-- devkit-stage approval result=passed attempt=<n> commit=<git rev-parse HEAD> -->` (`<n>` one more than the attempt of the header of the file it replaces, 1 for a new file), then `# Plan approval: <id>`, then the lines `- Status: APPROVED`, `- Readiness: <next.readiness>`, `- Date: <YYYY-MM-DD>` and `- Owner\'s words: "<the owner\'s message, up to 200 characters>"`. Never write it from your own reading, from a subagent\'s report or from a cron-started run without the owner\'s message. Report `waiting for the owner\'s plan approval`. |'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1537:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '| `stop-plan-approval` | Stop. Summarize the plan (the proposal\'s What Changes, the design decisions, the tasks\' phases) and ask the owner to approve it. Only when the owner\'s own message approves, write `openspec/changes/<id>/approval.md` in exactly this form, with `next.readiness` as the hash, then run the loop again: line 1 the stage header `<!-- devkit-stage approval result=passed attempt=<n> commit=<git rev-parse HEAD> -->` (`<n>` one more than the attempt of the header of the file it replaces, 1 for a new file), then `# Plan approval: <id>`, then the lines `- Status: APPROVED`, `- Readiness: <next.readiness>`, `- Date: <YYYY-MM-DD>` and `- Owner\'s words: "<the owner\'s message, up to 200 characters>"`. Never write it from your own reading, from a subagent\'s report or from a cron-started run without the owner\'s message. Report `waiting for the owner\'s plan approval`. |',
+    expected: /the records\s+`decisions\.md` lists, which the approval accepts/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1542:1
+✖ stage-roles gates: the verify row allows no pull-request comment (0.277987ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /a PR comment is allowed/. Input:
+  
+  '| `verify` | Dispatch `devkit-core:pr-verifier`: "Verify change <id> on branch <branch>; write evidence.md with its Commit line, Gates table and one row per acceptance criterion; no PR comment" (a PR comment is allowed once a PR exists). |'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1546:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '| `verify` | Dispatch `devkit-core:pr-verifier`: "Verify change <id> on branch <branch>; write evidence.md with its Commit line, Gates table and one row per acceptance criterion; no PR comment" (a PR comment is allowed once a PR exists). |',
+    expected: /a PR comment is allowed/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1550:1
+✖ stage-roles gates: the devkit skill names the mock-up among the owner's gates and the accept-decisions step (0.360587ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /the grill, the mock-up, the plan approval, the retro answers/. Input:
+  
+  "Runs one change from the owner's request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner's gates (the grill, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit roadmap [<n>] runs the roadmap's ready changes, several at once, and /devkit status shows where everything is. Every decision comes from the change-loop and roadmap-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change to continue, /devkit roadmap [<n> | stop] or /devkit status."
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/guard.test.mjs:1553:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "Runs one change from the owner's request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner's gates (the grill, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit roadmap [<n>] runs the roadmap's ready changes, several at once, and /devkit status shows where everything is. Every decision comes from the change-loop and roadmap-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change to continue, /devkit roadmap [<n> | stop] or /devkit status.",
+    expected: /the grill, the mock-up, the plan approval, the retro answers/,
+    operator: 'match',
+    diff: 'simple'
+  }

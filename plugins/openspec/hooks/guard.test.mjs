@@ -1345,3 +1345,220 @@ test('field-fixes 10 verdict: gh pr create is not refused for a reviewer whose f
   assert.equal(refused.code, 2);
   assert.match(refused.err, /security-reviewer/);
 });
+
+// ---------------------------------------------------------------- stage-roles: the writers (design D-6; tasks 2.1, 2.5)
+
+test('stage-roles guard: isDecisionRecord holds for a Markdown file in an adr, adrs or decisions folder in any letter case', () => {
+  for (const ok of ['docs/adr/0014-x.md', 'ADR/x.md', 'docs/Adrs/x.md', 'decisions/x.md', 'docs/decisions/deep/x.md', 'adr/x.md']) assert.equal(GUARD.isDecisionRecord(ok), true, ok);
+  for (const no of ['docs/adr/x.png', 'docs/adr/x.mdx', 'src/a.ts', 'docs/adr.md', 'docs/adr-notes/x.md', 'adr', 'docs/x.md', 'docs/adrx/x.md']) assert.equal(GUARD.isDecisionRecord(no), false, no);
+});
+
+test('stage-roles guard: isTestFile holds for a test folder or a test file name', () => {
+  for (const ok of ['test/a.ts', 'tests/a.ts', '__tests__/a.ts', 'e2e/a.ts', 'spec/a.rb', 'specs/a.rb', 'cypress/a.js', 'playwright/a.ts', 'web/TESTS/a.ts', 'src/deep/e2e/a.ts',
+    'src/a.test.ts', 'src/a.spec.ts', 'web/export.e2e.ts', 'src/a.cy.ts', 'test_a.py', 'pkg/test_a.py', 'pkg/a_test.go', 'src/a-test.js', 'src/a_spec.rb']) assert.equal(GUARD.isTestFile(ok), true, ok);
+  for (const no of ['src/export.ts', 'src/latest.ts', 'src/contest.ts', 'src/spec.ts', 'src/testing.ts', 'src/attest/a.ts', 'README.md', 'test']) assert.equal(GUARD.isTestFile(no), false, no);
+});
+
+test('stage-roles guard: adr-author is allowed a decision record before the readiness review and after the approval, on both scripts', () => {
+  for (const [label, files] of [['devkit no readiness', devkit], ['devkit approved', approved], ['devkit-lite', lite]]) {
+    const root = repo({ changes: { feat: files } });
+    for (const f of ['docs/adr/0014-x.md', 'ADR/0014-x.md', 'decisions/x.md', 'docs/adrs/x.md']) assert.equal(edit(root, f, 'adr-author').code, 0, `${label}: ${f}`);
+  }
+});
+
+test('stage-roles guard: adr-author is refused a product file, naming what it writes', () => {
+  const root = repo({ changes: { feat: devkit } });
+  const r = edit(root, 'src/a.ts', 'adr-author');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /adr-author writes only the project's decision records/);
+  assert.match(r.err, /src\/a\.ts/);
+  assert.equal(edit(repo({ changes: { feat: approved } }), 'src/a.ts', 'adr-author').code, 2, 'past the approval too');
+  assert.equal(edit(repo({ changes: { feat: lite } }), 'src/a.ts', 'adr-author').code, 2, 'and on devkit-lite');
+});
+
+test('stage-roles guard: adr-author is refused a file that is not Markdown in the folder', () => {
+  const root = repo({ changes: { feat: devkit } });
+  assert.equal(edit(root, 'docs/adr/diagram.png', 'adr-author').code, 2);
+  assert.equal(edit(root, 'docs/notes.md', 'adr-author').code, 2, 'Markdown outside an ADR folder');
+});
+
+test('stage-roles guard: adr-author keeps writing the change\'s own files and is refused the gate files of others', () => {
+  const root = repo({ changes: { feat: devkit } });
+  assert.equal(edit(root, 'openspec/changes/feat/decisions.md', 'adr-author').code, 0);
+  assert.equal(edit(root, 'openspec/changes/feat/readiness.md', 'adr-author').code, 2);
+});
+
+test('stage-roles guard: shell writes of adr-author follow the same rule', () => {
+  const root = repo({ changes: { feat: devkit } });
+  assert.equal(bash(root, 'echo x > docs/adr/0014-x.md', 'adr-author').code, 0);
+  assert.equal(bash(root, 'echo x > src/a.ts', 'adr-author').code, 2);
+});
+
+test('stage-roles guard: e2e-tester is allowed a test file past the approved readiness, in each folder name and each file form', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const f of ['test/a.ts', 'tests/a.ts', '__tests__/a.ts', 'e2e/export.spec.ts', 'spec/a.rb', 'specs/a.rb', 'cypress/a.js', 'playwright/a.ts',
+    'web/export.e2e.ts', 'src/a.test.ts', 'src/a.spec.ts', 'src/a.cy.ts', 'test_a.py', 'pkg/a_test.go', 'src/a-test.js']) {
+    assert.equal(edit(root, f, 'e2e-tester').code, 0, f);
+  }
+});
+
+test('stage-roles guard: e2e-tester is refused a product file past the approved readiness, naming the implementer', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = edit(root, 'src/export.ts', 'e2e-tester');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /e2e-tester writes only test files/);
+  assert.match(r.err, /src\/export\.ts/);
+  assert.match(r.err, /tdd-implementer/);
+});
+
+test('stage-roles guard: e2e-tester is refused a test file before the approved readiness, with the reason product code is refused today', () => {
+  for (const files of [devkit, { ...devkit, 'readiness.md': '- Status: NEEDS-REVISION\n' }]) {
+    const r = edit(repo({ changes: { feat: files } }), 'e2e/export.spec.ts', 'e2e-tester');
+    assert.equal(r.code, 2);
+    assert.match(r.err, /no approved readiness|Product code stays closed/);
+  }
+});
+
+test('stage-roles guard: e2e-tester is unrestricted on devkit-lite, as every agent is', () => {
+  const root = repo({ changes: { feat: lite } });
+  assert.equal(edit(root, 'src/export.ts', 'e2e-tester').code, 0);
+  assert.equal(edit(root, 'e2e/a.spec.ts', 'e2e-tester').code, 0);
+});
+
+test('stage-roles guard: shell writes of e2e-tester follow the same rule', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(bash(root, 'echo x > e2e/a.spec.ts', 'e2e-tester').code, 0);
+  assert.equal(bash(root, 'echo x > src/export.ts', 'e2e-tester').code, 2);
+});
+
+test('stage-roles guard: the test runner and the screen designer are refused a code path past the approval, naming the implementer', () => {
+  const root = repo({ changes: { feat: approved } });
+  for (const [a, f] of [['test-runner', 'src/a.test.ts'], ['test-runner', 'src/a.ts'], ['screen-designer', 'src/view.tsx']]) {
+    const r = edit(root, f, a);
+    assert.equal(r.code, 2, `${a} ${f}`);
+    assert.match(r.err, /tdd-implementer/);
+  }
+  assert.equal(edit(repo({ changes: { feat: devkit } }), 'src/view.tsx', 'screen-designer').code, 2, 'before the approval too');
+});
+
+test('stage-roles guard: the test runner and the screen designer keep writing the change\'s own folder', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(edit(root, 'openspec/changes/feat/unit-tests.md', 'test-runner').code, 0);
+  assert.equal(edit(root, 'openspec/changes/feat/mockup.md', 'screen-designer').code, 0);
+  assert.equal(edit(root, 'openspec/changes/feat/mock/a.html', 'screen-designer').code, 0);
+});
+
+test('stage-roles guard: the implementer is unchanged, and the main session is still refused code past the approval', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(edit(root, 'src/a.ts', 'tdd-implementer').code, 0);
+  assert.equal(edit(root, 'src/a.ts').code, 2);
+  assert.equal(edit(root, 'docs/adr/x.md').code, 2, 'a decision record is the adr-author\'s, not the main session\'s');
+});
+
+// ---------------------------------------------------------------- stage-roles: the setup (design D-3; tasks 2.1, 2.8)
+
+const setupRoot = join(here, '..', 'skills', 'openspec-setup');
+const setupStep5 = () => {
+  const md = readFileSync(join(setupRoot, 'SKILL.md'), 'utf8');
+  const from = md.indexOf('5. **Write `openspec/config.yaml`.**');
+  assert.ok(from >= 0, 'step 5 exists');
+  return md.slice(from, md.indexOf('6. **Check.**', from));
+};
+
+test('stage-roles setup: step 5 fills the four test keys from the repository and asks the owner to confirm each', () => {
+  const step = setupStep5();
+  for (const key of ['tests:', '`unit`', '`coverage.command`', '`coverage.target`', '`e2e`']) assert.ok(step.includes(key), key);
+  assert.match(step, /Show each proposed value and\s+ask the owner to confirm or change it/);
+  assert.match(step, /Write only what the owner confirmed/);
+  assert.match(step, /`e2e` only when the\s+project has an E2E tool configured/);
+});
+
+test('stage-roles setup: step 5 keeps every value the block already holds and says that a stage with no command does not run', () => {
+  const step = setupStep5();
+  assert.match(step, /keep every value the block already holds and ask nothing about\s+it/);
+  assert.match(step, /A stage whose command is absent does not run/);
+});
+
+test('stage-roles setup: the starting config shows the four test keys as a commented block with its heading', () => {
+  const text = readFileSync(join(setupRoot, 'templates', 'config.yaml'), 'utf8');
+  const lines = text.split('\n');
+  const heading = lines.findIndex((l) => l === '# The settings of /devkit change; a test stage whose command is absent does not run.');
+  assert.ok(heading > lines.findIndex((l) => l.startsWith('# merge_method')), 'the block comes after the ship comment');
+  const block = lines.slice(heading, heading + 14).join('\n');
+  for (const line of ['# devkit:', '#   language:', '#   driver:', '#   tests:', '#     unit:', '#     coverage:', '#       command:', '#       target:', '#     e2e:']) assert.ok(block.includes(line), line);
+  assert.equal(lines.some((l) => /^devkit:/.test(l)), false, 'every line of the block is a comment: the file stays valid with no devkit settings');
+  assert.equal(/^\s+(unit|e2e|target):/m.test(text), false, 'no key of the block is active');
+});
+
+// ---------------------------------------------------------------- stage-roles: the owner gates (design D-5, D-7; tasks 2.1, 2.6, 2.7)
+
+const shipChange = () => readFileSync(join(here, '..', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+const rowOfShip = (step) => shipChange().split('\n').find((l) => l.startsWith(`| \`${step}\``)) ?? '';
+
+test('stage-roles gates: the stop-mockup-approval row comes after stop-plan-approval and is written only from the owner\'s own message', () => {
+  const lines = shipChange().split('\n');
+  const plan = lines.findIndex((l) => l.startsWith('| `stop-plan-approval`'));
+  const mockup = lines.findIndex((l) => l.startsWith('| `stop-mockup-approval`'));
+  assert.ok(plan >= 0 && mockup === plan + 1, 'the row follows stop-plan-approval');
+  const row = lines[mockup];
+  assert.match(row, /Only from the owner's own message/);
+  assert.match(row, /Never answer for the owner/);
+});
+
+test('stage-roles gates: the mock-up row shows each file mockup.md lists, an .html one by its path', () => {
+  const row = rowOfShip('stop-mockup-approval');
+  assert.match(row, /each file `mockup\.md` lists/);
+  assert.match(row, /an `\.html` screen by its path/);
+  assert.match(row, /private Artifact/);
+});
+
+test('stage-roles gates: an approved mock-up sets result=passed with the same attempt and the current commit, and records the owner\'s words', () => {
+  const row = rowOfShip('stop-mockup-approval');
+  assert.match(row, /<!-- devkit-stage mockup result=passed attempt=<same n> commit=<git rev-parse HEAD> -->/);
+  assert.match(row, /## Owner's approval/);
+  assert.match(row, /- Date: <YYYY-MM-DD>/);
+  assert.match(row, /- Owner's words: "<up to 200 characters>"/);
+});
+
+test('stage-roles gates: changes asked for set result=failed with the same attempt and append the owner\'s notes', () => {
+  const row = rowOfShip('stop-mockup-approval');
+  assert.match(row, /result=failed/);
+  assert.match(row, /## Owner's notes \(attempt <n>\)/);
+});
+
+test('stage-roles gates: an approved mock-up adds what it revealed to the requirements', () => {
+  const row = rowOfShip('stop-mockup-approval');
+  assert.match(row, /append to `requirements\.md`, under `## What the mock-up revealed`/);
+  assert.match(row, /none: say so in one line/);
+});
+
+test('stage-roles gates: the stop-plan-approval row names the records the approval accepts and the loop\'s accept-decisions step, keeping what it pinned', () => {
+  const row = rowOfShip('stop-plan-approval');
+  assert.match(row, /the records\s+`decisions\.md` lists, which the approval accepts/);
+  assert.match(row, /accept-decisions/);
+  assert.match(row, /only when the owner's own message approves/i);
+});
+
+test('stage-roles gates: the verify row allows no pull-request comment', () => {
+  const row = rowOfShip('verify');
+  assert.ok(row, 'a verify row');
+  assert.match(row, /no PR comment/);
+  assert.doesNotMatch(row, /a PR comment is allowed/);
+  assert.doesNotMatch(row, /screenshot/i);
+});
+
+test('stage-roles gates: the devkit skill names the mock-up among the owner\'s gates and the accept-decisions step', () => {
+  const md = readFileSync(join(here, '..', 'skills', 'devkit', 'SKILL.md'), 'utf8');
+  const description = /^description: "(.*)"$/m.exec(md)?.[1] ?? '';
+  assert.match(description, /the grill, the mock-up, the plan approval, the retro answers/);
+  const gates = md.slice(md.indexOf('## Owner gates'), md.indexOf('## Waiting on GitHub'));
+  assert.match(gates, /the mock-up \(`waiting-mockup`/);
+  assert.match(gates, /`stop-mockup-approval`/);
+  assert.match(gates, /AskUserQuestion/);
+  assert.match(gates, /approve/);
+  const loop = md.slice(md.indexOf('## Loop'), md.indexOf('## Owner gates'));
+  const session = loop.split('\n').find((l) => l.startsWith('- `session`')) ?? '';
+  assert.match(session, /`accept-decisions`/);
+  assert.match(session, /`detail\.command`/);
+  assert.match(session, /reply blocked --param id=<id> --param why=cannot-accept --param error="<the JSON's error field>"/);
+});

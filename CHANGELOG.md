@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.23.0 — the stage roles
+
+- **devkit-core** 0.9.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and
+  `e2e-tester`, with the skills `screen-mockup`, `adr-authoring` and `e2e-testing`. `pr-verifier`
+  records the demonstration as text in `evidence.md`, with no image and no pull-request comment.
+- **devkit-openspec** 0.19.0: the `devkit` script's mock-up, decisions, unit-tests and E2E stages
+  run. The mock-up applies only when the grill flags `ui` and waits for the owner's answer; the
+  decisions stage always runs; the unit and E2E stages run when the project declares
+  `devkit.tests.unit` or `devkit.tests.e2e` (and `devkit.tests.coverage.command` and
+  `devkit.tests.coverage.target`). A stage that does not apply, or that the change had already
+  passed, leaves no file, and the readout says why. `change-loop.mjs` hands the new stages to their
+  roles, adds `fix-tests` and the `accept-decisions` step (the loop's new subcommand, run once the
+  plan approval is recorded). The edit lock lets `adr-author` write decision records and
+  `e2e-tester` write test files. `devkit-lite` no longer lists the mock-up and decisions stages.
+  The CI snippet now pins `v0.19.0`, the release's tag.
+- **devkit-compozy** 0.3.0: the four role shells name the new agents, and the loop's design, review
+  and implement prompts name the mock-up, the test agents and the decision records.
+- Docs: ADR 0014 (stage roles write their own files, amends 0010 and 0011), `docs/roles.md`, the
+  flow and design pages, the roadmap (round 16b `coordinator-loop-fixes` carries the retros' items).
+
 ## 0.22.1 — field fixes of 0.16.0, the rest
 
 - **devkit-openspec** 0.18.1: `deliver-check --watch` also waits at `stop-merge-setup` when the

@@ -42,6 +42,7 @@ Paths below are relative to this skill's directory:
      - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;
      - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.
    - Run the test command once. If it fails, record it in `context` as failing and tell the user.
+   - Fill the `devkit:` block's `tests:` from the repository: `unit` from the test command (package scripts, `Makefile`, CI), `coverage.command` when the stack has a coverage command, `e2e` only when the project has an E2E tool configured (Playwright, Cypress, a CI E2E job). Show each proposed value and ask the owner to confirm or change it, and ask for `coverage.target` (none is a valid answer). Write only what the owner confirmed; keep every value the block already holds and ask nothing about it. A stage whose command is absent does not run.
    - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent.
 
 6. **Check.**

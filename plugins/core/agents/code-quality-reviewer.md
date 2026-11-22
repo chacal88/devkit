@@ -51,7 +51,7 @@ For each file in the diff:
 
 1. Group findings by severity, each with `file:line` and one suggested fix (not a rewrite).
 2. **Name what is good.** At least one `praise`, or say explicitly "nothing to highlight this round". It reinforces the right pattern and proves you read.
-3. **Acceptance with real output.** Each acceptance criterion needs a demonstration with real output (curl, log, query result, screenshot). Green tests alone are not proof. No demonstration: `blocking`.
+3. **Acceptance with real output.** Each acceptance criterion needs a demonstration with real output (curl, log, query result, observed screen text). Green tests alone are not proof. No demonstration: `blocking`.
 
 ## Severities
 

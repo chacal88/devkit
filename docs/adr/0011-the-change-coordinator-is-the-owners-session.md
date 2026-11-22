@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
+- Amended by ADR 0014 (0014-stage-roles-write-their-own-files.md)
 - Date: 2026-11-20
 - Change: change-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), one sentence of decision 8
@@ -12,6 +13,10 @@
 Note (roadmap-coordinator, 2026-11-21): the same session is the coordinator of every change of a
 `/devkit roadmap` run, and the locks follow every change of that run ([ADR 0013](0013-the-roadmap-coordinator-is-the-owners-session.md)). For `/devkit change`
 nothing here changes.
+
+Note (stage-roles, 2026-11-21): [ADR 0014](0014-stage-roles-write-their-own-files.md) says which files
+outside the change folder are not product code (decision records, and test files the E2E tester
+writes); decision 2's refusal of the session's product edits is unchanged.
 
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
 edit tool and product code is still written only by the implementer role under the same hooks",

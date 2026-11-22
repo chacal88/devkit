@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
 import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
-import { shipConfig, collectState, buildReport } from './deliver-check.mjs';
+import { shipConfig, collectState, buildReport, approvalState } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
 import { TEXT } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
@@ -607,7 +607,7 @@ test('change-loop reply: the keys that end the run print the end line first, eve
   }
   // The other commands print no end line unless the action is an end: open, start, a stage hand-off.
   assert.doesNotMatch(startRun(devkitRepo(), 'roadmap').stdout, /devkit-end:/);
-  assert.doesNotMatch(next(planChange({ have: ['requirements'] })).stdout, /devkit-end:/, 'a stage hand-off is not an end');
+  assert.doesNotMatch(next(planChange({ have: ['requirements', 'decisions'] })).stdout, /devkit-end:/, 'a stage hand-off is not an end');
 });
 
 test('change-loop next and wait: an end prints devkit-end as the second line, after the run line, with the end\'s state', async () => {
@@ -636,7 +636,9 @@ test('change-loop reply: the script runs from its file and prints nothing when i
 // ---------------------------------------------------------------- next, on real repositories (D-5)
 
 const head = (stage, c0, result = 'passed', attempt = 1) => `<!-- devkit-stage ${stage} result=${result} attempt=${attempt} commit=${c0} -->\n`;
-const PLAN_FILES = { requirements: 'requirements.md', proposal: 'proposal.md', specs: 'specs/s/spec.md', design: 'design.md', tasks: 'tasks.md', readiness: 'readiness.md', approval: 'approval.md' };
+// Invariant (T-7, loop, change-loop.test.mjs): a fixture change opened at the grill stands right before its proposal, so the planner is its next role:
+// the decisions stage comes first and is part of what the grill leaves behind.
+const PLAN_FILES = { requirements: 'requirements.md', decisions: 'decisions.md', proposal: 'proposal.md', specs: 'specs/s/spec.md', design: 'design.md', tasks: 'tasks.md', readiness: 'readiness.md', approval: 'approval.md' };
 
 // A committed `devkit` change `feat` in the main checkout with the plan files of `have` written as passed (`results` and
 // `attempts` per stage), the ship mode plan (no ship key). `headerless` writes no header line.
@@ -703,7 +705,7 @@ test('change-loop next: a change with no stage header exits 2 as begun under the
 });
 
 test('change-loop next: a plan stage is handed to its agent, and its key ends the run when nothing changed', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const r = next(root);
   assert.equal(r.code, 0, r.stderr);
   const { action } = parsed(r);
@@ -718,7 +720,7 @@ test('change-loop next: a plan stage is handed to its agent, and its key ends th
 });
 
 test('change-loop next: an unknown change, an unknown option and a missing change exit 3 with no run line', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   for (const argv of [['next', '--change', 'nope', '--lang', 'en'], ['next', '--lang', 'en'], ['next', '--change', 'feat', '--lang', 'en', '--bogus']]) {
     const r = main(argv, { cwd: root, env: cleanEnv });
     assert.equal(r.code, 3, argv.join(' '));
@@ -855,7 +857,7 @@ function snapshot(root) {
 }
 
 // A committed change `id` of the plan stages in `have`, written as passed, in a checkout (no GitHub involved).
-function addChange(root, id, have = ['requirements'], { commit = true } = {}) {
+function addChange(root, id, have = ['requirements', 'decisions'], { commit = true } = {}) {
   const c0 = git(root, 'rev-parse', 'HEAD');
   const files = { '.openspec.yaml': 'schema: devkit\n' };
   for (const stage of have) files[PLAN_FILES[stage]] = `${head(stage, c0)}# ${stage}\n`;
@@ -981,7 +983,7 @@ test('change-loop start: S6 one token naming a change resumes it and says where 
 test('change-loop start: S6 a change that lives only in a worktree resumes there', () => {
   const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
   const wt = t.addWt('wt-change');
-  addChange(wt, 'wt-change', ['requirements'], { commit: false });
+  addChange(wt, 'wt-change', ['requirements', 'decisions'], { commit: false });
   const b = body(startRun(t.main, 'change wt-change'));
   assert.deepEqual([b.mode, b.change], ['resume', 'wt-change']);
   assert.equal(b.unfinished[0].root, wt);
@@ -1374,7 +1376,7 @@ test('change-loop script: the P3 trigger hands the switch to the session and its
 // ---------------------------------------------------------------- resuming (D-6)
 
 test('change-loop resume: the same files give the same action before and after a kill', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const before = sh(root, ['next', '--change', 'feat', '--lang', 'en']);
   assert.equal(before.status, 0, before.stderr);
   // The session is killed here; a new one types /devkit change with no text on the untouched files.
@@ -1496,7 +1498,7 @@ test('change-loop wait: a different wait is a different decision, and a first de
 });
 
 test('change-loop wait: the CLI exits at once with the next action when the change is not waiting', async () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const sleeps = [];
   const r = await runCommand(['wait', '--change', 'feat', '--lang', 'en'], { cwd: root, env: cleanEnv, sleep: async (s) => { sleeps.push(s); } });
   const direct = next(root);
@@ -1673,7 +1675,7 @@ const subInput = (root, transcript, role, extra = {}) => stopInput(root, transcr
 const PLAN_UP_TO_TASKS = ['requirements', 'proposal', 'specs', 'design', 'tasks'];
 
 test('change-loop lock stop: T1 no run in the session lets the stop through', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   for (const transcript of [transcriptOf([assistantLine()]), transcriptOf([typedLine('change x'), assistantLine()]), transcriptOf([typedLine('change x'), runLine('feat'), typedLine('', '/clear')]), undefined]) {
     const r = hook('stop', stopInput(root, transcript), { TMPDIR: tmp });
@@ -1701,7 +1703,7 @@ const readCounter = () => {
 };
 
 test('change-loop lock: a hook call in a change run reads the transcript once on every lock, and decides as before', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   for (const [mode, input, code] of [
     ['stop', (t) => stopInput(root, t), 2],
     ['subagent-stop', (t) => subInput(root, t, 'change-planner'), 2],
@@ -1716,14 +1718,14 @@ test('change-loop lock: a hook call in a change run reads the transcript once on
 });
 
 test('change-loop lock stop: T2 a background task running lets the stop through', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tasks = [{ id: 'byxlntme1', type: 'shell', status: 'running', description: 'Wait 30 seconds in background', command: 'sleep 30' }];
   const r = hook('stop', stopInput(root, runTranscript(), { background_tasks: tasks }), { TMPDIR: sandbox() });
   assert.equal(r.code, 0, r.err);
 });
 
 test('change-loop lock stop: T2 background_tasks given as an object lets the stop through, an empty one does not', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const task = { id: 'byxlntme1', type: 'shell', status: 'running', description: 'Wait 30 seconds in background', command: 'sleep 30' };
   assert.equal(hook('stop', stopInput(root, runTranscript(), { background_tasks: { byxlntme1: task } }), { TMPDIR: sandbox() }).code, 0);
   assert.equal(hook('stop', stopInput(root, runTranscript(), { background_tasks: {} }), { TMPDIR: sandbox() }).code, 2, 'an empty object is no task');
@@ -1741,7 +1743,7 @@ test('change-loop lock stop: T3 an end state of the loop lets the stop through',
 
 test('change-loop lock stop: T3a an end the session declared or the loop printed lets the stop through at the first attempt, until a later run line', () => {
   // The state is a ready planner stage: with no end recorded the first stop is refused (T5); the end is all that differs.
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const stop = (lines, tmp = sandbox()) => hook('stop', stopInput(root, transcriptOf([typedLine('change x'), ...lines])), { TMPDIR: tmp });
   assert.equal(stop([runLine('feat')]).code, 2, 'no end recorded: refused');
   const cases = {
@@ -1762,7 +1764,7 @@ test('change-loop lock stop: T3a an end the session declared or the loop printed
 });
 
 test('change-loop lock stop: T3a reads a real no-progress end of next --after, the other locks still refuse after an end', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const first = next(root);
   const key = parsed(first).action.progressKey;
   const stuck = next(root, ['--after', key]);
@@ -1785,7 +1787,7 @@ test('change-loop lock stop: T4 the grill, waiting for the owner, lets the stop 
 });
 
 test('change-loop lock stop: T5 a stage ready is refused once, naming the change, the stage and the command, and the key is recorded', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   const r = hook('stop', stopInput(root, runTranscript()), { TMPDIR: tmp, CLAUDE_PLUGIN_OPTION_LANGUAGE: 'en' });
   assert.equal(r.code, 2, r.err);
@@ -1806,7 +1808,7 @@ test('change-loop lock stop: T5 a stage ready of a delivery step names the step'
 });
 
 test('change-loop lock stop: T6 the same state a second time is let through, a changed state is refused again', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   const transcript = runTranscript();
   assert.equal(hook('stop', stopInput(root, transcript), { TMPDIR: tmp }).code, 2);
@@ -1819,7 +1821,7 @@ test('change-loop lock stop: T6 the same state a second time is let through, a c
 });
 
 test('change-loop lock stop: T7 an unreadable transcript or a checker error lets the stop through', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   assert.equal(hook('stop', stopInput(root, join(sandbox(), 'gone.jsonl')), { TMPDIR: tmp }).code, 0);
   assert.equal(hook('stop', stopInput(root, runTranscript('nope')), { TMPDIR: tmp }).code, 0, 'a change the checker does not know');
@@ -1830,13 +1832,13 @@ test('change-loop lock stop: T7 an unreadable transcript or a checker error lets
 });
 
 test('change-loop lock subagent-stop: U1 no run lets the stop through', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const r = hook('subagent-stop', subInput(root, transcriptOf([assistantLine()]), 'change-planner'), { TMPDIR: sandbox() });
   assert.equal(r.code, 0, r.err);
 });
 
 test('change-loop lock subagent-stop: U2 a role with no stage file lets the stop through', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   for (const role of ['code-quality-reviewer', 'tdd-implementer', 'commit-and-pr', 'codebase-researcher', 'general-purpose']) {
     const r = hook('subagent-stop', subInput(root, runTranscript(), role), { TMPDIR: sandbox() });
     assert.equal(r.code, 0, `${role}: ${r.err}`);
@@ -1852,7 +1854,7 @@ test('change-loop lock subagent-stop: U3 the next stage belongs to another role 
 });
 
 test('change-loop lock subagent-stop: U4 the stage file does not exist, refused naming the file', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   const r = hook('subagent-stop', subInput(root, runTranscript(), 'change-planner'), { TMPDIR: tmp });
   assert.equal(r.code, 2, r.err);
@@ -1874,7 +1876,7 @@ test('change-loop lock subagent-stop: U5 a pending or headerless stage file is r
 });
 
 test('change-loop lock subagent-stop: U6 the same state a second time is let through', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   const transcript = runTranscript();
   assert.equal(hook('subagent-stop', subInput(root, transcript, 'change-planner'), { TMPDIR: tmp }).code, 2);
@@ -1886,7 +1888,7 @@ test('change-loop lock subagent-stop: U6 the same state a second time is let thr
 });
 
 test('change-loop lock subagent-stop: U7 an error lets the stop through', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   assert.equal(hook('subagent-stop', subInput(root, join(sandbox(), 'gone.jsonl'), 'change-planner'), { TMPDIR: tmp }).code, 0);
   assert.equal(hook('subagent-stop', subInput(root, runTranscript('nope'), 'change-planner'), { TMPDIR: tmp }).code, 0);
@@ -1899,7 +1901,7 @@ test('change-loop lock subagent-stop: U7 an error lets the stop through', () => 
 
 // The main checkout (its default schema `devkit`) with no folder for `feat`, and a worktree on branch `feat` holding the
 // change's files, committed there. Returns { main, wt }.
-function worktreeChange({ schema = 'devkit', have = ['requirements'] } = {}) {
+function worktreeChange({ schema = 'devkit', have = ['requirements', 'decisions'] } = {}) {
   const main = gitRepo({ config: 'schema: devkit\n' });
   const wt = join(mkdtempSync(join(tmpdir(), 'change-loop-wtlayout-')), 'feat');
   git(main, 'worktree', 'add', '-q', '-b', 'feat', wt);
@@ -1911,7 +1913,7 @@ function worktreeChange({ schema = 'devkit', have = ['requirements'] } = {}) {
 }
 
 test('change-loop lock subagent-stop: a change in its own worktree, the session in the main checkout', () => {
-  const { main, wt } = worktreeChange({ have: ['requirements'] });
+  const { main, wt } = worktreeChange({ have: ['requirements', 'decisions'] });
   const r = hook('subagent-stop', subInput(main, runTranscript(), 'change-planner'), { TMPDIR: sandbox() });
   assert.equal(r.code, 2, r.err);
   assert.match(r.err, /proposal\.md of stage proposal does not exist: write it, with its stage header, before you stop/);
@@ -2100,7 +2102,7 @@ test('change-loop lock agent: the accepted packs are the ones docs/roles.md name
 // ---- the log, hooks.json, bypass and opt-in
 
 test('change-loop lock log: one JSON line per decision with DEVKIT_HOOK_LOG, none without', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const tmp = sandbox();
   const log = join(sandbox(), 'hooks.jsonl');
   const transcript = runTranscript();
@@ -2153,7 +2155,7 @@ test('change-loop lock hooks.json: Stop, SubagentStop without a matcher and PreT
 
 test('change-loop lock: bypass and a project not opted in refuse nothing', () => {
   const transcript = runTranscript();
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const lite = liteChange();
   const tmp = sandbox();
   const log = join(sandbox(), 'hooks.jsonl');
@@ -2470,7 +2472,9 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.18\.1/, 'the CI snippet pins the current release (merge-setup-field-fixes: 0.18.1)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); T-6 of stage-roles moves it to 0.19.0.
+  assert.match(flow, /v0\.19\.0/, 'the CI snippet pins the current release (stage-roles: 0.19.0)');
+  assert.doesNotMatch(flow, /v0\.18\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.17\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.16\.0/, 'no pin left on the previous release');
@@ -2487,7 +2491,7 @@ test('change-loop docs: the design records the answers', () => {
 // ---- field-fixes 6: the project's OpenSpec CLI (D-1)
 
 function pinnedLoop(version) {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const marker = join(root, '..', `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
   const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'loop-pathcli-')), { version: '2.1.0', label: 'path', marker });
   openspecStub(join(root, 'node_modules', '.bin'), { version, label: 'pinned', marker });
@@ -2674,4 +2678,550 @@ test('change-loop withLockFile: a lock older than staleMs is taken over', () => 
   utimesSync(lock, past, past);
   assert.equal(withLockFile({ lock, stepMs: 1, waitMs: 5, staleMs: 1000, timeout: () => new Error('late'), sleep: () => {} }, () => 'ran'), 'ran');
   assert.equal(existsSync(lock), false);
+});
+
+// ---------------------------------------------------------------- stage-roles: the four agents, the skills, the verifier and the roles page
+
+// { name, description, model, tools: [..], skills: [..], body } of an agent or skill file.
+function assetOf(rel) {
+  const text = readRepo(...rel.split('/'));
+  const lines = frontmatterOf(text);
+  const field = (k) => lines.find((l) => l.startsWith(`${k}:`))?.slice(k.length + 1).trim();
+  return { name: field('name'), description: field('description'), model: field('model'), tools: (field('tools') ?? '').split(',').map((x) => x.trim()).filter(Boolean), skills: agentSkills(text), text, body: text.split('\n').slice(lines.length + 2).join('\n') };
+}
+const neverOf = (text) => (text.split('\n## Never\n')[1] ?? '').split('\n## ')[0];
+
+const NEW_AGENTS = {
+  'screen-designer': { model: 'sonnet', tools: ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit'], skills: ['screen-mockup'], outcome: 'Outcome: drawn | failure — <summary>', stage: 'mockup',
+    never: [/product code/i, /image/i, /result=passed/] },
+  'adr-author': { model: 'opus', tools: ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit'], skills: ['adr-authoring'], outcome: 'Outcome: proposed <n> | none-needed | failure — <summary>', stage: 'decisions',
+    never: [/accepted record/i, /outside the ADR folder/i, /accepted/i] },
+  'test-runner': { model: 'sonnet', tools: ['Read', 'Glob', 'Grep', 'Bash', 'Write'], skills: ['systematic-debugging', 'test-and-coverage'], outcome: 'Outcome: green | red | failure — <summary>', stage: 'unit-tests',
+    never: [/unit-tests\.md/, /\| tail/, /\|\| true/] },
+  'e2e-tester': { model: 'sonnet', tools: ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit'], skills: ['e2e-testing'], outcome: 'Outcome: green | red | failure — <summary>', stage: 'e2e-tests',
+    never: [/product file/i, /test files of the change's diff/i, /weaken/i] },
+};
+
+for (const [role, want] of Object.entries(NEW_AGENTS)) {
+  test(`stage-roles roles agent ${role}: frontmatter names its model, tools and skills`, () => {
+    const a = assetOf(`plugins/core/agents/${role}.md`);
+    assert.equal(a.name, role);
+    assert.equal(a.model, want.model);
+    assert.deepEqual(a.tools, want.tools);
+    assert.deepEqual(a.skills, want.skills);
+    assert.match(a.description, /\bUse when\b/);
+  });
+
+  test(`stage-roles roles agent ${role}: it returns its Outcome line and starts from the stage header rule`, () => {
+    const a = assetOf(`plugins/core/agents/${role}.md`);
+    assert.ok(a.text.includes(want.outcome), `${role} returns "${want.outcome}"`);
+    assert.match(a.text, new RegExp(`<!-- devkit-stage ${want.stage} result=`));
+    for (const h of ['## Receives', '## Method', '## Delivers', '## Returns', '## Never']) assert.ok(a.text.includes(h), `${role} has ${h}`);
+  });
+
+  test(`stage-roles roles agent ${role}: its Never list holds its limits`, () => {
+    const never = neverOf(assetOf(`plugins/core/agents/${role}.md`).text);
+    assert.ok(never.length > 0, `${role} has a Never list`);
+    for (const re of want.never) assert.match(never, re, `${role} never: ${re}`);
+  });
+}
+
+test('stage-roles roles agent: the test runner and the screen designer reserve failure for a job they could not do', () => {
+  for (const role of ['test-runner', 'e2e-tester']) assert.match(assetOf(`plugins/core/agents/${role}.md`).text, /could not do the job|cannot start|missing input/i, role);
+  assert.match(assetOf('plugins/core/agents/e2e-tester.md').text, /result=failed/, 'a red run is carried by the header');
+});
+
+test('stage-roles roles agent: the ADR author says what it does when the project\'s folder is not one it may write', () => {
+  for (const f of ['plugins/core/agents/adr-author.md', 'plugins/core/skills/adr-authoring/SKILL.md']) {
+    const text = assetOf(f).text;
+    assert.match(text, /adr, adrs or decisions|`adr`, `adrs` or `decisions`/, `${f} names the three folders`);
+    assert.match(text, /Outcome: failure/, `${f} fails naming the folder`);
+    assert.match(text, /docs\/adr\//, `${f} creates docs/adr/ when the project has none`);
+  }
+});
+
+const NEW_SKILLS = {
+  'screen-mockup': [/mock\//, /lorem ipsum/i, /real example/i, /owner's notes/i, /self-contained/i],
+  'adr-authoring': [/hard to reverse/i, /Status: proposed|status line/i, /Context, Decision, Consequences/, /amend|supersed/i, /not-applicable/],
+  'e2e-testing': [/acceptance criteri/i, /declared command|declared E2E command/i, /criterion id/i, /not the diff's tests|without reading/i],
+};
+for (const [skill, pins] of Object.entries(NEW_SKILLS)) {
+  test(`stage-roles roles skill ${skill}: its description says when to use it and its body holds the method`, () => {
+    const a = assetOf(`plugins/core/skills/${skill}/SKILL.md`);
+    assert.equal(a.name, skill);
+    assert.match(a.description, /\bUse when\b/);
+    for (const re of pins) assert.match(a.body, re, `${skill}: ${re}`);
+  });
+}
+
+test('stage-roles roles verifier: pr-verifier records text, takes no screenshot and posts no pull-request comment', () => {
+  const a = assetOf('plugins/core/agents/pr-verifier.md');
+  assert.doesNotMatch(a.text.replace('Take a screenshot, keep an image or post a pull-request comment', ''), /screenshot/i, 'only the Never line names it');
+  assert.doesNotMatch(a.description, /screenshot|comment on the PR/i);
+  assert.doesNotMatch(a.text, /gh pr comment/);
+  assert.match(a.text, /exercise each changed screen locally \(or on the PR's preview\) and record in text what it showed: the visible text, the state, the console errors/);
+  assert.match(a.text, /Take a screenshot, keep an image or post a pull-request comment/);
+  assert.doesNotMatch(a.body.split('## Returns')[1] ?? '', /PR comment/);
+  assert.match(a.text, /what was done and what was observed/);
+});
+
+test('stage-roles roles planner: change-planner leaves the records to the ADR author', () => {
+  assert.ok(assetOf('plugins/core/agents/change-planner.md').text.includes('On a script with a `decisions` stage, the records are the adr-author\'s: cite `decisions.md`; a decision found while planning that needs a record `decisions.md` lacks is an escalation, not a draft.'));
+});
+
+test('stage-roles roles reviewer: code-quality-reviewer asks for observed screen text, not a screenshot', () => {
+  const text = assetOf('plugins/core/agents/code-quality-reviewer.md').text;
+  assert.match(text, /observed screen text/);
+  assert.doesNotMatch(text, /screenshot/i);
+});
+
+// The "## <role>" section of docs/roles.md as { Does, Delivers, Never, Stages, 'Played today by' }.
+function roleSection(role) {
+  const lines = readRepo('docs', 'roles.md').split('\n');
+  const from = lines.indexOf(`## ${role}`);
+  assert.ok(from >= 0, `docs/roles.md has "## ${role}"`);
+  const out = {};
+  for (const l of lines.slice(from + 1)) {
+    if (l.startsWith('## ')) break;
+    const m = /^- ([\w ]+): (.*)$/.exec(l);
+    if (m) out[m[1]] = m[2];
+  }
+  return out;
+}
+
+test('stage-roles roles page: the four roles are played by their agents', () => {
+  for (const role of Object.keys(NEW_AGENTS)) assert.equal(roleSection(role)['Played today by'], `The agent \`devkit-core:${role}\`.`, role);
+});
+
+test('stage-roles roles page: the screen designer works only when the grill flags ui, delivers the mock/ files and the stage is devkit only', () => {
+  const s = roleSection('screen-designer');
+  assert.match(s.Does, /only when the grill flags `ui`/);
+  assert.match(s.Delivers, /mock\//);
+  assert.match(s.Stages, /`mockup`.*`devkit` only/);
+});
+
+test('stage-roles roles page: the test runner and the E2E tester do the work the design says', () => {
+  assert.match(roleSection('test-runner').Does, /^Runs the whole unit suite and the coverage command the project declares and records the result/);
+  assert.match(roleSection('e2e-tester').Does, /^Writes the E2E tests from the acceptance criteria, apart from the implementer, runs them and records the result/);
+});
+
+test('stage-roles roles page: the verifier delivers its evidence as text, with no image', () => {
+  assert.match(roleSection('pr-verifier').Delivers, /as text, with no image/);
+});
+
+// ---------------------------------------------------------------- stage-roles: the loop (design D-4, D-5; tasks 2.1 to 2.4)
+
+const SCREEN = 'devkit-core:screen-designer';
+const ADR_AUTHOR = 'devkit-core:adr-author';
+const TEST_RUNNER = 'devkit-core:test-runner';
+const E2E_TESTER = 'devkit-core:e2e-tester';
+const TESTS = { unit: 'npm test', e2e: 'npm run e2e', coverage: { command: 'npm run cov', target: 80 } };
+const planNext = (stage, reasonCode, params = {}) => ({ rep: { next: nextOf(FLOWS.devkit, stage, reasonCode, params), stages: { [stage]: { state: 'pending', reasonCode } } } });
+
+test('stage-roles loop: the mock-up and the decisions are handed to their own roles, each naming its instructions', () => {
+  for (const [stage, agent, role] of [['mockup', SCREEN, 'screen-designer'], ['decisions', ADR_AUTHOR, 'adr-author']]) {
+    const a = run(planNext(stage, 'no-file'));
+    assert.deepEqual([a.kind, a.agent, a.stage, a.role, exitCodeOf(a)], ['agent', agent, stage, role, 0], stage);
+    assert.ok(a.brief.includes(`openspec instructions ${stage} --change feat`), a.brief);
+    assert.doesNotMatch(a.brief, /write the plan files the script still lacks/, 'the planner text is the planner\'s alone');
+    assert.equal(a.progressKey, `${stage}/${stage}@abc123`);
+  }
+});
+
+test('stage-roles loop: a stale mock-up or decisions file is brought up to date by its own role', () => {
+  for (const [stage, agent] of [['mockup', SCREEN], ['decisions', ADR_AUTHOR]]) {
+    for (const reason of ['stale-plan', 'rerun-after-fix']) {
+      const a = run(planNext(stage, reason, { by: 'requirements', stage }));
+      assert.equal(a.agent, agent, `${stage} ${reason}`);
+      assert.match(a.brief, new RegExp(`${stage} is out of date: bring it up to date`));
+    }
+  }
+});
+
+test('stage-roles loop: the planner and the readiness reviewer keep their own texts', () => {
+  assert.match(run(planNext('proposal', 'no-file')).brief, /write the plan files the script still lacks, from proposal on/);
+  assert.match(run(planNext('readiness', 'no-file')).brief, /review the plan/);
+});
+
+test('stage-roles loop: waiting-mockup the drawn mock-up ends waiting for the owner, naming its folder and file', () => {
+  const a = run({ rep: { end: endOf('waiting-for-owner', 'mockup', 'owner-pending'), stages: { mockup: { state: 'pending', reasonCode: 'not-judged' } } } });
+  assert.deepEqual(shape(a), ['end', 'waiting-for-owner', 'waiting-mockup', 1]);
+  assert.equal(a.reply, says('waiting-mockup'));
+  assert.deepEqual([a.stage, a.role], ['mockup', 'screen-designer']);
+  assert.deepEqual(a.detail, { file: 'openspec/changes/feat/mockup.md', folder: 'openspec/changes/feat/mock/' });
+  assert.ok(a.reply.includes('feat'), 'it names the change');
+});
+
+test('stage-roles loop: waiting-mockup is said in both languages without an internal term', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    for (const key of ['waiting-mockup', 'gate.mockup', 'blocked-why.cannot-accept', 'setting.coverage-target']) {
+      assert.ok(MESSAGES[lang][key], `${lang} has ${key}`);
+    }
+    const text = render(lang, 'waiting-mockup', { id: 'feat' });
+    assert.ok(text.includes('feat') && !/mockup|\.md|screen-designer/.test(text), text);
+  }
+  assert.equal(render('en', 'gate.mockup'), 'your approval of the mock-up');
+  assert.equal(render('pt-BR', 'gate.mockup'), 'a sua aprovação do mock-up');
+  assert.match(render('en', 'blocked', { id: 'feat', why: 'cannot-accept', error: 'no approval' }), /decision records could not be marked accepted \(no approval\)/);
+  assert.match(render('pt-BR', 'blocked', { id: 'feat', why: 'cannot-accept', error: 'sem aprovação' }), /registros de decisão como aceitos \(sem aprovação\)/);
+  assert.equal(render('en', 'setting-unknown', { setting: 'coverage-target', value: '80%', accepted: 'x' }).includes('coverage target'), true);
+  assert.equal(render('pt-BR', 'setting-unknown', { setting: 'coverage-target', value: '80%', accepted: 'x' }).includes('meta de cobertura'), true);
+});
+
+test('stage-roles loop: owner-changes the owner asked for changes, the mock-up goes back to its designer naming the next attempt', () => {
+  const a = run({ rep: { next: nextOf(FLOWS.devkit, 'mockup', 'owner-changes', { stage: 'mockup', attempt: 1 }), stages: { mockup: { state: 'failed', reasonCode: 'changes-asked' } } } });
+  assert.deepEqual([a.kind, a.agent, a.stage, exitCodeOf(a)], ['agent', SCREEN, 'mockup', 0]);
+  assert.match(a.brief, /the owner asked for changes at attempt 1: redraw from the owner's notes in mockup\.md as attempt 2/);
+  const third = run({ rep: { next: nextOf(FLOWS.devkit, 'mockup', 'owner-changes', { stage: 'mockup', attempt: 3 }), stages: { mockup: { state: 'failed', reasonCode: 'changes-asked' } } } });
+  assert.match(third.brief, /attempt 3: redraw .* as attempt 4/);
+});
+
+test('stage-roles loop: the unit tests are handed to the test runner whatever step the delivery checker would give, with the declared commands', () => {
+  for (const reason of ['no-file', 'stale-code', 'rerun-after-fix', 'not-judged']) {
+    for (const step of ['commit', 'implement', 'verify', 'wait-checks']) {
+      const a = run({ rep: { next: nextOf(FLOWS.devkit, 'unit-tests', reason, { stage: 'unit-tests' }) }, facts: { row: rowOf(step), tests: TESTS } });
+      assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role], ['agent', TEST_RUNNER, 'unit-tests', 'unit-tests', 'test-runner'], `${reason} ${step}`);
+      assert.deepEqual(a.detail, { unit: 'npm test', coverage: { command: 'npm run cov', target: 80 } });
+      if (['no-file', 'not-judged'].includes(reason)) assert.ok(a.brief.includes('openspec instructions unit-tests --change feat'), a.brief);
+      assert.equal(a.progressKey, 'unit-tests/unit-tests@abc123');
+    }
+  }
+  const stale = run({ rep: { next: nextOf(FLOWS.devkit, 'unit-tests', 'stale-code', { why: 'x' }) }, facts: { row: rowOf('commit'), tests: TESTS } });
+  assert.match(stale.brief, /the work changed since the last run: run it again/);
+  const none = run({ rep: { next: nextOf(FLOWS.devkit, 'unit-tests', 'no-file') }, facts: { row: null, tests: { ...TESTS, coverage: { command: null, target: null } } } });
+  assert.deepEqual(none.detail, { unit: 'npm test', coverage: { command: null, target: null } }, 'no row is read for a test stage, and no coverage is declared');
+});
+
+test('stage-roles loop: the E2E tests are handed to the E2E tester with the declared command', () => {
+  const a = run({ rep: { next: nextOf(FLOWS.devkit, 'e2e-tests', 'no-file') }, facts: { row: rowOf('commit'), tests: TESTS } });
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role], ['agent', E2E_TESTER, 'e2e-tests', 'e2e-tests', 'e2e-tester']);
+  assert.deepEqual(a.detail, { e2e: 'npm run e2e' });
+  assert.ok(a.brief.includes('openspec instructions e2e-tests --change feat'));
+});
+
+test('stage-roles loop: fix-tests a red test stage goes back to the implementer, naming the failed stage and its file', () => {
+  for (const [failed, file] of [['unit-tests', 'unit-tests.md'], ['e2e-tests', 'e2e-tests.md']]) {
+    const a = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed, attempt: 2, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: TESTS } });
+    assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', TDD, 'fix-tests', 'implementation', 'tdd-implementer', 0], failed);
+    assert.deepEqual(a.detail, { failed, file });
+    assert.match(a.brief, new RegExp(`${failed} failed at attempt 2 of 3: fix the code from ${file}, test first, within the approved tasks`));
+    assert.equal(a.progressKey, 'implementation/fix-tests@abc123');
+  }
+});
+
+test('stage-roles loop: fix-tests is not the step for an evidence or a review failure, which follow the delivery checker\'s row', () => {
+  for (const failed of ['evidence', 'review']) {
+    const a = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed, attempt: 1, ceiling: 3 }) }, facts: { row: rowOf('fix-review'), tests: TESTS } });
+    assert.equal(a.step, 'fix-review', failed);
+  }
+  const rows = ROW_STEPS;
+  assert.ok(!rows.includes('fix-tests') && !rows.includes('unit-tests') && !rows.includes('e2e-tests'), 'neither step is a row of the delivery checker');
+});
+
+test('stage-roles loop: the loop\'s own hand-offs of the test stages carry a role the packs know', () => {
+  for (const role of ['screen-designer', 'adr-author', 'test-runner', 'e2e-tester']) assert.equal(PACKS[role], 'devkit-core', role);
+});
+
+// The plan of change `feat` approved (a current approval.md), with the records `adrs` written in the repository.
+const ADR_FOLDER = 'docs/adr';
+const adrRecord = (status, extra = '') => `# ADR 9: x\n\n${status}\n\n## Context\n\nc\n${extra}`;
+function adrChange({ approval = 'current', records = {}, listed = Object.keys(records), extra = {}, date = '2026-11-22' } = {}) {
+  const root = gitRepo({ config: 'schema: devkit\n' });
+  const dir = 'openspec/changes/feat';
+  const files = {
+    [`${dir}/.openspec.yaml`]: 'schema: devkit\n',
+    [`${dir}/readiness.md`]: '# Readiness\n\n- Status: APPROVED\n',
+    [`${dir}/decisions.md`]: `<!-- devkit-stage decisions result=passed attempt=1 commit=none -->\n# Decisions\n\n${listed.map((p) => `- ADR: \`${p}\` — a record`).join('\n')}\n`,
+    ...Object.fromEntries(Object.entries(records).map(([p, body]) => [p, body])),
+    ...extra,
+  };
+  put(root, files);
+  if (approval !== 'none') {
+    const hash = approval === 'current' ? approvalState(join(root, dir)).readiness : 'sha256:000000000000';
+    put(root, { [`${dir}/approval.md`]: `<!-- devkit-stage approval result=passed attempt=1 commit=none -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${hash}\n- Date: ${date}\n- Owner's words: "go"\n` });
+  }
+  return root;
+}
+const accept = (root, extra = []) => main(['accept-decisions', 'feat', '--lang', 'en', ...extra], { cwd: root, env: cleanEnv });
+const treeOf = (root) => {
+  const out = {};
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === '.git') continue;
+      if (e.isDirectory()) walk(join(d, e.name)); else out[join(d, e.name).slice(root.length)] = readFileSync(join(d, e.name), 'utf8');
+    }
+  };
+  walk(root);
+  return JSON.stringify(out);
+};
+const refused = (root, why) => {
+  const before = treeOf(root);
+  const r = accept(root);
+  assert.equal(r.code, 3, `${why}: ${r.stdout}`);
+  const b = JSON.parse(r.stdout);
+  assert.equal(b.version, 1);
+  assert.equal(b.reply, render('en', 'blocked', { id: 'feat', why: 'cannot-accept', error: b.error }), why);
+  assert.equal(treeOf(root), before, `${why}: a refusal changes no file`);
+  return b;
+};
+
+test('stage-roles loop: accept-decisions sets every proposed record accepted with the approval\'s date, and says what it did', () => {
+  const root = adrChange({ records: { [`${ADR_FOLDER}/0001-a.md`]: adrRecord('Status: proposed'), [`${ADR_FOLDER}/0002-b.md`]: adrRecord('- Status: Proposed') } });
+  const r = accept(root);
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(JSON.parse(r.stdout), { version: 1, change: 'feat', accepted: [`${ADR_FOLDER}/0001-a.md`, `${ADR_FOLDER}/0002-b.md`], already: [] });
+  const by = 'Accepted by: the owner, on 2026-11-22, in the approval of the plan of change feat (openspec/changes/feat/approval.md)';
+  assert.match(readFileSync(join(root, ADR_FOLDER, '0001-a.md'), 'utf8'), new RegExp(`\\nStatus: accepted\\nStatus: ${by.replace(/[()/.]/g, '\\$&')}\\n`));
+  assert.match(readFileSync(join(root, ADR_FOLDER, '0002-b.md'), 'utf8'), new RegExp(`\\n- Status: Accepted\\n- Status: ${by.replace(/[()/.]/g, '\\$&')}\\n`));
+});
+
+test('stage-roles loop: accept-decisions keeps the letter case and the prefix of the status line', () => {
+  const root = adrChange({ records: {
+    [`${ADR_FOLDER}/a.md`]: adrRecord('Status: PROPOSED'),
+    [`${ADR_FOLDER}/b.md`]: adrRecord('  * **Status:** Proposed — pending'),
+  } });
+  assert.equal(accept(root).code, 0);
+  const a = readFileSync(join(root, ADR_FOLDER, 'a.md'), 'utf8');
+  assert.match(a, /\nStatus: ACCEPTED\nStatus: Accepted by: the owner, on 2026-11-22/);
+  const b = readFileSync(join(root, ADR_FOLDER, 'b.md'), 'utf8');
+  assert.match(b, /\n {2}\* \*\*Status:\*\* Accepted — pending\n {2}\* \*\*Status:\*\* Accepted by: the owner, on 2026-11-22/);
+});
+
+test('stage-roles loop: accept-decisions leaves an accepted record alone and lists it as already accepted', () => {
+  const root = adrChange({ records: { [`${ADR_FOLDER}/a.md`]: adrRecord('Status: accepted'), [`${ADR_FOLDER}/b.md`]: adrRecord('Status: proposed') } });
+  const before = readFileSync(join(root, ADR_FOLDER, 'a.md'), 'utf8');
+  const r = accept(root);
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(JSON.parse(r.stdout), { version: 1, change: 'feat', accepted: [`${ADR_FOLDER}/b.md`], already: [`${ADR_FOLDER}/a.md`] });
+  assert.equal(readFileSync(join(root, ADR_FOLDER, 'a.md'), 'utf8'), before);
+  const again = accept(root);
+  assert.deepEqual(JSON.parse(again.stdout).accepted, [], 'a second run has nothing left');
+  assert.equal(readFileSync(join(root, ADR_FOLDER, 'b.md'), 'utf8').match(/Accepted by/g).length, 1, 'the line is written once');
+});
+
+test('stage-roles loop: accept-decisions with no listed record succeeds and writes nothing', () => {
+  const root = adrChange({ records: {}, listed: [] });
+  const before = treeOf(root);
+  const r = accept(root);
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(JSON.parse(r.stdout), { version: 1, change: 'feat', accepted: [], already: [] });
+  assert.equal(treeOf(root), before);
+});
+
+test('stage-roles loop: accept-decisions refuses while the approval is missing, naming it, and changes nothing', () => {
+  const root = adrChange({ approval: 'none', records: { [`${ADR_FOLDER}/a.md`]: adrRecord('Status: proposed') } });
+  assert.match(refused(root, 'no approval').error, /approval/);
+  assert.match(readFileSync(join(root, ADR_FOLDER, 'a.md'), 'utf8'), /Status: proposed/);
+});
+
+test('stage-roles loop: accept-decisions refuses an approval of an earlier readiness', () => {
+  const root = adrChange({ approval: 'earlier', records: { [`${ADR_FOLDER}/a.md`]: adrRecord('Status: proposed') } });
+  assert.match(refused(root, 'earlier approval').error, /approval/);
+});
+
+test('stage-roles loop: accept-decisions refuses a path outside the repository, an absolute one and a file that does not exist', () => {
+  const rec = { [`${ADR_FOLDER}/a.md`]: adrRecord('Status: proposed') };
+  assert.match(refused(adrChange({ records: rec, listed: [`${ADR_FOLDER}/a.md`, '../outside/adr/x.md'] }), 'outside').error, /outside\/adr\/x\.md/);
+  assert.match(refused(adrChange({ records: rec, listed: [`${ADR_FOLDER}/a.md`, '/etc/adr/x.md'] }), 'absolute').error, /\/etc\/adr\/x\.md/);
+  assert.match(refused(adrChange({ records: rec, listed: [`${ADR_FOLDER}/a.md`, `${ADR_FOLDER}/missing.md`] }), 'missing').error, /missing\.md/);
+});
+
+test('stage-roles loop: accept-decisions refuses a file that is not Markdown and a folder that is not an ADR folder', () => {
+  assert.match(refused(adrChange({ records: { [`${ADR_FOLDER}/a.txt`]: adrRecord('Status: proposed') } }), 'not md').error, /a\.txt/);
+  assert.match(refused(adrChange({ records: { 'src/a.md': adrRecord('Status: proposed') } }), 'no adr folder').error, /src\/a\.md/);
+  for (const folder of ['adrs', 'decisions', 'ADR']) {
+    const root = adrChange({ records: { [`docs/${folder}/a.md`]: adrRecord('Status: proposed') } });
+    assert.equal(accept(root).code, 0, folder);
+  }
+});
+
+test('stage-roles loop: accept-decisions refuses a record with no status line or a status that is neither proposed nor accepted', () => {
+  assert.match(refused(adrChange({ records: { [`${ADR_FOLDER}/a.md`]: '# ADR\n\nno status here\n' } }), 'no status').error, /a\.md/);
+  assert.match(refused(adrChange({ records: { [`${ADR_FOLDER}/a.md`]: adrRecord('Status: superseded') } }), 'superseded').error, /a\.md/);
+});
+
+test('stage-roles loop: accept-decisions with a good record and a bad one changes neither (every check runs before a write)', () => {
+  const root = adrChange({ records: { [`${ADR_FOLDER}/a.md`]: adrRecord('Status: proposed'), [`${ADR_FOLDER}/b.md`]: adrRecord('Status: superseded') } });
+  refused(root, 'mixed good and bad');
+  assert.match(readFileSync(join(root, ADR_FOLDER, 'a.md'), 'utf8'), /Status: proposed\n/);
+});
+
+test('stage-roles loop: accept-decisions names itself in the usage line and needs a change id', () => {
+  const r = main(['accept-decisions', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv });
+  assert.equal(r.code, 3);
+  assert.match(JSON.parse(r.stdout).error, /accept-decisions <id>/);
+  assert.match(read('change-loop.mjs'), /accept-decisions <id> --lang/);
+});
+
+const APPROVED = { status: 'APPROVED', recorded: 'sha256:abcdef012345', readiness: 'sha256:abcdef012345', ok: true };
+const DEC = (over = {}) => ({ listed: [`${ADR_FOLDER}/a.md`], proposed: [`${ADR_FOLDER}/a.md`], unreadable: [], ...over });
+const afterApproval = (facts) => run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'tasks-pending', { count: 1, ids: ['1.1'] }) }, facts: { row: rowOf('implement'), approval: APPROVED, decisions: DEC(), ...facts } });
+
+test('stage-roles loop: the accept-decisions step comes with a current approval and a proposed record, carrying its command', () => {
+  const a = afterApproval({});
+  assert.deepEqual([a.kind, a.step, a.stage, exitCodeOf(a)], ['session', 'accept-decisions', 'approval', 0]);
+  assert.deepEqual(a.detail.command, ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'accept-decisions', 'feat', '--lang', 'en']);
+  assert.deepEqual(a.detail.records, [`${ADR_FOLDER}/a.md`]);
+  assert.equal(a.progressKey, 'approval/accept-decisions@abc123');
+});
+
+test('stage-roles loop: the accept-decisions step is also taken for a record the loop could not read, so the command can refuse it by name', () => {
+  const a = afterApproval({ decisions: DEC({ proposed: [], unreadable: [{ path: `${ADR_FOLDER}/b.md`, why: 'no status line' }] }) });
+  assert.equal(a.step, 'accept-decisions');
+  assert.deepEqual(a.detail.records, [`${ADR_FOLDER}/b.md`]);
+});
+
+test('stage-roles loop: no accept-decisions step while the approval is not current, with nothing proposed, or with no records', () => {
+  for (const [label, facts] of [
+    ['no approval', { approval: { ...APPROVED, ok: false, status: null, recorded: null } }],
+    ['an earlier approval', { approval: { ...APPROVED, ok: false, recorded: 'sha256:111111111111' } }],
+    ['every record accepted', { decisions: DEC({ proposed: [] }) }],
+    ['no record listed', { decisions: DEC({ listed: [], proposed: [] }) }],
+    ['no facts of the records', { decisions: undefined }],
+  ]) {
+    assert.equal(afterApproval(facts).step, 'implement', label);
+  }
+});
+
+test('stage-roles loop: no accept-decisions step on the archive branch, even with a current approval and a proposed record', () => {
+  const a = afterApproval({ archiving: true });
+  assert.notEqual(a.step, 'accept-decisions');
+  assert.equal(a.detail?.command, undefined);
+});
+
+test('stage-roles loop: after accept-decisions the next call offers the implementation (a record accepted is no longer proposed)', () => {
+  const root = adrChange({ records: { [`${ADR_FOLDER}/a.md`]: adrRecord('Status: proposed') } });
+  const before = next(root);
+  const a1 = actionOf(before.stdout);
+  assert.equal(a1.step, 'accept-decisions', before.stdout);
+  assert.equal(accept(root).code, 0);
+  const a2 = actionOf(next(root).stdout);
+  assert.notEqual(a2.step, 'accept-decisions');
+});
+
+test('stage-roles loop: setting-unknown a coverage target that is not a whole number from 0 to 100 stops the command like any unknown setting', () => {
+  for (const target of ['80%', '101', 'high', '-1']) {
+    const root = devkitRepo(`schema: devkit\ndevkit:\n  tests:\n    unit: "npm test"\n    coverage:\n      command: "npm run cov"\n      target: ${target}\n`);
+    const s = readDevkitSettings(root);
+    assert.deepEqual(s.unknown.map((u) => [u.setting, u.value]), [['coverage-target', target]], target);
+    const b = body(startRun(root, 'change add an export'));
+    assert.equal(b.mode, 'setting-unknown', target);
+    assert.equal(b.reply, render('en', 'setting-unknown', { setting: 'coverage-target', value: target, accepted: 'a whole number from 0 to 100' }));
+    assert.ok(b.reply.includes('coverage target'));
+  }
+  const good = devkitRepo('schema: devkit\ndevkit:\n  tests:\n    coverage:\n      target: 80\n  driver: claude\n');
+  assert.deepEqual(readDevkitSettings(good), { driver: 'claude', language: 'en', unknown: [] });
+});
+
+test('stage-roles loop: the nested test keys do not disturb the driver and the language', () => {
+  const s = readDevkitSettings(configRepo('devkit:\n  language: pt-BR\n  tests:\n    unit: "npm test"\n    e2e: "npm run e2e"\n  driver: claude\n'));
+  assert.deepEqual(s, { driver: 'claude', language: 'pt-BR', unknown: [] });
+});
+
+test('stage-roles loop: a screen designer that stops before redrawing is refused once, like any stage agent that has not delivered', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  put(root, {
+    'openspec/changes/feat/requirements.md': `${head('requirements', c0)}# requirements\n\nClassification: devkit; flags=[ui]\n`,
+    'openspec/changes/feat/mockup.md': `${head('mockup', c0, 'failed', 1)}# Mock-up\n`,
+  });
+  commitAll(root, 'the owner asked for changes');
+  const tmp = sandbox();
+  const first = hook('subagent-stop', subInput(root, runTranscript(), 'screen-designer'), { TMPDIR: tmp });
+  assert.equal(first.code, 2, first.err);
+  assert.match(first.err, /mockup\.md/);
+  assert.equal(hook('subagent-stop', subInput(root, runTranscript(), 'screen-designer'), { TMPDIR: tmp }).code, 0, 'the same state a second time is let through');
+});
+
+test('stage-roles loop: the loop hands a mock-up of a change with a screen to its designer, read from the files', () => {
+  const root = planChange({ have: ['requirements'] });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  put(root, { 'openspec/changes/feat/requirements.md': `${head('requirements', c0)}# requirements\n\nClassification: devkit; flags=[ui]\n` });
+  commitAll(root, 'a screen');
+  const a = actionOf(next(root).stdout);
+  assert.deepEqual([a.kind, a.agent, a.stage], ['agent', SCREEN, 'mockup']);
+  const plain = planChange({ have: ['requirements'] });
+  const b = actionOf(next(plain).stdout);
+  assert.deepEqual([b.kind, b.agent, b.stage], ['agent', ADR_AUTHOR, 'decisions'], 'no ui flag: no mock-up, the decisions come first');
+});
+
+// ---------------------------------------------------------------- stage-roles docs (phase 4: D-9, D-12)
+
+test('stage-roles docs: the design page marks stages 3, 4, 9, 10 and 11 of its table built in round 16', () => {
+  const rows = readRepo('docs', 'coordination-design.md').split('\n');
+  for (const n of [3, 4, 9, 10, 11]) {
+    const row = rows.find((l) => l.startsWith(`| ${n} | `));
+    assert.ok(row, `row ${n} of the stage table exists`);
+    assert.match(row, /\(built, round 16\)/, `row ${n} says built, round 16`);
+    assert.doesNotMatch(row, /\(new\)/, `row ${n} no longer says new`);
+  }
+  assert.match(rows.find((l) => l.startsWith('| 8 | ')), /`tdd-implementer`/, 'the other rows are untouched');
+});
+
+test('stage-roles docs: the design page records the test settings among the configuration field names', () => {
+  const design = readRepo('docs', 'coordination-design.md');
+  const a = design.indexOf("**The configuration's field names.");
+  const b = design.indexOf('**The header', a);
+  const part = design.slice(a, b).replace(/\s+/g, ' ');
+  assert.match(part, /Decided by `stage-roles` on 2026-11-21: `devkit\.tests\.unit`, `devkit\.tests\.coverage\.command`, `devkit\.tests\.coverage\.target`, `devkit\.tests\.e2e`/);
+  assert.match(design, /coverage:\s*\n\s+command:/, 'the example configuration gains the coverage lines');
+  assert.match(design, /screen-designer[^\n]*\bdraws\b|\bdraws\b[^\n]*screen-designer/, 'the mock-up paragraph says the screen designer draws it');
+  assert.match(design.slice(design.indexOf('Tense:'), design.indexOf('Tense:') + 2400), /stage-roles/, 'the Tense paragraph lists what exists since stage-roles');
+});
+
+test('stage-roles docs: ADR 0014 has its headings, its status and the owner\'s approval of the plan', () => {
+  const adr = readRepo('docs', 'adr', '0014-stage-roles-write-their-own-files.md');
+  assert.equal(adr.split('\n')[0], '# ADR 0014: Stage roles write their own files, and a stage that does not apply may leave none');
+  for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
+    assert.ok(adr.split('\n').includes(h), `ADR 0014 has ${h}`);
+  }
+  assert.match(adr, /^- Status: accepted$/m);
+  assert.match(adr, /^- Change: stage-roles$/m);
+  assert.match(adr, /^- Amends: ADR 0010 \(0010-openspec-as-the-harness\.md\)[^\n]*ADR 0011 \(0011-the-change-coordinator-is-the-owners-session\.md\), decision 3$/m);
+  const approval = readRepo('openspec', 'changes', 'stage-roles', 'approval.md');
+  const date = approval.match(/^- Date: (\d{4}-\d{2}-\d{2})$/m)?.[1];
+  const words = approval.match(/^- Owner's words: "(.+)"$/m)?.[1];
+  assert.ok(date && words, 'approval.md has its date and the owner\'s words');
+  assert.match(adr, new RegExp(`^- Accepted by: the owner, on ${date}, in the message that approved the plan of the change: \`${words}\`; recorded in \`openspec/changes/stage-roles/approval\\.md\`$`, 'm'));
+});
+
+test('stage-roles docs: ADR 0010 and ADR 0011 name ADR 0014 in a header line and a dated Note', () => {
+  const line = '- Amended by ADR 0014 (0014-stage-roles-write-their-own-files.md)';
+  for (const f of ['0010-openspec-as-the-harness.md', '0011-the-change-coordinator-is-the-owners-session.md']) {
+    const adr = readRepo('docs', 'adr', f);
+    assert.ok(adr.split('\n').slice(0, 8).includes(line), `${f} has the Amended by line in its header`);
+    assert.match(adr, /^- Status: accepted$/m, `${f} stays accepted`);
+    assert.match(adr, /Note \(stage-roles, 2026-11-21\):[^\n]*(\n[^\n]+)*?\[ADR 0014\]\(0014-stage-roles-write-their-own-files\.md\)/, `${f} has the dated Note linking ADR 0014`);
+  }
+  const flat10 = readRepo('docs', 'adr', '0010-openspec-as-the-harness.md').replace(/\s+/g, ' ');
+  assert.match(flat10, /Note \(stage-roles, 2026-11-21\): the roles of D-4 stages 3, 4, 9 and 10 ship and stage 11 is recorded as text\./);
+  assert.match(flat10, /\(decision 1, round 16\)\. Decisions 1 to 8 are otherwise unchanged\./);
+  assert.match(readRepo('docs', 'adr', '0011-the-change-coordinator-is-the-owners-session.md'), /decision 2's refusal of the session's product edits is unchanged/);
+  const adrs = readRepo('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
+  assert.match(adrs, /0014 stage roles write their own files, amends 0010 and 0011/, 'the ADRs line of config.yaml names 0014');
+});
+
+test('stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes', () => {
+  const old = spawnSync('git', ['show', '2300f84:openspec/roadmap.md'], { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  assert.equal(old.status, 0, old.stderr);
+  const itemOf = (rounds, id) => rounds.flatMap((r) => r.items).find((i) => i.id === id);
+  const before = itemOf(guardModule.parseRoadmap(old.stdout), 'stage-roles');
+  const rounds = guardModule.parseRoadmap(readRepo('openspec', 'roadmap.md'));
+  const stage = itemOf(rounds, 'stage-roles');
+  const fixes = itemOf(rounds, 'coordinator-loop-fixes');
+  assert.ok(before && stage && fixes, 'both lines exist');
+  const cut = before.text.indexOf(' Carried from');
+  assert.ok(cut > 0, 'the line at 2300f84 holds the carried text');
+  const carried = before.text.slice(cut).trim();
+  assert.equal(stage.text, before.text.slice(0, cut), 'the stage-roles line keeps the text before the carried items');
+  assert.doesNotMatch(stage.text + stage.notes, /Carried from/, 'the stage-roles line holds none of them');
+  assert.deepEqual(stage.after, ['change-coordinator']);
+  assert.deepEqual(fixes.after, ['stage-roles']);
+  const sentences = carried.split(/(?<=\.)\s+(?=[A-Z])/).map((s) => s.trim());
+  assert.ok(sentences.length >= 3, 'the carried text has its sentences');
+  for (const s of sentences) assert.ok(fixes.text.includes(s), `coordinator-loop-fixes holds: ${s.slice(0, 60)}`);
+  assert.ok(fixes.text.includes(carried), 'the carried text is copied verbatim');
+  const round = rounds.find((r) => r.items.includes(fixes));
+  assert.equal(round.title, 'Round 16b: the coordinator loop fixes');
+  assert.equal(rounds[rounds.indexOf(round) - 1].items.includes(stage), true, 'round 16b follows the round of stage-roles');
 });
