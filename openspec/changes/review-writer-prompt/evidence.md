@@ -1,11 +1,11 @@
-<!-- devkit-stage evidence result=passed attempt=1 commit=643bc4765052e251d8e0412d3247a28d7da2d555 -->
-Commit: 643bc4765052e251d8e0412d3247a28d7da2d555
+<!-- devkit-stage evidence result=passed attempt=2 commit=8719eaa079da564091503bc6ccf8d7b7fc523052 -->
+Commit: 8719eaa079da564091503bc6ccf8d7b7fc523052
 
 # Evidence
 
 Change: `review-writer-prompt` · verified on branch `review-writer-prompt`, no PR yet, no UI touched
 (no screenshots). Every gate ran as `tasks.md` writes it, with `GITHUB_HEAD_REF=probe-branch` and
-`GITHUB_BASE_REF=main` for the hook suites.
+`GITHUB_BASE_REF=main` for the hook suites, at the commit above (phase 4 included, clean worktree).
 
 ## Verification
 
@@ -15,13 +15,15 @@ Change: `review-writer-prompt` · verified on branch `review-writer-prompt`, no 
 |---|---|---|
 | 1.7 | `node --test plugins/core/skills/review-change/scripts/review-round.test.mjs` | pass: 87 tests, 87 pass, 0 fail |
 | 1.7 | `python3 scripts/check.py` | pass: all checks passed |
-| 2.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs` | pass: exit 0; the standalone run wrote no output (the machine's /tmp filled up meanwhile), so the proof is the guard suite below, which imports both files and passed |
+| 2.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs` | pass: standalone run, exit 0; 1008 tests, 1008 pass, 0 fail, 0 cancelled, 0 skipped; 26 passing `review-writer-prompt AC-9` and 25 passing `AC-8` lines |
 | 2.5 | `python3 scripts/check.py` | pass: all checks passed |
-| 3.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1183 tests, 1183 pass, 0 fail, 0 cancelled, 0 skipped |
+| 3.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1190 tests, 1190 pass, 0 fail, 0 cancelled, 0 skipped |
 | 3.2 | `python3 scripts/check.py` | pass: all checks passed |
 | 3.2 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
 | 3.2 | `command claude plugin validate .` | pass: Validation passed |
 | 3.2 | `openspec validate review-writer-prompt --strict` | pass: Change 'review-writer-prompt' is valid |
+| 4.3 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs` | pass: same standalone run as gate 2.5 (identical command), 1008 pass, 0 fail |
+| 4.3 | `python3 scripts/check.py` | pass: all checks passed |
 
 ### Acceptance criteria
 
@@ -34,5 +36,5 @@ Change: `review-writer-prompt` · verified on branch `review-writer-prompt`, no 
 | AC-5 | A partial stage-1 answer fails its review; a declined empty one passes | `review-writer-prompt AC-5` tests, pass | pass |
 | AC-6 | The writer prompt and verdict file hold one `Verdict:` and one `Commit:` line | `review-writer-prompt AC-6` tests, pass | pass |
 | AC-7 | `check-file` refuses a second `Verdict:` or `Commit:` line | `review-writer-prompt AC-7` tests, pass | pass |
-| AC-8 | A test-only commit leaves four reviewers current; any other commit stales all | `review-writer-prompt AC-8` tests in `deliver-check.test.mjs` and `flow-check.test.mjs`, run inside the guard suite (1183 pass) | pass |
-| AC-9 | `deliver-check` skips a fenced checkbox in `tasks.md` | `review-writer-prompt AC-9` tests in `deliver-check.test.mjs`, run inside the guard suite (1183 pass) | pass |
+| AC-8 | A test-only commit leaves four reviewers current; any other commit stales all | 25 passing `review-writer-prompt AC-8` lines in the standalone gate 2.5 run (`deliver-check.test.mjs`, `flow-check.test.mjs`), and the guard suite (1190 pass) | pass |
+| AC-9 | `deliver-check` skips a fenced checkbox in `tasks.md`, and an unclosed fence hides nothing | 26 passing `review-writer-prompt AC-9` lines in the standalone gate 2.5/4.3 run, including the unclosed-fence tests of phase 4, and the guard suite (1190 pass) | pass |

@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=643bc4765052e251d8e0412d3247a28d7da2d555 -->
+<!-- devkit-stage review result=passed attempt=2 commit=8719eaa079da564091503bc6ccf8d7b7fc523052 -->
 # Review: review-writer-prompt, round 1
 
 Path: agents · range `main...HEAD` · structural: PASS
@@ -26,3 +26,29 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: review-writer-prompt, round 2
+
+Path: agents · range `643bc4765052e251d8e0412d3247a28d7da2d555..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 8719eaa |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 8719eaa |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 8719eaa |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 8719eaa |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 8719eaa |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- The installed review round (devkit-core 0.8.1) gives no writer prompt from outcomes; the writer prompts were built from the exported writerPrompt rule, the defect this change fixes.
+
+## Next
+Ready to ship.
