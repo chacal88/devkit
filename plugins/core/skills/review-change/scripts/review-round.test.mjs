@@ -11,7 +11,7 @@ import {
   loadRules, validateArgs, validateStage1, needsVerification, isRefutation, decide, oneLine, findingLine,
   outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate,
   VERIFIERS, verifyJobs, groupVotes, writeMismatch,
-  STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA,
+  STAGE1_SCHEMA, VOTE_SCHEMA, WRITE_SCHEMA, writeJobs, isHeaderLine, withoutHeaderLines,
 } from './review-round.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -23,11 +23,11 @@ const SHA2 = 'b'.repeat(40);
 const bench = (...names) => names.map((reviewer) => ({ reviewer, previous: null, range: null }));
 const baseArgs = (over = {}) => ({
   change: 'demo', changeDir: 'openspec/changes/demo', round: 1, path: 'workflow', range: 'origin/main..HEAD',
-  structural: 'PASS', preamble: '', bench: bench('code-quality-reviewer'), ...over,
+  structural: 'PASS', preamble: '', bench: bench('code-quality-reviewer'), head: SHA, ...over,
 });
 const finding = (over = {}) => ({ id: 'F1', severity: 'important', location: 'a.mjs:1', text: 'a thing is wrong', disposition: null, ...over });
 const stage1Of = (reviewer, findings, over = {}) => ({
-  declined: false, commit: SHA, uncommitted: false, heading: `## ${reviewer} - demo`, findings, sections: 'Some section.', ...over,
+  declined: false, commit: SHA, uncommitted: false, heading: `## ${reviewer} - demo`, read: ['a.mjs'], notRead: [], findings, sections: 'Some section.', ...over,
 });
 const refute = (evidence = 'a.mjs:1 shows it is fine') => ({ refuted: true, evidence });
 const keep = () => ({ refuted: false, evidence: '' });
@@ -36,7 +36,7 @@ const keep = () => ({ refuted: false, evidence: '' });
 
 test('review round: the rules section loads and exports every name', () => {
   const rules = loadRules();
-  for (const name of ['STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation', 'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate']) {
+  for (const name of ['STAGE1_SCHEMA', 'VOTE_SCHEMA', 'WRITE_SCHEMA', 'validateArgs', 'validateStage1', 'needsVerification', 'isRefutation', 'decide', 'oneLine', 'findingLine', 'outcomeOf', 'consensusOf', 'reviewerPrompt', 'verifierPrompt', 'writerPrompt', 'consolidate', 'writeJobs', 'isHeaderLine', 'withoutHeaderLines']) {
     assert.ok(rules[name] !== undefined, name);
   }
   assert.ok(STAGE1_SCHEMA.required.includes('findings'));
@@ -96,7 +96,7 @@ test('review round: findingLine gives the line deliver-check reads, with and wit
 });
 
 test('review round: outcomeOf approves when only nits and praise are listed', () => {
-  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit' }), finding({ id: 'F2', severity: 'praise' })]));
+  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit' }), finding({ id: 'F2', severity: 'praise' })]), SHA);
   const o = outcomeOf(baseArgs(), s, {});
   assert.equal(o.verdict, 'approved');
   assert.deepEqual([o.verified, o.refuted], [0, 0]);
@@ -104,7 +104,7 @@ test('review round: outcomeOf approves when only nits and praise are listed', ()
 });
 
 test('review round: outcomeOf rejects while an important or blocking finding survives', () => {
-  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding(), finding({ id: 'F2', severity: 'blocking' })]));
+  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding(), finding({ id: 'F2', severity: 'blocking' })]), SHA);
   const o = outcomeOf(baseArgs(), s, { F1: [refute(), refute(), keep()], F2: [refute(), keep(), keep()] });
   assert.equal(o.verdict, 'rejected');
   assert.deepEqual(o.findings.map((f) => f.status), ['refuted', 'open']);
@@ -114,7 +114,7 @@ test('review round: outcomeOf rejects while an important or blocking finding sur
 });
 
 test('review round: outcomeOf approves when every finding is refuted and keeps the refuted line visible', () => {
-  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()]));
+  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()]), SHA);
   const o = outcomeOf(baseArgs(), s, { F1: [refute('e1'), refute('e2'), refute('e3')] });
   assert.equal(o.verdict, 'approved');
   assert.match(o.lines[0], / · refuted: e1 \/ e2 \/ e3$/);
@@ -124,7 +124,7 @@ test('review round: outcomeOf approves when every finding is refuted and keeps t
 test('review round: outcomeOf leaves a disposed previous finding neither open nor verified', () => {
   const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [
     finding({ disposition: 'fixed in abc1234' }), finding({ id: 'F2', severity: 'blocking', disposition: 'refuted: earlier evidence' }),
-  ]));
+  ]), SHA);
   const o = outcomeOf(baseArgs({ round: 2 }), s, {});
   assert.deepEqual(o.findings.map((f) => f.status), ['disposed', 'disposed']);
   assert.deepEqual([o.verified, o.refuted, o.verdict], [0, 0, 'approved']);
@@ -132,9 +132,9 @@ test('review round: outcomeOf leaves a disposed previous finding neither open no
 });
 
 test('review round: outcomeOf keeps declined and counts the verifiers that did not answer', () => {
-  const s = validateStage1('security-reviewer', stage1Of('security-reviewer', [], { declined: true }));
+  const s = validateStage1('security-reviewer', stage1Of('security-reviewer', [], { declined: true }), SHA);
   assert.equal(outcomeOf(baseArgs({ bench: bench('security-reviewer') }), s, {}).verdict, 'declined');
-  const t = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()]));
+  const t = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()]), SHA);
   assert.equal(outcomeOf(baseArgs(), t, { F1: [refute(), null, null] }).voteFailures, 2);
   assert.equal(outcomeOf(baseArgs(), t, {}).voteFailures, 3);
 });
@@ -156,6 +156,7 @@ test('review round: validateArgs accepts the contract and rejects with the revie
     { ...ok, bench: bench('code-quality-reviewer', 'code-quality-reviewer') },
     { ...ok, bench: [{ reviewer: 'code-quality-reviewer', previous: 3, range: null }] },
     { ...ok, bench: bench('code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer', 'adr-reviewer', 'spec-reviewer', 'code-quality-reviewer') },
+    { ...ok, head: undefined }, { ...ok, head: SHA.slice(0, 7) },
   ];
   for (const a of bad) assert.throws(() => validateArgs(a), /^Error: review input invalid: /, JSON.stringify(a));
   assert.equal(validateArgs({ ...ok, bench: bench('code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer', 'adr-reviewer', 'spec-reviewer') }).bench.length, 6);
@@ -166,7 +167,7 @@ test('review round: validateStage1 gives ids F1.. to findings without one and ma
     { severity: 'blocking', location: 'x', text: 'one\ntwo · three' },
     { severity: 'nit', location: 'y', text: 'n', id: 'F9' },
     { severity: 'praise', text: 'p' },
-  ]));
+  ]), SHA);
   assert.deepEqual(s.findings.map((f) => f.id), ['F1', 'F9', 'F3']);
   assert.equal(s.findings[0].text, 'one two - three');
   assert.equal(s.findings[0].disposition, null);
@@ -181,14 +182,14 @@ test('review round: validateStage1 rejects a malformed return with the review in
     { ...good, findings: [finding({ text: '  ' })] }, { ...good, findings: [finding(), finding()] },
     { ...good, findings: [finding({ disposition: 'maybe later' })] },
   ];
-  for (const v of bad) assert.throws(() => validateStage1('adr-reviewer', v), /^Error: review input invalid: /, JSON.stringify(v));
-  assert.throws(() => validateStage1('nobody-reviewer', good), /^Error: review input invalid: /);
+  for (const v of bad) assert.throws(() => validateStage1('adr-reviewer', v, SHA), /^Error: review input invalid: /, JSON.stringify(v));
+  assert.throws(() => validateStage1('nobody-reviewer', good, SHA), /^Error: review input invalid: /);
 });
 
 test('review round: every prompt starts with the worktree preamble and stage 1 says to write no file', () => {
   const args = baseArgs({ preamble: 'WORKTREE PREAMBLE' });
   const entry = args.bench[0];
-  const s = validateStage1(entry.reviewer, stage1Of(entry.reviewer, [finding()]));
+  const s = validateStage1(entry.reviewer, stage1Of(entry.reviewer, [finding()]), SHA);
   const o = outcomeOf(args, s, {});
   for (const p of [reviewerPrompt(args, entry), verifierPrompt(args, entry, s.findings[0]), writerPrompt(args, o)]) {
     assert.ok(p.startsWith('WORKTREE PREAMBLE\n\n'), p.slice(0, 60));
@@ -210,7 +211,7 @@ test('review round: reviewerPrompt names the previous verdict file and the revie
 test('review round: verifierPrompt holds only its finding, the range and the word refute', () => {
   const args = baseArgs({ bench: bench('code-quality-reviewer') });
   const entry = args.bench[0];
-  const s = validateStage1(entry.reviewer, stage1Of(entry.reviewer, [finding(), finding({ id: 'F2', text: 'another distinct problem' })]));
+  const s = validateStage1(entry.reviewer, stage1Of(entry.reviewer, [finding(), finding({ id: 'F2', text: 'another distinct problem' })]), SHA);
   const p = verifierPrompt(args, entry, s.findings[0]);
   assert.ok(p.includes(findingLine(s.findings[0])));
   assert.ok(!p.includes('another distinct problem'));
@@ -221,7 +222,7 @@ test('review round: verifierPrompt holds only its finding, the range and the wor
 
 test('review round: writerPrompt holds every line verbatim and the commit line', () => {
   const args = baseArgs();
-  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding(), finding({ id: 'F2', severity: 'nit', text: 'a nit' })], { uncommitted: true }));
+  const s = validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding(), finding({ id: 'F2', severity: 'nit', text: 'a nit' })], { uncommitted: true }), SHA);
   const o = outcomeOf(args, s, { F1: [refute('e1'), refute('e2'), keep()] });
   const p = writerPrompt(args, o);
   for (const line of o.lines) assert.ok(p.includes(line), line);
@@ -232,16 +233,16 @@ test('review round: writerPrompt holds every line verbatim and the commit line',
 test('review round: writerPrompt names the verdict the round computed on line 1', () => {
   const args = baseArgs();
   const line1 = (p) => p.split('\n').find((l) => l.startsWith('line 1:'));
-  const open = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()])), { F1: [keep(), keep(), keep()] });
+  const open = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()]), SHA), { F1: [keep(), keep(), keep()] });
   assert.equal(open.verdict, 'rejected');
   assert.match(line1(writerPrompt(args, open)), /^line 1: exactly Verdict: rejected\b/);
-  const clean = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })])), {});
+  const clean = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })]), SHA), {});
   assert.equal(clean.verdict, 'approved');
   assert.match(line1(writerPrompt(args, clean)), /^line 1: exactly Verdict: approved\b/);
 });
 
 test('delivery-models P15 review round: the writer is told reviews/resolution/<reviewer>.md with a verdictDir, and reviews/<reviewer>.md without one', () => {
-  const outcomeFor = (args) => outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })])), {});
+  const outcomeFor = (args) => outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })]), SHA), {});
   const resolution = baseArgs({ verdictDir: 'reviews/resolution' });
   const named = writerPrompt(resolution, outcomeFor(resolution));
   assert.ok(named.includes('openspec/changes/demo/reviews/resolution/code-quality-reviewer.md'), named);
@@ -261,8 +262,8 @@ test('delivery-models P15 review round: verdictDir must be a string when it is g
 
 test('review round: consolidate writes the table, the counts, the consensus line and the path', () => {
   const args = baseArgs({ round: 2, path: 'agents', bench: bench('code-quality-reviewer', 'test-coverage-reviewer') });
-  const a = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()])), { F1: [refute('e1'), refute('e2'), keep()] });
-  const b = outcomeOf(args, validateStage1('test-coverage-reviewer', stage1Of('test-coverage-reviewer', [finding({ text: 'survives' })], { commit: SHA2 })), { F1: [keep(), keep(), keep()] });
+  const a = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()]), SHA), { F1: [refute('e1'), refute('e2'), keep()] });
+  const b = outcomeOf(args, validateStage1('test-coverage-reviewer', stage1Of('test-coverage-reviewer', [finding({ text: 'survives' })], { commit: SHA2 }), SHA2), { F1: [keep(), keep(), keep()] });
   const { consensus, text } = consolidate({ args, outcomes: [a, b], failed: [], notes: ['verifiers failed: 1'] });
   assert.equal(consensus, 'FAIL');
   assert.match(text, /^# Review: demo, round 2$/m);
@@ -274,7 +275,7 @@ test('review round: consolidate writes the table, the counts, the consensus line
   assert.match(text, /^- code-quality-reviewer — \[important\] .* · refuted: e1 \/ e2 \(2 of 3\)$/m);
   assert.match(text, /^- verifiers failed: 1$/m);
   assert.match(text, /Consensus deadlock after round 2/);
-  const pass = consolidate({ args: baseArgs(), outcomes: [outcomeOf(baseArgs(), validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [])), {})], failed: [], notes: [] });
+  const pass = consolidate({ args: baseArgs(), outcomes: [outcomeOf(baseArgs(), validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', []), SHA), {})], failed: [], notes: [] });
   assert.match(pass.text, /^Consensus: PASS \(round 1\/2\)$/m);
   assert.match(pass.text, /^Ready to ship\.$/m);
   assert.match(pass.text, /^Path: workflow /m);
@@ -397,7 +398,7 @@ test('review round: workflow votes decide each finding: two refutations, a blank
 
 test('review round: workflow writes one prompt per reviewer with its own agent type, the lines and the commit (AC-3)', async () => {
   const votes = { [`${cq} F1`]: [refute('e1'), refute('e2'), keep()] };
-  const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, [finding({ id: 'F1', text: 'one' }), finding({ id: 'F2', severity: 'nit', text: 'two' })]), [tc]: stage1Of(tc, [], { commit: SHA2 }) }, votes }) });
+  const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, [finding({ id: 'F1', text: 'one' }), finding({ id: 'F2', severity: 'nit', text: 'two' })]), [tc]: stage1Of(tc, []) }, votes }) });
   const r = await h.run(baseArgs({ bench: bench(cq, tc) }));
   const writers = h.calls.filter((c) => c.phase === 'write');
   assert.deepEqual(writers.map((c) => c.agentType), [`devkit-core:${cq}`, `devkit-core:${tc}`]);
@@ -405,7 +406,7 @@ test('review round: workflow writes one prompt per reviewer with its own agent t
   assert.ok(writers[0].prompt.includes('- [important] a.mjs:1 — one · refuted: e1 / e2'));
   assert.ok(writers[0].prompt.includes('- [nit] a.mjs:1 — two\n'));
   assert.ok(writers[0].prompt.includes(`Commit: ${SHA}`));
-  assert.ok(writers[1].prompt.includes(`Commit: ${SHA2}`));
+  assert.ok(writers[1].prompt.includes(`Commit: ${SHA}`));
   assert.ok(writers.every((c) => c.prompt.includes('line 1: exactly Verdict: approved')));
   assert.equal(r.outcomes[0].verdict, 'approved', 'all refuted');
 });
@@ -496,7 +497,7 @@ test('review round: writeMismatch accepts the outcome as written and names a wro
 test('review round: VERIFIERS lives once in the rules section: verifyJobs, groupVotes, decide and the wording follow it', async () => {
   assert.equal(VERIFIERS, 3);
   const args = baseArgs();
-  const passed = [{ entry: args.bench[0], stage1: validateStage1(cq, stage1Of(cq, [finding(), finding({ id: 'F2', severity: 'nit' })])) }];
+  const passed = [{ entry: args.bench[0], stage1: validateStage1(cq, stage1Of(cq, [finding(), finding({ id: 'F2', severity: 'nit' })]), SHA) }];
   const jobs = verifyJobs(args, passed);
   assert.deepEqual(jobs.map((j) => `${j.reviewer} ${j.id} ${j.k}`), [1, 2, 3].map((k) => `${cq} F1 ${k}`));
   assert.deepEqual(groupVotes(jobs, ['a', 'b', 'c']), { [cq]: { F1: ['a', 'b', 'c'] } });
@@ -595,7 +596,7 @@ test('review round: cli outcomes lists a reviewer whose stage 1 is unusable as f
 
 test('review round: cli consolidate returns the consensus and the review.md section', () => {
   const args = baseArgs({ path: 'agents' });
-  const outcome = outcomeOf(args, validateStage1(cq, stage1Of(cq, [])), {});
+  const outcome = outcomeOf(args, validateStage1(cq, stage1Of(cq, []), SHA), {});
   const r = cli('consolidate', { args, outcomes: [outcome], failed: [], notes: ['completed with the Agent tool: x'] });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.json.consensus, 'PASS');
@@ -645,7 +646,7 @@ test('review round: cli check-file exits 0 for a file written from the outcome',
 
 function fileOutcome() {
   const args = baseArgs();
-  return outcomeOf(args, validateStage1(cq, stage1Of(cq, [finding(), finding({ id: 'F2', severity: 'blocking', text: 'two' }), finding({ id: 'F3', severity: 'nit', text: 'n' })])), { F1: [refute('e1'), refute('e2'), keep()], F2: [keep(), keep(), keep()] });
+  return outcomeOf(args, validateStage1(cq, stage1Of(cq, [finding(), finding({ id: 'F2', severity: 'blocking', text: 'two' }), finding({ id: 'F3', severity: 'nit', text: 'n' })]), SHA), { F1: [refute('e1'), refute('e2'), keep()], F2: [keep(), keep(), keep()] });
 }
 function writeVerdictFile(o, { verdict = o.verdict, commit = `Commit: ${o.commit}`, lines = o.lines } = {}) {
   const file = join(scratch, `verdict-${seq += 1}.md`);
@@ -674,7 +675,7 @@ test('review round: cli check-file exits 2 with the mismatch prefix for a missin
 });
 
 test('review round: cli equals the workflow for the same fixtures, except the path (AC-5)', async () => {
-  const stage1 = { [cq]: stage1Of(cq, mixed()), [tc]: stage1Of(tc, [finding({ text: 'tc finding' }), finding({ id: 'F2', severity: 'nit', text: 'tc nit' })], { commit: SHA2 }) };
+  const stage1 = { [cq]: stage1Of(cq, mixed()), [tc]: stage1Of(tc, [finding({ text: 'tc finding' }), finding({ id: 'F2', severity: 'nit', text: 'tc nit' })]) };
   const votes = {
     [`${cq} F1`]: [refute('e1'), refute('e2'), keep()],
     [`${cq} F2`]: [refute('e1'), { refuted: true, evidence: '' }, null],
@@ -700,6 +701,310 @@ test('review round: cli equals the workflow for the same fixtures, except the pa
   assert.match(consolidated.json.text, /^Path: agents /m);
   assert.equal(consolidated.json.text.replace('Path: agents', 'Path: workflow'), viaWorkflow.reviewMd);
   assert.equal(consolidated.json.consensus, viaWorkflow.consensus);
+});
+
+// ---- review-writer-prompt: the head and a complete stage-1 answer (AC-4, AC-5) ----
+
+const PADDED = `${SHA.slice(0, 7)}${'0'.repeat(33)}`;
+const failedAs = (reviewer) => ({ reviewer, stage: 'review', error: `review stage failed: ${reviewer} review` });
+
+test('review-writer-prompt AC-4 every command that takes args exits 3 without a head or with a 7-character one', () => {
+  const noHead = baseArgs();
+  delete noHead.head;
+  const inputs = (args) => ({
+    stage1: { args },
+    verify: { args, stage1: { [cq]: stage1Of(cq, []) } },
+    outcomes: { args, stage1: { [cq]: stage1Of(cq, []) }, votes: {} },
+    consolidate: { args, outcomes: [], failed: [], notes: [] },
+  });
+  for (const args of [noHead, baseArgs({ head: SHA.slice(0, 7) })]) {
+    for (const [sub, input] of Object.entries(inputs(args))) {
+      const r = cli(sub, input);
+      assert.equal(r.status, 3, `${sub} ${JSON.stringify(args.head)}: ${r.stderr}`);
+      assert.match(r.stderr, /^review input invalid: /, sub);
+    }
+  }
+});
+
+test('review-writer-prompt AC-4 validateArgs and validateStage1 refuse a head that is not 40 hex', () => {
+  const noHead = baseArgs();
+  delete noHead.head;
+  assert.throws(() => validateArgs(noHead), /^Error: review input invalid: args\.head/);
+  assert.throws(() => validateArgs(baseArgs({ head: SHA.toUpperCase() })), /^Error: review input invalid: args\.head/);
+  assert.throws(() => validateStage1(cq, stage1Of(cq, []), SHA.slice(0, 7)), /^Error: review input invalid: head must be a full 40 hex sha/);
+  assert.throws(() => validateStage1(cq, stage1Of(cq, [])), /^Error: review input invalid: head must be a full 40 hex sha/);
+  assert.equal(validateStage1(cq, stage1Of(cq, []), SHA).commit, SHA);
+});
+
+test('review-writer-prompt AC-4 the workflow throws before any agent runs when args have no head', async () => {
+  const h = harness({ respond: responder({ stage1: {} }) });
+  const noHead = baseArgs();
+  delete noHead.head;
+  await assert.rejects(h.run(noHead), /^Error: review input invalid: /);
+  assert.equal(h.calls.length, 0);
+});
+
+test('review-writer-prompt AC-4 a commit that is not HEAD names both shas and fails the stage', () => {
+  assert.throws(() => validateStage1(cq, stage1Of(cq, [], { commit: SHA2 }), SHA), (e) => e.message === `review input invalid: ${cq}: commit ${SHA2} is not HEAD ${SHA}`);
+});
+
+test('review-writer-prompt AC-4 a padded short sha fails stage 1 on cli verify and cli outcomes, with no job and no outcome', () => {
+  const args = baseArgs({ bench: bench(cq, tc) });
+  const stage1 = { [cq]: stage1Of(cq, [finding()], { commit: PADDED }), [tc]: stage1Of(tc, [finding()]) };
+  const verify = cli('verify', { args, stage1 });
+  assert.equal(verify.status, 0, verify.stderr);
+  assert.deepEqual(verify.json.failed, [failedAs(cq)]);
+  assert.ok(verify.json.jobs.every((j) => j.reviewer === tc));
+  const outcomes = cli('outcomes', { args, stage1, votes: {} });
+  assert.equal(outcomes.status, 0, outcomes.stderr);
+  assert.deepEqual(outcomes.json.failed, [failedAs(cq)]);
+  assert.deepEqual(outcomes.json.outcomes.map((o) => o.reviewer), [tc]);
+});
+
+test('review-writer-prompt AC-4 a padded short sha fails stage 1 on the workflow, with no verifier, no writer and no review.md', async () => {
+  const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, [finding()], { commit: PADDED }), [tc]: stage1Of(tc, []) } }) });
+  const r = await h.run(baseArgs({ bench: bench(cq, tc) }));
+  assert.deepEqual(r.failed, [failedAs(cq)]);
+  assert.equal(r.reviewMd, null);
+  assert.ok(h.calls.every((c) => c.phase === 'review' || c.label.startsWith(tc)));
+  assert.deepEqual(r.outcomes.map((o) => o.reviewer), [tc]);
+});
+
+test('review-writer-prompt AC-4 the commit of HEAD passes on both paths', async () => {
+  const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, []) } }) });
+  assert.deepEqual((await h.run(baseArgs())).failed, []);
+  assert.deepEqual(cli('verify', { args: baseArgs(), stage1: { [cq]: stage1Of(cq, []) } }).json.failed, []);
+});
+
+const partials = {
+  'a path in notRead': { notRead: ['src/b.ts'] },
+  'an empty read while not declined': { read: [] },
+  'no read key': { read: undefined },
+  'no notRead key': { notRead: undefined },
+  'a blank path in read': { read: ['a.mjs', ' '] },
+  'a read that is not a list': { read: 'a.mjs' },
+  'a notRead that is not a list': { notRead: 'none' },
+};
+
+test('review-writer-prompt AC-5 a partial answer is refused with the matching message', () => {
+  const message = (over) => { try { validateStage1(cq, stage1Of(cq, [], over), SHA); return null; } catch (e) { return e.message; } };
+  assert.equal(message(partials['a path in notRead']), `review input invalid: ${cq}: partial review: not read src/b.ts`);
+  assert.equal(message({ notRead: ['a', 'b', 'c', 'd'] }), `review input invalid: ${cq}: partial review: not read a, b, c`);
+  assert.equal(message(partials['an empty read while not declined']), `review input invalid: ${cq}: partial review: nothing read`);
+  assert.equal(message(partials['no read key']), `review input invalid: ${cq}: read must be a list of paths`);
+  assert.equal(message(partials['no notRead key']), `review input invalid: ${cq}: notRead must be a list of paths`);
+  assert.equal(message(partials['a blank path in read']), `review input invalid: ${cq}: read must be a list of paths`);
+});
+
+test('review-writer-prompt AC-5 a partial answer fails its review stage on the cli, before the verify stage', () => {
+  for (const [what, over] of Object.entries(partials)) {
+    const args = baseArgs({ bench: bench(cq, tc) });
+    const stage1 = { [cq]: stage1Of(cq, [finding()], over), [tc]: stage1Of(tc, [finding()]) };
+    const verify = cli('verify', { args, stage1 });
+    assert.equal(verify.status, 0, `${what}: ${verify.stderr}`);
+    assert.deepEqual(verify.json.failed, [failedAs(cq)], what);
+    assert.ok(verify.json.jobs.every((j) => j.reviewer === tc), what);
+    const outcomes = cli('outcomes', { args, stage1, votes: {} });
+    assert.deepEqual(outcomes.json.failed, [failedAs(cq)], what);
+    assert.deepEqual(outcomes.json.outcomes.map((o) => o.reviewer), [tc], what);
+  }
+});
+
+test('review-writer-prompt AC-5 a partial answer fails its review stage on the workflow, with no verifier and no writer', async () => {
+  for (const [what, over] of Object.entries(partials)) {
+    const h = harness({ respond: responder({ stage1: { [cq]: stage1Of(cq, [finding()], over), [tc]: stage1Of(tc, []) } }) });
+    const r = await h.run(baseArgs({ bench: bench(cq, tc) }));
+    assert.deepEqual(r.failed, [failedAs(cq)], what);
+    assert.equal(r.reviewMd, null, what);
+    assert.ok(h.calls.every((c) => c.phase === 'review' || c.label.startsWith(tc)), what);
+  }
+});
+
+test('review-writer-prompt AC-5 a declined reviewer that read nothing passes as declined on both paths', async () => {
+  const declined = stage1Of(cq, [], { declined: true, read: [], notRead: [] });
+  const viaCli = cli('outcomes', { args: baseArgs(), stage1: { [cq]: declined }, votes: {} });
+  assert.deepEqual(viaCli.json.failed, []);
+  assert.equal(viaCli.json.outcomes[0].verdict, 'declined');
+  const h = harness({ respond: responder({ stage1: { [cq]: declined }, writes: { [cq]: { written: true, verdict: 'declined', commit: SHA } } }) });
+  const r = await h.run(baseArgs());
+  assert.deepEqual(r.failed, []);
+  assert.equal(r.outcomes[0].verdict, 'declined');
+});
+
+test('review-writer-prompt AC-5 read and notRead are not kept in the outcome', () => {
+  const s = validateStage1(cq, stage1Of(cq, []), SHA);
+  assert.ok(!('read' in s) && !('notRead' in s));
+});
+
+// ---- review-writer-prompt: what the stage-1 prompt asks (AC-2, AC-3) ----
+
+test('review-writer-prompt AC-2 the stage-1 prompt says fixed in names exactly one sha and the other form is refuted', () => {
+  const entry = bench(cq)[0];
+  const p = reviewerPrompt(baseArgs(), entry);
+  assert.match(p, /fixed in <sha>, naming exactly one sha, the commit that holds the fix, or refuted: <evidence>; never name two shas\./);
+  assert.match(p, /disposition: null or "fixed in <one sha>" or "refuted: <evidence>"/);
+  const withPrevious = reviewerPrompt(baseArgs({ round: 2 }), { reviewer: cq, previous: 'x/reviews/cq.md', range: null });
+  assert.match(withPrevious, /\(fixed in <one sha>, the commit that holds the fix, or refuted: <evidence>\)/);
+  assert.equal(STAGE1_SCHEMA.properties.findings.items.properties.disposition.description, 'null, "fixed in <one sha>" or "refuted: <evidence>"');
+});
+
+test('review-writer-prompt AC-2 two shas in a disposition fail stage 1 on both paths', async () => {
+  const two = stage1Of(cq, [finding({ disposition: 'fixed in abc1234 and def5678' })]);
+  assert.throws(() => validateStage1(cq, two, SHA), /^Error: review input invalid: /);
+  assert.deepEqual(cli('verify', { args: baseArgs(), stage1: { [cq]: two } }).json.failed, [failedAs(cq)]);
+  const h = harness({ respond: responder({ stage1: { [cq]: two } }) });
+  assert.deepEqual((await h.run(baseArgs())).failed, [failedAs(cq)]);
+});
+
+test('review-writer-prompt AC-3 the stage-1 prompt asks for git rev-parse HEAD, read, notRead and a sections without Verdict or Commit lines', () => {
+  const p = reviewerPrompt(baseArgs(), bench(cq)[0]);
+  assert.match(p, /Run git rev-parse HEAD in the worktree and put the full sha it prints in commit; the round refuses any other value, a short sha padded with zeros included\./);
+  assert.match(p, /List in read every repo-relative path you opened, and in notRead every path of your remit you did not open/);
+  assert.match(p, /sections holds neither a Verdict: line nor a Commit: line: stage 3 writes both\./);
+  assert.match(p, /commit: "<the full sha git rev-parse HEAD printed>"/);
+  assert.match(p, /read: \["<repo-relative path you opened>"\], notRead: \["<path of your remit you did not open>"\]/);
+  assert.match(p, /sections: "<the rest of your output as Markdown, without the findings list and without a Verdict: or Commit: line>"/);
+  assert.ok(p.indexOf('write no file') < p.indexOf('Run git rev-parse HEAD') && p.indexOf('sections holds neither') < p.indexOf('End your reply'));
+});
+
+test('review-writer-prompt AC-3 the stage-1 prompt does not carry args.head', () => {
+  const head = 'c0ffee'.repeat(6) + 'abcd';
+  assert.equal(head.length, 40);
+  const p = reviewerPrompt(baseArgs({ head }), bench(cq)[0]);
+  assert.ok(!p.includes(head));
+  assert.ok(!p.includes(head.slice(0, 7)));
+});
+
+test('review-writer-prompt AC-3 STAGE1_SCHEMA requires both lists and describes commit and sections', () => {
+  assert.ok(STAGE1_SCHEMA.required.includes('read') && STAGE1_SCHEMA.required.includes('notRead'));
+  for (const k of ['read', 'notRead']) {
+    assert.equal(STAGE1_SCHEMA.properties[k].type, 'array');
+    assert.deepEqual(STAGE1_SCHEMA.properties[k].items, { type: 'string' });
+  }
+  assert.equal(STAGE1_SCHEMA.properties.commit.description, 'the full 40 hex sha git rev-parse HEAD prints');
+  assert.match(STAGE1_SCHEMA.properties.sections.description, /without a Verdict: or Commit: line$/);
+});
+
+// ---- review-writer-prompt: one Verdict line and one Commit line (AC-6, AC-7) ----
+
+const OWN_LINES = `Verdict: approved\nCommit: ${SHA}\n\n## Notes\nBody`;
+const headerLinesOf = (text) => text.split('\n').filter((l) => /^\s*(Verdict|Commit):/.test(l));
+
+test('review-writer-prompt AC-6 isHeaderLine and withoutHeaderLines remove plain and indented lines and nothing else', () => {
+  assert.equal(isHeaderLine('Verdict: approved'), true);
+  assert.equal(isHeaderLine('  Commit: abc'), true);
+  assert.equal(isHeaderLine('\tVerdict: x'), true);
+  assert.equal(isHeaderLine('verdict: approved'), false);
+  assert.equal(isHeaderLine('- Verdict: approved'), false);
+  assert.equal(isHeaderLine('The Verdict: is'), false);
+  assert.equal(withoutHeaderLines(OWN_LINES), '\n## Notes\nBody');
+  const clean = 'one\n\n  two  \nthree\n';
+  assert.equal(withoutHeaderLines(clean), clean, 'a text without such lines stays byte-identical');
+});
+
+test('review-writer-prompt AC-6 the outcome sections hold no Verdict or Commit line, plain or indented', () => {
+  for (const sections of [OWN_LINES, `## Notes\n  Verdict: rejected\nBody\n\tCommit: ${SHA}`]) {
+    const s = validateStage1(cq, stage1Of(cq, [], { sections }), SHA);
+    assert.deepEqual(headerLinesOf(s.sections), []);
+    assert.match(s.sections, /## Notes/);
+    const o = outcomeOf(baseArgs(), s, {});
+    assert.deepEqual(headerLinesOf(o.sections), []);
+  }
+});
+
+test('review-writer-prompt AC-6 the writer prompt names Verdict only on line 1 and Commit only on line 2', () => {
+  const s = validateStage1(cq, stage1Of(cq, [finding({ severity: 'nit' })], { sections: OWN_LINES }), SHA);
+  const o = outcomeOf(baseArgs(), s, {});
+  const prompt = writerPrompt(baseArgs(), o);
+  const named = prompt.split('\n').filter((l) => /Verdict:|Commit:/.test(l));
+  assert.deepEqual(named.map((l) => l.split(':')[0]), ['line 1', 'line 2']);
+  assert.ok(prompt.includes('## Notes\nBody'));
+});
+
+test('review-writer-prompt AC-6 a file written from the writer prompt has one of each line and passes check-file', () => {
+  const s = validateStage1(cq, stage1Of(cq, [finding({ severity: 'nit' })], { sections: OWN_LINES }), SHA);
+  const o = outcomeOf(baseArgs(), s, {});
+  const file = writeVerdictFile(o);
+  const text = readFileSync(file, 'utf8');
+  assert.equal(text.split('\n').filter((l) => l.startsWith('Verdict:')).length, 1);
+  assert.equal(text.split('\n').filter((l) => l.startsWith('Commit:')).length, 1);
+  assert.equal(cli('check-file', { file, outcome: o }).status, 0);
+});
+
+test('review-writer-prompt AC-6 the workflow and the cli strip the same lines', async () => {
+  const stage1 = { [cq]: stage1Of(cq, [], { sections: OWN_LINES }) };
+  const h = harness({ respond: responder({ stage1 }) });
+  const viaWorkflow = await h.run(baseArgs());
+  const viaCli = cli('outcomes', { args: baseArgs(), stage1, votes: {} });
+  assert.deepEqual(headerLinesOf(viaWorkflow.outcomes[0].sections), []);
+  assert.equal(viaCli.json.outcomes[0].sections, viaWorkflow.outcomes[0].sections);
+});
+
+function checkWith(extra) {
+  const o = fileOutcome();
+  const file = join(scratch, `verdict-${seq += 1}.md`);
+  writeFileSync(file, `Verdict: ${o.verdict}\nCommit: ${o.commit}\n\n${o.heading}\n\n### Findings\n${o.lines.join('\n')}\n\n${o.sections}\n${extra}`);
+  return { file, r: cli('check-file', { file, outcome: o }) };
+}
+
+test('review-writer-prompt AC-7 check-file exits 2 for a later Verdict line and names its line number', () => {
+  const { file, r } = checkWith('Verdict: rejected\n');
+  assert.equal(r.status, 2, r.stderr);
+  assert.ok(r.stderr.startsWith(`review file mismatch: ${file}: `), r.stderr);
+  assert.match(r.stderr, /line \d+ begins with Verdict:, which only lines 1 and 2 may/);
+  const n = readFileSync(file, 'utf8').split('\n').lastIndexOf('Verdict: rejected') + 1;
+  assert.ok(r.stderr.includes(`line ${n} begins`), r.stderr);
+});
+
+test('review-writer-prompt AC-7 check-file exits 2 for a later Commit line, also when indented', () => {
+  const plain = checkWith(`Commit: ${SHA}\n`);
+  assert.equal(plain.r.status, 2, plain.r.stderr);
+  assert.match(plain.r.stderr, /^review file mismatch: .*: line \d+ begins with Commit:, which only lines 1 and 2 may/);
+  const indented = checkWith('  Commit: x\n');
+  assert.equal(indented.r.status, 2, indented.r.stderr);
+});
+
+test('review-writer-prompt AC-7 check-file exits 0 for a file with no such line after line 2', () => {
+  const { r } = checkWith('A line that mentions Verdict: in the middle.\n');
+  assert.equal(r.status, 0, r.stderr);
+});
+
+// ---- review-writer-prompt: the writer jobs (AC-1) ----
+
+test('review-writer-prompt AC-1 cli outcomes gives one writer job per outcome, in order, equal to the workflow write calls', async () => {
+  const stage1 = { [cq]: stage1Of(cq, mixed()), [tc]: stage1Of(tc, [finding({ text: 'tc finding' })]) };
+  const votes = { [`${cq} F1`]: [refute('e1'), refute('e2'), keep()], [`${tc} F1`]: [keep(), keep(), keep()] };
+  const args = baseArgs({ bench: bench(cq, tc), path: 'agents', preamble: 'PRE' });
+  const asVotes = Object.fromEntries(Object.entries(votes).map(([k, v]) => [k.replace(' ', '#'), v]));
+  const r = cli('outcomes', { args, stage1, votes: asVotes });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(r.json.jobs.map((j) => [j.reviewer, j.agentType]), [cq, tc].map((n) => [n, `devkit-core:${n}`]));
+  assert.deepEqual(r.json.jobs.map((j) => j.reviewer), r.json.outcomes.map((o) => o.reviewer));
+  r.json.jobs.forEach((j, i) => assert.equal(j.prompt, writerPrompt(args, r.json.outcomes[i])));
+  const h = harness({ respond: responder({ stage1, votes }) });
+  await h.run({ ...args, path: 'workflow' });
+  const writers = h.calls.filter((c) => c.phase === 'write');
+  assert.deepEqual(writers.map((c) => c.prompt), r.json.jobs.map((j) => j.prompt.replace('Path: agents', 'Path: workflow')));
+  assert.deepEqual(writers.map((c) => c.agentType), r.json.jobs.map((j) => j.agentType));
+});
+
+test('review-writer-prompt AC-1 a failed reviewer has no writer job', () => {
+  const r = cli('outcomes', { args: baseArgs({ bench: bench(cq, tc) }), stage1: { [cq]: null, [tc]: stage1Of(tc, []) }, votes: {} });
+  assert.deepEqual(r.json.failed, [failedAs(cq)]);
+  assert.deepEqual(r.json.jobs.map((j) => j.reviewer), [tc]);
+});
+
+test('review-writer-prompt AC-1 the other keys of cli outcomes keep their shape', () => {
+  const r = cli('outcomes', { args: baseArgs(), stage1: { [cq]: stage1Of(cq, [finding()]) }, votes: { [`${cq}#F1`]: [keep(), null, null] } });
+  assert.deepEqual(Object.keys(r.json), ['outcomes', 'failed', 'verifiersFailed', 'jobs']);
+  assert.equal(r.json.verifiersFailed, 2);
+  assert.deepEqual(r.json.jobs[0], { reviewer: cq, agentType: `devkit-core:${cq}`, prompt: writerPrompt(baseArgs(), r.json.outcomes[0]) });
+});
+
+test('review-writer-prompt AC-1 writeJobs maps outcomes to jobs and gives none for none', () => {
+  assert.deepEqual(writeJobs(baseArgs(), []), []);
+  const o = outcomeOf(baseArgs(), validateStage1(cq, stage1Of(cq, []), SHA), {});
+  assert.deepEqual(writeJobs(baseArgs(), [o]), [{ reviewer: cq, agentType: `devkit-core:${cq}`, prompt: writerPrompt(baseArgs(), o) }]);
 });
 
 // ---- text (agents, skills, docs) ---------------------------------------
@@ -783,4 +1088,40 @@ test('review round: text docs/openspec-flow.md has the review round section and 
   assert.match(d.split('\n').find((l) => l.startsWith('| One writer per gate file')), /finding-verifier/);
   assert.match(d, /`Path: agents` on a typed turn|Path: agents.*typed turn/);
   assert.match(readRoot('plugins/core/README.md').split('\n').find((l) => l.startsWith('| Review |')), /verif/);
+});
+
+test('review-writer-prompt AC-3 text the six reviewer agents hold the same Stage 1 bullet, naming git rev-parse HEAD and no verdict line', () => {
+  const bullets = REVIEWERS.map((r) => readRoot(`plugins/core/agents/${r}-reviewer.md`).split('\n').find((l) => l.startsWith('- **Stage 1 (review):**')));
+  assert.ok(bullets.every((b) => b), 'every agent has the bullet');
+  assert.equal(new Set(bullets).size, 1, 'the same text in all six');
+  assert.match(bullets[0], /`git rev-parse HEAD`/);
+  assert.match(bullets[0], /without your verdict line/);
+  assert.match(bullets[0], /`fixed in` names one sha/);
+  assert.doesNotMatch(bullets[0], /the verdict and the commit as you would write them/);
+});
+
+test('review-writer-prompt AC-4 text the review skill and the ship-change review row fill args.head from git rev-parse HEAD', () => {
+  const s = readRoot('plugins/core/skills/review-change/SKILL.md');
+  const argsLine = s.split('\n').find((l) => l.startsWith('Build `args` first'));
+  assert.ok(argsLine);
+  assert.match(argsLine, /\bhead\b[^.]*`git rev-parse HEAD`/);
+  assert.match(argsLine, /structural: "PASS"/);
+  assert.match(s, /`args\.head`/);
+  assert.match(s, /review stage failed: <r> review/);
+  const row = readRoot('plugins/openspec/skills/ship-change/SKILL.md').split('\n').find((l) => l.startsWith('| `review` |'));
+  assert.match(row, /`args\.head`/);
+  assert.match(row, /`git rev-parse HEAD`/);
+});
+
+test('review-writer-prompt AC-1 text the review skill agents path sends the jobs of the outcomes command', () => {
+  const s = readRoot('plugins/core/skills/review-change/SKILL.md');
+  const step = s.split('\n').find((l) => l.startsWith('3. `node <skill-dir>/scripts/review-round.mjs outcomes'));
+  assert.ok(step);
+  assert.match(step, /\{ outcomes, failed, verifiersFailed, jobs: \[\{ reviewer, agentType, prompt \}\] \}/);
+  assert.match(step, /never build a writer prompt by hand/);
+  const check = s.split('\n').find((l) => l.startsWith('- After the round, check every written file'));
+  assert.match(check, /`Verdict:` or `Commit:` line after line 2/);
+  const flow = readRoot('docs/openspec-flow.md');
+  assert.match(flow, /no `Verdict:` or `Commit:` line after line 2/);
+  assert.match(flow, /git rev-parse HEAD/);
 });

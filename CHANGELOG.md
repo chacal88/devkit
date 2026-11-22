@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.25.2 — follow-ups of the project phases
+
+- **devkit-openspec** 0.21.2: the slice contract refuses an ADR verdict recorded with uncommitted
+  changes, from `devkit-reviews` and the `gh pr create` hook, and `/devkit project` neither records
+  it nor moves on: it hands the review back to the ADR reviewer. New tests pin the contract's
+  fail-closed branches and a merge that brings an ADR. The CI snippet now pins `v0.21.2`, the
+  release's tag.
+- Docs: the slice contract says what a current ADR verdict is; the archived `project-phases` plan
+  and the pack README name ADR 0015 for the slice decision; the roadmap gives the dogfood of the
+  first real slice a line of its own (`project-slice-dogfood`).
+
+## 0.25.1 — retro of review-writer-prompt
+
+- **devkit-openspec** 0.21.1: the `ship-change` `stop-plan-approval` row writes the owner's words
+  inside backticks, so the language check never reads them as prose. The CI snippet now pins
+  `v0.21.1`, the release's tag.
+- Docs: the roadmap gains round 17h (`fresh-base-check`, `delivery-merge-hold`); the config context
+  asks a plan that moves or writes a parser to decide what unterminated input does.
+
+## 0.25.0 — review round tooling
+
+- **devkit-core** 0.9.0: the review round script takes `args.head`, the full sha of HEAD, and
+  refuses a stage-1 answer at another commit, with a short sha, or a partial one (files not read)
+  before the verify stage; the stage-1 prompt asks for one sha per disposition, for the sha
+  `git rev-parse HEAD` printed and for the files read; `review-round.mjs outcomes` returns each
+  outcome's writer prompt as `jobs`, which leaves out the stage-1 `Verdict:` and `Commit:` lines;
+  `check-file` refuses a second `Verdict:` or `Commit:` line. The six reviewer agents' Staged round
+  paragraph says the same.
+- **devkit-openspec** 0.21.0: a commit of test files only stales only `code-quality-reviewer` and
+  `test-coverage-reviewer` (and the evidence), and `flow-check` reports the review stage stale
+  while any reviewer is stale; `deliver-check` no longer counts a checkbox inside a fenced example
+  of `tasks.md` as a task. The CI snippet now pins `v0.21.0`, the release's tag.
+- Docs: the flow document and the `review-change` and `ship-change` skills follow.
+
+## 0.24.1 — retro of project-phases
+
+- **devkit-core** 0.8.2: the reviewer prompt of the review round names the finding id format and the
+  commit command, so a stage-1 object is not refused for ids or a placeholder sha; `tdd-implementer`
+  never stops a process by pattern.
+- Docs: CONTRIBUTING covers version and ADR numbers when changes run in parallel; a roadmap line for the
+  project flow's follow-ups.
+
+## 0.24.0 — the project phases, /devkit project
+
+- **devkit-openspec** 0.20.0: `/devkit project <slice>` takes a new project or one slice of it through
+  its four design phases, in the owner's session, to one pull request. A slice is a change on the new
+  `devkit-project` schema (installed by `openspec-setup` with the other two); a new script,
+  `project-loop.mjs`, decides each call. The roadmap stage appends the rounds to `openspec/roadmap.md`
+  only after the owner approves them, or is not applicable. The ADR reviewer is the slice's only review,
+  and `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one slice contract. The
+  CI snippet now pins `v0.20.0`, the release's tag: a project moves its CI pin to `v0.20.0` before it
+  sets `ship: devkit-project: merge`, because an older check passes a slice with a note.
+- **devkit-design** 0.2.0: the five skills ask for the slice and write under `docs/design/<slice>/`,
+  and called by name they write no roadmap and open no pull request.
+- Docs: ADR 0015 (accepted) amends ADR 0010 and ADR 0012; the coordination design, the flow
+  document, the role document and both READMEs follow.
+
 ## 0.23.1 — merge staleness by the first parent
 
 - **devkit-openspec** 0.19.1: a merge commit counts the files that differ between its first parent

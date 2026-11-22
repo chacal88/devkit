@@ -1193,10 +1193,12 @@ test('flow-check readout: both languages cover every reason code', () => {
     'fix-after-failure': { failed: 'review', attempt: 1, ceiling: 2 }, 'rerun-after-fix': { stage: 'review' }, 'ceiling-reached': { stage: 'review', attempt: 2, ceiling: 2 },
     'no-progress': { stage: 'review' }, 'owner-pending': { stage: 'review' }, 'approval-stale': { stage: 'review' }, 'unshipped-role-pending': { stage: 'review' },
     'no-role': { stage: 'review', role: 'owner' }, archive: {}, archived: {}, 'previous-script': {}, 'schema-without-declaration': {},
+    'undeclared-stage': { stage: 'retro', why: 'every stage passed' },
     'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' },
     'check-failing': { checks: 'build (https://ci/build)' }, 'checks-pending': { checks: 'e2e' }, 'owner-merges': { number: 12 },
     'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },
     'no-test-pr': {}, 'owner-merges-test-branch': { number: 13, branch: 'develop', base: 'main' }, 'owner-merges-base': { number: 12, base: 'main' },
+    'stale-reviewers': { names: ['spec-reviewer'] },
   };
   assert.deepEqual(Object.keys(P).sort(), en, 'the table below names every code');
   for (const code of en) {
@@ -1445,4 +1447,82 @@ test('field-fixes 2 previous-script: isPreviousScript reads only the earliest st
   assert.equal(FC.isPreviousScript({ a: file(headed), b: file(null) }, flow), false);
   assert.equal(FC.isPreviousScript({ a: [], b: file(null) }, flow), true, 'the first stage with a file decides');
   assert.equal(FC.isPreviousScript({ a: [], b: [] }, flow), false, 'no file at all is a change being opened');
+});
+
+// ---- review-writer-prompt D-7: the review stage is stale while a reviewer is stale (spec change-stages)
+
+const reviewFile = (sha, extra = '') => `Verdict: APPROVED\nCommit: ${sha}${extra}\n\n# Review\n`;
+const rewriteHeaders = (root, ids, sha) => {
+  for (const id of ids) {
+    const file = join(root, 'openspec', 'changes', 'feat', `${id}.md`);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/commit=[0-9a-f]+/, `commit=${sha}`));
+  }
+};
+const reviewersAt = (root, shas) => put(root, Object.fromEntries(Object.entries(shas).map(([n, sha]) => [`openspec/changes/feat/reviews/${n}.md`, reviewFile(sha)])));
+
+test('review-writer-prompt AC-8 a commit of test files only after the review makes the review stage stale', () => {
+  const root = liveChange();
+  const a = git(root, 'rev-parse', 'HEAD');
+  reviewersAt(root, { 'code-quality-reviewer': a, 'spec-reviewer': a });
+  commitAll(root, 'reviewers');
+  assert.equal(stageOf(liveReport(root), 'review').state, 'passed', 'control');
+  put(root, { 'src/a.test.ts': 't\n' });
+  const b = commitAll(root, 'tests only');
+  rewriteHeaders(root, ['evidence'], b);
+  commitAll(root, 'evidence again');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'evidence').state, 'passed');
+  assert.equal(stageOf(r, 'review').state, 'stale');
+  assert.equal(r.next.stage, 'review');
+});
+
+test('review-writer-prompt AC-8 a stale reviewer under a current header makes the review stage stale and names it', () => {
+  const root = liveChange();
+  const a = git(root, 'rev-parse', 'HEAD');
+  put(root, { 'src/a.ts': 'product\n' });
+  const b = commitAll(root, 'product');
+  rewriteHeaders(root, ['evidence', 'review'], b);
+  reviewersAt(root, { 'code-quality-reviewer': b, 'spec-reviewer': a });
+  commitAll(root, 'headers and reviewers');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'evidence').state, 'passed');
+  const review = stageOf(r, 'review');
+  assert.equal(review.state, 'stale');
+  assert.equal(review.reasonCode, 'stale-reviewers');
+  assert.deepEqual(review.params.names, ['spec-reviewer']);
+  assert.match(review.reason, /spec-reviewer/);
+  assert.equal(r.next.stage, 'review');
+});
+
+test('review-writer-prompt AC-8 every reviewer current under a current header leaves the review stage passed', () => {
+  const root = liveChange();
+  put(root, { 'src/a.ts': 'product\n' });
+  const b = commitAll(root, 'product');
+  rewriteHeaders(root, ['evidence', 'review'], b);
+  reviewersAt(root, { 'code-quality-reviewer': b, 'spec-reviewer': b });
+  commitAll(root, 'headers and reviewers');
+  assert.equal(stageOf(liveReport(root), 'review').state, 'passed');
+});
+
+test('review-writer-prompt AC-8 the review stage without a staleReviewers fact keeps today\'s result', () => {
+  assert.equal(stageOf(walk({}), 'review').state, 'passed');
+  const named = walk({ retro: null }, { staleReviewers: () => ['spec-reviewer', 'adr-reviewer'] });
+  assert.equal(stageOf(named, 'review').reasonCode, 'stale-reviewers');
+  assert.equal(reasonText('en', 'stale-reviewers', { names: ['spec-reviewer', 'adr-reviewer'] }, {}), 'the reviews of spec-reviewer, adr-reviewer are stale');
+  assert.equal(stageOf(walk({}, { staleReviewers: () => [] }), 'review').state, 'passed');
+});
+
+test('review-writer-prompt AC-8 after the merge the review stage is read from its header alone', () => {
+  const root = liveChange({ ship: 'merge', skip: ['retro'] });
+  rewriteHeaders(root, ['evidence', 'review'], 'deadbee');
+  reviewersAt(root, { 'spec-reviewer': 'deadbee' });
+  commitAll(root, 'squashed away');
+  git(root, 'checkout', '-q', 'main');
+  const gh = fakeGh();
+  gh.set('pr-view', { stdout: prView(git(root, 'rev-parse', 'HEAD'), { state: 'MERGED', headRefName: 'feat' }) });
+  gh.set('pr-list-state-merged', { stdout: [prView('f'.repeat(40), { state: 'MERGED', headRefName: 'feat', body: 'evidence: openspec/changes/feat/evidence.md' })] });
+  ownMerged(gh.set.bind(gh));
+  const env = { ...gh.env, ...SHIP_ENV };
+  const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+  assert.equal(stageOf(computeFlow(facts, flow, {}), 'review').state, 'passed');
 });

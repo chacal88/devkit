@@ -7,26 +7,16 @@ import { dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal } from './guard.mjs';
-import { gitFacts, staleness, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
+import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader } from './guard.mjs';
+import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 export class FlowUsageError extends Error {
   constructor(message) { super(message); this.name = 'FlowUsageError'; }
 }
 
-// Line 1 of every stage file (design D-3).
-export const STAGE_HEADER = /^<!-- devkit-stage ([a-z0-9][a-z0-9-]*) result=(passed|failed|not-applicable|pending) attempt=([1-9][0-9]{0,2}) commit=([0-9a-f]{7,40}|none) -->\r?$/;
-
-// { stage, result, attempt, commit } for a well-formed header, { malformed: true } for a line that
-// starts like one and is not, null for any other first line (or no text).
-export function parseStageHeader(text) {
-  const first = String(text ?? '').split('\n', 1)[0];
-  if (!first.startsWith('<!-- devkit-stage')) return null;
-  const m = STAGE_HEADER.exec(first);
-  if (!m) return { malformed: true };
-  return { stage: m[1], result: m[2], attempt: Number(m[3]), commit: m[4] };
-}
+// The stage header reader lives in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
+export { STAGE_HEADER, parseStageHeader };
 
 const SOURCES = ['folder', 'artifact', 'tasks', 'github'];
 const PARTS = ['open', 'plan', 'build', 'after', 'delivery', 'close'];
@@ -73,25 +63,6 @@ export function readFlowFile(f, name = f) {
     }
   });
   return flow;
-}
-
-// The 1-based lines of `text` that sit inside a fenced block (and the fence lines themselves). A line
-// opening with three or more backticks or tildes opens a fence; the next line opening with at least as
-// many of the same character closes it.
-function fencedLines(text) {
-  const inside = new Set();
-  let open = null;
-  String(text).split('\n').forEach((line, i) => {
-    const m = /^\s*(`{3,}|~{3,})/.exec(line);
-    if (open) {
-      inside.add(i + 1);
-      if (m && m[1][0] === open.char && m[1].length >= open.len) open = null;
-    } else if (m) {
-      inside.add(i + 1);
-      open = { char: m[1][0], len: m[1].length };
-    }
-  });
-  return inside;
 }
 
 // OpenSpec's task list ({ id, done, line }) is the source; a checkbox inside a fenced example of
@@ -283,6 +254,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf)),
+    staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
     delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs }),
   });
   const status = openspecJson(openspec, ['status', '--change', id, '--json'], 'artifacts');
@@ -322,6 +294,7 @@ export const TEXT = {
     'header-failed': (p) => `failed at attempt ${p.attempt} of ${p.ceiling}`,
     'stale-code': (p) => `the code changed since it ran (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} changed after it`,
+    'stale-reviewers': (p) => `the reviews of ${p.names.join(', ')} are stale`,
     'tasks-pending': (p) => `${p.count} task${p.count === 1 ? '' : 's'} pending (${p.ids.join(', ')})`,
     uncommitted: (p) => `code changed and is not committed (${p.paths.join(', ')})`,
     'tasks-done': (p) => `${p.done} of ${p.total} tasks done`,
@@ -332,6 +305,7 @@ export const TEXT = {
     'no-progress': (p, n) => `the ${nameOf(n, p.stage)} came back with nothing changed since the last run`,
     'owner-pending': (p, n) => `the ${nameOf(n, p.stage)} waits for the owner`,
     'approval-stale': (p, n) => `the ${nameOf(n, p.stage)} is stale: the owner approves the revised plan again`,
+    'undeclared-stage': (p) => `the script declares no ${p.stage} stage (${p.why})`,
     'unshipped-role-pending': (p, n) => `the ${nameOf(n, p.stage)} is pending and no role in this version can finish it: the owner sets its result or removes the file`,
     'no-role': (p, n) => `the ${nameOf(n, p.stage)} needs ${p.role}, which cannot act here`,
     archive: () => 'every stage passed; the change is archived with openspec archive',
@@ -367,6 +341,7 @@ export const TEXT = {
     'header-failed': (p) => `falhou na tentativa ${p.attempt} de ${p.ceiling}`,
     'stale-code': (p) => `o código mudou desde que ela rodou (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} mudou depois dela`,
+    'stale-reviewers': (p) => `as revisões de ${p.names.join(', ')} estão desatualizadas`,
     'tasks-pending': (p) => `${p.count} ${p.count === 1 ? 'tarefa pendente' : 'tarefas pendentes'} (${p.ids.join(', ')})`,
     uncommitted: (p) => `há código alterado e não commitado (${p.paths.join(', ')})`,
     'tasks-done': (p) => `${p.done} de ${p.total} tarefas feitas`,
@@ -377,6 +352,7 @@ export const TEXT = {
     'no-progress': (p, n) => `a etapa ${nameOf(n, p.stage)} voltou sem nada ter mudado desde a última execução`,
     'owner-pending': (p, n) => `a etapa ${nameOf(n, p.stage)} espera o dono`,
     'approval-stale': (p, n) => `a etapa ${nameOf(n, p.stage)} está desatualizada: o dono aprova de novo o plano revisado`,
+    'undeclared-stage': (p) => `o roteiro não declara a etapa ${p.stage} (${p.why})`,
     'unshipped-role-pending': (p, n) => `a etapa ${nameOf(n, p.stage)} está pendente e nenhum papel desta versão consegue concluí-la: o dono define o resultado ou remove o arquivo`,
     'no-role': (p, n) => `a etapa ${nameOf(n, p.stage)} precisa de ${p.role}, que não pode agir aqui`,
     archive: () => 'todas as etapas passaram; a change é arquivada com openspec archive',
@@ -432,6 +408,11 @@ function artifactState(stage, files, facts, flow, started) {
       const why = facts.staleness(f.header.commit);
       if (why) { stale = { code: 'stale-code', params: { why } }; break; }
     }
+  }
+  // The review stage is also stale while a reviewer's own file is (the header can be current when a file is not).
+  if (!stale && stage.id === 'review' && facts.staleReviewers) {
+    const names = facts.staleReviewers();
+    if (names.length) stale = { code: 'stale-reviewers', params: { names } };
   }
   // Once the work has started, ticking tasks.md must not make the plan review stale (conduct-check's rule).
   if (!stale && !started && !facts.postMerge) {
@@ -532,6 +513,8 @@ export function computeFlow(facts, flow, { after = null } = {}) {
   const finishEnd = (state, stage, code, params) => { report.end = { state, stage, ...note(code, params) }; return report; };
   const offer = (stageId, code, params) => {
     const i = stages.findIndex((x) => x.id === stageId);
+    // A script that declares no such stage (a slice has no retro and no implementation) ends blocked, not thrown (D-3).
+    if (i === -1) return finishEnd('blocked', stageId, 'undeclared-stage', { stage: stageId, why: reasonText('en', code, params, names) });
     const s = stages[i];
     // Last guard: a next stage never names the owner or a role that is not shipped.
     if (s.shipped === false) return finishEnd('waiting-for-owner', s.id, 'unshipped-role-pending', { stage: s.id });

@@ -3,6 +3,7 @@
 - Status: accepted
 - Amended by ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md)
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
+- Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -46,6 +47,11 @@ waits for the owner's next message with a line, never a subagent in its place. T
 the session to start the changes the load holds at that moment anyway, and the hold applies again
 to every later start; that permission is the owner's own message and is kept nowhere. Decisions 1
 to 8 are otherwise unchanged.
+
+Note (project-phases, 2026-11-22): the project entry and the `devkit-project` schema are built;
+[ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md) answers decision 8's open point
+(the hooks act in a slice's checkout as for any change, no run lock holds a `/devkit project` run) and
+records the slice model. Decisions 1 to 8 are otherwise unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions

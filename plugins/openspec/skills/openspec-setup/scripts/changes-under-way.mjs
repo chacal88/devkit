@@ -42,6 +42,7 @@ function parseArgs(argv) {
 
 // The effect of the upgrade on one change, first match wins: { effect, write }.
 function effectOf(c) {
+  if (c.script === 'devkit-project') return { effect: 'continues on the new project script; its stage records and documents stay', write: 'none' };
   if (!DEVKIT_SCHEMAS.includes(c.script)) return { effect: `untouched by the upgrade: it is on the schema ${c.script}, which the upgrade does not replace`, write: 'none' };
   if (c.script === 'devkit' && c.started && !c.approval) {
     return { effect: 'continues where it was; the owner\'s approval stage did not exist when its implementation began, so approval.md is written as not applying', write: 'approval-not-applicable' };
@@ -64,7 +65,7 @@ function previousScript(dir, script) {
 }
 
 function listChanges(root) {
-  return unfinished(root).map(({ id, root: checkout, branch }) => {
+  return unfinished(root, { slices: true }).map(({ id, root: checkout, branch }) => {
     const dir = join(checkout, 'openspec', 'changes', id);
     const tasks = join(dir, 'tasks.md');
     const row = {

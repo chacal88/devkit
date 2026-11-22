@@ -38,7 +38,7 @@ test('install-schemas: no argument from a subfolder installs into the project, n
   const w = world();
   const r = run(w, [], join(w.repo, 'sub', 'dir'));
   assert.equal(r.code, 0, r.err);
-  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite']);
+  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite', 'devkit-project']);
   assert.deepEqual(readdirSync(w.xdg), []);
 });
 
@@ -46,7 +46,7 @@ test('install-schemas: <path> keeps installing into <path>/openspec/schemas', ()
   const w = world();
   const r = run(w, [w.repo], w.base);
   assert.equal(r.code, 0, r.err);
-  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite']);
+  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite', 'devkit-project']);
   assert.deepEqual(readdirSync(w.xdg), []);
 });
 
@@ -54,14 +54,14 @@ test('install-schemas: the "." form (CI) still works', () => {
   const w = world();
   const r = run(w, ['.'], w.repo);
   assert.equal(r.code, 0, r.err);
-  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite']);
+  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite', 'devkit-project']);
 });
 
 test('install-schemas: --user installs machine-wide and leaves the project untouched', () => {
   const w = world();
   const r = run(w, ['--user'], w.repo);
   assert.equal(r.code, 0, r.err);
-  assert.deepEqual(names(join(w.xdg, 'openspec', 'schemas')), ['devkit', 'devkit-lite']);
+  assert.deepEqual(names(join(w.xdg, 'openspec', 'schemas')), ['devkit', 'devkit-lite', 'devkit-project']);
   assert.equal(existsSync(join(w.repo, 'openspec', 'schemas')), false);
 });
 
@@ -122,7 +122,7 @@ test('field-fixes 6 install-schemas: a pinned 2.x validates the schemas with the
   const w = pinWorld({ pin: '2.0.0' });
   const r = w.go([w.repo], w.base);
   assert.equal(r.code, 0, r.err);
-  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite']);
+  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite', 'devkit-project']);
   assert.match(w.seen(), /^pinned schema validate devkit$/m);
   assert.doesNotMatch(w.seen(), /^path /m);
 });
@@ -142,7 +142,7 @@ test('field-fixes 6 install-schemas: a 1.x on PATH with no pin keeps today\'s co
   openspecStub(join(w.base, 'pathcli'), { version: '1.16.0', label: 'path', marker: w.marker });
   const r = w.go([w.repo], w.base);
   assert.equal(r.code, 0, r.err);
-  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite']);
+  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite', 'devkit-project']);
 });
 
 test('install-schemas: a second run replaces the schemas', () => {
@@ -151,5 +151,5 @@ test('install-schemas: a second run replaces the schemas', () => {
   const r = run(w, [], w.repo);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /replacing .*devkit-lite/);
-  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite']);
+  assert.deepEqual(names(join(w.repo, 'openspec', 'schemas')), ['devkit', 'devkit-lite', 'devkit-project']);
 });

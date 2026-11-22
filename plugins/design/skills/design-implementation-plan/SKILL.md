@@ -1,6 +1,6 @@
 ---
 name: design-implementation-plan
-description: Phase 4 of greenfield DDD design. Interviews the owner to turn the approved architecture into a build plan (scaffold, stack traced to ADRs, minimum pipeline) and a backlog of vertical changes ordered by risk and value, written to docs/design/4-implementation-plan.md. Use after design-architecture is approved, or when the user asks to plan the implementation or build the change backlog of a project whose Phases 1-3 are approved.
+description: Phase 4 of greenfield DDD design. Interviews the owner to turn the approved architecture into a build plan (scaffold, stack traced to ADRs, minimum pipeline) and a backlog of vertical changes ordered by risk and value, written to docs/design/<slice>/4-implementation-plan.md. Use after design-architecture is approved, or when the user asks to plan the implementation or build the change backlog of a project whose Phases 1-3 are approved.
 ---
 
 # Design Phase 4: Implementation Plan
@@ -8,6 +8,14 @@ description: Phase 4 of greenfield DDD design. Interviews the owner to turn the 
 > Materializes the decisions: technology executes what the domain drove. This phase is the bridge from design to execution — it ends with a **backlog of vertical changes**, the first one ready to plan. Runs the interview (one question at a time), writes the deliverable in `docs/design/`, and asks the owner to approve it.
 
 Phase order: business discovery (`design-business-discovery`) → domain model (`design-domain-model`) → architecture (`design-architecture`) → **implementation plan** (this skill, the last phase).
+
+## The slice
+
+Run by `/devkit project`, the action names the slice. Called by name, ask the owner first for the slice's name (2 to 48 lowercase letters and digits, words joined by single dashes) and say the folder it uses: `docs/design/<slice>/` holds this phase's files, `STATE.md` included, and every path below is inside it.
+
+- A flat `docs/design/` and other slices' folders are read as context, never edited.
+- When the owner agrees this phase does not apply to this slice, the document says so and why, and the phase ends there.
+- Alone, write nothing to `openspec/roadmap.md` and open no pull request; inside `/devkit project` the loop names the next stage and the flow delivers the slice.
 
 ## When to use (and when not)
 
@@ -17,8 +25,8 @@ Phase order: business discovery (`design-business-discovery`) → domain model (
 
 ## Prerequisites
 
-- **Mandatory inputs:** `docs/design/1-business-vision.md`, `docs/design/2-domain-model.md` and, with extra attention, `docs/design/3-architecture.md` (the context map and the ADRs). Reread them; if an input contradicts what the owner says now, point out the contradiction before continuing.
-- `docs/design/STATE.md` with Phases 1–3 approved.
+- **Mandatory inputs:** `docs/design/<slice>/1-business-vision.md`, `docs/design/<slice>/2-domain-model.md` and, with extra attention, `docs/design/<slice>/3-architecture.md` (the context map and the ADRs). Reread them; if an input contradicts what the owner says now, point out the contradiction before continuing.
+- `docs/design/<slice>/STATE.md` with Phases 1–3 approved.
 - Access to the owner in interview mode.
 - **Content language.** Interview and write the prose in the project's language (from its docs/config, or the language the owner writes in). Identifiers, file names and template headings stay as defined.
 
@@ -51,13 +59,13 @@ Tone: a senior architect interviewing the product owner — skeptical to the rig
 
 ### Deliverable
 
-Write `docs/design/4-implementation-plan.md` covering the four axes: the scaffold mirroring the context map, the confirmed stack (each piece traceable to an ADR), the minimum pipeline (build/test/deploy), and the **change backlog** — vertical changes ordered by risk + value. For each change give a short kebab-case id, one-paragraph scope, the model command/event it delivers, its acceptance criterion, and its dependencies on earlier changes. The first change must be specified well enough to plan right away.
+Write `docs/design/<slice>/4-implementation-plan.md` covering the four axes: the scaffold mirroring the context map, the confirmed stack (each piece traceable to an ADR), the minimum pipeline (build/test/deploy), and the **change backlog** — vertical changes ordered by risk + value. For each change give a short kebab-case id, one-paragraph scope, the model command/event it delivers, its acceptance criterion, and its dependencies on earlier changes. The first change must be specified well enough to plan right away.
 
 ADRs born in this phase (a stack piece with no recorded decision yet) go in the project's ADR folder, sequentially numbered and indexed. **An accepted ADR is immutable:** changed your mind → a new ADR that supersedes or amends.
 
 ### Handing off to execution
 
-The change backlog is the output of the design. Each change is then planned and built one at a time through the project's normal change workflow. When the project uses OpenSpec, suggest the `openspec-propose` skill for the first change of the backlog; for a broader planning pass, suggest the `change-planner` agent. Record in `STATE.md` (the "Execution" table) each change as it completes and which one is next.
+The change backlog is the output of the design, and it stays in `docs/design/<slice>/4-implementation-plan.md`. `/devkit project <slice>` turns it into the roadmap's rounds, and `/devkit change` runs one change. Record in `STATE.md` (the "Execution" table) each change as it completes and which one is next.
 
 ### Approval
 
@@ -73,9 +81,9 @@ When the exit checklist is satisfied, show the owner a **short summary** (scaffo
 
 ## Outputs
 
-- `docs/design/4-implementation-plan.md` — scaffold, stack traced to ADRs, minimum pipeline, change backlog.
+- `docs/design/<slice>/4-implementation-plan.md` — scaffold, stack traced to ADRs, minimum pipeline, change backlog.
 - New ADRs from this phase, indexed.
-- `docs/design/STATE.md` updated, with the "Execution" table ready to receive the changes.
+- `docs/design/<slice>/STATE.md` updated, with the "Execution" table ready to receive the changes.
 
 ## Guardrails
 
@@ -87,4 +95,4 @@ When the exit checklist is satisfied, show the owner a **short summary** (scaffo
 ## Related
 
 - Previous phase: `design-architecture` (its ADRs and context map are this phase's direct input).
-- After the design: `openspec-propose` (plan the first change), `change-planner` (planning agent).
+- After the design: `/devkit project <slice>` writes the roadmap's rounds from the backlog; `/devkit change` runs one change of it.

@@ -84,7 +84,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  branch: 'develop', base: 'master', default: 'main',
+  branch: 'develop', base: 'master', default: 'main', state: 'github',
 };
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
@@ -888,7 +888,7 @@ test('change-loop start: S0 a usage error exits 3 and creates nothing', () => {
 test('change-loop start: S1 a verb of a later round says its round and creates nothing', () => {
   const root = devkitRepo();
   const before = snapshot(root);
-  for (const [verb, round] of [['project', 19], ['help', 23]]) {
+  for (const [verb, round] of [['help', 23]]) {
     const r = startRun(root, `${verb.toUpperCase()} now please`);
     assert.equal(r.code, 0, verb);
     const b = body(r);
@@ -907,7 +907,8 @@ test('change-loop start: S2 no verb or an unknown verb names the commands that e
     assert.equal(b.mode, 'unknown-verb', JSON.stringify(text));
     assert.equal(b.reply, render('en', 'verb-unknown'));
   }
-  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap e \/devkit status/);
+  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status e \/devkit project/);
+  assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status.*\/devkit project/);
   assert.equal(body(startRun(root, '', { lang: '${user_config.language}' })).reply, render('pt-BR', 'verb-unknown'));
 });
 
@@ -2373,8 +2374,8 @@ test('change-loop skill: the grill paragraph names the stage header and requirem
 test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () => {
   const md = skillText();
   const heads = md.split('\n').filter((l) => l.startsWith('## '));
-  assert.deepEqual(heads, ['## Settings', '## Start', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Roadmap', '## Status', '## Never']);
-  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status']) {
+  assert.deepEqual(heads, ['## Settings', '## Start', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Roadmap', '## Status', '## Project', '## Never']);
+  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status', 'project', 'is-slice']) {
     assert.ok(md.includes(`\`${mode}\``), `mode ${mode}`);
   }
   assert.match(md, /AskUserQuestion/);
@@ -2474,7 +2475,12 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.19\.1/, 'the CI snippet pins the current release (merge-staleness-first-parent: 0.19.1)');
+  assert.match(flow, /v0\.21\.2/, 'the CI snippet pins the current release (project-phases-followups: 0.21.2)');
+  assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
+  const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
+  assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
+  assert.match(flow, /moves this pin to `v0\.20\.0` or later first/, 'the slice-merge floor (project-phases) is kept');
+  assert.doesNotMatch(flow, /v0\.19\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.19\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.18\.1/, 'no pin left on the previous release');
@@ -2485,7 +2491,7 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(flow, /refuses a hand-off with no agent type, to a general-purpose agent, to another plugin's agent even when it is named like a role/, 'the hand-off rule');
   assert.match(flow, /a usage error included[^\n]*keeps its raw message in the JSON's `error` field/, 'the usage-error reply');
   assert.doesNotMatch(flow, /v0\.15\.1/);
-  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => l.startsWith('- [ ] review-writer-prompt'));
+  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] review-writer-prompt/.test(l));
   assert.match(road, /touches only tests/);
   assert.match(road, /fenced example/);
 });

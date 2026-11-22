@@ -555,7 +555,7 @@ test('roadmap-loop decide: after clears the stage in flight and passes its key, 
 
 // ---------------------------------------------------------------- replies (D-12)
 
-const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2 };
+const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main' };
 
 test('roadmap-loop replies: a blocked line renders every blocked reason in both languages', () => {
   for (const lang of ['en', 'pt-BR']) {
@@ -802,9 +802,10 @@ test('roadmap-loop start: roadmap and status are routed', () => {
     }
   }
   // The verbs of later rounds keep their round; an unknown verb names the three commands that exist.
-  for (const [verb, round] of [['project', 19], ['help', 23]]) assert.equal(JSON.parse(startRun(root, verb).stdout).reply, render('en', 'verb-not-built', { verb, round }));
-  assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status/);
-  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap e \/devkit status/);
+  for (const [verb, round] of [['help', 23]]) assert.equal(JSON.parse(startRun(root, verb).stdout).reply, render('en', 'verb-not-built', { verb, round }));
+  assert.notEqual(JSON.parse(startRun(root, 'project').stdout).mode, 'not-built', 'project leaves the not-built row');
+  assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status.*\/devkit project/);
+  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status e \/devkit project/);
   assert.equal(JSON.parse(startRun(root, 'frobnicate', 'pt-BR').stdout).reply, render('pt-BR', 'verb-unknown'));
   assert.equal(picture(root), before, 'start creates nothing');
 });
@@ -1817,7 +1818,7 @@ test('roadmap-loop skill: every roadmap-loop command carries the person\'s langu
 test('roadmap-loop skill: the frontmatter and the start modes name the roadmap and the status', () => {
   const md = skillMd();
   const fm = md.split('---')[1];
-  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id>\] \| roadmap \[<n> \| stop\] \| status"$/m);
+  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id>\] \| roadmap \[<n> \| stop\] \| status \| project \[<name>\]"$/m);
   const desc = /^description: (.*)$/m.exec(fm)[1];
   assert.match(desc, /\/devkit roadmap \[<n>\] runs the roadmap's ready changes, several at once, and \/devkit status shows where everything is/);
   assert.match(desc, /Use when the owner types \/devkit.*\/devkit roadmap.*\/devkit status/);
@@ -1897,7 +1898,7 @@ test('roadmap-loop docs: the documents follow', () => {
   assert.match(design, /roadmap coordinator \(built, round 18\)/, 'stage 0 is built');
   assert.match(part(design, '## 10. ', '## 11. '), /each stage runs as a subagent in the\s+background/, 'section 10 names the background stages');
   assert.doesNotMatch(design, /each change has its change coordinator as a subagent/);
-  assert.match(part(design, '## 13. ', '## Open points'), /Many background subagent ends in a row over whole changes \(round 19 proves it\)/);
+  assert.match(part(design, '## 13. ', '## Open points'), /Many background subagent ends in a row over whole changes \(not proved by round 19, whose phases run in the session; the first `\/devkit roadmap` run that carries several changes to their ends records it\)/);
   const open = part(design, '## Open points', '## What stays shipped');
   assert.doesNotMatch(open, /How the roadmap coordinator measures load/, 'the load point left Open points');
   assert.match(open, /how the load is measured/, 'the sentence names the load among the answered ones');

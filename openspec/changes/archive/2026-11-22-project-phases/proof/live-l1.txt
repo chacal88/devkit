@@ -1,0 +1,51 @@
+# Live check L1 (design.md D-19): /devkit project, start and resume
+
+Run on 2026-11-22 with the desktop app's bundled Claude Code 2.1.326, in a scratch project outside this
+repository (git repo with a bare local origin, openspec/config.yaml with ship: devkit-project: merge, the
+devkit-project schema copied from this branch, a flat docs/design/STATE.md, devkit-design enabled in
+.claude/settings.json), with --plugin-dir for plugins/openspec, plugins/design and plugins/core of this
+branch. Command: claude -p "/devkit project billing" --dangerously-skip-permissions. The sign-in warning
+line and an unrelated aside of another installed plugin were removed from the replies; nothing else.
+
+## Session 1: /devkit project billing (new slice)
+
+```text
+Plugin "devkit-design" is enabled in project settings but isn't installed — run `claude plugin install devkit-design@devkit --scope project`
+Abri a fatia billing no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.
+
+Nesta fase falamos só do negócio. Tecnologia fica para depois: se aparecer um assunto técnico, eu anoto para a fase certa.
+
+**Pergunta 1 — Objetivo:** que problema o billing resolve, e para quem? Conte o caso real: quem cobra quem, pelo quê, e o que hoje dá errado ou dá trabalho nisso.
+
+exit 0
+```
+
+Between the sessions, by hand: docs/design/billing/1-business-vision.md (one line) and
+openspec/changes/billing/business.md with result=passed, in the slice's worktree.
+
+## Session 2: /devkit project billing (resume)
+
+```text
+Plugin "devkit-design" is enabled in project settings but isn't installed — run `claude plugin install devkit-design@devkit --scope project`
+Continuando a fatia billing: a próxima é a etapa Modelo de domínio.
+
+Antes da primeira pergunta, há uma contradição que preciso te mostrar. O modelo de domínio é montado a partir do glossário e das regras de negócio (R1, R2…) da visão de negócio, mas `docs/design/billing/1-business-vision.md` só tem uma linha provisória: "Scratch vision for the live check". Não há glossário nem regras nele. O registro da etapa de Negócio está aprovado com um "ok" escrito à mão para o teste ao vivo, e o `STATE.md` ainda diz que a entrevista da Fase 1 está em andamento, parada na primeira pergunta.
+
+**Como você quer seguir?**
+
+1. **Fazer a entrevista do modelo de domínio assim mesmo.** Levantamos os termos e as regras de cobrança ao longo da conversa e eu completo o glossário da visão de negócio com eles.
+2. **Combinar que esta etapa não se aplica a esta fatia.** Como é um teste ao vivo, eu registro o motivo no documento e no registro da etapa, e o fluxo passa para a Arquitetura.
+3. **Parar aqui.** Primeiro você conclui a visão de negócio de verdade, e depois retomamos com `/devkit project billing`.
+
+exit 0
+```
+
+## git worktree list (after both sessions)
+
+```text
+<scratch>/proj                            626bc76 [main]
+<scratch>/proj/.claude/worktrees/billing  626bc76 [billing]
+```
+
+Result: session 1 opened the slice in its own worktree and branch (billing) and asked the first
+business question; session 2 resumed at the domain model stage. AC-1's session half holds.

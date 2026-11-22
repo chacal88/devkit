@@ -1,0 +1,31 @@
+# Live check L2 (design.md D-19): a design skill called by name
+
+Run on 2026-11-22 in the same scratch project as L1 (its main checkout), with the bundled Claude Code
+2.1.326 and the same --plugin-dir flags. Command: claude -p "/devkit-design:design-business-discovery"
+--dangerously-skip-permissions. The sign-in warning line and an unrelated question of another installed
+plugin (its item 2 and the options under it) were removed from the reply; nothing else.
+
+## First reply
+
+```text
+Plugin "devkit-design" is enabled in project settings but isn't installed — run `claude plugin install devkit-design@devkit --scope project`
+Antes de começar a Fase 1, preciso de duas respostas suas.
+
+**1. Nome da fatia (slice).** Você chamou a skill diretamente, então preciso saber qual parte do projeto vamos desenhar. O nome deve ter de 2 a 48 caracteres, só letras minúsculas e dígitos, com as palavras separadas por hífen (ex.: `agendamento`, `cobranca-recorrente`). Todos os arquivos desta fase ficarão em `docs/design/<slice>/`, incluindo o `STATE.md` e o `1-business-vision.md`.
+
+Também encontrei um `docs/design/STATE.md` na raiz. Hoje ele contém apenas o texto "flat state". Vou usá-lo só para consulta e não vou editá-lo.
+
+
+Assim que você responder, abro a entrevista com a primeira pergunta do Eixo 1, sobre os objetivos do negócio.
+exit 0
+```
+
+## git status --short of the main checkout, and git diff --stat -- openspec/roadmap.md
+
+```text
+(empty: no file changed, openspec/roadmap.md untouched)
+```
+
+Result: called alone, the skill asks for the slice first, names docs/design/<slice>/ as where its files
+go, reads the flat docs/design/STATE.md only as context, and changed nothing (no roadmap, no pull
+request). AC-9's session half holds.

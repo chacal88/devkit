@@ -17,10 +17,12 @@ import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
 import './delivery-models.test.mjs'; // delivery-models: the delivery model per project, its settings and opening
+import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
 import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way
 import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
+import '../skills/openspec-setup/scripts/ship-entry.test.mjs'; // project-phases: the ship entry of devkit-project
 import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
 
 const here = dirname(fileURLToPath(import.meta.url));
