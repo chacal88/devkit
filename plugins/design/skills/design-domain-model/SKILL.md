@@ -1,6 +1,6 @@
 ---
 name: design-domain-model
-description: Phase 2 of greenfield DDD design. Turns the approved business vision into a domain model (bounded contexts, entities, value objects, aggregates, domain events) still without technology, interviewing one question at a time, and writes docs/design/2-domain-model.md. Use after design-business-discovery is approved, or when the user says "model the domain", "bounded contexts", "aggregates", or wants to resume Phase 2.
+description: Phase 2 of greenfield DDD design. Turns the approved business vision into a domain model (bounded contexts, entities, value objects, aggregates, domain events) still without technology, interviewing one question at a time, and writes docs/design/<slice>/2-domain-model.md. Use after design-business-discovery is approved, or when the user says "model the domain", "bounded contexts", "aggregates", or wants to resume Phase 2.
 ---
 
 # Design Phase 2: Domain Model
@@ -9,18 +9,26 @@ description: Phase 2 of greenfield DDD design. Turns the approved business visio
 
 You are a senior architect running the second of four design phases: business discovery (`design-business-discovery`) → **domain model** (this skill) → architecture (`design-architecture`) → implementation plan (`design-implementation-plan`).
 
+## The slice
+
+Run by `/devkit project`, the action names the slice. Called by name, ask the owner first for the slice's name (2 to 48 lowercase letters and digits, words joined by single dashes) and say the folder it uses: `docs/design/<slice>/` holds this phase's files, `STATE.md` included, and every path below is inside it.
+
+- A flat `docs/design/` and other slices' folders are read as context, never edited.
+- When the owner agrees this phase does not apply to this slice, the document says so and why, and the phase ends there.
+- Alone, write nothing to `openspec/roadmap.md` and open no pull request; inside `/devkit project` the loop names the next stage and the flow delivers the slice.
+
 ## When to use
 
-- Phase 1 has produced an approved `docs/design/1-business-vision.md`.
-- The owner wants to resume an in-progress Phase 2 (`docs/design/STATE.md` points to it).
+- Phase 1 has produced an approved `docs/design/<slice>/1-business-vision.md`.
+- The owner wants to resume an in-progress Phase 2 (`docs/design/<slice>/STATE.md` points to it).
 - **Do not use** without the Phase 1 business vision — its glossary is the mandatory raw material. Run `design-business-discovery` first.
 - **Do not use** to choose technology (database, framework, API) — that is Phase 3. A technology matter raised here goes to the Parking lot of `STATE.md`.
 
 ## Prerequisites
 
-- **Mandatory input:** approved `docs/design/1-business-vision.md`. Reread it — the **glossary** is your raw material and the **business rules (R#)** are what the aggregates will protect.
+- **Mandatory input:** approved `docs/design/<slice>/1-business-vision.md`. Reread it — the **glossary** is your raw material and the **business rules (R#)** are what the aggregates will protect.
 - Access to the product owner in interview mode.
-- `docs/design/STATE.md` present (created in Phase 1). If a Phase 1 input contradicts what the owner says now, point out the contradiction before continuing.
+- `docs/design/<slice>/STATE.md` present (created in Phase 1). If a Phase 1 input contradicts what the owner says now, point out the contradiction before continuing.
 - Deliverable template: [`../design-business-discovery/templates/domain-model.md`](../design-business-discovery/templates/domain-model.md).
 - **Content language.** Interview and write the prose in the project's language (from its docs/config, or the language the owner writes in). Identifiers, file names and template headings stay as defined.
 
@@ -62,7 +70,7 @@ For deeper work on subdomains and disputed boundaries, use the `ddd-strategic-de
 
 ### Writing the deliverable
 
-Write `docs/design/2-domain-model.md` from the template, whose sections are: **1. Context map** (diagram + context → responsibility → terms + anticorruption layers) · **2. Aggregates** (root, invariant traceable to R#, members, immediate consistency vs. via event) · **3. Entities** (identity, born/dies) · **4. Value objects** (what they describe, intrinsic validations) · **5. Domain events** (past-tense verb, emitter, who reacts, whether it crosses context) · **New terms** that emerged in modeling.
+Write `docs/design/<slice>/2-domain-model.md` from the template, whose sections are: **1. Context map** (diagram + context → responsibility → terms + anticorruption layers) · **2. Aggregates** (root, invariant traceable to R#, members, immediate consistency vs. via event) · **3. Entities** (identity, born/dies) · **4. Value objects** (what they describe, intrinsic validations) · **5. Domain events** (past-tense verb, emitter, who reacts, whether it crosses context) · **New terms** that emerged in modeling.
 
 If a new term emerged, **update the Phase 1 glossary** — it is the single source; the model may not contain a term absent from the glossary.
 
@@ -78,7 +86,7 @@ When the exit checklist is satisfied, show the owner a short summary and let the
 - [ ] Aggregates with a named root and the invariant they protect (traceable to a Phase 1 rule R#)
 - [ ] Domain events named in the ubiquitous language (past-tense verb)
 - [ ] No term in the model that is not in the glossary
-- [ ] `docs/design/2-domain-model.md` written from the template
+- [ ] `docs/design/<slice>/2-domain-model.md` written from the template
 
 ## Guardrails
 

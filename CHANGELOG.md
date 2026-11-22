@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.24.0 — the project phases, /devkit project
+
+- **devkit-openspec** 0.20.0: `/devkit project <slice>` takes a new project or one slice of it through
+  its four design phases, in the owner's session, to one pull request. A slice is a change on the new
+  `devkit-project` schema (installed by `openspec-setup` with the other two); a new script,
+  `project-loop.mjs`, decides each call. The roadmap stage appends the rounds to `openspec/roadmap.md`
+  only after the owner approves them, or is not applicable. The ADR reviewer is the slice's only review,
+  and `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one slice contract. The
+  CI snippet now pins `v0.20.0`, the release's tag: a project moves its CI pin to `v0.20.0` before it
+  sets `ship: devkit-project: merge`, because an older check passes a slice with a note.
+- **devkit-design** 0.2.0: the five skills ask for the slice and write under `docs/design/<slice>/`,
+  and called by name they write no roadmap and open no pull request.
+- Docs: ADR 0015 (accepted) amends ADR 0010 and ADR 0012; the coordination design, the flow
+  document, the role document and both READMEs follow.
+
 ## 0.23.1 — merge staleness by the first parent
 
 - **devkit-openspec** 0.19.1: a merge commit counts the files that differ between its first parent

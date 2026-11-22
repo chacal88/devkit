@@ -1193,6 +1193,7 @@ test('flow-check readout: both languages cover every reason code', () => {
     'fix-after-failure': { failed: 'review', attempt: 1, ceiling: 2 }, 'rerun-after-fix': { stage: 'review' }, 'ceiling-reached': { stage: 'review', attempt: 2, ceiling: 2 },
     'no-progress': { stage: 'review' }, 'owner-pending': { stage: 'review' }, 'approval-stale': { stage: 'review' }, 'unshipped-role-pending': { stage: 'review' },
     'no-role': { stage: 'review', role: 'owner' }, archive: {}, archived: {}, 'previous-script': {}, 'schema-without-declaration': {},
+    'undeclared-stage': { stage: 'retro', why: 'every stage passed' },
     'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' },
     'check-failing': { checks: 'build (https://ci/build)' }, 'checks-pending': { checks: 'e2e' }, 'owner-merges': { number: 12 },
     'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },

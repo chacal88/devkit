@@ -87,7 +87,7 @@ export function readDevkitSettings(root) {
 export const normalizeLang = (value) => (value === 'en' ? 'en' : 'pt-BR');
 
 // The display name of the files' language, as the brief says it.
-const filesLanguageName = (tag) => ({ en: 'English', 'pt-BR': 'Brazilian Portuguese' })[tag] ?? tag;
+export const filesLanguageName = (tag) => ({ en: 'English', 'pt-BR': 'Brazilian Portuguese' })[tag] ?? tag;
 
 // ---------------------------------------------------------------- the message table (D-9)
 
@@ -96,7 +96,7 @@ const filesLanguageName = (tag) => ({ en: 'English', 'pt-BR': 'Brazilian Portugu
 export const MESSAGES = {
   en: {
     'verb-not-built': '/devkit {verb} is not built yet: it arrives in round {round}. Nothing was done.',
-    'verb-unknown': 'So far /devkit change, /devkit roadmap and /devkit status exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, or /devkit status to see where everything is.',
+    'verb-unknown': 'So far /devkit change, /devkit roadmap, /devkit status and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, or /devkit project and a name to plan a new project or slice.',
     'not-set-up': 'This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.',
     'setting-unknown': 'The project\'s devkit settings have an unknown {setting}, "{value}"; use one of: {accepted}. Nothing was run.',
     'driver-not-built': 'This project is set to run on {driver}, which is not built yet (round {round}). Nothing was run.',
@@ -221,10 +221,58 @@ export const MESSAGES = {
     'driver.script': 'a command-line script',
     'setting.driver': 'driver',
     'setting.language': 'language of the files',
+    'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
+    'project-resumed': 'Continuing the slice {id}: {where}.',
+    'project-choose': '{n} slices are unfinished: {list}. Which one should I continue?',
+    'project-name-needed': 'Type /devkit project and the name of the project or slice to plan, for example /devkit project billing.',
+    'project-done-already': 'The slice {id} is already delivered. Choose another name.',
+    'project-folder-exists': 'The default branch already has a design folder named {id}. Choose another name.',
+    'project-not-found': 'No slice named {id} was found in this project.',
+    'project-unreadable': 'I could not read that request. Type /devkit project and the name of the slice to plan, or /devkit project alone to continue.',
+    'is-slice': '{id} is a slice of a project: /devkit project {id} continues it.',
+    'is-change': '{id} is a change: /devkit change {id} continues it.',
+    'design-pack-missing': 'The project flow needs the devkit-design pack in this project: run /openspec-setup with the devkit-design pack, then call /devkit project again. Nothing was run.',
+    'phase-approval': '{Stage} of {id} is written. Do you approve it, or what should change?',
+    'rounds-approval': 'These are the rounds and changes I would add to the roadmap: {list}. Do you approve them, or what should change?',
+    'rounds-invalid': 'The proposed rounds cannot go on the roadmap yet: {list}.',
+    'rounds-not-approved': 'Nothing was written to the roadmap: you have not approved the rounds yet.',
+    'rounds-missing': 'The roadmap stage of {id} holds no rounds to check.',
+    'rounds-ok': 'The rounds can go on the roadmap: {list}.',
+    'rounds-already': 'The rounds of {id} are already on the roadmap; nothing was written.',
+    'archived-slice': 'The slice {id} is archived on its branch; its pull request comes next.',
+    'verdict-unusable': 'The ADR review of {id} cannot be recorded yet: {why}.',
+    'project-plan-mode': 'The slice {id} is ready on its branch. In this project you open its pull request and merge it.',
+    'project-pr-mode': 'Pull request #{number} of the slice {id} is ready: in this project, merging it is up to you.',
+    'project-waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit project again is safe.',
+    'project-delivered': 'The slice {id} is delivered and its rounds are on the roadmap: /devkit roadmap runs them.',
+    'project-delivered-no-rounds': 'The slice {id} is delivered. It added no change to the roadmap.',
+    'slice-title': 'Slice {id}',
+    'slice-passed': 'passed',
+    'slice-na': 'not applicable',
+    'slice-ready': 'ready',
+    'slice-blocked': 'blocked',
+    'slice-next-review': 'next: the ADR review',
+    'slice-next-pr': 'next: the pull request',
+    'slice-pr': 'pull request #{number}: {state}',
+    'slice-delivered': 'delivered',
+    'state.github': 'waits on GitHub',
+    'state.owner': 'waits for you',
+    'state.blocked': 'is blocked',
+    'where.slice-pr': 'its pull request #{number} {state}',
+    'where.slice-archived': 'its pull request comes next',
+    'why.no-verdict-file': 'its verdict file is missing',
+    'why.no-verdict': 'the verdict file holds no verdict',
+    'why.no-commit': 'the verdict does not say which commit it judged',
+    'why.other-commit': 'the verdict is for another commit than the current one',
+    'blocked-why.checks-failing': 'checks failing on the pull request: {list}',
+    'blocked-why.merge-setup-missing': 'the repository is not prepared for automatic merging yet ({list}), which /openspec-setup does',
+    'blocked-why.branch-conflict': 'pull request #{number} conflicts with {base}: resolve the conflict on the slice\'s branch, then call /devkit project {id} again',
+    'blocked-why.archive-refused': 'the slice cannot be archived yet: {list} not settled',
+    'blocked-why.undeclared-stage': 'the flow asked for {stage}, which this project script does not declare',
   },
   'pt-BR': {
     'verb-not-built': '/devkit {verb} ainda não existe: chega na rodada {round}. Nada foi feito.',
-    'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap e /devkit status: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, ou /devkit status para ver onde está tudo.',
+    'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap, /devkit status e /devkit project: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, ou /devkit project e um nome para planejar um projeto ou uma fatia nova.',
     'not-set-up': 'Este projeto ainda não está preparado para o devkit: rode /openspec-setup primeiro. Nada foi executado.',
     'setting-unknown': 'As configurações devkit do projeto têm {setting} desconhecido, "{value}"; use um de: {accepted}. Nada foi executado.',
     'driver-not-built': 'Este projeto está configurado para rodar em {driver}, que ainda não existe (rodada {round}). Nada foi executado.',
@@ -349,15 +397,63 @@ export const MESSAGES = {
     'driver.script': 'um script de linha de comando',
     'setting.driver': 'driver',
     'setting.language': 'idioma dos arquivos',
+    'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
+    'project-resumed': 'Continuando a fatia {id}: {where}.',
+    'project-choose': '{n} fatias estão por terminar: {list}. Qual delas eu continuo?',
+    'project-name-needed': 'Digite /devkit project e o nome do projeto ou da fatia a planejar, por exemplo /devkit project billing.',
+    'project-done-already': 'A fatia {id} já foi entregue. Escolha outro nome.',
+    'project-folder-exists': 'O branch padrão já tem uma pasta de design chamada {id}. Escolha outro nome.',
+    'project-not-found': 'Nenhuma fatia chamada {id} foi encontrada neste projeto.',
+    'project-unreadable': 'Não consegui ler esse pedido. Digite /devkit project e o nome da fatia a planejar, ou só /devkit project para continuar.',
+    'is-slice': '{id} é uma fatia de projeto: /devkit project {id} continua.',
+    'is-change': '{id} é uma change: /devkit change {id} continua.',
+    'design-pack-missing': 'O fluxo de projeto precisa do pacote devkit-design neste projeto: rode /openspec-setup com o pacote devkit-design e chame /devkit project de novo. Nada foi executado.',
+    'phase-approval': '{Stage} de {id} está escrita. Você aprova, ou o que deve mudar?',
+    'rounds-approval': 'Estas são as rodadas e changes que eu acrescentaria ao roadmap: {list}. Você aprova, ou o que deve mudar?',
+    'rounds-invalid': 'As rodadas propostas ainda não podem entrar no roadmap: {list}.',
+    'rounds-not-approved': 'Nada foi escrito no roadmap: você ainda não aprovou as rodadas.',
+    'rounds-missing': 'A etapa de roadmap de {id} não tem rodadas para conferir.',
+    'rounds-ok': 'As rodadas podem entrar no roadmap: {list}.',
+    'rounds-already': 'As rodadas de {id} já estão no roadmap; nada foi escrito.',
+    'archived-slice': 'A fatia {id} está arquivada no branch dela; o pull request vem a seguir.',
+    'verdict-unusable': 'A revisão dos ADRs de {id} ainda não pode ser registrada: {why}.',
+    'project-plan-mode': 'A fatia {id} está pronta no branch dela. Neste projeto, você abre o pull request e faz o merge.',
+    'project-pr-mode': 'O pull request #{number} da fatia {id} está pronto: neste projeto, o merge é com você.',
+    'project-waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit project de novo é seguro.',
+    'project-delivered': 'A fatia {id} foi entregue e as rodadas dela estão no roadmap: /devkit roadmap as executa.',
+    'project-delivered-no-rounds': 'A fatia {id} foi entregue. Ela não acrescentou nenhuma change ao roadmap.',
+    'slice-title': 'Fatia {id}',
+    'slice-passed': 'passou',
+    'slice-na': 'não se aplica',
+    'slice-ready': 'pronta',
+    'slice-blocked': 'bloqueada',
+    'slice-next-review': 'próximo: a revisão dos ADRs',
+    'slice-next-pr': 'próximo: o pull request',
+    'slice-pr': 'o pull request #{number} {state}',
+    'slice-delivered': 'entregue',
+    'state.github': 'espera o GitHub',
+    'state.owner': 'espera você',
+    'state.blocked': 'está travado',
+    'where.slice-pr': 'o pull request #{number} dela {state}',
+    'where.slice-archived': 'o pull request dela vem a seguir',
+    'why.no-verdict-file': 'o arquivo do veredito não existe',
+    'why.no-verdict': 'o arquivo do veredito não traz um veredito',
+    'why.no-commit': 'o veredito não diz qual commit ele julgou',
+    'why.other-commit': 'o veredito é de outro commit que não o atual',
+    'blocked-why.checks-failing': 'checks falhando no pull request: {list}',
+    'blocked-why.merge-setup-missing': 'o repositório ainda não está preparado para o merge automático ({list}), que /openspec-setup prepara',
+    'blocked-why.branch-conflict': 'o pull request #{number} tem conflito com {base}: resolva o conflito no branch da fatia e chame /devkit project {id} de novo',
+    'blocked-why.archive-refused': 'a fatia ainda não pode ser arquivada: {list} não resolvidas',
+    'blocked-why.undeclared-stage': 'o fluxo pediu {stage}, que este roteiro de projeto não declara',
   },
 };
 
 // A stage as a noun phrase inside a sentence: en `the` + the title in sentence case, pt-BR `a etapa` + the title.
-const stagePhrase = (lang, title) => (lang === 'en' ? `the ${inSentence(title)}` : `a etapa ${title}`);
+export const stagePhrase = (lang, title) => (lang === 'en' ? `the ${inSentence(title)}` : `a etapa ${title}`);
 // The same phrase after `at` (en) or `em` (pt-BR, which contracts `em a` to `na`).
 const inStagePhrase = (lang, title) => (lang === 'en' ? `at ${stagePhrase(lang, title)}` : `na etapa ${title}`);
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
-const FAMILY = { script: 'script.', other: 'script.', what: 'what.', driver: 'driver.', setting: 'setting.', gate: 'gate.' };
+const FAMILY = { script: 'script.', other: 'script.', what: 'what.', driver: 'driver.', setting: 'setting.', gate: 'gate.', state: 'state.' };
 // The keys whose `{why}` is a blocked reason (`blocked-why.` codes); any other key's `{why}` is a `why.` code.
 const BLOCKED_WHY_KEYS = ['blocked', 'roadmap-blocked', 'roadmap-blocked-others', 'need.blocked'];
 
@@ -636,16 +732,16 @@ export function cleanOf(env) {
 function git(root, args) {
   return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
 }
-const tryGit = (root, args) => { try { return git(root, args).trim(); } catch { return ''; } };
+export const tryGit = (root, args) => { try { return git(root, args).trim(); } catch { return ''; } };
 
 // The main checkout: the parent of the shared git directory.
-const mainRoot = (root) => {
+export const mainRoot = (root) => {
   const common = tryGit(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
   return common ? dirname(common) : root;
 };
 
 // The default branch the change's pull request targets: origin/HEAD, else main, else master.
-function defaultBase(root) {
+export function defaultBase(root) {
   const head = tryGit(root, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '');
   if (head) return head;
   for (const b of ['main', 'master']) {
@@ -718,7 +814,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
 // ---------------------------------------------------------------- checkouts and unfinished work (D-3, D-6)
 
 // Every checkout of the repository, the main one included: [{ root (real path), branch }].
-function checkoutsOf(start) {
+export function checkoutsOf(start) {
   const seen = new Set();
   const out = [];
   const add = (path, branch) => {
@@ -734,7 +830,13 @@ function checkoutsOf(start) {
   return out;
 }
 
-function activeIds(root) {
+// True when the change folder `dir` names the project script in its own metadata file: a slice of `/devkit project`, which
+// `/devkit change` and `/devkit roadmap` never list, start or resume (project-phases D-4).
+export function isSliceDir(dir) {
+  try { return /^schema:[ \t]*["']?devkit-project["']?[ \t]*\r?$/m.test(readFileSync(join(dir, '.openspec.yaml'), 'utf8')); } catch { return false; }
+}
+
+export function activeIds(root) {
   const dir = join(root, 'openspec', 'changes');
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((n) => n !== 'archive' && !n.startsWith('.') && statSync(join(dir, n)).isDirectory());
@@ -745,7 +847,7 @@ function activeIds(root) {
 // checkout's working tree; a source that cannot be read adds nothing.
 const ARCHIVED = /^(\d{4}-\d{2}-\d{2})-(.+)$/;
 // Each archived id with the latest day an archived folder of it carries (an id can be archived more than once).
-function archivedDates(start, { env = process.env, gh } = {}) {
+export function archivedDates(start, { env = process.env, gh } = {}) {
   const main = realpathSync(mainRoot(start));
   const base = defaultBase(main);
   const ids = new Map();
@@ -776,21 +878,24 @@ function createdAfter(root, id, archivedDay) {
 // `chore/archive-<id>` (its archive pull request is not merged yet). Each once; a worktree on the archive branch wins,
 // then one on the change's own branch, then any other checkout. A change archived on the default branch is never
 // unfinished, whatever old checkout still holds its folder or its branch, unless that folder was created after the
-// archive (a new change that reuses the id).
-export function unfinished(start, { env = process.env, gh } = {}) {
+// archive (a new change that reuses the id). A slice of `/devkit project` is left out unless `slices` is true.
+export function unfinished(start, { env = process.env, gh, slices = false } = {}) {
   const archived = archivedDates(start, { env, gh });
   const found = new Map();
   const note = (id, c, rank, reused = false) => { if ((!archived.has(id) || reused) && (!found.has(id) || found.get(id).rank < rank)) found.set(id, { id, root: c.root, branch: c.branch, rank }); };
   for (const c of checkoutsOf(start)) {
     const archive = /^chore\/archive-(.+)$/.exec(c.branch);
     if (archive) note(archive[1], c, 3);
-    for (const id of activeIds(c.root)) note(id, c, c.branch === id ? 2 : 1, archived.has(id) && createdAfter(c.root, id, archived.get(id)));
+    for (const id of activeIds(c.root)) {
+      if (!slices && isSliceDir(join(c.root, 'openspec', 'changes', id))) continue;
+      note(id, c, c.branch === id ? 2 : 1, archived.has(id) && createdAfter(c.root, id, archived.get(id)));
+    }
   }
   return [...found.values()].sort((a, b) => a.id.localeCompare(b.id)).map(({ id, root, branch }) => ({ id, root, branch }));
 }
 
 // The checkout holding change `id` as a folder, active or archived, in the main checkout or any worktree; null when none.
-function knownChange(start, id) {
+export function knownChange(start, id) {
   const own = locate(start, id);
   const candidates = [{ root: own.root, branch: own.branch }, ...checkoutsOf(start)];
   for (const c of candidates) if (locateChange(c.root, id)) return c;
@@ -824,7 +929,7 @@ export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec
 
 // ---------------------------------------------------------------- start (D-3)
 
-const VERB_ROUND = { project: 19, help: 23 };
+const VERB_ROUND = { help: 23 };
 const DRIVER_ROUND = { compozy: 21, script: 22 };
 
 // The verb is the first word, lower-cased; the text is the rest, trimmed.
@@ -843,7 +948,7 @@ export function projectGate(start, settings) {
   return null;
 }
 
-const filesLanguageOf = (settings) => (settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language);
+export const filesLanguageOf = (settings) => (settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language);
 
 // What `/devkit change` does with the request: { version, mode, verb, text, change, unfinished, settings, reply }.
 // Read-only: it creates and runs nothing.
@@ -858,10 +963,10 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   });
   const say = (key, params = {}) => render(l, key, params);
   if (VERB_ROUND[verb]) return out('not-built', { reply: say('verb-not-built', { verb, round: VERB_ROUND[verb] }) });
-  if (!['change', 'roadmap', 'status'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
+  if (!['change', 'roadmap', 'status', 'project'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
   const gate = projectGate(start, settings);
   if (gate) return out(gate.mode, { reply: say(gate.key, gate.params) });
-  if (verb !== 'change') return out(verb); // the skill calls roadmap-loop.mjs for these (roadmap-coordinator D-3)
+  if (verb !== 'change') return out(verb); // the skill calls roadmap-loop.mjs or project-loop.mjs for these (roadmap-coordinator D-3, project-phases D-4)
 
   const read = { lang: l, env, openspec, gh };
   const list = unfinished(start, { env, gh }).map((u) => {
@@ -872,6 +977,8 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   const resume = (id, where) => out('resume', { change: id, unfinished: list, reply: say('resumed', { id, where }) });
   if (/^\S+$/.test(text)) {
     const known = knownChange(start, text);
+    const knownDir = known ? locateChange(known.root, text)?.dir : null;
+    if (knownDir && isSliceDir(knownDir)) return out('is-slice', { change: text, reply: say('is-slice', { id: text }) });
     if (known) return resume(text, list.find((u) => u.id === text)?.where ?? whereOf(known, text, read));
   }
   const listed = list.map((u) => (u.where ? `${u.id} (${u.where})` : u.id)).join('; ');
@@ -889,7 +996,7 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
 const SCRIPTS = ['devkit', 'devkit-lite'];
 const WHY_CODES = ['small', 'doubt', 'architecture', 'contract', 'ui', 'capability', 'risk'];
 // O1: 2 to 48 characters, lowercase letters and digits in words joined by single dashes (no dash first or last, no two in a row).
-const NAME = /^(?=.{2,48}$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const NAME = /^(?=.{2,48}$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const otherScript = (script) => SCRIPTS.find((s) => s !== script);
 
 function gitRun(root, args) {
@@ -971,12 +1078,33 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
   const gate = projectGate(start, settings);
   if (gate) throw refuse(gate.key, gate.params);
 
-  const main = mainRoot(start);
-  return withOpenLock(main, () => openUnderLock({ start, main, id, script, why, text, l, refuse, openspec, env }), lockSleep);
+  // The change's own first file: its request, as a quote in the schema's requirements template.
+  const prepare = (folder, worktree) => {
+    const schema = schemaFile(worktree, script);
+    const template = schema ? join(dirname(schema), 'templates', 'requirements.md') : null;
+    if (!template || !existsSync(template)) throw new LoopUsageError(`the ${script} schema has no requirements template`);
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, 'requirements.md'), requirementsFor(readFileSync(template, 'utf8'), text));
+  };
+  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep });
+  return { version: 1, change: id, script, worktree, branch: id, base, reply: render(l, 'opened', { id, script, other: otherScript(script), why }) };
 }
 
-// What `open` does while it holds the lock: the fetch, the id check, the worktree, the change and its requirements file.
-function openUnderLock({ start, main, id, script, why, text, l, refuse, openspec, env }) {
+// The open steps every script shares (project-phases D-5): the open lock, the fetch, the id check, the worktree from the default
+// branch, `openspec new change <id> --schema <script>`, `prepare(folder, worktree)` for the script's own first file, and the
+// clean-up of a half-made open. The caller has checked the name and the project gate. Returns { worktree, base }; a refusal
+// is a LoopRefusal (exit 3, nothing created).
+export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare, lockSleep } = {}) {
+  const l = normalizeLang(lang);
+  const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const main = mainRoot(start);
+  return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }), lockSleep);
+}
+
+// What `open` does while it holds the lock: the fetch, the id check, the worktree, the change and the script's first file.
+function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }) {
   const hasOrigin = gitRun(main, ['remote']).split('\n').includes('origin');
   if (hasOrigin) gitRun(main, ['fetch', 'origin', '--prune', '--quiet']);
   if (nameTaken(start, main, id)) throw refuse('name-taken', { id });
@@ -991,11 +1119,7 @@ function openUnderLock({ start, main, id, script, why, text, l, refuse, openspec
   try {
     const created = (openspec ?? makeOpenspec(worktree, cleanOf(env)))(['new', 'change', id, '--schema', script]);
     if (created.status !== 0) throw new LoopUsageError(`openspec new change failed: ${(created.stderr || created.stdout).trim()}`);
-    const schema = schemaFile(worktree, script);
-    const template = schema ? join(dirname(schema), 'templates', 'requirements.md') : null;
-    if (!template || !existsSync(template)) throw new LoopUsageError(`the ${script} schema has no requirements template`);
-    mkdirSync(join(worktree, 'openspec', 'changes', id), { recursive: true });
-    writeFileSync(join(worktree, 'openspec', 'changes', id, 'requirements.md'), requirementsFor(readFileSync(template, 'utf8'), text));
+    prepare?.(join(worktree, 'openspec', 'changes', id), worktree);
   } catch (e) {
     // O5: leave nothing half made. Each step is tried on its own (a failed one does not skip the next) and none of their
     // errors replaces the original one: the worktree, its folder if still there (and its registration, which git keeps
@@ -1010,7 +1134,7 @@ function openUnderLock({ start, main, id, script, why, text, l, refuse, openspec
     }
     throw e;
   }
-  return { version: 1, change: id, script, worktree, branch: id, base, reply: render(l, 'opened', { id, script, other: otherScript(script), why }) };
+  return { worktree, base };
 }
 
 // `script <id> <script> --why <code>`: the correction of the script until the proposal is written (C1 to C3).
@@ -1160,7 +1284,7 @@ export function subagentStopFor(input, change, { env = process.env } = {}) {
 
 // The agents a run may hand work to: the roles and helpers of the script's stages, but not the owner, the coordinator
 // itself or the review bench (a skill, not an agent).
-const NOT_AGENTS = ['owner', 'change-coordinator', 'review-bench'];
+const NOT_AGENTS = ['owner', 'change-coordinator', 'project-coordinator', 'review-bench'];
 export function scriptAgents(flow) {
   return [...new Set(flow.stages.flatMap((s) => [s.role, ...(s.helpers ?? [])]))].filter((r) => !NOT_AGENTS.includes(r));
 }

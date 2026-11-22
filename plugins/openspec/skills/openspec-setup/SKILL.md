@@ -11,6 +11,7 @@ Paths below are relative to this skill's directory:
 - `scripts/project-settings.mjs` writes the project's `.claude/settings.json` (step 2).
 - `scripts/install-schemas.sh` installs the schemas.
 - `scripts/changes-under-way.mjs` lists the changes under way and what the schema upgrade changes for each (step 4).
+- `scripts/ship-entry.mjs` adds the `devkit-project` entry to the `ship:` block of `openspec/config.yaml` (step 5).
 - `templates/config.yaml` is the starting `openspec/config.yaml`.
 - `scripts/github-setup.mjs` plans and applies the GitHub settings of `merge` mode (step 7).
 
@@ -21,13 +22,13 @@ Paths below are relative to this skill's directory:
    - A pinned CLI that is not 2.x: say so and tell the user to move the project's pin to 2.x (`npm i -D @fission-ai/openspec@2`); stop.
    - No pin: `openspec --version` on `PATH`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.
 
-2. **Opt the project in.** Run `node <skill-dir>/scripts/project-settings.mjs <project-root>`. It adds the `devkit` marketplace and enables `devkit-core` and `devkit-openspec` in `<project-root>/.claude/settings.json`, keeping every other key; it never touches `settings.local.json` or `~/.claude`. Show its lines and `git diff -- .claude/settings.json`, and tell the user the packs load in this project after a restart of Claude Code (or `/plugin` to accept the project's plugins). Other packs only on request: add `--packs <pack,...>`.
+2. **Opt the project in.** Run `node <skill-dir>/scripts/project-settings.mjs <project-root>`. It adds the `devkit` marketplace and enables `devkit-core` and `devkit-openspec` in `<project-root>/.claude/settings.json`, keeping every other key; it never touches `settings.local.json` or `~/.claude`. Show its lines and `git diff -- .claude/settings.json`, and tell the user the packs load in this project after a restart of Claude Code (or `/plugin` to accept the project's plugins). Other packs only on request: add `--packs <pack,...>`; the project flow (`/devkit project`) needs `--packs devkit-core,devkit-openspec,devkit-design`, so add `devkit-design` when the owner wants it.
 
 3. **Initialize OpenSpec** if the project has no `openspec/` folder: `openspec init --tools claude`. If it already has one, run `openspec update` so the generated `openspec-*` skills match the installed CLI.
 
 4. **Install the schemas** into the project. Replacing them changes the flow of the changes already under way, so first list those: `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` (read-only; it covers the main checkout and every worktree).
    - With `no change under way`, install with no question: `bash <skill-dir>/scripts/install-schemas.sh <project-root>`.
-   - Otherwise show every line it printed, each with its script, checkout and what the upgrade changes for it (a change on another schema is listed as untouched), and ask the owner one question: upgrade with these effects, yes or no. Without a yes, replace nothing and write nothing.
+   - Otherwise show every line it printed, each with its script, checkout and what the upgrade changes for it (a slice on `devkit-project` is listed as continuing on the new project script with its files kept; a change on another schema is listed as untouched), and ask the owner one question: upgrade with these effects, yes or no. Without a yes, replace nothing and write nothing.
    - On yes, run `node <skill-dir>/scripts/changes-under-way.mjs <project-root> --apply --owner-answer "<the owner's words>"` first, then `bash <skill-dir>/scripts/install-schemas.sh <project-root>`. The first writes `approval.md`, as not applying and only from that answer, for each full-script change whose implementation had started (so it continues where it was and is not asked an approval that did not exist when it began); it never overwrites a file. A full-script change with only its plan ready asks the owner's approval once, before its implementation. A short-script change begun on the previous script is not sent back to the grill.
    - A worktree gets the new schemas when its branch takes the default branch.
    - The schemas are versioned with the repo, so the whole team and CI get the same flow. Use the machine-wide form (`bash <skill-dir>/scripts/install-schemas.sh --user`) only when the owner asks for it explicitly, and say why it matters: it applies to every project on the machine.
@@ -42,10 +43,12 @@ Paths below are relative to this skill's directory:
      - default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, else `main`;
      - conventions: commitlint config, `CONTRIBUTING.md`, recent `git log` subjects.
    - Run the test command once. If it fails, record it in `context` as failing and tell the user.
-   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent.
+   - The schema is also what turns the devkit hooks on (ADR 0004): `devkit-lite` or `devkit`. If the owner keeps another schema, say that the hooks will stay silent. `devkit-project` is not a default schema: a project never selects it in its config.
+   - When the config has a `ship:` entry, run `node <skill-dir>/scripts/ship-entry.mjs <project-root>` and show what it prints: it adds `devkit-project: <the mode of devkit, else plan>` to the block and changes nothing else (a block that already has the key, or a config with no `ship:` entry, is left alone; an entry it cannot read stops it with its message). After the owner agrees, run it again with `--apply`.
+   - A project moves the sha of `.github/workflows/devkit-reviews.yml` to the commit of the new release (the by-hand command of `docs/openspec-flow.md`'s CI section) before it sets `ship: devkit-project: merge`: on an older pin `devkit-reviews` passes a slice's pull request with a note, so the slice would merge with no review check. `ship-entry.mjs` prints this sentence when the mode it adds is `merge`.
 
 6. **Check.**
-   - With the project's CLI (step 1): `openspec schema validate devkit` and `openspec schema validate devkit-lite` both pass.
+   - With the project's CLI (step 1): `openspec schema validate devkit`, `openspec schema validate devkit-lite` and `openspec schema validate devkit-project` all pass.
    - `openspec schema which devkit` resolves under the project.
    - Run `node <skill-dir>/scripts/changes-under-way.mjs <project-root>` again: each change the owner said yes for now has its `approval.md`, and no other change got a file.
    - `.claude/settings.json` lists the packs (step 2).

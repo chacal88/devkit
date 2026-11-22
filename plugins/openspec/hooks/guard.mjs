@@ -146,6 +146,141 @@ export function changeSchemaAt(root, dir) {
 
 export const DEVKIT_SCHEMAS = ['devkit', 'devkit-lite'];
 
+// Line 1 of every stage file (design D-3).
+export const STAGE_HEADER = /^<!-- devkit-stage ([a-z0-9][a-z0-9-]*) result=(passed|failed|not-applicable|pending) attempt=([1-9][0-9]{0,2}) commit=([0-9a-f]{7,40}|none) -->\r?$/;
+
+// { stage, result, attempt, commit } for a well-formed header, { malformed: true } for a line that
+// starts like one and is not, null for any other first line (or no text).
+export function parseStageHeader(text) {
+  const first = String(text ?? '').split('\n', 1)[0];
+  if (!first.startsWith('<!-- devkit-stage')) return null;
+  const m = STAGE_HEADER.exec(first);
+  if (!m) return { malformed: true };
+  return { stage: m[1], result: m[2], attempt: Number(m[3]), commit: m[4] };
+}
+
+// The six stage records of a `devkit-project` slice, in order (the CI job reads no schema, so the names are
+// a constant; a test pins them to the artifact files of schemas/devkit-project/flow.json).
+export const PROJECT_STAGE_FILES = ['business.md', 'domain-model.md', 'architecture.md', 'implementation-plan.md', 'roadmap.md', 'review.md'];
+
+// The `Commit: <sha>` line of a verdict or evidence file header (before the
+// first markdown heading): { sha, uncommitted } or null.
+export function parseCommitLine(text) {
+  const header = [];
+  for (const line of String(text).split(/\r?\n/)) {
+    if (/^#{1,6}\s/.test(line)) break;
+    header.push(line);
+  }
+  const re = /^[ \t]*(?:[-*][ \t]+)?\**Commit[ \t]*:\**[ \t]*`?([0-9a-f]{7,40})\b(.*)$/i;
+  for (const line of header) {
+    const m = line.match(re);
+    if (m) return { sha: m[1].toLowerCase(), uncommitted: /\(uncommitted changes\)/i.test(m[2]) };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------- the slice contract (design D-8, D-11)
+
+const gitRead = (root, args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+const gitPasses = (root, args) => { try { gitRead(root, args); return true; } catch { return false; } };
+// The paths a commit changes against its first parent (a root commit: against nothing).
+const commitPaths = (root, sha) => (gitPasses(root, ['rev-parse', '--verify', '--quiet', `${sha}^1`])
+  ? gitRead(root, ['diff', '--name-only', '-z', '--no-renames', `${sha}^1`, sha])
+  : gitRead(root, ['diff-tree', '-r', '-z', '--root', '--name-only', '--no-commit-id', sha])).split('\0').filter(Boolean);
+
+// The folders a later commit must not touch once the ADR review is written.
+const reviewedPaths = (slice) => [`docs/design/${slice}/`, 'docs/adr/', 'docs/decisions/'];
+
+// Why the ADR review of `slice`, written at commit `sha`, is behind `head`, or null: a commit after `sha` changes, against its
+// first parent, a file under the slice's design folder or an ADR folder. A merge of the default branch that brings none of those
+// files keeps the review current.
+export function sliceReviewStale(root, sha, slice, head = 'HEAD') {
+  const folders = reviewedPaths(slice);
+  for (const c of gitRead(root, ['rev-list', `${sha}..${head}`]).split('\n').filter(Boolean)) {
+    const file = commitPaths(root, c).find((f) => folders.some((d) => f.startsWith(d)));
+    if (file) return `the ADR review is behind ${c.slice(0, 7)}, which changes ${file}`;
+  }
+  return null;
+}
+
+// The problems of the archived `devkit-project` folder `folder` (relative to `root`) at `head` against `base`: its records, the
+// ADR verdict, the paths of the pull request and its roadmap. An empty list is a slice that meets the contract.
+export function sliceProblems(root, folder, { base, head = 'HEAD' }) {
+  const problems = [];
+  const slice = basename(folder).replace(/^\d{4}-\d{2}-\d{2}-/, '');
+  const results = {};
+  for (const file of PROJECT_STAGE_FILES) {
+    const stage = file.replace(/\.md$/, '');
+    const path = join(root, folder, file);
+    if (!existsSync(path)) { problems.push(`${file} is missing`); continue; }
+    const h = parseStageHeader(readFileSync(path, 'utf8'));
+    if (!h) { problems.push(`${file} has no stage header on its first line`); continue; }
+    if (h.malformed) { problems.push(`${file} has a malformed stage header`); continue; }
+    if (h.stage !== stage) { problems.push(`${file} opens with the header of stage ${h.stage}, not ${stage}`); continue; }
+    results[stage] = h.result;
+    const allowed = stage === 'review' ? ['passed'] : ['passed', 'not-applicable'];
+    if (!allowed.includes(h.result)) problems.push(`${file} says result=${h.result}, not ${allowed.join(' or ')}`);
+  }
+  const verdictFile = join(root, folder, 'reviews', 'adr-reviewer.md');
+  if (!existsSync(verdictFile)) problems.push('reviews/adr-reviewer.md is missing');
+  else {
+    const verdict = readValue(verdictFile, 'Verdict');
+    if (verdict !== 'APPROVED' && verdict !== 'DECLINED') problems.push(`reviews/adr-reviewer.md: Verdict is ${verdict ?? 'missing'}, not APPROVED or DECLINED`);
+    const recorded = parseCommitLine(readFileSync(verdictFile, 'utf8'));
+    if (!recorded) problems.push('reviews/adr-reviewer.md has no Commit: line');
+    else {
+      const short = recorded.sha.slice(0, 7);
+      let full = '';
+      try { full = gitRead(root, ['rev-parse', '--verify', '--quiet', `${recorded.sha}^{commit}`]).trim(); } catch { /* unresolved */ }
+      if (!full) problems.push(`reviews/adr-reviewer.md: Commit ${short} does not resolve to a commit`);
+      else if (!gitPasses(root, ['merge-base', '--is-ancestor', full, head])) problems.push(`reviews/adr-reviewer.md: Commit ${short} is not an ancestor of ${head}`);
+      else { const why = sliceReviewStale(root, full, slice, head); if (why) problems.push(why); }
+    }
+  }
+  let paths = [];
+  let mergeBase = null;
+  try {
+    mergeBase = gitRead(root, ['merge-base', base, head]).trim();
+    paths = gitRead(root, ['diff', '--name-only', '-z', '--no-renames', `${base}...${head}`]).split('\0').filter(Boolean);
+  } catch { problems.push(`${base} is not available to compare the slice with; fetch the full history`); }
+  const allowedPaths = [...reviewedPaths(slice), `${folder}/`];
+  for (const p of paths.filter((f) => f !== 'openspec/roadmap.md' && !allowedPaths.some((d) => f.startsWith(d)))) {
+    problems.push(`${p} is outside the slice's files (${[...reviewedPaths(slice), folder, 'openspec/roadmap.md'].join(', ')})`);
+  }
+  if (paths.includes('openspec/roadmap.md')) {
+    if (results.roadmap === 'not-applicable') problems.push('openspec/roadmap.md must stay as it was: roadmap.md of the slice is not applicable');
+    else if (mergeBase) {
+      let before = null;
+      try { before = gitRead(root, ['show', `${mergeBase}:openspec/roadmap.md`]); } catch { /* absent at the base: anything goes */ }
+      let after = null;
+      try { after = gitRead(root, ['show', `${head}:openspec/roadmap.md`]); } catch { /* absent at the head: the slice deleted it */ }
+      if (after === null) problems.push('openspec/roadmap.md may only be appended to by a slice: the slice deleted it');
+      else if (before !== null && !after.startsWith(before)) problems.push('openspec/roadmap.md may only be appended to by a slice: an existing line changed');
+    }
+  }
+  return problems;
+}
+
+// The archived folder of the slice a branch is for (the branch is named after the slice), as { id, folder } relative to
+// `root`, when that folder is on `devkit-project`; else null.
+export function archivedSliceOf(root, branch) {
+  if (!branch || branch === 'main' || branch === 'master' || !/^[\w.-]+$/.test(branch)) return null;
+  const dir = join(root, 'openspec', 'changes', 'archive');
+  if (!existsSync(dir)) return null;
+  const found = readdirSync(dir).filter((a) => a.replace(/^\d{4}-\d{2}-\d{2}-/, '') === branch && /^\d{4}-\d{2}-\d{2}-/.test(a)).sort();
+  const name = found[found.length - 1];
+  if (!name || changeSchemaAt(root, join(dir, name)) !== 'devkit-project') return null;
+  return { id: branch, folder: `openspec/changes/archive/${name}` };
+}
+
+// The default branch's remote ref (`origin/<name>`), or null when none resolves.
+function defaultRef(root) {
+  const names = [];
+  try { names.push(gitRead(root, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD']).trim()); } catch { /* no remote HEAD */ }
+  names.push('origin/main', 'origin/master');
+  return names.find((n) => n && gitPasses(root, ['rev-parse', '--verify', '--quiet', `${n}^{commit}`])) ?? null;
+}
+
 // The project's default schema: openspec/config.yaml `schema:`, else null.
 export function projectSchema(root) {
   const f = join(root, 'openspec', 'config.yaml');
@@ -214,6 +349,10 @@ export function classify(root, change, file) {
   if (parts[0] !== 'openspec') return { kind: 'code' };
   // approval.md is main-session only wherever it sits: any change's folder, whatever the active change is.
   if (parts[1] === 'changes' && parts.length === 4 && parts[3] === 'approval.md') return { kind: 'gate', owner: '' };
+  // An archived slice's ADR verdict file belongs to its reviewer, wherever the active change is (as approval.md above).
+  const archivedVerdict = parts[1] === 'changes' && parts[2] === 'archive' && parts.length === 6 && parts[4] === 'reviews'
+    ? /^([\w-]+)\.md$/.exec(parts[5]) : null;
+  if (archivedVerdict) return { kind: 'gate', owner: archivedVerdict[1], archived: true };
   if (!change || parts[1] !== 'changes' || parts[2] !== change) return { kind: 'planning' };
   const inner = parts.slice(3).join('/');
   if (inner === 'readiness.md') return { kind: 'gate', owner: 'plan-readiness-reviewer' };
@@ -494,6 +633,10 @@ function guardEdit(input) {
     const run = mainInRun(input);
     if (run) block(runCodeReason(run));
   }
+  if (classify(root, null, file).archived) {
+    const why = writeViolation(root, { name: null }, role(input), file);
+    if (why) block(why);
+  }
   const ch = resolveChange(root);
   if (!ch) return;
   if (ch.ambiguous) {
@@ -527,6 +670,10 @@ function guardBash(input) {
       inRun ??= mainInRun(input) ?? '';
       if (inRun) block(`${runCodeReason(inRun)}. (Writing it through the shell is gated the same way.)`);
     }
+    if (root && optedIn(root) && classify(root, null, t).archived) {
+      const a = writeViolation(root, { name: null }, role(input), t);
+      if (a) block(`${a} (Writing it through the shell is gated the same way.)`);
+    }
     const ch = root && optedIn(root) && changeAt(root);
     if (!ch) continue;
     if (ch.ambiguous) {
@@ -543,6 +690,14 @@ function guardBash(input) {
     if (!/\bgh\s+pr\s+create\b/.test(text)) continue;
     // A `cd` into a folder with no project does not leave the session's: fall back to its root.
     const root = findRoot(dir) ?? sessionRoot;
+    // A slice's pull request is judged by the slice contract alone, whatever other change is active (design D-11).
+    const slice = root && optedIn(root) ? archivedSliceOf(root, process.env.DEVKIT_BRANCH || process.env.GITHUB_HEAD_REF || gitBranch(root)) : null;
+    if (slice) {
+      const base = defaultRef(root);
+      const problems = base ? sliceProblems(root, slice.folder, { base }) : ['no origin/<default branch> to compare the slice with'];
+      if (problems.length) block(`slice ${slice.id} does not meet the slice contract: ${problems.join('; ')}`);
+      continue;
+    }
     const ch = root && optedIn(root) && changeAt(root);
     if (!ch) continue;
     const v = prViolation(root, ch);

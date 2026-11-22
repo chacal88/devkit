@@ -91,6 +91,23 @@ test('field-fixes 7 listing: every change under way with its script, checkout an
   for (const dir of [t.root, t.started, t.planready]) assert.equal(git(dir, 'status', '--porcelain'), '', `${dir} is untouched`);
 });
 
+test('field-fixes 7 listing: a slice under way on devkit-project is listed as continuing on the new project script and nothing is written for it', () => {
+  const root = gitRepo({
+    config: CONFIG,
+    changes: { billing: { '.openspec.yaml': 'schema: devkit-project\nskip_specs: true\n', 'business.md': '<!-- devkit-stage business result=passed attempt=1 commit=none -->\n# Business: billing\n' } },
+  });
+  const env = { ...fakeGh().env, ...BLANKS };
+  const run = (...args) => spawnSync(process.execPath, [script, root, ...args], { cwd: root, env, encoding: 'utf8' });
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^- billing \(devkit-project, .*, branch main\): continues on the new project script; its stage records and documents stay$/m);
+  const j = JSON.parse(run('--json').stdout);
+  assert.deepEqual(j.changes.map((c) => [c.id, c.script, c.write]), [['billing', 'devkit-project', 'none']]);
+  const applied = run('--apply', '--owner-answer', 'sim');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.equal(git(root, 'status', '--porcelain'), '', 'nothing is written for a slice');
+});
+
 test('field-fixes 7 listing: a project with no change under way says so and --apply writes nothing', () => {
   const root = gitRepo({ config: CONFIG });
   const env = { ...fakeGh().env, ...BLANKS };

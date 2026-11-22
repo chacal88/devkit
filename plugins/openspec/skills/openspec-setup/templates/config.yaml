@@ -16,6 +16,7 @@ schema: devkit-lite
 # ship:
 #   devkit-lite: merge
 #   devkit: merge
+#   devkit-project: merge
 # merge_method: squash   # squash | merge | rebase
 
 # Shown to the agent in every artifact and in apply. Fill in for this project.

@@ -2,6 +2,7 @@
 # Design State — {{PROJECT_NAME}}
 
 > {{ONE_SENTENCE_ABOUT_THE_PROJECT}}
+> Slice: `{{SLICE}}` (folder `docs/design/{{SLICE}}/`)
 > Design started on: {{DATE}}
 
 ## Current phase
@@ -16,18 +17,20 @@ Next pending questions:
 
 ## Progress
 
+This table is the progress of the slice `{{SLICE}}`.
+
 | Phase | Deliverable | Situation | Approved on |
 |---|---|---|---|
 | 1 Business | [1-business-vision.md](1-business-vision.md) | — | — |
 | 2 DDD Modeling | [2-domain-model.md](2-domain-model.md) | — | — |
-| 3 Architecture | [3-architecture.md](3-architecture.md) + [ADRs](../decisions/) | — | — |
+| 3 Architecture | [3-architecture.md](3-architecture.md) + [ADRs](../../adr/) | — | — |
 | 4 Implementation | [4-implementation-plan.md](4-implementation-plan.md) | — | — |
 
 ## Key decisions (executive summary)
 
-> Authoritative decisions index: [../decisions/README.md](../decisions/README.md). If this list diverges from there, the index wins and this list is corrected.
+> Authoritative decisions index: [../../adr/README.md](../../adr/README.md). If this list diverges from there, the index wins and this list is corrected.
 
-- {{notable decision, with a link to the deliverable/[ADR-NNN](../decisions/ADR-NNN-slug.md)}}
+- {{notable decision, with a link to the deliverable/[ADR-NNN](../../adr/ADR-NNN-slug.md)}}
 
 ## Parking lot
 
