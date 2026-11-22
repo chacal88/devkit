@@ -1644,6 +1644,25 @@ function runSeveral(root, ids, facts, finish) {
   return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, changes: results.map((r) => r.report), notes, pass }, text);
 }
 
+// The pull request whose checks `--watch` waits on, or null: at `wait-checks` the change PR; at
+// `stop-merge-setup` the change PR when it is open with checks pending (field item 9).
+export function checksToWatch(state, next) {
+  if (next.step === 'wait-checks' && state.pr) {
+    return { number: state.pr.number, required: state.items[5].details.required };
+  }
+  if (next.step === 'stop-merge-setup' && !state.archive && state.pr?.state === 'OPEN' && (state.items[5].details.pending ?? []).length > 0) {
+    return { number: state.pr.number, required: state.items[5].details.required };
+  }
+  return null;
+}
+
+// The single capped `gh pr checks <n> --watch --interval 30 [--required]`, killed at the cap.
+function watchChecks(gh, target, minutes) {
+  const args = ['pr', 'checks', String(target.number), '--watch', '--interval', '30', ...(target.required ? ['--required'] : [])];
+  const r = gh(args, { timeout: minutes * 60000, killSignal: 'SIGTERM' });
+  return { minutes, timedOut: r.timedOut };
+}
+
 // Runs the checker: { code, stdout, stderr }. Exit 0 only when 8/8 are met,
 // 1 when something is open, 2 when something is blocked, 3 on usage or
 // preflight errors.
@@ -1662,11 +1681,10 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     let state = collectState(root, opts.id, { env, gh });
     let watch = null;
     const next = opts.watch !== null ? nextStep(state) : null;
-    if (next?.step === 'wait-checks' && state.pr) {
+    const target = next ? checksToWatch(state, next) : null;
+    if (target) {
       // One capped watch; the contract is computed again afterwards, whatever happened.
-      const args = ['pr', 'checks', String(state.pr.number), '--watch', '--interval', '30', ...(state.items[5].details.required ? ['--required'] : [])];
-      const r = gh(args, { timeout: opts.watch * 60000, killSignal: 'SIGTERM' });
-      watch = { minutes: opts.watch, timedOut: r.timedOut };
+      watch = watchChecks(gh, target, opts.watch);
       state = collectState(root, opts.id, { env, gh });
     } else if (next?.step === 'wait-merge') {
       // The PR waited on is next.number: the change PR, or the archive PR after the merge.

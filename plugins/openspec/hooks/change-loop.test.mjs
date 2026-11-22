@@ -2475,6 +2475,7 @@ test('change-loop docs: the design records the answers', () => {
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
   assert.match(flow, /v0\.19\.0/, 'the CI snippet pins the current release (roadmap-coordinator-followups: 0.19.0)');
   assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.18\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.17\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.16\.0/, 'no pin left on the previous release');
   assert.match(flow, /prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end/, 'the loop paragraph names the end marker');

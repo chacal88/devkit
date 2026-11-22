@@ -1,0 +1,76 @@
+✖ field-fixes 9 watch: at stop-merge-setup with a check pending, one gh pr checks --watch runs and the report shows the final checks (AC-1) (4579.857416ms)
+✖ field-fixes 9 watch: the cap stops the watch, item 6 still names the pending check and the step is stop-merge-setup (AC-1) (4444.190042ms)
+✔ field-fixes 9 watch: no pending check, or no pull request, starts no watch (AC-1) (4704.059708ms)
+✔ field-fixes 9 watch: without --watch no watch starts at stop-merge-setup (AC-1) (4120.368708ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17903.581209
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2768:1
+✖ field-fixes 9 watch: at stop-merge-setup with a check pending, one gh pr checks --watch runs and the report shows the final checks (AC-1) (4579.857416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   [
+  -     'pr',
+  -     'checks',
+  -     '12',
+  -     '--watch',
+  -     '--interval',
+  -     '30',
+  -     '--required'
+  -   ]
+  - ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:2775:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ [ 'pr', 'checks', '12', '--watch', '--interval', '30', '--required' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2789:1
+✖ field-fixes 9 watch: the cap stops the watch, item 6 still names the pending check and the step is stop-merge-setup (AC-1) (4444.190042ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^watch: stopped after 0\.02 minutes$/m. Input:
+  
+  'deliver-check: feat (schema devkit-lite, ship merge, host cli, head 3e1c1d2)\n' +
+    '  1 met      tasks and gates: all tasks ticked; 2 gate commands green in evidence.md\n' +
+    '  2 met      reviews at head: 2 reviews at head\n' +
+    '  3 met      findings disposed: 0 fixed, 0 refuted\n' +
+    '  4 met      acceptance criteria proven: 2 criteria proven\n' +
+    '  5 met      PR open at local head: PR #12 open at 3e1c1d2\n' +
+    '  6 open     required checks green: pending e2e\n' +
+    '  7 met      conversation answered: every thread and request is answered\n' +
+    '  8 met      PR body complete: PR body names the change, its criteria and the evidence\n' +
+    '7/8 met: blocked: merge setup\n' +
+    'next: stop-merge-setup: merge mode needs the repository prepared: no active rule requires the devkit-reviews check on main; run the openspec-setup skill (GitHub step) to configure it\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/plugins/openspec/hooks/deliver-check.test.mjs:2796:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'deliver-check: feat (schema devkit-lite, ship merge, host cli, head 3e1c1d2)\n  1 met      tasks and gates: all tasks ticked; 2 gate commands green in evidence.md\n  2 met      reviews at head: 2 reviews at head\n  3 met      findings disposed: 0 fixed, 0 refuted\n  4 met      acceptance criteria proven: 2 criteria proven\n  5 met      PR open at local head: PR #12 open at 3e1c1d2\n  6 open     required checks green: pending e2e\n  7 met      conversation answered: every thread and request is answered\n  8 met      PR body complete: PR body names the change, its criteria and the evidence\n7/8 met: blocked: merge setup\nnext: stop-merge-setup: merge mode needs the repository prepared: no active rule requires the devkit-reviews check on main; run the openspec-setup skill (GitHub step) to configure it\n',
+    expected: /^watch: stopped after 0\.02 minutes$/m,
+    operator: 'match',
+    diff: 'simple'
+  }
