@@ -2483,6 +2483,25 @@ test('followups AC-15 next: a refused session start gives its line, records the 
   assert.match(say('roadmap-waits-refused', { id: 'a' }, 'pt-BR'), /^▸ a não pôde começar numa sessão própria: o app recusou\. Ela começa na sua próxima mensagem\.$/);
 });
 
+test('followups AC-15 next: a start that gave no session id is reported as session-refused, the line shows once and the change starts on the owner\'s next typed turn', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  putRun(root, { places: 1, changeSessions: true, turn: 'typed' });
+  // The key is the outcome of the call, never its text: the skill reports every result but a session id.
+  const skill = readFileSync(new URL('../skills/devkit/SKILL.md', import.meta.url), 'utf8');
+  assert.ok(skill.includes('when the call returns anything but a session id (a refusal of any wording, an error or a missing tool)'), 'the skill keys the refusal on the outcome of the call');
+  const refused = doNext(root, ['--turn', 'event', '--after', 'a=session-refused']);
+  assert.equal(refused.code, 0, refused.stdout);
+  assert.deepEqual(events(refused.stdout), [say('roadmap-waits-refused', { id: 'a' })]);
+  assert.deepEqual(jsonOf(refused.stdout).actions, [], 'nothing starts on the refused turn');
+  assert.equal(stateOf(root).announced.a, 'waits-refused');
+  const again = doNext(root, ['--turn', 'event']);
+  assert.deepEqual([events(again.stdout), jsonOf(again.stdout).actions], [[], []], 'said once, still waiting for a typed turn');
+  const typed = doNext(root, ['--turn', 'typed']);
+  assert.equal(typed.code, 0, typed.stdout);
+  assert.deepEqual(changesOf(jsonOf(typed.stdout)), [['a', 'session-start']], 'the owner\'s typed message starts it');
+});
+
 test('followups AC-15 next: --turn takes typed or event, refuses any other word (message and an empty word included) with exit 3 and the run file\'s bytes unchanged, and no --turn reads as event', () => {
   const root = projectWith(roadmapText('[ ] a'));
   putRun(root, { places: 1, changeSessions: true, turn: 'typed' });

@@ -729,6 +729,12 @@ above.
   F-4, `stageIcon` and the `icon` of `next`), which live in `plugins/openspec/hooks/change-loop.test.mjs`
   beside their fixtures. `readCounter` is exported from `change-loop.test.mjs`, so one helper serves
   both files.
+- The host's refusal of a session start on a turn nobody typed is keyed on the outcome of the start
+  call, never on its text (D-3, D-6): the skill reports any result but a session id as
+  `--after <id>=session-refused`, and one test runs that path end to end through `roadmap-loop.mjs`
+  (the line, said once, then the start on the owner's next typed turn). No live run has seen the
+  host's real refusal. That is a retro follow-up: when the first real untyped-turn case appears,
+  record the host's refusal and confirm the skill reports it as this key.
 - The F-4 fixture is the shape of this change's own first message: the background line, a background
   paragraph, `Task:`, `/devkit-openspec:devkit change <id>`, and the notes line, in generic words.
 - Red first: phases 1, 2 and 3 each write their tests on the unchanged code and save the run to
