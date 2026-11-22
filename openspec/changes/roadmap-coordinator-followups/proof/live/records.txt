@@ -1,0 +1,1595 @@
+# Live records of the first real /devkit roadmap run (task 5.1; AC-11 to AC-15)
+
+Collected 2026-11-22T00:33:21Z by the session that conducts roadmap-coordinator-followups. Times are UTC, from the session transcripts. Each record is a call of roadmap-loop.mjs or change-loop.mjs (or an app session tool) and its output, as the session saw it. Home paths are shown as ~. The coordinating session's Claude Code id is 2468caec (app id local_0a23f676); the change sessions are local_7b8658b6 (this change, rcf) and local_ef0587c6 (merge-setup-field-fixes, msff).
+
+## Part 1. Before the move: the coordinating session
+
+
+--- 2026-11-21T21:18:45.768Z roadmap-loop.mjs run
+/devkit roadmap aceita um número inteiro a partir de 1, ou stop: "roadmap 2" não é nenhum dos dois. Nada foi começado.
+exit=0
+
+--- 2026-11-21T21:18:50.423Z roadmap-loop.mjs run
+devkit-roadmap: 2
+{
+  "version": 1,
+  "places": 2,
+  "open": [],
+  "stopping": false,
+  "lines": [
+    "▸ roadmap-coordinator-followups está pronta para começar, mas a máquina está carregada (processador em 239%, limite 80%): seguro o começo até aliviar."
+  ],
+  "actions": [
+    {
+      "change": "roadmap-coordinator-followups",
+      "kind": "hold",
+      "load": 239,
+      "limit": 80,
+      "progressKey": "hold"
+    }
+  ],
+  "ask": null,
+  "end": null
+}
+exit=0
+
+--- 2026-11-21T21:18:56.463Z roadmap-loop.mjs hold
+Command running in background with ID: b01zxe3o7. Output is being written to: <scratch> You will be notified when it completes — do not poll that file or sleep while waiting. Read the file only if the user asks for progress, or if you need a line it prints before you can go on, such as a server's ready line or port.
+
+--- 2026-11-21T21:25:39.871Z roadmap-loop.mjs next
+devkit-roadmap: 2
+{
+  "version": 1,
+  "places": 2,
+  "open": [],
+  "stopping": false,
+  "lines": [],
+  "actions": [
+    {
+      "change": "roadmap-coordinator-followups",
+      "kind": "start",
+      "request": "what the review and the live test of roadmap-coordinator left open: a ready line says it waits for a place only when no place is free, and a gate or blocked line says the others go on only when another change is running; ADR 0013 decision 4 names every field of the run file; ids from --param and --after are checked before they become keys; a failed write removes the temporary run file; the run file's lock waits less than the agent hook's timeout; a killed hold does not leave the run holding; tests for run without --session, a lock that times out through its callers, the draft's language fallback and the single read of mainInRun; and what the first real /devkit roadmap on this roadmap shows (the selection, changes running while the owner answers, many ends in a row, a change that reaches the delivery part, a project with many old changes)",
+      "progressKey": "start"
+    },
+    {
+      "change": "merge-setup-field-fixes",
+      "kind": "start",
+      "request": "the two defects of the 2026-11-20 field findings that round 17b left open, each reproduced on a scratch repository before its fix: `deliver-check --watch` returns at once with the checks still pending while its next step is `stop-merge-setup` (the ruleset comes after the first merge), instead of waiting for them; and `github-setup.mjs --checks \"\"` prints \"the ruleset will require these checks, found on main: none\" above a ruleset that requires `devkit-reviews`",
+      "progressKey": "start"
+    }
+  ],
+  "ask": null,
+  "end": null
+}
+exit=0
+
+--- 2026-11-21T21:25:48.269Z change-loop.mjs open
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "worktree": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "base": "origin/main",
+  "reply": "Abri a change roadmap-coordinator-followups no roteiro completo, porque muda algo de que outras partes dependem. Agora vêm algumas perguntas sobre o seu pedido; para usar o roteiro curto, é só dizer antes de o plano ser escrito."
+}
+exit=0
+
+--- 2026-11-21T21:25:55.261Z change-loop.mjs open
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "worktree": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "base": "origin/main",
+  "reply": "Abri a change merge-setup-field-fixes no roteiro completo, porque não é claramente pequena, e o roteiro completo é a escolha segura. Agora vêm algumas perguntas sobre o seu pedido; para usar o roteiro curto, é só dizer antes de o plano ser escrito."
+}
+exit=0
+devkit-roadmap: 2
+{
+  "version": 1,
+  "places": 2,
+  "open": [
+    "roadmap-coordinator-followups",
+    "merge-setup-field-fixes"
+  ],
+  "stopping": false,
+  "lines": [
+    "▸ Comecei roadmap-coordinator-followups (1 de 2 em andamento).",
+    "▸ Comecei merge-setup-field-fixes (2 de 2 em andamento).",
+    "▸ roadmap-coordinator-followups espera as suas respostas sobre o pedido. As outras seguem.",
+    "▸ merge-setup-field-fixes espera as suas respostas sobre o pedido. As outras seguem."
+  ],
+  "actions": [],
+  "ask": {
+    "change": "roadmap-coordinator-followups",
+    "kind": "grill",
+    "action": {
+      "version": 1,
+      "change": "roadmap-coordinator-followups",
+      "script": "devkit",
+      "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+      "branch": "roadmap-coordinator-followups",
+      "filesLanguage": "en",
+      "kind": "grill",
+      "stage": "requirements",
+      "stageTitle": "Requisitos (grill)",
+      "role": "change-coordinator",
+      "skills": [
+        "requirements-grill"
+      ],
+      "progressKey": "requirements/requirements@b64a449fd444"
+    }
+  },
+  "end": null
+}
+exit=0
+
+--- 2026-11-21T21:35:34.117Z roadmap-loop.mjs next
+devkit-roadmap: 2
+{
+  "version": 1,
+  "places": 2,
+  "open": [
+    "roadmap-coordinator-followups",
+    "merge-setup-field-fixes"
+  ],
+  "stopping": false,
+  "lines": [],
+  "actions": [
+    {
+      "version": 1,
+      "change": "roadmap-coordinator-followups",
+      "script": "devkit",
+      "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+      "branch": "roadmap-coordinator-followups",
+      "filesLanguage": "en",
+      "kind": "agent",
+      "stage": "proposal",
+      "stageTitle": "Proposta",
+      "role": "change-planner",
+      "skills": [],
+      "agent": "devkit-core:change-planner",
+      "brief": "Change roadmap-coordinator-followups (devkit script), stage proposal: write the plan files the script still lacks, from proposal on, each from `openspec instructions <artifact> --change roadmap-coordinator-followups`. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+      "progressKey": "proposal/proposal@93b7722852b2"
+    }
+  ],
+  "ask": {
+    "change": "merge-setup-field-fixes",
+    "kind": "grill",
+    "action": {
+      "version": 1,
+      "change": "merge-setup-field-fixes",
+      "script": "devkit",
+      "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+      "branch": "merge-setup-field-fixes",
+      "filesLanguage": "en",
+      "kind": "grill",
+      "stage": "requirements",
+      "stageTitle": "Requisitos (grill)",
+      "role": "change-coordinator",
+      "skills": [
+        "requirements-grill"
+      ],
+      "progressKey": "requirements/requirements@8ec86d4e2f33"
+    }
+  },
+  "end": null
+}
+exit=0
+
+--- 2026-11-21T21:50:30.080Z roadmap-loop.mjs status
+Roadmap: 2 abertas de 2 · 12 na fila · 15 arquivadas
+
+Esperando você
+  merge-setup-field-fixes         as suas respostas sobre o pedido
+Em andamento
+  roadmap-coordinator-followups   Proposta
+Na fila
+  review-writer-prompt            pronta, espera vaga
+  stage-roles                     pronta, espera vaga
+  delivery-models                 pronta, espera vaga
+  project-phases                  pronta, espera vaga
+  jira-entry                      pronta, espera vaga
+  compozy-driver                  pronta, espera vaga
+  script-driver                   pronta, espera vaga
+  coordination-panels             pronta, espera vaga
+  coordination-cleanup            espera coordination-panels
+  project-setup                   espera delivery-models
+  lean-pr-template                pronta, espera vaga
+  remote-worker                   pronta, espera vaga
+~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/openspec/changes/roadmap-coordinator-followups/:
+proposal.md
+requirements.md
+specs
+
+~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups/openspec/changes/roadmap-coordinator-followups/specs:
+coordination-locks
+roadmap-coordination
+18:50  up 30 days, 12:39, 1 user, load averages: 9.05 16.59 19.39
+
+--- 2026-11-21T21:56:56.440Z roadmap-loop.mjs run
+devkit-roadmap: stop
+Parando: nada novo começa, e cada change termina a etapa em que está.
+roadmap-coordinator-followups: terminando a etapa Proposta.
+merge-setup-field-fixes: a próxima é a etapa Proposta.
+{
+  "version": 1,
+  "places": 2,
+  "open": [
+    "roadmap-coordinator-followups",
+    "merge-setup-field-fixes"
+  ],
+  "stopping": true,
+  "lines": [],
+  "actions": [],
+  "ask": null,
+  "end": null
+}
+exit=0
+
+
+## Part 2. The move of 2026-11-21: one session per change
+
+--- 2026-11-21T21:57:12.204Z start_session
+input: {"initiation": "user_asked", "context": "fresh", "title": "📝 roadmap-coordinator-followups", "name": "rcf", "cwd": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups", "use_worktree": false, "prompt": "/devkit-openspec:devkit change roadmap-coordinator-followups", "background": "This session resumes the devkit change `roadmap-coordinator-followups`, which a `/devkit roadmap 2` run started in the owner's coordinating session on 2026-11-21. The owner decided that every change of a roadmap run lives in a session of its own, so this change was moved here; the coordinating session starts nothing new and no longer drives it. Work only in this folder (the change's worktree, branch `roadmap-coordinator-followups`). State: `requirements.md` is passed, with the owner's later answers already in it (AC-13 to AC-15: one session per change, a session icon for the change's current stage, what happens when a change becomes ready with no owner turn open). A planner wrote `proposal.md`, `design.md`, `specs/` and part of `tasks.md` BEFORE AC-13 to AC-15 were added and was stopped while writing `tasks.md`: the plan must be revised to cover every acceptance criterion before readiness. Follow the devkit skill's loop (`change-loop.mjs next`); the owner speaks Brazilian Portuguese; the change's files are in English. This session's title starts with the icon of the change's current stage (📝 plan); keep it in step as the stage changes (❓ requirements, 📝 plan, 🛠️ code, 
+Started session "📝 roadmap-coordinator-followups" (session_id: local_7b8658b6-ccb9-464f-9e5f-2594fa6054a5, name: rcf). It runs on its own; you get a note here when its turn ends. Don't repeat the introduction: at most one line on how you'll report back, then end your turn — do not wait for it.
+
+--- 2026-11-21T21:58:00.602Z start_session
+input: {"initiation": "user_asked", "context": "fresh", "title": "📝 merge-setup-field-fixes", "name": "msff", "cwd": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes", "use_worktree": false, "prompt": "/devkit-openspec:devkit change merge-setup-field-fixes", "background": "This session resumes the devkit change `merge-setup-field-fixes`, which a `/devkit roadmap 2` run started in the owner's coordinating session on 2026-11-21. The owner decided that every change of a roadmap run lives in a session of its own, so this change was moved here; the coordinating session starts nothing new and no longer drives it. Work only in this folder (the change's worktree, branch `merge-setup-field-fixes`). State: `requirements.md` is passed with the owner's answers (three field defects: `deliver-check --watch` during `stop-merge-setup`, the `github-setup.mjs --checks \"\"` message, a verdict file with two `Verdict:` lines; each reproduced before its fix). The next stage is the plan. A sibling change, `roadmap-coordinator-followups`, runs at the same time in its own session and also bumps the devkit-openspec version; the release rebase handles that. Follow the devkit skill's loop (`change-loop.mjs next`); the owner speaks Brazilian Portuguese; the change's files are in English. This session's title starts with the icon of the change's current stage (📝 plan); keep it in step as the stage changes (❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery, 📦 archive), as the liv
+Started session "📝 merge-setup-field-fixes" (session_id: local_ef0587c6-1d46-419f-ad37-dad45e2d334d, name: msff). It runs on its own; you get a note here when its turn ends. Don't repeat the introduction: at most one line on how you'll report back, then end your turn — do not wait for it.
+
+--- 2026-11-21T22:14:41.002Z list_sessions
+input: {"linked": true}
+[
+  {
+    "sessionId": "local_7b8658b6-ccb9-464f-9e5f-2594fa6054a5",
+    "title": "📝 roadmap-coordinator-followups",
+    "cwd": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+    "isArchived": false,
+    "isRunning": false,
+    "lastActivityAt": "2026-11-21T22:14:40.484Z",
+    "group": null,
+    "link": "claude://claude.ai/epitaxy/local_7b8658b6-ccb9-464f-9e5f-2594fa6054a5",
+    "remoteControlActive": true,
+    "permissionMode": "bypassPermissions",
+    "name": "rcf",
+    "startedBy": "local_0a23f676-7878-42f8-83ad-0c1d0820a946"
+  },
+  {
+    "sessionId": "local_ef0587c6-1d46-419f-ad37-dad45e2d334d",
+    "title": "🛠️ merge-setup-field-fixes",
+    "cwd": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+    "isArchived": false,
+    "isRunning": false,
+    "lastActivityAt": "2026-11-21T22:14:40.372Z",
+    "group": null,
+    "link": "claude://claude.ai/epitaxy/local_ef0587c6-1d46-419f-ad37-dad45e2d334d",
+    "remoteControlActive": true,
+    "permissionMode": "bypassPermissions",
+    "name": "msff",
+    "startedBy": "local_0a23f676-7878-42f8-83ad-0c1d0820a946"
+  }
+]
+
+
+## Part 3. After the move: the change sessions
+
+### merge-setup-field-fixes (msff)
+
+--- 2026-11-21T21:58:15.863Z change-loop.mjs start
+{
+  "version": 1,
+  "mode": "resume",
+  "verb": "change",
+  "text": "merge-setup-field-fixes",
+  "change": "merge-setup-field-fixes",
+  "unfinished": [
+    {
+      "id": "merge-setup-field-fixes",
+      "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+      "where": "a próxima é a etapa Proposta"
+    },
+    {
+      "id": "roadmap-coordinator-followups",
+      "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+      "where": "a próxima é a etapa Proposta"
+    }
+  ],
+  "settings": {
+    "driver": "claude",
+    "filesLanguage": "en",
+    "personLanguage": "pt-BR"
+  },
+  "reply": "Continuando a change merge-setup-field-fixes: a próxima é a etapa Proposta."
+}
+---
+
+--- 2026-11-21T21:58:23.776Z change-loop.mjs next
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "proposal",
+  "stageTitle": "Proposta",
+  "role": "change-planner",
+  "skills": [],
+  "agent": "devkit-core:change-planner",
+  "brief": "Change merge-setup-field-fixes (devkit script), stage proposal: write the plan files the script still lacks, from proposal on, each from `openspec instructions <artifact> --change merge-setup-field-fixes`. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "proposal/proposal@f553658eba74"
+}
+
+--- 2026-11-21T22:12:36.531Z change-loop.mjs next
+?? openspec/changes/merge-setup-field-fixes/
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "readiness",
+  "stageTitle": "Revisão do plano",
+  "role": "plan-readiness-reviewer",
+  "skills": [
+    "plan-readiness-review"
+  ],
+  "agent": "devkit-core:plan-readiness-reviewer",
+  "brief": "Change merge-setup-field-fixes (devkit script), stage readiness: review the plan. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "readiness/readiness@095b361d73a5"
+}
+
+--- 2026-11-21T22:13:31.582Z change-loop.mjs next
+Exit code 1
+devkit-run: merge-setup-field-fixes
+devkit-end: merge-setup-field-fixes waiting-for-owner
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "approval",
+  "stageTitle": "Aprovação do dono",
+  "role": "owner",
+  "skills": [],
+  "end": {
+    "state": "waiting-for-owner",
+    "why": "waiting-approval"
+  },
+  "params": {
+    "id": "merge-setup-field-fixes"
+  },
+  "detail": {
+    "readiness": "sha256:843a1f641604"
+  },
+  "reply": "O plano de merge-setup-field-fixes está escrito e revisado. Leia e me diga se aprova; eu sigo assim que você responder."
+}
+
+--- 2026-11-21T22:14:16.428Z change-loop.mjs next
+<!-- devkit-stage approval result=passed attempt=1 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+# Plan approval: merge-setup-field-fixes
+
+- Status: APPROVED
+- Readiness: sha256:843a1f641604
+- Date: 2026-11-21
+- Owner's words: "Aprovo (Recomendado)"
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 1 has unticked tasks: 1.1, 1.2, 1.3",
+    "phase": 1
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 1 has unticked tasks: 1.1, 1.2, 1.3\",\"phase\":1}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@d9ebfc829d08"
+}
+
+--- 2026-11-21T22:14:28.330Z set_session_title
+input: {"session_id": "self", "title": "🛠️ merge-setup-field-fixes"}
+Renamed this session to "🛠️ merge-setup-field-fixes" (was "📝 merge-setup-field-fixes").
+
+--- 2026-11-21T22:26:55.212Z change-loop.mjs next
+M docs/openspec-flow.md
+ M plugins/openspec/hooks/deliver-check.mjs
+ M plugins/openspec/hooks/deliver-check.test.mjs
+?? openspec/changes/merge-setup-field-fixes/
+ docs/openspec-flow.md                         |  4 +-
+ plugins/openspec/hooks/deliver-check.mjs      | 26 +++++++++--
+ plugins/openspec/hooks/deliver-check.test.mjs | 64 +++++++++++++++++++++++++++
+ 3 files changed, 88 insertions(+), 6 deletions(-)
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "step": "gate",
+  "detail": {
+    "step": "gate",
+    "reason": "phase 1 is implemented; run its gate 1.4",
+    "phase": 1,
+    "task": "1.4",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py"
+  },
+  "progressKey": "implementation/gate@b523af913725"
+}
+
+--- 2026-11-21T22:33:40.748Z change-loop.mjs next
+58:- [ ] 1.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green; covers AC-1, and AC-4 for field item 9.
+58:- [x] 1.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs && python3 scripts/check.py` green; covers AC-1, and AC-4 for field item 9.
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 2 has unticked tasks: 2.1, 2.2, 2.3",
+    "phase": 2
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 2 has unticked tasks: 2.1, 2.2, 2.3\",\"phase\":2}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@9fde728982a7"
+}
+
+--- 2026-11-21T22:49:08.021Z change-loop.mjs next
+M docs/openspec-flow.md
+ M plugins/openspec/hooks/deliver-check.mjs
+ M plugins/openspec/hooks/deliver-check.test.mjs
+ M plugins/openspec/skills/openspec-setup/SKILL.md
+ M plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs
+ M plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs
+?? openspec/changes/merge-setup-field-fixes/
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "step": "gate",
+  "detail": {
+    "step": "gate",
+    "reason": "phase 2 is implemented; run its gate 2.4",
+    "phase": 2,
+    "task": "2.4",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs && python3 scripts/check.py"
+  },
+  "progressKey": "implementation/gate@ff4dd355862f"
+}
+
+--- 2026-11-21T22:56:22.254Z change-loop.mjs next
+87:- [x] 2.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs && python3 scripts/check.py` green; covers AC-2, and AC-4 for field item 11.
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 3 has unticked tasks: 3.1, 3.2, 3.3",
+    "phase": 3
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 3 has unticked tasks: 3.1, 3.2, 3.3\",\"phase\":3}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@86b2833e12ff"
+}
+
+--- 2026-11-21T22:59:42.088Z change-loop.mjs next
+M docs/openspec-flow.md
+ M plugins/openspec/hooks/conduct-check.test.mjs
+ M plugins/openspec/hooks/deliver-check.mjs
+ M plugins/openspec/hooks/deliver-check.test.mjs
+ M plugins/openspec/hooks/guard.test.mjs
+ M plugins/openspec/skills/openspec-setup/SKILL.md
+ M plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs
+ M plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs
+?? openspec/changes/merge-setup-field-fixes/
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "step": "gate",
+  "detail": {
+    "step": "gate",
+    "reason": "phase 3 is implemented; run its gate 3.4",
+    "phase": 3,
+    "task": "3.4",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern=\"^field-fixes 10 \" --test-name-pattern=\"^readValue\" --test-name-pattern=\"^reviewConsensus\" --test-name-pattern=\"^gh pr create\" --test-name-pattern=\"^conduct\" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py"
+  },
+  "progressKey": "implementation/gate@8b6ef1204243"
+}
+
+--- 2026-11-21T23:01:51.745Z change-loop.mjs next
+1
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 4 has unticked tasks: 4.1, 4.2",
+    "phase": 4
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 4 has unticked tasks: 4.1, 4.2\",\"phase\":4}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@cc1f61f754fd"
+}
+
+--- 2026-11-21T23:03:17.471Z change-loop.mjs next
+M .claude-plugin/marketplace.json
+ M CHANGELOG.md
+ M docs/openspec-flow.md
+ M openspec/roadmap.md
+ M plugins/openspec/.claude-plugin/plugin.json
+ M plugins/openspec/hooks/change-loop.test.mjs
+ M plugins/openspec/hooks/conduct-check.test.mjs
+ M plugins/openspec/hooks/deliver-check.mjs
+ M plugins/openspec/hooks/deliver-check.test.mjs
+ M plugins/openspec/hooks/guard.test.mjs
+ M plugins/openspec/skills/openspec-setup/SKILL.md
+ M plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs
+ M plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs
+?? openspec/changes/merge-setup-field-fixes/
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "step": "gate",
+  "detail": {
+    "step": "gate",
+    "reason": "phase 4 is implemented; run its gate 4.3",
+    "phase": 4,
+    "task": "4.3",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate ."
+  },
+  "progressKey": "implementation/gate@320a0867198f"
+}
+
+--- 2026-11-21T23:20:08.863Z change-loop.mjs next
+1
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "delivery",
+  "stageTitle": "Entrega",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "agent": "devkit-core:commit-and-pr",
+  "step": "commit",
+  "detail": {
+    "step": "commit",
+    "reason": "uncommitted changes outside openspec/: .claude-plugin/marketplace.json, CHANGELOG.md, docs/openspec-flow.md",
+    "paths": [
+      ".claude-plugin/marketplace.json",
+      "CHANGELOG.md",
+      "docs/openspec-flow.md",
+      "plugins/openspec/.claude-plugin/plugin.json",
+      "plugins/openspec/hooks/change-loop.test.mjs",
+      "plugins/openspec/hooks/conduct-check.test.mjs",
+      "plugins/openspec/hooks/deliver-check.mjs",
+      "plugins/openspec/hooks/deliver-check.test.mjs",
+      "plugins/openspec/hooks/guard.test.mjs",
+      "plugins/openspec/skills/openspec-setup/SKILL.md",
+      "plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs",
+      "plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs"
+    ]
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage delivery: step commit {\"step\":\"commit\",\"reason\":\"uncommitted changes outside openspec/: .claude-plugin/marketplace.json, CHANGELOG.md, docs/openspec-flow.md\",\"paths\":[\".claude-plugin/marketplace.json\",\"CHANGELOG.md\",\"docs/openspec-flow.md\",\"plugins/openspec/.claude-plugin/plugin.json\",\"plugins/openspec/hooks/change-loop.test.mjs\",\"plugins/openspec/hooks/conduct-check.test.mjs\",\"plugins/openspec/hooks/deliver-check.mjs\",\"plugins/openspec/hooks/deliver-check.test.mjs\",\"plugins/openspec/hooks/guard.test.mjs\",\"plugins/openspec/skills/openspec-setup/SKILL.md\",\"plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs\",\"plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs\"]}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "delivery/commit@9a3c17721cef"
+}
+
+--- 2026-11-21T23:20:25.900Z set_session_title
+input: {"session_id": "self", "title": "🚀 merge-setup-field-fixes"}
+Renamed this session to "🚀 merge-setup-field-fixes" (was "🛠️ merge-setup-field-fixes").
+
+--- 2026-11-21T23:20:39.919Z change-loop.mjs next
+08d524b fix(openspec): merge-setup-field-fixes for setup and deliver-check
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+08d524bfff0ba70aa7fb5bc06f5648292fb497f6
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "evidence",
+  "stageTitle": "Demonstração",
+  "role": "pr-verifier",
+  "skills": [],
+  "agent": "devkit-core:pr-verifier",
+  "step": "verify",
+  "detail": {
+    "step": "verify",
+    "reason": "evidence.md is missing, stale or lacks a gate or criterion row"
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage evidence: step verify {\"step\":\"verify\",\"reason\":\"evidence.md is missing, stale or lacks a gate or criterion row\"}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "evidence/verify@3ae41a40b292"
+}
+
+--- 2026-11-21T23:38:09.386Z change-loop.mjs next
+?? openspec/changes/merge-setup-field-fixes/evidence.md
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "review",
+  "stageTitle": "Revisão de código",
+  "role": "review-bench",
+  "skills": [
+    "review-change"
+  ],
+  "step": "review",
+  "detail": {
+    "step": "review",
+    "reason": "review needed from code-quality-reviewer, test-coverage-reviewer",
+    "reviewers": [
+      "code-quality-reviewer",
+      "test-coverage-reviewer"
+    ],
+    "round": 1
+  },
+  "progressKey": "review/review@043ca9d33a5a"
+}
+
+--- 2026-11-21T23:38:22.745Z set_session_title
+input: {"session_id": "self", "title": "🔍 merge-setup-field-fixes"}
+Renamed this session to "🔍 merge-setup-field-fixes" (was "🚀 merge-setup-field-fixes").
+
+--- 2026-11-21T23:38:32.186Z change-loop.mjs next
+58d7a8b docs(openspec): evidence for merge-setup-field-fixes
+08d524b fix(openspec): merge-setup-field-fixes for setup and deliver-check
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "review",
+  "stageTitle": "Revisão de código",
+  "role": "review-bench",
+  "skills": [
+    "review-change"
+  ],
+  "step": "review",
+  "detail": {
+    "step": "review",
+    "reason": "review needed from code-quality-reviewer, test-coverage-reviewer",
+    "reviewers": [
+      "code-quality-reviewer",
+      "test-coverage-reviewer"
+    ],
+    "round": 1
+  },
+  "progressKey": "review/review@32fa32ce85cf"
+}
+
+--- 2026-11-21T23:41:57.311Z change-loop.mjs next
+<!-- devkit-stage review result=failed attempt=1 commit=58d7a8b07652ce057525b17f051fad8db1b7eb3b -->
+# Review: merge-setup-field-fixes, round 1
+
+?? openspec/changes/merge-setup-field-fixes/review.md
+?? openspec/changes/merge-setup-field-fixes/reviews/
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "fix-review",
+  "detail": {
+    "step": "fix-review",
+    "reason": "test-coverage-reviewer rejected at the current commit",
+    "reviewers": [
+      "test-coverage-reviewer"
+    ],
+    "findings": [
+      {
+        "reviewer": "test-coverage-reviewer",
+        "excerpt": "[important] plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs (requirementSources, che"
+      },
+      {
+        "reviewer": "test-coverage-reviewer",
+        "excerpt": "[important] plugins/openspec/hooks/deliver-check.mjs:1648 (checksToWatch) — The stop-merge-setup wat"
+      }
+    ]
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage implementation: step fix-review {\"step\":\"fix-review\",\"reason\":\"test-coverage-reviewer rejected at the current commit\",\"reviewers\":[\"test-coverage-reviewer\"],\"findings\":[{\"reviewer\":\"test-coverage-reviewer\",\"excerpt\":\"[important] plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs (requirementSources, che\"},{\"reviewer\":\"test-coverage-reviewer\",\"excerpt\":\"[important] plugins/openspec/hooks/deliver-check.mjs:1648 (checksToWatch) — The stop-merge-setup wat\"}]}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/fix-review@6f796f5a01ed"
+}
+
+--- 2026-11-21T23:42:13.271Z set_session_title
+input: {"session_id": "self", "title": "🛠️ merge-setup-field-fixes"}
+Renamed this session to "🛠️ merge-setup-field-fixes" (was "🔍 merge-setup-field-fixes").
+
+--- 2026-11-21T23:51:54.934Z change-loop.mjs next
+M openspec/changes/merge-setup-field-fixes/proof/README.txt
+ M plugins/openspec/hooks/deliver-check.test.mjs
+ M plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs
+?? openspec/changes/merge-setup-field-fixes/review.md
+?? openspec/changes/merge-setup-field-fixes/reviews/
+ openspec/changes/merge-setup-field-fixes/proof/README.txt    |  2 ++
+ plugins/openspec/hooks/deliver-check.test.mjs                | 12 ++++++++++++
+ .../skills/openspec-setup/scripts/github-setup.test.mjs      | 12 ++++++++++++
+ 3 files changed, 26 insertions(+)
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "delivery",
+  "stageTitle": "Entrega",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "agent": "devkit-core:commit-and-pr",
+  "step": "commit",
+  "detail": {
+    "step": "commit",
+    "reason": "uncommitted changes outside openspec/: plugins/openspec/hooks/deliver-check.test.mjs, plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs",
+    "paths": [
+      "plugins/openspec/hooks/deliver-check.test.mjs",
+      "plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs"
+    ]
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage delivery: step commit {\"step\":\"commit\",\"reason\":\"uncommitted changes outside openspec/: plugins/openspec/hooks/deliver-check.test.mjs, plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs\",\"paths\":[\"plugins/openspec/hooks/deliver-check.test.mjs\",\"plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs\"]}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "delivery/commit@68b4c2cc212b"
+}
+
+--- 2026-11-21T23:52:17.761Z change-loop.mjs next
+49294bc test(openspec): cover the unreadable setup source and the watch guards
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "evidence",
+  "stageTitle": "Demonstração",
+  "role": "pr-verifier",
+  "skills": [],
+  "agent": "devkit-core:pr-verifier",
+  "step": "verify",
+  "detail": {
+    "step": "verify",
+    "reason": "evidence.md is missing, stale or lacks a gate or criterion row"
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage evidence: step verify {\"step\":\"verify\",\"reason\":\"evidence.md is missing, stale or lacks a gate or criterion row\"}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "evidence/verify@a63668615ea0"
+}
+
+--- 2026-11-21T23:52:31.274Z set_session_title
+input: {"session_id": "self", "title": "🚀 merge-setup-field-fixes"}
+Renamed this session to "🚀 merge-setup-field-fixes" (was "🛠️ merge-setup-field-fixes").
+
+--- 2026-11-22T00:15:35.128Z change-loop.mjs next
+M openspec/changes/merge-setup-field-fixes/evidence.md
+<!-- devkit-stage evidence result=passed attempt=2 commit=49294bc67cd416846cefd89dc5eed5f1281c5718 -->
+Commit: 49294bc67cd416846cefd89dc5eed5f1281c5718
+
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "review",
+  "stageTitle": "Revisão de código",
+  "role": "review-bench",
+  "skills": [
+    "review-change"
+  ],
+  "step": "review",
+  "detail": {
+    "step": "review",
+    "reason": "review needed from code-quality-reviewer, test-coverage-reviewer",
+    "reviewers": [
+      "code-quality-reviewer",
+      "test-coverage-reviewer"
+    ],
+    "round": 2
+  },
+  "progressKey": "review/review@2cd1e6625695"
+}
+
+--- 2026-11-22T00:15:46.837Z set_session_title
+input: {"session_id": "self", "title": "🔍 merge-setup-field-fixes"}
+Renamed this session to "🔍 merge-setup-field-fixes" (was "🚀 merge-setup-field-fixes").
+
+--- 2026-11-22T00:16:06.839Z change-loop.mjs next
+session review {"step":"review","reason":"review needed from code-quality-reviewer, test-coverage-reviewer","reviewers":["code-quality-reviewer","test-coverage-reviewer"],"round":2} review/review@f1a9eb836e10
+Change 'merge-setup-field-fixes' is valid
+b78a2c9cc21e118dc339d3b210218fd2e95846a7
+stage1 0
+This is stage 1 of a staged review round for change merge-setup-field-fixes (round 2 of 2).
+Change folder: ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes/openspec/changes/merge-setup-field-fixes
+Review range: 58d7a8b07652ce057525b17f051fad8db1b7eb3b..HEAD
+Your previous verdict file is Verdict: rejected
+Commit: 58d7a8b07652ce057525b17f051fad8db1b7eb3b
+
+## Coverage analysis — merge-setup-field-fixes (main...HEAD)
+
+### Findings
+- [important] plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs (requirementSources, checksFrom 'unreadable') — No test covers the 'newest pull requests could not be read' label or checksFrom === 'unreadable'. If the discoverError branch were mislabelled as 'pull-requests', nothing goes red. Write in github-setup.test.mjs using the world() helper, with the pull-requests read failing and no --checks.
+- [important] plugins/openspec/hooks/deliver-check.mjs:1648 (checksToWatch) — The stop-merge-setup watch guards on !state.archive and pr.state === 'OPEN'; no test pins them. With the archive PR phase or a MERGED/CLOSED PR carrying a stale pending check, a watch could start wrongly and every field-fixes 9 test stays green. Write in deliver-check.test.mjs next to the field-fixes 9 tests, using mergeReady() and a merged PR state or an archive state with a pending check, asserting watchCalls is empty.
+- [nit] plugins/openspec/hooks/deliver-check.test.mjs (field-fixes 9 cap test) — The cap test relies on a real 20s sleep with a 15s wall-clock assertion; it could be flaky on a loaded CI runner.
+- [praise] verdict-files tests — The first-Verdict-line behavior is pinned in both orders on every reader.
+
+In-scope surfaces: plugins/openspec hooks (deliver-check, guard, conduct-check), the openspec-setup github-setup script.
+Blocking gaps (8-10 without a plan): 0
+Seams checked: --watch at stop-merge-setup → caught by 'field-fixes 9 watch' tests (watch args, final report, cap, no-watch cases); the requires and checksFrom fields in the JSON plan and in the printed line → caught by the 'field-fixes 11 setup' tests (option, pull-requests, empty, stored ruleset kept, rulesets refused); the first-Verdict-line read in item 2, the devkit-reviews check (both entries), guard readValue and reviewConsensus, the gh pr create hook, and the conduct plan audit → caught by the 'field-fixes 10' tests in both orders; the CI pin bump to v0.18.1 → caught by the change-loop docs test (mutation runs: 0)
+
+### Well covered
+- First Verdict line: tests on every reader check both orders and that nothing is printed about the second line.
+- Setup requires line: the printed line and the JSON `requires` agree, and `items[3]` keeps its old fields.
+. Re-list each of its findings with its disposition (fixed in <sha>, or refuted: <evidence>) when it was dealt with; list the others as they stand.
+Review as your own instructions say, but write no file: a later stage writes your verdict file.
+End your reply with one fenced json block holding one object: { declined: boolean, commit: "<full 40 hex sha of HEAD>", uncommitted: boolean, heading: "<your ## title line>", findings: [ { id: "F1", severity: "blocking|important|nit|praise", location: "<file:line or section>", text: "<one line>", disposition: null or "fixed in <sha>" or "refuted: <evidence>" } ], sections: "<the rest of your output as Markdown, without the findings list>" }.
+
+--- 2026-11-22T00:17:52.451Z change-loop.mjs next
+{"ok":true}
+code-quality-reviewer exit 0
+{"ok":true}
+test-coverage-reviewer exit 0
+cons 0
+PASS
+<!-- devkit-stage review result=passed attempt=2 commit=b78a2c9cc21e118dc339d3b210218fd2e95846a7 -->
+# Review: merge-setup-field-fixes, round 1
+11:Consensus: FAIL (round 1/2)
+37:Consensus: PASS (round 2/2)
+openspec/changes/merge-setup-field-fixes/reviews/test-coverage-reviewer.md:1
+openspec/changes/merge-setup-field-fixes/reviews/code-quality-reviewer.md:1
+ M openspec/changes/merge-setup-field-fixes/review.md
+ M openspec/changes/merge-setup-field-fixes/reviews/code-quality-reviewer.md
+ M openspec/changes/merge-setup-field-fixes/reviews/test-coverage-reviewer.md
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "delivery",
+  "stageTitle": "Entrega",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "agent": "devkit-core:commit-and-pr",
+  "step": "open-pr",
+  "detail": {
+    "step": "open-pr",
+    "reason": "no pull request yet"
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage delivery: step open-pr {\"step\":\"open-pr\",\"reason\":\"no pull request yet\"}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "delivery/open-pr@b134fe8e75aa"
+}
+
+--- 2026-11-22T00:18:09.974Z set_session_title
+input: {"session_id": "self", "title": "🚀 merge-setup-field-fixes"}
+Renamed this session to "🚀 merge-setup-field-fixes" (was "🔍 merge-setup-field-fixes").
+
+--- 2026-11-22T00:18:32.074Z change-loop.mjs next
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "delivery",
+  "stageTitle": "Entrega",
+  "role": "commit-and-pr",
+  "skills": [
+    "commit-message-guidelines"
+  ],
+  "step": "update-branch",
+  "detail": {
+    "step": "update-branch",
+    "reason": "branch is behind main; update it",
+    "number": 46
+  },
+  "progressKey": "delivery/update-branch@03f0f4910b83"
+}
+
+--- 2026-11-22T00:18:47.638Z change-loop.mjs next
+✓ PR branch updated
+Fast-forward
+ openspec/roadmap.md | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+c292a5d Merge branch 'main' into merge-setup-field-fixes
+25930d5 docs(openspec): review round 2 of merge-setup-field-fixes passes
+b78a2c9 docs(openspec): refresh the evidence of merge-setup-field-fixes
+devkit-run: merge-setup-field-fixes
+{
+  "version": 1,
+  "change": "merge-setup-field-fixes",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+  "branch": "merge-setup-field-fixes",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "evidence",
+  "stageTitle": "Demonstração",
+  "role": "pr-verifier",
+  "skills": [],
+  "agent": "devkit-core:pr-verifier",
+  "step": "verify",
+  "detail": {
+    "step": "verify",
+    "reason": "evidence.md is missing, stale or lacks a gate or criterion row"
+  },
+  "brief": "Change merge-setup-field-fixes (devkit script), stage evidence: step verify {\"step\":\"verify\",\"reason\":\"evidence.md is missing, stale or lacks a gate or criterion row\"}. Work only in ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes on branch merge-setup-field-fixes; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes && ; do not fetch. Write the change's files in English.",
+  "progressKey": "evidence/verify@fe638e936c5d"
+}
+
+Owner's plan approval in the msff session, asked there with AskUserQuestion between 22:13:31 and 22:14:16: approval.md of merge-setup-field-fixes, Owner's words "Aprovo (Recomendado)".
+
+### roadmap-coordinator-followups (rcf, this session)
+
+--- 2026-11-21T21:58:08.473Z change-loop.mjs start
+{
+  "version": 1,
+  "mode": "resume",
+  "verb": "change",
+  "text": "roadmap-coordinator-followups",
+  "change": "roadmap-coordinator-followups",
+  "unfinished": [
+    {
+      "id": "merge-setup-field-fixes",
+      "root": "~/Documents/devkit/.claude/worktrees/merge-setup-field-fixes",
+      "where": "a próxima é a etapa Proposta"
+    },
+    {
+      "id": "roadmap-coordinator-followups",
+      "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+      "where": "a próxima é a etapa Proposta"
+    }
+  ],
+  "settings": {
+    "driver": "claude",
+    "filesLanguage": "en",
+    "personLanguage": "pt-BR"
+  },
+  "reply": "Continuando a change roadmap-coordinator-followups: a próxima é a etapa Proposta."
+}
+exit 0
+
+--- 2026-11-21T21:58:16.462Z change-loop.mjs next
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "proposal",
+  "stageTitle": "Proposta",
+  "role": "change-planner",
+  "skills": [],
+  "agent": "devkit-core:change-planner",
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage proposal: write the plan files the script still lacks, from proposal on, each from `openspec instructions <artifact> --change roadmap-coordinator-followups`. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "proposal/proposal@7341e0711815"
+}
+exit 0
+
+--- 2026-11-21T22:18:19.642Z change-loop.mjs next
+?? openspec/changes/roadmap-coordinator-followups/
+==> openspec/changes/roadmap-coordinator-followups/proposal.md <==
+<!-- devkit-stage proposal result=passed attempt=2 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+
+==> openspec/changes/roadmap-coordinator-followups/design.md <==
+<!-- devkit-stage design result=passed attempt=2 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+
+==> openspec/changes/roadmap-coordinator-followups/tasks.md <==
+<!-- devkit-stage tasks result=passed attempt=2 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+openspec/changes/roadmap-coordinator-followups/proposal.md:4
+openspec/changes/roadmap-coordinator-followups/design.md:13
+openspec/changes/roadmap-coordinator-followups/specs/roadmap-coordination/spec.md:0
+openspec/changes/roadmap-coordinator-followups/tasks.md:33
+openspec/changes/roadmap-coordinator-followups/specs/coordination-locks/spec.md:0
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "readiness",
+  "stageTitle": "Revisão do plano",
+  "role": "plan-readiness-reviewer",
+  "skills": [
+    "plan-readiness-review"
+  ],
+  "agent": "devkit-core:plan-readiness-reviewer",
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage readiness: review the plan. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "readiness/readiness@6ac9c1a91a9f"
+}
+exit 0
+
+--- 2026-11-21T22:28:26.329Z change-loop.mjs next
+<!-- devkit-stage readiness result=failed attempt=1 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+# Readiness review: roadmap-coordinator-followups
+
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "proposal",
+  "stageTitle": "Proposta",
+  "role": "change-planner",
+  "skills": [],
+  "agent": "devkit-core:change-planner",
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage proposal: readiness failed at attempt 1 of 3: revise the plan from its findings. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "proposal/proposal@e1d3f14d4c6d"
+}
+exit 0
+
+--- 2026-11-21T22:40:59.789Z change-loop.mjs next
+?? openspec/changes/roadmap-coordinator-followups/
+==> openspec/changes/roadmap-coordinator-followups/proposal.md <==
+<!-- devkit-stage proposal result=passed attempt=3 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+
+==> openspec/changes/roadmap-coordinator-followups/design.md <==
+<!-- devkit-stage design result=passed attempt=3 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+
+==> openspec/changes/roadmap-coordinator-followups/tasks.md <==
+<!-- devkit-stage tasks result=passed attempt=3 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "readiness",
+  "stageTitle": "Revisão do plano",
+  "role": "plan-readiness-reviewer",
+  "skills": [
+    "plan-readiness-review"
+  ],
+  "agent": "devkit-core:plan-readiness-reviewer",
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage readiness: readiness is out of date: bring it up to date. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "readiness/readiness@bb3e9bbdca82"
+}
+exit 0
+
+--- 2026-11-21T22:41:58.884Z change-loop.mjs next
+<!-- devkit-stage readiness result=passed attempt=2 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+devkit-run: roadmap-coordinator-followups
+devkit-end: roadmap-coordinator-followups waiting-for-owner
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "end",
+  "stage": "approval",
+  "stageTitle": "Aprovação do dono",
+  "role": "owner",
+  "skills": [],
+  "end": {
+    "state": "waiting-for-owner",
+    "why": "waiting-approval"
+  },
+  "params": {
+    "id": "roadmap-coordinator-followups"
+  },
+  "detail": {
+    "readiness": "sha256:5c25e7987e76"
+  },
+  "reply": "O plano de roadmap-coordinator-followups está escrito e revisado. Leia e me diga se aprova; eu sigo assim que você responder."
+}
+exit 1
+
+--- 2026-11-21T22:48:40.808Z change-loop.mjs next
+<!-- devkit-stage approval result=passed attempt=1 commit=6e803ebbf35af6c2cc94cb622bdd1a4a1ecd3662 -->
+# Plan approval: roadmap-coordinator-followups
+
+- Status: APPROVED
+- Readiness: sha256:5c25e7987e76
+- Date: 2026-11-21
+- Owner's words: "Aprovo"
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 1 has unticked tasks: 1.1, 1.2, 1.3, 1.4, 1.5",
+    "phase": 1
+  },
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 1 has unticked tasks: 1.1, 1.2, 1.3, 1.4, 1.5\",\"phase\":1}. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@cfc660428adc"
+}
+exit 0
+
+--- 2026-11-21T22:48:57.412Z set_session_title
+input: {"session_id": "self", "title": "🛠️ roadmap-coordinator-followups"}
+Renamed this session to "🛠️ roadmap-coordinator-followups" (was "📝 roadmap-coordinator-followups").
+
+--- 2026-11-21T23:00:06.561Z change-loop.mjs next
+M plugins/openspec/hooks/change-loop.mjs
+ M plugins/openspec/hooks/change-loop.test.mjs
+ M plugins/openspec/hooks/guard.mjs
+ M plugins/openspec/hooks/roadmap-loop.mjs
+ M plugins/openspec/hooks/roadmap-loop.test.mjs
+?? openspec/changes/roadmap-coordinator-followups/
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "step": "gate",
+  "detail": {
+    "step": "gate",
+    "reason": "phase 1 is implemented; run its gate 1.6",
+    "phase": 1,
+    "task": "1.6",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern=\"^followups\" --test-name-pattern=\"^roadmap-loop\" --test-name-pattern=\"^change-loop\" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py"
+  },
+  "progressKey": "implementation/gate@5e79eb3dd2d4"
+}
+exit 0
+
+--- 2026-11-21T23:06:22.305Z change-loop.mjs next
+- [x] 1.6 Gate: `env GITHUB_HE
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 2 has unticked tasks: 2.1, 2.2, 2.3, 2.4",
+    "phase": 2
+  },
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 2 has unticked tasks: 2.1, 2.2, 2.3, 2.4\",\"phase\":2}. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@3803ee6eb787"
+}
+exit 0
+[This command modified 1 file you've previously read: openspec/changes/roadmap-coordinator-followups/tasks.md. Call Read before editing.]
+
+--- 2026-11-21T23:17:11.348Z change-loop.mjs next
+M plugins/openspec/hooks/change-loop.mjs
+ M plugins/openspec/hooks/change-loop.test.mjs
+ M plugins/openspec/hooks/guard.mjs
+ M plugins/openspec/hooks/roadmap-loop.mjs
+ M plugins/openspec/hooks/roadmap-loop.test.mjs
+ M plugins/openspec/skills/devkit/SKILL.md
+?? openspec/changes/roadmap-coordinator-followups/
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "session",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "step": "gate",
+  "detail": {
+    "step": "gate",
+    "reason": "phase 2 is implemented; run its gate 2.5",
+    "phase": 2,
+    "task": "2.5",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern=\"^followups\" --test-name-pattern=\"^roadmap-loop\" --test-name-pattern=\"^change-loop\" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py"
+  },
+  "progressKey": "implementation/gate@80691cbc4b09"
+}
+exit 0
+
+--- 2026-11-21T23:23:24.125Z change-loop.mjs next
+- [x] 2.5 Gate: `env
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 3 has unticked tasks: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6",
+    "phase": 3
+  },
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 3 has unticked tasks: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6\",\"phase\":3}. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@6610c233e11a"
+}
+exit 0
+[This command modified 1 file you've previously read: openspec/changes/roadmap-coordinator-followups/tasks.md. Call Read before editing.]
+
+--- 2026-11-21T23:44:35.782Z change-loop.mjs next
+M plugins/openspec/hooks/change-loop.mjs
+ M plugins/openspec/hooks/change-loop.test.mjs
+ M plugins/openspec/hooks/guard.mjs
+ M plugins/openspec/hooks/roadmap-loop.mjs
+ M plugins/openspec/hooks/roadmap-loop.test.mjs
+ M plugins/openspec/skills/devkit/SKILL.md
+?? openspec/changes/roadmap-coordinator-followups/
+  "kind": "session",
+  "step": "gate",
+    "step": "gate",
+    "task": "3.7",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern=\"^followups\" --test-name-pattern=\"^roadmap-loop\" --test-name-pattern=\"^change-loop\" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py"
+
+--- 2026-11-21T23:44:47.107Z change-loop.mjs next
+Command running in background with ID: beenu4yz9. Output is being written to: <scratch> You will be notified when it completes — do not poll that file or sleep while waiting. Read the file only if the user asks for progress, or if you need a line it prints before you can go on, such as a server's ready line or port.
+
+--- 2026-11-21T23:52:02.254Z change-loop.mjs next
+- [x] 3.7 Gate: `env
+devkit-run: roadmap-coordinator-followups
+{
+  "version": 1,
+  "change": "roadmap-coordinator-followups",
+  "script": "devkit",
+  "root": "~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups",
+  "branch": "roadmap-coordinator-followups",
+  "filesLanguage": "en",
+  "kind": "agent",
+  "stage": "implementation",
+  "stageTitle": "Implementação",
+  "role": "tdd-implementer",
+  "skills": [
+    "test-driven-development",
+    "systematic-debugging"
+  ],
+  "agent": "devkit-core:tdd-implementer",
+  "step": "implement",
+  "detail": {
+    "step": "implement",
+    "reason": "phase 4 has unticked tasks: 4.1, 4.2, 4.3, 4.4, 4.5",
+    "phase": 4
+  },
+  "brief": "Change roadmap-coordinator-followups (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 4 has unticked tasks: 4.1, 4.2, 4.3, 4.4, 4.5\",\"phase\":4}. Work only in ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups on branch roadmap-coordinator-followups; every file path is absolute under it; start every Bash command with cd ~/Documents/devkit/.claude/worktrees/roadmap-coordinator-followups && ; do not fetch. Write the change's files in English.",
+  "progressKey": "implementation/implement@f7aedecd0127"
+}
+exit 0
+[This command modified 1 file you've previously read: openspec/changes/roadmap-coordinator-followups/tasks.md. Call Read before editing.]
+
+--- 2026-11-22T00:13:09.708Z change-loop.mjs next
+M .claude-plugin/marketplace.json
+ M CHANGELOG.md
+ M README.md
+ M docs/adr/0010-openspec-as-the-harness.md
+ M docs/adr/0011-the-change-coordinator-is-the-owners-session.md
+ M docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md
+ M docs/coordination-design.md
+ M docs/openspec-flow.md
+ M docs/roles.md
+ M openspec/config.yaml
+ M plugins/openspec/.claude-plugin/plugin.json
+ M plugins/openspec/hooks/change-loop.mjs
+ M plugins/openspec/hooks/change-loop.test.mjs
+ M plugins/openspec/hooks/guard.mjs
+ M plugins/openspec/hooks/roadmap-loop.mjs
+ M plugins/openspec/hooks/roadmap-loop.test.mjs
+ M plugins/openspec/skills/devkit/SKILL.md
+?? docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md
+?? openspec/changes/roadmap-coordinator-followups/
+361:- [ ] 4.5 Owner-run task, done by the session that conducts this change (never `tdd-implementer`),
+362-  after task 4.4. Run the marketplace validation with the desktop app's bundled Claude Code, as
+363-  `CONTRIBUTING.md` says, into `${TMPDIR%/}/devkit-validate-roadmap-coordinator-followups/phase-4.txt`.
+364-  Check: the record holds "Validation passed" and the release's commit; a failure is fixed in task
+365-  4.4 and the run repeated.
+366-- [ ] 4.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-roadmap-coordinator-followups/phase-4.txt"` green, the whole suite run once as a background command; covers AC-3 and every acceptance criterion's tests together, with every existing test passing.
+367-
+368-## 5. The first real run, recorded (AC-11, AC-12, AC-13, AC-14, AC-15)
+369-
+370-- [ ] 5.1 Owner-run task, done by the conducting session (never `tdd-implementer`). Write
+371-  `openspec/changes/roadmap-coordinator-followups/proof/live/records.txt` with this run's records, in
+  "kind": "agent",
+  "step": "implement",
+    "step": "implement",
+    "reason": "phase 4 has unticked tasks: 4.5",
+  "progressKey": "implementation/implement@f8418c53fa50"
+
+--- 2026-11-22T00:13:29.566Z change-loop.mjs next
+- [x] 4.5 Owner-run 
+  "kind": "session",
+  "step": "gate",
+    "step": "gate",
+    "task": "4.6",
+    "command": "env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q \"Validation passed\" \"${TMPDIR%/}/devkit-validate-roadmap-coordinator-followups/phase-4.txt\""
+  "progressKey": "implementation/gate@7ebf060ca0f2"
+[This command modified 1 file you've previously read: openspec/changes/roadmap-coordinator-followups/tasks.md. Call Read before editing.]
+
+
+Owner's plan approval in this session: 2026-11-21T22:48:30Z, the owner's message "Aprovo" (approval.md).
+
+## Part 4. The board now
+
+$ node plugins/openspec/hooks/roadmap-loop.mjs status --lang en --load-limit 80   (2026-11-22T00:33:21Z)
+Roadmap: 2 open of 2 · 12 in the queue · 15 archived
+
+Under way
+  roadmap-coordinator-followups   Implementation, phase 5 of 5
+  merge-setup-field-fixes         Demonstration
+In the queue
+  review-writer-prompt            ready, waits for a place
+  stage-roles                     ready, waits for a place
+  delivery-models                 ready, waits for a place
+  project-phases                  ready, waits for a place
+  jira-entry                      ready, waits for a place
+  compozy-driver                  ready, waits for a place
+  script-driver                   ready, waits for a place
+  coordination-panels             ready, waits for a place
+  coordination-cleanup            waits for coordination-panels
+  project-setup                   waits for delivery-models
+  lean-pr-template                ready, waits for a place
+  remote-worker                   ready, waits for a place
+
+## Part 5. The run file now
+
+Copy of <git common directory>/devkit/roadmap-run.json (2026-11-22T00:33:31Z):
+{
+  "version": 1,
+  "session": "2468caec-d4b9-42c1-ab10-818a8d13d570",
+  "places": 2,
+  "stopping": true,
+  "asking": null,
+  "inflight": {
+    "roadmap-coordinator-followups": {
+      "kind": "agent",
+      "stage": "proposal",
+      "agentType": "devkit-core:change-planner",
+      "at": "2026-11-21T21:35:48.861Z"
+    }
+  },
+  "declared": {},
+  "announced": {
+    "roadmap-coordinator-followups": "gate:grill",
+    "merge-setup-field-fixes": "gate:grill"
+  },
+  "starting": [],
+  "held": false,
+  "holding": true,
+  "updatedAt": "2026-11-21T21:57:03.598Z"
+}
+
+## Index
+
+AC-12, the first real run:
+- The selection of the two ready changes: 2026-11-21T21:25:39Z `next` returns `start` for roadmap-coordinator-followups and merge-setup-field-fixes out of the roadmap; both opened at 21:25:48Z and 21:25:55Z. Before it, 21:18:45Z shows field defect F-1 (`roadmap 2` refused) and 21:18:50Z field defect F-2 (held by the load, 239% against 80%, with no way to start anyway).
+- A change going on while the owner answers the other's questions: 2026-11-21T21:35:34Z `next` hands roadmap-coordinator-followups to its planner while it asks the owner the grill of merge-setup-field-fixes.
+- Several ends handled one after another: not reached before the move (the coordinating session stopped the run at 21:56:56Z); after the move each change session handles its own ends (msff 22:13:31Z and rcf 22:41:58Z `devkit-end: ... waiting-for-owner`, each in its own session). After verification: in the retro.
+- A change reaching the delivery part: 2026-11-21T23:20:25Z merge-setup-field-fixes renames itself to 🚀 as its delivery steps begin (its `next` records from 23:20:08Z on).
+- The many-archived runs: proof/many-archived.txt (task 5.2), 2026-11-22T00:31:50Z.
+
+AC-13, one session per change:
+- Each change in a session of its own: 2026-11-21T21:57:12Z and 21:58:00Z `start_session` (title, name, cwd = the change's worktree, use_worktree false, prompt `/devkit-openspec:devkit change <id>`); both started.
+- Nested under the coordinating session: 2026-11-21T22:14:41Z `list_sessions {"linked": true}` lists both with `startedBy` local_0a23f676 (the coordinating session).
+- Questions and approvals asked there: merge-setup-field-fixes' plan approval in its own session (between 22:13:31Z and 22:14:16Z, "Aprovo (Recomendado)"); this change's plan approval in this session at 22:48:30Z ("Aprovo").
+
+AC-14, the stage icon in the session title:
+- This session: started as "📝 roadmap-coordinator-followups" at 21:57:12Z (plan); renamed to 🛠️ at 22:48:57Z when the code stage began. Later stages: after verification: in the retro.
+- merge-setup-field-fixes: 📝 to 🛠️ at 22:14:28Z (code); 🛠️ to 🚀 at 23:20:25Z (delivery); 🚀 to 🔍 at 23:38:22Z (review); 🔍 to 🛠️ at 23:42:13Z (a fix); later renames at 23:52:31Z, 00:15:46Z and 00:18:09Z, as listed in Part 3.
+
+AC-15, a change ready on a turn nobody typed:
+- Not reached by this change's verification: no change became ready during the run (the run was stopped at 21:56:56Z, and the queue's ready lines wait for a place while both places are taken). After verification: in the retro (the archive of either change makes the next line ready).
+
+Observed in the run file (Part 5): it keeps the 0.18.0 shape (`holding: true`, no pid), the in-flight planner entry of 21:35:48Z and `stopping: true` from the stop at 21:56:56Z. The `holding: true` left by the killed hold of 21:18:56Z is the AC-7 defect this change fixes; the stale in-flight entry is a consequence of moving the change to its own session by hand, which ADR 0014's `startedSessions` replaces.

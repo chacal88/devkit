@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.23.0 — follow-ups of the roadmap coordinator
+
+- **devkit-openspec** 0.19.0: in the desktop app each change of a `/devkit roadmap` run runs in a
+  session of its own, nested under the owner's session and titled with the icon of its stage; a
+  session started by another session is held by the change run's locks; a start the app refuses
+  waits for the owner's next message; `/devkit roadmap 2` takes its arguments as typed; the owner
+  can tell the session to start the held changes anyway; a killed watch of the load holds nothing;
+  the run file is locked while it is written, and the board says the others go on only when another
+  change is under way. The CI snippet now pins `v0.19.0`, the release's tag.
+- Docs: ADR 0014 (accepted) supersedes ADR 0013 decision 1 where the host can start sessions and
+  amends ADR 0011 and ADR 0013; ADR 0013 decision 4 names every field of the run file; the flow
+  document, the coordination design, the role document and the README follow.
+
 ## 0.22.0 — the roadmap coordinator, /devkit roadmap and /devkit status
 
 - **devkit-openspec** 0.18.0: `/devkit roadmap [<n>]` runs the roadmap's ready changes, several at
