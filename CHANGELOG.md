@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.25.2 — follow-ups of the project phases
+
+- **devkit-openspec** 0.21.2: the slice contract refuses an ADR verdict recorded with uncommitted
+  changes, from `devkit-reviews` and the `gh pr create` hook, and `/devkit project` neither records
+  it nor moves on: it hands the review back to the ADR reviewer. New tests pin the contract's
+  fail-closed branches and a merge that brings an ADR. The CI snippet now pins `v0.21.2`, the
+  release's tag.
+- Docs: the slice contract says what a current ADR verdict is; the archived `project-phases` plan
+  and the pack README name ADR 0015 for the slice decision; the roadmap gives the dogfood of the
+  first real slice a line of its own (`project-slice-dogfood`).
+
+## 0.25.1 — retro of review-writer-prompt
+
+- **devkit-openspec** 0.21.1: the `ship-change` `stop-plan-approval` row writes the owner's words
+  inside backticks, so the language check never reads them as prose. The CI snippet now pins
+  `v0.21.1`, the release's tag.
+- Docs: the roadmap gains round 17h (`fresh-base-check`, `delivery-merge-hold`); the config context
+  asks a plan that moves or writes a parser to decide what unterminated input does.
+
 ## 0.25.0 — review round tooling
 
 - **devkit-core** 0.9.0: the review round script takes `args.head`, the full sha of HEAD, and
