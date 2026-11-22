@@ -1,4 +1,4 @@
-# ADR 0014: Stage roles write their own files, and a stage that does not apply may leave none
+# ADR 0016: Stage roles write their own files, and a stage that does not apply may leave none
 
 - Status: accepted
 - Date: 2026-11-21

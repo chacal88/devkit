@@ -14,9 +14,10 @@ import { shipConfig, collectState, buildReport, approvalState } from './deliver-
 import { actorOf } from './conduct-check.mjs';
 import { TEXT } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
+import * as changeLoopModule from './change-loop.mjs';
 import {
   readDevkitSettings, normalizeLang, MESSAGES, render, decide, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError,
-  runCommand, waitLoop, PACKS, withLockFile,
+  runCommand, waitLoop, PACKS, withLockFile, openChange,
 } from './change-loop.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -83,13 +84,14 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
+  base: 'main', state: 'github',
 };
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
 const codes = (lang, prefix) => Object.keys(MESSAGES[lang]).filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length));
 
 // The keys whose `{why}` is a blocked reason (`blocked-why.` codes); written out here so the test pins the list of `render`.
-const BLOCKED_WHY_KEYS = ['blocked', 'roadmap-blocked', 'need.blocked'];
+const BLOCKED_WHY_KEYS = ['blocked', 'roadmap-blocked', 'roadmap-blocked-others', 'need.blocked'];
 
 // Every combination the table can render: a key, and for a parameter that names a code, each code of its family.
 function renderings(lang) {
@@ -888,7 +890,7 @@ test('change-loop start: S0 a usage error exits 3 and creates nothing', () => {
 test('change-loop start: S1 a verb of a later round says its round and creates nothing', () => {
   const root = devkitRepo();
   const before = snapshot(root);
-  for (const [verb, round] of [['project', 19], ['help', 23]]) {
+  for (const [verb, round] of [['help', 23]]) {
     const r = startRun(root, `${verb.toUpperCase()} now please`);
     assert.equal(r.code, 0, verb);
     const b = body(r);
@@ -907,7 +909,8 @@ test('change-loop start: S2 no verb or an unknown verb names the commands that e
     assert.equal(b.mode, 'unknown-verb', JSON.stringify(text));
     assert.equal(b.reply, render('en', 'verb-unknown'));
   }
-  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap e \/devkit status/);
+  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status e \/devkit project/);
+  assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status.*\/devkit project/);
   assert.equal(body(startRun(root, '', { lang: '${user_config.language}' })).reply, render('pt-BR', 'verb-unknown'));
 });
 
@@ -1685,7 +1688,7 @@ test('change-loop lock stop: T1 no run in the session lets the stop through', ()
 });
 
 // A preload that appends one line to COUNT_FILE for every readFileSync of the file named by WATCH_FILE.
-const readCounter = () => {
+export const readCounter = () => {
   const dir = sandbox();
   const preload = join(dir, 'count-reads.mjs');
   writeFileSync(preload, [
@@ -2373,12 +2376,14 @@ test('change-loop skill: the grill paragraph names the stage header and requirem
 test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () => {
   const md = skillText();
   const heads = md.split('\n').filter((l) => l.startsWith('## '));
-  assert.deepEqual(heads, ['## Settings', '## Start', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Roadmap', '## Status', '## Never']);
-  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status']) {
+  assert.deepEqual(heads, ['## Settings', '## Start', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Roadmap', '## Status', '## Project', '## Never']);
+  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status', 'project', 'is-slice']) {
     assert.ok(md.includes(`\`${mode}\``), `mode ${mode}`);
   }
   assert.match(md, /AskUserQuestion/);
-  assert.doesNotMatch(md, /conduct-check|CronCreate|start_session/);
+  // Invariant: the skill keeps its sections and start modes and names no retired machinery. Layer: skill text. Suite: change-loop.
+  // The session-start tool is named by the Roadmap section now (ADR 0014); ADR 0006's wake-up stays retired.
+  assert.doesNotMatch(md, /conduct-check|CronCreate|wake_when_done/);
 });
 
 test('change-loop skill: every reply not yet shown ends the turn, in order, before anything else (AC-1)', () => {
@@ -2472,10 +2477,16 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); T-6 of stage-roles moves it to 0.19.0.
-  assert.match(flow, /v0\.19\.0/, 'the CI snippet pins the current release (stage-roles: 0.19.0)');
-  assert.doesNotMatch(flow, /v0\.18\.1/, 'no pin left on the previous release');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); stage-roles moves it to 0.22.0 (release 0.26.0).
+  assert.match(flow, /v0\.22\.0/, 'the CI snippet pins the current release (stage-roles: 0.22.0)');
+  assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
+  const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
+  assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
+  assert.match(flow, /moves this pin to `v0\.20\.0` or later first/, 'the slice-merge floor (project-phases) is kept');
+  assert.doesNotMatch(flow, /v0\.19\.1/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.19\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.18\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.17\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.16\.0/, 'no pin left on the previous release');
   assert.match(flow, /prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end/, 'the loop paragraph names the end marker');
@@ -2483,7 +2494,7 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(flow, /refuses a hand-off with no agent type, to a general-purpose agent, to another plugin's agent even when it is named like a role/, 'the hand-off rule');
   assert.match(flow, /a usage error included[^\n]*keeps its raw message in the JSON's `error` field/, 'the usage-error reply');
   assert.doesNotMatch(flow, /v0\.15\.1/);
-  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => l.startsWith('- [ ] review-writer-prompt'));
+  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] review-writer-prompt/.test(l));
   assert.match(road, /touches only tests/);
   assert.match(road, /fenced example/);
 });
@@ -3184,11 +3195,11 @@ test('stage-roles docs: the design page records the test settings among the conf
   assert.match(design.slice(design.indexOf('Tense:'), design.indexOf('Tense:') + 2400), /stage-roles/, 'the Tense paragraph lists what exists since stage-roles');
 });
 
-test('stage-roles docs: ADR 0014 has its headings, its status and the owner\'s approval of the plan', () => {
-  const adr = readRepo('docs', 'adr', '0014-stage-roles-write-their-own-files.md');
-  assert.equal(adr.split('\n')[0], '# ADR 0014: Stage roles write their own files, and a stage that does not apply may leave none');
+test('stage-roles docs: ADR 0016 has its headings, its status and the owner\'s approval of the plan', () => {
+  const adr = readRepo('docs', 'adr', '0016-stage-roles-write-their-own-files.md');
+  assert.equal(adr.split('\n')[0], '# ADR 0016: Stage roles write their own files, and a stage that does not apply may leave none');
   for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
-    assert.ok(adr.split('\n').includes(h), `ADR 0014 has ${h}`);
+    assert.ok(adr.split('\n').includes(h), `ADR 0016 has ${h}`);
   }
   assert.match(adr, /^- Status: accepted$/m);
   assert.match(adr, /^- Change: stage-roles$/m);
@@ -3200,20 +3211,20 @@ test('stage-roles docs: ADR 0014 has its headings, its status and the owner\'s a
   assert.match(adr, new RegExp(`^- Accepted by: the owner, on ${date}, in the message that approved the plan of the change: \`${words}\`; recorded in \`openspec/changes/stage-roles/approval\\.md\`$`, 'm'));
 });
 
-test('stage-roles docs: ADR 0010 and ADR 0011 name ADR 0014 in a header line and a dated Note', () => {
-  const line = '- Amended by ADR 0014 (0014-stage-roles-write-their-own-files.md)';
+test('stage-roles docs: ADR 0010 and ADR 0011 name ADR 0016 in a header line and a dated Note', () => {
+  const line = '- Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)';
   for (const f of ['0010-openspec-as-the-harness.md', '0011-the-change-coordinator-is-the-owners-session.md']) {
     const adr = readRepo('docs', 'adr', f);
     assert.ok(adr.split('\n').slice(0, 8).includes(line), `${f} has the Amended by line in its header`);
     assert.match(adr, /^- Status: accepted$/m, `${f} stays accepted`);
-    assert.match(adr, /Note \(stage-roles, 2026-11-21\):[^\n]*(\n[^\n]+)*?\[ADR 0014\]\(0014-stage-roles-write-their-own-files\.md\)/, `${f} has the dated Note linking ADR 0014`);
+    assert.match(adr, /Note \(stage-roles, 2026-11-21\):[^\n]*(\n[^\n]+)*?\[ADR 0016\]\(0016-stage-roles-write-their-own-files\.md\)/, `${f} has the dated Note linking ADR 0016`);
   }
   const flat10 = readRepo('docs', 'adr', '0010-openspec-as-the-harness.md').replace(/\s+/g, ' ');
   assert.match(flat10, /Note \(stage-roles, 2026-11-21\): the roles of D-4 stages 3, 4, 9 and 10 ship and stage 11 is recorded as text\./);
   assert.match(flat10, /\(decision 1, round 16\)\. Decisions 1 to 8 are otherwise unchanged\./);
   assert.match(readRepo('docs', 'adr', '0011-the-change-coordinator-is-the-owners-session.md'), /decision 2's refusal of the session's product edits is unchanged/);
   const adrs = readRepo('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
-  assert.match(adrs, /0014 stage roles write their own files, amends 0010 and 0011/, 'the ADRs line of config.yaml names 0014');
+  assert.match(adrs, /0016 stage roles write their own files, amends 0010 and 0011/, 'the ADRs line of config.yaml names 0016');
 });
 
 test('stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes', () => {
@@ -3239,4 +3250,123 @@ test('stage-roles docs: the roadmap line of stage-roles keeps its text, and ever
   const round = rounds.find((r) => r.items.includes(fixes));
   assert.equal(round.title, 'Round 16b: the coordinator loop fixes');
   assert.equal(rounds[rounds.indexOf(round) - 1].items.includes(stage), true, 'round 16b follows the round of stage-roles');
+});
+
+// ================================================================ roadmap-coordinator-followups: phase 1 (the lock of open, the single read)
+
+test('followups AC-10 open lock: open on a held open lock fails with its own message and creates nothing', () => {
+  const t = freshProject();
+  const lock = join(t.main, '.git', 'devkit-open.lock');
+  writeFileSync(lock, `${JSON.stringify({ pid: 1, at: new Date().toISOString() })}\n`);
+  const before = snapshot(t.main);
+  const sleeps = [];
+  assert.throws(
+    () => openChange(t.main, 'held-open', { script: 'devkit', why: 'doubt', request: 'Add a thing', lang: 'en', env: cleanEnv, lockSleep: (ms) => { sleeps.push(ms); } }),
+    (e) => e instanceof LoopUsageError && /another open call holds the lock for too long/.test(e.message),
+  );
+  assert.ok(sleeps.length > 0, 'the wait went through the injected sleep');
+  assert.equal(sleeps.reduce((a, b) => a + b, 0), 60_000, 'the whole wait of the open lock, without sleeping for real');
+  assert.equal(existsSync(lock), true, 'the other holder\'s lock is untouched');
+  rmSync(lock);
+  assert.deepEqual(snapshot(t.main), before, 'nothing was created');
+});
+
+test('followups AC-10 guard: an edit and a shell write in a change run read the transcript once', () => {
+  const root = planChange({ have: ['requirements'] });
+  for (const [mode, input] of [
+    ['edit', (t) => editInput(root, 'src/a.ts', t)],
+    ['bash', (t) => bashInput(root, 'echo x > src/a.ts', t)],
+  ]) {
+    const transcript = runTranscript();
+    const spy = readCounter();
+    const r = hook(mode, input(transcript), { TMPDIR: sandbox(), ...spy.env(transcript) });
+    assert.equal(r.code, 2, `${mode}: ${r.err}`);
+    assert.equal(spy.reads(), 1, `${mode}: the transcript is read once`);
+  }
+});
+
+// ================================================================ roadmap-coordinator-followups, phase 3: a started session, the stage icon
+
+// The first message of a session another session started, in the app's form (this change's own first message, in generic words):
+// the background line, a background paragraph, `Task:`, the task, and a notes line.
+const STARTED_LINE = 'Background (from the session that started this one):';
+const startedMessage = (id, over = {}) => [
+  over.first ?? STARTED_LINE, 'This session runs the devkit change for a roadmap run. Work only in its worktree.', '', 'Task:', over.task ?? `/devkit-openspec:devkit change ${id}`, '', 'Notes: say who started this session before your first question.',
+].join('\n');
+
+test('followups F-4 guard: the task of a session started by another session makes a change run', () => {
+  assert.equal(guardModule.STARTED_BY_SESSION, STARTED_LINE);
+  const transcript = transcriptOf([plainLine(startedMessage('feat')), assistantLine(), runLine('feat')]);
+  const run = runOf({ transcript_path: transcript });
+  assert.equal(run?.change, 'feat');
+  assert.equal(run?.command, 'change feat');
+  const root = planChange({ have: ['requirements'] });
+  const w = hook('edit', editInput(root, 'src/a.ts', transcript), { TMPDIR: sandbox() });
+  assert.equal(w.code, 2, `a product edit is refused as in any change run: ${w.err}`);
+  assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat')), assistantLine()]) }), null, 'no devkit-run line yet: no run');
+  // A later typed command ends it, as for any run.
+  assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat')), runLine('feat'), typedLine('', '/clear')]) }), null);
+});
+
+test('followups F-4 guard: a command on a later line of any other message is no typed command', () => {
+  const cases = {
+    'a message whose second line is the command': plainLine('Please run this:\n/devkit change feat'),
+    'the Task line without the started form': plainLine('Notes\n\nTask:\n/devkit change feat'),
+    'the started form with no Task line': plainLine(`${STARTED_LINE}\nSome words.\n/devkit change feat`),
+    'the started form whose task is no slash command': plainLine(startedMessage('feat', { task: 'change feat' })),
+    'the background line below another first line': plainLine(`hello\n${startedMessage('feat')}`),
+  };
+  // The boundary: the started form's own task counts, nothing else on a later line does.
+  assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat')), assistantLine(), runLine('feat')]) })?.change, 'feat', 'the started form');
+  for (const [name, line] of Object.entries(cases)) {
+    assert.equal(runOf({ transcript_path: transcriptOf([line, assistantLine(), runLine('feat')]) }), null, name);
+  }
+});
+
+const STAGE_ICONS = {
+  open: '❓', requirements: '❓', mockup: '📝', decisions: '📝', proposal: '📝', specs: '📝', design: '📝', tasks: '📝', readiness: '📝', approval: '📝',
+  implementation: '🛠️', 'unit-tests': '🛠️', 'e2e-tests': '🛠️', evidence: '🔍', review: '🔍', delivery: '🚀', retro: '📦',
+};
+
+test('followups AC-14 icon: every stage of both scripts has its icon, and an archived end is the archive\'s', () => {
+  for (const [script, flow] of Object.entries(FLOWS)) {
+    for (const stage of flow.stages) {
+      assert.ok(STAGE_ICONS[stage.id], `${script}: the table names ${stage.id}`);
+      assert.equal(changeLoopModule.stageIcon({ stage: stage.id }), STAGE_ICONS[stage.id], `${script}: ${stage.id}`);
+    }
+  }
+  assert.deepEqual([...new Set(Object.values(STAGE_ICONS))].sort(), ['❓', '📝', '📦', '🔍', '🚀', '🛠️'].sort(), 'the six icons');
+  assert.equal(changeLoopModule.stageIcon({ kind: 'end', stage: 'delivery', end: { state: 'archived', why: 'archived' } }), '📦');
+  assert.equal(changeLoopModule.stageIcon({ kind: 'end', stage: 'delivery', end: { state: 'waiting-on-github', why: 'waiting-github' } }), '🚀');
+  for (const unknown of [{ stage: 'nope' }, { stage: null }, {}, undefined]) assert.equal(changeLoopModule.stageIcon(unknown), null, JSON.stringify(unknown));
+});
+
+test('followups AC-14 next: every action of change-loop next carries the icon of its stage and its session title', () => {
+  const seen = [];
+  for (const have of [[], ['requirements'], ['requirements', 'proposal'], PLAN_UP_TO_TASKS, [...PLAN_UP_TO_TASKS, 'readiness']]) {
+    const { action } = parsed(next(planChange({ have })));
+    seen.push(action);
+    assert.equal(action.icon, changeLoopModule.stageIcon(action), `${action.stage}: the icon`);
+    assert.equal(action.icon, STAGE_ICONS[action.stage], `${action.stage}: the table's icon`);
+    assert.equal(action.sessionTitle, `${action.icon} feat`, `${action.stage}: the title`);
+  }
+  assert.ok(seen.some((a) => a.icon === '❓') && seen.some((a) => a.icon === '📝'), 'the grill and the plan stages');
+  const archived = gitRepo({ config: 'schema: devkit\n', changes: { 'archive/2026-11-19-feat': { '.openspec.yaml': 'schema: devkit\n' } } });
+  const done = parsed(next(archived, [], cleanEnv, { openspec: () => ({ status: 1, stdout: '', stderr: '' }), gh: () => ({ status: 1, stdout: '', stderr: '' }) })).action;
+  assert.deepEqual([done.icon, done.sessionTitle], ['📦', '📦 feat'], 'an archived end');
+  // An action with no stage has no icon and no title.
+  const previous = parsed(next(planChange({ have: ['requirements', 'proposal'], headerless: true }))).action;
+  assert.equal(previous.icon, null);
+  assert.equal('sessionTitle' in previous, false);
+});
+
+test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 code points', () => {
+  assert.equal(changeLoopModule.sessionTitle('📝', 'a'), '📝 a');
+  const long = changeLoopModule.sessionTitle('🛠️', 'x'.repeat(70));
+  assert.equal([...long].length, 59, 'a 70-character id is cut to 59 code points');
+  assert.ok(long.startsWith('🛠️ xxx'));
+  const exact = changeLoopModule.sessionTitle('📝', 'x'.repeat(57));
+  assert.equal([...exact].length, 59);
+  assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
+  assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
 });

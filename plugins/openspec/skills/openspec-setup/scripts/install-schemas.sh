@@ -60,7 +60,7 @@ if [[ ${root:-} != "" ]] && command -v node >/dev/null; then
 fi
 
 mkdir -p "$dest"
-for name in devkit devkit-lite; do
+for name in devkit devkit-lite devkit-project; do
   if [[ -e "$dest/$name" ]]; then
     echo "replacing $dest/$name"
     rm -r -- "${dest:?}/$name"
@@ -70,7 +70,7 @@ for name in devkit devkit-lite; do
 done
 
 if [[ $openspec_bin != openspec ]] || command -v openspec >/dev/null; then
-  for name in devkit devkit-lite; do
+  for name in devkit devkit-lite devkit-project; do
     (cd "$validate_dir" && "$openspec_bin" schema validate "$name" 2>/dev/null | tail -1) || true
   done
 fi

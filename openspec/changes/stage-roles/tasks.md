@@ -198,7 +198,7 @@ Implementation plan).
 ## 4. The design page, the roadmap, the release and the whole suite (AC-1, AC-15, AC-16)
 
 - [x] 4.1 Write the `stage-roles docs` tests of D-11 in `plugins/openspec/hooks/change-loop.test.mjs`:
-  D-4 rows 3, 4, 9, 10 and 11 marked built, the D-8 field names, ADR 0014 and the two Notes (D-9,
+  D-4 rows 3, 4, 9, 10 and 11 marked built, the D-8 field names, ADR 0016 and the two Notes (D-9,
   D-12), and the roadmap split read with `guard.mjs#parseRoadmap` against `git show 2300f84:openspec/roadmap.md` (every
   carried sentence on the new line, the `stage-roles` line holding none, `after: stage-roles`). Run
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^stage-roles docs" plugins/openspec/hooks/guard.test.mjs`
@@ -206,7 +206,7 @@ Implementation plan).
   failing.
 - [x] 4.2 Split the roadmap line in `openspec/roadmap.md` and add round 16b as D-9 says, the
   carried text copied verbatim. Check: the `stage-roles docs` roadmap test passes.
-- [x] 4.3 Write `docs/adr/0014-stage-roles-write-their-own-files.md` from D-12, its `Accepted by:`
+- [x] 4.3 Write `docs/adr/0016-stage-roles-write-their-own-files.md` from D-12, its `Accepted by:`
   line filled from `approval.md` (its `- Date:` and `- Owner's words:`); add the `Amended by` line
   and the dated Note to ADR 0010 and ADR 0011 and the ADR line of `openspec/config.yaml` (D-9);
   update `docs/coordination-design.md` (D-4 rows, the mock-up paragraph, the Tense paragraph, D-8's

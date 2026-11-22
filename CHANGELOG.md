@@ -1,11 +1,11 @@
 # Changelog
 
-## 0.23.0 — the stage roles
+## 0.26.0 — the stage roles
 
-- **devkit-core** 0.9.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and
+- **devkit-core** 0.10.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and
   `e2e-tester`, with the skills `screen-mockup`, `adr-authoring` and `e2e-testing`. `pr-verifier`
   records the demonstration as text in `evidence.md`, with no image and no pull-request comment.
-- **devkit-openspec** 0.19.0: the `devkit` script's mock-up, decisions, unit-tests and E2E stages
+- **devkit-openspec** 0.22.0: the `devkit` script's mock-up, decisions, unit-tests and E2E stages
   run. The mock-up applies only when the grill flags `ui` and waits for the owner's answer; the
   decisions stage always runs; the unit and E2E stages run when the project declares
   `devkit.tests.unit` or `devkit.tests.e2e` (and `devkit.tests.coverage.command` and
@@ -14,11 +14,72 @@
   roles, adds `fix-tests` and the `accept-decisions` step (the loop's new subcommand, run once the
   plan approval is recorded). The edit lock lets `adr-author` write decision records and
   `e2e-tester` write test files. `devkit-lite` no longer lists the mock-up and decisions stages.
-  The CI snippet now pins `v0.19.0`, the release's tag.
+  The CI snippet now pins `v0.22.0`, the release's tag.
 - **devkit-compozy** 0.3.0: the four role shells name the new agents, and the loop's design, review
   and implement prompts name the mock-up, the test agents and the decision records.
-- Docs: ADR 0014 (stage roles write their own files, amends 0010 and 0011), `docs/roles.md`, the
+- Docs: ADR 0016 (stage roles write their own files, amends 0010 and 0011), `docs/roles.md`, the
   flow and design pages, the roadmap (round 16b `coordinator-loop-fixes` carries the retros' items).
+
+## 0.25.0 — review round tooling
+
+- **devkit-core** 0.9.0: the review round script takes `args.head`, the full sha of HEAD, and
+  refuses a stage-1 answer at another commit, with a short sha, or a partial one (files not read)
+  before the verify stage; the stage-1 prompt asks for one sha per disposition, for the sha
+  `git rev-parse HEAD` printed and for the files read; `review-round.mjs outcomes` returns each
+  outcome's writer prompt as `jobs`, which leaves out the stage-1 `Verdict:` and `Commit:` lines;
+  `check-file` refuses a second `Verdict:` or `Commit:` line. The six reviewer agents' Staged round
+  paragraph says the same.
+- **devkit-openspec** 0.21.0: a commit of test files only stales only `code-quality-reviewer` and
+  `test-coverage-reviewer` (and the evidence), and `flow-check` reports the review stage stale
+  while any reviewer is stale; `deliver-check` no longer counts a checkbox inside a fenced example
+  of `tasks.md` as a task. The CI snippet now pins `v0.21.0`, the release's tag.
+- Docs: the flow document and the `review-change` and `ship-change` skills follow.
+
+## 0.24.1 — retro of project-phases
+
+- **devkit-core** 0.8.2: the reviewer prompt of the review round names the finding id format and the
+  commit command, so a stage-1 object is not refused for ids or a placeholder sha; `tdd-implementer`
+  never stops a process by pattern.
+- Docs: CONTRIBUTING covers version and ADR numbers when changes run in parallel; a roadmap line for the
+  project flow's follow-ups.
+
+## 0.24.0 — the project phases, /devkit project
+
+- **devkit-openspec** 0.20.0: `/devkit project <slice>` takes a new project or one slice of it through
+  its four design phases, in the owner's session, to one pull request. A slice is a change on the new
+  `devkit-project` schema (installed by `openspec-setup` with the other two); a new script,
+  `project-loop.mjs`, decides each call. The roadmap stage appends the rounds to `openspec/roadmap.md`
+  only after the owner approves them, or is not applicable. The ADR reviewer is the slice's only review,
+  and `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one slice contract. The
+  CI snippet now pins `v0.20.0`, the release's tag: a project moves its CI pin to `v0.20.0` before it
+  sets `ship: devkit-project: merge`, because an older check passes a slice with a note.
+- **devkit-design** 0.2.0: the five skills ask for the slice and write under `docs/design/<slice>/`,
+  and called by name they write no roadmap and open no pull request.
+- Docs: ADR 0015 (accepted) amends ADR 0010 and ADR 0012; the coordination design, the flow
+  document, the role document and both READMEs follow.
+
+## 0.23.1 — merge staleness by the first parent
+
+- **devkit-openspec** 0.19.1: a merge commit counts the files that differ between its first parent
+  and itself (what it brought into the branch, edits made while resolving and moved files
+  included), and the commits it brings in are still checked one by one; an update of the branch
+  that brings only `openspec/` files leaves reviews and evidence current. The CI snippet now pins
+  `v0.19.1`, the release's tag.
+- Docs: the staleness rule and the `update-branch` row of the flow document say how a merge commit
+  is read.
+
+## 0.23.0 — follow-ups of the roadmap coordinator
+
+- **devkit-openspec** 0.19.0: in the desktop app each change of a `/devkit roadmap` run runs in a
+  session of its own, nested under the owner's session and titled with the icon of its stage; a
+  session started by another session is held by the change run's locks; a start the app refuses
+  waits for the owner's next message; `/devkit roadmap 2` takes its arguments as typed; the owner
+  can tell the session to start the held changes anyway; a killed watch of the load holds nothing;
+  the run file is locked while it is written, and the board says the others go on only when another
+  change is under way. The CI snippet now pins `v0.19.0`, the release's tag.
+- Docs: ADR 0014 (accepted) supersedes ADR 0013 decision 1 where the host can start sessions and
+  amends ADR 0011 and ADR 0013; ADR 0013 decision 4 names every field of the run file; the flow
+  document, the coordination design, the role document and the README follow.
 
 ## 0.22.1 — field fixes of 0.16.0, the rest
 

@@ -16,6 +16,7 @@ schema: devkit-lite
 # ship:
 #   devkit-lite: merge
 #   devkit: merge
+#   devkit-project: merge
 # merge_method: squash   # squash | merge | rebase
 
 # The settings of /devkit change; a test stage whose command is absent does not run.

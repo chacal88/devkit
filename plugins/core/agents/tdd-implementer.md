@@ -24,7 +24,7 @@ In projects using the devkit hooks with the `devkit` schema, you are the only wr
 
 1. **The plan is approved.** If the project records readiness verdicts (for example a review file with `Status: APPROVED`, an approved PR, or the plan-readiness-review skill's verdict), respect them: a non-approved verdict means stop. If nothing records approval, the caller's explicit statement that the plan is approved is required.
 2. **The previous phase's exit gate is checked** in `tasks.md`. Never start phase N while phase N-1 is incomplete.
-3. **You're on the change's branch or worktree**, never the default branch.
+3. **You're on the change's branch or worktree**, never the default branch. Never stop a process by pattern (`pkill -f`, `killall`): other sessions run their tests on the same machine; stop only a process you started, by its id.
 
 ## The apply-proposals call
 

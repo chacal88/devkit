@@ -45,7 +45,7 @@ stage to its role, so the roles are the missing piece.
 - The CompozyOS kit runs the new stages in its four existing shells.
 - `openspec/roadmap.md`: the `stage-roles` line keeps the five roles; every item the three retros
   carried onto it moves to a new line, `coordinator-loop-fixes` (`after: stage-roles`).
-- A proposed ADR 0014 amends ADR 0010 (decisions 3 and 8) and ADR 0011 (decision 3): a stage that
+- A proposed ADR 0016 amends ADR 0010 (decisions 3 and 8) and ADR 0011 (decision 3): a stage that
   does not apply by its condition leaves no file, and decision records and the E2E tester's test
   files are not product code. Docs, versions.
 
@@ -112,7 +112,7 @@ Copied from `requirements.md`, with their ids.
   and its tests; `README.md`.
 - Repository: `openspec/schemas/` (the copy `install-schemas.sh` keeps identical), `.compozy/`
   (re-installed), `docs/roles.md`, `docs/coordination-design.md`, `docs/openspec-flow.md`,
-  `docs/compozy-kit.md`, `docs/adr/0014-stage-roles-write-their-own-files.md` (new), dated Notes in
+  `docs/compozy-kit.md`, `docs/adr/0016-stage-roles-write-their-own-files.md` (new), dated Notes in
   ADRs 0010 and 0011, `openspec/config.yaml` (ADR line), `openspec/roadmap.md`, `CHANGELOG.md`, `.claude-plugin/marketplace.json` (0.23.0),
   `docs/catalog.md` (generated). The version numbers meet the sibling changes at the release rebase.
 - Projects: a project upgrading to 0.19.0 runs the decisions stage on every new `devkit` change, the
@@ -131,7 +131,7 @@ under `proof/`.
 
 **What the owner approves**, in the message that approves the plan (quoted in `approval.md`):
 
-- The plan, and ADR 0014 (`design.md` D-12): accept it and it is written `accepted`; refuse it and
+- The plan, and ADR 0016 (`design.md` D-12): accept it and it is written `accepted`; refuse it and
   the plan goes back to planning before any code. It amends ADR 0010 decision 3 (a stage skipped by
   its condition leaves no file) and the product-code sentence of ADR 0010 decision 8 and ADR 0011
   decision 3 (decision records and the E2E tester's test files are not product code; a script step
@@ -144,8 +144,8 @@ under `proof/`.
 **Decisions cited.** ADR 0010 decisions 1 (the test commands in round 16), 3 (a stage that does not
 apply leaves its file; ceilings in configuration), 5 (existing locks stay), 6 (the owner's plan
 approval as a human gate) and 8 (product code only by the implementer), 3 and 8 amended by the
-proposed ADR 0014; ADR 0011 (the session writes no product code in a run; approval only from the
-owner's message; decision 3 amended by ADR 0014); ADR 0013
+proposed ADR 0016; ADR 0011 (the session writes no product code in a run; approval only from the
+owner's message; decision 3 amended by ADR 0016); ADR 0013
 (the roadmap run asks owner gates one change at a time); ADR 0004 (locks only in opted-in
 projects); ADR 0009 (the CompozyOS kit as it is until round 21).
 

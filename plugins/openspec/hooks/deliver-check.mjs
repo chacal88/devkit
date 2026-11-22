@@ -13,7 +13,9 @@ import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_RE
 
 // The shared gh runner (merge-setup.mjs), kept importable from here.
 export { makeGh };
-import { archiveBranchChange, changeDir, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
+// The `Commit:` line reader moved to guard.mjs, which the slice contract reads it from; still importable from here.
+export { parseCommitLine };
+import { archiveBranchChange, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -144,6 +146,17 @@ function gitOk(root, args) {
 
 const isOpenspec = (p) => p.startsWith('openspec/');
 
+// A test file (review-writer-prompt D-6): `.test.` or `.spec.` in its file name, or a folder named
+// test, tests, __tests__ or fixtures on its path. A fixed pattern, no setting.
+const TEST_FOLDERS = ['test', 'tests', '__tests__', 'fixtures'];
+export function isTestFile(path) {
+  const parts = String(path).split('/');
+  const name = parts.pop();
+  return name.includes('.test.') || name.includes('.spec.') || parts.some((f) => TEST_FOLDERS.includes(f));
+}
+// The reviewers whose verdict a commit of test files only (and openspec/) leaves current.
+export const TEST_SPARED_REVIEWERS = ['spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer'];
+
 // Paths the working tree changes outside openspec/ (and outside .claude/ for
 // untracked files). Rename sources count as changed paths.
 function dirtyPaths(root) {
@@ -170,27 +183,22 @@ export function gitFacts(root) {
   return { head, dirty: dirtyPaths(root) };
 }
 
-// The `Commit: <sha>` line of a verdict or evidence file header (before the
-// first markdown heading): { sha, uncommitted } or null.
-export function parseCommitLine(text) {
-  const header = [];
-  for (const line of String(text).split(/\r?\n/)) {
-    if (/^#{1,6}\s/.test(line)) break;
-    header.push(line);
-  }
-  const re = /^[ \t]*(?:[-*][ \t]+)?\**Commit[ \t]*:\**[ \t]*`?([0-9a-f]{7,40})\b(.*)$/i;
-  for (const line of header) {
-    const m = line.match(re);
-    if (m) return { sha: m[1].toLowerCase(), uncommitted: /\(uncommitted changes\)/i.test(m[2]) };
-  }
-  return null;
+// The paths commit `c` counts as touching: a merge (more than one parent) against its first
+// parent, what it brought into the branch; any other commit as before (merge-staleness-first-parent).
+function touchedPaths(root, c, parents) {
+  const args = parents.length > 1
+    ? ['diff-tree', '-r', '-z', '--name-only', '--no-commit-id', parents[0], c]
+    : ['diff-tree', '-m', '-r', '-z', '--root', '--name-only', '--no-commit-id', c];
+  return git(root, args).split('\0').filter(Boolean);
 }
 
 // Why a recorded Commit is not current at HEAD, or null when it is: it
 // resolves, is an ancestor of HEAD, every commit since touches only
-// openspec/, it is not marked uncommitted, and the working tree has no change
-// outside openspec/ and .claude/.
-export function staleness(root, recorded, facts = gitFacts(root)) {
+// openspec/ (or, with `allowed`, only paths it accepts), it is not marked
+// uncommitted, and the working tree has no change outside openspec/ and .claude/.
+// A merge commit counts what it brought into the branch (its first-parent diff);
+// every commit in the range is still checked.
+export function staleness(root, recorded, facts = gitFacts(root), { allowed = isOpenspec } = {}) {
   if (!recorded) return 'no Commit: line';
   const short = recorded.sha.slice(0, 7);
   if (recorded.uncommitted) return `${short} was recorded with uncommitted changes`;
@@ -200,10 +208,9 @@ export function staleness(root, recorded, facts = gitFacts(root)) {
   try { full = git(root, ['rev-parse', '--verify', '--quiet', `${recorded.sha}^{commit}`]).trim(); } catch { full = ''; }
   if (!full) return `${short} does not resolve to a commit`;
   if (!gitOk(root, ['merge-base', '--is-ancestor', full, facts.head])) return `${short} is not an ancestor of HEAD`;
-  for (const c of git(root, ['rev-list', `${full}..${facts.head}`]).split('\n').filter(Boolean)) {
-    // -m: a merge commit lists the files it brings against each parent.
-    const files = git(root, ['diff-tree', '-m', '-r', '-z', '--root', '--name-only', '--no-commit-id', c]).split('\0').filter(Boolean);
-    const product = files.find((f) => !isOpenspec(f));
+  for (const line of git(root, ['rev-list', '--parents', `${full}..${facts.head}`]).split('\n').filter(Boolean)) {
+    const [c, ...parents] = line.split(' ');
+    const product = touchedPaths(root, c, parents).find((f) => !allowed(f));
     if (product) return `${short} is behind ${c.slice(0, 7)}, which touches ${product}`;
   }
   return null;
@@ -241,10 +248,11 @@ export function readReviews(root, id, facts = gitFacts(root)) {
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
   return files.map((f) => {
     const file = join(dir, f);
+    const name = basename(f, '.md');
     return {
-      name: basename(f, '.md'),
+      name,
       verdict: readValue(file, 'Verdict'),
-      why: staleness(root, parseCommitLine(readFileSync(file, 'utf8')), facts),
+      why: staleness(root, parseCommitLine(readFileSync(file, 'utf8')), facts, TEST_SPARED_REVIEWERS.includes(name) ? { allowed: (p) => isOpenspec(p) || isTestFile(p) } : {}),
     };
   });
 }
@@ -265,12 +273,47 @@ export function reviewsItem(root, id, facts = gitFacts(root)) {
   return item(2, 'reviews', 'open', reasons.join('; '), details);
 }
 
-// The checkbox lines of tasks.md: { phase, id, done, isGate, command }. A gate
+// The 1-based lines of `text` that sit inside a fenced block (and the fence lines themselves). A line
+// opening with three or more backticks or tildes opens a fence; the next line opening with at least as
+// many of the same character closes it. An opening line with no closing line before the end of the text
+// opens no fence.
+export function fencedLines(text) {
+  const lines = String(text).split('\n');
+  const inside = new Set();
+  let from = 0;
+  for (;;) {
+    let open = null;
+    let openedAt = -1;
+    const added = [];
+    for (let i = from; i < lines.length; i++) {
+      const m = /^\s*(`{3,}|~{3,})/.exec(lines[i]);
+      if (open) {
+        added.push(i + 1);
+        if (m && m[1][0] === open.char && m[1].length >= open.len) open = null;
+      } else if (m) {
+        added.push(i + 1);
+        open = { char: m[1][0], len: m[1].length };
+        openedAt = i;
+      }
+    }
+    if (!open) {
+      for (const n of added) inside.add(n);
+      return inside;
+    }
+    // Unclosed: drop the opening line and every line added after it, then rescan after the opening line.
+    for (const n of added) if (n <= openedAt) inside.add(n);
+    from = openedAt + 1;
+  }
+}
+
+// The checkbox lines of tasks.md outside fenced blocks: { phase, id, done, isGate, command }. A gate
 // task's description (the text after its id) starts with "Gate:"; its command is the first backticked text after it.
 export function parseTasks(text) {
   const tasks = [];
   let phase = 1;
-  for (const line of String(text).split(/\r?\n/)) {
+  const fenced = fencedLines(text);
+  for (const [i, line] of String(text).split(/\r?\n/).entries()) {
+    if (fenced.has(i + 1)) continue;
     const h = line.match(/^##\s+(\d+)\./);
     if (h) { phase = Number(h[1]); continue; }
     const m = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(\S+)\s*(.*)$/);
@@ -1505,6 +1548,7 @@ function selectCiChange(root, id, env, branch) {
 
 // A devkit script is the schema named devkit or devkit-lite, the rule the hooks' opt-in reads (ADR 0012).
 export const isDevkitScript = (schema) => DEVKIT_SCHEMAS.includes(schema);
+const PROJECT_SCHEMA = 'devkit-project';
 const archivedId = (folder) => basename(folder).replace(/^\d{4}-\d{2}-\d{2}-/, '');
 const otherScriptNote = (id, schema) => `${id} is on the ${schema} script, not a devkit script; nothing was checked`;
 const planOnlyNote = (id) => `${id} holds only a plan (no ticked task in tasks.md); not checked`;
@@ -1534,7 +1578,9 @@ function archivePrCheck(root, base) {
   // Each folder is judged by the schema its own .openspec.yaml names (ADR 0012); another script is a note.
   const schemaOfFolder = (f) => changeSchemaAt(root, join(root, f));
   const devkit = folders.filter((f) => isDevkitScript(schemaOfFolder(f)));
-  const notes = folders.filter((f) => !devkit.includes(f)).map((f) => ({ change: archivedId(f), why: 'other-script', schema: schemaOfFolder(f) }));
+  // A slice folder is judged by the slice contract against the PR's base (design D-11).
+  const slices = folders.filter((f) => schemaOfFolder(f) === PROJECT_SCHEMA).map((f) => ({ folder: f, id: archivedId(f), problems: sliceProblems(root, f, { base: `origin/${base}` }) }));
+  const notes = folders.filter((f) => !devkit.includes(f) && !slices.some((s) => s.folder === f)).map((f) => ({ change: archivedId(f), why: 'other-script', schema: schemaOfFolder(f) }));
   const retros = devkit.map((f) => ({ folder: f, retro: readRetro(join(root, f, 'retro.md')) }));
   const proposals = retros.flatMap((r) => r.retro.proposals);
   return {
@@ -1543,6 +1589,7 @@ function archivePrCheck(root, base) {
     missingRetro: retros.filter((r) => !r.retro.exists).map((r) => r.folder),
     unanswered: proposals.filter((p) => p.answer === null).map((p) => p.n),
     unnamed: devkit.length ? unnamedFiles(changes.paths, proposals) : [],
+    slices,
     notes,
   };
 }
@@ -1574,9 +1621,11 @@ function runCi(opts, env, cwd) {
         ...a.noRetro.filter((f) => !a.missingRetro.includes(f)).map((f) => `${retroOf(f)} has no "## Proposed updates" section: it must list each proposal with the owner's answer; the retro step of the archive writes it`),
         ...(a.unanswered.length ? [`unanswered proposals: ${a.unanswered.length}`] : []),
         ...(a.unnamed.length ? [`files no approved proposal names: ${a.unnamed.join(', ')}`] : []),
+        ...a.slices.flatMap((s) => s.problems.map((m) => `slice ${s.id}: ${m}`)),
       ];
+      const sliceLines = a.slices.filter((s) => !s.problems.length).map((s) => `  slice ${s.id}: passed the slice contract`);
       const pass = problems.length === 0;
-      const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...a.notes.map((n) => `  note: ${otherScriptNote(n.change, n.schema)}`), ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
+      const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...a.notes.map((n) => `  note: ${otherScriptNote(n.change, n.schema)}`), ...sliceLines, ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
       return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, pass, archive: a }, text);
     }
   }
@@ -1587,6 +1636,10 @@ function runCi(opts, env, cwd) {
   }
   const id = selected.name;
   const schema = changeSchema(root, id);
+  if (schema === PROJECT_SCHEMA) {
+    const error = `${id} is a slice of a project and its folder is not archived: a slice reaches the default branch with its folder archived in its pull request; /devkit project ${id} archives it`;
+    return finish(1, { version: 1, mode: 'ci', change: id, schema, pass: false, error }, `devkit-reviews: ${error}\nfail: ${error}\n`);
+  }
   if (!isDevkitScript(schema)) {
     const note = `${id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')}); nothing was checked`;
     return finish(0, { version: 1, mode: 'ci', change: id, schema, pass: true, note }, `devkit-reviews: ${note}\npass\n`);

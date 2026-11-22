@@ -8,12 +8,14 @@ const SEVERITIES = ['blocking', 'important', 'nit', 'praise'];
 
 const STAGE1_SCHEMA = {
   type: 'object',
-  required: ['declined', 'commit', 'uncommitted', 'heading', 'findings', 'sections'],
+  required: ['declined', 'commit', 'uncommitted', 'heading', 'read', 'notRead', 'findings', 'sections'],
   properties: {
     declined: { type: 'boolean' },
-    commit: { type: 'string', description: 'the full 40 hex sha of HEAD' },
+    commit: { type: 'string', description: 'the full 40 hex sha git rev-parse HEAD prints' },
     uncommitted: { type: 'boolean' },
     heading: { type: 'string', description: 'the "## ..." title line of your review' },
+    read: { type: 'array', items: { type: 'string' }, description: 'every repo-relative path you opened' },
+    notRead: { type: 'array', items: { type: 'string' }, description: 'every path of your remit you did not open; empty when you opened them all' },
     findings: {
       type: 'array',
       items: {
@@ -24,11 +26,11 @@ const STAGE1_SCHEMA = {
           severity: { enum: ['blocking', 'important', 'nit', 'praise'] },
           location: { type: 'string', description: 'file:line or section' },
           text: { type: 'string', description: 'one line' },
-          disposition: { type: ['string', 'null'], description: 'null, "fixed in <sha>" or "refuted: <evidence>"' },
+          disposition: { type: ['string', 'null'], description: 'null, "fixed in <one sha>" or "refuted: <evidence>"' },
         },
       },
     },
-    sections: { type: 'string', description: 'the rest of your output as Markdown, without the findings list' },
+    sections: { type: 'string', description: 'the rest of your output as Markdown, without the findings list and without a Verdict: or Commit: line' },
   },
 };
 
@@ -65,6 +67,7 @@ function validateArgs(args) {
   for (const k of ['change', 'changeDir', 'range']) {
     if (typeof args[k] !== 'string' || !args[k].trim()) invalid('args.' + k + ' must be a non-empty string');
   }
+  if (typeof args.head !== 'string' || !/^[0-9a-f]{40}$/.test(args.head)) invalid('args.head must be the full 40 hex sha git rev-parse HEAD prints');
   if (args.round !== 1 && args.round !== 2) invalid('args.round must be 1 or 2');
   if (args.path !== 'workflow' && args.path !== 'agents') invalid("args.path must be 'workflow' or 'agents'");
   if (args.structural !== 'PASS') invalid("args.structural must be 'PASS'");
@@ -82,8 +85,24 @@ function validateArgs(args) {
   return args;
 }
 
-function validateStage1(reviewer, value) {
+// A line that only lines 1 and 2 of a verdict file may hold: it begins, after optional spaces, with `Verdict:` or `Commit:`.
+const HEADER_LINE = /^\s*(?:Verdict|Commit):/;
+
+function isHeaderLine(line) {
+  return HEADER_LINE.test(String(line));
+}
+
+function withoutHeaderLines(text) {
+  return String(text).split('\n').filter((l) => !isHeaderLine(l)).join('\n');
+}
+
+function isPathList(list) {
+  return Array.isArray(list) && list.every((p) => typeof p === 'string' && p.trim() !== '');
+}
+
+function validateStage1(reviewer, value, head) {
   if (!REVIEWERS.includes(reviewer)) invalid('unknown reviewer ' + reviewer);
+  if (typeof head !== 'string' || !/^[0-9a-f]{40}$/.test(head)) invalid('head must be a full 40 hex sha');
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid(reviewer + ': the stage 1 return must be an object');
   if (typeof value.declined !== 'boolean') invalid(reviewer + ': declined must be a boolean');
   if (typeof value.commit !== 'string' || !/^[0-9a-f]{40}$/.test(value.commit)) invalid(reviewer + ': commit must be a full 40 hex sha');
@@ -91,6 +110,11 @@ function validateStage1(reviewer, value) {
   if (typeof value.heading !== 'string' || !value.heading.trim()) invalid(reviewer + ': heading must be a non-empty string');
   if (!Array.isArray(value.findings)) invalid(reviewer + ': findings must be a list');
   if (typeof value.sections !== 'string') invalid(reviewer + ': sections must be a string');
+  if (value.commit !== head) invalid(reviewer + ': commit ' + value.commit + ' is not HEAD ' + head);
+  if (!isPathList(value.read)) invalid(reviewer + ': read must be a list of paths');
+  if (!isPathList(value.notRead)) invalid(reviewer + ': notRead must be a list of paths');
+  if (value.notRead.length > 0) invalid(reviewer + ': partial review: not read ' + value.notRead.slice(0, 3).join(', '));
+  if (value.declined === false && value.read.length === 0) invalid(reviewer + ': partial review: nothing read');
   const ids = [];
   const findings = value.findings.map((f, i) => {
     if (!f || typeof f !== 'object') invalid(reviewer + ': finding ' + (i + 1) + ' must be an object');
@@ -114,7 +138,7 @@ function validateStage1(reviewer, value) {
     uncommitted: value.uncommitted,
     heading: oneLine(value.heading, 300),
     findings,
-    sections: value.sections,
+    sections: withoutHeaderLines(value.sections),
   };
 }
 
@@ -150,6 +174,11 @@ function verifyJobs(args, passed) {
     }
   }
   return jobs;
+}
+
+// One writer job per outcome, in the order of the outcomes: both paths send exactly these.
+function writeJobs(args, outcomes) {
+  return outcomes.map((o) => ({ reviewer: o.reviewer, agentType: 'devkit-core:' + o.reviewer, prompt: writerPrompt(args, o) }));
 }
 
 // The votes in the order of the jobs, as { reviewer: { findingId: [vote ...] } }.
@@ -226,7 +255,7 @@ function commitLine(outcome) {
 function reviewerPrompt(args, entry) {
   const range = entry.range || args.range;
   const previous = entry.previous
-    ? 'Your previous verdict file is ' + entry.previous + '. Re-list each of its findings with its disposition (fixed in <sha>, or refuted: <evidence>) when it was dealt with; list the others as they stand.\n'
+    ? 'Your previous verdict file is ' + entry.previous + '. Re-list each of its findings with its disposition (fixed in <one sha>, the commit that holds the fix, or refuted: <evidence>) when it was dealt with; list the others as they stand.\n'
     : '';
   return lead(args)
     + 'This is stage 1 of a staged review round for change ' + args.change + ' (round ' + args.round + ' of 2).\n'
@@ -234,10 +263,16 @@ function reviewerPrompt(args, entry) {
     + 'Review range: ' + range + '\n'
     + previous
     + 'Review as your own instructions say, but write no file: a later stage writes your verdict file.\n'
+    + 'Run git rev-parse HEAD in the worktree and put the full sha it prints in commit; the round refuses any other value, a short sha padded with zeros included.\n'
+    + 'List in read every repo-relative path you opened, and in notRead every path of your remit you did not open (an empty list when you opened them all); the round refuses an answer with a path in notRead, or with an empty read unless you declined.\n'
+    + 'A disposition is either fixed in <sha>, naming exactly one sha, the commit that holds the fix, or refuted: <evidence>; never name two shas.\n'
+    + 'sections holds neither a Verdict: line nor a Commit: line: stage 3 writes both.\n'
     + 'End your reply with one fenced json block holding one object: '
-    + '{ declined: boolean, commit: "<full 40 hex sha of HEAD>", uncommitted: boolean, heading: "<your ## title line>", '
-    + 'findings: [ { id: "F1", severity: "blocking|important|nit|praise", location: "<file:line or section>", text: "<one line>", disposition: null or "fixed in <sha>" or "refuted: <evidence>" } ], '
-    + 'sections: "<the rest of your output as Markdown, without the findings list>" }.\n';
+    + '{ declined: boolean, commit: "<the full sha git rev-parse HEAD printed>", uncommitted: boolean, heading: "<your ## title line>", '
+    + 'read: ["<repo-relative path you opened>"], notRead: ["<path of your remit you did not open>"], '
+    + 'findings: [ { id: "F1", severity: "blocking|important|nit|praise", location: "<file:line or section>", text: "<one line>", disposition: null or "fixed in <one sha>" or "refuted: <evidence>" } ], '
+    + 'sections: "<the rest of your output as Markdown, without the findings list and without a Verdict: or Commit: line>" }.\n'
+    + 'Finding ids are F1, F2, ... in order, one per finding, praise included. The commit is the output of git rev-parse HEAD, never a short or padded sha.\n';
 }
 
 function verifierPrompt(args, entry, finding) {
@@ -331,7 +366,7 @@ const reviewed = await parallel(run.bench.map((e) => () => agent(reviewerPrompt(
 const passed = [];
 run.bench.forEach((e, i) => {
   try {
-    passed.push({ entry: e, stage1: validateStage1(e.reviewer, reviewed[i]) });
+    passed.push({ entry: e, stage1: validateStage1(e.reviewer, reviewed[i], run.head) });
   } catch (error) {
     failed.push({ reviewer: e.reviewer, stage: 'review', error: 'review stage failed: ' + e.reviewer + ' review' });
     log('review stage failed for ' + e.reviewer + ': ' + String(error && error.message));
@@ -347,8 +382,8 @@ const votesBy = groupVotes(jobs, voted);
 const outcomes = passed.map((p) => outcomeOf(run, p.stage1, votesBy[p.entry.reviewer] || {}));
 
 phase('write');
-const written = await parallel(outcomes.map((o) => () => agent(writerPrompt(run, o), {
-  agentType: 'devkit-core:' + o.reviewer, schema: WRITE_SCHEMA, label: o.reviewer + ' write', phase: 'write',
+const written = await parallel(writeJobs(run, outcomes).map((j) => () => agent(j.prompt, {
+  agentType: j.agentType, schema: WRITE_SCHEMA, label: j.reviewer + ' write', phase: 'write',
 })));
 outcomes.forEach((o, i) => {
   const reason = writeMismatch(o, written[i]);

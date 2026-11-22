@@ -3,7 +3,8 @@
 - Status: accepted
 - Amended by ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md)
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
-- Amended by ADR 0014 (0014-stage-roles-write-their-own-files.md)
+- Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
+- Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -40,8 +41,21 @@ subagent in the background. [ADR 0013](0013-the-roadmap-coordinator-is-the-owner
 the bullet of decision 8 that takes up ADR 0005's "One subagent per whole change". The load is the
 processor's, per core, against a per-person limit. Decisions 1 to 8 are otherwise unchanged.
 
+Note (roadmap-coordinator-followups, 2026-11-21): in the desktop app each change of a roadmap run
+runs in a session of its own, nested under the owner's session
+([ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). A start the app refuses
+waits for the owner's next message with a line, never a subagent in its place. The owner may tell
+the session to start the changes the load holds at that moment anyway, and the hold applies again
+to every later start; that permission is the owner's own message and is kept nowhere. Decisions 1
+to 8 are otherwise unchanged.
+
+Note (project-phases, 2026-11-22): the project entry and the `devkit-project` schema are built;
+[ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md) answers decision 8's open point
+(the hooks act in a slice's checkout as for any change, no run lock holds a `/devkit project` run) and
+records the slice model. Decisions 1 to 8 are otherwise unchanged.
+
 Note (stage-roles, 2026-11-21): the roles of D-4 stages 3, 4, 9 and 10 ship and stage 11 is recorded
-as text. [ADR 0014](0014-stage-roles-write-their-own-files.md) amends decision 3 (a stage that does
+as text. [ADR 0016](0016-stage-roles-write-their-own-files.md) amends decision 3 (a stage that does
 not apply because of its declared condition, or that the change had already passed, leaves no file)
 and the sentence of decision 8 on product code. The test commands are the settings `devkit.tests.*`
 (decision 1, round 16). Decisions 1 to 8 are otherwise unchanged.

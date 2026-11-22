@@ -148,7 +148,7 @@ readout, `/devkit status` and the stop locks read the checker, and they would di
 `not-applicable` file for every skipped stage (ADR 0010 decision 3: "a stage that does not apply
 leaves its file saying so"): rejected for the conditional and late stages, because the requirements
 say no file is written (AC-3) and a change under way must not gain files (AC-13); the readout says
-why in the stage's line, which decision 3's purpose (the reason is visible) keeps. ADR 0014
+why in the stage's line, which decision 3's purpose (the reason is visible) keeps. ADR 0016
 decision 1 records it (D-12). A per-stage `"ceiling": 999` for the mock-up: rejected, a number would be a
 hidden limit the owner never chose.
 
@@ -328,7 +328,7 @@ proposed, or with no record listed, there is no step.
 
 The session runs `detail.command`; exit 3 is declared with `reply blocked --param id=<id> --param
 why=cannot-accept --param error="<the JSON's error field>"`. The command writes only files `decisions.md` lists, inside an ADR
-folder, only after a current approval: it is the approval's own record, not product code (ADR 0014, D-12).
+folder, only after a current approval: it is the approval's own record, not product code (ADR 0016, D-12).
 
 **Messages** (one table, `MESSAGES`; none holds a stage id, a file or a setting key):
 
@@ -511,18 +511,18 @@ No node, edge or input is added. Text only, in the templates:
   `review-change ◀── pr-verifier`); `plugins/openspec/README.md`: the `hooks/change-loop.mjs` row
   lists `accept-decisions` among the commands and says the unit and E2E tests come from
   `flow-check`; the `devkit` skill row follows the regenerated catalog.
-- ADR 0014 (D-12) is written as `docs/adr/0014-stage-roles-write-their-own-files.md`. ADR 0010
-  gains the header line `- Amended by ADR 0014 (0014-stage-roles-write-their-own-files.md)` and a
+- ADR 0016 (D-12) is written as `docs/adr/0016-stage-roles-write-their-own-files.md`. ADR 0010
+  gains the header line `- Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)` and a
   dated Note after the roadmap-coordinator one: "Note (stage-roles, 2026-11-21): the roles of D-4
-  stages 3, 4, 9 and 10 ship and stage 11 is recorded as text. ADR 0014 (linked to its file, as the Notes link ADR 0013)
+  stages 3, 4, 9 and 10 ship and stage 11 is recorded as text. ADR 0016 (linked to its file, as the Notes link ADR 0013)
   amends decision 3 (a stage that does not apply because of its declared condition, or that the
   change had already passed, leaves no file) and the sentence of decision 8 on product code. The
   test commands are the settings `devkit.tests.*` (decision 1, round 16). Decisions 1 to 8 are
   otherwise unchanged." ADR 0011 gains the same header line and the Note: "Note (stage-roles,
-  2026-11-21): ADR 0014 (linked to its file, as the Notes link ADR 0013) says which files outside the
+  2026-11-21): ADR 0016 (linked to its file, as the Notes link ADR 0013) says which files outside the
   change folder are not product code (decision records, and test files the E2E tester writes);
   decision 2's refusal of the session's product edits is unchanged." The ADR line of
-  `openspec/config.yaml`'s `context` gains "0014 stage roles write their own files, amends 0010
+  `openspec/config.yaml`'s `context` gains "0016 stage roles write their own files, amends 0010
   and 0011".
 - `openspec/roadmap.md`: the `stage-roles` line becomes
   `- [ ] stage-roles (after: change-coordinator) — the ADR author, the unit-test suite, the E2E tester, the screen designer and the demonstration recorded as text in the change (D-4 stages 3, 4, 9, 10, 11)`;
@@ -588,7 +588,7 @@ guard condition and per label, the negative ones included (merge-setup-field-fix
   commented block.
 - `kit`: each shell names its agent of D-8; the loop's design and review prompts; still four
   shells.
-- `docs`: D-4 marks rows 3, 4, 9, 10, 11 built; the D-8 field names; ADR 0014's headings,
+- `docs`: D-4 marks rows 3, 4, 9, 10, 11 built; the D-8 field names; ADR 0016's headings,
   status and `Accepted by:` line, the `Amended by` lines and Notes of ADR 0010 and ADR 0011, the
   `config.yaml` ADR line; the roadmap split of D-9.
 
@@ -620,7 +620,7 @@ found. The others hold an open list or a list this plan does not extend: the kit
 eight kit files, seventeen nodes, eighteen edges and two review blocks (D-8 adds none of them), the
 six reviewers of the bench, and the ADR, roadmap and version pins, which T-6 and D-9 already follow.
 
-## D-12 ADR 0014, proposed with this plan
+## D-12 ADR 0016, proposed with this plan
 
 This plan changes two sentences of accepted decisions, so it proposes a record instead of a Note
 (`openspec/config.yaml` rules; ADR 0011's rejected alternative "Keep ADR 0010's sentence and record
@@ -634,7 +634,7 @@ any code. Task 4.3 writes the file with `Status: accepted` and the `Accepted by:
 `approval.md`'s owner's words; `adr-reviewer` checks it at the readiness review.
 
 ```markdown
-# ADR 0014: Stage roles write their own files, and a stage that does not apply may leave none
+# ADR 0016: Stage roles write their own files, and a stage that does not apply may leave none
 
 - Status: accepted
 - Date: 2026-11-21
@@ -778,7 +778,7 @@ then the documents, the roadmap, the release and the whole suite (phase 4).
 **Files to create**: `plugins/core/agents/screen-designer.md`, `plugins/core/agents/adr-author.md`,
 `plugins/core/agents/test-runner.md`, `plugins/core/agents/e2e-tester.md`,
 `plugins/core/skills/screen-mockup/SKILL.md`, `plugins/core/skills/adr-authoring/SKILL.md`,
-`plugins/core/skills/e2e-testing/SKILL.md`, `docs/adr/0014-stage-roles-write-their-own-files.md`.
+`plugins/core/skills/e2e-testing/SKILL.md`, `docs/adr/0016-stage-roles-write-their-own-files.md`.
 **Files to delete**:
 `plugins/openspec/schemas/devkit-lite/templates/mockup.md`,
 `plugins/openspec/schemas/devkit-lite/templates/decisions.md` and their copies under
@@ -795,7 +795,7 @@ then the documents, the roadmap, the release and the whole suite (phase 4).
 | Guard predicates and placement, their tests (phase 2) | 2 | Core | MEDIUM |
 | `ship-change`, `devkit`, `openspec-setup` text and the template, their pins (phase 2) | 2 | Integration | LOW |
 | Kit shells and loop prompts, tests and T-11, re-install, kit docs (phase 3) | 3 | Integration | LOW |
-| Design page, ADR 0014 and the two Notes, roadmap split, READMEs, docs tests (phase 4) | 2 | Documentation | LOW |
+| Design page, ADR 0016 and the two Notes, roadmap split, READMEs, docs tests (phase 4) | 2 | Documentation | LOW |
 | Versions, CHANGELOG, pin, catalog, whole suite, validation (phase 4) | 2 | Documentation | LOW |
 
 **Assumptions** (where the plan breaks if wrong): the exports and line numbers named in Context exist
@@ -814,7 +814,7 @@ Claude Code passes `agent_type` for a devkit-core subagent so the guard can tell
 ADR 0010 decisions 1 (a configuration block filled by the rounds; the test commands in round 16),
 3 (headers, the checker, ceilings in configuration, a stage that does not apply), 5 (the existing
 locks stay, hooks veto), 6 (the owner's plan approval) and 8 (product code only by the implementer;
-no side door), both amended by the proposed ADR 0014 (D-12); ADR 0011 (the session writes no product code in a run;
+no side door), both amended by the proposed ADR 0016 (D-12); ADR 0011 (the session writes no product code in a run;
 the approval only from the owner's message; locks fail open); ADR 0013 (owner gates of a roadmap
 run asked one change at a time); ADR 0004 (the guard acts only in opted-in projects); ADR 0009 (the
 CompozyOS kit as it stands until round 21); ADR 0012 (the `devkit-reviews` check, unchanged).
