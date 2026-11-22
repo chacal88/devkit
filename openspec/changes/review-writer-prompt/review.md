@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=3 commit=be4e2edb7c463dc5e59818e66f5906b9cdce4c4b -->
+<!-- devkit-stage review result=passed attempt=4 commit=83d74b4338fb0bce46595382c50068b816619472 -->
 # Review: review-writer-prompt, round 1
 
 Path: agents · range `main...HEAD` · structural: PASS
@@ -75,6 +75,33 @@ None.
 
 ## Notes
 - A review made only because the Commit: lines went stale after the rebase onto main (c377948); it consumes no round budget. The rebase resolved conflicts in deliver-check.mjs staleness(), change-loop.test.mjs, docs/openspec-flow.md and the release files.
+- The installed review round (devkit-core 0.8.1) gives no writer prompt from outcomes; the writer prompts were built from the exported writerPrompt rule, the defect this change fixes.
+
+## Next
+Ready to ship.
+
+# Review: review-writer-prompt, round 1
+
+Path: agents · range `5745d87..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 83d74b4 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 83d74b4 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 83d74b4 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 83d74b4 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 83d74b4 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- A review made only because the Commit: lines went stale after the second rebase onto main (5745d87, PRs 55 and 57); it consumes no round budget. The rebase resolved conflicts in flow-check.mjs, review-round.workflow.js (reviewerPrompt), change-loop.test.mjs, docs/openspec-flow.md and the release files, renumbered to 0.25.0.
 - The installed review round (devkit-core 0.8.1) gives no writer prompt from outcomes; the writer prompts were built from the exported writerPrompt rule, the defect this change fixes.
 
 ## Next
