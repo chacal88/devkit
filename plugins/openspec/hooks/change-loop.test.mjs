@@ -2487,7 +2487,7 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(flow, /refuses a hand-off with no agent type, to a general-purpose agent, to another plugin's agent even when it is named like a role/, 'the hand-off rule');
   assert.match(flow, /a usage error included[^\n]*keeps its raw message in the JSON's `error` field/, 'the usage-error reply');
   assert.doesNotMatch(flow, /v0\.15\.1/);
-  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => l.startsWith('- [ ] review-writer-prompt'));
+  const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] review-writer-prompt/.test(l));
   assert.match(road, /touches only tests/);
   assert.match(road, /fenced example/);
 });

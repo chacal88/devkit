@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.25.0 — review round tooling
+
+- **devkit-core** 0.9.0: the review round script takes `args.head`, the full sha of HEAD, and
+  refuses a stage-1 answer at another commit, with a short sha, or a partial one (files not read)
+  before the verify stage; the stage-1 prompt asks for one sha per disposition, for the sha
+  `git rev-parse HEAD` printed and for the files read; `review-round.mjs outcomes` returns each
+  outcome's writer prompt as `jobs`, which leaves out the stage-1 `Verdict:` and `Commit:` lines;
+  `check-file` refuses a second `Verdict:` or `Commit:` line. The six reviewer agents' Staged round
+  paragraph says the same.
+- **devkit-openspec** 0.20.0: a commit of test files only stales only `code-quality-reviewer` and
+  `test-coverage-reviewer` (and the evidence), and `flow-check` reports the review stage stale
+  while any reviewer is stale; `deliver-check` no longer counts a checkbox inside a fenced example
+  of `tasks.md` as a task. The CI snippet now pins `v0.20.0`, the release's tag.
+- Docs: the flow document and the `review-change` and `ship-change` skills follow.
+
 ## 0.24.1 — retro of project-phases
 
 - **devkit-core** 0.8.2: the reviewer prompt of the review round names the finding id format and the
