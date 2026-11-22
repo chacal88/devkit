@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: b78a2c9cc21e118dc339d3b210218fd2e95846a7
+Commit: 196c2864ff704efe11751e2609fcbfcb57b411ce
 
-## Quality review: merge-setup-field-fixes (round 2)
+## Quality review: merge-setup-field-fixes (round 3, re-review)
 
 ### Findings
 - [nit] plugins/openspec/skills/openspec-setup/scripts/github-setup.mjs:246 — When the ruleset item is error or blocked, the printed requires list omits checks the stored ruleset already requires, because the plan did not read them. Add a note or accept it as the stop state.
@@ -11,4 +11,4 @@ Commit: b78a2c9cc21e118dc339d3b210218fd2e95846a7
 
 ### Summary
 - 4 findings (0 blocking, 0 important, 2 nit) + 2 praise.
-- Justification: this is a re-review of the changes since 58d7a8b. The diff touches only two tests plus evidence and review files, and no production file. I ran both new tests and both pass. The deliver-check test shows checksToWatch returns a target for an open pull request with a pending check, and null for MERGED, CLOSED and the archive phase. The github-setup test pins the unreadable wording and checksFrom: unreadable. The suite results the caller gave (guard 1130, deliver-check 376, github-setup 421) are consistent with one added test each in the last two suites. The worktree is clean.
+- Justification: this is a re-review after a stale Commit line. Since b78a2c9 the branch gained only review files, evidence.md and the c292a5d merge of main, which brought only openspec/roadmap.md. `git diff --stat b78a2c9..HEAD -- . ':!openspec'` is empty, so no production or test file changed since the round I approved. I did not re-run the suites. The results you supplied at HEAD are consistent with that: guard 1130/1130, deliver-check 376/376, github-setup 421/421, and check.py, gen-catalog --check and plugin validate all pass. No new blocking or important finding is possible from an empty code diff. The worktree is clean.

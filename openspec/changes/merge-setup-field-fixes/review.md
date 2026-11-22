@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=b78a2c9cc21e118dc339d3b210218fd2e95846a7 -->
+<!-- devkit-stage review result=passed attempt=1 commit=196c2864ff704efe11751e2609fcbfcb57b411ce -->
 # Review: merge-setup-field-fixes, round 1
 
 Path: agents · range `main...HEAD` · structural: PASS
@@ -46,6 +46,30 @@ None.
 - Agents path: the turn was a background notification, not typed by the owner.
 - outcomes gave no writer prompt; the session built each stage-3 prompt with the round rules writerPrompt (the gap round 25 review-writer-prompt covers).
 - The coverage reviewer stage-1 sections began with its own Verdict and Commit lines; the session left them out of the writer text so the file carries one Verdict line (field item 10, writer side, round 25).
+
+## Next
+Ready to ship.
+
+# Review: merge-setup-field-fixes, round 1
+
+Path: agents · range `b78a2c9cc21e118dc339d3b210218fd2e95846a7..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 196c286 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 196c286 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- A review needed only because the Commit: lines went stale after c292a5d, the merge of main from GitHub update-branch, which brought only openspec/roadmap.md; round 1, no round budget used.
+- Agents path: the turn was a background notification, not typed by the owner; the session built each stage-3 prompt with the round rules writerPrompt.
 
 ## Next
 Ready to ship.
