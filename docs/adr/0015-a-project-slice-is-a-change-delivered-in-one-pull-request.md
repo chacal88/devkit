@@ -1,4 +1,4 @@
-# ADR 0014: A project slice is a change on the devkit-project script, delivered in one pull request that the ADR reviewer clears
+# ADR 0015: A project slice is a change on the devkit-project script, delivered in one pull request that the ADR reviewer clears
 
 - Status: accepted
 - Date: 2026-11-21

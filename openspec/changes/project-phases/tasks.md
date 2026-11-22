@@ -203,12 +203,12 @@ Leave no backup or scratch file in the tree; end every task with `git status --s
 
 ## 6. ADR 0014, the documents, the release and the whole suite (AC-2, AC-7, AC-9)
 
-- [x] 6.1 Write `docs/adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md` with the
+- [x] 6.1 Write `docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md` with the
   text of `design.md` D-16, status `proposed`. Check: the file has `## Context`, `## Decision`,
   `## Consequences`, `### Review trigger` and `## Alternatives considered`.
 - [x] 6.2 Only when `approval.md`'s owner's words accept ADR 0014: set its status to `accepted` with
   `- Accepted by: ` quoting `approval.md`, and add `- Amended by ADR 0014
-  (0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)` to the headers of
+  (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)` to the headers of
   `docs/adr/0010-openspec-as-the-harness.md` and `docs/adr/0012-the-reviews-check-follows-the-change-script.md`;
   in every case add the two dated Notes of D-16 to those two ADRs. Check: `grep -c "project-phases"` on
   each ADR is at least 1.

@@ -1,12 +1,20 @@
 # ADR 0013: The roadmap coordinator is the owner's session, and its stages run in the background
 
 - Status: accepted
+- Amended by ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), the bullet of decision 8 that answers ADR 0005's "One subagent per whole change"; ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md), decisions 1 and 2, which name only /devkit change
 - Accepted by: the owner, on 2026-11-21, in the message that approved the plan of the change: `Aprovo tudo` ("I approve everything"), given in answer to the question whether the owner approves the plan together with ADR 0013; recorded in `openspec/changes/roadmap-coordinator/approval.md`
 
 ## Context
+
+Note (roadmap-coordinator-followups, 2026-11-21): in the desktop app each change of a run now runs
+in a session of its own, and the session the owner typed /devkit roadmap in coordinates the roadmap
+only. [ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md) supersedes decision 1
+there and takes up the option "App child sessions, one per change" this ADR rejected. Decision 1
+still holds where the host cannot start sessions. Decision 4 now names each field of the run file.
+Decisions 2, 3 and 5 are otherwise unchanged.
 
 ADR 0010 decision 2 asks for a roadmap coordinator that starts every change whose after:
 dependencies are archived, several at once up to a number the owner sets per run. Its decision 8
@@ -48,11 +56,23 @@ background, to be settled by a probe before anything is built on it.
    of the change the hand-off names, and does not end its turn while a change has a stage ready
    that is not under way, or a change could start. The end of one change releases no other.
 4. What the files cannot say about a run in progress is one run's bookkeeping, the form ADR 0010
-   decision 8 accepts: one file in the repository's git directory, outside every working tree,
-   holding the number the owner set, whether a stop was asked, which change's gate the owner is
-   being asked, which stages and waits are under way, the ends the session declared and the events
-   already announced, and nothing else. A hand-off the hook lets through marks its stage as under
-   way and that subagent's stop clears it; the hooks still only veto and record.
+   decision 8 accepts. It is one file in the repository's git directory, outside every working
+   tree, holding these fields and nothing else:
+   - the number the owner set (`places`);
+   - whether a stop was asked (`stopping`);
+   - which change's gate the owner is being asked (`asking`);
+   - which stages and waits are under way (`inflight`);
+   - the starts handed and not yet open (`starting`);
+   - whether the hold of a start was announced (`held`), and which process watches the load
+     (`holding`);
+   - the ends the session declared (`declared`) and the events already announced (`announced`);
+   - the session that runs the run (`session`);
+   - whether each change runs in a session of its own (`changeSessions`), which change sessions were
+     started (`startedSessions`) and what started the last turn (`turn`), as ADR 0014 decides;
+   - the form of the file and its last write (`version`, `updatedAt`).
+
+   A hand-off the hook lets through marks its stage as under way, and that subagent's stop clears
+   it; the hooks still only veto and record.
 5. ADR 0010's decisions 1 to 7, the rest of decision 8, and ADR 0011 for /devkit change are
    unchanged.
 

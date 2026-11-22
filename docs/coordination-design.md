@@ -25,12 +25,13 @@ the script `change-loop.mjs`), its two stop locks and its edit and hand-off lock
 ([ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md)), and the two settings
 `devkit.language` and `devkit.driver`. So do, since the change `roadmap-coordinator` (round 18), the
 commands `/devkit roadmap` and `/devkit status`, the roadmap coordinator of the Claude driver (the
-owner's session, run by the script `roadmap-loop.mjs`, each stage a subagent in the background;
+owner's session, run by the script `roadmap-loop.mjs`, in the desktop app each change in a session of its own
+([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)), each stage a subagent in the background;
 [ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)), its run locks and the pack
 setting `load_limit`. So do, since the change `project-phases` (round 19), the command `/devkit project`,
 the `devkit-project` schema (with its `flow.json`), the script `project-loop.mjs` and the slice contract
 the `devkit-reviews` check applies to a slice's pull request
-([ADR 0014](adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). `/conduct` no longer
+([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). `/conduct` no longer
 exists. Everything else (the other verbs of `/devkit`, the new roles and skills, the rest of the `devkit:`
 configuration block, the other two drivers, the two-PR model and its lock,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
@@ -86,7 +87,7 @@ coordinator holds the start of a new change while the machine is loaded, and wha
 finishes first. **Decided by
 `roadmap-coordinator` on 2026-11-21 (A-6, grill questions 8 and 9):** it measures the processor load of
 the last minute per logical core against the per-person `load_limit` (80 by default); memory is not
-measured; a held start is announced once and checked every minute.
+measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)).
 
 **The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 15
 (`change-coordinator`). It takes one change from its opening to its archive. It asks the script which
@@ -249,7 +250,7 @@ opens the slice as an OpenSpec change in its own worktree, and the script `proje
 next. The phases are conversations with the owner, so they run in the owner's session. Each slice's
 documents live in `docs/design/<slice>/`, its ADRs in `docs/adr/`, and it reaches the default branch in one
 pull request that the ADR reviewer clears
-([ADR 0014](adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)).
+([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)).
 
 **Decided by `project-phases` on 2026-11-21 (the grill's nine answers).**
 
@@ -394,10 +395,14 @@ All decided by the owner.
 All proposed. The three drivers are to be built in rounds 15, 21 and 22.
 
 - **Claude (round 15).** The owner types `/devkit` in the session. For one task the session is the
-  change coordinator and each stage is a subagent. For the roadmap the session is the roadmap
-  coordinator and the change coordinator of every open change; each stage runs as a subagent in the
+  change coordinator and each stage is a subagent. For the roadmap the session is the roadmap coordinator. In the desktop app each change of the
+  run has an app session of its own, started by the roadmap coordinator in the change's worktree
+  and nested under it, which is that change's coordinator
+  ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)); where the host
+  cannot start sessions, the session is also the coordinator of every open change. Either way
+  each stage runs as a subagent in the
   background ([ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)). When a change
-  needs the owner, the session asks it, one change at a time.
+  needs the owner, its coordinator asks it, one change at a time.
   **Waiting on GitHub. Decided by the owner on 2026-11-20 (round 15 grill, question 1): wait with no
   time limit and go on alone.** Built as a background command of the session that ends when GitHub
   answers; the session is called back, runs the loop again and goes on. The command holds no state.

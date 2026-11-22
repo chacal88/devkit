@@ -583,7 +583,7 @@ another slice."
 
 ## D-16 ADR 0014, proposed with this plan
 
-File `docs/adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md`, status `proposed`
+File `docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md`, status `proposed`
 until the owner accepts it with the plan (then `accepted`, with `Accepted by:` quoting `approval.md`).
 Text:
 
@@ -667,7 +667,7 @@ decision 8's open point (the hooks act in a slice's checkout as for any change, 
 0012 Context: "Note (project-phases, <date>): ADR 0014 amends decisions 1 and 3 for `devkit-project`:
 its active changes fail and its archived folders are judged by the slice contract. The Decision is
 otherwise unchanged." When ADR 0014 is accepted, both gain `- Amended by ADR 0014
-(0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)` in their headers.
+(0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)` in their headers.
 
 **Rejected alternatives of earlier ADRs, read.** ADR 0004 rejected "per-change schema as the marker"
 of the hooks: not taken up (D-12, the opt-in stays project-level). ADR 0012 rejected "a devkit script

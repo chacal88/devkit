@@ -1718,7 +1718,7 @@ test('project-loop scripted: a slice whose roadmap does not apply', () => {
 
 // ---------------------------------------------------------------- the documents (D-16, D-17, D-18, phase 6)
 
-// Invariant (AC-2, AC-7, AC-9): the design page, ADR 0014 and its two Notes, the config, the flow page, the role
+// Invariant (AC-2, AC-7, AC-9): the design page, ADR 0015 and its two Notes, the config, the flow page, the role
 // document, both READMEs and the changelog say what the project flow is. Layer: the documents. Suite: this file.
 test('project-loop docs: the documents follow', () => {
   const read = (...p) => readFileSync(join(REPO_ROOT, ...p), 'utf8');
@@ -1731,24 +1731,24 @@ test('project-loop docs: the documents follow', () => {
   assert.match(seven, /Decided by `project-phases` on 2026-11-21/, 'section 7 records the answers');
   for (let n = 1; n <= 9; n += 1) assert.match(seven, new RegExp(`grill question ${n}\\b`), `section 7 lists answer ${n}`);
 
-  const adr = read('docs', 'adr', '0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md');
+  const adr = read('docs', 'adr', '0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md');
   assert.match(adr, /^- Status: (proposed|accepted)$/m);
   for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
-    assert.ok(adr.split('\n').includes(h), `ADR 0014 has ${h}`);
+    assert.ok(adr.split('\n').includes(h), `ADR 0015 has ${h}`);
   }
-  const link = '[ADR 0014](0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md)';
+  const link = '[ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)';
   const adr10 = read('docs', 'adr', '0010-openspec-as-the-harness.md');
   const adr12 = read('docs', 'adr', '0012-the-reviews-check-follows-the-change-script.md');
   for (const t of [adr10, adr12]) {
     assert.match(t, /Note \(project-phases, \d{4}-\d{2}-\d{2}\):/);
-    assert.ok(t.includes(link), 'the Note links ADR 0014');
+    assert.ok(t.includes(link), 'the Note links ADR 0015');
   }
   if (/^- Status: accepted$/m.test(adr)) {
-    for (const t of [adr10, adr12]) assert.match(t, /^- Amended by ADR 0014 \(0014-a-project-slice-is-a-change-delivered-in-one-pull-request\.md\)$/m);
+    for (const t of [adr10, adr12]) assert.match(t, /^- Amended by ADR 0015 \(0015-a-project-slice-is-a-change-delivered-in-one-pull-request\.md\)$/m);
     assert.match(adr, /^- Accepted by: /m);
   }
   const config = read('openspec', 'config.yaml').split('\n');
-  assert.match(config.find((l) => l.trim().startsWith('ADRs:')), /0014/, 'the ADRs line names 0014');
+  assert.match(config.find((l) => l.trim().startsWith('ADRs:')), /0015/, 'the ADRs line names 0015');
   assert.ok(config.some((l) => /^ {2}devkit-project: merge$/.test(l)), 'ship names devkit-project: merge');
 
   const flow = read('docs', 'openspec-flow.md').split('\n');
@@ -1758,6 +1758,6 @@ test('project-loop docs: the documents follow', () => {
   for (const f of [['plugins', 'openspec', 'README.md'], ['README.md']]) {
     assert.match(read(...f), /\/devkit project/, `${f.join('/')} names /devkit project`);
   }
-  const entry = between(read('CHANGELOG.md'), '## 0.23.0', '\n## 0.22.1');
-  assert.match(entry.replace(/\s+/g, ' '), /moves its CI pin to `v0\.19\.0` before it sets `ship: devkit-project: merge`/, 'the entry says to move the CI pin first');
+  const entry = between(read('CHANGELOG.md'), '## 0.24.0', '\n## 0.23.1');
+  assert.match(entry.replace(/\s+/g, ' '), /moves its CI pin to `v0\.20\.0` before it sets `ship: devkit-project: merge`/, 'the entry says to move the CI pin first');
 });

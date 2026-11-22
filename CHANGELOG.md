@@ -1,19 +1,42 @@
 # Changelog
 
-## 0.23.0 — the project phases, /devkit project
+## 0.24.0 — the project phases, /devkit project
 
-- **devkit-openspec** 0.19.0: `/devkit project <slice>` takes a new project or one slice of it through
+- **devkit-openspec** 0.20.0: `/devkit project <slice>` takes a new project or one slice of it through
   its four design phases, in the owner's session, to one pull request. A slice is a change on the new
   `devkit-project` schema (installed by `openspec-setup` with the other two); a new script,
   `project-loop.mjs`, decides each call. The roadmap stage appends the rounds to `openspec/roadmap.md`
   only after the owner approves them, or is not applicable. The ADR reviewer is the slice's only review,
   and `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one slice contract. The
-  CI snippet now pins `v0.19.0`, the release's tag: a project moves its CI pin to `v0.19.0` before it
+  CI snippet now pins `v0.20.0`, the release's tag: a project moves its CI pin to `v0.20.0` before it
   sets `ship: devkit-project: merge`, because an older check passes a slice with a note.
 - **devkit-design** 0.2.0: the five skills ask for the slice and write under `docs/design/<slice>/`,
   and called by name they write no roadmap and open no pull request.
-- Docs: ADR 0014 (accepted) amends ADR 0010 and ADR 0012; the coordination design, the flow
+- Docs: ADR 0015 (accepted) amends ADR 0010 and ADR 0012; the coordination design, the flow
   document, the role document and both READMEs follow.
+
+## 0.23.1 — merge staleness by the first parent
+
+- **devkit-openspec** 0.19.1: a merge commit counts the files that differ between its first parent
+  and itself (what it brought into the branch, edits made while resolving and moved files
+  included), and the commits it brings in are still checked one by one; an update of the branch
+  that brings only `openspec/` files leaves reviews and evidence current. The CI snippet now pins
+  `v0.19.1`, the release's tag.
+- Docs: the staleness rule and the `update-branch` row of the flow document say how a merge commit
+  is read.
+
+## 0.23.0 — follow-ups of the roadmap coordinator
+
+- **devkit-openspec** 0.19.0: in the desktop app each change of a `/devkit roadmap` run runs in a
+  session of its own, nested under the owner's session and titled with the icon of its stage; a
+  session started by another session is held by the change run's locks; a start the app refuses
+  waits for the owner's next message; `/devkit roadmap 2` takes its arguments as typed; the owner
+  can tell the session to start the held changes anyway; a killed watch of the load holds nothing;
+  the run file is locked while it is written, and the board says the others go on only when another
+  change is under way. The CI snippet now pins `v0.19.0`, the release's tag.
+- Docs: ADR 0014 (accepted) supersedes ADR 0013 decision 1 where the host can start sessions and
+  amends ADR 0011 and ADR 0013; ADR 0013 decision 4 names every field of the run file; the flow
+  document, the coordination design, the role document and the README follow.
 
 ## 0.22.1 — field fixes of 0.16.0, the rest
 

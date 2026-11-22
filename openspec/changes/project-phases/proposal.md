@@ -125,7 +125,7 @@ the recorded checks of this change (`design.md` D-19); "dogfood" means the first
   `scripts/ship-entry.mjs` and its test, `templates/config.yaml`); `.claude-plugin/plugin.json`;
   `README.md`.
 - devkit-design (0.1.1 to 0.2.0): the five skills, the shared templates, `README.md`.
-- Repository: `docs/adr/0014-a-project-slice-is-a-change-delivered-in-one-pull-request.md` (new),
+- Repository: `docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md` (new),
   Notes in ADRs 0010 and 0012, `docs/coordination-design.md`, `docs/openspec-flow.md` (CI pin
   `v0.19.0`), `docs/roles.md`, `openspec/config.yaml` (ADR line, `ship: devkit-project: merge`),
   `openspec/schemas/devkit-project/` (the byte-identical copy), `README.md`, `CHANGELOG.md`,

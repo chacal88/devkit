@@ -14,7 +14,7 @@ import { parseShip, ShipConfigError } from '../../../hooks/deliver-check.mjs';
 
 const USAGE = 'usage: ship-entry.mjs <project-root> [--apply]';
 const KEY = 'devkit-project';
-const PIN_LINE = 'ship-entry: the CI pin must name the new release (v0.19.0) before a slice can merge by itself: move the sha of .github/workflows/devkit-reviews.yml first (docs/openspec-flow.md, CI section).';
+const PIN_LINE = 'ship-entry: the CI pin must name the new release (v0.20.0) before a slice can merge by itself: move the sha of .github/workflows/devkit-reviews.yml first (docs/openspec-flow.md, CI section).';
 
 export class ShipEntryUsageError extends Error {
   constructor(message) { super(message); this.name = 'ShipEntryUsageError'; }

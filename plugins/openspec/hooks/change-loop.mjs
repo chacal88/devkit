@@ -132,10 +132,15 @@ export const MESSAGES = {
     'roadmap-places': 'The run now takes up to {places} changes at once ({open} open).',
     'roadmap-started': 'Started {id} ({open} of {places} under way).',
     'roadmap-resumed': 'Resumed {id}, which was already open: {where} ({open} of {places} under way).',
-    'roadmap-held': '{id} is ready to start, but the machine is loaded (processor at {load}%, limit {limit}%): I hold the start until it eases.',
-    'roadmap-gate': '{id} waits for {gate}. The others go on.',
+    'roadmap-session-started': 'Started {id} in a session of its own ({open} of {places} under way).',
+    'roadmap-waits-turn': '{id} is ready and starts in a session of its own at your next message: the app starts a session only on a turn you typed.',
+    'roadmap-waits-refused': '{id} could not start in a session of its own: the app refused it. It starts at your next message.',
+    'roadmap-held': '{id} is ready to start, but the machine is loaded (processor at {load}%, limit {limit}%): I hold the start until it eases. Tell me to start anyway and it starts now.',
+    'roadmap-gate': '{id} waits for {gate}.',
+    'roadmap-gate-others': '{id} waits for {gate}. The others go on.',
     'roadmap-archived': '{id} was archived.',
-    'roadmap-blocked': '{id} stopped: {why}. The others go on, and the changes after it wait.',
+    'roadmap-blocked': '{id} stopped: {why}. The changes after it wait.',
+    'roadmap-blocked-others': '{id} stopped: {why}. The others go on, and the changes after it wait.',
     'roadmap-skipped': '{id} began under the previous script, so the roadmap leaves it alone; the changes after it wait.',
     'roadmap-stopping': 'Stopping: nothing new starts, and each change finishes the stage it is in.',
     'roadmap-stayed': '{id}: {where}.',
@@ -160,9 +165,11 @@ export const MESSAGES = {
     'status-blocked': 'Blocked',
     'status-queue': 'In the queue',
     'status-outside': 'Outside the roadmap (the roadmap does not touch them)',
+    'queue.ready': 'ready to start',
     'queue.place': 'ready, waits for a place',
     'queue.load': 'ready, held by the load',
     'queue.after': 'waits for {after}',
+    'queue.turn': 'ready: starts in a session of its own at your next message',
     'outside.previous': 'began under the previous script',
     'outside.ticked': 'ticked on the roadmap but not archived',
     'outside.unticked': 'archived, its line not ticked yet',
@@ -170,6 +177,7 @@ export const MESSAGES = {
     'running.stage': '{title}',
     'running.phase': '{title}, phase {phase} of {phases}',
     'running.github': 'waiting on GitHub ({what})',
+    'running.no-session': 'no session of its own yet: it starts at your next message',
     'status-no-roadmap': 'This project has no roadmap. Unfinished changes:',
     'status-nothing': 'This project has no roadmap and no unfinished change.',
     'script.devkit': 'full script',
@@ -300,10 +308,15 @@ export const MESSAGES = {
     'roadmap-places': 'A rodada agora vai até {places} changes ao mesmo tempo ({open} abertas).',
     'roadmap-started': 'Comecei {id} ({open} de {places} em andamento).',
     'roadmap-resumed': 'Retomei {id}, que já estava aberta: {where} ({open} de {places} em andamento).',
-    'roadmap-held': '{id} está pronta para começar, mas a máquina está carregada (processador em {load}%, limite {limit}%): seguro o começo até aliviar.',
-    'roadmap-gate': '{id} espera {gate}. As outras seguem.',
+    'roadmap-session-started': 'Comecei {id} numa sessão própria ({open} de {places} em andamento).',
+    'roadmap-waits-turn': '{id} está pronta e começa numa sessão própria na sua próxima mensagem: o app só abre sessão num turno que você digitou.',
+    'roadmap-waits-refused': '{id} não pôde começar numa sessão própria: o app recusou. Ela começa na sua próxima mensagem.',
+    'roadmap-held': '{id} está pronta para começar, mas a máquina está carregada (processador em {load}%, limite {limit}%): seguro o começo até aliviar. Se quiser começar mesmo assim, é só dizer.',
+    'roadmap-gate': '{id} espera {gate}.',
+    'roadmap-gate-others': '{id} espera {gate}. As outras seguem.',
     'roadmap-archived': '{id} foi arquivada.',
-    'roadmap-blocked': '{id} parou: {why}. As outras seguem, e as que dependem dela esperam.',
+    'roadmap-blocked': '{id} parou: {why}. As que dependem dela esperam.',
+    'roadmap-blocked-others': '{id} parou: {why}. As outras seguem, e as que dependem dela esperam.',
     'roadmap-skipped': '{id} começou no roteiro anterior, então o roadmap não mexe nela; as que dependem dela esperam.',
     'roadmap-stopping': 'Parando: nada novo começa, e cada change termina a etapa em que está.',
     'roadmap-stayed': '{id}: {where}.',
@@ -328,9 +341,11 @@ export const MESSAGES = {
     'status-blocked': 'Travadas',
     'status-queue': 'Na fila',
     'status-outside': 'Fora do roadmap (o roadmap não toca)',
+    'queue.ready': 'pronta para começar',
     'queue.place': 'pronta, espera vaga',
     'queue.load': 'pronta, segurada pela carga',
     'queue.after': 'espera {after}',
+    'queue.turn': 'pronta: começa numa sessão própria na sua próxima mensagem',
     'outside.previous': 'começada no roteiro anterior',
     'outside.ticked': 'marcada no roadmap, mas não arquivada',
     'outside.unticked': 'arquivada, falta marcar a linha',
@@ -338,6 +353,7 @@ export const MESSAGES = {
     'running.stage': '{title}',
     'running.phase': '{title}, fase {phase} de {phases}',
     'running.github': 'esperando o GitHub ({what})',
+    'running.no-session': 'ainda sem sessão própria: começa na sua próxima mensagem',
     'status-no-roadmap': 'Este projeto não tem roadmap. Changes por terminar:',
     'status-nothing': 'Este projeto não tem roadmap nem change por terminar.',
     'script.devkit': 'roteiro completo',
@@ -439,7 +455,7 @@ const inStagePhrase = (lang, title) => (lang === 'en' ? `at ${stagePhrase(lang, 
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const FAMILY = { script: 'script.', other: 'script.', what: 'what.', driver: 'driver.', setting: 'setting.', gate: 'gate.', state: 'state.' };
 // The keys whose `{why}` is a blocked reason (`blocked-why.` codes); any other key's `{why}` is a `why.` code.
-const BLOCKED_WHY_KEYS = ['blocked', 'roadmap-blocked', 'need.blocked'];
+const BLOCKED_WHY_KEYS = ['blocked', 'roadmap-blocked', 'roadmap-blocked-others', 'need.blocked'];
 
 // One message, in the person's language, its `{name}` parameters filled. A code parameter (`script`, `other`, `why`,
 // `what`, `driver`, `setting`, `gate`) is looked up in its family of the same table; `stage` is the stage's title in the
@@ -460,6 +476,30 @@ export function render(lang, key, params = {}) {
     if (FAMILY[name]) return render(l, `${FAMILY[name]}${need(name)}`, params);
     return need(name);
   });
+}
+
+// ---------------------------------------------------------------- the stage icon (roadmap-coordinator-followups D-5)
+
+// The icon of the stage an action is in, for the title of a change session: ❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery,
+// 📦 retro and archive. An archived end is the archive's; a stage the table does not name, or none, has no icon.
+const STAGE_ICON = {
+  open: '❓', requirements: '❓',
+  mockup: '📝', decisions: '📝', proposal: '📝', specs: '📝', design: '📝', tasks: '📝', readiness: '📝', approval: '📝',
+  implementation: '🛠️', 'unit-tests': '🛠️', 'e2e-tests': '🛠️',
+  evidence: '🔍', review: '🔍',
+  delivery: '🚀',
+  retro: '📦',
+};
+export function stageIcon(action) {
+  if (action?.kind === 'end' && action.end?.state === 'archived') return '📦';
+  const stage = action?.stage;
+  return typeof stage === 'string' && Object.hasOwn(STAGE_ICON, stage) ? STAGE_ICON[stage] : null;
+}
+
+// A change session's title: the icon and the change id, cut to 59 code points when it has 60 or more (the start tool's title is under 60).
+export function sessionTitle(icon, id) {
+  const code = [...`${icon} ${id}`];
+  return code.length >= 60 ? code.slice(0, 59).join('') : code.join('');
 }
 
 // ---------------------------------------------------------------- the decision (D-5), pure
@@ -753,7 +793,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
       row = { error: e instanceof Error ? e.message : String(e) };
     }
   }
-  return decide({
+  const action = decide({
     ctx: { id, script: facts.schema ?? report.schema ?? 'devkit', root: found.root, branch: found.branch, lang: normalizeLang(lang), filesLanguage },
     flow,
     report,
@@ -765,6 +805,10 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     archiving,
     row,
   });
+  // The icon of the action's stage and the change session's title for it (D-5); the title only with an icon.
+  action.icon = stageIcon(action);
+  if (action.icon) action.sessionTitle = sessionTitle(action.icon, id);
+  return action;
 }
 
 // ---------------------------------------------------------------- checkouts and unfinished work (D-3, D-6)
@@ -1009,18 +1053,19 @@ export function withLockFile({ lock, stepMs, waitMs, staleMs, holder, timeout, s
 // up to 60 s, taken over when older than ten minutes. `openChange` and its callers stay synchronous.
 const OPEN_LOCK = { stepMs: 200, waitMs: 60_000, staleMs: 10 * 60_000 };
 
-function withOpenLock(main, work) {
+function withOpenLock(main, work, lockSleep) {
   const common = tryGit(main, ['rev-parse', '--path-format=absolute', '--git-common-dir']) || join(main, '.git');
   return withLockFile({
     ...OPEN_LOCK, lock: join(common, 'devkit-open.lock'),
     holder: `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`,
     timeout: () => new LoopUsageError('another open call holds the lock for too long'),
+    sleep: lockSleep,
   }, work);
 }
 
 // `open <id> --script <s> --why <code>`, the request on standard input. Creates the worktree, the change and its
 // requirements file; refusals are LoopRefusal (exit 3, nothing created).
-export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec } = {}) {
+export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec, lockSleep } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   if (!NAME.test(id) || id === 'archive') throw refuse('name-invalid', { id });
@@ -1041,7 +1086,7 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, 'requirements.md'), requirementsFor(readFileSync(template, 'utf8'), text));
   };
-  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare });
+  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep });
   return { version: 1, change: id, script, worktree, branch: id, base, reply: render(l, 'opened', { id, script, other: otherScript(script), why }) };
 }
 
@@ -1049,13 +1094,13 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
 // branch, `openspec new change <id> --schema <script>`, `prepare(folder, worktree)` for the script's own first file, and the
 // clean-up of a half-made open. The caller has checked the name and the project gate. Returns { worktree, base }; a refusal
 // is a LoopRefusal (exit 3, nothing created).
-export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare } = {}) {
+export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare, lockSleep } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const main = mainRoot(start);
-  return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }));
+  return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }), lockSleep);
 }
 
 // What `open` does while it holds the lock: the fetch, the id check, the worktree, the change and the script's first file.

@@ -93,7 +93,7 @@ test('ship-entry: an entry parseShip refuses exits 3 with its message and writes
 test('ship-entry: adding merge prints the CI pin line, adding pr or plan does not', () => {
   const merge = runIn(project('ship:\n  devkit: merge\n').root, '--apply');
   assert.match(merge.err + merge.out, PIN);
-  assert.match(merge.err + merge.out, /v0\.19\.0|new release/);
+  assert.match(merge.err + merge.out, /v0\.20\.0|new release/);
   const pr = runIn(project('ship:\n  devkit: pr\n').root, '--apply');
   assert.doesNotMatch(pr.err + pr.out, PIN);
   const done = runIn(project('ship:\n  devkit: merge\n  devkit-project: merge\n').root, '--apply');

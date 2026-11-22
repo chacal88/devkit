@@ -549,16 +549,31 @@ function marksOf(event, markers) {
   return found.length ? found : markers(event.stdout);
 }
 
+// The first line of the first message of a session another session started, in the desktop app's form: this line, a background
+// paragraph, a line `Task:` and the task (roadmap-coordinator-followups D-4, ADR 0014).
+export const STARTED_BY_SESSION = 'Background (from the session that started this one):';
+
+// A slash command on one line: { name, args } when the line starts with `/`, else null.
+function commandOfLine(line) {
+  const found = /^\s*\/([A-Za-z][\w:-]*)(?:[ \t]+([^\n]*))?$/m.exec(line);
+  return found ? { name: found[1], args: (found[2] ?? '').trim() } : null;
+}
+
 // The slash command typed in a `user` line of the transcript: { name, args } from the `<command-name>` tag, else from a first line
-// that starts with `/`; null when the line is no typed command.
+// that starts with `/`, else, in the form of a session another session started, from the first non-blank line after `Task:`;
+// null when the line is no typed command. A command on a later line of any other message is no command.
 function typedOf(content) {
   const tag = /<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/.exec(content);
   if (tag) {
     const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(content)?.[1] ?? '';
     return { name: tag[1], args: args.trim() };
   }
-  const first = /^\s*\/([A-Za-z][\w:-]*)(?:[ \t]+([^\n]*))?$/m.exec(content.split('\n')[0]);
-  return first ? { name: first[1], args: (first[2] ?? '').trim() } : null;
+  const lines = content.split('\n');
+  if (lines[0].trim() !== STARTED_BY_SESSION) return commandOfLine(lines[0]);
+  const task = lines.findIndex((line) => line.trim() === 'Task:');
+  if (task < 0) return null;
+  const first = lines.slice(task + 1).find((line) => line.trim() !== '');
+  return first === undefined ? null : commandOfLine(first);
 }
 
 // The text of a tool result block (a string, or a list of text blocks).
@@ -738,6 +753,9 @@ export function readRoadmap(root) {
   if (!existsSync(file)) return null;
   return parseRoadmap(readFileSync(file, 'utf8'));
 }
+
+// The form of a change id on the roadmap and in the loop's brief: a letter or a digit, then letters, digits, `_`, `.` or `-`.
+export const isChangeId = (id) => typeof id === 'string' && /^[A-Za-z0-9][\w.-]*$/.test(id);
 
 // The same parse over roadmap text (conduct-check reads origin/<base>:openspec/roadmap.md).
 export function parseRoadmap(text) {
