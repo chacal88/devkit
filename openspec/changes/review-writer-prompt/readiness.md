@@ -1,98 +1,70 @@
-<!-- devkit-stage readiness result=passed attempt=1 commit=2300f84524e5c1ec5ed8a0da41e5a5dccff9cc34 -->
+<!-- devkit-stage readiness result=passed attempt=2 commit=643bc4765052e251d8e0412d3247a28d7da2d555 -->
 # Readiness review: review-writer-prompt
+
+Round 2. Scope: the revision made after review round 1 (phase 4, D-8's unclosed-fence rule, three new scenarios in `specs/change-delivery/spec.md`). Phases 1 to 3 are implemented and were approved in round 1 of this review.
 
 ## 1. Decision
 - Status: APPROVED
 - Confidence: high
-- Ready to implement: yes
+- Ready to implement: yes (phase 4)
 
 ## 2. Scope validation
-Classification: correct. The proposal, the four spec deltas, `design.md` D-1 to D-10 and `tasks.md`
-cover the nine acceptance criteria of `requirements.md` and nothing more. The one item beyond
-`requirements.md` (the six reviewers' "Staged round" bullet, task 1.5) is flagged for the owner in
-`proposal.md` and is droppable without touching another task (D-3 still strips the pasted lines).
+Classification: correct. The revision only closes the finding of review.md round 1 (an unclosed fence hides later tasks) inside AC-9. It adds no reason code or step, as the Non-Goals require.
 
 ## 3. Proposal review
-No findings. Problem, non-goals, capabilities (new vs modified), impact, release and the BREAKING
-`args.head` are explicit. ADR 0002, 0008 and 0012 are cited with the decisions the change keeps.
+No findings. The revision does not touch the proposal.
 
 ## 4. Design review
-No findings. Internal claims re-derived against the code at `2300f84`:
-- `validateArgs` checks `change`, `changeDir`, `range` and has no `head`
-  (`review-round.workflow.js:63-67`); `validateStage1(reviewer, value)` takes two parameters and checks
-  `commit` only as 40 hex (`:85`, `:90`); the disposition regex already refuses two shas (`:106`).
-- `sections: value.sections` is copied verbatim (`:~120`); `checkFileCommand` checks lines 1 and 2 and
-  the blocking or important lines only (`review-round.mjs:124-139`); `outcomesCommand` returns
-  `{ outcomes, failed, verifiersFailed }` (`:98-113`); `readStage1` calls `validateStage1` with two
-  arguments (`:78`); `NAMES` lists the exported rules (`:11`).
-- `staleness(root, recorded, facts)` has no options and uses `isOpenspec` per commit
-  (`deliver-check.mjs:193-216`); `readReviews` calls it with no option (`:239-251`); `parseTasks`
-  reads every checkbox line (`:270-284`).
-- `fencedLines` is a private function of `flow-check.mjs:81` and `countedTasks` uses it (`:99`);
-  `flow-check.mjs` already imports from `deliver-check.mjs` (`:11`); `artifactState` has the
-  `codeBound` loop (`:404`) where D-7 hooks in.
-- The six agent files carry the Stage 1 sentence D-5 replaces (checked in `spec-reviewer.md:72`).
-- D-9 targets exist: `SHA2` uses at `review-round.test.mjs:246,381,389,658`; the pin and the roadmap
-  line at `change-loop.test.mjs:2473,2482`; the reason-code test at `flow-check.test.mjs:1146`;
-  three `v0.18.1` lines in `docs/openspec-flow.md`; the roadmap line `review-writer-prompt` exists.
-No generalization in the plan failed on enumeration.
+Claims re-derived against live code:
+- `fencedLines` is at `plugins/openspec/hooks/deliver-check.mjs:283-297`, exported, with the scan D-8 describes (single `open` state, the closing rule "same character, at least as long"). The rule "remove the opening line and every line added after it, resume at the line after the opening line" is well defined and terminates, because each resume advances at least one line.
+- Mixed cases hold: a `~~~` block inside an unclosed backtick fence is re-read after the resume and hides its own lines when it closes; a text whose fences all close takes no new path, so every earlier result is unchanged.
+- `parseTasks` (`deliver-check.mjs:301-313`) and `flow-check.mjs:81` (`countedTasks`) both call `fencedLines`, so one edit covers both checkers, as D-8 says. `flow-check.mjs:11` imports it.
+- The reproduction of review round 1 matches the code: with the current scan, an unclosed fence puts every later line in `inside`.
+- D-8's rejected alternatives (CommonMark "runs to the end", a new reason code) are stated with reasons. The decision is the owner's and is written with its date.
+- Other callers of `parseTasks` (`conduct-check.mjs`, `changes-under-way.mjs`) are left to the verify stage, as the caller said; the change is a narrowing of what is hidden, so they can only see more tasks.
 
 ## 5. Specs review
-No findings. Every requirement uses SHALL and has WHEN/THEN scenarios. Every decision-table outcome
-of D-1 (five checks), D-3 (strip, `check-file` refusal), D-6 (six reviewers, evidence, mixed commit,
-uncommitted, other-name reviewer, CI) and D-7 (stale under current header, current, after merge) has a
-scenario. `openspec validate review-writer-prompt --strict` passes.
+Three new scenarios, each with WHEN/THEN, and each outcome of the D-8 rule has one: the rule itself, the counted task and gate, and the next step. `openspec validate review-writer-prompt --strict` passes. The third scenario's WHEN ("the plan is approved or a task is ticked") is a correct reading of the existing `stop-plan-approval` and "started exemption" tests (`deliver-check.test.mjs:1680`, `:1701`): the fixture text of the scenario has `- [x] 1.1`, so `nextStep` returns `implement` without an `approval.md`. The scenario's `planRepo({ tasks })` use is therefore sound.
 
 ## 6. Tasks review
-No findings. Tasks are test-first, ordered, checkboxed, each with a check and a spec-scenario list;
-the AC table maps every criterion to tasks, and the three gates are single backticked commands. Gates
-run on the base: `review-round.test.mjs` 55/55 pass, `deliver-check` plus `flow-check` tests 957/957
-pass (with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set), `scripts/check.py` passes. The `gen-catalog`
-check printed nothing on the base (no failure reported). The whole guard suite (3.2, about 13 minutes)
-and `claude plugin validate .` were not run here; the tasks mark the suite as long.
+- 4.1 (red half), 4.2 (the change), 4.3 (gate) are ordered, test first, each with a check command. The code each task names exists.
+- The red-half claim "the six earlier AC-9 tests pass" is true on the base: I ran the 4.1 command with the AC-9 pattern on the code of phase 3 and got 6 pass, 0 fail. `python3 scripts/check.py` is green on the base. The 4.3 gate was not run in full (the caller runs the long suites); no part of it is known red.
+- The new tests of D-8 fail on the phase 3 code (an unclosed fence hides the later lines), so the red half is real.
+- Only `fencedLines` changes, and the task keeps both regular-expression literals of `parseTasks` byte-identical, which protects the panel parity check.
+- Minor: D-8's `pendingTasks` test says "OpenSpec's list for the same text" without the line numbers; the implementer derives them from the text (lines of the two checkboxes), which does not change behavior.
 
 ## 7. Omission detection
-No findings. Validation, refusal paths, idempotency (re-run after a refused reviewer), rollout
-(Migration Plan, pin at `v0.19.0`), rollback, compatibility with old verdict files, and test strategy
-are covered.
+No findings. Validation, error handling and idempotency do not apply (a pure function over text). Compatibility with texts whose fences all close is stated and tested by the existing tests that 4.2 and 4.3 re-run. Rollout rides the release already planned in phase 3.
 
 ## 8. Execution risks (top 5 failures)
-1. Cause: a reviewer lists part of a large remit in `notRead`. Impact: the round refuses twice and
-   escalates. Prevention: written in the design risks; the skill re-runs once.
-2. Cause: the fixture cascade in `review-round.test.mjs`. Impact: a changed invariant hides. Prevention:
-   D-9 lists each edit with its invariant.
-3. Cause: D-7 changes a `flow-check` or `change-loop` result when reviewer files are stale under a
-   current header. Impact: an existing test goes red. Prevention: phase 3 runs the whole suite.
-4. Cause: a security-relevant file under a `fixtures` or `test` folder spares two reviewers. Impact:
-   a missed review. Prevention: the owner's fixed pattern, documented in `docs/openspec-flow.md`.
-5. Cause: the sibling `roadmap-coordinator-followups` bumps devkit-openspec too. Impact: version
-   collision. Prevention: release rebase.
+1. Cause: the resume re-scan makes a stray fence line inside prose hide nothing, while a real example fence after it opens at the wrong parity. Impact: an example checkbox counted. Prevention: D-8 accepts this as the safe side and the tests cover a closed fence after the unclosed one.
+2. Cause: `conduct-check.mjs` or `changes-under-way.mjs` tests assert counts on a text with an unclosed fence. Impact: a red full suite. Prevention: the verify stage re-runs the 3.2 gate.
+3. Cause: the implementer edits a `parseTasks` literal while touching nearby code. Impact: the panel parity check fails. Prevention: 4.2 forbids it and runs `python3 scripts/check.py`.
+4. Cause: quadratic re-scan on a very long unclosed text. Impact: none in practice (tasks.md is small).
+5. Cause: the new tests are named outside the `review-writer-prompt AC-9 ` prefix. Impact: the 4.1 red-half pattern misses them. Prevention: 4.1 names the prefix.
 
 ## 9. Mandatory fixes before implementation
 None.
 
 ## 10. Optional improvements (within scope)
-- [ ] Low, Nice to have: `design.md` D-1 says `validateStage1` is called "with `run.head`" in the
-  Workflow script; confirm during task 1.1 that the script's `run` variable is the validated args
-  (it is the one `writeJobs(run, ...)` uses in D-4), so no second name is introduced.
+- [ ] Low, Nice to have: give the line numbers of the two checkboxes in D-8's `pendingTasks` test so no one derives them.
 
 ## 11. Explicitly out of scope
-- [ ] The panel's own `tasks.md` reader, `guard.mjs#parseRoadmap`, a reason in the review-stage
-  `failed` entry, a writer prompt in the Workflow script's result (all named non-goals).
+- [ ] Reporting an unclosed fence as a finding (rejected in D-8; needs a new reason code).
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes, nine ids with observable outcomes.
-2. Is the result measurable? Yes, each AC has a named test prefix and gate.
-3. Are error behaviors defined? Yes: exit 3 without `head`, the exact `invalid(...)` messages, `failed` entries, exit 2 for `check-file`.
-4. Are edge cases covered? Yes: padded short sha, declined with empty `read`, indented lines, mixed commits, tilde fences, default-branch tasks.
-5. Are dependencies clear? Yes: `merge-setup-field-fixes` archived; the sibling release collision named.
-6. Are contracts defined? Yes: args, stage-1 schema, `jobs` shape, header-line regex, `isTestFile` pattern.
-7. Can two developers interpret this differently? Not materially; code and prompt text are given verbatim.
-8. Are any decisions implicit instead of written? No; alternatives are recorded per decision.
-9. Do the tasks fully deliver the intended outcome? Yes, including docs, release and tests.
-10. What will be discovered too late? Possibly an existing `flow-check` or `change-loop` fixture reading stale reviewer files (D-7); the phase 3 whole-suite run catches it before review.
+1. Is the problem objectively defined? Yes: an unclosed fence hides later tasks, reproduced in review.md.
+2. Is the result measurable? Yes: the three scenarios and the AC-9 tests.
+3. Are error behaviors defined? Yes: the unclosed fence is not an error, it hides nothing.
+4. Are edge cases covered? Yes: unclosed then closed fence, tilde inside backtick, texts whose fences all close.
+5. Are dependencies clear? Yes: 4.1, then 4.2, then 4.3.
+6. Are contracts defined? Yes: the `fencedLines` rule and its comment sentence.
+7. Can two developers interpret this differently? Not in a way that changes behavior.
+8. Are any decisions implicit instead of written? No: the owner's rule and its alternatives are in D-8.
+9. Do the tasks fully deliver the intended outcome? Yes for AC-9.
+10. What will be discovered too late? Only a count assertion in a caller other than the two checkers; the verify stage covers it.
 
 ## 13. Final conclusion
-- Can we start? Yes, once the owner approves the plan.
+- Can we start? Yes, with phase 4.
 - What must be fixed? Nothing mandatory.
-- Main risk if ignored? Fixture cascade from D-7 and the `args.head` requirement in existing tests.
+- Main risk if ignored? The delivery checker passing with unticked tasks behind an unclosed fence.

@@ -29,3 +29,15 @@ uses.
 #### Scenario: A checkbox after the fence closes
 - **WHEN** an unticked checkbox line follows the closing fence line
 - **THEN** it is counted as an unticked task
+
+#### Scenario: An unclosed fence hides nothing
+- **WHEN** a line of `tasks.md` opens a fence with three backticks and no line closes it before the end of the text
+- **THEN** that line opens no fence and hides nothing: the delivery checker and the stage checker read the lines after it as outside a fence, and only a later fence that closes hides its own lines
+
+#### Scenario: A task and a gate after an unclosed fence are counted
+- **WHEN** `- [x] 1.1 code` is followed by an unclosed fence opening line, then `- [ ] 1.2 more` and `` - [ ] 1.3 Gate: `node -e 0` green ``
+- **THEN** the tasks item of `deliver-check.mjs <id>` lists `1.2` and `1.3` as unticked, phase 1's gate is `1.3`, and the stage checker counts both as pending
+
+#### Scenario: The next step after an unclosed fence
+- **WHEN** the change's plan is approved or a task is ticked, and the `tasks.md` of the scenario above is its tasks file
+- **THEN** the next step of `deliver-check.mjs <id>` is `implement`, and its reason names `1.2`

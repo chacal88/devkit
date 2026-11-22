@@ -274,7 +274,7 @@ Rejected: "the code changed since it ran" is wrong for a file recorded with unco
 ## D-8 One fence helper (AC-9; spec `change-delivery`)
 
 - `fencedLines(text)` moves verbatim from `flow-check.mjs` to `deliver-check.mjs`, as an export, with
-  its comment. `flow-check.mjs` drops its copy and imports it. `countedTasks` and `pendingTasks` are
+  its comment (phase 2); phase 4 then changes it for an unclosed fence, as the bullet below says. `flow-check.mjs` drops its copy and imports it. `countedTasks` and `pendingTasks` are
   unchanged.
 - `parseTasks(text)` computes `const fenced = fencedLines(text)` and skips every line whose 1-based
   number is in `fenced`, the fenced `## N.` headings included, before it matches a heading or a task.
@@ -283,6 +283,34 @@ Rejected: "the code changed since it ran" is wrong for a file recorded with unco
 - Every reader of `parseTasks` gets the rule with no edit of its own: `readPhases`, `tasksItem`,
   `tasksOnDefault` (so `defaultTasks` and the delivered test), the `started` fact of `collectState`
   and the ticked count of `runSeveral`.
+- **An unclosed fence hides nothing** (the owner's rule, chosen on 2026-11-22 after review round 1
+  found that a fence with no closing line hid every later task and gate, so item 1 could pass with
+  open work). A fence opening line with no closing line before the end of the text is not a fence.
+  `fencedLines` keeps its scan; when the scan reaches the end of the text with a fence still open, it
+  removes from `inside` that fence's opening line and every line added after it, and resumes the scan
+  at the line after the opening line with no fence open. A later fence that opens and closes still
+  hides its own lines. The comment above `fencedLines` gains the sentence "An opening line with no
+  closing line before the end of the text opens no fence." The closing rule (the next line opening
+  with at least as many of the same character) is unchanged, and so is every result for a text whose
+  fences all close.
+- Why: it fails safe. A misread fence can now only make the checkers count an example checkbox,
+  which the author sees and fixes (by closing the fence or ticking the line), and never hide a real
+  unticked task or gate. *An unclosed fence runs to the end of the text* (CommonMark's rule, and the
+  behaviour before this fix) is rejected for that reason. *Report the unclosed fence* is rejected
+  because it needs a new reason code or step, which Non-Goals exclude.
+- `flow-check.mjs` gets the rule through its import: `countedTasks` and `pendingTasks` are unchanged,
+  so the stage checker counts a task after an unclosed fence as pending. No existing test changes: the
+  "flow-check tasks:" and "flow-check stages: a fenced example …" tests and the earlier AC-9 tests
+  close every fence they open.
+- Tests, in `deliver-check.test.mjs` right after the AC-9 tests of D-10, named
+  `review-writer-prompt AC-9 …`: `fencedLines` of a text with an unclosed fence (no line after the
+  opening line is in the set, and a closed fence after it is); `parseTasks` of
+  `- [x] 1.1 code`, an unclosed backtick fence, `- [ ] 1.2 more` and `` - [ ] 1.3 Gate: `node -e 0` green ``
+  (ids `1.1`, `1.2`, `1.3`, with `1.3` a gate holding `node -e 0`); `readPhases` (phase 1 open
+  `['1.2']`, gate `1.3`); `tasksItem` (`unticked` is `['1.2', '1.3']`); `nextStep` through
+  `planRepo({ tasks })` (step `implement`, reason naming `1.2`); and the flow-check side,
+  `pendingTasks` imported from `./flow-check.mjs` given OpenSpec's list for the same text (both
+  lines pending).
 
 ## D-9 Existing tests that change
 

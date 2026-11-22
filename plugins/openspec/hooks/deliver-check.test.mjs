@@ -11,6 +11,7 @@ import { ghError } from './merge-setup.mjs';
 import { archiveBranchChange, resolveChange } from './guard.mjs';
 import { parseShip, parseMergeMethod, shipConfig, SHIP_MODES, shipMode, ShipConfigError, parseCommitLine, gitFacts, staleness, reviewsItem, tasksItem, parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, readReviewMd, waitingFor, summarize, collectState, buildReport, detectHost, watchMinutes, locateChange, schemaOf, findChangePr, readRetro, approvalState, RELEASE_FILE, unnamedFiles, ciMain } from './deliver-check.mjs';
 import * as DC from './deliver-check.mjs';
+import { pendingTasks } from './flow-check.mjs';
 import { createHash } from 'node:crypto';
 import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
 
@@ -5061,6 +5062,52 @@ test('review-writer-prompt AC-9 fencedLines is exported by deliver-check.mjs and
   const flow = readFileSync(join(here, 'flow-check.mjs'), 'utf8');
   assert.doesNotMatch(flow, /function fencedLines/);
   assert.match(flow, /fencedLines[^;]*from '\.\/deliver-check\.mjs'/s);
+});
+
+// ---- review-writer-prompt D-8: an unclosed fence hides nothing (spec change-delivery, review round 1)
+
+const UNCLOSED = `# Tasks\n\n## 1. First\n\n- [x] 1.1 code\n${FENCE}md\n- [ ] 1.2 more\n- [ ] 1.3 Gate: \`node -e 0\` green\n`;
+
+test('review-writer-prompt AC-9 fencedLines: an opening line with no closing line opens no fence', () => {
+  assert.deepEqual([...DC.fencedLines(UNCLOSED)], []);
+  assert.deepEqual([...DC.fencedLines('a\n```\nb\nc\n')], []);
+});
+
+test('review-writer-prompt AC-9 fencedLines: a closed fence after an unclosed one still hides its own lines', () => {
+  assert.deepEqual([...DC.fencedLines('a\n```\nb\n~~~\nc\n~~~\nd\n')], [4, 5, 6]);
+});
+
+test('review-writer-prompt AC-9 parseTasks counts the task and the gate after an unclosed fence', () => {
+  assert.deepEqual(parseTasks(UNCLOSED).map((t) => [t.id, t.done, t.isGate]), [['1.1', true, false], ['1.2', false, false], ['1.3', false, true]]);
+});
+
+test('review-writer-prompt AC-9 readPhases gives the gate after an unclosed fence to its phase', () => {
+  const root = gitRepo({ changes: { feat: { 'tasks.md': UNCLOSED } } });
+  const [p] = readPhases(join(root, 'openspec/changes/feat/tasks.md'));
+  assert.deepEqual(p.open, ['1.2']);
+  assert.equal(p.gate?.id, '1.3');
+  assert.equal(p.gate?.command, 'node -e 0');
+});
+
+test('review-writer-prompt AC-9 tasksItem lists the tasks after an unclosed fence as unticked', () => {
+  const root = gitRepo({ changes: { feat: { 'tasks.md': UNCLOSED } }, files: { 'src/a.ts': 'a\n' } });
+  const r = tasksItem(root, 'feat', gitFacts(root));
+  assert.notEqual(r.status, 'met', r.reason);
+  assert.deepEqual(r.details.unticked, ['1.2', '1.3']);
+});
+
+test('review-writer-prompt AC-9 nextStep is implement and names 1.2 after an unclosed fence', () => {
+  const t = planRepo({ tasks: UNCLOSED, approval: approvalMd });
+  const n = nextStep(t.state());
+  assert.equal(n.step, 'implement');
+  assert.match(n.reason, /1\.2/);
+});
+
+test('review-writer-prompt AC-9 the stage checker counts the tasks after an unclosed fence as pending', () => {
+  const lines = UNCLOSED.split('\n');
+  const at = (needle) => lines.findIndex((l) => l.includes(needle)) + 1;
+  const open = [{ id: '1.1', line: at('1.1'), done: true }, { id: '1.2', line: at('1.2'), done: false }, { id: '1.3', line: at('1.3'), done: false }];
+  assert.deepEqual(pendingTasks(open, UNCLOSED).map((t) => t.id), ['1.2', '1.3']);
 });
 
 // ---- review-writer-prompt D-6: test files and the scoped staleness (spec verdict-files)

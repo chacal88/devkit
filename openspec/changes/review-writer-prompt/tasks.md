@@ -34,7 +34,7 @@ end every task with `git status --short`.
 | AC-6 | `writer-omits-stage1-verdict-commit` | 1.3, 1.7 |
 | AC-7 | `check-file-refuses-second-verdict` | 1.3, 1.7 |
 | AC-8 | `test-only-commit-scoped-staleness` | 2.2, 2.3, 2.4, 2.5, 3.2 |
-| AC-9 | `deliver-check-skips-fenced-checkbox` | 2.1, 2.4, 2.5, 3.2 |
+| AC-9 | `deliver-check-skips-fenced-checkbox` | 2.1, 2.4, 2.5, 3.2, 4.1, 4.2, 4.3 |
 
 ## 1. The review round (AC-1 to AC-7)
 
@@ -123,6 +123,25 @@ end every task with `git status --short`.
   `node --test --test-name-pattern="change-loop docs: the design records the answers" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
 - [x] 3.2 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate review-writer-prompt --strict` green (the guard suite as a background command); covers AC-1 to AC-9 and every other suite at once.
+
+## 4. The unclosed fence (AC-9, review round 1)
+
+- [x] 4.1 Write the unclosed-fence tests of D-8 in `plugins/openspec/hooks/deliver-check.test.mjs`,
+  right after "review-writer-prompt AC-9 fencedLines is exported by deliver-check.mjs and flow-check.mjs
+  holds no copy", each named `review-writer-prompt AC-9 …`: `fencedLines`, `parseTasks`, `readPhases`,
+  `tasksItem`, `nextStep` through `planRepo({ tasks })`, and the flow-check side through
+  `pendingTasks`, imported from `./flow-check.mjs` (spec `change-delivery`: "An unclosed fence hides
+  nothing", "A task and a gate after an unclosed fence are counted", "The next step after an unclosed
+  fence"). This is the red half: run
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^review-writer-prompt AC-9 " plugins/openspec/hooks/deliver-check.test.mjs`
+  on the code of phase 3. Check: every new test fails there, and the six earlier AC-9 tests pass.
+- [x] 4.2 Change `fencedLines` in `plugins/openspec/hooks/deliver-check.mjs` as D-8 says (the end
+  of the scan with a fence open, the resume at the line after its opening line, the added comment
+  sentence), and no other function; both regular-expression literals of `parseTasks` stay
+  byte-identical. Check: the command of 4.1 passes; every existing "flow-check tasks:" and
+  "flow-check stages: a fenced example …" test of `plugins/openspec/hooks/flow-check.test.mjs` passes
+  unchanged; and `python3 scripts/check.py` passes (the panel parity check).
+- [x] 4.3 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs && python3 scripts/check.py` green; covers AC-9.
 
 ## Workflow follow-up
 

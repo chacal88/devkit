@@ -275,21 +275,35 @@ export function reviewsItem(root, id, facts = gitFacts(root)) {
 
 // The 1-based lines of `text` that sit inside a fenced block (and the fence lines themselves). A line
 // opening with three or more backticks or tildes opens a fence; the next line opening with at least as
-// many of the same character closes it.
+// many of the same character closes it. An opening line with no closing line before the end of the text
+// opens no fence.
 export function fencedLines(text) {
+  const lines = String(text).split('\n');
   const inside = new Set();
-  let open = null;
-  String(text).split('\n').forEach((line, i) => {
-    const m = /^\s*(`{3,}|~{3,})/.exec(line);
-    if (open) {
-      inside.add(i + 1);
-      if (m && m[1][0] === open.char && m[1].length >= open.len) open = null;
-    } else if (m) {
-      inside.add(i + 1);
-      open = { char: m[1][0], len: m[1].length };
+  let from = 0;
+  for (;;) {
+    let open = null;
+    let openedAt = -1;
+    const added = [];
+    for (let i = from; i < lines.length; i++) {
+      const m = /^\s*(`{3,}|~{3,})/.exec(lines[i]);
+      if (open) {
+        added.push(i + 1);
+        if (m && m[1][0] === open.char && m[1].length >= open.len) open = null;
+      } else if (m) {
+        added.push(i + 1);
+        open = { char: m[1][0], len: m[1].length };
+        openedAt = i;
+      }
     }
-  });
-  return inside;
+    if (!open) {
+      for (const n of added) inside.add(n);
+      return inside;
+    }
+    // Unclosed: drop the opening line and every line added after it, then rescan after the opening line.
+    for (const n of added) if (n <= openedAt) inside.add(n);
+    from = openedAt + 1;
+  }
 }
 
 // The checkbox lines of tasks.md outside fenced blocks: { phase, id, done, isGate, command }. A gate
