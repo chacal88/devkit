@@ -49,6 +49,10 @@ file: a path with a folder named `test`, `tests`, `__tests__`, `e2e`, `spec`, `s
 - **WHEN** the E2E tester writes `e2e/export.spec.ts` in a `devkit` change whose readiness is not approved
 - **THEN** the write is refused with the reason product code is refused today
 
+#### Scenario: On a script without a readiness stage
+- **WHEN** the E2E tester writes `src/export.ts` in a change on `devkit-lite`
+- **THEN** the guard does not limit the E2E tester's writes
+
 ### Requirement: Product code stays the implementer's
 On the full script, past the approved readiness, a write to a file outside `openspec/` and
 `.claude/` by any agent other than the implementer, the ADR author within its records and the E2E

@@ -36,7 +36,9 @@ owner's plan approval accepts the records together with the plan.
    `decisions`), which the ADR author drafts before the plan is approved; and a test file, which the
    E2E tester writes only after the full script's readiness is approved. Every other path outside
    `openspec/` and `.claude/` stays product code, written only by the implementer role on the full
-   script once the plan is approved.
+   script once the plan is approved. On a script without a readiness stage (`devkit-lite`) the guard
+   keeps product code open to every agent, the E2E tester included, as before this record: the
+   test-file limit applies on the full script only.
 3. A record the ADR author proposes is accepted by the owner's plan approval. In the Claude driver,
    once that approval is recorded, the loop hands the session one step that runs a script: it sets
    every record `decisions.md` lists from proposed to accepted with the approval's date, refuses

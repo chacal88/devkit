@@ -24,7 +24,7 @@
 // No dependencies.
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -723,9 +723,12 @@ function readRecord(root, path) {
   if (isAbsolute(path)) return bad('the path is absolute');
   const abs = resolve(root, path);
   const rel = relative(root, abs);
-  if (rel.startsWith('..') || isAbsolute(rel)) return bad('the file is outside the repository');
+  const outside = (r) => r === '..' || r.startsWith('..' + sep) || isAbsolute(r);
+  if (outside(rel)) return bad('the file is outside the repository');
   let text;
   try {
+    // A symlink inside the repository may point out of it: the real path is the one that must stay inside.
+    if (outside(relative(realpathSync(root), realpathSync(abs)))) return bad('the file is outside the repository');
     if (!statSync(abs).isFile()) return bad('it is not a file');
     text = readFileSync(abs, 'utf8');
   } catch { return bad('the file does not exist'); }

@@ -2,7 +2,7 @@
 // change-coordinator: the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -3024,6 +3024,21 @@ test('stage-roles loop: accept-decisions refuses a path outside the repository, 
   assert.match(refused(adrChange({ records: rec, listed: [`${ADR_FOLDER}/a.md`, '../outside/adr/x.md'] }), 'outside').error, /outside\/adr\/x\.md/);
   assert.match(refused(adrChange({ records: rec, listed: [`${ADR_FOLDER}/a.md`, '/etc/adr/x.md'] }), 'absolute').error, /\/etc\/adr\/x\.md/);
   assert.match(refused(adrChange({ records: rec, listed: [`${ADR_FOLDER}/a.md`, `${ADR_FOLDER}/missing.md`] }), 'missing').error, /missing\.md/);
+});
+
+test('stage-roles loop: accept-decisions refuses a listed record that is a symlink to a file outside the repository, and leaves the target alone', () => {
+  const outside = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'adr-outside-'));
+  const target = join(outside, 'x.md');
+  writeFileSync(target, adrRecord('Status: proposed'));
+  const root = adrChange({ records: {}, listed: [`${ADR_FOLDER}/x.md`] });
+  mkdirSync(join(root, ADR_FOLDER), { recursive: true });
+  symlinkSync(target, join(root, ADR_FOLDER, 'x.md'));
+  const before = readFileSync(target, 'utf8');
+  const r = accept(root);
+  assert.equal(r.code, 3, r.stdout);
+  assert.match(JSON.parse(r.stdout).error, /docs\/adr\/x\.md/);
+  assert.equal(readFileSync(target, 'utf8'), before, 'the file outside the repository is not rewritten');
+  rmSync(outside, { recursive: true, force: true });
 });
 
 test('stage-roles loop: accept-decisions refuses a file that is not Markdown and a folder that is not an ADR folder', () => {
