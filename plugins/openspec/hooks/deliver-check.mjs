@@ -157,6 +157,23 @@ export function isTestFile(path) {
 // The reviewers whose verdict a commit of test files only (and openspec/) leaves current.
 export const TEST_SPARED_REVIEWERS = ['spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer'];
 
+// A verdict that passes the reviews item: approved, or declined (no surface).
+const approved = (verdict) => verdict === 'APPROVED' || verdict === 'DECLINED';
+
+// The change's own review record (review-openspec-fix D-1): its reviews/ folder, review.md and evidence.md.
+function reviewRecord(id) {
+  const dir = `openspec/changes/${id}/`;
+  return (p) => p.startsWith(`${dir}reviews/`) || p === `${dir}review.md` || p === `${dir}evidence.md`;
+}
+
+// Which later commits leave reviewer `name`'s verdict current (review-openspec-fix D-1): for an approved or
+// declined verdict, commits of openspec/ (and of test files, for the test-spared reviewers), as before;
+// for any other verdict, a missing one included, commits of the change's own review record only.
+function verdictAllowed(id, name, verdict) {
+  if (!approved(verdict)) return reviewRecord(id);
+  return TEST_SPARED_REVIEWERS.includes(name) ? (p) => isOpenspec(p) || isTestFile(p) : isOpenspec;
+}
+
 // Paths the working tree changes outside openspec/ (and outside .claude/ for
 // untracked files). Rename sources count as changed paths.
 function dirtyPaths(root) {
@@ -242,17 +259,19 @@ export const schemaOf = (root, located) => changeSchemaAt(root, located.dir);
 const item = (id, name, status, reason, details = {}) => ({ id, name, status, reason, details });
 
 // Every reviews/*.md: { name, verdict, why } where why is null when its
-// Commit: is current and the reason otherwise.
+// Commit: is current and the reason otherwise. Which later commits leave it
+// current is the rule verdictAllowed picks from its name and verdict.
 export function readReviews(root, id, facts = gitFacts(root)) {
   const dir = join(changeDir(root, id), 'reviews');
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
   return files.map((f) => {
     const file = join(dir, f);
     const name = basename(f, '.md');
+    const verdict = readValue(file, 'Verdict');
     return {
       name,
-      verdict: readValue(file, 'Verdict'),
-      why: staleness(root, parseCommitLine(readFileSync(file, 'utf8')), facts, TEST_SPARED_REVIEWERS.includes(name) ? { allowed: (p) => isOpenspec(p) || isTestFile(p) } : {}),
+      verdict,
+      why: staleness(root, parseCommitLine(readFileSync(file, 'utf8')), facts, { allowed: verdictAllowed(id, name, verdict) }),
     };
   });
 }
@@ -261,7 +280,7 @@ export function readReviews(root, id, facts = gitFacts(root)) {
 export function reviewsItem(root, id, facts = gitFacts(root)) {
   const found = readReviews(root, id, facts);
   const missing = REQUIRED_REVIEWERS.filter((r) => !found.some((x) => x.name === r));
-  const rejected = found.filter((x) => x.verdict !== 'APPROVED' && x.verdict !== 'DECLINED').map((x) => x.name);
+  const rejected = found.filter((x) => !approved(x.verdict)).map((x) => x.name);
   const stale = found.filter((x) => x.why);
   const reasons = [
     missing.length ? `missing ${missing.join(', ')}` : '',
@@ -986,7 +1005,6 @@ export function summarize(items) {
   return { met, summary: `in progress: item ${items.find((i) => i.status !== 'met').id}` };
 }
 
-const approved = (verdict) => verdict === 'APPROVED' || verdict === 'DECLINED';
 const uniq = (list) => [...new Set(list)];
 
 // What GitHub is waiting for, from the PR's mergeStateStatus (design D6).

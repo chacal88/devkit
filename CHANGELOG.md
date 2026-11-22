@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.25.2 — a review fixed in the plan files
+
+- **devkit-openspec** 0.21.2: a rejected verdict goes stale after any later commit outside the
+  change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
+  included, so a fix made in the plan files gets the next review round with no hand from the owner;
+  a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
+  The CI snippet now pins `v0.21.2`, the release's tag.
+- **devkit-core** 0.9.1: the `review-change` skill's stale definition names the rule for a rejected
+  verdict.
+- Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
+  document.
+
 ## 0.25.1 — retro of review-writer-prompt
 
 - **devkit-openspec** 0.21.1: the `ship-change` `stop-plan-approval` row writes the owner's words

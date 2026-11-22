@@ -33,7 +33,7 @@ Leave no backup or scratch file in the tree, and end every task with `git status
 
 ## 1. The rule, its tests and the docs (AC-1 to AC-4)
 
-- [ ] 1.1 Write tests `review-openspec-fix 1` to `review-openspec-fix 18` and the fixtures
+- [x] 1.1 Write tests `review-openspec-fix 1` to `review-openspec-fix 18` and the fixtures
   `rejectedRepo()` and `planFix()` in a new section at the end of
   `plugins/openspec/hooks/deliver-check.test.mjs`, and tests `review-openspec-fix 19` and
   `review-openspec-fix 20` in a new section at the end of `plugins/openspec/hooks/flow-check.test.mjs`,
@@ -53,7 +53,7 @@ Leave no backup or scratch file in the tree, and end every task with `git status
   Check: the file holds all twenty names; 1, 5, 6, 7, 8, 9, 13, 14, 17, 18 and 19 fail, and 2, 3, 4,
   10, 11, 12, 15, 16 and 20 pass, as D-3 expects (a different result is settled in this task as D-3
   says, before 1.2).
-- [ ] 1.2 In `plugins/openspec/hooks/deliver-check.mjs`, as D-1 says: move `approved` up after
+- [x] 1.2 In `plugins/openspec/hooks/deliver-check.mjs`, as D-1 says: move `approved` up after
   `TEST_SPARED_REVIEWERS` with its comment; add `reviewRecord(id)` and `verdictAllowed(id, name,
   verdict)`; make `readReviews` pass `{ allowed: verdictAllowed(id, name, verdict) }` to `staleness()`
   for every file and update its comment; make `reviewsItem`'s rejected filter `!approved(x.verdict)`.
@@ -63,17 +63,17 @@ Leave no backup or scratch file in the tree, and end every task with `git status
   exactly three lines, all in `deliver-check.mjs`; and
   `git diff --numstat $(git merge-base main HEAD) -- plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs`
   shows 0 deleted lines for both files (no existing test changed).
-- [ ] 1.3 Make the documentation changes D-6 lists for `docs/openspec-flow.md` (the staleness rule,
+- [x] 1.3 Make the documentation changes D-6 lists for `docs/openspec-flow.md` (the staleness rule,
   the order of the delivery steps and the `update-branch` row; not the pins, which move in 2.1) and
   for `plugins/core/skills/review-change/SKILL.md` (the stale definition), with the sentences D-6
   gives. Check: `python3 scripts/check.py` passes; `git grep -n "review record" -- docs/openspec-flow.md plugins/core/skills/review-change/SKILL.md`
   prints at least one line in each file; and `git grep -n "leaves reviews and evidence current" -- docs plugins`
   prints nothing.
-- [ ] 1.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/flow-check.test.mjs && python3 scripts/check.py` green (the flow-check suite loads the deliver-check suite, so this runs tests 1 to 20 and every test D-5 names in those two files); covers AC-1, AC-2, AC-3 and AC-4.
+- [x] 1.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/flow-check.test.mjs && python3 scripts/check.py` green (the flow-check suite loads the deliver-check suite, so this runs tests 1 to 20 and every test D-5 names in those two files); covers AC-1, AC-2, AC-3 and AC-4.
 
 ## 2. Release and the whole suite (AC-1 to AC-4)
 
-- [ ] 2.1 Release as D-6 says. Bump devkit-openspec to 0.21.2 in
+- [x] 2.1 Release as D-6 says. Bump devkit-openspec to 0.21.2 in
   `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, devkit-core to
   0.9.1 in `plugins/core/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, and the
   marketplace to 0.25.2. Add the `CHANGELOG.md` section `## 0.25.2 — a review fixed in the plan
@@ -87,7 +87,7 @@ Leave no backup or scratch file in the tree, and end every task with `git status
   prints nothing; and the change-loop docs test and the two `deliver-check.test.mjs` pin tests ("the
   pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version, …" and "AC-8
   release-ready: …") pass.
-- [ ] 2.2 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green (the guard suite as a background command); covers AC-1 to AC-4 and every other suite at once.
+- [x] 2.2 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green (the guard suite as a background command); covers AC-1 to AC-4 and every other suite at once.
 
 ## Workflow follow-up
 
