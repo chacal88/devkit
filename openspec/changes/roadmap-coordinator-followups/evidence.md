@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=1 commit=a82519d3e2df6ac40af5740268b77545dc746513 -->
-Commit: a82519d3e2df6ac40af5740268b77545dc746513
+<!-- devkit-stage evidence result=passed attempt=2 commit=c2a80d282ac661a8f6f1e5c305a64ea5bcf89c03 -->
+Commit: c2a80d282ac661a8f6f1e5c305a64ea5bcf89c03
 
 # Evidence: roadmap-coordinator-followups
 
-Verified on branch `roadmap-coordinator-followups` at the commit above; the tree was clean (no uncommitted work). No PR comment. The long suite runs (1.6, 2.5, 3.7, 4.6) are the conducting session's results on this exact tree, cited, not re-run; the short gates (`python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check`, the 5.4 `test -s` and `grep -q` parts, the validation record) were run here at this commit.
+Verified on branch `roadmap-coordinator-followups` at the commit above (c2a80d2); the tree was clean (no uncommitted work). No PR comment. Re-verified after the review fix (one new test, `followups AC-15 next: a start that gave no session id is reported as session-refused, ...`, a wording clarification at `plugins/openspec/skills/devkit/SKILL.md:119`, a D-16 bullet in `design.md`, `review.md` and `reviews/`). At c2a80d2 these ran here: the filtered suite (345/345, exit 0, includes the new test), `python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check`, the 5.4 `test -s` and `grep -q` parts and the validation-record `grep -q`. The earlier phase suite counts (1.6, 2.5, 3.7) and the whole suite 1162/1162 (4.6) are the conducting session's results at a82519d, cited, not re-run; the whole suite was not re-run after the fix.
 
 ## Verification
 
@@ -11,24 +11,25 @@ Verified on branch `roadmap-coordinator-followups` at the commit above; the tree
 
 | Gate | Command | Result |
 |---|---|---|
-| 1.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" plugins/openspec/hooks/guard.test.mjs` | pass: 310/310 filtered (cited from the conducting session) |
-| 1.6 | `python3 scripts/check.py` | pass: all checks passed (run here, exit 0) |
-| 2.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" plugins/openspec/hooks/guard.test.mjs` | pass: 317/317 filtered (cited) |
-| 2.5 | `python3 scripts/check.py` | pass: all checks passed (run here, exit 0) |
-| 3.7 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" plugins/openspec/hooks/guard.test.mjs` | pass: 342/342 filtered (cited) |
-| 3.7 | `python3 scripts/check.py` | pass: all checks passed (run here, exit 0) |
-| 4.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: whole suite 1162/1162 (cited; run once in the background) |
-| 4.6 | `python3 scripts/check.py` | pass: all checks passed (run here, exit 0) |
-| 4.6 | `python3 scripts/gen-catalog.py --check` | pass: catalog up to date (run here, exit 0) |
-| 4.6 | `grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-roadmap-coordinator-followups/phase-4.txt"` | pass: record found (run here, exit 0); it holds "Validation passed" from the desktop app's bundled Claude Code 2.1.326 |
-| 5.4 | `test -s openspec/changes/roadmap-coordinator-followups/proof/live/records.txt` | pass: file non-empty (run here, exit 0) |
-| 5.4 | `test -s openspec/changes/roadmap-coordinator-followups/proof/many-archived.txt` | pass: file non-empty (run here, exit 0) |
-| 5.4 | `grep -q "150 archived" openspec/changes/roadmap-coordinator-followups/proof/many-archived.txt` | pass: line "Roadmap: 0 open of 1 · 2 in the queue · 150 archived" found (run here, exit 0) |
-| 5.4 | `python3 scripts/check.py` | pass: all checks passed (run here, exit 0) |
+| 1.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" plugins/openspec/hooks/guard.test.mjs` | pass: 310/310 filtered at a82519d (cited from the conducting session) |
+| 1.6 | `python3 scripts/check.py` | pass: all checks passed (run here at c2a80d2, exit 0) |
+| 2.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" plugins/openspec/hooks/guard.test.mjs` | pass: 317/317 filtered at a82519d (cited) |
+| 2.5 | `python3 scripts/check.py` | pass: all checks passed (run here at c2a80d2, exit 0) |
+| 3.7 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" plugins/openspec/hooks/guard.test.mjs` | pass: 342/342 filtered at a82519d (cited) |
+| 3.7 | `python3 scripts/check.py` | pass: all checks passed (run here at c2a80d2, exit 0) |
+| 4.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: whole suite 1162/1162 at a82519d, before the review fix (cited; run once in the background) |
+| 4.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" plugins/openspec/hooks/guard.test.mjs` | pass: 345/345 filtered at c2a80d2, after the review fix (run here at c2a80d2, exit 0) |
+| 4.6 | `python3 scripts/check.py` | pass: all checks passed (run here at c2a80d2, exit 0) |
+| 4.6 | `python3 scripts/gen-catalog.py --check` | pass: catalog up to date (run here at c2a80d2, exit 0) |
+| 4.6 | `grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-roadmap-coordinator-followups/phase-4.txt"` | pass: record found (run here at c2a80d2, exit 0); it holds "Validation passed" from the desktop app's bundled Claude Code 2.1.326 |
+| 5.4 | `test -s openspec/changes/roadmap-coordinator-followups/proof/live/records.txt` | pass: file non-empty (run here at c2a80d2, exit 0) |
+| 5.4 | `test -s openspec/changes/roadmap-coordinator-followups/proof/many-archived.txt` | pass: file non-empty (run here at c2a80d2, exit 0) |
+| 5.4 | `grep -q "150 archived" openspec/changes/roadmap-coordinator-followups/proof/many-archived.txt` | pass: line "Roadmap: 0 open of 1 · 2 in the queue · 150 archived" found (run here at c2a80d2, exit 0) |
+| 5.4 | `python3 scripts/check.py` | pass: all checks passed (run here at c2a80d2, exit 0) |
 
 ### Acceptance criteria
 
-Proof for AC-1 to AC-11 is the named `followups AC-n ...` / `followups F-n ...` tests inside the passing suite (1162/1162 whole, and the filtered phase runs); the red-before-fix records are `proof/red-1.txt`, `proof/red-2.txt`, `proof/red-3.txt` in the change folder. Live proof is `proof/live/records.txt` and `proof/many-archived.txt`.
+Proof for AC-1 to AC-11 is the named `followups AC-n ...` / `followups F-n ...` tests inside the passing suite (1162/1162 whole at a82519d, 345/345 filtered at c2a80d2, and the filtered phase runs); the red-before-fix records are `proof/red-1.txt`, `proof/red-2.txt`, `proof/red-3.txt` in the change folder. Live proof is `proof/live/records.txt` and `proof/many-archived.txt`.
 
 | AC | Criterion | Proof and where it is | Result |
 |---|---|---|---|
@@ -46,4 +47,4 @@ Proof for AC-1 to AC-11 is the named `followups AC-n ...` / `followups F-n ...` 
 | AC-12 | first-run-observed | `proof/live/records.txt` Index: selection of the two ready changes (21:25:39Z `next`, both opened 21:25:48Z and 21:25:55Z); a change going on while the owner answers the other's grill (21:35:34Z); a change reaching delivery (merge-setup-field-fixes renamed to delivery at 23:20:25Z); many archived: `proof/many-archived.txt` (150 archived on a scratch project and this repository's clone, every call under 0.4 s, no archived change listed as open). Several ends in a row after the move are listed by the index as "after verification: in the retro" | no proof: several ends of the run handled one after another was not reached before verification (the index leaves it for the retro); the other four parts pass |
 | AC-13 | one-session-per-change | Tests (gate 3.7); live: `start_session` at 21:57:12Z and 21:58:00Z, one session per change with its worktree as cwd, and `list_sessions {"linked": true}` at 22:14:41Z lists both with `startedBy` the coordinating session (`proof/live/records.txt`, Part 2); the plan approval of each happened in its own session (22:13:31Z to 22:14:16Z and 22:48:30Z) | pass |
 | AC-14 | session-icon-by-stage | Tests (gate 3.7); live: title changes 📝 to 🛠️ (22:14:28Z and 22:48:57Z), 🛠️ to 🚀 (23:20:25Z), 🚀 to 🔍 (23:38:22Z), 🔍 to 🛠️ (23:42:13Z), in `proof/live/records.txt` Index. The icon of this change's later stages is left to the retro | pass |
-| AC-15 | start-needs-no-retyping | Tests `followups ... guard` / board lines in gate 3.7 (F-4 guard tests: a session started by another session makes a change run). Live: no change became ready on a turn nobody typed during the run (stopped 21:56:56Z), so the index leaves it for the retro | no proof: no change became ready on an untyped turn during the live run; proven by tests only |
+| AC-15 | start-needs-no-retyping | Tests `followups ... guard` / board lines in gate 3.7 (F-4 guard tests: a session started by another session makes a change run); after the review fix, test `followups AC-15 next: a start that gave no session id is reported as session-refused, the line shows once and the change starts on the owner's next typed turn` (`plugins/openspec/hooks/roadmap-loop.test.mjs` line 2486, run as a subprocess end to end), in the 345/345 filtered run at c2a80d2. Live: no change became ready on a turn nobody typed during the run (stopped 21:56:56Z), so the index leaves it for the retro | no proof: no change became ready on an untyped turn during the live run; proven by tests only; the live part is a retro follow-up, written in design.md D-16 |
