@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.35.0 — change-version-pin
+
+- **devkit-openspec** 0.31.0: a change follows the flow it was opened with. `change-loop.mjs open`
+  records `x-devkit-version` and `x-devkit-flow` in the change's `.openspec.yaml`; every reader of
+  the change's stages (the readout, the change, roadmap and project loops, the edit hook, the CI
+  check, the conductor and the locks) reads `flows/<n>.json` of that version, and a change with no
+  record follows version 1. Each schema folder keeps every released `flows/<n>.json`. When a newer
+  flow is installed, the readout and the `resume` reply say so in one line, and the change moves
+  only on the owner's request, with the new `change-loop.mjs flow <id>`; the `script` switch
+  records the new script's flow. `scripts/check.py` refuses a `flow.json` changed with its version
+  kept, against `scripts/released-flows.json`. The CI snippet now pins `v0.31.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` ("The flow a change follows", "Moving to a newer flow"),
+  CONTRIBUTING.md (a flow change raises its version), the pack README and the setup skill.
+- Projects: move the pinned `devkit-reviews` workflow to the commit of `v0.31.0` to honour the
+  recorded flows in CI; re-run `openspec-setup` to get `flows/`.
+
 ## 0.34.1 — retro proposals of release-tags
 
 - **devkit-openspec** 0.30.1: `accept-decisions` writes the acceptance line of an ADR whose status is

@@ -85,7 +85,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  version: 1, branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
@@ -2328,8 +2328,8 @@ test('change-loop skill: the frontmatter', () => {
 
 test('change-loop skill: every change-loop command and the readout carry the person\'s language', () => {
   const md = skillText();
-  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|wait|next|reply)\b/.test(l));
-  for (const sub of ['start', 'open', 'script', 'wait', 'next', 'reply']) {
+  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|flow|wait|next|reply)\b/.test(l));
+  for (const sub of ['start', 'open', 'script', 'flow', 'wait', 'next', 'reply']) {
     assert.ok(calls.some((l) => l.includes(`change-loop.mjs ${sub}`)), `the body runs ${sub}`);
   }
   for (const l of calls) assert.ok(l.includes(LANG_FLAG), `--lang on: ${l}`);

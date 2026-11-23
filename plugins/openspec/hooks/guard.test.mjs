@@ -20,6 +20,7 @@ import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its 
 import './delivery-models.test.mjs'; // delivery-models: the delivery model per project, its settings and opening
 import './release-tags.test.mjs'; // release-tags: the release_tag setting and the tag-release step
 import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
+import './version-pin.test.mjs'; // change-version-pin: the flow a change opened with
 import './test-tmp.test.mjs'; // test-fixture-cleanup: the temporary-folder helper
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms

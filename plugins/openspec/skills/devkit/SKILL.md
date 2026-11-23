@@ -34,7 +34,7 @@ When a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by 
 
 - `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built` and `nothing`: say `reply` and end the turn.
 - `choose` and `ask-unfinished`: ask `reply` as one question with AskUserQuestion (else say it and end the turn). The options are each listed id and, for `ask-unfinished`, "start the new request". The answer is `resume` of that id, or the new change below; when `task` is not null, "start the new request" goes to `### A Jira task`.
-- `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`.
+- `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`. The `reply` may hold a second line, about a newer flow: keep it as it is.
 - `new`: a new change, below.
 - `task`: the request is a Jira key or link, in `task`: a new change from that task, in `### A Jira task` below.
 - `roadmap`: the Roadmap section below.
@@ -59,6 +59,8 @@ DEVKIT_ARGS
 Keep `reply` for the message that ends the turn, then enter the Loop with the id. On `name-taken`, choose another id and call `open` again. On any other exit 3, say `reply` and end the turn.
 
 When the owner asks to switch the script before the plan is written, run `node <skill-dir>/../../hooks/change-loop.mjs script <id> <devkit|devkit-lite> --why <code> --lang ${user_config.language}` and say its reply. The grill may also correct a wrong guess: the loop then hands you a `switch-script` step with its command.
+
+When the owner asks to move the change to the newer flow the readout or the resume reply named, run `node <skill-dir>/../../hooks/change-loop.mjs flow <id> --lang ${user_config.language}` and say its reply; never run it unasked.
 
 ### A Jira task
 

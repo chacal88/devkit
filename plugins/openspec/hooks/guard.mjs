@@ -392,6 +392,132 @@ export function schemaHasArtifact(root, schema, id) {
   return new RegExp(`^\\s*-\\s*id:\\s*${id}\\s*$`, 'm').test(readFileSync(f, 'utf8'));
 }
 
+// ---------------------------------------------------------------- the flow a change follows (change-version-pin D-1 to D-3)
+
+export class FlowUsageError extends Error {
+  constructor(message) { super(message); this.name = 'FlowUsageError'; }
+}
+
+// The flow file reader lives here because the devkit-reviews job downloads this file; flow-check.mjs imports and re-exports it.
+const SOURCES = ['folder', 'artifact', 'tasks', 'github'];
+const PARTS = ['open', 'plan', 'build', 'after', 'delivery', 'close'];
+const STAGE_KEYS = ['id', 'source', 'file', 'role', 'skills', 'helpers', 'part', 'title', 'shipped', 'owner',
+  'ceiling', 'onFail', 'staleAfter', 'codeBound', 'appliesWhen', 'notAfter'];
+const SETTING_PATH = /^[A-Za-z][\w-]*(\.[A-Za-z][\w-]*)*$/;
+export const FLOW_LANGS = ['en', 'pt-BR'];
+
+// The script's declaration of its stages (design D-5): flow.json next to the schema's schema.yaml.
+// null when the schema folder has none; a FlowUsageError when it is malformed.
+export function readFlow(root, schema) {
+  const sf = schema ? schemaFile(root, schema) : null;
+  if (!sf) return null;
+  const f = join(dirname(sf), 'flow.json');
+  if (!existsSync(f)) return null;
+  return readFlowFile(f, schema);
+}
+
+// The declaration in the flow.json at `f`, checked; `name` is what its error messages call it (a schema name or a path).
+export function readFlowFile(f, name = f) {
+  const bad = (why) => new FlowUsageError(`flow.json of ${name} is malformed: ${why}`);
+  let flow;
+  try { flow = JSON.parse(readFileSync(f, 'utf8')); } catch (e) { throw bad(`not JSON (${e.message})`); }
+  if (!flow || typeof flow !== 'object' || !Array.isArray(flow.stages) || flow.stages.length === 0) throw bad('no stages');
+  if (!Number.isInteger(flow.version) || flow.version < 1) throw bad(`version ${flow.version} is not a whole number from 1`);
+  if (!Number.isInteger(flow.ceilings?.default) || flow.ceilings.default < 1) throw bad('ceilings.default is not a positive integer');
+  const index = new Map();
+  flow.stages.forEach((s, i) => {
+    if (!s || typeof s.id !== 'string' || !s.id) throw bad(`stage ${i + 1} has no id`);
+    if (index.has(s.id)) throw bad(`duplicate stage id ${s.id}`);
+    index.set(s.id, i);
+    for (const k of Object.keys(s)) if (!STAGE_KEYS.includes(k)) throw bad(`stage ${s.id} has an unknown key ${k}`);
+    if (!SOURCES.includes(s.source)) throw bad(`stage ${s.id} has an unknown source ${s.source}`);
+    if (!PARTS.includes(s.part)) throw bad(`stage ${s.id} has an unknown part ${s.part}`);
+    if (s.source === 'artifact' && typeof s.file !== 'string') throw bad(`stage ${s.id} has no file`);
+    if (typeof s.role !== 'string' || !s.role) throw bad(`stage ${s.id} has no role`);
+    for (const l of FLOW_LANGS) if (typeof s.title?.[l] !== 'string' || !s.title[l]) throw bad(`stage ${s.id} has no ${l} title`);
+    if (s.ceiling !== undefined && s.ceiling !== 'owner' && !(Number.isInteger(s.ceiling) && s.ceiling >= 1)) {
+      throw bad(`stage ${s.id} has a ceiling that is neither a whole number from 1 nor "owner": ${JSON.stringify(s.ceiling)}`);
+    }
+    if (s.appliesWhen !== undefined) {
+      const w = s.appliesWhen;
+      const keys = w && typeof w === 'object' && !Array.isArray(w) ? Object.keys(w) : [];
+      const value = keys.length === 1 ? w[keys[0]] : undefined;
+      const ok = (keys[0] === 'flag' && typeof value === 'string' && value !== '') || (keys[0] === 'setting' && typeof value === 'string' && SETTING_PATH.test(value));
+      if (!ok) throw bad(`stage ${s.id} has an appliesWhen that is not exactly one of a flag or a dotted setting, each a non-empty string`);
+    }
+  });
+  flow.stages.forEach((s, i) => {
+    if (s.onFail !== undefined && !(index.has(s.onFail) && index.get(s.onFail) <= i)) {
+      throw bad(`stage ${s.id} has an onFail that is unknown or later: ${s.onFail}`);
+    }
+    for (const a of s.staleAfter ?? []) {
+      if (!(index.has(a) && index.get(a) < i)) throw bad(`stage ${s.id} has a staleAfter that is unknown or later: ${a}`);
+    }
+    if (s.notAfter !== undefined && !(index.has(s.notAfter) && index.get(s.notAfter) > i && flow.stages[index.get(s.notAfter)].source === 'artifact')) {
+      throw bad(`stage ${s.id} has a notAfter that is not a later artifact stage: ${JSON.stringify(s.notAfter)}`);
+    }
+  });
+  return flow;
+}
+
+// The pin of the change whose folder is `dir`: the x-devkit-flow and x-devkit-version lines of its .openspec.yaml (D-1).
+// { flow: number | null, devkit: string | null }; a flow that is not a whole number from 1 throws a FlowUsageError.
+export function readPin(dir) {
+  let text;
+  try { text = readFileSync(join(dir, '.openspec.yaml'), 'utf8'); } catch { return { flow: null, devkit: null }; }
+  const valueOf = (key) => {
+    const m = new RegExp(`^${key}:(.*)$`, 'm').exec(text);
+    if (!m) return null;
+    const bare = m[1].replace(/\r$/, '').replace(/(^|\s)#.*$/, '').trim();
+    return bare.replace(/^(["'])(.*)\1$/, '$2');
+  };
+  const flow = valueOf('x-devkit-flow');
+  if (flow !== null && !/^[1-9][0-9]{0,5}$/.test(flow)) {
+    throw new FlowUsageError(`${basename(dir)}'s .openspec.yaml has x-devkit-flow "${flow}", not a flow version (a whole number from 1)`);
+  }
+  return { flow: flow === null ? null : Number(flow), devkit: valueOf('x-devkit-version') || null };
+}
+
+// The flow the change in `dir` follows (D-3): the one its pin names (version 1 with no pin), from the installed flow.json when
+// that is the version, else from the kept flows/<n>.json. flow is null for a script with no flow.json and no pin.
+export function changeFlow(root, dir) {
+  const schema = changeSchemaAt(root, dir);
+  const pin = readPin(dir);
+  const sf = schemaFile(root, schema);
+  const folder = sf ? dirname(sf) : null;
+  const installedFile = folder ? join(folder, 'flow.json') : null;
+  const installed = installedFile && existsSync(installedFile) ? readFlowFile(installedFile, schema) : null;
+  if (!installed && pin.flow === null) return { schema, flow: null, version: null, installed: null, pinned: false, devkit: pin.devkit };
+  const want = pin.flow ?? 1;
+  let flow = installed;
+  if (installed?.version !== want) {
+    const kept = folder ? join(folder, 'flows', `${want}.json`) : null;
+    const rel = kept ? relative(root, kept) : '';
+    const shown = kept ? (rel.startsWith('..') ? kept : rel) : `openspec/schemas/${schema}/flows/${want}.json`;
+    if (!kept || !existsSync(kept)) {
+      throw new FlowUsageError(`${basename(dir)} follows flow ${want} of the ${schema} script, and this checkout has no ${shown}: re-run openspec-setup with a devkit-openspec that ships it`);
+    }
+    flow = readFlowFile(kept, `${schema} flow ${want}`);
+    if (flow.version !== want) throw new FlowUsageError(`${shown} declares version ${flow.version}, not ${want}`);
+  }
+  return { schema, flow, version: want, installed: installed?.version ?? null, pinned: pin.flow !== null, devkit: pin.devkit };
+}
+
+// Does the flow the change follows declare a stage `stageId`? With no flow declared, the installed schema.yaml answers, as before.
+export function changeDeclares(root, dir, stageId) {
+  const { flow, schema } = changeFlow(root, dir);
+  return flow ? flow.stages.some((s) => s.id === stageId) : schemaHasArtifact(root, schema, stageId);
+}
+
+// changeDeclares for a reader that is not a hard gate (the code gate, the conductor's planning rows): a FlowUsageError
+// (a malformed pin, a missing or wrong kept file, a malformed flow.json) falls back to the installed schema.yaml.
+export function changeDeclaresOrInstalled(root, dir, stageId) {
+  try { return changeDeclares(root, dir, stageId); } catch (e) {
+    if (!(e instanceof FlowUsageError)) throw e;
+    return schemaHasArtifact(root, changeSchemaAt(root, dir), stageId);
+  }
+}
+
 // The single value of a "Status:" / "Verdict:" line, upper-cased. A template
 // line with the alternatives still in it ("APPROVED | BLOCKED") is not a value.
 export function readValue(file, key) {
@@ -486,7 +612,7 @@ function writeViolation(root, ch, actor, file) {
     return isDecisionRecord(rel) ? null : `adr-author writes only the project's decision records (a Markdown file in a folder named adr, adrs or decisions), not ${rel}.`;
   }
   const schema = changeSchema(root, ch.name);
-  if (!schemaHasArtifact(root, schema, 'readiness')) return null; // devkit-lite and friends
+  if (!changeDeclaresOrInstalled(root, changeDir(root, ch.name), 'readiness')) return null; // devkit-lite and friends; a hook never blocks on an unreadable pin (ADR 0011)
   const status = readValue(join(changeDir(root, ch.name), 'readiness.md'), 'Status');
   if (status !== 'APPROVED') {
     return `change "${ch.name}" has no approved readiness (Status: ${status || 'missing'}). Product code stays closed until the plan-readiness-reviewer agent writes "- Status: APPROVED" in openspec/changes/${ch.name}/readiness.md. Run: openspec status --change ${ch.name}`;

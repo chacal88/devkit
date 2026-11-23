@@ -1,0 +1,260 @@
+✖ version-pin AC-7 check: the tree's flows pass (89.632542ms)
+✖ version-pin AC-7 check: a flow changed without raising its version fails (43.910584ms)
+✖ version-pin AC-7 check: a raised version passes (45.6755ms)
+✖ version-pin AC-7 check: a raised version with no kept file fails (45.74275ms)
+✖ version-pin AC-7 check: a kept version with no digest fails (46.2465ms)
+✖ version-pin AC-7 check: an edited released version fails (46.025958ms)
+✖ version-pin AC-7 check: a kept file declaring another version fails (47.51225ms)
+✖ version-pin AC-7 check: a kept file whose name is not a version fails (44.08ms)
+✖ version-pin AC-7 check: a flow.json with no integer version fails (43.699708ms)
+✖ version-pin AC-7 check: a digest with no kept file fails (44.595709ms)
+✖ version-pin AC-7 check: a missing or unreadable digest list fails (47.808292ms)
+✔ version-pin AC-7 check: a root without the schemas skips the check (38.874417ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 1
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 648.544416
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/version-pin.test.mjs:810:1
+✖ version-pin AC-7 check: the tree's flows pass (89.632542ms)
+  AssertionError [ERR_ASSERTION]: the check reads these flows
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:817:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:820:1
+✖ version-pin AC-7 check: a flow changed without raising its version fails (43.910584ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:824:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:828:1
+✖ version-pin AC-7 check: a raised version passes (45.6755ms)
+  AssertionError [ERR_ASSERTION]: until its digest is recorded the raise fails
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:831:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:838:1
+✖ version-pin AC-7 check: a raised version with no kept file fails (45.74275ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:842:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:846:1
+✖ version-pin AC-7 check: a kept version with no digest fails (46.2465ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:850:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:854:1
+✖ version-pin AC-7 check: an edited released version fails (46.025958ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:860:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:865:1
+✖ version-pin AC-7 check: a kept file declaring another version fails (47.51225ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:871:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:875:1
+✖ version-pin AC-7 check: a kept file whose name is not a version fails (44.08ms)
+  AssertionError [ERR_ASSERTION]: 0.json: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:880:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:885:1
+✖ version-pin AC-7 check: a flow.json with no integer version fails (43.699708ms)
+  AssertionError [ERR_ASSERTION]: not json: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:890:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:895:1
+✖ version-pin AC-7 check: a digest with no kept file fails (44.595709ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:899:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:903:1
+✖ version-pin AC-7 check: a missing or unreadable digest list fails (47.808292ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:907:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
