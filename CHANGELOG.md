@@ -11,6 +11,16 @@
 - Docs: `docs/openspec-flow.md` describes the Attribution paragraph. The CI snippet now pins `v0.23.0`, the
   release's tag.
 
+## 0.26.1 — test fixtures clean up after themselves
+
+- **devkit-openspec** 0.22.1: `test-tmp.mjs` makes every temporary folder of the hook tests and
+  removes it when its test ends, passed or failed, and sweeps the rest at the end of the run or on
+  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.22.1`.
+- **devkit-core** 0.10.1: the same helper, a byte-identical copy, for the `review-round` tests.
+- **devkit-compozy** 0.3.1: the same helper, a byte-identical copy, for the compozy tests.
+- CI: the hook tests run on an empty `TMPDIR` and a new step fails the job when anything is left in
+  it. `CONTRIBUTING.md` states the rule: a test makes its folders through `test-tmp.mjs`.
+
 ## 0.26.0 — the stage roles
 
 - **devkit-core** 0.10.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and
