@@ -46,6 +46,7 @@ rules:
   tasks:
     - One "## N." group per phase, each ending with a gate task that names the test command
     - Every acceptance criterion id appears in at least one task
+    - A task that writes an ADR or bumps a version names "the next free number on origin/main at the last merge before review", never a literal number or version
   readiness:
     - Written only by the plan-readiness-reviewer agent, never by the plan's author
 

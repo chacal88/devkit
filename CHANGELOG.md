@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.32.1 — retro proposals of delivery-models
+
+- **devkit-core** 0.13.1: `tdd-implementer` runs a long suite in the background and never waits with a
+  polling loop; `pr-verifier` may let one green whole-suite run stand for the gate parts it imports.
+- Project config: plans name an ADR number or version by rule, not by value.
+
 ## 0.32.0 — delivery models per project
 
 - **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
