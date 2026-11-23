@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=2 commit=ccb3dfbe2170e76a9b17224e8dcc98db8ca8ee74 -->
+<!-- devkit-stage proposal result=passed attempt=2 commit=fc0123065c501db896a78bbc964754db237952b0 -->
 # Proposal
 
 Change: `remote-worker` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec: n/a

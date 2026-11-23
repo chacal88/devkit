@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=4 commit=ccb3dfbe2170e76a9b17224e8dcc98db8ca8ee74 -->
+<!-- devkit-stage tasks result=passed attempt=4 commit=fc0123065c501db896a78bbc964754db237952b0 -->
 # Tasks
 
 Change: `remote-worker` · Date: 2026-11-22 · Owner: Kaue (chacal88)
@@ -228,7 +228,9 @@ what the tests cover in its place.
 - [x] 5.5 Run `claude plugin validate .` at the merged commit (the manifests at `0.32.0` and
   `0.36.0`) and save its output to `${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt`,
   replacing the file of the run before the merge. Check: the file holds `Validation passed` and is
-  newer than the merge commit `ccb3dfb`.
+  newer than the merge commit `c9f08f0` (the fourth merge of `origin/main`, at `fc01230`). Tasks 5.5,
+  5.6 and 5.10 are run again at the final commit, the one that holds task 5.8; a run ticked before
+  it does not count.
 - [x] 5.6 `openspec validate remote-worker --strict`, at the merged commit with the
   `roadmap-coordination` delta of this revision (its MODIFIED requirement "A change session shows
   the stage its change is in" carries main's 9 scenarios and "Waiting for a place"). Check: it
@@ -260,9 +262,11 @@ what the tests cover in its place.
   Check:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-loop replies: no internal term" --test-name-pattern="^roadmap-loop replies" --test-name-pattern="^followups AC-8 next: start anyway" --test-name-pattern="^followups F-2 skill" --test-name-pattern="^followups AC-13 skill" --test-name-pattern="^followups AC-15 skill" plugins/openspec/hooks/guard.test.mjs`
   exits 0 with 7 tests and 7 passing, run as a background command (the dry run of 2026-11-22 ran
-  these edits with T-10's, 8 tests in 13 s). In `git diff aa7329a -- plugins/openspec/hooks/change-loop.test.mjs
-  plugins/openspec/hooks/roadmap-loop.test.mjs` (against the merged `main`), no existing test
-  changes except T-1, T-2, T-6 to T-9 and T-11 to T-13. The import lines, the new `remote` tests and their helpers are additions. End with
+  these edits with T-10's, 8 tests in 13 s). In `git diff fc01230 -- plugins/openspec/hooks/change-loop.test.mjs
+  plugins/openspec/hooks/roadmap-loop.test.mjs` (against `main`'s tip at the fourth merge), no existing test
+  changes except T-1, T-2, T-6 to T-9 and T-11 to T-13 (checked at `c9f08f0`: the removed lines are
+  `SAMPLE`, T-1's `rev-parse HEAD` assertion, the import line, `BLOCKED_PARAMS`, the `waits` filter,
+  the `userConfig` assertion, `putRun` and the T-11 to T-13 lines). The import lines, the new `remote` tests and their helpers are additions. End with
   `git status --short`.
 - [ ] 5.8 Change T-14 of D-14 exactly as D-14 gives it, and nothing else in
   `plugins/openspec/hooks/delivery-models.test.mjs`; then, after the merge of `origin/main` at
@@ -281,8 +285,9 @@ what the tests cover in its place.
   attempt 3, D-1); that is the red run, not a gate. Check:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^delivery-models open" plugins/openspec/hooks/guard.test.mjs`
   exits 0 with 10 tests and 10 passing, run as a background command (18 s on `ccb3dfb` with
-  `TMPDIR=/var/tmp`). In `git diff 212d007 -- plugins/openspec/hooks/delivery-models.test.mjs`, only
-  T-14's last assertion changes.
+  `TMPDIR=/var/tmp`). In `git diff fc01230 -- plugins/openspec/hooks/delivery-models.test.mjs`, only
+  T-14's last assertion changes: one removed line and two added (checked at `c9f08f0`, the same three
+  lines as against `37a7063`; `main`'s exports of `37a7063` are in both bases).
   - The order of D-1 step 4: `claimOnOrigin` is split into `writeClaimKeys(dir, claim)`, called in
     `openCheckout` right after `openspec new change` and before `recordPin`, and
     `claimOnOrigin({ worktree, id, beforePush })`, which only commits and pushes, after `prepare`.
@@ -296,7 +301,8 @@ what the tests cover in its place.
   Check: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="version-pin" plugins/openspec/hooks/guard.test.mjs`
   exits 0 with 66 tests and 66 passing, and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^remote" plugins/openspec/hooks/guard.test.mjs`
-  exits 0 with 49 tests and 49 passing, each run as a background command. In `git diff 37a7063 --
+  exits 0 with 41 tests and 41 passing (20 in `change-loop.test.mjs`, 21 in
+  `roadmap-loop.test.mjs`), each run as a background command. In `git diff 37a7063 --
   plugins/openspec/hooks/version-pin.test.mjs`, nothing changes. End with `git status --short`.
 - [x] 5.9 The amendment of ADR 0017 (D-13, plan revision of 2026-11-23), in the files task 5.1
   wrote: in `docs/adr/0020-a-change-can-run-on-another-machine.md`, the `Amends:` line, decision 5's
@@ -320,14 +326,21 @@ None of these is a task of the change loop: no gate of this change needs them, a
 `tdd-implementer`. They run after the merge, as `CONTRIBUTING.md` says for a fact that exists only
 after it.
 
-- After the merge, tag `v0.32.0` on the merge commit and push the tag (`CONTRIBUTING.md`). Checked on
-  2026-11-23 against `origin/main` at `37a7063`: `v0.32.0` matches devkit-openspec `0.32.0` in both
+- After the merge, the delivery loop's `tag-release` step tags `v0.32.0` on the merge commit and
+  pushes the tag: main's ADR 0019 (`0019-the-delivery-loop-tags-the-release-it-merged.md`) has
+  `deliver-check` answer `tag-release` because `openspec/config.yaml` names the release file
+  (`release_tag`, `plugin.json`), and the session pushes the tag before the retro
+  (`CONTRIBUTING.md`). Only if the loop does not, the fallback is by hand: `git tag v0.32.0
+  <merge commit>` and `git push origin v0.32.0`; a tag by hand at another commit stops the loop at
+  its R2 row. Checked on 2026-11-23 against `origin/main` at `fc01230`: `v0.32.0` matches devkit-openspec `0.32.0` in both
   `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` of this
   worktree (marketplace `metadata.version` `0.36.0`), renumbered from `0.22.0` and `0.26.0` by the
   release merge of `origin/main` at `212d007` (devkit-openspec `0.28.2`, marketplace `0.32.2`), and
   again after `origin/main` at `aa7329a` (devkit-openspec `0.29.0`, marketplace `0.33.0`), and a
-  third time after `origin/main` at `37a7063` (devkit-openspec `0.31.0`, marketplace `0.35.0`). If
-  `origin/main` moves again before the merge, the release rebase of D-15 renumbers once more: every
+  third time after `origin/main` at `37a7063` (devkit-openspec `0.31.0`, marketplace `0.35.0`); the
+  fourth merge, of `origin/main` at `fc01230` (devkit-core `0.13.2`, marketplace `0.35.1`), moved no
+  number of this change. If
+  `origin/main` moves again before the merge, the release merge of D-15 renumbers once more: every
   version number of this change (the tag, the two manifests, the `CHANGELOG.md` heading and the CI
   pins of `docs/openspec-flow.md`, which T-10 of D-14 compares with the manifest) and the ADR number are re-checked against
   `origin/main` at delivery, and the tag takes the number that merged.
