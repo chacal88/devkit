@@ -370,7 +370,8 @@ devkit:
 **The configuration's field names. Decided by `change-coordinator` on 2026-11-20 (A-8).**
 `devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,
 `compozy` or `script`; default `claude`) are final. The other fields stay proposed, for rounds 16, 17
-and 20.
+and 20. `devkit.budget` (a whole number of tokens, the cap of a `/devkit change` run), and its override in a
+change's own `.openspec.yaml`, are final too, decided by `change-budget` on 2026-11-22.
 
 **The header's field names (decided by `flow-script-checker`).** The three facts are `result`, `attempt` and
 `commit`, in one comment line at the top of each stage file:

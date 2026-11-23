@@ -44,7 +44,7 @@ every task with `git status --short`.
 
 ## 1. The count (AC-4, AC-7, AC-9)
 
-- [ ] 1.1 Red half. In `plugins/openspec/hooks/change-loop.test.mjs`, add `CLAUDE_CODE_SESSION_ID: ''`
+- [x] 1.1 Red half. In `plugins/openspec/hooks/change-loop.test.mjs`, add `CLAUDE_CODE_SESSION_ID: ''`
   to `SET` (D-8, a fixture change), add the fixtures `usageLine` and `budgetEnv` beside
   `assistantLine` (D-9), and write the D-9 "Lookup" and "Count" tests (spec `change-coordination`: "The
   run's spend is counted from the session's transcripts", every scenario; "The loop stops at the
@@ -54,23 +54,23 @@ every task with `git status --short`.
   `change-budget AC-4 the scan without the option …`, which passes, and
   `node --test --test-name-pattern="^change-loop lock run" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
-- [ ] 1.2 Add `sessionTranscript(env)` to `plugins/openspec/hooks/guard.mjs` as D-2 says. Check: the
+- [x] 1.2 Add `sessionTranscript(env)` to `plugins/openspec/hooks/guard.mjs` as D-2 says. Check: the
   three `change-budget AC-9 sessionTranscript …` tests pass.
-- [ ] 1.3 In `plugins/openspec/hooks/guard.mjs`, give `transcriptEvents` its usage mode, move `runOf`'s
+- [x] 1.3 In `plugins/openspec/hooks/guard.mjs`, give `transcriptEvents` its usage mode, move `runOf`'s
   marker closure to the module-level `runMarkers`, and add `spentOf(transcript, change)`, as D-3 says;
   no other function changes. Check: every `change-budget AC-7 …`, `change-budget AC-9 an unreadable …`
   and `change-budget AC-4 the scan without the option …` test passes, and every existing
   `change-loop lock run:` test passes unchanged.
-- [ ] 1.4 Live proof of the count (a check, not a gate): from this worktree, in the session that runs
+- [x] 1.4 Live proof of the count (a check, not a gate): from this worktree, in the session that runs
   the phase, run
   `node --input-type=module -e "import { sessionTranscript, spentOf } from './plugins/openspec/hooks/guard.mjs'; const t0 = Date.now(); const p = sessionTranscript(process.env); console.log(JSON.stringify({ found: Boolean(p), count: p ? spentOf(p, 'change-budget') : null, ms: Date.now() - t0 }))"`.
   Check: `found` is true, `count.spent` is a whole number above 0 and `count.since` is a timestamp;
   write the printed JSON in the commit message of this phase (it holds no path).
-- [ ] 1.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop lock" plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-7, AC-9 (the lookup and the count) and AC-4 (the scan unchanged without the option).
+- [x] 1.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop lock" plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-7, AC-9 (the lookup and the count) and AC-4 (the scan unchanged without the option).
 
 ## 2. The cap, the stop and the replies (AC-1 to AC-6, AC-8 to AC-10)
 
-- [ ] 2.1 Red half. In `plugins/openspec/hooks/change-loop.test.mjs`, write the D-9 "Settings",
+- [x] 2.1 Red half. In `plugins/openspec/hooks/change-loop.test.mjs`, write the D-9 "Settings",
   "Decision", "`next`" and "Docs" tests (spec `change-coordination`: "A run can carry a token budget",
   "An invalid budget is refused before any stage runs", "The loop stops at the budget between
   hand-offs", "The budget stop says how to go on", "A raised budget resumes the run", every scenario).
@@ -78,12 +78,12 @@ every task with `git status --short`.
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" plugins/openspec/hooks/change-loop.test.mjs`
   on the code of phase 1. Check: every test this task adds fails there, except the ones that pin kept
   behaviour (the list above), which pass; every phase-1 test still passes.
-- [ ] 2.2 In `plugins/openspec/hooks/change-loop.mjs`, add `devkitBlock`, `budgetValue` and
+- [x] 2.2 In `plugins/openspec/hooks/change-loop.mjs`, add `devkitBlock`, `budgetValue` and
   `budgetOf`, make `readDevkitSettings` use `devkitBlock` and flag an invalid project budget, and add
   `setting.budget` to `MESSAGES` in both languages, as D-1 and D-5 say. Check: every
   `change-budget AC-4`, `AC-5` and `AC-8` settings test passes, and every existing
   `change-loop settings:` test passes unchanged.
-- [ ] 2.3 Add `waiting-budget` and `gate.budget` to `MESSAGES` in both languages with the D-5 texts;
+- [x] 2.3 Add `waiting-budget` and `gate.budget` to `MESSAGES` in both languages with the D-5 texts;
   add `'waiting-budget': 'budget'` to `GATE_OF_WHY` in `plugins/openspec/hooks/roadmap-loop.mjs` (D-6).
   In the same task make the first two D-8 changes: "change-loop replies: no internal term in either
   language" (`SAMPLE`, `NAMES_ITS_FILE`, `EXEMPT_EQUAL`) and "roadmap-loop replies: every owner wait has
@@ -92,21 +92,21 @@ every task with `git status --short`.
   message table", both MODIFIED). Check:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="replies" plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs`
   passes.
-- [ ] 2.4 In `plugins/openspec/hooks/change-loop.mjs`, add the `budget` option of `nextAction`, the
+- [x] 2.4 In `plugins/openspec/hooks/change-loop.mjs`, add the `budget` option of `nextAction`, the
   `hold` of `decide` and `budget: true` in `runNext`, as D-4 says, and the header comment's sentence
   (D-10); `stopDecision`, `runWait` and `roadmap-loop.mjs` keep calling `nextAction` without the
   option. Check: every `change-budget AC-1`, `AC-2`, `AC-3`, `AC-6` and `AC-9` decision and `next`
   test passes, and every existing `change-loop decide:`, `change-loop next:` and `change-loop lock`
   test passes unchanged.
-- [ ] 2.5 Make the three D-7 edits of `plugins/openspec/skills/devkit/SKILL.md`. Check:
+- [x] 2.5 Make the three D-7 edits of `plugins/openspec/skills/devkit/SKILL.md`. Check:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-loop skill" plugins/openspec/hooks/change-loop.test.mjs`
   passes, and `grep -c "waiting-budget" plugins/openspec/skills/devkit/SKILL.md` prints 1.
-- [ ] 2.6 Write the D-10 text of `docs/openspec-flow.md` (the settings paragraph, the new "**The token
+- [x] 2.6 Write the D-10 text of `docs/openspec-flow.md` (the settings paragraph, the new "**The token
   budget.**" paragraph, the resume sentence, two Troubleshooting rows, the Cost bullet; not the pins),
   the sentence of `docs/coordination-design.md` and the comment of `openspec/config.yaml`. Check: the
   `change-budget AC-10 …` test passes, `python3 scripts/check.py` passes, and
   `openspec validate change-budget --strict` passes.
-- [ ] 2.7 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop" --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-1 to AC-6 and AC-8 to AC-10, with every existing change-loop and roadmap-loop test passing.
+- [x] 2.7 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop" --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-1 to AC-6 and AC-8 to AC-10, with every existing change-loop and roadmap-loop test passing.
 
 ## 3. Release and the whole suite (AC-1 to AC-10)
 

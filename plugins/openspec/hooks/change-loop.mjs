@@ -19,6 +19,8 @@
 // `agentDecision` (in a run, work goes only to the script's roles). Each returns { decision, why, change, reason } and fails
 // open. The two stop locks refuse once per unchanged state: they record the progress key of the state refused in
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
+// With a token budget set (`budget:` in the `devkit:` block), `next` counts the session's spend and holds a hand-off at the cap:
+// the action becomes an end waiting for the owner (change-budget).
 // No dependencies.
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -26,7 +28,7 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, sessionTranscript, spentOf } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
@@ -58,13 +60,9 @@ function plainValue(raw) {
   return text.replace(/(^|\s)#.*$/, '').trim();
 }
 
-// { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml.
-// No block, no file or a missing key gives the defaults (`claude`, `en`); other keys of the block are ignored.
-export function readDevkitSettings(root) {
-  let text = '';
-  try { text = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'); } catch (e) {
-    if (e?.code !== 'ENOENT') throw new LoopUsageError(`openspec/config.yaml cannot be read (${e?.code ?? e})`);
-  }
+// The keys of the top-level `devkit:` block of a YAML text, each as its plain value: { <key>: value }. The block starts at a
+// line `devkit:` (optional comment) and ends at the next line that is not blank, not a comment and not indented.
+function devkitBlock(text) {
   const found = {};
   let inBlock = false;
   for (const line of text.split('\n')) {
@@ -75,12 +73,54 @@ export function readDevkitSettings(root) {
     const m = /^\s+([A-Za-z][\w-]*):(.*)$/.exec(line);
     if (m) found[m[1]] = plainValue(m[2]);
   }
+  return found;
+}
+
+// The token budget a `budget:` value gives (change-budget D-1): null when absent or empty, { cap } for a whole number above
+// zero that is a safe integer, else { invalid: raw }.
+export function budgetValue(raw) {
+  if (raw === undefined || raw === '') return null;
+  if (!/^\d+$/.test(raw)) return { invalid: raw };
+  const n = Number(raw);
+  return n > 0 && Number.isSafeInteger(n) ? { cap: n } : { invalid: raw };
+}
+const BUDGET_ACCEPTED = '1, 2, 3, …';
+
+// The text of a settings file; a missing file is '' and any other read error a LoopUsageError.
+function settingsText(file, label) {
+  try { return readFileSync(file, 'utf8'); } catch (e) {
+    if (e?.code === 'ENOENT') return '';
+    throw new LoopUsageError(`${label} cannot be read (${e?.code ?? e})`);
+  }
+}
+
+// { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml.
+// No block, no file or a missing key gives the defaults (`claude`, `en`); other keys of the block are ignored, but an invalid
+// `budget` is flagged.
+export function readDevkitSettings(root) {
+  const found = devkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml'));
   const driver = found.driver || 'claude';
   const language = found.language || 'en';
   const unknown = [];
   if (!DRIVERS.includes(driver)) unknown.push({ setting: 'driver', value: driver, accepted: DRIVERS.join(', ') });
   if (!LANGUAGE_TAG.test(language)) unknown.push({ setting: 'language', value: language, accepted: 'a language tag such as en or pt-BR' });
+  const budget = budgetValue(found.budget);
+  if (budget?.invalid !== undefined) unknown.push({ setting: 'budget', value: budget.invalid, accepted: BUDGET_ACCEPTED });
   return { driver, language, unknown };
+}
+
+// The token cap of the change in `dir`: { cap, from: 'change' | 'project', file } (the file is always the change's own
+// `.openspec.yaml`, where the owner raises it), or null. The change's value wins over the project's, which is the one in
+// `root`'s openspec/config.yaml. An invalid value in either file is a LoopRefusal with the settings reply.
+export function budgetOf(root, dir, lang) {
+  const file = join(dir, '.openspec.yaml');
+  const mine = budgetValue(devkitBlock(settingsText(file, '.openspec.yaml')).budget);
+  const project = budgetValue(devkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')).budget);
+  const bad = mine?.invalid !== undefined ? mine : project?.invalid !== undefined ? project : null;
+  if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', { setting: 'budget', value: bad.invalid, accepted: BUDGET_ACCEPTED }));
+  if (mine) return { cap: mine.cap, from: 'change', file };
+  if (project) return { cap: project.cap, from: 'project', file };
+  return null;
 }
 
 // The person's language: `en`, and `pt-BR` for anything else (an unsubstituted placeholder included).
@@ -119,6 +159,7 @@ export const MESSAGES = {
     'waiting-by-hand': 'This project delivers each change by hand: {id} stops here, and the session writes no code for it.',
     'waiting-unrun-stage': '{Stage} of {id} has an unfinished file that no role of this version can finish: tell me its result, or remove it.',
     'waiting-pr-decision': 'A comment on the pull request of {id} asks for a decision only you can take: {url}.',
+    'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the devkit block of {file}, then type /devkit change again.',
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
     blocked: 'The change {id} stopped: {why}. Nothing more runs until this is sorted out.',
@@ -158,6 +199,7 @@ export const MESSAGES = {
     'gate.dispute': 'your decision on the disputed review points',
     'gate.stage': 'your result for an unfinished file',
     'gate.by-hand': 'your delivery by hand',
+    'gate.budget': 'a higher token budget',
     'status-count': 'Roadmap: {open} open of {places} · {queue} in the queue · {archived} archived',
     'status-held': 'Starts held: processor at {load}% (limit {limit}%)',
     'status-owner': 'Waiting for you',
@@ -221,6 +263,7 @@ export const MESSAGES = {
     'driver.script': 'a command-line script',
     'setting.driver': 'driver',
     'setting.language': 'language of the files',
+    'setting.budget': 'budget',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
     'project-resumed': 'Continuing the slice {id}: {where}.',
     'project-choose': '{n} slices are unfinished: {list}. Which one should I continue?',
@@ -295,6 +338,7 @@ export const MESSAGES = {
     'waiting-by-hand': 'Este projeto entrega cada change à mão: {id} para aqui, e a sessão não escreve código para ela.',
     'waiting-unrun-stage': '{Stage} de {id} tem um arquivo inacabado que nenhum papel desta versão consegue terminar: diga o resultado ou remova o arquivo.',
     'waiting-pr-decision': 'Um comentário no pull request de {id} pede uma decisão que só você pode tomar: {url}.',
+    'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco devkit de {file} e digite /devkit change de novo.',
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
     blocked: 'A change {id} parou: {why}. Nada mais roda até isso ser resolvido.',
@@ -334,6 +378,7 @@ export const MESSAGES = {
     'gate.dispute': 'a sua decisão sobre os pontos em disputa da revisão',
     'gate.stage': 'o resultado de um arquivo inacabado',
     'gate.by-hand': 'a sua entrega à mão',
+    'gate.budget': 'um orçamento de tokens maior',
     'status-count': 'Roadmap: {open} abertas de {places} · {queue} na fila · {archived} arquivadas',
     'status-held': 'Começos segurados: processador em {load}% (limite {limit}%)',
     'status-owner': 'Esperando você',
@@ -397,6 +442,7 @@ export const MESSAGES = {
     'driver.script': 'um script de linha de comando',
     'setting.driver': 'driver',
     'setting.language': 'idioma dos arquivos',
+    'setting.budget': 'budget',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
     'project-resumed': 'Continuando a fatia {id}: {where}.',
     'project-choose': '{n} fatias estão por terminar: {list}. Qual delas eu continuo?',
@@ -595,7 +641,8 @@ export function exitCodeOf(action) {
 
 // facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
 // approval (deliver-check's approvalState), hasProposal, flags (the grill's classification), archiving, row
-// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read) }.
+// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read), budget ({ cap, file, spent } with `spent`
+// null when it could not be read; null or absent when no cap applies) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
   const { ctx, flow, report } = facts;
@@ -632,15 +679,23 @@ export function decide(facts) {
     }
     return action;
   };
+  // The token budget (change-budget D-4): at or above the cap, a hand-off or a session step becomes an end waiting for the owner,
+  // after `guard`, so a no-progress or not-delivered end still comes first. A spend that could not be read holds nothing.
+  const hold = (action) => {
+    const b = facts.budget;
+    if (!b || b.spent === null || b.spent < b.cap || (action.kind !== 'agent' && action.kind !== 'session')) return action;
+    return waiting('waiting-for-owner', 'waiting-budget', action.stage, { spent: b.spent, cap: b.cap, file: b.file },
+      { held: { kind: action.kind, stage: action.stage, step: action.step ?? null, agent: action.agent ?? null } });
+  };
   // The agent of a delivery hand-off is the checker's row's (`conduct-check`'s actorOf owns the fact); the role's map only
   // when the row names none, and for the plan stages, which have no row.
-  const agent = (stage, role, step, what, detail, named) => guard({
+  const agent = (stage, role, step, what, detail, named) => hold(guard({
     ...base, kind: 'agent', ...stageFields(stage), agent: named ?? AGENT[role], ...(step ? { step } : {}), ...(detail ? { detail } : {}),
     brief: brief(stage, what), progressKey: key(stage, step),
-  });
-  const sessionAction = (stage, step, detail, extra = {}) => guard({
+  }));
+  const sessionAction = (stage, step, detail, extra = {}) => hold(guard({
     ...base, kind: 'session', ...stageFields(stage), step, ...(detail ? { detail } : {}), ...extra, progressKey: key(stage, step),
-  });
+  }));
 
   if (report.script === 'previous') return blocked('previous-script');
   const currentId = report.next?.stage ?? report.end?.stage ?? null;
@@ -769,18 +824,27 @@ function classificationFlags(dir) {
 
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, budget = false } = {}) {
   const clean = cleanOf(env);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const found = locate(start, id);
   const settings = readDevkitSettings(found.root);
   const filesLanguage = settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language;
+  const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+  // The token budget is read only when the caller asks (`next`): the locks, `wait` and the roadmap never count (change-budget D-4).
+  let budgetFact = null;
+  if (budget) {
+    const cap = budgetOf(found.root, dir, normalizeLang(lang));
+    if (cap) {
+      const path = sessionTranscript(env);
+      budgetFact = { cap: cap.cap, file: cap.file, spent: path ? spentOf(path, id)?.spent ?? null : null };
+    }
+  }
   const run = openspec ?? makeOpenspec(found.root, clean);
   const { facts, flow } = collectFlow(found.root, id, { env: clean, openspec: run, ...(gh ? { gh } : {}) });
   const report = computeFlow(facts, flow, {});
   const archiving = found.branch === `chore/archive-${id}`;
-  const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
   let row = null;
   if (inDelivery(report, flow, archiving)) {
     try {
@@ -804,6 +868,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     flags: classificationFlags(dir),
     archiving,
     row,
+    budget: budgetFact,
   });
   // The icon of the action's stage and the change session's title for it (D-5); the title only with an icon.
   action.icon = stageIcon(action);
@@ -1363,7 +1428,7 @@ const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-own
 function runNext(args, { env, cwd, openspec, gh }) {
   const opts = parseArgs(args, { values: ['--change', '--lang', '--after'] });
   if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
-  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh });
+  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
 

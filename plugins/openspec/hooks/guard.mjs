@@ -491,11 +491,13 @@ function prViolation(root, ch) {
 // an end until a later `devkit-run:` line. Only lines of type `user`
 // count: a typed command has a string `message.content`, the printed line sits in a `tool_result` block (or its
 // `toolUseResult.stdout`). The skill's own body (`isMeta`), the `api-request-*` lines and a sidechain are not read.
+// The run and end marker lines of a text, in order: { run } for `devkit-run: <id>`, { end } for `devkit-end: <id> <state>`.
+const runMarkers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: [A-Za-z0-9][\w.-]* (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
+  .map((m) => (m[1] ? { run: m[1] } : { end: m[2] }));
+
 // Pure: it interprets the events of `transcriptEvents` (scanned when not given) and returns null when it cannot read them (the locks then let everything through).
 export function runOf(input, events = transcriptEvents(input)) {
   if (!events) return null;
-  const markers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: [A-Za-z0-9][\w.-]* (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
-    .map((m) => (m[1] ? { run: m[1] } : { end: m[2] }));
   let command = null;
   let change = null;
   let ended = null;
@@ -507,7 +509,7 @@ export function runOf(input, events = transcriptEvents(input)) {
       continue;
     }
     if (!command) continue;
-    for (const mark of marksOf(event, markers)) {
+    for (const mark of marksOf(event, runMarkers)) {
       if (mark.run) { change = mark.run; ended = null; } else ended = mark.end;
     }
   }
@@ -518,29 +520,95 @@ export function runOf(input, events = transcriptEvents(input)) {
 // order, null when the file cannot be read. An event is { typed: { name, args } } for a typed slash command (a string
 // `message.content`) or { texts, stdout } for a line of tool results (the text of each `tool_result` block, and its
 // `toolUseResult.stdout`). The skill's own body (`isMeta`), the `api-request-*` lines and a sidechain are not read.
-export function transcriptEvents(input) {
+//
+// With `usage` true the scan also reads the model lines (change-budget D-3): the first line with a string `timestamp` gives
+// `{ start }` first, every other event carries `at` (its line's timestamp or null), and an `assistant` line with a `message.usage`
+// object gives `{ usage: { id, tokens }, at }` (sidechain lines included). Without it the result is what it always was.
+export function transcriptEvents(input, { usage = false } = {}) {
   const file = input && input.transcript_path;
   if (typeof file !== 'string' || !file) return null;
   let text;
   try { text = readFileSync(file, 'utf8'); } catch { return null; }
   const events = [];
+  const wanted = usage ? /"type"\s*:\s*"(user|assistant)"/ : /"type"\s*:\s*"user"/;
+  let started = false;
   for (const line of text.split('\n')) {
-    if (!/"type"\s*:\s*"user"/.test(line)) continue;
+    if (!wanted.test(line)) continue;
     let rec;
     try { rec = JSON.parse(line); } catch { continue; }
+    const stamp = usage && typeof rec?.timestamp === 'string' ? rec.timestamp : null;
+    if (usage && !started && stamp) { started = true; events.push({ start: stamp }); }
+    const at = usage ? { at: stamp } : {};
+    if (rec?.type === 'assistant') {
+      if (usage && rec.message?.usage && typeof rec.message.usage === 'object') {
+        events.push({ usage: { id: rec.message.id ?? null, tokens: tokensOf(rec.message.usage) }, ...at });
+      }
+      continue;
+    }
     if (rec?.type !== 'user' || rec.isMeta || rec.isSidechain) continue;
     const content = rec.message?.content;
     if (typeof content === 'string') {
       const typed = typedOf(content);
-      if (typed) events.push({ typed });
+      if (typed) events.push({ typed, ...at });
     } else if (Array.isArray(content)) {
       events.push({
         texts: content.filter((block) => block?.type === 'tool_result').map(textOf),
         stdout: typeof rec.toolUseResult?.stdout === 'string' ? rec.toolUseResult.stdout : '',
+        ...at,
       });
     }
   }
   return events;
+}
+
+// The tokens a usage object counts: input, output and cache-creation tokens, each a finite number of at least 0, else 0.
+// `cache_read_input_tokens` is never read.
+const tokensOf = (u) => ['input_tokens', 'output_tokens', 'cache_creation_input_tokens']
+  .reduce((sum, key) => sum + (Number.isFinite(u[key]) && u[key] >= 0 ? u[key] : 0), 0);
+
+// The transcript of the session `env` names (CLAUDE_CODE_SESSION_ID): `<config>/projects/<folder>/<id>.jsonl`, null when the id is
+// unsafe, no such file exists or a read throws. It reads no file content (change-budget D-2).
+export function sessionTranscript(env) {
+  const id = env?.CLAUDE_CODE_SESSION_ID;
+  if (typeof id !== 'string' || !/^[A-Za-z0-9][\w-]*$/.test(id)) return null;
+  try {
+    const base = env.CLAUDE_CONFIG_DIR || join(env.HOME || homedir(), '.claude');
+    const projects = join(base, 'projects');
+    for (const folder of readdirSync(projects).sort()) {
+      const file = join(projects, folder, `${id}.jsonl`);
+      if (existsSync(file)) return file;
+    }
+  } catch { return null; }
+  return null;
+}
+
+// The run's spend in tokens (change-budget D-3): { spent, since } counted from the change's first `devkit-run:` line in the
+// transcript and from the subagent transcripts of the session started after it; null when the transcript cannot be read.
+export function spentOf(transcript, change) {
+  const events = transcriptEvents({ transcript_path: transcript }, { usage: true });
+  if (!events) return null;
+  const first = events.findIndex((event) => event.texts && marksOf(event, runMarkers).some((mark) => mark.run === change));
+  if (first < 0) return { spent: 0, since: null };
+  const since = events[first].at;
+  const seen = new Set();
+  const sum = (list) => list.reduce((total, event) => {
+    if (!event.usage) return total;
+    if (event.usage.id !== null) {
+      if (seen.has(event.usage.id)) return total;
+      seen.add(event.usage.id);
+    }
+    return total + event.usage.tokens;
+  }, 0);
+  let spent = sum(events.slice(first + 1));
+  const folder = join(dirname(transcript), basename(transcript, '.jsonl'), 'subagents');
+  let files = [];
+  try { files = readdirSync(folder).filter((name) => /^agent-.*\.jsonl$/.test(name)).sort(); } catch { files = []; }
+  for (const name of files) {
+    const scan = transcriptEvents({ transcript_path: join(folder, name) }, { usage: true });
+    const start = scan?.[0]?.start;
+    if (typeof since === 'string' && typeof start === 'string' && start >= since) spent += sum(scan);
+  }
+  return { spent, since };
 }
 
 // The marker lines of a tool-result event, read with `markers`: those in the `tool_result` blocks, else those in the stdout.

@@ -578,7 +578,7 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
   const expected = {
     'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
     'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
-    'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand',
+    'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-budget': 'budget',
   };
   const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github');
   assert.deepEqual([...waits].sort(), Object.keys(expected).sort(), 'every waiting- key of the table is covered');
