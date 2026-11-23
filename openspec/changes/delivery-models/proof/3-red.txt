@@ -1,0 +1,1419 @@
+✔ test helpers: commits work without a global git identity and return the head sha (396.659167ms)
+✔ parseShip: no key, empty key and unrelated keys give an empty map (0.557625ms)
+✔ parseShip: block map (0.23ms)
+✔ parseShip: flow map (0.109292ms)
+✔ parseShip: quotes, comments and blank lines are ignored (0.087917ms)
+✔ parseShip: tolerates CRLF line endings (0.050084ms)
+✔ parseShip: merge is a mode now, in block and flow maps, for both schemas (AC-1) (0.08275ms)
+✔ parseMergeMethod: no key or an empty one is squash; the three methods are read with quotes and comments (AC-8) (0.161375ms)
+✔ parseMergeMethod: an unknown value or a nested value is a ShipConfigError naming the key (AC-1) (0.235291ms)
+✔ shipConfig: reads the mode for the schema and the method, and validates both keys whatever the schema (design D2) (523.979083ms)
+✔ parseShip: unknown mode names the key and the allowed values (0.250292ms)
+✔ parseShip: scalar, nested map and duplicate key are errors naming the key (0.149ms)
+✔ shipMode: no config file, no key or a schema absent from the map give plan (AC-1) (552.167917ms)
+✔ shipMode: reads the mode for the schema (129.618416ms)
+✔ shipMode: an invalid entry fails the whole config, whatever the schema asked for (131.827708ms)
+✔ guard session, edit, bash and ci behave identically with and without ship (AC-1) (4575.275541ms)
+✔ parseCommitLine: reads the header only, with the uncommitted marker (0.650583ms)
+✔ staleness: the head, and later commits touching only openspec/, are current (AC-7) (698.7015ms)
+✔ staleness: a later commit touching src/ or openspecx/ makes it stale (AC-7) (1719.874917ms)
+✔ staleness: a commit mixing openspec/ and src/ is stale (391.231792ms)
+✔ staleness: a merge from the base branch that brings product code is stale; openspec-only is current (1438.710375ms)
+✔ staleness: an unresolvable, non-ancestor or non-sha value is stale (841.278667ms)
+✔ staleness: uncommitted work outside openspec/ and .claude/ makes everything stale (2460.800958ms)
+✔ merge-staleness 1: a merge of main that brings only openspec/ into a branch with product commits before the record is current (1852.128417ms)
+✔ merge-staleness 2: a merge of main that brings a product file is stale and names it (1066.711ms)
+✔ merge-staleness 3: a merge commit that changes a product file while resolving is stale and names it (713.912875ms)
+✔ merge-staleness 4: a merge that moves a product file under openspec/ is stale and names the old path (930.778625ms)
+✔ merge-staleness 5: a product commit the merge brings in is stale even when the merge itself brings only openspec/ (1112.638833ms)
+✔ merge-staleness 6: a merge whose first parent is the base is read against that parent (945.675333ms)
+✔ merge-staleness 7: a root commit a merge brings in is judged by its own files (1097.3985ms)
+✔ merge-staleness 8: a plain product commit after an openspec-only merge is still stale (1225.402375ms)
+✔ item 2: met when both required reviewers are approved at the head (475.244417ms)
+✔ item 2: reviews written before an openspec/-only commit are still met (602.059833ms)
+✔ item 2: a product commit after the reviews lists the stale reviewers (AC-7) (987.509417ms)
+✔ item 2: missing required reviewers, a rejected review and a missing Commit: line are open (678.312291ms)
+✔ item 2: no reviews directory means both required reviewers are missing (225.35325ms)
+✔ item 2: declined is accepted when its Commit: is current, and stale otherwise (1012.021625ms)
+✔ item 2: uncommitted product work makes every review stale (203.699125ms)
+✔ item 1: unticked task ids are listed (228.77225ms)
+✔ item 1: met when everything is ticked and each gate sub-command has a passing row at a current commit (367.811667ms)
+✔ item 1: a gate sub-command without a passing row is open (missing, failing, or no row at all) (934.657709ms)
+✔ item 1: missing or stale evidence is open (659.913167ms)
+✔ item 1: no tasks.md, or a gate task without a backticked command, is blocked (305.042209ms)
+✔ item 1: lines that are not checkbox tasks never count (417.914125ms)
+✔ parseTasks: only a description that starts with Gate: is a gate; a mid-sentence `Gate:` is not (0.142959ms)
+✔ item 1: a task describing the Gate: rule yields no stray command, and repeated gates are listed once (305.968084ms)
+✔ readPhases: each phase reports its real gate, not a task that merely mentions Gate: (133.544125ms)
+✔ item 3: blocking and important findings need a fixed-in sha or a refutation; nits and praise are ignored (485.51275ms)
+✔ item 3: an undisposed finding lists reviewer and excerpt; a fix sha outside history does not count (349.458375ms)
+✔ item 3: no reviews, or reviews without findings, are met (356.9245ms)
+✔ item 4: met when every id has a pass or verified row at a current commit (312.825458ms)
+✔ item 4: ids come only from the Acceptance criteria section of the proposal (342.490791ms)
+✔ item 4: falls back to requirements.md when the proposal has no ids or no file (495.467708ms)
+✔ item 4: AC-1 is not proven by a row for AC-12, and AC-12 is not proven by AC-1 (473.634375ms)
+✔ item 4: a fail or defect row is open even beside a pass row (691.66275ms)
+✔ item 4: an id with only "no proof" rows is blocked; a pass row beside it clears it (798.386958ms)
+✔ item 4: missing or stale evidence is open (881.315292ms)
+✔ item 4: no AC ids anywhere is blocked (377.556708ms)
+✔ fake gh: answers from a fixture with stdout, stderr and exit code (369.10725ms)
+✔ fake gh: a per-call fixture wins for that call, then the default applies (268.391042ms)
+✔ fake gh: a missing fixture fails loudly (exit 99, names the key) (215.564416ms)
+✔ fake gh: api fixtures are keyed by method and path with / { } ? replaced by _ (auto-merge 2.1) (264.257584ms)
+✔ fake gh: api graphql keeps its key, and a missing api fixture fails loudly naming the key (auto-merge 2.1) (214.055542ms)
+✔ fake gh: pr list calls get their own keys by --head and --state, and an existing pr-list fixture still answers them (archive-after-merge 2.1) (421.680916ms)
+✔ fake gh: a pr list call with no fixture fails loudly naming its most specific key (archive-after-merge 2.1) (284.916875ms)
+✔ fake gh: sleep delays the answer (488.212292ms)
+✔ locateChange: active folder, newest dated archive folder with the exact id, or null (D3) (157.645791ms)
+✔ schemaOf: an archived change reads its own .openspec.yaml, so a devkit change in a devkit-lite project keeps ship.devkit (D3) (169.955792ms)
+✔ item 5: no pull request for the branch is open, not blocked (416.290917ms)
+✔ item 5: an OPEN PR whose head is the local head is met; asks gh for the documented fields (474.4455ms)
+✔ item 5: local commits ahead of the PR head are open (771.489959ms)
+✔ item 5: a PR head missing from local history is blocked, whether unknown or on another branch (1113.0315ms)
+✔ item 5: a CLOSED or MERGED PR, or a merge conflict, is blocked (1315.315917ms)
+✔ item 5: gh missing, not authenticated or failing is blocked with the error text (1095.450958ms)
+✔ item 5: uncommitted files in the change folder are open even when the heads match (482.417458ms)
+✔ item 6: asks for --required first; all pass or skipping is met (422.433542ms)
+✔ item 6: with no required checks, falls back to all checks (1064.756375ms)
+✔ item 6: no checks at all is met, and says so (456.323791ms)
+✔ item 6: pending checks are open and named (gh exit 8) (367.751125ms)
+✔ item 6: fail and cancel are open with names and links, even when gh exits 1 with the list (366.599417ms)
+✔ item 6: a gh error, an unknown bucket or unreadable output is blocked; no PR is open, not blocked (1940.998792ms)
+✔ item 7: nothing to answer is met; the query asks for the viewer and the PR number (373.687667ms)
+✔ item 7: an unresolved thread whose last comment is not the viewer is open; resolved or viewer-last is met (1568.756833ms)
+✔ item 7: a bot's unresolved review thread counts like a person's (390.161625ms)
+✔ item 7: a person's top-level comment or review body newer than the viewer's latest is open (2481.391292ms)
+✔ item 7: a viewer reply inside a thread does not answer earlier top-level comments or review bodies (423.328459ms)
+✔ item 7: a later top-level viewer comment or review answers a person's top-level comment (731.461166ms)
+✔ item 7: only OWNER, MEMBER and COLLABORATOR people count; outside authors are ignored (9026.573958ms)
+✔ item 7: the query asks for authorAssociation (368.191583ms)
+✔ item 7: a bot's top-level comment and review body are ignored, however new (400.375541ms)
+✔ item 7: CHANGES_REQUESTED is open before a reply and blocked after, for people and bots (1577.035541ms)
+✔ item 7: a later approval or dismissal by the same reviewer clears CHANGES_REQUESTED (829.081916ms)
+✔ item 7: more than 100 threads is blocked (386.6205ms)
+✔ item 7: a gh error is blocked and no PR is open (735.865125ms)
+✔ item 8: a body naming the change id, every AC id and the evidence link is met (351.7785ms)
+✔ item 8: lists what the body misses; AC-1 is not covered by AC-12 (704.501292ms)
+✔ item 8: no PR is open and a gh error is blocked (364.407667ms)
+✔ nextStep: all eight met is ready (row 21) (0.436ms)
+✔ nextStep row 1: a schema whose ship mode is plan stops, before anything else (AC-1) (0.071083ms)
+✔ nextStep row 1: a merge-mode change does not stop as plan mode (design D2) (0.058292ms)
+✔ nextStep row 2: a branch that does not select the change stops (0.026708ms)
+✔ nextStep row 3: a devkit change without APPROVED readiness stops (AC-3); devkit-lite is not asked (0.06875ms)
+✔ nextStep row 4: the first phase with an unticked non-gate task is implemented, never a later one (0.1765ms)
+✔ nextStep row 5: a phase whose tasks are ticked but whose gate is not runs the gate (0.036666ms)
+✔ nextStep row 6: uncommitted changes outside openspec/ are committed first (0.082708ms)
+✔ nextStep row 8: a rejected review at a current commit goes to fix-review with its findings (0.091458ms)
+✔ nextStep row 7: FAIL (round 2/2) with a current rejected review stops (AC-4) (0.031833ms)
+✔ nextStep rows 7 and 9: after a later product commit the rejected review is stale, so the run resumes as round 1 (AC-5) (0.063917ms)
+✔ nextStep row 9: after FAIL (round 1/2) and a fix commit the rejected reviewer is re-run as round 2 (0.037208ms)
+✔ nextStep row 9: reviewers stale only after an approval re-run at round 1, and only the stale ones (AC-7) (0.057042ms)
+✔ nextStep row 9: missing reviewers and approved reviewers with undisposed findings are reviewed (0.072875ms)
+✔ nextStep: an approved review at the current commit with an undisposed important finding goes to fix-review with that finding (AC-6) (423.138125ms)
+✔ nextStep: a rejected review and an approved one with an open finding give one fix-review with both reviewers and both findings (210.88525ms)
+✔ nextStep: an approved but stale review with an undisposed finding is still reviewed (190.336334ms)
+✔ review round: findingsItem reads findingLine's refuted line as refuted and its open line as undisposed (189.461958ms)
+✔ review round: readReviewMd reads consolidate's Consensus line and round (122.496125ms)
+✔ nextStep row 10: a fail or defect row at current evidence goes to fix-defect (0.101292ms)
+✔ nextStep row 11: missing or stale evidence, or a missing gate or AC row, goes to verify (0.083291ms)
+✔ nextStep row 11 before row 10: a defect row on stale evidence is verified again, not fixed (0.039ms)
+✔ AC-1 evidence-first: missing or stale evidence with both reviewers missing or stale goes to verify, not review (0.094334ms)
+✔ AC-1 evidence-first: current evidence with no defect and the reviewers missing goes to review with both, round 1 (0.03975ms)
+✔ AC-2 defect-before-review: a defect row at current evidence goes to fix-defect with the reviewers missing, stale, or approved (0.055416ms)
+✔ D2: a current rejected review beside a current defect gives fix-review, before fix-defect (0.031875ms)
+✔ D2: a round-2 deadlock stays first, with the evidence missing (0.042667ms)
+✔ D2: a no-proof criterion at current evidence still reviews, then blocks at item 4 (0.210542ms)
+✔ nextStep row 12: a blocked item 1 to 4 stops with that item (0.045417ms)
+✔ nextStep row 13: no PR opens one (item 5 none) (0.032375ms)
+✔ nextStep row 14: a blocked item 5 stops (0.024583ms)
+✔ nextStep row 15: local ahead or uncommitted change files push (0.031875ms)
+✔ nextStep row 16: an incomplete PR body is edited (0.026458ms)
+✔ nextStep row 17: failing checks go to fix-checks with names and links, before open conversation (0.03825ms)
+✔ nextStep row 18: an open conversation is answered, listing threads and comments (0.037375ms)
+✔ nextStep row 19: a blocked item 6 or 7 stops (0.038125ms)
+✔ nextStep row 20: pending checks wait (0.024708ms)
+✔ nextStep: open work on a blocked-and-open item 7 is answered before the stop (0.022292ms)
+✔ summarize: ready only at 8/8, else the lowest blocked item, else the lowest open item (AC-8) (0.084834ms)
+✔ AC-3: a devkit change without readiness.md stops as not approved (471.054583ms)
+✔ AC-3: a devkit change whose readiness Status is not APPROVED stops as not approved (1978.417417ms)
+✔ AC-3: an APPROVED readiness lets a devkit change proceed past the stop (509.432417ms)
+✔ AC-3: a schema without a readiness artifact never asks for readiness.md (466.369917ms)
+✔ CLI --json: a devkit change reports next.step stop-not-approved, then moves on when APPROVED (825.554542ms)
+✔ stop-plan-approval: APPROVED readiness with no approval.md waits for the owner, naming the readiness hash (AC-5) (683.227083ms)
+✔ stop-plan-approval: the row sits after stop-not-approved and before the merge setup stop (1278.567166ms)
+✔ stop-plan-approval: a current approval.md lets implement start (AC-5) (510.552292ms)
+✔ stop-plan-approval: an approval of an earlier readiness.md asks the owner again (AC-5) (1107.668708ms)
+✔ stop-plan-approval: a change with a ticked task keeps running without approval.md (the started exemption) (983.816292ms)
+✔ stop-plan-approval: devkit-lite never gets this row, and its JSON has no approval object (496.256666ms)
+✔ stop-plan-approval: the CLI exits 1 with the summary and the approval object (737.002583ms)
+✔ approvalState: no file, a current file and a stale file (150.10275ms)
+✔ --ci output is unchanged by the approval row: no approval object, same pass or fail (AC-5) (258.490166ms)
+✔ branchOk: the default branch and an unrelated branch stop with stop-branch; the change branch does not (1265.864083ms)
+✔ currentBranch: DEVKIT_BRANCH wins over GITHUB_HEAD_REF, which wins over the git branch (1003.744792ms)
+✔ resume: phase 1 gate ticked and phase 2 half done continues phase 2 and never redoes phase 1 (AC-5) (772.266458ms)
+✔ resume: code committed with one review current runs only the other reviewer (AC-5, AC-7) (3012.763375ms)
+✔ resume: reviews and evidence current and no PR opens the PR (AC-5) (1438.794833ms)
+✔ walkthrough: a devkit-lite change goes from no ticked task to ready without a stop step (AC-2) (3857.827625ms)
+✔ resume: a round-2 deadlock on disk stops while current and re-reviews as round 1 after the owner's product commit (AC-4, AC-5) (3444.890416ms)
+✔ AC-3 fix-restales-both (a): after a rejected review and its fix commit, verify comes first and then review at round 2 (7289.147542ms)
+✔ AC-3 fix-restales-both (b): after a fail row and its fix commit, verify comes first and then review (7100.1065ms)
+✔ AC-3 fix-restales-both (c): after a failing check and its fix commit, verify, then review, then push (8228.693708ms)
+✔ AC-4 no-mutual-staleness: reviews written after the evidence leave the evidence current, uncommitted and committed (2557.109791ms)
+✔ AC-4 no-mutual-staleness: evidence written after the reviews leave item 2 met, uncommitted and committed (2410.297125ms)
+✔ AC-4 no-mutual-staleness: control, a product commit in between does make them stale (2067.867667ms)
+✔ merge facts: fetchPr asks for autoMergeRequest and mergeStateStatus only in merge mode (417.822875ms)
+✔ item 5 (merge): a MERGED PR at the local head is met; at another head it is blocked naming both shas (851.929042ms)
+✔ item 5 (merge): OPEN and BEHIND is open with details.behind; in pr mode BEHIND is not read and MERGED stays blocked (2225.86675ms)
+✔ merge mode through the collector: a MERGED PR at the head meets items 5, 6 and 7 and asks gh for neither checks nor the conversation (5694.830834ms)
+✔ plan and pr modes: the PR is asked with the 0.4.0 fields, no settings are read and the JSON has no merge facts (design D6) (10036.397209ms)
+✔ merge mode through the collector: the settings are read and state carries setup, method and the PR merge facts (6578.470042ms)
+✔ nextStep: a merged PR leads to the archive steps and never to a final "merged" step, before every other row (archive-after-merge R-9) (0.843625ms)
+✔ nextStep row 0b: auto-merge on and any item not met disables it first, ahead of every stop and of push (AC-3) (0.30475ms)
+✔ nextStep row 0b: auto-merge on at 8/8 waits; auto-merge off never disables; a closed PR does not disable (0.167083ms)
+✔ nextStep row 0b: outside merge mode the auto-merge flag is never read (0.039209ms)
+✔ nextStep row 3a: merge setup missing stops after the approval stops and before any work (AC-6) (0.187834ms)
+✔ nextStep row 15a: behind the base, and nothing else open, updates the branch; ahead as well pushes first (0.103ms)
+✔ nextStep row 17a: devkit-reviews failing while items 1-4 are met stops as blocked item 6, in every mode (R-7) (0.128542ms)
+✔ nextStep rows 21, 21a, 21b: ready for pr; enable-auto-merge with number, method and head; wait-merge with what it waits for (AC-2, AC-8) (0.065125ms)
+✔ waitingFor: the wait text per mergeStateStatus (design D6) (0.063958ms)
+✔ AC-2: with any one of items 1-8 open or blocked and the other seven met, auto-merge is never enabled (0.12125ms)
+✔ merge setup stops: each missing piece goes through collectState and the CLI to stop-merge-setup, exit 2, and gh pr merge is never called (AC-6) (6516.935375ms)
+✔ merge setup stops: merge_method rebase with rebase merges off goes through the collector to stop-merge-setup, naming the method (AC-6, AC-8) (678.053375ms)
+✔ merge setup stops: an unreadable repository fails closed as a stop, not as a pass (AC-6) (513.456208ms)
+✔ merge mode keeps the human plan gate: a devkit change without APPROVED readiness stops as not approved, even with a prepared repository (AC-3 of round 1) (2686.018875ms)
+✔ merge mode: 8/8 with auto-merge off is exit 0, step enable-auto-merge, summary ready, and the merge object (AC-2, AC-8) (7626.527167ms)
+✔ merge mode: merge_method rebase reaches the step (AC-8) (6778.586125ms)
+✔ merge mode: 8/8 with auto-merge on is exit 0 and "auto-merge on: waiting for ..." with the reason from mergeStateStatus (AC-4) (7425.812083ms)
+✔ merge mode: a MERGED PR is the first archive step (retro), exit 0, and the merge object says so (AC-1) (6716.650458ms)
+✔ merge mode: a PR behind its base is update-branch with the item 5 reason (5280.774625ms)
+✔ carry-over: after an immediate merge the branch no longer finds the PR; it is looked up by head branch among merged PRs and leads to the retro (AC-4, AC-1) (4507.98ms)
+✔ carry-over: the head-branch lookup prefers an open PR over an older merged or closed one (7026.985458ms)
+✔ carry-over: once the number is known the PR is read by number, so a changed or deleted branch cannot hide it (4584.252583ms)
+✔ carry-over: pr mode with a MERGED PR leads to the archive steps (R-3), plan mode still stops, and plan mode never looks the PR up by branch (5172.735791ms)
+✔ merge mode: an unresolved thread and a failing check, read by the collector, answer / fix-checks and never enable-auto-merge (R-2, AC-3) (17276.000584ms)
+✔ merge mode: auto-merge already on with an unresolved thread or a failing check disables it first (R-2, AC-3) (12701.188875ms)
+✔ --watch at wait-merge: polls gh pr view <n> until MERGED, then collects again and goes on to the retro (AC-4, AC-1) (7535.341958ms)
+✔ --watch at wait-merge: the cap ends the wait with "auto-merge on: waiting for ..." (AC-4) (11155.021708ms)
+✔ --watch at wait-merge: stops early when auto-merge goes off, and the next step is enable-auto-merge again (9919.958833ms)
+✔ --watch at wait-merge: stops early when the PR head changes (a push), and item 5 is no longer met (8265.647833ms)
+✔ --watch at wait-merge: a gh error while polling stops the wait and the state is collected again (8785.193333ms)
+✔ makeGh: a gh call that outlives its timeout is cut, reported as timedOut and read as "timed out" (one runner in merge-setup.mjs) (405.098542ms)
+✔ one gh runner: deliver-check.mjs and github-setup.mjs do not spawn gh themselves (architecture) (1.246167ms)
+✔ --watch at wait-merge: one stalled gh poll is cut at the cap, so the wait ends near it and not when gh answers (R-4) (10459.647958ms)
+✔ --watch outside wait-merge never polls (enable-auto-merge, and no --watch at all) (15689.794416ms)
+✔ walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then the retro (15635.190416ms)
+✔ CLI: eight item lines, the N/8 summary and next (745.020833ms)
+✔ CLI --json carries the items, phases and next, with version 1 (857.26175ms)
+✔ CLI: exit 0 only at 8/8, with the PR in the JSON (5929.297125ms)
+✔ CLI: exit 2 when an item is blocked (521.082875ms)
+✔ CLI: exit 3 for an unknown change, a missing id, no openspec/ and an archived-only change (1117.673667ms)
+✔ CLI: openspec/ without a git repo is a clear usage error, not a raw git fatal (52.736584ms)
+✔ CLI: runs from a subdirectory of the repo (509.92125ms)
+✔ CLI: an invalid ship or merge_method is exit 3 with the key named, and { version, error } in JSON (AC-1) (566.085791ms)
+✔ CLI: ship merge no longer exits 3 and does not stop as plan mode (AC-1, design D2 row 1) (977.625ms)
+✔ CLI: DEVKIT_BYPASS=1 changes nothing (1241.541166ms)
+✔ CLI: a plan-mode project reports stop-plan-mode, with the items still computed (586.781875ms)
+✔ host: app for the desktop entrypoint, cli otherwise, DEVKIT_HOST overrides (0.091833ms)
+✔ CLI: host in the JSON follows the environment (900.559542ms)
+✔ watchMinutes: default 9, capped at 30, positive numbers only (0.243333ms)
+✔ CLI --watch: one gh pr checks --watch --interval 30 (required), then 8/8 when the checks turn green (AC-9) (4391.874666ms)
+✔ CLI --watch: a watch that outlives its cap is killed and the result is in progress: item 6 (AC-9) (7168.841792ms)
+✔ CLI --watch: a bare --watch uses the default; --watch=abc is a usage error (5356.205167ms)
+✔ CLI --watch: no PR, or a step before waiting, never starts a watch (4056.822791ms)
+✔ CLI without --watch never watches (3431.545292ms)
+✔ field-fixes 9 watch: at stop-merge-setup with a check pending, one gh pr checks --watch runs and the report shows the final checks (AC-1) (11538.435833ms)
+✔ field-fixes 9 watch: the cap stops the watch, item 6 still names the pending check and the step is stop-merge-setup (AC-1) (7005.358375ms)
+✔ field-fixes 9 watch: no pending check, or no pull request, starts no watch (AC-1) (4846.237334ms)
+✔ field-fixes 9 watch: without --watch no watch starts at stop-merge-setup (AC-1) (5155.167084ms)
+✔ field-fixes 9 watch: no watch target in the archive phase or for a MERGED or CLOSED pull request, even with a check pending (AC-1) (5486.359125ms)
+✔ format: code-quality-reviewer Output block has Verdict first and Commit: second (0.81925ms)
+✔ format: code-quality-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.135875ms)
+✔ format: test-coverage-reviewer Output block has Verdict first and Commit: second (0.5425ms)
+✔ format: test-coverage-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.081083ms)
+✔ format: security-reviewer Output block has Verdict first and Commit: second (0.311ms)
+✔ format: security-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.087625ms)
+✔ format: architecture-reviewer Output block has Verdict first and Commit: second (0.19125ms)
+✔ format: architecture-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.051625ms)
+✔ format: adr-reviewer Output block has Verdict first and Commit: second (0.384792ms)
+✔ format: adr-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.252417ms)
+✔ format: spec-reviewer Output block has Verdict first and Commit: second (0.3395ms)
+✔ format: spec-reviewer documents the Commit line, its uncommitted marker, and dispositions (0.070458ms)
+✔ format: security-reviewer declined output carries the Commit line (0.104833ms)
+✔ format: pr-verifier names the Commit line, the Gates table and the per-AC rows (0.345458ms)
+✔ format: pr-verifier puts the Commit line before the first heading of evidence.md, where parseCommitLine reads it (0.118875ms)
+✔ format: every reviewer agent puts Commit on the second line of its verdict file (0.288375ms)
+✔ format: commit-and-pr names commit-only, an open PR, and the PR body contents (0.298834ms)
+✔ format: tdd-implementer reports the gate in Validation, not in evidence.md (0.203875ms)
+✔ format: review-change defines stale by the Commit line, dispositions, scoped calls and rounds (1.345ms)
+✔ format: ship-change skill exists, says "Use when", and its deliver-check path resolves (0.546209ms)
+✔ AC-6 instructions-follow: the schema copies are identical and dispatch pr-verifier before review-change (1.847667ms)
+✔ AC-6 instructions-follow: configs, ship-change, devkit, flow doc and READMEs name evidence before review (2.983833ms)
+✔ AC-6 instructions-follow: no tracked file outside the records still says review before evidence (120.441375ms)
+✔ format: ship-change names every next.step the checker can return (1.380583ms)
+✔ format: ship-change enables auto-merge with one exact command, only at enable-auto-merge, and disables it at disable-auto-merge (AC-2, AC-3, AC-8) (0.407ms)
+✔ --ci: passes at the head when items 1 to 4 are met, with the D5 human output (AC-5) (816.965208ms)
+✔ --ci --json: version 1, mode ci, change, schema, head, readiness, items 1 to 4 and pass (design D5) (872.174708ms)
+✔ --ci: a product commit after the reviews makes them stale and fails with exit 1 (AC-5) (1427.269334ms)
+✔ AC-5 guards-kept: --ci with only the reviews re-recorded at a later product commit fails with items 1 and 4 (1027.194583ms)
+✔ AC-5 guards-kept: --ci with only the evidence re-recorded at a later product commit fails with item 2 (957.296792ms)
+✔ --ci: fails for each of an undisposed blocking finding, an AC without a pass row, a no proof AC and a gate without a passing row (AC-5) (4066.952291ms)
+✔ --ci: a devkit change whose readiness is not APPROVED fails; APPROVED passes (AC-5) (3307.494667ms)
+✔ --ci: ship and merge_method are not read, so a typo there does not fail the check (design D2, D5) (1181.427958ms)
+✔ --ci: DEVKIT_BYPASS=1 changes nothing (2229.669042ms)
+✔ --ci --watch is a usage error (exit 3) (660.077791ms)
+✔ --ci: a repo without openspec/ passes with a note, like guard.mjs ci; a repo that has not adopted OpenSpec is never broken (R-3) (217.195042ms)
+✔ --ci: openspec/ without a git repository is exit 3 (68.395542ms)
+✔ --ci selection 1: <change-id> and DEVKIT_CHANGE select; an unknown or archived change is exit 3 (2853.619625ms)
+✔ --ci selection 2: the branch tail, or the single change the branch contains, selects; several contained fail (2275.718542ms)
+✔ --ci selection 3: with GITHUB_BASE_REF the one active change the PR diff touches is selected, two are each judged (R-3) (2747.032333ms)
+✔ --ci selection 3: a squash-merged change still active on the base and untouched by the PR is not checked; the run passes with a note (AC-5, R-3) (1487.784291ms)
+✔ --ci on an archive branch: the PR that moves a squash-merged change passes when every file is named and every proposal answered, even beside an open change `merge` (archive-after-merge D2, AC-9) (3152.905625ms)
+✔ --ci on an archive branch: a changed file no approved proposal names fails the check, naming it (review blocker 3) (4267.249208ms)
+✔ --ci on an archive branch: an unanswered proposal, a retro without the section and a missing retro fail the check (review blocker 3) (2633.705834ms)
+✔ --ci: a PR that archives nothing, or a run without GITHUB_BASE_REF, keeps the "nothing to check" note (review blocker 3) (1673.913875ms)
+✔ --ci on an archive branch never takes a contained open change, and a PR touching an active change's folder still selects it (1472.231417ms)
+✔ --ci selection 3: GITHUB_BASE_REF without an origin/<base> ref is exit 3 naming the ref (602.235666ms)
+✔ --ci selection 4: without GITHUB_BASE_REF the only open change is checked; several are ambiguous (exit 1) (1843.386042ms)
+✔ field-fixes 3 reviews-check: a change on another schema passes with a note from both entries, whatever it lacks (998.510083ms)
+✔ field-fixes 3 reviews-check: a devkit-lite change with a missing review still fails naming it (413.794584ms)
+✔ field-fixes 3 reviews-check: two delivered changes both passing print one result each and pass (2594.487375ms)
+✔ field-fixes 3 reviews-check: one of two delivered changes failing prints both results, names what it lacks and fails (1780.725541ms)
+✔ field-fixes 3 reviews-check: a plan and a change on another schema ride along as notes and fail nothing (2490.052834ms)
+✔ field-fixes 3 reviews-check: the branch named after one change still selects it, and the other touched change is not judged (1141.880375ms)
+✔ field-fixes 3 reviews-check: one plan-only change is judged as before and fails on its unticked tasks (593.339666ms)
+✔ field-fixes 3 reviews-check: several plan-only changes fail saying the pull request delivers no change, naming both (1071.400417ms)
+✔ field-fixes 3 reviews-check: a pull request touching only changes on other schemas passes with one note each (1243.766125ms)
+✔ field-fixes 3 reviews-check: the archive of a change on another schema passes with a note from both entries, with no retro (1301.890875ms)
+✔ field-fixes 3 reviews-check: the archive of a devkit change with an unanswered proposal still fails naming it (975.7415ms)
+✔ field-fixes 3 reviews-check: a missing retro and a retro without the section each say what the file holds and which step writes it (1475.362542ms)
+✔ --ci preflight: a shallow clone is exit 3 naming fetch-depth: 0 (867.704792ms)
+✔ --ci preflight: a PR head sha that is not HEAD is exit 3 naming the ref: fix; the matching sha passes (2429.469625ms)
+✔ docs sweep: "never merges" and "the merge is the owner's" lines name a ship mode or are about commit-and-pr (10.726166ms)
+✔ ADR 0002 exists, is cited by README and docs/openspec-flow.md, and says Status: accepted (0.499333ms)
+✔ the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version, with the tag in a comment, never the tag in the URL (R-10, security) (2.359458ms)
+✔ AC-8 release-ready: every pack version matches its marketplace entry, the doc pin names the devkit-openspec version and CONTRIBUTING holds the tag rule (4.615292ms)
+✔ findChangePr: this repository's history — id auto-merge is PR #5, never the archive PR #6 nor feat/auto-merge-docs, from main and from chore/archive-auto-merge (D4) (1344.078333ms)
+✔ findChangePr: a head name is never proof of ownership; the files are (D4, field-fixes D-4) (1231.136625ms)
+✔ findChangePr: among several own PRs the newest mergedAt wins; a body link is not proof (D4, field-fixes D-4) (1083.220917ms)
+✔ findChangePr: on the change branch a MERGED PR is found by pr view, and by pr list --head --state all once the branch is deleted, in pr mode too (D4) (2040.887292ms)
+✔ findChangePr: plan mode makes no list call, and a number reads the PR by number (D4) (726.330375ms)
+✔ findChangePr: a failing list is an error, never a silent none (D4) (311.12175ms)
+✔ findChangePr: lists light fields only and reads the files of one candidate at a time, newest first, so 100 long bodies never overflow the buffer (review finding 4, field-fixes D-4) (4658.165125ms)
+✔ findChangePr: a files read that cannot be read is an error, never a silent miss (review finding 4, field-fixes D-4) (410.461542ms)
+✔ findChangePr: on a branch that names neither the change nor an archive head the merged PR is still found by its files, never reported as none (compozy-loop-v2 retro, field-fixes D-4) (375.573167ms)
+✔ makeGh/ghError: output past maxBuffer is named, not a bare exit code (review finding 4) (417.405ms)
+✔ readRetro: proposals are the ### headings under ## Proposed updates, with targets, kind, answer and applied (D6) (2.078ms)
+✔ readRetro: the last Answer: and the last Applied: line of a block count; unknown answers are unanswered (D6) (0.514292ms)
+✔ readRetro: None. is zero proposals; no ## Proposed updates is unreadable; a missing file does not exist (D6) (0.466083ms)
+✔ readRetro: diff lines are never read as answers, and headings outside the section are not proposals (D6, AC-2) (0.2105ms)
+✔ post-merge: the default branch name comes from repos/{owner}/{repo}, read once in merge mode (D4) (1859.851791ms)
+✔ post-merge: the archive listing on the default branch makes the change archived; else the folder is active (200) or absent (HTTP 404) (D4) (3778.536958ms)
+✔ post-merge: any other read error, or a stalled gh, is stop-archive read-default-branch naming the first stderr line or "gh timed out" (D4, AC-7) (3955.740042ms)
+✔ post-merge: the archive PR is the OPEN one, else the newest MERGED, else the newest CLOSED; an OPEN one carries its checks (D4) (5618.984167ms)
+✔ AC-1: a merged change PR with the folder still on the default branch is "retro", in pr and merge mode, with all eight items met and nothing read from tasks or reviews (3151.51075ms)
+✔ P0: archived on the default branch is "archived" from main, from the change branch and from chore/archive-<id>, exit 0 (AC-6) (8779.0115ms)
+✔ P0: archived on the default branch needs no merged PR and no retro, and wins over everything below it (1321.548625ms)
+✔ P1: an unreadable default branch is stop-archive, summary "blocked: archive (read-default-branch)", exit 2 (AC-7) (1444.167542ms)
+✔ P1b: on the change branch, a PR merged at another head than the local head is blocked item 5 (design D4) (2143.297208ms)
+✔ P2: merge mode with the repository not prepared stops at stop-merge-setup after the default branch is read (design D7) (2666.286208ms)
+✔ P3a: an open archive PR with auto-merge on is disabled first when it conflicts, fails a check, is not at the local head or has uncommitted files (design D7) (6691.077625ms)
+✔ P3b, P3c, P3e: an open archive PR that conflicts, is not in local history or fails a check is stop-archive archive-pr, exit 2 (AC-7) (5158.418916ms)
+✔ P3d: an open archive PR with the local branch ahead of it, or uncommitted files, goes back to open-archive-pr (push) (design D7) (2693.133291ms)
+✔ P3j: an open archive PR is held to the file check at the same head, with local ahead and with a dirty tree (review blocker 1) (7529.889291ms)
+✔ P3j: with auto-merge on, an unnamed file disables it first, in every case; a named file does not (review blocker 1) (5107.824375ms)
+✔ P3j: an open archive PR with an unanswered proposal is stop-retro-answers, and a rejected proposal does not name its file (review blocker 1) (4955.064417ms)
+✔ P3j: an open archive PR whose folder is not archived locally, or whose archived retro is unreadable, never reaches enable-auto-merge (review round 2, security) (5632.616542ms)
+✔ P3f, P3g, P3h: merge mode — BEHIND updates the branch, clean enables auto-merge with method and head, auto-merge on waits (AC-5) (6165.889125ms)
+✔ P3i: pr mode with the archive PR open is archive-pr-ready and no pr merge is ever called (AC-5) (2300.795125ms)
+✔ P4, P5: a merged archive PR whose folder is not on the default branch, and a closed one, are stop-archive archive-pr (AC-7) (3614.568708ms)
+✔ P6, P7: no retro.md is "retro"; a retro.md without ## Proposed updates is stop-archive retro (AC-1, AC-7) (1806.903791ms)
+✔ P8 / AC-2: any proposal without an Answer: stops at stop-retro-answers listing it, and no archive PR is ever opened or merged, whichever one is left out (21000.729208ms)
+✔ P9: a change still active locally, all answered, is "archive" with the branch, base and whether to create it (AC-1) (5373.020291ms)
+✔ P10: archived in the working tree of another branch is stop-archive archive (AC-7) (6171.849375ms)
+✔ P11, AC-4: tick-roadmap only when the roadmap lists the change unticked; nothing when it is not listed or already ticked (8836.881875ms)
+✔ P12, AC-3: apply-proposals lists only the approved and unapplied proposals (1973.556333ms)
+✔ P14: everything answered, applied and committed is open-archive-pr with branch, base and title (AC-4) (2811.957667ms)
+✔ plan mode with a merged PR still stops at stop-plan-mode and reads nothing after the merge (design D7) (887.720833ms)
+✔ P13 passes to open-archive-pr: an exact path, ./path normalised, a regression gate with both files, the release files, and openspec/changes/** and openspec/roadmap.md (AC-3) (7870.339375ms)
+✔ P13 stops with stop-archive apply-proposals listing every offending path (AC-3) (26954.271292ms)
+✔ unnamedFiles: the canonical spec of a capability the archived folder has a delta for is part of the archive record; nothing else under openspec/specs/ is (0.155167ms)
+✔ P13 passes to open-archive-pr when the archived change has a delta and the tree changes its canonical spec; any other canonical file stops (archive record) (3793.103667ms)
+✔ --ci on an archive branch: the canonical spec of a delta the archived folder holds passes; a canonical spec it has no delta for fails, naming it (archive record) (3236.809625ms)
+✔ P13: a file named only by a rejected proposal stops; so do uncommitted and untracked product files (AC-3) (2363.779458ms)
+✔ P13: origin/<base> that does not resolve stops with the fetch hint (AC-3) (1944.475875ms)
+✔ JSON: the archive object appears only after the merge, version stays 1, and merged is never a next.step (7580.989625ms)
+✔ human output: a post-merge run shows the next archive step (design D7) (3605.835625ms)
+✔ deliver-check on an id that is only archived does not exit 3; an id in neither place does, with the new message; --ci ignores archived changes (AC-6) (1189.903625ms)
+✔ the schema of an archived change comes from its own folder: a devkit change in a devkit-lite project reads ship.devkit (D3) (990.474791ms)
+✔ --watch at wait-merge on the archive PR polls gh pr view <archive PR> until MERGED, then reports archived once the listing has the folder (AC-5, AC-6) (2662.118583ms)
+✔ --watch at wait-merge on the archive PR: at the cap it reports "archive PR open: waiting for <what>" (AC-5) (3334.560417ms)
+✔ --watch at wait-merge on the archive PR: merged but the default branch does not list the folder yet is P4, not archived (R1) (3047.323333ms)
+✔ walkthrough (merge): enable at 8/8, merged, retro, owner answers, archive, tick, apply, open the archive PR, enable, wait, archived (AC-1..AC-7, AC-9 pre-merge) (15381.273541ms)
+✔ walkthrough (pr): the same run ends at archive-pr-ready, then archived after the owner merges it (AC-5, AC-6) (1735.523417ms)
+✔ format: ship-change archive rows name the commands and the owner-answer rule (3.1, AC-2, AC-3, AC-4) (0.925792ms)
+✔ format: ship-change reused merge rows say next.number is the archive PR after the merge, and the enable command stays verbatim (3.1, AC-5) (0.402459ms)
+✔ format: ship-change Start takes the id from a chore/archive-<id> branch, Stops, Never and Hosts cover the archive (3.1, AC-6, AC-7) (0.519875ms)
+✔ round trip: on chore/archive-x with x moved, archiveBranchChange finds x, resolveChange returns null, and deliver-check x answers (3.1, AC-6) (1308.229584ms)
+✔ format: the retro Output example, parsed by readRetro, yields the proposals, targets, kinds, answers and applied flags it shows (3.2, AC-2, AC-3) (1.436791ms)
+✔ format: retro says every changed file is a proposal target, the caller writes Answer, whoever applies writes Applied, and names ship-change (3.2) (0.135958ms)
+✔ format: commit-and-pr has an archive call: precondition 1 kept, 3 waived, the title form and the body contents (3.3, AC-4, AC-7) (0.374083ms)
+✔ format: tdd-implementer has an apply-proposals call: exactly the approved proposals, Applied: yes, no phase and no tasks.md (3.4, AC-3) (0.309584ms)
+✔ collectState: pr facts carry the PR head, state and mergeable in pr mode too (conduct-check reads them) (507.691916ms)
+✔ release list: RELEASE_FILE is unchanged and unnamedFiles still reports docs/openspec-flow.md (AC-7) (0.154ms)
+✔ field-fixes 4 fake gh: an unset pull request files or tasks key fails loudly naming the key (316.107791ms)
+✔ field-fixes 4 delivered: isArchiveHead is true for every change's archive head and for nothing else (0.080875ms)
+✔ field-fixes 4 delivered: isOwnPr needs a file of the change folder, no archive folder and no archive head (0.06825ms)
+✔ field-fixes 4 delivered: prFiles reads the files of a pull request by number, paginated, and a failure is an error (398.9625ms)
+✔ field-fixes 4 delivered: tasksOnDefault reads the tasks left on the default branch, absent on a 404 and an error otherwise (425.290625ms)
+✔ field-fixes 4 delivered: a body that links the evidence is not the change's own pull request (349.873208ms)
+✔ field-fixes 4 delivered: another change's archive pull request that names the change is not its own (325.671542ms)
+✔ field-fixes 4 delivered: an unrelated head that ends in the id and touches no file of the change is not its own (313.36975ms)
+✔ field-fixes 4 delivered: a head that does not name the change is its own when it changes a file of the change folder (330.340084ms)
+✔ field-fixes 4 delivered: among several own pull requests the newest mergedAt wins, and a body link is not proof (356.182125ms)
+✔ field-fixes 4 delivered: a files read that fails is an error, never a silent miss (393.909458ms)
+✔ field-fixes 4 delivered: with tasks left on the default branch the change's own merged PR leads to no archive step, and stop-branch names the PR, the tasks and the branch (1557.466416ms)
+✔ field-fixes 4 delivered: a pull request that only links the evidence leads to no archive step (800.563833ms)
+✔ field-fixes 4 delivered: another change's archive pull request that names the change leads to no archive step (1002.273666ms)
+✔ field-fixes 4 delivered: on the change's branch with the work ticked and no open pull request the step is open-pr (6686.890041ms)
+✔ field-fixes 4 delivered: a further open pull request on the same head after a merge with tasks left is the pull request, not open-pr (8072.013625ms)
+✔ field-fixes 4 delivered: with no open pull request on the head after a merge with tasks left, the answer names the merged one and the tasks (5754.307417ms)
+✔ field-fixes 4 delivered: with every task ticked on the default branch the change's own merged PR answers the retro, even a further PR whose head does not name the change (1211.759667ms)
+✔ field-fixes 4 delivered: a tasks.md absent on the default branch is not delivered, and one that cannot be read blocks the pull request item (2202.129291ms)
+✔ field-fixes 10 verdict: item 2 counts the first Verdict line, approved then rejected, and prints nothing about the second (AC-3) (2322.540125ms)
+✔ field-fixes 10 verdict: item 2 counts the first Verdict line, rejected then approved, and reports the reviewer as rejected (AC-3) (1341.166542ms)
+✔ field-fixes 10 verdict: the devkit-reviews check from both entries passes on approved then rejected and fails on the reverse naming the reviewer (AC-3) (4206.1565ms)
+✔ release-rebase: bumpKind names the first field that differs, none when equal, and rejects non-semver (0.391125ms)
+✔ release-rebase: applyBump resets the lower fields (0.050791ms)
+✔ release-rebase: resolveVersion applies the change bump over the base version (0.054917ms)
+✔ release-rebase: resolveManifest sets the named packs and metadata, keeping order and format (0.112542ms)
+✔ release-rebase: manifestEditsBeyondVersion is empty for a version edit and names a description edit (0.194666ms)
+✔ release-rebase: resolveChangelog renumbers the change entry above the base newest and keeps every base entry (0.249417ms)
+✔ release-rebase: resolveChangelog throws on zero or two new entries and on an edited older entry (0.130834ms)
+✔ release-rebase: a minor bump on main and a patch on the branch resolve to one linear history, uncommitted (4146.108375ms)
+✔ release-rebase: the base side is kept during the replay and the final values come from oldHead (2185.817083ms)
+✔ release-rebase: a branch that bumps another pack resolves only metadata.version and its own pack (1997.537125ms)
+✔ release-rebase: only CHANGELOG and marketplace conflict, the clean-merged plugin.json is still resolved (1862.925333ms)
+✔ release-rebase: a conflict outside the release files aborts to oldHead with the conflicts listed (1115.594625ms)
+✔ release-rebase: a manifest edited beyond its version aborts to oldHead (2739.629333ms)
+✔ release-rebase: an invalid JSON manifest on the branch restores to oldHead with exit 2 (2494.471667ms)
+✔ release-rebase: a docs/catalog.md conflict runs scripts/gen-catalog.py, and aborts without it (2477.186667ms)
+✔ release-rebase: a rebase left in progress is aborted and redone (2213.072125ms)
+✔ release-rebase: two new CHANGELOG entries abort to oldHead (1536.192042ms)
+✔ release-rebase: a missing origin/<base> and an unknown option are setup errors (exit 3) (481.924792ms)
+✔ release-rebase pin: setPins rewrites each of the four marker forms, both pins of one line, and keeps the period of a sentence end (0.263625ms)
+✔ release-rebase pin: setPins replaces v1.2.34 whole and leaves a v1.2.3 on a line without a marker (0.029125ms)
+✔ release-rebase pin: setPins keeps CRLF endings, leaves a marker line without a pin, and is idempotent (0.064458ms)
+✔ release-rebase pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder (19.65975ms)
+✔ release-rebase pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder (15.146667ms)
+✔ release-rebase pin: classifyConflict lets release files through without reading any stage (0.151416ms)
+✔ release-rebase pin: classifyConflict resolves a pin-only docs/openspec-flow.md and blocks one beyond the pin, reading it once (25.775042ms)
+✔ release-rebase pin: classifyConflict always blocks README.md and keeps the order of the paths (12.65775ms)
+✔ release-rebase pin: the real docs/openspec-flow.md: setPins changes exactly its CI pin lines (2.299708ms)
+✔ release-rebase pin: both sides move the pin and add text apart, the rebase merges them and the worktree takes the resolved version (AC-4) (1405.461417ms)
+✔ release-rebase pin: both sides edit the same paragraph, the run aborts to the old head (AC-5) (1248.081084ms)
+✔ release-rebase pin: a renumbered pack with no conflict in the doc keeps the change commit and rewrites the worktree (AC-6) (1654.729958ms)
+✔ release-rebase pin: a change that did not bump devkit-openspec takes the base version for every pin (AC-6) (1931.849ms)
+✔ release-rebase pin: without a devkit-openspec pack a pin conflict stops with "cannot set the pin:", and no conflict leaves the file alone (3799.030416ms)
+✔ release-rebase pin: two change commits that both touch the pin file are resolved at each stop (2552.855792ms)
+✔ conduct: harness: two worktrees read different pr-view fixtures through ghFor (899.701833ms)
+✔ conduct: parseRoadmap reads text and readRoadmap is the same parse of the file (89.910292ms)
+✔ conduct: the roadmap is read from origin/main, not the working tree (531.377542ms)
+✔ conduct: the current round is the first with an unticked line (550.942167ms)
+✔ conduct: with round 1 fully ticked on origin/main, round 2 is conducted in the same call (AC-8) (571.869ms)
+✔ conduct: every round ticked gives roadmapDone and nothing to conduct (413.830667ms)
+✔ conduct: --round 2 skips an unticked round 1 into skipped; --round 9 is a usage error (702.430833ms)
+✔ conduct: an after: id that is missing from the roadmap or in a skipped round keeps its dependent waiting (606.473458ms)
+✔ conduct: plan files come from the stage declaration (943.334792ms)
+✔ conduct: a worktree at a non-standard path is reused: no worktree or create step (AC-11) (571.891042ms)
+✔ conduct: a worktree on chore/archive-<id> is found (1027.636166ms)
+✔ conduct: a local branch only gives worktree with git worktree add <path> <id> (621.9845ms)
+✔ conduct: origin/<id> only gives worktree --track (631.95875ms)
+✔ conduct: a change folder on origin/main gives worktree -b <id> <path> origin/main (620.415542ms)
+✔ conduct: nothing at all gives create (539.265792ms)
+✔ conduct: a prunable worktree entry is ignored (595.798792ms)
+✔ conduct: the creation path is <main>/.claude/worktrees/<id> when run from a linked worktree (641.97525ms)
+✔ conduct: devkit: no requirements.md is a grill for the owner (601.173167ms)
+✔ conduct: devkit: requirements.md but no design.md is a plan for change-planner with the requirements path (615.747083ms)
+✔ conduct: devkit: all plan files and no readiness.md is a readiness review; a readiness older than tasks.md by more than 2 s is too (969.615833ms)
+✔ conduct: devkit: NEEDS-REVISION is revise-plan with readiness.md as findings; BLOCKED waits for the owner (801.37175ms)
+✔ conduct: devkit: APPROVED without approval.md asks the owner to approve; with a current approval it goes to delivery (1103.4605ms)
+✔ conduct: every new change asks the schema as an askable owner row, with proposedSchema and reason (AC-1) (654.404583ms)
+✔ conduct: a worktree with no change folder gives new-change, askable, with proposedSchema and the openspec command (586.994875ms)
+✔ conduct: devkit-lite: with its requirements written, proposal and tasks go straight to delivery; the grill is its only owner row (AC-4) (1398.389833ms)
+✔ conduct: a ticked task skips every planning row (852.580167ms)
+✔ conduct: planningStep is pure: it reads the facts it is given (0.083625ms)
+✔ conduct: B (after: A): early planning rows still come up while A is unticked, then B waits on A and never implements (AC-3) (2072.253917ms)
+✔ conduct: after A's tick lands on origin/main, B's worktree without the tick gives rebase; after the rebase, audit (4117.580917ms)
+✔ conduct: audit.md ACCURATE with a Base that has the tick goes to delivery (1649.263917ms)
+✔ conduct: an audit whose Base lacks the tick, or older than a plan file by more than 2 s, is audited again (1394.298333ms)
+✔ conduct: OUTDATED is revise-plan with audit.md as findings; once a plan file is touched, devkit B gives readiness, then approve, then audit (1740.654167ms)
+✔ conduct: UNVERIFIABLE waits for the owner (1629.337291ms)
+✔ conduct: a rebase left in progress is blocked, and the worktree is still found (1325.307083ms)
+✔ conduct: dependencyStep: rows over the facts it is given (0.299625ms)
+✔ conduct: deliveryStep maps every deliver-check step to its actor, agent and final state (design D9 table) (0.792584ms)
+✔ conduct: a deliver-check step with no actor mapping stops the change with "unknown step <name>" (0.14725ms)
+✔ conduct: DEVKIT_BRANCH in the parent env does not change a worktree's selection (1392.646083ms)
+✔ conduct: a deliver-check error in one worktree blocks that change while another still gets its row (1615.60675ms)
+✔ conduct: a change PR in conflict only in release files is resolve-release-conflict with the paths (AC-6) (3117.362667ms)
+✔ conduct: a conflict that also has README.md is blocked, and an independent change in the round is still dispatched (4028.168458ms)
+✔ conduct: git merge-tree exit 0 (GitHub is stale) keeps what deliver-check says in pr mode (3144.669458ms)
+✔ conduct: git merge-tree exit 0 gives update-branch in merge mode (GitHub's conflict view is stale) (2743.890917ms)
+✔ conduct: right after release-rebase deliver-check says commit, conduct-check says push-rebased with oldHead, paths and a lease (override 2a) (3027.029334ms)
+✔ conduct: killed after the commit and before the push is push-rebased with no paths (override 2b) (2093.81ms)
+✔ conduct: after the force push both are stale: verify, then review (override 2c) (3251.810042ms)
+✔ conduct: auto-merge still on gives disable-auto-merge first (override 2d) (2416.657083ms)
+✔ conduct: a PR head that is not in the local reflog stays blocked, not in local history (override 2e) (2091.563041ms)
+✔ conduct: an archive PR in conflict only in release files is resolve-release-conflict; a README conflict is blocked (P3b) (3809.717083ms)
+✔ conduct: the same push-rebased override holds on an archive PR (override 2f, P3c) (5669.926375ms)
+✔ conduct: auto-merge on an archive PR whose head we rewrote is disabled first (override 2f, P3a) (2159.506125ms)
+✔ conduct: with another change's archive PR open, a change at archive waits on it, and its retro is not held (override 3) (4426.896584ms)
+✔ conduct: two changes at archive: the first in roadmap order keeps it, the second waits on it (2525.271667ms)
+✔ conduct: two independent changes at implement and plan are both dispatched, each in its own worktree on its own branch (AC-2) (1307.623625ms)
+✔ conduct: four runnable changes give three in dispatch; with --busy x it gives two and x is running (4022.513792ms)
+✔ conduct: main steps are not capped by the three-at-a-time limit (1346.527083ms)
+✔ conduct: a round with one change of each kind at end gives exactly one of the five AC-7 forms per change (3543.647417ms)
+✔ conduct: A blocked makes B (after: A) read waiting on A while independent C is dispatched (AC-7) (1516.294167ms)
+✔ conduct: --watch returns when a per-call fixture flips the checks, and at the cap with watch.timedOut (8016.750084ms)
+✔ conduct: --watch on a result that is not at end does not wait (887.026625ms)
+✔ conduct: --json prints version 2 with the D2 fields, no wake and a sessionPrefix per change (922.917709ms)
+✔ conduct: human output has one line per change, then dispatch, owner and github (930.049917ms)
+✔ conduct: --busy and --round are read from the command line (1395.728333ms)
+✔ conduct: exit 3 for no openspec/, an unreadable default branch, a missing origin/<base>, an unknown option and --round out of range (1059.002291ms)
+✔ conduct: the checker never writes: status, refs and worktrees are unchanged after a run (1310.752375ms)
+✔ conduct: under the app host implement is a session row of tdd-implementer; under cli it is the subagent (0.108583ms)
+✔ conduct: app host: a change at implement has next.actor session, and running when its id is in --busy (2686.144791ms)
+✔ conduct: sessionPrefixes: plain, cut at 20, a two-digit phase keeps the prefix (0.079584ms)
+✔ conduct: sessionPrefixes: a collision of the cut ids gives both the 18-cut plus two SHA-1 hex characters (0.166125ms)
+✔ conduct: one id extending another gets a distinct prefix that the shorter one cannot match (0.076541ms)
+✔ conduct: app host: the session descriptor has title, name, cwd, branch, phase, brief and background (834.663458ms)
+✔ conduct: app host: a change with phase 1 ticked and phase 2 open describes phase 2 (name, title, phase, brief) (847.713459ms)
+✔ conduct: sessionPrefix is on every change row of the round, whatever its step (890.348875ms)
+✔ conduct: version 2 in the report and in the exit-3 error object; wake is gone (1245.484875ms)
+✔ conduct: a dispatch of two sessions and one subagent is capped at three; a fourth waits (1896.673458ms)
+✔ conduct: --change gives the same single row as the round mode, without a round (AC-1) (2083.9525ms)
+✔ conduct: --change reads no roadmap: a repository without one on origin/main still exits 0 (AC-1) (976.256542ms)
+✔ conduct: --change through the CLI: --change=<id>, the usage line, and exit 3 for --round or a bad id (AC-1) (1075.168583ms)
+✔ conduct: --change <id> --watch returns the recomputed single row when the checks flip (AC-2) (6423.140167ms)
+✔ conduct: --change of an id that exists nowhere is exit 3 "no change <id>:" and never create (AC-2) (892.249833ms)
+✔ conduct: --change of a worktree with no folder is exit 3 "change <id> has a worktree without a folder:" (AC-2) (685.751958ms)
+✔ conduct: --change reads a chore/archive-<id> worktree that holds only the archived folder (D2) (1632.235583ms)
+✔ conduct: --change of the active folder in a checkout on another branch is exit 3 "is on another branch" naming git switch -c (AC-2) (572.136625ms)
+✔ conduct: --change keeps the three worktree rows, a local branch without the folder included (AC-2) (1134.146042ms)
+✔ conduct: --change of a change archived on origin/main with no worktree reads archived (AC-2) (911.454959ms)
+✔ conduct: unfinished is null on a clean worktree and on rows without a worktree, in both modes (AC-3) (1346.3015ms)
+✔ conduct: unfinished.dirty lists product files, not files under openspec/changes/<id>/ (AC-3) (1137.749458ms)
+✔ conduct: unfinished.phases is [2] for a half-done phase 2 with phase 1 fully ticked, and [1] when only the gate is open (AC-3) (1731.713791ms)
+✔ conduct: unfinished names the dirty paths and the half-done phase together (AC-3) (807.413833ms)
+✔ conduct pin: a change PR whose only conflicts are release files and the CI pin is resolve-release-conflict, and nothing is touched (AC-1) (1585.079166ms)
+✔ conduct pin: both sides editing one paragraph of docs/openspec-flow.md is blocked (AC-2) (1611.965542ms)
+✔ conduct pin: an archive PR conflicting in the CI pin only is resolve-release-conflict, beyond the pin it is blocked (AC-3) (2894.712458ms)
+✔ field-fixes 10 verdict: an audit with ACCURATE first and OUTDATED later is not revise-plan, and the reverse is (AC-3) (1712.562958ms)
+✔ delivery-models config: no devkit block gives no model and no problem (0.575084ms)
+✔ delivery-models config: trunk is a model with no names (0.075459ms)
+✔ delivery-models config: trunk-auto is a model with no names (0.05225ms)
+✔ delivery-models config: two-prs with both names is that model with both names (0.045584ms)
+✔ delivery-models config: an unknown model is a problem naming it (0.04025ms)
+✔ delivery-models config: two-prs without base is a missing delivery-base (0.032708ms)
+✔ delivery-models config: two-prs without test_branch is a missing delivery-test-branch (0.032667ms)
+✔ delivery-models config: two-prs with the same name twice is an unknown delivery-test-branch (0.036334ms)
+✔ delivery-models config: names under trunk are ignored (0.023583ms)
+✔ delivery-models config: quoted values and trailing comments are read as the other settings are (0.042167ms)
+✔ delivery-models config: an empty value is unset (0.033959ms)
+✔ delivery-models config: nested keys never set driver or language (0.039875ms)
+✔ delivery-models config: readDeliverySettings reads the file and answers no model without one (0.440292ms)
+✔ delivery-models config: no model gives the ship entry of the schema, as shipConfig does (1.277208ms)
+✔ delivery-models config: trunk alone is pr (0.186292ms)
+✔ delivery-models config: trunk-auto alone is merge (0.176042ms)
+✔ delivery-models config: two-prs alone is pr, with the model and both names (0.159416ms)
+✔ delivery-models config: trunk with a ship entry of pr agrees (0.18ms)
+✔ delivery-models config: trunk-auto with a ship entry of merge agrees (0.173917ms)
+✔ delivery-models config: trunk with a ship entry of merge disagrees (0.211375ms)
+✔ delivery-models config: trunk-auto with a ship entry of pr disagrees (0.177541ms)
+✔ delivery-models config: two-prs with any ship entry disagrees (0.491125ms)
+✔ delivery-models config: a ship entry of plan disagrees with trunk and trunk-auto (0.352625ms)
+✔ delivery-models config: a settings problem is a ShipConfigError (0.378958ms)
+✔ delivery-models config: merge_method is still validated and read (0.35725ms)
+✔ delivery-models open: a two-prs change starts from origin/<base> (1263.187625ms)
+✔ delivery-models open: a missing test branch on the remote creates nothing (467.851125ms)
+✔ delivery-models open: a base that is not the default branch creates nothing (644.829083ms)
+✔ delivery-models open: an id ending in the test branch name creates nothing (493.371917ms)
+✔ delivery-models open: an id ending in another word is fine in two-prs (1406.197542ms)
+✔ delivery-models open: a repository with no remote is not checked and starts from HEAD (1054.748417ms)
+✔ delivery-models open: a trunk project opens as today, with no test branch needed (1145.072541ms)
+✔ delivery-models open: a two-prs project without base or test_branch is refused as missing, in both ways in (455.056833ms)
+✔ delivery-models open: an unknown model or a test branch equal to the base is refused as unknown (470.855833ms)
+✔ delivery-models open: the new replies exist in both languages and name no internal word (0.062542ms)
+✔ delivery-models P7 T0: a base branch that is not the default branch blocks and names both (0.138916ms)
+✔ delivery-models P7 T0: an unreadable default branch blocks and says so (0.037ms)
+✔ delivery-models P7 T2: no base pull request and no test-branch pull request opens both (0.083417ms)
+✔ delivery-models P7 T3: no base pull request while the test-branch one exists opens the base one only (0.037375ms)
+✔ delivery-models P7 T4: no test-branch pull request opens it from the task branch (0.04025ms)
+✔ delivery-models P7 T5: a test-branch pull request closed without merging blocks (0.033917ms)
+✔ delivery-models P7 T5: an unreadable test-branch pull request blocks (0.03275ms)
+✔ delivery-models P7 T13: a test-branch pull request body that lacks something is edited (0.063209ms)
+✔ delivery-models P7 T14: failing checks on the test-branch pull request are fixed (0.039834ms)
+✔ delivery-models P7 T14: unreadable checks on the test-branch pull request block (0.02725ms)
+✔ delivery-models P7 T15: pending checks on the test-branch pull request wait (0.040292ms)
+✔ delivery-models P7 T16: a green test-branch pull request is the owner's to merge, first (0.028958ms)
+✔ delivery-models P7 T17: a base check that failed before the test-branch merge is run again (0.032084ms)
+✔ delivery-models P7 T17: a base check that failed after the test-branch merge is the existing blocked row (0.046583ms)
+✔ delivery-models P7 T18: with the test-branch pull request merged and everything met the base one is the owner's (0.022542ms)
+✔ delivery-models P7 T18: after the test-branch merge the base checks are still read (existing rows) (0.036791ms)
+✔ delivery-models P7: ready and the merge rows are never returned in two-prs (0.051833ms)
+✔ delivery-models P7: a project outside two-prs keeps its rows (ready, no two-prs step) (0.027333ms)
+✔ delivery-models fetchPr: with a base it lists by head and base and never asks pr view (1079.048667ms)
+✔ delivery-models fetchPr: with a base only the pull requests to that base are read, an open newer one to another base is not taken (944.896334ms)
+✔ delivery-models AC-9 delivered: a merged test-branch pull request alone does not deliver the change (2308.802833ms)
+✔ delivery-models AC-9 delivered: the merged-list path drops a pull request to the test branch (1295.319167ms)
+✔ delivery-models AC-2: both pull requests open together from the task branch and the state names both (2207.142542ms)
+✔ delivery-models AC-2: with only one of the two open, the missing one is opened next (1468.328458ms)
+✔ delivery-models AC-2: a body that misses the evidence is edited on the test-branch pull request too (1573.476291ms)
+✔ delivery-models AC-3: the owner merges the test-branch pull request first, then the base one; auto-merge is never enabled (3624.6295ms)
+✔ delivery-models AC-3: a base check that failed after the test-branch merge is not run again (1442.62125ms)
+✔ delivery-models AC-3: only run ids the failing check names are read, one gh run view each (1500.935875ms)
+✔ delivery-models AC-8: a fix on the task branch reaches both pull requests, without a support branch (2865.864042ms)
+✔ delivery-models AC-9 delivered: both merged with every task ticked is delivered and reads the archive (1443.688083ms)
+✔ delivery-models P7 T0: a base branch that is not GitHub's default stops the run and writes nothing (1317.690791ms)
+✔ delivery-models P7 T5: a closed test-branch pull request stops the run and writes nothing more (1700.248417ms)
+✔ delivery-models P7: a test-branch pull request from the task branch is found, an open one before a merged one (1989.626166ms)
+✔ delivery-models P7: findTestPr answers none, and an error when GitHub cannot be read (765.623208ms)
+✔ delivery-models P12: readDelivery asks for the test-branch pull request, then for the owner's merges (4751.729625ms)
+✔ delivery-models P12: a closed test-branch pull request ends blocked (1855.326375ms)
+✔ delivery-models P12: the three new codes read in both languages (0.666208ms)
+✔ delivery-models decide: the agent steps of the two-pull-request delivery go to their agents (0.579625ms)
+✔ delivery-models decide: running the failed check again stays in the session (0.061292ms)
+✔ delivery-models decide: the owner's merges end waiting, each with its own reply (0.173666ms)
+✔ delivery-models decide: the owner ends read in both languages with their parameters (0.111375ms)
+✔ delivery-models decide: the brief of a support-branch hand-off names the support worktree, the others the task worktree (0.157584ms)
+✔ delivery-models decide: every new step has a row, so none stops the change as unknown (0.081917ms)
+✔ delivery-models conduct: actorOf and the final state name each new step (0.118542ms)
+✖ delivery-models P3 merge develop: refused on the task branch (977.880958ms)
+✖ delivery-models P3 merge origin/develop: refused on the task branch (36.260791ms)
+✖ delivery-models P3 rebase develop: refused on the task branch (27.651167ms)
+✖ delivery-models P3 rebase --onto develop main: refused on the task branch (28.0595ms)
+✖ delivery-models P3 pull origin develop: refused on the task branch (28.129375ms)
+✖ delivery-models P3 pull origin develop:develop: refused on the task branch (41.230917ms)
+✖ delivery-models P3 a bare pull with upstream origin/develop: refused on the task branch (64.802417ms)
+✔ delivery-models P3 a bare pull with upstream origin/feat: allowed (38.616166ms)
+✖ delivery-models P3 merge develop~2: refused on the task branch (41.484208ms)
+✖ delivery-models P3 merge refs/heads/develop: refused on the task branch (35.677333ms)
+✖ delivery-models P3 merge refs/remotes/origin/develop: refused on the task branch (24.477ms)
+✖ delivery-models P3 merge on main, any other branch: refused on the task branch (40.309125ms)
+✖ delivery-models P3 git -C <task> merge develop: refused on the task branch (32.922208ms)
+✖ delivery-models P3 cd <task> && git merge develop, run from elsewhere: refused on the task branch (25.433958ms)
+✔ delivery-models P3 merge develop on the test branch itself: allowed (39.713125ms)
+✔ delivery-models P3 merge develop on the support branch feat-develop: allowed (28.526833ms)
+✔ delivery-models P3 merge develop on chore/archive-feat-develop: allowed (25.061542ms)
+✔ delivery-models P3 git -C <support> merge origin/develop from the task worktree: allowed (53.717083ms)
+✔ delivery-models P3 merge develop-tools: allowed (29.951875ms)
+✔ delivery-models P3 merge feature/develop with no remote feature: allowed (31.705583ms)
+✔ delivery-models P3 git log develop: allowed (43.469583ms)
+✔ delivery-models P3 git fetch origin develop: allowed (24.988334ms)
+✔ delivery-models P3 merge another branch: allowed (37.201125ms)
+✔ delivery-models P3 model trunk-auto: allowed (405.33725ms)
+✔ delivery-models P3 no model: allowed (342.346834ms)
+✔ delivery-models P3 a project that has not opted in: allowed (392.340041ms)
+✔ delivery-models P3 a settings problem (two-prs without a test branch): allowed (512.499291ms)
+✔ delivery-models P3 DEVKIT_BYPASS=1 through the CLI: allowed (28.992209ms)
+✖ delivery-models P3 the reason names the support branch of the current branch, feat-develop (32.260917ms)
+✖ delivery-models AC-5: the hook refuses bringing the test branch into the task branch (32.06575ms)
+✖ delivery-models P4 testBranchCommit: a clean branch holds no commit of the test branch (817.810375ms)
+✖ delivery-models P4 testBranchCommit: a branch that merged develop names the commit (905.273583ms)
+✖ delivery-models P4 testBranchCommit: a branch rebased onto develop names the commit (792.97225ms)
+✖ delivery-models P4 testBranchCommit: the test pull request merged into develop with a merge commit is not a foreign commit (neg) (1202.396708ms)
+✖ delivery-models P4 testBranchCommit: the test pull request squash-merged into develop is not a foreign commit (neg) (907.200584ms)
+✖ delivery-models P4 testBranchCommit: develop equal to main holds nothing to bring in (neg) (534.738792ms)
+✖ delivery-models P4 testBranchCommit: a missing remote branch answers null instead of throwing (neg) (556.467833ms)
+✖ delivery-models P7 T1: a test-branch commit in the task branch blocks, naming it (0.556ms)
+✖ delivery-models P7 T1: the state reads origin/develop as fetched and blocks, writing nothing (1590.911584ms)
+✖ delivery-models P7 T1: a clean branch has no foreign commit and reaches the pull-request rows (1415.873ms)
+✖ delivery-models AC-4: the base pull request's check fails naming the test-branch pull request until it merges, then passes (1011.136542ms)
+✖ delivery-models P5: no test-branch pull request fails naming both heads it looked for (820.634625ms)
+✔ delivery-models P5: a test-branch pull request merged from the support branch after the first was closed passes (1339.713584ms)
+✖ delivery-models P5: a commit of the test branch in the task branch fails naming it (996.248416ms)
+✖ delivery-models AC-5: the check fails a base pull request that holds a test-branch commit, naming it (1257.829375ms)
+✖ delivery-models P5: a GitHub error names the permission and the token (829.553708ms)
+✖ delivery-models P5: the head's config switched to trunk is still judged as two-prs (927.911333ms)
+✔ delivery-models P5: model trunk-auto on the base is judged as today, with no GitHub call and the same JSON keys (neg) (1035.853959ms)
+✔ delivery-models P5: a pull request to another base is not judged by the two-prs rules (neg) (1051.439959ms)
+✖ delivery-models P5: with several judged changes the rules run once per change (1897.571ms)
+✖ delivery-models P5 S1: repository.default_branch of the event names the ref the settings are read from (1176.720041ms)
+✖ delivery-models P5 S1: pull_request.base.repo.default_branch is read when repository lacks it (1026.846041ms)
+✖ delivery-models P5 S1: a default branch with no origin/ ref falls to S2 (neg) (1119.49175ms)
+✖ delivery-models P5 S2: origin/HEAD names the ref when there is no payload (938.922ms)
+✔ delivery-models P5 S3: with neither, the base ref is read as before this change (neg: a test-branch pull request whose own copy names no model) (1133.295792ms)
+✖ delivery-models P5: a base that is not the default branch read through S1 fails naming both, and neither rule runs (1086.802542ms)
+✖ delivery-models P5: the same configuration read through S3 has no such line (neg) (892.638208ms)
+ℹ tests 646
+ℹ suites 0
+ℹ pass 608
+ℹ fail 38
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 992542.568375
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 merge develop: refused on the task branch (977.880958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 merge origin/develop: refused on the task branch (36.260791ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 rebase develop: refused on the task branch (27.651167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 rebase --onto develop main: refused on the task branch (28.0595ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 pull origin develop: refused on the task branch (28.129375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 pull origin develop:develop: refused on the task branch (41.230917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 a bare pull with upstream origin/develop: refused on the task branch (64.802417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 merge develop~2: refused on the task branch (41.484208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 merge refs/heads/develop: refused on the task branch (35.677333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 merge refs/remotes/origin/develop: refused on the task branch (24.477ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 merge on main, any other branch: refused on the task branch (40.309125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 git -C <task> merge develop: refused on the task branch (32.922208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:924:52
+✖ delivery-models P3 cd <task> && git merge develop, run from elsewhere: refused on the task branch (25.433958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:926:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:975:1
+✖ delivery-models P3 the reason names the support branch of the current branch, feat-develop (32.260917ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /support branch feat-develop instead/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:977:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /support branch feat-develop instead/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:980:1
+✖ delivery-models AC-5: the hook refuses bringing the test branch into the task branch (32.06575ms)
+  AssertionError [ERR_ASSERTION]: git merge develop
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:983:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1001:1
+✖ delivery-models P4 testBranchCommit: a clean branch holds no commit of the test branch (817.810375ms)
+  TypeError [Error]: deliver.testBranchCommit is not a function
+      at foreignOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:999:34)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1004:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1007:1
+✖ delivery-models P4 testBranchCommit: a branch that merged develop names the commit (905.273583ms)
+  TypeError [Error]: deliver.testBranchCommit is not a function
+      at foreignOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:999:34)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1011:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1014:1
+✖ delivery-models P4 testBranchCommit: a branch rebased onto develop names the commit (792.97225ms)
+  TypeError [Error]: deliver.testBranchCommit is not a function
+      at foreignOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:999:34)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1018:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1021:1
+✖ delivery-models P4 testBranchCommit: the test pull request merged into develop with a merge commit is not a foreign commit (neg) (1202.396708ms)
+  TypeError [Error]: deliver.testBranchCommit is not a function
+      at foreignOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:999:34)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1027:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1030:1
+✖ delivery-models P4 testBranchCommit: the test pull request squash-merged into develop is not a foreign commit (neg) (907.200584ms)
+  TypeError [Error]: deliver.testBranchCommit is not a function
+      at foreignOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:999:34)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1035:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1038:1
+✖ delivery-models P4 testBranchCommit: develop equal to main holds nothing to bring in (neg) (534.738792ms)
+  TypeError [Error]: deliver.testBranchCommit is not a function
+      at foreignOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:999:34)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1039:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1042:1
+✖ delivery-models P4 testBranchCommit: a missing remote branch answers null instead of throwing (neg) (556.467833ms)
+  TypeError [Error]: deliver.testBranchCommit is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1044:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1049:1
+✖ delivery-models P7 T1: a test-branch commit in the task branch blocks, naming it (0.556ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready-test-branch',
+  +   'pull request #13 to develop is green; the owner merges it first'
+  -   'blocked',
+  -   'abcdef0 (work on develop) is on develop and not on main; the task branch never receives develop'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1051:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready-test-branch', 'pull request #13 to develop is green; the owner merges it first' ],
+    expected: [ 'blocked', 'abcdef0 (work on develop) is on develop and not on main; the task branch never receives develop' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1054:1
+✖ delivery-models P7 T1: the state reads origin/develop as fetched and blocks, writing nothing (1590.911584ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   sha: '9701f81f7e2a633f3519ad152ce8d348df003963',
+  -   subject: 'work on develop'
+  - }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1060:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { sha: '9701f81f7e2a633f3519ad152ce8d348df003963', subject: 'work on develop' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1066:1
+✖ delivery-models P7 T1: a clean branch has no foreign commit and reaches the pull-request rows (1415.873ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - null
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1069:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1089:1
+✖ delivery-models AC-4: the base pull request's check fails naming the test-branch pull request until it merges, then passes (1011.136542ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: feat (schema devkit-lite, head 4daa02f)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  pass
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1093:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1102:1
+✖ delivery-models P5: no test-branch pull request fails naming both heads it looked for (820.634625ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: feat (schema devkit-lite, head 3014096)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  pass
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1105:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1121:1
+✖ delivery-models P5: a commit of the test branch in the task branch fails naming it (996.248416ms)
+  Error: Command failed: git -C /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.5cubZEtX0A/devkit-deliver-lWjlXW/.claude/worktrees/other push -q origin HEAD:refs/heads/develop
+  To /var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.5cubZEtX0A/devkit-origin-CXn8rK
+   ! [rejected]        HEAD -> develop (fetch first)
+  error: failed to push some refs to '/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.5cubZEtX0A/devkit-origin-CXn8rK'
+  hint: Updates were rejected because the remote contains work that you do not
+  hint: have locally. This is usually caused by another repository pushing to
+  hint: the same ref. If you want to integrate the remote changes, use
+  hint: 'git pull' before pushing again.
+  hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+  
+      at genericNodeError (node:internal/errors:986:15)
+      at wrappedFn (node:internal/errors:540:14)
+      at checkExecSyncError (node:child_process:943:11)
+      at execFileSync (node:child_process:979:15)
+      at git (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/deliver-check.test.mjs:29:10)
+      at advanceTest (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:995:3)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1125:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    status: 1,
+    signal: null,
+    output: [ null, '', "To /var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.5cubZEtX0A/devkit-origin-CXn8rK\n ! [rejected]        HEAD -> develop (fetch first)\nerror: failed to push some refs to '/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.5cubZEtX0A/devkit-origin-CXn8rK'\nhint: Updates were rejected because the remote contains work that you do not\nhint: have locally. This is usually caused by another repository pushing to\nhint: the same ref. If you want to integrate the remote changes, use\nhint: 'git pull' before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details.\n" ],
+    pid: 37325,
+    stdout: '',
+    stderr: "To /var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.5cubZEtX0A/devkit-origin-CXn8rK\n ! [rejected]        HEAD -> develop (fetch first)\nerror: failed to push some refs to '/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.5cubZEtX0A/devkit-origin-CXn8rK'\nhint: Updates were rejected because the remote contains work that you do not\nhint: have locally. This is usually caused by another repository pushing to\nhint: the same ref. If you want to integrate the remote changes, use\nhint: 'git pull' before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details.\n"
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1133:1
+✖ delivery-models AC-5: the check fails a base pull request that holds a test-branch commit, naming it (1257.829375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1140:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1147:1
+✖ delivery-models P5: a GitHub error names the permission and the token (829.553708ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: feat (schema devkit-lite, head bf49add)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  pass
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1153:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1157:1
+✖ delivery-models P5: the head's config switched to trunk is still judged as two-prs (927.911333ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: feat (schema devkit-lite, head e845cf6)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  pass
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1162:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1182:1
+✖ delivery-models P5: with several judged changes the rules run once per change (1897.571ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: 2 changes touched by this PR (feat, feat2)
+  devkit-reviews: feat (schema devkit-lite, head 6134ec8)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  devkit-reviews: feat2 (schema devkit-lite, head 6134ec8)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  pass
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1194:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1203:1
+✖ delivery-models P5 S1: repository.default_branch of the event names the ref the settings are read from (1176.720041ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'settingsRef')
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1207:31)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1211:1
+✖ delivery-models P5 S1: pull_request.base.repo.default_branch is read when repository lacks it (1026.846041ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'settingsRef')
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1215:31)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1218:1
+✖ delivery-models P5 S1: a default branch with no origin/ ref falls to S2 (neg) (1119.49175ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'settingsRef')
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1223:31)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1226:1
+✖ delivery-models P5 S2: origin/HEAD names the ref when there is no payload (938.922ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'settingsRef')
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1231:31)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1247:1
+✖ delivery-models P5: a base that is not the default branch read through S1 fails naming both, and neither rule runs (1086.802542ms)
+  AssertionError [ERR_ASSERTION]: devkit-reviews: feat (schema devkit-lite, head 06ebd56)
+    1 met      tasks and gates: all tasks ticked
+    2 met      reviews at head: 2 reviews at head
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 met      acceptance criteria proven: 1 criteria proven
+  pass
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1252:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:1258:1
+✖ delivery-models P5: the same configuration read through S3 has no such line (neg) (892.638208ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /two-prs {2}open {2}no pull request to develop/. Input:
+  
+  'devkit-reviews: feat (schema devkit-lite, head 4399ea3)\n' +
+    '  1 met      tasks and gates: all tasks ticked\n' +
+    '  2 met      reviews at head: 2 reviews at head\n' +
+    '  3 met      findings disposed: 0 fixed, 0 refuted\n' +
+    '  4 met      acceptance criteria proven: 1 criteria proven\n' +
+    'pass\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:1263:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit-reviews: feat (schema devkit-lite, head 4399ea3)\n  1 met      tasks and gates: all tasks ticked\n  2 met      reviews at head: 2 reviews at head\n  3 met      findings disposed: 0 fixed, 0 refuted\n  4 met      acceptance criteria proven: 1 criteria proven\npass\n',
+    expected: /two-prs {2}open {2}no pull request to develop/,
+    operator: 'match',
+    diff: 'simple'
+  }
