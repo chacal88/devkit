@@ -2325,7 +2325,7 @@ export function applyAnswer(record, gate, { answer, question = '', at }) {
 // the steps the `devkit` skill's Loop describes instead (`SKILL_LOOP_STEPS`).
 const SKILL_LOOP_STEPS = ['resolve-release-conflict'];
 const SHIP_ROW_STEPS = AGENT_STEPS.filter((step) => !SKILL_LOOP_STEPS.includes(step));
-const COMMAND_STEPS = ['switch-script', 'accept-decisions'];
+const COMMAND_STEPS = ['switch-script', 'accept-decisions', 'take-place'];
 // The kinds whose progress key a confirmed view records as handed; any other kind clears it.
 export const HANDED_KINDS = ['agent', 'coordinator', 'review', 'gate', 'command', 'open'];
 const VIEW_FIELDS = ['version', 'kind', 'change', 'root', 'stage', 'stage_title', 'agent', 'step', 'brief', 'progress_key', 'question', 'reply'];

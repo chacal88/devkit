@@ -133,7 +133,10 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 - [ ] jira-entry-live (after: jira-entry) — read a real Jira task through the session's Atlassian connector with `/devkit change <key>`, and write back once on a disposable test task the owner names (one comment, one transition), on each platform the owner uses; it checks what the jira-entry plan assumed: the connector's tool names, the description's text form and the acceptance-criteria field (coordination-design D-13: Jira can be read on each platform)
 
 ## Round 21: the CompozyOS driver
-- [ ] compozy-driver (after: change-coordinator) — CompozyOS runs the same short loop (ask the checker, run the role, check the gate) in place of the twelve-stage loop, `/devkit` starts the run when the project's driver is CompozyOS, and the kit's planning role is renamed from `tech-lead` to `planner` (D-2, D-3, D-10)
+- [ ] compozy-driver (after: change-coordinator) — CompozyOS runs the same short loop (ask the checker, run the role, check the gate) in place of the twelve-stage loop, `/devkit` starts the run when the project's driver is CompozyOS, and the kit's planning role is `change-planner`, named as its Claude agent (D-2, D-3, D-10)
+
+## Round 21b: the CompozyOS driver's dogfood
+- [ ] compozy-driver-dogfood (after: compozy-driver) — the first real change run on the CompozyOS driver proves what the local proof of `compozy-driver` could not: AC-6 (the pull request, the required checks, the merge and the archive on CompozyOS), AC-10 (a roadmap run starts the change an archive freed, with Claude Code closed), the plan approval and the `accept-decisions` step live (the local proof ran the lite script, which has neither), and the rest of AC-3 (the retro answers, and the mock-up approval on a change flagged `ui`); each is recorded in that change's evidence
 
 ## Round 22: the script driver
 - [ ] script-driver (after: change-coordinator) — a small program runs the same loop and calls the AI from the command line (documented for `claude -p`), for a project whose driver is a script; built when the owner needs it (D-10)
@@ -151,7 +154,7 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 - [ ] run-status-bar (after: change-state, change-budget) — asked by the owner on 2026-11-22, after the same reference: a status bar under the message box of the session that coordinates a change or a roadmap run, with the run's progress (a strip of marks, the stage) and the share of the change's budget spent, as the reference shows "delivery · 35% of the budget". In the grill: where it lives (the Claude Code status line, the devkit panel, or both), what it shows in a roadmap run against a lone change, and that it reads only `change-state` and the budget count, writing nothing.
 
 ## Round 24: the cleanup
-- [ ] coordination-cleanup (after: coordination-panels, compozy-driver) — remove what the new coordination replaced: the old next-step scripts, the child-session code, the old panel and the old CompozyOS loop, and finish the documentation (D-11)
+- [ ] coordination-cleanup (after: coordination-panels, compozy-driver) — remove what the new coordination replaced: the old next-step scripts, the child-session code and the old panel, and finish the documentation (D-11)
 
 ## Round 26: project setup
 - [ ] project-setup (after: delivery-models) — one setup step writes the `devkit:` block, installs the schemas and the checker into the project and wires its driver (orchestrator-replan retro, item 3)

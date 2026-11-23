@@ -3852,6 +3852,21 @@ test('change-loop compozy view: review-resolution is a review like review, and t
   }
 });
 
+test('change-loop compozy view: take-place is a command no agent runs, with the checker\'s own argv', () => {
+  const a = build(rowOf('implement'), { place: { taken: false, held: 0, places: 2, machine: 'avel' } });
+  assert.equal(a.step, 'take-place');
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent, v.brief, v.question, v.step, v.progress_key], ['command', '', '', '', 'take-place', a.progressKey]);
+  assert.deepEqual(a.detail.command.slice(2), ['place', 'feat', '--lang', 'en'], 'the command the run-step runs is the checker\'s');
+});
+
+test('change-loop compozy view: a session step outside the command list is still a coordinator step', () => {
+  const a = build(rowOf('rerun-checks', { runs: [7] }));
+  assert.equal(a.step, 'rerun-checks');
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent], ['coordinator', 'change-coordinator']);
+});
+
 test('change-loop compozy view: switch-script and accept-decisions are commands no agent runs', () => {
   const lite = FLOWS['devkit-lite'];
   const rep = { flow: lite, ctx: { script: 'devkit-lite' }, rep: { schema: 'devkit-lite', next: nextOf(lite, 'proposal', 'no-file') } };

@@ -635,8 +635,8 @@ the session runs no loop, hands no stage and asks nothing of the change. `## Sta
 
 ## D-14 The new ADR and the Notes (A-11)
 
-`docs/adr/0017-compozy-runs-the-short-loop.md` (0016 went to stage-roles; 0017 is the next free
-number on `main` at `77b15b1`; at the merge of `main` it takes the next free one on `origin/main`,
+`docs/adr/0021-compozy-runs-the-short-loop.md` (0020 is the last on this branch after the merge of
+`main` at `b92e6b1`; at the last merge of `main` it takes the next free number on `origin/main`,
 and every reference moves with it), status `proposed`, `accepted` with `- Accepted by:` quoting
 `approval.md` when the owner's words accept it. `- Amends:` ADR 0009 (its Decision's first and
 third bullets and its review trigger's first clause), ADR 0008 decision 5 (a third path for the
@@ -672,12 +672,12 @@ hooks stop seeing the seat's subagent, or a gate deciding readiness outside the 
 alternatives table is the one under "Alternatives considered" below. Notes, each dated and placed
 after the record's existing Notes so the asserted ones stay where the tests read them (D-19):
 ADR 0009 (compozy-driver: what the new ADR amends), ADR 0008 (the CompozyOS path of decision 5),
-ADR 0016 (decision 3's CompozyOS sentence is replaced by ADR 0017's decision 4), ADR 0010
+ADR 0016 (decision 3's CompozyOS sentence is replaced by ADR 0021's decision 4), ADR 0010
 (decision 4's CompozyOS driver is built; the CompozyOS planner is named `change-planner`, the
 owner's choice on 2026-11-22, grill question 4, over the `planner` of the 2026-11-19 Note).
-`openspec/config.yaml`'s `ADRs:` line gains `0017 CompozyOS runs the short loop, amends 0008, 0009
-and 0016`. When accepted, ADRs 0008, 0009 and 0016 get `- Amended by ADR 0017
-(0017-compozy-runs-the-short-loop.md)` in their header, after their status line.
+`openspec/config.yaml`'s `ADRs:` line gains `0021 CompozyOS runs the short loop, amends 0008, 0009
+and 0016`. When accepted, ADRs 0008, 0009 and 0016 get `- Amended by ADR 0021
+(0021-compozy-runs-the-short-loop.md)` in their header, after their status line.
 
 ## D-15 The documents
 
@@ -713,11 +713,11 @@ those of `77b15b1`; the implementer re-runs the `grep -rn` above, which is the l
 
 ## D-16 Versions, CI and release
 
-Read from `plugin.json` and `.claude-plugin/marketplace.json` at `77b15b1`: devkit-openspec 0.22.1
-to 0.23.0; devkit-compozy 0.3.1 to 0.4.0; the marketplace 0.26.1 to 0.27.0 (devkit-core stays
-0.10.1: its agents are only read). `CHANGELOG.md` gains `## 0.27.0 — the CompozyOS driver` above
-`## 0.26.1`. The CI snippet of `docs/openspec-flow.md` pins `v0.23.0` (`:594`, `:595`, `:604`), and
-the test that pins it moves with it (T-7). After the merge: tag `v0.23.0` on the merge commit
+Read from `plugin.json` and `.claude-plugin/marketplace.json` after the merge of `main` at `b92e6b1`:
+devkit-openspec 0.32.0 to 0.33.0; devkit-compozy 0.3.1 to 0.4.0; the marketplace 0.36.0 to 0.37.0
+(devkit-core stays 0.13.2: this change touches nothing in `plugins/core`). `CHANGELOG.md` gains `## 0.37.0 — the CompozyOS driver` above
+`## 0.36.0`. The CI snippet of `docs/openspec-flow.md` pins `v0.33.0` (its three pin lines), and
+the test that pins it follows the manifest (T-7). After the merge: tag `v0.33.0` on the merge commit
 (Workflow follow-up). When `main` moves these numbers again before the merge, they are recomputed
 from the files then, as the ADR number is. `guard.test.mjs` imports the five setup
 suites (`install-kit`, `devkit-kit`, `gen-agents`, `loop-templates`, `adoption`) and
@@ -758,7 +758,7 @@ script, `devkit.driver: compozy`), registered as a CompozyOS workspace and remov
 branch's packs are installed into it at project scope from a temporary local marketplace: a copy of
 this worktree's `plugins/` and `.claude-plugin/marketplace.json` renamed `devkit-proof`, added and
 removed with the desktop app's bundled Claude Code (`CONTRIBUTING.md`), so `devkit-kit` resolves the
-branch's `devkit-openspec` 0.23.0 and the seats find `devkit-openspec:change-coordinator`.
+branch's `devkit-openspec` and the seats find `devkit-openspec:change-coordinator`.
 `compozy-setup` installs the kit there. Records under `openspec/changes/compozy-driver/proof/`:
 
 - `local-run.md` (AC-1 to AC-5): the `/devkit change` reply (AC-1); the owner closes the session;
@@ -797,7 +797,7 @@ Found by searching every suite under `plugins/` (all `*.test.mjs`), `scripts/che
 | T-4 | `project-loop start: /devkit change start routes project to the project gate and runs nothing` (`project-loop.test.mjs`) | project stops where change stops · `startMode` · guard suite | for `compozy` it asserts `driver-no-project` instead of the change verb's answer |
 | T-5 | `project-loop start: step 1 the project gate answers first, as for /devkit change` (`project-loop.test.mjs`) | the gate answers first · `project-loop start` · guard suite | the `compozy` row expects `driver-no-project` and its reply |
 | T-6 | `change-loop skills: every shipped stage agent declares its stage's skills` (`change-loop.test.mjs`) | only the session's, the review skill's and the owner's roles lack an agent · agent files · guard suite | the bare list becomes `['owner', 'review-bench']` (change-stages MODIFIED, rebased on main's block, which names the four round-16 roles) |
-| T-7 | `change-loop docs: the design records the answers` (`change-loop.test.mjs`) | the CI snippet pins the current release · docs · guard suite | the pin assertion `v0.22.1` becomes `v0.23.0`, and `v0.22.1` joins the "no pin left" list (`v0.22.0` is already there); its comment names compozy-driver and release 0.27.0; every other assertion of the test runs unchanged, and D-14 and D-15 keep the sentences it reads (Open points, section 2's two "Decided" sentences, the ADR 0008, 0009, 0010 and 0011 Notes and headings) |
+| T-7 | `change-loop docs: the design records the answers` (`change-loop.test.mjs`) | the CI snippet pins the current release · docs · guard suite | no edit: the test reads the version of `plugin.json` and compares every pin of the CI snippet with it (`pinMismatches`), so the bump of the manifest moves what it asserts; every assertion of the test runs unchanged, and D-14 and D-15 keep the sentences it reads (Open points, section 2's two "Decided" sentences, the ADR 0008, 0009, 0010 and 0011 Notes and headings) |
 | T-8 | `change-loop skill: the sections of D-3 to D-9 and the modes of start` (`change-loop.test.mjs`) | the skill keeps its sections and start modes · skill text · guard suite | the headings list gains `## On the CompozyOS driver` after `## Start`; the modes gain `driver-no-project` |
 | T-9 | `project-loop skill: the start reads the words through the quoted heredoc and carries every start mode` (`project-loop.test.mjs`) | the project section names every start mode · skill text · guard suite | the modes gain `driver-no-project` |
 | T-10 | `role-shells.test.mjs` (all 13 tests, the five `stage-roles kit: ...` tests included) | the four shells' keys, monitors and rules, and the round-16 roles they dispatch · kit templates · not run in CI | deleted with the shells (compozy-kit-setup REMOVED "The kit runs the new stages in its four shells"); `gen-agents.test.mjs` owns the agents' keys, and the round-16 roles run as their own agents through the checker (`change-loop compozy view ...`) |
@@ -905,7 +905,7 @@ the proof, then the record.
 `plugins/compozy/skills/compozy-setup/scripts/loop-templates.test.mjs`,
 `plugins/compozy/skills/compozy-setup/templates/agents/<role>/AGENT.md` (20, generated),
 `plugins/compozy/skills/compozy-setup/templates/loops/{devkit-change,devkit-review,devkit-roadmap}/loop.yaml`,
-`docs/adr/0017-compozy-runs-the-short-loop.md`, `openspec/changes/compozy-driver/proof/*.md`. Modify:
+`docs/adr/0021-compozy-runs-the-short-loop.md`, `openspec/changes/compozy-driver/proof/*.md`. Modify:
 `plugins/openspec/hooks/{change-loop,roadmap-loop,project-loop,guard}.mjs` and their tests,
 `plugins/openspec/hooks/guard.test.mjs`, `plugins/openspec/skills/devkit/SKILL.md`,
 `plugins/compozy/skills/compozy-setup/{SKILL.md,scripts/install-kit.mjs,scripts/install-kit.test.mjs,scripts/adoption.test.mjs,scripts/devkit-kit.test.mjs,templates/README.md,templates/config.toml,templates/substitutions.json,templates/bin/devkit-kit}`,
@@ -930,7 +930,7 @@ of D-15, ADRs 0008, 0009, 0010 and 0016, `openspec/config.yaml`, `openspec/roadm
 | Three loop templates (the `mockup` and `command` routes included) and `loop-templates.test.mjs` | 6.5 | Integration | HIGH |
 | Resolver, installer, retired files, tests, `.compozy/` reinstall | 4 | Migration | MEDIUM |
 | Local proof and records (phase 5) | 6 | Testing | HIGH |
-| ADR 0017, Notes (ADR 0016 included), docs, versions, catalog, whole suite (phase 6) | 5 | Documentation | LOW |
+| The new ADR, Notes (ADR 0016 included), docs, versions, catalog, whole suite (phase 6) | 5 | Documentation | LOW |
 
 **Dependencies**: round 15 (`change-coordinator`) for `change-loop.mjs` and round 18
 (`roadmap-coordinator`) for `roadmap-loop.mjs`, both archived; round 16 (`stage-roles`, archived,
@@ -985,9 +985,9 @@ here, and why; the approach, A-1 to A-11 and AC-1 to AC-12 are unchanged:
    task 4.3 say 20; the four new roles take the `list-checks` icon (D-8).
 7. Versions recomputed from `plugin.json` and `marketplace.json`: devkit-openspec 0.23.0,
    devkit-compozy 0.4.0, marketplace 0.27.0, pin and tag `v0.23.0`; T-7 adds `v0.22.1` to its
-   "no pin left" list (D-16, D-19).
+   "no pin left" list (D-16, D-19). Superseded by item 12 of the main-merge amendments.
 8. The new ADR is `0017` (0016 went to stage-roles), and every reference moves with it (D-14,
-   tasks 6.1, 6.2).
+   tasks 6.1, 6.2). Superseded by item 12 of the main-merge amendments.
 9. Every new test makes its folders through its pack's `test-tmp.mjs`, closes the fake daemon's
    socket, and reads no git history; the AC-8 test holds the old kit as constants (D-2, D-8, D-10,
    tasks).
@@ -1109,7 +1109,7 @@ acceptance criteria of this plan stay. The CompozyOS view follows what main adde
    know (a name taken meanwhile, a failed `change-loop open`).
 
 Known limits (each is main's feature that this change does not carry onto the CompozyOS path; each goes
-into ADR 0017's Consequences, task 6.1):
+into the new ADR's Consequences, task 6.1):
 
 5. The token budget. `nextAction` counts the session's spend only when the caller passes `budget: true`
    (`plugins/openspec/hooks/change-loop.mjs:1131`), and only `next` does (`:2347`); `compozyState` calls
@@ -1127,6 +1127,33 @@ into ADR 0017's Consequences, task 6.1):
 9. The run markers. The typed-command lock reads `devkit-run:` and `devkit-end:` lines in the transcript
    (`guard.mjs:628`); `compozy-start` prints none, so a Claude Code session that started a CompozyOS run
    holds no run lock (as D-1 says), and the markers' end line is never written for a CompozyOS run.
+
+Main merged again at `b92e6b1` (remote-worker, release-merge, change-version-pin; ADRs 0017 to 0020; the
+change state), and the branch followed it. What this changes for the CompozyOS driver:
+
+10. More known limits, each a feature of main that the CompozyOS path does not carry, and each in the
+    new ADR's Consequences with its file and line (task 6.1): the `no-place` end (a blocked end, the
+    `blocked` kind of the view) and the wake-up of a waiting change, which only the Claude driver's
+    roadmap run sends (`roadmap-loop.mjs`, the `wake` action); remote machines, whose `machines`
+    setting and `checkout` command the three `compozy-*` roadmap commands never read or call; the `flow`
+    subcommand and the `flow-newer` notice of `start`'s resume reply, which a CompozyOS view has no field
+    for; and the `open` step, which now commits the change folder and pushes the branch when the project
+    has an `origin` (`claimOnOrigin`), so a CompozyOS run pushes the change branch at open and may be
+    refused as `claimed`.
+11. D-3, the view. Main added the session step `take-place` (a change that records its places takes one
+    before its first implementation step; `detail.command` is `change-loop place <id>`). It reached the
+    coordinator fall-through of the view, so a CompozyOS run would have asked an agent to run a command
+    the checker built. `COMMAND_STEPS` gains `take-place`: the kind is `command`, the `run_step` gate
+    runs the argv, a refusal is recorded and asked as for `accept-decisions` (task 6.0, test first).
+12. Numbers, recomputed from the files after the merge (D-14, D-16, tasks 6.1, 6.2, 6.5 and the
+    Workflow follow-up): the new ADR is `0021` (0020 is the last on the branch), devkit-openspec
+    0.32.0 to 0.33.0, devkit-compozy 0.3.1 to 0.4.0, the marketplace 0.36.0 to 0.37.0, devkit-core
+    stays 0.13.2, the CI pin and the tag are `v0.33.0`. T-7 needs no edit: since change-version-pin the
+    test reads the version of `plugin.json` and compares every pin with it. The numbers are provisional
+    until the last merge of `main` before this change merges: each is kept in D-14, D-16 and the tasks
+    only, and `docs/adr/0021-compozy-runs-the-short-loop.md` and its references (the Notes of ADRs 0008,
+    0009, 0010 and 0016, `openspec/config.yaml`, `docs/compozy-kit.md`, `docs/openspec-flow.md`, the
+    coordination design, `CHANGELOG.md`, the pack README and the roadmap) are the files to renumber.
 
 ## Phase 4 amendments
 

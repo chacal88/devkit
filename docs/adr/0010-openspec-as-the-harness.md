@@ -79,6 +79,12 @@ name, and a roadmap run may open changes on other machines the person lists
 ([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
 its reason. Decisions 1 to 8 are otherwise unchanged.
 
+Note (compozy-driver, 2026-11-23): the CompozyOS driver of decision 4 is built, as one short loop
+that asks the change loop each turn, with one CompozyOS agent per role that has a Claude agent
+file ([ADR 0021](0021-compozy-runs-the-short-loop.md), proposed). The CompozyOS planner is named
+`change-planner`, the owner's choice on 2026-11-22 (grill question 4), over the `planner` of the
+2026-11-19 Note above. Decisions 1 to 8 are otherwise unchanged.
+
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions
 (ADR 0006), one change on request and never a sweep (ADR 0007), the reviewer round as a Workflow

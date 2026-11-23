@@ -313,43 +313,64 @@ task with `git status --short`.
 
 ## 6. The ADR, the documents, the release and the whole suite (AC-6, AC-10, AC-12)
 
-- [ ] 6.1 Write `docs/adr/0017-compozy-runs-the-short-loop.md` as D-14 says, status `proposed`;
-  when the merge of `main` finds `0017` taken on `origin/main`, take the next free number and move
-  every reference. Its decision 4 names the four owner gates and says the CompozyOS acceptance of
-  the records is the `accept-decisions` step the loop runs with `run_step` right after
-  `record-approval`. Check: the file has the five headings and names ADR 0008, ADR 0009 and ADR
-  0016 (decision 3) under `- Amends:`.
-- [ ] 6.2 Only when `approval.md`'s owner's words accept the new ADR: set it `accepted` with
-  `- Accepted by:` quoting `approval.md`, and add `- Amended by ADR 0017
-  (0017-compozy-runs-the-short-loop.md)` to ADRs 0008, 0009 and 0016, after their status line; in
-  every case add D-14's dated Notes to ADRs 0008, 0009, 0010 and 0016, each after the record's
-  existing Notes, and the ADR to the `ADRs:` line of `openspec/config.yaml`. Check: `grep -c
-  "compozy-driver"` on each of the four ADRs is at least 1, the `ADRs:` line names `0017`, and
+- [x] 6.0 Code fix, found by the merge of `main` (design.md, "Main-merge amendments", item 11): in
+  `plugins/openspec/hooks/change-loop.mjs` add `take-place` (the session step main added, whose
+  `detail.command` is `change-loop place <id>`) to `COMMAND_STEPS`, so the CompozyOS view maps it to
+  kind `command` and the `run_step` gate runs it, not to a coordinator brief. Tests first (these two
+  need no temporary folder): `change-loop compozy view: take-place is a command no agent runs, with
+  the checker's own argv` and `change-loop compozy view: a session step outside the command list is
+  still a coordinator step`. Check: the first failed before the change (kind `coordinator`), and `env
+  GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="compozy view|compozy run-step"
+  plugins/openspec/hooks/change-loop.test.mjs` passes.
+- [x] 6.1 Write `docs/adr/0021-compozy-runs-the-short-loop.md` as D-14 says, status `proposed`
+  (the owner's words in `approval.md` approve the plan and do not name the ADR); when the merge of
+  `main` finds `0021` taken on `origin/main`, take the next free number and move every reference.
+  Its decision 4 names the four owner gates and says the CompozyOS acceptance of the records is the
+  `accept-decisions` step the loop runs with `run_step` right after `record-approval`. Its
+  Consequences carry, as accepted limits of the CompozyOS driver, the nine of "Main-merge
+  amendments" and "Phase 4 amendments" (the token budget, the Jira entry and write-back, the `state`
+  subcommand, `testBranchViolation`, the run markers, the `no-place` end and no wake-up, remote
+  machines and `checkout`, the `flow` subcommand and the `flow-newer` notice, and the `open` step's
+  commit and push of the branch), each with its file and line, and the three rules of CompozyOS
+  0.6.2 the live proof found (a 280-character description, one predecessor per `ask`, the record
+  steps' view without the handed key). Check: the file has the five headings and names ADR 0008, ADR
+  0009 and ADR 0016 (decision 3) under `- Amends:`.
+- [x] 6.2 Only when `approval.md`'s owner's words accept the new ADR: set it `accepted` with
+  `- Accepted by:` quoting `approval.md`, and add `- Amended by ADR 0021
+  (0021-compozy-runs-the-short-loop.md)` to ADRs 0008, 0009 and 0016, after their status line (not
+  done: the owner's words do not name the ADR, so it stays `proposed`); in every case add D-14's
+  dated Notes to ADRs 0008, 0009, 0010 and 0016, each after the record's existing Notes, and the ADR
+  to the `ADRs:` line of `openspec/config.yaml`. Check: `grep -c "compozy-driver"` on each of the
+  four ADRs is at least 1, the `ADRs:` line names `0021`, and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="docs" plugins/openspec/hooks/guard.test.mjs`
   passes (the `stage-roles docs` and `change-loop docs` tests among them).
-- [ ] 6.3 Correct the documents D-15 lists, in every file it names, and the two screen skills'
-  sentences; then run `python3 scripts/gen-catalog.py`. Check: the `grep -rn` of D-15 over the
-  Markdown files finds only the sentences D-15 keeps as history, and `python3
-  scripts/gen-catalog.py --check` exits 0.
-- [ ] 6.4 Edit `openspec/roadmap.md`: the `coordination-cleanup` line no longer names the old
+- [x] 6.3 Correct the documents D-15 lists, in every file it names, and the two screen skills'
+  sentences, and the `compozy-setup` skill, `plugins/compozy/README.md` and the kit's
+  `templates/README.md` (the last needed no change); then run `python3 scripts/gen-catalog.py`.
+  Check: the `grep -rn` of D-15 over the Markdown files finds only the sentences D-15 keeps as
+  history (and the sentences that name the retired kit), and `python3 scripts/gen-catalog.py
+  --check` exits 0.
+- [x] 6.4 Edit `openspec/roadmap.md`: the `coordination-cleanup` line no longer names the old
   CompozyOS loop (A-7); the `compozy-driver` line names `change-planner`; add the section `## Round
-  21b: the CompozyOS driver's dogfood` with the unticked line `compozy-driver-dogfood (after:
-  compozy-driver)`, saying the first real change on the CompozyOS driver proves AC-6 (pull request,
-  required checks, merge and archive on CompozyOS), AC-10 (a roadmap run starts the change an
-  archive freed, with Claude Code closed) and the rest of AC-3 (the retro answers, and the mock-up
-  approval on a change flagged `ui`), recorded in that change's evidence. Check: `node
-  plugins/openspec/hooks/roadmap-loop.mjs status --lang en --load-limit 80` lists
-  `compozy-driver-dogfood` as waiting on `compozy-driver`.
-- [ ] 6.5 Versions and release notes of D-16, read again from the files first (today 0.22.1, 0.3.1
-  and 0.26.1): devkit-openspec 0.23.0 and devkit-compozy 0.4.0 in each `plugin.json` and in
-  `.claude-plugin/marketplace.json` (marketplace 0.27.0), the `CHANGELOG.md` entry `## 0.27.0 —
-  the CompozyOS driver` above `## 0.26.1`, and the CI snippet of `docs/openspec-flow.md` pinned to
-  `v0.23.0` (`:594`, `:595`, `:604`); change T-7 (`change-loop docs: the design records the
-  answers`; invariant: the CI snippet pins the current release; layer: docs; guard suite) to
-  `v0.23.0`, with `v0.22.1` in the "no pin left" list. Check:
+  21b: the CompozyOS driver's dogfood` after Round 21, with the unticked line
+  `compozy-driver-dogfood (after: compozy-driver)`, saying the first real change on the CompozyOS
+  driver proves AC-6 (pull request, required checks, merge and archive on CompozyOS), AC-10 (a
+  roadmap run starts the change an archive freed, with Claude Code closed), the plan approval and the
+  `accept-decisions` step live (the local proof ran the lite script, which has neither) and the rest
+  of AC-3 (the retro answers, and the mock-up approval on a change flagged `ui`), recorded in that
+  change's evidence. Check: `node plugins/openspec/hooks/roadmap-loop.mjs status --lang en
+  --load-limit 80` lists `compozy-driver-dogfood` as waiting on `compozy-driver`.
+- [x] 6.5 Versions and release notes of D-16, read again from the files first (today 0.32.0, 0.3.1
+  and 0.36.0): devkit-openspec 0.33.0 and devkit-compozy 0.4.0 in each `plugin.json` and in
+  `.claude-plugin/marketplace.json` (marketplace 0.37.0; devkit-core stays 0.13.2), the
+  `CHANGELOG.md` entry `## 0.37.0 — the CompozyOS driver` above `## 0.36.0`, and the CI snippet of
+  `docs/openspec-flow.md` pinned to `v0.33.0` (its three pin lines). T-7 (`change-loop docs: the
+  design records the answers`; invariant: the CI snippet pins the current release; layer: docs; guard
+  suite) needs no edit: it reads the version of `plugin.json` and compares every pin with it
+  (`pinMismatches`), so the bump of the manifest moves what it asserts. Check:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="docs" plugins/openspec/hooks/guard.test.mjs`
   passes.
-- [ ] 6.6 Run the short checks: `python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check`,
+- [x] 6.6 Run the short checks: `python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check`,
   `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` and `openspec validate
   compozy-driver --strict`. Check: all four exit 0.
 - [ ] 6.7 Owner-run task: validate the marketplace with the desktop app's bundled Claude Code (`plugin
@@ -363,7 +384,7 @@ task with `git status --short`.
 
 ## Workflow follow-up
 
-- After the merge, tag `v0.23.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
+- After the merge, tag `v0.33.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
 - After the release is installed, run `claude plugin update devkit-openspec@devkit` and
   `devkit-compozy@devkit` in the projects on the CompozyOS kit, then `compozy-setup` again in each.
 - The first real change on the CompozyOS driver is `compozy-driver-dogfood` (AC-6, AC-10).

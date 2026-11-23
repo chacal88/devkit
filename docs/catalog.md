@@ -118,12 +118,12 @@ Side pane in the Claude desktop app over the devkit checkers: the change this se
 
 ## devkit-compozy
 
-Ships the CompozyOS delivery loop (version 2) over the devkit flow: a design gate, a demo step, a CI wait and the archive and cleanup after the merge, installed into any project by compozy-setup. — [README](../plugins/compozy/README.md)
+Ships the CompozyOS driver of the devkit flow: one agent per devkit role and three loops (a change, its review round and a roadmap), installed into any project by compozy-setup. — [README](../plugins/compozy/README.md)
 
 **Skills** (invoke with `/<name>` or let Claude pick them by description)
 
 | Skill | What it does / when to use |
 |---|---|
-| [`compozy-setup`](../plugins/compozy/skills/compozy-setup/SKILL.md) | Installs the CompozyOS delivery loop (version 2) into a project as `.compozy/` - config.toml, the four role shells, the loop template and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit". |
+| [`compozy-setup`](../plugins/compozy/skills/compozy-setup/SKILL.md) | Installs the CompozyOS kit into a project as `.compozy/` - config.toml, one agent per devkit role, the three loops (a change, its review round, a roadmap) and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit". |
 | [`screen-demo`](../plugins/compozy/skills/screen-demo/SKILL.md) | Runs a project's demo command and files the screenshots and the journey video a change's declared screens produce, under openspec/changes/<id>/evidence/. Use when a change's `## Screens` section names at least one screen and the project has a demo_command, after verify and before the pull request. |
-| [`screen-design`](../plugins/compozy/skills/screen-design/SKILL.md) | Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical half of the design gate. Use when a change's `## Screens` section names at least one screen, before implementation starts. |
+| [`screen-design`](../plugins/compozy/skills/screen-design/SKILL.md) | Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical check of the screen map (`screens-check`). Use when a change's `## Screens` section names at least one screen, before implementation starts. |

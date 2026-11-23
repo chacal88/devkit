@@ -1,6 +1,6 @@
 ---
 name: compozy-setup
-description: Installs the CompozyOS delivery loop (version 2) into a project as `.compozy/` - config.toml, the four role shells, the loop template and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit".
+description: Installs the CompozyOS kit into a project as `.compozy/` - config.toml, one agent per devkit role, the three loops (a change, its review round, a roadmap) and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit".
 ---
 
 # compozy-setup
@@ -14,31 +14,32 @@ files, and installs them again on a re-run without losing what the project edite
 ## Install procedure
 
 1. **Gather the inputs.** Ask the project (or read them from an existing `.compozy/` when
-   re-running): the four agent ids (`__PLANNER__`, `__IMPLEMENTER__`, `__REVIEWER__`,
-   `__DESIGNER__`), `__VERIFY_COMMAND__`, optionally `__DEMO_COMMAND__` and `__DEMO_URL__`, and
-   the workspace `__TIMEZONE__`. Everything else about a project comes from files already in the
-   repository (`CLAUDE.md`, `openspec/config.yaml`), never guessed.
+   re-running) for the workspace's `__TIMEZONE__`; it is the only input the loops and agents need.
+   Everything else about a project comes from files already in the repository (`CLAUDE.md`,
+   `openspec/config.yaml`), never guessed.
 2. **Run the installer** from the project's root:
 
    ```bash
    node <this skill>/scripts/install-kit.mjs <project-root> [--set __NAME__=value]... [--accept <path>,...] [--json]
    ```
 
-   It writes `.compozy/config.toml` (the workspace overlay: default agent, provider,
-   `permissions.mode`, skills sources, timezone), `.compozy/README.md` (the roles table, the loop's
-   stage line and the one command that starts a run), the four role shells
-   `.compozy/agents/<role>/AGENT.md` for `tech-lead`, `dev`, `qa` and `design`,
-   `.compozy/loops/openspec-change/loop.yaml` (with `__VERIFY_COMMAND__`, `__DEMO_COMMAND__` and
-   `__DEMO_URL__` filled) and `.compozy/bin/devkit-kit`, executable and verbatim (it carries no
-   placeholder: every template calls `.compozy/bin/devkit-kit <checker>` instead of a path from one
-   repository). Pass each input from step 1 with `--set`. It records the inputs and a sha256 of
-   every file in `.compozy/kit-manifest.json`, prints one line per file (`create`, `same`,
-   `update`, `edited` or `accepted`) and writes nothing outside `.compozy/`.
+   It writes `.compozy/config.toml` (the workspace overlay: default agent `change-coordinator`,
+   provider, `permissions.mode`, skills sources, timezone), `.compozy/README.md` (what the kit is, the
+   loops and what the owner answers), the twenty agents `.compozy/agents/<role>/AGENT.md` (one per
+   devkit role, generated from the Claude agent files and written verbatim), the three loops
+   `.compozy/loops/devkit-change/loop.yaml`, `.compozy/loops/devkit-review/loop.yaml` and
+   `.compozy/loops/devkit-roadmap/loop.yaml`, and `.compozy/bin/devkit-kit`, executable and verbatim
+   (every loop calls `.compozy/bin/devkit-kit <checker>` instead of a path from one repository). Pass
+   each input from step 1 with `--set`. It records the inputs and a sha256 of every file in
+   `.compozy/kit-manifest.json`, prints one line per file (`create`, `same`, `update`, `edited`,
+   `accepted`, `remove` or `kept`) and writes nothing outside `.compozy/`. A loop file in the
+   workspace's `.compozy/loops/` is listed and run by name: there is no step to publish it.
+
 3. **Add a `design:` block to `openspec/config.yaml`**, with its two keys: `screen_map:`
    (`__SCREEN_MAP__`), the path to the project's screen map, and, when the project names one,
-   `mockup:` (`__MOCKUP__`), the tool or document the mockup lives in (informational only; the
-   design gate does not read it) - only when the project has at least one screen to track. A
-   project with no browser surface gets no block, and the design gate stays a no-op for it.
+   `mockup:` (`__MOCKUP__`), the tool or document the mockup lives in (informational only; `screens-check`
+   does not read it) - only when the project has at least one screen to track. A
+   project with no browser surface gets no block, and `screens-check` stays a no-op for it.
 
    ```yaml
    design:
@@ -54,7 +55,8 @@ files, and installs them again on a re-run without losing what the project edite
 
 ### devkit-kit's resolver
 
-`.compozy/bin/devkit-kit` finds the devkit checkers (`deliver-check`, `conduct-check`) at
+`.compozy/bin/devkit-kit` finds the devkit checkers (`deliver-check`, `conduct-check`, `change-loop`,
+`roadmap-loop`, `review-round`) at
 `$DEVKIT_HOOKS`, in a repository checkout, or in the installed `devkit-openspec` with the highest
 version under the Claude Code plugins directory; it resolves its own pack's `screens-check` the
 same way, scoped to `devkit-compozy`, without `$DEVKIT_HOOKS` (design D9). That search honours
@@ -65,16 +67,15 @@ config elsewhere.
 
 ## What it never does
 
-- **Publish the loop.** `compozy loop create --fork-from-name` is the operator's act, run once the
-  files are in place and reviewed.
-- **Start a run.** `compozy loop run` is a later, separate step.
+- **Start a run.** `/devkit` starts them, or `compozy loop run`, as a later, separate step.
 - **Write product code, a test or a spec.** This skill only writes `.compozy/` and the one
   `design:` block of `openspec/config.yaml`.
 
 ## Re-running over an existing `.compozy/`
 
 Run `install-kit.mjs` again. The manifest's recorded inputs are reused (`--set` overrides one), so
-the skill asks again only for an input the project does not already record. Per file:
+the skill asks again only for an input the project does not already record. An input the templates no
+longer have is dropped from the manifest and printed as `dropped __NAME__`. Per file:
 
 - a file the project did not edit (its bytes still match the recorded digest) is replaced by the
   current template without a question (`update`); one already equal to its rendering is `same`,
@@ -84,5 +85,13 @@ the skill asks again only for an input the project does not already record. Per 
   per file; on yes, run again with `--accept .compozy/<path>` for it (`accepted`);
 - the first re-run of an install made before the manifest existed treats every file that differs
   from the template as edited, so nothing the project wrote is lost.
+
+A project on the first kit has five retired files: the four role shells
+`.compozy/agents/{tech-lead,dev,qa,design}/AGENT.md` and `.compozy/loops/openspec-change/loop.yaml`.
+One that still equals its recorded digest is deleted (`remove`, with its folder when it is empty). One
+the project edited, or that has no recorded digest, is kept (`kept`) and named: show it to the owner,
+and on yes run again with `--accept .compozy/<path>` for it (`remove`). Runs of the old loop under way
+finish on the loop definition CompozyOS already holds. A workspace whose default agent was `tech-lead`
+needs another one: `compozy workspace edit <name> --default-agent change-coordinator`.
 
 It never touches a file outside `.compozy/` and `openspec/config.yaml`'s `design:` block.

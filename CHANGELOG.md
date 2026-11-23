@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.37.0 — the CompozyOS driver
+
+- **devkit-openspec** 0.33.0: a project that sets `driver: compozy` runs its changes on CompozyOS.
+  `/devkit change` and `/devkit roadmap` start the run with `change-loop.mjs compozy-start` and
+  `roadmap-loop.mjs compozy-start` and reply with where to follow it; the session runs no loop. Each
+  turn of the CompozyOS loop asks the same checker the Claude driver asks (`change-loop.mjs next --view
+  compozy`), has it confirm the reading, and runs the one step it names; the owner's gates (the grill,
+  the mock-up and plan approvals, the retro answers) are CompozyOS requests whose answers are recorded by
+  scripts, and no tool of a CompozyOS session writes `approval.md`. The new agent `change-coordinator`
+  is the loops' hands. The CompozyOS driver does not carry the token budget, the Jira entry and
+  write-back, the `state` command, the run markers, remote machines or the `flow` notice
+  ([ADR 0021](docs/adr/0021-compozy-runs-the-short-loop.md), Consequences).
+- **devkit-compozy** 0.4.0: the kit is twenty agents generated from the Claude agent files (one per
+  devkit role, named as the role, each handing its work to the Claude agent of the same name) and three
+  loops: `devkit-change`, `devkit-review` and `devkit-roadmap`. The twelve-stage loop `openspec-change`
+  and the four role shells leave: `compozy-setup` run again removes the ones the project did not edit,
+  keeps and names an edited one, and drops the inputs the new templates no longer have.
+  `gen-agents.mjs --check` runs in CI.
+- Docs: ADR 0021 (proposed) amends ADR 0008, ADR 0009 and ADR 0016, with Notes in ADRs 0008, 0009, 0010 and
+  0016; `docs/compozy-kit.md` is rewritten for the three loops, the seat and reinstalling over the first
+  kit; the flow page, the coordination design, the roles and the pack README follow. The CI snippet now pins
+  `v0.33.0`, the release's tag.
+
 ## 0.36.0 — remote worker
 
 - **devkit-openspec** 0.32.0: a change can run on another machine. Opening a change in a repository

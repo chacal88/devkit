@@ -39,7 +39,7 @@ An acceptance criterion states only what can be proven before the PR: `deliver-c
    node --test plugins/openspec/hooks/guard.test.mjs
    ```
 
-   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs`, `github-setup.test.mjs` and devkit-core's `plugins/core/skills/review-change/scripts/review-round.test.mjs`, so this one command runs every hook test and the review round's tests (about 13 minutes; 12m54s observed on 279c830); give reviewers its result instead of having them re-run it. To run only the review round's tests, use `node --test plugins/core/skills/review-change/scripts/review-round.test.mjs`.
+   `guard.test.mjs` imports `deliver-check.test.mjs`, `merge-setup.test.mjs`, `github-setup.test.mjs`, devkit-core's `plugins/core/skills/review-change/scripts/review-round.test.mjs`, `compozy-driver.test.mjs` and the five suites of the CompozyOS kit under `plugins/compozy/skills/compozy-setup/scripts/` (`install-kit`, `devkit-kit`, `gen-agents`, `loop-templates` and `adoption`), so this one command runs every hook test, the review round's tests and the kit's (about 13 minutes; 12m54s observed on 279c830); give reviewers its result instead of having them re-run it. To run only the review round's tests, use `node --test plugins/core/skills/review-change/scripts/review-round.test.mjs`.
 
    A test fixture never depends on the branch variables of the machine that runs it: every env it builds blanks `DEVKIT_BYPASS`, `DEVKIT_BRANCH`, `DEVKIT_CHANGE`, `GITHUB_HEAD_REF`, `GITHUB_BASE_REF` and `GITHUB_EVENT_PATH`, through one shared constant of the test file. A test in `guard.test.mjs` refuses an env that blanks `DEVKIT_BRANCH` alone.
 
