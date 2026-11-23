@@ -89,3 +89,20 @@ Validation (GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main on node runs
   neither the merge nor the pin causes it; it is a main test that assumes a Linux temporary root. Not changed here.
 - node --test plugins/openspec/hooks/flow-check.test.mjs (whole file, background): 696 tests, 696 pass, exit 0.
 - The whole guard.test.mjs suite was not run (ship-change runs it).
+
+Second merge (origin/main 78b6cd7, PR 65 "resolve release-file conflicts by a merge")
+- Main took devkit-openspec 0.29.0 and marketplace 0.33.0, so this change's release moved to devkit-openspec 0.30.0
+  and marketplace 0.34.0 (tags v0.30.0 and v0.34.0 do not exist; main's manifests name 0.29.0 and 0.33.0).
+- CHANGELOG.md: this change's entry became `## 0.34.0 — change-version-pin` above main's `## 0.33.0 — release conflicts
+  resolved by a merge`; both texts kept, this entry's 0.29.0 and v0.29.0 renamed to 0.30.0 and v0.30.0.
+- plugins/openspec/hooks/change-loop.test.mjs: the only conflict was the block of per-release pin assertions of the
+  docs test. Main's PR 65 removed that block on purpose (the assertion now reads the version from the manifest:
+  `pinMismatches(flow, version)` must be empty, so every CI pin names the manifest's release). Taken main's side; this
+  change's own `v0\.29\.0` match and its doesNotMatch lines are not re-added. Invariant kept by main's assertion: the
+  CI snippet pins the current release (docs test of change-loop.test.mjs, layer: docs/flow document).
+- Numbers moved to 0.30.0: plugins/openspec/.claude-plugin/plugin.json, .claude-plugin/marketplace.json (marketplace
+  0.34.0 and the devkit-openspec entry), docs/openspec-flow.md (CI snippet pin and the Pin paragraph, and "opened from
+  devkit-openspec 0.30.0 on"), plugins/openspec/skills/openspec-setup/SKILL.md. The pack README and the devkit skill name
+  no release. version-pin.test.mjs uses '0.29.0' only as a fixture value of a pin it writes, not as the release.
+- conduct-check.mjs auto-merged: `git diff origin/main` shows only this change's pin edits (changeFlow in planArtifactsOf,
+  changeDeclaresOrInstalled for needsReadiness and needsRequirements, the imports).

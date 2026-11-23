@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// release-rebase: rebase the current branch on origin/<base> and resolve the release-file conflicts
-// (conduct-rounds design D11). Never pushes, never commits after the rebase; the renumbering stays
-// in the working tree for the caller to test and commit. No dependencies.
+// release-merge: merge origin/<base> into the current branch and resolve the release-file conflicts
+// by rule; commit the merge, never push (conduct-rounds design D11, release-merge-conflict D-1).
+// No dependencies.
 //
-//   node release-rebase.mjs --base <base> [--json]
+//   node release-merge.mjs --base <base> [--json]
 //
-// Exit 0 resolved, 2 not resolvable (the branch is back at its old head), 3 setup or usage error.
+// Exit 0 resolved (the merge is committed) or nothing to do, 2 not resolvable (the merge is undone and
+// the branch is at its old head), 3 setup or usage error.
 
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -129,6 +130,11 @@ const MASK = '0.0.0';
 const PIN_MARKER = /pinned to the commit of v|<commit sha of v|git\/ref\/tags\/v|\(`v\d+\.\d+\.\d+` above\)/;
 const PIN_TOKEN = /(?<![A-Za-z0-9])v\d+\.\d+\.\d+(?!\d)/g;
 
+// Every pin (`v<x.y.z>`) on every pin line of `text`, in order; [] for a text with no pin line.
+export function pinsIn(text) {
+  return text.split('\n').flatMap((line) => (PIN_MARKER.test(line) ? line.match(PIN_TOKEN) ?? [] : []));
+}
+
 // Every pin on every pin line becomes v<version>; every other byte stays. Masking is setPins(text, '0.0.0').
 export function setPins(text, version) {
   return text.split('\n').map((line) => (PIN_MARKER.test(line) ? line.replace(PIN_TOKEN, `v${version}`) : line)).join('\n');
@@ -182,8 +188,28 @@ function show(root, rev, path) {
   const r = spawnSync('git', ['-C', root, 'show', `${rev}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
   return r.status === 0 ? r.stdout : null;
 }
-// The index stages of a conflicted path at a rebase stop: :1: the common base, :2: the upstream, :3: the change.
-const stageReader = (root) => (path) => ({ base: show(root, ':1', path), ours: show(root, ':2', path), theirs: show(root, ':3', path) });
+// The index stages of a conflicted path during a merge: :1 the common base, :2 the branch (HEAD), :3 the merged
+// origin/<base>. `ours` is the base's side, the orientation conduct-check's threeVersions gives.
+const mergeStages = (root) => (path) => ({ base: show(root, ':1', path), ours: show(root, ':3', path), theirs: show(root, ':2', path) });
+const mergeInProgress = (root) => sh(root, ['rev-parse', '-q', '--verify', 'MERGE_HEAD']).ok;
+// Tracked files outside openspec/ with uncommitted changes (porcelain -z; a rename names two paths).
+function dirtyOutsideOpenspec(root) {
+  const r = spawnSync('git', ['-C', root, 'status', '--porcelain', '-z', '--untracked-files=no'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const parts = (r.stdout ?? '').split('\0').filter(Boolean);
+  const paths = [];
+  for (let i = 0; i < parts.length; i++) {
+    paths.push(parts[i].slice(3));
+    if (/[RC]/.test(parts[i].slice(0, 2))) paths.push(parts[++i]);
+  }
+  return paths.filter((p) => !p.startsWith('openspec/'));
+}
+// Write a file and stage it, recording it in `touched` so an abort can put it back.
+function writeStaged(root, touched, path, text) {
+  touched.push(path);
+  writeFileSync(join(root, path), text);
+  const r = sh(root, ['add', '--', path]);
+  if (!r.ok) throw new ReleaseError(`git add ${path} failed: ${r.err}`);
+}
 function rebaseInProgress(root) {
   return ['rebase-merge', 'rebase-apply'].some((d) => existsSync(resolve(root, gitOut(root, ['rev-parse', '--git-path', d]))));
 }
@@ -194,9 +220,9 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base' && argv[i + 1]) opts.base = argv[++i];
     else if (argv[i] === '--json') opts.json = true;
-    else throw new ReleaseError(`unknown option ${argv[i]} (usage: release-rebase.mjs --base <base> [--json])`);
+    else throw new ReleaseError(`unknown option ${argv[i]} (usage: release-merge.mjs --base <base> [--json])`);
   }
-  if (!opts.base) throw new ReleaseError('usage: release-rebase.mjs --base <base> [--json]');
+  if (!opts.base) throw new ReleaseError('usage: release-merge.mjs --base <base> [--json]');
   return opts;
 }
 
@@ -233,12 +259,13 @@ function resolveVersions(root, { mergeBase, oldHead, ref }) {
   return { changed, versions, beyond };
 }
 
-// Back to the pre-rebase state. `written` are the files this run rewrote after the rebase; they are
-// put back first because `reset --keep` refuses to overwrite local edits.
-function restore(root, oldHead, written = []) {
-  if (rebaseInProgress(root)) { sh(root, ['rebase', '--abort']); return; }
-  if (written.length) sh(root, ['checkout', 'HEAD', '--', ...written]);
-  sh(root, ['reset', '--keep', oldHead]);
+// Undo the run: abort the merge (which resets what it staged), then put back every touched path that still
+// differs from HEAD (a write whose `git add` never ran). Step 4 of main guarantees those held no edit of the person's.
+function restore(root, touched = []) {
+  if (mergeInProgress(root)) sh(root, ['merge', '--abort']);
+  for (const path of touched) {
+    if (sh(root, ['cat-file', '-e', `HEAD:${path}`]).ok && !sh(root, ['diff', '--quiet', 'HEAD', '--', path]).ok) sh(root, ['checkout', 'HEAD', '--', path]);
+  }
 }
 
 export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout.write(s), stderr = (s) => process.stderr.write(s) } = {}) {
@@ -247,52 +274,50 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
   try {
     opts = parseArgs(argv);
     root = gitOut(cwd, ['rev-parse', '--show-toplevel']);
-  } catch (e) { stderr(`release-rebase: ${e.message}\n`); return 3; }
+  } catch (e) { stderr(`release-merge: ${e.message}\n`); return 3; }
   const ref = `origin/${opts.base}`;
   const report = (code, obj, text) => { stdout(opts.json ? `${JSON.stringify(obj, null, 2)}\n` : `${text}\n`); return code; };
-  if (!sh(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) { stderr(`release-rebase: ${ref} is missing; run: git fetch origin ${opts.base}\n`); return 3; }
+  if (!sh(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) { stderr(`release-merge: ${ref} is missing; run: git fetch origin ${opts.base}\n`); return 3; }
 
-  if (rebaseInProgress(root)) sh(root, ['rebase', '--abort']);
+  if (mergeInProgress(root)) sh(root, ['merge', '--abort']);
+  if (rebaseInProgress(root)) { stderr(`release-merge: a rebase is in progress in ${root}; finish or abort it first\n`); return 3; }
+  const dirty = dirtyOutsideOpenspec(root);
+  if (dirty.length) { stderr(`release-merge: uncommitted changes outside openspec/: ${dirty.join(', ')}; commit them first\n`); return 3; }
   const oldHead = gitOut(root, ['rev-parse', 'HEAD']);
   const mergeBase = gitOut(root, ['merge-base', oldHead, ref]);
   if (sh(root, ['merge-base', '--is-ancestor', ref, oldHead]).ok) {
     return report(0, { resolved: true, oldHead, newHead: oldHead, versions: { packs: {} }, files: [] }, `already on ${ref}: nothing to do`);
   }
-  const written = [];
-  const unresolved = (extra) => { restore(root, oldHead, written); return report(2, { resolved: false, oldHead, ...extra }, `not resolved: ${extra.error ?? `conflicts in ${extra.conflicts.join(', ')}`}`); };
+  const touched = [];
+  const unresolved = (extra) => { restore(root, touched); return report(2, { resolved: false, oldHead, ...extra }, `not resolved: ${extra.error ?? `conflicts in ${extra.conflicts.join(', ')}`}`); };
 
   const packAtBase = (() => { try { return JSON.parse(show(root, ref, PIN_PACK) ?? 'null'); } catch { return null; } })();
   const baseVersion = packAtBase?.name === PIN_PACK_NAME && typeof packAtBase.version === 'string' ? packAtBase.version : null;
   const hasGen = existsSync(join(root, 'scripts', 'gen-catalog.py'));
-  let catalogConflict = false;
-  const first = sh(root, ['rebase', ref]);
-  if (!first.ok && !rebaseInProgress(root)) { stderr(`release-rebase: git rebase failed: ${first.err}\n`); return 3; }
-  for (let stops = 0; rebaseInProgress(root); stops++) {
-    if (stops > 200) return unresolved({ conflicts: [], error: 'the rebase did not converge' });
-    const conflicts = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
-    const { blocking, pinMerged } = classifyConflict(conflicts, stageReader(root));
-    if (blocking.length || (conflicts.includes('docs/catalog.md') && !hasGen)) return unresolved({ conflicts });
-    if (conflicts.includes('docs/catalog.md')) catalogConflict = true;
-    // During a rebase --ours is the base being rebased onto; the change's side is read from oldHead below.
-    for (const p of conflicts.filter((c) => c !== PIN_FILE)) {
-      if (!sh(root, ['checkout', '--ours', '--', p]).ok || !sh(root, ['add', '--', p]).ok) return unresolved({ conflicts, error: `cannot keep the base's side of ${p}` });
-    }
-    if (conflicts.includes(PIN_FILE)) {
-      if (baseVersion === null) return unresolved({ conflicts, error: `cannot set the pin: ${ref} has no ${PIN_PACK_NAME} version in ${PIN_PACK}` });
-      try { writeFileSync(join(root, PIN_FILE), setPins(pinMerged, baseVersion)); } catch { return unresolved({ conflicts, error: `cannot keep the merged pin file ${PIN_FILE}` }); }
-      if (!sh(root, ['add', '--', PIN_FILE]).ok) return unresolved({ conflicts, error: `cannot keep the merged pin file ${PIN_FILE}` });
-    }
-    if (!sh(root, ['rebase', '--continue']).ok && !rebaseInProgress(root)) return unresolved({ conflicts, error: 'git rebase --continue failed' });
+  const started = sh(root, ['-c', 'rerere.enabled=false', 'merge', '--no-ff', '--no-commit', ref]);
+  if (!started.ok && !mergeInProgress(root)) { stderr(`release-merge: git merge failed: ${started.err}\n`); return 3; }
+
+  const conflicts = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
+  const { blocking, pinMerged } = classifyConflict(conflicts, mergeStages(root));
+  if (blocking.length || (conflicts.includes('docs/catalog.md') && !hasGen)) return unresolved({ conflicts });
+  // During a merge --theirs is origin/<base>; the change's side is read from oldHead below.
+  for (const p of conflicts.filter((c) => c !== PIN_FILE)) {
+    touched.push(p);
+    if (!sh(root, ['checkout', '--theirs', '--', p]).ok || !sh(root, ['add', '--', p]).ok) return unresolved({ conflicts, error: `cannot keep the base's side of ${p}` });
   }
 
   try {
+    if (conflicts.includes(PIN_FILE)) {
+      if (baseVersion === null) return unresolved({ conflicts, error: `cannot set the pin: ${ref} has no ${PIN_PACK_NAME} version in ${PIN_PACK}` });
+      writeStaged(root, touched, PIN_FILE, setPins(pinMerged, baseVersion));
+    }
     const { changed, versions, beyond } = resolveVersions(root, { mergeBase, oldHead, ref });
     if (beyond.length) return unresolved({ conflicts: changed, error: `a manifest was edited beyond its version: ${beyond.join('; ')}` });
-    const files = written;
+    const files = [];
     for (const path of changed) {
       const baseText = show(root, ref, path);
       if (baseText === null) continue;
-      writeFileSync(join(root, path), resolveManifest(baseText, versions));
+      writeStaged(root, touched, path, resolveManifest(baseText, versions));
       files.push(path);
     }
     const clChange = show(root, oldHead, 'CHANGELOG.md');
@@ -300,23 +325,29 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
     if (clChange !== null && clChange !== clMerge) {
       const version = versions.metadata ?? JSON.parse(show(root, ref, '.claude-plugin/marketplace.json') ?? '{}').metadata?.version;
       if (!version) throw new ReleaseError('cannot place the CHANGELOG entry: no metadata.version to number it with');
-      writeFileSync(join(root, 'CHANGELOG.md'), resolveChangelog({ mergeBase: clMerge, change: clChange, base: show(root, ref, 'CHANGELOG.md') ?? '', version }));
+      writeStaged(root, touched, 'CHANGELOG.md', resolveChangelog({ mergeBase: clMerge, change: clChange, base: show(root, ref, 'CHANGELOG.md') ?? '', version }));
       files.push('CHANGELOG.md');
     }
     const pinVersion = versions.packs[PIN_PACK_NAME] ?? baseVersion;
     if (pinVersion && existsSync(join(root, PIN_FILE))) {
-      writeFileSync(join(root, PIN_FILE), setPins(readFileSync(join(root, PIN_FILE), 'utf8'), pinVersion));
+      writeStaged(root, touched, PIN_FILE, setPins(readFileSync(join(root, PIN_FILE), 'utf8'), pinVersion));
       files.push(PIN_FILE);
     }
-    if (hasGen && (catalogConflict || files.some((f) => MANIFEST.test(f)))) {
+    if (hasGen && (conflicts.includes('docs/catalog.md') || files.some((f) => MANIFEST.test(f)))) {
+      touched.push('docs/catalog.md');
       const g = spawnSync('python3', ['scripts/gen-catalog.py'], { cwd: root, encoding: 'utf8' });
       if (g.status !== 0) throw new ReleaseError(`scripts/gen-catalog.py failed: ${(g.stderr || g.stdout).trim()}`);
+      if (!sh(root, ['add', '--', 'docs/catalog.md']).ok) throw new ReleaseError('git add docs/catalog.md failed');
       files.push('docs/catalog.md');
     }
+    const left = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
+    if (left.length) return unresolved({ conflicts: left });
+    const committed = sh(root, ['commit', '-q', '-m', `chore(release): merge ${ref} and renumber the release above it`]);
+    if (!committed.ok) return unresolved({ conflicts: [], error: `git commit failed: ${committed.err}` });
     const newHead = gitOut(root, ['rev-parse', 'HEAD']);
-    return report(0, { resolved: true, oldHead, newHead, versions, files }, `resolved: ${files.join(', ') || 'no release file changed'} (uncommitted, ${Object.entries(versions.packs).map(([n, v]) => `${n} ${v}`).join(', ')})`);
+    return report(0, { resolved: true, oldHead, newHead, versions, files }, `resolved: merged ${ref} at ${newHead.slice(0, 7)}; ${files.length ? `renumbered ${files.join(', ')} (${Object.entries(versions.packs).map(([n, v]) => `${n} ${v}`).join(', ')})` : 'no release file changed'}`);
   } catch (e) {
-    // Any failure after the replay (a malformed manifest, a write error) must leave the tree as it was found.
+    // Any failure after the merge started (a malformed manifest, a write error) must leave the tree as it was found.
     return unresolved({ conflicts: [], error: e instanceof Error ? e.message : String(e) });
   }
 }

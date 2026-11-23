@@ -13,7 +13,7 @@ import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './deliver-c
 import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
 import './conduct-check.test.mjs'; // conduct-rounds: the round computation
 import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
-import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
+import './release-merge.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
 import './jira-task.test.mjs'; // jira-entry: the Jira key, the task and the write-back
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks

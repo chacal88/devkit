@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.33.0 — change-version-pin
+## 0.34.0 — change-version-pin
 
-- **devkit-openspec** 0.29.0: a change follows the flow it was opened with. `change-loop.mjs open`
+- **devkit-openspec** 0.30.0: a change follows the flow it was opened with. `change-loop.mjs open`
   records `x-devkit-version` and `x-devkit-flow` in the change's `.openspec.yaml`; every reader of
   the change's stages (the readout, the change, roadmap and project loops, the edit hook, the CI
   check, the conductor and the locks) reads `flows/<n>.json` of that version, and a change with no
@@ -10,11 +10,23 @@
   flow is installed, the readout and the `resume` reply say so in one line, and the change moves
   only on the owner's request, with the new `change-loop.mjs flow <id>`; the `script` switch
   records the new script's flow. `scripts/check.py` refuses a `flow.json` changed with its version
-  kept, against `scripts/released-flows.json`. The CI snippet now pins `v0.29.0`, the release's tag.
+  kept, against `scripts/released-flows.json`. The CI snippet now pins `v0.30.0`, the release's tag.
 - Docs: `docs/openspec-flow.md` ("The flow a change follows", "Moving to a newer flow"),
   CONTRIBUTING.md (a flow change raises its version), the pack README and the setup skill.
-- Projects: move the pinned `devkit-reviews` workflow to the commit of `v0.29.0` to honour the
+- Projects: move the pinned `devkit-reviews` workflow to the commit of `v0.30.0` to honour the
   recorded flows in CI; re-run `openspec-setup` to get `flows/`.
+
+## 0.33.0 — release conflicts resolved by a merge
+
+- **devkit-openspec** 0.29.0: when a pull request conflicts with its base only in release files, the
+  release-conflict step merges `origin/<base>` into the branch with `hooks/release-merge.mjs` (was
+  `release-rebase.mjs`, which rebased), renumbers the release above the base's and commits the
+  merge, never pushing. After the evidence and the review run again, the loop hands a plain
+  `git push`. The `push-rebased` step and its force-with-lease push are gone. The CI-pin assertion
+  of the hook tests reads the version from the manifest. The CI snippet now pins `v0.29.0`, the
+  release's tag.
+- Docs: the flow document, the `devkit` skill, the pack's README and CONTRIBUTING follow, and the
+  roadmap gains a line for the live check.
 
 ## 0.32.3 — retro proposals of delivery-models
 
