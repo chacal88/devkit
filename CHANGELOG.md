@@ -1,10 +1,18 @@
 # Changelog
 
-## 0.32.1 — retro proposals of delivery-models
+## 0.32.2 — retro proposals of delivery-models
 
 - **devkit-core** 0.13.1: `tdd-implementer` runs a long suite in the background and never waits with a
   polling loop; `pr-verifier` may let one green whole-suite run stand for the gate parts it imports.
 - Project config: plans name an ADR number or version by rule, not by value.
+
+## 0.32.1 — retro of change-budget
+
+- **devkit-openspec** 0.28.1: the `ship-change` `review` row commits every modified or untracked
+  file under the change folder before a review round, so the verdicts are not recorded against
+  uncommitted changes.
+- Docs: `CONTRIBUTING.md` says to fetch `main` again right before each push of the delivery and
+  before `enable-auto-merge`, since a sibling that merged in between took the release number.
 
 ## 0.32.0 — delivery models per project
 
