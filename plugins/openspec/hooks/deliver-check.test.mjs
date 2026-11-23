@@ -4096,6 +4096,15 @@ test('post-merge: the archive PR is the OPEN one, else the newest MERGED, else t
   assert.deepEqual(t.gh.calls().find((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head')).slice(2, 8), ['--head', 'chore/archive-feat', '--state', 'all', '--limit', '10']);
 });
 
+test('gh-version 20: an old gh on the open archive PR is named in the collected checks error, not reported as an unreadable GitHub (AC-1)', () => {
+  const t = pm({ archivePrs: [archivePrJson({ number: 21 })] });
+  t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('json') });
+  t.gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const { error } = t.state().archive.pr.checks;
+  for (const part of ['2.46.0', '2.50.0', 'update gh']) assert.ok(error?.includes(part), String(error));
+  assert.equal(versionsOf(t).length, 1);
+});
+
 // ---- the phase and its rows P0-P14 (2.6, 2.8, design D7)
 
 test('AC-1: a merged change PR with the folder still on the default branch is "retro", in pr and merge mode, with all eight items met and nothing read from tasks or reviews', () => {
