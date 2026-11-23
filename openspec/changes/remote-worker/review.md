@@ -115,3 +115,28 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: remote-worker, round 1
+
+Path: agents · range `69cd61c53948ec3344b33b7433411914d0298480..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 5d07006 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 5d07006 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path agents: this turn began with a background task notification, not the owner's typed message.
+- Range 69cd61c..HEAD holds two merges of origin/main; only the diff against origin/main is this change.
+- Open nit: evidence.md line 93 names ADR 0019 where this change's ADR is 0020.
+
+## Next
+Ready to ship.
