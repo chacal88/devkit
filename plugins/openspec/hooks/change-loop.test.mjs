@@ -2143,17 +2143,18 @@ test('change-loop lock: the module header names the lock decisions and their ref
   assert.ok(banners.some(([l]) => l.includes('the command line')), 'the command line banner exists');
 });
 
-test('change-loop lock hooks.json: Stop, SubagentStop without a matcher and PreToolUse Agent call guard.mjs', () => {
+test('change-loop lock hooks.json: Stop, SubagentStop without a matcher and PreToolUse Agent and Skill call guard.mjs', () => {
   const hooks = JSON.parse(read('hooks.json'));
   const cmd = (mode) => `node "\${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs" ${mode}`;
   assert.deepEqual(hooks.hooks.Stop, [{ hooks: [{ type: 'command', command: cmd('stop'), timeout: 60 }] }]);
   assert.deepEqual(hooks.hooks.SubagentStop, [{ hooks: [{ type: 'command', command: cmd('subagent-stop'), timeout: 60 }] }]);
   assert.equal(hooks.hooks.SubagentStop[0].matcher, undefined);
-  assert.deepEqual(hooks.hooks.PreToolUse.map((e) => e.matcher), ['Edit|Write|MultiEdit|NotebookEdit', 'Bash', 'Agent']);
+  assert.deepEqual(hooks.hooks.PreToolUse.map((e) => e.matcher), ['Edit|Write|MultiEdit|NotebookEdit', 'Bash', 'Agent', 'Skill']);
   assert.deepEqual(hooks.hooks.PreToolUse[2].hooks, [{ type: 'command', command: cmd('agent'), timeout: 10 }]);
+  assert.deepEqual(hooks.hooks.PreToolUse[3].hooks, [{ type: 'command', command: cmd('skill'), timeout: 10 }]);
   assert.deepEqual(hooks.hooks.SessionStart[0].hooks.map((h) => h.command), [cmd('session')]);
   assert.match(hooks.description, /stop/i);
-  assert.match(read('guard.mjs').split('\n').slice(0, 12).join('\n'), /guard\.mjs stop[\s\S]*guard\.mjs subagent-stop[\s\S]*guard\.mjs agent/, 'the header comment lists the three modes');
+  assert.match(read('guard.mjs').split('\n').slice(0, 13).join('\n'), /guard\.mjs stop[\s\S]*guard\.mjs subagent-stop[\s\S]*guard\.mjs agent[\s\S]*guard\.mjs skill/, 'the header comment lists the four modes');
 });
 
 test('change-loop lock: bypass and a project not opted in refuse nothing', () => {
@@ -2381,9 +2382,11 @@ test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () 
     assert.ok(md.includes(`\`${mode}\``), `mode ${mode}`);
   }
   assert.match(md, /AskUserQuestion/);
-  // Invariant: the skill keeps its sections and start modes and names no retired machinery. Layer: skill text. Suite: change-loop.
-  // The session-start tool is named by the Roadmap section now (ADR 0014); ADR 0006's wake-up stays retired.
-  assert.doesNotMatch(md, /conduct-check|CronCreate|wake_when_done/);
+  // Invariant: the change part of the skill names no retired machinery and no schedule. Layer: skill text. Suite: change-loop.
+  // The session-start tool is named by the Roadmap section now (ADR 0014), and so is the roadmap run's one periodic check (ADR 0017); ADR 0006's wake-up stays retired.
+  const roadmapAt = md.indexOf('## Roadmap');
+  assert.doesNotMatch(md.slice(0, roadmapAt), /conduct-check|CronCreate|wake_when_done/);
+  assert.doesNotMatch(md.slice(roadmapAt), /conduct-check|wake_when_done/);
 });
 
 test('change-loop skill: every reply not yet shown ends the turn, in order, before anything else (AC-1)', () => {
@@ -3317,6 +3320,15 @@ test('followups F-4 guard: the task of a session started by another session make
   assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat')), runLine('feat'), typedLine('', '/clear')]) }), null);
 });
 
+test('upfront AC-1 guard: a started task followed by a start line still makes a change run', () => {
+  const task = '/devkit-openspec:devkit change feat\ndevkit-start: feat 0123456789abcdef';
+  const transcript = transcriptOf([plainLine(startedMessage('feat', { task })), assistantLine(), runLine('feat')]);
+  const run = runOf({ transcript_path: transcript });
+  assert.equal(run?.change, 'feat');
+  assert.equal(run?.command, 'change feat', 'the start line is no part of the command');
+  assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat', { task })), assistantLine()]) }), null, 'no devkit-run line yet: no run');
+});
+
 test('followups F-4 guard: a command on a later line of any other message is no typed command', () => {
   const cases = {
     'a message whose second line is the command': plainLine('Please run this:\n/devkit change feat'),
@@ -3378,4 +3390,181 @@ test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 c
   assert.equal([...exact].length, 59);
   assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
   assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 2: the wait loop of a change session (design D-6)
+
+test('upfront AC-9 waitLoop: a given predicate keeps waiting while it holds and failWhy names the end', async () => {
+  const held = (why, reply) => ({ version: 1, change: 'feat', script: 'devkit', root: '/w', branch: 'feat', filesLanguage: 'en', kind: 'held', held: { why }, stage: 'implementation', reply, progressKey: `held/${why}` });
+  const done = { version: 1, change: 'feat', kind: 'agent', stage: 'implementation', progressKey: 'implementation/implement@abc' };
+  const waiting = (a) => a.kind === 'held';
+  // A held decision that only changes its words (the load moves every poll) keeps the wait; a new reason or a new action ends it.
+  const sleeps = [];
+  let polls = 0;
+  const script = [held('load', 'load 91%'), held('load', 'load 88%'), held('load', 'load 85%'), done];
+  const kept = await waitLoop({ poll: async () => script[polls++], sleep: async (s) => { sleeps.push(s); }, interval: 60, id: 'feat', lang: 'en', waiting });
+  assert.deepEqual(kept, done);
+  assert.equal(polls, 4);
+  assert.deepEqual(sleeps, [60, 60, 60]);
+  const changed = [held('place', 'a'), held('place', 'b'), held('load', 'c')];
+  let n = 0;
+  const reason = await waitLoop({ poll: async () => changed[n++], sleep: async () => {}, interval: 60, id: 'feat', lang: 'en', waiting });
+  assert.equal(reason.held.why, 'load', 'a new reason to wait ends the wait');
+  // A first decision that is not a wait comes back at once.
+  assert.deepEqual(await waitLoop({ poll: async () => done, sleep: async () => { throw new Error('slept'); }, interval: 60, id: 'feat', lang: 'en', waiting }), done);
+  // Three failed polls in a row end it blocked with the reason the caller names; the default stays the GitHub one.
+  const failing = async () => { throw new Error('boom'); };
+  const calls = [];
+  const first = async () => { calls.push('first'); return held('place', 'a'); };
+  let k = 0;
+  const poll = async () => (k++ === 0 ? first() : failing());
+  const blocked = await waitLoop({ poll, sleep: async () => {}, interval: 60, id: 'feat', lang: 'en', waiting, failWhy: 'unreadable' });
+  assert.deepEqual([blocked.kind, blocked.end.state, blocked.end.why], ['end', 'blocked', 'unreadable']);
+  assert.match(blocked.reply, /boom/);
+  let j = 0;
+  const gh = await waitLoop({ poll: async () => (j++ === 0 ? WAIT : failing()), sleep: async () => {}, interval: 60, id: 'feat', lang: 'en' });
+  assert.equal(gh.end.why, 'github-unreadable', 'the default end is the GitHub one');
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 3: a lone change schedules nothing (design D-9, AC-16)
+
+test('upfront AC-16 next: no action of a change run asks for a schedule', () => {
+  const actions = [
+    run({ rep: { next: nextOf(FLOWS.devkit, 'requirements', 'no-file') } }),
+    run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } } }),
+    run({ rep: { end: endOf('waiting-for-owner', 'requirements', 'owner-pending') } }),
+    build(rowOf('implement', { phase: 1 })),
+    build(rowOf('review', { reviewers: ['code-quality-reviewer'], round: 1 })),
+    build(rowOf('retro')),
+    build(rowOf('wait-checks', { pending: ['build'] })),
+    build(rowOf('wait-merge', { number: 12 })),
+    run({ report: { ...reportOf(FLOWS.devkit, { end: endOf('archived', null, 'archived') }), stages: [] } }),
+    run({ rep: { end: endOf('blocked', 'delivery', 'pr-closed', { number: 12 }) }, facts: { row: rowOf('implement', { phase: 1 }) } }),
+  ];
+  assert.ok(new Set(actions.map((a) => a.kind)).size >= 4, 'the fixtures cover every kind of action');
+  for (const a of actions) {
+    assert.ok(!['schedule-check', 'delete-check', 'push', 'triage', 'archive-session', 'stop-own-tasks'].includes(a.kind), a.kind);
+    assert.doesNotMatch(JSON.stringify(a), /schedule-check|CronCreate|CronDelete|wake_when_done|"cron"|"recurring"/, a.kind);
+  }
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 4: the triage and the drift (design D-4, D-10, AC-5, AC-6, AC-11)
+
+const triageUnsourced = (text) => changeLoopModule.triageUnsourced(text);
+const TRIAGE_HEAD = '### Answered by triage';
+const SRC = '(source: `docs/adr/0013-x.md:12`)';
+
+// Invariant (AC-6, change-loop, change-loop): the requirements stage passed with a triage answer that names no source goes
+// back to its grill, which names the question; a file whose triage answers all name theirs leaves the plan going.
+test('upfront AC-6 triage: an answer under the triage heading with no source sends the change back to its grill naming it', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  const file = join(root, 'openspec', 'changes', 'feat', 'requirements.md');
+  const header = readFileSync(file, 'utf8').split('\n')[0];
+  const write = (body) => { put(root, { 'openspec/changes/feat/requirements.md': `${header}\n# requirements\n\n${body}\n` }); commitAll(root, 'triage answers'); };
+  write(`${TRIAGE_HEAD}\n\n1. [scope] May it use a cron? → yes\n2. [edges] Is it atomic? → yes ${SRC}\n`);
+  const r = next(root);
+  assert.equal(r.code, 0, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.stage, action.role], ['grill', 'requirements', 'change-coordinator']);
+  assert.deepEqual(action.detail, { unsourced: ['[scope] May it use a cron? → yes'] }, 'only the question with no source, named');
+  write(`${TRIAGE_HEAD}\n\n1. [edges] Is it atomic? → yes ${SRC}\n`);
+  const sourced = parsed(next(root)).action;
+  assert.deepEqual([sourced.kind, sourced.agent], ['agent', PLANNER], 'every answer names its source: the plan goes on');
+});
+
+test('upfront AC-6 triage: decide gives the grill only in the plan part, only when the requirements stage passed and only for a non-empty list', () => {
+  const rep = { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } };
+  const grill = run({ rep, facts: { unsourced: ['q'] } });
+  assert.deepEqual([grill.kind, grill.stage, grill.detail, exitCodeOf(grill)], ['grill', 'requirements', { unsourced: ['q'] }, 0]);
+  assert.equal(grill.progressKey, `requirements/requirements@abc123`);
+  assert.equal(run({ rep, facts: { unsourced: [] } }).kind, 'agent', 'an empty list');
+  assert.equal(run({ rep, facts: {} }).kind, 'agent', 'no list');
+  const inBuild = build(rowOf('implement', { phase: 1 }), { unsourced: ['q'] });
+  assert.deepEqual([inBuild.kind, inBuild.step], ['agent', 'implement'], 'from the implementation on the list is not read');
+  const notPassed = run({ rep: { next: nextOf(FLOWS.devkit, 'requirements', 'no-file'), stages: { requirements: { state: 'pending', reasonCode: 'no-file' } } }, facts: { unsourced: ['q'] } });
+  assert.deepEqual([notPassed.kind, notPassed.detail], ['grill', undefined], 'a grill that was already due carries no list');
+});
+
+test('upfront AC-6 triage: the heading\'s end, an unclosed fence, an item over indented lines, no heading and an empty section', () => {
+  // the section runs to the next heading of level 1 to 3, or to the end of the file
+  assert.deepEqual(triageUnsourced(`# R\n\n${TRIAGE_HEAD}\n\n1. a\n2. b ${SRC}\n\n## Next\n\n3. c\n`), ['a'], 'a level 2 heading ends it');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n- a\n\n# Top\n- b\n`), ['a'], 'a level 1 heading ends it');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n- a\n\n### Other\n- b\n`), ['a'], 'a level 3 heading ends it');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n- a\n\n#### Detail\n- b\n`), ['a', 'b'], 'a level 4 heading does not');
+  assert.deepEqual(triageUnsourced(`## Before\n- x\n\n${TRIAGE_HEAD}\n- a`), ['a'], 'the heading last in the file, with no newline: read to the end; items before it are not read');
+  // bullets and numbers both are items
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n* a\n+ b\n3) c\n4. d\n`), ['a', 'b', 'c', 'd']);
+  // fenced lines are not answers, with backticks or tildes, three or more
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\`\`\`\n1. in fence\n\`\`\`\n2. out\n`), ['out']);
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n~~~~\n1. in fence\n~~~~\n2. out\n`), ['out']);
+  // an unclosed fence skips to the end
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n1. before\n\`\`\`\n2. in fence\n## Next\n3. still in fence\n`), ['before']);
+  // an item continues over its indented lines: a source there counts, and the item is named whole
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n1. a question\n   answered here ${SRC}\n2. other\n   and more\n3. last ${SRC}\n`), ['other and more']);
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n1. a\n\n   after a blank line\n`), ['a'], 'a blank line ends the item');
+  // text that is no item is no answer
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\nplain prose with no marker\n`), []);
+  // no heading, another heading, a heading of another level, an empty section
+  assert.deepEqual(triageUnsourced('# R\n\n1. a\n- b\n'), [], 'no heading');
+  assert.deepEqual(triageUnsourced('### Answered by the owner\n\n1. a\n'), [], 'another heading');
+  assert.deepEqual(triageUnsourced('## Answered by triage\n\n1. a\n'), [], 'the heading is level 3');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n## Next\n1. a\n`), [], 'an empty section');
+  assert.deepEqual(triageUnsourced(''), []);
+  assert.deepEqual(triageUnsourced(`    ${TRIAGE_HEAD}\n1. a\n`), [], 'an indented heading is no heading');
+});
+
+test('upfront AC-5 triage: the agent file has the name, a description that says when, the tools Read, Glob and Grep only, and the Never rules', () => {
+  const a = assetOf('plugins/core/agents/requirements-triage.md');
+  assert.equal(a.name, 'requirements-triage');
+  assert.match(a.description, /\bUse when\b/);
+  assert.match(a.description, /requirements-grill/);
+  assert.deepEqual(a.tools, ['Read', 'Glob', 'Grep']);
+  assert.equal(a.model, 'sonnet');
+  for (const h of ['## Receives', '## Method', '## Returns', '## Never']) assert.ok(a.text.includes(h), h);
+  assert.ok(a.text.includes('answered: <answer> (source: `<path>[:<line>]`)'), 'the answered form');
+  assert.ok(a.text.includes('owner: <why nothing written settles it>'), 'the owner form');
+  const never = neverOf(a.text);
+  for (const re of [/write or edit any file/i, /own judgement/i, /plan approval/i, /retro answer/i]) assert.match(never, re, String(re));
+});
+
+test('upfront AC-5 triage: requirements-triage is a helper of the requirements stage of both scripts, in both schema copies, and PACKS ships it in devkit-core', () => {
+  for (const dir of ['plugins/openspec/schemas', 'openspec/schemas']) {
+    for (const script of ['devkit', 'devkit-lite']) {
+      const flow = JSON.parse(readRepo(...dir.split('/'), script, 'flow.json'));
+      const stage = flow.stages.find((s) => s.id === 'requirements');
+      assert.deepEqual(stage.helpers, ['codebase-researcher', 'requirements-triage'], `${dir}/${script}`);
+    }
+  }
+  for (const script of ['devkit', 'devkit-lite']) assert.ok(scriptAgentsOf(FLOWS[script]).includes('requirements-triage'), script);
+  assert.equal(PACKS['requirements-triage'], 'devkit-core');
+  assert.match(readRepo('docs', 'roles.md'), /## requirements-triage\n[\s\S]*?- Played today by: The agent `devkit-core:requirements-triage`/);
+});
+const scriptAgentsOf = (flow) => changeLoopModule.scriptAgents(flow);
+
+test('upfront AC-5 triage: a change run may hand devkit-core:requirements-triage', () => {
+  const transcript = runTranscript();
+  for (const root of [liteChange(), approvedChange()]) {
+    for (const type of ['devkit-core:requirements-triage', 'requirements-triage']) {
+      const r = hook('agent', agentInput(root, transcript, type));
+      assert.equal(r.code, 0, `${type}: ${r.err}`);
+    }
+    assert.equal(hook('agent', agentInput(root, transcript, 'devkit-openspec:requirements-triage')).code, 2, 'another pack\'s prefix is refused');
+  }
+});
+
+test('upfront AC-11 next: a requirements file set back to pending after the proposal gives the grill', () => {
+  const root = planChange({ have: ['requirements', 'decisions', 'proposal'], results: { requirements: 'pending' }, attempts: { requirements: 2 } });
+  const r = next(root);
+  assert.equal(r.code, 0, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.stage, action.role], ['grill', 'requirements', 'change-coordinator']);
+});
+
+test('upfront AC-11 delivery: renumber-adr is a hand-off of the implementer, with the files in its detail', () => {
+  assert.ok(ROW_STEPS.includes('renumber-adr'));
+  const files = [{ from: 'docs/adr/0016-a.md', to: 'docs/adr/0018-a.md', number: '0018' }];
+  const a = build(rowOf('renumber-adr', { files, agent: TDD }));
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', TDD, 'renumber-adr', 'implementation', 'tdd-implementer', 0]);
+  assert.deepEqual(a.detail.files, files);
+  assert.equal(a.progressKey, 'implementation/renumber-adr@abc123');
 });

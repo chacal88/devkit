@@ -1565,3 +1565,73 @@ test('stage-roles gates: the devkit skill names the mock-up among the owner\'s g
   assert.match(session, /`detail\.command`/);
   assert.match(session, /reply blocked --param id=<id> --param why=cannot-accept --param error="<the JSON's error field>"/);
 });
+
+// ================================================================ roadmap-sessions-upfront, phase 1: the readers of a started session (design D-1)
+
+test('upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first message\'s started form', () => {
+  const STARTED = GUARD.STARTED_BY_SESSION;
+  const form = (task) => [STARTED, 'A background paragraph.', '', 'Task:', ...task, '', 'Notes.'].join('\n');
+  // startedTaskOf: the lines after the `Task:` line of the started form, else null.
+  assert.deepEqual(GUARD.startedTaskOf(form(['/devkit change a', 'devkit-start: a 0123456789abcdef'])), ['/devkit change a', 'devkit-start: a 0123456789abcdef', '', 'Notes.']);
+  assert.deepEqual(GUARD.startedTaskOf(`${STARTED}\n  Task:  \n/devkit change a`), ['/devkit change a'], 'the Task line is read trimmed');
+  assert.equal(GUARD.startedTaskOf('Background.\n\nTask:\n/devkit change a'), null, 'no started form');
+  assert.equal(GUARD.startedTaskOf(`hello\n${form(['/devkit change a'])}`), null, 'the started line is not the first line');
+  assert.equal(GUARD.startedTaskOf(`${STARTED}\nSome words.\n/devkit change a`), null, 'the started form with no Task line');
+  assert.equal(GUARD.startedTaskOf('/devkit change a'), null);
+  // START_LINE: one line, the change id and a 16-character lowercase hexadecimal ticket.
+  assert.deepEqual(GUARD.START_LINE.exec('devkit-start: a-b.c_1 0123456789abcdef')?.slice(1), ['a-b.c_1', '0123456789abcdef']);
+  assert.deepEqual(GUARD.START_LINE.exec('devkit-start: a 0123456789abcdef \r')?.slice(1), ['a', '0123456789abcdef'], 'trailing blanks and a carriage return');
+  for (const text of ['devkit-start: a 0123456789abcde', 'devkit-start: a 0123456789ABCDEF', 'devkit-start: 0123456789abcdef', ' devkit-start: a 0123456789abcdef', 'devkit-start: a 0123456789abcdef x']) {
+    assert.equal(GUARD.START_LINE.exec(text), null, text);
+  }
+  // firstMessageOf: the string content of the first `user` line that is neither meta nor a sidechain.
+  const user = (content, extra = {}) => JSON.stringify({ type: 'user', message: { role: 'user', content }, ...extra });
+  const transcript = (lines) => {
+    const file = join(tmpFolder('devkit-guard-first-message-'), 'session.jsonl');
+    writeFileSync(file, `${lines.join('\n')}\n`);
+    return { transcript_path: file };
+  };
+  const assistant = JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'working' }] } });
+  assert.equal(GUARD.firstMessageOf(transcript([assistant, user('first'), user('second')])), 'first');
+  assert.equal(GUARD.firstMessageOf(transcript([user('skill body', { isMeta: true }), user('side', { isSidechain: true }), user('real'), user('later')])), 'real', 'meta and sidechain lines are skipped');
+  assert.equal(GUARD.firstMessageOf(transcript(['{not json', user('first')])), 'first', 'a broken line is skipped');
+  assert.equal(GUARD.firstMessageOf(transcript([user([{ type: 'text', text: 'blocks' }]), user('second')])), null, 'the first message is not a string: no later one stands in');
+  assert.equal(GUARD.firstMessageOf(transcript([assistant])), null, 'no user line');
+  assert.equal(GUARD.firstMessageOf({}), null, 'no transcript path');
+  assert.throws(() => GUARD.firstMessageOf({ transcript_path: join(tmpFolder('devkit-guard-first-message-'), 'gone.jsonl') }), /ENOENT/, 'a transcript that cannot be read is an error, not a missing message');
+});
+
+// ---------------------------------------------------------------- roadmap-sessions-upfront phase 4: the triage (AC-5, AC-6)
+
+test('upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage', () => {
+  const root = repo({ changes: { feat: approved } });
+  const f = 'openspec/changes/feat/approval.md';
+  const r = edit(root, f, 'requirements-triage');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /approval\.md is written only by the main session, from the owner's own message; not by requirements-triage/);
+  assert.equal(bash(root, `echo '- Status: APPROVED' > ${f}`, 'requirements-triage').code, 2, 'by redirect');
+  assert.equal(edit(root, f).code, 0, 'the main session still may');
+});
+
+test('upfront AC-5 skill: the grill rule of config.yaml and of the four schema files names the triage and forbids answering yourself', () => {
+  const root = join(here, '..', '..', '..');
+  const read = (...p) => readFileSync(join(root, ...p), 'utf8').replace(/\s+/g, ' ');
+  const RULE = 'Ask the owner every question that nothing written settles; the requirements-triage agent answers the others first, each with its source. Never answer a question yourself.';
+  assert.ok(read('openspec', 'config.yaml').includes(RULE), 'openspec/config.yaml rules.requirements');
+  for (const dir of [['plugins', 'openspec', 'schemas'], ['openspec', 'schemas']]) {
+    for (const script of ['devkit', 'devkit-lite']) {
+      const text = read(...dir, script, 'schema.yaml');
+      const stage = text.slice(text.indexOf('- id: requirements'), text.indexOf('- id:', text.indexOf('- id: requirements') + 5));
+      assert.ok(stage.includes('Helpers: codebase-researcher, requirements-triage.'), `${dir[0]}/${script}: the helpers line`);
+      assert.ok(stage.includes(RULE), `${dir[0]}/${script}: the rule`);
+      assert.ok(!stage.includes('Do not answer the questions yourself.'), `${dir[0]}/${script}: the old sentence is replaced`);
+    }
+  }
+  const skill = readFileSync(join(root, 'plugins', 'core', 'skills', 'requirements-grill', 'SKILL.md'), 'utf8');
+  for (const part of ['### 2b. Triage first', 'devkit-core:requirements-triage', 'Change <id> (<script> script), stage requirements: triage of the grill', '### Answered by triage',
+    '`<n>. [<axis>] <question> → <answer> (source: \\`<path>[:<line>]\\`)`', '**Answered by triage:**']) {
+    assert.ok(skill.includes(part), `the grill skill holds: ${part}`);
+  }
+  assert.ok(skill.indexOf('### 2b. Triage first') > skill.indexOf('### 2. Gather the ammunition') && skill.indexOf('### 2b. Triage first') < skill.indexOf('### 3. Grill on the four axes'), 'step 2b sits between 2 and 3');
+  assert.match(skill, /- Answer a question yourself/, 'the Never list keeps it');
+});

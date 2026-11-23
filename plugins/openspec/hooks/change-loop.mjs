@@ -128,7 +128,18 @@ export const MESSAGES = {
     'roadmap-resumed': 'Resumed {id}, which was already open: {where} ({open} of {places} under way).',
     'roadmap-session-started': 'Started {id} in a session of its own ({open} of {places} under way).',
     'roadmap-waits-turn': '{id} is ready and starts in a session of its own at your next message: the app starts a session only on a turn you typed.',
+    'roadmap-session-opened': '{id} is open in a session of its own; its grill is asked here.',
+    'roadmap-check-refused': 'The app refused the periodic check of this run: it goes on without one.',
+    'roadmap-check-idle': '{id} has a place but its session is not watching: type any message in it.',
+    'roadmap-check-stopped-waits': '{n} wait loops of the run were stopped: their changes no longer need them.',
+    'roadmap-check-session-archived': 'The session of {id} was archived.',
+    'roadmap-check-archive-later': 'The session of {id} is not archived yet: it is still working or waits for your approval; I try again later.',
+    'push-failed': 'The branch of {id} could not be pushed: {error}. I try again at a later decision.',
     'roadmap-waits-refused': '{id} could not start in a session of its own: the app refused it. It starts at your next message.',
+    'session-held-owner': '{id}: {gate} is asked in the roadmap session; this session goes on as soon as it is answered.',
+    'session-held-place': '{id} waits for a place: {places} changes are building.',
+    'session-held-load': '{id} waits: the processor is at {load}% (limit {limit}%).',
+    'session-held-after': '{id} waits for {after} to be archived before its plan.',
     'roadmap-held': '{id} is ready to start, but the machine is loaded (processor at {load}%, limit {limit}%): I hold the start until it eases. Tell me to start anyway and it starts now.',
     'roadmap-gate': '{id} waits for {gate}.',
     'roadmap-gate-others': '{id} waits for {gate}. The others go on.',
@@ -165,6 +176,9 @@ export const MESSAGES = {
     'queue.load': 'ready, held by the load',
     'queue.after': 'waits for {after}',
     'queue.turn': 'ready: starts in a session of its own at your next message',
+    'queue.held-place': 'open, waits for a place',
+    'queue.held-load': 'open, held by the load',
+    'queue.held-after': 'open, waits for {after}',
     'outside.previous': 'began under the previous script',
     'outside.ticked': 'ticked on the roadmap but not archived',
     'outside.unticked': 'archived, its line not ticked yet',
@@ -202,6 +216,7 @@ export const MESSAGES = {
     'blocked-why.unreadable': 'the change cannot be read ({error})',
     'blocked-why.cannot-open': 'it could not be opened ({error})',
     'blocked-why.cannot-accept': 'the decision records could not be marked accepted ({error})',
+    'blocked-why.base-conflict': 'the default branch could not be merged into it: {error}',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
@@ -309,7 +324,18 @@ export const MESSAGES = {
     'roadmap-resumed': 'Retomei {id}, que já estava aberta: {where} ({open} de {places} em andamento).',
     'roadmap-session-started': 'Comecei {id} numa sessão própria ({open} de {places} em andamento).',
     'roadmap-waits-turn': '{id} está pronta e começa numa sessão própria na sua próxima mensagem: o app só abre sessão num turno que você digitou.',
+    'roadmap-session-opened': '{id} está aberta numa sessão própria; o grill dela é feito aqui.',
+    'roadmap-check-refused': 'O app recusou a verificação periódica desta rodada: ela segue sem uma.',
+    'roadmap-check-idle': '{id} tem uma vaga, mas a sessão dela não está vigiando: escreva qualquer mensagem nela.',
+    'roadmap-check-stopped-waits': '{n} esperas da rodada foram paradas: as changes delas não precisam mais delas.',
+    'roadmap-check-session-archived': 'A sessão de {id} foi arquivada.',
+    'roadmap-check-archive-later': 'A sessão de {id} ainda não foi arquivada: ela ainda trabalha ou espera a sua aprovação; tento de novo depois.',
+    'push-failed': 'Não foi possível enviar o branch de {id}: {error}. Tento de novo numa próxima decisão.',
     'roadmap-waits-refused': '{id} não pôde começar numa sessão própria: o app recusou. Ela começa na sua próxima mensagem.',
+    'session-held-owner': '{id}: {gate} é perguntada na sessão do roadmap; esta sessão segue assim que for respondida.',
+    'session-held-place': '{id} espera uma vaga: {places} changes estão em construção.',
+    'session-held-load': '{id} espera: o processador está em {load}% (limite {limit}%).',
+    'session-held-after': '{id} espera {after} ser arquivada antes do plano.',
     'roadmap-held': '{id} está pronta para começar, mas a máquina está carregada (processador em {load}%, limite {limit}%): seguro o começo até aliviar. Se quiser começar mesmo assim, é só dizer.',
     'roadmap-gate': '{id} espera {gate}.',
     'roadmap-gate-others': '{id} espera {gate}. As outras seguem.',
@@ -346,6 +372,9 @@ export const MESSAGES = {
     'queue.load': 'pronta, segurada pela carga',
     'queue.after': 'espera {after}',
     'queue.turn': 'pronta: começa numa sessão própria na sua próxima mensagem',
+    'queue.held-place': 'aberta, espera uma vaga',
+    'queue.held-load': 'aberta, segurada pela carga',
+    'queue.held-after': 'aberta, espera {after}',
     'outside.previous': 'começada no roteiro anterior',
     'outside.ticked': 'marcada no roadmap, mas não arquivada',
     'outside.unticked': 'arquivada, falta marcar a linha',
@@ -383,6 +412,7 @@ export const MESSAGES = {
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
     'blocked-why.cannot-open': 'não foi possível abrir ({error})',
     'blocked-why.cannot-accept': 'não foi possível marcar os registros de decisão como aceitos ({error})',
+    'blocked-why.base-conflict': 'não foi possível mesclar o branch padrão nela: {error}',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
@@ -485,6 +515,8 @@ export function render(lang, key, params = {}) {
 
 // The icon of the stage an action is in, for the title of a change session: ❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery,
 // 📦 retro and archive. An archived end is the archive's; a stage the table does not name, or none, has no icon.
+// The icon of a change session that waits (for a place, the load or a dependency), in place of its stage's (roadmap-sessions-upfront D-11).
+export const WAIT_ICON = '⏳';
 const STAGE_ICON = {
   open: '❓', requirements: '❓',
   mockup: '📝', decisions: '📝', proposal: '📝', specs: '📝', design: '📝', tasks: '📝', readiness: '📝', approval: '📝',
@@ -553,6 +585,7 @@ const ROWS = {
   'fix-checks': handOff('implementation', 'tdd-implementer'),
   'apply-proposals': handOff('implementation', 'tdd-implementer'),
   'resolve-release-conflict': handOff('implementation', 'tdd-implementer'),
+  'renumber-adr': handOff('implementation', 'tdd-implementer'),
   commit: handOff('delivery', 'commit-and-pr'),
   'open-pr': handOff('delivery', 'commit-and-pr'),
   push: handOff('delivery', 'commit-and-pr'),
@@ -606,6 +639,50 @@ export function exitCodeOf(action) {
 // hasProposal, flags (the grill's classification), archiving, row
 // (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read) }.
 // Returns the action of the design's JSON; pure.
+// ---------------------------------------------------------------- the triage's source check (roadmap-sessions-upfront D-4)
+
+const TRIAGE_HEADING = /^### Answered by triage[ \t]*$/;
+const SECTION_END = /^#{1,3}[ \t]/;
+const FENCE = /^(`{3,}|~{3,})/;
+const ITEM = /^(?:[-*+]|\d+[.)])[ \t]+(.*)$/;
+
+// The items under the heading `### Answered by triage` of a requirements file that name no `(source: `, each as its text with
+// the marker removed and its indented lines joined by a space. The section runs to the next heading of level 1 to 3 or to the end
+// of the file; a line inside a fenced block (three or more backticks or tildes) is no heading and no item, an unclosed fence
+// running to the end; an item continues over its indented lines up to a blank or an unindented one. No heading or an empty section
+// gives [] (precedent: `classificationFlags` reads the grill's classification line the same way).
+export function triageUnsourced(text) {
+  const items = [];
+  let inSection = false;
+  let fence = null;
+  let open = null;
+  const close = () => { if (open) items.push(open); open = null; };
+  for (const line of String(text).split('\n')) {
+    const mark = FENCE.exec(line.trimStart())?.[1];
+    if (fence) {
+      if (mark && mark[0] === fence[0] && mark.length >= fence.length && line.trim() === mark) fence = null;
+      continue;
+    }
+    if (mark) { close(); fence = mark; continue; }
+    if (!inSection) {
+      inSection = TRIAGE_HEADING.test(line);
+      continue;
+    }
+    if (SECTION_END.test(line)) break;
+    const item = ITEM.exec(line);
+    if (item) { close(); open = item[1].trim(); continue; }
+    if (open !== null && /^[ \t]+\S/.test(line)) { open = `${open} ${line.trim()}`; continue; }
+    close();
+  }
+  close();
+  return items.filter((i) => !i.includes('(source: '));
+}
+
+// `triageUnsourced` over the change's requirements.md; [] when there is none or it cannot be read.
+function triageUnsourcedOf(dir) {
+  try { return triageUnsourced(readFileSync(join(dir, 'requirements.md'), 'utf8')); } catch { return []; }
+}
+
 export function decide(facts) {
   const { ctx, flow, report } = facts;
   const lang = normalizeLang(ctx.lang);
@@ -673,6 +750,11 @@ export function decide(facts) {
     if (n?.stage === 'open') return blocked('not-opened', {}, 'open');
     if (n?.stage === 'requirements' || (e?.state === 'waiting-for-owner' && e.stage === 'requirements')) {
       return { ...base, kind: 'grill', ...stageFields('requirements'), progressKey: key('requirements') };
+    }
+    // A triage answer with no source goes back to the grill, which asks the owner that question (design D-4).
+    const unsourced = facts.unsourced ?? [];
+    if (unsourced.length && report.stages.find((x) => x.id === 'requirements')?.state === 'passed') {
+      return { ...base, kind: 'grill', ...stageFields('requirements'), progressKey: key('requirements'), detail: { unsourced } };
     }
     if (n) {
       const s = stageById(n.stage);
@@ -845,6 +927,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     decisions: decisionRecords(found.root, dir),
     hasProposal: existsSync(join(dir, 'proposal.md')),
     flags: classificationFlags(dir),
+    unsourced: triageUnsourcedOf(dir),
     archiving,
     row,
   });
@@ -1289,16 +1372,19 @@ export function switchScript(cwd, id, script, { why, lang = 'pt-BR' } = {}) {
 // ---------------------------------------------------------------- wait (D-7)
 
 const isWait = (a) => a.kind === 'end' && a.end.state === 'waiting-on-github';
-const decisionKey = (a) => JSON.stringify([a.kind, a.end?.state ?? null, a.end?.why ?? null, a.agent ?? null, a.step ?? null, a.reply ?? null]);
+// What makes two decisions the same wait. A held decision (a change session waiting for a place, the load, a dependency or the owner) is the same
+// while its reason is: its words carry numbers (the load) that move at every poll.
+const decisionKey = (a) => JSON.stringify([a.kind, a.end?.state ?? null, a.end?.why ?? null, a.agent ?? null, a.step ?? null,
+  a.kind === 'held' ? [a.held?.why ?? null, a.held?.gate ?? null, a.held?.after ?? null] : (a.reply ?? null)]);
 const isUnreadable = (a) => a.kind === 'end' && a.end.why === 'github-unreadable';
 
 // Polls `poll()` (the decision `next` gives) every `interval` seconds while it stays the same wait on GitHub, with no
 // limit of its own, and returns the first decision that is anything else (the first decision itself when it is not a
 // wait). A poll that throws, or that says GitHub cannot be read, is retried; `maxFailures` in a row return blocked,
 // `github-unreadable`. Holds no state but the first decision.
-export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 3 }) {
+export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 3, waiting = isWait, failWhy = 'github-unreadable' }) {
   const first = await poll();
-  if (!isWait(first)) return first;
+  if (!waiting(first)) return first;
   const wanted = decisionKey(first);
   let failures = 0;
   for (;;) {
@@ -1314,7 +1400,7 @@ export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 
       const message = error instanceof Error ? error.message : String(error);
       return {
         version, change: change ?? id, script, root, branch, filesLanguage, kind: 'end', stage, stageTitle, role, skills,
-        end: { state: 'blocked', why: 'github-unreadable' }, reply: render(lang, 'blocked', { id, why: 'github-unreadable', error: message }),
+        end: { state: 'blocked', why: failWhy }, reply: render(lang, 'blocked', { id, why: failWhy, error: message }),
       };
     }
     failures = 0;
@@ -1420,7 +1506,7 @@ export function scriptAgents(flow) {
 export const PACKS = {
   ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
     'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
-    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'].map((r) => [r, 'devkit-core'])),
+    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester', 'requirements-triage'].map((r) => [r, 'devkit-core'])),
   'openspec-validator': 'devkit-openspec',
 };
 
@@ -1481,7 +1567,7 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 // What `next` and `wait` print: `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end (the record
 // the stop lock reads, D-2), then the JSON action.
-const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ? `devkit-end: ${id} ${action.end.state}\n` : ''}${json(action)}`;
+export const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ? `devkit-end: ${id} ${action.end.state}\n` : ''}${json(action)}`;
 
 // The keys the session renders itself that end the run, and the state each one records.
 const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-owner' };

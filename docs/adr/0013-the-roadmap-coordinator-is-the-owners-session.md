@@ -69,6 +69,10 @@ background, to be settled by a probe before anything is built on it.
    - the session that runs the run (`session`);
    - whether each change runs in a session of its own (`changeSessions`), which change sessions were
      started (`startedSessions`) and what started the last turn (`turn`), as ADR 0014 decides;
+   - the start tickets (`tickets`), the places held (`placed`), the changes waiting for one
+     (`queued`), the start-anyway of the moment (`anyway`), the wait loops under way (`waits`),
+     whether the host offers a session cron (`cron`) and the periodic check (`check`), as ADR 0017
+     decides;
    - the form of the file and its last write (`version`, `updatedAt`).
 
    A hand-off the hook lets through marks its stage as under way, and that subagent's stop clears

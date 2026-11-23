@@ -9,6 +9,7 @@
 //   node guard.mjs stop          Stop: in a `/devkit change` run, the session does not end its turn while a stage is ready
 //   node guard.mjs subagent-stop SubagentStop: a stage agent does not stop before its stage file is delivered
 //   node guard.mjs agent         PreToolUse on Agent: in a run, work goes only to the roles of the change's script
+//   node guard.mjs skill         PreToolUse on Skill: devkit-session runs only on the ticket a roadmap run wrote for its change
 //
 // It only vetoes (exit 2 + reason on stderr). The flow lives in the OpenSpec
 // schema; this file enforces what the CLI can't see:
@@ -585,6 +586,33 @@ function commandOfLine(line) {
   return found ? { name: found[1], args: (found[2] ?? '').trim() } : null;
 }
 
+// The lines after the `Task:` line of a message in the started form (`STARTED_BY_SESSION` first line), else null: the one reader of that form
+// (roadmap-sessions-upfront D-1). A session's task may be followed by lines of its own, such as the run's `devkit-start:` line.
+export function startedTaskOf(content) {
+  const lines = String(content).split('\n');
+  if (lines[0].trim() !== STARTED_BY_SESSION) return null;
+  const task = lines.findIndex((line) => line.trim() === 'Task:');
+  return task < 0 ? null : lines.slice(task + 1);
+}
+
+// The line a roadmap run writes below the task of a change session it starts: the change id and the run's ticket for it.
+export const START_LINE = /^devkit-start: ([A-Za-z0-9][\w.-]*) ([0-9a-f]{16})[ \t]*\r?$/;
+
+// The string `message.content` of the first `user` line of the transcript that is neither `isMeta` nor a sidechain; null when that line's
+// content is no string, when there is no such line or no transcript path. A transcript that cannot be read throws (the entry fails closed).
+export function firstMessageOf(input) {
+  const file = input && input.transcript_path;
+  if (typeof file !== 'string' || !file) return null;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (!/"type"\s*:\s*"user"/.test(line)) continue;
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; }
+    if (rec?.type !== 'user' || rec.isMeta || rec.isSidechain) continue;
+    return typeof rec.message?.content === 'string' ? rec.message.content : null;
+  }
+  return null;
+}
+
 // The slash command typed in a `user` line of the transcript: { name, args } from the `<command-name>` tag, else from a first line
 // that starts with `/`, else, in the form of a session another session started, from the first non-blank line after `Task:`;
 // null when the line is no typed command. A command on a later line of any other message is no command.
@@ -596,9 +624,7 @@ function typedOf(content) {
   }
   const lines = content.split('\n');
   if (lines[0].trim() !== STARTED_BY_SESSION) return commandOfLine(lines[0]);
-  const task = lines.findIndex((line) => line.trim() === 'Task:');
-  if (task < 0) return null;
-  const first = lines.slice(task + 1).find((line) => line.trim() !== '');
+  const first = startedTaskOf(content)?.find((line) => line.trim() !== '');
   return first === undefined ? null : commandOfLine(first);
 }
 
@@ -736,9 +762,35 @@ function guardBash(input) {
 const LOCKS = { stop: 'stopDecision', 'subagent-stop': 'subagentStopDecision', agent: 'agentDecision' };
 const ROADMAP_LOCKS = { stop: 'roadmapStopDecision', 'subagent-stop': 'roadmapSubagentStopDecision', agent: 'roadmapAgentDecision' };
 
+// With DEVKIT_HOOK_LOG naming a file, every decision is appended to it as one JSON line; a log that cannot be written never blocks anything.
+function logDecision(mode, input, d) {
+  const file = process.env.DEVKIT_HOOK_LOG;
+  if (!file) return;
+  try {
+    appendFileSync(file, `${JSON.stringify({
+      at: new Date().toISOString(), mode, session: input.session_id ?? null,
+      agentType: input.agent_type ?? input.tool_input?.subagent_type ?? null, change: d.change ?? null,
+      decision: d.decision, why: d.why,
+    })}\n`);
+  } catch { /* a log that cannot be written never blocks anything */ }
+}
+
+// `skill`: PreToolUse on the Skill tool. The entry skill of a change session a roadmap run started runs only on the run's ticket
+// (`entryDecision` of roadmap-loop.mjs); every other skill is let through. Unlike the locks it fails closed: an error refuses, because the
+// owner's typed `/devkit change` still runs the change. It does not depend on the project's opt-in.
+async function skillEntry(input) {
+  let d;
+  try {
+    const loop = await import('./roadmap-loop.mjs');
+    d = loop.entryDecision(input, { env: process.env });
+  } catch { d = { decision: 'refuse', why: 'unreadable', reason: 'the entry could not be checked; the owner can run this change by typing /devkit change <id> in this session' }; }
+  logDecision('skill', input, d);
+  if (d.decision === 'refuse') block(d.reason);
+}
+
 // `stop`, `subagent-stop` and `agent`: the decision is roadmap-loop.mjs's in a `/devkit roadmap` run (`roadmapRunOf`), else
 // change-loop.mjs's, which gets the scanned `events` and does not read the transcript again (each imported dynamically, as `ci` imports deliver-check.mjs), refusing with exit 2 and the reason on stderr.
-// Any error of the lock lets the action through. With DEVKIT_HOOK_LOG naming a file, every decision is appended to it as one JSON line.
+// Any error of the lock lets the action through; each decision is logged as `logDecision` says.
 async function lock(mode, input) {
   const root = findRoot(input.cwd);
   if (!root || !optedIn(root)) return;
@@ -749,21 +801,15 @@ async function lock(mode, input) {
     if (run) {
       const loop = await import('./roadmap-loop.mjs');
       d = loop[ROADMAP_LOCKS[mode]](input, { env: process.env, run });
+    } else if (mode === 'stop') { // a change session a roadmap run started may stop while it waits; any other is the change loop's (roadmap-sessions-upfront D-6)
+      const loop = await import('./roadmap-loop.mjs');
+      d = loop.changeSessionStopDecision(input, { env: process.env, events });
     } else {
       const loop = await import('./change-loop.mjs');
       d = loop[LOCKS[mode]](input, { env: process.env, events });
     }
   } catch { d = { decision: 'allow', why: 'error' }; }
-  const file = process.env.DEVKIT_HOOK_LOG;
-  if (file) {
-    try {
-      appendFileSync(file, `${JSON.stringify({
-        at: new Date().toISOString(), mode, session: input.session_id ?? null,
-        agentType: input.agent_type ?? input.tool_input?.subagent_type ?? null, change: d.change ?? null,
-        decision: d.decision, why: d.why,
-      })}\n`);
-    } catch { /* a log that cannot be written never blocks anything */ }
-  }
+  logDecision(mode, input, d);
   if (d.decision === 'refuse') block(d.reason);
 }
 
@@ -968,5 +1014,6 @@ if (isMain()) {
   else if (mode === 'edit') guardEdit(readStdin());
   else if (mode === 'bash') guardBash(readStdin());
   else if (mode === 'session') session(readStdin());
+  else if (mode === 'skill') skillEntry(readStdin());
   else if (Object.hasOwn(LOCKS, mode)) lock(mode, readStdin());
 }

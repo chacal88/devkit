@@ -34,7 +34,7 @@ context: |
 
 rules:
   requirements:
-    - Ask the owner; never answer your own grill questions
+    - Ask the owner every question that nothing written settles; the requirements-triage agent answers the others first, each with its source. Never answer a question yourself.
   proposal:
     - Keep it under two pages; the how belongs in design.md
     - Every sentence stating a fact about the repository is true at the commit that ships it; a task that corrects such a claim names every file that repeats it

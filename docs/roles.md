@@ -136,6 +136,14 @@ In `docs/coordination-design.md` this role is the team's `tech-lead` for a new p
 - Stages: `requirements` (helper).
 - Played today by: The agent `devkit-core:codebase-researcher`.
 
+## requirements-triage
+
+- Does: Reads the project's files to answer the grill's questions they settle, each with the file that settles it, so the owner is asked only what nothing written settles.
+- Delivers: One block per question, as text handed back to the stage that asked: `answered` with its source, or `owner` with why nothing written settles it.
+- Never: Edits any file, answers from its own judgement, or writes or suggests a plan approval or a retro answer.
+- Stages: `requirements` (helper).
+- Played today by: The agent `devkit-core:requirements-triage`.
+
 ## openspec-validator
 
 - Does: Checks the structure of a plan artifact against its schema before the stage is declared passed.

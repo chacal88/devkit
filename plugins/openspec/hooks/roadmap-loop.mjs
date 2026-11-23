@@ -7,9 +7,11 @@
 // pack's hook modules.
 //
 // Subcommands: `run` (the owner's arguments on standard input), `next [--after <id>=<key>]... [--turn typed|event] [--start-anyway]`, `status`, `draft`,
-// `reply <key>`, `wait --change <id> [--interval <s>]` and `hold [--interval <s>]`; each takes `--lang <l>` and
-// `--load-limit <p>`, and `run` also `--session <id> [--fresh] [--change-sessions]`. `run` and `next` print `devkit-roadmap: <places>` (or `stop`)
-// and then the decision as JSON; exit 0, or 3 with `{ version, error, reply }`. `status` writes nothing.
+// `reply <key>`, `wait --change <id> [--interval <s>]`, `hold [--interval <s>]` and, for a change session a run started (roadmap-sessions-upfront D-6),
+// `session-next --change <id> [--after <key>]`, `session-wait --change <id> [--interval <s>] [--session <id>]` and `merge-base --change <id>`, and for the coordinating
+// session `push --change <id> --what grill|plan` and `check` (the periodic check, design D-5 and D-9); each takes `--lang <l>` and `--load-limit <p>`, and `run`
+// also `--session <id> [--fresh] [--change-sessions] [--cron]`, `next` `[--check-id <job>] [--check-refused] [--check-deleted] [--check-gone]`. `run`, `next` and
+// `check` print `devkit-roadmap: <places>` (or `stop`) and then the decision as JSON; exit 0, or 3 with `{ version, error, reply }`. `status` writes nothing.
 //
 // The facts of one decision (`decideRoadmap`, `boardOf`):
 //   lang, places, stopping, holding, load, limit, hasRoadmap,
@@ -20,6 +22,9 @@
 //   announced  - { <id>: <event key> }, starting - [ids], held, asking - the run's bookkeeping,
 //   after      - { <id>: <progress key> } the stages that just came back (their `actions` were read with that key), and the
 //                `session-start` and `session-refused` keys of a change session the host started or refused,
+//   tickets, placed, queued, waits, cron, check, waitsFor, unpushed - a run that opens every change at its start (ADR 0017): the start tickets, the places held, the
+//                changes waiting for one, the wait loops, whether the host offers a session cron, the periodic check ({ id } or { refused }), { <id>: the dependency a
+//                plan waits for } and { <id>: 'grill' | 'plan' } what is not on origin yet,
 //   changeSessions, startedSessions, coordinator, turn - a run with a session per change (ADR 0014): whether each change runs in a session
 //                of its own, { <id>: { at } } the change sessions started, the coordinating session's id and what started this turn
 //                (`typed` for a message the owner typed, else `event`),
@@ -27,16 +32,17 @@
 //   unfinished - [{ id, where }] every unfinished change, for the board's "outside the roadmap".
 
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, isChangeId } from './guard.mjs';
+import { randomBytes } from 'node:crypto';
+import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE } from './guard.mjs';
 import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, stageIcon, sessionTitle,
-  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile,
+  HOOKS_DIR, PACKS, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, WAIT_ICON, loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision,
 } from './change-loop.mjs';
 
 // ---------------------------------------------------------------- the setting, the load and the word (D-6, D-3)
@@ -148,7 +154,8 @@ function entriesOf(f) {
     const action = f.actions?.[id] ?? null;
     const d = f.declared?.[id];
     // A change in a session of its own (ADR 0014): recorded as started, or just reported started by this call.
-    if (f.changeSessions && !d && (f.startedSessions?.[id] || f.after?.[id] === 'session-start')) { entries.push({ id, state: 'own', action, line }); continue; }
+    const claimed = Boolean(f.tickets?.[id]?.claimedBy); // a session that claimed the run's ticket is the change's own
+    if (f.changeSessions && !d && (f.startedSessions?.[id] || f.after?.[id] === 'session-start' || claimed)) { entries.push({ id, state: 'own', action, line }); continue; }
     if (inflight[id]) { entries.push({ id, state: 'running', inflight: inflight[id], action, line }); continue; }
     if (d) {
       if (d.state === 'waiting-for-owner') {
@@ -181,14 +188,17 @@ export function sessionName(id) {
   return name === '' ? 'change' : name;
 }
 
-// The brief a change session starts with (the start tool's `background`, at least 80 characters): what it is, where it works, what it says
-// first, how it keeps its title and how it ends the turn that archives the change (D-3).
+// The brief a change session starts with (the start tool's `background`, at least 80 characters): what it is, where it works, how it starts
+// with no message from the owner, where the owner's gates are asked, what it says first, how it keeps its title and how it ends the turn that
+// archives the change (design roadmap-sessions-upfront D-6).
 export function sessionBackground({ id, root, branch, coordinator, lang }) {
   return `This session runs the devkit change \`${id}\` for a \`/devkit roadmap\` run. The owner typed that command in the session \`${coordinator ?? 'unknown'}\`, `
-    + 'which started this one: in the desktop app every change of a roadmap run has a session of its own (ADR 0014). '
-    + `Work only in \`${root}\`, the change's worktree, on branch \`${branch}\`. Before your first question to the owner, say in two or three plain sentences, `
-    + `in the owner's language (${normalizeLang(lang)}), who started this session, why and what it will do. Run the change with the task below and the devkit skill's Loop: `
-    + "its stages, questions and approvals happen here. Keep this session's title as the `sessionTitle` of each `next`, renaming it yourself as the Loop says. "
+    + 'which started this one: in the desktop app every change of a roadmap run has a session of its own (ADR 0014, ADR 0017). '
+    + 'Start at once, with no message from the owner: call the Skill tool with `devkit-openspec:devkit-session`; the devkit skill itself runs only from the owner\'s typed command. '
+    + `Work only in \`${root}\`, the change's worktree, on branch \`${branch}\`. `
+    + 'The grill, the plan approval and the retro answers are asked in the session that started this one. '
+    + `Before your first question to the owner, say in two or three plain sentences, in the owner's language (${normalizeLang(lang)}), who started this session, why and what it will do. `
+    + "Keep this session's title as the `sessionTitle` of each step, renaming it yourself as the skill says. "
     + 'The report that ends each of your turns returns to the session that started this one: when the change is archived, '
     + `end that turn with the line \`devkit roadmap: ${id} archived\`.`;
 }
@@ -208,6 +218,13 @@ function sessionStartOf(e, f, lang) {
   };
 }
 const requestOf = (line) => [line.text, line.notes].filter(Boolean).join('\n') || line.id;
+
+// The periodic check of a run (D-9): about every thirty minutes, at minutes the host's other schedules rarely use, with a prompt that is no typed command.
+const CHECK_CRON = '13,43 * * * *';
+export function checkPrompt(lang, limit) {
+  return `devkit-roadmap-check: the periodic check of this roadmap run, started by its schedule and not typed by the owner. Run \`node ${join(HOOKS_DIR, 'roadmap-loop.mjs')} check --lang ${normalizeLang(lang)} --load-limit ${limit}\` `
+    + 'and carry out its actions as the devkit skill\'s "The periodic check" says; approve no plan, answer no retro, hand no stage and start no session.';
+}
 
 // What the run does next. Pure: the caller writes `state` (the run file's fields) and carries the actions out.
 // Returns { version, places, open, stopping, lines, actions, ask, end, state, entries }.
@@ -240,8 +257,9 @@ export function decideRoadmap(f) {
   const ready = f.lines.filter((l) => l.cls === 'ready');
   const loaded = f.load >= f.limit && !f.startAnyway;
   const startable = !stopping && free > 0 && ready.length > 0;
-  const holdNow = startable && loaded;
-  const wanted = startable && !loaded ? ready.slice(0, free) : [];
+  // In a run with a session per change every pending line opens, whatever the number, the load and the dependencies; the load holds a place, not an opening (D-2).
+  const holdNow = !sessionMode && startable && loaded;
+  const wanted = sessionMode ? (stopping ? [] : f.lines.filter((l) => l.cls === 'ready' || l.cls === 'waiting')) : (startable && !loaded ? ready.slice(0, free) : []);
   // On a turn nobody typed every start and session start is taken out: a line says it starts at the owner's next message (D-6).
   const withheld = withhold ? [...actions.map((a) => a.change), ...wanted.map((l) => l.id)] : [];
   if (withhold) actions = [];
@@ -252,19 +270,22 @@ export function decideRoadmap(f) {
   // The starts handed and not yet open stay in `starting`; a change that is open now was started.
   const opened = new Set(entries.filter((e) => e.line.cls === 'open').map((e) => e.id));
   const startedNow = (f.starting ?? []).filter((id) => opened.has(id));
-  const starting = [...new Set([...(f.starting ?? []).filter((id) => lineOf(id)?.cls === 'ready'), ...starts.map((l) => l.id)])];
+  const starting = [...new Set([...(f.starting ?? []).filter((id) => ['ready', 'waiting'].includes(lineOf(id)?.cls)), ...starts.map((l) => l.id)])];
 
   // The owner's queue: the entries waiting at a gate in roadmap order; the head is the one being asked while it stays there.
-  const queue = sessionMode ? [] : entries.filter((e) => e.state === 'owner' && !e.declared); // a change's own session asks its gates
+  // In a run with a session per change the grill, the plan approval and the retro answers are asked here; every other gate in the change's session (D-3).
+  const gateAt = (e) => (sessionMode && e.action ? roadmapGateOf(e.action) : null);
+  const queue = sessionMode ? entries.filter((e) => !e.declared && gateAt(e) !== null) : entries.filter((e) => e.state === 'owner' && !e.declared);
   const head = queue.find((e) => e.id === f.asking) ?? queue[0] ?? null;
-  const ask = head && !stopping ? { change: head.id, kind: head.gate === 'grill' ? 'grill' : 'gate', action: head.action } : null;
+  const headGate = head ? (head.gate ?? gateAt(head)) : null;
+  const ask = head && !stopping ? { change: head.id, kind: headGate === 'grill' ? 'grill' : 'gate', ...(sessionMode ? { gate: headGate } : {}), action: head.action } : null;
 
   // The events, one line each, in the order of the table; each only when the change's announced state differs.
   const announced = { ...(f.announced ?? {}) };
   const lines = [];
-  const emit = (id, key, message, params) => {
-    if (announced[id] === key) return;
-    announced[id] = key;
+  const emit = (id, key, message, params, slot = id) => {
+    if (announced[slot] === key) return;
+    announced[slot] = key;
     lines.push(`▸ ${say(message, params)}`);
   };
   // A started or resumed line counts the open changes up to its own change, in the order the lines print: the changes already
@@ -277,11 +298,14 @@ export function decideRoadmap(f) {
   let counted = open.length - begun.length - resumes.length - sessionsNew.length;
   for (const e of begun) emit(e.id, 'started', 'roadmap-started', { id: e.id, open: ++counted, places });
   for (const e of resumes) emit(e.id, 'resumed', 'roadmap-resumed', { id: e.id, where: f.wheres?.[e.id] ?? '', open: ++counted, places });
-  for (const e of sessionsNew) emit(e.id, 'session', 'roadmap-session-started', { id: e.id, open: ++counted, places });
+  for (const e of sessionsNew) emit(e.id, 'session', 'roadmap-session-opened', { id: e.id });
   // The others go on only when another change is under way: one that runs, or has a stage, step, wait or start in this decision.
   const othersGoOn = (id) => entries.some((e) => e.id !== id && e.state === 'running')
     || actions.some((a) => a.change !== id && ['agent', 'session', 'wait', 'start'].includes(a.kind));
-  if (!sessionMode) {
+  if (sessionMode) { // a change session at a roadmap gate: its question is asked here; the others go on when another session is not at one
+    const goesOn = (id) => entries.some((e) => e.id !== id && e.state === 'own' && gateAt(e) === null);
+    for (const e of entries) if (e.state === 'own' && gateAt(e) !== null) emit(e.id, `gate:${gateAt(e)}`, goesOn(e.id) ? 'roadmap-gate-others' : 'roadmap-gate', { id: e.id, gate: gateAt(e) });
+  } else {
     for (const e of entries) if (e.state === 'owner') emit(e.id, `gate:${e.gate}`, othersGoOn(e.id) ? 'roadmap-gate-others' : 'roadmap-gate', { id: e.id, gate: e.gate });
     for (const e of entries) if (e.state === 'blocked') emit(e.id, `blocked:${e.why}`, othersGoOn(e.id) ? 'roadmap-blocked-others' : 'roadmap-blocked', e.params);
   }
@@ -295,6 +319,12 @@ export function decideRoadmap(f) {
     else emit(id, 'waits-turn', 'roadmap-waits-turn', { id });
   }
   if (holdNow && !f.held) lines.push(`▸ ${say('roadmap-held', { id: ready[0].id, load: f.load, limit: f.limit })}`);
+  // What the session reported about the periodic check and the sessions it archives: one line each, once per state (D-9).
+  if (f.check?.refused) emit('*check', 'refused', 'roadmap-check-refused', {}, '*check');
+  for (const [id, key] of Object.entries(f.after ?? {})) {
+    if (key === 'session-archived') { emit(id, 'archived', 'roadmap-check-session-archived', { id }, `~archived:${id}`); delete announced[`~later:${id}`]; }
+    if (key === 'session-archive-later') emit(id, 'later', 'roadmap-check-archive-later', { id }, `~later:${id}`);
+  }
 
   // The end of the run (D-7 E1 to E3): nothing in flight (while stopping a wait does not count), no action, no hold watched.
   // A change in a session of its own counts as under way, except while stopping; a start waiting for the owner's next message is no end.
@@ -318,11 +348,28 @@ export function decideRoadmap(f) {
     end = { why: 'stuck', reply: say('roadmap-ended-stuck', { list: needs.join('; ') }) };
   }
 
+  // Beside the actions of the changes: the push of a grill or a plan, the periodic check and the cleanup (D-5, D-9). The end is computed without them.
+  const kept = sessionMode ? f.lines.filter((l) => ARCHIVED_CLASSES.includes(l.cls) && f.tickets?.[l.id]) : [];
+  const extras = [];
+  if (!end && !stopping) {
+    for (const [id, what] of Object.entries(f.unpushed ?? {})) {
+      if (f.after?.[id] !== 'push') extras.push({ change: id, kind: 'push', what, command: ['node', join(HOOKS_DIR, 'roadmap-loop.mjs'), 'push', '--change', id, '--what', what, '--lang', lang], progressKey: 'push' });
+    }
+    if (f.cron && !f.check) extras.push({ change: null, kind: 'schedule-check', input: { cron: CHECK_CRON, prompt: checkPrompt(lang, f.limit), recurring: true }, progressKey: 'schedule-check' });
+  }
+  if ((end || stopping) && f.check?.id) extras.push({ change: null, kind: 'delete-check', input: { id: f.check.id }, progressKey: 'delete-check' });
+  for (const l of kept) {
+    if (['session-archive-later', 'session-archived'].includes(f.after?.[l.id])) continue;
+    extras.push({ change: l.id, kind: 'archive-session', cwd: f.actions?.[l.id]?.root ?? null, title: sessionTitle('📦', l.id), input: { reason: `devkit roadmap: ${l.id} is archived` }, progressKey: 'session-archived' });
+  }
+  if (end && ['done', 'stuck'].includes(end.why) && (f.check?.id || kept.length > 0)) extras.push({ change: null, kind: 'stop-own-tasks', progressKey: 'stop-own-tasks' });
+
   return {
-    version: 1, places, open, stopping, lines, actions, ask, end,
+    version: 1, places, open, stopping, lines, actions: [...actions, ...extras], ask, end, check: f.check?.id ?? null,
     state: {
       asking: head?.id ?? null, announced, starting, held: holdNow, clearInflight: Object.keys(f.after ?? {}).filter((id) => f.inflight?.[id]),
       sessionsStarted: sessionsStarted.map((e) => e.id), turn: mayStart ? 'typed' : 'event', openLines: f.lines.filter((l) => l.cls === 'open').map((l) => l.id),
+      archivedLines: f.lines.filter((l) => ARCHIVED_CLASSES.includes(l.cls)).map((l) => l.id),
     },
     entries: entries.map(({ line, ...entry }) => entry),
   };
@@ -348,12 +395,12 @@ export function boardOf(f) {
   const placed = entries.filter((e) => e.state !== 'archived');
   const free = f.places - placed.length;
   const ready = f.lines.filter((l) => l.cls === 'ready');
-  const held = free > 0 && ready.length > 0 && f.load >= f.limit;
-  const takes = new Set(ready.slice(0, Math.max(free, 0)).map((l) => l.id));
-  // In a run with a session per change, a line left for the owner's next message says so (D-6, D-11).
+  // In a run with a session per change, every pending line opens and no start is held; a line left for the owner's next message says so (D-2, D-6, D-11).
   const sessionMode = Boolean(f.changeSessions);
+  const held = !sessionMode && free > 0 && ready.length > 0 && f.load >= f.limit;
+  const takes = new Set(ready.slice(0, Math.max(free, 0)).map((l) => l.id));
   const waitsTurn = (id) => sessionMode && ['waits-turn', 'waits-refused'].includes(f.announced?.[id]);
-  const readyKey = (id) => (!takes.has(id) ? 'queue.place' : held ? 'queue.load' : waitsTurn(id) ? 'queue.turn' : 'queue.ready');
+  const readyKey = (id) => (sessionMode ? (waitsTurn(id) ? 'queue.turn' : 'queue.ready') : !takes.has(id) ? 'queue.place' : held ? 'queue.load' : 'queue.ready');
   const entryOf = (id) => placed.find((e) => e.id === id);
   const rows = { owner: [], running: [], blocked: [], queue: [], outside: [] };
   for (const l of f.lines) {
@@ -364,7 +411,7 @@ export function boardOf(f) {
     else if (e?.state === 'blocked') rows.blocked.push({ id: l.id, text: say(`blocked-why.${e.why}`, e.params) });
     else if (e) rows.running.push({ id: l.id, text: runningText(e, f, say) });
     else if (l.cls === 'ready') rows.queue.push({ id: l.id, text: say(readyKey(l.id)) });
-    else if (l.cls === 'waiting') rows.queue.push({ id: l.id, text: say('queue.after', { after: l.waitsFor }) });
+    else if (l.cls === 'waiting') rows.queue.push({ id: l.id, text: waitsTurn(l.id) ? say('queue.turn') : say('queue.after', { after: l.waitsFor }) });
     else if (l.cls === 'archived-unticked') rows.outside.push({ id: l.id, text: say('outside.unticked') });
     else if (l.cls === 'ticked') rows.outside.push({ id: l.id, text: say('outside.ticked') });
     else if (l.cls === 'previous') rows.outside.push({ id: l.id, text: say('outside.previous') });
@@ -386,11 +433,14 @@ export function boardOf(f) {
   return out.join('\n');
 }
 
-// The block and the row of a change in a session of its own, from its action when it was read: its gate, its blocked reason or its stage.
+// The block and the row of a change in a session of its own, from its action when it was read: its gate, its blocked reason, what it waits for or its stage.
 function ownRow(e, f, say) {
   const a = e.action;
   if (a?.kind === 'grill' || (a?.kind === 'end' && a.end.state === 'waiting-for-owner')) return ['owner', say(`gate.${gateOf(a)}`)];
   if (a?.kind === 'end' && a.end.state === 'blocked') return ['blocked', say(`blocked-why.${a.end.why}`, { ...a.params, id: e.id, why: a.end.why })];
+  const queued = f.queued?.[e.id];
+  if (queued) return ['queue', say(queued.why === 'load' ? 'queue.held-load' : 'queue.held-place')];
+  if (f.waitsFor?.[e.id]) return ['queue', say('queue.held-after', { after: f.waitsFor[e.id] })];
   return ['running', runningText(e, f, say)];
 }
 
@@ -429,7 +479,12 @@ export class RunFileBusy extends LoopUsageError {}
 const emptyRun = () => ({
   version: 1, session: null, places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [],
   held: false, holding: null, changeSessions: false, startedSessions: {}, turn: null, updatedAt: null,
+  tickets: {}, placed: {}, queued: {}, anyway: [], waits: {}, cron: false, check: null,
 });
+
+// What a new coordinating session keeps of the run file: what outlives the session that started it (D-1, D-9).
+const OUTLIVES = ['startedSessions', 'tickets', 'placed', 'queued', 'waits'];
+const TICKET_FORM = /^[0-9a-f]{16}$/;
 
 // `<common git directory>/devkit/roadmap-run.json`: every checkout of the clone and every session see the same file, and no commit holds it.
 export function runFilePath(cwd) {
@@ -465,6 +520,7 @@ export function readRun(file) {
       if (isChangeId(id) && isObject(entry)) run.startedSessions[id] = { at: typeof entry.at === 'string' ? entry.at : null };
     }
   }
+  readUpfront(parsed, run);
   // The watch of the load: { pid, at } (D-7); the boolean of 0.18.0, or anything else, is no watch.
   if (isObject(parsed.holding) && Number.isInteger(parsed.holding.pid) && parsed.holding.pid > 0) {
     run.holding = { pid: parsed.holding.pid, at: typeof parsed.holding.at === 'string' ? parsed.holding.at : null };
@@ -472,6 +528,34 @@ export function readRun(file) {
   for (const key of ['inflight', 'declared', 'announced']) if (isObject(parsed[key])) run[key] = parsed[key];
   if (Array.isArray(parsed.starting)) run.starting = parsed.starting.filter((id) => typeof id === 'string');
   return run;
+}
+
+// The fields of a run that opens every change at its start (D-1, D-9, ADR 0017 decision 6), each dropped when it has the wrong type:
+// tickets { <id>: { ticket, at, claimedBy } }, placed { <id>: { at } }, queued { <id>: { at, why } }, anyway [<id>], waits { <id>: [{ pid, kind, at,
+// session }] }, cron (whether the host offers a session cron) and check (null, { id, at } or { refused: true, at }). An entry that is not whole is dropped.
+function readUpfront(parsed, run) {
+  const at = (v) => (typeof v === 'string' ? v : null);
+  const entries = (value) => (isObject(value) ? Object.entries(value).filter(([id, e]) => isChangeId(id) && isObject(e)) : []);
+  for (const [id, e] of entries(parsed.tickets)) {
+    if (typeof e.ticket === 'string' && TICKET_FORM.test(e.ticket) && (e.claimedBy === null || typeof e.claimedBy === 'string')) {
+      run.tickets[id] = { ticket: e.ticket, at: at(e.at), claimedBy: e.claimedBy };
+    }
+  }
+  for (const [id, e] of entries(parsed.placed)) run.placed[id] = { at: at(e.at) };
+  for (const [id, e] of entries(parsed.queued)) if (e.why === 'place' || e.why === 'load') run.queued[id] = { at: at(e.at), why: e.why };
+  if (Array.isArray(parsed.anyway)) run.anyway = parsed.anyway.filter(isChangeId);
+  if (isObject(parsed.waits)) {
+    for (const [id, list] of Object.entries(parsed.waits)) {
+      if (!isChangeId(id) || !Array.isArray(list)) continue;
+      const kept = list.filter((w) => isObject(w) && Number.isInteger(w.pid) && w.pid > 0 && (w.kind === 'github' || w.kind === 'session'))
+        .map((w) => ({ pid: w.pid, kind: w.kind, at: at(w.at), session: at(w.session) }));
+      if (kept.length) run.waits[id] = kept;
+    }
+  }
+  if (typeof parsed.cron === 'boolean') run.cron = parsed.cron;
+  const c = parsed.check;
+  if (isObject(c) && typeof c.id === 'string') run.check = { id: c.id, at: at(c.at) };
+  else if (isObject(c) && c.refused === true) run.check = { refused: true, at: at(c.at) };
 }
 
 // Read, change and write the file under its lock (created with `wx`, retried, taken over when old), through a temporary file and a rename.
@@ -499,8 +583,9 @@ export function updateRun(file, change, { sleep } = {}) {
 
 // ---------------------------------------------------------------- the facts of a run (D-4, D-7)
 
-// The `--after` keys of a change session the host started or refused (ADR 0014): no stage came back.
-const SESSION_KEYS = ['session-start', 'session-refused'];
+// The `--after` keys of a step the session carried out that is no stage: a change session the host started or refused (ADR 0014), the push of a grill or a
+// plan, and the archive of a change's session or its refusal (ADR 0017): no stage came back.
+const SESSION_KEYS = ['session-start', 'session-refused', 'push', 'session-archived', 'session-archive-later'];
 
 // The title of `stage` in the language of the person, from the change's own script; the id when it cannot be read.
 function stageTitleOf(found, stage, lang) {
@@ -512,8 +597,9 @@ function stageTitleOf(found, stage, lang) {
 
 // Every fact `decideRoadmap` and `boardOf` need, read from the roadmap, the checkouts, the run file and the load. `after` is
 // { <id>: <progress key> }; `wheres` is `new` (the open changes never announced), `open` (every open change) or `board` (the
-// unfinished changes that are not on the roadmap); `readFlying` also reads the action of a change in flight (the board shows it).
-export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 0, limit = DEFAULT_LIMIT, openspec, gh, after = {}, wheres = 'new', readFlying = false, turn } = {}) {
+// unfinished changes that are not on the roadmap); `readFlying` also reads the action of a change in flight (the board shows it); `readOwn` (the default) reads
+// the action of every open change in a session of its own too, the Stop hook leaving that to the decisions that follow (D-3).
+export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 0, limit = DEFAULT_LIMIT, openspec, gh, after = {}, wheres = 'new', readFlying = false, readOwn = true, turn } = {}) {
   const l = normalizeLang(lang);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -529,7 +615,10 @@ export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 
   const common = {
     lang: l, places: run.places, stopping: run.stopping, holding: watchAlive(run.holding), load, limit, run,
     changeSessions: run.changeSessions, startedSessions: run.startedSessions, coordinator: run.session, turn: turn ?? run.turn ?? 'event',
+    tickets: run.tickets, placed: run.placed, queued: run.queued, waits: run.waits, cron: run.cron, check: run.check,
   };
+  // A change in a session of its own: recorded as started, just reported started, or whose session claimed the run's ticket (D-1, D-3).
+  const ownOf = (id) => Boolean(run.changeSessions && (run.startedSessions[id] || after[id] === 'session-start' || run.tickets[id]?.claimedBy));
   if (rounds === null) return { ...common, hasRoadmap: false, lines: [], unfinished: list.map((u) => ({ id: u.id, where: whereFor(u) })) };
 
   const archived = archivedOnDefault(start, { env, gh });
@@ -543,8 +632,8 @@ export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 
   for (const line of classifyLines(rounds, { archived, open, previous, declared: run.declared })) {
     if (line.cls !== 'open' || run.declared[line.id]) continue;
     if (run.changeSessions) {
-      // A change in a session of its own is not read (its own session knows where it is); every other open change is, in flight or not.
-      if ((run.startedSessions[line.id] || after[line.id] === 'session-start') && !readFlying) continue;
+      // The action of a change in a session of its own is read for its gates (D-3) and, for the Stop hook, left unread; every other open change is read.
+      if (ownOf(line.id) && !readFlying && !readOwn) continue;
     } else if (run.inflight[line.id] && !(line.id in after) && !readFlying) continue;
     const progress = SESSION_KEYS.includes(after[line.id]) ? null : (after[line.id] ?? null); // the session keys are no progress key of a stage
     const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh });
@@ -564,9 +653,22 @@ export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 
       } catch { /* a tasks.md that cannot be read shows no phase */ }
     }
   }
+  // What each change session waits for before its plan (D-11) and what of its grill or plan is not on origin yet (D-5).
+  const waitsFor = {};
+  const unpushed = {};
+  if (run.changeSessions) {
+    for (const l of lines) {
+      if (l.cls !== 'open') continue;
+      const dep = l.after.find((d) => !archived.has(d));
+      if (dep && isPlanStage(start, l.id, actions[l.id])) waitsFor[l.id] = dep;
+      const what = ownOf(l.id) && !(l.id in run.declared) ? unpushedOf(byId.get(l.id)?.root, l.id) : null;
+      if (what) unpushed[l.id] = what;
+    }
+  }
   return {
     ...common, hasRoadmap: true, lines, actions, inflight: run.inflight, declared: run.declared, announced: run.announced, starting: run.starting,
     held: run.held, asking: run.asking, after, wheres: wheresMap, phaseTotals, unfinished: list.map((u) => ({ id: u.id, where: wheresMap[u.id] ?? '' })),
+    waitsFor, unpushed,
   };
 }
 
@@ -597,6 +699,11 @@ function readyText(action) {
   if (action.kind === 'session') return `the change ${c} has the stage ${action.stage ?? action.step} ready (${action.step})`;
   if (action.kind === 'wait') return `the change ${c} waits on GitHub: start its wait`;
   if (action.kind === 'session-start') return `the change ${c} has no session of its own yet: start it`;
+  if (action.kind === 'push') return `the ${action.what} of the change ${c} is not on its branch on origin: push it`;
+  if (action.kind === 'schedule-check') return 'the periodic check of the run is not scheduled: create it';
+  if (action.kind === 'delete-check') return 'the periodic check of the run is still scheduled: delete it';
+  if (action.kind === 'archive-session') return `the session of the archived change ${c} is still open: archive it`;
+  if (action.kind === 'stop-own-tasks') return 'the run is over: stop the background tasks this session started for it';
   if (action.kind === 'start') return `the change ${c} is ready to start: open it`;
   return `the start of ${c} is held by the load: watch it with hold`;
 }
@@ -612,7 +719,7 @@ export function roadmapStopDecision(input, { env = process.env, run, gh, openspe
     if (readRun(file).stopping) return allow('stopping');
     const lang = normalizeLang(env.CLAUDE_PLUGIN_OPTION_LANGUAGE);
     const limit = limitOf(env.CLAUDE_PLUGIN_OPTION_LOAD_LIMIT);
-    const facts = collectRoadmap(start, { env, lang, load: load(), limit, openspec, gh, wheres: 'none' });
+    const facts = collectRoadmap(start, { env, lang, load: load(), limit, openspec, gh, wheres: 'none', readOwn: false });
     if (facts.hasRoadmap === false) return allow('no-roadmap');
     const { actions } = decideRoadmap(facts); // read-only: nothing is written
     if (actions.length === 0) return allow('nothing-ready'); // RS2
@@ -641,6 +748,18 @@ const isPreviousScript = (start, id, env) => {
 
 const refusal = (why, change, reason) => ({ decision: 'refuse', why, change, reason });
 
+// Whether `type` (a role, with no prefix or the prefix of the pack that ships its agent) is a helper of the `requirements` stage of the
+// script of `change`; false with no change or a script that cannot be read.
+function isRequirementsHelper(start, change, type) {
+  if (!change || typeof type !== 'string') return false;
+  const colon = type.indexOf(':');
+  const role = colon === -1 ? type : type.slice(colon + 1);
+  if (colon !== -1 && PACKS[role] !== type.slice(0, colon)) return false;
+  const found = locate(start, change);
+  const dir = locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change);
+  return (readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((x) => x.id === 'requirements')?.helpers ?? []).includes(role);
+}
+
 // `guard.mjs agent` (RH0 to RH6).
 export function roadmapAgentDecision(input, { env = process.env, run, gh = OFFLINE_GH } = {}) {
   let change = null;
@@ -651,14 +770,18 @@ export function roadmapAgentDecision(input, { env = process.env, run, gh = OFFLI
     const { start, file } = strictRunFile(input.cwd ?? process.cwd());
     const prompt = input.tool_input?.prompt;
     change = typeof prompt === 'string' ? (BRIEF_OF.exec(prompt)?.[1] ?? null) : null;
+    const notOpen = (open) => refusal('not-open', change, `in a /devkit roadmap run a hand-off names a change open on the roadmap: ${change} is not one; the open changes are: ${open.join(', ') || 'none'}`); // RH2
     if (readRun(file).changeSessions) { // RH6: every change has a session of its own, which hands its stages
-      return refusal('own-sessions', change, 'in this /devkit roadmap run each change runs in a session of its own: its stages are handed in that session, not here');
+      // The one exception: a helper of the change's requirements stage (the grill's triage), for a change open on the roadmap; it marks nothing under way.
+      if (!isRequirementsHelper(start, change, input.tool_input?.subagent_type)) {
+        return refusal('own-sessions', change, 'in this /devkit roadmap run each change runs in a session of its own: its stages are handed in that session, not here');
+      }
+      const open = openOnRoadmap(start, env, gh);
+      return !open.includes(change) || isPreviousScript(start, change, env) ? notOpen(open) : allow('grill-helper', change);
     }
     if (!change) return refusal('no-brief', null, 'in a /devkit roadmap run every hand-off starts with the brief the loop gave, which names its change'); // RH1
     const open = openOnRoadmap(start, env, gh);
-    if (!open.includes(change) || isPreviousScript(start, change, env)) {
-      return refusal('not-open', change, `in a /devkit roadmap run a hand-off names a change open on the roadmap: ${change} is not one; the open changes are: ${open.join(', ') || 'none'}`); // RH2
-    }
+    if (!open.includes(change) || isPreviousScript(start, change, env)) return notOpen(open); // RH2
     const decision = handOffFor(input, change, { command: 'roadmap' }); // RH3
     if (decision.decision === 'allow') { // RH4
       const entry = { kind: 'agent', stage: STAGE_OF.exec(prompt)?.[1] ?? null, agentType: input.tool_input.subagent_type, at: new Date().toISOString() };
@@ -699,11 +822,318 @@ export function roadmapSubagentStopDecision(input, { env = process.env, run } = 
   } catch (e) { return allow(e instanceof RunFileBusy ? 'run-file-busy' : 'error', change); } // RU7
 }
 
+// ---------------------------------------------------------------- the change session's loop and its places (roadmap-sessions-upfront D-6 to D-8)
+
+// The owner's gates a change session leaves to the coordinating session: the grill, the plan approval and the retro answers.
+export const ROADMAP_GATES = ['grill', 'approval', 'retro'];
+// The parts of a script whose stages load the machine: a change holds a place while its stage is in one of them (D-7).
+const LOAD_PARTS = ['build', 'after'];
+// The stages of the plan part a change does not write before its dependencies are archived: the others are the owner's or come after.
+const PLAN_NOT_HELD = ['requirements', 'approval'];
+
+// The roadmap gate an action waits at, or null (any action that is not one of them, a wait the table does not know included).
+export function roadmapGateOf(action) {
+  try {
+    const gate = gateOf(action);
+    return ROADMAP_GATES.includes(gate) ? gate : null;
+  } catch { return null; }
+}
+
+const entriesCount = (record) => Object.keys(record).length;
+const timeOf = (at) => Date.parse(at) || 0;
+
+// The one place rule (D-6), pure: does change `id` take a place now? `free` places are the number of places less the changes that hold one;
+// `ahead` the other changes queued since an earlier time; it claims when it is first in line with a place free and the machine below the limit (or the
+// owner said to start anyway). Returns { claimed, why?, placed, queued, anyway } as new records: a claim records its place and leaves the queue and the
+// permission; a refusal queues it (keeping the time it first queued) with why `place` (no place for it) or `load`.
+export function placeDecision({ id, places, placed, queued, load, limit, anyway = [], now }) {
+  const free = places - entriesCount(placed);
+  const mine = queued[id];
+  const since = timeOf(mine?.at ?? now);
+  const ahead = Object.entries(queued).filter(([other, entry]) => other !== id && timeOf(entry.at) < since).length;
+  if (free > ahead && (load < limit || anyway.includes(id))) {
+    const rest = { ...queued };
+    delete rest[id];
+    return { claimed: true, placed: { ...placed, [id]: { at: now } }, queued: rest, anyway: anyway.filter((other) => other !== id) };
+  }
+  const why = free > ahead ? 'load' : 'place';
+  return { claimed: false, why, placed: { ...placed }, queued: { ...queued, [id]: { at: mine?.at ?? now, why } }, anyway: [...anyway] };
+}
+
+// What a change session does next (D-6), pure, first match wins. The facts: id, action (the change loop's), part (of the action's stage in the
+// change's script), waitsFor (the first dependency not archived), notInHead (a dependency's archive folder is missing from the branch),
+// hasProposal, places, placed, queued, anyway, load, limit, now, lang. Returns { action, placed, queued, anyway }: the action to carry out
+// (the change loop's, a `held` one that waits, or the `merge-base` step) and the places as they are after it.
+export function sessionDecide(f) {
+  const a = f.action;
+  const lang = normalizeLang(f.lang);
+  const say = (key, params) => render(lang, key, { id: f.id, ...params });
+  const records = { placed: { ...f.placed }, queued: { ...f.queued }, anyway: [...(f.anyway ?? [])] };
+  const given = (action) => ({ action, ...records });
+  const held = (why, extra, key, params, icon) => given({
+    version: a.version, change: a.change ?? f.id, script: a.script, root: a.root, branch: a.branch, filesLanguage: a.filesLanguage, kind: 'held', held: { why, ...extra },
+    stage: a.stage ?? null, stageTitle: a.stageTitle ?? null, icon, sessionTitle: sessionTitle(icon, f.id), reply: say(key, params), progressKey: `held/${why}`,
+  });
+  const gate = roadmapGateOf(a);
+  if (gate) return held('owner', { gate }, 'session-held-owner', { gate }, stageIcon(a));
+  const stage = (a.kind === 'agent' || a.kind === 'session') && f.part === 'plan' && !PLAN_NOT_HELD.includes(a.stage);
+  if (stage && f.waitsFor) return held('after', { after: f.waitsFor }, 'session-held-after', { after: f.waitsFor }, WAIT_ICON);
+  if (stage && f.notInHead && !f.hasProposal) {
+    const fingerprint = String(a.progressKey ?? '').split('@').slice(1).join('@');
+    return given({
+      version: a.version, change: a.change ?? f.id, script: a.script, root: a.root, branch: a.branch, filesLanguage: a.filesLanguage, kind: 'session', step: 'merge-base',
+      stage: a.stage, stageTitle: a.stageTitle, role: a.role ?? null, skills: [], icon: a.icon, sessionTitle: a.sessionTitle,
+      detail: { command: ['node', join(HOOKS_DIR, 'roadmap-loop.mjs'), 'merge-base', '--change', f.id, '--lang', lang] },
+      progressKey: `${a.stage}/merge-base@${fingerprint}`,
+    });
+  }
+  const loads = LOAD_PARTS.includes(f.part);
+  if (loads && (a.kind === 'agent' || a.kind === 'session') && !records.placed[f.id]) {
+    const r = placeDecision({ id: f.id, places: f.places, placed: records.placed, queued: records.queued, load: f.load, limit: f.limit, anyway: records.anyway, now: f.now });
+    Object.assign(records, { placed: r.placed, queued: r.queued, anyway: r.anyway });
+    if (r.claimed) return given(a);
+    return r.why === 'place'
+      ? held('place', {}, 'session-held-place', { places: entriesCount(r.placed) }, WAIT_ICON)
+      : held('load', {}, 'session-held-load', { load: f.load, limit: f.limit }, WAIT_ICON);
+  }
+  if (!loads) { delete records.placed[f.id]; delete records.queued[f.id]; } // the stage or the archive that leaves the load stages frees the place
+  return given(a);
+}
+
+// The part of `stage` in the script of the change at `found`; null when the script cannot be read or does not hold it.
+function partOfStage(found, id, stage) {
+  if (typeof stage !== 'string') return null;
+  try {
+    const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+    return readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((s) => s.id === stage)?.part ?? null;
+  } catch { return null; }
+}
+
+// Whether the action is a stage of the plan part that waits for the change's dependencies (the same test as `sessionFacts`, for the board).
+function isPlanStage(start, id, action) {
+  if (!(action?.kind === 'agent' || action?.kind === 'session') || PLAN_NOT_HELD.includes(action.stage)) return false;
+  try { return partOfStage(locate(start, id), id, action.stage) === 'plan'; } catch { return false; }
+}
+
+const ARCHIVE_FOLDER = /^\d{4}-\d{2}-\d{2}-(.+)$/;
+// The ids whose archive folder is in the tree of HEAD in `root`.
+function archivedInHead(root) {
+  const names = tryGit(root, ['ls-tree', '--name-only', 'HEAD', 'openspec/changes/archive/']).split('\n');
+  return new Set(names.map((n) => ARCHIVE_FOLDER.exec(n.slice(n.lastIndexOf('/') + 1))?.[1]).filter(Boolean));
+}
+
+// The facts of `sessionDecide` the files and the repository answer: the part of the stage and, for a plan stage, the dependencies of the change's line in
+// the roadmap of the main checkout (D-8). GitHub is read only for a plan stage that has dependencies.
+function sessionFacts(start, id, action, { env, openspec, gh }) {
+  const found = locate(start, id);
+  const part = partOfStage(found, id, action.stage);
+  const facts = { part, waitsFor: null, notInHead: false, hasProposal: false };
+  const plan = (action.kind === 'agent' || action.kind === 'session') && part === 'plan' && !PLAN_NOT_HELD.includes(action.stage);
+  if (!plan) return facts;
+  const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+  facts.hasProposal = existsSync(join(dir, 'proposal.md'));
+  const line = (readRoadmap(mainRoot(start)) ?? []).flatMap((round) => round.items).find((item) => item.id === id);
+  const deps = line?.after ?? [];
+  if (deps.length === 0) return facts;
+  const archived = archivedOnDefault(start, { env, gh });
+  facts.waitsFor = deps.find((d) => !archived.has(d)) ?? null;
+  const inHead = archivedInHead(found.root);
+  facts.notInHead = deps.some((d) => !inHead.has(d));
+  return facts;
+}
+
+// The next action of change `id` for its own session (D-6): the change loop's action, then the places and the holds of `sessionDecide`. A change that is
+// not in a run with a session per change, or whose ticket no session claimed, gets the change loop's action unchanged. With `write` the places are
+// recorded (decided again on the run file as read under its lock); without it nothing is written.
+export function sessionNext(cwd, id, { env = process.env, lang = 'pt-BR', after = null, load = 0, limit = DEFAULT_LIMIT, openspec, gh, write = false, lockSleep, now = new Date().toISOString() } = {}) {
+  const l = normalizeLang(lang);
+  const action = nextAction(cwd, id, { env, lang: l, after, openspec, gh });
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const file = runFilePath(start);
+  const run = readRun(file);
+  if (!run.changeSessions || !run.tickets[id]?.claimedBy) return action;
+  const facts = sessionFacts(start, id, action, { env, openspec, gh });
+  const decide = (state) => sessionDecide({ id, action, ...facts, places: state.places, placed: state.placed, queued: state.queued, anyway: state.anyway, load, limit, now, lang: l });
+  const places = (r) => JSON.stringify([r.placed, r.queued, r.anyway]);
+  const first = decide(run);
+  if (!write || places(first) === places(run)) return first.action;
+  let result = first;
+  updateRun(file, (current) => {
+    result = decide(current);
+    Object.assign(current, { placed: result.placed, queued: result.queued, anyway: result.anyway });
+    return current;
+  }, { sleep: lockSleep });
+  return result.action;
+}
+
+// `guard.mjs stop` for a change run when no roadmap run was found (D-6): a change session that claimed its ticket may stop while its decision is to wait
+// (`held`); every other session, and any error, is judged by the change loop's own lock. Read-only: a stop decision claims no place.
+export function changeSessionStopDecision(input, { env = process.env, events, gh, openspec, load = () => readLoad() } = {}) {
+  try {
+    const run = runOf(input, events);
+    const session = input?.session_id;
+    const start = run && typeof session === 'string' && session !== '' ? findRoot(input.cwd ?? process.cwd()) : null;
+    if (start && readRun(runFilePath(start)).tickets[run.change]?.claimedBy === session) {
+      const lang = normalizeLang(env.CLAUDE_PLUGIN_OPTION_LANGUAGE);
+      const action = sessionNext(input.cwd ?? process.cwd(), run.change, { env, lang, load: load(), limit: limitOf(env.CLAUDE_PLUGIN_OPTION_LOAD_LIMIT), openspec, gh, write: false });
+      if (action.kind === 'held') return allow('held', run.change);
+    }
+  } catch { /* the change loop's lock judges what this one cannot read */ }
+  return stopDecision(input, { env, events });
+}
+
+// ---------------------------------------------------------------- the push of a grill and a plan (roadmap-sessions-upfront D-5)
+
+// The files of a change's plan, as written in its folder: the grill's, the proposal, the design, the tasks, the review, the approval and the specs.
+export const PLAN_FILES = ['requirements.md', 'proposal.md', 'design.md', 'tasks.md', 'readiness.md', 'approval.md', 'specs'];
+
+const gitIn = (root, args, env) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
+const gitOk = (root, args) => { try { gitIn(root, args, process.env); return true; } catch { return false; } };
+
+// Pure git, no network: every path has no change in the tree, and `origin`'s ref of the branch holds the last commit that touched it. With no `origin`, committed is pushed.
+export function filesPushed(root, branch, paths) {
+  if (paths.some((path) => tryGit(root, ['status', '--porcelain', '--', path]) !== '')) return false;
+  if (!tryGit(root, ['remote']).split('\n').includes('origin')) return true;
+  const ref = `refs/remotes/origin/${branch}`;
+  if (!gitOk(root, ['rev-parse', '--verify', '--quiet', ref])) return false;
+  return paths.every((path) => {
+    const last = tryGit(root, ['log', '-1', '--format=%H', '--', path]);
+    return last === '' || gitOk(root, ['merge-base', '--is-ancestor', last, ref]);
+  });
+}
+
+const readOr = (file) => { try { return readFileSync(file, 'utf8'); } catch { return ''; } };
+
+// What of change `id` is not on origin yet in its checkout `root`: `plan` once its approval passed, else `grill` once its requirements did; null when both are
+// pushed, the branch is the default branch (nothing the run pushes goes there) or the checkout has none.
+function unpushedOf(root, id) {
+  const dir = root ? locateChange(root, id)?.dir : null;
+  const branch = dir ? tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) : '';
+  if (!dir || !branch || branch === defaultBase(root)) return null;
+  const inRoot = (file) => relative(root, join(dir, file));
+  const passed = (file) => parseStageHeader(readOr(join(dir, file)))?.result === 'passed';
+  const plan = PLAN_FILES.filter((file) => existsSync(join(dir, file))).map(inRoot);
+  if (passed('approval.md') && !filesPushed(root, branch, plan)) return 'plan';
+  if (passed('requirements.md') && !filesPushed(root, branch, [inRoot('requirements.md')])) return 'grill';
+  return null;
+}
+
+// ---------------------------------------------------------------- the wait loops of a run (roadmap-sessions-upfront D-9)
+
+// The recorded waits that no change needs any more: the waits of a change that is not an open line or is archived, and of one kind of one change every wait
+// older than the newest. Pure; returns [{ id, pid, kind, at, session }].
+export function staleWaits(waits, { open, archived }) {
+  const openIds = new Set(open);
+  const archivedIds = new Set(archived);
+  const stale = [];
+  for (const [id, list] of Object.entries(waits ?? {})) {
+    if (!openIds.has(id) || archivedIds.has(id)) { stale.push(...list.map((w) => ({ id, ...w }))); continue; }
+    for (const kind of new Set(list.map((w) => w.kind))) {
+      const same = list.filter((w) => w.kind === kind);
+      const newest = same.reduce((latest, w) => (timeOf(w.at) >= timeOf(latest.at) ? w : latest), same[0]);
+      stale.push(...same.filter((w) => w !== newest).map((w) => ({ id, ...w })));
+    }
+  }
+  return stale;
+}
+
+// Stops the processes of `entries` with SIGTERM (never this one); a process already gone counts as stopped. Returns how many were signalled.
+export function killWaits(entries) {
+  let stopped = 0;
+  for (const w of entries) {
+    if (w.pid === process.pid) continue;
+    try { process.kill(w.pid, 'SIGTERM'); stopped += 1; } catch { /* already gone */ }
+  }
+  return stopped;
+}
+
+const sameWait = (a, b) => a.pid === b.pid && a.kind === b.kind && a.at === b.at;
+// `waits` without `gone` (entries as `staleWaits` returns them): a change with no wait left leaves the record.
+function withoutWaits(waits, gone) {
+  const out = {};
+  for (const [id, list] of Object.entries(waits)) {
+    const rest = list.filter((w) => !gone.some((g) => g.id === id && sameWait(g, w)));
+    if (rest.length) out[id] = rest;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- the entry of a started change session (roadmap-sessions-upfront D-1)
+
+// The one-use ticket of a session start: 16 lowercase hexadecimal characters.
+export const mintTicket = () => randomBytes(8).toString('hex');
+
+// The `session-start` action with its task in two lines: the command, then the run's `devkit-start:` line. `typedOf` still reads the first line.
+export function withTicket(action, ticket) {
+  return { ...action, input: { ...action.input, prompt: `${action.input.prompt}\ndevkit-start: ${action.change} ${ticket}` } };
+}
+
+// The skill a started session runs first, and the first non-blank line of its task.
+export const ENTRY_SKILL = 'devkit-session';
+const TASK_OF = /^\s*\/(?:[\w-]+:)?devkit[ \t]+change[ \t]+([A-Za-z0-9][\w.-]*)[ \t]*\r?$/;
+const TYPING = (id) => `the owner can run this change by typing /devkit change ${id} in this session`;
+
+// What a ticket in the run file says about the call of a session: the label, first match wins.
+function ticketLabel(run, id, ticket, session) {
+  const entry = run.tickets[id];
+  if (!entry || entry.ticket !== ticket) return 'ticket-unknown';
+  if (entry.claimedBy === null) return 'claimed';
+  return entry.claimedBy === session ? 'same-session' : 'ticket-claimed';
+}
+
+const ENTRY_REFUSALS = {
+  'not-started': 'devkit-session runs only in a session a /devkit roadmap run started: the first message of this session is not that form with a /devkit change task',
+  'no-ticket': (id) => `the first message of this session carries no devkit-start line for ${id}`,
+  'ticket-unknown': 'the run does not record the ticket of this session\'s start',
+  'ticket-claimed': 'another session already claimed the ticket of this change',
+  unreadable: 'the entry could not be checked: the transcript or the run file could not be read',
+};
+
+// `guard.mjs skill` (design D-1): the decision on a call of the Skill tool, { decision, why, change, reason }. A call that names no
+// `devkit-session` in any string field of its input is let through (`not-entry`). The entry runs only when the session's first message is
+// the host's started form whose task is `/devkit change <id>` and a `devkit-start: <id> <ticket>` line, and the run file records that ticket
+// for the change, unclaimed or claimed by this very session; the first session claims it, under the run file's lock. Any other call is refused,
+// and so is any error (`unreadable`): the owner's typed `/devkit change <id>` still runs the change.
+export function entryDecision(input, { env = process.env } = {}) {
+  let id = null;
+  const refuse = (why, detail) => {
+    const said = typeof detail === 'function' ? detail(id) : detail;
+    return { decision: 'refuse', why, change: id, reason: `${said}; ${TYPING(id ?? '<id>')}` };
+  };
+  try {
+    const named = Object.values(input?.tool_input ?? {}).some((v) => typeof v === 'string' && (v === ENTRY_SKILL || v.endsWith(`:${ENTRY_SKILL}`)));
+    if (!named) return allow('not-entry');
+    const first = firstMessageOf(input);
+    const task = first === null ? null : startedTaskOf(first);
+    const command = task?.find((line) => line.trim() !== '');
+    id = command === undefined ? null : (TASK_OF.exec(command)?.[1] ?? null);
+    if (id === null) return refuse('not-started', ENTRY_REFUSALS['not-started']);
+    const start = task.map((line) => START_LINE.exec(line)).find((m) => m?.[1] === id);
+    if (!start) return refuse('no-ticket', ENTRY_REFUSALS['no-ticket']);
+    const session = input.session_id;
+    if (typeof session !== 'string' || session === '') throw new LoopUsageError('the call names no session');
+    const { file } = strictRunFile(input.cwd ?? process.cwd());
+    let label = ticketLabel(readRun(file), id, start[2], session);
+    if (label === 'claimed') {
+      updateRun(file, (run) => { // again under the lock: two sessions can ask at once, and only the first claims
+        label = ticketLabel(run, id, start[2], session);
+        if (label === 'claimed') run.tickets[id].claimedBy = session;
+        return run;
+      });
+    }
+    if (label === 'claimed' || label === 'same-session') return allow(label, id);
+    return refuse(label, ENTRY_REFUSALS[label]);
+  } catch { return refuse('unreadable', ENTRY_REFUSALS.unreadable); }
+}
+
 // ---------------------------------------------------------------- the command line
 
-const USAGE = 'usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessions] (the owner\'s arguments on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--turn typed|event] [--start-anyway] '
+const USAGE = 'usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessions] [--cron] (the owner\'s arguments on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--turn typed|event] [--start-anyway] [--check-id <job>] [--check-refused] [--check-deleted] [--check-gone] '
   + '| status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] '
-  + '| hold --lang <l> --load-limit <p> [--interval <seconds>]';
+  + '| hold --lang <l> --load-limit <p> [--interval <seconds>] | session-next --change <id> --lang <l> --load-limit <p> [--after <progress key>] '
+  + '| session-wait --change <id> --lang <l> --load-limit <p> [--interval <seconds>] [--session <id>] | merge-base --change <id> --lang <l> '
+  + '| push --change <id> --what grill|plan --lang <l> | check --lang <l> --load-limit <p> [--check-gone]';
 
 function parseOpts(argv, { values = [], multi = [], flags = [] } = {}) {
   const out = { positional: [], value: {}, many: {}, flag: {} };
@@ -746,12 +1176,26 @@ const rootOf = (cwd) => {
 
 // What `run` and `next` print: the run line, then the decision as JSON.
 const decisionText = (d) => `devkit-roadmap: ${d.stopping ? 'stop' : d.places}\n`;
-const decisionJson = (d) => json({ version: 1, places: d.places, open: d.open, stopping: d.stopping, lines: d.lines, actions: d.actions, ask: d.ask, end: d.end });
+const decisionJson = (d) => json({ version: 1, places: d.places, open: d.open, stopping: d.stopping, lines: d.lines, actions: d.actions, ask: d.ask, end: d.end, check: d.check ?? null });
+
+// The wait loops this decision no longer leaves running (D-9): at the end of a run (done or stuck) every one; at a stop the stale ones; otherwise, in a run with a
+// session per change, those of an archived change, which would keep the app from archiving its session. Their entries leave the record.
+function tidyWaits(run, decision, facts) {
+  const why = decision.end?.why;
+  if (!facts.changeSessions && why !== 'done' && why !== 'stuck' && why !== 'stopped') return;
+  const stale = staleWaits(run.waits, { open: decision.state.openLines, archived: decision.state.archivedLines });
+  const every = Object.entries(run.waits).flatMap(([id, list]) => list.map((w) => ({ id, ...w })));
+  const doomed = why === 'done' || why === 'stuck' ? every : why === 'stopped' ? stale : stale.filter((w) => decision.state.archivedLines.includes(w.id));
+  if (doomed.length === 0) return;
+  killWaits(doomed);
+  run.waits = withoutWaits(run.waits, doomed);
+}
 
 // Decide over the current facts and record what the decision says about the run (D-7): the head of the owner's queue, the events
 // announced, the starts handed, the hold and the stages that came back.
 function decide(start, facts, ctx) {
   const decision = decideRoadmap(facts);
+  const tickets = {};
   updateRun(runFilePath(start), (run) => {
     run.asking = decision.state.asking;
     run.announced = decision.state.announced;
@@ -759,12 +1203,23 @@ function decide(start, facts, ctx) {
     run.held = decision.state.held;
     run.turn = decision.state.turn;
     for (const id of decision.state.clearInflight) delete run.inflight[id];
-    // The change sessions reported started are recorded; a change that is no longer an open line leaves the record (D-3).
+    // The change sessions reported started are recorded; a change whose line is neither open nor archived leaves the record (D-3, D-9).
     for (const id of decision.state.sessionsStarted) run.startedSessions[id] = { at: new Date().toISOString() };
-    for (const id of Object.keys(run.startedSessions)) if (!decision.state.openLines.includes(id)) delete run.startedSessions[id];
+    const stays = new Set([...decision.state.openLines, ...decision.state.archivedLines]);
+    for (const key of ['startedSessions', 'tickets']) for (const id of Object.keys(run[key])) if (!stays.has(id)) delete run[key][id];
+    // The session of an archived change was archived: its entries leave the record (D-9).
+    for (const [id, key] of Object.entries(facts.after ?? {})) if (key === 'session-archived') { delete run.startedSessions[id]; delete run.tickets[id]; }
+    tidyWaits(run, decision, facts);
+    // Each session start gets a fresh ticket recorded before it is printed; an unclaimed ticket of the same change is replaced, a claimed one never (D-1).
+    for (const a of decision.actions) {
+      if (a.kind !== 'session-start') continue;
+      const held = run.tickets[a.change];
+      if (held?.claimedBy == null) run.tickets[a.change] = { ticket: mintTicket(), at: new Date().toISOString(), claimedBy: null };
+      tickets[a.change] = run.tickets[a.change].ticket;
+    }
     return run;
   }, { sleep: ctx.lockSleep });
-  return decision;
+  return { ...decision, actions: decision.actions.map((a) => (a.kind === 'session-start' ? withTicket(a, tickets[a.change]) : a)) };
 }
 
 const settingsOf = (ctx, opts) => ({ lang: normalizeLang(opts.value['--lang']), limit: limitOf(opts.value['--load-limit']), load: ctx.load() });
@@ -772,7 +1227,7 @@ const settingsOf = (ctx, opts) => ({ lang: normalizeLang(opts.value['--lang']), 
 function hasRoadmapFile(start) { return readRoadmap(start) !== null; }
 
 function runCmd(args, ctx) {
-  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--session'], flags: ['--fresh', '--change-sessions'] });
+  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--session'], flags: ['--fresh', '--change-sessions', '--cron'] });
   if (opts.positional.length) throw new LoopUsageError(USAGE);
   const lang = normalizeLang(opts.value['--lang']);
   const word = parseRunInput(ctx.stdin);
@@ -787,8 +1242,12 @@ function runCmd(args, ctx) {
     if (word.kind === 'stop') { run.stopping = true; return run; } // U3: nothing is reset
     const same = run.session === session && !opts.flag['--fresh'];
     if (same) placesBefore = run.places; // U4
-    else Object.assign(run, emptyRun(), { session, startedSessions: opts.flag['--fresh'] ? {} : run.startedSessions }); // U5: the change sessions outlive the session that started them
+    else { // U5: the change sessions, their tickets, places, queue and waits outlive the session that started them; the session cron and the anyway do not
+      const kept = opts.flag['--fresh'] ? {} : Object.fromEntries(OUTLIVES.map((key) => [key, run[key]]));
+      Object.assign(run, emptyRun(), { session }, kept);
+    }
     run.changeSessions = Boolean(opts.flag['--change-sessions']);
+    run.cron = Boolean(opts.flag['--cron']); // whether the host offers a session cron (D-9)
     run.places = word.places;
     run.stopping = false;
     run.held = false;
@@ -806,8 +1265,27 @@ function runCmd(args, ctx) {
   return { code: 0, stdout: `${decisionText(decision)}${preface}${decisionJson(decision)}`, stderr: '' };
 }
 
+// What the session reports about the periodic check and the owner's start anyway, written before the facts are read (D-7, D-9): `--check-id` the job
+// created, `--check-refused` the host's refusal, `--check-deleted` the job deleted (also one already gone), `--check-gone` the job the host's list lacks
+// (a recorded refusal stays); `--start-anyway`, in a run with a session per change, records the changes the load holds now. Returns the run as written.
+function recordFlags(start, opts, ctx) {
+  const file = runFilePath(start);
+  const id = opts.value['--check-id'];
+  const flag = opts.flag;
+  if (id === undefined && !flag['--check-refused'] && !flag['--check-deleted'] && !flag['--check-gone'] && !flag['--start-anyway']) return readRun(file);
+  if (id === '') throw new LoopUsageError('--check-id needs the job id');
+  return updateRun(file, (run) => {
+    const at = new Date().toISOString();
+    if (id !== undefined) run.check = { id, at };
+    if (flag['--check-refused']) run.check = { refused: true, at };
+    if (flag['--check-deleted'] || (flag['--check-gone'] && run.check?.id)) run.check = null;
+    if (flag['--start-anyway'] && run.changeSessions) run.anyway = Object.entries(run.queued).filter(([, q]) => q.why === 'load').map(([other]) => other);
+    return run;
+  }, { sleep: ctx.lockSleep });
+}
+
 function nextCmd(args, ctx) {
-  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--turn'], multi: ['--after'], flags: ['--start-anyway'] });
+  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--turn', '--check-id'], multi: ['--after'], flags: ['--start-anyway', '--check-refused', '--check-deleted', '--check-gone'] });
   if (opts.positional.length) throw new LoopUsageError(USAGE);
   // The turn the session names: one the owner typed or not; no word is a turn nobody typed (D-6).
   const turn = opts.value['--turn'] ?? 'event';
@@ -821,7 +1299,8 @@ function nextCmd(args, ctx) {
   const { lang, limit, load } = settingsOf(ctx, opts);
   const start = rootOf(ctx.cwd);
   if (!hasRoadmapFile(start)) return plain(render(lang, 'roadmap-none'));
-  const stopping = readRun(runFilePath(start)).stopping;
+  const run = recordFlags(start, opts, ctx);
+  const stopping = run.stopping;
   const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn });
   facts.startAnyway = Boolean(opts.flag['--start-anyway']);
   const decision = decide(start, facts, ctx);
@@ -883,20 +1362,25 @@ function replyCmd(args, ctx) {
 
 // `wait`: a wait on GitHub with no limit of its own, the change marked in flight while it lasts and cleared when it ends, also on error.
 async function waitCmd(args, ctx) {
-  const opts = parseOpts(args, { values: ['--change', '--lang', '--load-limit', '--interval'] });
+  const opts = parseOpts(args, { values: ['--change', '--lang', '--load-limit', '--interval', '--session'] });
   if (!opts.value['--change'] || opts.positional.length) throw new LoopUsageError(USAGE);
   const id = changeIdOf('--change', opts.value['--change']);
   const interval = intervalOf(opts.value['--interval']);
   const lang = normalizeLang(opts.value['--lang']);
   const start = rootOf(ctx.cwd);
   const file = runFilePath(start);
-  updateRun(file, (run) => { run.inflight[id] = { kind: 'wait', stage: 'delivery', agentType: null, at: new Date().toISOString() }; return run; }, { sleep: ctx.lockSleep });
+  const entry = { pid: process.pid, kind: 'github', at: new Date().toISOString(), session: opts.value['--session'] ?? null };
+  updateRun(file, (run) => {
+    run.inflight[id] = { kind: 'wait', stage: 'delivery', agentType: null, at: entry.at };
+    run.waits[id] = [...(run.waits[id] ?? []), entry]; // recorded, so the periodic check can stop it when its change no longer needs it (D-9)
+    return run;
+  }, { sleep: ctx.lockSleep });
   try {
     const poll = async () => nextAction(start, id, { env: ctx.env, lang, openspec: ctx.openspec, gh: ctx.gh });
     const action = await waitLoop({ poll, sleep: ctx.sleep ?? realSleep, interval, id, lang });
     return { code: 0, stdout: json(action), stderr: '' };
   } finally {
-    updateRun(file, (run) => { delete run.inflight[id]; return run; }, { sleep: ctx.lockSleep });
+    updateRun(file, (run) => { delete run.inflight[id]; run.waits = withoutWaits(run.waits, [{ id, ...entry }]); return run; }, { sleep: ctx.lockSleep });
   }
 }
 
@@ -922,6 +1406,128 @@ async function holdCmd(args, ctx) {
   }
 }
 
+// `session-next` (D-6): what `change-loop.mjs next` prints, for a change in a session of its own: `devkit-run: <id>`, the end line of an end, the JSON action.
+function sessionNextCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--change', '--lang', '--load-limit', '--after'] });
+  if (!opts.value['--change'] || opts.positional.length) throw new LoopUsageError(USAGE);
+  const id = changeIdOf('--change', opts.value['--change']);
+  const { lang, limit, load } = settingsOf(ctx, opts);
+  const action = sessionNext(ctx.cwd, id, { env: ctx.env, lang, after: opts.value['--after'] ?? null, load, limit, openspec: ctx.openspec, gh: ctx.gh, write: true, lockSleep: ctx.lockSleep });
+  return { code: exitCodeOf(action), stdout: loopOutput(id, action), stderr: '' };
+}
+
+// `merge-base` (D-6, D-8): merges origin's default branch into the change's branch, in its checkout. A conflict is undone and ends exit 3 with the reason.
+function mergeBaseCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--change', '--lang'] });
+  if (!opts.value['--change'] || opts.positional.length) throw new LoopUsageError(USAGE);
+  const id = changeIdOf('--change', opts.value['--change']);
+  const lang = normalizeLang(opts.value['--lang']);
+  const root = locate(rootOf(ctx.cwd), id).root;
+  const git = (...gitArgs) => execFileSync('git', ['-C', root, ...gitArgs], { encoding: 'utf8', env: ctx.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const base = defaultBase(root);
+  git('fetch', 'origin', '--quiet');
+  try {
+    git('merge', '--no-edit', `origin/${base}`);
+  } catch (e) {
+    const error = [e.stdout, e.stderr].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || String(e.message);
+    try { git('merge', '--abort'); } catch { /* nothing was started */ }
+    const reply = render(lang, 'blocked', { id, why: 'base-conflict', error });
+    return { code: 3, stdout: json({ version: 1, error, why: 'base-conflict', reply }), stderr: `roadmap-loop: ${error}\n` };
+  }
+  return { code: 0, stdout: json({ version: 1, merged: base }), stderr: '' };
+}
+
+// `session-wait` (D-6): the wait of a held change session. Ends when its decision changes and prints it as `session-next` does; recorded in `waits` while it
+// lasts, cleared at its end, also on error.
+async function sessionWaitCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--change', '--lang', '--load-limit', '--interval', '--session'] });
+  if (!opts.value['--change'] || opts.positional.length) throw new LoopUsageError(USAGE);
+  const id = changeIdOf('--change', opts.value['--change']);
+  const interval = intervalOf(opts.value['--interval']);
+  const { lang, limit } = settingsOf(ctx, opts);
+  const file = runFilePath(rootOf(ctx.cwd));
+  const entry = { pid: process.pid, kind: 'session', at: new Date().toISOString(), session: opts.value['--session'] ?? null };
+  updateRun(file, (run) => { run.waits[id] = [...(run.waits[id] ?? []), entry]; return run; }, { sleep: ctx.lockSleep });
+  try {
+    const poll = async () => sessionNext(ctx.cwd, id, { env: ctx.env, lang, load: ctx.load(), limit, openspec: ctx.openspec, gh: ctx.gh, write: true, lockSleep: ctx.lockSleep });
+    const action = await waitLoop({ poll, sleep: ctx.sleep ?? realSleep, interval, id, lang, waiting: (a) => a.kind === 'held', failWhy: 'unreadable' });
+    return { code: exitCodeOf(action), stdout: loopOutput(id, action), stderr: '' };
+  } finally {
+    updateRun(file, (run) => { run.waits = withoutWaits(run.waits, [{ id, ...entry }]); return run; }, { sleep: ctx.lockSleep });
+  }
+}
+
+// `push` (D-5): commits the grill's or the plan's files on the change's branch and pushes the branch to origin. A git failure is a refusal with its reply, exit 3.
+function pushCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--change', '--what', '--lang'] });
+  if (!opts.value['--change'] || opts.positional.length) throw new LoopUsageError(USAGE);
+  const id = changeIdOf('--change', opts.value['--change']);
+  const what = opts.value['--what'];
+  if (what !== 'grill' && what !== 'plan') throw new LoopUsageError(`--what takes grill or plan: got ${what}`);
+  const lang = normalizeLang(opts.value['--lang']);
+  const { root, branch } = locate(rootOf(ctx.cwd), id);
+  const dir = locateChange(root, id)?.dir;
+  if (!dir) throw new LoopUsageError(`the change ${id} has no folder in ${root}`);
+  if (!branch || branch === defaultBase(root)) throw new LoopUsageError(`the change ${id} is on ${branch || 'no branch'}: the run pushes a change's own branch only`);
+  const paths = (what === 'plan' ? PLAN_FILES.filter((file) => existsSync(join(dir, file))) : ['requirements.md']).map((file) => relative(root, join(dir, file)));
+  const git = (...gitArgs) => gitIn(root, gitArgs, ctx.env);
+  let pushed = false;
+  try {
+    git('add', '--', ...paths);
+    if (git('diff', '--cached', '--name-only', '--', ...paths).trim() !== '') git('commit', '-m', `docs(openspec): ${what} of ${id}`, '--', ...paths);
+    pushed = git('remote').split('\n').includes('origin');
+    if (pushed) git('push', '-u', 'origin', branch);
+  } catch (e) {
+    const error = [e.stdout, e.stderr].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || String(e.message);
+    throw new LoopRefusal(`push failed: ${error}`, render(lang, 'push-failed', { id, error }));
+  }
+  return { code: 0, stdout: json({ version: 1, change: id, what, pushed }), stderr: '' };
+}
+
+// `check` (D-9): what the periodic check does at each firing. It stops the wait loops no change needs, hands a freed place to the first change queued for one,
+// decides as `next` does on a turn nobody typed (so it starts no session) and adds the triage of the grills not being asked. It writes no approval and no retro
+// answer and hands no stage; what it prints is empty when nothing changed.
+function checkCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--lang', '--load-limit'], flags: ['--check-gone'] });
+  if (opts.positional.length) throw new LoopUsageError(USAGE);
+  const { lang, limit, load } = settingsOf(ctx, opts);
+  const start = rootOf(ctx.cwd);
+  if (!hasRoadmapFile(start)) return plain(render(lang, 'roadmap-none'));
+  const file = runFilePath(start);
+  const run = recordFlags(start, opts, ctx);
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: run.stopping ? 'open' : 'new', turn: 'event' });
+  const say = (key, params) => `▸ ${render(lang, key, params)}`;
+  const openIds = facts.lines.filter((l) => l.cls === 'open').map((l) => l.id);
+  const archivedIds = facts.lines.filter((l) => ARCHIVED_CLASSES.includes(l.cls)).map((l) => l.id);
+  let stopped = 0;
+  const given = [];
+  updateRun(file, (current) => {
+    // The waits whose process is gone, then the stale ones, leave the record; a place freed goes to the first change that queued for it (D-9 steps 1 and 2).
+    const alive = Object.fromEntries(Object.entries(current.waits).map(([id, list]) => [id, list.filter((w) => watchAlive(w))]).filter(([, list]) => list.length));
+    const stale = staleWaits(alive, { open: openIds, archived: archivedIds });
+    stopped = killWaits(stale);
+    current.waits = withoutWaits(alive, stale);
+    if (current.changeSessions) {
+      const waiting = Object.entries(current.queued).filter(([id]) => openIds.includes(id)).sort((a, b) => timeOf(a[1].at) - timeOf(b[1].at)).map(([id]) => id);
+      const now = new Date().toISOString();
+      for (const id of waiting) {
+        const r = placeDecision({ id, places: current.places, placed: current.placed, queued: current.queued, load, limit, anyway: current.anyway, now });
+        Object.assign(current, { placed: r.placed, queued: r.queued, anyway: r.anyway });
+        if (r.claimed && !(current.waits[id]?.length)) given.push(id);
+      }
+    }
+    return current;
+  }, { sleep: ctx.lockSleep });
+  const decision = decide(start, facts, ctx);
+  const asked = decision.ask?.change;
+  const triage = facts.hasRoadmap === false ? [] : Object.entries(facts.actions)
+    .filter(([id, action]) => action?.kind === 'grill' && id !== asked && !/^### Answered by triage\b/m.test(readOr(join(locateChange(action.root, id)?.dir ?? action.root, 'requirements.md'))))
+    .map(([id, action]) => ({ change: id, kind: 'triage', root: action.root, progressKey: 'triage' }));
+  const own = [...(stopped > 0 ? [say('roadmap-check-stopped-waits', { n: stopped })] : []), ...given.map((id) => say('roadmap-check-idle', { id }))];
+  const shown = { ...decision, lines: [...own, ...decision.lines], actions: [...decision.actions, ...triage] };
+  return { code: 0, stdout: `${decisionText(shown)}${decisionJson(shown)}`, stderr: '' };
+}
+
 // The usage-error form of every subcommand: exit 3 with `{ version: 1, error, reply }`, nothing run.
 function failure(argv, e) {
   const message = e instanceof Error ? e.message : String(e);
@@ -942,18 +1548,23 @@ export function main(argv, opts = {}) {
     if (sub === 'status') return statusCmd(rest, ctx);
     if (sub === 'draft') return draftCmd(rest, ctx);
     if (sub === 'reply') return replyCmd(rest, ctx);
+    if (sub === 'session-next') return sessionNextCmd(rest, ctx);
+    if (sub === 'merge-base') return mergeBaseCmd(rest, ctx);
+    if (sub === 'push') return pushCmd(rest, ctx);
+    if (sub === 'check') return checkCmd(rest, ctx);
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);
   }
 }
 
-// `main`, and `wait` and `hold` too: the one entry point of the command line.
+// `main`, and `wait`, `hold` and `session-wait` too: the one entry point of the command line.
+const WAITING = { wait: waitCmd, hold: holdCmd, 'session-wait': sessionWaitCmd };
 export async function runCommand(argv, opts = {}) {
   const [sub, ...rest] = argv;
-  if (sub !== 'wait' && sub !== 'hold') return main(argv, opts);
+  if (!Object.hasOwn(WAITING, sub)) return main(argv, opts);
   try {
-    return await (sub === 'wait' ? waitCmd : holdCmd)(rest, contextOf(opts));
+    return await WAITING[sub](rest, contextOf(opts));
   } catch (e) {
     return failure(argv, e);
   }

@@ -11,6 +11,8 @@ import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
 import { parseRoadmap } from './guard.mjs';
 import * as guardModule from './guard.mjs';
 import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, main as changeMain } from './change-loop.mjs';
+import * as changeLoopModule from './change-loop.mjs';
+import { approvalState } from './deliver-check.mjs';
 import { readCounter } from './change-loop.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
@@ -857,9 +859,14 @@ test('roadmap-loop run: U4 the same session keeps what is under way and changes 
   addOpen(root, 'a');
   doRun(root, '2');
   assert.deepEqual([stateOf(root).session, stateOf(root).places], ['S1', 2]);
+  const under = {
+    tickets: { a: { ticket: '0123456789abcdef', at: '2026-11-21T10:00:00.000Z', claimedBy: 'S-a' } }, placed: { a: { at: '2026-11-21T10:00:00.000Z' } },
+    queued: { b: { at: '2026-11-21T10:00:00.000Z', why: 'place' } }, waits: { a: [{ pid: process.pid, kind: 'session', at: '2026-11-21T10:00:00.000Z', session: 'S-a' }] },
+  };
+  const check = { id: 'job-1', at: '2026-11-21T10:00:00.000Z' };
   putRun(root, {
     session: 'S1', places: 2, stopping: true, held: true, holding: WATCH, inflight: { a: inFlight() }, announced: { a: 'resumed' },
-    declared: { c: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } },
+    declared: { c: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } }, ...under, check,
   });
   const again = doRun(root, '3');
   assert.equal(again.stdout.split('\n')[0], 'devkit-roadmap: 3');
@@ -869,13 +876,18 @@ test('roadmap-loop run: U4 the same session keeps what is under way and changes 
   assert.deepEqual([kept.places, kept.stopping, kept.declared, kept.holding, Object.keys(kept.inflight)], [3, false, {}, WATCH, ['a']]);
   assert.deepEqual(jsonOf(again.stdout).actions.map((x) => [x.change, x.kind]), [['b', 'start'], ['c', 'start']], 'a stays in flight; the cleared declared change is handed again');
   assert.ok(!events(doRun(root, '3').stdout).some((l) => l.includes('changes at once')), 'the same number says nothing');
+  assert.deepEqual([stateOf(root).tickets, stateOf(root).placed, stateOf(root).queued, stateOf(root).waits, stateOf(root).check], [under.tickets, under.placed, under.queued, under.waits, check], 'the same session keeps them all');
 
   const other = doRun(root, '2', { session: 'S2' });
   assert.ok(!events(other.stdout).some((l) => l.includes('changes at once')));
   assert.deepEqual([stateOf(root).session, stateOf(root).places, stateOf(root).inflight, stateOf(root).holding], ['S2', 2, {}, null]);
-  putRun(root, { session: 'S2', places: 2, inflight: { a: inFlight() }, holding: WATCH });
+  const survived = stateOf(root);
+  assert.deepEqual([survived.tickets, survived.placed, survived.queued, survived.waits], [under.tickets, under.placed, under.queued, under.waits], 'another session keeps what outlives the one that started it');
+  assert.equal(survived.check, null, 'a session cron dies with its session');
+  putRun(root, { session: 'S2', places: 2, inflight: { a: inFlight() }, holding: WATCH, ...under, check });
   doRun(root, '2', { session: 'S2', extra: ['--fresh'] });
   assert.deepEqual([stateOf(root).inflight, stateOf(root).holding], [{}, null], '--fresh starts from empty in the same session');
+  assert.deepEqual([stateOf(root).tickets, stateOf(root).placed, stateOf(root).queued, stateOf(root).waits, stateOf(root).check], [{}, {}, {}, {}, null], '--fresh empties them');
 });
 
 // ---------------------------------------------------------------- the run file (D-5)
@@ -1382,7 +1394,7 @@ test('roadmap-loop lock stop: RS2 every change in flight, waiting for the owner 
   const owner = lkProject(['[ ] a'], { a: { have: UP_TO_READINESS } });
   putRun(owner, { places: 1 });
   const declared = lkProject(['[ ] a'], { a: {} });
-  putRun(declared, { places: 1, declared: { a: { state: 'blocked', why: 'ceiling', params: {} } } });
+  putRun(declared, { places: 1, declared: { a: { state: 'blocked', why: 'not-opened', params: {} } } });
   for (const [name, root] of [['both in flight', both], ['one in flight, one waiting for the approval', waiting], ['the owner\'s queue alone', owner], ['a blocked change', declared]]) {
     const { d, tmp } = stopOf(root, lkRun(2));
     assert.equal(d.decision, 'allow', `${name}: ${d.reason ?? d.why}`);
@@ -1788,6 +1800,8 @@ test('roadmap-loop lock: no trap, not opted in, DEVKIT_BYPASS, an unreadable tra
 
 const SKILL_PATH = join(HERE, '..', 'skills', 'devkit', 'SKILL.md');
 const skillMd = () => readFileSync(SKILL_PATH, 'utf8');
+const SESSION_SKILL_PATH = join(HERE, '..', 'skills', 'devkit-session', 'SKILL.md');
+const sessionSkillMd = () => readFileSync(SESSION_SKILL_PATH, 'utf8');
 const SK_LANG = '--lang ${user_config.language}';
 const SK_LIMIT = '--load-limit ${user_config.load_limit}';
 const sectionOf = (md, from, to) => {
@@ -2193,8 +2207,10 @@ test('followups AC-8 next: start anyway starts what is held now, and a change re
   assert.equal(first.code, 0, first.stdout);
   assert.deepEqual(jsonOf(first.stdout).actions.map((x) => [x.change, x.kind]), [['a', 'start'], ['b', 'start']]);
   assert.ok(!events(first.stdout).some((l) => l.includes('machine is loaded')), 'no line about the hold');
-  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt').sort(), before, 'the run file gains no field but the time of its write');
-  assert.equal(JSON.stringify(stateOf(root)).toLowerCase().includes('anyway'), false, 'nothing keeps the permission');
+  // Invariant: a --start-anyway on a run without a session per change keeps no permission in the run file. Layer: the roadmap-loop start-anyway. Suite: roadmap-loop.
+  const UPFRONT = ['tickets', 'placed', 'queued', 'anyway', 'waits', 'cron', 'check']; // the fields of roadmap-sessions-upfront, written empty by every run
+  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt' && !UPFRONT.includes(k)).sort(), before, 'the run file gains no field but the time of its write and the empty fields of ADR 0017');
+  assert.deepEqual(stateOf(root).anyway, [], 'nothing keeps the permission');
   // Later in the same run: a and b are open, c is ready, a place is free, the load is still high, and the call has no flag.
   addOpen(root, 'a');
   addOpen(root, 'b');
@@ -2313,7 +2329,9 @@ test('followups F-3 decide: with a session per change the coordinator hands no s
   });
   assert.equal(b.input.prompt, '/devkit-openspec:devkit change b');
   assert.ok(!r.actions.some((x) => ['agent', 'session', 'wait'].includes(x.kind)), 'no stage, step or wait is handed');
-  assert.equal(r.ask, null, 'the change sessions ask their own gates');
+  // Invariant: the coordinating session hands no stage and gives each start its exact input. Layer: decideRoadmap. Suite: roadmap-loop.
+  // The grill of a change is asked here (roadmap-sessions-upfront D-3, D-13 T-1), so `ask` is b's grill and not null.
+  assert.deepEqual([r.ask.change, r.ask.kind, r.ask.gate], ['b', 'grill', 'grill'], 'b\'s grill is asked in this session');
   assert.deepEqual(linesOf(r), [], 'no gate line and no started line');
   assert.deepEqual(r.state.sessionsStarted, []);
   // The same facts without the mode keep the stages here, as before.
@@ -2343,7 +2361,9 @@ test('followups AC-13 run: --change-sessions is recorded, and a run without it k
   assert.equal(stateOf(root).changeSessions, true);
   const j = jsonOf(sessions.stdout);
   assert.deepEqual(j.actions.map((x) => [x.change, x.kind]), [['a', 'session-start']]);
-  assert.equal(j.ask, null);
+  // Invariant: the mode is recorded by `run` and a later run without it goes back. Layer: run command. Suite: roadmap-loop.
+  // a's grill is asked in this session in a run with a session per change (roadmap-sessions-upfront D-13 T-2): `ask` is no longer null.
+  assert.deepEqual([j.ask.change, j.ask.kind], ['a', 'grill']);
   assert.equal(j.actions[0].cwd, realpathSync(root));
   // A stop leaves the mode as it was, and a later run without the flag goes back to the stages in the session.
   doRun(root, 'stop');
@@ -2360,7 +2380,8 @@ test('followups AC-13 run: a run from another session keeps the started change s
   assert.equal(other.code, 0, other.stdout);
   assert.equal(stateOf(root).session, 'S2');
   assert.deepEqual(stateOf(root).startedSessions, { a: { at: AT } }, 'kept');
-  assert.deepEqual(stateOf(root).announced, {}, 'everything else starts empty');
+  // Invariant: a new coordinating session keeps only what outlives it. Layer: run command. Suite: roadmap-loop (D-13 T-13): the run's own decision announces a's grill gate.
+  assert.deepEqual(stateOf(root).announced, { a: 'gate:grill' }, 'everything else starts empty');
   assert.deepEqual(jsonOf(other.stdout).actions, [], 'a is not given a second session');
   const fresh = doRun(root, 'roadmap', { session: 'S2', extra: ['--change-sessions', '--fresh'] });
   assert.deepEqual(stateOf(root).startedSessions, {}, '--fresh forgets them');
@@ -2373,7 +2394,8 @@ test('followups AC-13 next: a reported session start is recorded once, said once
   putRun(root, { places: 2, changeSessions: true, turn: 'typed', startedSessions: { gone: { at: AT } } });
   const first = doNext(root, ['--turn', 'typed', '--after', 'a=session-start']);
   assert.equal(first.code, 0, first.stdout);
-  assert.ok(events(first.stdout).includes(say('roadmap-session-started', { id: 'a', open: 1, places: 2 })), events(first.stdout).join('|'));
+  // Invariant: a reported session start is recorded once, said once and never started again. Layer: next command. Suite: roadmap-loop (D-13 T-12): the line has no count, and a's grill gate is said here.
+  assert.deepEqual(events(first.stdout).slice(0, 2), [say('roadmap-session-opened', { id: 'a' }), say('roadmap-gate', { id: 'a', gate: 'grill' })], events(first.stdout).join('|'));
   assert.equal(typeof stateOf(root).startedSessions.a.at, 'string');
   assert.equal('gone' in stateOf(root).startedSessions, false, 'a change that is not an open line leaves the record');
   assert.deepEqual(jsonOf(first.stdout).actions.map((x) => [x.change, x.kind]), [['b', 'start']], 'only the ready line starts; a gets no second session');
@@ -2408,7 +2430,8 @@ test('followups AC-13 decide: a change archived in its session frees its place, 
 
 test('followups AC-13 background: the brief names the change, its worktree and branch, the coordinating session, the person\'s language, the title rule and the archive line, and has at least 80 characters', () => {
   const text = loopModule.sessionBackground({ id: 'a-change', root: '/w/a-change', branch: 'a-change-branch', coordinator: 'S-main', lang: 'pt-BR' });
-  for (const part of ['`a-change`', '/w/a-change', 'a-change-branch', 'S-main', 'pt-BR', '`sessionTitle`', 'devkit roadmap: a-change archived', 'a session of its own', 'who started this session']) {
+  for (const part of ['`a-change`', '/w/a-change', 'a-change-branch', 'S-main', 'pt-BR', '`sessionTitle`', 'devkit roadmap: a-change archived', 'a session of its own', 'who started this session',
+    'devkit-openspec:devkit-session', 'with no message from the owner', 'asked in the session that started this one']) {
     assert.ok(text.includes(part), `names ${part}`);
   }
   assert.ok(text.length >= 80);
@@ -2467,15 +2490,20 @@ test('followups AC-15 decide: on a turn nobody typed a start and a session start
 });
 
 test('followups AC-15 decide: the load eases on a turn nobody typed and the held change waits for the owner\'s next message with its line', () => {
+  // Invariant: a start in session mode happens only on a typed turn and never without a line. Layer: decideRoadmap. Suite: roadmap-loop.
+  // In a run with a session per change the load holds a place, not an opening (roadmap-sessions-upfront D-2, D-13 T-4): no `hold` action, the pending line is
+  // withheld with its line on the turn nobody typed, and started on the typed one whatever the load.
   const facts = (over) => sessionWorld({ lines: ['[ ] a'], places: 1, turn: 'event', ...over });
-  const held = decideRoadmap(facts({ load: 95, limit: 80 }));
-  assert.deepEqual(changesOf(held), [['a', 'hold']], 'a loaded machine is still watched');
+  const loaded = decideRoadmap(facts({ load: 95, limit: 80 }));
+  assert.deepEqual(loaded.actions, [], 'no hold action: the load holds no opening');
+  assert.deepEqual(loaded.lines, [say('roadmap-waits-turn', { id: 'a' })]);
   const eased = decideRoadmap(facts({ load: 40, limit: 80, held: true, holding: false }));
   assert.deepEqual(eased.actions, []);
   assert.deepEqual(eased.lines, [say('roadmap-waits-turn', { id: 'a' })]);
   assert.equal(eased.state.held, false);
   assert.match(eased.lines[0], /the app starts a session only on a turn you typed/);
   assert.deepEqual(changesOf(decideRoadmap(facts({ load: 40, limit: 80, held: true, holding: false, turn: 'typed' }))), [['a', 'start']], 'the owner\'s message starts it');
+  assert.deepEqual(changesOf(decideRoadmap(facts({ load: 95, limit: 80, turn: 'typed' }))), [['a', 'start']], 'and the load does not hold it');
 });
 
 test('followups AC-15 next: a refused session start gives its line, records the turn as event and asks for no other start on that turn', () => {
@@ -2606,7 +2634,7 @@ test('followups AC-13 skill: the session-per-change part names the tools, the li
     'select:mcp__ccd_session_mgmt__list_sessions', 'select:mcp__ccd_session__start_session',
     '`mcp__ccd_session_mgmt__list_sessions` with `{ "linked": true }`', '`mcp__ccd_session__start_session` with the action\'s `input` exactly as given',
     '`session-start`', '`session-refused`', '`isArchived`', '`cwd`', 'a `title` ending in the change id', 'one session start at a time',
-    'devkit roadmap: <id> archived', 'the session hands no stage, asks no gate and starts no wait on GitHub',
+    'devkit roadmap: <id> archived', 'the session hands no stage but the grill\'s triage, asks the grills, the plan approvals and the retro answers, and starts no wait on GitHub',
   ]) assert.ok(part.includes(text), `the part says ${text}`);
   assert.match(part, /end-of-turn report[^\n]*`event` turn/);
   assert.match(part, /--after <id>=session-start/);
@@ -2618,14 +2646,14 @@ test('followups AC-13 skill: the session-per-change part names the tools, the li
   assert.ok(every.includes('Calling `/devkit roadmap` again at any time is safe'));
   assert.doesNotMatch(md, /wake_when_done|SendMessage/, 'no wake field and no message tool');
   const never = md.slice(md.indexOf('## Never'));
-  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s gate or start a wait on GitHub from this session, start a change session `next` did not return, or call the session-start tool with any input but the action\'s `input`'));
+  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s other gates or start a wait on GitHub from this session, start a change session `next` did not return, or call the session-start tool with any input but the action\'s `input`'));
 });
 
 test('followups AC-14 skill: a change session renames its title from the sessionTitle of each next', () => {
-  const loop = sectionOf(skillMd(), '## Loop', '## Owner gates');
+  const loop = sectionOf(sessionSkillMd(), '## Loop', '## Never');
   const item = loop.split('\n').find((l) => l.includes('mcp__ccd_session_mgmt__set_session_title') && l.includes('sessionTitle'));
   assert.ok(item, 'a Loop item renames the title');
-  for (const text of ['select:mcp__ccd_session_mgmt__set_session_title', '`mcp__ccd_session_mgmt__set_session_title` with `session_id` `"self"` and `title` the action\'s `sessionTitle`', 'main thread', 'Background (from the session that started this one):', '`/devkit roadmap`']) {
+  for (const text of ['select:mcp__ccd_session_mgmt__set_session_title', '`mcp__ccd_session_mgmt__set_session_title` with `session_id` `"self"` and `title` the action\'s `sessionTitle`', 'main thread']) {
     assert.ok(item.includes(text), `the item says ${text}`);
   }
   assert.match(item, /not retried for the same `sessionTitle`/);
@@ -2703,4 +2731,1269 @@ test('followups ADR 0014: the documents follow', () => {
   for (const f of [['README.md'], ['docs', 'roles.md'], ['docs', 'coordination-design.md']]) {
     assert.match(read(...f), /ADR 0014/, `${f.join('/')} cites ADR 0014`);
   }
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 1: the entry of a started change session (design D-1)
+
+const UP_SESSION = 'session-upfront-0001';
+const UP_TICKET = '0123456789abcdef';
+const SKILL_INPUT = { skill: 'devkit-openspec:devkit-session' };
+const BY_TYPING = /by typing \/devkit change \S+ in this session$/;
+
+// The first message of a session the run started, in the host's form: the background line, a paragraph, `Task:`, the task and its start line.
+const upStarted = (id, over = {}) => [
+  over.first ?? guardModule.STARTED_BY_SESSION, 'This session runs the devkit change for a roadmap run. Work only in its worktree.', '', 'Task:',
+  over.task ?? `/devkit-openspec:devkit change ${id}`, ...(over.start === null ? [] : [over.start ?? `devkit-start: ${id} ${over.ticket ?? UP_TICKET}`]),
+  '', 'Notes: say who started this session before your first question.',
+].join('\n');
+const upTickets = (id = 'a', over = {}) => ({ [id]: { ticket: UP_TICKET, at: AT, claimedBy: null, ...over } });
+// A project whose run file records `tickets`, and the transcript of a session whose first message is `first` (or the given lines).
+function upEntry({ first = upStarted('a'), tickets = upTickets(), lines } = {}) {
+  const root = projectWith(roadmapText('[ ] a'));
+  if (tickets !== null) putRun(root, { tickets });
+  return { root, transcript: lkTranscript(lines ?? [lkPlain(first), lkAssistant()]) };
+}
+const upInput = (root, transcript, { tool_input = SKILL_INPUT, session = UP_SESSION } = {}) => ({ session_id: session, transcript_path: transcript, cwd: root, tool_name: 'Skill', tool_input });
+const entryOf = (e, over) => loopModule.entryDecision(upInput(e.root, e.transcript, over), { env: cleanEnv });
+const labelOf = (d) => [d.decision, d.why];
+
+test('upfront AC-1 entry: the run\'s own start of the change is claimed by the first session', () => {
+  const e = upEntry();
+  const d = entryOf(e);
+  assert.deepEqual([d.decision, d.why, d.change], ['allow', 'claimed', 'a']);
+  assert.deepEqual(stateOf(e.root).tickets.a, { ticket: UP_TICKET, at: AT, claimedBy: UP_SESSION }, 'the run file records who claimed it');
+});
+
+test('upfront AC-1 entry: the session that claimed the ticket is let through again', () => {
+  const e = upEntry({ tickets: upTickets('a', { claimedBy: UP_SESSION }) });
+  assert.deepEqual(labelOf(entryOf(e)), ['allow', 'same-session']);
+  assert.equal(stateOf(e.root).tickets.a.claimedBy, UP_SESSION);
+});
+
+test('upfront AC-2 entry: another skill is let through', () => {
+  const e = upEntry({ first: 'a message the owner typed' });
+  for (const tool_input of [{ skill: 'devkit-openspec:devkit' }, { skill: 'review-change' }, { skill: 'my-devkit-session' }, { skill: 'devkit-session-extra' }, { skill: 7 }, {}]) {
+    assert.deepEqual(labelOf(entryOf(e, { tool_input })), ['allow', 'not-entry'], JSON.stringify(tool_input));
+  }
+  assert.deepEqual(labelOf(loopModule.entryDecision({ session_id: UP_SESSION, cwd: e.root }, { env: cleanEnv })), ['allow', 'not-entry'], 'no tool input');
+  // The host's field name for the skill is not documented: any string field that names the entry counts as the entry.
+  for (const tool_input of [{ name: 'devkit-openspec:devkit-session' }, { name: 'devkit-session' }, { skill: 'x', other: 'devkit-session' }]) {
+    assert.deepEqual(labelOf(entryOf(e, { tool_input })), ['refuse', 'not-started'], JSON.stringify(tool_input));
+  }
+});
+
+test('upfront AC-2 entry: a session whose first message is typed is refused', () => {
+  const cases = {
+    'a plain typed message': upEntry({ first: '/devkit change a' }),
+    'a typed command': upEntry({ lines: [lkTyped('change a'), lkAssistant()] }),
+    'a started form whose task is another command': upEntry({ first: upStarted('a', { task: '/devkit-openspec:devkit roadmap 2' }) }),
+    'a started form whose task is no slash command': upEntry({ first: upStarted('a', { task: 'change a' }) }),
+    'a started form whose task has no id': upEntry({ first: upStarted('a', { task: '/devkit change' }) }),
+    'the background line below another first line': upEntry({ first: `hello\n${upStarted('a')}` }),
+    'a transcript with no user line': upEntry({ lines: [lkAssistant()] }),
+  };
+  for (const [name, e] of Object.entries(cases)) {
+    const d = entryOf(e);
+    assert.deepEqual(labelOf(d), ['refuse', 'not-started'], name);
+    assert.match(d.reason, BY_TYPING, name);
+  }
+  const later = upEntry({ lines: [lkPlain('first message typed'), lkPlain(upStarted('a')), lkAssistant()] });
+  assert.deepEqual(labelOf(entryOf(later)), ['refuse', 'not-started'], 'only the first message counts');
+});
+
+test('upfront AC-2 entry: a started session with no start line for its change is refused', () => {
+  for (const [name, first] of Object.entries({
+    'no start line': upStarted('a', { start: null }),
+    'a start line naming another change': upStarted('a', { start: `devkit-start: b ${UP_TICKET}` }),
+    'a start line with a short ticket': upStarted('a', { start: 'devkit-start: a 0123' }),
+    'a start line with an uppercase ticket': upStarted('a', { start: `devkit-start: a ${UP_TICKET.toUpperCase()}` }),
+  })) {
+    const e = upEntry({ first });
+    const d = entryOf(e);
+    assert.deepEqual(labelOf(d), ['refuse', 'no-ticket'], name);
+    assert.match(d.reason, /by typing \/devkit change a in this session$/, name);
+    assert.equal(stateOf(e.root).tickets.a.claimedBy, null, `${name}: nothing was claimed`);
+  }
+});
+
+test('upfront AC-2 entry: a ticket the run does not record is refused', () => {
+  const cases = {
+    'no entry for the change': upEntry({ tickets: {} }),
+    'an entry for another change': upEntry({ tickets: upTickets('b') }),
+    'another ticket': upEntry({ tickets: upTickets('a', { ticket: 'fedcba9876543210' }) }),
+  };
+  for (const [name, e] of Object.entries(cases)) {
+    const d = entryOf(e);
+    assert.deepEqual(labelOf(d), ['refuse', 'ticket-unknown'], name);
+    assert.match(d.reason, /by typing \/devkit change a in this session$/, name);
+  }
+});
+
+test('upfront AC-2 entry: a ticket another session claimed is refused', () => {
+  const e = upEntry({ tickets: upTickets('a', { claimedBy: 'another-session' }) });
+  const d = entryOf(e);
+  assert.deepEqual(labelOf(d), ['refuse', 'ticket-claimed']);
+  assert.match(d.reason, /by typing \/devkit change a in this session$/);
+  assert.equal(stateOf(e.root).tickets.a.claimedBy, 'another-session', 'the first claim stays');
+  const second = upEntry();
+  assert.equal(entryOf(second).why, 'claimed');
+  assert.deepEqual(labelOf(entryOf(second, { session: 'a-second-session' })), ['refuse', 'ticket-claimed'], 'a replayed ticket in a second session');
+});
+
+test('upfront AC-2 entry: an unreadable transcript or run file is refused', () => {
+  const good = upEntry();
+  const cases = {
+    'a transcript that is gone': loopModule.entryDecision(upInput(good.root, join(lkSandbox(), 'gone.jsonl')), { env: cleanEnv }),
+    'no run file': entryOf(upEntry({ tickets: null })),
+    'a folder outside any project': loopModule.entryDecision(upInput(lkSandbox(), good.transcript), { env: cleanEnv }),
+  };
+  const broken = upEntry({ tickets: null });
+  mkdirSync(dirname(runFileOf(broken.root)), { recursive: true });
+  writeFileSync(runFileOf(broken.root), '[]');
+  cases['a run file that holds no object'] = entryOf(broken);
+  for (const [name, d] of Object.entries(cases)) {
+    assert.deepEqual(labelOf(d), ['refuse', 'unreadable'], name);
+    assert.match(d.reason, /by typing \/devkit change \S+ in this session$/, name);
+  }
+});
+
+test('upfront AC-2 guard: guard.mjs skill exits 2 on a refusal, 0 on a claim, 0 under DEVKIT_BYPASS=1, and logs one line under DEVKIT_HOOK_LOG', () => {
+  const log = join(lkSandbox(), 'hooks.jsonl');
+  const refused = upEntry({ first: '/devkit change a' });
+  const r1 = lkHook('skill', upInput(refused.root, refused.transcript), { DEVKIT_HOOK_LOG: log });
+  assert.equal(r1.code, 2, r1.err);
+  assert.match(r1.err, /^devkit guard: .*by typing \/devkit change <id> in this session/);
+  const claimed = upEntry();
+  const r2 = lkHook('skill', upInput(claimed.root, claimed.transcript), { DEVKIT_HOOK_LOG: log });
+  assert.equal(r2.code, 0, r2.err);
+  assert.equal(stateOf(claimed.root).tickets.a.claimedBy, UP_SESSION);
+  const gone = lkHook('skill', upInput(claimed.root, join(lkSandbox(), 'gone.jsonl')), { DEVKIT_HOOK_LOG: log });
+  assert.equal(gone.code, 2, 'the mode fails closed on a transcript it cannot read');
+  const records = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual(records.map((r) => [r.mode, r.decision, r.why]), [['skill', 'refuse', 'not-started'], ['skill', 'allow', 'claimed'], ['skill', 'refuse', 'unreadable']]);
+  assert.deepEqual(Object.keys(records[0]), ['at', 'mode', 'session', 'agentType', 'change', 'decision', 'why']);
+  assert.equal(records[1].session, UP_SESSION);
+  assert.equal(records[1].change, 'a');
+  const bypass = lkHook('skill', upInput(refused.root, refused.transcript), { DEVKIT_HOOK_LOG: log, DEVKIT_BYPASS: '1' });
+  assert.equal(bypass.code, 0, 'DEVKIT_BYPASS=1 exits first');
+  assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 3, 'and logs nothing');
+  const other = lkHook('skill', upInput(refused.root, refused.transcript, { tool_input: { skill: 'review-change' } }));
+  assert.equal(other.code, 0, 'another skill is let through');
+});
+
+test('upfront AC-1 ticket: decide gives each session start a fresh ticket recorded before it prints, keeps a claimed one, and withTicket adds the start line', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  const promptOf = (r) => jsonOf(r.stdout).actions.find((x) => x.kind === 'session-start').input.prompt;
+  const first = doRun(root, 'roadmap', { extra: ['--change-sessions'] });
+  assert.equal(first.code, 0, first.stdout);
+  const lines = promptOf(first).split('\n');
+  assert.equal(lines.length, 2, 'the task is two lines');
+  assert.equal(lines[0], '/devkit-openspec:devkit change a');
+  const m = guardModule.START_LINE.exec(lines[1]);
+  assert.deepEqual(m?.slice(1, 2), ['a'], lines[1]);
+  const t1 = m[2];
+  assert.match(t1, /^[0-9a-f]{16}$/);
+  const entry = stateOf(root).tickets.a;
+  assert.deepEqual([entry.ticket, entry.claimedBy, typeof entry.at], [t1, null, 'string'], 'recorded in the run file before it was printed');
+  // An unclaimed ticket of the same change is replaced.
+  const second = doNext(root, ['--turn', 'typed']);
+  const t2 = guardModule.START_LINE.exec(promptOf(second).split('\n')[1])[2];
+  assert.notEqual(t2, t1);
+  assert.equal(stateOf(root).tickets.a.ticket, t2);
+  // A claimed one is never replaced.
+  const claimed = stateOf(root);
+  claimed.tickets.a.claimedBy = 'S-claimed';
+  writeFileSync(runFileOf(root), JSON.stringify(claimed));
+  const third = doNext(root, ['--turn', 'typed']);
+  assert.deepEqual(stateOf(root).tickets.a, claimed.tickets.a, 'the entry is as it was');
+  assert.equal(stateOf(root).tickets.a.ticket, t2);
+  // Invariant: a claimed ticket is never replaced. Layer: next command. Suite: roadmap-loop (D-13 T-14): a claimed ticket is a session of its own, so no session-start is printed.
+  assert.equal(jsonOf(third.stdout).actions.some((x) => x.kind === 'session-start'), false, 'no session start for a claimed ticket');
+  // The pure parts.
+  const action = { change: 'a', kind: 'session-start', input: { prompt: '/devkit-openspec:devkit change a', title: 't' } };
+  const tick = loopModule.withTicket(action, UP_TICKET);
+  assert.equal(tick.input.prompt, `/devkit-openspec:devkit change a\ndevkit-start: a ${UP_TICKET}`);
+  assert.equal(tick.input.title, 't');
+  assert.equal(action.input.prompt, '/devkit-openspec:devkit change a', 'the action given is not changed');
+  assert.match(loopModule.mintTicket(), /^[0-9a-f]{16}$/);
+  assert.notEqual(loopModule.mintTicket(), loopModule.mintTicket());
+  const pure = decideRoadmap(sessionWorld({ lines: ['[ ] a'], places: 1, actions: { a: agentAct('a') } }));
+  assert.equal(pure.actions[0].input.prompt, '/devkit-openspec:devkit change a', 'decideRoadmap mints nothing: one line');
+});
+
+test('upfront AC-1 run file: readRun reads tickets, placed, queued, anyway, waits, cron and check, and drops a field of the wrong type', () => {
+  const root = projectWith(null);
+  const write = (obj) => {
+    mkdirSync(dirname(runFileOf(root)), { recursive: true });
+    writeFileSync(runFileOf(root), JSON.stringify(obj));
+    return loopModule.readRun(runFileOf(root));
+  };
+  const read = (run) => ({ tickets: run.tickets, placed: run.placed, queued: run.queued, anyway: run.anyway, waits: run.waits, cron: run.cron, check: run.check });
+  assert.deepEqual(read(loopModule.readRun(join(lkSandbox(), 'none.json'))), { tickets: {}, placed: {}, queued: {}, anyway: [], waits: {}, cron: false, check: null });
+  const good = {
+    tickets: { a: { ticket: UP_TICKET, at: AT, claimedBy: 'S1' }, b: { ticket: UP_TICKET, at: AT, claimedBy: null } },
+    placed: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, c: { at: AT, why: 'load' } }, anyway: ['c'],
+    waits: { a: [{ pid: 123, kind: 'github', at: AT, session: 'S1' }, { pid: 124, kind: 'session', at: AT, session: null }] },
+    cron: true, check: { id: 'job-1', at: AT },
+  };
+  assert.deepEqual(read(write(good)), good);
+  assert.deepEqual(read(write({ ...good, check: { refused: true, at: AT } })).check, { refused: true, at: AT });
+  const bad = {
+    tickets: { a: { ticket: 'zzz', at: AT, claimedBy: null }, 'bad id!': { ticket: UP_TICKET, at: AT, claimedBy: null }, c: 'x', d: { ticket: UP_TICKET, at: AT, claimedBy: 5 } },
+    placed: [1], queued: { b: { at: AT }, c: { at: AT, why: 'other' } }, anyway: 'c',
+    waits: { a: [{ pid: -1, kind: 'github', at: AT }, { pid: 5, kind: 'other', at: AT }, { pid: 7, kind: 'session', at: AT, session: 'S' }], 'bad id!': [{ pid: 8, kind: 'github', at: AT }], b: 'x' },
+    cron: 'yes', check: 'x',
+  };
+  assert.deepEqual(read(write(bad)), {
+    tickets: {}, placed: {}, queued: {}, anyway: [], waits: { a: [{ pid: 7, kind: 'session', at: AT, session: 'S' }] }, cron: false, check: null,
+  });
+  assert.deepEqual(write({ anyway: ['a', 3, 'bad id!', 'b'], check: { id: 5, at: AT } }).anyway, ['a', 'b'], 'only change ids stay in anyway');
+  assert.equal(write({ check: { id: 5, at: AT } }).check, null);
+});
+
+test('upfront AC-1 run file: decide keeps the tickets and started sessions of an archived line, and drops those of a line that left the roadmap', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] b'));
+  put(root, { 'openspec/changes/archive/2026-11-01-a/proposal.md': 'archived\n' });
+  addOpen(root, 'b');
+  const kept = { ticket: UP_TICKET, at: AT, claimedBy: 'S-a' };
+  putRun(root, {
+    places: 2, changeSessions: true, turn: 'typed', startedSessions: { a: { at: AT }, gone: { at: AT }, b: { at: AT } },
+    tickets: { a: kept, gone: { ...kept, claimedBy: 'S-gone' }, b: { ...kept, claimedBy: 'S-b' } },
+  });
+  const r = doNext(root, ['--turn', 'typed']);
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(Object.keys(stateOf(root).startedSessions).sort(), ['a', 'b'], 'the archived line keeps its session, the line that left the roadmap does not');
+  assert.deepEqual(Object.keys(stateOf(root).tickets).sort(), ['a', 'b']);
+  assert.deepEqual(stateOf(root).tickets.a, kept);
+});
+
+test('upfront AC-1 skill: devkit-session is model-invocable, names its change from the start line, and keeps the title rule and the archive line', () => {
+  const md = sessionSkillMd();
+  const fm = md.split('---')[1];
+  assert.match(fm, /^name: devkit-session$/m);
+  assert.doesNotMatch(fm, /disable-model-invocation/, 'the entry is model-invocable: the guard is what holds it');
+  const desc = /^description: (.*)$/m.exec(fm)[1];
+  assert.match(desc, /^"Runs the change of a session a \/devkit roadmap run started, from its first turn, with no command typed\./);
+  assert.match(desc, /first message is the started-session form whose task is \/devkit change <id> followed by a devkit-start line; the devkit guard refuses it anywhere else\."$/);
+  for (const h of ['## Settings', '## The change', '## Loop', '## Never']) assert.ok(md.split('\n').includes(h), `has ${h}`);
+  const change = sectionOf(md, '## The change', '## Loop');
+  assert.match(change, /`devkit-start:` line of this session's first message/);
+  assert.match(change, /takes no argument/);
+  assert.match(change, /who started it, why and what it does/);
+  const loop = sectionOf(md, '## Loop', '## Never');
+  const calls = md.split('\n').filter((l) => /roadmap-loop\.mjs (session-next|session-wait|wait)\b/.test(l));
+  assert.ok(calls.some((l) => l.includes('roadmap-loop.mjs session-next')), 'the loop runs session-next');
+  assert.ok(calls.some((l) => l.includes('roadmap-loop.mjs session-wait')), 'a held change starts session-wait');
+  for (const l of calls) {
+    assert.ok(l.includes(SK_LANG), `--lang on: ${l}`);
+    assert.ok(l.includes(SK_LIMIT), `--load-limit on: ${l}`);
+  }
+  assert.match(loop, /`--after` and the `progressKey` after every `agent` or `session` action/);
+  assert.match(loop, /`merge-base`[^\n]*`detail\.command`/);
+  assert.match(loop, /`waiting-on-github`[^\n]*roadmap-loop\.mjs wait /);
+  assert.match(loop, /devkit roadmap: <id> archived/, 'the archive line ends the turn that archives the change');
+  assert.ok(loop.includes('<skill-dir>/../devkit/SKILL.md'), 'the kinds of action are the devkit skill\'s');
+  assert.doesNotMatch(md, /--lang (pt-BR|en)\b/);
+  assert.doesNotMatch(md, /--load-limit \d/);
+  assert.doesNotMatch(md, /wake_when_done|SendMessage|CronCreate/, 'no message tool and no schedule');
+  const never = sectionOf(md, '## Never', '\u0000end');
+  for (const text of ['ask the grill', 'the plan approval', 'the retro answers', '`approval.md`', 'create a schedule', 'start a session', 'take a place by hand']) assert.ok(never.includes(text), `Never: ${text}`);
+  // The devkit skill stays owner-only and sends such a session to the entry.
+  const devkit = skillMd();
+  assert.match(devkit.split('---')[1], /^disable-model-invocation: true$/m);
+  const item = devkit.split('\n').find((l) => l.startsWith('1a. '));
+  assert.ok(item, 'item 1a of the Loop');
+  for (const text of ['Background (from the session that started this one):', '`devkit-start:` line', '`skill` field set to `devkit-openspec:devkit-session`', 'in place of this Loop', '/devkit change <id>']) {
+    assert.ok(item.includes(text), `item 1a says ${text}`);
+  }
+  assert.doesNotMatch(item, /set_session_title/, 'the rename moved to the entry skill');
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 2: the change session's loop, places and the waiting icon (design D-6 to D-8, D-11)
+
+const UP_GIT = { GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid', GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' };
+const upGitEnv = { ...cleanEnv, ...UP_GIT };
+const PLAN_FILES = { requirements: 'requirements.md', decisions: 'decisions.md', proposal: 'proposal.md', specs: 'specs/s/spec.md', design: 'design.md', tasks: 'tasks.md', readiness: 'readiness.md' };
+const partOf = (stage) => FLOWS.devkit.stages.find((s) => s.id === stage)?.part ?? null;
+// The facts of one `sessionDecide`: the action, the part of its stage, what the roadmap and the tree say, and the run's places.
+const sdFacts = (action, over = {}) => ({
+  id: action.change ?? 'a', action, part: partOf(action.stage), waitsFor: null, notInHead: false, hasProposal: false,
+  places: 1, placed: {}, queued: {}, anyway: [], load: 10, limit: 80, now: AT, lang: 'en', ...over,
+});
+const sd = (action, over) => loopModule.sessionDecide(sdFacts(action, over));
+const implAct = (id = 'a', over = {}) => agentAct(id, 'implementation', { stageTitle: 'Implementation', role: 'tdd-implementer', agent: 'devkit-core:tdd-implementer', ...over });
+const retroAct = (id = 'a') => endAct(id, 'waiting-for-owner', 'waiting-retro', {}, { stage: 'retro', stageTitle: 'Retro' });
+const GATE_ICON = { grill: '❓', approval: '📝', retro: '📦' };
+
+test('upfront AC-7 session-next: the grill, the plan approval and the retro answers are held for the coordinating session with their stage icon', () => {
+  const again = endAct('a', 'waiting-for-owner', 'waiting-approval-again', {}, { stage: 'approval', stageTitle: 'Plan approval' });
+  for (const [action, gate] of [[grillAct('a'), 'grill'], [ownerAct('a'), 'approval'], [again, 'approval'], [retroAct('a'), 'retro']]) {
+    const r = sd(action);
+    const h = r.action;
+    const icon = GATE_ICON[gate];
+    assert.deepEqual([h.kind, h.held.why, h.held.gate, h.icon, h.sessionTitle, h.progressKey], ['held', 'owner', gate, icon, `${icon} a`, 'held/owner'], gate);
+    assert.equal(h.reply, render('en', 'session-held-owner', { id: 'a', gate }), gate);
+    assert.deepEqual([h.change, h.script, h.root, h.branch, h.filesLanguage, h.stage, h.stageTitle, h.version], ['a', 'devkit', '/w/a', 'a', 'en', action.stage, action.stageTitle, 1], gate);
+    assert.equal(h.end, undefined, 'a held action is no end of the change loop');
+    assert.deepEqual([r.placed, r.queued], [{}, {}], 'no place is taken at a gate');
+  }
+  assert.match(sd(grillAct('a'), { lang: 'pt-BR' }).action.reply, /roadmap|sessão/);
+});
+
+test('upfront AC-7 session-next: every other gate stays in the change session', () => {
+  const ends = [
+    endAct('a', 'waiting-for-owner', 'waiting-merge', { number: 1 }, { stage: 'delivery', stageTitle: 'Delivery' }),
+    endAct('a', 'waiting-for-owner', 'waiting-pr-decision', {}, { stage: 'delivery', stageTitle: 'Delivery' }),
+    endAct('a', 'waiting-for-owner', 'waiting-review-dispute', {}, { stage: 'review', stageTitle: 'Review' }),
+    endAct('a', 'waiting-for-owner', 'waiting-by-hand', {}, { stage: 'implementation', stageTitle: 'Implementation' }),
+    endAct('a', 'waiting-for-owner', 'waiting-mockup', {}, { stage: 'mockup', stageTitle: 'Mock-up' }),
+  ];
+  for (const action of ends) assert.deepEqual(sd(action).action, action, action.end.why);
+});
+
+// A change `a` of the default script on its own branch of a scratch project, its plan written up to the readiness review, in a run with a session per change.
+function upChange({ roadmap = ['[ ] a', '[ ] b'], run = {}, files = {} } = {}) {
+  const root = projectWith(roadmapText(...roadmap), { config: 'schema: devkit\nship:\n  devkit: pr\n' });
+  git(root, 'checkout', '-q', '-b', 'a');
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const dir = 'openspec/changes/a';
+  const planned = { [`${dir}/.openspec.yaml`]: 'schema: devkit\n' };
+  for (const [stage, file] of Object.entries(PLAN_FILES)) {
+    const body = stage === 'readiness' ? '# Readiness\n\n- Status: APPROVED\n' : stage === 'tasks' ? '# Tasks\n\n- [ ] 1.1 a\n' : `# ${stage}\n`;
+    planned[`${dir}/${file}`] = `<!-- devkit-stage ${stage} result=passed attempt=1 commit=${c0} -->\n${body}`;
+  }
+  put(root, { ...planned, ...files });
+  commitAll(root, 'plan a');
+  putRun(root, { changeSessions: true, places: 1, tickets: upTickets('a', { claimedBy: 'S-a' }), ...run });
+  return root;
+}
+const approve = (root) => {
+  const dir = join(root, 'openspec', 'changes', 'a');
+  put(root, { 'openspec/changes/a/approval.md': `<!-- devkit-stage approval result=passed attempt=1 commit=none -->\n# Plan approval: a\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n` });
+  commitAll(root, 'approve a');
+};
+const doSessionNext = (cwd, extra = [], opts = {}) => cmd(cwd, ['session-next', '--change', 'a', ...FLAGS, ...extra], opts);
+
+test('upfront AC-7 session-next: the held approval goes on once approval.md is written', () => {
+  const root = upChange();
+  const held = doSessionNext(root);
+  assert.equal(held.code, 0, held.stdout);
+  const lines = held.stdout.split('\n');
+  assert.equal(lines[0], 'devkit-run: a');
+  assert.ok(!lines.some((l) => l.startsWith('devkit-end:')), 'a held action prints no end line');
+  const h = jsonOf(held.stdout);
+  assert.deepEqual([h.kind, h.held.why, h.held.gate, h.icon], ['held', 'owner', 'approval', '📝']);
+  assert.equal(stateOf(root).placed?.a, undefined, 'a gate takes no place');
+  approve(root);
+  const next = doSessionNext(root);
+  const a = jsonOf(next.stdout);
+  assert.deepEqual([a.kind, a.stage, a.icon], ['agent', 'implementation', '🛠️'], 'the approval was written: the change goes on');
+  assert.deepEqual(Object.keys(stateOf(root).placed), ['a'], 'and takes the place');
+});
+
+test('upfront AC-8 session-next: a plan stage waits for an unarchived dependency with ⏳', () => {
+  for (const stage of ['proposal', 'specs', 'design', 'tasks', 'readiness']) {
+    const r = sd(agentAct('a', stage), { waitsFor: 'x' });
+    const h = r.action;
+    assert.deepEqual([h.kind, h.held.why, h.held.after, h.icon, h.sessionTitle, h.progressKey, h.stage], ['held', 'after', 'x', '⏳', '⏳ a', 'held/after', stage], stage);
+    assert.equal(h.reply, render('en', 'session-held-after', { id: 'a', after: 'x' }));
+  }
+  // Not a plan stage that waits: the grill and the approval are the owner's, the build stages are placed, an end is shown as it is.
+  assert.equal(sd(grillAct('a'), { waitsFor: 'x' }).action.held.why, 'owner');
+  assert.equal(sd(ownerAct('a'), { waitsFor: 'x' }).action.held.why, 'owner');
+  assert.equal(sd(implAct('a'), { waitsFor: 'x' }).action.kind, 'agent', 'a build stage does not wait for a dependency');
+  const blocked = endAct('a', 'blocked', 'not-delivered', { why: 'not-delivered', stage: 'Proposal' }, { stage: 'proposal', stageTitle: 'Proposal' });
+  assert.deepEqual(sd(blocked, { waitsFor: 'x' }).action, blocked, 'an end is no stage to hold');
+  assert.deepEqual(sd(agentAct('a', 'proposal'), { waitsFor: null }).action, agentAct('a', 'proposal'), 'no missing dependency: the stage goes on');
+});
+
+// A clone with an origin. Change `b` (line `after: a`) works in its own worktree on branch b, which has its own commit; `a` is archived on
+// the default branch (and pushed) only when asked; `conflict` makes both sides change the same file.
+function upBase({ archive = true, conflict = false } = {}) {
+  const origin = tmpFolder('devkit-upfront-origin-');
+  git(origin, 'init', '-q', '--bare', '-b', 'main');
+  const root = projectWith(roadmapText('[x] a', '[ ] b (after: a)'));
+  git(root, 'remote', 'add', 'origin', origin);
+  put(root, { 'notes.txt': 'base\n' });
+  commitAll(root, 'notes');
+  git(root, 'push', '-q', '-u', 'origin', 'main');
+  const wt = join(tmpFolder('devkit-upfront-wt-'), 'b');
+  git(root, 'worktree', 'add', '-q', '-b', 'b', wt);
+  const c0 = git(wt, 'rev-parse', 'HEAD');
+  const dir = 'openspec/changes/b';
+  put(wt, {
+    [`${dir}/.openspec.yaml`]: 'schema: devkit\n',
+    [`${dir}/requirements.md`]: `<!-- devkit-stage requirements result=passed attempt=1 commit=${c0} -->\n# requirements\n`,
+    [`${dir}/decisions.md`]: `<!-- devkit-stage decisions result=passed attempt=1 commit=${c0} -->\n# decisions\n`,
+    ...(conflict ? { 'notes.txt': 'b side\n' } : {}),
+  });
+  commitAll(wt, 'open b');
+  if (archive) {
+    put(root, { 'openspec/changes/archive/2026-11-01-a/proposal.md': 'archived\n', ...(conflict ? { 'notes.txt': 'main side\n' } : {}) });
+    commitAll(root, 'archive a');
+    git(root, 'push', '-q', 'origin', 'main');
+  }
+  putRun(root, { changeSessions: true, places: 2, tickets: upTickets('b', { claimedBy: 'S-b' }) });
+  return { root, wt };
+}
+const MERGE_BASE = ['merge-base', '--change', 'b', '--lang', 'en'];
+const sessionNextOf = (cwd, id, opts = {}) => jsonOf(cmd(cwd, ['session-next', '--change', id, ...FLAGS], opts).stdout);
+
+test('upfront AC-8 session-next: the roadmap of the main checkout says which dependency is still unarchived', () => {
+  const { wt } = upBase({ archive: false });
+  const h = sessionNextOf(wt, 'b');
+  assert.deepEqual([h.kind, h.held?.why, h.held?.after, h.icon, h.sessionTitle], ['held', 'after', 'a', '⏳', '⏳ b'], JSON.stringify(h));
+});
+
+test('upfront AC-8 session-next: once the dependency is archived and not merged, the step merges the default branch', () => {
+  const pure = sd(agentAct('b', 'proposal'), { notInHead: true });
+  assert.deepEqual([pure.action.kind, pure.action.step, pure.action.stage, pure.action.progressKey], ['session', 'merge-base', 'proposal', 'proposal/merge-base@abc123']);
+  assert.deepEqual(pure.action.detail.command, ['node', join(HOOKS_DIR, 'roadmap-loop.mjs'), 'merge-base', '--change', 'b', '--lang', 'en']);
+  assert.equal(sd(agentAct('b', 'proposal'), { notInHead: true, lang: 'pt-BR' }).action.detail.command.at(-1), 'pt-BR');
+  // None when the plan is begun, when nothing is missing from the tree, when a dependency is still missing (it waits first) and outside the plan.
+  assert.equal(sd(agentAct('b', 'proposal'), { notInHead: true, hasProposal: true }).action.kind, 'agent');
+  assert.equal(sd(agentAct('b', 'proposal'), { notInHead: false }).action.kind, 'agent');
+  assert.equal(sd(agentAct('b', 'proposal'), { notInHead: true, waitsFor: 'a' }).action.held.why, 'after');
+  assert.equal(sd(implAct('b'), { notInHead: true }).action.kind, 'agent');
+  // In a scratch repository: the step comes, then the merge brings the archive folder and the step goes.
+  const { wt } = upBase();
+  const step = sessionNextOf(wt, 'b');
+  assert.deepEqual([step.kind, step.step, step.stage], ['session', 'merge-base', 'proposal'], JSON.stringify(step));
+  const merged = cmd(wt, MERGE_BASE, { env: upGitEnv });
+  assert.equal(merged.code, 0, merged.stdout + merged.stderr);
+  const after = sessionNextOf(wt, 'b');
+  assert.deepEqual([after.kind, after.stage], ['agent', 'proposal'], 'the plan is written from the code of that day');
+  // A plan begun is not merged again.
+  const begun = upBase();
+  put(begun.wt, { 'openspec/changes/b/proposal.md': '# proposal\n' });
+  commitAll(begun.wt, 'proposal');
+  assert.notEqual(sessionNextOf(begun.wt, 'b').step, 'merge-base');
+});
+
+test('upfront AC-8 merge-base: merges origin\'s default branch, and on a conflict aborts and exits 3 with base-conflict', () => {
+  const { wt } = upBase();
+  const r = cmd(wt, MERGE_BASE, { env: upGitEnv });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.ok(git(wt, 'ls-tree', '-r', '--name-only', 'HEAD').split('\n').includes('openspec/changes/archive/2026-11-01-a/proposal.md'), 'the archive folder is in the branch');
+  assert.equal(git(wt, 'status', '--porcelain'), '');
+  const clash = upBase({ conflict: true });
+  const head = git(clash.wt, 'rev-parse', 'HEAD');
+  const c = cmd(clash.wt, MERGE_BASE, { env: upGitEnv });
+  assert.equal(c.code, 3, c.stdout);
+  const out = JSON.parse(c.stdout);
+  assert.equal(out.why, 'base-conflict');
+  assert.match(out.reply, /the default branch could not be merged into it/);
+  assert.equal(out.version, 1);
+  assert.equal(git(clash.wt, 'rev-parse', 'HEAD'), head, 'the branch is as it was');
+  assert.equal(git(clash.wt, 'status', '--porcelain'), '', 'the merge was undone');
+  assert.throws(() => git(clash.wt, 'rev-parse', '-q', '--verify', 'MERGE_HEAD'), 'no merge is left half done');
+  assert.equal(readFileSync(join(clash.wt, 'notes.txt'), 'utf8'), 'b side\n');
+  assert.equal(cmd(clash.wt, ['merge-base', '--lang', 'en'], { env: upGitEnv }).code, 3, 'it needs the change');
+});
+
+test('upfront AC-9 place: a free place is claimed', () => {
+  const r = loopModule.placeDecision({ id: 'a', places: 2, placed: { b: { at: AT } }, queued: { a: { at: '2026-11-21T09:00:00.000Z', why: 'place' } }, load: 10, limit: 80, anyway: [], now: AT });
+  assert.equal(r.claimed, true);
+  assert.deepEqual(r.placed, { b: { at: AT }, a: { at: AT } });
+  assert.deepEqual(r.queued, {}, 'it leaves the queue');
+  const given = { placed: {}, queued: {}, anyway: ['a'] };
+  loopModule.placeDecision({ id: 'a', places: 1, ...given, load: 10, limit: 80, now: AT });
+  assert.deepEqual(given, { placed: {}, queued: {}, anyway: ['a'] }, 'the facts given are not changed');
+});
+
+test('upfront AC-9 place: no free place queues the change with why place', () => {
+  const r = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: {}, load: 10, limit: 80, anyway: [], now: AT });
+  assert.deepEqual([r.claimed, r.why, r.placed, r.queued], [false, 'place', { b: { at: AT } }, { a: { at: AT, why: 'place' } }]);
+  const again = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: r.queued, load: 10, limit: 80, anyway: [], now: '2026-11-21T11:00:00.000Z' });
+  assert.deepEqual(again.queued, { a: { at: AT, why: 'place' } }, 'it keeps the time it first queued');
+});
+
+test('upfront AC-9 place: a loaded machine queues it with why load', () => {
+  const r = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: {}, load: 95, limit: 80, anyway: [], now: AT });
+  assert.deepEqual([r.claimed, r.why, r.placed, r.queued], [false, 'load', {}, { a: { at: AT, why: 'load' } }]);
+  const edge = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: {}, load: 80, limit: 80, anyway: [], now: AT });
+  assert.equal(edge.claimed, false, 'the limit itself is loaded');
+  const both = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: {}, load: 95, limit: 80, anyway: [], now: AT });
+  assert.equal(both.why, 'place', 'no place wins over the load');
+});
+
+test('upfront AC-9 place: start anyway claims despite the load once', () => {
+  const r = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: { a: { at: AT, why: 'load' } }, load: 95, limit: 80, anyway: ['a', 'c'], now: AT });
+  assert.equal(r.claimed, true);
+  assert.deepEqual([r.anyway, r.queued, Object.keys(r.placed)], [['c'], {}, ['a']], 'the permission is used up; another change\'s stays');
+  const second = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: {}, load: 95, limit: 80, anyway: r.anyway, now: AT });
+  assert.equal(second.claimed, false, 'held again the next time');
+  const full = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: {}, load: 95, limit: 80, anyway: ['a'], now: AT });
+  assert.deepEqual([full.claimed, full.why, full.anyway], [false, 'place', ['a']], 'it does not make a place');
+});
+
+test('upfront AC-9 place: an earlier queued change goes first', () => {
+  const queued = { b: { at: '2026-11-21T09:00:00.000Z', why: 'place' }, c: { at: '2026-11-21T11:00:00.000Z', why: 'place' } };
+  const a = loopModule.placeDecision({ id: 'a', places: 2, placed: { x: { at: AT } }, queued, load: 10, limit: 80, anyway: [], now: AT });
+  assert.deepEqual([a.claimed, a.why], [false, 'place'], 'b queued before a and takes the one free place');
+  const b = loopModule.placeDecision({ id: 'b', places: 2, placed: { x: { at: AT } }, queued, load: 10, limit: 80, anyway: [], now: AT });
+  assert.equal(b.claimed, true);
+  const c = loopModule.placeDecision({ id: 'c', places: 3, placed: { x: { at: AT } }, queued: { b: queued.b }, load: 10, limit: 80, anyway: [], now: AT });
+  assert.equal(c.claimed, true, 'two places free, one change ahead');
+  const later = loopModule.placeDecision({ id: 'a', places: 2, placed: { x: { at: AT } }, queued: { c: queued.c }, load: 10, limit: 80, anyway: [], now: '2026-11-21T10:00:00.000Z' });
+  assert.equal(later.claimed, true, 'a change queued later does not go first');
+});
+
+test('upfront AC-9 session-next: an implementation step claims a place and the delivery releases it', () => {
+  const claimed = sd(implAct('a'));
+  assert.deepEqual(claimed.action, implAct('a'), 'the action goes on unchanged');
+  assert.deepEqual(claimed.placed, { a: { at: AT } });
+  for (const action of [implAct('a'), agentAct('a', 'unit-tests'), agentAct('a', 'e2e-tests'), agentAct('a', 'evidence'), sessionAct('a', 'review')]) {
+    assert.equal(sd(action).action.kind === 'held', false, action.stage);
+    assert.deepEqual(Object.keys(sd(action).placed), ['a'], `${action.stage} holds a place`);
+  }
+  const kept = sd(implAct('a'), { placed: { a: { at: '2026-11-21T08:00:00.000Z' }, b: { at: AT } }, places: 1 });
+  assert.deepEqual([kept.action.kind, kept.placed.a.at], ['agent', '2026-11-21T08:00:00.000Z'], 'a change that has its place keeps it and its time');
+  const delivery = endAct('a', 'waiting-on-github', 'waiting-github', { what: 'merge' }, { stage: 'delivery', stageTitle: 'Delivery' });
+  const released = sd(delivery, { placed: { a: { at: AT }, b: { at: AT } }, queued: { a: { at: AT, why: 'load' } } });
+  assert.deepEqual(released.action, delivery);
+  assert.deepEqual([released.placed, released.queued], [{ b: { at: AT } }, {}], 'the place and the queue entry of a are gone');
+  const plan = sd(agentAct('a', 'proposal'), { placed: { a: { at: AT } } });
+  assert.deepEqual(plan.placed, {}, 'a stage in another part holds no place');
+});
+
+test('upfront AC-9 session-next: a blocked change in its implementation keeps its place', () => {
+  const blocked = endAct('a', 'blocked', 'tests-red', { why: 'tests-red', phase: 1 }, { stage: 'implementation', stageTitle: 'Implementation' });
+  const r = sd(blocked, { placed: { a: { at: AT } } });
+  assert.deepEqual(r.action, blocked);
+  assert.deepEqual(r.placed, { a: { at: AT } });
+  const owner = endAct('a', 'waiting-for-owner', 'waiting-by-hand', {}, { stage: 'implementation', stageTitle: 'Implementation' });
+  assert.deepEqual(sd(owner, { placed: { a: { at: AT } } }).placed, { a: { at: AT } }, 'also at an owner gate there');
+  assert.deepEqual(sd(blocked, {}).placed, {}, 'a blocked change that never had a place takes none');
+});
+
+test('upfront AC-9 session-next: the archived end releases the place', () => {
+  const r = sd(archivedAct('a'), { placed: { a: { at: AT }, b: { at: AT } }, queued: { a: { at: AT, why: 'place' } } });
+  assert.equal(r.action.end.state, 'archived');
+  assert.deepEqual([r.placed, r.queued], [{ b: { at: AT } }, {}]);
+});
+
+test('upfront AC-9 session-next: no free place or a loaded machine holds the change with why place or load', () => {
+  const full = sd(implAct('a'), { placed: { b: { at: AT }, c: { at: AT } }, places: 2 });
+  const h = full.action;
+  assert.deepEqual([h.kind, h.held.why, h.icon, h.sessionTitle, h.progressKey, h.stage, h.stageTitle], ['held', 'place', '⏳', '⏳ a', 'held/place', 'implementation', 'Implementation']);
+  assert.equal(h.reply, render('en', 'session-held-place', { id: 'a', places: 2 }));
+  assert.deepEqual(full.queued, { a: { at: AT, why: 'place' } });
+  assert.deepEqual(full.placed, { b: { at: AT }, c: { at: AT } });
+  const loaded = sd(implAct('a'), { load: 91, limit: 80 });
+  assert.deepEqual([loaded.action.held.why, loaded.action.progressKey], ['load', 'held/load']);
+  assert.equal(loaded.action.reply, render('en', 'session-held-load', { id: 'a', load: 91, limit: 80 }));
+  assert.deepEqual(loaded.queued, { a: { at: AT, why: 'load' } });
+  const anyway = sd(implAct('a'), { load: 91, limit: 80, anyway: ['a'], queued: { a: { at: AT, why: 'load' } } });
+  assert.deepEqual([anyway.action.kind, anyway.anyway, anyway.queued], ['agent', [], {}]);
+});
+
+test('upfront AC-9 session-next: a change outside a session-mode run gets the change loop\'s action unchanged', () => {
+  const asked = (root) => nextAction(root, 'a', { env: cleanEnv, lang: 'en', gh: OFFLINE });
+  const plain = upChange({ run: { changeSessions: false } });
+  approve(plain);
+  assert.deepEqual(jsonOf(doSessionNext(plain).stdout), asked(plain));
+  assert.equal(stateOf(plain).placed, undefined, 'no run file write');
+  const unclaimed = upChange({ run: { tickets: upTickets('a', { claimedBy: null }), placed: { b: { at: AT } } } });
+  approve(unclaimed);
+  const before = readFileSync(runFileOf(unclaimed), 'utf8');
+  assert.deepEqual(jsonOf(doSessionNext(unclaimed).stdout), asked(unclaimed), 'a ticket nobody claimed is no session of its own');
+  assert.equal(readFileSync(runFileOf(unclaimed), 'utf8'), before);
+  const none = upChange({ run: { tickets: {} } });
+  assert.equal(jsonOf(doSessionNext(none).stdout).kind, 'end', 'no ticket at all: the change loop\'s action (the approval, as an end)');
+});
+
+test('upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again', () => {
+  assert.equal(changeLoopModule.WAIT_ICON, '⏳');
+  const act = { ...implAct('a'), icon: '🛠️', sessionTitle: '🛠️ a' };
+  for (const [name, r] of [['place', sd(act, { placed: { b: { at: AT } } })], ['load', sd(act, { load: 95 })], ['after', sd({ ...agentAct('a', 'proposal'), icon: '📝', sessionTitle: '📝 a' }, { waitsFor: 'x' })]]) {
+    assert.deepEqual([r.action.icon, r.action.sessionTitle], ['⏳', '⏳ a'], name);
+  }
+  const gate = sd({ ...ownerAct('a'), icon: '📝', sessionTitle: '📝 a' });
+  assert.deepEqual([gate.action.icon, gate.action.sessionTitle], ['📝', '📝 a'], 'an owner gate keeps the stage\'s own icon');
+  assert.deepEqual(sd(act).action, act, 'claimed: the action with its own icon and title again');
+});
+
+test('upfront AC-1 session-next: prints devkit-run first, so runOf reads a change run', () => {
+  const root = upChange();
+  approve(root);
+  const r = doSessionNext(root);
+  assert.equal(r.stdout.split('\n')[0], 'devkit-run: a');
+  const run = guardModule.runOf({ transcript_path: lkTranscript([lkPlain(upStarted('a')), lkAssistant(), lkResult(r.stdout)]) });
+  assert.equal(run?.change, 'a');
+  assert.equal(cmd(root, ['session-next', '--change', 'a', '--lang', 'en']).code, 0, 'no load limit is the default');
+  assert.equal(cmd(root, ['session-next', ...FLAGS]).code, 3, 'it needs the change');
+  assert.equal(cmd(root, ['session-next', '--change', 'bad id!', ...FLAGS]).code, 3, 'and a change id');
+});
+
+test('upfront AC-9 session-wait: exits with the new action when a place frees, records and clears its wait', async () => {
+  const root = upChange({ run: { placed: { b: { at: AT } } } });
+  approve(root);
+  const seen = [];
+  const sleep = async (seconds) => {
+    seen.push([seconds, stateOf(root).waits?.a]);
+    const run = stateOf(root);
+    run.placed = {};
+    writeFileSync(runFileOf(root), JSON.stringify(run));
+  };
+  const r = await loopModule.runCommand(['session-wait', '--change', 'a', ...FLAGS, '--interval', '5', '--session', 'S-a'], { cwd: root, env: cleanEnv, gh: OFFLINE, load: () => 10, sleep });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout.split('\n')[0], 'devkit-run: a');
+  const a = jsonOf(r.stdout);
+  assert.deepEqual([a.kind, a.stage], ['agent', 'implementation'], 'the place was freed: the action goes on');
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0][0], 5);
+  assert.equal(seen[0][1].length, 1, 'recorded while it waits');
+  assert.deepEqual([seen[0][1][0].kind, seen[0][1][0].session, seen[0][1][0].pid], ['session', 'S-a', process.pid]);
+  assert.equal(stateOf(root).waits.a, undefined, 'cleared at its end');
+  assert.deepEqual(Object.keys(stateOf(root).placed), ['a']);
+  // Also cleared on error: the poll of a repository that cannot be read three times in a row ends blocked, never leaving its record.
+  const lone = upChange({ run: { placed: { b: { at: AT } } } });
+  approve(lone);
+  const gone = await loopModule.runCommand(['session-wait', '--change', 'a', ...FLAGS, '--session', 'S-a'], { cwd: lone, env: cleanEnv, gh: OFFLINE, load: () => 10, sleep: async () => { throw new Error('stopped'); } }).catch((e) => e);
+  assert.ok(gone instanceof Error || gone.code === 3, 'a failing sleep does not leave a wait behind');
+  assert.equal(stateOf(lone).waits?.a, undefined);
+  const bad = await loopModule.runCommand(['session-wait', '--change', 'a', ...FLAGS, '--interval', '2'], { cwd: lone, env: cleanEnv, gh: OFFLINE, load: () => 10 });
+  assert.equal(bad.code, 3, 'the interval has a floor');
+});
+
+// The change session of `a`, held at its stop: the transcript of a started session that ran session-next, and the hook's input.
+const upStopInput = (root, { session = LK_SESSION } = {}) => ({
+  session_id: session, cwd: root, permission_mode: 'bypassPermissions', hook_event_name: 'Stop', stop_hook_active: false, last_assistant_message: 'Waiting.', background_tasks: [], session_crons: [],
+  transcript_path: lkTranscript([lkPlain(upStarted('a')), lkAssistant(), lkChangeMarker('a')]),
+});
+const stopOf2 = (root, opts) => withTmp((tmp) => ({ tmp, d: loopModule.changeSessionStopDecision(upStopInput(root, opts), { env: LK_ENV, gh: OFFLINE, load: () => 10 }) }));
+
+test('upfront AC-9 lock stop: a claimed change session held for a place may stop', () => {
+  const root = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), placed: { b: { at: AT } } } });
+  approve(root);
+  const before = readFileSync(runFileOf(root), 'utf8');
+  const { tmp, d } = stopOf2(root);
+  assert.deepEqual([d.decision, d.why, d.change], ['allow', 'held', 'a']);
+  nothingRecorded(tmp);
+  assert.equal(readFileSync(runFileOf(root), 'utf8'), before, 'the decision of a stop writes nothing');
+  const gate = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }) } });
+  const g = stopOf2(gate).d;
+  assert.deepEqual([g.decision, g.why], ['allow', 'held'], 'held for the owner too');
+});
+
+test('upfront AC-9 lock stop: with its place and a stage ready the stop is refused once', () => {
+  const root = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), placed: { a: { at: AT } } } });
+  approve(root);
+  const before = readFileSync(runFileOf(root), 'utf8');
+  const input = upStopInput(root);
+  withTmp((tmp) => {
+    const first = loopModule.changeSessionStopDecision(input, { env: LK_ENV, gh: OFFLINE, load: () => 10 });
+    assert.deepEqual([first.decision, first.why, first.change], ['refuse', 'stage-ready', 'a']);
+    const second = loopModule.changeSessionStopDecision(input, { env: LK_ENV, gh: OFFLINE, load: () => 10 });
+    assert.equal(second.decision, 'allow', 'once per state');
+    assert.ok(recordOf(tmp, `${LK_SESSION}.json`), 'the refusal is recorded as the change loop does');
+  });
+  assert.equal(readFileSync(runFileOf(root), 'utf8'), before, 'a free place is not claimed by a stop decision');
+});
+
+test('upfront AC-9 lock stop: a session that did not claim the ticket is judged as any change run', () => {
+  const other = upChange({ run: { tickets: upTickets('a', { claimedBy: 'S-other' }), placed: { b: { at: AT } } } });
+  approve(other);
+  const { d } = stopOf2(other);
+  assert.deepEqual([d.decision, d.why], ['refuse', 'stage-ready'], 'the change loop\'s lock, whatever the run file says of places');
+  const plain = upChange({ run: { changeSessions: false, placed: { b: { at: AT } } } });
+  approve(plain);
+  const p = stopOf2(plain).d;
+  assert.deepEqual([p.decision, p.why], ['refuse', 'stage-ready'], 'a run with no session per change is the change loop\'s too');
+  const nothing = loopModule.changeSessionStopDecision({ session_id: LK_SESSION, cwd: other, transcript_path: join(lkSandbox(), 'gone.jsonl') }, { env: LK_ENV });
+  assert.equal(nothing.decision, 'allow', 'a transcript that cannot be read lets the stop through');
+});
+
+test('upfront AC-9 messages: the held and base-conflict messages exist in both languages and name no stage or step', () => {
+  const params = { id: 'a', gate: 'approval', places: 2, load: 91, limit: 80, after: 'b', error: 'x' };
+  for (const lang of ['en', 'pt-BR']) {
+    for (const key of ['session-held-owner', 'session-held-place', 'session-held-load', 'session-held-after']) {
+      const text = render(lang, key, params);
+      assert.ok(text.includes('a') && text.length > 20, `${lang} ${key}`);
+      assert.doesNotMatch(text, /session-next|merge-base|progressKey|\.md\b|--/, `${lang} ${key} names no mechanism`);
+    }
+    assert.match(render(lang, 'blocked', { id: 'a', why: 'base-conflict', error: 'CONFLICT' }), /CONFLICT/);
+  }
+  assert.equal(render('en', 'session-held-load', params), 'a waits: the processor is at 91% (limit 80%).');
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 3: the coordinating session and the periodic check (design D-2, D-3, D-5, D-9, D-11)
+
+const AT2 = '2026-11-21T11:00:00.000Z';
+const JOB = { id: 'job-1', at: AT };
+const gateLine = (id, gate, others = false) => say(others ? 'roadmap-gate-others' : 'roadmap-gate', { id, gate });
+const opened = (id) => say('roadmap-session-opened', { id });
+
+test('upfront AC-3 decide: every pending line opens on a typed turn whatever the number, the load and the dependencies, each with its session', () => {
+  const lines = ['[ ] a', '[ ] b (after: a)', '[x] t', '[x] z', '[ ] p', '[ ] c'];
+  const facts = (over = {}) => sessionWorld({ lines, archived: ['z'], previous: ['p'], places: 1, load: 95, limit: 80, ...over });
+  const first = decideRoadmap(facts());
+  assert.deepEqual(changesOf(first), [['a', 'start'], ['b', 'start'], ['c', 'start']], 'a ticked, an archived and a previous-script line are not opened');
+  assert.ok(!first.actions.some((x) => x.kind === 'hold'), 'the load holds a place, not an opening');
+  assert.ok(!first.lines.some((l) => /machine is loaded/.test(l)), 'no held line');
+  assert.deepEqual(first.state.starting, ['a', 'b', 'c']);
+  const open = decideRoadmap(facts({ actions: { a: grillAct('a'), b: grillAct('b'), c: grillAct('c') } }));
+  assert.deepEqual(changesOf(open), [['a', 'session-start'], ['b', 'session-start'], ['c', 'session-start']], 'each opened change gets its session');
+  assert.deepEqual(open.actions.map((x) => x.cwd), ['/w/a', '/w/b', '/w/c']);
+});
+
+test('upfront AC-3 decide: on a turn nobody typed a pending line not open waits for the owner\'s next message with its line', () => {
+  const facts = (over = {}) => sessionWorld({ lines: ['[ ] a', '[ ] b (after: a)', '[ ] c'], places: 1, turn: 'event', ...over });
+  const event = decideRoadmap(facts());
+  assert.deepEqual(event.actions, []);
+  assert.deepEqual(event.lines, ['a', 'b', 'c'].map((id) => say('roadmap-waits-turn', { id })));
+  assert.deepEqual([event.state.starting, event.end], [[], null], 'a withheld start is no end of the run');
+  assert.deepEqual(decideRoadmap(facts({ announced: event.state.announced })).lines, [], 'said once');
+  assert.deepEqual(changesOf(decideRoadmap(facts({ announced: event.state.announced, turn: 'typed' }))), [['a', 'start'], ['b', 'start'], ['c', 'start']], 'the owner\'s next message opens them');
+});
+
+test('upfront AC-3 decide: the line of a session just started names no count of places', () => {
+  const r = decideRoadmap(sessionWorld({ lines: ['[ ] a'], places: 3, actions: { a: agentAct('a') }, startedSessions: { a: { at: AT } }, after: { a: 'session-start' } }));
+  assert.deepEqual(r.lines, [opened('a')]);
+  assert.equal(render('en', 'roadmap-session-opened', { id: 'a' }), 'a is open in a session of its own; its grill is asked here.');
+  assert.equal(render('pt-BR', 'roadmap-session-opened', { id: 'a' }), 'a está aberta numa sessão própria; o grill dela é feito aqui.');
+});
+
+test('upfront AC-3 status: the board lists every opened change, with held-place, held-load and held-after rows', () => {
+  const impl = (id) => agentAct(id, 'implementation', { stageTitle: 'Implementation' });
+  const text = boardOf(sessionWorld({
+    lines: ['[ ] a', '[ ] b', '[ ] c (after: a)', '[ ] d', '[ ] e'], places: 1,
+    actions: { a: impl('a'), b: impl('b'), c: agentAct('c'), d: grillAct('d'), e: impl('e') },
+    startedSessions: Object.fromEntries(['a', 'b', 'c', 'd', 'e'].map((id) => [id, { at: AT }])),
+    placed: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, e: { at: AT2, why: 'load' } }, waitsFor: { c: 'a' },
+  }));
+  const row = (id, words) => `  ${id.padEnd(4)}${words}`;
+  const rows = text.split('\n');
+  for (const r of [row('a', 'Implementation'), row('b', 'open, waits for a place'), row('c', 'open, waits for a'), row('d', 'your answers about its request'), row('e', 'open, held by the load')]) {
+    assert.ok(rows.includes(r), `${r}\n${text}`);
+  }
+  const at = (header) => rows.indexOf(header);
+  assert.ok(at('Waiting for you') < at(row('d', 'your answers about its request')) && at(row('d', 'your answers about its request')) < at('Under way'), 'd waits for the owner');
+  assert.ok(at('In the queue') < at(row('b', 'open, waits for a place')), 'the held ones are in the queue');
+  assert.ok(!/Starts held/.test(text), 'a run with a session per change holds no start');
+  const pt = boardOf(sessionWorld({ lang: 'pt-BR', lines: ['[ ] b', '[ ] c (after: a)', '[ ] e'], places: 1, actions: { b: agentAct('b'), c: agentAct('c'), e: agentAct('e') }, startedSessions: { b: { at: AT }, c: { at: AT }, e: { at: AT } }, queued: { b: { at: AT, why: 'place' }, e: { at: AT, why: 'load' } }, waitsFor: { c: 'a' } }));
+  for (const words of ['aberta, espera uma vaga', 'aberta, espera a', 'aberta, segurada pela carga']) assert.ok(pt.includes(words), `${words}\n${pt}`);
+});
+
+test('upfront AC-4 decide: the grills of change sessions are asked in roadmap order, one change at a time, with their gate line', () => {
+  const facts = (over = {}) => sessionWorld({ lines: ['[ ] a', '[ ] b'], places: 2, actions: { a: grillAct('a'), b: grillAct('b') }, startedSessions: { a: { at: AT }, b: { at: AT } }, ...over });
+  const r = decideRoadmap(facts());
+  assert.deepEqual([r.ask.change, r.ask.kind, r.ask.gate, r.ask.action.stage], ['a', 'grill', 'grill', 'requirements']);
+  assert.deepEqual(r.actions, [], 'no change session is asked to ask');
+  assert.deepEqual(r.lines, [gateLine('a', 'grill'), gateLine('b', 'grill')]);
+  assert.equal(r.state.asking, 'a');
+  const staying = decideRoadmap(facts({ asking: 'b' }));
+  assert.equal(staying.ask.change, 'b', 'the head stays while it waits');
+  const others = decideRoadmap(facts({ lines: ['[ ] a', '[ ] b'], actions: { a: agentAct('a'), b: grillAct('b') } }));
+  assert.deepEqual([others.ask.change, others.lines], ['b', [gateLine('b', 'grill', true)]], 'another change under way: the others go on');
+  assert.equal(decideRoadmap(facts({ stopping: true })).ask, null, 'a stop asks nothing');
+});
+
+test('upfront AC-7 decide: a plan approval and the retro answers of a change session are asked here, and a merge left to the owner is not', () => {
+  const merge = endAct('c', 'waiting-for-owner', 'waiting-merge', {}, { stage: 'delivery', stageTitle: 'Delivery' });
+  const facts = (over = {}) => sessionWorld({
+    lines: ['[ ] a', '[ ] b', '[ ] c'], places: 3, actions: { a: ownerAct('a'), b: retroAct('b'), c: merge },
+    startedSessions: { a: { at: AT }, b: { at: AT }, c: { at: AT } }, ...over,
+  });
+  const r = decideRoadmap(facts());
+  assert.deepEqual([r.ask.change, r.ask.kind, r.ask.gate], ['a', 'gate', 'approval']);
+  assert.equal(r.ask.action.end.why, 'waiting-approval');
+  assert.deepEqual(r.lines, [gateLine('a', 'approval', true), gateLine('b', 'retro', true)], 'c\'s merge is no line here, and c goes on in its own session');
+  const second = decideRoadmap(facts({ asking: 'b' }));
+  assert.deepEqual([second.ask.change, second.ask.gate], ['b', 'retro']);
+  const alone = decideRoadmap(facts({ lines: ['[ ] c'], actions: { c: merge } }));
+  assert.equal(alone.ask, null, 'a merge is asked in c\'s own session');
+  assert.deepEqual(alone.lines, []);
+  const again = endAct('a', 'waiting-for-owner', 'waiting-approval-again', {}, { stage: 'approval', stageTitle: 'Plan approval' });
+  assert.equal(decideRoadmap(facts({ actions: { a: again, b: retroAct('b'), c: merge } })).ask.gate, 'approval');
+});
+
+// A change `a` on its own branch with its grill and plan committed, an `origin` that has only main (or no repository at that address), a run that claimed its ticket.
+function upPushed({ remote = 'ok' } = {}) {
+  const root = upChange({ roadmap: ['[ ] a'] });
+  const origin = tmpFolder('devkit-upfront-push-');
+  if (remote === 'ok') {
+    git(origin, 'init', '-q', '--bare', '-b', 'main');
+    git(root, 'remote', 'add', 'origin', origin);
+    git(root, 'push', '-q', 'origin', 'main');
+  } else git(root, 'remote', 'add', 'origin', join(origin, 'nowhere'));
+  return { root, origin };
+}
+const pushesOf = (r) => jsonOf(r.stdout).actions.filter((a) => a.kind === 'push');
+const PUSH_OPTS = { env: upGitEnv };
+
+test('upfront AC-12 next: a passed grill not on origin gives a push, the push commits and pushes requirements.md, and a plan approved gives the push of the plan files', () => {
+  const { root, origin } = upPushed();
+  const grill = pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS));
+  assert.equal(grill.length, 1);
+  assert.deepEqual([grill[0].change, grill[0].what, grill[0].progressKey], ['a', 'grill', 'push']);
+  assert.ok(grill[0].command[1].endsWith('roadmap-loop.mjs'));
+  assert.deepEqual([grill[0].command[0], ...grill[0].command.slice(2)], ['node', 'push', '--change', 'a', '--what', 'grill', '--lang', 'en']);
+  const sent = cmd(root, ['push', '--change', 'a', '--what', 'grill', '--lang', 'en'], PUSH_OPTS);
+  assert.equal(sent.code, 0, sent.stdout + sent.stderr);
+  assert.match(git(origin, 'show', 'a:openspec/changes/a/requirements.md'), /devkit-stage requirements result=passed/, 'the branch on origin holds the passed grill');
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)), [], 'what origin holds is not pushed again');
+  // The owner approves the plan: approval.md is written (not committed) and the plan files go with it.
+  put(root, { 'openspec/changes/a/approval.md': '<!-- devkit-stage approval result=passed attempt=1 commit=none -->\n# Plan approval: a\n\n- Status: APPROVED\n' });
+  const plan = pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS));
+  assert.deepEqual(plan.map((a) => [a.change, a.what]), [['a', 'plan']]);
+  const sentPlan = cmd(root, ['push', '--change', 'a', '--what', 'plan', '--lang', 'en'], PUSH_OPTS);
+  assert.equal(sentPlan.code, 0, sentPlan.stdout + sentPlan.stderr);
+  for (const file of ['approval.md', 'proposal.md', 'design.md', 'tasks.md', 'readiness.md', 'requirements.md', 'specs/s/spec.md']) {
+    assert.ok(git(origin, 'ls-tree', '-r', '--name-only', 'a').split('\n').includes(`openspec/changes/a/${file}`), `${file} is on origin`);
+  }
+  assert.equal(git(root, 'status', '--porcelain'), '', 'the push committed the approval');
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)), []);
+});
+
+test('upfront AC-12 next: after --after <id>=push the same decision asks no push, and a failed push exits 3 with its reply', () => {
+  const { root } = upPushed({ remote: 'missing' });
+  assert.equal(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)).length, 1);
+  const failed = cmd(root, ['push', '--change', 'a', '--what', 'grill', '--lang', 'en'], PUSH_OPTS);
+  assert.equal(failed.code, 3, failed.stdout);
+  const j = JSON.parse(failed.stdout);
+  assert.match(j.reply, /^The branch of a could not be pushed: .+\. I try again at a later decision\.$/);
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed', '--after', 'a=push'], PUSH_OPTS)), [], 'the decision that follows asks no other push');
+  assert.equal(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)).length, 1, 'a later decision asks again');
+  assert.equal(cmd(root, ['push', '--change', 'a', '--what', 'other', '--lang', 'en'], PUSH_OPTS).code, 3, 'a push names grill or plan');
+});
+
+test('upfront AC-13 decide: with cron and no check the decision asks for one, on any turn, and none while stopping or after a refusal', () => {
+  const asks = (over) => decideRoadmap(sessionWorld({ lines: ['[ ] a'], places: 1, cron: true, check: null, ...over })).actions.filter((a) => a.kind === 'schedule-check');
+  for (const turn of ['typed', 'event']) {
+    const [a, ...rest] = asks({ turn });
+    assert.deepEqual([rest.length, a.change, a.progressKey], [0, null, 'schedule-check'], turn);
+    assert.deepEqual(Object.keys(a.input).sort(), ['cron', 'prompt', 'recurring'], 'no durable field is passed');
+    assert.equal(a.input.recurring, true);
+    assert.deepEqual(a.input.prompt, loopModule.checkPrompt('en', 80));
+  }
+  assert.equal(decideRoadmap(world({ lines: ['[ ] a'], places: 1, cron: true, check: null })).actions.filter((a) => a.kind === 'schedule-check').length, 1, 'also in a run that keeps the stages here');
+  assert.deepEqual(asks({ stopping: true }), [], 'a stop schedules nothing');
+  assert.deepEqual(asks({ check: { refused: true, at: AT } }), [], 'no retry after a refusal');
+  assert.deepEqual(asks({ check: JOB }), [], 'one check at most');
+  assert.deepEqual(asks({ cron: false }), [], 'a host with no session cron');
+  assert.deepEqual(decideRoadmap(world({ lines: ['[x] a'], archived: ['a'], cron: true, check: null })).actions, [], 'a run that ends at once schedules nothing');
+});
+
+test('upfront AC-13 decide: the check\'s cron expression avoids minutes 00 and 30, recurring is true and no durable field is passed', () => {
+  const [a] = decideRoadmap(sessionWorld({ lines: ['[ ] a'], places: 1, cron: true, check: null })).actions.filter((x) => x.kind === 'schedule-check');
+  const fields = a.input.cron.split(' ');
+  assert.equal(fields.length, 5);
+  assert.deepEqual(fields.slice(1), ['*', '*', '*', '*']);
+  const minutes = fields[0].split(',').map(Number);
+  assert.ok(minutes.length >= 2 && minutes.every((m) => Number.isInteger(m) && m >= 0 && m < 60 && m !== 0 && m !== 30), a.input.cron);
+  assert.ok(minutes[1] - minutes[0] === 30, 'about every thirty minutes');
+  assert.equal(a.input.recurring, true);
+  assert.equal('durable' in a.input, false);
+  assert.match(a.input.prompt, /^devkit-roadmap-check: /);
+  assert.ok(!a.input.prompt.startsWith('/') && !a.input.prompt.includes('\n'), 'one paragraph that is no typed command');
+  assert.ok(a.input.prompt.includes(`node ${join(HERE, 'roadmap-loop.mjs')} check --lang en --load-limit 80`));
+  assert.match(a.input.prompt, /approve no plan/i);
+  assert.ok(loopModule.checkPrompt('pt-BR', 65).includes('check --lang pt-BR --load-limit 65'));
+});
+
+test('upfront AC-13 decide: every end and a stop give delete-check when a check is recorded', () => {
+  const kinds = (r) => r.actions.map((a) => a.kind);
+  const done = decideRoadmap(world({ lines: ['[x] a'], archived: ['a'], check: JOB }));
+  assert.equal(done.end.why, 'done');
+  assert.deepEqual(kinds(done), ['delete-check', 'stop-own-tasks']);
+  assert.deepEqual([done.actions[0].change, done.actions[0].input, done.actions[0].progressKey], [null, { id: 'job-1' }, 'delete-check']);
+  const stuck = decideRoadmap(world({ lines: ['[ ] a'], actions: { a: ownerAct('a') }, check: JOB }));
+  assert.equal(stuck.end.why, 'stuck');
+  assert.deepEqual(kinds(stuck), ['delete-check', 'stop-own-tasks']);
+  const stopped = decideRoadmap(world({ lines: ['[ ] a'], actions: { a: ownerAct('a') }, stopping: true, check: JOB }));
+  assert.equal(stopped.end.why, 'stopped');
+  assert.deepEqual(kinds(stopped), ['delete-check'], 'a stop deletes the check and stops no task of changes that go on');
+  const going = decideRoadmap(world({ lines: ['[ ] a'], inflight: { a: FLYING }, stopping: true, check: JOB }));
+  assert.equal(going.end, null);
+  assert.deepEqual(kinds(going), ['delete-check'], 'a stop asks it before the stage finishes');
+  assert.deepEqual(decideRoadmap(world({ lines: ['[x] a'], archived: ['a'] })).actions, [], 'no check recorded, nothing to delete');
+  assert.deepEqual(decideRoadmap(world({ lines: ['[x] a'], archived: ['a'], check: { refused: true, at: AT } })).actions, [], 'a refusal recorded no job');
+});
+
+test('upfront AC-13 next: --check-id records the check, --check-refused records the refusal with its line, --check-deleted clears it, also for a job already gone', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  putRun(root, { cron: true });
+  const asked = doNext(root, ['--turn', 'typed']);
+  assert.deepEqual(jsonOf(asked.stdout).actions.map((a) => a.kind), ['start', 'schedule-check']);
+  assert.equal(jsonOf(asked.stdout).check, null);
+  const created = doNext(root, ['--turn', 'typed', '--check-id', 'job-1']);
+  assert.equal(created.code, 0, created.stdout);
+  assert.deepEqual([stateOf(root).check.id, typeof stateOf(root).check.at, jsonOf(created.stdout).check], ['job-1', 'string', 'job-1']);
+  assert.ok(!jsonOf(created.stdout).actions.some((a) => a.kind === 'schedule-check'));
+  const deleted = doNext(root, ['--turn', 'typed', '--check-deleted']);
+  assert.equal(stateOf(root).check, null);
+  assert.equal(deleted.code, 0);
+  assert.equal(doNext(root, ['--turn', 'typed', '--check-deleted']).code, 0, 'a job already gone is no error');
+  assert.equal(stateOf(root).check, null);
+  const refused = doNext(root, ['--turn', 'typed', '--check-refused']);
+  assert.deepEqual([stateOf(root).check.refused, typeof stateOf(root).check.at], [true, 'string']);
+  assert.ok(events(refused.stdout).includes(say('roadmap-check-refused')), events(refused.stdout).join('|'));
+  assert.ok(!jsonOf(refused.stdout).actions.some((a) => a.kind === 'schedule-check'), 'no retry in that run');
+  const later = doNext(root, ['--turn', 'typed']);
+  assert.deepEqual([events(later.stdout).filter((l) => l === say('roadmap-check-refused')), jsonOf(later.stdout).actions.some((a) => a.kind === 'schedule-check')], [[], false], 'the line is said once');
+  assert.equal(doNext(root, ['--turn', 'typed', '--check-id']).code, 3, '--check-id needs the job id');
+});
+
+test('upfront AC-13 next: --check-gone clears a recorded check and the same decision asks for a new one, but not after a refusal', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  putRun(root, { cron: true, check: JOB });
+  assert.ok(!jsonOf(doNext(root, ['--turn', 'typed']).stdout).actions.some((a) => a.kind === 'schedule-check'));
+  const gone = doNext(root, ['--turn', 'typed', '--check-gone']);
+  assert.equal(stateOf(root).check, null);
+  assert.ok(jsonOf(gone.stdout).actions.some((a) => a.kind === 'schedule-check'), 'the expired check is created again');
+  putRun(root, { cron: true, check: { refused: true, at: AT } });
+  const kept = doNext(root, ['--turn', 'typed', '--check-gone']);
+  assert.deepEqual(stateOf(root).check, { refused: true, at: AT });
+  assert.ok(!jsonOf(kept.stdout).actions.some((a) => a.kind === 'schedule-check'));
+});
+
+test('upfront AC-13 run: --cron is recorded and asks for the check, and a run from another session asks for its own', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  const plain = doRun(root, 'roadmap', { extra: ['--change-sessions'] });
+  assert.deepEqual([stateOf(root).cron, jsonOf(plain.stdout).actions.some((a) => a.kind === 'schedule-check')], [false, false]);
+  const first = doRun(root, 'roadmap', { extra: ['--change-sessions', '--cron'] });
+  assert.equal(first.code, 0, first.stdout);
+  assert.equal(stateOf(root).cron, true);
+  assert.equal(jsonOf(first.stdout).actions.filter((a) => a.kind === 'schedule-check').length, 1);
+  doNext(root, ['--turn', 'typed', '--check-id', 'job-1']);
+  const same = doRun(root, 'roadmap', { extra: ['--change-sessions', '--cron'] });
+  assert.equal(stateOf(root).check.id, 'job-1', 'the same session keeps its check');
+  assert.ok(!jsonOf(same.stdout).actions.some((a) => a.kind === 'schedule-check'));
+  const other = doRun(root, 'roadmap', { session: 'S2', extra: ['--change-sessions', '--cron'] });
+  assert.equal(stateOf(root).check, null, 'a session cron dies with its session');
+  assert.equal(jsonOf(other.stdout).actions.filter((a) => a.kind === 'schedule-check').length, 1);
+  doRun(root, 'roadmap stop', { session: 'S2', extra: ['--cron'] });
+  assert.equal(stateOf(root).stopping, true);
+});
+
+test('upfront AC-13 guard: the check\'s prompt reads as no typed command and the roadmap run goes on', () => {
+  const prompt = loopModule.checkPrompt('en', 80);
+  const transcript = lkTranscript([lkTyped('roadmap 2'), lkSkillBody('roadmap 2'), lkAssistant(), lkMarker(2), lkPlain(prompt), lkAssistant()]);
+  assert.deepEqual(guardModule.roadmapRunOf({ transcript_path: transcript }), { command: 'roadmap 2', stopping: false });
+  assert.equal(guardModule.runOf({ transcript_path: transcript }), null, 'it starts no change run either');
+});
+
+test('upfront AC-13 messages: the check\'s messages exist in both languages and name no mechanism', () => {
+  const params = { id: 'a', n: 2, error: 'x' };
+  for (const lang of ['en', 'pt-BR']) {
+    for (const key of ['roadmap-check-refused', 'roadmap-check-idle', 'roadmap-check-stopped-waits', 'roadmap-check-session-archived', 'roadmap-check-archive-later', 'push-failed']) {
+      const text = render(lang, key, params);
+      assert.ok(text.length > 20, `${lang} ${key}`);
+      assert.doesNotMatch(text, /roadmap-loop|--|progressKey|CronCreate|\.mjs|\.md\b/, `${lang} ${key} names no mechanism`);
+    }
+    for (const key of ['queue.held-place', 'queue.held-load', 'queue.held-after']) assert.ok(render(lang, key, { after: 'a' }).length > 8, `${lang} ${key}`);
+  }
+  assert.equal(render('en', 'roadmap-check-idle', params), 'a has a place but its session is not watching: type any message in it.');
+  assert.equal(render('en', 'roadmap-check-stopped-waits', params), '2 wait loops of the run were stopped: their changes no longer need them.');
+  assert.equal(render('en', 'roadmap-check-session-archived', params), 'The session of a was archived.');
+  assert.equal(render('en', 'roadmap-check-archive-later', params), 'The session of a is not archived yet: it is still working or waits for your approval; I try again later.');
+  assert.equal(render('en', 'push-failed', params), 'The branch of a could not be pushed: x. I try again at a later decision.');
+});
+
+// ---- the check: waits, places, actions (design D-9)
+
+const sleeper = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'ignore' });
+const alive = (child) => child.exitCode === null && child.signalCode === null;
+const exited = (child) => new Promise((resolve) => { if (!alive(child)) return resolve(); const timer = setTimeout(resolve, 5000); return child.once('exit', () => { clearTimeout(timer); resolve(); }); });
+const reap = (...children) => { for (const c of children) if (alive(c)) c.kill('SIGKILL'); };
+const waitOf = (child, kind = 'session', at = AT, session = 'S-x') => ({ pid: child.pid, kind, at, session });
+const doCheck = (cwd, extra = [], opts = {}) => cmd(cwd, ['check', ...FLAGS, ...extra], opts);
+const archiveOn = (root, ...ids) => { put(root, Object.fromEntries(ids.map((id) => [`openspec/changes/archive/2026-11-20-${id}/proposal.md`, `# ${id}\n`]))); commitAll(root, `archive ${ids.join(', ')}`); };
+const startedIn = (...ids) => ({ startedSessions: Object.fromEntries(ids.map((id) => [id, { at: AT }])), tickets: Object.assign({}, ...ids.map((id) => upTickets(id, { claimedBy: `S-${id}` }))) });
+
+test('upfront AC-14 staleWaits: a wait of a change that is not open is stale', () => {
+  const stale = loopModule.staleWaits({ gone: [{ pid: 11, kind: 'session', at: AT }] }, { open: ['a'], archived: [] });
+  assert.deepEqual(stale.map((w) => [w.id, w.pid]), [['gone', 11]]);
+});
+
+test('upfront AC-14 staleWaits: a wait of an archived change is stale, though its line is open', () => {
+  const stale = loopModule.staleWaits({ a: [{ pid: 12, kind: 'github', at: AT }] }, { open: ['a'], archived: ['a'] });
+  assert.deepEqual(stale.map((w) => [w.id, w.pid]), [['a', 12]]);
+});
+
+test('upfront AC-14 staleWaits: of one kind of one change every wait older than the newest is stale, and another kind is not a duplicate', () => {
+  const waits = { a: [{ pid: 1, kind: 'session', at: AT }, { pid: 2, kind: 'session', at: AT2 }, { pid: 3, kind: 'github', at: AT }, { pid: 4, kind: 'session', at: '2026-11-21T09:00:00.000Z' }] };
+  const stale = loopModule.staleWaits(waits, { open: new Set(['a']), archived: new Set() });
+  assert.deepEqual(stale.map((w) => w.pid).sort(), [1, 4], 'the newest session wait and the github wait stay');
+  assert.deepEqual(loopModule.staleWaits({ a: [{ pid: 5, kind: 'session', at: AT }] }, { open: ['a'], archived: [] }), [], 'a lone wait of an open change is kept');
+  assert.deepEqual(loopModule.staleWaits({}, { open: [], archived: [] }), []);
+});
+
+test('upfront AC-14 check: a stale wait is killed and the newest of each kind kept', async () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] c', '[ ] z'));
+  addOpen(root, 'a');
+  addOpen(root, 'c');
+  archiveOn(root, 'z');
+  const [older, newer, other, archived] = [sleeper(), sleeper(), sleeper(), sleeper()];
+  const dead = spawnSync(process.execPath, ['-e', '']).pid;
+  try {
+    putRun(root, {
+      changeSessions: true, places: 2, ...startedIn('a', 'c'),
+      waits: { a: [waitOf(older), waitOf(newer, 'session', AT2), waitOf(other, 'github')], z: [waitOf(archived)], c: [{ pid: dead, kind: 'session', at: AT, session: 'S-c' }] },
+    });
+    const r = doCheck(root);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    await Promise.all([exited(older), exited(archived)]);
+    assert.deepEqual([alive(older), alive(archived), alive(newer), alive(other)], [false, false, true, true]);
+    const waits = stateOf(root).waits;
+    assert.deepEqual(waits.a.map((w) => w.pid).sort(), [newer.pid, other.pid].sort());
+    assert.deepEqual([waits.z, waits.c], [undefined, undefined], 'an archived change\'s wait and a dead process leave the record');
+    assert.ok(events(r.stdout).includes(say('roadmap-check-stopped-waits', { n: 2 })), events(r.stdout).join('|'));
+  } finally { reap(older, newer, other, archived); }
+});
+
+test('upfront AC-14 check: a freed place goes to the first queued change, and one with no live wait gets its idle line', async () => {
+  const root = projectWith(roadmapText('[ ] b', '[ ] c'));
+  addOpen(root, 'b');
+  addOpen(root, 'c');
+  const watcher = sleeper();
+  try {
+    putRun(root, { changeSessions: true, places: 1, ...startedIn('b', 'c'), queued: { c: { at: AT2, why: 'place' }, b: { at: AT, why: 'place' } }, waits: {} });
+    const r = doCheck(root);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.deepEqual([Object.keys(stateOf(root).placed), Object.keys(stateOf(root).queued)], [['b'], ['c']], 'the first to queue takes the place');
+    assert.ok(events(r.stdout).includes(say('roadmap-check-idle', { id: 'b' })), events(r.stdout).join('|'));
+    // The same with the change's own wait loop alive: it sees the place at its next poll, and no line asks for a message.
+    putRun(root, { changeSessions: true, places: 1, ...startedIn('b', 'c'), queued: { b: { at: AT, why: 'place' } }, waits: { b: [waitOf(watcher, 'session', AT, 'S-b')] } });
+    const watched = doCheck(root);
+    assert.deepEqual(Object.keys(stateOf(root).placed), ['b']);
+    assert.ok(!events(watched.stdout).includes(say('roadmap-check-idle', { id: 'b' })));
+    // A loaded machine hands no place.
+    putRun(root, { changeSessions: true, places: 1, ...startedIn('b', 'c'), queued: { b: { at: AT, why: 'place' } } });
+    doCheck(root, [], { load: 95 });
+    assert.deepEqual([stateOf(root).placed, stateOf(root).queued.b.why], [{}, 'load']);
+  } finally { reap(watcher); }
+});
+
+test('upfront AC-14 check: its actions are only triage, archive-session, push and delete-check, and it starts no session on its event turn', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] b', '[ ] e', '[ ] c', '[ ] d'));
+  for (const id of ['a', 'b', 'e']) addOpen(root, id);
+  put(root, { 'openspec/changes/e/requirements.md': '# Requirements\n\n### Answered by triage\n\n1. [scope] q → a (source: `x.md`)\n' });
+  archiveOn(root, 'd');
+  putRun(root, { changeSessions: true, places: 3, turn: 'typed', ...startedIn('a', 'b', 'e', 'd') });
+  const r = doCheck(root);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const j = jsonOf(r.stdout);
+  assert.equal(r.stdout.split('\n')[0], 'devkit-roadmap: 3');
+  assert.ok(j.actions.every((a) => ['triage', 'archive-session', 'push', 'delete-check'].includes(a.kind)), j.actions.map((a) => a.kind).join(','));
+  assert.deepEqual(j.actions.filter((a) => a.kind === 'triage').map((a) => [a.change, a.root, a.progressKey]), [['b', realpathSync(root), 'triage']], 'a is asked now, e has its triage');
+  assert.deepEqual(j.actions.filter((a) => a.kind === 'archive-session').map((a) => a.change), ['d']);
+  assert.equal(j.ask.change, 'a');
+  assert.ok(events(r.stdout).includes(say('roadmap-waits-turn', { id: 'c' })), 'c starts at the owner\'s next message');
+  assert.equal(stateOf(root).turn, 'event', 'the firing is no turn the owner typed');
+  assert.equal(typeof stateOf(root).announced.c, 'string');
+});
+
+test('upfront AC-14 check: nothing changed prints no line and no end reply', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  putRun(root, { changeSessions: true, places: 1, ...startedIn('a') });
+  const first = doCheck(root);
+  assert.ok(events(first.stdout).includes(gateLine('a', 'grill')), events(first.stdout).join('|'));
+  const quiet = doCheck(root);
+  assert.equal(quiet.code, 0, quiet.stdout);
+  assert.deepEqual(events(quiet.stdout), []);
+  const j = jsonOf(quiet.stdout);
+  assert.deepEqual([j.end, j.actions, j.lines], [null, [], []]);
+});
+
+test('upfront AC-14 decide: an archived line with a recorded session kills its recorded waits, then gives archive-session with its reason until session-archived is reported', async () => {
+  const root = projectWith(roadmapText('[ ] z'));
+  archiveOn(root, 'z');
+  const waiter = sleeper();
+  try {
+    putRun(root, { changeSessions: true, places: 1, turn: 'typed', ...startedIn('z'), waits: { z: [waitOf(waiter)] } });
+    const r = doNext(root, ['--turn', 'typed']);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    await exited(waiter);
+    assert.equal(alive(waiter), false, 'the wait loop is stopped before the archive is asked');
+    assert.equal(stateOf(root).waits.z, undefined);
+    const [a] = jsonOf(r.stdout).actions.filter((x) => x.kind === 'archive-session');
+    assert.deepEqual([a.change, a.title, a.input, a.progressKey], ['z', '📦 z', { reason: 'devkit roadmap: z is archived' }, 'session-archived']);
+    assert.deepEqual(Object.keys(a.input), ['reason']);
+    assert.ok(stateOf(root).tickets.z && stateOf(root).startedSessions.z, 'the entries stay until the session is archived');
+    const again = doNext(root, ['--turn', 'typed']);
+    assert.equal(jsonOf(again.stdout).actions.filter((x) => x.kind === 'archive-session').length, 1, 'asked again while not reported');
+    const done = doNext(root, ['--turn', 'typed', '--after', 'z=session-archived']);
+    assert.deepEqual(jsonOf(done.stdout).actions.filter((x) => x.kind === 'archive-session'), []);
+    assert.ok(events(done.stdout).includes(say('roadmap-check-session-archived', { id: 'z' })), events(done.stdout).join('|'));
+    assert.deepEqual([stateOf(root).tickets.z, stateOf(root).startedSessions.z], [undefined, undefined], 'the entries leave the record');
+    assert.deepEqual(jsonOf(doNext(root, ['--turn', 'typed']).stdout).actions.filter((x) => x.kind === 'archive-session'), []);
+  } finally { reap(waiter); }
+});
+
+test('upfront AC-14 next: --after <id>=session-archive-later keeps the entry, asks no second archive in that decision, says the line once, and a later decision asks again', () => {
+  const root = projectWith(roadmapText('[ ] z'));
+  archiveOn(root, 'z');
+  putRun(root, { changeSessions: true, places: 1, turn: 'typed', ...startedIn('z') });
+  const later = doNext(root, ['--turn', 'typed', '--after', 'z=session-archive-later']);
+  assert.equal(later.code, 0, later.stdout);
+  assert.deepEqual(jsonOf(later.stdout).actions.filter((x) => x.kind === 'archive-session'), []);
+  assert.deepEqual(events(later.stdout).filter((l) => l === say('roadmap-check-archive-later', { id: 'z' })), [say('roadmap-check-archive-later', { id: 'z' })]);
+  assert.ok(stateOf(root).tickets.z && stateOf(root).startedSessions.z, 'the entry is kept');
+  const next = doNext(root, ['--turn', 'typed']);
+  assert.equal(jsonOf(next.stdout).actions.filter((x) => x.kind === 'archive-session').length, 1, 'a later decision asks again');
+  assert.deepEqual(events(next.stdout).filter((l) => l.includes('not archived yet')), [], 'the line is said once per state');
+});
+
+test('upfront AC-15 decide: the end done gives delete-check, archive-session per kept session and stop-own-tasks, and decide kills every recorded wait', async () => {
+  const root = projectWith(roadmapText('[ ] y', '[ ] z'));
+  archiveOn(root, 'y', 'z');
+  const [one, two] = [sleeper(), sleeper()];
+  try {
+    putRun(root, { changeSessions: true, places: 1, turn: 'typed', cron: true, check: JOB, ...startedIn('y', 'z'), waits: { y: [waitOf(one)], q: [waitOf(two)] } });
+    const r = doNext(root, ['--turn', 'typed']);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    const j = jsonOf(r.stdout);
+    assert.equal(j.end.why, 'done');
+    assert.deepEqual(j.actions.map((a) => [a.kind, a.change]), [['delete-check', null], ['archive-session', 'y'], ['archive-session', 'z'], ['stop-own-tasks', null]]);
+    assert.deepEqual(j.actions[0].input, { id: 'job-1' });
+    await Promise.all([exited(one), exited(two)]);
+    assert.deepEqual([alive(one), alive(two)], [false, false]);
+    assert.deepEqual(stateOf(root).waits, {});
+    const deleted = doNext(root, ['--turn', 'typed', '--check-deleted']);
+    assert.equal(stateOf(root).check, null);
+    assert.ok(!jsonOf(deleted.stdout).actions.some((a) => a.kind === 'delete-check'));
+  } finally { reap(one, two); }
+  // A stuck end kills the wait of a change that is still open, too.
+  const stuck = projectWith(roadmapText('[ ] a'));
+  addOpen(stuck, 'a');
+  const open = sleeper();
+  try {
+    putRun(stuck, { changeSessions: true, places: 1, turn: 'typed', declared: { a: { state: 'blocked', why: 'not-opened', params: {} } }, waits: { a: [waitOf(open)] } });
+    const s = doNext(stuck, ['--turn', 'typed']);
+    assert.equal(jsonOf(s.stdout).end.why, 'stuck');
+    await exited(open);
+    assert.equal(alive(open), false);
+  } finally { reap(open); }
+});
+
+test('upfront AC-15 decide: a stop kills only stale waits and keeps the sessions of changes that go on', async () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] c'));
+  addOpen(root, 'a');
+  archiveOn(root, 'c');
+  const [going, finished] = [sleeper(), sleeper()];
+  try {
+    putRun(root, { changeSessions: true, places: 2, turn: 'typed', check: JOB, ...startedIn('a', 'c'), waits: { a: [waitOf(going)], c: [waitOf(finished)] } });
+    const r = doRun(root, 'stop');
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    const j = jsonOf(r.stdout);
+    assert.equal(j.end.why, 'stopped');
+    assert.deepEqual(j.actions.map((a) => [a.kind, a.change]), [['delete-check', null], ['archive-session', 'c']], 'no archive of a, and no task of a stopped');
+    await exited(finished);
+    assert.deepEqual([alive(going), alive(finished)], [true, false]);
+    assert.deepEqual(Object.keys(stateOf(root).waits), ['a']);
+  } finally { reap(going, finished); }
+});
+
+test('upfront AC-15 lock stop: a cleanup action left refuses the end of the turn once', () => {
+  const root = projectWith(roadmapText('[ ] z'));
+  archiveOn(root, 'z');
+  putRun(root, { changeSessions: true, places: 1, turn: 'typed', cron: true, check: JOB, ...startedIn('z') });
+  const transcript = lkRun(1);
+  withTmp((tmp) => {
+    const first = loopModule.roadmapStopDecision(lkStopInput(root, transcript), lkOpts());
+    assert.deepEqual([first.decision, first.why], ['refuse', 'stage-ready']);
+    assert.match(first.reason, /periodic check|archive/i, first.reason);
+    assert.ok(recordOf(tmp));
+    assert.equal(loopModule.roadmapStopDecision(lkStopInput(root, transcript), lkOpts()).decision, 'allow', 'once per state');
+  });
+});
+
+test('upfront AC-9 next: start anyway records the changes queued by the load now, and a change queued later is held again', () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  putRun(root, { changeSessions: true, places: 1, turn: 'typed', queued: { b: { at: AT, why: 'load' }, c: { at: AT, why: 'place' } } });
+  const r = doNext(root, ['--turn', 'typed', '--start-anyway']);
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(stateOf(root).anyway, ['b'], 'only what the load holds, at that moment');
+  const later = loopModule.placeDecision({ id: 'd', places: 1, placed: {}, queued: {}, load: 95, limit: 80, anyway: stateOf(root).anyway, now: AT });
+  assert.deepEqual([later.claimed, later.why], [false, 'load'], 'd, queued later, is held again');
+  const claimed = loopModule.placeDecision({ id: 'b', places: 1, placed: {}, queued: { b: { at: AT, why: 'load' } }, load: 95, limit: 80, anyway: stateOf(root).anyway, now: AT2 });
+  assert.deepEqual([claimed.claimed, claimed.anyway], [true, []], 'b takes its place despite the load, once');
+  const plain = projectWith(roadmapText('[ ] a'));
+  putRun(plain, { places: 1, turn: 'typed' });
+  doNext(plain, ['--turn', 'typed', '--start-anyway']);
+  assert.deepEqual(stateOf(plain).anyway, [], 'a run without a session per change records no permission');
+});
+
+test('upfront AC-13 skill: the periodic check names CronCreate, CronList, CronDelete, archive_session and TaskStop, re-creates a missing check, and approves nothing', () => {
+  const md = skillMd();
+  const roadmap = sectionOf(md, '## Roadmap', '## Status');
+  const first = roadmap.indexOf('### A session per change');
+  const second = roadmap.indexOf('### Every change in this session');
+  const one = roadmap.slice(roadmap.indexOf('1. Run the call below'), first);
+  assert.ok(one.includes('select:CronCreate'), 'step 1 loads the cron tool before run');
+  assert.ok(one.includes('`--cron`'), 'and adds the flag when it loads');
+  const part = roadmap.slice(first, second);
+  for (const text of [
+    'select:CronList', '`CronList`', '`--check-gone`', '`CronCreate` with the action\'s `input` exactly as given', '--check-id <job id>', '`--check-refused`', '`CronDelete` with `{ id }`', '`--check-deleted`',
+    'select:mcp__ccd_session_mgmt__archive_session', '`mcp__ccd_session_mgmt__archive_session` with `{ session_id, reason }`', '--after <id>=session-archived', '--after <id>=session-archive-later',
+    '`TaskStop`', '`push`', '`schedule-check`', '`delete-check`', '`archive-session`', '`stop-own-tasks`', '`triage`',
+  ]) assert.ok(part.includes(text), `the part says ${text}`);
+  const check = roadmap.slice(roadmap.indexOf('### The periodic check'));
+  assert.ok(check.startsWith('### The periodic check'), 'the subsection exists');
+  for (const text of ['`devkit-roadmap-check:`', 'roadmap-loop.mjs check --lang ${user_config.language} --load-limit ${user_config.load_limit}', '`CronList`', '`--check-gone`', '`schedule-check`', 'a job already gone is no error', 'ends the turn with no message']) {
+    assert.ok(check.includes(text), `the subsection says ${text}`);
+  }
+  assert.match(check, /write(s)? no `approval\.md` and no retro answer/);
+  assert.match(check, /hand(s)? no stage/);
+  assert.match(check, /start(s)? no session/);
+  const never = md.slice(md.indexOf('## Never'));
+  assert.ok(never.includes('Create a cron or any scheduled wake-up, except the one periodic check of a roadmap run that `roadmap-loop.mjs` asks for, which only the run\'s end deletes.'));
+  assert.doesNotMatch(md, /wake_when_done|SendMessage/);
+});
+
+test('upfront AC-16 skill: no section before the Roadmap names a scheduling tool', () => {
+  const md = skillMd();
+  const before = md.slice(0, md.indexOf('## Roadmap'));
+  assert.ok(before.length > 1000, 'the sections of one change are read');
+  assert.doesNotMatch(before, /CronCreate|CronList|CronDelete|ScheduleWakeup|schedule-check|wake_when_done/);
+  const session = readFileSync(join(HERE, '..', 'skills', 'devkit-session', 'SKILL.md'), 'utf8');
+  assert.doesNotMatch(session, /CronCreate|CronList|CronDelete|ScheduleWakeup|schedule-check/, 'the change session schedules nothing either');
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 4: the grill's triage hand-off (design D-4, AC-4)
+
+const TRIAGE_TYPE = 'devkit-core:requirements-triage';
+
+// Invariant (AC-4, roadmapAgentDecision, roadmap-loop): in a run with a session per change the coordinating session hands the triage
+// of an open change's grill and nothing else, and the hand-off marks nothing under way.
+test('upfront AC-4 lock agent: the coordinating session may hand requirements-triage with a brief naming an open change, and marks nothing under way', () => {
+  const root = lkProject(['[ ] a'], { a: {} });
+  putRun(root, { places: 1, changeSessions: true });
+  const transcript = lkRun(1);
+  const brief = 'Change a (devkit script), stage requirements: triage of the grill. Work only in /somewhere on branch a.';
+  for (const type of [TRIAGE_TYPE, 'requirements-triage']) {
+    const d = agentOf(lkAgentInput(root, transcript, type, brief));
+    assert.deepEqual([d.decision, d.why, d.change], ['allow', 'grill-helper', 'a'], type);
+  }
+  assert.deepEqual(stateOf(root).inflight, {}, 'nothing is marked under way');
+  assert.equal(agentOf(lkAgentInput(root, transcript, PLANNER_TYPE, brief)).why, 'own-sessions', 'a stage agent of the same brief is still refused');
+  assert.equal(agentOf(lkAgentInput(root, transcript, 'devkit-core:codebase-researcher', brief)).why, 'grill-helper', 'any helper of the requirements stage');
+  assert.equal(agentOf(lkAgentInput(root, transcript, 'devkit-openspec:requirements-triage', brief)).why, 'own-sessions', 'another pack\'s prefix');
+  putRun(root, { places: 1 });
+  assert.equal(agentOf(lkAgentInput(root, transcript, TRIAGE_TYPE, brief)).why, 'script-role', 'without the mode the hand-off goes through RH3 and is marked as before');
+});
+
+test('upfront AC-4 lock agent: the triage with no brief is refused own-sessions', () => {
+  const root = lkProject(['[ ] a'], { a: {} });
+  putRun(root, { places: 1, changeSessions: true });
+  const transcript = lkRun(1);
+  for (const prompt of ['do it', undefined, 'Change (devkit script), stage requirements: x']) {
+    const d = agentOf(lkAgentInput(root, transcript, TRIAGE_TYPE, prompt));
+    assert.deepEqual([d.decision, d.why, d.change], ['refuse', 'own-sessions', null], String(prompt));
+  }
+  assert.deepEqual(stateOf(root).inflight, {});
+});
+
+test('upfront AC-4 lock agent: the triage for a change not open is refused not-open', () => {
+  const root = lkProject(['[ ] a'], { a: {} });
+  putRun(root, { places: 1, changeSessions: true });
+  const d = agentOf(lkAgentInput(root, lkRun(1), TRIAGE_TYPE, BRIEF('zzz', 'requirements')));
+  assert.deepEqual([d.decision, d.why, d.change], ['refuse', 'not-open', 'zzz']);
+  assert.match(d.reason, /zzz is not one; the open changes are: a/);
+  assert.deepEqual(stateOf(root).inflight, {});
 });
