@@ -6,7 +6,7 @@
 // specific to this repository.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -151,3 +151,45 @@ for (const role of ROLES) {
     }
   });
 }
+
+// stage-roles D-8 (spec compozy-kit-setup): each shell dispatches the devkit agent of its stage.
+test('stage-roles kit: the tech-lead shell has the adr-author write decisions.md before the proposal', () => {
+  const text = shellText('tech-lead').replace(/\s+/g, ' ');
+  assert.match(text, /`devkit-core:adr-author`/);
+  assert.match(text, /before the proposal/);
+  assert.match(text, /`decisions\.md`/);
+  assert.match(text, /`conduct-check` lists it among the missing plan files/);
+});
+
+test('stage-roles kit: the design shell has the screen-designer draw each screen under mock/ and write mockup.md', () => {
+  const text = shellText('design').replace(/\s+/g, ' ');
+  assert.match(text, /`devkit-core:screen-designer`/);
+  assert.match(text, /`openspec\/changes\/<id>\/mock\/`/);
+  assert.match(text, /`mockup\.md`/);
+  assert.match(text, /`screen-mockup` skill/);
+});
+
+test('stage-roles kit: the qa shell has the test agents write the unit and E2E files and names the two blocking ids', () => {
+  const text = shellText('qa').replace(/\s+/g, ' ');
+  assert.match(text, /`devkit\.tests\.unit`/);
+  assert.match(text, /`devkit-core:test-runner`/);
+  assert.match(text, /`unit-tests\.md`/);
+  assert.match(text, /`devkit\.tests\.e2e`/);
+  assert.match(text, /`devkit-core:e2e-tester`/);
+  assert.match(text, /`e2e-tests\.md`/);
+  assert.match(text, /`unit_tests_red`/);
+  assert.match(text, /`e2e_tests_red`/);
+});
+
+test('stage-roles kit: the dev shell has the tdd-implementer accept the records and the mock-up before the first phase', () => {
+  const text = shellText('dev').replace(/\s+/g, ' ');
+  assert.match(text, /`devkit-core:tdd-implementer`/);
+  assert.match(text, /`decisions\.md` lists to accepted/);
+  assert.match(text, /`Accepted by:`/);
+  assert.match(text, /`mockup\.md`'s header to `result=passed`/);
+});
+
+test('stage-roles kit: the kit still ships exactly four shells', () => {
+  const dirs = readdirSync(AGENTS_DIR).sort();
+  assert.deepEqual(dirs, [...ROLES].sort());
+});

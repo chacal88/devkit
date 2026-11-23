@@ -20,6 +20,8 @@
 //      reviews/<reviewer>.md     that reviewer
 //      evidence.md               pr-verifier
 //      product code              tdd-implementer (devkit schema, once approved)
+//      decision records          adr-author (a Markdown file in a folder named adr, adrs or decisions)
+//      test files                e2e-tester (devkit schema, once approved; a test folder or a test file name)
 // 2. Gates. Product code stays closed until readiness.md says
 //    "- Status: APPROVED"; `gh pr create` needs every review in reviews/ to be
 //    approved (code-quality-reviewer and test-coverage-reviewer at least) and an
@@ -367,6 +369,20 @@ export function classify(root, change, file) {
   return { kind: 'planning' };
 }
 
+// A decision record: a Markdown file in a folder named adr, adrs or decisions, in any letter case (design stage-roles D-6).
+export function isDecisionRecord(rel) {
+  const parts = rel.split(/[\\/]/);
+  const name = parts.pop() ?? '';
+  return /\.md$/i.test(name) && parts.some((d) => /^(adr|adrs|decisions)$/i.test(d));
+}
+
+// A test file: a folder named test, tests, __tests__, e2e, spec, specs, cypress or playwright, or a file name in a test form.
+export function isTestFile(rel) {
+  const parts = rel.split(/[\\/]/);
+  const name = parts.pop() ?? '';
+  return parts.some((d) => /^(tests?|__tests__|e2e|specs?|cypress|playwright)$/i.test(d)) || /^test_|_test\.[^.]+$|[._-](test|spec|e2e|cy)\.[^.]+$/i.test(name);
+}
+
 // Why `actor` may not write `file` now, or null.
 function writeViolation(root, ch, actor, file) {
   const c = classify(root, ch.name, file);
@@ -384,11 +400,18 @@ function writeViolation(root, ch, actor, file) {
     return `${who} only writes its own verdict file, not ${relative(root, resolve(root, file))}.`;
   }
   if (c.kind !== 'code') return null;
+  const rel = relative(root, resolve(root, file));
+  if (actor === 'adr-author') {
+    return isDecisionRecord(rel) ? null : `adr-author writes only the project's decision records (a Markdown file in a folder named adr, adrs or decisions), not ${rel}.`;
+  }
   const schema = changeSchema(root, ch.name);
   if (!schemaHasArtifact(root, schema, 'readiness')) return null; // devkit-lite and friends
   const status = readValue(join(changeDir(root, ch.name), 'readiness.md'), 'Status');
   if (status !== 'APPROVED') {
     return `change "${ch.name}" has no approved readiness (Status: ${status || 'missing'}). Product code stays closed until the plan-readiness-reviewer agent writes "- Status: APPROVED" in openspec/changes/${ch.name}/readiness.md. Run: openspec status --change ${ch.name}`;
+  }
+  if (actor === 'e2e-tester') {
+    return isTestFile(rel) ? null : `e2e-tester writes only test files, not ${rel}. Product code is written by the tdd-implementer agent.`;
   }
   if (actor !== 'tdd-implementer') {
     return `in schema ${schema}, product code is written by the tdd-implementer agent, one phase at a time. Dispatch it with the Agent tool (subagent_type devkit-core:tdd-implementer).`;

@@ -179,7 +179,8 @@ test('field-fixes 8 grill: the loop template and the tech-lead shell say not to 
 test('field-fixes 8 grill: the review prompt names the requirements and its open questions, and the approval node shows the plan\'s open questions', () => {
   const loop = readFileSync(join(SETUP_DIR, 'templates', LOOP), 'utf8');
   const flat = loop.replace(/\s+/g, ' ');
-  assert.match(flat, /\(requirements and its open questions, proposal, tasks, and design and readiness on the devkit schema\)/);
+  // Invariant: the plan approval's prompt names every plan file the operator reads before approving, the files of the devkit script marked as such.
+  assert.match(flat, /\(requirements and its open questions, proposal, tasks, and design, decisions and readiness on the devkit schema\)/);
   assert.doesNotMatch(flat, /\(proposal, design, tasks, readiness\)/);
   assert.match(loop, /Open questions: \{\{ toJson \.nodes\.propose\.output\.open_questions \}\}/);
 });
