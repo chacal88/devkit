@@ -1,18 +1,17 @@
 Verdict: approved
-Commit: a5f11db996c8489dd8c36938906350c27d1da839
+Commit: 7017229d317b12833ae8c72914f86ac3c1bf77ba
 
-## Coverage analysis — change-budget (08eea2b..a5f11db, re-record at clean HEAD)
+## Coverage analysis — change-budget (a5f11db..7017229, re-review)
 
 ### Findings
-- [nit] plugins/openspec/hooks/guard.mjs:635 spentOf (since null) — A run line with no timestamp makes since null and drops every subagent file silently; only the subagent-side missing timestamp is tested.
-- [nit] plugins/openspec/hooks/guard.mjs:635 spentOf (start >= since) — Timestamps are compared as strings; no test mixes timestamp formats.
-- [praise] plugins/openspec/hooks/change-loop.test.mjs (token budget section) — Every seam (cap lookup, next wiring, hold, spend count, gate, stop lock) has a test that asserts the spend, cap and file through the real CLI.
+- [nit] plugins/openspec/hooks/guard.mjs:635 — spentOf: a run line with no timestamp makes since null and silently drops every subagent file; only the subagent-side missing timestamp is tested (unchanged since the previous round).
+- [nit] plugins/openspec/hooks/guard.mjs:635 — spentOf compares timestamps as strings; no test mixes timestamp formats (unchanged since the previous round).
+- [praise] plugins/openspec/hooks/change-loop.test.mjs (change-budget tests) — Every budget seam is asserted through the real CLI, and the 41 change-budget tests still pass after the move to the shared tmpFolder helper.
 
 In-scope surfaces: plugins/openspec/hooks (guard.mjs, change-loop.mjs, roadmap-loop.mjs and their node:test suites).
 Blocking gaps (8-10 without a plan): 0
-Seams checked (mutation runs: 0), carried over from the previous round because the code has not changed since: cap lookup (budgetOf) -> project/change/invalid tests; nextAction budget option -> sessionTranscript -> spentOf -> decide -> reply -> 'next at the cap' test; runNext budget:true -> same test plus 'no option applies no cap'; hold after guard -> at-cap/above-cap/no-progress tests; null spend -> null and no-session-id tests; token counting -> 7525 fixture and AC-7 tests; roadmap gate -> roadmap-loop replies test; stop lock after budget end -> stop-hook test; message tokens in both languages -> SAMPLE/NAMES_ITS_FILE.
+Seams checked (mutation runs: 0): cap lookup, the nextAction budget option, hold after guard, null spend, token counting, the roadmap gate and the stop lock after budget end are unchanged and still caught by the tests named in the previous round. The only change on this change's side is the budgetFiles helper moving to tmpFolder, and the 41 change-budget tests pass with TMPDIR=/var/tmp.
 
 ### Well covered
-- The budget decision (D-4): boundary at cap, under cap, null spend and the no-progress ordering.
-- Invalid budget values: budgetValue directly, and start, open and next each tested; open asserts nothing is created.
-- Cap isolation across changes, and no transcript read when no cap applies.
+- Cap resolution (project, change, none) still asserts cap, origin and file after the helper change.
+- The docs pin test keeps the no-stale-pin invariant, including the new v0.22.1 assertion.
