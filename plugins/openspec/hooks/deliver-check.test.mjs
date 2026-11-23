@@ -789,6 +789,7 @@ const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 // pr list: the most specific fixture wins (--head, then --state), then plain pr-list.
 const keys = args[0] === 'api' ? [apiKey()] : args[0] === 'pr' && args[1] === 'list'
   ? [...(opt('--head') ? ['pr-list-head-' + opt('--head').replace(/[\\/{}?]/g, '_')] : []), ...(opt('--state') ? ['pr-list-state-' + opt('--state')] : []), 'pr-list']
+  : args[0] === '--version' ? ['version']
   : [args[0] + '-' + args[1] + (args.includes('--watch') ? '-watch' : '')];
 // A view of a PR by number may have its own fixture (pr-view-<n>.json), ahead of the plain pr-view ones.
 const own = args[0] === 'pr' && args[1] === 'view' && /^[0-9]+$/.test(args[2] || '') ? path.join(dir, 'pr-view-' + args[2] + '.json') : null;
@@ -1131,6 +1132,100 @@ test('item 6: a gh error, an unknown bucket or unreadable output is blocked; no 
   t = withPr(null);
   t.gh.set('pr-view', { exit: 4, stderr: 'gh auth login\n' });
   assert.equal(pr6(t).status, 'blocked');
+});
+
+// ---- gh-version: a gh older than 2.50.0 has its own blocked reason (AC-1, AC-5, AC-6)
+
+const OLD_FLAG = (flag) => `unknown flag: --${flag}\n\nUsage:  gh pr checks [<number> | <url> | <branch>] [flags]\n`;
+const versionsOf = (t) => t.gh.calls().filter((c) => c[0] === '--version');
+
+test('gh-version 5: an unknown --json flag on gh 2.46.0 is blocked with its own reason (AC-1)', () => {
+  const t = withPr({});
+  t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('json') });
+  t.gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const it = pr6(t);
+  assert.equal(it.status, 'blocked');
+  for (const part of ['2.46.0', '2.50.0', 'update gh']) assert.ok(it.reason.includes(part), it.reason);
+  assert.deepEqual(it.details.ghTooOld, { installed: '2.46.0', minimum: '2.50.0' });
+  assert.equal(versionsOf(t).length, 1);
+  assert.equal(argsOf(t, 'checks').length, 1);
+});
+
+test('gh-version 6: an unknown --required flag is told apart the same way (AC-1)', () => {
+  const t = withPr({});
+  t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('required') });
+  t.gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const it = pr6(t);
+  assert.equal(it.status, 'blocked');
+  assert.deepEqual(it.details.ghTooOld, { installed: '2.46.0', minimum: '2.50.0' });
+  assert.equal(versionsOf(t).length, 1);
+  assert.equal(argsOf(t, 'checks').length, 1);
+});
+
+test('gh-version 7: an unreadable version still names the old gh, as an unknown version (AC-5)', () => {
+  const cases = [{ exit: 1, stderr: 'boom\n' }, { stdout: 'gh version DEV\n' }, null];
+  for (const answer of cases) {
+    const t = withPr({});
+    t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('json') });
+    if (answer) t.gh.set('version', answer);
+    const it = pr6(t);
+    assert.equal(it.status, 'blocked', JSON.stringify(answer));
+    assert.equal(it.details.ghTooOld.installed, null);
+    assert.equal(it.details.ghTooOld.minimum, '2.50.0');
+    assert.ok(it.reason.includes('of an unknown version') && it.reason.includes('2.50.0'), it.reason);
+  }
+});
+
+test('gh-version 8: every other failure keeps today\'s reason and asks for no version (AC-6)', () => {
+  const asked = (t) => versionsOf(t).length;
+  const cases = [
+    ['HTTP 502: bad gateway\n', 'cannot read the checks: HTTP 502: bad gateway'],
+    ['HTTP 401: Bad credentials (https://api.github.com/graphql)\nTry authenticating with:  gh auth login\n', 'cannot read the checks: HTTP 401: Bad credentials (https://api.github.com/graphql)'],
+  ];
+  for (const [stderr, reason] of cases) {
+    const t = withPr({});
+    t.gh.set('pr-checks', { exit: 1, stderr });
+    const it = pr6(t);
+    assert.equal(it.status, 'blocked');
+    assert.equal(it.reason, reason);
+    assert.equal(it.details.ghTooOld, undefined);
+    assert.equal(asked(t), 0);
+  }
+  const t = withPr({});
+  t.gh.set('pr-checks', { stdout: 'not json' });
+  const it = pr6(t);
+  assert.equal(it.reason, 'cannot read the checks: gh pr checks returned unreadable output');
+  assert.equal(it.details.ghTooOld, undefined);
+  assert.equal(asked(t), 0);
+  // A missing gh and a timeout, through a stub: the unknown-flag text does not matter then.
+  const calls = [];
+  const stub = (r) => (args) => { calls.push(args); return { status: null, stdout: '', stderr: OLD_FLAG('json'), missing: false, timedOut: false, overflowed: false, ...r }; };
+  for (const [r, why] of [[{ missing: true }, 'gh is not installed or not on PATH'], [{ timedOut: true }, 'gh timed out']]) {
+    calls.length = 0;
+    const got = checksItem({ pr: { number: 12 } }, stub(r));
+    assert.equal(got.status, 'blocked');
+    assert.equal(got.reason, `cannot read the checks: ${why}`);
+    assert.equal(got.details.ghTooOld, undefined);
+    assert.deepEqual(calls.filter((c) => c[0] === '--version'), []);
+  }
+});
+
+test('gh-version 9: a readable answer asks for no version (AC-6)', () => {
+  const lists = [
+    [{ stdout: [check('build', 'pass')] }, 'met'],
+    [{ exit: 8, stdout: [check('build', 'pending')] }, 'open'],
+  ];
+  for (const [answer, status] of lists) {
+    const t = withPr({});
+    t.gh.set('pr-checks', answer);
+    assert.equal(pr6(t).status, status);
+    assert.equal(versionsOf(t).length, 0);
+  }
+  const t = withPr({});
+  t.gh.set('pr-checks', { exit: 1, stderr: "no required checks reported on the 'b' branch\n" }, 1);
+  t.gh.set('pr-checks', { stdout: [check('build', 'pass')] }, 2);
+  assert.equal(pr6(t).status, 'met');
+  assert.equal(versionsOf(t).length, 0);
 });
 
 // ---------------------------------------------------------------- item 7: conversation answered (D4)
@@ -4001,6 +4096,15 @@ test('post-merge: the archive PR is the OPEN one, else the newest MERGED, else t
   assert.deepEqual(t.gh.calls().find((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head')).slice(2, 8), ['--head', 'chore/archive-feat', '--state', 'all', '--limit', '10']);
 });
 
+test('gh-version 20: an old gh on the open archive PR is named in the collected checks error, not reported as an unreadable GitHub (AC-1)', () => {
+  const t = pm({ archivePrs: [archivePrJson({ number: 21 })] });
+  t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('json') });
+  t.gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const { error } = t.state().archive.pr.checks;
+  for (const part of ['2.46.0', '2.50.0', 'update gh']) assert.ok(error?.includes(part), String(error));
+  assert.equal(versionsOf(t).length, 1);
+});
+
 // ---- the phase and its rows P0-P14 (2.6, 2.8, design D7)
 
 test('AC-1: a merged change PR with the folder still on the default branch is "retro", in pr and merge mode, with all eight items met and nothing read from tasks or reviews', () => {
@@ -5228,4 +5332,289 @@ test('review-writer-prompt AC-8 the devkit-reviews check from both entries names
     assert.match(r.out, /stale test-coverage-reviewer/);
     assert.doesNotMatch(r.out, /stale (spec|adr|architecture|security)-reviewer/);
   }
+});
+
+// ---- review-openspec-fix: a rejected verdict and the change's review record (spec verdict-files)
+
+// base(); A = head; the two readers recorded at A (over: `{ name: verdict }`), committed with nothing else.
+function rejectedRepo(over = { 'code-quality-reviewer': 'rejected' }) {
+  const root = base();
+  const A = head(root);
+  const verdicts = { 'code-quality-reviewer': 'approved', 'test-coverage-reviewer': 'approved', ...over };
+  put(root, withReviews(Object.fromEntries(Object.entries(verdicts).map(([n, v]) => [n, review(v, A)]))));
+  commitAll(root, 'review round');
+  return { root, A };
+}
+// A fix committed in the plan files (or in `path`).
+function planFix(root, path = 'openspec/changes/feat/design.md') {
+  put(root, { [path]: 'fixed\n' });
+  return commitAll(root, 'plan fix');
+}
+const itemTwo = (root) => reviewsItem(root, 'feat', gitFacts(root));
+const NOTED = (A) => `${review('rejected', A)}- [nit] noted\n`;
+
+test('review-openspec-fix 1: a rejected verdict is stale after a commit that touches only openspec/ outside the change\'s review record', () => {
+  const { root, A } = rejectedRepo();
+  assert.deepEqual(itemTwo(root).details.stale, [], 'control: current before the fix');
+  const D = planFix(root);
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.deepEqual(r.details.rejected, ['code-quality-reviewer']);
+  assert.ok(r.reason.includes(`stale code-quality-reviewer (${s7(A)} is behind ${s7(D)}, which touches openspec/changes/feat/design.md)`), r.reason);
+});
+
+test('review-openspec-fix 2: a commit of the change\'s reviews/ folder only leaves a rejected verdict current', () => {
+  const { root, A } = rejectedRepo();
+  put(root, withReviews({ 'code-quality-reviewer': NOTED(A) }));
+  commitAll(root, 'record again');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/reviews/code-quality-reviewer.md');
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, []);
+  assert.deepEqual(r.details.rejected, ['code-quality-reviewer']);
+});
+
+test('review-openspec-fix 3: a commit of review.md only leaves a rejected verdict current', () => {
+  const { root } = rejectedRepo();
+  put(root, { 'openspec/changes/feat/review.md': '# Review: feat\n\nConsensus: FAIL (round 1/2)\n' });
+  commitAll(root, 'review.md');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/review.md');
+  assert.deepEqual(itemTwo(root).details.stale, []);
+});
+
+test('review-openspec-fix 4: a commit of evidence.md only leaves a rejected verdict current', () => {
+  const { root, A } = rejectedRepo();
+  put(root, { 'openspec/changes/feat/evidence.md': `Commit: ${A}\n\n# Evidence\n` });
+  commitAll(root, 'evidence');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/evidence.md');
+  assert.deepEqual(itemTwo(root).details.stale, []);
+});
+
+test('review-openspec-fix 5: a commit of the record together with another openspec/ file makes a rejected verdict stale and names that file', () => {
+  const { root, A } = rejectedRepo();
+  put(root, { ...withReviews({ 'code-quality-reviewer': NOTED(A) }), 'openspec/changes/feat/tasks.md': '- [x] 1.1 a\n- [x] 1.2 b\n' });
+  const C = commitAll(root, 'record and a fix');
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.ok(r.reason.includes(`stale code-quality-reviewer (${s7(A)} is behind ${s7(C)}, which touches openspec/changes/feat/tasks.md)`), r.reason);
+});
+
+test('review-openspec-fix 6: paths that only look like the change\'s review record make a rejected verdict stale', () => {
+  for (const p of [
+    'openspec/changes/other/reviews/code-quality-reviewer.md',
+    'openspec/changes/feat/reviews.md',
+    'openspec/changes/feat/reviewsx/a.md',
+    'openspec/changes/featx/review.md',
+    'openspec/changes/feat/proof/evidence.md',
+  ]) {
+    const { root } = rejectedRepo();
+    planFix(root, p);
+    const r = itemTwo(root);
+    assert.deepEqual(r.details.stale, ['code-quality-reviewer'], p);
+    assert.ok(r.reason.includes(`which touches ${p}`), `${p}: ${r.reason}`);
+  }
+});
+
+test('review-openspec-fix 7: a test-spared reviewer\'s rejected verdict is stale after a commit of test files only, and its approved peers stay current', () => {
+  const root = base();
+  const A = head(root);
+  put(root, withReviews(Object.fromEntries(SIX.map((n) => [n, review(n === 'spec-reviewer' ? 'rejected' : 'approved', A)]))));
+  commitAll(root, 'review round');
+  put(root, { 'src/a.test.ts': 't\n' });
+  commitAll(root, 'tests only');
+  assert.deepEqual(staleOf(root), ['code-quality-reviewer', 'spec-reviewer', 'test-coverage-reviewer']);
+});
+
+test('review-openspec-fix 8: a verdict file with no Verdict line is stale after an openspec/-only commit', () => {
+  const root = base();
+  const A = head(root);
+  put(root, withReviews(reviews(A, { 'code-quality-reviewer': `Commit: ${A}\n\n# Review\n` })));
+  commitAll(root, 'review round');
+  planFix(root);
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.deepEqual(r.details.rejected, ['code-quality-reviewer']);
+});
+
+test('review-openspec-fix 9: a rejecting reviewer outside the six is stale after an openspec/-only commit', () => {
+  const { root } = rejectedRepo({ 'perf-reviewer': 'rejected' });
+  planFix(root);
+  assert.deepEqual(itemTwo(root).details.stale, ['perf-reviewer']);
+});
+
+test('review-openspec-fix 10: approved and declined verdicts stay current after an openspec/-only commit outside the record', () => {
+  const { root } = rejectedRepo({ 'code-quality-reviewer': 'approved', 'security-reviewer': 'declined' });
+  planFix(root);
+  const r = itemTwo(root);
+  assert.equal(r.status, 'met', r.reason);
+  assert.deepEqual(r.details.stale, []);
+});
+
+test('review-openspec-fix 11: a test-spared reviewer\'s approved verdict stays current after a commit of test files only', () => {
+  const root = sixRepo();
+  put(root, { 'src/a.test.ts': 't\n' });
+  commitAll(root, 'tests only');
+  assert.deepEqual(staleOf(root), [...TEST_READERS].sort());
+});
+
+test('review-openspec-fix 12: a plan fix written and not committed leaves a rejected verdict current', () => {
+  const { root } = rejectedRepo();
+  put(root, { 'openspec/changes/feat/design.md': 'fixed\n' });
+  assert.deepEqual(itemTwo(root).details.stale, []);
+});
+
+test('review-openspec-fix 13: a merge of main that brings only openspec/ makes a rejected verdict stale and names the merge', () => {
+  const root = base();
+  git(root, 'switch', '-q', '-c', 'feat');
+  const A = head(root);
+  put(root, withReviews(reviews(A, { 'code-quality-reviewer': review('rejected', A) })));
+  commitAll(root, 'review round');
+  git(root, 'switch', '-q', 'main');
+  onlyOpenspec(root);
+  git(root, 'switch', '-q', 'feat');
+  mergeMain(root);
+  const M = head(root);
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.ok(r.reason.includes(`stale code-quality-reviewer (${s7(A)} is behind ${s7(M)}, which touches openspec/changes/other.md)`), r.reason);
+});
+
+// The loop on a ready change: A = head, a rejecting round recorded and committed (record only).
+function rejectedLoop(t, reviewMd = '# Review: feat\n\nConsensus: FAIL (round 1/2)\n') {
+  const A = head(t.root);
+  put(t.root, withReviews({ 'code-quality-reviewer': review('rejected', A), 'test-coverage-reviewer': review('approved', A) }));
+  put(t.root, changeFiles({ 'review.md': reviewMd }));
+  return A;
+}
+
+test('review-openspec-fix 14: a rejected round fixed by an openspec/-only commit gets review at round 2 naming only the rejecting reviewer', () => {
+  const t = readyRepo();
+  rejectedLoop(t);
+  commitAll(t.root, 'review round');
+  const first = t.next();
+  assert.deepEqual([first.step, first.reviewers], ['fix-review', ['code-quality-reviewer']]);
+  put(t.root, { 'openspec/changes/feat/design.md': 'fixed\n' });
+  commitAll(t.root, 'plan fix');
+  assert.equal(git(t.root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/design.md');
+  const n = t.next();
+  assert.deepEqual([n.step, n.round, n.reviewers], ['review', 2, ['code-quality-reviewer']]);
+});
+
+test('review-openspec-fix 15: committing a rejecting round\'s record alone, twice, keeps fix-review', () => {
+  const t = readyRepo();
+  rejectedLoop(t);
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'review round');
+  let n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['fix-review', ['code-quality-reviewer']]);
+  put(t.root, changeFiles({ 'review.md': '# Review: feat\n\nConsensus: FAIL (round 1/2)\n\nNext: fix.\n' }));
+  commitAll(t.root, 'review.md again');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['fix-review', ['code-quality-reviewer']]);
+  const paths = git(t.root, 'diff', '--name-only', 'HEAD~2', 'HEAD').split('\n');
+  assert.ok(paths.every((p) => p.startsWith('openspec/changes/feat/reviews/') || p === 'openspec/changes/feat/review.md' || p === 'openspec/changes/feat/evidence.md'), paths.join(', '));
+});
+
+const FAIL_TWICE = '# Review: feat\n\nConsensus: FAIL (round 1/2)\n\nConsensus: FAIL (round 2/2)\n';
+
+test('review-openspec-fix 16: a round-2 rejection committed with its record stops on stop-review-deadlock', () => {
+  const t = readyRepo();
+  rejectedLoop(t, FAIL_TWICE);
+  commitAll(t.root, 'review round 2');
+  const n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['stop-review-deadlock', ['code-quality-reviewer']]);
+});
+
+test('review-openspec-fix 17: after the round-2 stop, an openspec/-only commit opens a review at round 1, as a product commit does', () => {
+  const t = readyRepo();
+  rejectedLoop(t, FAIL_TWICE);
+  commitAll(t.root, 'review round 2');
+  assert.equal(t.next().step, 'stop-review-deadlock', 'control');
+  planFix(t.root);
+  const n = t.next();
+  assert.deepEqual([n.step, n.round, n.reviewers], ['review', 1, ['code-quality-reviewer']]);
+});
+
+test('review-openspec-fix 18: the devkit-reviews check fails a rejected review after an openspec/-only fix and names it stale', () => {
+  const root = ciRepo();
+  const A = head(root);
+  put(root, { 'openspec/changes/feat/reviews/test-coverage-reviewer.md': review('rejected', A) });
+  commitAll(root, 'rejecting round');
+  for (const r of bothEntries(root)) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out, /not approved: test-coverage-reviewer \(rejected\)/);
+    assert.doesNotMatch(r.out, /stale test-coverage-reviewer/);
+  }
+  planFix(root);
+  for (const r of bothEntries(root)) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out, /not approved: test-coverage-reviewer \(rejected\)/);
+    assert.match(r.out, /stale test-coverage-reviewer \(/);
+  }
+});
+
+// ================================================================ commit-attribution (D-7, T26 to T36)
+
+const attributionOfAgent = () => {
+  const md = coreAgent('commit-and-pr');
+  const a = md.indexOf('## Attribution');
+  const b = md.indexOf('## Escalate');
+  return a >= 0 && b > a ? md.slice(a, b) : '';
+};
+const methodOfAgent = () => {
+  const md = coreAgent('commit-and-pr');
+  return md.slice(md.indexOf('## Method'), md.indexOf('## Attribution'));
+};
+
+test('commit-attribution AC-2 T26 the agent\'s Receives names the attribution block', () => {
+  const md = coreAgent('commit-and-pr');
+  const receives = md.slice(md.indexOf('## Receives'), md.indexOf('## Preconditions'));
+  for (const part of ['Attribution (from the caller):', 'Commit trailer:', 'PR footer:', 'Attribution (from the caller): none']) assert.ok(receives.includes(part), part);
+});
+
+test('commit-attribution AC-2 T27 with lines given the agent writes exactly those and no other', () => {
+  const s = attributionOfAgent();
+  assert.ok(s.includes('exactly the text after each `Commit trailer:` line'), s);
+  assert.ok(s.includes('Add no other `Co-Authored-By` line, attribution trailer or footer'), s);
+});
+
+test('commit-attribution AC-2 T28 with none the agent writes no attribution line', () => {
+  assert.ok(attributionOfAgent().includes('Write no `Co-Authored-By` line, no attribution trailer and no footer'));
+});
+
+test('commit-attribution AC-2 T29 with no block the agent keeps its earlier rule', () => {
+  const s = attributionOfAgent();
+  const bullet = s.split('\n').find((l) => l.startsWith('- **No block**')) ?? '';
+  assert.ok(bullet.includes('the environment or the user requires'), bullet);
+});
+
+test('commit-attribution AC-2 T30 the caller\'s block wins over the agent\'s environment', () => {
+  assert.ok(attributionOfAgent().includes('wins over the lines your own environment gives you'));
+});
+
+test('commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment rule', () => {
+  const m = methodOfAgent();
+  assert.equal(m.split('Attribution below').length - 1, 2, m);
+  assert.ok(!m.includes('the environment or the user requires'), m);
+});
+
+test('commit-attribution AC-2 T32 Never forbids a line the block does not give', () => {
+  const md = coreAgent('commit-and-pr');
+  assert.ok(md.slice(md.indexOf('## Never')).includes("add one the caller's attribution block does not give"));
+});
+
+for (const [n, step] of [[33, 'commit'], [34, 'open-pr'], [35, 'open-archive-pr']]) {
+  test(`commit-attribution AC-1 T${n} the ship-change ${step} row ends the prompt with the attribution block`, () => {
+    assert.ok(skillRow(shipSkill(), step).includes('End the prompt with the attribution block (Attribution, above).'));
+  });
+}
+
+test('commit-attribution AC-1 T36 the ship-change Attribution section holds the block and names no model', () => {
+  const md = shipSkill();
+  const a = md.indexOf('## Attribution');
+  const b = md.indexOf('\n## Loop');
+  const s = a >= 0 && b > a ? md.slice(a, b) : '';
+  for (const part of ['Attribution (from the caller):', 'Commit trailer: <one line this session ends its commit messages with>', 'PR footer: <one line this session ends its pull-request descriptions with>',
+    "The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.",
+    'Attribution (from the caller): none', 'verbatim', "never take the agent's"]) assert.ok(s.includes(part), part);
+  assert.doesNotMatch(s, /Opus|Sonnet|Haiku|noreply/);
 });

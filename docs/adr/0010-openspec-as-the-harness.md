@@ -11,6 +11,11 @@
 
 ## Context
 
+Note (change-state, 2026-11-22): the change loop derives one state per change, running or one of
+decision 3's four ends with its reason, read by the board, the session title and the panels and stored
+nowhere ([ADR 0017](0017-a-change-state-is-derived-in-one-place.md)); a GitHub that does not answer
+is a wait on GitHub. Decisions 1 to 8 are otherwise unchanged.
+
 Note (design-open-points, 2026-11-19): the owner answered points this ADR left open, and
 [docs/coordination-design.md](../coordination-design.md) records each answer with who decided it.
 The names are decided, by the assistant on the owner's delegation: `manager` is the roadmap
@@ -59,6 +64,12 @@ as text. [ADR 0016](0016-stage-roles-write-their-own-files.md) amends decision 3
 not apply because of its declared condition, or that the change had already passed, leaves no file)
 and the sentence of decision 8 on product code. The test commands are the settings `devkit.tests.*`
 (decision 1, round 16). Decisions 1 to 8 are otherwise unchanged.
+
+Note (jira-entry, 2026-11-22): round 20 adds no task-source setting to the configuration block
+of decision 1. The key or link the owner types names the task, and the session's Atlassian
+connector reads it, so the project keeps no Jira token or setting. The 'task source, round 20' of
+decision 1 and the task source of decision 8 need no field; decisions 1 to 8 are otherwise
+unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions

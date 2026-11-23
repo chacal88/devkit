@@ -15,6 +15,7 @@ import './conduct-check.test.mjs'; // conduct-rounds: the round computation
 import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
 import './release-merge.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
+import './jira-task.test.mjs'; // jira-entry: the Jira key, the task and the write-back
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
 import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
 import './test-tmp.test.mjs'; // test-fixture-cleanup: the temporary-folder helper
@@ -23,6 +24,7 @@ import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit pe
 import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way
 import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
 import '../skills/openspec-setup/scripts/ship-entry.test.mjs'; // project-phases: the ship entry of devkit-project
+import '../skills/openspec-setup/scripts/gh-version.test.mjs'; // gh-version-check: the setup's gh version line
 import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
 
 const here = dirname(fileURLToPath(import.meta.url));

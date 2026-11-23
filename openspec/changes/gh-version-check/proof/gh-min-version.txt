@@ -1,0 +1,7 @@
+minimum: v2.50.0
+url: https://github.com/cli/cli/releases/tag/v2.50.0 (published 2024-05-29T16:11:45Z)
+release-note line: * feat: add json output for `gh pr checks` by @nobe4 in https://github.com/cli/cli/pull/9079
+read on: 2026-11-22, through `gh api repos/cli/cli/releases/tags/v2.50.0`
+not in: v2.49.0, v2.49.1, v2.49.2 (their release notes carry no such line)
+bucket field: pkg/cmd/pr/checks/checks.go at v2.50.0 lists prCheckFields name, state, startedAt, completedAt, link, bucket, event, workflow, description, and passes them to cmdutil.AddJSONFlags; at v2.49.2 the file has no JSON flags
+--required is older: pkg/cmd/pr/checks/checks.go declares the `required` flag at v2.46.0 and v2.49.2 already

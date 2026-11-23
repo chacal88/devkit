@@ -615,7 +615,8 @@ function scriptedGh(s = {}) {
     }
     if (args[0] === 'pr' && args[1] === 'view') { const p = pr(); return p ? out(p) : fail('no pull requests found for branch "x"'); }
     if (args[0] === 'pr' && args[1] === 'list') { const p = pr(); return out(p ? [p] : []); }
-    if (args[0] === 'pr' && args[1] === 'checks') return out(s.checks ?? []);
+    if (args[0] === 'pr' && args[1] === 'checks') return s.checksFail ? fail(s.checksFail) : out(s.checks ?? []);
+    if (args[0] === '--version' && s.version !== undefined) return out(s.version);
     return fail(`unexpected gh call: ${a}`);
   };
   fn.calls = calls;
@@ -1213,6 +1214,26 @@ test('project-loop next: S25 a merged pull request ends delivered and S26 a clos
   const unreadable = nextP(t.main, 'billing', { gh: () => ({ status: 1, stdout: '', stderr: 'HTTP 502' }) });
   assert.equal(unreadable.code, 2);
   assert.equal(body(unreadable).end.why, 'github-unreadable');
+});
+
+test('gh-version 15: an old gh ends the slice blocked with its own reason and merges nothing (AC-3)', () => {
+  const t = loopProject();
+  const { gh } = openPr(t, { checksFail: 'unknown flag: --json\n', version: 'gh version 2.46.0 (2024-03-18)\n' });
+  const r = nextP(t.main, 'billing', { gh });
+  assert.equal(r.code, 2, r.stdout + r.stderr);
+  const a = body(r);
+  assert.equal(a.end.why, 'gh-too-old');
+  for (const part of ['2.46.0', '2.50.0', '/devkit project billing']) assert.ok(a.reply.includes(part), a.reply);
+  assert.ok(!gh.calls.some((c) => c[1] === 'merge'), 'nothing is merged');
+});
+
+test('gh-version 16: another failure of the checks still ends github-unreadable (AC-6)', () => {
+  const t = loopProject();
+  const { gh } = openPr(t, { checksFail: 'HTTP 502' });
+  const r = nextP(t.main, 'billing', { gh });
+  assert.equal(r.code, 2);
+  assert.equal(body(r).end.why, 'github-unreadable');
+  assert.ok(!gh.calls.some((c) => c[0] === '--version'));
 });
 
 test('project-loop next: the progress guard ends a repeated action blocked and a review not delivered', () => {
@@ -1854,4 +1875,52 @@ test('project-loop docs: the documents follow', () => {
   }
   const entry = between(read('CHANGELOG.md'), '## 0.24.0', '\n## 0.23.1');
   assert.match(entry.replace(/\s+/g, ' '), /moves its CI pin to `v0\.20\.0` before it sets `ship: devkit-project: merge`/, 'the entry says to move the CI pin first');
+});
+
+// ================================================================ commit-attribution (D-7, T21 to T25)
+
+test('commit-attribution AC-1 T21 the S8 commit before the review ends with the attribution request after the commit rule', () => {
+  const t = loopProject();
+  const wt = readySlice(t);
+  put(wt, { 'docs/design/billing/2-domain-model.md': 'new\n' });
+  const a = act(t.main, 'billing');
+  assert.equal(a.step, 'commit');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+  assert.ok(a.brief.slice(0, -CL.ATTRIBUTION_ASK.length).endsWith('never on the default branch.'), a.brief);
+});
+
+test('commit-attribution AC-1 T22 the S13 commit in plan ship mode ends with the attribution request', () => {
+  const t = loopProject({ ship: 'plan' });
+  archivedSlice(t);
+  const a = act(t.main, 'billing');
+  assert.equal(a.step, 'commit');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T23 the S16 open-pr ends with the attribution request', () => {
+  const t = loopProject();
+  archivedSlice(t, 'billing', { commit: true });
+  const a = act(t.main, 'billing', { gh: scriptedGh() });
+  assert.equal(a.step, 'open-pr');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T24 the S17 push ends with the attribution request', () => {
+  const t = loopProject();
+  const { gh } = openPr(t, {}, { over: { headRefOid: '0'.repeat(40) } });
+  const a = act(t.main, 'billing', { gh });
+  assert.equal(a.step, 'push');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T25 the S10 ADR reviewer hand-off does not carry the attribution request', () => {
+  const t = loopProject();
+  readySlice(t);
+  const a = act(t.main, 'billing');
+  assert.equal(a.agent, 'devkit-core:adr-reviewer');
+  assert.ok(!a.brief.includes(CL.ATTRIBUTION_ASK ?? '\u0000'), a.brief);
 });
