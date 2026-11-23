@@ -1,8 +1,8 @@
-<!-- devkit-stage approval result=passed attempt=3 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
+<!-- devkit-stage approval result=passed attempt=4 commit=64c13352fc1edd24df4db08d77a940626ce420c0 -->
 # Plan approval: roadmap-sessions-upfront
 
 - Status: APPROVED
-- Readiness: sha256:9562011518eb
+- Readiness: sha256:66c13149c50f
 - Date: 2026-11-23
 - Owner's words: "`aprovo`"
-- Note: approval of the plan revised after review round 1 (design attempt 5, phase 7, ADR 0019 accepted with its amendments of ADR 0004 and ADR 0010 decision 8); earlier approvals: 2026-11-22 (plan) and 2026-11-23 (plan revised after change-state), both "Aprovo".
+- Note: approval of the plan revised after the merge of change-version-pin (design D-17: the requirements triage ships as flow version 2; tasks phase 8; AC-5 and AC-14 narrowed to a change on flow 2 or later; the code scope of task 8.3 and the Note in ADR 0020); earlier approvals: 2026-11-22 (plan), 2026-11-23 (plan revised after change-state; plan revised after review round 1), all "Aprovo".
