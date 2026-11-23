@@ -264,7 +264,11 @@ function readDelivery({ ship, gh, head, delivery }) {
   if (pr.state !== 'OPEN') return end('blocked', 'pr-closed', { number: pr.number });
   if (pr.headRefOid !== head) return next('delivery', 'not-pushed', { number: pr.number });
   const checks = checksItem(found, gh);
-  if (checks.status === 'blocked') return end('blocked', 'checks-unreadable', { error: checks.reason });
+  if (checks.status === 'blocked') {
+    const old = checks.details.ghTooOld;
+    if (old) return end('blocked', 'gh-too-old', { installed: old.installed, minimum: old.minimum });
+    return end('blocked', 'checks-unreadable', { error: checks.reason });
+  }
   if (checks.details.failing.length) return next('implementation', 'check-failing', { checks: checks.details.failing.map((c) => `${c.name} (${c.link})`).join(', ') });
   if (checks.details.pending.length) return end('waiting-on-github', 'checks-pending', { checks: checks.details.pending.join(', ') });
   if (ship === 'pr') return end('waiting-for-owner', 'owner-merges', { number: pr.number });
@@ -371,6 +375,7 @@ export const TEXT = {
     'no-pr': () => 'there is no pull request for this change yet',
     'not-pushed': (p) => `pull request #${p.number} is not at the local commit; push first`,
     'checks-unreadable': (p) => `the checks cannot be read: ${p.error}`,
+    'gh-too-old': (p) => `the installed gh (${p.installed ?? 'unknown version'}) cannot read the checks; ${p.minimum} is the first version that can, so update gh`,
     'check-failing': (p) => `checks failing: ${p.checks}`,
     'checks-pending': (p) => `checks pending: ${p.checks}`,
     'owner-merges': (p) => `pull request #${p.number} is green; the owner merges it`,
@@ -420,6 +425,7 @@ export const TEXT = {
     'no-pr': () => 'ainda não há pull request desta change',
     'not-pushed': (p) => `o pull request #${p.number} não está no commit local; é preciso enviar antes`,
     'checks-unreadable': (p) => `não foi possível ler os checks: ${p.error}`,
+    'gh-too-old': (p) => `o gh instalado (${p.installed ?? 'versão desconhecida'}) não consegue ler os checks; ${p.minimum} é a primeira versão que consegue, então atualize o gh`,
     'check-failing': (p) => `checks falhando: ${p.checks}`,
     'checks-pending': (p) => `checks pendentes: ${p.checks}`,
     'owner-merges': (p) => `o pull request #${p.number} está verde; o dono o mescla`,

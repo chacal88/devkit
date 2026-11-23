@@ -9,7 +9,7 @@ import { join, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
+import { mergeSetup, readRepoSettings, makeGh, ghError, ghVersion, GH_MIN_VERSION, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
 
 // The shared gh runner (merge-setup.mjs), kept importable from here.
 export { makeGh };
@@ -676,7 +676,10 @@ export function prItem(root, id, fetched, facts = gitFacts(root), { merge = fals
   return item(5, name, 'met', `PR #${pr.number} open at ${facts.head.slice(0, 7)}`, details);
 }
 
-// Checks of a PR: { checks: [...] } | { none: 'required' | 'any' } | { error }.
+// gh names the first option it does not know, and the call passes --required before --json.
+const OLD_GH = /unknown flag: --(json|required)\b/;
+
+// Checks of a PR: { checks: [...] } | { none: 'required' | 'any' } | { tooOld: { installed, minimum } } | { error }.
 // gh prints the JSON list with exit 8 (pending) and exit 1 (a failure), so the
 // list wins over the exit code when it parses.
 function readChecks(gh, number, required) {
@@ -685,6 +688,10 @@ function readChecks(gh, number, required) {
     const list = JSON.parse(r.stdout);
     if (Array.isArray(list)) return { checks: list };
   } catch { /* not JSON: look at the error */ }
+  if (r.status !== 0 && !r.missing && !r.timedOut && !r.overflowed && OLD_GH.test(r.stderr)) {
+    const v = ghVersion(gh);
+    return { tooOld: { installed: v.installed, minimum: GH_MIN_VERSION } };
+  }
   if (!r.missing && /no required checks reported/i.test(r.stderr)) return { none: 'required' };
   if (!r.missing && /no checks reported/i.test(r.stderr)) return { none: 'any' };
   return { error: r.status === 0 ? 'gh pr checks returned unreadable output' : ghError(r) };
@@ -704,6 +711,10 @@ export function checksItem(fetched, gh) {
   }
   const details = { required, failing: [], pending: [] };
   if (got.error) return item(6, name, 'blocked', `cannot read the checks: ${got.error}`, details);
+  if (got.tooOld) {
+    const { installed, minimum } = got.tooOld;
+    return item(6, name, 'blocked', `cannot read the checks: gh pr checks --json needs gh ${minimum} or newer and the installed gh is ${installed ?? 'of an unknown version'}; update gh`, { ...details, ghTooOld: got.tooOld });
+  }
   if (got.none || got.checks.length === 0) return item(6, name, 'met', 'no checks reported on the PR', details);
   const unknown = [];
   for (const c of got.checks) {

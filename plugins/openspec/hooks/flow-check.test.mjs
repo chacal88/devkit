@@ -9,7 +9,7 @@ import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
-import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, TEXT, reasonText } from './flow-check.mjs';
+import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
 import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
@@ -875,6 +875,34 @@ for (const [row, opts, want] of DELIVERY_ROWS) {
   });
 }
 
+// ---- gh-version: a gh older than 2.50.0 ends with its own reason (AC-4, AC-5)
+
+const OLD_GH_FILL = (version) => (set, head) => {
+  set('pr-view', { stdout: prView(head) });
+  set('pr-checks', { exit: 1, stderr: 'unknown flag: --json\n\nUsage:  gh pr checks [<number> | <url> | <branch>] [flags]\n' });
+  if (version) set('version', version);
+};
+
+test('gh-version 10: an old gh ends blocked gh-too-old and the readout names both versions (AC-4)', () => {
+  const { report, root } = deliveryReport({ fill: OLD_GH_FILL({ stdout: 'gh version 2.46.0 (2024-03-18)\n' }) });
+  assert.deepEqual(outcome(report), { end: 'blocked', reasonCode: 'gh-too-old' });
+  assert.deepEqual(report.end.params, { installed: '2.46.0', minimum: '2.50.0' });
+  const flow = readFlow(root, 'devkit');
+  for (const lang of ['en', 'pt-BR']) {
+    const text = renderText(report, flow, lang);
+    assert.ok(text.includes('2.46.0') && text.includes('2.50.0'), `${lang}: ${text}`);
+    assert.ok(!text.includes('the checks cannot be read') && !text.includes('não foi possível ler os checks:'), `${lang}: ${text}`);
+  }
+});
+
+test('gh-version 11: an unreadable gh version reads as unknown in both languages (AC-5)', () => {
+  const { report } = deliveryReport({ fill: OLD_GH_FILL({ exit: 1, stderr: 'boom\n' }) });
+  assert.deepEqual(outcome(report), { end: 'blocked', reasonCode: 'gh-too-old' });
+  assert.equal(report.end.params.installed, null);
+  assert.ok(reasonText('en', 'gh-too-old', report.end.params, {}).includes('unknown version'));
+  assert.ok(reasonText('pt-BR', 'gh-too-old', report.end.params, {}).includes('versão desconhecida'));
+});
+
 test('flow-check delivery: after a squash merge the walk resumes at the retro', () => {
   const root = liveChange({ ship: 'merge', skip: ['retro'] });
   for (const f of ['evidence.md', 'review.md']) {
@@ -1213,7 +1241,7 @@ test('flow-check readout: both languages cover every reason code', () => {
     'past-point': { after: 'proposal' }, 'flag-absent': { flag: 'ui' }, 'setting-absent': { setting: 'tests.unit' }, 'changes-asked': { attempt: 2 },
     'owner-changes': { stage: 'mockup', attempt: 2 }, archive: {}, archived: {}, 'previous-script': {}, 'schema-without-declaration': {},
     'undeclared-stage': { stage: 'retro', why: 'every stage passed' },
-    'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' },
+    'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' }, 'gh-too-old': { installed: '2.46.0', minimum: '2.50.0' },
     'check-failing': { checks: 'build (https://ci/build)' }, 'checks-pending': { checks: 'e2e' }, 'owner-merges': { number: 12 },
     'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },
     'stale-reviewers': { names: ['spec-reviewer'] },

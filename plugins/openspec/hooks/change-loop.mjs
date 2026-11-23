@@ -249,6 +249,7 @@ export const MESSAGES = {
     'blocked-why.no-progress': '{stage} came back with nothing changed',
     'blocked-why.not-delivered': '{stage} ended without delivering its result',
     'blocked-why.github-unreadable': 'GitHub cannot be read ({error})',
+    'blocked-why.gh-too-old': 'the installed gh ({installed}) cannot read the pull request checks, which need version {minimum} or newer: update gh, then call /devkit {verb} {id} again',
     'blocked-why.pr-closed': 'pull request #{number} was closed without merging',
     'blocked-why.previous-script': 'it began under the previous script; finish it with /ship-change {id}',
     'blocked-why.not-opened': 'its folder is incomplete',
@@ -262,6 +263,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'the next step is one this version does not know',
     'blocked-why.unreadable': 'the change cannot be read ({error})',
     'blocked-why.cannot-open': 'it could not be opened ({error})',
+    'gh-version-unknown': 'unknown version',
     'blocked-why.cannot-accept': 'the decision records could not be marked accepted ({error})',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
@@ -449,6 +451,7 @@ export const MESSAGES = {
     'blocked-why.no-progress': '{stage} voltou sem nada ter mudado',
     'blocked-why.not-delivered': '{stage} terminou sem entregar o resultado',
     'blocked-why.github-unreadable': 'não foi possível ler o GitHub ({error})',
+    'blocked-why.gh-too-old': 'o gh instalado ({installed}) não consegue ler os checks do pull request, que exigem a versão {minimum} ou mais nova: atualize o gh e chame /devkit {verb} {id} de novo',
     'blocked-why.pr-closed': 'o pull request #{number} foi fechado sem merge',
     'blocked-why.previous-script': 'ela começou no roteiro anterior; termine-a com /ship-change {id}',
     'blocked-why.not-opened': 'a pasta dela está incompleta',
@@ -462,6 +465,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
     'blocked-why.cannot-open': 'não foi possível abrir ({error})',
+    'gh-version-unknown': 'versão desconhecida',
     'blocked-why.cannot-accept': 'não foi possível marcar os registros de decisão como aceitos ({error})',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
@@ -755,7 +759,7 @@ const TEST_STAGES = ['unit-tests', 'e2e-tests'];
 const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix'];
 const NOT_DELIVERED = ['no-file', 'not-judged', 'no-header', 'bad-header', 'header-other-stage'];
 const SWITCH_FLAGS = ['architecture', 'contract', 'ui'];
-const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'pr-closed': 'pr-closed' };
+const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-too-old': 'gh-too-old', 'pr-closed': 'pr-closed' };
 
 // True for the two blocked ends of the stage checker that mean GitHub did not answer (change-state D-4): they are a wait on GitHub, not a stop.
 export const githubSilent = (end) => end?.state === 'blocked' && (end.reasonCode === 'gh-error' || end.reasonCode === 'checks-unreadable');
@@ -984,7 +988,9 @@ export function decide(facts) {
     if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
-    return blocked(why, { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number }, e.stage);
+    const params = { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number };
+    if (why === 'gh-too-old') Object.assign(params, { installed: e.params?.installed ?? render(lang, 'gh-version-unknown'), minimum: e.params?.minimum, verb: 'change' });
+    return blocked(why, params, e.stage);
   }
 
   // -------- from the implementation to the archive: B0 to B17

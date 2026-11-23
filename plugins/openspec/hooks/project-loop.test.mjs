@@ -615,7 +615,8 @@ function scriptedGh(s = {}) {
     }
     if (args[0] === 'pr' && args[1] === 'view') { const p = pr(); return p ? out(p) : fail('no pull requests found for branch "x"'); }
     if (args[0] === 'pr' && args[1] === 'list') { const p = pr(); return out(p ? [p] : []); }
-    if (args[0] === 'pr' && args[1] === 'checks') return out(s.checks ?? []);
+    if (args[0] === 'pr' && args[1] === 'checks') return s.checksFail ? fail(s.checksFail) : out(s.checks ?? []);
+    if (args[0] === '--version' && s.version !== undefined) return out(s.version);
     return fail(`unexpected gh call: ${a}`);
   };
   fn.calls = calls;
@@ -1213,6 +1214,26 @@ test('project-loop next: S25 a merged pull request ends delivered and S26 a clos
   const unreadable = nextP(t.main, 'billing', { gh: () => ({ status: 1, stdout: '', stderr: 'HTTP 502' }) });
   assert.equal(unreadable.code, 2);
   assert.equal(body(unreadable).end.why, 'github-unreadable');
+});
+
+test('gh-version 15: an old gh ends the slice blocked with its own reason and merges nothing (AC-3)', () => {
+  const t = loopProject();
+  const { gh } = openPr(t, { checksFail: 'unknown flag: --json\n', version: 'gh version 2.46.0 (2024-03-18)\n' });
+  const r = nextP(t.main, 'billing', { gh });
+  assert.equal(r.code, 2, r.stdout + r.stderr);
+  const a = body(r);
+  assert.equal(a.end.why, 'gh-too-old');
+  for (const part of ['2.46.0', '2.50.0', '/devkit project billing']) assert.ok(a.reply.includes(part), a.reply);
+  assert.ok(!gh.calls.some((c) => c[1] === 'merge'), 'nothing is merged');
+});
+
+test('gh-version 16: another failure of the checks still ends github-unreadable (AC-6)', () => {
+  const t = loopProject();
+  const { gh } = openPr(t, { checksFail: 'HTTP 502' });
+  const r = nextP(t.main, 'billing', { gh });
+  assert.equal(r.code, 2);
+  assert.equal(body(r).end.why, 'github-unreadable');
+  assert.ok(!gh.calls.some((c) => c[0] === '--version'));
 });
 
 test('project-loop next: the progress guard ends a repeated action blocked and a review not delivered', () => {

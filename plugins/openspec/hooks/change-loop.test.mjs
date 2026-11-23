@@ -84,7 +84,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  base: 'main', state: 'github', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  base: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000,
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
@@ -336,6 +336,46 @@ test('change-loop decide: B0 the blocked ends of the stage checker win over the 
     assert.deepEqual(shape(a), ['end', 'blocked', why, 2], reason);
     if (why === 'pr-closed') assert.equal(a.reply, says('blocked', { why, number: 12 }));
   }
+});
+
+// ---- gh-version: a gh older than 2.50.0 ends with its own reason (AC-2, AC-5)
+
+const OLD_GH_END = (installed = '2.46.0', ctx) => run({ ctx, rep: { end: endOf('blocked', 'delivery', 'gh-too-old', { installed, minimum: '2.50.0' }) }, facts: { row: rowOf('implement', { phase: 1 }) } });
+
+test('gh-version 12: a blocked gh-too-old names both versions and the way out in either language (AC-2, AC-5)', () => {
+  const a = OLD_GH_END();
+  assert.deepEqual(shape(a), ['end', 'blocked', 'gh-too-old', 2]);
+  assert.deepEqual([a.params.installed, a.params.minimum, a.params.verb], ['2.46.0', '2.50.0', 'change']);
+  for (const [lang, update, unreadable] of [['en', 'update gh', /GitHub cannot be read/], ['pt-BR', 'atualize o gh', /não foi possível ler o GitHub/]]) {
+    const reply = OLD_GH_END('2.46.0', { lang }).reply;
+    for (const part of ['2.46.0', '2.50.0', update, '/devkit change feat']) assert.ok(reply.includes(part), `${lang}: ${reply}`);
+    assert.doesNotMatch(reply, unreadable);
+  }
+  const unknown = OLD_GH_END(null);
+  assert.ok(unknown.reply.includes('unknown version'), unknown.reply);
+  assert.ok(OLD_GH_END(null, { lang: 'pt-BR' }).reply.includes('versão desconhecida'));
+  for (const lang of ['en', 'pt-BR']) {
+    const line = render(lang, 'roadmap-blocked', a.params);
+    assert.ok(line.includes('2.46.0') && line.includes('2.50.0'), `${lang}: ${line}`);
+  }
+});
+
+test('gh-version 13: next over a delivered change with an old gh exits 2 with the own reason (AC-2)', () => {
+  const { t, gh, env } = deliveredChange();
+  gh.set('pr-checks', { exit: 1, stderr: 'unknown flag: --json\n\nUsage:  gh pr checks [<number> | <url> | <branch>] [flags]\n' });
+  gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const r = next(t.main, [], env);
+  assert.equal(r.code, 2, r.stdout + r.stderr);
+  const { action } = parsed(r);
+  assert.equal(action.end.why, 'gh-too-old');
+  assert.equal(action.reply, render('en', 'blocked', { id: 'feat', why: 'gh-too-old', installed: '2.46.0', minimum: '2.50.0', verb: 'change' }));
+});
+
+test('gh-version 14: waitLoop ends at once on a gh-too-old poll', async () => {
+  const old = OLD_GH_END();
+  const r = await waited([WAIT, old]);
+  assert.deepEqual(r.action, old);
+  assert.equal(r.polls, 2);
 });
 
 // The current stage of a build-to-archive decision: the flow-check report only has to be in a build part.
@@ -2497,13 +2537,15 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); review-openspec-fix moves it to 0.26.1 (release 0.30.1); 0.26.0 went to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.26\.1/, 'the CI snippet pins the current release (review-openspec-fix: 0.26.1)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); gh-version-check moves it to 0.27.0 (release 0.31.0); 0.26.1 went to review-openspec-fix, 0.26.0 went to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.27\.0/, 'the CI snippet pins the current release (gh-version-check: 0.27.0)');
+  assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
   assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');
   assert.doesNotMatch(flow, /v0\.25\.0/, 'no pin left on the previous release (change-budget)');
   assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release (change-state)');
   assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release (commit-attribution)');
   assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release (test-fixture-cleanup)');
+
   assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');

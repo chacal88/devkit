@@ -789,6 +789,7 @@ const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 // pr list: the most specific fixture wins (--head, then --state), then plain pr-list.
 const keys = args[0] === 'api' ? [apiKey()] : args[0] === 'pr' && args[1] === 'list'
   ? [...(opt('--head') ? ['pr-list-head-' + opt('--head').replace(/[\\/{}?]/g, '_')] : []), ...(opt('--state') ? ['pr-list-state-' + opt('--state')] : []), 'pr-list']
+  : args[0] === '--version' ? ['version']
   : [args[0] + '-' + args[1] + (args.includes('--watch') ? '-watch' : '')];
 // A view of a PR by number may have its own fixture (pr-view-<n>.json), ahead of the plain pr-view ones.
 const own = args[0] === 'pr' && args[1] === 'view' && /^[0-9]+$/.test(args[2] || '') ? path.join(dir, 'pr-view-' + args[2] + '.json') : null;
@@ -1131,6 +1132,100 @@ test('item 6: a gh error, an unknown bucket or unreadable output is blocked; no 
   t = withPr(null);
   t.gh.set('pr-view', { exit: 4, stderr: 'gh auth login\n' });
   assert.equal(pr6(t).status, 'blocked');
+});
+
+// ---- gh-version: a gh older than 2.50.0 has its own blocked reason (AC-1, AC-5, AC-6)
+
+const OLD_FLAG = (flag) => `unknown flag: --${flag}\n\nUsage:  gh pr checks [<number> | <url> | <branch>] [flags]\n`;
+const versionsOf = (t) => t.gh.calls().filter((c) => c[0] === '--version');
+
+test('gh-version 5: an unknown --json flag on gh 2.46.0 is blocked with its own reason (AC-1)', () => {
+  const t = withPr({});
+  t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('json') });
+  t.gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const it = pr6(t);
+  assert.equal(it.status, 'blocked');
+  for (const part of ['2.46.0', '2.50.0', 'update gh']) assert.ok(it.reason.includes(part), it.reason);
+  assert.deepEqual(it.details.ghTooOld, { installed: '2.46.0', minimum: '2.50.0' });
+  assert.equal(versionsOf(t).length, 1);
+  assert.equal(argsOf(t, 'checks').length, 1);
+});
+
+test('gh-version 6: an unknown --required flag is told apart the same way (AC-1)', () => {
+  const t = withPr({});
+  t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('required') });
+  t.gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const it = pr6(t);
+  assert.equal(it.status, 'blocked');
+  assert.deepEqual(it.details.ghTooOld, { installed: '2.46.0', minimum: '2.50.0' });
+  assert.equal(versionsOf(t).length, 1);
+  assert.equal(argsOf(t, 'checks').length, 1);
+});
+
+test('gh-version 7: an unreadable version still names the old gh, as an unknown version (AC-5)', () => {
+  const cases = [{ exit: 1, stderr: 'boom\n' }, { stdout: 'gh version DEV\n' }, null];
+  for (const answer of cases) {
+    const t = withPr({});
+    t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('json') });
+    if (answer) t.gh.set('version', answer);
+    const it = pr6(t);
+    assert.equal(it.status, 'blocked', JSON.stringify(answer));
+    assert.equal(it.details.ghTooOld.installed, null);
+    assert.equal(it.details.ghTooOld.minimum, '2.50.0');
+    assert.ok(it.reason.includes('of an unknown version') && it.reason.includes('2.50.0'), it.reason);
+  }
+});
+
+test('gh-version 8: every other failure keeps today\'s reason and asks for no version (AC-6)', () => {
+  const asked = (t) => versionsOf(t).length;
+  const cases = [
+    ['HTTP 502: bad gateway\n', 'cannot read the checks: HTTP 502: bad gateway'],
+    ['HTTP 401: Bad credentials (https://api.github.com/graphql)\nTry authenticating with:  gh auth login\n', 'cannot read the checks: HTTP 401: Bad credentials (https://api.github.com/graphql)'],
+  ];
+  for (const [stderr, reason] of cases) {
+    const t = withPr({});
+    t.gh.set('pr-checks', { exit: 1, stderr });
+    const it = pr6(t);
+    assert.equal(it.status, 'blocked');
+    assert.equal(it.reason, reason);
+    assert.equal(it.details.ghTooOld, undefined);
+    assert.equal(asked(t), 0);
+  }
+  const t = withPr({});
+  t.gh.set('pr-checks', { stdout: 'not json' });
+  const it = pr6(t);
+  assert.equal(it.reason, 'cannot read the checks: gh pr checks returned unreadable output');
+  assert.equal(it.details.ghTooOld, undefined);
+  assert.equal(asked(t), 0);
+  // A missing gh and a timeout, through a stub: the unknown-flag text does not matter then.
+  const calls = [];
+  const stub = (r) => (args) => { calls.push(args); return { status: null, stdout: '', stderr: OLD_FLAG('json'), missing: false, timedOut: false, overflowed: false, ...r }; };
+  for (const [r, why] of [[{ missing: true }, 'gh is not installed or not on PATH'], [{ timedOut: true }, 'gh timed out']]) {
+    calls.length = 0;
+    const got = checksItem({ pr: { number: 12 } }, stub(r));
+    assert.equal(got.status, 'blocked');
+    assert.equal(got.reason, `cannot read the checks: ${why}`);
+    assert.equal(got.details.ghTooOld, undefined);
+    assert.deepEqual(calls.filter((c) => c[0] === '--version'), []);
+  }
+});
+
+test('gh-version 9: a readable answer asks for no version (AC-6)', () => {
+  const lists = [
+    [{ stdout: [check('build', 'pass')] }, 'met'],
+    [{ exit: 8, stdout: [check('build', 'pending')] }, 'open'],
+  ];
+  for (const [answer, status] of lists) {
+    const t = withPr({});
+    t.gh.set('pr-checks', answer);
+    assert.equal(pr6(t).status, status);
+    assert.equal(versionsOf(t).length, 0);
+  }
+  const t = withPr({});
+  t.gh.set('pr-checks', { exit: 1, stderr: "no required checks reported on the 'b' branch\n" }, 1);
+  t.gh.set('pr-checks', { stdout: [check('build', 'pass')] }, 2);
+  assert.equal(pr6(t).status, 'met');
+  assert.equal(versionsOf(t).length, 0);
 });
 
 // ---------------------------------------------------------------- item 7: conversation answered (D4)
@@ -3999,6 +4094,15 @@ test('post-merge: the archive PR is the OPEN one, else the newest MERGED, else t
   const s = t.state();
   assert.deepEqual(s.archive.pr.checks.failing, [{ name: 'check', link: 'https://ci/9' }]);
   assert.deepEqual(t.gh.calls().find((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head')).slice(2, 8), ['--head', 'chore/archive-feat', '--state', 'all', '--limit', '10']);
+});
+
+test('gh-version 20: an old gh on the open archive PR is named in the collected checks error, not reported as an unreadable GitHub (AC-1)', () => {
+  const t = pm({ archivePrs: [archivePrJson({ number: 21 })] });
+  t.gh.set('pr-checks', { exit: 1, stderr: OLD_FLAG('json') });
+  t.gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const { error } = t.state().archive.pr.checks;
+  for (const part of ['2.46.0', '2.50.0', 'update gh']) assert.ok(error?.includes(part), String(error));
+  assert.equal(versionsOf(t).length, 1);
 });
 
 // ---- the phase and its rows P0-P14 (2.6, 2.8, design D7)

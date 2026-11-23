@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.31.0 — gh version check
+
+- **devkit-openspec** 0.27.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
+  first with `gh pr checks --json`) with its own blocked reason that gives the installed version
+  and asks for an update, instead of "GitHub cannot be read"; `openspec-setup` step 1 checks `gh`
+  once and warns without stopping the setup. The CI snippet now pins `v0.27.0`, the release's tag.
+
 ## 0.30.1 — a review fixed in the plan files
 
 - **devkit-openspec** 0.26.1: a rejected verdict goes stale after any later commit outside the
