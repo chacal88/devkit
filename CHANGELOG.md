@@ -1,16 +1,32 @@
 # Changelog
 
-## 0.29.1 — a review fixed in the plan files
+## 0.30.1 — a review fixed in the plan files
 
-- **devkit-openspec** 0.25.1: a rejected verdict goes stale after any later commit outside the
+- **devkit-openspec** 0.26.1: a rejected verdict goes stale after any later commit outside the
   change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
   included, so a fix made in the plan files gets the next review round with no hand from the owner;
   a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
-  The CI snippet now pins `v0.25.1`, the release's tag.
-- **devkit-core** 0.11.1: the `review-change` skill's stale definition names the rule for a rejected
+  The CI snippet now pins `v0.26.1`, the release's tag.
+- **devkit-core** 0.12.1: the `review-change` skill's stale definition names the rule for a rejected
   verdict.
 - Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
   document.
+
+## 0.30.0 — the Jira entry
+
+- **devkit-openspec** 0.26.0: `/devkit change <Jira key or link>` opens the change from that task.
+  The session reads it through its own Atlassian connector; `change-loop.mjs` makes no call and
+  keeps no token. `start` answers the `task` mode, `open --task <KEY>` writes a `Jira: <KEY> <link>`
+  line and the quoted title, description and acceptance-criteria field under `## Request`, and the
+  key resumes its unfinished change (a second change for it is refused). When the pull request
+  opens, `next` carries `writeBack` and `write-back ask|answer` asks the developer once whether to
+  comment the link and move the task; Jira is written only on that yes, and the question is
+  recorded in the git common directory. New module `jira-task.mjs`.
+- **devkit-core** 0.12.0: the `requirements-grill` skill asks only what a request copied from a
+  task leaves open, recording the rest as assumptions answered by the task.
+- Docs: the flow document, the design document and ADR 0010 (a dated Note: no task-source
+  setting) record the entry; the roadmap gains round 20b (`jira-entry-live`).
+- CI: the snippet now pins `v0.26.0`, the release's tag.
 
 ## 0.29.0 — the change budget
 
