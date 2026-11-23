@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=1 commit=c56155334749cdc46bad077ba8f53c4bbec5d140 -->
+<!-- devkit-stage specs result=passed attempt=2 commit=b216a4692ea9f1764d1e2e614a2905d646643651 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -147,12 +147,22 @@ archived changes only.
 
 ### Requirement: The board shows what each change session waits for
 In a run with a session per change, `/devkit status` SHALL show a change waiting in its own session
-in the queue with what it waits for: a place, the load, or the dependency it waits for; and a change
-at its grill, plan approval or retro answers among those waiting for the owner.
+in the queue with what it waits for (a place, the load or a dependency), and a change at its grill,
+plan approval or retro answers among those waiting for the owner. Such a wait SHALL be the change's
+state, `running` with the reason `held-place`, `held-load` or `held-after` and the row's words, alike
+in the state command, the change session's action and the board.
 
 #### Scenario: Waits of each kind
 - **WHEN** `a` holds the place, `b` waits for a place, `c` waits for `a` before its plan, and `d` is at its grill
 - **THEN** `a` is under way, `b` reads "open, waits for a place", `c` reads "open, waits for a", and `d` is under "Waiting for you" with the grill
+
+#### Scenario: The board, the state command and the change session agree on a held change
+- **WHEN** `b` waits in its own session for a place, and `c` waits in its own session for `a` before its plan
+- **THEN** the state command prints `b` as `running` with the reason `held-place`, "open, waits for a place", and the title `⏳ b`, and `c` as `running` with the reason `held-after`, "open, waits for a", and the title `⏳ c`; the action each session's loop gives carries the same state; and the board shows both in the queue with those words
+
+#### Scenario: A stopped change is not held
+- **WHEN** a change with a place request left in the run's queue waits for the owner, is blocked, or waits on GitHub
+- **THEN** its state, its reason and its title are the ones it has with no queue entry
 
 ## MODIFIED Requirements
 
@@ -250,9 +260,9 @@ change's session.
 - **THEN** its line is not shown again
 
 ### Requirement: The owner's gates are asked one change at a time
-When open changes wait at gates of the owner (the grill, the plan approval, the retro answers, a
-pull-request decision only the owner can take, a merge left to the owner) in a run whose changes run
-in the coordinating session, that session SHALL ask the gates of one change at a time, in the order
+When open changes wait at gates of the owner (the grill, the mock-up approval, the plan approval,
+the retro answers, a pull-request decision only the owner can take, a merge left to the owner) in a
+run whose changes run in the coordinating session, that session SHALL ask the gates of one change at a time, in the order
 of the roadmap file, naming the change; the next change's questions SHALL come only when that
 change's gate is answered. In a run whose changes each have a session of their own, the coordinating
 session SHALL ask the grills, the plan approvals and the retro answers the same way, writing each
@@ -281,6 +291,10 @@ answer into that change's files, and each change's other gates SHALL be asked in
 #### Scenario: The retro answers for a change in its own session
 - **WHEN** `a`'s retro is written in its own session and waits for the owner's answers
 - **THEN** the coordinating session shows each proposal and records the owner's own answers in `a`'s `retro.md`, and `a`'s session goes on to its archive
+
+#### Scenario: A mock-up waits while another change is asked
+- **WHEN** `a`'s plan approval is being asked and `b`, later in the file, reaches its mock-up approval
+- **THEN** `b`'s mock-up is shown and asked only after `a`'s approval is answered
 
 ### Requirement: Each change of a roadmap run runs in a session of its own where the host can start sessions
 Where the host can start sessions, every change a run opens or resumes SHALL run in a session of its
@@ -330,11 +344,13 @@ message, with its line; a change already open in its session SHALL take the free
 - **THEN** the coordinating session shows no line and starts nothing
 
 ### Requirement: A change session shows the stage its change is in
-A session a roadmap run started for a change SHALL be titled with the icon of the stage the change is
-in now, followed by the change id: ❓ for the requirements, 📝 for the plan, 🛠️ for the code, 🔍 for
-the review, 🚀 for the delivery and 📦 for the archive; and ⏳ while the change waits for a place, for
-the load or for its dependencies. When the change moves to a stage of another icon, or stops or
-starts waiting, the session SHALL rename itself before it goes on.
+A change session SHALL be titled with its change's stage icon (❓ requirements, 📝 plan, 🛠️ code, 🔍
+review, 🚀 delivery, 📦 archive) and the change id while the change runs; while it is stopped, with
+the state icon (🙋 waiting for the owner, ⏳ waiting on GitHub, ⛔ blocked), a space, then that
+title; `📦 <id>` once archived; cut to 59 code points. While a change session of a roadmap run waits
+for a place, for the load or for its dependencies, its title SHALL be ⏳ and the change id, the stage
+icon replaced, and its stage icon again once it goes on. When the title changes, the session SHALL
+rename itself before it goes on.
 
 #### Scenario: The icon of each stage
 - **WHEN** a change is in its grill, its proposal, its implementation, its code review, its delivery or its retro and archive
@@ -342,7 +358,7 @@ starts waiting, the session SHALL rename itself before it goes on.
 
 #### Scenario: A new stage
 - **WHEN** the change session's change goes from its plan approval to its implementation
-- **THEN** the session's title goes from `📝 <id>` to `🛠️ <id>`
+- **THEN** the session's title goes from `🙋 📝 <id>` to `🛠️ <id>`
 
 #### Scenario: A stage of the same icon
 - **WHEN** the change goes from its proposal to its design
@@ -350,19 +366,43 @@ starts waiting, the session SHALL rename itself before it goes on.
 
 #### Scenario: The first title
 - **WHEN** the coordinating session starts the session of a change that is at its grill
-- **THEN** the session starts titled `❓ <id>`
+- **THEN** the session starts titled `🙋 ❓ <id>`
+
+#### Scenario: A change under way
+- **WHEN** the change's implementation is handed to its agent
+- **THEN** the title is `🛠️ <id>`, with no state icon
 
 #### Scenario: Waiting for a place, then going on
 - **WHEN** the change reaches its implementation with no place free, and later takes a place
-- **THEN** the title goes from `📝 <id>` to `⏳ <id>`, then to `🛠️ <id>`
+- **THEN** the title goes from `🙋 📝 <id>` to `⏳ <id>`, then to `🛠️ <id>`
+
+#### Scenario: Waiting for the load
+- **WHEN** the change reaches its implementation with a place free while the load is above the limit
+- **THEN** the title is `⏳ <id>` until the load falls or the owner says to start anyway, then `🛠️ <id>`
 
 #### Scenario: Waiting for a dependency
 - **WHEN** the change finished its grill and its dependency is not archived
-- **THEN** the title is `⏳ <id>` until the dependency is archived, then the icon of its plan
+- **THEN** the title is `⏳ <id>` until the dependency is archived, then `📝 <id>`, the icon of its plan
 
 #### Scenario: Waiting for the owner in the coordinating session
 - **WHEN** the change waits for its grill, plan approval or retro answers in the coordinating session
-- **THEN** the title keeps the icon of that stage
+- **THEN** the title is 🙋 beside the icon of that stage: `🙋 ❓ <id>`, `🙋 📝 <id>` or `🙋 📦 <id>`
+
+#### Scenario: Waiting on GitHub
+- **WHEN** the change waits on its pull request's checks, or GitHub did not answer
+- **THEN** the title is `⏳ 🚀 <id>`, the stage icon kept
+
+#### Scenario: Blocked
+- **WHEN** the change stops blocked in its implementation, or blocked with no stage, as a change begun under the previous script
+- **THEN** the title is `⛔ 🛠️ <id>`, or `⛔ <id>`
+
+#### Scenario: Archived
+- **WHEN** the change is archived
+- **THEN** the title is `📦 <id>`, with no second icon
+
+#### Scenario: A long id
+- **WHEN** the change id has 70 characters, in any of the forms above
+- **THEN** the title is cut to its first 59 code points
 
 ### Requirement: A change ready on a turn nobody typed waits for the owner's next message, with a line
 In a run with a session per change, a change session SHALL start only on a turn the owner typed. On

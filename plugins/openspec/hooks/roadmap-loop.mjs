@@ -41,8 +41,8 @@ import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, runOf, isChangeId,
 import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
-  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, stageIcon, sessionTitle, changeState, runFactsOf,
-  HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, WAIT_ICON,
+  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
+  HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
   loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision,
 } from './change-loop.mjs';
 
@@ -425,9 +425,7 @@ function stateRow(e, f, say, lang) {
   const s = changeState(f.actions?.[e.id] ?? null, facts, { lang, id: e.id });
   const block = BLOCK_OF_STATE[s.state];
   if (block === 'owner' || block === 'blocked') return [block, s.reason.text];
-  const queued = f.queued?.[e.id];
-  if (queued) return ['queue', say(queued.why === 'load' ? 'queue.held-load' : 'queue.held-place')];
-  if (f.waitsFor?.[e.id]) return ['queue', say('queue.held-after', { after: f.waitsFor[e.id] })];
+  if (block === 'running' && Object.hasOwn(HELD_TEXT, s.reason?.code ?? '')) return ['queue', s.reason.text];
   if (s.state === 'waiting-on-github') return [block, say('running.github', { what: s.reason.code })];
   if (s.reason?.code === 'ready' && facts.sessionMode) return [block, say('running.no-session')];
   const title = s.stageTitle ?? '';
@@ -730,8 +728,6 @@ export function roadmapSubagentStopDecision(input, { env = process.env, run } = 
 export const ROADMAP_GATES = ['grill', 'approval', 'retro'];
 // The parts of a script whose stages load the machine: a change holds a place while its stage is in one of them (D-7).
 const LOAD_PARTS = ['build', 'after'];
-// The stages of the plan part a change does not write before its dependencies are archived: the others are the owner's or come after.
-const PLAN_NOT_HELD = ['requirements', 'approval'];
 
 // The roadmap gate an action waits at, or null (any action that is not one of them, a wait the table does not know included).
 export function roadmapGateOf(action) {
@@ -772,14 +768,20 @@ export function sessionDecide(f) {
   const say = (key, params) => render(lang, key, { id: f.id, ...params });
   const records = { placed: { ...f.placed }, queued: { ...f.queued }, anyway: [...(f.anyway ?? [])] };
   const given = (action) => ({ action, ...records });
-  const held = (why, extra, key, params, icon) => given({
-    version: a.version, change: a.change ?? f.id, script: a.script, root: a.root, branch: a.branch, filesLanguage: a.filesLanguage, kind: 'held', held: { why, ...extra },
-    stage: a.stage ?? null, stageTitle: a.stageTitle ?? null, icon, sessionTitle: sessionTitle(icon, f.id), reply: say(key, params), progressKey: `held/${why}`,
-  });
+  // The held action carries the state changeState derives for the change after this decision (D-11): its title and icon are the state's.
+  const held = (why, extra, key, params) => {
+    const heldRun = { changeSessions: true, startedSessions: { [f.id]: { at: f.now } }, placed: records.placed, queued: records.queued, waitsFor: { [f.id]: f.waitsFor ?? null } };
+    const state = changeState(a, runFactsOf(heldRun, f.id, { onRoadmap: true }), { lang, id: f.id });
+    const icon = Object.hasOwn(HELD_TEXT, state.reason?.code ?? '') ? state.stateIcon : state.stageIcon;
+    return given({
+      version: a.version, change: a.change ?? f.id, script: a.script, root: a.root, branch: a.branch, filesLanguage: a.filesLanguage, kind: 'held', held: { why, ...extra },
+      stage: a.stage ?? null, stageTitle: a.stageTitle ?? null, icon, sessionTitle: state.title, state, reply: say(key, params), progressKey: `held/${why}`,
+    });
+  };
   const gate = roadmapGateOf(a);
-  if (gate) return held('owner', { gate }, 'session-held-owner', { gate }, stageIcon(a));
+  if (gate) return held('owner', { gate }, 'session-held-owner', { gate });
   const stage = (a.kind === 'agent' || a.kind === 'session') && f.part === 'plan' && !PLAN_NOT_HELD.includes(a.stage);
-  if (stage && f.waitsFor) return held('after', { after: f.waitsFor }, 'session-held-after', { after: f.waitsFor }, WAIT_ICON);
+  if (stage && f.waitsFor) return held('after', { after: f.waitsFor }, 'session-held-after', { after: f.waitsFor });
   if (stage && f.notInHead && !f.hasProposal) {
     const fingerprint = String(a.progressKey ?? '').split('@').slice(1).join('@');
     return given({
@@ -795,26 +797,11 @@ export function sessionDecide(f) {
     Object.assign(records, { placed: r.placed, queued: r.queued, anyway: r.anyway });
     if (r.claimed) return given(a);
     return r.why === 'place'
-      ? held('place', {}, 'session-held-place', { places: entriesCount(r.placed) }, WAIT_ICON)
-      : held('load', {}, 'session-held-load', { load: f.load, limit: f.limit }, WAIT_ICON);
+      ? held('place', {}, 'session-held-place', { places: entriesCount(r.placed) })
+      : held('load', {}, 'session-held-load', { load: f.load, limit: f.limit });
   }
   if (!loads) { delete records.placed[f.id]; delete records.queued[f.id]; } // the stage or the archive that leaves the load stages frees the place
   return given(a);
-}
-
-// The part of `stage` in the script of the change at `found`; null when the script cannot be read or does not hold it.
-function partOfStage(found, id, stage) {
-  if (typeof stage !== 'string') return null;
-  try {
-    const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
-    return readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((s) => s.id === stage)?.part ?? null;
-  } catch { return null; }
-}
-
-// Whether the action is a stage of the plan part that waits for the change's dependencies (the same test as `sessionFacts`, for the board).
-function isPlanStage(start, id, action) {
-  if (!(action?.kind === 'agent' || action?.kind === 'session') || PLAN_NOT_HELD.includes(action.stage)) return false;
-  try { return partOfStage(locate(start, id), id, action.stage) === 'plan'; } catch { return false; }
 }
 
 const ARCHIVE_FOLDER = /^\d{4}-\d{2}-\d{2}-(.+)$/;

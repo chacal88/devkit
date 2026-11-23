@@ -644,6 +644,9 @@ export function sessionTitle(icon, id, stateIcon = null) {
 
 export const STATE_ICON = { 'waiting-for-owner': '🙋', 'waiting-on-github': '⏳', blocked: '⛔', archived: '📦' };
 
+// The reasons of a change session that is held (a state `running`): the message key of each one's phrase (roadmap-sessions-upfront D-11).
+export const HELD_TEXT = { 'held-place': 'queue.held-place', 'held-load': 'queue.held-load', 'held-after': 'queue.held-after' };
+
 // What the run file says about one change, for `changeState`: `run` is `readRun`'s result or the facts of the board (the same
 // fields and an `after`); `onRoadmap` says the id is a line of the roadmap.
 export function runFactsOf(run, id, { onRoadmap = false } = {}) {
@@ -655,6 +658,9 @@ export function runFactsOf(run, id, { onRoadmap = false } = {}) {
     inflight: Object.hasOwn(after, id) ? null : run.inflight?.[id] ?? null,
     declared: run.declared?.[id] ?? null,
     waits: Boolean(run.starting?.includes(id)) || announced === 'waits-turn' || announced === 'waits-refused',
+    queued: run.queued?.[id] ?? null,
+    placed: Boolean(run.placed?.[id]),
+    waitsFor: run.waitsFor?.[id] ?? null,
   };
 }
 
@@ -681,6 +687,13 @@ function declaredEnd(declared, lang, id) {
   return { state: 'blocked', reason: blockedReason(lang, declared.why, declared.params, id) };
 }
 
+// S9: the reason a running change session is held for, from the facts: the queue entry (the load, else a place) of a change with no place, else a
+// dependency not archived; null when it is not held.
+function heldReason(facts) {
+  if (facts.queued && !facts.placed) return facts.queued.why === 'load' ? 'held-load' : 'held-place';
+  return facts.waitsFor ? 'held-after' : null;
+}
+
 // The one place a change's state is derived (D-1). `action` is what `decide` gave (or null, or the stand-in of a change the run
 // file lists with no folder); `facts` is `runFactsOf`'s result, or null outside a roadmap run; `id` names the change when there is
 // no action. Pure.
@@ -705,12 +718,18 @@ export function changeState(action, facts = null, { lang, id: given = null } = {
       stageTitle = action?.stageTitle ?? inflight.stage ?? null;
     } else if (declared) done = declaredEnd(declared, l, id);
     else if (facts.waits || !action || action.kind === 'none') done = { state: 'running', reason: READY(l) };
+    if (sessionMode && done.state === 'running' && (!done.reason || done.reason.code === 'ready')) { // S9: held for a place, the load or a dependency
+      const held = heldReason(facts);
+      if (held) done = { state: 'running', reason: { code: held, text: render(l, HELD_TEXT[held], { after: facts.waitsFor }) } };
+    }
   }
   const { state, reason } = done;
   const icon = stage === (action?.stage ?? null) ? stageIcon(action) : stageIcon({ stage });
-  const stateIcon = STATE_ICON[state] ?? null;
+  const held = state === 'running' && Object.hasOwn(HELD_TEXT, reason?.code ?? '');
+  const stateIcon = held ? WAIT_ICON : STATE_ICON[state] ?? null;
   let title;
   if (state === 'archived') title = sessionTitle('📦', id);
+  else if (held) title = sessionTitle(WAIT_ICON, id);
   else if (state === 'running') title = icon ? sessionTitle(icon, id) : null;
   else title = icon ? sessionTitle(icon, id, stateIcon) : sessionTitle(stateIcon, id);
   const phase = typeof action?.detail?.phase === 'number' ? action.detail.phase : null;
@@ -1085,6 +1104,24 @@ export function locate(start, id) {
   return { root, branch: tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) };
 }
 
+// The stages of the plan part a change does not write before its dependencies are archived: the others are the owner's or come after.
+export const PLAN_NOT_HELD = ['requirements', 'approval'];
+
+// The part of `stage` in the script of the change at `found`; null when the script cannot be read or does not hold it.
+export function partOfStage(found, id, stage) {
+  if (typeof stage !== 'string') return null;
+  try {
+    const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+    return readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((s) => s.id === stage)?.part ?? null;
+  } catch { return null; }
+}
+
+// Whether the action is a stage of the plan part that waits for the change's dependencies (the one reader of `sessionFacts`, the board and the state command).
+export function isPlanStage(start, id, action) {
+  if (!(action?.kind === 'agent' || action?.kind === 'session') || PLAN_NOT_HELD.includes(action.stage)) return false;
+  try { return partOfStage(locate(start, id), id, action.stage) === 'plan'; } catch { return false; }
+}
+
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
 export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh } = {}) {
@@ -1348,6 +1385,7 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const run = readRun(runFilePath(start));
   const roadmapIds = new Set((readRoadmap(start) ?? []).flatMap((round) => round.items.map((item) => item.id)));
+  const changeSessions = run.changeSessions === true;
   const named = namedByRun(run);
   const ids = id !== null ? [id] : [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...named])].sort((a, b) => a.localeCompare(b));
   let archived = null;
@@ -1361,7 +1399,9 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
       action = { kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } };
     } else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
     else throw new LoopUsageError(`no change named ${cid}`);
-    const facts = runFactsOf(run, cid, { onRoadmap: roadmapIds.has(cid) });
+    const line = changeSessions && roadmapIds.has(cid) ? (readRoadmap(mainRoot(start)) ?? []).flatMap((round) => round.items).find((item) => item.id === cid) : null;
+    const dependency = line && line.after.length > 0 && isPlanStage(start, cid, action) ? line.after.find((d) => !(archived ??= archivedOnDefault(start, { env, gh })).has(d)) ?? null : null;
+    const facts = runFactsOf(dependency ? { ...run, waitsFor: { [cid]: dependency } } : run, cid, { onRoadmap: roadmapIds.has(cid) });
     return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch };
   });
 }

@@ -1,13 +1,14 @@
-<!-- devkit-stage tasks result=passed attempt=2 commit=c56155334749cdc46bad077ba8f53c4bbec5d140 -->
+<!-- devkit-stage tasks result=passed attempt=3 commit=b216a4692ea9f1764d1e2e614a2905d646643651 -->
 # Tasks
 
-Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · Base: `c561553`
+Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · Base: `c561553`;
+phase 5 added on 2026-11-23 over the merge `b216a46` (change-state, ADR 0017, commit-attribution)
 
 Work only in this change's worktree, on its branch. Every rule, name, text and label is in
 `design.md`: D-1 the entry, D-2 the opening, D-3 the gates, D-4 the triage, D-5 the push, D-6 the
 change session's loop, D-7 places, D-8 the plan after dependencies, D-9 the periodic check and the
-cleanup, D-10 drift, D-11 board and messages, D-12 the ADR, D-13 the tests this plan changes, D-14
-documents and release, D-15 proof. The implementer copies them and makes no design choice.
+cleanup, D-10 drift, D-11 the held state, the board and messages, D-12 the ADR, D-13 the tests this
+plan changes, D-14 documents and release, D-15 proof. The implementer copies them and makes no design choice.
 
 Every gate is one backticked command, run as written; each `&&` part runs on its own, no part holds a
 `|`, and every gate exits 0 when its phase is done. Every new test is named `upfront <AC-n> <area>:
@@ -22,23 +23,23 @@ creates a cron: the host calls are proved by the exact `input` the decisions giv
 text, and live in the next real run (D-15). One test per condition and per label of every new guard
 and decision, negatives included.
 
-Test first in phases 1 to 4: the phase's test task comes before its code tasks, its new tests fail on
-the base `c561553` (each red run saved under `openspec/changes/roadmap-sessions-upfront/proof/`), and
-an existing test is changed only where D-13 names it (T-1 to T-9), the task saying its invariant,
-layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
+Test first in phases 1 to 5: the phase's test task comes before its code tasks, its new tests fail on
+the base (`c561553` for phases 1 to 4, `b216a46` for phase 5; each red run saved under
+`openspec/changes/roadmap-sessions-upfront/proof/`), and an existing test is changed only where D-13
+names it (T-1 to T-16), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
 
 | Id | Slug | Tasks |
 |---|---|---|
 | AC-1 | `session-opens-running` | 1.1, 1.3, 1.4, 1.5, 2.1, 2.3 |
 | AC-2 | `other-starts-refused` | 1.1, 1.3, 1.4 |
-| AC-3 | `every-pending-change-opens` | 3.1, 3.2, 3.4 |
+| AC-3 | `every-pending-change-opens` | 3.1, 3.2, 3.4, 5.1, 5.3 |
 | AC-4 | `grills-in-roadmap-session` | 3.1, 3.2, 3.6 |
 | AC-5 | `triage-first` | 4.1, 4.2, 4.3, 4.4 |
 | AC-6 | `triage-never-approves` | 4.1, 4.2, 4.3 |
 | AC-7 | `approval-in-roadmap-session` | 2.1, 2.3, 3.1, 3.2, 3.6 |
 | AC-8 | `plan-after-dependencies` | 2.1, 2.3, 2.5 |
-| AC-9 | `places-load-only` | 2.1, 2.3, 2.4, 3.5 |
-| AC-10 | `waiting-icon` | 2.1, 2.2, 2.3 |
+| AC-9 | `places-load-only` | 2.1, 2.3, 2.4, 3.5, 5.1, 5.2 |
+| AC-10 | `waiting-icon` | 2.1, 2.2, 2.3, 5.1, 5.2, 5.3 |
 | AC-11 | `drift-without-owner` | 4.1, 4.5 |
 | AC-12 | `branch-pushed-with-grill` | 3.1, 3.3 |
 | AC-13 | `run-check-scheduled` | 3.1, 3.5, 3.6 |
@@ -254,23 +255,74 @@ layer and suite. Leave no backup or scratch file in the tree; end every task wit
   unchanged.
 - [x] 4.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" --test-name-pattern="^conduct" --test-name-pattern="^flow-check" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-4 (triage hand-off), AC-5, AC-6, AC-11.
 
-## 5. The ADRs, the documents, the release and the whole suite (every AC)
+## 5. The held state through changeState (AC-3, AC-9, AC-10)
 
-- [ ] 5.1 Write the ADR of D-12 at `docs/adr/0016-a-roadmap-run-opens-every-change-at-its-start.md`
-  (take the next free number on `origin/main` if a sibling took 0016, and rename the file and every
-  reference), and the header lines and Notes of D-12 in ADRs 0006, 0010, 0011, 0013 (decision 4's new
-  bullet) and 0014; the ADRs line of `openspec/config.yaml`. Check: `python3 scripts/check.py` passes
-  (links and language).
-- [ ] 5.2 Update the documents of D-14: `docs/openspec-flow.md`, `docs/coordination-design.md`,
+- [x] 5.1 Write this phase's tests (design D-6 the `held` action, D-11 the held state; specs
+  `roadmap-coordination` "A change session shows the stage its change is in" and "The board shows what
+  each change session waits for"). In `change-loop.test.mjs`:
+  - `upfront AC-10 facts: runFactsOf reads the change's queue entry, its place and its waitsFor, and no other change's`;
+  - `upfront AC-10 state: a running change queued for a place reads held-place with its board words and the title ⏳ <id>` (en and pt-BR; `stateIcon` ⏳, `stageIcon` the stage's);
+  - `upfront AC-10 state: a running change queued by the load reads held-load`;
+  - `upfront AC-10 state: a plan stage whose dependency is not archived reads held-after naming it`;
+  - `upfront AC-10 state: a change that holds a place, or has no queue entry and no waitsFor, gets no held reason` (negative);
+  - `upfront AC-10 state: a change waiting for the owner, blocked or waiting on GitHub keeps its state and title over a queue entry or a waitsFor` (negative; the GitHub wait stays `⏳ 🚀 <id>`);
+  - `upfront AC-10 state: outside a run with a session per change a queue entry or a waitsFor gives no held reason` (negative);
+  - `upfront AC-10 state: a held title of a 70-character id is cut to 59 code points`.
+
+  In `roadmap-loop.test.mjs`:
+  - `upfront AC-10 session-next: every held action carries the state changeState derives, and its title and icon come from it` (place, load, after and owner, each `action.state` equal to `changeState` over `runFactsOf` of the records after the decision; the owner one titled `🙋 <stage icon> a`);
+  - `upfront AC-10 status: a held row is placed by the state's reason, in the queue with its words` (place, load, after, in en and pt-BR, each row equal to the state's `reason.text`);
+  - `upfront AC-10 command: the state command, session-next and the board agree on a change held for a place and one held for a dependency` (scratch repository, a run with a session per change and claimed tickets; `change-loop.mjs state`, `roadmap-loop.mjs session-next` and `status`).
+
+  Run them on `b216a46` with
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront AC-10" plugins/openspec/hooks/guard.test.mjs`
+  and save the output to `openspec/changes/roadmap-sessions-upfront/proof/red-5.txt`, listing at its
+  top the tests that pass there (expected: the three negatives, which pin what the base already
+  does, and phase 2's `upfront AC-10 session-next: a held change is titled ...`, not new). Check:
+  every other new test fails there.
+- [x] 5.2 In `plugins/openspec/hooks/change-loop.mjs` (D-11): `runFactsOf` gains `queued`, `placed` and
+  `waitsFor`; `HELD_TEXT` exported beside `STATE_ICON`; `changeState`'s rule S9 and its held title and
+  `stateIcon` (`WAIT_ICON`, its only reader); `PLAN_NOT_HELD`, `partOfStage` and `isPlanStage` moved
+  here unchanged and exported (the copies in `roadmap-loop.mjs` go in 5.3); `stateEntries` passing a
+  `waitsFor` for a roadmap line of a run with a session per change. Check: the eight `change-loop.test.mjs`
+  tests of 5.1 pass, and every `change-state` test passes unchanged.
+- [x] 5.3 In `plugins/openspec/hooks/roadmap-loop.mjs` (D-6, D-11): `sessionDecide`'s `held` action
+  takes `state`, `sessionTitle` and `icon` from `changeState` over `runFactsOf` of the records after
+  the decision, with no `sessionTitle` call and no `WAIT_ICON` of its own; `stateRow` places a held
+  reason in the queue with `s.reason.text`, its reads of `f.queued` and `f.waitsFor` removed;
+  `collectRoadmap` and `sessionFacts` use the imported `isPlanStage` and `partOfStage`, their local
+  copies and `PLAN_NOT_HELD` removed. Change T-15 (invariant: the change session holds each roadmap
+  gate for the coordinating session, under its stage's icon, taking no place; layer: sessionDecide;
+  suite: roadmap-loop) and T-16 (invariant: a change held for a place, the load or a dependency is
+  titled ⏳ and its id, and a claimed one gets its own action back; layer: sessionDecide; suite:
+  roadmap-loop). Check: the three `roadmap-loop.test.mjs` tests of 5.1, T-15 and T-16 pass; `upfront
+  AC-3 status: ...`, every `change-state AC-6` and `change-state AC-7` test and the `upfront AC-8
+  session-next` and `upfront AC-9` tests pass unchanged.
+- [x] 5.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" --test-name-pattern="^conduct" --test-name-pattern="^flow-check" --test-name-pattern="^change-state" --test-name-pattern="^commit-attribution" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-3 (the board's held rows), AC-9 (the queue's reasons) and AC-10.
+
+## 6. The ADRs, the documents, the release and the whole suite (every AC)
+
+- [ ] 6.1 Write the ADR of D-12 at `docs/adr/0018-a-roadmap-run-opens-every-change-at-its-start.md`
+  (take the next free number on `origin/main` if a sibling took 0018, and rename the file and every
+  reference), the header lines and Notes of D-12 in ADRs 0006, 0010, 0011, 0013, 0014 and 0017, the
+  ADRs line of `openspec/config.yaml`, and the renaming to "ADR 0018" of the references D-12 lists
+  that phases 1 to 4 wrote as "ADR 0017" (no behaviour changes). Check: `python3 scripts/check.py`
+  passes (links and language), `grep -n "ADR 0017" plugins/openspec/hooks/roadmap-loop.mjs
+  plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs
+  docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md` prints nothing (the comment in
+  `change-loop.test.mjs` renamed too; that file's change-state test keeps its own ADR 0017), and `change-state ADR 0017: the documents follow` and `followups ADR 0014:
+  the documents follow` pass unchanged.
+- [ ] 6.2 Update the documents of D-14: `docs/openspec-flow.md`, `docs/coordination-design.md`,
   `docs/roles.md` (the "Played today by" lines), `docs/getting-started.md`, `README.md`,
   `plugins/core/README.md`, `plugins/openspec/README.md`. Check: `README and the pack README describe
   how one change runs, with no cron` passes unchanged and `python3 scripts/check.py` passes.
-- [ ] 5.3 Release (D-14): devkit-openspec 0.22.0 and devkit-core 0.10.0 in both `plugin.json` and
-  `.claude-plugin/marketplace.json`, marketplace 0.26.0, the `CHANGELOG.md` entry, the CI pin
-  `v0.22.0` in `docs/openspec-flow.md` and its assertion in `plugins/openspec/hooks/change-loop.test.mjs`;
-  regenerate `docs/catalog.md` with `python3 scripts/gen-catalog.py`. Check:
-  `python3 scripts/gen-catalog.py --check` passes and `claude plugin validate .` reports no error.
-- [ ] 5.4 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers AC-1 to AC-16 as D-15 maps them.
+- [ ] 6.3 Release (D-14): devkit-openspec 0.25.0 and devkit-core 0.12.0 in both `plugin.json` and
+  `.claude-plugin/marketplace.json`, marketplace 0.29.0, the `CHANGELOG.md` entry `## 0.29.0`, the CI
+  pin `v0.25.0` in `docs/openspec-flow.md` and its assertion in
+  `plugins/openspec/hooks/change-loop.test.mjs`; regenerate `docs/catalog.md` with
+  `python3 scripts/gen-catalog.py`. Check: `python3 scripts/gen-catalog.py --check` passes and
+  `claude plugin validate .` reports no error.
+- [ ] 6.4 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers AC-1 to AC-16 as D-15 maps them.
 
 ## Workflow follow-up
 

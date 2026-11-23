@@ -1,8 +1,10 @@
-<!-- devkit-stage design result=passed attempt=2 commit=c56155334749cdc46bad077ba8f53c4bbec5d140 -->
+<!-- devkit-stage design result=passed attempt=3 commit=b216a4692ea9f1764d1e2e614a2905d646643651 -->
 # Design
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
-n/a (sources: `requirements.md`, `proposal.md`, the specs of this change). Base: `c561553`.
+n/a (sources: `requirements.md`, `proposal.md`, the specs of this change). Base: `c561553`; revised
+on 2026-11-23 after main moved (merge `b216a46`: change-state, ADR 0017, commit-attribution), with the
+held state of D-11 and phase 5 of `tasks.md`.
 
 ## Context
 
@@ -30,6 +32,16 @@ See `proposal.md` (Why). The facts this design builds on, read at the base:
   answer the questions yourself").
 - The `devkit` skill's Never list holds "Create a cron or any scheduled wake-up"; ADR 0006
   decision 3 and ADR 0014 decision 2 ("Nothing is scheduled") forbid a schedule.
+- Since the merge `b216a46`, ADR 0017 (change-state) derives every change's state in one place,
+  `change-loop.mjs#changeState(action, facts, { lang, id })`, over the run file's facts of
+  `runFactsOf(run, id, { onRoadmap })`; `nextAction` sets `action.state` and takes `sessionTitle` from
+  `state.title`; `stateEntries` (the `state` command) and `roadmap-loop.mjs#stateRow` (the board) read
+  the same function. ADR 0017 decision 4 titles a stopped change `<state icon> <stage icon> <id>`
+  (🙋 owner, ⏳ GitHub, ⛔ blocked); decision 2 reads a roadmap change with no session, or whose start
+  waits, as `running` with the reason `ready`. Phases 1 to 4 of this change, written before that merge,
+  read the held state a second way: `sessionDecide` titles a held change `sessionTitle(WAIT_ICON, id)`
+  itself, and `stateRow` builds the `queue.held-*` rows from the board's `queued` and `waitsFor`
+  directly. D-11 moves both readings into `changeState`.
 
 ## Goals / Non-Goals
 
@@ -243,30 +255,38 @@ as `change-loop.mjs next` does (same `loopOutput` shape), so the change-run lock
 2. Not a session-mode change (the run file has `changeSessions` false or no claimed ticket for `id`):
    the action, unchanged.
 3. `sessionDecide(facts)` (pure), first match wins:
-   - **owner**: the action's gate is in `ROADMAP_GATES` → `held`, `why: 'owner'`, the stage's own icon,
+   - **owner**: the action's gate is in `ROADMAP_GATES` → `held`, `why: 'owner'`, the stage's own icon
+     (its state `waiting-for-owner`, titled `🙋 <stage icon> <id>` as ADR 0017 decision 4 says),
      reply `session-held-owner` ("{id}: {gate} is asked in the roadmap session; this session goes on
      as soon as it is answered.").
    - **after**: the action's stage is a plan stage (flow `part` `plan`, not `requirements` or
      `approval`) and `waitsFor` (the first `after:` dependency of the change's line in the main
-     checkout's `openspec/roadmap.md` not in `archivedOnDefault`) is set → `held`, `why: 'after'`, ⏳,
-     reply `session-held-after` ("{id} waits for {after} to be archived before its plan.").
+     checkout's `openspec/roadmap.md` not in `archivedOnDefault`) is set → `held`, `why: 'after'`, ⏳
+     (D-11), reply `session-held-after` ("{id} waits for {after} to be archived before its plan.").
    - **merge-base**: the same plan stage, no missing dependency, `proposal.md` absent, and some
      dependency's archive folder (`openspec/changes/archive/*-<dep>`) is not in `HEAD`'s tree →
      `{ kind: 'session', step: 'merge-base', stage, detail: { command: ['node', '<HOOKS_DIR>/roadmap-loop.mjs',
      'merge-base', '--change', id, '--lang', l] }, progressKey: '<stage>/merge-base@<fingerprint>' }`.
    - **place**: the action is an `agent` or `session` action whose stage's flow `part` is `build` or
      `after` (implementation, unit-tests, e2e-tests, evidence, review) and `placed[id]` is absent →
-     `placeDecision` (below). Claimed: the action. Not claimed: `held`, `why: 'place'` or `'load'`, ⏳,
-     reply `session-held-place` ("{id} waits for a place: {places} changes are building.") or
+     `placeDecision` (below). Claimed: the action. Not claimed: `held`, `why: 'place'` or `'load'`, ⏳
+     (D-11), reply `session-held-place` ("{id} waits for a place: {places} changes are building.") or
      `session-held-load` ("{id} waits: the processor is at {load}% (limit {limit}%).").
    - **release**: the action's stage is not in those parts, or the action is the archived end, and
      `placed[id]` is set → the place is released (`placed[id]` and `queued[id]` deleted); the action.
    - otherwise the action.
 
 The `held` action: `{ version, change, script, root, branch, filesLanguage, kind: 'held', held: { why,
-gate?, after? }, stage, stageTitle, icon, sessionTitle, reply, progressKey: 'held/<why>' }`. It is no
+gate?, after? }, stage, stageTitle, icon, sessionTitle, state, reply, progressKey: 'held/<why>' }`. It is no
 end of the change loop: the loop's four ends (ADR 0010 decision 3) are unchanged, and no
-`devkit-end:` line is printed for it.
+`devkit-end:` line is printed for it. Like every action of `next` it carries its state (ADR 0017
+decision 1): `state = changeState(a, runFactsOf(heldRun, id, { onRoadmap: true }), { lang })`, where `a`
+is the change loop's action and `heldRun` is `{ changeSessions: true, startedSessions: { [id]: { at: now } },
+placed, queued, waitsFor: { [id]: waitsFor } }` with `placed` and `queued` as they are after this
+decision (a claimed change session of a run with a session per change). `sessionTitle` is
+`state.title`; `icon` is `state.stateIcon` when the state's reason is a held one (⏳), else
+`state.stageIcon`. `sessionDecide` builds no title and names no icon of its own (D-11). The actions
+that are not `held` keep the `state` and `sessionTitle` `nextAction` gave them.
 
 **`placeDecision({ id, places, placed, queued, load, limit, anyway, now })`** (exported, pure; the one
 place rule, also used by the check, D-9): `free = places - count(placed)`; `ahead` = the queued
@@ -318,7 +338,7 @@ session.
 **The started session's brief.** `sessionBackground` is rewritten: "This session runs the devkit
 change `<id>` for a `/devkit roadmap` run. The owner typed that command in the session `<coordinator>`,
 which started this one: in the desktop app every change of a roadmap run has a session of its own
-(ADR 0014, ADR 0016). Start at once, with no message from the owner: call the Skill tool with
+(ADR 0014, ADR 0018). Start at once, with no message from the owner: call the Skill tool with
 `devkit-openspec:devkit-session`; the devkit skill itself runs only from the owner's typed command.
 Work only in `<root>`, the change's worktree, on branch `<branch>`. The grill, the plan approval and
 the retro answers are asked in the session that started this one. Before your first question to the
@@ -404,7 +424,7 @@ The check writes no `approval.md`, no retro answer, hands no stage and starts no
 kinds are only `triage`, `archive-session`, `push` and `delete-check` (`check: its actions` test).
 
 **Archiving sessions.** The owner agreed on 2026-11-22 (grill question 5) that a roadmap run archives
-the sessions of its archived changes; ADR 0016 records that standing agreement, which is what the
+the sessions of its archived changes; ADR 0018 records that standing agreement, which is what the
 tool's rule (archive only with the owner's explicit agreement) rests on. The app may still ask the
 owner to approve each call, except in auto or bypass permission mode, and it does not archive a
 session that is still working (mid-turn, or with live background work).
@@ -473,17 +493,59 @@ the run's end deletes." No section before `## Roadmap` names `CronCreate`.
   the requirements stage first, and the loop gives the grill (asked in the coordinating session in a
   run with a session per change).
 
-## D-11 The board and the messages (AC-3, AC-10)
+## D-11 The held state, the board and the messages (AC-3, AC-9, AC-10)
 
-`boardOf`, session mode: an `own` entry at a roadmap gate → the owner block with `gate.<gate>`; a
-queued one → the queue with `queue.held-place` ("open, waits for a place"; Portuguese `aberta, espera uma vaga`) or `queue.held-load` ("open, held by the load"; Portuguese `aberta, segurada pela carga`); one whose
-`waitsFor` is set and whose action is a plan stage → `queue.held-after` ("open, waits for {after}"; Portuguese
-`aberta, espera {after}`); else under way as today. `collectRoadmap` adds `waitsFor` for open lines and
-passes `queued`, `placed`.
+**One derivation (ADR 0017 decision 1).** A change session held for a place, the load or its
+dependencies is a state `running` with a reason, derived only by `change-loop.mjs#changeState`; the
+change session's `held` action (D-6), the `state` command (`stateEntries`) and the board (`stateRow`)
+read that state and nothing else for it.
 
-**The ⏳ icon.** `change-loop.mjs` exports `WAIT_ICON = '⏳'` beside `STAGE_ICON`; the `held` action's
-`icon` is `WAIT_ICON` for `place`, `load` and `after`, and `stageIcon(action)` for `owner`.
-`sessionTitle` is unchanged. The stage icons are unchanged.
+- **The facts.** `runFactsOf(run, id, { onRoadmap })` gains three fields: `queued` (`run.queued?.[id]
+  ?? null`), `placed` (`Boolean(run.placed?.[id])`) and `waitsFor` (`run.waitsFor?.[id] ?? null`). `run`
+  is, as before, `readRun`'s result or the board's facts, which carry `queued`, `placed` and the
+  `waitsFor` map of `collectRoadmap`; `stateEntries` and `sessionDecide` add a `waitsFor` map of their
+  own (below).
+- **The reasons.** `change-loop.mjs` exports `HELD_TEXT = { 'held-place': 'queue.held-place',
+  'held-load': 'queue.held-load', 'held-after': 'queue.held-after' }` beside `STATE_ICON`: the held
+  reason codes and the message key of each one's phrase. `changeState` gains one rule after its S1 to
+  S8 chain, S9: when `facts.sessionMode` and the state so far is `running` (with no reason or the
+  reason `ready`), a `facts.queued` entry with `facts.placed` false gives the reason `held-load` when its
+  `why` is `load`, else `held-place`; else a `facts.waitsFor` gives `held-after`. The reason's text is
+  `render(lang, HELD_TEXT[code], { after: facts.waitsFor })`. Every other state (waiting for the owner,
+  on GitHub, blocked, archived) keeps its own reason and title: a held reason only ever replaces
+  `running`. It replaces `ready` too, as the board already placed those rows (a change with no
+  session whose dependency is not archived was a `queue.held-after` row before this revision).
+- **The held icon, decided once.** In `changeState`'s title rule, a `running` state whose reason is
+  in `HELD_TEXT` gets `stateIcon = WAIT_ICON` and `title = sessionTitle(WAIT_ICON, id)`: ⏳ and the
+  id, the stage icon replaced (AC-10); `stageIcon` still names the stage's icon. `WAIT_ICON = '⏳'`
+  stays exported beside `STAGE_ICON`, and `changeState` is its only reader. A wait on GitHub keeps
+  `⏳ <stage icon> <id>` (ADR 0017 decision 4): the two read apart by the stage icon beside it. The
+  owner's gates held for the coordinating session keep ADR 0017's `🙋 <stage icon> <id>`. The stage
+  icons are unchanged.
+- **The `held` action** (D-6) carries `state`, and its `sessionTitle` and `icon` come from it;
+  `sessionDecide` no longer calls `sessionTitle` nor imports `WAIT_ICON`.
+- **The state command.** `stateEntries`, for an id that is a line of the roadmap in a run with
+  `changeSessions`, passes `runFactsOf({ ...run, waitsFor: { [id]: w } }, id, { onRoadmap: true })`,
+  where `w` is the first `after:` dependency of the line not in `archivedOnDefault` when
+  `isPlanStage(start, id, action)` holds, else null. `queued` and `placed` come from the run file. So
+  `state --change <id>`, `session-next`'s `held` action and the board give the same state for a held
+  change (change-state's "The state is the loop's own decision" and "The board and the command
+  agree").
+- **One plan-stage reader.** `PLAN_NOT_HELD`, `partOfStage(found, id, stage)` and `isPlanStage(start,
+  id, action)` move unchanged from `roadmap-loop.mjs` to `change-loop.mjs` (exported; `roadmap-loop.mjs`
+  imports them), so `collectRoadmap`'s `waitsFor`, `sessionFacts` and `stateEntries` read a plan stage
+  the same way (`roadmap-loop.mjs` imports `change-loop.mjs`, never the reverse).
+
+**The board.** `boardOf`, session mode: an `own` entry at a roadmap gate → the owner block with
+`gate.<gate>` (the state's reason, as change-state placed it); a held one → the queue block with the
+state's reason text, which is `queue.held-place` ("open, waits for a place"; Portuguese `aberta,
+espera uma vaga`), `queue.held-load` ("open, held by the load"; Portuguese `aberta, segurada pela
+carga`) or `queue.held-after` ("open, waits for {after}"; Portuguese `aberta, espera {after}`); else under
+way as change-state places it. `stateRow` maps the held reasons through one table entry beside
+`BLOCK_OF_STATE`: a `running` state whose reason code is in `HELD_TEXT` → `['queue', s.reason.text]`;
+its own reads of `f.queued` and `f.waitsFor` go. Every row's words stay the same for the same facts.
+`collectRoadmap` keeps adding `waitsFor` for open lines (through `isPlanStage`) and passing `queued`
+and `placed`.
 
 **New message keys**, in `en` and `pt-BR`, none holding a stage, role or step id, a file name, a
 script name or an option: `roadmap-session-opened`, `session-held-owner`, `session-held-place`,
@@ -493,13 +555,14 @@ were stopped: their changes no longer need them."), `roadmap-check-session-archi
 {id} was archived."), `roadmap-check-archive-later` (D-9), `queue.held-place`, `queue.held-load`, `queue.held-after`. The existing test
 `change-loop messages` family checks both languages hold the same keys.
 
-## D-12 The ADR (proposed as ADR 0016)
+## D-12 The ADR (proposed as ADR 0018)
 
-The ADR takes the next free number on `origin/main` when the change merges main; a sibling may take
-0016 first (ADR number at merge). Written by task 5.1 into
-`docs/adr/0016-a-roadmap-run-opens-every-change-at-its-start.md` (the path follows the number):
+The ADR takes the next free number on `origin/main` when the change merges main; 0016 (stage-roles)
+and 0017 (change-state) are taken, and a sibling may take 0018 first (ADR number at merge). Written by
+task 6.1 into `docs/adr/0018-a-roadmap-run-opens-every-change-at-its-start.md` (the path follows the
+number):
 
-> # ADR 0016: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
+> # ADR 0018: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
 >
 > - Status: proposed
 > - Date: 2026-11-22
@@ -508,7 +571,8 @@ The ADR takes the next free number on `origin/main` when the change merges main;
 >   (0010-openspec-as-the-harness.md), decision 2, where the host can start sessions; ADR 0011
 >   (0011-the-change-coordinator-is-the-owners-session.md), decision 2; ADR 0013
 >   (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 4; ADR 0014
->   (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decisions 1 to 4
+>   (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decisions 1 to 4; ADR 0017
+>   (0017-a-change-state-is-derived-in-one-place.md), decision 4, the title of a held change session
 >
 > ## Context
 >
@@ -523,6 +587,9 @@ The ADR takes the next free number on `origin/main` when the change merges main;
 > every pending change opens at the start; the grills, plan approvals and retro answers are asked in
 > the coordinating session, a triage agent answering what the files settle; places count only the
 > stages that load the machine; and the run keeps temporary schedules that it cleans up at its end.
+> ADR 0017 has since derived each change's state in one place and titled a stopped change session
+> with its state icon beside its stage icon; a change session that waits in itself needs a state and a
+> title of its own.
 >
 > ## Decision
 >
@@ -554,7 +621,11 @@ The ADR takes the next free number on `origin/main` when the change merges main;
 >    that the run archives the sessions of its archived changes: that standing agreement is what each
 >    archive call rests on; the app may still ask per call, and a refused or pending archive is tried
 >    again later. A lone `/devkit change` schedules nothing.
-> 5. A change session's title gains ⏳ while it waits for a place, the load or its dependencies.
+> 5. While a change session waits for a place, the load or its dependencies, its change's state is
+>    `running` with the reason of that wait, derived where ADR 0017 derives every state, and its title
+>    is ⏳ and the change id, the stage icon replaced; once it goes on, the title is its stage's again.
+>    This amends ADR 0017 decision 4 for a held change session only: a wait on GitHub keeps ⏳ beside
+>    the stage icon, and the owner's gates keep 🙋 beside it.
 > 6. The run's bookkeeping also holds the start tickets (`tickets`), the places held (`placed`), the
 >    changes waiting for one (`queued`), the start-anyway of the moment (`anyway`), the wait loops
 >    under way (`waits`), whether the host offers a session cron (`cron`) and the periodic check
@@ -600,38 +671,56 @@ start the app refuses); the check retries no start. ADR 0006 decision 3 and ADR 
 is scheduled") are amended for a roadmap run only; `/devkit change` stays unscheduled. ADR 0014
 rejected "A change session messages the coordinating session"; nothing here sends a message.
 
-**Notes and header lines** (task 5.1; `<file>` is the ADR's file name, and a link quoted in backticks is written in the ADR as a plain Markdown link):
+**Notes and header lines** (task 6.1; `<file>` is the ADR's file name, and a link quoted in backticks is written in the ADR as a plain Markdown link):
 
-- ADR 0006: header `- Amended by ADR 0016 (<file>)`; Note at the top of Context: "Note
+- ADR 0006: header `- Amended by ADR 0018 (<file>)`; Note at the top of Context: "Note
   (roadmap-sessions-upfront, 2026-11-22): a roadmap run keeps one session cron while it lasts and
-  deletes it at its end (`[ADR 0016](<file>)`); decision 3 still holds for one change. Decisions 1, 2
+  deletes it at its end (`[ADR 0018](<file>)`); decision 3 still holds for one change. Decisions 1, 2
   and 4 are unchanged."
 - ADR 0010: header line; Note after the roadmap-coordinator-followups Note: "Note
   (roadmap-sessions-upfront, 2026-11-22): where the host can start sessions, a roadmap run opens every
   pending change at its start, and its number counts only the changes in the implementation, its
-  tests, evidence or review; a plan waits for its dependencies (`[ADR 0016](<file>)`). Decision 2
-  holds unchanged where the host cannot start sessions. Decisions 1 and 3 to 8 are otherwise
-  unchanged."
+  tests, evidence or review; a plan waits for its dependencies (`[ADR 0018](<file>)`). Decision 2
+  holds unchanged where the host cannot start sessions. This change leaves the other decisions as
+  they are."
 - ADR 0011: header line; Note: "Note (roadmap-sessions-upfront, 2026-11-22): a change session a roadmap
   run starts also runs with no typed command, through an entry the guard lets through only with the
-  run's ticket (`[ADR 0016](<file>)`); the run is still detected from its task and the loop's line.
+  run's ticket (`[ADR 0018](<file>)`); the run is still detected from its task and the loop's line.
   The approval of such a change is written by the coordinating session, from the owner's own typed
-  message. Decisions 1 and 3 are otherwise unchanged."
+  message. This change leaves the other decisions as they are."
 - ADR 0013: header line; decision 4's list gains the bullet "the start tickets (`tickets`), the places
   held (`placed`), the changes waiting for one (`queued`), the start-anyway of the moment (`anyway`),
   the wait loops under way (`waits`), whether the host offers a session cron (`cron`) and the periodic
-  check (`check`), as ADR 0016 decides;" before the last bullet; Note: "Note (roadmap-sessions-upfront,
-  2026-11-22): decision 4 names the fields ADR 0016 adds. Decisions 1 to 3 and 5 are otherwise
+  check (`check`), as ADR 0018 decides;" before the last bullet (phases 1 to 4 wrote it citing ADR
+  0017, the number change-state took: task 6.1 corrects it); Note: "Note (roadmap-sessions-upfront,
+  2026-11-22): decision 4 names the fields ADR 0018 adds. Decisions 1 to 3 and 5 are otherwise
   unchanged."
-- ADR 0014: header line; Note: "Note (roadmap-sessions-upfront, 2026-11-22): `[ADR 0016](<file>)` amends
-  decisions 1 to 4. Every pending change opens at the run's start and its session runs with no typed
-  command, on the run's ticket; the grill, the plan approval and the retro answers are asked in the
-  coordinating session; a change session waits for a place in itself, so a freed place needs no start;
-  the title gains ⏳; a roadmap run keeps one periodic check. A start still happens only on a turn the
-  owner typed. Decisions 5 and 6 are otherwise unchanged."
-- `openspec/config.yaml` context, the ADRs list: "0016 a roadmap run opens every change at its start,
-  runs change sessions on the run's ticket and keeps one periodic check, amends 0006, 0010, 0011, 0013
-  and 0014".
+- ADR 0014: header line, after the `- Amended by ADR 0017 (...)` line; Note: "Note
+  (roadmap-sessions-upfront, 2026-11-22): `[ADR 0018](<file>)` amends decisions 1 to 4. Every pending
+  change opens at the run's start and its session runs with no typed command, on the run's ticket; the
+  grill, the plan approval and the retro answers are asked in the coordinating session; a change
+  session waits for a place in itself, so a freed place needs no start; a roadmap run keeps one periodic
+  check. Decision 3, as `[ADR 0017](0017-a-change-state-is-derived-in-one-place.md)` amended it, is
+  amended again: while a change session waits for a place, the load or its dependencies, its title is
+  ⏳ and the id. A start still happens only on a turn the owner typed. Decisions 5 and 6 are otherwise
+  unchanged."
+- ADR 0017: header `- Amended by ADR 0018 (<file>)`; Note at the top of Context: "Note
+  (roadmap-sessions-upfront, 2026-11-23): `[ADR 0018](<file>)` amends decision 4 for a change session
+  of a roadmap run: while it waits for a place, the load or its dependencies, its title is ⏳ and the
+  id, the stage icon replaced, and its state is `running` with the reason of that wait, derived as
+  decision 1 says. A wait on GitHub keeps ⏳ beside the stage icon. Decisions 1 to 3 are unchanged."
+- `openspec/config.yaml` context, the ADRs list: its entries for 0016 and 0017 stay as they are, and
+  after 0017 it gains "0018 a roadmap run opens every change at its start, runs change sessions on the
+  run's ticket and keeps one periodic check, amends 0006, 0010, 0011, 0013, 0014 and 0017".
+- References to this ADR that phases 1 to 4 wrote as "ADR 0017" (the number change-state took), each
+  renamed to "ADR 0018" by task 6.1, with no behaviour change: `docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md`
+  (decision 4's bullet), `plugins/openspec/hooks/roadmap-loop.mjs` (the header comment on `tickets`
+  to `unpushed`, the `sessionBackground` text "(ADR 0014, ADR 0017)", the comment above the archive of
+  a change's session), `plugins/openspec/hooks/change-loop.mjs` (the comment above the run file's new
+  fields), `plugins/openspec/hooks/change-loop.test.mjs` (the comment on the periodic check in the
+  skill test) and `plugins/openspec/hooks/roadmap-loop.test.mjs` (the assertion message "the empty
+  fields of ADR 0017"). Found with `grep -rn "ADR 0017"` over the files this branch changed; the
+  references of change-state's own tests and documents stay.
 
 ## D-13 Existing tests this change touches
 
@@ -639,8 +728,12 @@ Searched in every suite under `plugins/openspec/hooks/` and `plugins/openspec/sk
 the rules this plan replaces: ADR 0014's decisions (`changeSessions`, `own-sessions`, `asks no gate`,
 `ask, null`, the start input, `sessionBackground`, `roadmap-session-started`, `waits-turn`, the load
 hold in session mode), `disable-model-invocation`, `STARTED_BY_SESSION`, the hooks' matchers, and "no
-cron" (`cron`, `CronCreate`, `wake`, `session_crons`). Each test below keeps its invariant; the task
-that changes it names the invariant, the layer and the suite.
+cron" (`cron`, `CronCreate`, `wake`, `session_crons`). Searched again on 2026-11-23, after the merge
+`b216a46`, for the readings phase 5 replaces: `sessionTitle(WAIT_ICON`, `WAIT_ICON`, `queue.held-`,
+`held-place`, `held-load`, `held-after`, the `held` action's shape (`kind: 'held'`, `held.why`, its
+`icon` and `sessionTitle`), `runFactsOf`, `stateRow`, `STATE_ICON` and the titles with ⏳ (rows T-15
+and T-16). Each test below keeps its invariant; the task that changes it names the invariant, the
+layer and the suite.
 
 | Id | Test (file) | Change | Invariant · layer · suite |
 |---|---|---|---|
@@ -654,15 +747,18 @@ that changes it names the invariant, the layer and the suite.
 | T-8 | `change-loop skill: the sections of D-3 to D-9 and the modes of start` (`change-loop.test.mjs`) | `doesNotMatch(md, /conduct-check\|CronCreate\|wake_when_done/)` applies to the text before `## Roadmap`; `## Roadmap` must name `CronCreate` and `wake_when_done` nowhere | the change part names no retired machinery and no schedule · skill text · change-loop |
 | T-9 | `roadmap-loop run: U4 the same session keeps what is under way and changes the number; another session or --fresh starts from empty` (`roadmap-loop.test.mjs`) | another session keeps `tickets`, `placed`, `queued` and `waits` beside `startedSessions` and resets `check`; `--fresh` empties them | a new coordinating session keeps only what outlives the session that started it · run command · roadmap-loop |
 | T-10 | `followups AC-8 next: start anyway starts what is held now ...` (`roadmap-loop.test.mjs`) | asserts that `anyway` stays `[]` on a run without a session per change, instead of banning the field and the word from the run file (D-6 keeps a start-anyway of the moment in `anyway`) | a `--start-anyway` on a run without a session per change keeps no permission in the run file · start anyway · roadmap-loop |
-| T-11 | `followups AC-3 run file: every field the run file holds is named in ADR 0013 decision 4 ...` (`roadmap-loop.test.mjs`) | unchanged; ADR 0013 decision 4's new bullet (D-12) is written in phase 1 instead of task 5.1, so the test stays green from phase 1 on | every field of the run file is named in ADR 0013 decision 4 · run file · roadmap-loop |
+| T-11 | `followups AC-3 run file: every field the run file holds is named in ADR 0013 decision 4 ...` (`roadmap-loop.test.mjs`) | unchanged; ADR 0013 decision 4's new bullet (D-12) is written in phase 1 instead of task 6.1, so the test stays green from phase 1 on | every field of the run file is named in ADR 0013 decision 4 · run file · roadmap-loop |
 | T-12 | `followups AC-13 next: a reported session start is recorded once, said once and never started again, and a change no longer open leaves the record` (`roadmap-loop.test.mjs`) | expects the line `roadmap-session-opened` (D-2) and the `roadmap-gate` line of `a`'s grill (D-3) instead of `roadmap-session-started` with its count | a reported session start is recorded once, said once and never started again · next command · roadmap-loop |
 | T-13 | `followups AC-13 run: a run from another session keeps the started change sessions and gives them no second session, and --fresh forgets them` (`roadmap-loop.test.mjs`) | expects `announced` to be `{ a: 'gate:grill' }`, the run's own announcement of `a`'s grill gate (D-3), instead of `{}` | a new coordinating session keeps only what outlives it and starts the rest empty · run command · roadmap-loop |
 | T-14 | `upfront AC-1 ticket: decide gives each session start a fresh ticket ...` (`roadmap-loop.test.mjs`, written in phase 1) | its third step expects no `session-start` for a claimed ticket and the stored ticket unchanged, since a claimed ticket counts as `own` (D-2) | a claimed ticket is never replaced · next command · roadmap-loop |
+| T-15 | `upfront AC-7 session-next: the grill, the plan approval and the retro answers are held for the coordinating session with their stage icon` (`roadmap-loop.test.mjs`, written in phase 2) | the expected `sessionTitle` is `🙋 <icon> a` instead of `<icon> a` (the state `waiting-for-owner`, ADR 0017 decision 4); `icon` stays the stage's | the change session holds each roadmap gate for the coordinating session, under its stage's icon, taking no place · sessionDecide · roadmap-loop |
+| T-16 | `upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again` (`roadmap-loop.test.mjs`, written in phase 2) | the owner gate's expected title is `🙋 📝 a` instead of `📝 a`, its message "an owner gate keeps its stage icon, beside 🙋"; the place, load and after cases (`⏳`, `⏳ a`) and the claimed case are unchanged | a change held for a place, the load or a dependency is titled ⏳ and its id, and a claimed one gets its own action back · sessionDecide · roadmap-loop |
 
 Added during phase 1 by the coordinator (2026-11-22): T-10 and T-11 were found red by phase 1's gate
 and were missing from this table; both follow from decisions already approved (D-6, D-12 decision 6)
 and change no requirement, criterion or scenario. T-12 to T-14 were added the same way during phase 3
-(2026-11-23); they follow from D-2 and D-3.
+(2026-11-23); they follow from D-2 and D-3. T-15 and T-16 come with the plan revision of 2026-11-23
+(D-11's one derivation, ADR 0017 decision 4).
 
 Read and expected to pass unchanged (each named in the check of the task that rewrites what it
 reads): `change-loop skill: the frontmatter` (the devkit skill keeps `disable-model-invocation:
@@ -675,13 +771,23 @@ true`); `followups F-4 guard: the task of a session started by another session m
 `/devkit change` paragraph stays free of `cron`); the two `conduct:` tests on `wake` in
 `conduct-check.test.mjs`; `change-loop lock agent: the accepted packs are the ones docs/roles.md names`
 (passes once `docs/roles.md` names the new helper, task 4.6); the `waitLoop` tests of
-`change-loop.test.mjs`. Any other test found failing is a defect of this change, not a test to edit.
+`change-loop.test.mjs`. For phase 5 (`b216a46` on): every `change-state` test, among them `change-state
+AC-4 facts: runFactsOf reads each field of the run file`, `change-state AC-6 board: each state's row
+sits in its block`, `change-state AC-6 board parity: every entry kind of entriesOf keeps its block and
+its words`, `change-state AC-6 status and state agree: ...`, `change-state AC-7 start: ...` and
+`change-state ADR 0017: the documents follow` (it still finds the `- Amended by ADR 0017` line within
+ADR 0014's first eight lines, the ADR 0018 line going after it); every `commit-attribution` test;
+`upfront AC-3 status: the board lists every opened change, with held-place, held-load and held-after
+rows`; the `upfront AC-8 session-next`, `upfront AC-9 place` and `upfront AC-9 session-next` tests;
+`upfront AC-7 session-next: the held approval goes on once approval.md is written`; `upfront AC-9
+waitLoop: ...`; `followups ADR 0014: the documents follow`. Any other test found failing is a defect
+of this change, not a test to edit.
 
 ## D-14 Documents and release
 
 - `docs/openspec-flow.md`: the roadmap part (opening at the start, the entry, the gates in the
-  coordinating session, places, ⏳, the plan after dependencies, the push, the periodic check and the
-  cleanup), the locks paragraph (the entry, the change session's stop), the grill (triage), the
+  coordinating session, places, ⏳ and the held state's reasons beside the paragraph "A change's
+  state.", the plan after dependencies, the push, the periodic check and the cleanup), the locks paragraph (the entry, the change session's stop), the grill (triage), the
   delivery rows (`renumber-adr`); the CI pin to the new devkit-openspec tag.
 - `docs/coordination-design.md`: the roadmap coordinator's section and the locks table.
 - `docs/roles.md`: a `requirements-triage` helper section (Does, Delivers, Never, Stages:
@@ -690,10 +796,12 @@ true`); `followups F-4 guard: the task of a session started by another session m
 - `README.md`, `plugins/core/README.md` (the new agent), `plugins/openspec/README.md` (the new skill,
   the `skill` hook mode, the new subcommands), `docs/getting-started.md` where it lists agents.
 - `docs/catalog.md` regenerated (`python3 scripts/gen-catalog.py`).
-- Release: devkit-openspec 0.21.1 → 0.22.0 and devkit-core 0.9.0 → 0.10.0 in each `plugin.json` and
-  in `.claude-plugin/marketplace.json`, marketplace 0.25.1 → 0.26.0, a `CHANGELOG.md` entry `## 0.26.0`,
-  the CI pin `v0.22.0` in `docs/openspec-flow.md` and its assertion in
-  `plugins/openspec/hooks/change-loop.test.mjs`. A sibling merged first moves these numbers; the
+- Release (the next free minors over main at `b216a46`): devkit-openspec 0.24.0 → 0.25.0 and
+  devkit-core 0.11.0 → 0.12.0 in each `plugin.json` and in `.claude-plugin/marketplace.json`,
+  marketplace 0.28.0 → 0.29.0, a `CHANGELOG.md` entry `## 0.29.0`, the CI pin `v0.25.0` in
+  `docs/openspec-flow.md` (the snippet's comment, its sha placeholder and the "Pin the commit sha"
+  paragraph) and its assertion in `plugins/openspec/hooks/change-loop.test.mjs` (`v0.25.0` matched,
+  `v0.24.0` added to the pins that must be gone). A sibling merged first moves these numbers; the
   release step renumbers.
 
 ## D-15 Proof: what this change proves and what the next real run proves
@@ -702,14 +810,14 @@ true`); `followups F-4 guard: the task of a session started by another session m
 |---|---|---|
 | AC-1 | `entryDecision` labels `claimed` and `same-session` on a synthetic started transcript; `withTicket` and the ticket recorded before the start; `session-next` output read as a change run by `runOf`; the devkit-session skill text | a started session calls the entry on its first turn and runs its loop with no typed command; the host's Skill input reaches the hook |
 | AC-2 | `entryDecision` labels `not-entry`, `not-started`, `no-ticket`, `ticket-unknown`, `ticket-claimed`, `unreadable`; the guard's exit 2 through a real `guard.mjs skill` process; the devkit skill's frontmatter | the host refuses a model call of the devkit skill (today's behaviour) |
-| AC-3 | `decideRoadmap` opens every pending line at load 95 with number 1; `run` through `main` creates no hold; the board lists all | ten sessions start in one typed turn |
+| AC-3 | `decideRoadmap` opens every pending line at load 95 with number 1; `run` through `main` creates no hold; the board lists all, its held rows placed by the state's reason (phase 5) | ten sessions start in one typed turn |
 | AC-4 | session-mode queue and `ask` in roadmap order; the skill text naming the change's absolute `requirements.md` | the owner answers every grill in the coordinating session |
 | AC-5 | agent file and `helpers` and `PACKS`; RH6 `grill-helper`; the grill skill's step 2b; `triageUnsourced` | the triage answers the questions the files settle |
 | AC-6 | the agent's tools (no write, no Bash); `approval.md` refused for `devkit-core:requirements-triage` (`guard.test.mjs`); `triageUnsourced` → grill | a question nothing settles reaches the owner |
 | AC-7 | the approval and retro asks in session mode; `session-next` holds `owner` and goes on when `approval.md` is written (scratch repository) | the change session wakes from its wait after the approval |
 | AC-8 | `after` hold; `merge-base` step and subcommand on a scratch repository with an origin, conflict included | a dependent change plans after its dependency's archive |
 | AC-9 | `placeDecision` (free, ahead, load, anyway); claim and release through `session-next`; the stop allowed while held | at most `<n>` changes build at once |
-| AC-10 | the `held` action's icon and title; rename back to the stage icon | the sidebar shows ⏳ |
+| AC-10 | `changeState`'s held reasons and the title `⏳ <id>` they give, a stopped state keeping its own; the `held` action carrying that state, its title from it; the `state` command, `session-next` and the board agreeing on a change held for a place and one held for a dependency (scratch repository); the claimed action's own title back (phase 5, over the phase 2 tests) | the sidebar shows ⏳ and the id, then the stage icon again |
 | AC-11 | `adrClash` on scratch repositories (clash, none, same file, two clashes); a requirements header back to pending gives the grill; the planner rule text; the release step's existing tests | a sibling's ADR number is renumbered without a question |
 | AC-12 | `filesPushed`, the `push` action and subcommand against a scratch origin; a failed push asks no second push in the same decision | the branch is on `origin` after each grill |
 | AC-13 | `schedule-check` while `cron` and no check; `--check-id`, `--check-refused`, `--check-gone` (a new `schedule-check` after an expired job); `delete-check` at every end and at stop; the check prompt reads as no typed command; the cron expression avoids :00 and :30 | the cron exists while the run lasts and is gone after |
@@ -722,7 +830,7 @@ true`); `followups F-4 guard: the task of a session started by another session m
 | Id | Risk | P × I | Mitigation |
 |---|---|---|---|
 | R-1 | The host's Skill tool does not reach a PreToolUse hook, or names the skill in another field | MEDIUM × HIGH | The entry fails closed and the owner types `/devkit change <id>` (today's behaviour); the skill is found in any string field; the first dogfood records the hook log (`DEVKIT_HOOK_LOG`) |
-| R-2 | The host changes the started form, or drops lines below the task | LOW × HIGH | `startedTaskOf` is the one reader; the entry refuses (fallback typed command); review trigger in ADR 0016 |
+| R-2 | The host changes the started form, or drops lines below the task | LOW × HIGH | `startedTaskOf` is the one reader; the entry refuses (fallback typed command); review trigger in ADR 0018 |
 | R-3 | A coordinating `next` reading 20 actions is slow | MEDIUM × MEDIUM | the Stop hook passes `readOwn: false`; measured in the dogfood; the cost is per decision, not per poll |
 | R-4 | A change session hands a load stage while held | LOW × MEDIUM | the skill follows `session-next`; the stop is allowed only while held, so the session ends its turn; no lock (Non-Goals) |
 | R-5 | Two sessions write the same worktree's index (push while the change session hands the implementer) | LOW × LOW | the push commits by path and fails with exit 3 on an index lock; the next decision retries |
@@ -731,15 +839,17 @@ true`); `followups F-4 guard: the task of a session started by another session m
 | R-11 | An archive is refused, waits for the owner's approval, or meets a session still working | MEDIUM × LOW | the change's waits are killed first; `session-archive-later` keeps the entry and says so once; the next firing or the run's end tries again; one left at the end is said and left to the owner |
 | R-8 | A killed wait was not stale | LOW × MEDIUM | only waits of changes no longer open or archived, and older duplicates of the same kind, are stale; the newest wait of an open change is never killed before the end |
 | R-9 | Siblings in flight edit `roadmap-loop.mjs` and `change-loop.mjs` | MEDIUM × MEDIUM | merge main before the last verification and review; conflicts resolved by the implementer |
-| R-10 | Size: about 50 hours across two packs | MEDIUM × MEDIUM | five phases with filtered gates; the full suite once, in phase 5 |
+| R-10 | Size: about 54 hours across two packs | MEDIUM × MEDIUM | six phases with filtered gates; the full suite once, in phase 6 |
+| R-12 | change-state and this change both modify the requirement "A change session shows the stage its change is in" of `roadmap-coordination`; the one archived later overwrites the other's text | MEDIUM × MEDIUM | this change's delta holds change-state's whole text and scenarios plus the held clause, so either order of archive leaves both rules; the archive's `openspec validate --strict` reads the result |
+| R-13 | The held ⏳ and the GitHub ⏳ read alike in the sidebar | LOW × LOW | a held title has no stage icon (`⏳ <id>`), a GitHub wait keeps it (`⏳ 🚀 <id>`); the state command and the board name the reason |
 
 ## Migration Plan
 
 No data migration. `readRun` drops unknown types and fills the new fields empty, so a run file of
-0.21 reads as a run with no tickets, places or check. A run in progress across the update: its
+0.24 reads as a run with no tickets, places or check. A run in progress across the update: its
 change sessions started with the old prompt have no ticket and run as today (typed command); the next
 `/devkit roadmap` in that session gives new sessions tickets. Rollback: revert the release; the new run
-file fields are ignored by 0.21's `readRun`; a leftover session cron dies with its session; delete it
+file fields are ignored by 0.24's `readRun`; a leftover session cron dies with its session; delete it
 with `CronDelete` if the session lives on.
 
 ## Implementation plan
@@ -750,26 +860,27 @@ grill skill, the planner agent. No worker or frontend.
 
 **Order.** Run file fields and the shared readers → the entry → the change session's loop and places
 → the coordinating session (opening, gates, push, board) → triage and drift → the check and cleanup →
-documents and release. Phases in `tasks.md`: 1 entry, 2 change session, 3 coordinating session and
-check, 4 triage and drift, 5 ADRs, documents, release, full suite.
+the held state through `changeState` → documents and release. Phases in `tasks.md`: 1 entry, 2 change
+session, 3 coordinating session and check, 4 triage and drift, 5 the held state through
+`changeState` (after the merge `b216a46`), 6 ADRs, documents, release, full suite.
 
 **Files.**
 
 - Create: `plugins/openspec/skills/devkit-session/SKILL.md`, `plugins/core/agents/requirements-triage.md`,
-  `docs/adr/0016-a-roadmap-run-opens-every-change-at-its-start.md`,
-  `openspec/changes/roadmap-sessions-upfront/proof/red-1.txt` to `red-4.txt`.
+  `docs/adr/0018-a-roadmap-run-opens-every-change-at-its-start.md`,
+  `openspec/changes/roadmap-sessions-upfront/proof/red-1.txt` to `red-5.txt`.
 - Modify: `plugins/openspec/hooks/guard.mjs`, `roadmap-loop.mjs`, `change-loop.mjs`,
   `conduct-check.mjs`, `hooks.json`, `roadmap-loop.test.mjs`, `change-loop.test.mjs`,
   `conduct-check.test.mjs`, `guard.test.mjs`; `plugins/openspec/skills/devkit/SKILL.md`;
   `plugins/openspec/schemas/devkit/{flow.json,schema.yaml}`, `plugins/openspec/schemas/devkit-lite/{flow.json,schema.yaml}`
   and the same four under `openspec/schemas/`; `plugins/core/skills/requirements-grill/SKILL.md`,
-  `plugins/core/agents/change-planner.md`; `openspec/config.yaml`; ADRs 0006, 0010, 0011, 0013, 0014;
+  `plugins/core/agents/change-planner.md`; `openspec/config.yaml`; ADRs 0006, 0010, 0011, 0013, 0014, 0017;
   `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/roles.md`, `docs/getting-started.md`,
   `docs/catalog.md`, `README.md`, `plugins/core/README.md`, `plugins/openspec/README.md`,
   `CHANGELOG.md`, both `plugin.json`, `.claude-plugin/marketplace.json`.
 - Delete: none.
 
-**Estimate.** Optimistic 36 h · likely 50 h · pessimistic 72 h.
+**Estimate.** Optimistic 39 h · likely 54 h · pessimistic 78 h.
 
 | Deliverable | Hours | Type | Risk |
 |---|---|---|---|
@@ -785,8 +896,9 @@ check, 4 triage and drift, 5 ADRs, documents, release, full suite.
 | Periodic check: `schedule-check`, `check`, `staleWaits`, waits recording, cleanup at the end, `archive-session` | 7 | Core | MEDIUM |
 | Triage agent, grill skill, `triageUnsourced`, flow helpers, `PACKS`, RH6 `grill-helper`, rule words | 5 | Core | LOW |
 | `adrClash` and `renumber-adr`, planner reopen rule | 3 | Core | LOW |
-| Tests T-1 to T-9 and the red records | 3 | Testing | LOW |
-| ADR 0016, Notes, documents | 4 | Documentation | LOW |
+| Tests T-1 to T-14 and the red records | 3 | Testing | LOW |
+| The held state through `changeState` (`runFactsOf`, `HELD_TEXT`, S9, the held title, `stateRow`, `stateEntries`, the moved plan-stage reader), its tests and T-15, T-16 | 4 | Core | MEDIUM |
+| ADR 0018, Notes, documents | 4 | Documentation | LOW |
 | Release files, catalog, full suite | 2 | Documentation | LOW |
 
 ## Assumptions
@@ -823,7 +935,9 @@ check, 4 triage and drift, 5 ADRs, documents, release, full suite.
 
 ADR 0006 (decisions 2 and 3), ADR 0010 (decisions 2, 3, 5 and 8), ADR 0011 (decisions 1 and 2, its
 Negative consequences and its rejected fail-closed lock), ADR 0013 (decisions 3 and 4), ADR 0014
-(decisions 1 to 6, its rejected timer retry and message), ADR 0016 (proposed here).
+(decisions 1 to 6, its rejected timer retry and message), ADR 0017 (decisions 1, 2 and 4; decision 4
+amended here for a held change session), ADR 0018 (proposed here). ADR 0016 (stage-roles) amended
+decisions of ADR 0010 and ADR 0011 that this change does not touch.
 
 ## Open Questions
 

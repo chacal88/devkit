@@ -4335,3 +4335,99 @@ test('commit-attribution AC-1 T20 the request, the ship-change skill and the age
     assert.ok(receives.includes(part), `the agent's Receives: ${part}`);
   }
 });
+
+// ---------------------------------------------------------------- roadmap-sessions-upfront, phase 5: the held state through changeState (design D-6, D-11)
+
+const heldFacts = (over = {}) => ({ sessionMode: true, started: true, inflight: null, declared: null, waits: false, queued: null, placed: false, waitsFor: null, ...over });
+const AT_HELD = '2026-11-21T10:00:00.000Z';
+
+test('upfront AC-10 facts: runFactsOf reads the change\'s queue entry, its place and its waitsFor, and no other change\'s', () => {
+  const file = (over = {}) => ({
+    changeSessions: true, startedSessions: {}, inflight: {}, declared: {}, announced: {}, starting: [],
+    queued: { a: { at: AT_HELD, why: 'load' }, b: { at: AT_HELD, why: 'place' } }, placed: { c: { at: AT_HELD } }, waitsFor: { a: 'x', b: 'y' }, ...over,
+  });
+  const a = runFactsOf(file(), 'a', { onRoadmap: true });
+  assert.deepEqual([a.queued, a.placed, a.waitsFor], [{ at: AT_HELD, why: 'load' }, false, 'x']);
+  const c = runFactsOf(file(), 'c', { onRoadmap: true });
+  assert.deepEqual([c.queued, c.placed, c.waitsFor], [null, true, null]);
+  const none = runFactsOf(file(), 'd', { onRoadmap: true });
+  assert.deepEqual([none.queued, none.placed, none.waitsFor], [null, false, null], 'another change\'s entries are not this one\'s');
+  const bare = runFactsOf({ changeSessions: true }, 'a', { onRoadmap: true });
+  assert.deepEqual([bare.queued, bare.placed, bare.waitsFor], [null, false, null], 'a run file with none of the three fields');
+});
+
+test('upfront AC-10 state: a running change queued for a place reads held-place with its board words and the title ⏳ <id>', () => {
+  const action = build(rowOf('implement', { phase: 1 }), {}, {});
+  assert.deepEqual([action.kind, action.stage], ['agent', 'implementation']);
+  for (const lang of ['en', 'pt-BR']) {
+    const s = changeState(action, heldFacts({ queued: { at: AT_HELD, why: 'place' } }), { lang });
+    assert.deepEqual([s.state, s.reason.code, s.reason.text], ['running', 'held-place', MESSAGES[lang]['queue.held-place']], lang);
+    assert.deepEqual([s.stateIcon, s.stageIcon, s.title], ['⏳', '🛠️', '⏳ feat'], lang);
+  }
+  assert.equal(MESSAGES.en['queue.held-place'], 'open, waits for a place');
+  assert.equal(MESSAGES['pt-BR']['queue.held-place'], 'aberta, espera uma vaga');
+  assert.deepEqual(changeLoopModule.HELD_TEXT, { 'held-place': 'queue.held-place', 'held-load': 'queue.held-load', 'held-after': 'queue.held-after' });
+  assert.equal(changeLoopModule.WAIT_ICON, '⏳');
+});
+
+test('upfront AC-10 state: a running change queued by the load reads held-load', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const s = changeState(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'load' } }), { lang });
+    assert.deepEqual([s.state, s.reason.code, s.reason.text, s.title, s.stageIcon], ['running', 'held-load', MESSAGES[lang]['queue.held-load'], '⏳ feat', '📝'], lang);
+  }
+  assert.equal(MESSAGES.en['queue.held-load'], 'open, held by the load');
+});
+
+test('upfront AC-10 state: a plan stage whose dependency is not archived reads held-after naming it', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const s = changeState(planStage(), heldFacts({ waitsFor: 'dep' }), { lang });
+    assert.deepEqual([s.state, s.reason.code, s.reason.text, s.title], ['running', 'held-after', render(lang, 'queue.held-after', { after: 'dep' }), '⏳ feat'], lang);
+  }
+  assert.equal(stateOf(planStage(), heldFacts({ waitsFor: 'dep' })).reason.text, 'open, waits for dep');
+  const ready = stateOf(planStage(), heldFacts({ started: false, waitsFor: 'dep' }));
+  assert.equal(ready.reason.code, 'held-after', 'a held reason replaces ready, as the board placed those rows');
+  const queuedFirst = stateOf(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'place' }, waitsFor: 'dep' }));
+  assert.equal(queuedFirst.reason.code, 'held-place', 'the queue entry is read before the dependency');
+});
+
+test('upfront AC-10 state: a change that holds a place, or has no queue entry and no waitsFor, gets no held reason', () => {
+  const placed = stateOf(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'place' }, placed: true }));
+  assert.deepEqual([placed.state, placed.reason, placed.stateIcon, placed.title], ['running', null, null, '📝 feat'], 'a place held');
+  const plain = stateOf(planStage(), heldFacts());
+  assert.deepEqual([plain.state, plain.reason, plain.title], ['running', null, '📝 feat']);
+  const ready = stateOf(planStage(), heldFacts({ started: false }));
+  assert.equal(ready.reason.code, 'ready', 'no entry: ready stays');
+});
+
+test('upfront AC-10 state: a change waiting for the owner, blocked or waiting on GitHub keeps its state and title over a queue entry or a waitsFor', () => {
+  const held = { queued: { at: AT_HELD, why: 'place' }, waitsFor: 'dep' };
+  const owner = stateOf(approvalEnd(), heldFacts(held));
+  assert.deepEqual([owner.state, owner.reason.code, owner.title], ['waiting-for-owner', 'waiting-approval', '🙋 📝 feat']);
+  const blocked = stateOf(ceilingEnd(), heldFacts(held));
+  assert.deepEqual([blocked.state, blocked.reason.code, blocked.title], ['blocked', 'ceiling', '⛔ 📝 feat']);
+  const github = stateOf(build(rowOf('wait-checks', { pending: ['build'] })), heldFacts(held));
+  assert.deepEqual([github.state, github.title], ['waiting-on-github', '⏳ 🚀 feat'], 'the GitHub wait keeps its stage icon beside ⏳');
+  const grill = stateOf(grillOf(), heldFacts(held));
+  assert.deepEqual([grill.state, grill.title], ['waiting-for-owner', '🙋 ❓ feat']);
+});
+
+test('upfront AC-10 state: outside a run with a session per change a queue entry or a waitsFor gives no held reason', () => {
+  const entries = { queued: { at: AT_HELD, why: 'place' }, waitsFor: 'dep' };
+  const noSessions = stateOf(planStage(), heldFacts({ ...entries, sessionMode: false, started: false }));
+  assert.deepEqual([noSessions.state, noSessions.reason, noSessions.title], ['running', null, '📝 feat']);
+  assert.deepEqual(stateOf(planStage(), null).reason, null, 'no facts at all');
+  const file = { changeSessions: false, startedSessions: {}, inflight: {}, declared: {}, announced: {}, starting: [], ...entries, queued: { feat: entries.queued }, waitsFor: { feat: 'dep' } };
+  const facts = runFactsOf(file, 'feat', { onRoadmap: true });
+  assert.equal(stateOf(planStage(), facts).reason, null, 'a run file without the mode');
+});
+
+test('upfront AC-10 state: a held title of a 70-character id is cut to 59 code points', () => {
+  const ctx = { id: 'x'.repeat(70) };
+  for (const facts of [heldFacts({ queued: { at: AT_HELD, why: 'place' } }), heldFacts({ queued: { at: AT_HELD, why: 'load' } }), heldFacts({ waitsFor: 'dep' })]) {
+    const s = stateOf(planStage({ ctx }), facts);
+    assert.equal(s.reason?.code?.startsWith('held-'), true, 'a held reason');
+    const title = s.title;
+    assert.ok(title.startsWith('⏳ xxx'), title);
+    assert.equal([...title].length, 59);
+  }
+});

@@ -3032,7 +3032,7 @@ test('upfront AC-7 session-next: the grill, the plan approval and the retro answ
     const r = sd(action);
     const h = r.action;
     const icon = GATE_ICON[gate];
-    assert.deepEqual([h.kind, h.held.why, h.held.gate, h.icon, h.sessionTitle, h.progressKey], ['held', 'owner', gate, icon, `${icon} a`, 'held/owner'], gate);
+    assert.deepEqual([h.kind, h.held.why, h.held.gate, h.icon, h.sessionTitle, h.progressKey], ['held', 'owner', gate, icon, `🙋 ${icon} a`, 'held/owner'], gate);
     assert.equal(h.reply, render('en', 'session-held-owner', { id: 'a', gate }), gate);
     assert.deepEqual([h.change, h.script, h.root, h.branch, h.filesLanguage, h.stage, h.stageTitle, h.version], ['a', 'devkit', '/w/a', 'a', 'en', action.stage, action.stageTitle, 1], gate);
     assert.equal(h.end, undefined, 'a held action is no end of the change loop');
@@ -3311,7 +3311,7 @@ test('upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed
     assert.deepEqual([r.action.icon, r.action.sessionTitle], ['⏳', '⏳ a'], name);
   }
   const gate = sd({ ...ownerAct('a'), icon: '📝', sessionTitle: '📝 a' });
-  assert.deepEqual([gate.action.icon, gate.action.sessionTitle], ['📝', '📝 a'], 'an owner gate keeps the stage\'s own icon');
+  assert.deepEqual([gate.action.icon, gate.action.sessionTitle], ['📝', '🙋 📝 a'], 'an owner gate keeps its stage icon, beside 🙋');
   assert.deepEqual(sd(act).action, act, 'claimed: the action with its own icon and title again');
 });
 
@@ -4090,4 +4090,77 @@ test('change-state AC-7 start: a change session starts with its state\'s title',
   }));
   const titles = Object.fromEntries(r.actions.map((x) => [x.change, [x.title, x.input.title]]));
   assert.deepEqual(titles, { a: ['📝 a', '📝 a'], b: ['🙋 ❓ b', '🙋 ❓ b'], c: ['🙋 📝 c', '🙋 📝 c'] });
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 5: the held state through changeState (design D-6, D-11)
+
+// The state changeState derives for change `id` of a run with a session per change started at AT, with the records a decision left.
+const heldStateOf = (action, records, waitsFor = null, lang = 'en') => changeLoopModule.changeState(
+  action,
+  changeLoopModule.runFactsOf({ changeSessions: true, startedSessions: { [action.change]: { at: AT } }, placed: records.placed, queued: records.queued, waitsFor: { [action.change]: waitsFor } }, action.change, { onRoadmap: true }),
+  { lang },
+);
+
+test('upfront AC-10 session-next: every held action carries the state changeState derives, and its title and icon come from it', () => {
+  const cases = [
+    ['place', implAct('a'), { placed: { b: { at: AT } } }, 'held-place', '⏳', '⏳ a'],
+    ['load', implAct('a'), { load: 95 }, 'held-load', '⏳', '⏳ a'],
+    ['after', agentAct('a', 'proposal'), { waitsFor: 'x' }, 'held-after', '⏳', '⏳ a'],
+    ['owner', grillAct('a'), {}, 'grill', '❓', '🙋 ❓ a'],
+  ];
+  for (const [name, action, over, code, icon, title] of cases) {
+    const r = sd(action, over);
+    const h = r.action;
+    assert.equal(h.kind, 'held', name);
+    const expected = heldStateOf(action, r, over.waitsFor ?? null);
+    assert.equal(expected.reason?.code, code, `${name}: the state's reason`);
+    assert.deepEqual(h.state, expected, `${name}: the state is changeState's`);
+    assert.deepEqual([h.sessionTitle, h.icon], [title, icon], name);
+    assert.equal(h.sessionTitle, h.state.title, `${name}: the title is the state's`);
+  }
+  const ownerState = sd(grillAct('a')).action.state;
+  assert.deepEqual([ownerState.state, ownerState.stateIcon, ownerState.stageIcon], ['waiting-for-owner', '🙋', '❓']);
+  assert.equal(sd(ownerAct('a')).action.sessionTitle, '🙋 📝 a');
+  assert.equal(sd(implAct('a')).action.state, undefined, 'a claimed change gets the change loop\'s action back, with no state of ours');
+});
+
+test('upfront AC-10 status: a held row is placed by the state\'s reason, in the queue with its words', () => {
+  const impl = (id) => agentAct(id, 'implementation', { stageTitle: 'Implementation' });
+  for (const lang of ['en', 'pt-BR']) {
+    const facts = sessionWorld({
+      lang, lines: ['[ ] a', '[ ] b', '[ ] c (after: a)', '[ ] d'], places: 1,
+      actions: { a: impl('a'), b: impl('b'), c: agentAct('c'), d: impl('d') },
+      startedSessions: Object.fromEntries(['a', 'b', 'c', 'd'].map((id) => [id, { at: AT }])),
+      placed: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, d: { at: AT2, why: 'load' } }, waitsFor: { c: 'a' },
+    });
+    const rows = boardOf(facts).split('\n');
+    const queueAt = rows.indexOf(render(lang, 'status-queue'));
+    assert.ok(queueAt >= 0, `${lang}: the queue block`);
+    for (const id of ['b', 'c', 'd']) {
+      const s = heldStateOf(facts.actions[id], { placed: facts.placed, queued: facts.queued }, facts.waitsFor[id] ?? null, lang);
+      assert.match(s.reason?.code ?? '', /^held-/, `${lang} ${id}: the state's reason`);
+      const at = rows.indexOf(`  ${id.padEnd(4)}${s.reason.text}`);
+      assert.ok(at > queueAt, `${lang} ${id}: ${s.reason.text}\n${rows.join('\n')}`);
+    }
+  }
+});
+
+test('upfront AC-10 command: the state command, session-next and the board agree on a change held for a place and one held for a dependency', () => {
+  const placeRoot = upChange({ roadmap: ['[ ] a'], run: { placed: { b: { at: AT } } } });
+  approve(placeRoot);
+  const next = jsonOf(doSessionNext(placeRoot).stdout);
+  assert.deepEqual([next.kind, next.held.why, next.sessionTitle], ['held', 'place', '⏳ a']);
+  const stateEntry = JSON.parse(changeLoopModule.main(['state', '--change', 'a', '--lang', 'en'], { cwd: placeRoot, env: cleanEnv, gh: OFFLINE }).stdout).changes[0];
+  assert.deepEqual([stateEntry.state, stateEntry.reason.code, stateEntry.title], ['running', 'held-place', '⏳ a']);
+  for (const key of ['state', 'reason', 'stage', 'stageTitle', 'phase', 'stageIcon', 'stateIcon', 'title']) assert.deepEqual(next.state[key], stateEntry[key], `place: ${key}`);
+  assert.ok(doStatus(placeRoot).stdout.split('\n').includes(`  a   ${stateEntry.reason.text}`), doStatus(placeRoot).stdout);
+
+  const { root, wt } = upBase({ archive: false });
+  const afterNext = sessionNextOf(wt, 'b');
+  assert.deepEqual([afterNext.kind, afterNext.held.why, afterNext.held.after], ['held', 'after', 'a']);
+  const afterEntry = JSON.parse(changeLoopModule.main(['state', '--change', 'b', '--lang', 'en'], { cwd: wt, env: cleanEnv, gh: OFFLINE }).stdout).changes[0];
+  assert.deepEqual([afterEntry.state, afterEntry.reason.code, afterEntry.reason.text, afterEntry.title], ['running', 'held-after', 'open, waits for a', '⏳ b']);
+  for (const key of ['state', 'reason', 'stage', 'stageTitle', 'phase', 'stageIcon', 'stateIcon', 'title']) assert.deepEqual(afterNext.state[key], afterEntry[key], `after: ${key}`);
+  const board = doStatus(root).stdout;
+  assert.ok(board.split('\n').some((r) => r.startsWith('  b') && r.endsWith(afterEntry.reason.text)), board);
 });

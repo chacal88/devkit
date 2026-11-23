@@ -1,10 +1,11 @@
-<!-- devkit-stage proposal result=passed attempt=1 commit=c56155334749cdc46bad077ba8f53c4bbec5d140 -->
+<!-- devkit-stage proposal result=passed attempt=2 commit=b216a4692ea9f1764d1e2e614a2905d646643651 -->
 # Proposal
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
-n/a (sources: `requirements.md`, ADR 0006, ADR 0010, ADR 0011, ADR 0013, ADR 0014, the archived
-change `openspec/changes/archive/2026-11-22-roadmap-coordinator-followups/`). Opened by hand; not a
-line of `openspec/roadmap.md`.
+n/a (sources: `requirements.md`, ADR 0006, ADR 0010, ADR 0011, ADR 0013, ADR 0014, ADR 0017, the
+archived change `openspec/changes/archive/2026-11-22-roadmap-coordinator-followups/`). Opened by hand;
+not a line of `openspec/roadmap.md`. Revised on 2026-11-23 after main brought `change-state` (ADR
+0017) and `commit-attribution`: the ADR number, the release versions and the held state's derivation.
 
 ## Why
 
@@ -21,7 +22,8 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   one-use ticket in its task. A new model-invocable skill, `devkit-session`, runs that change's loop.
   A new hook on the Skill tool lets it run only in a session whose first message is the run's own
   start of that change, carrying the ticket the run recorded and nobody else claimed. The `devkit`
-  skill stays owner-only. Recorded in a new ADR (number 0016 at the time of writing).
+  skill stays owner-only. Recorded in a new ADR (number 0018 at the time of writing: 0016 and 0017
+  went to `stage-roles` and `change-state`).
 - **Every pending change opens at the run's start.** In the desktop app, `/devkit roadmap <n>` opens
   every unticked, unarchived line, each in its worktree and session, on the owner's typed turn.
 - **The owner's gates of a change session move to the coordinating session.** The grill, the plan
@@ -36,7 +38,10 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 - **Places count only the stages that load the machine.** In a run with a session per change, at
   most `<n>` changes are in the implementation, its gates, evidence or review. A change waiting for
   a place, for the load or for its `after:` dependencies shows ⏳ in its session title and waits in
-  its own session.
+  its own session. That wait is the change's state, `running` with the reason of the wait, derived
+  in the one place ADR 0017 derives every state, so the session title, `/devkit status` and the
+  state command say the same; the new ADR amends ADR 0017 decision 4 for that title (⏳ and the id,
+  the stage icon replaced).
 - **A plan waits for its dependencies.** No plan file is written while an `after:` dependency is not
   archived. Then the change merges the default branch and writes its plan against that code.
 - **Drift is resolved without the owner.** An ADR number a sibling merged first is renumbered by a
@@ -89,8 +94,8 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 
 - `roadmap-coordination`: every pending change opens at the start; the grill, approval and retro of
   a change session are asked in the coordinating session; places count the load stages only; the
-  plan waits for its dependencies; ⏳; the grill and plan are pushed; the periodic check and the
-  cleanup.
+  plan waits for its dependencies; ⏳ and the held state, on the title, the board and the state
+  command alike; the grill and plan are pushed; the periodic check and the cleanup.
 - `coordination-locks`: the entry of a started change session (the ticket); the stop of a change
   session waiting for a place; the triage hand-off of the coordinating session; the entry lock
   fails closed.
@@ -101,15 +106,16 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 ## Impact
 
 - Surfaces: `plugins/openspec` (hooks, skills, schemas) and `plugins/core` (one new agent, the
-  `requirements-grill` skill, the `change-planner` agent). Release: devkit-openspec 0.22.0,
-  devkit-core 0.10.0, marketplace 0.26.0, `CHANGELOG.md`, `docs/catalog.md`, the CI pin.
+  `requirements-grill` skill, the `change-planner` agent). Release: devkit-openspec 0.25.0,
+  devkit-core 0.12.0, marketplace 0.29.0, `CHANGELOG.md`, `docs/catalog.md`, the CI pin.
 - `plugins/openspec/hooks/guard.mjs`: the `skill` mode, the started task's shared reader, the
   lock routing of a change session's stop.
 - `plugins/openspec/hooks/roadmap-loop.mjs`: the run file's new fields, the session mode of
   `decideRoadmap` and `boardOf`, the subcommands `session-next`, `session-wait`, `push`,
   `merge-base` and `check`, the entry decision, the session stop decision.
-- `plugins/openspec/hooks/change-loop.mjs`: `waitLoop`'s wait predicate, the ⏳ icon, the triage
-  source check, the `renumber-adr` row, new messages.
+- `plugins/openspec/hooks/change-loop.mjs`: `waitLoop`'s wait predicate, the ⏳ icon, the held
+  reasons of `changeState` and `runFactsOf`'s place fields, the plan-stage reader moved from
+  `roadmap-loop.mjs`, the triage source check, the `renumber-adr` row, new messages.
 - `plugins/openspec/hooks/conduct-check.mjs`: the ADR number override.
 - `plugins/openspec/hooks/hooks.json`: PreToolUse on `Skill`.
 - Skills: `plugins/openspec/skills/devkit-session/SKILL.md` (new), `plugins/openspec/skills/devkit/SKILL.md`,
@@ -117,18 +123,20 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   (new), `plugins/core/agents/change-planner.md`.
 - Schemas (both copies: `plugins/openspec/schemas/` and `openspec/schemas/`): the requirements helper
   and the grill rule; `openspec/config.yaml` (the grill rule and the ADRs line).
-- Docs: the new ADR, Notes and header lines in ADRs 0006, 0010, 0011, 0013 and 0014,
+- Docs: the new ADR, Notes and header lines in ADRs 0006, 0010, 0011, 0013, 0014 and 0017,
   `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/roles.md`, `README.md`,
   `plugins/core/README.md`, `plugins/openspec/README.md`.
 - Tests: `roadmap-loop.test.mjs`, `change-loop.test.mjs`, `conduct-check.test.mjs`, `guard.test.mjs`;
-  nine existing tests change (design D-13).
-- Dependencies: `roadmap-coordinator-followups` (archived). Siblings in flight may take the ADR number
+  sixteen existing tests change (design D-13, T-1 to T-16).
+- Dependencies: `roadmap-coordinator-followups` (archived); `change-state` (merged into this branch
+  at `b216a46`: `changeState`, `runFactsOf`, ADR 0017). Siblings in flight may take the ADR number
   and the release versions first (ADR number at merge; the release step renumbers).
 - Exit criteria: `node --test plugins/openspec/hooks/guard.test.mjs`, `python3 scripts/check.py`,
   `python3 scripts/gen-catalog.py --check`, `claude plugin validate .` and
   `openspec validate roadmap-sessions-upfront --strict` pass.
 - Decisions cited: ADR 0006 (decisions 2 and 3), ADR 0010 (decisions 2, 3, 5 and 8), ADR 0011
   (decisions 1 and 2; its rejected fail-closed lock), ADR 0013 (decisions 3 and 4), ADR 0014
-  (decisions 1 to 4; its rejected timer retry and message tool). Open decisions inherited: the new ADR
+  (decisions 1 to 4; its rejected timer retry and message tool), ADR 0017 (decisions 1, 2 and 4;
+  decision 4 amended for a held change session). Open decisions inherited: the new ADR
   needs the owner's acceptance with the plan; the exact input fields of `CronCreate`, `CronDelete`
   and `mcp__ccd_session_mgmt__archive_session` are assumed (design, Assumptions).
