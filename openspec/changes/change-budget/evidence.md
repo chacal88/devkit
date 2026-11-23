@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=f5075ff1730773b0e3402fdb2c392c3a15594afc -->
-Commit: f5075ff1730773b0e3402fdb2c392c3a15594afc
+<!-- devkit-stage evidence result=passed attempt=3 commit=0907857f2281a87d1c3ef6b0ac523fa41d0069de -->
+Commit: 0907857f2281a87d1c3ef6b0ac523fa41d0069de
 
 # Evidence
 
-Change: `change-budget`. Verified at the commit above (a merge of origin/main into the branch), with a clean tree. Surface touched: hook scripts, docs and release metadata
+Change: `change-budget`. Verified at the commit above (the second merge of origin/main into the branch; release is devkit-openspec 0.24.0, marketplace 0.28.0), with a clean tree. Surface touched: hook scripts, docs and release metadata
 (no API, UI or deploy), so the proof is the gate commands and the tests, run with `TMPDIR=/var/tmp`.
 
 ## Verification
@@ -12,11 +12,11 @@ Change: `change-budget`. Verified at the commit above (a merge of origin/main in
 
 | Gate | Command | Result |
 |---|---|---|
-| 1.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop lock" plugins/openspec/hooks/change-loop.test.mjs` | pass: re-run by the verifier at this commit, 91 tests, 91 pass, 0 fail |
+| 1.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop lock" plugins/openspec/hooks/change-loop.test.mjs` | pass: re-run by the verifier at this commit, 91 tests, 91 pass, 0 fail, exit 0 |
 | 1.5 | `python3 scripts/check.py` | pass: re-run by the verifier at this commit, "all checks passed" |
-| 2.7 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop" --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/guard.test.mjs` | pass: not re-run by the verifier; its tests are inside the full suite of gate 3.2, which the coordinator ran at this commit (all pass) |
+| 2.7 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-budget" --test-name-pattern="^change-loop" --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/guard.test.mjs` | pass: the verifier ran the same patterns on change-loop.test.mjs and roadmap-loop.test.mjs at this commit, 553 tests, 553 pass, 0 fail; the guard.test.mjs entry also ran inside the full suite of gate 3.2 by the coordinator |
 | 2.7 | `python3 scripts/check.py` | pass: re-run by the verifier at this commit, "all checks passed" |
-| 3.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: not re-run by the verifier (13 to 21 minutes); the coordinator ran it at this commit with TMPDIR=/var/tmp, 1573 tests, 1573 pass, 0 fail |
+| 3.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: not re-run by the verifier (13 to 21 minutes); the coordinator ran it at this commit with TMPDIR=/var/tmp, 1609 tests, 1609 pass, 0 fail |
 | 3.2 | `python3 scripts/check.py` | pass: re-run by the verifier at this commit, "all checks passed" |
 | 3.2 | `python3 scripts/gen-catalog.py --check` | pass: re-run by the verifier at this commit, exit 0 |
 | 3.2 | `command claude plugin validate .` | pass: re-run by the verifier at this commit, "Validation passed" |
