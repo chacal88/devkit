@@ -1,12 +1,29 @@
 # Changelog
 
-## 0.31.1 — change-state retro fixes
+## 0.32.1 — change-state retro fixes
 
-- **devkit-openspec** 0.27.1: the `change-state ADR 0017: the documents follow` test finds
+- **devkit-openspec** 0.28.1: the `change-state ADR 0017: the documents follow` test finds
   `approval.md` in the archived change folder once the change is archived, so the archive pull
   request stays green. The repository check `scripts/check.py` now refuses an un-awaited
   `t.test(` subtest in a hook test file, and CONTRIBUTING says to await every subtest. The CI
-  snippet now pins `v0.27.1`, the release's tag.
+  snippet now pins `v0.28.1`, the release's tag.
+
+## 0.32.0 — delivery models per project
+
+- **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
+  `openspec/config.yaml`: `two-prs`, `trunk` or `trunk-auto` ([ADR 0018](docs/adr/0018-the-delivery-model-is-chosen-per-project.md)).
+  In `two-prs` both pull requests open together from the task branch and the owner merges both; the
+  test branch never enters the task branch (a hook refuses the command, and `devkit-reviews` fails a
+  pull request to the base branch that holds a test-branch commit or whose test-branch pull request is
+  not merged); a conflict is solved on the support branch `<id>-<test branch>`, reviewed on its own
+  before it is pushed; the change is archived through two archive pull requests. A project on `two-prs`
+  adds `pull-requests: read` and `GH_TOKEN` to its `devkit-reviews` workflow (the template has both).
+  The CI snippet now pins `v0.28.0`, the release's tag.
+- **devkit-core** 0.13.0: `review-change` reviews a support branch's resolution on its own, the
+  `code-quality-reviewer` and `test-coverage-reviewer` read it, and `commit-and-pr` gains the two-PR
+  call and the test-branch archive call.
+- Docs: ADR 0018, with Notes in ADRs 0002, 0003, 0010 and 0012; the coordination design records the
+  conflict answer and the built lock; `docs/openspec-flow.md` gains "Delivery models".
 
 ## 0.31.0 — gh version check
 
