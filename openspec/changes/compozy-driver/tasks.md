@@ -287,7 +287,7 @@ task with `git status --short`.
   the folder as a CompozyOS workspace. Check: `compozy loop list --workspace <that folder>` lists
   `devkit-change`, `devkit-review` and `devkit-roadmap`, and `compozy agent list --workspace <that
   folder>` lists `change-coordinator` and `change-planner`.
-- [ ] 5.2 Owner-run task: the AC-1 to AC-5 run of D-18, with the owner answering every request in
+- [x] 5.2 Owner-run task: the AC-1 to AC-5 run of D-18, with the owner answering every request in
   CompozyOS; write `openspec/changes/compozy-driver/proof/local-run.md` (the start reply, the closed
   session, each request and answer, `approval.md`, the `accept-decisions` step run by `run_step`
   when the proof change lists a record, the per-generation table of `read` and
@@ -296,7 +296,7 @@ task with `git status --short`.
 - [x] 5.3 Owner-run task: the AC-9 roadmap check of D-18; write
   `openspec/changes/compozy-driver/proof/roadmap.md`. Check: it shows two change runs started for
   `/devkit roadmap 2` and the held line under `load_limit` 1.
-- [ ] 5.4 Owner-run task: the AC-11 checks of D-18 (no `compozy` on `PATH`, the daemon stopped by the
+- [x] 5.4 Owner-run task: the AC-11 checks of D-18 (no `compozy` on `PATH`, the daemon stopped by the
   owner and started again, `/devkit project billing`); write
   `openspec/changes/compozy-driver/proof/not-running.md`. Check: three replies, each with
   `git status` unchanged.
@@ -306,10 +306,10 @@ task with `git status --short`.
   `kit-manifest.json`), hand-edit one shell, run the installer over it and write its output to
   `openspec/changes/compozy-driver/proof/reinstall.md`. Check: four `remove` lines, one kept and
   named, the new files created.
-- [ ] 5.6 Owner-run task: clean up: cancel the proof's runs, remove the `devkit-proof` workspace from
+- [x] 5.6 Owner-run task: clean up: cancel the proof's runs, remove the `devkit-proof` workspace from
   CompozyOS, remove the temporary marketplace and the scratch folders. Check: `compozy workspace
   list` and the bundled Claude Code's marketplace list no longer name `devkit-proof`.
-- [ ] 5.7 Gate: `test -s openspec/changes/compozy-driver/proof/local-run.md && test -s openspec/changes/compozy-driver/proof/roadmap.md && test -s openspec/changes/compozy-driver/proof/not-running.md && test -s openspec/changes/compozy-driver/proof/reinstall.md` green; covers AC-1 to AC-5, AC-8, AC-9 and AC-11 live, with the limits of the proof map.
+- [x] 5.7 Gate: `test -s openspec/changes/compozy-driver/proof/local-run.md && test -s openspec/changes/compozy-driver/proof/roadmap.md && test -s openspec/changes/compozy-driver/proof/not-running.md && test -s openspec/changes/compozy-driver/proof/reinstall.md` green; covers AC-1 to AC-5, AC-8, AC-9 and AC-11 live, with the limits of the proof map.
 
 ## 6. The ADR, the documents, the release and the whole suite (AC-6, AC-10, AC-12)
 
