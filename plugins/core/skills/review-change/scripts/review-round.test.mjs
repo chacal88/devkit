@@ -241,6 +241,25 @@ test('review round: writerPrompt names the verdict the round computed on line 1'
   assert.match(line1(writerPrompt(args, clean)), /^line 1: exactly Verdict: approved\b/);
 });
 
+test('delivery-models P15 review round: the writer is told reviews/resolution/<reviewer>.md with a verdictDir, and reviews/<reviewer>.md without one', () => {
+  const outcomeFor = (args) => outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })]), SHA), {});
+  const resolution = baseArgs({ verdictDir: 'reviews/resolution' });
+  const named = writerPrompt(resolution, outcomeFor(resolution));
+  assert.ok(named.includes('openspec/changes/demo/reviews/resolution/code-quality-reviewer.md'), named);
+  assert.ok(!named.includes('openspec/changes/demo/reviews/code-quality-reviewer.md'), 'the plain path is not named');
+  const plain = baseArgs();
+  const unnamed = writerPrompt(plain, outcomeFor(plain));
+  assert.ok(unnamed.includes('openspec/changes/demo/reviews/code-quality-reviewer.md'), unnamed);
+  assert.ok(!unnamed.includes('reviews/resolution/'), 'neg: no resolution path without verdictDir');
+});
+
+test('delivery-models P15 review round: verdictDir must be a string when it is given', () => {
+  assert.equal(validateArgs(baseArgs({ verdictDir: 'reviews/resolution' })).verdictDir, 'reviews/resolution');
+  assert.equal(validateArgs(baseArgs()).verdictDir, undefined, 'optional');
+  assert.throws(() => validateArgs(baseArgs({ verdictDir: 5 })), /review input invalid: args\.verdictDir must be a non-empty string/);
+  assert.throws(() => validateArgs(baseArgs({ verdictDir: '' })), /review input invalid: args\.verdictDir must be a non-empty string/);
+});
+
 test('review round: consolidate writes the table, the counts, the consensus line and the path', () => {
   const args = baseArgs({ round: 2, path: 'agents', bench: bench('code-quality-reviewer', 'test-coverage-reviewer') });
   const a = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding()]), SHA), { F1: [refute('e1'), refute('e2'), keep()] });

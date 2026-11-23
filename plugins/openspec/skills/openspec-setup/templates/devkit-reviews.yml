@@ -3,6 +3,7 @@ on:
   pull_request:
 permissions:
   contents: read
+  pull-requests: read
 jobs:
   devkit-reviews:
     runs-on: ubuntu-latest
@@ -21,3 +22,5 @@ jobs:
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
+        env:
+          GH_TOKEN: ${{ github.token }}
