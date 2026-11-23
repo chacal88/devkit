@@ -1,6 +1,8 @@
 <!-- devkit-stage design result=passed attempt=2 commit=2300f84524e5c1ec5ed8a0da41e5a5dccff9cc34 -->
 # Design
 
+> Note (project-phases-followups, 2026-11-22): the slice ADR this plan calls ADR 0014 shipped as ADR 0015 (`docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md`), because another change took the number 0014 first (`docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`). The approved text below is unchanged.
+
 Change: `project-phases` · Date: 2026-11-21 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (design sources: `requirements.md`, `docs/coordination-design.md` sections 1, 7, 8, 11 and 13,
 `docs/adr/0010-openspec-as-the-harness.md`, `docs/adr/0012-the-reviews-check-follows-the-change-script.md`).

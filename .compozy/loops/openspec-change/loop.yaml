@@ -207,7 +207,9 @@ graph:
 
           Using the screen-design skill, work in a worktree on branch
           `{{ .inputs.change_id }}` (create it with the Compozy worktree tools when it does not
-          exist). Read the project's configured screen map and mockup
+          exist). First have `devkit-core:screen-designer` draw each declared screen under
+          openspec/changes/{{ .inputs.change_id }}/mock/ and write `mockup.md` (the screen-mockup
+          skill), then the screen-map rows as below. Read the project's configured screen map and mockup
           (openspec/config.yaml's `design:` block). For every declared screen, either confirm it
           is already mapped with a versioned mockup, or propose the row (id, screen, what it
           shows and allows, the stage, the level of detail in the mockup) and a mockup version.
@@ -316,7 +318,8 @@ graph:
           {{ end }}
 
           Read {{ .nodes.propose.output.change_dir }} (requirements and its open questions,
-          proposal, tasks, and design and readiness on the devkit schema) before deciding. Reject ends this run without code; fix the plan (and the design, when one
+          proposal, tasks, and design, decisions and readiness on the devkit schema) before deciding.
+          Approve the plan together with the ADRs `decisions.md` lists. Reject ends this run without code; fix the plan (and the design, when one
           ran) with the tech lead and start a new run, which refines the existing change files.
         decisions: [approve, reject]
         responders:
@@ -338,7 +341,11 @@ graph:
           at commit {{ .nodes.implement.output.head }} in
           {{ .nodes.implement.output.worktree_path }} against
           {{ .nodes.propose.output.change_dir }} (proposal, design, tasks, spec deltas) following
-          your procedure: the devkit review bench writes reviews/<reviewer>.md and the
+          your procedure: when the project declares `devkit.tests.unit`, have
+          `devkit-core:test-runner` write unit-tests.md, and when it declares `devkit.tests.e2e`,
+          have `devkit-core:e2e-tester` write the E2E tests and e2e-tests.md, before the verifier
+          and the bench; a red run is the blocking issue `unit_tests_red` or `e2e_tests_red`. The
+          devkit review bench writes reviews/<reviewer>.md and the
           pr-verifier writes evidence.md for that exact commit; commit those files on the branch.
           Tasks the operator deferred by a dated decision recorded in tasks.md are not findings.
           Blocking issues: a task from tasks.md not implemented, a spec delta not honoured, a

@@ -82,7 +82,7 @@ export function parseRunInput(text) {
 const GATE_OF_WHY = {
   'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
   'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
-  'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand',
+  'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup',
 };
 
 // The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
