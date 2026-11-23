@@ -39,7 +39,7 @@ artifacts:
     description: Screens drawn with real example data, when the change alters a screen
     template: mockup.md
     instruction: |
-      Role: screen-designer. Skills: screen-mockup, screen-design.
+      Role: screen-designer. Skills: screen-mockup.
 
       The file's first line is the stage header of the template:
       `<!-- devkit-stage mockup result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
@@ -50,11 +50,11 @@ artifacts:
       Draw the screens this change alters, with real example data, and save them under the
       change's `mock/` folder, one file per screen. Write mockup.md listing each screen, the file that
       holds it and the data it shows. What the mock reveals goes back into requirements.md.
-      When the change alters no screen, write the header with `result=not-applicable` and one line
-      saying why.
 
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
+      This stage applies only when the grill's classification lists `ui`, and not once
+      `proposal.md` exists. Write the header with `result=pending`: only the owner's approval, recorded
+      by the session, sets it to `passed`. On an attempt after the owner asked for changes, redraw from
+      the owner's notes in `mockup.md`, keep them, and raise the attempt. Keep no image file.
 
       Gate: the owner approves the mock; what it reveals goes back into the requirements.
     requires:
@@ -77,8 +77,9 @@ artifacts:
       each proposed ADR in the project's ADR folder and list them in decisions.md. When it does not,
       write the header with `result=not-applicable` and one line saying so.
 
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
+      This stage does not apply once `proposal.md` exists. List each record as one line of the form
+      `- ADR: <path from the repository root, in backticks> — <title>`; write each record with its
+      status line saying `proposed`. The owner's plan approval accepts them.
 
       Gate: the role first analyses whether an ADR is needed; if not, it leaves one line saying so.
     requires:
@@ -426,6 +427,8 @@ artifacts:
       then hand this stage to the reviewer again. Editing a planning artifact after
       APPROVED makes the approval stale: hand it to the reviewer again.
 
+      The plan under review includes `mockup.md` and the records `decisions.md` lists.
+
       Gate: the verdict is approved; a rejection returns to the plan, three times at most.
     requires:
       - tasks
@@ -444,7 +447,8 @@ artifacts:
       rewrite, and `commit` to `git rev-parse HEAD`.
 
       Only the owner approves. Show the owner the plan (the proposal's What Changes, the design
-      decisions, the tasks' phases) and ask for approval. Only when the owner's own message approves,
+      decisions, the tasks' phases, and the records `decisions.md` lists, which the approval accepts)
+      and ask for approval. Only when the owner's own message approves,
       write approval.md in exactly this form, with the stage header first and `<hash>` the hash of
       readiness.md that `deliver-check` prints as `next.readiness`:
       `# Plan approval: <id>`, then the lines `- Status: APPROVED`, `- Readiness: <hash>`,
@@ -469,12 +473,11 @@ artifacts:
       saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
       rewrite, and `commit` to `git rev-parse HEAD`.
 
-      Run the project's whole test suite with its own command, apart from the implementer, and
-      record in unit-tests.md the command, its result and the coverage against the project's target.
+      This stage applies only when `devkit.tests.unit` is declared in `openspec/config.yaml`, and not once
+      `evidence.md` exists. Run `devkit.tests.unit` and, when declared, `devkit.tests.coverage.command`; compare the coverage with
+      `devkit.tests.coverage.target` when declared. Record in unit-tests.md each command, its exit code and
+      its summary, and the coverage against the target, apart from the implementer.
       Fix nothing: a red suite is recorded with `result=failed` and goes back to the implementation.
-
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
 
       Gate: the whole suite is green and its coverage is within the project's target.
     requires:
@@ -493,13 +496,10 @@ artifacts:
       saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
       rewrite, and `commit` to `git rev-parse HEAD`.
 
-      Where the project has E2E tests configured, write E2E tests from the acceptance criteria,
-      apart from the implementer, run them and record in e2e-tests.md what they cover and their result.
-      When the project has no E2E structure, write the header with `result=not-applicable` and one line
-      saying why.
-
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
+      This stage applies only when `devkit.tests.e2e` is declared, and not once `evidence.md` exists.
+      Write the tests from the acceptance criteria without reading the test files
+      the change's diff adds or modifies; write only test files. Run `devkit.tests.e2e`, apart from the
+      implementer, and record in e2e-tests.md what the tests cover and their result.
 
       Gate: the E2E tests are green; it is a delivery condition.
     requires:
@@ -524,6 +524,9 @@ artifacts:
       table with one row per gate command and a table with one row of proof per acceptance criterion id.
       `result=passed` when it verified, `result=failed` when it records a defect; a defect goes back to
       the implementation.
+
+      Record the demonstration as text: per acceptance criterion what was done, what was observed and whether it
+      passed; no screenshot, no image, no pull-request comment.
 
       Gate: every acceptance criterion is demonstrated and recorded.
     requires:

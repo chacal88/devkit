@@ -1,16 +1,47 @@
 # Changelog
 
-## 0.25.2 — a review fixed in the plan files
+## 0.26.1 — a review fixed in the plan files
 
-- **devkit-openspec** 0.21.2: a rejected verdict goes stale after any later commit outside the
+- **devkit-openspec** 0.22.1: a rejected verdict goes stale after any later commit outside the
   change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
   included, so a fix made in the plan files gets the next review round with no hand from the owner;
   a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
-  The CI snippet now pins `v0.21.2`, the release's tag.
-- **devkit-core** 0.9.1: the `review-change` skill's stale definition names the rule for a rejected
+  The CI snippet now pins `v0.22.1`, the release's tag.
+- **devkit-core** 0.10.1: the `review-change` skill's stale definition names the rule for a rejected
   verdict.
 - Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
   document.
+
+## 0.26.0 — the stage roles
+
+- **devkit-core** 0.10.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and
+  `e2e-tester`, with the skills `screen-mockup`, `adr-authoring` and `e2e-testing`. `pr-verifier`
+  records the demonstration as text in `evidence.md`, with no image and no pull-request comment.
+- **devkit-openspec** 0.22.0: the `devkit` script's mock-up, decisions, unit-tests and E2E stages
+  run. The mock-up applies only when the grill flags `ui` and waits for the owner's answer; the
+  decisions stage always runs; the unit and E2E stages run when the project declares
+  `devkit.tests.unit` or `devkit.tests.e2e` (and `devkit.tests.coverage.command` and
+  `devkit.tests.coverage.target`). A stage that does not apply, or that the change had already
+  passed, leaves no file, and the readout says why. `change-loop.mjs` hands the new stages to their
+  roles, adds `fix-tests` and the `accept-decisions` step (the loop's new subcommand, run once the
+  plan approval is recorded). The edit lock lets `adr-author` write decision records and
+  `e2e-tester` write test files. `devkit-lite` no longer lists the mock-up and decisions stages.
+  The CI snippet now pins `v0.22.0`, the release's tag.
+- **devkit-compozy** 0.3.0: the four role shells name the new agents, and the loop's design, review
+  and implement prompts name the mock-up, the test agents and the decision records.
+- Docs: ADR 0016 (stage roles write their own files, amends 0010 and 0011), `docs/roles.md`, the
+  flow and design pages, the roadmap (round 16b `coordinator-loop-fixes` carries the retros' items).
+
+## 0.25.2 — follow-ups of the project phases
+
+- **devkit-openspec** 0.21.2: the slice contract refuses an ADR verdict recorded with uncommitted
+  changes, from `devkit-reviews` and the `gh pr create` hook, and `/devkit project` neither records
+  it nor moves on: it hands the review back to the ADR reviewer. New tests pin the contract's
+  fail-closed branches and a merge that brings an ADR. The CI snippet now pins `v0.21.2`, the
+  release's tag.
+- Docs: the slice contract says what a current ADR verdict is; the archived `project-phases` plan
+  and the pack README name ADR 0015 for the slice decision; the roadmap gives the dogfood of the
+  first real slice a line of its own (`project-slice-dogfood`).
 
 ## 0.25.1 — retro of review-writer-prompt
 

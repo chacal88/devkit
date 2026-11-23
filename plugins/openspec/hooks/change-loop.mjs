@@ -10,8 +10,10 @@
 // `reply <key> --lang <l> [--param name=value]...` (renders one message of the table),
 // `start --lang <l>` (the request on standard input: what `/devkit` does with it, D-3), `open <id> --script <s>
 // --why <code> --lang <l>` (creates the worktree, the change and its requirements file, D-4), `script <id> <s>
-// --why <code> --lang <l>` (the correction of the script, D-4) and `wait --change <id> --lang <l> [--interval <s>]`
-// (waits on GitHub with no limit, D-7). Only `open` and `script` write; `start` and `next` do not. `next` and `wait` print
+// --why <code> --lang <l>` (the correction of the script, D-4), `wait --change <id> --lang <l> [--interval <s>]`
+// (waits on GitHub with no limit, D-7) and `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
+// lists to accepted, after the owner's current approval; stage-roles D-4). Only `open`, `script` and `accept-decisions` write;
+// `start` and `next` do not. `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
@@ -22,12 +24,12 @@
 // No dependencies.
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow } from './flow-check.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, readValue, isDecisionRecord } from './guard.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 
@@ -47,19 +49,9 @@ export class LoopRefusal extends LoopUsageError {
 export const DRIVERS = ['claude', 'compozy', 'script'];
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
-// The value of a `key: value` line: quoted or not, with an optional trailing `# comment`.
-function plainValue(raw) {
-  const text = raw.replace(/\r$/, '').trim();
-  const quote = text[0];
-  if (quote === '"' || quote === "'") {
-    const end = text.indexOf(quote, 1);
-    return end === -1 ? text.slice(1) : text.slice(1, end);
-  }
-  return text.replace(/(^|\s)#.*$/, '').trim();
-}
-
 // { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml.
-// No block, no file or a missing key gives the defaults (`claude`, `en`); other keys of the block are ignored.
+// No block, no file or a missing key gives the defaults (`claude`, `en`); other keys of the block are ignored, except the
+// tests' coverage target, whose bad value is listed in `unknown` after the two above (flow-check's `readTestSettings`).
 export function readDevkitSettings(root) {
   let text = '';
   try { text = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'); } catch (e) {
@@ -80,6 +72,7 @@ export function readDevkitSettings(root) {
   const unknown = [];
   if (!DRIVERS.includes(driver)) unknown.push({ setting: 'driver', value: driver, accepted: DRIVERS.join(', ') });
   if (!LANGUAGE_TAG.test(language)) unknown.push({ setting: 'language', value: language, accepted: 'a language tag such as en or pt-BR' });
+  unknown.push(...readTestSettings(root).unknown);
   return { driver, language, unknown };
 }
 
@@ -112,6 +105,7 @@ export const MESSAGES = {
     'script-locked': 'The plan of {id} is already written, so its script stays as it is.',
     'waiting-approval': 'The plan of {id} is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.',
     'waiting-approval-again': 'The plan of {id} changed after your approval, so it needs your approval again.',
+    'waiting-mockup': 'The mock-up of {id} is drawn. Look at it and tell me whether you approve it or what to change; I go on as soon as you answer.',
     'waiting-retro': 'The retro of {id} has proposals for you: approve or reject each one, and I archive the change.',
     'waiting-merge': 'Pull request #{number} of {id} is ready: in this project, merging it is up to you.',
     'waiting-archive-merge': 'The archive pull request #{number} of {id} is ready: in this project, merging it is up to you.',
@@ -151,6 +145,7 @@ export const MESSAGES = {
     'need.blocked': '{id}, a fix: {why}',
     'need.after': '{id}, {after} archived first',
     'gate.grill': 'your answers about its request',
+    'gate.mockup': 'your approval of the mock-up',
     'gate.approval': 'your approval of the plan',
     'gate.retro': 'your answers to its retro',
     'gate.merge': 'your merge of its pull request',
@@ -206,6 +201,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'the next step is one this version does not know',
     'blocked-why.unreadable': 'the change cannot be read ({error})',
     'blocked-why.cannot-open': 'it could not be opened ({error})',
+    'blocked-why.cannot-accept': 'the decision records could not be marked accepted ({error})',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
@@ -221,6 +217,7 @@ export const MESSAGES = {
     'driver.script': 'a command-line script',
     'setting.driver': 'driver',
     'setting.language': 'language of the files',
+    'setting.coverage-target': 'coverage target',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
     'project-resumed': 'Continuing the slice {id}: {where}.',
     'project-choose': '{n} slices are unfinished: {list}. Which one should I continue?',
@@ -264,6 +261,7 @@ export const MESSAGES = {
     'why.no-verdict': 'the verdict file holds no verdict',
     'why.no-commit': 'the verdict does not say which commit it judged',
     'why.other-commit': 'the verdict is for another commit than the current one',
+    'why.uncommitted': 'the verdict was written with changes that were not committed',
     'blocked-why.checks-failing': 'checks failing on the pull request: {list}',
     'blocked-why.merge-setup-missing': 'the repository is not prepared for automatic merging yet ({list}), which /openspec-setup does',
     'blocked-why.branch-conflict': 'pull request #{number} conflicts with {base}: resolve the conflict on the slice\'s branch, then call /devkit project {id} again',
@@ -288,6 +286,7 @@ export const MESSAGES = {
     'script-locked': 'O plano de {id} já foi escrito, então o roteiro fica como está.',
     'waiting-approval': 'O plano de {id} está escrito e revisado. Leia e me diga se aprova; eu sigo assim que você responder.',
     'waiting-approval-again': 'O plano de {id} mudou depois da sua aprovação, então precisa ser aprovado de novo.',
+    'waiting-mockup': 'O mock-up de {id} está desenhado. Veja e me diga se aprova ou o que mudar; eu sigo assim que você responder.',
     'waiting-retro': 'A retro de {id} tem propostas para você: aprove ou recuse cada uma, e eu arquivo a change.',
     'waiting-merge': 'O pull request #{number} de {id} está pronto: neste projeto, o merge é com você.',
     'waiting-archive-merge': 'O pull request de arquivo #{number} de {id} está pronto: neste projeto, o merge é com você.',
@@ -327,6 +326,7 @@ export const MESSAGES = {
     'need.blocked': '{id}, uma correção: {why}',
     'need.after': '{id}, que {after} seja arquivada antes',
     'gate.grill': 'as suas respostas sobre o pedido',
+    'gate.mockup': 'a sua aprovação do mock-up',
     'gate.approval': 'a sua aprovação do plano',
     'gate.retro': 'as suas respostas à retro',
     'gate.merge': 'o seu merge do pull request',
@@ -382,6 +382,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
     'blocked-why.cannot-open': 'não foi possível abrir ({error})',
+    'blocked-why.cannot-accept': 'não foi possível marcar os registros de decisão como aceitos ({error})',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
@@ -397,6 +398,7 @@ export const MESSAGES = {
     'driver.script': 'um script de linha de comando',
     'setting.driver': 'driver',
     'setting.language': 'idioma dos arquivos',
+    'setting.coverage-target': 'meta de cobertura',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
     'project-resumed': 'Continuando a fatia {id}: {where}.',
     'project-choose': '{n} fatias estão por terminar: {list}. Qual delas eu continuo?',
@@ -440,6 +442,7 @@ export const MESSAGES = {
     'why.no-verdict': 'o arquivo do veredito não traz um veredito',
     'why.no-commit': 'o veredito não diz qual commit ele julgou',
     'why.other-commit': 'o veredito é de outro commit que não o atual',
+    'why.uncommitted': 'o veredito foi escrito com alterações que não estavam commitadas',
     'blocked-why.checks-failing': 'checks falhando no pull request: {list}',
     'blocked-why.merge-setup-missing': 'o repositório ainda não está preparado para o merge automático ({list}), que /openspec-setup prepara',
     'blocked-why.branch-conflict': 'o pull request #{number} tem conflito com {base}: resolva o conflito no branch da fatia e chame /devkit project {id} de novo',
@@ -510,8 +513,13 @@ const AGENT = {
   'tdd-implementer': 'devkit-core:tdd-implementer',
   'pr-verifier': 'devkit-core:pr-verifier',
   'commit-and-pr': 'devkit-core:commit-and-pr',
+  'screen-designer': 'devkit-core:screen-designer',
+  'adr-author': 'devkit-core:adr-author',
+  'test-runner': 'devkit-core:test-runner',
+  'e2e-tester': 'devkit-core:e2e-tester',
 };
 const BUILD_PARTS = ['build', 'after', 'delivery', 'close'];
+const TEST_STAGES = ['unit-tests', 'e2e-tests'];
 const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix'];
 const NOT_DELIVERED = ['no-file', 'not-judged', 'no-header', 'bad-header', 'header-other-stage'];
 const SWITCH_FLAGS = ['architecture', 'contract', 'ui'];
@@ -594,7 +602,8 @@ export function exitCodeOf(action) {
 }
 
 // facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
-// approval (deliver-check's approvalState), hasProposal, flags (the grill's classification), archiving, row
+// approval (deliver-check's approvalState), tests (flow-check's readTestSettings), decisions (`decisionRecords`'s result),
+// hasProposal, flags (the grill's classification), archiving, row
 // (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
@@ -647,6 +656,13 @@ export function decide(facts) {
   const endState = report.end?.state;
   if (endState === 'archived' && !facts.archiving) return finish('archived', 'archived', 'archived', {}, null);
 
+  // The owner's plan approval accepts the records `decisions.md` lists: the session runs the command that marks them.
+  const open = facts.decisions;
+  if (facts.approval?.ok && !facts.archiving && (open?.proposed?.length || open?.unreadable?.length)) {
+    const command = ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'accept-decisions', ctx.id, '--lang', lang];
+    return sessionAction('approval', 'accept-decisions', { command, records: [...open.proposed, ...open.unreadable.map((u) => u.path)] });
+  }
+
   if (!inDelivery(report, flow, facts.archiving)) return planPart();
   return buildPart();
 
@@ -666,23 +682,54 @@ export function decide(facts) {
         const command = ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'script', ctx.id, 'devkit', '--why', flags[0], '--lang', lang];
         return sessionAction('proposal', 'switch-script', { command }, { reply: say('script-switched', { script: 'devkit', why: flags[0] }) });
       }
+      if (n.reasonCode === 'owner-changes') {
+        const attempt = n.params.attempt;
+        return agent(n.stage, s.role, null, `the owner asked for changes at attempt ${attempt}: redraw from the owner's notes in ${s.file} as attempt ${attempt + 1}`);
+      }
       if (n.reasonCode === 'fix-after-failure') {
         const { failed, attempt, ceiling } = n.params;
         return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} of ${ceiling}: revise the plan from its findings`);
       }
       if (PLAN_REASONS.includes(n.reasonCode) && s && AGENT[s.role]) {
-        const what = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode) ? `${n.stage} is out of date: bring it up to date`
+        const stale = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode);
+        const what = stale ? `${n.stage} is out of date: bring it up to date`
           : s.role === 'plan-readiness-reviewer' ? 'review the plan'
-            : `write the plan files the script still lacks, from ${n.stage} on, each from \`openspec instructions <artifact> --change ${ctx.id}\``;
+            : s.role === 'change-planner' ? `write the plan files the script still lacks, from ${n.stage} on, each from \`openspec instructions <artifact> --change ${ctx.id}\``
+              : `write ${s.file} from \`openspec instructions ${n.stage} --change ${ctx.id}\``;
         return agent(n.stage, s.role, null, what);
       }
       return blocked('unknown-step', {}, n.stage);
     }
     if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
     if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
+    if (e.state === 'waiting-for-owner' && e.stage === 'mockup' && e.reasonCode === 'owner-pending') {
+      return waiting('waiting-for-owner', 'waiting-mockup', 'mockup', {}, { file: `openspec/changes/${ctx.id}/mockup.md`, folder: `openspec/changes/${ctx.id}/mock/` });
+    }
     if (e.state === 'waiting-for-owner' && e.reasonCode === 'unshipped-role-pending') return waiting('waiting-for-owner', 'waiting-unrun-stage', e.stage, { stage: titleOf(e.stage) });
     if (e.state === 'blocked') return blockedEnd(e);
     return blocked('unknown-step', {}, e.stage);
+  }
+
+  // The unit tests and the E2E tests, which the delivery checker does not know, come from the stage checker alone: the stage
+  // goes to its role whatever step the delivery row would give, and a red one sends the implementer back with `fix-tests`.
+  function testStageStep() {
+    const n = report.next;
+    if (!n) return null;
+    const tests = facts.tests ?? {};
+    if (TEST_STAGES.includes(n.stage)) {
+      const detail = n.stage === 'unit-tests'
+        ? { unit: tests.unit ?? null, coverage: { command: tests.coverage?.command ?? null, target: tests.coverage?.target ?? null } }
+        : { e2e: tests.e2e ?? null };
+      const again = ['stale-code', 'rerun-after-fix'].includes(n.reasonCode);
+      const what = again ? 'the work changed since the last run: run it again' : `run the ${n.stage} stage from \`openspec instructions ${n.stage} --change ${ctx.id}\``;
+      return agent(n.stage, stageById(n.stage).role, n.stage, what, detail);
+    }
+    if (n.stage === 'implementation' && n.reasonCode === 'fix-after-failure' && TEST_STAGES.includes(n.params?.failed)) {
+      const { failed, attempt, ceiling } = n.params;
+      const file = stageById(failed)?.file ?? null;
+      return agent('implementation', 'tdd-implementer', 'fix-tests', `${failed} failed at attempt ${attempt} of ${ceiling}: fix the code from ${file}, test first, within the approved tasks`, { failed, file });
+    }
+    return null;
   }
 
   // P9 and B0: a blocked end of the stage checker, in plain words.
@@ -695,6 +742,8 @@ export function decide(facts) {
   // -------- from the implementation to the archive: B0 to B17
   function buildPart() {
     if (endState === 'blocked') return blockedEnd(report.end);
+    const testStage = testStageStep();
+    if (testStage) return testStage;
     const row = facts.row;
     if (!row) return blocked('unknown-step', {}, currentId);
     if (row.error !== undefined) return blocked('unreadable', { error: row.error }, currentId);
@@ -759,14 +808,6 @@ export function locate(start, id) {
   return { root, branch: tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) };
 }
 
-// The flags of the grill's `Classification: ... flags=[..]` line in requirements.md.
-function classificationFlags(dir) {
-  const file = join(dir, 'requirements.md');
-  if (!existsSync(file)) return [];
-  const m = /^.*Classification:.*flags=\[([^\]]*)\]/m.exec(readFileSync(file, 'utf8'));
-  return m ? m[1].split(',').map((f) => f.trim().toLowerCase()).filter(Boolean) : [];
-}
-
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
 export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh } = {}) {
@@ -800,6 +841,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     after,
     fingerprint: facts.fingerprint ?? fingerprint(found.root, facts.head ?? null),
     approval: approvalState(dir),
+    tests: readTestSettings(found.root),
+    decisions: decisionRecords(found.root, dir),
     hasProposal: existsSync(join(dir, 'proposal.md')),
     flags: classificationFlags(dir),
     archiving,
@@ -809,6 +852,89 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   action.icon = stageIcon(action);
   if (action.icon) action.sessionTitle = sessionTitle(action.icon, id);
   return action;
+}
+
+// ---------------------------------------------------------------- the decision records (design stage-roles D-4)
+
+const STATUS_LINE = /^(\s*[-*]?\s*\**Status\**\s*:\s*\**\s*)(\S+)(.*)$/im;
+const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
+
+// One record `decisions.md` lists, read from `root`: { path, ok: true, rel, text, status, match } or { path, ok: false, why }.
+function readRecord(root, path) {
+  const bad = (why) => ({ path, ok: false, why });
+  if (isAbsolute(path)) return bad('the path is absolute');
+  const abs = resolve(root, path);
+  const rel = relative(root, abs);
+  const outside = (r) => r === '..' || r.startsWith('..' + sep) || isAbsolute(r);
+  if (outside(rel)) return bad('the file is outside the repository');
+  let text;
+  try {
+    // A symlink inside the repository may point out of it: the real path is the one that must stay inside.
+    if (outside(relative(realpathSync(root), realpathSync(abs)))) return bad('the file is outside the repository');
+    if (!statSync(abs).isFile()) return bad('it is not a file');
+    text = readFileSync(abs, 'utf8');
+  } catch { return bad('the file does not exist'); }
+  if (!isDecisionRecord(rel)) return bad('it is not a Markdown file in a folder named adr, adrs or decisions');
+  const match = STATUS_LINE.exec(text);
+  if (!match) return bad('it has no status line');
+  const status = match[2].toLowerCase();
+  if (status !== 'proposed' && status !== 'accepted') return bad(`its status is ${match[2]}, not proposed or accepted`);
+  return { path, ok: true, rel, text, status, match };
+}
+
+// The records the change's `decisions.md` lists (`- ADR: \`<path>\``): { listed, proposed, unreadable: [{ path, why }] }.
+export function decisionRecords(root, dir) {
+  const file = join(dir, 'decisions.md');
+  const out = { listed: [], proposed: [], unreadable: [] };
+  if (!existsSync(file)) return out;
+  const paths = [...new Set([...readFileSync(file, 'utf8').matchAll(ADR_LINES)].map((m) => m[1].trim()))];
+  for (const path of paths) {
+    out.listed.push(path);
+    const record = readRecord(root, path);
+    if (!record.ok) out.unreadable.push({ path, why: record.why });
+    else if (record.status === 'proposed') out.proposed.push(path);
+  }
+  return out;
+}
+
+// The status value in the letter case it had: PROPOSED to ACCEPTED, Proposed to Accepted, proposed to accepted.
+const acceptedLike = (value) => (value === value.toUpperCase() ? 'ACCEPTED' : value[0] === value[0].toUpperCase() ? 'Accepted' : 'accepted');
+
+// `accept-decisions <id>`: sets every proposed record `decisions.md` lists to accepted, after the owner's current approval. Every
+// check runs before the first write; a refusal (exit 3) changes no file.
+export function acceptDecisions(cwd, id, { lang = 'pt-BR' } = {}) {
+  const l = normalizeLang(lang);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const root = locate(start, id).root;
+  const located = locateChange(root, id);
+  if (!located) throw new LoopUsageError(`unknown change ${id}`);
+  const refuse = (error) => new LoopRefusal(error, render(l, 'blocked', { id, why: 'cannot-accept', error }));
+  const approval = approvalState(located.dir);
+  if (!approval.ok) throw refuse(approval.status === 'APPROVED' && approval.recorded ? 'approval.md is for an earlier readiness.md' : 'the plan has no current recorded approval (approval.md)');
+  const approvalFile = join(located.dir, 'approval.md');
+  const date = readValue(approvalFile, 'Date');
+  if (!date) throw refuse('approval.md has no Date line');
+  const { listed } = decisionRecords(root, located.dir);
+  const records = listed.map((path) => readRecord(root, path));
+  const unusable = records.find((r) => !r.ok);
+  if (unusable) throw refuse(`${unusable.path}: ${unusable.why}`);
+  const by = `Accepted by: the owner, on ${date}, in the approval of the plan of change ${id} (${relative(root, approvalFile).split('\\').join('/')})`;
+  const writes = [];
+  for (const r of records.filter((x) => x.status === 'proposed')) {
+    const { match, text } = r;
+    const cut = match[1].lastIndexOf('\n') + 1; // the pattern's leading `\s*` may span blank lines: the prefix is the status line's own
+    const prefix = match[1].slice(cut);
+    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${prefix}${by}${text.slice(match.index + match[0].length)}`;
+    writes.push([join(root, r.rel), next]);
+  }
+  for (const [file, body] of writes) writeFileSync(file, body);
+  return {
+    version: 1, change: id,
+    accepted: records.filter((r) => r.status === 'proposed').map((r) => r.path),
+    already: records.filter((r) => r.status === 'accepted').map((r) => r.path),
+  };
 }
 
 // ---------------------------------------------------------------- checkouts and unfinished work (D-3, D-6)
@@ -1244,7 +1370,7 @@ export function stopDecision(input, { env = process.env, events } = {}) {
 
 // The stage file a role writes, and what flow-check says of the change, for the subagent lock.
 const roleOf = (agentType) => String(agentType || '').split(':').pop();
-const UNDELIVERED = ['no-header', 'bad-header', 'header-other-stage', 'not-judged'];
+const UNDELIVERED = ['no-header', 'bad-header', 'header-other-stage', 'not-judged', 'owner-changes'];
 
 // `guard.mjs subagent-stop` (U1 to U7): a stage agent does not stop before its stage file is delivered.
 export function subagentStopDecision(input, { env = process.env, events } = {}) {
@@ -1294,7 +1420,7 @@ export function scriptAgents(flow) {
 export const PACKS = {
   ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
     'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
-    'spec-reviewer', 'finding-verifier'].map((r) => [r, 'devkit-core'])),
+    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'].map((r) => [r, 'devkit-core'])),
   'openspec-validator': 'devkit-openspec',
 };
 
@@ -1335,7 +1461,7 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
-  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
+  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
 
 function parseArgs(argv, { values = [], multi = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -1401,6 +1527,12 @@ function runScript(args, { cwd }) {
   return { code, stdout: json(body), stderr: '' };
 }
 
+function runAccept(args, { cwd }) {
+  const opts = parseArgs(args, { values: ['--lang'] });
+  if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+  return { code: 0, stdout: json(acceptDecisions(cwd, opts.positional[0], { lang: opts.lang })), stderr: '' };
+}
+
 const MIN_INTERVAL = 5;
 const DEFAULT_INTERVAL = 60;
 const realSleep = (seconds) => new Promise((resolve) => { setTimeout(resolve, seconds * 1000); });
@@ -1434,6 +1566,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec });
     if (sub === 'script') return runScript(rest, { cwd });
+    if (sub === 'accept-decisions') return runAccept(rest, { cwd });
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);
