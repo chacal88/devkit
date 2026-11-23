@@ -8,14 +8,14 @@ import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'n
 import { join, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
-import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mergeSetup, readRepoSettings, makeGh, ghError, ghVersion, GH_MIN_VERSION, GH_TIMEOUT_MS, DEVKIT_REVIEWS_CHECK } from './merge-setup.mjs';
 
 // The shared gh runner (merge-setup.mjs), kept importable from here.
 export { makeGh };
 // The `Commit:` line reader moved to guard.mjs, which the slice contract reads it from; still importable from here.
 export { parseCommitLine };
-import { archiveBranchChange, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, changeDeclares, REQUIRED_REVIEWERS } from './guard.mjs';
+import { archiveBranchChange, mainCheckout, parseDevkitBlock, deliverySettings, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, changeDeclares, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -134,6 +134,31 @@ export function shipConfig(root, schema) {
   return { ship: map[schema] ?? 'plan', mergeMethod: parseMergeMethod(text) };
 }
 
+// { model, ship, mergeMethod, base, testBranch } for a schema: the delivery model of `devkit.delivery` next to the `ship:`
+// map (delivery-models D-1). `ship` is what every existing branch reads (`two-prs` is `pr`, so auto-merge is never enabled).
+// A `ship:` entry that disagrees with the model, and any problem of the delivery settings, is a ShipConfigError.
+const MODEL_SHIP = { trunk: 'pr', 'trunk-auto': 'merge', 'two-prs': 'pr' };
+
+export function deliveryConfig(root, schema) {
+  const file = join(root, CONFIG);
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const map = parseShip(text);
+  const mergeMethod = parseMergeMethod(text);
+  const { model, base, testBranch, problems } = deliverySettings(parseDevkitBlock(text));
+  if (problems[0]) {
+    const p = problems[0];
+    throw new ShipConfigError(p.kind === 'missing'
+      ? `devkit.delivery: two-prs needs the ${p.setting.replace('delivery-', '').replace('-', '_')}`
+      : `devkit.delivery: unknown ${p.setting.replace('delivery-', '').replace('-', '_')} "${p.value}"`);
+  }
+  if (!model) return { model: null, ship: map[schema] ?? 'plan', mergeMethod, base: null, testBranch: null };
+  const ship = MODEL_SHIP[model];
+  const entry = map[schema];
+  const agrees = entry === undefined || (model !== 'two-prs' && entry === ship);
+  if (!agrees) throw new ShipConfigError(`ship.${schema}: "${entry}" disagrees with devkit.delivery.model ${model}; remove the ship entry or set it to ${model === 'two-prs' ? 'nothing' : ship}`);
+  return { model, ship, mergeMethod, base, testBranch };
+}
+
 // ---------------------------------------------------------------- git facts and staleness
 
 function git(root, args) {
@@ -142,6 +167,42 @@ function git(root, args) {
 
 function gitOk(root, args) {
   try { git(root, args); return true; } catch { return false; }
+}
+
+// ---------------------------------------------------------------- worktrees (moved from conduct-check.mjs, delivery-models D-11)
+
+// The branch a worktree stopped in the middle of a rebase is rebasing ('' when it is not).
+function rebaseBranch(path) {
+  try {
+    const gitDir = git(path, ['rev-parse', '--absolute-git-dir']).trim();
+    for (const d of ['rebase-merge', 'rebase-apply']) {
+      const f = join(gitDir, d, 'head-name');
+      if (existsSync(f)) return readFileSync(f, 'utf8').trim().replace(/^refs\/heads\//, '');
+    }
+  } catch { /* not a worktree */ }
+  return '';
+}
+
+// git worktree list --porcelain, minus prunable and bare entries: [{ path, branch, rebasing }].
+// A worktree stopped in the middle of a rebase is detached; its rebase says which branch it is.
+export function listWorktrees(root) {
+  let out;
+  try { out = git(root, ['worktree', 'list', '--porcelain']); } catch { return []; }
+  const entries = [];
+  for (const block of out.split(/\n\s*\n/)) {
+    const e = { path: '', branch: '', prunable: false, bare: false, rebasing: false };
+    for (const line of block.split('\n')) {
+      if (line.startsWith('worktree ')) e.path = line.slice('worktree '.length);
+      else if (line.startsWith('branch refs/heads/')) e.branch = line.slice('branch refs/heads/'.length);
+      else if (line === 'bare') e.bare = true;
+      else if (line.startsWith('prunable')) e.prunable = true;
+    }
+    if (!e.path || e.bare || e.prunable) continue;
+    const rebasing = rebaseBranch(e.path);
+    if (rebasing) { e.rebasing = true; if (!e.branch) e.branch = rebasing; }
+    entries.push({ path: e.path, branch: e.branch, rebasing: e.rebasing });
+  }
+  return entries;
 }
 
 const isOpenspec = (p) => p.startsWith('openspec/');
@@ -156,6 +217,23 @@ export function isTestFile(path) {
 }
 // The reviewers whose verdict a commit of test files only (and openspec/) leaves current.
 export const TEST_SPARED_REVIEWERS = ['spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer'];
+
+// A verdict that passes the reviews item: approved, or declined (no surface).
+const approved = (verdict) => verdict === 'APPROVED' || verdict === 'DECLINED';
+
+// The change's own review record (review-openspec-fix D-1): its reviews/ folder, review.md and evidence.md.
+function reviewRecord(id) {
+  const dir = `openspec/changes/${id}/`;
+  return (p) => p.startsWith(`${dir}reviews/`) || p === `${dir}review.md` || p === `${dir}evidence.md`;
+}
+
+// Which later commits leave reviewer `name`'s verdict current (review-openspec-fix D-1): for an approved or
+// declined verdict, commits of openspec/ (and of test files, for the test-spared reviewers), as before;
+// for any other verdict, a missing one included, commits of the change's own review record only.
+function verdictAllowed(id, name, verdict) {
+  if (!approved(verdict)) return reviewRecord(id);
+  return TEST_SPARED_REVIEWERS.includes(name) ? (p) => isOpenspec(p) || isTestFile(p) : isOpenspec;
+}
 
 // Paths the working tree changes outside openspec/ (and outside .claude/ for
 // untracked files). Rename sources count as changed paths.
@@ -241,27 +319,31 @@ export const schemaOf = (root, located) => changeSchemaAt(root, located.dir);
 
 const item = (id, name, status, reason, details = {}) => ({ id, name, status, reason, details });
 
-// Every reviews/*.md: { name, verdict, why } where why is null when its
-// Commit: is current and the reason otherwise.
-export function readReviews(root, id, facts = gitFacts(root)) {
-  const dir = join(changeDir(root, id), 'reviews');
+// The *.md verdict files of a folder, by name: [{ name, verdict, commit }], `commit` the parsed Commit: line or null.
+export function verdictFiles(dir) {
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
   return files.map((f) => {
     const file = join(dir, f);
-    const name = basename(f, '.md');
-    return {
-      name,
-      verdict: readValue(file, 'Verdict'),
-      why: staleness(root, parseCommitLine(readFileSync(file, 'utf8')), facts, TEST_SPARED_REVIEWERS.includes(name) ? { allowed: (p) => isOpenspec(p) || isTestFile(p) } : {}),
-    };
+    return { name: basename(f, '.md'), verdict: readValue(file, 'Verdict'), commit: parseCommitLine(readFileSync(file, 'utf8')) };
   });
+}
+
+// Every reviews/*.md: { name, verdict, why } where why is null when its
+// Commit: is current and the reason otherwise. Which later commits leave it
+// current is the rule verdictAllowed picks from its name and verdict.
+export function readReviews(root, id, facts = gitFacts(root)) {
+  return verdictFiles(join(changeDir(root, id), 'reviews')).map(({ name, verdict, commit }) => ({
+    name,
+    verdict,
+    why: staleness(root, commit, facts, { allowed: verdictAllowed(id, name, verdict) }),
+  }));
 }
 
 // Item 2: every review approved (or declined) at the head.
 export function reviewsItem(root, id, facts = gitFacts(root)) {
   const found = readReviews(root, id, facts);
   const missing = REQUIRED_REVIEWERS.filter((r) => !found.some((x) => x.name === r));
-  const rejected = found.filter((x) => x.verdict !== 'APPROVED' && x.verdict !== 'DECLINED').map((x) => x.name);
+  const rejected = found.filter((x) => !approved(x.verdict)).map((x) => x.name);
   const stale = found.filter((x) => x.why);
   const reasons = [
     missing.length ? `missing ${missing.join(', ')}` : '',
@@ -377,9 +459,9 @@ function tableRows(text) {
     .map((l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim()));
 }
 
-// Item 3: every [blocking] / [important] finding has a disposition.
-export function findingsItem(root, id, facts = gitFacts(root)) {
-  const dir = join(changeDir(root, id), 'reviews');
+// The [blocking] / [important] findings of the *.md files of a folder, by disposition: { fixed, refuted, undisposed }.
+// A "fixed in <sha>" counts only when the sha is in the history of `head`.
+export function findingsIn(root, dir, head) {
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
   const undisposed = [];
   let fixed = 0;
@@ -389,12 +471,18 @@ export function findingsItem(root, id, facts = gitFacts(root)) {
     for (const line of readFileSync(join(dir, f), 'utf8').split(/\r?\n/)) {
       if (!/^\s*(?:[-*+]|\d+[.)])\s+\**\[(?:blocking|important)\]/i.test(line)) continue;
       const fix = line.match(/·\s*fixed in\s+([0-9a-f]{7,40})\b/i);
-      if (fix && inHistory(root, fix[1], facts.head)) { fixed++; continue; }
+      if (fix && inHistory(root, fix[1], head)) { fixed++; continue; }
       if (!fix && /·\s*refuted:\s*\S/.test(line)) { refuted++; continue; }
       undisposed.push({ reviewer, excerpt: line.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, '').slice(0, 100) });
     }
   }
-  const details = { fixed, refuted, undisposed };
+  return { fixed, refuted, undisposed };
+}
+
+// Item 3: every [blocking] / [important] finding has a disposition.
+export function findingsItem(root, id, facts = gitFacts(root)) {
+  const details = findingsIn(root, join(changeDir(root, id), 'reviews'), facts.head);
+  const { fixed, refuted, undisposed } = details;
   if (undisposed.length) {
     return item(3, 'findings', 'open', `undisposed: ${undisposed.map((u) => `${u.reviewer}: ${u.excerpt}`).join('; ')}`, details);
   }
@@ -473,20 +561,28 @@ function parsePr(r) {
 // the branch no longer finds it (it was merged and the branch deleted), by head
 // branch among open, merged and closed PRs (design D6, readiness carry-over).
 // `list: true` allows that fallback in pr mode too (archive-after-merge D4).
-export function fetchPr(gh, { merge = false, number = null, branch = '', list: lookup = merge } = {}) {
+export function fetchPr(gh, { merge = false, number = null, branch = '', list: lookup = merge, base = null } = {}) {
   const fields = merge ? MERGE_FIELDS : PR_FIELDS;
+  // Two pull requests share the head in `two-prs`, and `gh pr view` picks one: with a base the pull requests of the branch
+  // to that base are listed, the open one first, else the newest (delivery-models D-4).
+  if (base && branch && !number) return listFound(gh, ['--head', branch, '--base', base], fields);
   const r = gh(['pr', 'view', ...(merge && number ? [String(number)] : []), '--json', fields]);
   if (r.status === 0) return parsePr(r);
   if (!r.missing && /no pull requests? found/i.test(r.stderr)) {
     if (!lookup || !branch) return { none: true };
-    const l = gh(['pr', 'list', '--head', branch, '--state', 'all', '--limit', '10', '--json', fields]);
-    if (l.status !== 0) return { error: ghError(l) };
-    let list;
-    try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
-    const found = Array.isArray(list) ? (list.find((p) => p.state === 'OPEN') ?? list[0]) : null;
-    return found ? { pr: found } : { none: true };
+    return listFound(gh, ['--head', branch], fields);
   }
   return { error: ghError(r) };
+}
+
+// `gh pr list` of the given filters in every state: { pr } (the open one, else the newest) | { none: true } | { error }.
+function listFound(gh, filters, fields) {
+  const l = gh(['pr', 'list', ...filters, '--state', 'all', '--limit', '10', '--json', fields]);
+  if (l.status !== 0) return { error: ghError(l) };
+  let list;
+  try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
+  const found = Array.isArray(list) ? (list.find((p) => p.state === 'OPEN') ?? list[0]) : null;
+  return found ? { pr: found } : { none: true };
 }
 
 const NO_PR = 'no pull request for this branch yet';
@@ -548,7 +644,7 @@ function defaultTasks(gh, id) {
 //     own (isOwnPr over its files), archive heads dropped first.
 const branchNamesChange = (branch, id) => branch.split('/').pop() === id || branch.includes(id);
 
-function mergedOnBranch(gh, id, found, branch, merge) {
+function mergedOnBranch(gh, id, found, branch, merge, base = null) {
   const files = prFiles(gh, found.pr.number);
   if (files.error) return { error: files.error };
   if (!isOwnPr(id, { headRefName: found.pr.headRefName ?? branch }, files.files)) return { none: true };
@@ -556,7 +652,7 @@ function mergedOnBranch(gh, id, found, branch, merge) {
   if (tasks.error) return { error: tasks.error };
   const known = { tasks, repo: tasks.repo };
   if (tasks.unticked?.length === 0 || !branch) return { ...found, ...known };
-  const l = gh(['pr', 'list', '--head', branch, '--state', 'open', '--limit', '10', '--json', merge ? MERGE_FIELDS : PR_FIELDS]);
+  const l = gh(['pr', 'list', '--head', branch, ...(base ? ['--base', base] : []), '--state', 'open', '--limit', '10', '--json', merge ? MERGE_FIELDS : PR_FIELDS]);
   if (l.status !== 0) return { error: ghError(l) };
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
@@ -564,15 +660,16 @@ function mergedOnBranch(gh, id, found, branch, merge) {
   return open ? { pr: open, via: 'branch' } : { none: true, mergedBefore: found.pr.number, ...known };
 }
 
-export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = process.env, number = null } = {}) {
+// In `two-prs` `base` is the base branch: only the pull requests to it are the change's own (the one to the test branch is not).
+export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = process.env, number = null, base = null } = {}) {
   const merge = ship === 'merge';
   const selected = resolveChange(root, env, branch);
   const own = selected?.name === id && Boolean(branch) && branchNamesChange(branch, id) && !defaultBranches(root).includes(branch) && !archiveHeads(id).includes(branch);
   if (ship === 'plan' || number || own) {
-    const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan' });
+    const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan', base });
     if (!r.pr) return r;
     const found = { ...r, via: 'branch' };
-    return ship !== 'plan' && r.pr.state === 'MERGED' ? mergedOnBranch(gh, id, found, own ? branch : '', merge) : found;
+    return ship !== 'plan' && r.pr.state === 'MERGED' ? mergedOnBranch(gh, id, found, own ? branch : '', merge, base) : found;
   }
   // Light fields only: 100 PRs with their bodies can pass spawnSync's buffer. A PR's files are read,
   // by number and newest first, only while no PR has been found to be the change's own.
@@ -582,7 +679,7 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
   if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
-  const rest = list.filter((p) => !isArchiveHead(p.headRefName)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
+  const rest = list.filter((p) => !isArchiveHead(p.headRefName) && (!base || p.baseRefName === base)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
   for (const p of rest) {
     const f = prFiles(gh, p.number);
     if (f.error) return { error: f.error };
@@ -594,8 +691,8 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
 // What the delivery of change `id` is (field-fixes D-4): its PR as findChangePr answers it, and whether the
 // change is delivered: archived, or its own PR merged with every task ticked on the default branch.
 // { fetched, delivered, merged, left: [ids], absent, repo, error }.
-export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = process.env, located = null, number = null } = {}) {
-  let fetched = findChangePr(gh, root, id, { ship, branch, env, number });
+export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = process.env, located = null, number = null, base = null } = {}) {
+  let fetched = findChangePr(gh, root, id, { ship, branch, env, number, base });
   const archived = Boolean(located?.archived);
   const mergedPr = fetched.pr?.state === 'MERGED';
   let tasks = fetched.tasks ?? null;
@@ -612,6 +709,132 @@ export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = pro
     repo: tasks?.repo ?? null,
     error: fetched.error ?? null,
   };
+}
+
+// ---------------------------------------------------------------- the two-pull-request delivery (delivery-models D-4)
+
+const TEST_PR_FIELDS = 'number,url,state,headRefName,headRefOid,mergeable,mergedAt,body';
+
+// The pull request to the test branch for change `id`, found by its head: the support branch `<head>-<test>` and the task
+// branch `<head>` (`head` is the id unless CI names the head branch). An open one from the support branch, else an open one
+// from the task branch, else the newest merged one, else the newest closed one, else none. An open one carries the items the
+// base pull request has: { pr, checks, body } | { pr } (merged or closed) | { none: true } | { error }.
+export function findTestPr(gh, { id, testBranch, head = id, acIds = [] }) {
+  const lists = [];
+  for (const h of [`${head}-${testBranch}`, head]) {
+    const l = gh(['pr', 'list', '--base', testBranch, '--head', h, '--state', 'all', '--limit', '10', '--json', TEST_PR_FIELDS]);
+    if (l.status !== 0) return { error: ghError(l) };
+    let list;
+    try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
+    if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
+    lists.push(list);
+  }
+  const open = lists.map((list) => list.find((p) => p.state === 'OPEN')).find(Boolean);
+  if (open) return { pr: open, checks: checksItem({ pr: open }, gh), body: bodyItem(id, { pr: open }, acIds) };
+  const newest = (state) => lists.flat().filter((p) => p.state === state).sort((a, b) => when(b.mergedAt) - when(a.mergedAt) || b.number - a.number)[0];
+  const pr = newest('MERGED') ?? newest('CLOSED');
+  return pr ? { pr } : { none: true };
+}
+
+// The first commit of `head` (not on origin/<base>) that is on the first-parent line of origin/<test> (not on origin/<base>), or
+// null (D-7). That line holds every tip the test branch ever had, so a merge, a pull or a rebase of the test branch into the
+// task branch puts one of them in it; the task branch's own commits reach the test branch only through a merge's second parent
+// or as new commits, never on that line. Unreadable refs are no commit: { sha, subject } | null.
+export function testBranchCommit(root, { base, testBranch, head }) {
+  try {
+    const lines = (args) => git(root, ['rev-list', ...args]).split('\n').filter(Boolean);
+    const onTest = new Set(lines(['--first-parent', `origin/${testBranch}`, `^origin/${base}`]));
+    const sha = lines([head, `^origin/${base}`]).find((c) => onTest.has(c));
+    return sha ? { sha, subject: git(root, ['log', '-1', '--format=%s', sha]).trim() } : null;
+  } catch { return null; }
+}
+
+// The support branch of the change (D-4, D-8): { branch, exists, worktree | null, path, merging | null, head, hasTask, hasTest,
+// pushed }. `merging` lists the conflicted paths while its worktree holds an unfinished merge; `hasTask` is the task branch being
+// an ancestor of the support head, `hasTest` the remote-tracking test branch being one, `pushed` the remote-tracking support
+// branch being the head. Reads local refs only.
+export function supportState(root, id, testBranch) {
+  const branch = `${id}-${testBranch}`;
+  const rev = (ref) => { try { return git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).trim() || null; } catch { return null; } };
+  const head = rev(`refs/heads/${branch}`);
+  const worktree = listWorktrees(root).find((w) => w.branch === branch)?.path ?? null;
+  const path = worktree ?? join(mainCheckout(root) ?? root, '.claude', 'worktrees', branch);
+  const state = { branch, exists: head !== null, worktree, path, merging: null, head, hasTask: false, hasTest: false, pushed: false };
+  if (!head) return state;
+  const within = (ref) => ref !== null && gitOk(root, ['merge-base', '--is-ancestor', ref, head]);
+  if (worktree && gitOk(worktree, ['rev-parse', '--verify', '--quiet', 'MERGE_HEAD'])) {
+    state.merging = git(worktree, ['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean);
+  }
+  state.hasTask = within(rev(`refs/heads/${id}`) ?? rev('HEAD'));
+  state.hasTest = within(rev(`refs/remotes/origin/${testBranch}`));
+  state.pushed = rev(`refs/remotes/origin/${branch}`) === head;
+  return state;
+}
+
+// Git's automatic merge of two commits as a tree (conflict markers included), or null when it cannot be computed.
+function autoMergeTree(root, a, b) {
+  const r = spawnSync('git', ['-C', root, 'merge-tree', '--write-tree', a, b], { encoding: 'utf8' });
+  const tree = (r.stdout ?? '').split('\n')[0].trim();
+  return (r.status === 0 || r.status === 1) && /^[0-9a-f]{40,64}$/.test(tree) ? tree : null;
+}
+
+// The support branch's own work (D-8): each first-parent merge of `<task>..<support>` whose commit differs from Git's automatic merge
+// (the resolution), and each commit that is not a merge (a fix), newest first: [{ sha, subject, diff }], `diff` the command that
+// prints it. What the test branch brought and a clean merge are not here.
+function ownCommits(root, taskRef, supportRef) {
+  const shas = git(root, ['rev-list', '--first-parent', `${taskRef}..${supportRef}`]).split('\n').filter(Boolean);
+  const own = [];
+  for (const sha of shas) {
+    const [subject = '', parents = ''] = git(root, ['log', '-1', '--format=%s%n%P', sha]).split('\n');
+    const [first, second] = parents.split(' ').filter(Boolean);
+    if (!second) { own.push({ sha, subject, diff: `git diff ${sha}^ ${sha}` }); continue; }
+    const tree = autoMergeTree(root, first, second);
+    if (!tree) { own.push({ sha, subject, diff: `git diff ${first} ${sha}` }); continue; }
+    if (git(root, ['diff', '--name-only', tree, sha]).trim()) own.push({ sha, subject, diff: `git diff ${tree} ${sha}` });
+  }
+  return own;
+}
+
+// The resolution round of the support branch (D-8): { commits (own, newest first), newest, verdicts, missing, stale, rejected,
+// undisposed, round, approved } read from reviews/resolution/ of change `id` in `root`. Approved when there is no own commit, or both
+// required verdicts are approved at the newest one with nothing undisposed. Refs that cannot be read give { error } and no approval.
+export function resolutionState(root, id, { taskRef, supportRef }) {
+  const none = { commits: [], newest: null, verdicts: [], missing: [], stale: [], rejected: [], undisposed: [], round: null, approved: true };
+  if (!supportRef) return none;
+  let commits;
+  let head;
+  try {
+    commits = ownCommits(root, taskRef, supportRef);
+    head = git(root, ['rev-parse', supportRef]).trim();
+  } catch { return { ...none, approved: false, error: `cannot read the commits of ${supportRef} since ${taskRef}` }; }
+  const round = readReviewMd(join(changeDir(root, id), 'resolution.md'));
+  if (!commits.length) return { ...none, round };
+  const dir = join(changeDir(root, id), 'reviews', 'resolution');
+  const verdicts = verdictFiles(dir);
+  const newest = commits[0].sha;
+  const current = (v) => Boolean(v.commit) && !v.commit.uncommitted && newest.startsWith(v.commit.sha);
+  const missing = REQUIRED_REVIEWERS.filter((r) => !verdicts.some((v) => v.name === r));
+  const stale = verdicts.filter((v) => !current(v)).map((v) => v.name);
+  const rejected = verdicts.filter((v) => current(v) && v.verdict !== 'APPROVED' && v.verdict !== 'DECLINED').map((v) => v.name);
+  const undisposed = findingsIn(root, dir, head).undisposed;
+  const approved = !missing.length && !stale.length && !rejected.length && !undisposed.length;
+  return { commits, newest, verdicts, missing, stale, rejected, undisposed, round, approved };
+}
+
+// The `devkit-reviews` runs of the base pull request that failed before the test-branch pull request merged: the check reads
+// the test branch's state when it runs, so such a run is run again (T17). One `gh run view` per failing run, made only here.
+function reviewsRerun(gh, checks, test) {
+  if (test.pr?.state !== 'MERGED') return null;
+  const runs = [];
+  for (const f of checks.details.failing.filter((c) => c.name === DEVKIT_REVIEWS_CHECK)) {
+    const id = /\/actions\/runs\/(\d+)/.exec(f.link ?? '')?.[1];
+    if (!id || runs.includes(id)) continue;
+    const r = gh(['run', 'view', id, '--json', 'startedAt']);
+    let startedAt = null;
+    try { startedAt = JSON.parse(r.stdout).startedAt; } catch { /* unreadable: not run again */ }
+    if (r.status === 0 && startedAt && when(startedAt) < when(test.pr.mergedAt)) runs.push(id);
+  }
+  return runs.length ? { runs } : null;
 }
 
 // Paths git sees as changed (tracked or untracked) under a pathspec.
@@ -657,7 +880,10 @@ export function prItem(root, id, fetched, facts = gitFacts(root), { merge = fals
   return item(5, name, 'met', `PR #${pr.number} open at ${facts.head.slice(0, 7)}`, details);
 }
 
-// Checks of a PR: { checks: [...] } | { none: 'required' | 'any' } | { error }.
+// gh names the first option it does not know, and the call passes --required before --json.
+const OLD_GH = /unknown flag: --(json|required)\b/;
+
+// Checks of a PR: { checks: [...] } | { none: 'required' | 'any' } | { tooOld: { installed, minimum } } | { error }.
 // gh prints the JSON list with exit 8 (pending) and exit 1 (a failure), so the
 // list wins over the exit code when it parses.
 function readChecks(gh, number, required) {
@@ -666,6 +892,10 @@ function readChecks(gh, number, required) {
     const list = JSON.parse(r.stdout);
     if (Array.isArray(list)) return { checks: list };
   } catch { /* not JSON: look at the error */ }
+  if (r.status !== 0 && !r.missing && !r.timedOut && !r.overflowed && OLD_GH.test(r.stderr)) {
+    const v = ghVersion(gh);
+    return { tooOld: { installed: v.installed, minimum: GH_MIN_VERSION } };
+  }
   if (!r.missing && /no required checks reported/i.test(r.stderr)) return { none: 'required' };
   if (!r.missing && /no checks reported/i.test(r.stderr)) return { none: 'any' };
   return { error: r.status === 0 ? 'gh pr checks returned unreadable output' : ghError(r) };
@@ -685,6 +915,10 @@ export function checksItem(fetched, gh) {
   }
   const details = { required, failing: [], pending: [] };
   if (got.error) return item(6, name, 'blocked', `cannot read the checks: ${got.error}`, details);
+  if (got.tooOld) {
+    const { installed, minimum } = got.tooOld;
+    return item(6, name, 'blocked', `cannot read the checks: gh pr checks --json needs gh ${minimum} or newer and the installed gh is ${installed ?? 'of an unknown version'}; update gh`, { ...details, ghTooOld: got.tooOld });
+  }
   if (got.none || got.checks.length === 0) return item(6, name, 'met', 'no checks reported on the PR', details);
   const unknown = [];
   for (const c of got.checks) {
@@ -915,9 +1149,9 @@ function readContents(gh, path, base) {
   try { return { json: JSON.parse(r.stdout) }; } catch { return { error: `${path} returned unreadable JSON` }; }
 }
 
-// The archive PR of the branch: the OPEN one, else the newest MERGED, else the newest CLOSED.
-function archivePrFacts(gh, root, id, base, facts) {
-  const branch = `chore/archive-${id}`;
+// The archive PR of the head branch (`chore/archive-<id>`, or the test branch's own): the OPEN one, else the newest MERGED,
+// else the newest CLOSED.
+function archivePrFacts(gh, root, id, base, facts, branch = `chore/archive-${id}`) {
   const l = gh(['pr', 'list', '--head', branch, '--state', 'all', '--limit', '10', '--json', 'number,url,state,headRefOid,mergeable,autoMergeRequest,mergeStateStatus']);
   if (l.status !== 0) return { error: ghError(l) };
   let list;
@@ -938,9 +1172,51 @@ function archivePrFacts(gh, root, id, base, facts) {
   return { pr: out };
 }
 
+// Where change `id` stands on `ref` on GitHub: { error } | { state: 'archived', folder } | { state: 'active' | 'absent' }.
+function changeOn(gh, id, ref) {
+  const listing = readContents(gh, 'openspec/changes/archive', ref);
+  if (listing.error) return { error: listing.error };
+  const wanted = ARCHIVE_NAME(id);
+  const folder = Array.isArray(listing.json) ? listing.json.map((e) => e?.name).filter((n) => typeof n === 'string' && wanted.test(n)).sort().at(-1) : null;
+  if (folder) return { state: 'archived', folder };
+  const live = readContents(gh, `openspec/changes/${id}`, ref);
+  if (live.error) return { error: live.error };
+  return { state: live.notFound ? 'absent' : 'active' };
+}
+
 // Everything the post-merge rows read (design D4, D7): the default branch and
-// the archive PR from GitHub, the rest from the working tree.
-function archiveFacts(gh, root, id, { located, repo, facts, changePr, branch, env }) {
+// the archive PR from GitHub, the rest from the working tree. In `two-prs` (D-10) the test branch's side too.
+function archiveFacts(gh, root, id, ctx) {
+  const facts = archiveBaseFacts(gh, root, id, ctx);
+  if (!ctx.testBranch || facts.onDefault === null) return facts;
+  const test = testArchiveFacts(gh, root, id, ctx.testBranch, ctx.facts, facts.base);
+  return { ...facts, ...test, ...(facts.stop ? { stop: facts.stop } : test.stop ? { stop: test.stop } : {}) };
+}
+
+// The test branch's side of the archive (D-10): { testBranch, onTest, testPr, testLocal } or, when GitHub cannot be read, a stop.
+function testArchiveFacts(gh, root, id, testBranch, facts, base) {
+  const branch = `chore/archive-${id}-${testBranch}`;
+  const unread = { testBranch, onTest: null, testPr: null, testLocal: null };
+  const on = changeOn(gh, id, testBranch);
+  if (on.error) return { ...unread, stop: { archiveStep: 'read-default-branch', reason: `cannot read ${testBranch} on GitHub: ${on.error}` } };
+  const prs = archivePrFacts(gh, root, id, base, facts, branch);
+  if (prs.error) return { ...unread, onTest: on.state, stop: { archiveStep: 'archive-pr', reason: `cannot read the archive PR to ${testBranch}: ${prs.error}` } };
+  const worktree = listWorktrees(root).find((w) => w.branch === branch)?.path ?? null;
+  const picking = worktree && gitOk(worktree, ['rev-parse', '--verify', '-q', 'CHERRY_PICK_HEAD'])
+    ? git(worktree, ['diff', '--name-only', '--diff-filter=U']).split('\n').filter(Boolean)
+    : null;
+  return {
+    testBranch, onTest: on.state, testFolder: on.folder ?? null, testPr: prs.pr,
+    testLocal: {
+      exists: gitOk(root, ['rev-parse', '--verify', '-q', `refs/heads/${branch}`]),
+      worktree,
+      path: worktree ?? join(mainCheckout(root) ?? root, '.claude', 'worktrees', `archive-${id}-${testBranch}`),
+      picking,
+    },
+  };
+}
+
+function archiveBaseFacts(gh, root, id, { located, repo, facts, changePr, branch, env }) {
   const archiveBranch = `chore/archive-${id}`;
   const stop = (archiveStep, reason) => ({ stop: { archiveStep, reason } });
   const base = repo?.settings?.default_branch;
@@ -960,14 +1236,10 @@ function archiveFacts(gh, root, id, { located, repo, facts, changePr, branch, en
   const here = { ...common, base };
   const unreadable = (e) => ({ ...here, onDefault: null, ...stop('read-default-branch', `cannot read ${base} on GitHub: ${e}`) });
 
-  const listing = readContents(gh, 'openspec/changes/archive', base);
-  if (listing.error) return unreadable(listing.error);
-  const wanted = ARCHIVE_NAME(id);
-  const archived = Array.isArray(listing.json) ? listing.json.map((e) => e?.name).filter((n) => typeof n === 'string' && wanted.test(n)).sort().at(-1) : null;
-  if (archived) return { ...here, onDefault: 'archived', folder: archived };
-  const live = readContents(gh, `openspec/changes/${id}`, base);
-  if (live.error) return unreadable(live.error);
-  const onDefault = live.notFound ? 'absent' : 'active';
+  const on = changeOn(gh, id, base);
+  if (on.error) return unreadable(on.error);
+  if (on.state === 'archived') return { ...here, onDefault: 'archived', folder: on.folder };
+  const onDefault = on.state;
 
   const prs = archivePrFacts(gh, root, id, base, facts);
   if (prs.error) return { ...here, onDefault, ...stop('archive-pr', `cannot read the archive PR: ${prs.error}`) };
@@ -986,7 +1258,6 @@ export function summarize(items) {
   return { met, summary: `in progress: item ${items.find((i) => i.status !== 'met').id}` };
 }
 
-const approved = (verdict) => verdict === 'APPROVED' || verdict === 'DECLINED';
 const uniq = (list) => [...new Set(list)];
 
 // What GitHub is waiting for, from the PR's mergeStateStatus (design D6).
@@ -1006,8 +1277,32 @@ function archiveNext(state) {
   const step = (name, reason, extra = {}) => ({ step: name, reason, ...extra });
   const stopArchive = (archiveStep, reason, extra = {}) => step('stop-archive', reason, { archiveStep, ...extra });
 
-  if (a.onDefault === 'archived') return step('archived', `${a.folder} is on ${a.base}`, { folder: a.folder });
+  const two = a.testBranch ? a : null; // `two-prs` (D-10): the test branch's archive is part of the answer
+  const testArchiveBranch = `chore/archive-${state.id}-${a.testBranch}`;
+  const openTestArchive = () => step('open-test-archive-pr', `open the archive pull request of ${state.id} to ${a.testBranch}`, {
+    branch: testArchiveBranch, base: a.testBranch, from: a.branch, path: a.testLocal.path, exists: a.testLocal.exists,
+    title: `chore(openspec): archive ${state.id} with its retro (${a.testBranch})`,
+  });
+  // The archive pull requests still open, as the owner reads them: "#5 to main, #6 to develop".
+  const readyBoth = () => {
+    const open = [[a.pr, a.base], [a.testPr, a.testBranch]].filter(([p]) => p?.state === 'OPEN');
+    return step('archive-prs-ready', `archive pull requests ${open.map(([p, to]) => `#${p.number} to ${to}`).join(', ')} are open; merge them, then run again`, { list: open.map(([p, to]) => `#${p.number} to ${to}`).join(', ') });
+  };
+  if (a.onDefault === 'archived' && (!two || a.onTest === 'archived')) return step('archived', `${a.folder} is on ${a.base}`, { folder: a.folder });
+  if (two?.testLocal) {
+    const t = two.testPr;
+    const names = (checks) => checks.failing.map((c) => c.name).join(', ');
+    if (two.testLocal.picking) {
+      return stopArchive('test-archive-cherry-pick', `the archive commits of ${state.id} conflict on ${two.testBranch} in ${two.testLocal.worktree}: ${two.testLocal.picking.join(', ')}; finish with git cherry-pick --continue there, or abort it and delete ${testArchiveBranch}`);
+    }
+    if (t?.state === 'CLOSED') return stopArchive('test-archive-pr', `archive pull request #${t.number} to ${two.testBranch} was closed without merging`);
+    if (t?.state === 'OPEN' && (t.checks.failing.length > 0 || t.checks.error != null)) {
+      return stopArchive('test-archive-pr', t.checks.error ? `cannot read the checks of archive pull request #${t.number} to ${two.testBranch}: ${t.checks.error}` : `archive pull request #${t.number} to ${two.testBranch} has failing checks: ${names(t.checks)}`);
+    }
+    if (t?.state === 'MERGED' && two.onTest !== 'archived') return stopArchive('test-archive-pr', `archive pull request #${t.number} to ${two.testBranch} is merged but ${two.testBranch} still has openspec/changes/${state.id}/; run again`);
+  }
   if (a.stop) return stopArchive(a.stop.archiveStep, a.stop.reason);
+  if (two && a.onDefault === 'archived') return two.testPr ? readyBoth() : openTestArchive();
   const five = state.items[4];
   if (five.status === 'blocked') return step('blocked', five.reason, { item: 5, ...(five.details.conflict ? { conflict: true } : {}) });
   if (merge && state.setup && !state.setup.ok) {
@@ -1050,6 +1345,7 @@ function archiveNext(state) {
       return stopArchive('archive-pr', pr.checks.error ? `cannot read the checks: ${pr.checks.error}` : `failing ${f}`);
     }
     if (merge && pr.mergeStateStatus === 'BEHIND') return step('update-branch', `archive PR #${pr.number} is behind ${a.base}; update it`, { number: pr.number });
+    if (two && !merge) return two.testPr ? readyBoth() : openTestArchive();
     if (!merge) return step('archive-pr-ready', `archive PR #${pr.number} is open; merge it, then run again`, { number: pr.number, url: pr.url });
     if (!pr.autoMerge) return step('enable-auto-merge', `archive PR #${pr.number} qualifies`, { number: pr.number, method: state.mergeMethod, head: state.head });
     return step('wait-merge', 'auto-merge is on; GitHub merges once its rules pass', { number: pr.number, head: pr.headRefOid, waitingFor: waitingFor(pr.mergeStateStatus) });
@@ -1099,6 +1395,11 @@ export function nextStep(state) {
     return step('disable-auto-merge', `auto-merge is on but the contract is no longer met (${state.items.find((i) => i.status !== 'met').reason})`, { number: state.pr.number });
   }
   if (state.ship === 'plan') return step('stop-plan-mode', `ship mode for ${state.schema} is plan; follow the usual apply flow`);
+  // The two-pull-request delivery (delivery-models D-4): present only in `two-prs`; every row of it reads `two`.
+  const two = state.twoPrs ?? null;
+  if (two && !two.defaultOk) {
+    return step('blocked', two.defaultBranch ? `the base branch ${two.base} is not the repository's default branch ${two.defaultBranch}` : `cannot read the default branch on GitHub: ${two.defaultError ?? 'the answer has no default branch'}`);
+  }
   if (state.archive) return archiveNext(state);
   if (!state.branchOk) {
     const m = state.mergedLeft;
@@ -1165,8 +1466,17 @@ export function nextStep(state) {
   }
   const stuck = [1, 2, 3, 4].find((n) => it(n).status === 'blocked');
   if (stuck) return step('blocked', it(stuck).reason, { item: stuck });
+  if (two?.foreign) return step('blocked', `${two.foreign.sha.slice(0, 7)} (${two.foreign.subject}) is on ${two.testBranch} and not on ${two.base}; the task branch never receives ${two.testBranch}`);
 
-  if (it(5).details.none) return step('open-pr', 'no pull request yet');
+  if (two?.test.error) return step('blocked', `cannot read the pull requests to ${two.testBranch}: ${two.test.error}`);
+  // Before every row that opens, pushes or edits (spec: a blocked row writes nothing).
+  if (two?.test.pr?.state === 'CLOSED') return step('blocked', `pull request #${two.test.pr.number} to ${two.testBranch} was closed without merging`);
+  if (it(5).details.none) {
+    if (!two) return step('open-pr', 'no pull request yet');
+    return two.test.pr
+      ? step('open-pr', 'no pull request to the base branch yet', { base: two.base })
+      : step('open-prs', 'no pull request yet', { branch: state.branch, base: two.base, testBranch: two.testBranch });
+  }
   if (it(5).status === 'blocked') return step('blocked', it(5).reason, { item: 5, ...(it(5).details.conflict ? { conflict: true } : {}) });
   const five = it(5).details;
   if (merge && it(5).status === 'open' && five.behind && !five.ahead && !five.uncommitted.length) {
@@ -1175,6 +1485,51 @@ export function nextStep(state) {
   if (it(5).status === 'open') return step('push', it(5).reason);
   if (it(8).status === 'open') return step('edit-pr-body', it(8).reason, { missing: it(8).details.missing });
   const reviewsCheck = it(6).details.failing.find((f) => f.name === DEVKIT_REVIEWS_CHECK);
+  if (two) {
+    const t = two.test;
+    const sup = two.support;
+    if (t.none) return step('open-test-pr', `no pull request to ${two.testBranch} yet`, { head: sup.exists && sup.pushed ? sup.branch : state.id, base: two.testBranch });
+    if (t.pr.state === 'OPEN') {
+      if (sup.merging) return step('resolve-support-conflict', `the merge of ${two.testBranch} into ${sup.branch} has conflicts`, { root: sup.path, branch: sup.branch, paths: sup.merging });
+      if (sup.exists && !sup.worktree) return step('checkout-support', `${sup.branch} has no worktree`, { path: sup.path, branch: sup.branch });
+      const res = two.resolution;
+      if (res.error) return step('blocked', res.error);
+      if (!res.approved) {
+        if (res.rejected.length && res.round?.consensus === 'FAIL' && res.round.round >= 2) {
+          return step('stop-review-deadlock', `${res.rejected.join(', ')} still rejects the resolution after round 2; the owner decides`, { reviewers: res.rejected, resolution: true });
+        }
+        const approvedOpen = uniq(res.undisposed.map((f) => f.reviewer)
+          .filter((n) => res.verdicts.some((v) => v.name === n && !res.stale.includes(n) && approved(v.verdict))));
+        const fix = uniq([...res.rejected, ...approvedOpen]);
+        if (fix.length) {
+          const why = [
+            res.rejected.length ? `${res.rejected.join(', ')} rejected the resolution at its newest commit` : '',
+            approvedOpen.length ? `${approvedOpen.join(', ')} approved with an undisposed finding` : '',
+          ].filter(Boolean).join('; ');
+          return step('fix-resolution', why, { root: sup.path, branch: sup.branch, findings: res.undisposed.filter((f) => fix.includes(f.reviewer)) });
+        }
+        const again = res.verdicts.some((v) => !approved(v.verdict) && [...res.stale, ...res.missing].includes(v.name));
+        const round = res.round?.consensus === 'FAIL' && res.round.round === 1 && again ? 2 : 1;
+        return step('review-resolution', `the resolution on ${sup.branch} needs a review from ${uniq([...res.missing, ...res.stale]).join(', ')}`, {
+          root: two.root, support: sup.branch, commits: res.commits.map(({ sha, subject }) => ({ sha, subject })), diffs: res.commits.map((c) => c.diff), commit: res.newest, round,
+        });
+      }
+      if (sup.exists && !sup.hasTask) return step('merge-into-support', `${sup.branch} lacks the task branch ${state.id}`, { root: sup.path, branch: sup.branch, from: state.id });
+      if (t.pr.mergeable === 'CONFLICTING' && (!sup.exists || !sup.hasTest || t.pr.headRefName === sup.branch)) {
+        return step('merge-into-support', `pull request #${t.pr.number} to ${two.testBranch} conflicts with it`, { root: sup.path, branch: sup.branch, from: `origin/${two.testBranch}`, create: !sup.exists });
+      }
+      if (sup.exists && !sup.pushed) return step('push-support', `${sup.branch} is not on the remote`, { root: sup.path, branch: sup.branch });
+      if (sup.exists && t.pr.headRefName !== sup.branch) {
+        return step('move-test-pr', `pull request #${t.pr.number} to ${two.testBranch} moves to ${sup.branch}`, { head: sup.branch, base: two.testBranch, replaces: t.pr.number });
+      }
+      if (t.body.status === 'open') return step('edit-pr-body', t.body.reason, { number: t.pr.number, missing: t.body.details.missing });
+      if (t.checks.status === 'blocked') return step('blocked', t.checks.reason);
+      if (t.checks.details.failing.length) return step('fix-checks', t.checks.reason, { number: t.pr.number, failing: t.checks.details.failing });
+      if (t.checks.details.pending.length) return step('wait-checks', t.checks.reason, { number: t.pr.number, pending: t.checks.details.pending });
+      return step('ready-test-branch', `pull request #${t.pr.number} to ${two.testBranch} is green; the owner merges it first`, { number: t.pr.number, branch: two.testBranch, base: two.base, baseNumber: state.pr.number });
+    }
+    if (two.rerun && reviewsCheck) return step('rerun-checks', `${DEVKIT_REVIEWS_CHECK} failed before ${two.testBranch} merged; run it again`, { number: state.pr.number, runs: two.rerun.runs });
+  }
   if (reviewsCheck && [1, 2, 3, 4].every((n) => it(n).status === 'met')) {
     return step('blocked', `${DEVKIT_REVIEWS_CHECK} fails in CI while items 1-4 are met locally: ${reviewsCheck.link}`, { item: 6 });
   }
@@ -1190,6 +1545,7 @@ export function nextStep(state) {
   if (it(6).details.pending.length) return step('wait-checks', it(6).reason, { pending: it(6).details.pending });
   const left = state.items.find((i) => i.status !== 'met');
   if (left) return step('blocked', left.reason, { item: left.id });
+  if (two) return step('ready-base', 'all eight items are met', { number: state.pr.number, base: two.base });
   if (!merge) return step('ready', 'all eight items are met');
   if (state.pr.autoMerge) return step('wait-merge', 'auto-merge is on; GitHub merges once its rules pass', { number: state.pr.number, head: state.pr.headRefOid, waitingFor: waitingFor(state.pr.mergeStateStatus) });
   return step('enable-auto-merge', 'all eight items are met', { number: state.pr.number, method: state.mergeMethod, head: state.head });
@@ -1223,16 +1579,17 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
   const located = locateChange(root, id) ?? { dir: changeDir(root, id), archived: false };
   const dir = located.dir;
   const schema = schemaOf(root, located);
-  const { ship, mergeMethod } = shipConfig(root, schema);
+  const { ship, mergeMethod, model, base: configuredBase, testBranch } = deliveryConfig(root, schema);
+  const two = model === 'two-prs';
   const branch = currentBranch(root, env);
   const selected = resolveChange(root, env, branch);
   const merge = ship === 'merge';
-  const delivery = deliveryOf(gh, root, id, { ship, branch, env, located, number: prNumber });
+  const delivery = deliveryOf(gh, root, id, { ship, branch, env, located, number: prNumber, ...(two ? { base: configuredBase } : {}) });
   const fetched = delivery.fetched;
   // The post-merge phase: the change is delivered, its own PR merged with every task ticked on the default
   // branch, or its folder already moved (design D4, field-fixes D-4).
   const postMerge = ship !== 'plan' && delivery.delivered;
-  const repo = merge || postMerge ? (delivery.repo ?? readRepoSettings(gh)) : null;
+  const repo = merge || postMerge || two ? (delivery.repo ?? readRepoSettings(gh)) : null;
   const mergedLeft = delivery.merged && !delivery.delivered && delivery.left.length
     ? { number: fetched.pr?.number ?? fetched.mergedBefore, tasks: delivery.left }
     : null;
@@ -1246,6 +1603,21 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     dirty: facts.dirty,
     mergedLeft,
     ...(merge ? { setup: mergeSetup(gh, root, mergeMethod, repo) } : {}),
+  };
+  // The facts of the two-pull-request delivery (D-4): the base is the repository's default branch, the pull request to the test
+  // branch and, once it merged, the base checks that ran before it. `checks` is the base pull request's item 6.
+  const twoPrsOf = (acIds, checks) => {
+    const defaultBranch = repo?.settings?.default_branch ?? null;
+    const test = findTestPr(gh, { id, testBranch, acIds });
+    const support = supportState(root, id, testBranch);
+    const taskRef = gitOk(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${id}`]) ? `refs/heads/${id}` : 'HEAD';
+    const resolution = resolutionState(root, id, { taskRef, supportRef: support.exists ? `refs/heads/${support.branch}` : null });
+    return {
+      base: configuredBase, testBranch, defaultBranch, defaultOk: defaultBranch === configuredBase, defaultError: repo?.error ?? null,
+      foreign: testBranchCommit(root, { base: configuredBase, testBranch, head: 'HEAD' }),
+      test, rerun: checks ? reviewsRerun(gh, checks, test) : null,
+      root, support, resolution,
+    };
   };
   const prFacts = (f) => (f.pr
     ? { number: f.pr.number, url: f.pr.url, state: f.pr.state, headRefOid: f.pr.headRefOid, mergeable: f.pr.mergeable ?? null, ...(merge ? { autoMerge: f.pr.autoMergeRequest != null, mergeStateStatus: f.pr.mergeStateStatus ?? null } : {}) }
@@ -1268,7 +1640,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
       reviewMd: null,
       reviews: [],
       pr: prFacts(fetched),
-      archive: archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env }),
+      ...(two ? { twoPrs: twoPrsOf([], null) } : {}),
+      archive: archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env, testBranch: two ? testBranch : null }),
       items: [
         checked(1, 'tasks', { unticked: [], missingGates: [], evidence: 'current' }),
         checked(2, 'reviews', { stale: [], rejected: [], missing: [] }),
@@ -1305,6 +1678,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     reviewMd: readReviewMd(join(dir, 'review.md')),
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
     pr: prFacts(fetched),
+    ...(two ? { twoPrs: twoPrsOf(acceptance.details.ids, items[5]) } : {}),
     items,
   };
 }
@@ -1340,6 +1714,7 @@ export function buildReport(state, env = process.env) {
     summary,
     next,
     ...(state.approval ? { approval: state.approval } : {}),
+    ...(state.twoPrs ? { model: 'two-prs', twoPrs: twoPrsReport(state.twoPrs) } : {}),
     ...(merge ? {
       merge: {
         method: state.mergeMethod,
@@ -1354,6 +1729,17 @@ export function buildReport(state, env = process.env) {
   };
 }
 
+// The `twoPrs` object of the JSON report: the state names both pull requests, found on GitHub from the branch names (D-4).
+function twoPrsReport(two) {
+  const t = two.test.pr;
+  return {
+    base: two.base,
+    testBranch: two.testBranch,
+    testPr: t ? { number: t.number, url: t.url, state: t.state, head: t.headRefName } : null,
+    support: two.support ? { branch: two.support.branch, exists: two.support.exists, pushed: two.support.pushed } : null,
+  };
+}
+
 // The summary line (design D6, D7). Merge mode and the archive steps name their own
 // end states; every other summary is the items'.
 function summaryOf(state, next, itemsSummary) {
@@ -1362,6 +1748,7 @@ function summaryOf(state, next, itemsSummary) {
       case 'archived': return 'archived';
       case 'wait-merge': return `archive PR open: waiting for ${next.waitingFor}`;
       case 'archive-pr-ready': return 'archive PR ready';
+      case 'archive-prs-ready': return 'archive PRs ready';
       case 'stop-retro-answers': return "archive: waiting for the owner's answers";
       case 'stop-archive': return `blocked: archive (${next.archiveStep})`;
       case 'stop-merge-setup': return 'blocked: merge setup';
@@ -1401,13 +1788,14 @@ function describeNext(n) {
     'fix-defect': (n.defects || []).join(', '),
     'fix-checks': (n.failing || []).map((f) => f.name).join(', '),
     'edit-pr-body': `add ${(n.missing || []).join(', ')}`,
-    blocked: `item ${n.item}: ${n.reason}`,
+    blocked: n.item === undefined ? n.reason : `item ${n.item}: ${n.reason}`,
     'disable-auto-merge': `PR #${n.number}: ${n.reason}`,
     'update-branch': `PR #${n.number}`,
     'enable-auto-merge': `PR #${n.number} with --${n.method} at ${String(n.head).slice(0, 7)}`,
     'wait-merge': `waiting for ${n.waitingFor}`,
     retro: n.number ? `PR #${n.number}` : '',
     'open-archive-pr': n.branch,
+    'open-test-archive-pr': n.branch,
   }[n.step];
   return detail ? `${n.step} ${detail}` : n.step === 'ready' ? 'ready' : `${n.step}: ${n.reason}`;
 }
@@ -1553,18 +1941,117 @@ const archivedId = (folder) => basename(folder).replace(/^\d{4}-\d{2}-\d{2}-/, '
 const otherScriptNote = (id, schema) => `${id} is on the ${schema} script, not a devkit script; nothing was checked`;
 const planOnlyNote = (id) => `${id} holds only a plan (no ticked task in tasks.md); not checked`;
 
+// The `pull_request` event payload at GITHUB_EVENT_PATH: the parsed JSON, or null when it is unset or unreadable.
+export function eventPayload(env) {
+  if (!env.GITHUB_EVENT_PATH) return null;
+  try { return JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')); } catch { return null; }
+}
+
 // A shallow clone, or a checkout of something other than the PR head, would
 // make every recorded Commit: read as stale: refuse both (exit 3).
 function ciPreflight(root, env, head) {
   if (git(root, ['rev-parse', '--is-shallow-repository']).trim() === 'true') {
     throw new UsageError('fetch the full history (actions/checkout with fetch-depth: 0): reviews and evidence are checked against every commit since they were recorded');
   }
-  if (!env.GITHUB_EVENT_PATH) return;
-  let sha;
-  try { sha = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'))?.pull_request?.head?.sha; } catch { return; }
+  const sha = eventPayload(env)?.pull_request?.head?.sha;
   if (typeof sha === 'string' && head && sha.toLowerCase() !== head.toLowerCase()) {
     throw new UsageError('check out the PR head (actions/checkout with ref: ${{ github.event.pull_request.head.sha }}), not the merge commit');
   }
+}
+
+// The ref CI reads the delivery settings from (delivery-models D-7): the repository's default branch, never the pull request's
+// head or the test branch. First match wins: S1 the default branch the event payload names, S2 the target of origin/HEAD, S3 the
+// base ref as before this change. { ref, name } with `name` the default branch (S1, S2), or { ref: null } without a base ref.
+export function ciSettingsRef(root, env) {
+  const has = (name) => typeof name === 'string' && name !== '' && gitOk(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${name}^{commit}`]);
+  const payload = eventPayload(env);
+  const named = payload?.repository?.default_branch ?? payload?.pull_request?.base?.repo?.default_branch;
+  if (has(named)) return { ref: `origin/${named}`, name: named };
+  let head = null;
+  try { head = git(root, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD']).trim().replace(/^origin\//, ''); } catch { /* a clone without origin/HEAD */ }
+  if (has(head)) return { ref: `origin/${head}`, name: head };
+  return { ref: env.GITHUB_BASE_REF ? `origin/${env.GITHUB_BASE_REF}` : null, name: null };
+}
+
+// What `--ci` judges in `two-prs` (D-7), or null when the project is in no such model, the run is not on a pull request to its
+// base or test branch, or the settings cannot be read: { settingsRef, defaultName, base, testBranch, gh, env }. A settings
+// problem is a usage error.
+function twoPrsContext(root, env) {
+  if (!env.GITHUB_BASE_REF) return null;
+  const { ref, name } = ciSettingsRef(root, env);
+  if (!ref) return null;
+  let text;
+  try { text = git(root, ['show', `${ref}:openspec/config.yaml`]); } catch { return null; }
+  const { model, base, testBranch, problems } = deliverySettings(parseDevkitBlock(text));
+  if (problems.length) {
+    throw new UsageError(`delivery settings in openspec/config.yaml on ${ref}: ${problems.map((p) => (p.kind === 'missing' ? `${p.setting} is missing` : `${p.setting} "${p.value}" is not valid`)).join('; ')}`);
+  }
+  if (model !== 'two-prs' || ![base, testBranch].includes(env.GITHUB_BASE_REF)) return null;
+  return { settingsRef: ref, defaultName: name, base, testBranch, env, gh: makeGh(root, env) };
+}
+
+// The two-prs rules for one judged change (D-7): { lines, failed, report } or null when none applies. The base branch must be
+// the default branch (when the settings were read through it); a pull request to the base branch then must not hold a commit
+// of the test branch and must wait for its pull request to the test branch to merge.
+function twoPrsRules(root, id, ctx) {
+  const { settingsRef, defaultName, base, testBranch, env } = ctx;
+  const line = (status, text) => `  two-prs  ${status.padEnd(4)}  ${text}`;
+  const report = (extra) => ({ settingsRef, base, testBranch, foreign: null, testPr: null, resolution: null, ...extra });
+  if (defaultName && defaultName !== base) {
+    return { lines: [line('open', `the base branch ${base} is not the repository's default branch ${defaultName}`)], failed: ['two-prs'], report: report({ pass: false }) };
+  }
+  if (env.GITHUB_BASE_REF !== base) return null;
+  const lines = [];
+  const foreign = testBranchCommit(root, { base, testBranch, head: 'HEAD' });
+  if (foreign) lines.push(line('open', `${foreign.sha.slice(0, 7)} (${foreign.subject}) is on ${testBranch} and not on ${base}; the task branch never receives ${testBranch}`));
+  const headRef = env.GITHUB_HEAD_REF || currentBranch(root, env);
+  const test = findTestPr(ctx.gh, { id, testBranch, head: headRef });
+  let wait;
+  if (test.error) wait = `cannot read the pull requests to ${testBranch}: ${test.error} (the job needs pull-requests: read and GH_TOKEN)`;
+  else if (test.none) wait = `no pull request to ${testBranch} from ${headRef} or ${headRef}-${testBranch}`;
+  else if (test.pr.state !== 'MERGED') wait = `waits for pull request #${test.pr.number} to ${testBranch} to merge`;
+  if (wait) lines.push(line('open', wait));
+  const pass = lines.length === 0;
+  return {
+    lines: pass ? [line('met', `no ${testBranch} commit in the task branch; pull request #${test.pr.number} to ${testBranch} is merged`)] : lines,
+    failed: pass ? [] : ['two-prs'],
+    report: report({ foreign, testPr: test.pr ? { number: test.pr.number, state: test.pr.state, head: test.pr.headRefName } : null, pass }),
+  };
+}
+
+// What `--ci` judges on a pull request to the test branch (D-7): neither items 1-4 nor readiness, which the pull request to the
+// base branch carries, only the resolution of the support branch when that is the head: { report, lines, failed, pass }.
+function testBranchPr(root, id, facts, two) {
+  const { env, base, testBranch, settingsRef } = two;
+  const schema = changeSchema(root, id);
+  const support = `${id}-${testBranch}`;
+  const line = (status, text) => `  two-prs  ${status.padEnd(4)}  ${text}`;
+  const lines = [
+    `devkit-reviews: ${id} (schema ${schema}, head ${facts.head ? facts.head.slice(0, 7) : 'none'})`,
+    `  note: the delivery contract of ${id} is judged on the pull request to ${base}`,
+  ];
+  let resolution = null;
+  let problems = [];
+  if ((env.GITHUB_HEAD_REF || currentBranch(root, env)) === support) {
+    resolution = resolutionState(root, id, { taskRef: `origin/${id}`, supportRef: 'HEAD' });
+    problems = resolution.error ? [resolution.error] : [
+      resolution.missing.length ? `missing ${resolution.missing.join(', ')}` : '',
+      resolution.stale.length ? `stale ${resolution.stale.join(', ')} (not at ${resolution.newest.slice(0, 7)}, the newest commit of ${support})` : '',
+      resolution.rejected.length ? `not approved: ${resolution.rejected.join(', ')}` : '',
+      resolution.undisposed.length ? `undisposed: ${resolution.undisposed.map((f) => `${f.reviewer}: ${f.excerpt}`).join('; ')}` : '',
+    ].filter(Boolean);
+    lines.push(problems.length ? line('open', `the resolution on ${support} is not approved: ${problems.join('; ')}`)
+      : line('met', resolution.commits.length ? `the resolution on ${support} is approved at ${resolution.newest.slice(0, 7)}` : `${support} holds no resolution to review`));
+  }
+  const pass = problems.length === 0;
+  const summary = resolution && {
+    commits: resolution.commits.map((c) => c.sha), newest: resolution.newest, missing: resolution.missing, stale: resolution.stale,
+    rejected: resolution.rejected, undisposed: resolution.undisposed, round: resolution.round, approved: resolution.approved,
+  };
+  return {
+    report: { version: 1, mode: 'ci', change: id, schema, head: facts.head, pass, twoPrs: { settingsRef, base, testBranch, foreign: null, testPr: null, resolution: summary, pass } },
+    lines, failed: pass ? [] : ['two-prs'], pass,
+  };
 }
 
 // An archive PR (design D8): the archived folders the PR diff brings and the same exact-path
@@ -1607,6 +2094,7 @@ function runCi(opts, env, cwd) {
   if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
   const facts = gitFacts(root);
   ciPreflight(root, env, facts.head);
+  const two = twoPrsContext(root, env);
   let selected;
   try { selected = selectCiChange(root, opts.id, env, currentBranch(root, env)); } catch (e) {
     if (!(e instanceof CiFailure)) throw e;
@@ -1629,7 +2117,7 @@ function runCi(opts, env, cwd) {
       return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, pass, archive: a }, text);
     }
   }
-  if (selected.several) return runSeveral(root, selected.several, facts, finish);
+  if (selected.several) return runSeveral(root, selected.several, facts, finish, two);
   if (selected.none) {
     const note = `no change selected by branch ${currentBranch(root, env) || '(detached)'} or touched by this PR; nothing to check`;
     return finish(0, { version: 1, mode: 'ci', change: null, pass: true, note }, `devkit-reviews: ${note}\n`);
@@ -1644,12 +2132,14 @@ function runCi(opts, env, cwd) {
     const note = `${id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')}); nothing was checked`;
     return finish(0, { version: 1, mode: 'ci', change: id, schema, pass: true, note }, `devkit-reviews: ${note}\npass\n`);
   }
-  const one = checkOne(root, id, facts);
+  const one = checkOne(root, id, facts, two);
   return finish(one.pass ? 0 : 1, one.report, [...one.lines, one.pass ? 'pass' : `fail: ${one.failed.join(', ')}`].join('\n') + '\n');
 }
 
-// Today's single-change check, unchanged: { report, lines, failed, pass } for a change on a devkit script.
-function checkOne(root, id, facts) {
+// Today's single-change check, unchanged: { report, lines, failed, pass } for a change on a devkit script. On a pull request to the
+// test branch of a two-prs project (D-7) it judges the resolution instead.
+function checkOne(root, id, facts, two = null) {
+  if (two && two.env.GITHUB_BASE_REF === two.testBranch && !(two.defaultName && two.defaultName !== two.base)) return testBranchPr(root, id, facts, two);
   const schema = changeSchema(root, id);
   const needsReadiness = changeDeclares(root, changeDir(root, id), 'readiness'); // the flow the change follows; an unreadable pin fails the check
   const status = needsReadiness ? readValue(join(changeDir(root, id), 'readiness.md'), 'Status') : null;
@@ -1668,12 +2158,15 @@ function checkOne(root, id, facts) {
     ...(needsReadiness ? [`  readiness ${(readinessMet ? 'met' : 'open').padEnd(9)}Status: ${status || 'missing'}`] : []),
     ...items.map((i) => `  ${i.id} ${i.status.padEnd(9)}${LABELS[i.id - 1]}: ${i.reason}`),
   ];
-  return { report, lines, failed, pass };
+  const rules = two ? twoPrsRules(root, id, two) : null;
+  if (!rules) return { report, lines, failed, pass };
+  const ruled = pass && rules.failed.length === 0;
+  return { report: { ...report, twoPrs: rules.report, pass: ruled }, lines: [...lines, ...rules.lines], failed: [...failed, ...rules.failed], pass: ruled };
 }
 
 // A pull request that touches several changes and is named after none (ADR 0012): each touched devkit-script
 // change with a ticked task is judged on its own; a plan or another script is a note.
-function runSeveral(root, ids, facts, finish) {
+function runSeveral(root, ids, facts, finish, two = null) {
   const judged = [];
   const notes = [];
   for (const id of ids) {
@@ -1690,7 +2183,7 @@ function runSeveral(root, ids, facts, finish) {
     const message = `this PR delivers no change: ${plans.map((n) => n.change).join(', ')} hold only a plan (no ticked task in tasks.md)`;
     return finish(1, { version: 1, mode: 'ci', change: null, changes: [], notes, pass: false, error: message }, [header, ...noteLines, `fail: ${message}`].join('\n') + '\n');
   }
-  const results = judged.map((id) => ({ id, ...checkOne(root, id, facts) }));
+  const results = judged.map((id) => ({ id, ...checkOne(root, id, facts, two) }));
   const pass = results.every((r) => r.pass);
   const failedText = results.filter((r) => !r.pass).map((r) => `${r.id}: ${r.failed.join(', ')}`).join('; ');
   const text = [header, ...results.flatMap((r) => r.lines), ...noteLines, pass ? 'pass' : `fail: ${failedText}`].join('\n') + '\n';

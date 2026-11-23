@@ -3,9 +3,8 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -14,6 +13,7 @@ import * as CL from './change-loop.mjs';
 import * as ROADMAP from './roadmap-loop.mjs';
 import * as PL from './project-loop.mjs';
 import * as DC from './deliver-check.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import { gitRepo, put, commitAll, git, fakeGh } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 
@@ -53,11 +53,10 @@ export function upgradeTo2(checkout) {
   writeFileSync(join(folder, 'flows', '2.json'), text);
 }
 
-let packCache = null;
 // A newer pack (9.9.9) shipping version 2 of the devkit flow: its setup script, change loop and readout are the "setup re-run" and the "pack update".
-export function packV2() {
-  if (packCache) return packCache;
-  const dir = mkdtempSync(join(tmpdir(), 'version-pin-pack-'));
+// Made once at module level (CONTRIBUTING: a shared fixture is never made lazily inside a test).
+function makePackV2() {
+  const dir = tmpFolder('devkit-version-pin-pack-');
   cpSync(join(HERE, '..'), dir, { recursive: true });
   const manifest = join(dir, '.claude-plugin', 'plugin.json');
   writeFileSync(manifest, JSON.stringify({ ...JSON.parse(readFileSync(manifest, 'utf8')), version: '9.9.9' }, null, 2));
@@ -65,9 +64,10 @@ export function packV2() {
   mkdirSync(join(dir, 'schemas', 'devkit', 'flows'), { recursive: true });
   writeFileSync(join(dir, 'schemas', 'devkit', 'flow.json'), text);
   writeFileSync(join(dir, 'schemas', 'devkit', 'flows', '2.json'), text);
-  packCache = dir;
   return dir;
 }
+const PACK_V2 = makePackV2();
+export const packV2 = () => PACK_V2;
 
 // The headed stage files of a change, written into `dir`; `c0` is the commit every header names.
 export function planFiles(dir, stages, c0) {
@@ -119,17 +119,30 @@ function scratch({ pin = null, to2 = false, stages = PLAN_V1, schema = 'devkit',
   return root;
 }
 
-// Scratch projects that tests only read are built once.
-const built = new Map();
+// Scratch projects that tests only read are built once, at module level: the temporary-folder helper removes a folder when the
+// test that made it ends, so a fixture shared by several tests is never made lazily inside the first one (CONTRIBUTING).
+const SHARED = [
+  { pin: 1, to2: true, stages: PLAN_V1 },
+  { pin: 1, to2: true, stages: FULL_V1 },
+  { pin: 1, to2: true, stages: PLAN_V1, ship: true },
+  { pin: 2, to2: true, stages: PLAN_V2 },
+  { pin: 2, to2: true, stages: FULL_V2 },
+  { pin: 2, to2: true, stages: PLAN_V2, ship: true },
+  { pin: null, stages: FULL_V1 },
+  { pin: null, to2: true, stages: PLAN_V1 },
+  { pin: null, stages: PLAN_V1 },
+  { pin: null, stages: PLAN_V1, ship: true },
+];
+const built = new Map(SHARED.map((opts) => [JSON.stringify(opts), scratch(opts)]));
 const shared = (opts) => {
   const key = JSON.stringify(opts);
-  if (!built.has(key)) built.set(key, scratch(opts));
+  if (!built.has(key)) throw new Error(`version-pin: the shared scratch project ${key} is not in SHARED`);
   return built.get(key);
 };
 
 // A copy of `root` with `edit(copy)` applied, for a test that changes a file.
 function variant(root, edit) {
-  const copy = mkdtempSync(join(tmpdir(), 'version-pin-'));
+  const copy = tmpFolder('devkit-version-pin-');
   cpSync(root, copy, { recursive: true });
   edit(copy);
   return copy;
@@ -369,7 +382,7 @@ test('version-pin AC-4 changeDeclares: equals the schema\'s readiness for unpinn
 });
 
 test('version-pin AC-4 readPin: the parse rules of D-1', () => {
-  const dir = join(mkdtempSync(join(tmpdir(), 'version-pin-pin-')), 'feat');
+  const dir = join(tmpFolder('devkit-version-pin-pin-'), 'feat');
   mkdirSync(dir, { recursive: true });
   const read = (text) => { writeFileSync(join(dir, '.openspec.yaml'), text); return GUARD.readPin(dir); };
   assert.deepEqual(GUARD.readPin(join(dir, 'missing')), { flow: null, devkit: null }, 'a missing file');
@@ -390,7 +403,7 @@ test('version-pin AC-4 readPin: the parse rules of D-1', () => {
 });
 
 test('version-pin AC-4 readFlowFile: a version is a whole number from 1', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'version-pin-flow-'));
+  const dir = tmpFolder('devkit-version-pin-flow-');
   const write = (version) => { const f = join(dir, 'flow.json'); writeFileSync(f, JSON.stringify({ ...treeFlow(), version })); return f; };
   assert.equal(GUARD.readFlowFile(write(1), 'x').version, 1);
   assert.equal(GUARD.readFlowFile(write(2), 'x').version, 2);
@@ -570,7 +583,7 @@ test('version-pin AC-1 open: a malformed installed flow.json opens nothing', () 
 });
 
 test('version-pin AC-1 packVersion: a plugin.json with a version, and none', () => {
-  const pack = mkdtempSync(join(tmpdir(), 'version-pin-pack-version-'));
+  const pack = tmpFolder('devkit-version-pin-pack-version-');
   const manifest = join(pack, '.claude-plugin', 'plugin.json');
   assert.equal(CL.packVersion(pack), null, 'no file');
   mkdirSync(join(pack, '.claude-plugin'));
@@ -585,8 +598,25 @@ test('version-pin AC-1 packVersion: a plugin.json with a version, and none', () 
   assert.equal(CL.packVersion(), PACK_VERSION, 'the default is this pack');
 });
 
+// Invariant: the change's `.openspec.yaml` holds the pin (top-level x- keys) and the owner's `devkit:` block (change-budget:
+// `budget:`); the writer of one never disturbs the reader of the other. Layer: the pin writer and reader; suite: version-pin.
+test('version-pin AC-1 writePin: the change budget block and the pin live in one .openspec.yaml', () => {
+  const dir = tmpFolder('devkit-version-pin-budget-');
+  const file = join(dir, '.openspec.yaml');
+  const block = 'devkit:\n  budget: 3000000\n';
+  writeFileSync(file, `schema: devkit\ncreated: 2026-11-22\n${block}`);
+  CL.writePin(dir, { devkit: '0.29.0', flow: 1 });
+  assert.equal(pinOf(dir), `schema: devkit\ncreated: 2026-11-22\n${block}x-devkit-version: 0.29.0\nx-devkit-flow: 1\n`, 'the pin is appended after the block, which stays byte for byte');
+  assert.deepEqual(GUARD.readPin(dir), { flow: 1, devkit: '0.29.0' }, 'the pin reads back');
+  assert.deepEqual(CL.budgetOf(dir, dir, 'en'), { cap: 3000000, from: 'change', file }, 'the budget still reads');
+  writeFileSync(file, `schema: devkit\nx-devkit-flow: 1\n${block}`);
+  CL.writePin(dir, { devkit: '0.29.0', flow: 2 });
+  assert.equal(pinOf(dir), `schema: devkit\nx-devkit-flow: 2\n${block}x-devkit-version: 0.29.0\n`, 'a moved pin keeps the block after it');
+  assert.deepEqual(CL.budgetOf(dir, dir, 'en'), { cap: 3000000, from: 'change', file }, 'the budget still reads after a move');
+});
+
 test('version-pin AC-1 writePin: append, replace, drop, collapse, keep', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'version-pin-write-'));
+  const dir = tmpFolder('devkit-version-pin-write-');
   const write = (before, pin) => { writeFileSync(join(dir, '.openspec.yaml'), before); CL.writePin(dir, pin); return pinOf(dir); };
   const both = { devkit: '0.23.0', flow: 2 };
   assert.equal(write('schema: devkit', both), 'schema: devkit\nx-devkit-version: 0.23.0\nx-devkit-flow: 2\n', 'append to a text with no final newline');
@@ -783,7 +813,7 @@ const FLOWS_REL = join('plugins', 'openspec', 'schemas');
 
 // A scratch root holding the pack's schemas and scripts/released-flows.json as the tree has them.
 function checkScratch() {
-  const root = mkdtempSync(join(tmpdir(), 'version-pin-check-'));
+  const root = tmpFolder('devkit-version-pin-check-');
   cpSync(PLUGIN_SCHEMAS, join(root, FLOWS_REL), { recursive: true });
   mkdirSync(join(root, 'scripts'), { recursive: true });
   cpSync(join(REPO, 'scripts', 'released-flows.json'), join(root, 'scripts', 'released-flows.json'));
@@ -914,7 +944,7 @@ test('version-pin AC-7 check: a missing or unreadable digest list fails', () => 
 });
 
 test('version-pin AC-7 check: a root without the schemas skips the check', () => {
-  const root = mkdtempSync(join(tmpdir(), 'version-pin-check-bare-'));
+  const root = tmpFolder('devkit-version-pin-check-bare-');
   writeFileSync(join(root, 'README.md'), '# A project\n');
   const r = runCheck(root);
   assert.equal(r.code, 0, r.out);

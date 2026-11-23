@@ -1,0 +1,184 @@
+✖ gh-version 5: an unknown --json flag on gh 2.46.0 is blocked with its own reason (AC-1) (127.092401ms)
+✖ gh-version 6: an unknown --required flag is told apart the same way (AC-1) (120.05932ms)
+✖ gh-version 7: an unreadable version still names the old gh, as an unknown version (AC-5) (129.255588ms)
+✔ gh-version 8: every other failure keeps today's reason and asks for no version (AC-6) (418.076794ms)
+✔ gh-version 9: a readable answer asks for no version (AC-6) (396.559493ms)
+✖ gh-version 5: an unknown --json flag on gh 2.46.0 is blocked with its own reason (AC-1) (128.013487ms)
+✖ gh-version 6: an unknown --required flag is told apart the same way (AC-1) (111.955471ms)
+✖ gh-version 7: an unreadable version still names the old gh, as an unknown version (AC-5) (151.178639ms)
+✔ gh-version 8: every other failure keeps today's reason and asks for no version (AC-6) (392.476468ms)
+✔ gh-version 9: a readable answer asks for no version (AC-6) (391.859002ms)
+✖ gh-version 1: parseGhVersion reads only the first line (1.364209ms)
+✖ gh-version 2: parseGhVersion gives null for odd input (0.242074ms)
+✖ gh-version 3: versionOlder compares numbers and the minimum is 2.50.0 (0.412683ms)
+✖ gh-version 4: ghVersion runs gh --version once and sorts the answer (0.298808ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 4
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1328.167029
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:1142:1
+✖ gh-version 5: an unknown --json flag on gh 2.46.0 is blocked with its own reason (AC-1) (127.092401ms)
+  AssertionError [ERR_ASSERTION]: cannot read the checks: unknown flag: --json
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/deliver-check.test.mjs:1148:64)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:1154:1
+✖ gh-version 6: an unknown --required flag is told apart the same way (AC-1) (120.05932ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   installed: '2.46.0',
+  -   minimum: '2.50.0'
+  - }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/deliver-check.test.mjs:1160:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { installed: '2.46.0', minimum: '2.50.0' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:1165:1
+✖ gh-version 7: an unreadable version still names the old gh, as an unknown version (AC-5) (129.255588ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'installed')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/deliver-check.test.mjs:1173:38)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:1142:1
+✖ gh-version 5: an unknown --json flag on gh 2.46.0 is blocked with its own reason (AC-1) (128.013487ms)
+  AssertionError [ERR_ASSERTION]: cannot read the checks: unknown flag: --json
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/deliver-check.test.mjs:1148:64)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:1154:1
+✖ gh-version 6: an unknown --required flag is told apart the same way (AC-1) (111.955471ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   installed: '2.46.0',
+  -   minimum: '2.50.0'
+  - }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/deliver-check.test.mjs:1160:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { installed: '2.46.0', minimum: '2.50.0' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:1165:1
+✖ gh-version 7: an unreadable version still names the old gh, as an unknown version (AC-5) (151.178639ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'installed')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/deliver-check.test.mjs:1173:38)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/merge-setup.test.mjs:212:1
+✖ gh-version 1: parseGhVersion reads only the first line (1.364209ms)
+  TypeError [Error]: M.parseGhVersion is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/merge-setup.test.mjs:213:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+
+test at plugins/openspec/hooks/merge-setup.test.mjs:219:1
+✖ gh-version 2: parseGhVersion gives null for odd input (0.242074ms)
+  TypeError [Error]: M.parseGhVersion is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/merge-setup.test.mjs:221:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/merge-setup.test.mjs:225:1
+✖ gh-version 3: versionOlder compares numbers and the minimum is 2.50.0 (0.412683ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - '2.50.0'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/merge-setup.test.mjs:226:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '2.50.0',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/merge-setup.test.mjs:234:1
+✖ gh-version 4: ghVersion runs gh --version once and sorts the answer (0.298808ms)
+  TypeError [Error]: M.ghVersion is not a function
+      at run (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/merge-setup.test.mjs:238:19)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/merge-setup.test.mjs:240:11)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

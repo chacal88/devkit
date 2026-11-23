@@ -1,0 +1,88 @@
+✔ delivery-models P7 T5: a test-branch pull request closed without merging blocks (3.614958ms)
+✖ delivery-models P7 T5: a closed test-branch pull request blocks before opening the missing base pull request (0.652125ms)
+✖ delivery-models P7 T5: a closed test-branch pull request blocks before pushing an unpushed base branch (0.175625ms)
+✖ delivery-models P7 T5: a closed test-branch pull request blocks before editing an incomplete base pull request body (0.193416ms)
+✔ delivery-models P7 T5: an unreadable test-branch pull request blocks (0.088875ms)
+✔ delivery-models P7 T5: a closed test-branch pull request stops the run and writes nothing more (1612.264833ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 3
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1688.726084
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:505:1
+✖ delivery-models P7 T5: a closed test-branch pull request blocks before opening the missing base pull request (0.652125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'open-pr',
+  +   'no pull request to the base branch yet'
+  -   'blocked',
+  -   'pull request #13 to develop was closed without merging'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:507:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'open-pr', 'no pull request to the base branch yet' ],
+    expected: [ 'blocked', 'pull request #13 to develop was closed without merging' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:510:1
+✖ delivery-models P7 T5: a closed test-branch pull request blocks before pushing an unpushed base branch (0.175625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'push',
+  +   'item 5 met'
+  -   'blocked',
+  -   'pull request #13 to develop was closed without merging'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:512:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'push', 'item 5 met' ],
+    expected: [ 'blocked', 'pull request #13 to develop was closed without merging' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:515:1
+✖ delivery-models P7 T5: a closed test-branch pull request blocks before editing an incomplete base pull request body (0.193416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'edit-pr-body',
+  +   'item 8 met'
+  -   'blocked',
+  -   'pull request #13 to develop was closed without merging'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:517:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'edit-pr-body', 'item 8 met' ],
+    expected: [ 'blocked', 'pull request #13 to develop was closed without merging' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

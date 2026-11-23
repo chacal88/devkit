@@ -2,11 +2,11 @@
 // Imported by plugins/openspec/hooks/guard.test.mjs, as the openspec-setup script tests are.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from './test-tmp.mjs';
 import {
   loadRules, validateArgs, validateStage1, needsVerification, isRefutation, decide, oneLine, findingLine,
   outcomeOf, consensusOf, reviewerPrompt, verifierPrompt, writerPrompt, consolidate,
@@ -44,7 +44,7 @@ test('review round: the rules section loads and exports every name', () => {
 });
 
 test('review round: loadRules names the file when a marker or a name is missing', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'review-round-'));
+  const dir = tmpFolder('devkit-review-round-');
   const noMarker = join(dir, 'a.js');
   writeFileSync(noMarker, 'const x = 1;\n');
   assert.throws(() => loadRules(noMarker), (e) => e.message === `review usage: rules section not found in ${noMarker}`);
@@ -239,6 +239,25 @@ test('review round: writerPrompt names the verdict the round computed on line 1'
   const clean = outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })]), SHA), {});
   assert.equal(clean.verdict, 'approved');
   assert.match(line1(writerPrompt(args, clean)), /^line 1: exactly Verdict: approved\b/);
+});
+
+test('delivery-models P15 review round: the writer is told reviews/resolution/<reviewer>.md with a verdictDir, and reviews/<reviewer>.md without one', () => {
+  const outcomeFor = (args) => outcomeOf(args, validateStage1('code-quality-reviewer', stage1Of('code-quality-reviewer', [finding({ severity: 'nit', text: 'a nit' })]), SHA), {});
+  const resolution = baseArgs({ verdictDir: 'reviews/resolution' });
+  const named = writerPrompt(resolution, outcomeFor(resolution));
+  assert.ok(named.includes('openspec/changes/demo/reviews/resolution/code-quality-reviewer.md'), named);
+  assert.ok(!named.includes('openspec/changes/demo/reviews/code-quality-reviewer.md'), 'the plain path is not named');
+  const plain = baseArgs();
+  const unnamed = writerPrompt(plain, outcomeFor(plain));
+  assert.ok(unnamed.includes('openspec/changes/demo/reviews/code-quality-reviewer.md'), unnamed);
+  assert.ok(!unnamed.includes('reviews/resolution/'), 'neg: no resolution path without verdictDir');
+});
+
+test('delivery-models P15 review round: verdictDir must be a string when it is given', () => {
+  assert.equal(validateArgs(baseArgs({ verdictDir: 'reviews/resolution' })).verdictDir, 'reviews/resolution');
+  assert.equal(validateArgs(baseArgs()).verdictDir, undefined, 'optional');
+  assert.throws(() => validateArgs(baseArgs({ verdictDir: 5 })), /review input invalid: args\.verdictDir must be a non-empty string/);
+  assert.throws(() => validateArgs(baseArgs({ verdictDir: '' })), /review input invalid: args\.verdictDir must be a non-empty string/);
 });
 
 test('review round: consolidate writes the table, the counts, the consensus line and the path', () => {
@@ -484,7 +503,7 @@ test('review round: VERIFIERS lives once in the rules section: verifyJobs, group
   assert.deepEqual(groupVotes(jobs, ['a', 'b', 'c']), { [cq]: { F1: ['a', 'b', 'c'] } });
 
   const source = readFileSync(SCRIPT, 'utf8');
-  const five = join(mkdtempSync(join(tmpdir(), 'review-round-five-')), 'five.js');
+  const five = join(tmpFolder('devkit-review-round-five-'), 'five.js');
   writeFileSync(five, source.replace('const VERIFIERS = 3;', 'const VERIFIERS = 5;'));
   const rules = loadRules(five);
   assert.equal(rules.VERIFIERS, 5);
@@ -514,7 +533,7 @@ test('review round: workflow rejects invalid args with the review input invalid 
 
 // ---- the CLI of the agents path ---------------------------------------
 
-const scratch = mkdtempSync(join(tmpdir(), 'review-round-cli-'));
+const scratch = tmpFolder('devkit-review-round-cli-');
 let seq = 0;
 function cli(sub, input, { raw = false } = {}) {
   const file = join(scratch, `in-${seq += 1}.json`);

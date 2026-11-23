@@ -29,15 +29,17 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { findRoot, readRoadmap, changeFlow, roadmapRunOf, isChangeId } from './guard.mjs';
 import { collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
-  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, stageIcon, sessionTitle,
-  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile,
+  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf,
+  HOOKS_DIR, locate, cleanOf, runFilePath, readRun, emptyRun, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile,
 } from './change-loop.mjs';
+
+// The run file's reader and the gate of an owner wait live in change-loop.mjs (change-state D-2); the callers of this module keep importing them from here.
+export { runFilePath, readRun, gateOf };
 
 // ---------------------------------------------------------------- the setting, the load and the word (D-6, D-3)
 
@@ -77,23 +79,6 @@ export function parseRunInput(text) {
 }
 
 // ---------------------------------------------------------------- gates and the previous script (D-12, D-4)
-
-// The gate code of each end that waits for the owner: every `waiting-` key of the message table but `waiting-github`.
-const GATE_OF_WHY = {
-  'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
-  'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
-  'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup',
-};
-
-// The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
-// the table does not know, is a LoopUsageError, so a new owner wait added later fails a test instead of printing a wrong phrase.
-export function gateOf(action) {
-  if (action?.kind === 'grill') return 'grill';
-  const why = action?.kind === 'end' && action.end?.state === 'waiting-for-owner' ? action.end.why : undefined;
-  const code = why === undefined ? undefined : GATE_OF_WHY[why];
-  if (!code) throw new LoopUsageError(`no gate for the action ${action?.kind ?? 'none'} ${action?.end?.why ?? ''}`.trim());
-  return code;
-}
 
 // True when the action says the change began under the previous script (the end blocked, why previous-script).
 export const isPrevious = (action) => action?.kind === 'end' && action.end?.state === 'blocked' && action.end?.why === 'previous-script';
@@ -197,7 +182,7 @@ export function sessionBackground({ id, root, branch, coordinator, lang }) {
 function sessionStartOf(e, f, lang) {
   const a = e.action;
   if (!a?.root) throw new LoopUsageError(`the open change ${e.id} has no worktree to start a session in`);
-  const title = sessionTitle(stageIcon(a) ?? '❓', e.id);
+  const title = changeState(a, null, { lang, id: e.id }).title ?? sessionTitle('❓', e.id);
   return {
     change: e.id, kind: 'session-start', cwd: a.root, title, progressKey: 'session-start',
     input: {
@@ -358,11 +343,7 @@ export function boardOf(f) {
   const rows = { owner: [], running: [], blocked: [], queue: [], outside: [] };
   for (const l of f.lines) {
     const e = entryOf(l.id);
-    if (e?.state === 'own') { const [block, text] = ownRow(e, f, say); rows[block].push({ id: l.id, text }); }
-    else if (sessionMode && e && !e.declared) rows.running.push({ id: l.id, text: say('running.no-session') });
-    else if (e?.state === 'owner') rows.owner.push({ id: l.id, text: say(`gate.${e.gate}`) });
-    else if (e?.state === 'blocked') rows.blocked.push({ id: l.id, text: say(`blocked-why.${e.why}`, e.params) });
-    else if (e) rows.running.push({ id: l.id, text: runningText(e, f, say) });
+    if (e) { const [block, text] = stateRow(e, f, say, lang); rows[block].push({ id: l.id, text }); }
     else if (l.cls === 'ready') rows.queue.push({ id: l.id, text: say(readyKey(l.id)) });
     else if (l.cls === 'waiting') rows.queue.push({ id: l.id, text: say('queue.after', { after: l.waitsFor }) });
     else if (l.cls === 'archived-unticked') rows.outside.push({ id: l.id, text: say('outside.unticked') });
@@ -386,25 +367,21 @@ export function boardOf(f) {
   return out.join('\n');
 }
 
-// The block and the row of a change in a session of its own, from its action when it was read: its gate, its blocked reason or its stage.
-function ownRow(e, f, say) {
-  const a = e.action;
-  if (a?.kind === 'grill' || (a?.kind === 'end' && a.end.state === 'waiting-for-owner')) return ['owner', say(`gate.${gateOf(a)}`)];
-  if (a?.kind === 'end' && a.end.state === 'blocked') return ['blocked', say(`blocked-why.${a.end.why}`, { ...a.params, id: e.id, why: a.end.why })];
-  return ['running', runningText(e, f, say)];
-}
-
-// A row of "under way": the stage's title, with its phase when the action names one and tasks.md's phases are known, or the wait on GitHub.
-function runningText(e, f, say) {
-  const action = e.action;
-  if (e.state === 'wait' || action?.end?.state === 'waiting-on-github' || (e.state === 'running' && e.inflight.kind === 'wait')) {
-    return say('running.github', { what: action?.params?.what ?? e.inflight?.what ?? 'merge' });
-  }
-  const title = action?.stageTitle ?? e.inflight?.stage ?? '';
-  const phase = action?.detail?.phase;
+// The block and the words of a placed change's row, from its state (change-state D-6): the owner and blocked rows say the state's
+// reason, a wait on GitHub says what it waits for, and under way is the stage's title with its phase when the action names one and
+// tasks.md's phases are known (or the change has no session of its own yet).
+const BLOCK_OF_STATE = { 'waiting-for-owner': 'owner', blocked: 'blocked', running: 'running', 'waiting-on-github': 'running' };
+function stateRow(e, f, say, lang) {
+  const facts = runFactsOf(f, e.id, { onRoadmap: true });
+  const s = changeState(f.actions?.[e.id] ?? null, facts, { lang, id: e.id });
+  const block = BLOCK_OF_STATE[s.state];
+  if (block === 'owner' || block === 'blocked') return [block, s.reason.text];
+  if (s.state === 'waiting-on-github') return [block, say('running.github', { what: s.reason.code })];
+  if (s.reason?.code === 'ready' && facts.sessionMode) return [block, say('running.no-session')];
+  const title = s.stageTitle ?? '';
   const total = f.phaseTotals?.[e.id];
-  if (typeof phase === 'number' && total) return say('running.phase', { title, phase, phases: total });
-  return say('running.stage', { title });
+  if (s.phase !== null && total) return [block, say('running.phase', { title, phase: s.phase, phases: total })];
+  return [block, say('running.stage', { title })];
 }
 
 // ---------------------------------------------------------------- the draft (D-9)
@@ -418,60 +395,17 @@ export function draftText(lang, ids) {
 
 // ---------------------------------------------------------------- the run file (D-5)
 
-const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 // The wait is at most half the `agent` hook's timeout in hooks.json (10 s), so a hand-off answers before the host gives up (D-8).
 export const LOCK = { stepMs: 100, waitMs: 3_000, staleMs: 60_000 };
 
 // The run file is locked by another call for longer than the wait: exit 3 for a command, `run-file-busy` for a hook.
 export class RunFileBusy extends LoopUsageError {}
 
-// One run's bookkeeping and nothing the files, the repository or GitHub can say.
-const emptyRun = () => ({
-  version: 1, session: null, places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [],
-  held: false, holding: null, changeSessions: false, startedSessions: {}, turn: null, updatedAt: null,
-});
-
-// `<common git directory>/devkit/roadmap-run.json`: every checkout of the clone and every session see the same file, and no commit holds it.
-export function runFilePath(cwd) {
-  let common;
-  try {
-    common = execFileSync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch { throw new LoopUsageError(`${cwd} is not inside a git repository`); }
-  return join(common, 'devkit', 'roadmap-run.json');
-}
-
 // True only for a watch record whose process still lives: `process.kill(pid, 0)` throws nothing, or EPERM (alive, not ours).
 // ESRCH and every other error count as dead, so a watch killed before it cleared its mark holds nothing.
 export function watchAlive(holding) {
   if (!isObject(holding) || !Number.isInteger(holding.pid) || holding.pid <= 0) return false;
   try { process.kill(holding.pid, 0); return true; } catch (e) { return e?.code === 'EPERM'; }
-}
-
-// The file as it is; a missing or broken one is an empty run with one place, and a field of the wrong type is dropped.
-export function readRun(file) {
-  let parsed;
-  try { parsed = JSON.parse(readFileSync(file, 'utf8')); } catch { return emptyRun(); }
-  if (!isObject(parsed)) return emptyRun();
-  const run = emptyRun();
-  if (Number.isInteger(parsed.places) && parsed.places >= 1) run.places = parsed.places;
-  if (typeof parsed.session === 'string') run.session = parsed.session;
-  if (typeof parsed.asking === 'string') run.asking = parsed.asking;
-  if (typeof parsed.updatedAt === 'string') run.updatedAt = parsed.updatedAt;
-  for (const key of ['stopping', 'held', 'changeSessions']) if (typeof parsed[key] === 'boolean') run[key] = parsed[key];
-  if (parsed.turn === 'typed' || parsed.turn === 'event') run.turn = parsed.turn;
-  // The change sessions the run started (D-3): { <change id>: { at } }; a key that is no change id is dropped.
-  if (isObject(parsed.startedSessions)) {
-    for (const [id, entry] of Object.entries(parsed.startedSessions)) {
-      if (isChangeId(id) && isObject(entry)) run.startedSessions[id] = { at: typeof entry.at === 'string' ? entry.at : null };
-    }
-  }
-  // The watch of the load: { pid, at } (D-7); the boolean of 0.18.0, or anything else, is no watch.
-  if (isObject(parsed.holding) && Number.isInteger(parsed.holding.pid) && parsed.holding.pid > 0) {
-    run.holding = { pid: parsed.holding.pid, at: typeof parsed.holding.at === 'string' ? parsed.holding.at : null };
-  }
-  for (const key of ['inflight', 'declared', 'announced']) if (isObject(parsed[key])) run[key] = parsed[key];
-  if (Array.isArray(parsed.starting)) run.starting = parsed.starting.filter((id) => typeof id === 'string');
-  return run;
 }
 
 // Read, change and write the file under its lock (created with `wx`, retried, taken over when old), through a temporary file and a rename.

@@ -1,0 +1,15 @@
+ARGS: pr view --json url,state
+ARGS: pr create --base main --title docs(proof): add b.txt --body-file -
+BODY-STDIN-BEGIN
+## Summary
+- Add b.txt as proof of the attribution flow.
+
+## Linked artifacts
+- None (no change folder).
+
+## Test plan
+- [x] Reviews current at HEAD (per caller)
+- [ ] Human review of the PR
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+BODY-STDIN-END

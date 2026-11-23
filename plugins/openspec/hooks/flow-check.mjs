@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow } from './guard.mjs';
-import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, shipConfig, ShipConfigError, deliveryOf, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
+import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -192,7 +192,9 @@ function offOwnBranch(root, id, branch) {
 
 // The delivery of design D-6, read only when the walk reaches it:
 // { state: 'passed' } | { next: { stage, reasonCode, params } } | { end: { state, reasonCode, params } }.
-function readDelivery({ ship, gh, head, delivery }) {
+// In `two-prs` (`twoPrs` given) the pull request to the test branch is read too: it is merged first, and the base pull request's own
+// `devkit-reviews` check waits for it, so the base checks count only once it has merged (delivery-models D-5).
+function readDelivery({ ship, gh, head, delivery, twoPrs = null }) {
   const next = (stage, reasonCode, params = {}) => ({ next: { stage, reasonCode, params } });
   const end = (state, reasonCode, params = {}) => ({ end: { state, reasonCode, params } });
   if (ship === 'plan') return end('waiting-for-owner', 'ship-plan');
@@ -203,10 +205,29 @@ function readDelivery({ ship, gh, head, delivery }) {
   if (pr.state === 'MERGED') return delivered ? { state: 'passed' } : next('implementation', 'tasks-left-after-merge', { number: pr.number, tasks: left.join(', ') });
   if (pr.state !== 'OPEN') return end('blocked', 'pr-closed', { number: pr.number });
   if (pr.headRefOid !== head) return next('delivery', 'not-pushed', { number: pr.number });
+  let testMerged = false;
+  if (twoPrs) {
+    const test = twoPrs.testPr();
+    if (test.error) return end('blocked', 'gh-error', { error: test.error });
+    if (test.none) return next('delivery', 'no-test-pr');
+    testMerged = test.pr.state === 'MERGED';
+    if (test.pr.state === 'CLOSED') return end('blocked', 'pr-closed', { number: test.pr.number });
+    if (!testMerged) {
+      if (test.checks.status === 'blocked') return end('blocked', 'checks-unreadable', { error: test.checks.reason });
+      if (test.checks.details.failing.length) return next('implementation', 'check-failing', { checks: test.checks.details.failing.map((c) => `${c.name} (${c.link})`).join(', ') });
+      if (test.checks.details.pending.length) return end('waiting-on-github', 'checks-pending', { checks: test.checks.details.pending.join(', ') });
+      return end('waiting-for-owner', 'owner-merges-test-branch', { number: test.pr.number, branch: twoPrs.testBranch, base: twoPrs.base });
+    }
+  }
   const checks = checksItem(found, gh);
-  if (checks.status === 'blocked') return end('blocked', 'checks-unreadable', { error: checks.reason });
+  if (checks.status === 'blocked') {
+    const old = checks.details.ghTooOld;
+    if (old) return end('blocked', 'gh-too-old', { installed: old.installed, minimum: old.minimum });
+    return end('blocked', 'checks-unreadable', { error: checks.reason });
+  }
   if (checks.details.failing.length) return next('implementation', 'check-failing', { checks: checks.details.failing.map((c) => `${c.name} (${c.link})`).join(', ') });
   if (checks.details.pending.length) return end('waiting-on-github', 'checks-pending', { checks: checks.details.pending.join(', ') });
+  if (twoPrs) return end('waiting-for-owner', 'owner-merges-base', { number: pr.number, base: twoPrs.base });
   if (ship === 'pr') return end('waiting-for-owner', 'owner-merges', { number: pr.number });
   if (pr.autoMergeRequest != null) return end('waiting-on-github', 'auto-merge-on', { number: pr.number, waiting: waitingFor(pr.mergeStateStatus) });
   return next('delivery', 'enable-auto-merge', { number: pr.number });
@@ -231,7 +252,7 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
     flowVersion: { version: followed.version, installed: followed.installed, pinned: followed.pinned } });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
-  try { config = shipConfig(root, schema); } catch (e) {
+  try { config = deliveryConfig(root, schema); } catch (e) {
     if (e instanceof ShipConfigError) throw new FlowUsageError(e.message);
     throw e;
   }
@@ -241,13 +262,16 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   // the task count give way to the headers themselves.
   const branch = currentBranch(root, env);
   let lookup = null;
-  const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located }));
+  const two = config.model === 'two-prs';
+  const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located, ...(two ? { base: config.base } : {}) }));
+  let testLookup = null;
+  const twoPrs = two ? { base: config.base, testBranch: config.testBranch, testPr: () => (testLookup ??= findTestPr(gh, { id, testBranch: config.testBranch })) } : null;
   const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf)),
     staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
-    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery }),
+    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs }),
   });
   const status = openspecJson(openspec, ['status', '--change', id, '--json'], 'artifacts');
   facts.skipped = status.artifacts.filter((a) => a.status === 'skipped').map((a) => a.id);
@@ -314,9 +338,13 @@ export const TEXT = {
     'no-pr': () => 'there is no pull request for this change yet',
     'not-pushed': (p) => `pull request #${p.number} is not at the local commit; push first`,
     'checks-unreadable': (p) => `the checks cannot be read: ${p.error}`,
+    'gh-too-old': (p) => `the installed gh (${p.installed ?? 'unknown version'}) cannot read the checks; ${p.minimum} is the first version that can, so update gh`,
     'check-failing': (p) => `checks failing: ${p.checks}`,
     'checks-pending': (p) => `checks pending: ${p.checks}`,
     'owner-merges': (p) => `pull request #${p.number} is green; the owner merges it`,
+    'no-test-pr': () => 'there is no pull request to the test branch for this change yet',
+    'owner-merges-test-branch': (p) => `pull request #${p.number} to ${p.branch} is green; the owner merges it first, and the pull request to ${p.base} waits for it`,
+    'owner-merges-base': (p) => `pull request #${p.number} to ${p.base} is green; the owner merges it`,
     'auto-merge-on': (p) => `auto-merge is on for pull request #${p.number}; waiting for ${p.waiting}`,
     'enable-auto-merge': (p) => `pull request #${p.number} is green; auto-merge is not on yet`,
     'pr-closed': (p) => `pull request #${p.number} was closed without merging`,
@@ -363,9 +391,13 @@ export const TEXT = {
     'no-pr': () => 'ainda não há pull request desta change',
     'not-pushed': (p) => `o pull request #${p.number} não está no commit local; é preciso enviar antes`,
     'checks-unreadable': (p) => `não foi possível ler os checks: ${p.error}`,
+    'gh-too-old': (p) => `o gh instalado (${p.installed ?? 'versão desconhecida'}) não consegue ler os checks; ${p.minimum} é a primeira versão que consegue, então atualize o gh`,
     'check-failing': (p) => `checks falhando: ${p.checks}`,
     'checks-pending': (p) => `checks pendentes: ${p.checks}`,
     'owner-merges': (p) => `o pull request #${p.number} está verde; o dono o mescla`,
+    'no-test-pr': () => 'ainda não há pull request para a branch de teste desta change',
+    'owner-merges-test-branch': (p) => `o pull request #${p.number} para ${p.branch} está verde; o dono o mescla primeiro, e o pull request para ${p.base} espera por ele`,
+    'owner-merges-base': (p) => `o pull request #${p.number} para ${p.base} está verde; o dono o mescla`,
     'auto-merge-on': (p) => `o auto-merge está ligado no pull request #${p.number}; esperando ${p.waiting}`,
     'enable-auto-merge': (p) => `o pull request #${p.number} está verde; o auto-merge ainda não está ligado`,
     'pr-closed': (p) => `o pull request #${p.number} foi fechado sem mesclar`,
