@@ -263,7 +263,7 @@ function reviewerPrompt(args, entry) {
     + 'Change folder: ' + args.changeDir + '\n'
     + 'Review range: ' + range + '\n'
     + previous
-    + 'Review as your own instructions say, but write no file: a later stage writes your verdict file.\n'
+    + 'Review as your own instructions say, but write no file: a later stage writes your verdict file. Run every test in the foreground and give your answer when it ends: start no background command and leave none running.\n'
     + 'Run git rev-parse HEAD in the worktree and put the full sha it prints in commit; the round refuses any other value, a short sha padded with zeros included.\n'
     + 'List in read every repo-relative path you opened, and in notRead every path of your remit you did not open (an empty list when you opened them all); the round refuses an answer with a path in notRead, or with an empty read unless you declined.\n'
     + 'A disposition is either fixed in <sha>, naming exactly one sha, the commit that holds the fix, or refuted: <evidence>; never name two shas.\n'
