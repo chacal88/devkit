@@ -27,7 +27,7 @@ import { shipConfig, locateChange, fetchPr, checksItem } from './deliver-check.m
 import { mergeSetup, makeGh } from './merge-setup.mjs';
 import {
   LoopUsageError, LoopRefusal, render, normalizeLang, projectGate, readDevkitSettings, locate, cleanOf, checkoutsOf, activeIds, isSliceDir,
-  knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
+  COMMIT_AGENT, withAttribution, knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
 } from './change-loop.mjs';
 
 export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -37,10 +37,10 @@ const SCRIPT = 'devkit-project';
 const PHASES = ['business', 'domain-model', 'architecture', 'implementation-plan'];
 const SETTLED_STAGES = [...PHASES, 'roadmap'];
 const DOC = { business: '1-business-vision.md', 'domain-model': '2-domain-model.md', architecture: '3-architecture.md', 'implementation-plan': '4-implementation-plan.md' };
-const AGENT = { 'commit-and-pr': 'devkit-core:commit-and-pr', 'adr-reviewer': 'devkit-core:adr-reviewer' };
+const AGENT = { 'commit-and-pr': COMMIT_AGENT, 'adr-reviewer': 'devkit-core:adr-reviewer' };
 const INTERVIEW = ['no-file', 'no-header', 'bad-header', 'header-other-stage'];
 const REVIEW_REASONS = ['no-file', 'stale-code', 'stale-plan', 'rerun-after-fix'];
-const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'undeclared-stage': 'undeclared-stage' };
+const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-too-old': 'gh-too-old', 'undeclared-stage': 'undeclared-stage' };
 const MARKERS = /<!-- devkit-rounds:begin -->\r?\n([\s\S]*?)<!-- devkit-rounds:end -->/;
 const ITEM = /^\s*[-*]\s+\[([ xX])\]\s+([A-Za-z0-9][\w.-]*)(?:\s+\(after:\s*([^)]*)\))?(.*)$/;
 
@@ -68,7 +68,7 @@ function readVerdict(file, root, head) {
   const word = readValue(file, 'Verdict');
   const commit = parseCommitLine(text);
   const full = commit ? tryGit(root, ['rev-parse', '--verify', '--quiet', `${commit.sha}^{commit}`]) : '';
-  return { exists: true, word, sha: commit?.sha ?? null, full, uncommitted: Boolean(commit?.uncommitted), isHead: Boolean(full) && full === head, usable: Boolean(word && commit && full) };
+  return { exists: true, word, sha: commit?.sha ?? null, full, uncommitted: Boolean(commit?.uncommitted), isHead: Boolean(full) && full === head, usable: Boolean(word && commit && full && !commit.uncommitted) };
 }
 
 // { result, attempt, commit } of a stage record's header, or null.
@@ -128,7 +128,7 @@ export function decideSlice(facts) {
   // K1: the loop does not repeat an action that made no progress.
   const guard = (action) => (facts.after && facts.after === action.progressKey ? blocked('no-progress', { stage: titleOf(action.stage) }, action.stage) : action);
   const agent = (stage, role, step, what, extra = '') => guard({
-    ...base, kind: 'agent', ...stageFields(stage), agent: AGENT[role], step, brief: brief(stage, what) + extra, progressKey: key(stage, step),
+    ...base, kind: 'agent', ...stageFields(stage), agent: AGENT[role], step, brief: withAttribution(AGENT[role], brief(stage, what) + extra), progressKey: key(stage, step),
   });
   const sessionAction = (stage, step, detail) => guard({ ...base, kind: 'session', ...stageFields(stage), step, detail, progressKey: key(stage, step) });
   const commitAgent = (stage, what) => agent(stage, 'commit-and-pr', 'commit', what, COMMIT_RULE);
@@ -164,11 +164,15 @@ export function decideSlice(facts) {
     ...(step === 'approval' ? { reply: say('rounds-approval', { list: facts.rounds.ids.join(', ') }) } : {}),
   });
 
+  const ghParams = (p) => ({ installed: p?.installed ?? render(lang, 'gh-version-unknown'), minimum: p?.minimum, verb: 'project' });
+
   // The reason of a blocked end of the stage checker, in plain words.
   const blockedEnd = (e) => {
     const why = BLOCKED_OF[e.reasonCode] ?? 'unknown-step';
     const stageId = e.params?.stage ?? e.stage;
-    return blocked(why, { stage: titleOf(stageId), attempt: e.params?.attempt }, e.stage);
+    const params = { stage: titleOf(stageId), attempt: e.params?.attempt };
+    if (why === 'gh-too-old') Object.assign(params, ghParams(e.params));
+    return blocked(why, params, e.stage);
   };
 
   if (facts.kind === 'default') return delivered();
@@ -234,7 +238,11 @@ export function decideSlice(facts) {
       return agent('delivery', 'commit-and-pr', 'push', `commit by name anything uncommitted of the slice and push the branch so that pull request #${pr.number} holds the local head`, COMMIT_RULE);
     }
     const checks = a.checks(fetched);
-    if (checks.status === 'blocked') return blocked('github-unreadable', { error: checks.reason }, 'delivery');
+    if (checks.status === 'blocked') {
+      const old = checks.details.ghTooOld;
+      if (old) return blocked('gh-too-old', ghParams(old), 'delivery');
+      return blocked('github-unreadable', { error: checks.reason }, 'delivery');
+    }
     const failing = checks.details.failing;
     if (failing.length) return blocked('checks-failing', { list: failing.map((c) => `${c.name} (${c.link})`).join(', ') }, 'delivery');
     if (pr.mergeable === 'CONFLICTING') return blocked('branch-conflict', { number: pr.number, base: pr.baseRefName }, 'delivery');
@@ -535,6 +543,7 @@ export function recordReviewCommand(cwd, slice, { lang = 'pt-BR', env = process.
   if (!v.exists) return unusable('no-verdict-file');
   if (!v.word) return unusable('no-verdict');
   if (!v.sha) return unusable('no-commit');
+  if (v.uncommitted) return unusable('uncommitted');
   if (!v.isHead) return unusable('other-commit');
   const result = v.word === 'APPROVED' || v.word === 'DECLINED' ? 'passed' : 'failed';
   const attempt = (readRecord(join(dir, 'review.md'))?.attempt ?? 0) + 1;

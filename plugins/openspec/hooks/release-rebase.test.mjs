@@ -2,9 +2,9 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, chmodSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict } from './release-rebase.mjs';
@@ -127,8 +127,8 @@ function bump(root, { packs, metadata, packsAll, title, body = '- change', catal
 
 // A clone on branch `feature` (one commit by B) behind origin/main (one commit by A).
 function releaseRepo({ a, b, extraA = {}, extraB = {}, gen = false, initial = {} } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'devkit-release-'));
-  const origin = mkdtempSync(join(tmpdir(), 'devkit-release-origin-'));
+  const root = tmpFolder('devkit-release-');
+  const origin = tmpFolder('devkit-release-origin-');
   git(origin, 'init', '-q', '--bare', '-b', 'main');
   git(root, 'init', '-q', '-b', 'main');
   write(root, {
@@ -320,7 +320,7 @@ test('release-rebase: a missing origin/<base> and an unknown option are setup er
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const here = dirname(fileURLToPath(import.meta.url));
-const pinTmp = () => readdirSync(tmpdir()).filter((f) => f.startsWith('devkit-pin-'));
+const pinTmp = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
 // A doc shaped like docs/openspec-flow.md around its CI pin: a top slot, a body, the `## CI` block with
 // the three pin lines of the real file, and a bottom slot. Each slot is 3+ unchanged lines from the pin lines.

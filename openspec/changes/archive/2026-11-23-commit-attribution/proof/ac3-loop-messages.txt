@@ -1,0 +1,18 @@
+chore(attribution-proof): add c.txt
+
+Adds c.txt, the remaining file of the attribution-proof change.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+-----
+chore(attribution-proof): add b.txt
+
+Delivers the b.txt step of the attribution-proof change ahead of
+verify and review.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+-----
+chore: start
+
+-----

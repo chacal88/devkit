@@ -3,6 +3,7 @@
 - Status: accepted
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
 - Amended by ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md)
+- Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)
 - Date: 2026-11-20
 - Change: change-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), one sentence of decision 8
@@ -20,8 +21,12 @@ roadmap run starts is therefore held by these locks
 ([ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). Decisions 1 to 3 are
 otherwise unchanged.
 
+Note (stage-roles, 2026-11-21): [ADR 0016](0016-stage-roles-write-their-own-files.md) says which files
+outside the change folder are not product code (decision records, and test files the E2E tester
+writes); decision 2's refusal of the session's product edits is unchanged.
+
 Note (remote-worker, 2026-11-22): a change session on another machine is held by these locks there,
-by the pack installed on that machine ([ADR 0016](0016-a-change-can-run-on-another-machine.md)).
+by the pack installed on that machine ([ADR 0019](0019-a-change-can-run-on-another-machine.md)).
 Decisions 1 to 3 are unchanged.
 
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no

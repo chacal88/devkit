@@ -1,0 +1,110 @@
+✖ stage-roles docs: the design page marks stages 3, 4, 9, 10 and 11 of its table built in round 16 (12.382011ms)
+✖ stage-roles docs: the design page records the test settings among the configuration field names (0.586364ms)
+✖ stage-roles docs: ADR 0014 has its headings, its status and the owner's approval of the plan (0.266057ms)
+✖ stage-roles docs: ADR 0010 and ADR 0011 name ADR 0014 in a header line and a dated Note (0.304976ms)
+✖ stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes (5.419174ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 266.797754
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3148:1
+✖ stage-roles docs: the design page marks stages 3, 4, 9, 10 and 11 of its table built in round 16 (12.382011ms)
+  AssertionError [ERR_ASSERTION]: row 3 says built, round 16
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3153:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: "| 3 | Mock-up, only when the change alters a screen, before any plan | `screen-designer` (new), skill `screen-mockup` (new), `screen-design` | the screens drawn with real example data, saved in the change's `mock/` | the owner approves; what the mock reveals goes back into the requirements |",
+    expected: /\(built, round 16\)/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3159:1
+✖ stage-roles docs: the design page records the test settings among the configuration field names (0.586364ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Decided by `stage-roles` on 2026-11-21: `devkit\.tests\.unit`, `devkit\.tests\.coverage\.command`, `devkit\.tests\.coverage\.target`, `devkit\.tests\.e2e`/. Input:
+  
+  "**The configuration's field names. Decided by `change-coordinator` on 2026-11-20 (A-8).**\n" +
+    "`devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,\n" +
+    '`compozy` or `script`; default `claude`) are final. The other fields stay proposed, for rounds 16, 17\n' +
+    'and 20.\n' +
+    '\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3164:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "**The configuration's field names. Decided by `change-coordinator` on 2026-11-20 (A-8).**\n`devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,\n`compozy` or `script`; default `claude`) are final. The other fields stay proposed, for rounds 16, 17\nand 20.\n\n",
+    expected: /Decided by `stage-roles` on 2026-11-21: `devkit\.tests\.unit`, `devkit\.tests\.coverage\.command`, `devkit\.tests\.coverage\.target`, `devkit\.tests\.e2e`/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3170:1
+✖ stage-roles docs: ADR 0014 has its headings, its status and the owner's approval of the plan (0.266057ms)
+  Error: ENOENT: no such file or directory, open '/home/kaue/repos/devkit/.claude/worktrees/stage-roles/docs/adr/0014-stage-roles-write-their-own-files.md'
+      at readFileSync (node:fs:624:20)
+      at readRepo (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:2179:28)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3171:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/home/kaue/repos/devkit/.claude/worktrees/stage-roles/docs/adr/0014-stage-roles-write-their-own-files.md'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3186:1
+✖ stage-roles docs: ADR 0010 and ADR 0011 name ADR 0014 in a header line and a dated Note (0.304976ms)
+  AssertionError [ERR_ASSERTION]: 0010-openspec-as-the-harness.md has the Amended by line in its header
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3190:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3201:1
+✖ stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes (5.419174ms)
+  AssertionError [ERR_ASSERTION]: both lines exist
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-roles/plugins/openspec/hooks/change-loop.test.mjs:3209:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

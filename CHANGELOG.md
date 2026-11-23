@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.26.0 — remote worker
+## 0.33.0 — remote worker
 
-- **devkit-openspec** 0.22.0: a change can run on another machine. Opening a change in a repository
+- **devkit-openspec** 0.29.0: a change can run on another machine. Opening a change in a repository
   with an `origin` commits its folder with the request and the machine's name and pushes its branch
   at once, so no machine opens an id that is open on another one (`claimed`); of two machines opening
   one id at the same moment, one wins. The new per-person `machines` setting lists the other machines
@@ -12,8 +12,158 @@
   implementation on (`change-loop.mjs place`); with none free it ends blocked (waiting for a place),
   and a freed place wakes one waiting change. `/devkit status` shows where each change is and reads
   "no answer" for a machine that does not answer (`status --json`, `machine-probe.mjs`).
-- Docs: ADR 0016 (proposed) amends ADR 0013 and ADR 0014; the flow page, the coordination design and
+- Docs: ADR 0019 (proposed) amends ADR 0013 and ADR 0014; the flow page, the coordination design and
   the pack README follow. The CI snippet now pins `v0.22.0`, the release's tag.
+
+## 0.32.3 — retro proposals of delivery-models
+
+- **devkit-core** 0.13.1: `tdd-implementer` runs a long suite in the background and never waits with a
+  polling loop; `pr-verifier` may let one green whole-suite run stand for the gate parts it imports.
+- Project config: plans name an ADR number or version by rule, not by value.
+
+## 0.32.2 — change-state retro fixes
+
+- **devkit-openspec** 0.28.2: the `change-state ADR 0017: the documents follow` test finds
+  `approval.md` in the archived change folder once the change is archived, so the archive pull
+  request stays green. The repository check `scripts/check.py` now refuses an un-awaited
+  `t.test(` subtest in a hook test file, and CONTRIBUTING says to await every subtest. The CI
+  snippet now pins `v0.28.2`, the release's tag.
+
+## 0.32.1 — retro of change-budget
+
+- **devkit-openspec** 0.28.1: the `ship-change` `review` row commits every modified or untracked
+  file under the change folder before a review round, so the verdicts are not recorded against
+  uncommitted changes.
+- Docs: `CONTRIBUTING.md` says to fetch `main` again right before each push of the delivery and
+  before `enable-auto-merge`, since a sibling that merged in between took the release number.
+
+## 0.32.0 — delivery models per project
+
+- **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
+  `openspec/config.yaml`: `two-prs`, `trunk` or `trunk-auto` ([ADR 0018](docs/adr/0018-the-delivery-model-is-chosen-per-project.md)).
+  In `two-prs` both pull requests open together from the task branch and the owner merges both; the
+  test branch never enters the task branch (a hook refuses the command, and `devkit-reviews` fails a
+  pull request to the base branch that holds a test-branch commit or whose test-branch pull request is
+  not merged); a conflict is solved on the support branch `<id>-<test branch>`, reviewed on its own
+  before it is pushed; the change is archived through two archive pull requests. A project on `two-prs`
+  adds `pull-requests: read` and `GH_TOKEN` to its `devkit-reviews` workflow (the template has both).
+  The CI snippet now pins `v0.28.0`, the release's tag.
+- **devkit-core** 0.13.0: `review-change` reviews a support branch's resolution on its own, the
+  `code-quality-reviewer` and `test-coverage-reviewer` read it, and `commit-and-pr` gains the two-PR
+  call and the test-branch archive call.
+- Docs: ADR 0018, with Notes in ADRs 0002, 0003, 0010 and 0012; the coordination design records the
+  conflict answer and the built lock; `docs/openspec-flow.md` gains "Delivery models".
+
+## 0.31.0 — gh version check
+
+- **devkit-openspec** 0.27.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
+  first with `gh pr checks --json`) with its own blocked reason that gives the installed version
+  and asks for an update, instead of "GitHub cannot be read"; `openspec-setup` step 1 checks `gh`
+  once and warns without stopping the setup. The CI snippet now pins `v0.27.0`, the release's tag.
+
+## 0.30.1 — a review fixed in the plan files
+
+- **devkit-openspec** 0.26.1: a rejected verdict goes stale after any later commit outside the
+  change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
+  included, so a fix made in the plan files gets the next review round with no hand from the owner;
+  a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
+  The CI snippet now pins `v0.26.1`, the release's tag.
+- **devkit-core** 0.12.1: the `review-change` skill's stale definition names the rule for a rejected
+  verdict.
+- Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
+  document.
+
+## 0.30.0 — the Jira entry
+
+- **devkit-openspec** 0.26.0: `/devkit change <Jira key or link>` opens the change from that task.
+  The session reads it through its own Atlassian connector; `change-loop.mjs` makes no call and
+  keeps no token. `start` answers the `task` mode, `open --task <KEY>` writes a `Jira: <KEY> <link>`
+  line and the quoted title, description and acceptance-criteria field under `## Request`, and the
+  key resumes its unfinished change (a second change for it is refused). When the pull request
+  opens, `next` carries `writeBack` and `write-back ask|answer` asks the developer once whether to
+  comment the link and move the task; Jira is written only on that yes, and the question is
+  recorded in the git common directory. New module `jira-task.mjs`.
+- **devkit-core** 0.12.0: the `requirements-grill` skill asks only what a request copied from a
+  task leaves open, recording the rest as assumptions answered by the task.
+- Docs: the flow document, the design document and ADR 0010 (a dated Note: no task-source
+  setting) record the entry; the roadmap gains round 20b (`jira-entry-live`).
+- CI: the snippet now pins `v0.26.0`, the release's tag.
+
+## 0.29.0 — the change budget
+
+- **devkit-openspec** 0.25.0: a `/devkit change` run stops at a token budget. `budget:` in the
+  `devkit:` block of `openspec/config.yaml`, or in a `devkit:` block of a change's own
+  `.openspec.yaml` (which wins), is a whole number of tokens; the loop counts the session's
+  spend from its transcripts and, between hand-offs, turns the next hand-off into an end waiting
+  for the owner (`waiting-budget`) that names the spend, the cap and the file to raise. With no
+  cap, no session id or an unreadable transcript, nothing is counted and nothing stops. An invalid
+  value is refused with the settings reply. The roadmap loop maps the new end to a gate. The CI
+  snippet now pins `v0.25.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` gains "The token budget" and a troubleshooting row;
+  `docs/coordination-design.md` records the setting's name as final.
+
+## 0.28.0 — one state per change
+
+- **devkit-openspec** 0.24.0: the change loop derives one state per change in one place, and a new
+  `change-loop.mjs state` command prints it (state, reason, stage and the session title) for one
+  change or every unfinished one. A GitHub that does not answer is a wait on GitHub, not a block,
+  and three failed reads in a row still end the wait blocked. A stopped change's session title
+  carries its state icon (🙋, ⏳ or ⛔) before the stage icon, and `/devkit status` places its rows
+  by the same state.
+- Docs: ADR 0017 (a change's state is derived in one place, amends 0014), Notes in ADR 0010 and
+  ADR 0014, the flow and design pages.
+
+## 0.27.0 — commit attribution
+
+- **devkit-core** 0.11.0: `commit-and-pr` takes an attribution block from the caller and writes exactly its
+  commit trailer and pull-request footer lines over the ones its own environment gives it; with `none` it writes
+  no attribution, and with no block it behaves as before.
+- **devkit-openspec** 0.23.0: every hand-off to `commit-and-pr`, in `/devkit change`, `/devkit roadmap` and
+  `/devkit project`, ends with a request that the session append its own attribution block; the `ship-change`
+  skill gains an Attribution section and its `commit`, `open-pr`/`push` and `open-archive-pr` rows name it.
+- Docs: `docs/openspec-flow.md` describes the Attribution paragraph. The CI snippet now pins `v0.23.0`, the
+  release's tag.
+
+## 0.26.1 — test fixtures clean up after themselves
+
+- **devkit-openspec** 0.22.1: `test-tmp.mjs` makes every temporary folder of the hook tests and
+  removes it when its test ends, passed or failed, and sweeps the rest at the end of the run or on
+  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.22.1`.
+- **devkit-core** 0.10.1: the same helper, a byte-identical copy, for the `review-round` tests.
+- **devkit-compozy** 0.3.1: the same helper, a byte-identical copy, for the compozy tests.
+- CI: the hook tests run on an empty `TMPDIR` and a new step fails the job when anything is left in
+  it. `CONTRIBUTING.md` states the rule: a test makes its folders through `test-tmp.mjs`.
+
+## 0.26.0 — the stage roles
+
+- **devkit-core** 0.10.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and
+  `e2e-tester`, with the skills `screen-mockup`, `adr-authoring` and `e2e-testing`. `pr-verifier`
+  records the demonstration as text in `evidence.md`, with no image and no pull-request comment.
+- **devkit-openspec** 0.22.0: the `devkit` script's mock-up, decisions, unit-tests and E2E stages
+  run. The mock-up applies only when the grill flags `ui` and waits for the owner's answer; the
+  decisions stage always runs; the unit and E2E stages run when the project declares
+  `devkit.tests.unit` or `devkit.tests.e2e` (and `devkit.tests.coverage.command` and
+  `devkit.tests.coverage.target`). A stage that does not apply, or that the change had already
+  passed, leaves no file, and the readout says why. `change-loop.mjs` hands the new stages to their
+  roles, adds `fix-tests` and the `accept-decisions` step (the loop's new subcommand, run once the
+  plan approval is recorded). The edit lock lets `adr-author` write decision records and
+  `e2e-tester` write test files. `devkit-lite` no longer lists the mock-up and decisions stages.
+  The CI snippet now pins `v0.22.0`, the release's tag.
+- **devkit-compozy** 0.3.0: the four role shells name the new agents, and the loop's design, review
+  and implement prompts name the mock-up, the test agents and the decision records.
+- Docs: ADR 0016 (stage roles write their own files, amends 0010 and 0011), `docs/roles.md`, the
+  flow and design pages, the roadmap (round 16b `coordinator-loop-fixes` carries the retros' items).
+
+## 0.25.2 — follow-ups of the project phases
+
+- **devkit-openspec** 0.21.2: the slice contract refuses an ADR verdict recorded with uncommitted
+  changes, from `devkit-reviews` and the `gh pr create` hook, and `/devkit project` neither records
+  it nor moves on: it hands the review back to the ADR reviewer. New tests pin the contract's
+  fail-closed branches and a merge that brings an ADR. The CI snippet now pins `v0.21.2`, the
+  release's tag.
+- Docs: the slice contract says what a current ADR verdict is; the archived `project-phases` plan
+  and the pack README name ADR 0015 for the slice decision; the roadmap gives the dogfood of the
+  first real slice a line of its own (`project-slice-dogfood`).
 
 ## 0.25.1 — retro of review-writer-prompt
 

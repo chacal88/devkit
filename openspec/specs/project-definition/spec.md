@@ -165,7 +165,8 @@ slice, absent included.
 After the roadmap stage, the `adr-reviewer` agent SHALL review the slice's documents and new or
 changed ADRs against the project's ADRs. Its verdict SHALL be recorded as the review stage; a rejection
 SHALL return the findings to the owner's architecture conversation and the review SHALL run again,
-two rounds at most, then the run ends blocked.
+two rounds at most, then the run ends blocked. A verdict recorded with uncommitted changes SHALL NOT be
+recorded, and the review SHALL run again.
 
 #### Scenario: Approved
 - **WHEN** the reviewer writes `Verdict: approved` with the commit it reviewed
@@ -178,6 +179,10 @@ two rounds at most, then the run ends blocked.
 #### Scenario: A document changed after the review
 - **WHEN** a commit after the reviewed one changes a file under `docs/design/<slice>/` or an ADR folder
 - **THEN** the review is reported stale and runs again
+
+#### Scenario: A verdict recorded with uncommitted changes
+- **WHEN** the reviewer's verdict names the current commit and its `Commit:` line carries the `(uncommitted changes)` marker, the slice active or archived on its branch
+- **THEN** recording it is refused with a reply in the person's language saying the verdict was written with changes that were not committed, no review record is written, and the next action hands the review to the ADR reviewer again
 
 ### Requirement: The slice ends in one pull request
 After the review, the slice's folder SHALL be archived on its branch, and one pull request SHALL carry
@@ -310,3 +315,17 @@ the owner must read or approve.
 #### Scenario: The replies in both languages
 - **WHEN** every reply key of the project command is rendered in `en` and in `pt-BR`
 - **THEN** both languages have the same keys and no rendered reply holds an internal term
+
+### Requirement: A slice's run names a gh too old to read its checks
+When the slice's pull request is open at the local head and its checks cannot be read because the
+installed `gh` is too old, the project command SHALL end the run blocked with the reason
+`gh-too-old`, writing nothing, with a reply naming the installed version (or saying it is unknown)
+and 2.50.0, telling the person to update `gh` and to call `/devkit project` again.
+
+#### Scenario: An old gh reads the slice's checks
+- **WHEN** the slice `billing` is archived on its branch, its pull request is open at the local head, `gh pr checks` fails with `unknown flag: --json` and `gh --version` prints `gh version 2.46.0 (2024-03-18)`
+- **THEN** `project-loop.mjs next` ends blocked with the reason `gh-too-old` and exit code 2, its reply names `2.46.0`, `2.50.0` and `/devkit project billing`, nothing is pushed or merged, and auto-merge is not enabled
+
+#### Scenario: Other failures keep their reason
+- **WHEN** the slice's checks cannot be read for any other reason
+- **THEN** the run ends blocked saying GitHub cannot be read, as before this change

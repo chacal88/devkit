@@ -31,10 +31,18 @@ owner's session, run by the script `roadmap-loop.mjs`, in the desktop app each c
 setting `load_limit`. So do, since the change `project-phases` (round 19), the command `/devkit project`,
 the `devkit-project` schema (with its `flow.json`), the script `project-loop.mjs` and the slice contract
 the `devkit-reviews` check applies to a slice's pull request
-([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). So does, since the change `remote-worker` (round 28), running a change on another machine
-([ADR 0016](adr/0016-a-change-can-run-on-another-machine.md)). `/conduct` no longer
-exists. Everything else (the other verbs of `/devkit`, the new roles and skills, the rest of the `devkit:`
-configuration block, the other two drivers, the two-PR model and its lock,
+([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)), and, since the change
+`stage-roles` (round 16), the roles `screen-designer`, `adr-author`, `test-runner` and `e2e-tester` with the
+skills `screen-mockup`, `adr-authoring` and `e2e-testing`, the demonstration as text, and the settings
+`devkit.tests.unit`, `devkit.tests.coverage.command`, `devkit.tests.coverage.target` and `devkit.tests.e2e`
+([ADR 0016](adr/0016-stage-roles-write-their-own-files.md)). `/conduct` no longer exists. So do, since the change `delivery-models` (round 17), the delivery
+models chosen per project in `devkit.delivery`, the two-PR model and its lock, and the support branch
+that solves a conflict with the test branch
+([ADR 0018](adr/0018-the-delivery-model-is-chosen-per-project.md)).
+So does, since the change `remote-worker` (round 28), running a change on another machine
+([ADR 0019](adr/0019-a-change-can-run-on-another-machine.md)).
+Everything else (the other verbs of `/devkit`, the rest of the `devkit:`
+configuration block, the other two drivers,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
 builds it. The section "What stays shipped until its round" lists what keeps working meanwhile.
 
@@ -51,7 +59,7 @@ few verbs, to be built in rounds 15, 18, 19 and 20:
 
 | Command | What it does | Round |
 |---|---|---|
-| `/devkit change PROJ-482` | one task, read from Jira by its key or link | 20 |
+| `/devkit change PROJ-482` | one task, read from Jira by its key or link | 20 (built) |
 | `/devkit change <free text>` | one task, described in text | 15 |
 | `/devkit roadmap` | the whole roadmap, one change at a time | 18 (built) |
 | `/devkit roadmap 3` | the whole roadmap, up to three changes at once | 18 (built) |
@@ -70,7 +78,9 @@ few verbs, to be built in rounds 15, 18, 19 and 20:
 
 **Writing back to Jira (decided by the owner on 2026-11-19).** devkit reads Jira by default and
 writes back (a comment with the pull request link, a status change) only when the developer asks:
-the developer decides.
+the developer decides. Built by `jira-entry` on 2026-11-22: the session asks one question when the pull request
+opens, offering a comment, a comment with a move to one of the task's transitions, or no; the yes is taken only
+from the developer's own message, and nothing is written after the archive.
 
 ## 2. Two coordinators and three entries (D-2)
 
@@ -88,7 +98,7 @@ coordinator holds the start of a new change while the machine is loaded, and wha
 finishes first. **Decided by
 `roadmap-coordinator` on 2026-11-21 (A-6, grill questions 8 and 9):** it measures the processor load of
 the last minute per logical core against the per-person `load_limit` (80 by default); memory is not
-measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). When the person's `machines` setting lists another machine, a loaded machine sends the start there, and the start is held only when no machine can take it ([ADR 0016](adr/0016-a-change-can-run-on-another-machine.md)).
+measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). When the person's `machines` setting lists another machine, a loaded machine sends the start there, and the start is held only when no machine can take it ([ADR 0019](adr/0019-a-change-can-run-on-another-machine.md)).
 
 **The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 15
 (`change-coordinator`). It takes one change from its opening to its archive. It asks the script which
@@ -154,32 +164,33 @@ driver if a live test shows it holds (open until that test). The flow never depe
 
 The stages are the owner's (decided); the agents, skills and gates are proposed. `new` marks what
 does not exist today. The new roles and skills are to be built in round 16 (the change coordinator
-exists since round 15), the roadmap coordinator in round 18 and the second pull request in round 17.
+exists since round 15), the roadmap coordinator in round 18; the second pull request exists since round 17.
 
 | # | Stage | Who and skills | Produces | Gate |
 |---|---|---|---|---|
 | 0 | Choose the next change (roadmap coordinator entry only) | roadmap coordinator (built, round 18) | the start request | its `after:` dependencies are archived |
 | 1 | Open the change | change coordinator (new, round 15) | `openspec new change`, a worktree and branch named after the change, cut from the base the delivery model names | schema confirmed |
 | 2 | Requirements (grill) | change coordinator with the owner; `requirements-grill`; `codebase-researcher` | `requirements.md` | the owner answered |
-| 3 | Mock-up, only when the change alters a screen, before any plan | `screen-designer` (new), skill `screen-mockup` (new), `screen-design` | the screens drawn with real example data, saved in the change's `mock/` | the owner approves; what the mock reveals goes back into the requirements |
-| 4 | Decisions and ADRs | `adr-author` (new), skill `adr-authoring` (new) | proposed ADRs in the project's ADR folder, when the change needs them | the agent first analyses whether an ADR is needed; if not, it leaves one line saying so |
+| 3 | Mock-up, only when the change alters a screen, before any plan | `screen-designer` (built, round 16), skill `screen-mockup` (built, round 16), `screen-design` | the screens drawn with real example data, saved in the change's `mock/` | the owner approves; what the mock reveals goes back into the requirements |
+| 4 | Decisions and ADRs | `adr-author` (built, round 16), skill `adr-authoring` (built, round 16) | proposed ADRs in the project's ADR folder, when the change needs them | the agent first analyses whether an ADR is needed; if not, it leaves one line saying so |
 | 5 | Plan | `change-planner`, `openspec-validator` | proposal, specs, design, tasks | `openspec validate --strict` |
 | 6 | Plan readiness | `plan-readiness-reviewer`, `plan-reality-auditor`, `adr-reviewer`; `plan-readiness-review` | `readiness.md` | approved; a rejection returns to the plan, three times at most |
 | 7 | The owner's approval | the owner | `approval.md`, of the plan and the ADRs together | it came from the owner's own message |
 | 8 | Implementation, one subagent per phase | `tdd-implementer`; `test-driven-development`, `systematic-debugging` | code, tests, ticked tasks | the phase's test command is green |
-| 9 | Unit tests | `test-runner` (new); `test-and-coverage`, `systematic-debugging` | the whole suite and its coverage | suite green, coverage within the project's target |
-| 10 | E2E tests, only where the project has E2E configured | `e2e-tester` (new), skill `e2e-testing` (new) | E2E tests written from the acceptance criteria, apart from the implementer, and their result | green; it is a delivery condition |
-| 11 | Demonstration | `pr-verifier` | `evidence.md`, as text, inside the change: per acceptance criterion, what the agent did, what it observed and whether it passed | every criterion demonstrated and recorded |
+| 9 | Unit tests | `test-runner` (built, round 16); `test-and-coverage`, `systematic-debugging` | the whole suite and its coverage | suite green, coverage within the project's target |
+| 10 | E2E tests, only where the project has E2E configured | `e2e-tester` (built, round 16), skill `e2e-testing` (built, round 16) | E2E tests written from the acceptance criteria, apart from the implementer, and their result | green; it is a delivery condition |
+| 11 | Demonstration | `pr-verifier` (built, round 16) | `evidence.md`, as text, inside the change: per acceptance criterion, what the agent did, what it observed and whether it passed | every criterion demonstrated and recorded |
 | 12 | Code review | the six reviewers, `finding-verifier` x3; `review-change` | `reviews/*.md`, `review.md` | consensus; two rounds at most |
-| 13 | Delivery | `commit-and-pr`; `commit-message-guidelines` | commit, push, the pull request to the base of the delivery model | GitHub checks green and the merge the model defines |
-| 14 | Second pull request, two-PR model only (new, round 17) | `commit-and-pr` | the pull request from the same branch to `master` | the first one was approved on `develop`; checks green; merged |
+| 13 | Delivery | `commit-and-pr`; `commit-message-guidelines` | commit, push, the pull request to the base of the delivery model (in the two-PR model, both pull requests open together) | GitHub checks green and the merge the model defines |
+| 14 | Second pull request, two-PR model only (built, round 17) | `commit-and-pr` | the pull request from the same branch to `master`, opened together with the one to `develop` | the owner merges the one to `develop` first; the check on the one to `master` then turns green; the owner merges it |
 | 15 | Retro and archive | change coordinator with the owner; `retro` | `retro.md`, `openspec archive`, the roadmap line ticked | the owner answered each proposal |
 
 Owner decisions inside this table (decided unless marked):
 
 - **Mock-up** (stage 3): whenever a change alters a screen, before anything else, before planning.
-  Today no agent draws one: `screen-design` only records screen-map rows that point at a mock made
-  elsewhere, runs after the plan, and ships only in the CompozyOS pack.
+  Since `stage-roles` (round 16) `screen-designer` draws it, only when the grill's classification lists
+  `ui`, and the owner approves it before the plan; `screen-design` still records the screen-map rows
+  that point at the drawn files, after the plan, in the CompozyOS pack.
 - **ADRs** (stage 4): every feature has an agent responsible for analysing what will be done and
   defining the ADRs; it analyses first, writes when needed, does not when not.
 - **Tests** (stages 8 to 10): a strong focus on tests, a specialist for each kind. The owner accepts
@@ -198,23 +209,30 @@ Owner decisions inside this table (decided unless marked):
 
 ## 5. Delivery models (D-5)
 
-Chosen per project, in configuration (decided by the owner; the configuration is to be built in
-round 17):
+Chosen per project, in configuration (decided by the owner; built in round 17 by the change
+`delivery-models`, key `devkit.delivery.model`):
 
-- **Two pull requests from the same branch (decided; new in devkit, round 17).** How one of the owner's
+- **Two pull requests from the same branch (decided; built in round 17).** How one of the owner's
   projects works. Every task branch is cut from `master` or `main`; a first pull request goes to
   `develop`, for testing; once approved, a second pull request from the same task branch goes to
   `master`. `develop` never goes to `master`, so the task branch never receives `develop` either,
-  not even to solve a conflict. The lock that keeps `develop` out of the task branch is in section 8.
+  not even to solve a conflict. Both pull requests open together and the owner merges both. The lock
+  that keeps `develop` out of the task branch is in section 8.
 - **Trunk-based (decided; exists today).** A short branch, a pull request to the main branch, the
   owner merges.
 - **Trunk-based with automatic merge (decided; exists today).** The same, and GitHub merges when the
   gates are green.
 
-devkit knows only the last two today.
+devkit knows all three since round 17; trunk-based with automatic merge is ADR 0002's `merge` mode
+under a second spelling.
 
-**The conflict with `develop` (open).** What to do when the task branch conflicts with `develop` is
-not decided; it is settled in the grill of round 17 (delivery models).
+**The conflict with `develop` (answered by the owner on 2026-11-21, round 17 grill, questions 3 to 5).**
+A support branch `<task-branch>-develop`, cut from the task branch, alone receives `develop`; the
+conflict is solved there, and the pull request to `develop` is closed and opened again from it. The pull
+request to `master` stays red until the one to `develop` is merged. The resolution, read as the support
+branch's own work, goes through the review bench again before the branch is pushed, and the change is
+archived through two archive pull requests, one to each branch
+([ADR 0018](adr/0018-the-delivery-model-is-chosen-per-project.md)).
 
 ## 6. Panels (D-6)
 
@@ -320,7 +338,9 @@ OpenSpec prints that its `schema` commands are experimental and may change.
 - Stages after implementation unlock only when OpenSpec reports zero pending tasks (lines inside fenced
   examples of `tasks.md` are not tasks; see the ADR 0010 Note, flow-script-checker).
 - A stage that does not apply (a mock-up with no screen, an ADR not needed, E2E with no structure)
-  still leaves its file, saying so and why.
+  still leaves its file, saying so and why. (Amended by [ADR 0016](adr/0016-stage-roles-write-their-own-files.md):
+  a stage whose declared condition does not hold, or that the change had already passed, leaves no
+  file; the checker says why in the stage's line.)
 - Stale work: when the code changed after a stage, the commit in its header no longer matches and
   only that stage runs again.
 - Attempt ceilings, counted by the checker, move from skill prose to configuration: a plan rejected
@@ -328,10 +348,12 @@ OpenSpec prints that its `schema` commands are experimental and may change.
   back twice with nothing changed stops.
 - The loop ends in exactly one of four states, each with its reason: archived, waiting for the owner,
   waiting on GitHub, blocked.
+  The change loop's `state` command gives each change's state, read by `/devkit status`, the session
+  titles and the panels ([ADR 0017](adr/0017-a-change-state-is-derived-in-one-place.md)).
 
 **The locks and how each is enforced (proposed).** "Exists" marks a lock that ships today (the two stop
-locks and the coordinator's lock since round 15); "new" marks one to be built (the `develop` lock in
-round 17).
+locks and the coordinator's lock since round 15, and the `develop` lock since round 17); "new" marks
+one to be built.
 
 | Lock | In the Claude driver | In other drivers |
 |---|---|---|
@@ -341,7 +363,7 @@ round 17).
 | The change coordinator does not stop while a stage is ready | refused when it tries to stop, with the next stage named (exists) | not needed: the loop is a program |
 | A subagent does not stop without delivering | refused when it tries to stop and its stage file is missing (exists) | the program checks the file before going on |
 | The change coordinator calls only the listed roles and edits no code | refused when it edits product code or hands work to a role the script does not list: the coordinator is the owner's session, held by a hook (ADR 0011) (exists) | the role's definition in the driver |
-| The task branch never receives `develop` | the command is refused (new) | a GitHub check on the pull request to `master` |
+| The task branch never receives `develop` | the command is refused (exists) | a GitHub check on the pull request to `master` |
 | Approval only from the owner's message | the file is writable only by the main session (exists; the weakest lock) | the driver's human-review step |
 
 **What the hooks can do (checked on 2026-11-19 in the Claude Code hooks reference).** `Stop` and
@@ -363,15 +385,23 @@ devkit:
     test_branch: develop
   tests:
     unit: "npm test"
+    coverage:
+      command: "npm run coverage"
+      target: 80            # a whole number from 0 to 100
     e2e: "npm run e2e"      # without this line the E2E stage does not run
-  tasks:
-    source: jira
 ```
 
 **The configuration's field names. Decided by `change-coordinator` on 2026-11-20 (A-8).**
 `devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,
-`compozy` or `script`; default `claude`) are final. The other fields stay proposed, for rounds 16, 17
-and 20.
+`compozy` or `script`; default `claude`) are final. Decided by `stage-roles` on
+2026-11-21: `devkit.tests.unit`, `devkit.tests.coverage.command`, `devkit.tests.coverage.target`,
+`devkit.tests.e2e`. Decided by `delivery-models` (round 17): `devkit.delivery.model` (`two-prs`, `trunk` or
+`trunk-auto`), `devkit.delivery.base` and `devkit.delivery.test_branch`. The other fields stay proposed,
+for round 20. `devkit.budget` (a whole number of tokens, the
+cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml`, are final too, decided by
+`change-budget` on 2026-11-22.
+Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
+
 
 **The header's field names (decided by `flow-script-checker`).** The three facts are `result`, `attempt` and
 `commit`, in one comment line at the top of each stage file:
@@ -475,7 +505,7 @@ All proposed.
 - The two stop locks hold without looping (shown live by the live test of `change-coordinator`, with the
   hook log it records; the interrupt case rests on the documented fact that an interrupt fires no stop event).
 - CompozyOS accepts the generic loop.
-- Jira can be read on each platform.
+- Jira can be read on each platform (the follow-up `jira-entry-live`, round 20b).
 - Grouped sessions work as a view.
 
 The points still to prove are proved together, in one live test session, when their round comes
@@ -494,10 +524,8 @@ The points still to prove are proved together, in one live test session, when th
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
 machine is loaded (and how the load is measured, answered by the change `roadmap-coordinator` on 2026-11-21, section 2), writing back to Jira, small work and the roadmap, and the lean pull-request
-template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
+template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
 
-- What to do when the task branch conflicts with `develop`; settled in the grill of round 17
-  (section 5).
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
 - Whether CompozyOS can choose the role at each turn (section 10).
 - The script driver for an AI other than Claude (section 10).
@@ -525,7 +553,7 @@ the round that replaces it:
 ## Where a change runs
 
 Built by the change `remote-worker` (round 28), requested by the owner on 2026-11-20
-([ADR 0016](adr/0016-a-change-can-run-on-another-machine.md)).
+([ADR 0019](adr/0019-a-change-can-run-on-another-machine.md)).
 
 **Any machine.** A change can run on another machine. The machines are the per-person `machines`
 setting of the devkit-openspec pack (never a project file), a JSON list of the app's SSH connection

@@ -2,12 +2,13 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, mkdtempSync, copyFileSync } from 'node:fs';
+import { readFileSync, existsSync, copyFileSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DEVKIT_REVIEWS_CHECK, WORKFLOW_PATH, RULESET_NAME, MERGE_METHODS, mergeSetup, requiredChecks } from './merge-setup.mjs';
+import * as M from './merge-setup.mjs';
 import { makeGh } from './deliver-check.mjs';
 import { fakeGh, gitRepo, put, commitAll } from './deliver-check.test.mjs';
 
@@ -184,7 +185,7 @@ test('workflow (the setup template): deliver-check --ci and guard.mjs ci run fro
   const yml = read('the setup template');
   const names = [...yml.matchAll(/curl [^\n]*-o "?([^"\s]+)"?/g)].map((m) => basename(m[1]));
   assert.ok(names.includes('deliver-check.mjs') && names.includes('guard.mjs') && names.includes('merge-setup.mjs'), names.join(', '));
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-downloaded-'));
+  const dir = tmpFolder('devkit-downloaded-');
   for (const n of names) copyFileSync(join(here, n), join(dir, n));
   const root = gitRepo({ changes: { feat: { 'tasks.md': '- [x] 1.1 a\n' } } });
   const env = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
@@ -198,10 +199,59 @@ test('workflow (the setup template): deliver-check --ci and guard.mjs ci run fro
 });
 
 test('guard.mjs ci with deliver-check.mjs but without merge-setup.mjs fails closed naming the missing files', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-partial-'));
+  const dir = tmpFolder('devkit-partial-');
   for (const n of ['guard.mjs', 'deliver-check.mjs']) copyFileSync(join(here, n), join(dir, n));
   const root = gitRepo({ changes: { feat: { 'tasks.md': '- [x] 1.1 a\n' } } });
   const r = spawnSync('node', [join(dir, 'guard.mjs'), 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' } });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /guard\.mjs ci needs deliver-check\.mjs and merge-setup\.mjs in the same folder/);
+});
+
+// ---------------------------------------------------------------- gh-version: the minimum gh and its reading (AC-1, AC-5)
+
+test('gh-version 1: parseGhVersion reads only the first line', () => {
+  assert.equal(M.parseGhVersion('gh version 2.46.0 (2024-03-18)\nhttps://github.com/cli/cli/releases/tag/v2.46.0\n'), '2.46.0');
+  assert.equal(M.parseGhVersion('gh version 2.105.0 (2026-11-17)'), '2.105.0');
+  assert.equal(M.parseGhVersion('gh version 2.46.0 (2024-03-18)\r\nhttps://x\r\n'), '2.46.0');
+  assert.equal(M.parseGhVersion('gh version 2.50.0-rc.1 (x)'), '2.50.0');
+});
+
+test('gh-version 2: parseGhVersion gives null for odd input', () => {
+  for (const text of ['', undefined, null, 'gh version DEV', 'gh version 2.46', 'hello\ngh version 2.46.0 (x)\n']) {
+    assert.equal(M.parseGhVersion(text), null, String(text));
+  }
+});
+
+test('gh-version 3: versionOlder compares numbers and the minimum is 2.50.0', () => {
+  assert.equal(M.GH_MIN_VERSION, '2.50.0');
+  assert.equal(M.versionOlder('2.46.0', '2.50.0'), true);
+  assert.equal(M.versionOlder('2.50.0', '2.50.0'), false);
+  assert.equal(M.versionOlder('2.105.0', '2.50.0'), false);
+  assert.equal(M.versionOlder('2.9.9', '2.50.0'), true);
+  assert.equal(M.versionOlder('3.0.0', '2.50.0'), false);
+});
+
+test('gh-version 4: ghVersion runs gh --version once and sorts the answer', () => {
+  const run = (r) => {
+    const calls = [];
+    const gh = (args) => { calls.push(args); return { status: 0, stdout: '', stderr: '', missing: false, timedOut: false, overflowed: false, ...r }; };
+    return { v: M.ghVersion(gh), calls };
+  };
+  let o = run({ stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  assert.deepEqual(o.v, { installed: '2.46.0', missing: false, why: null });
+  assert.deepEqual(o.calls, [['--version']]);
+  o = run({ status: null, missing: true });
+  assert.deepEqual(o.v, { installed: null, missing: true, why: 'gh is not installed or not on PATH' });
+  assert.deepEqual(o.calls, [['--version']]);
+  o = run({ status: 1, stderr: 'boom\n' });
+  assert.deepEqual(o.v, { installed: null, missing: false, why: 'boom' });
+  assert.deepEqual(o.calls, [['--version']]);
+  o = run({ status: null, timedOut: true });
+  assert.deepEqual(o.v, { installed: null, missing: false, why: 'gh timed out' });
+  assert.deepEqual(o.calls, [['--version']]);
+  o = run({ stdout: 'gh version DEV\nmore\n' });
+  assert.deepEqual(o.v, { installed: null, missing: false, why: 'gh --version printed gh version DEV' });
+  o = run({ stdout: '' });
+  assert.equal(o.v.why, 'gh --version printed nothing');
+  assert.deepEqual(o.calls, [['--version']]);
 });

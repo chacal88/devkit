@@ -13,10 +13,10 @@ no rule is duplicated in these prompts.
 
 | Role | Does | Writes |
 | --- | --- | --- |
-| `tech-lead` | plans one change (proposal, design, tasks, spec deltas, readiness), declaring the screens it touches | `openspec/changes/<id>/` |
-| `dev` | implements phase by phase with TDD in the worktree `<id>` on branch `<id>`, waits on the pull request's checks and its merge, then drives the archive | code and tests, `tasks.md` ticks, the archive steps |
-| `qa` | runs the review bench and the pr-verifier | `reviews/`, `review.md`, `evidence.md` |
-| `design` | for a change with screens, confirms or proposes the screen-map rows and a mockup version, then records the demo evidence | `openspec/changes/<id>/mock/screens.md`, the screen-map rows, `openspec/changes/<id>/evidence/` |
+| `tech-lead` | plans one change (proposal, design, tasks, spec deltas, readiness), declaring the screens it touches; on the `devkit` schema `devkit-core:adr-author` writes `decisions.md` first | `openspec/changes/<id>/`, and the project's ADR folder through that agent |
+| `dev` | implements phase by phase with TDD in the worktree `<id>` on branch `<id>`, waits on the pull request's checks and its merge, then drives the archive; before the first phase it has the implementer accept the listed ADRs and the mock-up | code and tests, `tasks.md` ticks, the archive steps |
+| `qa` | runs the unit and E2E tests through `devkit-core:test-runner` and `devkit-core:e2e-tester` when the project declares them, then the review bench and the pr-verifier | `reviews/`, `review.md`, `evidence.md`, `unit-tests.md`, `e2e-tests.md`, the E2E test files |
+| `design` | for a change with screens, has `devkit-core:screen-designer` draw each screen and write `mockup.md`, confirms or proposes the screen-map rows and a mockup version, then records the demo evidence | `openspec/changes/<id>/mock/`, `mockup.md`, the screen-map rows, `openspec/changes/<id>/evidence/` |
 
 ## Loop (loops/openspec-change)
 

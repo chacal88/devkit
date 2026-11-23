@@ -14,9 +14,12 @@ import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHa
 import { readRepoSettings } from './merge-setup.mjs';
 import { readFlow, FlowUsageError } from './flow-check.mjs';
 import {
-  UsageError, gitFacts, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
+  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
 } from './deliver-check.mjs';
 import { PIN_FILE, classifyConflict } from './release-rebase.mjs';
+
+// The worktree list lives in deliver-check.mjs (delivery-models D-11) and stays importable from here.
+export { listWorktrees };
 
 export const MAX_PARALLEL = 3;
 // Mtime tolerance when a file is "older than" another (design D6).
@@ -47,15 +50,18 @@ const PLANNER = 'devkit-core:change-planner';
 const SUBAGENT = {
   implement: TDD, 'fix-review': TDD, 'fix-defect': TDD, 'fix-checks': TDD, 'apply-proposals': TDD, 'resolve-release-conflict': TDD,
   commit: COMMIT, 'open-pr': COMMIT, push: COMMIT, 'open-archive-pr': COMMIT, 'push-rebased': COMMIT,
+  'open-prs': COMMIT, 'open-test-pr': COMMIT, 'push-support': COMMIT, 'move-test-pr': COMMIT, 'open-test-archive-pr': COMMIT,
+  'resolve-support-conflict': TDD, 'fix-resolution': TDD,
   verify: 'devkit-core:pr-verifier',
   retro: 'general-purpose',
   plan: PLANNER, 'revise-plan': PLANNER,
   readiness: 'devkit-core:plan-readiness-reviewer',
   audit: 'devkit-core:plan-reality-auditor',
 };
-const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'answer', 'worktree', 'rebase'];
+const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'answer', 'worktree', 'rebase', 'rerun-checks',
+  'checkout-support', 'merge-into-support'];
 const ASKABLE = ['stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill', 'approve'];
-const OWNER = ['ready', 'archive-pr-ready', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
+const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
 const GITHUB = ['wait-checks', 'wait-merge'];
 const STOP = ['stop-plan-mode', 'stop-branch', 'stop-merge-setup', 'stop-archive', 'blocked', 'stop-not-approved'];
 
@@ -64,7 +70,7 @@ const STOP = ['stop-plan-mode', 'stop-branch', 'stop-merge-setup', 'stop-archive
 export function actorOf(step, host = 'cli') {
   if (step === 'implement' && host === 'app') return { actor: 'session', agent: TDD };
   if (SUBAGENT[step]) return { actor: 'subagent', agent: SUBAGENT[step] };
-  if (step === 'review') return { actor: 'review' };
+  if (step === 'review' || step === 'review-resolution') return { actor: 'review' };
   if (step === 'gate') return { actor: 'gate' };
   if (MAIN.includes(step)) return { actor: 'main' };
   if (ASKABLE.includes(step)) return { actor: 'owner', askable: true };
@@ -89,6 +95,9 @@ function stateOf(next, { summary = '' } = {}) {
     case 'owner':
       if (next.step === 'ready') return `waiting for the owner: merge PR #${next.number ?? ''}`.trim();
       if (next.step === 'archive-pr-ready') return `waiting for the owner: merge archive PR #${next.number ?? ''}`.trim();
+      if (next.step === 'archive-prs-ready') return `waiting for the owner: merge archive PRs ${next.list ?? ''}`.trim();
+      if (next.step === 'ready-test-branch') return `waiting for the owner: merge PR #${next.number ?? ''} to ${next.branch ?? ''}`.trim();
+      if (next.step === 'ready-base') return `waiting for the owner: merge PR #${next.number ?? ''} to ${next.base ?? ''}`.trim();
       if (next.step === 'stop-review-deadlock') return `waiting for the owner: review deadlock (${(next.reviewers || []).join(', ')})`;
       if (next.step === 'answer') return `waiting for the owner: PR decision ${next.url ?? ''}`.trim();
       return `waiting for the owner: ${OWNER_GATE[next.step] ?? next.step}`;
@@ -105,39 +114,6 @@ function stateOf(next, { summary = '' } = {}) {
 }
 
 // ---------------------------------------------------------------- worktrees (design D4)
-
-function rebaseBranch(path) {
-  try {
-    const gitDir = git(path, ['rev-parse', '--absolute-git-dir']).trim();
-    for (const d of ['rebase-merge', 'rebase-apply']) {
-      const f = join(gitDir, d, 'head-name');
-      if (existsSync(f)) return readFileSync(f, 'utf8').trim().replace(/^refs\/heads\//, '');
-    }
-  } catch { /* not a worktree */ }
-  return '';
-}
-
-// git worktree list --porcelain, minus prunable and bare entries: [{ path, branch, rebasing }].
-// A worktree stopped in the middle of a rebase is detached; its rebase says which branch it is.
-export function listWorktrees(root) {
-  let out;
-  try { out = git(root, ['worktree', 'list', '--porcelain']); } catch { return []; }
-  const entries = [];
-  for (const block of out.split(/\n\s*\n/)) {
-    const e = { path: '', branch: '', prunable: false, bare: false, rebasing: false };
-    for (const line of block.split('\n')) {
-      if (line.startsWith('worktree ')) e.path = line.slice('worktree '.length);
-      else if (line.startsWith('branch refs/heads/')) e.branch = line.slice('branch refs/heads/'.length);
-      else if (line === 'bare') e.bare = true;
-      else if (line.startsWith('prunable')) e.prunable = true;
-    }
-    if (!e.path || e.bare || e.prunable) continue;
-    const rebasing = rebaseBranch(e.path);
-    if (rebasing) { e.rebasing = true; if (!e.branch) e.branch = rebasing; }
-    entries.push({ path: e.path, branch: e.branch, rebasing: e.rebasing });
-  }
-  return entries;
-}
 
 // The entry holding change `id`: its own branch, or its archive branch (which wins: it is the later phase).
 function findWorktree(worktrees, id) {
@@ -174,13 +150,17 @@ export function proposeSchema(text, notes) {
 // ---------------------------------------------------------------- planning rows (design D6)
 
 // The plan files of `schema`: the plan stages of its flow.json (design flow-script-checker D-10) when it
-// has one; else the artifacts of its schema.yaml that are plain files, except requirements and readiness.
-function planArtifactsOf(root, schema) {
+// has one, that are shipped, always apply (no `appliesWhen`) and that the change has not already passed (its
+// `notAfter` stage has no file in `dir`, the change's folder); else the artifacts of its schema.yaml that are plain
+// files, except requirements and readiness.
+export function planArtifactsOf(root, schema, dir) {
   let flow = null;
   try { flow = schema ? readFlow(root, schema) : null; } catch (e) { if (!(e instanceof FlowUsageError)) throw e; }
   if (flow) {
+    const fileOf = (id) => flow.stages.find((x) => x.id === id)?.file;
     const files = flow.stages
       .filter((s) => s.part === 'plan' && s.source === 'artifact' && s.shipped !== false && !s.file.includes('*')
+        && !s.appliesWhen && !(s.notAfter && dir && existsSync(join(dir, fileOf(s.notAfter) ?? '')))
         && !['requirements', 'readiness', 'approval'].includes(s.id))
       .map((s) => s.file);
     if (files.length) return files;
@@ -207,7 +187,7 @@ function planFacts(ctx, item, entry) {
   const located = locateChange(root, id);
   const dir = located?.dir ?? join(root, 'openspec', 'changes', id);
   const schema = located ? changeSchemaAt(root, dir) : null;
-  const artifacts = located ? planArtifactsOf(root, schema) : [];
+  const artifacts = located ? planArtifactsOf(root, schema, dir) : [];
   const tasksFile = join(dir, 'tasks.md');
   const started = Boolean(located?.archived) || (existsSync(tasksFile) && parseTasks(readFileSync(tasksFile, 'utf8')).some((t) => t.done));
   const planned = artifacts.map((a) => mtime(join(dir, a))).filter((m) => m !== null);

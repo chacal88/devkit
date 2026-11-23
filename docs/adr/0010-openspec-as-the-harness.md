@@ -4,14 +4,23 @@
 - Amended by ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md)
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
 - Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
+- Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)
+- Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
 
 ## Context
 
+Note (change-state, 2026-11-22): the change loop derives one state per change, running or one of
+decision 3's four ends with its reason, read by the board, the session title and the panels and stored
+nowhere ([ADR 0017](0017-a-change-state-is-derived-in-one-place.md)); a GitHub that does not answer
+is a wait on GitHub. Decisions 1 to 8 are otherwise unchanged.
+
 Note (design-open-points, 2026-11-19): the owner answered points this ADR left open, and
 [docs/coordination-design.md](../coordination-design.md) records each answer with who decided it.
+Note (delivery-models, 2026-11-22): ADR 0018 amends decision 6, which keeps the merge rules of ADR 0002 and ADR 0003 unchanged: the delivery model is now chosen per project in `devkit.delivery`, and the test-branch lock of decision 5 exists for `two-prs`. The Decision is otherwise unchanged.
+
 The names are decided, by the assistant on the owner's delegation: `manager` is the roadmap
 coordinator and `tech-lead` the change coordinator, and the CompozyOS kit's present `tech-lead`
 role, which plans, is renamed `planner` in round 21 (compozy-driver). This answers the last
@@ -53,9 +62,21 @@ Note (project-phases, 2026-11-22): the project entry and the `devkit-project` sc
 (the hooks act in a slice's checkout as for any change, no run lock holds a `/devkit project` run) and
 records the slice model. Decisions 1 to 8 are otherwise unchanged.
 
+Note (stage-roles, 2026-11-21): the roles of D-4 stages 3, 4, 9 and 10 ship and stage 11 is recorded
+as text. [ADR 0016](0016-stage-roles-write-their-own-files.md) amends decision 3 (a stage that does
+not apply because of its declared condition, or that the change had already passed, leaves no file)
+and the sentence of decision 8 on product code. The test commands are the settings `devkit.tests.*`
+(decision 1, round 16). Decisions 1 to 8 are otherwise unchanged.
+
+Note (jira-entry, 2026-11-22): round 20 adds no task-source setting to the configuration block
+of decision 1. The key or link the owner types names the task, and the session's Atlassian
+connector reads it, so the project keeps no Jira token or setting. The 'task source, round 20' of
+decision 1 and the task source of decision 8 need no field; decisions 1 to 8 are otherwise
+unchanged.
+
 Note (remote-worker, 2026-11-22): opening a change pushes its branch at once with the machine's
 name, and a roadmap run may open changes on other machines the person lists
-([ADR 0016](0016-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
+([ADR 0019](0019-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
 its reason. Decisions 1 to 8 are otherwise unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or

@@ -20,6 +20,8 @@
 //      reviews/<reviewer>.md     that reviewer
 //      evidence.md               pr-verifier
 //      product code              tdd-implementer (devkit schema, once approved)
+//      decision records          adr-author (a Markdown file in a folder named adr, adrs or decisions)
+//      test files                e2e-tester (devkit schema, once approved; a test folder or a test file name)
 // 2. Gates. Product code stays closed until readiness.md says
 //    "- Status: APPROVED"; `gh pr create` needs every review in reviews/ to be
 //    approved (code-quality-reviewer and test-coverage-reviewer at least) and an
@@ -79,6 +81,70 @@ export function findRoot(start) {
     const up = dirname(dir);
     if (up === dir) return null;
     dir = up;
+  }
+}
+
+// The value of a `key: value` line: quoted or not, with an optional trailing `# comment`.
+export function plainValue(raw) {
+  const text = raw.replace(/\r$/, '').trim();
+  const quote = text[0];
+  if (quote === '"' || quote === "'") {
+    const end = text.indexOf(quote, 1);
+    return end === -1 ? text.slice(1) : text.slice(1, end);
+  }
+  return text.replace(/(^|\s)#.*$/, '').trim();
+}
+
+const DELIVERY_KEYS = ['model', 'base', 'test_branch'];
+
+// The `devkit:` block of openspec/config.yaml, read with one level of nesting (delivery-models D-1, D-11):
+// { driver, language, budget, delivery: { model, base, test_branch } } (`budget` from change-budget). A value that is not set, or empty, is undefined; a key
+// nested under `delivery:` never sets `driver`, `language` or `budget`; other keys of the block are ignored.
+export function parseDevkitBlock(text) {
+  const block = { driver: undefined, language: undefined, budget: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined } };
+  let inBlock = false;
+  let indent = null;
+  let inDelivery = false;
+  for (const line of String(text).split('\n')) {
+    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
+    if (!inBlock) continue;
+    if (line.trim() === '' || /^\s*#/.test(line)) continue;
+    if (!/^\s/.test(line)) { inBlock = false; continue; }
+    const m = /^(\s+)([A-Za-z][\w-]*):(.*)$/.exec(line);
+    if (!m) continue;
+    if (indent === null) indent = m[1].length;
+    const value = plainValue(m[3]) || undefined;
+    if (m[1].length > indent) {
+      if (inDelivery && DELIVERY_KEYS.includes(m[2])) block.delivery[m[2]] = value;
+      continue;
+    }
+    inDelivery = m[2] === 'delivery';
+    if (m[2] === 'driver' || m[2] === 'language' || m[2] === 'budget') block[m[2]] = value;
+  }
+  return block;
+}
+
+export const DELIVERY_MODELS = ['two-prs', 'trunk', 'trunk-auto'];
+
+// { model, base, testBranch, problems } from a parsed block: the table of delivery-models D-1. `base` and `testBranch`
+// are read for `two-prs` only. A problem is { kind: 'unknown', setting, value } or { kind: 'missing', setting }.
+export function deliverySettings(block) {
+  const { model, base, test_branch: testBranch } = block?.delivery ?? {};
+  const none = { model: null, base: null, testBranch: null, problems: [] };
+  if (!model) return none;
+  if (model === 'trunk' || model === 'trunk-auto') return { ...none, model };
+  if (model !== 'two-prs') return { ...none, problems: [{ kind: 'unknown', setting: 'delivery-model', value: model }] };
+  const problems = [];
+  if (!base) problems.push({ kind: 'missing', setting: 'delivery-base' });
+  if (!testBranch) problems.push({ kind: 'missing', setting: 'delivery-test-branch' });
+  if (base && testBranch && base === testBranch) problems.push({ kind: 'unknown', setting: 'delivery-test-branch', value: testBranch });
+  return { model, base: base ?? null, testBranch: testBranch ?? null, problems };
+}
+
+// The delivery settings of the project at `root`; no file, or one that cannot be read, is no model.
+export function readDeliverySettings(root) {
+  try { return deliverySettings(parseDevkitBlock(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'))); } catch {
+    return deliverySettings(null);
   }
 }
 
@@ -192,8 +258,10 @@ const commitPaths = (root, sha) => (gitPasses(root, ['rev-parse', '--verify', '-
 const reviewedPaths = (slice) => [`docs/design/${slice}/`, 'docs/adr/', 'docs/decisions/'];
 
 // Why the ADR review of `slice`, written at commit `sha`, is behind `head`, or null: a commit after `sha` changes, against its
-// first parent, a file under the slice's design folder or an ADR folder. A merge of the default branch that brings none of those
-// files keeps the review current.
+// first parent, a file under the slice's design folder or an ADR folder.
+// A merge counts what it brought into the branch (its first-parent diff): a merge of the default branch that brings none
+// of those files keeps the review current, and one that brings a file under an ADR folder (another change's new ADR) makes
+// it stale, because a new ADR may conflict with the slice and the ADR reviewer must read it (project-phases-followups).
 export function sliceReviewStale(root, sha, slice, head = 'HEAD') {
   const folders = reviewedPaths(slice);
   for (const c of gitRead(root, ['rev-list', `${sha}..${head}`]).split('\n').filter(Boolean)) {
@@ -232,7 +300,8 @@ export function sliceProblems(root, folder, { base, head = 'HEAD' }) {
       const short = recorded.sha.slice(0, 7);
       let full = '';
       try { full = gitRead(root, ['rev-parse', '--verify', '--quiet', `${recorded.sha}^{commit}`]).trim(); } catch { /* unresolved */ }
-      if (!full) problems.push(`reviews/adr-reviewer.md: Commit ${short} does not resolve to a commit`);
+      if (recorded.uncommitted) problems.push(`reviews/adr-reviewer.md: Commit ${short} was recorded with uncommitted changes`);
+      else if (!full) problems.push(`reviews/adr-reviewer.md: Commit ${short} does not resolve to a commit`);
       else if (!gitPasses(root, ['merge-base', '--is-ancestor', full, head])) problems.push(`reviews/adr-reviewer.md: Commit ${short} is not an ancestor of ${head}`);
       else { const why = sliceReviewStale(root, full, slice, head); if (why) problems.push(why); }
     }
@@ -358,10 +427,24 @@ export function classify(root, change, file) {
   if (inner === 'readiness.md') return { kind: 'gate', owner: 'plan-readiness-reviewer' };
   if (inner === 'evidence.md') return { kind: 'gate', owner: 'pr-verifier' };
   if (inner === 'approval.md') return { kind: 'gate', owner: '' }; // the main session only
-  const rv = inner.match(/^reviews\/([\w-]+)\.md$/);
+  const rv = inner.match(/^reviews\/(?:resolution\/)?([\w-]+)\.md$/); // reviews/resolution/<name>.md is <name>'s too (delivery-models D-8)
   if (rv) return { kind: 'gate', owner: rv[1] };
   if (inner.startsWith('reviews/')) return { kind: 'gate', owner: '(a reviewer, as reviews/<its-name>.md)' };
   return { kind: 'planning' };
+}
+
+// A decision record: a Markdown file in a folder named adr, adrs or decisions, in any letter case (design stage-roles D-6).
+export function isDecisionRecord(rel) {
+  const parts = rel.split(/[\\/]/);
+  const name = parts.pop() ?? '';
+  return /\.md$/i.test(name) && parts.some((d) => /^(adr|adrs|decisions)$/i.test(d));
+}
+
+// A test file: a folder named test, tests, __tests__, e2e, spec, specs, cypress or playwright, or a file name in a test form.
+export function isTestFile(rel) {
+  const parts = rel.split(/[\\/]/);
+  const name = parts.pop() ?? '';
+  return parts.some((d) => /^(tests?|__tests__|e2e|specs?|cypress|playwright)$/i.test(d)) || /^test_|_test\.[^.]+$|[._-](test|spec|e2e|cy)\.[^.]+$/i.test(name);
 }
 
 // Why `actor` may not write `file` now, or null.
@@ -381,11 +464,18 @@ function writeViolation(root, ch, actor, file) {
     return `${who} only writes its own verdict file, not ${relative(root, resolve(root, file))}.`;
   }
   if (c.kind !== 'code') return null;
+  const rel = relative(root, resolve(root, file));
+  if (actor === 'adr-author') {
+    return isDecisionRecord(rel) ? null : `adr-author writes only the project's decision records (a Markdown file in a folder named adr, adrs or decisions), not ${rel}.`;
+  }
   const schema = changeSchema(root, ch.name);
   if (!schemaHasArtifact(root, schema, 'readiness')) return null; // devkit-lite and friends
   const status = readValue(join(changeDir(root, ch.name), 'readiness.md'), 'Status');
   if (status !== 'APPROVED') {
     return `change "${ch.name}" has no approved readiness (Status: ${status || 'missing'}). Product code stays closed until the plan-readiness-reviewer agent writes "- Status: APPROVED" in openspec/changes/${ch.name}/readiness.md. Run: openspec status --change ${ch.name}`;
+  }
+  if (actor === 'e2e-tester') {
+    return isTestFile(rel) ? null : `e2e-tester writes only test files, not ${rel}. Product code is written by the tdd-implementer agent.`;
   }
   if (actor !== 'tdd-implementer') {
     return `in schema ${schema}, product code is written by the tdd-implementer agent, one phase at a time. Dispatch it with the Agent tool (subagent_type devkit-core:tdd-implementer).`;
@@ -469,6 +559,43 @@ export function gitViolation(cmd) {
   return null;
 }
 
+// A git word that names the test branch: `src:dst` cut to `src`, a trailing `~n`, `^n` or `@{...}` cut, then the branch, its
+// full ref or the same through one of the remotes (delivery-models D-6 rule 4).
+function namesTestBranch(word, test, remotes) {
+  const ref = word.split(':')[0].replace(/(?:~\d*|\^\d*|@\{[^}]*\})+$/, '');
+  return ref === test || ref === `refs/heads/${test}` || remotes.some((r) => ref === `${r}/${test}` || ref === `refs/remotes/${r}/${test}`);
+}
+
+const gitOut = (dir, args) => {
+  try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; }
+};
+
+// The task branch never receives the test branch (delivery-models D-6): `git merge`, `rebase` or `pull` that names the test
+// branch, run on a branch that is neither the test branch nor a support branch (`<…>-<test>`), in a `two-prs` project. A
+// reason, or null: anything the rule cannot read (a settings problem, no git, a quoted ref) is allowed.
+export function testBranchViolation(cmd, cwd) {
+  for (const { text, dir } of commandSegments(cmd, cwd)) {
+    const m = /^(?:\w+=\S*\s+)*git\s+((?:-C\s+\S+\s+)*)(merge|rebase|pull)(?:\s+(.*))?$/.exec(text);
+    if (!m) continue;
+    let at = dir ?? process.cwd();
+    for (const c of m[1].matchAll(/-C\s+(\S+)/g)) at = resolve(at, c[1].replace(/^~(?=\/|$)/, homedir()));
+    const root = findRoot(at);
+    if (!root || !optedIn(root)) continue;
+    const { model, testBranch, problems } = readDeliverySettings(root);
+    if (model !== 'two-prs' || problems.length) continue;
+    const branch = gitOut(at, ['symbolic-ref', '--short', '-q', 'HEAD']);
+    if (!branch || branch === testBranch || branch.endsWith(`-${testBranch}`)) continue;
+    const remotes = gitOut(at, ['remote']).split('\n').filter(Boolean);
+    const words = (m[3] ?? '').split(/\s+/).filter(Boolean);
+    const bare = m[2] === 'pull' && !words.some((w) => !w.startsWith('-'));
+    const named = bare
+      ? remotes.some((r) => gitOut(at, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']) === `${r}/${testBranch}`)
+      : words.some((w) => namesTestBranch(w, testBranch, remotes));
+    if (named) return `the task branch never receives ${testBranch}: merge ${testBranch} into the support branch ${branch}-${testBranch} instead (the flow creates it when the pull request to ${testBranch} has a conflict)`;
+  }
+  return null;
+}
+
 function prViolation(root, ch) {
   if (ch.ambiguous) return `several active OpenSpec changes (${ch.ambiguous.join(', ')}); name the branch after the change before opening the PR.`;
   const dir = changeDir(root, ch.name);
@@ -491,11 +618,13 @@ function prViolation(root, ch) {
 // an end until a later `devkit-run:` line. Only lines of type `user`
 // count: a typed command has a string `message.content`, the printed line sits in a `tool_result` block (or its
 // `toolUseResult.stdout`). The skill's own body (`isMeta`), the `api-request-*` lines and a sidechain are not read.
+// The run and end marker lines of a text, in order: { run } for `devkit-run: <id>`, { end } for `devkit-end: <id> <state>`.
+const runMarkers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: [A-Za-z0-9][\w.-]* (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
+  .map((m) => (m[1] ? { run: m[1] } : { end: m[2] }));
+
 // Pure: it interprets the events of `transcriptEvents` (scanned when not given) and returns null when it cannot read them (the locks then let everything through).
 export function runOf(input, events = transcriptEvents(input)) {
   if (!events) return null;
-  const markers = (s) => [...String(s).matchAll(/^(?:devkit-run: ([A-Za-z0-9][\w.-]*)|devkit-end: [A-Za-z0-9][\w.-]* (archived|waiting-for-owner|waiting-on-github|blocked))[ \t]*\r?$/gm)]
-    .map((m) => (m[1] ? { run: m[1] } : { end: m[2] }));
   let command = null;
   let change = null;
   let ended = null;
@@ -507,7 +636,7 @@ export function runOf(input, events = transcriptEvents(input)) {
       continue;
     }
     if (!command) continue;
-    for (const mark of marksOf(event, markers)) {
+    for (const mark of marksOf(event, runMarkers)) {
       if (mark.run) { change = mark.run; ended = null; } else ended = mark.end;
     }
   }
@@ -518,29 +647,95 @@ export function runOf(input, events = transcriptEvents(input)) {
 // order, null when the file cannot be read. An event is { typed: { name, args } } for a typed slash command (a string
 // `message.content`) or { texts, stdout } for a line of tool results (the text of each `tool_result` block, and its
 // `toolUseResult.stdout`). The skill's own body (`isMeta`), the `api-request-*` lines and a sidechain are not read.
-export function transcriptEvents(input) {
+//
+// With `usage` true the scan also reads the model lines (change-budget D-3): the first line with a string `timestamp` gives
+// `{ start }` first, every other event carries `at` (its line's timestamp or null), and an `assistant` line with a `message.usage`
+// object gives `{ usage: { id, tokens }, at }` (sidechain lines included). Without it the result is what it always was.
+export function transcriptEvents(input, { usage = false } = {}) {
   const file = input && input.transcript_path;
   if (typeof file !== 'string' || !file) return null;
   let text;
   try { text = readFileSync(file, 'utf8'); } catch { return null; }
   const events = [];
+  const wanted = usage ? /"type"\s*:\s*"(user|assistant)"/ : /"type"\s*:\s*"user"/;
+  let started = false;
   for (const line of text.split('\n')) {
-    if (!/"type"\s*:\s*"user"/.test(line)) continue;
+    if (!wanted.test(line)) continue;
     let rec;
     try { rec = JSON.parse(line); } catch { continue; }
+    const stamp = usage && typeof rec?.timestamp === 'string' ? rec.timestamp : null;
+    if (usage && !started && stamp) { started = true; events.push({ start: stamp }); }
+    const at = usage ? { at: stamp } : {};
+    if (rec?.type === 'assistant') {
+      if (usage && rec.message?.usage && typeof rec.message.usage === 'object') {
+        events.push({ usage: { id: rec.message.id ?? null, tokens: tokensOf(rec.message.usage) }, ...at });
+      }
+      continue;
+    }
     if (rec?.type !== 'user' || rec.isMeta || rec.isSidechain) continue;
     const content = rec.message?.content;
     if (typeof content === 'string') {
       const typed = typedOf(content);
-      if (typed) events.push({ typed });
+      if (typed) events.push({ typed, ...at });
     } else if (Array.isArray(content)) {
       events.push({
         texts: content.filter((block) => block?.type === 'tool_result').map(textOf),
         stdout: typeof rec.toolUseResult?.stdout === 'string' ? rec.toolUseResult.stdout : '',
+        ...at,
       });
     }
   }
   return events;
+}
+
+// The tokens a usage object counts: input, output and cache-creation tokens, each a finite number of at least 0, else 0.
+// `cache_read_input_tokens` is never read.
+const tokensOf = (u) => ['input_tokens', 'output_tokens', 'cache_creation_input_tokens']
+  .reduce((sum, key) => sum + (Number.isFinite(u[key]) && u[key] >= 0 ? u[key] : 0), 0);
+
+// The transcript of the session `env` names (CLAUDE_CODE_SESSION_ID): `<config>/projects/<folder>/<id>.jsonl`, null when the id is
+// unsafe, no such file exists or a read throws. It reads no file content (change-budget D-2).
+export function sessionTranscript(env) {
+  const id = env?.CLAUDE_CODE_SESSION_ID;
+  if (typeof id !== 'string' || !/^[A-Za-z0-9][\w-]*$/.test(id)) return null;
+  try {
+    const base = env.CLAUDE_CONFIG_DIR || join(env.HOME || homedir(), '.claude');
+    const projects = join(base, 'projects');
+    for (const folder of readdirSync(projects).sort()) {
+      const file = join(projects, folder, `${id}.jsonl`);
+      if (existsSync(file)) return file;
+    }
+  } catch { return null; }
+  return null;
+}
+
+// The run's spend in tokens (change-budget D-3): { spent, since } counted from the change's first `devkit-run:` line in the
+// transcript and from the subagent transcripts of the session started after it; null when the transcript cannot be read.
+export function spentOf(transcript, change) {
+  const events = transcriptEvents({ transcript_path: transcript }, { usage: true });
+  if (!events) return null;
+  const first = events.findIndex((event) => event.texts && marksOf(event, runMarkers).some((mark) => mark.run === change));
+  if (first < 0) return { spent: 0, since: null };
+  const since = events[first].at;
+  const seen = new Set();
+  const sum = (list) => list.reduce((total, event) => {
+    if (!event.usage) return total;
+    if (event.usage.id !== null) {
+      if (seen.has(event.usage.id)) return total;
+      seen.add(event.usage.id);
+    }
+    return total + event.usage.tokens;
+  }, 0);
+  let spent = sum(events.slice(first + 1));
+  const folder = join(dirname(transcript), basename(transcript, '.jsonl'), 'subagents');
+  let files = [];
+  try { files = readdirSync(folder).filter((name) => /^agent-.*\.jsonl$/.test(name)).sort(); } catch { files = []; }
+  for (const name of files) {
+    const scan = transcriptEvents({ transcript_path: join(folder, name) }, { usage: true });
+    const start = scan?.[0]?.start;
+    if (typeof since === 'string' && typeof start === 'string' && start >= since) spent += sum(scan);
+  }
+  return { spent, since };
 }
 
 // The marker lines of a tool-result event, read with `markers`: those in the `tool_result` blocks, else those in the stdout.
@@ -654,7 +849,7 @@ function guardBash(input) {
   const cmd = (input.tool_input || {}).command || '';
   // The git rules follow the session's project; writes and PRs follow their own target root.
   const sessionRoot = findRoot(input.cwd);
-  const why = sessionRoot && optedIn(sessionRoot) ? gitViolation(cmd) : null;
+  const why = sessionRoot && optedIn(sessionRoot) ? gitViolation(cmd) ?? testBranchViolation(cmd, input.cwd) : null;
   if (why) block(`blocked: ${why}. If you really need it, ask the user to run it.`);
   const cwd = input.cwd || process.cwd();
   // Each root's change is resolved once; a target or a segment is judged by its own root.
@@ -812,7 +1007,7 @@ const OPENSPEC_PACKAGE = '@fission-ai/openspec';
 const PIN_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies'];
 
 // The main checkout of a worktree: the parent of git's common dir. Null outside a git checkout.
-function mainCheckout(root) {
+export function mainCheckout(root) {
   try {
     const common = execFileSync('git', ['-C', root, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader } from './guard.mjs';
-import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, shipConfig, ShipConfigError, deliveryOf, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
+import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 export class FlowUsageError extends Error {
@@ -21,7 +21,8 @@ export { STAGE_HEADER, parseStageHeader };
 const SOURCES = ['folder', 'artifact', 'tasks', 'github'];
 const PARTS = ['open', 'plan', 'build', 'after', 'delivery', 'close'];
 const STAGE_KEYS = ['id', 'source', 'file', 'role', 'skills', 'helpers', 'part', 'title', 'shipped', 'owner',
-  'ceiling', 'onFail', 'staleAfter', 'codeBound'];
+  'ceiling', 'onFail', 'staleAfter', 'codeBound', 'appliesWhen', 'notAfter'];
+const SETTING_PATH = /^[A-Za-z][\w-]*(\.[A-Za-z][\w-]*)*$/;
 const LANGS = ['en', 'pt-BR'];
 
 // The script's declaration of its stages (design D-5): flow.json next to the schema's schema.yaml.
@@ -53,6 +54,16 @@ export function readFlowFile(f, name = f) {
     if (s.source === 'artifact' && typeof s.file !== 'string') throw bad(`stage ${s.id} has no file`);
     if (typeof s.role !== 'string' || !s.role) throw bad(`stage ${s.id} has no role`);
     for (const l of LANGS) if (typeof s.title?.[l] !== 'string' || !s.title[l]) throw bad(`stage ${s.id} has no ${l} title`);
+    if (s.ceiling !== undefined && s.ceiling !== 'owner' && !(Number.isInteger(s.ceiling) && s.ceiling >= 1)) {
+      throw bad(`stage ${s.id} has a ceiling that is neither a whole number from 1 nor "owner": ${JSON.stringify(s.ceiling)}`);
+    }
+    if (s.appliesWhen !== undefined) {
+      const w = s.appliesWhen;
+      const keys = w && typeof w === 'object' && !Array.isArray(w) ? Object.keys(w) : [];
+      const value = keys.length === 1 ? w[keys[0]] : undefined;
+      const ok = (keys[0] === 'flag' && typeof value === 'string' && value !== '') || (keys[0] === 'setting' && typeof value === 'string' && SETTING_PATH.test(value));
+      if (!ok) throw bad(`stage ${s.id} has an appliesWhen that is not exactly one of a flag or a dotted setting, each a non-empty string`);
+    }
   });
   flow.stages.forEach((s, i) => {
     if (s.onFail !== undefined && !(index.has(s.onFail) && index.get(s.onFail) <= i)) {
@@ -60,6 +71,9 @@ export function readFlowFile(f, name = f) {
     }
     for (const a of s.staleAfter ?? []) {
       if (!(index.has(a) && index.get(a) < i)) throw bad(`stage ${s.id} has a staleAfter that is unknown or later: ${a}`);
+    }
+    if (s.notAfter !== undefined && !(index.has(s.notAfter) && index.get(s.notAfter) > i && flow.stages[index.get(s.notAfter)].source === 'artifact')) {
+      throw bad(`stage ${s.id} has a notAfter that is not a later artifact stage: ${JSON.stringify(s.notAfter)}`);
     }
   });
   return flow;
@@ -143,6 +157,60 @@ export function stageFiles(dir, file) {
   return paths.map((path) => ({ path, header: parseStageHeader(readFileSync(join(dir, path), 'utf8')), mtimeMs: statSync(join(dir, path)).mtimeMs }));
 }
 
+// The value of a `key: value` line: quoted or not, with an optional trailing `# comment`.
+export function plainValue(raw) {
+  const text = raw.replace(/\r$/, '').trim();
+  const quote = text[0];
+  if (quote === '"' || quote === "'") {
+    const end = text.indexOf(quote, 1);
+    return end === -1 ? text.slice(1) : text.slice(1, end);
+  }
+  return text.replace(/(^|\s)#.*$/, '').trim();
+}
+
+// The flags of the grill's `Classification: ... flags=[..]` line in the change's requirements.md, lower-cased: none
+// when the file or the line is missing. No other line of the file is read.
+export function classificationFlags(dir) {
+  const file = join(dir, 'requirements.md');
+  if (!existsSync(file)) return [];
+  const m = /^.*Classification:.*flags=\[([^\]]*)\]/m.exec(readFileSync(file, 'utf8'));
+  return m ? m[1].split(',').map((f) => f.trim().toLowerCase()).filter(Boolean) : [];
+}
+
+// The test settings of the `devkit:` block of openspec/config.yaml, read by indentation (design stage-roles D-3):
+// { unit, e2e, coverage: { command, target }, paths, unknown }. Missing values are null; `paths` maps every dotted path
+// under `devkit` that holds a value to its text; `target` is a number only when the text is a whole number from 0 to 100,
+// else null and the text is listed in `unknown` as { setting, value, accepted }.
+export function readTestSettings(root) {
+  let text = '';
+  try { text = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'); } catch (e) {
+    if (e?.code !== 'ENOENT') throw new FlowUsageError(`openspec/config.yaml cannot be read (${e?.code ?? e})`);
+  }
+  const paths = {};
+  const open = [];
+  let inBlock = false;
+  for (const line of text.split('\n')) {
+    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; open.length = 0; continue; }
+    if (!inBlock) continue;
+    if (line.trim() === '' || /^\s*#/.test(line)) continue;
+    if (!/^\s/.test(line)) { inBlock = false; continue; }
+    const m = /^(\s+)([A-Za-z][\w-]*):(.*)$/.exec(line);
+    if (!m) continue;
+    while (open.length && open[open.length - 1].indent >= m[1].length) open.pop();
+    const value = plainValue(m[3]);
+    if (value === '') open.push({ indent: m[1].length, key: m[2] });
+    else paths[[...open.map((o) => o.key), m[2]].join('.')] = value;
+  }
+  const unknown = [];
+  let target = null;
+  const targetText = paths['tests.coverage.target'];
+  if (targetText !== undefined) {
+    if (/^\d+$/.test(targetText) && Number(targetText) <= 100) target = Number(targetText);
+    else unknown.push({ setting: 'coverage-target', value: targetText, accepted: 'a whole number from 0 to 100' });
+  }
+  return { unit: paths['tests.unit'] ?? null, e2e: paths['tests.e2e'] ?? null, coverage: { command: paths['tests.coverage.command'] ?? null, target }, paths, unknown };
+}
+
 // A change begun under the previous script (D-2): the earliest artifact stage that has a file, in the order the
 // declaration lists them, has no header on any of its files. A header on a later file (a readiness, an evidence or a
 // review the current agents wrote) does not change that. No file at all is a change being opened: current.
@@ -184,7 +252,9 @@ function offOwnBranch(root, id, branch) {
 
 // The delivery of design D-6, read only when the walk reaches it:
 // { state: 'passed' } | { next: { stage, reasonCode, params } } | { end: { state, reasonCode, params } }.
-function readDelivery({ ship, gh, head, delivery }) {
+// In `two-prs` (`twoPrs` given) the pull request to the test branch is read too: it is merged first, and the base pull request's own
+// `devkit-reviews` check waits for it, so the base checks count only once it has merged (delivery-models D-5).
+function readDelivery({ ship, gh, head, delivery, twoPrs = null }) {
   const next = (stage, reasonCode, params = {}) => ({ next: { stage, reasonCode, params } });
   const end = (state, reasonCode, params = {}) => ({ end: { state, reasonCode, params } });
   if (ship === 'plan') return end('waiting-for-owner', 'ship-plan');
@@ -195,10 +265,29 @@ function readDelivery({ ship, gh, head, delivery }) {
   if (pr.state === 'MERGED') return delivered ? { state: 'passed' } : next('implementation', 'tasks-left-after-merge', { number: pr.number, tasks: left.join(', ') });
   if (pr.state !== 'OPEN') return end('blocked', 'pr-closed', { number: pr.number });
   if (pr.headRefOid !== head) return next('delivery', 'not-pushed', { number: pr.number });
+  let testMerged = false;
+  if (twoPrs) {
+    const test = twoPrs.testPr();
+    if (test.error) return end('blocked', 'gh-error', { error: test.error });
+    if (test.none) return next('delivery', 'no-test-pr');
+    testMerged = test.pr.state === 'MERGED';
+    if (test.pr.state === 'CLOSED') return end('blocked', 'pr-closed', { number: test.pr.number });
+    if (!testMerged) {
+      if (test.checks.status === 'blocked') return end('blocked', 'checks-unreadable', { error: test.checks.reason });
+      if (test.checks.details.failing.length) return next('implementation', 'check-failing', { checks: test.checks.details.failing.map((c) => `${c.name} (${c.link})`).join(', ') });
+      if (test.checks.details.pending.length) return end('waiting-on-github', 'checks-pending', { checks: test.checks.details.pending.join(', ') });
+      return end('waiting-for-owner', 'owner-merges-test-branch', { number: test.pr.number, branch: twoPrs.testBranch, base: twoPrs.base });
+    }
+  }
   const checks = checksItem(found, gh);
-  if (checks.status === 'blocked') return end('blocked', 'checks-unreadable', { error: checks.reason });
+  if (checks.status === 'blocked') {
+    const old = checks.details.ghTooOld;
+    if (old) return end('blocked', 'gh-too-old', { installed: old.installed, minimum: old.minimum });
+    return end('blocked', 'checks-unreadable', { error: checks.reason });
+  }
   if (checks.details.failing.length) return next('implementation', 'check-failing', { checks: checks.details.failing.map((c) => `${c.name} (${c.link})`).join(', ') });
   if (checks.details.pending.length) return end('waiting-on-github', 'checks-pending', { checks: checks.details.pending.join(', ') });
+  if (twoPrs) return end('waiting-for-owner', 'owner-merges-base', { number: pr.number, base: twoPrs.base });
   if (ship === 'pr') return end('waiting-for-owner', 'owner-merges', { number: pr.number });
   if (pr.autoMergeRequest != null) return end('waiting-on-github', 'auto-merge-on', { number: pr.number, waiting: waitingFor(pr.mergeStateStatus) });
   return next('delivery', 'enable-auto-merge', { number: pr.number });
@@ -216,10 +305,11 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   if (located.archived || !flow) return { facts, flow };
   const files = {};
   for (const s of flow.stages) if (s.source === 'artifact') files[s.id] = stageFiles(located.dir, s.file);
-  Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null });
+  Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
+    flags: classificationFlags(located.dir), settings: readTestSettings(root).paths });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
-  try { config = shipConfig(root, schema); } catch (e) {
+  try { config = deliveryConfig(root, schema); } catch (e) {
     if (e instanceof ShipConfigError) throw new FlowUsageError(e.message);
     throw e;
   }
@@ -229,13 +319,16 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   // the task count give way to the headers themselves.
   const branch = currentBranch(root, env);
   let lookup = null;
-  const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located }));
+  const two = config.model === 'two-prs';
+  const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located, ...(two ? { base: config.base } : {}) }));
+  let testLookup = null;
+  const twoPrs = two ? { base: config.base, testBranch: config.testBranch, testPr: () => (testLookup ??= findTestPr(gh, { id, testBranch: config.testBranch })) } : null;
   const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf)),
     staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
-    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery }),
+    delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs }),
   });
   const status = openspecJson(openspec, ['status', '--change', id, '--json'], 'artifacts');
   facts.skipped = status.artifacts.filter((a) => a.status === 'skipped').map((a) => a.id);
@@ -283,6 +376,11 @@ export const TEXT = {
     'rerun-after-fix': (p, n) => `the ${nameOf(n, p.stage)} failed and the work changed since; it runs again`,
     'ceiling-reached': (p, n) => `the ${nameOf(n, p.stage)} failed at attempt ${p.attempt} and its ceiling is ${p.ceiling}`,
     'no-progress': (p, n) => `the ${nameOf(n, p.stage)} came back with nothing changed since the last run`,
+    'past-point': (p, n) => `the change was already past the ${nameOf(n, p.after)} when this stage arrived`,
+    'flag-absent': (p) => `the requirements' classification has no ${p.flag} flag`,
+    'setting-absent': (p) => `openspec/config.yaml declares no devkit.${p.setting}`,
+    'changes-asked': (p) => `the owner asked for changes at attempt ${p.attempt}`,
+    'owner-changes': (p, n) => `the owner asked for changes to the ${nameOf(n, p.stage)} at attempt ${p.attempt}; it is drawn again`,
     'owner-pending': (p, n) => `the ${nameOf(n, p.stage)} waits for the owner`,
     'approval-stale': (p, n) => `the ${nameOf(n, p.stage)} is stale: the owner approves the revised plan again`,
     'undeclared-stage': (p) => `the script declares no ${p.stage} stage (${p.why})`,
@@ -297,9 +395,13 @@ export const TEXT = {
     'no-pr': () => 'there is no pull request for this change yet',
     'not-pushed': (p) => `pull request #${p.number} is not at the local commit; push first`,
     'checks-unreadable': (p) => `the checks cannot be read: ${p.error}`,
+    'gh-too-old': (p) => `the installed gh (${p.installed ?? 'unknown version'}) cannot read the checks; ${p.minimum} is the first version that can, so update gh`,
     'check-failing': (p) => `checks failing: ${p.checks}`,
     'checks-pending': (p) => `checks pending: ${p.checks}`,
     'owner-merges': (p) => `pull request #${p.number} is green; the owner merges it`,
+    'no-test-pr': () => 'there is no pull request to the test branch for this change yet',
+    'owner-merges-test-branch': (p) => `pull request #${p.number} to ${p.branch} is green; the owner merges it first, and the pull request to ${p.base} waits for it`,
+    'owner-merges-base': (p) => `pull request #${p.number} to ${p.base} is green; the owner merges it`,
     'auto-merge-on': (p) => `auto-merge is on for pull request #${p.number}; waiting for ${p.waiting}`,
     'enable-auto-merge': (p) => `pull request #${p.number} is green; auto-merge is not on yet`,
     'pr-closed': (p) => `pull request #${p.number} was closed without merging`,
@@ -327,6 +429,11 @@ export const TEXT = {
     'rerun-after-fix': (p, n) => `a etapa ${nameOf(n, p.stage)} falhou e o trabalho mudou desde então; ela roda de novo`,
     'ceiling-reached': (p, n) => `a etapa ${nameOf(n, p.stage)} falhou na tentativa ${p.attempt} e o limite é ${p.ceiling}`,
     'no-progress': (p, n) => `a etapa ${nameOf(n, p.stage)} voltou sem nada ter mudado desde a última execução`,
+    'past-point': (p, n) => `a change já tinha passado da etapa ${nameOf(n, p.after)} quando esta etapa chegou`,
+    'flag-absent': (p) => `a classificação dos requisitos não tem a marca ${p.flag}`,
+    'setting-absent': (p) => `o openspec/config.yaml não declara devkit.${p.setting}`,
+    'changes-asked': (p) => `o dono pediu mudanças na tentativa ${p.attempt}`,
+    'owner-changes': (p, n) => `o dono pediu mudanças na etapa ${nameOf(n, p.stage)} na tentativa ${p.attempt}; ela é refeita`,
     'owner-pending': (p, n) => `a etapa ${nameOf(n, p.stage)} espera o dono`,
     'approval-stale': (p, n) => `a etapa ${nameOf(n, p.stage)} está desatualizada: o dono aprova de novo o plano revisado`,
     'undeclared-stage': (p) => `o roteiro não declara a etapa ${p.stage} (${p.why})`,
@@ -341,9 +448,13 @@ export const TEXT = {
     'no-pr': () => 'ainda não há pull request desta change',
     'not-pushed': (p) => `o pull request #${p.number} não está no commit local; é preciso enviar antes`,
     'checks-unreadable': (p) => `não foi possível ler os checks: ${p.error}`,
+    'gh-too-old': (p) => `o gh instalado (${p.installed ?? 'versão desconhecida'}) não consegue ler os checks; ${p.minimum} é a primeira versão que consegue, então atualize o gh`,
     'check-failing': (p) => `checks falhando: ${p.checks}`,
     'checks-pending': (p) => `checks pendentes: ${p.checks}`,
     'owner-merges': (p) => `o pull request #${p.number} está verde; o dono o mescla`,
+    'no-test-pr': () => 'ainda não há pull request para a branch de teste desta change',
+    'owner-merges-test-branch': (p) => `o pull request #${p.number} para ${p.branch} está verde; o dono o mescla primeiro, e o pull request para ${p.base} espera por ele`,
+    'owner-merges-base': (p) => `o pull request #${p.number} para ${p.base} está verde; o dono o mescla`,
     'auto-merge-on': (p) => `o auto-merge está ligado no pull request #${p.number}; esperando ${p.waiting}`,
     'enable-auto-merge': (p) => `o pull request #${p.number} está verde; o auto-merge ainda não está ligado`,
     'pr-closed': (p) => `o pull request #${p.number} foi fechado sem mesclar`,
@@ -360,6 +471,12 @@ function artifactState(stage, files, facts, flow, started) {
   const out = (state, reasonCode, params = {}, more = {}) => ({ ...base, state, reasonCode, params, ...more });
   if (facts.skipped.includes(stage.id)) return out('not-applicable', 'skipped');
   if (files.length === 0) {
+    // First match wins (design stage-roles D-2): a stage the change was already past, a flag or a setting that does not
+    // hold, a role that is not shipped; else the file is the next thing to write. A file that exists skips all of these.
+    if (stage.notAfter && (facts.files[stage.notAfter] ?? []).length > 0) return out('not-applicable', 'past-point', { after: stage.notAfter });
+    const when = stage.appliesWhen;
+    if (when?.flag && !(facts.flags ?? []).includes(when.flag.toLowerCase())) return out('not-applicable', 'flag-absent', { flag: when.flag });
+    if (when?.setting && !(when.setting in (facts.settings ?? {}))) return out('not-applicable', 'setting-absent', { setting: when.setting });
     return stage.shipped === false ? out('not-applicable', 'role-not-shipped', { role: stage.role }) : out('pending', 'no-file', { file: stage.file });
   }
   for (const f of files) {
@@ -396,7 +513,8 @@ function artifactState(stage, files, facts, flow, started) {
       if (mine !== null && other !== null && other - mine > FRESH_MS) { stale = { code: 'stale-plan', params: { by: a } }; break; }
     }
   }
-  const ceiling = stage.ceiling ?? flow.ceilings.default;
+  const ceiling = stage.ceiling === 'owner' ? null : stage.ceiling ?? flow.ceilings.default;
+  if (result === 'failed' && stage.ceiling === 'owner') return out('failed', 'changes-asked', { attempt: h.attempt }, info);
   if (result === 'failed') return out('failed', 'header-failed', { attempt: h.attempt, ceiling }, { ...info, fixed: stale !== null });
   if (stale) return out('stale', stale.code, stale.params, info);
   return out('passed', 'passed', { attempt: h.attempt }, info);
@@ -511,6 +629,8 @@ export function computeFlow(facts, flow, { after = null } = {}) {
     return finishEnd(delivered.end.state, s.id, delivered.end.reasonCode, delivered.end.params);
   }
   if (raw.state === 'failed') {
+    // The owner ends the attempts of a stage declared `ceiling: "owner"`: it is drawn again, never blocked by a number.
+    if (s.ceiling === 'owner') return offer(s.id, 'owner-changes', { stage: s.id, attempt: raw.attempt });
     const ceiling = ceilingOf(s);
     if (raw.attempt >= ceiling) return finishEnd('blocked', s.id, 'ceiling-reached', { stage: s.id, attempt: raw.attempt, ceiling });
     if (raw.fixed) return offer(s.id, 'rerun-after-fix', { stage: s.id });
@@ -554,7 +674,7 @@ const sentence = (text) => {
 function situation(lang, entry, names) {
   const words = WORDS[lang].states;
   const said = reasonText(lang, entry.reasonCode, entry.params, names);
-  if (entry.reasonCode === 'passed' || entry.reasonCode === 'header-failed') return said;
+  if (entry.reasonCode === 'passed' || entry.reasonCode === 'header-failed' || entry.reasonCode === 'changes-asked') return said;
   if (entry.reasonCode === 'not-applicable') return words[entry.state];
   return `${words[entry.state]}: ${said}`;
 }
