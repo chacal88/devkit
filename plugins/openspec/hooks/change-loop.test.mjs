@@ -3707,7 +3707,8 @@ test('change-loop compozy view: the dispatch line of a step is its ship-change r
     assert.ok(v.brief.startsWith(a.brief), step);
     assert.ok(v.brief.includes(`add the dispatch sentence of the \`ship-change\` row of step \`${step}\``), `${step}: ${v.brief}`);
   }
-  for (const step of ['resolve-release-conflict', 'push-rebased']) {
+  for (const step of ['resolve-release-conflict']) { // main's release-merge removed `push-rebased`: only a step of ROW_STEPS can carry a dispatch line
+    assert.ok(ROW_STEPS.includes(step), `${step} is a step of the delivery rows`);
     const v = cview(build(rowOf(step, {})));
     assert.ok(v.brief.includes(`add the dispatch sentence of the \`devkit\` skill's Loop bullet \`${step}\``), `${step}: ${v.brief}`);
     assert.ok(!v.brief.includes('`ship-change` row'), step);

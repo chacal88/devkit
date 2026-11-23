@@ -38,7 +38,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { readiness, liveRuns, startRun, CHANGE_LOOP } from './compozy-driver.mjs';
@@ -2000,7 +2000,7 @@ export function applyAnswer(record, gate, { answer, question = '', at }) {
 // ---- the view (D-3)
 
 const SHIP_ROW_STEPS = ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify'];
-const SKILL_LOOP_STEPS = ['resolve-release-conflict', 'push-rebased'];
+const SKILL_LOOP_STEPS = ['resolve-release-conflict'];
 const COMMAND_STEPS = ['switch-script', 'accept-decisions'];
 // The kinds whose progress key a confirmed view records as handed; any other kind clears it.
 export const HANDED_KINDS = ['agent', 'coordinator', 'review', 'gate', 'command', 'open'];
