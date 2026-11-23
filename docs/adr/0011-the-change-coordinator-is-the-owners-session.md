@@ -25,6 +25,10 @@ Note (stage-roles, 2026-11-21): [ADR 0016](0016-stage-roles-write-their-own-file
 outside the change folder are not product code (decision records, and test files the E2E tester
 writes); decision 2's refusal of the session's product edits is unchanged.
 
+Note (remote-worker, 2026-11-22): a change session on another machine is held by these locks there,
+by the pack installed on that machine ([ADR 0020](0020-a-change-can-run-on-another-machine.md)).
+Decisions 1 to 3 are unchanged.
+
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
 edit tool and product code is still written only by the implementer role under the same hooks",
 and the locks table of docs/coordination-design.md says the lock comes "from the role's

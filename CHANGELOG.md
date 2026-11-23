@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.36.0 — remote worker
+
+- **devkit-openspec** 0.32.0: a change can run on another machine. Opening a change in a repository
+  with an `origin` commits its folder with the request and the machine's name and pushes its branch
+  at once, so no machine opens an id that is open on another one (`claimed`); of two machines opening
+  one id at the same moment, one wins. The new per-person `machines` setting lists the other machines
+  (SSH connection, folder, places); with it set, `/devkit roadmap` opens each change on the machine
+  with the fewest open changes, makes its worktree there over SSH (`roadmap-loop.mjs checkout`), and
+  starts its session on that machine's connection. A change takes a place of its machine only from its
+  implementation on (`change-loop.mjs place`); with none free it ends blocked (waiting for a place),
+  and a freed place wakes one waiting change. `/devkit status` shows where each change is and reads
+  "no answer" for a machine that does not answer (`status --json`, `machine-probe.mjs`).
+- Docs: ADR 0020 (accepted) amends ADR 0013, ADR 0014 and ADR 0017 (decision 4: the title of a change waiting for a place); the flow page, the coordination design and
+  the pack README follow. The CI snippet now pins `v0.32.0`, the release's tag.
+
 ## 0.35.1 — retro proposals of change-version-pin
 
 - **devkit-core** 0.13.2: the stage-1 reviewer prompt of `review-change` now also says: run every

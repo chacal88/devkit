@@ -1,0 +1,236 @@
+✔ roadmap-loop setting: limitOf reads a whole number from 1 to 1000 and anything else as 80 (23.830891ms)
+✖ roadmap-loop setting: the load_limit user setting (4.488564ms)
+✖ remote AC-5 status: a line open only on another machine is listed under way with its machine, never in the queue (1360.067451ms)
+✖ remote AC-5 status: GitHub unreadable prints the board with its line (178.23099ms)
+✖ remote AC-5 status: the machines block and the machine of each row (1.256124ms)
+✖ remote AC-6 next: a line claimed on origin is never started, and its dependent waits (1422.315717ms)
+✖ remote AC-6 next: a declared cannot-open of a line claimed elsewhere is dropped (1325.840715ms)
+✖ remote AC-7 machines: unset, empty, [] and a placeholder read as unset (0.33607ms)
+✖ remote AC-7 machines: an entry without a field is refused naming it, and nothing is written (0.641568ms)
+✖ remote AC-7 next: with machines unset the decision is today's (671.72605ms)
+✖ remote AC-12 status: a silent machine and its changes read no answer (2490.261801ms)
+✖ remote AC-12 probe: state through the injected ssh returns the other clone's changes, and a failing ssh is no answer (1339.619141ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 1
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9177.984578
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:1864:1
+✖ roadmap-loop setting: the load_limit user setting (4.488564ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'language',
+      'load_limit',
+  -   'machines'
+    ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:1866:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'language', 'load_limit' ],
+    expected: [ 'language', 'load_limit', 'machines' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2728:1
+✖ remote AC-5 status: a line open only on another machine is listed under way with its machine, never in the queue (1360.067451ms)
+  Error [LoopUsageError]: unknown reply key remote.open
+      at render (file://<worktree>/plugins/openspec/hooks/change-loop.mjs:477:37)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2737:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2745:1
+✖ remote AC-5 status: GitHub unreadable prints the board with its line (178.23099ms)
+  Error [LoopUsageError]: unknown reply key status-claims-unreadable
+      at render (file://<worktree>/plugins/openspec/hooks/change-loop.mjs:477:37)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2750:132)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2754:1
+✖ remote AC-5 status: the machines block and the machine of each row (1.256124ms)
+  Error [LoopUsageError]: unknown reply key status-count-machines
+      at render (file://<worktree>/plugins/openspec/hooks/change-loop.mjs:477:37)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2768:5)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2784:1
+✖ remote AC-6 next: a line claimed on origin is never started, and its dependent waits (1422.315717ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      [
+  +     'aaa',
+  +     'start'
+  +   ],
+  +   [
+        'bbb',
+        'start'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2789:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'aaa', 'start' ], [ 'bbb', 'start' ] ],
+    expected: [ [ 'bbb', 'start' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2796:1
+✖ remote AC-6 next: a declared cannot-open of a line claimed elsewhere is dropped (1325.840715ms)
+  AssertionError [ERR_ASSERTION]: the declared end left the run file
+  + actual - expected
+  
+  + {
+  +   aaa: {
+  +     params: {
+  +       error: 'taken'
+  +     },
+  +     state: 'blocked',
+  +     why: 'cannot-open'
+  +   }
+  + }
+  - {}
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2801:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { aaa: { state: 'blocked', why: 'cannot-open', params: [Object] } },
+    expected: {},
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2806:1
+✖ remote AC-7 machines: unset, empty, [] and a placeholder read as unset (0.33607ms)
+  TypeError [Error]: loopModule.parseMachines is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2807:122)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2812:1
+✖ remote AC-7 machines: an entry without a field is refused naming it, and nothing is written (0.641568ms)
+  TypeError [Error]: loopModule.parseMachines is not a function
+      at bad (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2813:36)
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2814:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2841:1
+✖ remote AC-7 next: with machines unset the decision is today's (671.72605ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + `{"version":1,"error":"unknown option --machines; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessions] (the owner's arguments on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--turn typed|event] [--start-anyway] | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}\n`
+  - 'devkit-roadmap: 1\n' +
+  -   '{\n' +
+  -   '  "version": 1,\n' +
+  -   '  "places": 1,\n' +
+  -   '  "open": [],\n' +
+  -   '  "stopping": false,\n' +
+  -   '  "lines": [],\n' +
+  -   '  "actions": [\n' +
+  -   '    {\n' +
+  -   '      "change": "aaa",\n' +
+  -   '      "kind": "start",\n' +
+  -   '      "request": "aaa",\n' +
+  -   '      "progressKey": "start"\n' +
+  -   '    }\n' +
+  -   '  ],\n' +
+  -   '  "ask": null,\n' +
+  -   '  "end": null\n' +
+  -   '}\n'
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2847:35)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `{"version":1,"error":"unknown option --machines; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessions] (the owner's arguments on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--turn typed|event] [--start-anyway] | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}\n`,
+    expected: 'devkit-roadmap: 1\n{\n  "version": 1,\n  "places": 1,\n  "open": [],\n  "stopping": false,\n  "lines": [],\n  "actions": [\n    {\n      "change": "aaa",\n      "kind": "start",\n      "request": "aaa",\n      "progressKey": "start"\n    }\n  ],\n  "ask": null,\n  "end": null\n}\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2851:1
+✖ remote AC-12 status: a silent machine and its changes read no answer (2490.261801ms)
+  AssertionError [ERR_ASSERTION]: roadmap-loop: unknown option --machines; usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessions] (the owner's arguments on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--turn typed|event] [--start-anyway] | status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2855:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2889:1
+✖ remote AC-12 probe: state through the injected ssh returns the other clone's changes, and a failing ssh is no answer (1339.619141ms)
+  TypeError [Error]: loopModule.askMachine is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2895:25)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

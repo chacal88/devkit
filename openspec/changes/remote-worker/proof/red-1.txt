@@ -1,0 +1,212 @@
+✖ remote AC-1 open: a branch on origin with a claim refuses the open, naming its machine, and creates nothing (2228.06525ms)
+✖ remote AC-1 open: a claim with no machine says another machine (256.272482ms)
+✖ remote AC-2 open: the claim on origin holds requirements.md and the machine, with machines unset (1127.330993ms)
+✖ remote AC-2 open: a remote open claims for that machine and leaves no local worktree or branch (96.491321ms)
+✖ remote AC-2 open: a machine name or a places value that is not valid is a usage error and creates nothing (216.543759ms)
+✖ remote AC-3 open: the clone that pushes second is refused and leaves nothing (1097.493851ms)
+✖ remote AC-3 open: two clones opening one id at once, exactly one wins (205.921734ms)
+✖ remote AC-4 open: with no origin nothing is committed or pushed (1047.480428ms)
+✖ remote locks claims: the claims of a stale clone cost at most 8 gh calls, and none for the default branch (6582.321558ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 0
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13226.008783
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2837:1
+✖ remote AC-1 open: a branch on origin with a claim refuses the open, naming its machine, and creates nothing (2228.06525ms)
+  AssertionError [ERR_ASSERTION]: devkit-run: shared-thing
+  {
+    "version": 1,
+    "change": "shared-thing",
+    "script": "devkit",
+    "worktree": "/var/tmp/devkit-deliver-FDNdgk/.claude/worktrees/shared-thing",
+    "branch": "shared-thing",
+    "base": "origin/main",
+    "reply": "I opened the change shared-thing on the full script, because it is not clearly small, and the full script is the safe choice. Next come a few questions about your request; to use the short script instead, say so before the plan is written."
+  }
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2845:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2855:1
+✖ remote AC-1 open: a claim with no machine says another machine (256.272482ms)
+  Error [LoopUsageError]: unknown reply key claimed-elsewhere
+      at render (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.mjs:466:37)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2866:31)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2872:1
+✖ remote AC-2 open: the claim on origin holds requirements.md and the machine, with machines unset (1127.330993ms)
+  AssertionError [ERR_ASSERTION]: origin has the branch
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2878:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /^[0-9a-f]{40}$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2890:1
+✖ remote AC-2 open: a remote open claims for that machine and leaves no local worktree or branch (96.491321ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"unknown option --machine; usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: unknown option --machine; usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2893:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2909:1
+✖ remote AC-2 open: a machine name or a places value that is not valid is a usage error and creates nothing (216.543759ms)
+  AssertionError [ERR_ASSERTION]: 64 characters and places run are valid
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2931:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2934:1
+✖ remote AC-3 open: the clone that pushes second is refused and leaves nothing (1097.493851ms)
+  AssertionError [ERR_ASSERTION]: the other clone opened between the check and the push
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2940:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2957:1
+✖ remote AC-3 open: two clones opening one id at once, exactly one wins (205.921734ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"unknown option --machine; usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  {"version":1,"error":"unknown option --machine; usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  + actual - expected
+  
+    [
+  -   0,
+      3,
+  +   3
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2961:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 3, 3 ],
+    expected: [ 0, 3 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2972:1
+✖ remote AC-4 open: with no origin nothing is committed or pushed (1047.480428ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"unknown option --machine; usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: unknown option --machine; usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:2985:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2991:1
+✖ remote locks claims: the claims of a stale clone cost at most 8 gh calls, and none for the default branch (6582.321558ms)
+  AssertionError [ERR_ASSERTION]: six claims and main are on origin
+  
+  1 !== 7
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3000:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 7,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
