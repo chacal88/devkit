@@ -1,6 +1,7 @@
 # ADR 0014: In the desktop app each change of a roadmap run runs in a session of its own
 
 - Status: accepted
+- Amended by ADR 0016 (0016-a-change-can-run-on-another-machine.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator-followups
 - Supersedes: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 1 where
@@ -10,6 +11,10 @@
 - Accepted by: the owner, on 2026-11-21, in the message that approved the plan of the change: `Aprovo` ("I approve"), given in answer to the question whether the owner approves the plan and ADR 0014; recorded in `openspec/changes/roadmap-coordinator-followups/approval.md`
 
 ## Context
+
+Note (remote-worker, 2026-11-22): a change of a run may run on another machine; its session is
+started on that machine's SSH connection, in its worktree there
+([ADR 0016](0016-a-change-can-run-on-another-machine.md)). Decisions 2 to 6 are otherwise unchanged.
 
 The first real `/devkit roadmap` on this repository (2026-11-21) ran two changes inside the session
 the owner typed it in, as ADR 0013 decision 1 says. Only one background task showed in the app, and

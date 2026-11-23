@@ -23,13 +23,14 @@
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
+import { readRun, runFilePath } from './run-file.mjs';
 
 export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -106,6 +107,9 @@ export const MESSAGES = {
     'ask-unfinished-many': 'Before starting: {list} are unfinished. Should I continue one of them, or start your new request?',
     opened: 'I opened the change {id} on the {script}, because {why}. Next come a few questions about your request; to use the {other} instead, say so before the plan is written.',
     'name-taken': 'A change named {id} already exists; I will choose another name.',
+    claimed: '{id} is already open on {machine}: I opened nothing here. Continue it there, or choose another name.',
+    'claimed-elsewhere': '{id} is already open on another machine: I opened nothing here. Continue it there, or choose another name.',
+    'opened-on': 'I opened the change {id} for {machine}, on the {script}, because {why}. Its questions come in its own session there.',
     'name-invalid': '{id} cannot be a change name: use lowercase letters, digits and dashes.',
     resumed: 'Continuing the change {id}: {where}.',
     'script-switched': 'The change {id} moves to the {script}, because {why}.',
@@ -119,6 +123,7 @@ export const MESSAGES = {
     'waiting-by-hand': 'This project delivers each change by hand: {id} stops here, and the session writes no code for it.',
     'waiting-unrun-stage': '{Stage} of {id} has an unfinished file that no role of this version can finish: tell me its result, or remove it.',
     'waiting-pr-decision': 'A comment on the pull request of {id} asks for a decision only you can take: {url}.',
+    'waiting-place': '{id} waits for a free place on {machine} ({taken} of {places} taken): it goes on when one frees, and the roadmap session tells it.',
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
     blocked: 'The change {id} stopped: {why}. Nothing more runs until this is sorted out.',
@@ -134,6 +139,10 @@ export const MESSAGES = {
     'roadmap-resumed': 'Resumed {id}, which was already open: {where} ({open} of {places} under way).',
     'roadmap-session-started': 'Started {id} in a session of its own ({open} of {places} under way).',
     'roadmap-waits-turn': '{id} is ready and starts in a session of its own at your next message: the app starts a session only on a turn you typed.',
+    'roadmap-session-started-on': 'Started {id} on {machine}, in a session of its own.',
+    'roadmap-waits-turn-on': '{id} is open for {machine} and starts in a session of its own there at your next message: the app starts a session only on a turn you typed.',
+    'roadmap-woken': 'A place freed on {machine}: I told {id} to go on.',
+    'roadmap-machine-silent': '{machine} does not answer: no new change goes there, and its changes keep their places.',
     'roadmap-waits-refused': '{id} could not start in a session of its own: the app refused it. It starts at your next message.',
     'roadmap-held': '{id} is ready to start, but the machine is loaded (processor at {load}%, limit {limit}%): I hold the start until it eases. Tell me to start anyway and it starts now.',
     'roadmap-gate': '{id} waits for {gate}.',
@@ -170,6 +179,19 @@ export const MESSAGES = {
     'queue.load': 'ready, held by the load',
     'queue.after': 'waits for {after}',
     'queue.turn': 'ready: starts in a session of its own at your next message',
+    'queue.no-machine': 'ready, no machine can take it now (this one is loaded, the others do not answer)',
+    'machines-unreadable': 'The machines setting is not a list I can read. Write it as [{"host": "avel", "folder": "/home/me/repo", "places": 2}]. Nothing was started.',
+    'machine-incomplete': 'The machine {entry} in the machines setting has no valid {field}. Nothing was started.',
+    'machine-duplicate': 'The machine {entry} appears twice in the machines setting. Nothing was started.',
+    'checkout-failed': 'I could not make the folder of {id} on {machine}: {error}.',
+    'status-count-machines': 'Roadmap: {open} open · {queue} in the queue · {archived} archived',
+    'status-machines': 'Machines',
+    'status-claims-unreadable': 'GitHub could not be read: changes open on other machines are not shown.',
+    'machine.row': '{taken} of {places} places taken · {open} open',
+    'machine.this': '{name} (this one)',
+    'machine.no-answer': 'no answer',
+    'machine.unknown': 'another machine',
+    'remote.open': 'open on {machine}',
     'outside.previous': 'began under the previous script',
     'outside.ticked': 'ticked on the roadmap but not archived',
     'outside.unticked': 'archived, its line not ticked yet',
@@ -191,6 +213,7 @@ export const MESSAGES = {
     'why.risk': 'it touches access, money or personal data, or is hard to undo',
     'blocked-why.ceiling': '{stage} failed {attempt} times, which is its limit',
     'blocked-why.no-progress': '{stage} came back with nothing changed',
+    'blocked-why.no-place': 'it waits for a free place on {machine} ({taken} of {places} taken)',
     'blocked-why.not-delivered': '{stage} ended without delivering its result',
     'blocked-why.github-unreadable': 'GitHub cannot be read ({error})',
     'blocked-why.pr-closed': 'pull request #{number} was closed without merging',
@@ -206,6 +229,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'the next step is one this version does not know',
     'blocked-why.unreadable': 'the change cannot be read ({error})',
     'blocked-why.cannot-open': 'it could not be opened ({error})',
+    'blocked-why.cannot-check-out': 'its folder could not be made on {machine} ({error})',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
@@ -282,6 +306,9 @@ export const MESSAGES = {
     'ask-unfinished-many': 'Antes de começar: {list} estão por terminar. Continuo uma delas ou começo o seu novo pedido?',
     opened: 'Abri a change {id} no {script}, porque {why}. Agora vêm algumas perguntas sobre o seu pedido; para usar o {other}, é só dizer antes de o plano ser escrito.',
     'name-taken': 'Já existe uma change chamada {id}; vou escolher outro nome.',
+    claimed: '{id} já está aberta em {machine}: não abri nada aqui. Continue lá, ou escolha outro nome.',
+    'claimed-elsewhere': '{id} já está aberta em outra máquina: não abri nada aqui. Continue lá, ou escolha outro nome.',
+    'opened-on': 'Abri a change {id} para {machine}, no {script}, porque {why}. As perguntas vêm na sessão dela lá.',
     'name-invalid': '{id} não serve como nome de change: use letras minúsculas, números e hífens.',
     resumed: 'Continuando a change {id}: {where}.',
     'script-switched': 'A change {id} passa para o {script}, porque {why}.',
@@ -295,6 +322,7 @@ export const MESSAGES = {
     'waiting-by-hand': 'Este projeto entrega cada change à mão: {id} para aqui, e a sessão não escreve código para ela.',
     'waiting-unrun-stage': '{Stage} de {id} tem um arquivo inacabado que nenhum papel desta versão consegue terminar: diga o resultado ou remova o arquivo.',
     'waiting-pr-decision': 'Um comentário no pull request de {id} pede uma decisão que só você pode tomar: {url}.',
+    'waiting-place': '{id} espera um lugar livre em {machine} ({taken} de {places} ocupados): segue quando um liberar, e a sessão do roadmap avisa.',
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
     blocked: 'A change {id} parou: {why}. Nada mais roda até isso ser resolvido.',
@@ -310,6 +338,10 @@ export const MESSAGES = {
     'roadmap-resumed': 'Retomei {id}, que já estava aberta: {where} ({open} de {places} em andamento).',
     'roadmap-session-started': 'Comecei {id} numa sessão própria ({open} de {places} em andamento).',
     'roadmap-waits-turn': '{id} está pronta e começa numa sessão própria na sua próxima mensagem: o app só abre sessão num turno que você digitou.',
+    'roadmap-session-started-on': 'Comecei {id} em {machine}, numa sessão própria.',
+    'roadmap-waits-turn-on': '{id} está aberta para {machine} e começa numa sessão própria lá na sua próxima mensagem: o app só abre sessão num turno que você digitou.',
+    'roadmap-woken': 'Liberou um lugar em {machine}: avisei {id} para seguir.',
+    'roadmap-machine-silent': '{machine} não responde: nenhuma change nova vai para lá, e as changes dela mantêm os lugares.',
     'roadmap-waits-refused': '{id} não pôde começar numa sessão própria: o app recusou. Ela começa na sua próxima mensagem.',
     'roadmap-held': '{id} está pronta para começar, mas a máquina está carregada (processador em {load}%, limite {limit}%): seguro o começo até aliviar. Se quiser começar mesmo assim, é só dizer.',
     'roadmap-gate': '{id} espera {gate}.',
@@ -346,6 +378,19 @@ export const MESSAGES = {
     'queue.load': 'pronta, segurada pela carga',
     'queue.after': 'espera {after}',
     'queue.turn': 'pronta: começa numa sessão própria na sua próxima mensagem',
+    'queue.no-machine': 'pronta, nenhuma máquina pode recebê-la agora (esta está carregada, as outras não respondem)',
+    'machines-unreadable': 'A configuração de máquinas não é uma lista que eu consiga ler. Escreva assim: [{"host": "avel", "folder": "/home/eu/repo", "places": 2}]. Nada foi iniciado.',
+    'machine-incomplete': 'A máquina {entry} na configuração de máquinas não tem {field} válido. Nada foi iniciado.',
+    'machine-duplicate': 'A máquina {entry} aparece duas vezes na configuração de máquinas. Nada foi iniciado.',
+    'checkout-failed': 'Não consegui criar a pasta de {id} em {machine}: {error}.',
+    'status-count-machines': 'Roadmap: {open} abertas · {queue} na fila · {archived} arquivadas',
+    'status-machines': 'Máquinas',
+    'status-claims-unreadable': 'Não consegui ler o GitHub: as changes abertas em outras máquinas não aparecem.',
+    'machine.row': '{taken} de {places} lugares ocupados · {open} abertas',
+    'machine.this': '{name} (esta)',
+    'machine.no-answer': 'sem resposta',
+    'machine.unknown': 'outra máquina',
+    'remote.open': 'aberta em {machine}',
     'outside.previous': 'começada no roteiro anterior',
     'outside.ticked': 'marcada no roadmap, mas não arquivada',
     'outside.unticked': 'arquivada, falta marcar a linha',
@@ -367,6 +412,7 @@ export const MESSAGES = {
     'why.risk': 'mexe com acesso, dinheiro ou dados pessoais, ou é difícil de desfazer',
     'blocked-why.ceiling': '{stage} falhou {attempt} vezes, que é o limite',
     'blocked-why.no-progress': '{stage} voltou sem nada ter mudado',
+    'blocked-why.no-place': 'espera um lugar livre em {machine} ({taken} de {places} ocupados)',
     'blocked-why.not-delivered': '{stage} terminou sem entregar o resultado',
     'blocked-why.github-unreadable': 'não foi possível ler o GitHub ({error})',
     'blocked-why.pr-closed': 'o pull request #{number} foi fechado sem merge',
@@ -382,6 +428,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
     'blocked-why.cannot-open': 'não foi possível abrir ({error})',
+    'blocked-why.cannot-check-out': 'a pasta dela não pôde ser criada em {machine} ({error})',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
@@ -481,7 +528,7 @@ export function render(lang, key, params = {}) {
 // ---------------------------------------------------------------- the stage icon (roadmap-coordinator-followups D-5)
 
 // The icon of the stage an action is in, for the title of a change session: ❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery,
-// 📦 retro and archive. An archived end is the archive's; a stage the table does not name, or none, has no icon.
+// 📦 retro and archive, ⏳ a change waiting for a free place. An archived end is the archive's; a stage the table does not name, or none, has no icon.
 const STAGE_ICON = {
   open: '❓', requirements: '❓',
   mockup: '📝', decisions: '📝', proposal: '📝', specs: '📝', design: '📝', tasks: '📝', readiness: '📝', approval: '📝',
@@ -492,6 +539,7 @@ const STAGE_ICON = {
 };
 export function stageIcon(action) {
   if (action?.kind === 'end' && action.end?.state === 'archived') return '📦';
+  if (action?.kind === 'end' && action.end?.why === 'no-place') return '⏳';
   const stage = action?.stage;
   return typeof stage === 'string' && Object.hasOwn(STAGE_ICON, stage) ? STAGE_ICON[stage] : null;
 }
@@ -595,7 +643,8 @@ export function exitCodeOf(action) {
 
 // facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
 // approval (deliver-check's approvalState), hasProposal, flags (the grill's classification), archiving, row
-// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read) }.
+// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read), place (the place facts of D-9, { machine, places,
+// taken, held }, null when the change records no places) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
   const { ctx, flow, report } = facts;
@@ -701,6 +750,12 @@ export function decide(facts) {
     const step = row.next.step;
     const spec = ROWS[step];
     if (!spec) return blocked('unknown-step', {}, currentId);
+    // D-9: a change that records its places takes one before its first implementation step.
+    const place = facts.place;
+    if (place && !place.taken && spec.stage === 'implementation') {
+      if (place.held >= place.places) return finish('blocked', 'no-place', 'waiting-place', { machine: place.machine, taken: place.held, places: place.places }, 'implementation');
+      return sessionAction('implementation', 'take-place', { command: ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'place', ctx.id, '--lang', lang] });
+    }
     const detail = detailOf(row.next);
     if (spec.role) return agent(spec.stage, spec.role, step, `step ${step} ${JSON.stringify(detail)}`, detail, row.next.agent);
     if (spec.session) return sessionAction(spec.stage, step, detail);
@@ -769,7 +824,7 @@ function classificationFlags(dir) {
 
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims } = {}) {
   const clean = cleanOf(env);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -793,6 +848,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
       row = { error: e instanceof Error ? e.message : String(e) };
     }
   }
+  const place = row && row.error === undefined && !archiving && ROWS[row.next?.step]?.stage === 'implementation'
+    ? placeFacts(found, id, dir, { env: clean, gh, claims }) : null;
   const action = decide({
     ctx: { id, script: facts.schema ?? report.schema ?? 'devkit', root: found.root, branch: found.branch, lang: normalizeLang(lang), filesLanguage },
     flow,
@@ -804,11 +861,27 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     flags: classificationFlags(dir),
     archiving,
     row,
+    place,
   });
   // The icon of the action's stage and the change session's title for it (D-5); the title only with an icon.
   action.icon = stageIcon(action);
   if (action.icon) action.sessionTitle = sessionTitle(action.icon, id);
   return action;
+}
+
+// The place facts of change `id` (D-9): its machine and places from its claim (`run` is the run file's number), whether it holds
+// its place (its branch on `origin` holds approval.md) and, when it does not, how many other changes of its machine do.
+// null when the claim records no places. `claims` is a `remoteClaims` result a caller already read.
+function placeFacts(found, id, dir, { env, gh, claims }) {
+  const file = join(dir, '.openspec.yaml');
+  if (!existsSync(file)) return null;
+  const { machine, places } = parseClaim(readFileSync(file, 'utf8'));
+  if (!machine || places === null) return null;
+  const total = places === 'run' ? readRun(runFilePath(found.root)).places : places;
+  if (gitPasses(found.root, ['cat-file', '-e', `refs/remotes/origin/${id}:openspec/changes/${id}/approval.md`])) return { machine, places: total, taken: true, held: null };
+  const read = claims ?? remoteClaims(found.root, { env, gh });
+  const held = [...read.claims.values()].filter((c) => c.id !== id && c.machine === machine && c.placed === true).length;
+  return { machine, places: total, taken: false, held };
 }
 
 // ---------------------------------------------------------------- checkouts and unfinished work (D-3, D-6)
@@ -1014,15 +1087,129 @@ function requirementsFor(template, request) {
   return template.replace(/(## Request\n)[\s\S]*?(\n## )/, (_, open, close) => `${open}\n${quoted}\n${close}`);
 }
 
-// Every reason an id is taken (O2): a change folder (active or archived) in any checkout, a local branch, an archive
-// branch, a remote branch or the worktree folder.
+// Every local reason an id is taken (O2): a change folder (active or archived) in any checkout, a local branch, an archive
+// branch or the worktree folder. The remote branch is read by `refuseRemote`, which tells a claim from a taken name.
 function nameTaken(start, main, id) {
   if (checkoutsOf(start).some((c) => locateChange(c.root, id))) return true;
-  for (const ref of [`refs/heads/${id}`, `refs/heads/chore/archive-${id}`, `refs/remotes/origin/${id}`]) {
+  for (const ref of [`refs/heads/${id}`, `refs/heads/chore/archive-${id}`]) {
     if (tryGit(main, ['rev-parse', '--verify', '--quiet', ref])) return true;
   }
   return existsSync(join(main, '.claude', 'worktrees', id));
 }
+
+// ---------------------------------------------------------------- the claim (remote-worker D-1 to D-3)
+
+export const MACHINE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const PLACES_VALUE = /^(?:run|[1-9]\d?)$/;
+const CLAIM_MACHINE = /^x-devkit-machine:[ \t]*["']?([A-Za-z0-9][A-Za-z0-9._-]{0,63})["']?[ \t]*\r?$/m;
+const CLAIM_PLACES = /^x-devkit-places:[ \t]*["']?(run|[1-9]\d?)["']?[ \t]*\r?$/m;
+export const CLAIM_GH_BRANCHES = 4;
+export const CLAIM_DEADLINE_MS = 10_000;
+const CLAIM_GH_TIMEOUT_MS = 4000;
+const LS_REMOTE_TIMEOUT_MS = 15_000;
+
+// This machine's name in a claim: the hostname up to its first dot, anything outside the allowed characters made a dash.
+export function thisMachine() {
+  const name = hostname().split('.')[0].replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 64);
+  return MACHINE_NAME.test(name) ? name : 'machine';
+}
+
+// The two claim keys of a change's `.openspec.yaml`; a value that does not match is absent.
+export function parseClaim(text) {
+  const machine = CLAIM_MACHINE.exec(String(text ?? ''))?.[1] ?? null;
+  const raw = CLAIM_PLACES.exec(String(text ?? ''))?.[1] ?? null;
+  return { machine, places: raw === null || raw === 'run' ? raw : Number(raw) };
+}
+
+const gitPasses = (root, args) => {
+  try { execFileSync('git', ['-C', root, ...args], { stdio: 'ignore' }); return true; } catch { return false; }
+};
+
+// The claim of change `id` held by `ref` (after a fetch, from local objects only): null when the ref has no folder of it.
+export function claimOfRef(main, ref, id) {
+  const folder = `openspec/changes/${id}`;
+  if (!gitPasses(main, ['cat-file', '-e', `${ref}:${folder}`])) return null;
+  const { machine, places } = parseClaim(tryGit(main, ['show', `${ref}:${folder}/.openspec.yaml`]));
+  return { id, machine, places, placed: gitPasses(main, ['cat-file', '-e', `${ref}:${folder}/approval.md`]) };
+}
+
+// Which changes are open on `origin`, without writing anything: { readable, origin, claims: Map<id, claim> } (`origin` false: there is none to read). A branch whose
+// remote-tracking ref is current is read locally; at most CLAIM_GH_BRANCHES others go through `gh` (two calls each, each with
+// its own timeout, none after CLAIM_DEADLINE_MS); a branch not read, or whose `gh` call failed, reads with no machine.
+export function remoteClaims(start, { env = process.env, gh, ids } = {}) {
+  const main = realpathSync(mainRoot(start));
+  if (!gitPasses(main, ['remote', 'get-url', 'origin'])) return { readable: false, origin: false, claims: new Map() };
+  const none = { readable: false, origin: true, claims: new Map() };
+  let listing;
+  try {
+    listing = execFileSync('git', ['-C', main, 'ls-remote', '--heads', 'origin'], { encoding: 'utf8', timeout: LS_REMOTE_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
+  } catch { return none; }
+  const began = Date.now();
+  const run = gh ?? makeGh(main, cleanOf(env));
+  const ghCall = (args) => run(args, { timeout: CLAIM_GH_TIMEOUT_MS });
+  const wanted = ids === undefined ? null : new Set(ids);
+  const defaultName = defaultBase(main);
+  const archived = archivedOnDefault(start, { env, gh: ghCall });
+  const claims = new Map();
+  let read = 0;
+  for (const line of listing.split('\n')) {
+    const [sha, ref] = line.split('\t');
+    const name = ref?.startsWith('refs/heads/') ? ref.slice('refs/heads/'.length) : null;
+    if (!name || archived.has(name)) continue;
+    if (wanted ? !wanted.has(name) : (name === defaultName || !NAME.test(name))) continue;
+    const tracking = `refs/remotes/origin/${name}`;
+    if (tryGit(main, ['rev-parse', '--verify', '--quiet', tracking]) === sha) {
+      const claim = claimOfRef(main, tracking, name);
+      if (claim) claims.set(name, claim);
+      continue;
+    }
+    const unread = { id: name, machine: null, places: null, placed: null };
+    if (read >= CLAIM_GH_BRANCHES || Date.now() - began >= CLAIM_DEADLINE_MS) { claims.set(name, unread); continue; }
+    read++;
+    const got = claimThroughGh(ghCall, name, sha);
+    if (got !== 'absent') claims.set(name, got ?? unread);
+  }
+  return { readable: true, origin: true, claims };
+}
+
+// One branch's claim through GitHub: the folder's listing, then its `.openspec.yaml`. null when a call fails (read as
+// unknown), 'absent' when the branch holds no folder of the change.
+function claimThroughGh(ghCall, name, sha) {
+  const route = `repos/{owner}/{repo}/contents/openspec/changes/${name}`;
+  const folder = ghCall(['api', `${route}?ref=${sha}`]);
+  if (folder.status !== 0) return /404|not found/i.test(folder.stderr) ? 'absent' : null;
+  try {
+    const names = JSON.parse(folder.stdout).map((e) => String(e?.name ?? ''));
+    const claim = { id: name, machine: null, places: null, placed: names.includes('approval.md') };
+    const yaml = ghCall(['api', `${route}/.openspec.yaml?ref=${sha}`]);
+    if (yaml.status !== 0) return null;
+    return { ...claim, ...parseClaim(Buffer.from(String(JSON.parse(yaml.stdout).content ?? ''), 'base64').toString('utf8')) };
+  } catch { return null; }
+}
+
+// The refusal for an id whose branch is on `origin` (D-1 step 2): a claim names its machine, a branch with no change folder
+// is a taken name.
+function refuseRemote(main, id, refuse) {
+  const claim = claimOfRef(main, `refs/remotes/origin/${id}`, id);
+  if (!claim) return refuse('name-taken', { id });
+  return claim.machine ? refuse('claimed', { id, machine: claim.machine }) : refuse('claimed-elsewhere', { id });
+}
+
+// The clean-up of a half-made open (O5): each step is tried on its own, and none of their errors replaces the original one.
+function removeLocalOpen(main, worktree, id) {
+  for (const cleanup of [
+    () => gitRun(main, ['worktree', 'remove', '--force', worktree]),
+    () => rmSync(worktree, { recursive: true, force: true }),
+    () => gitRun(main, ['worktree', 'prune']),
+    () => gitRun(main, ['branch', '-D', id]),
+  ]) {
+    try { cleanup(); } catch { /* best effort */ }
+  }
+}
+
+// A push the remote refused because the branch already exists: the lost race of two machines opening one id.
+class ClaimRace extends LoopUsageError {}
+const PUSH_RACE = /stale info|already exists|fetch first/i;
 
 // Waits between tries without a busy loop, so the callers of a lock stay synchronous.
 export const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -1065,7 +1252,7 @@ function withOpenLock(main, work, lockSleep) {
 
 // `open <id> --script <s> --why <code>`, the request on standard input. Creates the worktree, the change and its
 // requirements file; refusals are LoopRefusal (exit 3, nothing created).
-export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec, lockSleep } = {}) {
+export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec, lockSleep, machine, places, remote = false, beforePush } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   if (!NAME.test(id) || id === 'archive') throw refuse('name-invalid', { id });
@@ -1073,6 +1260,9 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
   if (!WHY_CODES.includes(why)) throw new LoopUsageError(`open needs --why with one of: ${WHY_CODES.join(', ')}`);
   const text = String(request ?? '').trim();
   if (!text) throw new LoopUsageError('open needs the request on standard input');
+  if (machine !== undefined && !MACHINE_NAME.test(String(machine))) throw new LoopUsageError(`--machine needs 1 to 64 letters, digits, dots, underscores or dashes, starting with a letter or a digit, not ${machine}`);
+  if (places !== undefined && !PLACES_VALUE.test(String(places))) throw new LoopUsageError(`--places needs a whole number from 1 to 99 or run, not ${places}`);
+  if (remote && machine === undefined) throw new LoopUsageError('--remote needs --machine');
   const start = findRoot(cwd);
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
   const gate = projectGate(start, settings);
@@ -1086,28 +1276,32 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, 'requirements.md'), requirementsFor(readFileSync(template, 'utf8'), text));
   };
-  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep });
-  return { version: 1, change: id, script, worktree, branch: id, base, reply: render(l, 'opened', { id, script, other: otherScript(script), why }) };
+  const claim = { machine: machine ?? thisMachine(), places: places === undefined ? null : String(places) };
+  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep, claim, remote, beforePush });
+  const reply = remote ? render(l, 'opened-on', { id, machine: claim.machine, script, why }) : render(l, 'opened', { id, script, other: otherScript(script), why });
+  return { version: 1, change: id, script, worktree, branch: id, base, reply };
 }
 
 // The open steps every script shares (project-phases D-5): the open lock, the fetch, the id check, the worktree from the default
 // branch, `openspec new change <id> --schema <script>`, `prepare(folder, worktree)` for the script's own first file, and the
 // clean-up of a half-made open. The caller has checked the name and the project gate. Returns { worktree, base }; a refusal
 // is a LoopRefusal (exit 3, nothing created).
-export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare, lockSleep } = {}) {
+export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare, lockSleep, claim = null, remote = false, beforePush } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const main = mainRoot(start);
-  return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }), lockSleep);
+  return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env, claim, remote, beforePush }), lockSleep);
 }
 
-// What `open` does while it holds the lock: the fetch, the id check, the worktree, the change and the script's first file.
-function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }) {
+// What `open` does while it holds the lock (D-1): the fetch, the local reasons and the remote claim, the worktree, the change
+// and the script's first file, then, with an `origin` and a claim, the commit and the push that only creates the branch.
+function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env, claim, remote, beforePush }) {
   const hasOrigin = gitRun(main, ['remote']).split('\n').includes('origin');
   if (hasOrigin) gitRun(main, ['fetch', 'origin', '--prune', '--quiet']);
   if (nameTaken(start, main, id)) throw refuse('name-taken', { id });
+  if (hasOrigin && tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${id}`])) throw refuseRemote(main, id, refuse);
 
   let base = 'HEAD';
   if (hasOrigin) {
@@ -1120,21 +1314,80 @@ function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env
     const created = (openspec ?? makeOpenspec(worktree, cleanOf(env)))(['new', 'change', id, '--schema', script]);
     if (created.status !== 0) throw new LoopUsageError(`openspec new change failed: ${(created.stderr || created.stdout).trim()}`);
     prepare?.(join(worktree, 'openspec', 'changes', id), worktree);
+    if (hasOrigin && claim) claimOnOrigin({ main, worktree, id, claim, beforePush });
   } catch (e) {
-    // O5: leave nothing half made. Each step is tried on its own (a failed one does not skip the next) and none of their
-    // errors replaces the original one: the worktree, its folder if still there (and its registration, which git keeps
-    // while the branch is "used by" it), then the branch this call just created.
-    for (const cleanup of [
-      () => gitRun(main, ['worktree', 'remove', '--force', worktree]),
-      () => rmSync(worktree, { recursive: true, force: true }),
-      () => gitRun(main, ['worktree', 'prune']),
-      () => gitRun(main, ['branch', '-D', id]),
-    ]) {
-      try { cleanup(); } catch { /* best effort: the original error is the one reported */ }
+    // O5: leave nothing half made: the worktree, its folder if still there (and its registration, which git keeps while the
+    // branch is "used by" it), then the branch this call just created.
+    removeLocalOpen(main, worktree, id);
+    if (e instanceof ClaimRace) {
+      // The lost race: another machine's push came first. Name its claim from a fresh read of the branch.
+      tryGit(main, ['fetch', '-q', 'origin', `+refs/heads/${id}:refs/remotes/origin/${id}`]);
+      throw refuseRemote(main, id, refuse);
     }
     throw e;
   }
+  if (hasOrigin && claim && remote) {
+    removeLocalOpen(main, worktree, id);
+    return { worktree: null, base };
+  }
   return { worktree, base };
+}
+
+// D-1 step 4: the claim keys in the change's `.openspec.yaml`, the commit, and the push that only creates the branch. A push
+// refused because the branch exists is the lost race (ClaimRace); any other failure is the original error.
+function claimOnOrigin({ main, worktree, id, claim, beforePush }) {
+  const file = join(worktree, 'openspec', 'changes', id, '.openspec.yaml');
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const keys = `x-devkit-machine: ${claim.machine}\n${claim.places ? `x-devkit-places: ${claim.places}\n` : ''}`;
+  writeFileSync(file, `${text}${text === '' || text.endsWith('\n') ? '' : '\n'}${keys}`);
+  gitRun(worktree, ['add', '--', `openspec/changes/${id}`]);
+  gitRun(worktree, ['commit', '-q', '-m', `chore(openspec): open ${id}`]);
+  beforePush?.();
+  try {
+    gitRun(worktree, ['push', '-q', `--force-with-lease=refs/heads/${id}:`, 'origin', `${id}:refs/heads/${id}`]);
+  } catch (e) {
+    throw PUSH_RACE.test(String(e?.message)) ? new ClaimRace(e.message) : e;
+  }
+}
+
+// `place <id>` (D-9): takes the place of change `id` on its machine, under one lock shared by every checkout of the clone.
+// Fetches, commits the plan files of the change folder, counts from the remote-tracking branches the places its machine holds,
+// and pushes only when one is free. { code: 0 taken | 2 no free place, body }; a failure is a LoopUsageError.
+const PLACE_LOCK = { stepMs: 200, waitMs: 60_000, staleMs: 10 * 60_000 };
+
+export function placeChange(cwd, id, { env = process.env, gh } = {}) {
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const found = locate(start, id);
+  const dir = locateChange(found.root, id)?.dir;
+  if (!dir || found.branch !== id) throw new LoopUsageError(`place needs the change ${id} in its own worktree`);
+  const file = join(dir, '.openspec.yaml');
+  const { machine, places } = parseClaim(existsSync(file) ? readFileSync(file, 'utf8') : '');
+  if (!machine || places === null) throw new LoopUsageError(`the change ${id} records no machine and places: nothing to take`);
+  const main = realpathSync(mainRoot(start));
+  if (!gitPasses(main, ['remote', 'get-url', 'origin'])) throw new LoopUsageError('place needs an origin remote');
+  const total = places === 'run' ? readRun(runFilePath(found.root)).places : places;
+  const common = tryGit(main, ['rev-parse', '--path-format=absolute', '--git-common-dir']) || join(main, '.git');
+  return withLockFile({
+    ...PLACE_LOCK, lock: join(common, 'devkit-place.lock'),
+    holder: `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`,
+    timeout: () => new LoopUsageError('another place call holds the lock for too long'),
+  }, () => {
+    gitRun(found.root, ['fetch', 'origin', '--prune', '--quiet']);
+    if (gitRun(found.root, ['status', '--porcelain', '--', `openspec/changes/${id}`]).trim()) {
+      gitRun(found.root, ['add', '--', `openspec/changes/${id}`]);
+      gitRun(found.root, ['commit', '-q', '-m', `chore(openspec): plan of ${id}`]);
+    }
+    const archived = archivedOnDefault(start, { env, gh });
+    const heldBy = gitRun(main, ['for-each-ref', '--format=%(refname:strip=3)', 'refs/remotes/origin']).split('\n')
+      .filter((name) => name !== id && NAME.test(name) && !archived.has(name));
+    const held = heldBy.filter((name) => { const c = claimOfRef(main, `refs/remotes/origin/${name}`, name); return c?.machine === machine && c.placed; }).length;
+    const own = claimOfRef(main, `refs/remotes/origin/${id}`, id)?.placed === true;
+    const body = (taken) => ({ version: 1, change: id, taken, machine, held, places: total });
+    if (!own && held >= total) return { code: 2, body: body(false) };
+    gitRun(found.root, ['push', '-q', 'origin', `${id}:refs/heads/${id}`]);
+    return { code: 0, body: body(true) };
+  });
 }
 
 // `script <id> <script> --why <code>`: the correction of the script until the proposal is written (C1 to C3).
@@ -1334,14 +1587,15 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 // ---------------------------------------------------------------- the command line (D-5)
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
-  + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
-  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
+  + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input) '
+  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
 
-function parseArgs(argv, { values = [], multi = [] } = {}) {
+function parseArgs(argv, { values = [], multi = [], flags = [] } = {}) {
   const opts = { positional: [], params: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (values.includes(a) || multi.includes(a)) {
+    if (flags.includes(a)) opts[a.slice(2)] = true;
+    else if (values.includes(a) || multi.includes(a)) {
       const v = argv[++i];
       if (v === undefined) throw new LoopUsageError(`${a} needs a value; ${USAGE}`);
       if (multi.includes(a)) opts.params.push(v); else opts[a.slice(2)] = v;
@@ -1388,10 +1642,17 @@ function runStart(args, { env, cwd, stdin, openspec, gh }) {
 }
 
 function runOpen(args, { env, cwd, stdin, openspec }) {
-  const opts = parseArgs(args, { values: ['--script', '--why', '--lang'] });
+  const opts = parseArgs(args, { values: ['--script', '--why', '--lang', '--machine', '--places'], flags: ['--remote'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
-  const result = openChange(cwd, opts.positional[0], { script: opts.script, why: opts.why, request: stdin, lang: opts.lang, env, openspec });
+  const result = openChange(cwd, opts.positional[0], { script: opts.script, why: opts.why, request: stdin, lang: opts.lang, env, openspec, machine: opts.machine, places: opts.places, remote: opts.remote === true });
   return { code: 0, stdout: `devkit-run: ${result.change}\n${json(result)}`, stderr: '' };
+}
+
+function runPlace(args, { env, cwd, gh }) {
+  const opts = parseArgs(args, { values: ['--lang'] });
+  if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+  const { code, body } = placeChange(cwd, opts.positional[0], { env, gh });
+  return { code, stdout: json(body), stderr: '' };
 }
 
 function runScript(args, { cwd }) {
@@ -1434,6 +1695,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec });
     if (sub === 'script') return runScript(rest, { cwd });
+    if (sub === 'place') return runPlace(rest, { env, cwd, gh });
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);

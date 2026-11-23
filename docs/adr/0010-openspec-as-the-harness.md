@@ -53,6 +53,11 @@ Note (project-phases, 2026-11-22): the project entry and the `devkit-project` sc
 (the hooks act in a slice's checkout as for any change, no run lock holds a `/devkit project` run) and
 records the slice model. Decisions 1 to 8 are otherwise unchanged.
 
+Note (remote-worker, 2026-11-22): opening a change pushes its branch at once with the machine's
+name, and a roadmap run may open changes on other machines the person lists
+([ADR 0016](0016-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
+its reason. Decisions 1 to 8 are otherwise unchanged.
+
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions
 (ADR 0006), one change on request and never a sweep (ADR 0007), the reviewer round as a Workflow

@@ -20,6 +20,10 @@ roadmap run starts is therefore held by these locks
 ([ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). Decisions 1 to 3 are
 otherwise unchanged.
 
+Note (remote-worker, 2026-11-22): a change session on another machine is held by these locks there,
+by the pack installed on that machine ([ADR 0016](0016-a-change-can-run-on-another-machine.md)).
+Decisions 1 to 3 are unchanged.
+
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
 edit tool and product code is still written only by the implementer role under the same hooks",
 and the locks table of docs/coordination-design.md says the lock comes "from the role's
