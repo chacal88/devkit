@@ -75,7 +75,10 @@ that AC-7's "exactly as today" holds when it is unset.
 
 Exit criteria: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs`,
 `python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check` and the marketplace validation
-pass; `openspec validate remote-worker --strict` passes; the live record of phase 6 exists.
+pass; `openspec validate remote-worker --strict` passes. The live record on two machines is not an
+exit criterion: the owner decided on 2026-11-23 (`B: depois do merge`, "B: after the merge") that it
+runs after the merge, as a workflow follow-up of `tasks.md` recorded through a roadmap line the retro
+proposes (`design.md` D-16, R-10).
 
 ## Capabilities
 

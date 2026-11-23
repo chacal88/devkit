@@ -44,18 +44,25 @@ end every task with `git status --short`.
 
 | Id | Slug | Tasks |
 |---|---|---|
-| AC-1 | `open-refuses-claimed` | 1.1, 1.3, 6.1 |
-| AC-2 | `open-pushes-claim` | 1.1, 1.2, 1.3, 6.1 |
-| AC-3 | `open-race-one-wins` | 1.1, 1.3, 6.1 |
+| AC-1 | `open-refuses-claimed` | 1.1, 1.3 |
+| AC-2 | `open-pushes-claim` | 1.1, 1.2, 1.3 |
+| AC-3 | `open-race-one-wins` | 1.1, 1.3 |
 | AC-4 | `no-origin-unchanged` | 1.1, 1.3 |
-| AC-5 | `status-shows-machine` | 3.1, 3.4, 5.8, 6.1 |
-| AC-6 | `roadmap-never-reopens` | 3.1, 3.3, 6.1 |
+| AC-5 | `status-shows-machine` | 3.1, 3.4, 5.8 |
+| AC-6 | `roadmap-never-reopens` | 3.1, 3.3 |
 | AC-7 | `machines-setting` | 3.1, 3.2, 5.8 |
-| AC-8 | `open-on-fewest` | 4.1, 4.2, 6.2 |
-| AC-9 | `remote-session-start` | 4.1, 4.3, 4.4, 5.2, 5.8, 6.2 |
-| AC-10 | `place-at-implementation` | 2.1, 2.2, 2.3, 5.2, 5.8, 6.3 |
-| AC-11 | `wake-on-free-place` | 2.1, 4.1, 4.5, 5.2, 5.8, 6.3 |
-| AC-12 | `unreachable-machine` | 3.1, 3.4, 3.5, 4.1, 4.3, 6.4 |
+| AC-8 | `open-on-fewest` | 4.1, 4.2 |
+| AC-9 | `remote-session-start` | 4.1, 4.3, 4.4, 5.2, 5.8 |
+| AC-10 | `place-at-implementation` | 2.1, 2.2, 2.3, 5.2, 5.8 |
+| AC-11 | `wake-on-free-place` | 2.1, 4.1, 4.5, 5.2, 5.8 |
+| AC-12 | `unreachable-machine` | 3.1, 3.4, 3.5, 4.1, 4.3 |
+
+The automated tests of phases 1 to 5 are this change's verification: gate 5.8 is its last gate. The
+live check on two machines is not a task of this change. The owner decided on 2026-11-23 (`B: depois
+do merge`, "B: after the merge") that it runs after the merge, on the merged version, the next time
+the owner uses two machines; it is a bullet of the Workflow follow-up below (L-1 to L-4, which
+re-check AC-1, AC-3, AC-5, AC-6 and AC-8 to AC-12 across real machines), and `design.md` D-16 says
+what the tests cover in its place.
 
 ## 1. The claim at open (AC-1, AC-2, AC-3, AC-4)
 
@@ -242,48 +249,65 @@ end every task with `git status --short`.
   `git status --short`.
 - [x] 5.8 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt"` green, the whole suite run once as a background command; covers every acceptance criterion's tests together, with every existing test passing.
 
-## 6. The live record on two machines (AC-1, AC-3, AC-5, AC-6, AC-8 to AC-12)
-
-Owner-run tasks, done by the session that coordinates this change (never `tdd-implementer`), on the
-Mac and on the Linux worker `avel`, both running this change's version of devkit-openspec (installed
-from this branch as `CONTRIBUTING.md` describes for dogfooding, the same on both machines). The owner's `machines` setting on the Mac lists `avel` with its folder and 1 place. The
-records go to `openspec/changes/remote-worker/proof/live.txt`, in order and with their times. Each
-record starts with the ids of the acceptance criteria it shows (for example `AC-9:`) and holds the
-commands' outputs and the app's list of sessions where a session is concerned. No
-connection detail beyond the connection name `avel` is written (no address, user or key).
-
-- [ ] 6.1 The claim, the race and the board: on `avel`, `/devkit change` opens a scratch change
-  `probe-claim`; record the machine name its claim carries (the worker's hostname, R-4). On the Mac,
-  `open probe-claim` is refused naming that machine (AC-1), and `/devkit status` lists
-  `probe-claim` under way with it, never in the queue (AC-5). A `/devkit roadmap` run whose
-  roadmap names `probe-claim` does not open it (AC-6). Then the race against GitHub: the owner
-  starts `printf 'Probe the race\n' | node <the pack's hooks>/change-loop.mjs open probe-race
-  --script devkit-lite --why small --lang en` in the repository's main checkout on the Mac and on
-  `avel` within the same second (one terminal each, started together), and records both outputs and `git ls-remote origin
-  refs/heads/probe-race`. Exactly one exits 0, the other exits 3 with `claimed` naming the winner
-  and leaves no worktree, folder or branch, and the branch on `origin` is the winner's commit
-  (AC-3). Afterwards, delete the two scratch branches on `origin` and the worktrees on `avel` and
-  the Mac with the owner's explicit authorization (destructive Git). Check: the five records are in
-  the file.
-- [ ] 6.2 Placement and the remote session: with the Mac above its `load_limit` (or with a roadmap
-  where the Mac holds more open changes), a typed `/devkit roadmap` opens a ready line for `avel`
-  (AC-8). Then `ssh avel true` exits 0, `checkout` makes the worktree there, and a session starts on
-  the connection `avel` in it, nested under the Mac's session and titled `❓ <id>` (AC-9). Check:
-  the records and the session list are in the file.
-- [ ] 6.3 The place and the wake: with `avel`'s one place held by a change in its implementation, a
-  second change on `avel` reaches its approval and ends ⏳. When the first is archived, the Mac's
-  session sends the wake, and the second takes the place and starts its implementation (AC-10,
-  AC-11). Record whether the wake was sent on a turn nobody typed. Check: the records are in the
-  file, or a line "after verification: in the retro" names what this change's verification did not
-  reach.
-- [ ] 6.4 A silent machine: with `avel` asleep or its Tailscale down, `/devkit status` on the Mac
-  reads "no answer" for `avel` and for each of its changes, and a typed `/devkit roadmap` opens the
-  next ready line on the Mac (AC-12). Check: the records are in the file.
-- [ ] 6.5 Gate: `test -s openspec/changes/remote-worker/proof/live.txt && grep -q "AC-3" openspec/changes/remote-worker/proof/live.txt && grep -q "AC-9" openspec/changes/remote-worker/proof/live.txt && grep -q "AC-12" openspec/changes/remote-worker/proof/live.txt && python3 scripts/check.py` green; covers the live part of AC-1, AC-3, AC-5, AC-6 and AC-8 to AC-12.
-
 ## Workflow follow-up
 
-- After the merge, tag `v0.22.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
+None of these is a task of the change loop: no gate of this change needs them, and none goes to
+`tdd-implementer`. They run after the merge, as `CONTRIBUTING.md` says for a fact that exists only
+after it.
+
+- After the merge, tag `v0.22.0` on the merge commit and push the tag (`CONTRIBUTING.md`). Checked on
+  2026-11-23: `v0.22.0` matches devkit-openspec `0.22.0` in both
+  `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` of this
+  worktree (marketplace `metadata.version` `0.26.0`). `origin/main` has moved since (at `4f4b7e2` it
+  holds devkit-openspec `0.28.0` and marketplace `0.32.0`), so the release rebase of D-15 renumbers:
+  every version number of this change (the tag, the two manifests, the `CHANGELOG.md` heading, the
+  CI pins of `docs/openspec-flow.md` and T-10 of D-14) is re-checked against `origin/main` at
+  delivery, and the tag takes the number that merged.
 - Archive with the retro. The retro proposes, for the owner, a roadmap line for the claim of a
-  `/devkit project` slice (left out here, `design.md` Non-Goals). The archive ticks the round 28 line
-  of `openspec/roadmap.md`.
+  `/devkit project` slice (left out here, `design.md` Non-Goals), and the roadmap line of the live
+  check below. The archive ticks the round 28 line of `openspec/roadmap.md`.
+- The live check on two machines (the owner's decision of 2026-11-23, `B: depois do merge`). Where
+  it is recorded: a roadmap line, not this change's folder. The retro proposes, as a proposal whose
+  target is `openspec/roadmap.md`, a new round `## Round 28b: live checks of a change on another
+  machine` with the line `remote-worker-live-checks (after: remote-worker)`, whose text carries L-1
+  to L-4 below, as round 18c's `roadmap-live-checks` does for a session per change. That line's
+  change records the checks in its own folder, as
+  `openspec/changes/remote-worker-live-checks/proof/live.txt`, which its archive keeps; a defect it
+  finds is fixed there with its red test. The retro of this change also states that the live part
+  of AC-1, AC-3, AC-5, AC-6 and AC-8 to AC-12 was not run before the merge. If the owner rejects the
+  proposal, the retro records the answer and the live check is not scheduled.
+
+  The check runs first thing the next time the owner uses two machines: the Mac and the Linux
+  worker `avel`, both running the merged version of devkit-openspec, updated on each with `claude
+  plugin update devkit-openspec@devkit` as `CONTRIBUTING.md` describes, the same version on both. The owner's `machines` setting on the
+  Mac lists `avel` with its folder and 1 place. The records go in order and with their times; each
+  starts with the ids of the acceptance criteria it shows (for example `AC-9:`) and holds the
+  commands' outputs, and the app's list of sessions where a session is concerned. No connection
+  detail beyond the connection name `avel` is written (no address, user or key).
+
+  - L-1 The claim, the race and the board: on `avel`, `/devkit change` opens a scratch change
+    `probe-claim`; record the machine name its claim carries (the worker's hostname, R-4). On the
+    Mac, `open probe-claim` is refused naming that machine (AC-1), and `/devkit status` lists
+    `probe-claim` under way with it, never in the queue (AC-5). A `/devkit roadmap` run whose
+    roadmap names `probe-claim` does not open it (AC-6). Then the race against GitHub: the owner
+    starts `printf 'Probe the race\n' | node <the pack's hooks>/change-loop.mjs open probe-race
+    --script devkit-lite --why small --lang en` in the repository's main checkout on the Mac and on
+    `avel` within the same second (one terminal each, started together), and records both outputs
+    and `git ls-remote origin refs/heads/probe-race`. Exactly one exits 0, the other exits 3 with
+    `claimed` naming the winner and leaves no worktree, folder or branch, and the branch on
+    `origin` is the winner's commit (AC-3). Afterwards, the scratch branches `probe-claim` and
+    `probe-race` on `origin` and their worktrees on `avel` and on the Mac are deleted only with the
+    owner's explicit authorization, asked for at that moment (destructive Git).
+  - L-2 Placement and the remote session: with the Mac above its `load_limit` (or with a roadmap
+    where the Mac holds more open changes), a typed `/devkit roadmap` opens a ready line for `avel`
+    (AC-8). Then `ssh avel true` exits 0 (R-2), `checkout` makes the worktree there, and a session
+    starts on the connection `avel` in it, nested under the Mac's session and titled `❓ <id>`
+    (AC-9).
+  - L-3 The place and the wake: with `avel`'s one place held by a change in its implementation, a
+    second change on `avel` reaches its approval and ends ⏳. When the first is archived, the Mac's
+    session sends the wake, and the second takes the place and starts its implementation (AC-10,
+    AC-11). Record whether the wake was sent on a turn nobody typed (R-7); what the check could not
+    reach is named in the record.
+  - L-4 A silent machine: with `avel` asleep or its Tailscale down, `/devkit status` on the Mac
+    reads "no answer" for `avel` and for each of its changes, and a typed `/devkit roadmap` opens
+    the next ready line on the Mac (AC-12).

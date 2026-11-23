@@ -775,24 +775,52 @@ Every new test is named `remote <AC-n> <area>: ...`. Tests of the open and the p
 - `gh` is injected as today; the claims are mostly read from the remote-tracking refs after a fetch
   (D-3), so most tests need no `gh` fake.
 - No test starts a session, lists sessions or sends a message: those host calls are proved by the
-  exact `input` and `message` the decision gives, and live (phase 6).
+  exact `input` and `message` the decision gives. They are seen live only after the merge (below).
+
+**This change's verification.** The automated tests of phases 1 to 5 of `tasks.md` are this change's
+verification, and gate 5.8 is its last gate. The live record on two machines is not part of it: the
+owner decided on 2026-11-23 (`B: depois do merge`, "B: after the merge") that it runs after the
+merge, on the merged version, the next time the owner uses two machines. It is the live check L-1 to
+L-4 of the Workflow follow-up of `tasks.md`, recorded by the roadmap line
+`remote-worker-live-checks` that this change's retro proposes, in that change's own folder.
+
+What the tests cover in its place:
+
+- the claim and the race: a local bare repository as `origin`, two clones of it, the `beforePush`
+  seam, and two child processes of `change-loop.mjs open` started at once against that bare remote;
+- the other machine: a second clone of the same bare remote with an injected `machine` name;
+- SSH: an injected `ssh` that runs `machine-probe.mjs` locally on the second clone, or exits 255 for
+  a silent machine;
+- the session start and the wake: the exact `session-start` action (its `checkout` and its `input`
+  with `target: 'ssh'`, `host` and the remote `cwd`) and the exact `wake` message the decision
+  returns, never a real session or message;
+- the place: two child processes of `change-loop.mjs place` on one clone.
+
+What they cannot cover, and so is proven live only after the change reaches `main` (R-10): a real
+push race against GitHub (its "create only" lease), a real SSH session start through the app's SSH
+target on `avel`, a real wake reaching a remote change session (on a turn nobody typed too), a real
+silent machine (asleep, or its Tailscale down), the real `ssh avel` destination (R-2) and the real
+`installed_plugins.json` of the worker.
 
 ## Proof map
 
-| AC | Tests (file) | Live |
+The last column names the live check after the merge (Workflow follow-up of `tasks.md`) that
+re-checks the criterion across real machines; it is not part of this change's verification.
+
+| AC | Tests (file) | Live, after the merge |
 |---|---|---|
-| AC-1 | `remote AC-1 open: a branch on origin with a claim refuses the open, naming its machine, and creates nothing`; `remote AC-1 open: a claim with no machine says another machine` (`change-loop.test.mjs`) | 6.1 |
-| AC-2 | `remote AC-2 open: the claim on origin holds requirements.md and the machine, with machines unset`; `remote AC-2 open: a remote open claims for that machine and leaves no local worktree or branch`; `remote AC-2 open: a machine name or a places value that is not valid is a usage error and creates nothing` (`change-loop.test.mjs`) | 6.1 |
-| AC-3 | `remote AC-3 open: the clone that pushes second is refused and leaves nothing` (the `beforePush` seam); `remote AC-3 open: two clones opening one id at once, exactly one wins` (two child processes) (`change-loop.test.mjs`) | 6.1 |
+| AC-1 | `remote AC-1 open: a branch on origin with a claim refuses the open, naming its machine, and creates nothing`; `remote AC-1 open: a claim with no machine says another machine` (`change-loop.test.mjs`) | L-1 |
+| AC-2 | `remote AC-2 open: the claim on origin holds requirements.md and the machine, with machines unset`; `remote AC-2 open: a remote open claims for that machine and leaves no local worktree or branch`; `remote AC-2 open: a machine name or a places value that is not valid is a usage error and creates nothing` (`change-loop.test.mjs`) | L-1 |
+| AC-3 | `remote AC-3 open: the clone that pushes second is refused and leaves nothing` (the `beforePush` seam); `remote AC-3 open: two clones opening one id at once, exactly one wins` (two child processes) (`change-loop.test.mjs`) | L-1 |
 | AC-4 | `remote AC-4 open: with no origin nothing is committed or pushed` (`change-loop.test.mjs`); `change-loop open: O4 with no remote starts from HEAD` unchanged | — |
-| AC-5 | `remote AC-5 status: a line open only on another machine is listed under way with its machine, never in the queue`; `remote AC-5 status: GitHub unreadable prints the board with its line`; `remote AC-5 status: the machines block and the machine of each row` (`roadmap-loop.test.mjs`) | 6.1 |
-| AC-6 | `remote AC-6 next: a line claimed on origin is never started, and its dependent waits`; `remote AC-6 next: a declared cannot-open of a line claimed elsewhere is dropped` (`roadmap-loop.test.mjs`) | 6.1 |
+| AC-5 | `remote AC-5 status: a line open only on another machine is listed under way with its machine, never in the queue`; `remote AC-5 status: GitHub unreadable prints the board with its line`; `remote AC-5 status: the machines block and the machine of each row` (`roadmap-loop.test.mjs`) | L-1 |
+| AC-6 | `remote AC-6 next: a line claimed on origin is never started, and its dependent waits`; `remote AC-6 next: a declared cannot-open of a line claimed elsewhere is dropped` (`roadmap-loop.test.mjs`) | L-1 |
 | AC-7 | `remote AC-7 machines: unset, empty, [] and a placeholder read as unset`; `remote AC-7 machines: an entry without a field is refused naming it, and nothing is written`; `remote AC-7 next: with machines unset the decision is today's` (`roadmap-loop.test.mjs`) | — |
-| AC-8 | `remote AC-8 next: each ready line goes to the answering machine with the fewest open changes`; `remote AC-8 next: this machine is skipped while loaded, and a start is held only when nothing can take it` (`roadmap-loop.test.mjs`) | 6.2 |
-| AC-9 | `remote AC-9 next: a placed change gets a session-start with its checkout, target ssh, host and the remote cwd, only on a typed turn`; `remote AC-9 checkout: the worktree is made on the other clone from its branch` (`roadmap-loop.test.mjs`) | 6.2 |
-| AC-10 | `remote AC-10 next: with no free place the change ends waiting for a place, icon ⏳`; `remote AC-10 next: a free place gives take-place, and after it the implementation step`; `remote AC-10 place: two changes of one machine at once, one takes the place`; `remote AC-10 next: a change without x-devkit-places never waits` (`change-loop.test.mjs`) | 6.3 |
-| AC-11 | `remote AC-11 next: a freed place gives one wake per state for the first waiting change`; `remote AC-11 next: no wake without session mode` (`roadmap-loop.test.mjs`); `remote AC-11 place: a wake that comes too early leaves the change waiting` (`change-loop.test.mjs`) | 6.3 |
-| AC-12 | `remote AC-12 next: a silent machine gets no change, and its placed change no session`; `remote AC-12 status: a silent machine and its changes read no answer` (`roadmap-loop.test.mjs`) | 6.4 |
+| AC-8 | `remote AC-8 next: each ready line goes to the answering machine with the fewest open changes`; `remote AC-8 next: this machine is skipped while loaded, and a start is held only when nothing can take it` (`roadmap-loop.test.mjs`) | L-2 |
+| AC-9 | `remote AC-9 next: a placed change gets a session-start with its checkout, target ssh, host and the remote cwd, only on a typed turn`; `remote AC-9 checkout: the worktree is made on the other clone from its branch` (`roadmap-loop.test.mjs`) | L-2 |
+| AC-10 | `remote AC-10 next: with no free place the change ends waiting for a place, icon ⏳`; `remote AC-10 next: a free place gives take-place, and after it the implementation step`; `remote AC-10 place: two changes of one machine at once, one takes the place`; `remote AC-10 next: a change without x-devkit-places never waits` (`change-loop.test.mjs`) | L-3 |
+| AC-11 | `remote AC-11 next: a freed place gives one wake per state for the first waiting change`; `remote AC-11 next: no wake without session mode` (`roadmap-loop.test.mjs`); `remote AC-11 place: a wake that comes too early leaves the change waiting` (`change-loop.test.mjs`) | L-3 |
+| AC-12 | `remote AC-12 next: a silent machine gets no change, and its placed change no session`; `remote AC-12 status: a silent machine and its changes read no answer` (`roadmap-loop.test.mjs`) | L-4 |
 | locks | `remote locks stop: no ssh from the stop hook, and a start only another machine could take does not refuse the stop` (`roadmap-loop.test.mjs`); `remote locks claims: the claims of a stale clone cost at most 8 gh calls, and none for the default branch` (`change-loop.test.mjs`) | — |
 
 ## Risks / Trade-offs
@@ -801,7 +829,8 @@ Every new test is named `remote <AC-n> <area>: ...`. Tests of the open and the p
   with the plan; the open's reply does not change, and `docs/openspec-flow.md` says it.
 - [R-2 The SSH connection name is not an SSH destination] → the app's connection `avel` is assumed
   to resolve with `ssh avel` (the owner's `~/.ssh/config`). If it does not, the machine reads "no
-  answer" on the board at once, so the owner sees it; the live phase checks it first (6.2).
+  answer" on the board at once, so the owner sees it; the live check after the merge tries it
+  first (L-2).
 - [R-3 Different pack versions on two machines] → a `state` answer in another form is "no answer";
   documented in the flow page.
 - [R-4 A hostname that differs from the connection name] (the Linux worker is `avell` by hostname and
@@ -814,10 +843,21 @@ Every new test is named `remote <AC-n> <area>: ...`. Tests of the open and the p
   place gives take-place, and after it the implementation step` asserts the next action after
   `place` is the implementation step, not a plan rerun.
 - [R-7 `SendMessage` refused on a turn nobody typed] → the change session resumes on the owner's
-  next `/devkit change`; the wake line already names the change; checked live (6.3).
+  next `/devkit change`; the wake line already names the change; seen live after the merge (L-3).
 - [R-8 SSH time in each decision] → 20 s per machine at most, none in the hooks.
 - [R-9 Places recorded at open go stale] → a change of the setting applies to changes opened after
   it (ADR 0016 Negative); this machine's places stay live through `run`.
+- [R-10 Cross-machine behavior is proven live only after it reaches `main`] (the owner's decision of
+  2026-11-23, `B: depois do merge`) → a real push race against GitHub, a real SSH session start on
+  `avel`, a real wake and a real silent machine are first seen on the merged release, so a defect
+  there reaches every project that updates before the live check runs. Mitigation: the automated
+  tests of D-16 cover each path against a local bare remote, two child processes and an injected
+  `ssh` and session input; with `machines` unset (every project that does not set it) no SSH,
+  placement, place or wake runs (AC-7, D-9), so what acts on every project with an `origin` is the
+  claim at open and the reading of the claims (AC-1 to AC-6), tested with real `git` against a real
+  bare remote, the race with two real processes; the live
+  check L-1 to L-4 is the first thing done the next time the owner uses two machines, and a defect
+  it finds is fixed in its own change with a red test.
 
 ## Migration Plan
 
@@ -832,8 +872,9 @@ Every new test is named `remote <AC-n> <area>: ...`. Tests of the open and the p
 
 Order: the claim (phase 1), then the place on the change's side (phase 2), then the claims and the
 setting in the roadmap with the board and the probe (phase 3), then placement, the remote session
-and the wake (phase 4), then the skill, the ADRs, the documents and the release (phase 5), then the
-live record on two machines (phase 6).
+and the wake (phase 4), then the skill, the ADRs, the documents and the release (phase 5). The live
+record on two machines is not a phase: it runs after the merge (D-16, the Workflow follow-up of
+`tasks.md`).
 
 **Per surface.**
 
@@ -856,11 +897,12 @@ live record on two machines (phase 6).
   `CHANGELOG.md`, `docs/catalog.md`.
 - Create: `plugins/openspec/hooks/machine-probe.mjs`, `plugins/openspec/hooks/run-file.mjs`,
   `docs/adr/0016-a-change-can-run-on-another-machine.md`,
-  `openspec/changes/remote-worker/proof/live.txt`, `openspec/changes/remote-worker/proof/red-<n>.txt`.
+  `openspec/changes/remote-worker/proof/red-<n>.txt`.
 - Delete: none.
 
-**Estimate:** optimistic 31 h · likely 43 h · pessimistic 61 h (the plan revision of 2026-11-22 added
-1 h for D-14 T-6 to T-13).
+**Estimate:** optimistic 28 h · likely 40 h · pessimistic 58 h (the plan revision of 2026-11-22 added
+1 h for D-14 T-6 to T-13; the one of 2026-11-23 moved the 3 h of the live record out of this change,
+to the live check after the merge).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -882,7 +924,6 @@ live record on two machines (phase 6).
 | D-15 the skill, the documents and the release | 3 | Documentation | MEDIUM |
 | D-14 T-6 to T-13, the existing tests found at the whole-suite gate | 1 | Testing | LOW |
 | Whole suite, marketplace validation | 1 | Testing | LOW |
-| Phase 6 live record on two machines | 3 | Integration | HIGH |
 
 **Risks** (probability × impact):
 
@@ -901,10 +942,11 @@ live record on two machines (phase 6).
   per decision against a bare remote; fixtures without an `origin` skip it.
 - The probe's plugin lookup finds no installation on the real machine (MEDIUM × HIGH) → it reads
   `installed_plugins.json`, whose shape this machine shows (version 2, `plugins` keyed
-  `<name>@<marketplace>`, entries with `scope`, `projectPath`, `installPath`); 6.2 checks it on the
-  real worker first.
+  `<name>@<marketplace>`, entries with `scope`, `projectPath`, `installPath`); the test fixture of
+  D-16 has that shape, and the live check after the merge (L-2) reads it on the real worker (R-10).
 - A remote session start with `target: "ssh"` is refused (LOW × HIGH) → the refusal path of ADR 0014
-  (a line, the owner's next message); 6.2 proves it.
+  (a line, the owner's next message); the test asserts the exact input, and the live check after the
+  merge (L-2) proves the start (R-10).
 - R-1 to R-9 above, each with its mitigation.
 
 **Assumptions** (each is where the plan breaks if reality differs):
@@ -912,12 +954,13 @@ live record on two machines (phase 6).
 - The session-start tool takes `target: "ssh"` and `host` and starts a nested session on that machine
   (source: `requirements.md`, assumptions confirmed by the owner; this session was started so).
 - `SendMessage` reaches a remote started session, on a turn nobody typed too (source:
-  `requirements.md`, "This run is live input"; the second half is checked in 6.3).
+  `requirements.md`, "This run is live input"; the second half is checked after the merge, L-3).
 - `ssh <connection name>` reaches the machine without a prompt (`BatchMode=yes`), with `node` and
-  `git` on its `PATH` (source: the live run of 2026-11-21 over Tailscale; checked in 6.2).
+  `git` on its `PATH` (source: the live run of 2026-11-21 over Tailscale; checked after the merge,
+  L-2).
 - GitHub honours a push's expected old value of zero as "create only" (source: git's documentation of
   `--force-with-lease=<ref>:` and the probe in Context, run against a local bare remote; checked
-  against GitHub by the simultaneous open of 6.1).
+  against GitHub by the simultaneous open of L-1, after the merge).
 - `~/.claude/plugins/installed_plugins.json` lists the pack's installation path (source: this
   machine's file, read on 2026-11-22).
 - OpenSpec ignores `x-` keys of `.openspec.yaml` silently (source: the probe in Context).
@@ -925,7 +968,8 @@ live record on two machines (phase 6).
 **Dependencies.** `roadmap-coordinator` and `roadmap-coordinator-followups` (archived):
 `roadmap-loop.mjs`, the session per change, `withLockFile`. The OpenSpec CLI 2.x on `PATH` for the
 suite. The owner's acceptance of ADR 0016 and of the two readings (D-1, D-9) with the plan. The
-Linux worker `avel`, with this release installed, for phase 6.
+Linux worker `avel`, with the merged release installed, for the live check after the merge; this
+change's verification does not depend on it (D-16).
 
 ## Decisions cited
 
