@@ -1,0 +1,76 @@
+✖ gh-version 17: ghVersionLine gives the four lines of H-6 exactly (4.584095ms)
+✖ gh-version 18: the script prints one line, exits 0, and exits 2 on an argument (AC-7) (39.302674ms)
+✖ gh-version 19: step 1 of SKILL.md names the script and 2.50.0 and says the setup goes on (AC-7) (0.662016ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 168.810431
+
+✖ failing tests:
+
+test at plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs:27:1
+✖ gh-version 17: ghVersionLine gives the four lines of H-6 exactly (4.584095ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/skills/openspec-setup/scripts/gh-version.mjs' imported from /home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:241:11)
+      at moduleResolve (node:internal/modules/esm/resolve:846:10)
+      at defaultResolve (node:internal/modules/esm/resolve:973:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:582:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/skills/openspec-setup/scripts/gh-version.mjs'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs:45:1
+✖ gh-version 18: the script prints one line, exits 0, and exits 2 on an argument (AC-7) (39.302674ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs:47:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs:74:1
+✖ gh-version 19: step 1 of SKILL.md names the script and 2.50.0 and says the setup goes on (AC-7) (0.662016ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /scripts\/gh-version\.mjs/. Input:
+  
+  "1. **Check the CLI.** The packs start the project's own OpenSpec: the one installed in the project (`node_modules/.bin/openspec` of the checkout, or of the main checkout when this is a worktree) wins over the one on `PATH`. Run that one with `--version`.\n" +
+    "   - A project that declares `@fission-ai/openspec` in its `package.json` and has it not installed: say so, name the file and the range, tell the user to run the project's install (`npm install` or its package manager), and stop. Never fall back to the one on `PATH`: a project that pins its CLI may forbid the global one.\n" +
+    "   - A pinned CLI that is not 2.x: say so and tell the user to move the project's pin to 2.x (`npm i -D @fission-ai/openspec@2`); stop.\n" +
+    '   - No pin: `openspec --version` on `PATH`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.\n' +
+    '\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs:78:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "1. **Check the CLI.** The packs start the project's own OpenSpec: the one installed in the project (`node_modules/.bin/openspec` of the checkout, or of the main checkout when this is a worktree) wins over the one on `PATH`. Run that one with `--version`.\n   - A project that declares `@fission-ai/openspec` in its `package.json` and has it not installed: say so, name the file and the range, tell the user to run the project's install (`npm install` or its package manager), and stop. Never fall back to the one on `PATH`: a project that pins its CLI may forbid the global one.\n   - A pinned CLI that is not 2.x: say so and tell the user to move the project's pin to 2.x (`npm i -D @fission-ai/openspec@2`); stop.\n   - No pin: `openspec --version` on `PATH`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.\n\n",
+    expected: /scripts\/gh-version\.mjs/,
+    operator: 'match',
+    diff: 'simple'
+  }

@@ -53,6 +53,8 @@ Ask with **AskUserQuestion**, **one line of reasoning at a time**: follow the th
 - **Edges:** empty, error, concurrency, large volume. Performance is often a gate; ask.
 - **Conflict with project rules:** "rule X (ADR NNN) says Y. Does the request respect it, or do you want an explicit, recorded exception?"
 
+**A request copied from a task.** When the request section starts with a `Jira: <KEY>` line, the quoted title, description and acceptance-criteria field are the ammunition. Ask no question they answer. Record each such point under Assumptions as a bullet ending in `(answered by the task)`, and turn the criteria the task states into `AC-<n>` entries. When nothing is left to ask, ask one question that confirms the assumptions drawn from the task, because the requirements pass only on the owner's answer; never edit the request section.
+
 ### 4. Classify each doubt as it resolves
 
 - **Critical** (changes what is delivered) → keep asking until resolved; the resolution becomes an **acceptance criterion**.

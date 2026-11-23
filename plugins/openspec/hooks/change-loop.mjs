@@ -3,17 +3,21 @@
 // Given a change, it asks the stage checker (flow-check) which stage the change is in and, from the
 // implementation on, the delivery checker (deliver-check, through conduct-check's `deliveryRow`) which step
 // inside that stage comes next, and answers with ONE action or ONE end for the session to carry out. It reads
-// files, git and (through gh) GitHub, writes nothing, calls no AI, and runs nothing when imported.
+// files, git and (through gh) GitHub, writes nothing but the commands above, calls no AI, never calls Jira, and runs nothing when imported.
 //
 // Subcommands: `next --change <id> --lang <l> [--after <progressKey>]` (prints `devkit-run: <id>`, then the JSON
 // action; exit 0 an action or archived, 1 waiting, 2 blocked, 3 a usage or preflight error),
 // `reply <key> --lang <l> [--param name=value]...` (renders one message of the table),
 // `start --lang <l>` (the request on standard input: what `/devkit` does with it, D-3), `open <id> --script <s>
-// --why <code> --lang <l>` (creates the worktree, the change and its requirements file, D-4), `script <id> <s>
+// --why <code> [--task <KEY>] --lang <l>` (creates the worktree, the change and its requirements file, D-4; with `--task` the
+// standard input is the Jira task the session read, as JSON, and the request section records its key), `script <id> <s>
 // --why <code> --lang <l>` (the correction of the script, D-4), `wait --change <id> --lang <l> [--interval <s>]`
-// (waits on GitHub with no limit, D-7) and `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
-// lists to accepted, after the owner's current approval; stage-roles D-4). Only `open`, `script` and `accept-decisions` write;
-// `start` and `next` do not. `next` and `wait` print
+// (waits on GitHub with no limit, D-7), `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
+// lists to accepted, after the owner's current approval; stage-roles D-4), `write-back ask <id> --lang <l>` (the pull request
+// and the task's transitions as JSON on standard input: whether to ask about writing the link on the Jira task, and the
+// question) and `write-back answer <id> --choice <comment|no|transition:<id>> --lang <l>` (what the session may then write to
+// Jira, jira-entry D-7). Only `open`, `script`, `accept-decisions` and `write-back` write, the last only its record in the git
+// common directory; `start` and `next` do not. `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
@@ -21,17 +25,20 @@
 // `agentDecision` (in a run, work goes only to the script's roles). Each returns { decision, why, change, reason } and fails
 // open. The two stop locks refuse once per unchanged state: they record the progress key of the state refused in
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
+// With a token budget set (`budget:` in the `devkit:` block), `next` counts the session's spend and holds a hand-off at the cap:
+// the action becomes an end waiting for the owner (change-budget).
 // No dependencies.
 
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, isChangeId, readRoadmap, readValue, isDecisionRecord } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings } from './guard.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
+import { TASK_KEY, parseTaskRef, taskIdPrefix, recordedTask, taskFromJson, quoteLines, taskRequest, commentText, writeBackInput, writeBackChoices } from './jira-task.mjs';
 
 export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -49,31 +56,65 @@ export class LoopRefusal extends LoopUsageError {
 export const DRIVERS = ['claude', 'compozy', 'script'];
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
-// { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml.
-// No block, no file or a missing key gives the defaults (`claude`, `en`); other keys of the block are ignored, except the
-// tests' coverage target, whose bad value is listed in `unknown` after the two above (flow-check's `readTestSettings`).
+// The token budget a `budget:` value gives (change-budget D-1): null when absent or empty, { cap } for a whole number above
+// zero that is a safe integer, else { invalid: raw }.
+export function budgetValue(raw) {
+  if (raw === undefined || raw === '') return null;
+  if (!/^\d+$/.test(raw)) return { invalid: raw };
+  const n = Number(raw);
+  return n > 0 && Number.isSafeInteger(n) ? { cap: n } : { invalid: raw };
+}
+const BUDGET_ACCEPTED = '1, 2, 3, …';
+
+// The text of a settings file; a missing file is '' and any other read error a LoopUsageError.
+function settingsText(file, label) {
+  try { return readFileSync(file, 'utf8'); } catch (e) {
+    if (e?.code === 'ENOENT') return '';
+    throw new LoopUsageError(`${label} cannot be read (${e?.code ?? e})`);
+  }
+}
+
+// { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml, plus
+// `delivery: { model, base, testBranch }` when a delivery model is set and `missing: [{ setting }]` when two pull requests
+// are chosen without a name (delivery-models D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
+// other keys of the block are ignored, except an invalid `budget` and the tests' coverage target, whose bad values are
+// listed in `unknown` after the two above (flow-check's `readTestSettings`).
 export function readDevkitSettings(root) {
-  let text = '';
-  try { text = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'); } catch (e) {
-    if (e?.code !== 'ENOENT') throw new LoopUsageError(`openspec/config.yaml cannot be read (${e?.code ?? e})`);
-  }
-  const found = {};
-  let inBlock = false;
-  for (const line of text.split('\n')) {
-    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
-    if (!inBlock) continue;
-    if (line.trim() === '' || /^\s*#/.test(line)) continue;
-    if (!/^\s/.test(line)) { inBlock = false; continue; }
-    const m = /^\s+([A-Za-z][\w-]*):(.*)$/.exec(line);
-    if (m) found[m[1]] = plainValue(m[2]);
-  }
-  const driver = found.driver || 'claude';
-  const language = found.language || 'en';
+  const block = parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml'));
+  const driver = block.driver || 'claude';
+  const language = block.language || 'en';
   const unknown = [];
   if (!DRIVERS.includes(driver)) unknown.push({ setting: 'driver', value: driver, accepted: DRIVERS.join(', ') });
   if (!LANGUAGE_TAG.test(language)) unknown.push({ setting: 'language', value: language, accepted: 'a language tag such as en or pt-BR' });
+  const budget = budgetValue(block.budget);
+  if (budget?.invalid !== undefined) unknown.push({ setting: 'budget', value: budget.invalid, accepted: BUDGET_ACCEPTED });
   unknown.push(...readTestSettings(root).unknown);
-  return { driver, language, unknown };
+  const settings = { driver, language, unknown };
+  const { model, base, testBranch, problems } = deliverySettings(block);
+  if (model) settings.delivery = { model, base, testBranch };
+  const missing = [];
+  for (const p of problems) {
+    if (p.kind === 'missing') missing.push({ setting: p.setting });
+    else unknown.push({ setting: p.setting, value: p.value, accepted: DELIVERY_ACCEPTED[p.setting] });
+  }
+  if (missing.length) settings.missing = missing;
+  return settings;
+}
+
+const DELIVERY_ACCEPTED = { 'delivery-model': 'two-prs, trunk, trunk-auto', 'delivery-test-branch': 'a branch other than the base' };
+
+// The token cap of the change in `dir`: { cap, from: 'change' | 'project', file } (the file is always the change's own
+// `.openspec.yaml`, where the owner raises it), or null. The change's value wins over the project's, which is the one in
+// `root`'s openspec/config.yaml. An invalid value in either file is a LoopRefusal with the settings reply.
+export function budgetOf(root, dir, lang) {
+  const file = join(dir, '.openspec.yaml');
+  const mine = budgetValue(parseDevkitBlock(settingsText(file, '.openspec.yaml')).budget);
+  const project = budgetValue(parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')).budget);
+  const bad = mine?.invalid !== undefined ? mine : project?.invalid !== undefined ? project : null;
+  if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', { setting: 'budget', value: bad.invalid, accepted: BUDGET_ACCEPTED }));
+  if (mine) return { cap: mine.cap, from: 'change', file };
+  if (project) return { cap: project.cap, from: 'project', file };
+  return null;
 }
 
 // The person's language: `en`, and `pt-BR` for anything else (an unsubstituted placeholder included).
@@ -92,12 +133,30 @@ export const MESSAGES = {
     'verb-unknown': 'So far /devkit change, /devkit roadmap, /devkit status and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, or /devkit project and a name to plan a new project or slice.',
     'not-set-up': 'This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.',
     'setting-unknown': 'The project\'s devkit settings have an unknown {setting}, "{value}"; use one of: {accepted}. Nothing was run.',
+    'setting-missing': 'The project\'s devkit settings choose two pull requests but do not name the {setting}. Nothing was run.',
+    'test-branch-missing': 'This project delivers with two pull requests, but its test branch {branch} does not exist on the remote: create it there, then call /devkit change again. Nothing was created.',
+    'base-not-default': 'This project delivers to {base}, but the repository\'s default branch is {default}: they must be the same branch. Nothing was created.',
+    'name-test-suffix': '{id} cannot be a change name here: a name ending in -{branch} is kept for the support branches.',
     'driver-not-built': 'This project is set to run on {driver}, which is not built yet (round {round}). Nothing was run.',
     'nothing-to-resume': 'There is no unfinished change to continue: type /devkit change and what you want done.',
     choose: 'There are {n} unfinished changes: {list}. Which one should I continue?',
     'ask-unfinished': 'Before starting: {list} is unfinished. Should I continue it, or start your new request?',
     'ask-unfinished-many': 'Before starting: {list} are unfinished. Should I continue one of them, or start your new request?',
     opened: 'I opened the change {id} on the {script}, because {why}. Next come a few questions about your request; to use the {other} instead, say so before the plan is written.',
+    'task-no-connector': 'This session has no Jira connector, so I cannot read {key}. Nothing was opened: type /devkit change and what you want done, in your own words.',
+    'task-unreadable': 'I could not read the task {key} in Jira: it was not found, or this account cannot see it. Nothing was opened: type /devkit change and what you want done, in your own words.',
+    'task-taken': 'The task {key} already has the unfinished change {id}: type /devkit change {key} to continue it. Nothing was opened.',
+    'opened-task': 'I read the task {key} and opened the change {id} on the {script}, because {why}. Next come a few questions on what the task leaves open; to use the {other} instead, say so before the plan is written.',
+    'write-back-ask': 'Pull request #{number} of {id} is open. Should I write its link on the task {key}? Answer one of: {choices}. Nothing is written to {key} until you answer, and the delivery goes on meanwhile.',
+    'choice.transition': 'move it to "{name}"',
+    'choice.comment': 'only comment',
+    'choice.no': 'no',
+    'write-back-commented': 'I wrote the link of pull request #{number} on {key}.',
+    'write-back-moved': 'I wrote the link of pull request #{number} on {key} and moved it to "{name}".',
+    'write-back-none': 'Nothing was written to {key}.',
+    'write-back-late': 'The change {id} is already archived, so nothing was written to {key}.',
+    'write-back-unknown': 'That is not one of the choices {key} had when I asked. Answer one of: {choices}.',
+    'write-back-failed': 'Jira did not accept the write on {key} ({error}). Nothing more is tried; you can add the link to the task by hand.',
     'name-taken': 'A change named {id} already exists; I will choose another name.',
     'name-invalid': '{id} cannot be a change name: use lowercase letters, digits and dashes.',
     resumed: 'Continuing the change {id}: {where}.',
@@ -109,10 +168,14 @@ export const MESSAGES = {
     'waiting-retro': 'The retro of {id} has proposals for you: approve or reject each one, and I archive the change.',
     'waiting-merge': 'Pull request #{number} of {id} is ready: in this project, merging it is up to you.',
     'waiting-archive-merge': 'The archive pull request #{number} of {id} is ready: in this project, merging it is up to you.',
+    'waiting-merge-test-branch': 'Pull request #{number} of {id} to {branch} is ready: in this project, merging it is up to you. The pull request to {base} waits for it.',
+    'waiting-merge-base': 'Pull request #{number} of {id} to {base} is ready: in this project, merging it is up to you.',
+    'waiting-archive-merges': 'The archive pull requests of {id} are ready: {list}. In this project, merging them is up to you.',
     'waiting-review-dispute': 'The code review of {id} still disagrees after its second round: the disputed points need your decision.',
     'waiting-by-hand': 'This project delivers each change by hand: {id} stops here, and the session writes no code for it.',
     'waiting-unrun-stage': '{Stage} of {id} has an unfinished file that no role of this version can finish: tell me its result, or remove it.',
     'waiting-pr-decision': 'A comment on the pull request of {id} asks for a decision only you can take: {url}.',
+    'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the devkit block of {file}, then type /devkit change again.',
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
     archived: 'The change {id} is archived: merged, with its retro. Nothing is left to do.',
     blocked: 'The change {id} stopped: {why}. Nothing more runs until this is sorted out.',
@@ -164,6 +227,7 @@ export const MESSAGES = {
     'gate.dispute': 'your decision on the disputed review points',
     'gate.stage': 'your result for an unfinished file',
     'gate.by-hand': 'your delivery by hand',
+    'gate.budget': 'a higher token budget',
     'status-count': 'Roadmap: {open} open of {places} · {queue} in the queue · {archived} archived',
     'status-held': 'Starts held: processor at {load}% (limit {limit}%)',
     'status-owner': 'Waiting for you',
@@ -203,6 +267,7 @@ export const MESSAGES = {
     'blocked-why.no-progress': '{stage} came back with nothing changed',
     'blocked-why.not-delivered': '{stage} ended without delivering its result',
     'blocked-why.github-unreadable': 'GitHub cannot be read ({error})',
+    'blocked-why.gh-too-old': 'the installed gh ({installed}) cannot read the pull request checks, which need version {minimum} or newer: update gh, then call /devkit {verb} {id} again',
     'blocked-why.pr-closed': 'pull request #{number} was closed without merging',
     'blocked-why.previous-script': 'it began under the previous script; finish it with /ship-change {id}',
     'blocked-why.not-opened': 'its folder is incomplete',
@@ -216,6 +281,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'the next step is one this version does not know',
     'blocked-why.unreadable': 'the change cannot be read ({error})',
     'blocked-why.cannot-open': 'it could not be opened ({error})',
+    'gh-version-unknown': 'unknown version',
     'blocked-why.cannot-accept': 'the decision records could not be marked accepted ({error})',
     'blocked-why.base-conflict': 'the default branch could not be merged into it: {error}',
     'what.checks': 'the checks of the pull request',
@@ -234,6 +300,10 @@ export const MESSAGES = {
     'driver.script': 'a command-line script',
     'setting.driver': 'driver',
     'setting.language': 'language of the files',
+    'setting.delivery-model': 'delivery model',
+    'setting.delivery-base': 'base branch',
+    'setting.delivery-test-branch': 'test branch',
+    'setting.budget': 'budget',
     'setting.coverage-target': 'coverage target',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
     'project-resumed': 'Continuing the slice {id}: {where}.',
@@ -290,12 +360,30 @@ export const MESSAGES = {
     'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap, /devkit status e /devkit project: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, ou /devkit project e um nome para planejar um projeto ou uma fatia nova.',
     'not-set-up': 'Este projeto ainda não está preparado para o devkit: rode /openspec-setup primeiro. Nada foi executado.',
     'setting-unknown': 'As configurações devkit do projeto têm {setting} desconhecido, "{value}"; use um de: {accepted}. Nada foi executado.',
+    'setting-missing': 'As configurações devkit do projeto escolhem dois pull requests mas não dizem {setting}. Nada foi executado.',
+    'test-branch-missing': 'Este projeto entrega com dois pull requests, mas a branch de teste {branch} não existe no remoto: crie-a lá e chame /devkit change de novo. Nada foi criado.',
+    'base-not-default': 'Este projeto entrega em {base}, mas a branch padrão do repositório é {default}: elas precisam ser a mesma. Nada foi criado.',
+    'name-test-suffix': '{id} não pode ser nome de change aqui: um nome terminado em -{branch} é reservado às branches de apoio.',
     'driver-not-built': 'Este projeto está configurado para rodar em {driver}, que ainda não existe (rodada {round}). Nada foi executado.',
     'nothing-to-resume': 'Não há change por terminar: digite /devkit change e o que você quer fazer.',
     choose: 'Há {n} changes por terminar: {list}. Qual delas eu continuo?',
     'ask-unfinished': 'Antes de começar: {list} está por terminar. Continuo essa change ou começo o seu novo pedido?',
     'ask-unfinished-many': 'Antes de começar: {list} estão por terminar. Continuo uma delas ou começo o seu novo pedido?',
     opened: 'Abri a change {id} no {script}, porque {why}. Agora vêm algumas perguntas sobre o seu pedido; para usar o {other}, é só dizer antes de o plano ser escrito.',
+    'task-no-connector': 'Esta sessão não tem um conector do Jira, então não consigo ler {key}. Nada foi aberto: digite /devkit change e o que você quer fazer, com as suas palavras.',
+    'task-unreadable': 'Não consegui ler a tarefa {key} no Jira: ela não foi encontrada, ou esta conta não a enxerga. Nada foi aberto: digite /devkit change e o que você quer fazer, com as suas palavras.',
+    'task-taken': 'A tarefa {key} já tem a change não terminada {id}: digite /devkit change {key} para continuá-la. Nada foi aberto.',
+    'opened-task': 'Li a tarefa {key} e abri a change {id} no {script}, porque {why}. Agora vêm algumas perguntas sobre o que a tarefa deixa em aberto; para usar o {other}, é só dizer antes de o plano ser escrito.',
+    'write-back-ask': 'O pull request #{number} de {id} está aberto. Devo escrever o link dele na tarefa {key}? Responda uma destas: {choices}. Nada é escrito em {key} até você responder, e a entrega segue enquanto isso.',
+    'choice.transition': 'mover para "{name}"',
+    'choice.comment': 'só comentar',
+    'choice.no': 'não',
+    'write-back-commented': 'Escrevi o link do pull request #{number} em {key}.',
+    'write-back-moved': 'Escrevi o link do pull request #{number} em {key} e movi a tarefa para "{name}".',
+    'write-back-none': 'Nada foi escrito em {key}.',
+    'write-back-late': 'A change {id} já foi arquivada, então nada foi escrito em {key}.',
+    'write-back-unknown': 'Essa não é uma das opções que {key} tinha quando perguntei. Responda uma destas: {choices}.',
+    'write-back-failed': 'O Jira não aceitou a escrita em {key} ({error}). Nada mais é tentado; você pode colocar o link na tarefa à mão.',
     'name-taken': 'Já existe uma change chamada {id}; vou escolher outro nome.',
     'name-invalid': '{id} não serve como nome de change: use letras minúsculas, números e hífens.',
     resumed: 'Continuando a change {id}: {where}.',
@@ -307,10 +395,14 @@ export const MESSAGES = {
     'waiting-retro': 'A retro de {id} tem propostas para você: aprove ou recuse cada uma, e eu arquivo a change.',
     'waiting-merge': 'O pull request #{number} de {id} está pronto: neste projeto, o merge é com você.',
     'waiting-archive-merge': 'O pull request de arquivo #{number} de {id} está pronto: neste projeto, o merge é com você.',
+    'waiting-merge-test-branch': 'O pull request #{number} de {id} para {branch} está pronto: neste projeto, o merge é com você. O pull request para {base} espera por ele.',
+    'waiting-merge-base': 'O pull request #{number} de {id} para {base} está pronto: neste projeto, o merge é com você.',
+    'waiting-archive-merges': 'Os pull requests de arquivo de {id} estão prontos: {list}. Neste projeto, o merge deles é com você.',
     'waiting-review-dispute': 'A revisão de código de {id} ainda discorda depois da segunda rodada: os pontos em disputa precisam da sua decisão.',
     'waiting-by-hand': 'Este projeto entrega cada change à mão: {id} para aqui, e a sessão não escreve código para ela.',
     'waiting-unrun-stage': '{Stage} de {id} tem um arquivo inacabado que nenhum papel desta versão consegue terminar: diga o resultado ou remova o arquivo.',
     'waiting-pr-decision': 'Um comentário no pull request de {id} pede uma decisão que só você pode tomar: {url}.',
+    'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco devkit de {file} e digite /devkit change de novo.',
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
     archived: 'A change {id} está arquivada: mesclada, com a retro. Não resta nada a fazer.',
     blocked: 'A change {id} parou: {why}. Nada mais roda até isso ser resolvido.',
@@ -362,6 +454,7 @@ export const MESSAGES = {
     'gate.dispute': 'a sua decisão sobre os pontos em disputa da revisão',
     'gate.stage': 'o resultado de um arquivo inacabado',
     'gate.by-hand': 'a sua entrega à mão',
+    'gate.budget': 'um orçamento de tokens maior',
     'status-count': 'Roadmap: {open} abertas de {places} · {queue} na fila · {archived} arquivadas',
     'status-held': 'Começos segurados: processador em {load}% (limite {limit}%)',
     'status-owner': 'Esperando você',
@@ -401,6 +494,7 @@ export const MESSAGES = {
     'blocked-why.no-progress': '{stage} voltou sem nada ter mudado',
     'blocked-why.not-delivered': '{stage} terminou sem entregar o resultado',
     'blocked-why.github-unreadable': 'não foi possível ler o GitHub ({error})',
+    'blocked-why.gh-too-old': 'o gh instalado ({installed}) não consegue ler os checks do pull request, que exigem a versão {minimum} ou mais nova: atualize o gh e chame /devkit {verb} {id} de novo',
     'blocked-why.pr-closed': 'o pull request #{number} foi fechado sem merge',
     'blocked-why.previous-script': 'ela começou no roteiro anterior; termine-a com /ship-change {id}',
     'blocked-why.not-opened': 'a pasta dela está incompleta',
@@ -414,6 +508,7 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
     'blocked-why.cannot-open': 'não foi possível abrir ({error})',
+    'gh-version-unknown': 'versão desconhecida',
     'blocked-why.cannot-accept': 'não foi possível marcar os registros de decisão como aceitos ({error})',
     'blocked-why.base-conflict': 'não foi possível mesclar o branch padrão nela: {error}',
     'what.checks': 'os checks do pull request',
@@ -432,6 +527,10 @@ export const MESSAGES = {
     'driver.script': 'um script de linha de comando',
     'setting.driver': 'driver',
     'setting.language': 'idioma dos arquivos',
+    'setting.delivery-model': 'modelo de entrega',
+    'setting.delivery-base': 'a branch base',
+    'setting.delivery-test-branch': 'a branch de teste',
+    'setting.budget': 'budget',
     'setting.coverage-target': 'meta de cobertura',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
     'project-resumed': 'Continuando a fatia {id}: {where}.',
@@ -524,7 +623,8 @@ export const isObject = (v) => v !== null && typeof v === 'object' && !Array.isA
 export const GATE_OF_WHY = {
   'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
   'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
-  'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup',
+  'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
+  'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge',
 };
 
 // The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
@@ -762,7 +862,7 @@ const TEST_STAGES = ['unit-tests', 'e2e-tests'];
 const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix'];
 const NOT_DELIVERED = ['no-file', 'not-judged', 'no-header', 'bad-header', 'header-other-stage'];
 const SWITCH_FLAGS = ['architecture', 'contract', 'ui'];
-const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'pr-closed': 'pr-closed' };
+const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-too-old': 'gh-too-old', 'pr-closed': 'pr-closed' };
 
 // True for the two blocked ends of the stage checker that mean GitHub did not answer (change-state D-4): they are a wait on GitHub, not a stop.
 export const githubSilent = (end) => end?.state === 'blocked' && (end.reasonCode === 'gh-error' || end.reasonCode === 'checks-unreadable');
@@ -801,8 +901,19 @@ const ROWS = {
   push: handOff('delivery', 'commit-and-pr'),
   'open-archive-pr': handOff('delivery', 'commit-and-pr'),
   'push-rebased': handOff('delivery', 'commit-and-pr'),
+  'open-prs': handOff('delivery', 'commit-and-pr'),
+  'open-test-pr': handOff('delivery', 'commit-and-pr'),
+  'push-support': handOff('delivery', 'commit-and-pr'),
+  'move-test-pr': handOff('delivery', 'commit-and-pr'),
+  'open-test-archive-pr': handOff('delivery', 'commit-and-pr'),
+  'resolve-support-conflict': handOff('implementation', 'tdd-implementer'),
+  'fix-resolution': handOff('implementation', 'tdd-implementer'),
   verify: handOff('evidence', 'pr-verifier'),
   review: session('review'),
+  'rerun-checks': session('delivery'),
+  'checkout-support': session('delivery'),
+  'merge-into-support': session('delivery'),
+  'review-resolution': session('review'),
   gate: session('implementation'),
   'edit-pr-body': session('delivery'),
   'enable-auto-merge': session('delivery'),
@@ -816,6 +927,9 @@ const ROWS = {
   'wait-merge': { end: 'github' },
   ready: { end: 'owner' },
   'archive-pr-ready': { end: 'owner' },
+  'archive-prs-ready': { end: 'owner' },
+  'ready-test-branch': { end: 'owner' },
+  'ready-base': { end: 'owner' },
   'stop-review-deadlock': { end: 'owner' },
   'stop-retro-answers': { end: 'owner' },
   'stop-plan-approval': { end: 'owner' },
@@ -831,7 +945,8 @@ export const ROW_STEPS = Object.keys(ROWS);
 const AGENT_STEPS = ROW_STEPS.filter((s) => ROWS[s].role);
 const BLOCKED_STEP = { 'stop-branch': 'wrong-branch', 'stop-merge-setup': 'merge-setup', 'stop-archive': 'archive-failed', 'stop-not-approved': 'plan-not-approved', blocked: 'pr-problem' };
 const OWNER_STEP = {
-  ready: 'waiting-merge', 'archive-pr-ready': 'waiting-archive-merge', 'stop-review-deadlock': 'waiting-review-dispute',
+  ready: 'waiting-merge', 'archive-pr-ready': 'waiting-archive-merge', 'archive-prs-ready': 'waiting-archive-merges', 'stop-review-deadlock': 'waiting-review-dispute',
+  'ready-test-branch': 'waiting-merge-test-branch', 'ready-base': 'waiting-merge-base',
   'stop-retro-answers': 'waiting-retro', 'stop-plan-mode': 'waiting-by-hand',
 };
 
@@ -847,7 +962,8 @@ export function exitCodeOf(action) {
 // facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
 // approval (deliver-check's approvalState), tests (flow-check's readTestSettings), decisions (`decisionRecords`'s result),
 // hasProposal, flags (the grill's classification), archiving, row
-// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read) }.
+// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read), budget ({ cap, file, spent } with `spent`
+// null when it could not be read; null or absent when no cap applies) }.
 // Returns the action of the design's JSON; pure.
 // ---------------------------------------------------------------- the triage's source check (roadmap-sessions-upfront D-4)
 
@@ -911,9 +1027,14 @@ export function decide(facts) {
   const waiting = (state, key, stageId, params = {}, detail) => finish(state, key, key, params, stageId, detail);
 
   const key = (stage, step) => `${stage}/${step ?? stage}@${facts.fingerprint}`;
-  const brief = (stage, what) => `Change ${ctx.id} (${ctx.script} script), stage ${stage}: ${what}. Work only in ${ctx.root} on branch ${ctx.branch}; `
-    + `every file path is absolute under it; start every Bash command with cd ${ctx.root} && ; do not fetch. `
-    + `Write the change's files in ${filesLanguageName(ctx.filesLanguage)}.`;
+  // A hand-off whose detail names a worktree and a branch (the support branch's) works there, not in the task worktree.
+  const brief = (stage, what, detail) => {
+    const root = detail?.root && detail?.branch ? detail.root : ctx.root;
+    const branch = detail?.root && detail?.branch ? detail.branch : ctx.branch;
+    return `Change ${ctx.id} (${ctx.script} script), stage ${stage}: ${what}. Work only in ${root} on branch ${branch}; `
+      + `every file path is absolute under it; start every Bash command with cd ${root} && ; do not fetch. `
+      + `Write the change's files in ${filesLanguageName(ctx.filesLanguage)}.`;
+  };
 
   // K1 and K2: the loop does not repeat a stage that made no progress, nor one its agent did not deliver.
   const guard = (action) => {
@@ -928,18 +1049,26 @@ export function decide(facts) {
     }
     return action;
   };
+  // The token budget (change-budget D-4): at or above the cap, a hand-off or a session step becomes an end waiting for the owner,
+  // after `guard`, so a no-progress or not-delivered end still comes first. A spend that could not be read holds nothing.
+  const hold = (action) => {
+    const b = facts.budget;
+    if (!b || b.spent === null || b.spent < b.cap || (action.kind !== 'agent' && action.kind !== 'session')) return action;
+    return waiting('waiting-for-owner', 'waiting-budget', action.stage, { spent: b.spent, cap: b.cap, file: b.file },
+      { held: { kind: action.kind, stage: action.stage, step: action.step ?? null, agent: action.agent ?? null } });
+  };
   // The agent of a delivery hand-off is the checker's row's (`conduct-check`'s actorOf owns the fact); the role's map only
   // when the row names none, and for the plan stages, which have no row.
   const agent = (stage, role, step, what, detail, named) => {
     const id = named ?? AGENT[role];
-    return guard({
+    return hold(guard({
       ...base, kind: 'agent', ...stageFields(stage), agent: id, ...(step ? { step } : {}), ...(detail ? { detail } : {}),
-      brief: withAttribution(id, brief(stage, what)), progressKey: key(stage, step),
-    });
+      brief: withAttribution(id, brief(stage, what, detail)), progressKey: key(stage, step),
+    }));
   };
-  const sessionAction = (stage, step, detail, extra = {}) => guard({
+  const sessionAction = (stage, step, detail, extra = {}) => hold(guard({
     ...base, kind: 'session', ...stageFields(stage), step, ...(detail ? { detail } : {}), ...extra, progressKey: key(stage, step),
-  });
+  }));
 
   if (report.script === 'previous') return blocked('previous-script');
   const currentId = report.next?.stage ?? report.end?.stage ?? null;
@@ -1032,7 +1161,9 @@ export function decide(facts) {
     if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
-    return blocked(why, { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number }, e.stage);
+    const params = { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number };
+    if (why === 'gh-too-old') Object.assign(params, { installed: e.params?.installed ?? render(lang, 'gh-version-unknown'), minimum: e.params?.minimum, verb: 'change' });
+    return blocked(why, params, e.stage);
   }
 
   // -------- from the implementation to the archive: B0 to B17
@@ -1060,7 +1191,8 @@ export function decide(facts) {
       return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, { readiness: facts.approval?.readiness ?? row.next.readiness ?? null });
     }
     const number = row.next.number ?? row.delivered?.next?.number;
-    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? {} : { number });
+    const named = Object.fromEntries(['branch', 'base', 'list'].filter((k) => row.next[k] !== undefined).map((k) => [k, row.next[k]]));
+    return waiting('waiting-for-owner', OWNER_STEP[step], currentId, number === undefined ? named : { number, ...named });
   }
 }
 
@@ -1124,24 +1256,35 @@ export function isPlanStage(start, id, action) {
 
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, budget = false } = {}) {
   const clean = cleanOf(env);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const found = locate(start, id);
   const settings = readDevkitSettings(found.root);
   const filesLanguage = settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language;
+  const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+  // The token budget is read only when the caller asks (`next`): the locks, `wait` and the roadmap never count (change-budget D-4).
+  let budgetFact = null;
+  if (budget) {
+    const cap = budgetOf(found.root, dir, normalizeLang(lang));
+    if (cap) {
+      const path = sessionTranscript(env);
+      budgetFact = { cap: cap.cap, file: cap.file, spent: path ? spentOf(path, id)?.spent ?? null : null };
+    }
+  }
   const run = openspec ?? makeOpenspec(found.root, clean);
   const { facts, flow } = collectFlow(found.root, id, { env: clean, openspec: run, ...(gh ? { gh } : {}) });
   const report = computeFlow(facts, flow, {});
   const archiving = found.branch === `chore/archive-${id}`;
-  const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
   let row = null;
+  let deliveredPr = null;
   if (inDelivery(report, flow, archiving)) {
     try {
       const ghRun = gh ?? makeGh(found.root, clean);
       const state = collectState(found.root, id, { env: clean, gh: ghRun });
       const delivered = buildReport(state, clean);
+      deliveredPr = delivered.pr ?? null;
       const baseBranch = defaultBase(found.root);
       row = deliveryRow({ ref: `origin/${baseBranch}`, base: baseBranch }, { id, worktree: found.root }, { state, report: delivered });
     } catch (e) {
@@ -1162,12 +1305,78 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     unsourced: triageUnsourcedOf(dir),
     archiving,
     row,
+    budget: budgetFact,
   });
   // The icon of the action's stage, its state and the change session's title for it (change-state D-1, D-5); the title only when the state has one.
   action.icon = stageIcon(action);
   action.state = changeState(action, null, { lang });
   if (action.state.title !== null) action.sessionTitle = action.state.title;
+  // The Jira task the change records, and the write-back question the developer is still owed (jira-entry D-6).
+  const task = recordedTask(readRequirements({ root: found.root, id }));
+  if (task) {
+    action.task = task;
+    // A blocked end and the budget end ask nothing: the owner has to act first (jira-entry D-6, change-budget D-4).
+    const stopped = action.kind === 'end' && (action.end.state === 'blocked' || action.end.why === 'waiting-budget');
+    if (deliveredPr && !archiving && !stopped && !writeBackAsked(readWriteBack(writeBackFile(found.root, id)), task.key, deliveredPr.number)) {
+      action.writeBack = { key: task.key, link: task.link, number: deliveredPr.number, url: deliveredPr.url };
+    }
+  }
   return action;
+}
+
+// ---------------------------------------------------------------- the write-back record (jira-entry D-7)
+
+// The record of the write-back question of change `id`: one file in the git common directory, never in the worktree.
+export function writeBackFile(root, id) {
+  const common = tryGit(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']) || join(root, '.git');
+  return join(common, 'devkit', 'write-back', `${id}.json`);
+}
+
+// The record, `null` when there is none, `{ corrupt: true }` when it cannot be read: a damaged record asks and writes nothing.
+export function readWriteBack(file) {
+  if (!existsSync(file)) return null;
+  try {
+    const record = JSON.parse(readFileSync(file, 'utf8'));
+    return record?.version === 1 ? record : { corrupt: true };
+  } catch { return { corrupt: true }; }
+}
+
+// "Asked" for a task and a pull request: the record is damaged, or it names that key and that number.
+const writeBackAsked = (record, key, number) => Boolean(record) && (record.corrupt === true || (record.key === key && record.number === number));
+
+// The record is written to a temporary file in its folder and then renamed, so it is never half written.
+function saveWriteBack(file, record) {
+  mkdirSync(dirname(file), { recursive: true });
+  const part = `${file}.${process.pid}.tmp`;
+  writeFileSync(part, `${JSON.stringify(record, null, 2)}\n`);
+  renameSync(part, file);
+}
+
+// The change `id` and the task it records, for `write-back`: an unknown change, or one that records no task, is a usage error.
+function taskChangeOf(cwd, id, env) {
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const found = locate(start, id);
+  if (!locateChange(found.root, id)) throw new LoopUsageError(`no change ${id} found`);
+  const task = recordedTask(readRequirements({ root: found.root, id }));
+  if (!task) throw new LoopUsageError(`the change ${id} records no Jira task`);
+  return { start, found, task, archived: found.branch === `chore/archive-${id}` };
+}
+
+// `write-back ask <id>`: whether to ask the developer about writing the pull request's link on the task, and the question.
+// Records that it asked, so it asks once per task and pull request. Writes only that record.
+export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env, gh } = {}) {
+  const l = normalizeLang(lang);
+  const { start, found, task, archived } = taskChangeOf(cwd, id, env);
+  const read = writeBackInput(input);
+  if (read.error) throw new LoopUsageError(read.error);
+  const out = (extra) => ({ version: 1, change: id, key: task.key, ...extra });
+  if (archived || archivedOnDefault(start, { env, gh }).has(id)) return out({ ask: false, why: 'archived' });
+  const file = writeBackFile(found.root, id);
+  if (readWriteBack(file)) return out({ ask: false, why: 'asked' });
+  saveWriteBack(file, { version: 1, change: id, key: task.key, number: read.number, url: read.url, askedAt: new Date().toISOString(), transitions: read.transitions, answer: null });
+  const choices = writeBackChoices(read.transitions).map((c) => ({ choice: c.choice, label: render(l, `choice.${c.kind}`, { name: c.name }) }));
+  return out({ ask: true, question: render(l, 'write-back-ask', { id, key: task.key, number: read.number, choices: choices.map((c) => c.label).join('; ') }), choices });
 }
 
 // ---------------------------------------------------------------- the decision records (design stage-roles D-4)
@@ -1289,21 +1498,30 @@ export function activeIds(root) {
 // checkout's working tree; a source that cannot be read adds nothing.
 const ARCHIVED = /^(\d{4}-\d{2}-\d{2})-(.+)$/;
 // Each archived id with the latest day an archived folder of it carries (an id can be archived more than once).
+// In `two-prs` (D-10) an id counts only once the test branch holds it archived too, read the same way from its own branch.
 export function archivedDates(start, { env = process.env, gh } = {}) {
   const main = realpathSync(mainRoot(start));
-  const base = defaultBase(main);
-  const ids = new Map();
-  const addNames = (names) => { for (const name of names) { const m = ARCHIVED.exec(name); if (m && !(ids.get(m[2]) >= m[1])) ids.set(m[2], m[1]); } };
+  const run = gh ?? makeGh(main, cleanOf(env));
   const folder = 'openspec/changes/archive';
-  try {
-    const run = (gh ?? makeGh(main, cleanOf(env)))(['api', `repos/{owner}/{repo}/contents/${folder}?ref=${base}`]);
-    const listing = run.status === 0 ? JSON.parse(run.stdout) : [];
-    if (Array.isArray(listing)) addNames(listing.map((e) => String(e?.name ?? '')));
-  } catch { /* GitHub could not be read: the other sources answer */ }
-  for (const ref of [`refs/remotes/origin/${base}`, `refs/heads/${base}`]) addNames(tryGit(main, ['ls-tree', '--name-only', `${ref}:${folder}`]).split('\n'));
-  const dir = join(main, folder);
-  if (existsSync(dir)) addNames(readdirSync(dir));
-  return ids;
+  // The ids of one branch: GitHub's listing, the remote-tracking and the local branch; the working tree only for the main checkout's own.
+  const datesOn = (branch, withTree) => {
+    const ids = new Map();
+    const addNames = (names) => { for (const name of names) { const m = ARCHIVED.exec(name); if (m && !(ids.get(m[2]) >= m[1])) ids.set(m[2], m[1]); } };
+    try {
+      const got = run(['api', `repos/{owner}/{repo}/contents/${folder}?ref=${branch}`]);
+      const listing = got.status === 0 ? JSON.parse(got.stdout) : [];
+      if (Array.isArray(listing)) addNames(listing.map((e) => String(e?.name ?? '')));
+    } catch { /* GitHub could not be read: the other sources answer */ }
+    for (const ref of [`refs/remotes/origin/${branch}`, `refs/heads/${branch}`]) addNames(tryGit(main, ['ls-tree', '--name-only', `${ref}:${folder}`]).split('\n'));
+    const dir = join(main, folder);
+    if (withTree && existsSync(dir)) addNames(readdirSync(dir));
+    return ids;
+  };
+  const ids = datesOn(defaultBase(main), true);
+  const delivery = readDevkitSettings(main).delivery;
+  if (delivery?.model !== 'two-prs' || !delivery.testBranch) return ids;
+  const onTest = datesOn(delivery.testBranch, false);
+  return new Map([...ids].filter(([id]) => onTest.has(id)));
 }
 export const archivedOnDefault = (start, opts) => new Set(archivedDates(start, opts).keys());
 
@@ -1325,9 +1543,13 @@ export function unfinished(start, { env = process.env, gh, slices = false } = {}
   const archived = archivedDates(start, { env, gh });
   const found = new Map();
   const note = (id, c, rank, reused = false) => { if ((!archived.has(id) || reused) && (!found.has(id) || found.get(id).rank < rank)) found.set(id, { id, root: c.root, branch: c.branch, rank }); };
+  const delivery = readDevkitSettings(realpathSync(mainRoot(start))).delivery;
+  const testSuffix = delivery?.model === 'two-prs' && delivery.testBranch ? `-${delivery.testBranch}` : null;
   for (const c of checkoutsOf(start)) {
     const archive = /^chore\/archive-(.+)$/.exec(c.branch);
-    if (archive) note(archive[1], c, 3);
+    // The test branch's archive branch (`chore/archive-<id>-<test>`) is the archive of <id> too, behind the base's own.
+    if (archive && testSuffix && archive[1].endsWith(testSuffix)) note(archive[1].slice(0, -testSuffix.length), c, 2.5);
+    else if (archive) note(archive[1], c, 3);
     for (const id of activeIds(c.root)) {
       if (!slices && isSliceDir(join(c.root, 'openspec', 'changes', id))) continue;
       note(id, c, c.branch === id ? 2 : 1, archived.has(id) && createdAfter(c.root, id, archived.get(id)));
@@ -1408,6 +1630,12 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
 
 // ---------------------------------------------------------------- start (D-3)
 
+// The text of the change's `requirements.md` in its checkout; empty when it cannot be read.
+function readRequirements(u) {
+  const dir = locateChange(u.root, u.id)?.dir;
+  try { return dir ? readFileSync(join(dir, 'requirements.md'), 'utf8') : ''; } catch { return ''; }
+}
+
 const VERB_ROUND = { help: 23 };
 const DRIVER_ROUND = { compozy: 21, script: 22 };
 
@@ -1423,21 +1651,26 @@ export function projectGate(start, settings) {
   if (!start || !optedIn(start)) return { mode: 'not-set-up', key: 'not-set-up', params: {} };
   const unknown = settings.unknown[0];
   if (unknown) return { mode: 'setting-unknown', key: 'setting-unknown', params: { setting: unknown.setting, value: unknown.value, accepted: unknown.accepted } };
+  const missing = settings.missing?.[0];
+  if (missing) return { mode: 'setting-missing', key: 'setting-missing', params: { setting: missing.setting } };
   if (DRIVER_ROUND[settings.driver]) return { mode: 'driver-not-built', key: 'driver-not-built', params: { driver: settings.driver, round: DRIVER_ROUND[settings.driver] } };
   return null;
 }
 
 export const filesLanguageOf = (settings) => (settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language);
 
-// What `/devkit change` does with the request: { version, mode, verb, text, change, unfinished, settings, reply }.
-// Read-only: it creates and runs nothing.
+// What `/devkit change` does with the request: { version, mode, verb, text, change, unfinished, task, settings, reply }.
+// `task` is { key, link, idPrefix } when the text is a Jira key or link (jira-entry D-2), else null. Read-only: it creates
+// and runs nothing.
 export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, openspec, gh } = {}) {
   const l = normalizeLang(lang);
   const { verb, text } = parseStart(input);
   const start = findRoot(cwd);
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] }; // S0 when unreadable
+  const ref = verb === 'change' ? parseTaskRef(text) : null;
+  const task = ref ? { ...ref, idPrefix: taskIdPrefix(ref.key) } : null;
   const out = (mode, extra = {}) => ({
-    version: 1, mode, verb, text, change: null, unfinished: [],
+    version: 1, mode, verb, text, change: null, unfinished: [], task,
     settings: { driver: settings.driver, filesLanguage: filesLanguageOf(settings), personLanguage: l }, ...extra,
   });
   const say = (key, params = {}) => render(l, key, params);
@@ -1454,19 +1687,26 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
     return { id: u.id, root: u.root, where };
   });
   const resume = (id, where) => out('resume', { change: id, unfinished: list, reply: say('resumed', { id, where }) });
+  const listed = list.map((u) => (u.where ? `${u.id} (${u.where})` : u.id)).join('; ');
+  const askFirst = () => out('ask-unfinished', { unfinished: list, reply: say(list.length === 1 ? 'ask-unfinished' : 'ask-unfinished-many', { list: listed }) });
+  if (task) {
+    const own = list.find((u) => recordedTask(readRequirements(u))?.key === task.key);
+    if (own) return resume(own.id, own.where ?? whereOf({ root: own.root, branch: '' }, own.id, read));
+    if (list.length) return askFirst();
+    return out('task', { reply: null });
+  }
   if (/^\S+$/.test(text)) {
     const known = knownChange(start, text);
     const knownDir = known ? locateChange(known.root, text)?.dir : null;
     if (knownDir && isSliceDir(knownDir)) return out('is-slice', { change: text, reply: say('is-slice', { id: text }) });
     if (known) return resume(text, list.find((u) => u.id === text)?.where ?? whereOf(known, text, read));
   }
-  const listed = list.map((u) => (u.where ? `${u.id} (${u.where})` : u.id)).join('; ');
   if (text === '') {
     if (list.length === 1) return resume(list[0].id, list[0].where ?? whereOf({ root: list[0].root, branch: '' }, list[0].id, read));
     if (list.length > 1) return out('choose', { unfinished: list, reply: say('choose', { n: list.length, list: listed }) });
     return out('nothing', { reply: say('nothing-to-resume') });
   }
-  if (list.length) return out('ask-unfinished', { unfinished: list, reply: say(list.length === 1 ? 'ask-unfinished' : 'ask-unfinished-many', { list: listed }) });
+  if (list.length) return askFirst();
   return out('new');
 }
 
@@ -1486,11 +1726,11 @@ function gitRun(root, args) {
   }
 }
 
-// The request as a Markdown quote under `## Request` of the schema's requirements template (header left pending).
-function requirementsFor(template, request) {
-  const quoted = request.split('\n').map((line) => (line.trim() === '' ? '>' : `> ${line.replace(/\s+$/, '')}`)).join('\n');
+// `body` placed under `## Request` of the schema's requirements template (header left pending): a quoted request, or a task's
+// key line and quoted parts.
+function withRequest(template, body) {
   if (!/## Request\n[\s\S]*?\n## /.test(template)) throw new LoopUsageError('the requirements template has no "## Request" section');
-  return template.replace(/(## Request\n)[\s\S]*?(\n## )/, (_, open, close) => `${open}\n${quoted}\n${close}`);
+  return template.replace(/(## Request\n)[\s\S]*?(\n## )/, (_, open, close) => `${open}\n${body}\n${close}`);
 }
 
 // Every reason an id is taken (O2): a change folder (active or archived) in any checkout, a local branch, an archive
@@ -1543,8 +1783,9 @@ function withOpenLock(main, work, lockSleep) {
 }
 
 // `open <id> --script <s> --why <code>`, the request on standard input. Creates the worktree, the change and its
-// requirements file; refusals are LoopRefusal (exit 3, nothing created).
-export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec, lockSleep } = {}) {
+// requirements file; refusals are LoopRefusal (exit 3, nothing created). With `task` (a Jira key) the standard input is the
+// task as JSON, and the request section records the key and quotes the task's title, description and criteria field.
+export function openChange(cwd, id, { script, why, request, task: taskKey, lang = 'pt-BR', env = process.env, openspec, gh, lockSleep } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   if (!NAME.test(id) || id === 'archive') throw refuse('name-invalid', { id });
@@ -1552,10 +1793,24 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
   if (!WHY_CODES.includes(why)) throw new LoopUsageError(`open needs --why with one of: ${WHY_CODES.join(', ')}`);
   const text = String(request ?? '').trim();
   if (!text) throw new LoopUsageError('open needs the request on standard input');
+  let task = null;
+  if (taskKey !== undefined) {
+    if (!TASK_KEY.test(taskKey)) throw new LoopUsageError('open --task needs a Jira key');
+    const read = taskFromJson(text, taskKey);
+    if (read.error) throw new LoopUsageError(read.error);
+    task = read.task;
+    const prefix = `${taskIdPrefix(taskKey)}-`;
+    if (!id.startsWith(prefix)) throw new LoopUsageError(`a change opened from ${taskKey} needs an id that starts with ${prefix}`);
+  }
   const start = findRoot(cwd);
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
   const gate = projectGate(start, settings);
   if (gate) throw refuse(gate.key, gate.params);
+  if (task) {
+    const taken = unfinished(start, { env, gh }).find((u) => recordedTask(readRequirements(u))?.key === taskKey);
+    if (taken) throw refuse('task-taken', { key: taskKey, id: taken.id });
+  }
+  const requestBody = task ? taskRequest(task) : quoteLines(text);
 
   // The change's own first file: its request, as a quote in the schema's requirements template.
   const prepare = (folder, worktree) => {
@@ -1563,10 +1818,11 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
     const template = schema ? join(dirname(schema), 'templates', 'requirements.md') : null;
     if (!template || !existsSync(template)) throw new LoopUsageError(`the ${script} schema has no requirements template`);
     mkdirSync(folder, { recursive: true });
-    writeFileSync(join(folder, 'requirements.md'), requirementsFor(readFileSync(template, 'utf8'), text));
+    writeFileSync(join(folder, 'requirements.md'), withRequest(readFileSync(template, 'utf8'), requestBody));
   };
   const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep });
-  return { version: 1, change: id, script, worktree, branch: id, base, reply: render(l, 'opened', { id, script, other: otherScript(script), why }) };
+  const reply = render(l, task ? 'opened-task' : 'opened', { id, script, other: otherScript(script), why, key: taskKey });
+  return { version: 1, change: id, script, worktree, branch: id, base, ...(task ? { task: { key: task.key, link: task.url } } : {}), reply };
 }
 
 // The open steps every script shares (project-phases D-5): the open lock, the fetch, the id check, the worktree from the default
@@ -1591,6 +1847,14 @@ function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env
   let base = 'HEAD';
   if (hasOrigin) {
     base = `origin/${defaultBase(main)}`;
+    const delivery = readDevkitSettings(main).delivery;
+    if (delivery?.model === 'two-prs') {
+      const { base: configured, testBranch } = delivery;
+      if (defaultBase(main) !== configured) throw refuse('base-not-default', { base: configured, default: defaultBase(main) });
+      if (!tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${testBranch}`])) throw refuse('test-branch-missing', { branch: testBranch });
+      if (id.endsWith(`-${testBranch}`)) throw refuse('name-test-suffix', { id, branch: testBranch });
+      base = `origin/${configured}`;
+    }
     if (!tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/${base}`])) throw new LoopUsageError(`${base} does not exist: nothing to start the change from`);
   }
   const worktree = join(main, '.claude', 'worktrees', id);
@@ -1816,8 +2080,8 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 // ---------------------------------------------------------------- the command line (D-5)
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
-  + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
-  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>';
+  + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> (the request on standard input, or with --task the task as JSON) '
+  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>';
 
 function parseArgs(argv, { values = [], multi = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -1845,7 +2109,7 @@ const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-own
 function runNext(args, { env, cwd, openspec, gh }) {
   const opts = parseArgs(args, { values: ['--change', '--lang', '--after'] });
   if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
-  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh });
+  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
 
@@ -1876,11 +2140,53 @@ function runStart(args, { env, cwd, stdin, openspec, gh }) {
   return { code: 0, stdout: json(startMode(cwd, stdin, { lang: opts.lang, env, openspec, gh })), stderr: '' };
 }
 
-function runOpen(args, { env, cwd, stdin, openspec }) {
-  const opts = parseArgs(args, { values: ['--script', '--why', '--lang'] });
+function runOpen(args, { env, cwd, stdin, openspec, gh }) {
+  const opts = parseArgs(args, { values: ['--script', '--why', '--task', '--lang'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
-  const result = openChange(cwd, opts.positional[0], { script: opts.script, why: opts.why, request: stdin, lang: opts.lang, env, openspec });
+  const result = openChange(cwd, opts.positional[0], { script: opts.script, why: opts.why, request: stdin, task: opts.task, lang: opts.lang, env, openspec, gh });
   return { code: 0, stdout: `devkit-run: ${result.change}\n${json(result)}`, stderr: '' };
+}
+
+const WRITE_BACK_CHOICE = /^(?:comment|no|transition:\S+)$/;
+
+// `write-back answer <id> --choice <c>`: what the session may write to Jira for the developer's answer. The answer is recorded
+// before the session writes, so a repeated call never comments twice. Writes only that record.
+export function writeBackAnswer(cwd, id, { choice, lang = 'pt-BR', env = process.env, gh } = {}) {
+  const l = normalizeLang(lang);
+  const { start, found, task } = taskChangeOf(cwd, id, env);
+  if (!WRITE_BACK_CHOICE.test(String(choice ?? ''))) throw new LoopUsageError('write-back answer needs --choice comment, no or transition:<id>');
+  const file = writeBackFile(found.root, id);
+  const record = readWriteBack(file);
+  const none = (why, key = 'write-back-none', params = {}) => ({ version: 1, change: id, key: task.key, write: false, why, reply: render(l, key, { id, key: task.key, ...params }) });
+  if (!record || record.corrupt || record.key !== task.key) return none('not-asked');
+  if (record.answer) return none('answered');
+  const answer = (written) => saveWriteBack(file, { ...record, answer: { choice, at: new Date().toISOString(), written } });
+  if (archivedOnDefault(start, { env, gh }).has(id)) { answer(false); return none('archived', 'write-back-late'); }
+  if (choice === 'no') { answer(false); return none('no'); }
+  const transition = choice === 'comment' ? null : record.transitions.find((t) => `transition:${t.id}` === choice) ?? null;
+  if (choice !== 'comment' && !transition) {
+    const labels = writeBackChoices(record.transitions).map((c) => render(l, `choice.${c.kind}`, { name: c.name }));
+    return none('unknown-choice', 'write-back-unknown', { choices: labels.join('; ') });
+  }
+  answer(true);
+  const comment = commentText(filesLanguageOf(readDevkitSettings(found.root)), { url: record.url, id });
+  const reply = render(l, transition ? 'write-back-moved' : 'write-back-commented', { key: task.key, number: record.number, name: transition?.name });
+  return { version: 1, change: id, key: task.key, write: true, comment, transition: transition ? { id: transition.id, name: transition.name } : null, reply };
+}
+
+function runWriteBack(args, { env, cwd, stdin, gh }) {
+  const [sub, ...rest] = args;
+  if (sub === 'ask') {
+    const opts = parseArgs(rest, { values: ['--lang'] });
+    if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+    return { code: 0, stdout: json(writeBackAsk(cwd, opts.positional[0], { input: stdin, lang: opts.lang, env, gh })), stderr: '' };
+  }
+  if (sub === 'answer') {
+    const opts = parseArgs(rest, { values: ['--choice', '--lang'] });
+    if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+    return { code: 0, stdout: json(writeBackAnswer(cwd, opts.positional[0], { choice: opts.choice, lang: opts.lang, env, gh })), stderr: '' };
+  }
+  throw new LoopUsageError(USAGE);
 }
 
 function runScript(args, { cwd }) {
@@ -1928,7 +2234,8 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     if (sub === 'reply') return runReply(rest);
     if (sub === 'state') return runState(rest, { env, cwd, openspec, gh });
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
-    if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec });
+    if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec, gh });
+    if (sub === 'write-back') return runWriteBack(rest, { env, cwd, stdin, gh });
     if (sub === 'script') return runScript(rest, { cwd });
     if (sub === 'accept-decisions') return runAccept(rest, { cwd });
     throw new LoopUsageError(USAGE);
@@ -1978,7 +2285,7 @@ function isMain() {
 
 if (isMain()) {
   const argv = process.argv.slice(2);
-  runCommand(argv, { stdin: ['start', 'open'].includes(argv[0]) ? readStdin() : '' }).then((r) => {
+  runCommand(argv, { stdin: ['start', 'open', 'write-back'].includes(argv[0]) ? readStdin() : '' }).then((r) => {
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
     process.exitCode = r.code;

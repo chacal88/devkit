@@ -216,8 +216,16 @@ and every task of its `tasks.md` on the default branch is ticked.
 - **THEN** the next stage is the delivery, with the reason that the work must be pushed first
 
 #### Scenario: The checks cannot be read
-- **WHEN** the change's open pull request is at the local head and its checks cannot be read
+- **WHEN** the change's open pull request is at the local head and its checks cannot be read for any reason other than a `gh` too old to read them
 - **THEN** the run ends blocked, quoting the error
+
+#### Scenario: A gh too old to read the checks
+- **WHEN** the change's open pull request is at the local head and `gh pr checks` fails because the installed `gh` does not know its `--json` or `--required` option, `gh --version` printing `gh version 2.46.0 (2024-03-18)`
+- **THEN** the run ends blocked with the reason `gh-too-old`, whose readout in English and in Brazilian Portuguese names the installed version `2.46.0` and `2.50.0`, the first version that reads the checks, says to update `gh`, and does not say the checks cannot be read
+
+#### Scenario: A gh too old whose version cannot be read
+- **WHEN** the same failure happens and `gh --version` fails or prints a first line that is not `gh version <major>.<minor>.<patch>`
+- **THEN** the run ends blocked with the reason `gh-too-old`, its readout giving the installed version as unknown and naming `2.50.0`
 
 #### Scenario: A check fails
 - **WHEN** a check of the change's open pull request fails
