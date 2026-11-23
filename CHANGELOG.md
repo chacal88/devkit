@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.34.0 — every change of a roadmap run opens at its start
+## 0.35.0 — every change of a roadmap run opens at its start
 
-- **devkit-openspec** 0.30.0: a `/devkit roadmap` run on the desktop app opens every pending change
+- **devkit-openspec** 0.31.0: a `/devkit roadmap` run on the desktop app opens every pending change
   at its start and starts each change's session with a one-use ticket, so the session runs its loop
   from its first turn with no typed command: the new `devkit-session` skill is the entry, and a hook
   on the Skill tool (`guard.mjs skill`) lets it run only on the run's unclaimed ticket
@@ -14,11 +14,34 @@
   at its end (`schedule-check` and `delete-check` are actions of a decision). New subcommands:
   `session-next`, `session-wait`, `merge-base`, `push` and `check`. A change session's `session-next`
   now honours the token budget as `next` does.
-  The CI snippet now pins `v0.30.0`, the release's tag.
+  The CI snippet now pins `v0.31.0`, the release's tag.
 - **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
   files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
 - Docs: ADR 0019, with Notes in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
   coordination design, the roles and the READMEs describe the new run.
+
+## 0.34.1 — retro proposals of release-tags
+
+- **devkit-openspec** 0.30.1: `accept-decisions` writes the acceptance line of an ADR whose status is
+  a bulleted `- Status:` line as `- Accepted by: ...`, as ADR 0017 and 0018 read, not as a second
+  `- Status: Accepted by: ...` line; a status line of another form keeps its prefix. The CI snippet
+  now pins `v0.30.1`, the release's tag.
+- Docs: CONTRIBUTING asks a change that reads a GitHub route for the first time to record one
+  read-only live call of it in `evidence.md`; a fake-gh fixture alone does not prove the route or
+  the shape.
+
+## 0.34.0 — release tags
+
+- **devkit-openspec** 0.30.0: a project that sets `devkit.release_tag` (a path from the repository
+  root to a JSON file with a top-level `version`) has the tag of each release pushed by the delivery
+  loop. After a merge that bumped the version, `deliver-check` answers the new `tag-release` step
+  (before the retro; for the archive PR, before `archived`), and `ship-change` creates the
+  lightweight tag `v<version>` on the merge commit and pushes it alone. A tag at another commit ends
+  the run `blocked` and is never moved; a read GitHub does not answer stops, never passes. Without
+  the key nothing changes. This repository sets it to devkit-openspec's `plugin.json`
+  ([ADR 0019](docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)). The CI snippet now
+  pins `v0.30.0`, the release's tag.
+- Docs: CONTRIBUTING step 5 and the flow page describe the key, rows R1 to R3 and the step.
 
 ## 0.33.0 — release conflicts resolved by a merge
 

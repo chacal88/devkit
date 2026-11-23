@@ -34,7 +34,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings, releaseTagSetting } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
@@ -65,6 +65,7 @@ export function budgetValue(raw) {
   return n > 0 && Number.isSafeInteger(n) ? { cap: n } : { invalid: raw };
 }
 const BUDGET_ACCEPTED = '1, 2, 3, …';
+const RELEASE_TAG_ACCEPTED = 'a path from the repository root to a JSON file, such as package.json';
 
 // The text of a settings file; a missing file is '' and any other read error a LoopUsageError.
 function settingsText(file, label) {
@@ -78,7 +79,8 @@ function settingsText(file, label) {
 // `delivery: { model, base, testBranch }` when a delivery model is set and `missing: [{ setting }]` when two pull requests
 // are chosen without a name (delivery-models D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
 // other keys of the block are ignored, except an invalid `budget` and the tests' coverage target, whose bad values are
-// listed in `unknown` after the two above (flow-check's `readTestSettings`).
+// listed in `unknown` after the two above (flow-check's `readTestSettings`), then an invalid `release_tag` (release-tags D-1);
+// a valid one sets `releaseTag`, the path of the JSON file the release is read from, and only then.
 export function readDevkitSettings(root) {
   const block = parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml'));
   const driver = block.driver || 'claude';
@@ -89,7 +91,10 @@ export function readDevkitSettings(root) {
   const budget = budgetValue(block.budget);
   if (budget?.invalid !== undefined) unknown.push({ setting: 'budget', value: budget.invalid, accepted: BUDGET_ACCEPTED });
   unknown.push(...readTestSettings(root).unknown);
+  const releaseTag = releaseTagSetting(block);
+  if (releaseTag.problem) unknown.push({ setting: releaseTag.problem.setting, value: releaseTag.problem.value, accepted: RELEASE_TAG_ACCEPTED });
   const settings = { driver, language, unknown };
+  if (releaseTag.file) settings.releaseTag = releaseTag.file;
   const { model, base, testBranch, problems } = deliverySettings(block);
   if (model) settings.delivery = { model, base, testBranch };
   const missing = [];
@@ -276,6 +281,7 @@ export const MESSAGES = {
     'blocked-why.wrong-branch': 'its folder is on a branch with another name',
     'blocked-why.merge-setup': 'the repository is not prepared for automatic merging yet, which /openspec-setup does',
     'blocked-why.archive-failed': 'a step of the archive failed',
+    'blocked-why.tag-elsewhere': 'the tag {tag} is already on the remote at {at}, not at the merge commit {sha}; the run never moves a tag, so you settle it',
     'blocked-why.plan-not-approved': 'its plan review is not approved',
     'blocked-why.pr-problem': 'the pull request has a problem the session cannot fix alone',
     'blocked-why.unknown-step': 'the next step is one this version does not know',
@@ -305,6 +311,7 @@ export const MESSAGES = {
     'setting.delivery-test-branch': 'test branch',
     'setting.budget': 'budget',
     'setting.coverage-target': 'coverage target',
+    'setting.release-tag': 'release file',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
     'project-resumed': 'Continuing the slice {id}: {where}.',
     'project-choose': '{n} slices are unfinished: {list}. Which one should I continue?',
@@ -503,6 +510,7 @@ export const MESSAGES = {
     'blocked-why.wrong-branch': 'a pasta dela está num branch com outro nome',
     'blocked-why.merge-setup': 'o repositório ainda não está preparado para o merge automático, que /openspec-setup prepara',
     'blocked-why.archive-failed': 'um passo do arquivamento falhou',
+    'blocked-why.tag-elsewhere': 'a tag {tag} já está no remoto em {at}, não no commit do merge {sha}; a execução nunca move uma tag, então quem resolve é você',
     'blocked-why.plan-not-approved': 'a revisão do plano dela não está aprovada',
     'blocked-why.pr-problem': 'o pull request tem um problema que a sessão não resolve sozinha',
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
@@ -532,6 +540,7 @@ export const MESSAGES = {
     'setting.delivery-test-branch': 'a branch de teste',
     'setting.budget': 'budget',
     'setting.coverage-target': 'meta de cobertura',
+    'setting.release-tag': 'arquivo da versão',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
     'project-resumed': 'Continuando a fatia {id}: {where}.',
     'project-choose': '{n} fatias estão por terminar: {list}. Qual delas eu continuo?',
@@ -922,6 +931,7 @@ const ROWS = {
   retro: session('retro'),
   archive: session('retro'),
   'tick-roadmap': session('retro'),
+  'tag-release': session('delivery'),
   'wait-checks': { end: 'github' },
   'wait-merge': { end: 'github' },
   ready: { end: 'owner' },
@@ -1187,6 +1197,10 @@ export function decide(facts) {
     const detail = detailOf(row.next);
     if (spec.role) return agent(spec.stage, spec.role, step, `step ${step} ${JSON.stringify(detail)}`, detail, row.next.agent);
     if (spec.session) return sessionAction(spec.stage, step, detail);
+    // A tag on the remote at another commit is the owner's to settle; every other stop of the archive stays `archive-failed`.
+    if (step === 'stop-archive' && row.next.archiveStep === 'tag-release' && row.next.at) {
+      return blocked('tag-elsewhere', { tag: row.next.tag, at: String(row.next.at).slice(0, 7), sha: String(row.next.sha).slice(0, 7) }, currentId);
+    }
     switch (spec.end) {
       case 'github': return waiting('waiting-on-github', 'waiting-github', currentId, { what: step === 'wait-checks' ? 'checks' : facts.archiving ? 'archive-merge' : 'merge' });
       case 'blocked': return blocked(BLOCKED_STEP[step], {}, currentId);
@@ -1389,6 +1403,7 @@ export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env
 // ---------------------------------------------------------------- the decision records (design stage-roles D-4)
 
 const STATUS_LINE = /^(\s*[-*]?\s*\**Status\**\s*:\s*\**\s*)(\S+)(.*)$/im;
+const BULLETED_STATUS = /^([ \t]*[-*][ \t]+)Status[ \t]*:[ \t]*$/i; // the bullet and its indent, when the status line is a plain bulleted `- Status:` one
 const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
 
 // One record `decisions.md` lists, read from `root`: { path, ok: true, rel, text, status, match } or { path, ok: false, why }.
@@ -1457,8 +1472,9 @@ export function acceptDecisions(cwd, id, { lang = 'pt-BR' } = {}) {
     const { match, text } = r;
     const cut = match[1].lastIndexOf('\n') + 1; // the pattern's leading `\s*` may span blank lines: the prefix is the status line's own
     const prefix = match[1].slice(cut);
+    const lead = BULLETED_STATUS.exec(prefix)?.[1] ?? prefix; // a bulleted `- Status:` line gets a bulleted `- Accepted by:` line, not a second Status label
     const eol = text.includes('\r\n') ? '\r\n' : '\n';
-    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${prefix}${by}${text.slice(match.index + match[0].length)}`;
+    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${lead}${by}${text.slice(match.index + match[0].length)}`;
     writes.push([join(root, r.rel), next]);
   }
   for (const [file, body] of writes) writeFileSync(file, body);

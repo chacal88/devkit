@@ -99,10 +99,11 @@ export function plainValue(raw) {
 const DELIVERY_KEYS = ['model', 'base', 'test_branch'];
 
 // The `devkit:` block of openspec/config.yaml, read with one level of nesting (delivery-models D-1, D-11):
-// { driver, language, budget, delivery: { model, base, test_branch } } (`budget` from change-budget). A value that is not set, or empty, is undefined; a key
-// nested under `delivery:` never sets `driver`, `language` or `budget`; other keys of the block are ignored.
+// { driver, language, budget, release_tag, delivery: { model, base, test_branch } } (`budget` from change-budget, `release_tag`
+// from release-tags D-1). A value that is not set, or empty, is undefined; a key nested under `delivery:` never sets `driver`,
+// `language`, `budget` or `release_tag`; other keys of the block are ignored.
 export function parseDevkitBlock(text) {
-  const block = { driver: undefined, language: undefined, budget: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined } };
+  const block = { driver: undefined, language: undefined, budget: undefined, release_tag: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined } };
   let inBlock = false;
   let indent = null;
   let inDelivery = false;
@@ -120,9 +121,25 @@ export function parseDevkitBlock(text) {
       continue;
     }
     inDelivery = m[2] === 'delivery';
-    if (m[2] === 'driver' || m[2] === 'language' || m[2] === 'budget') block[m[2]] = value;
+    if (m[2] === 'driver' || m[2] === 'language' || m[2] === 'budget' || m[2] === 'release_tag') block[m[2]] = value;
   }
   return block;
+}
+
+// A path from the repository root to a JSON file (release-tags D-1): every segment is made of letters, digits, `.`, `_` and `-`
+// and is neither `.` nor `..`, so nothing leaves the repository or breaks the contents URL; the last one ends with `.json`.
+function isJsonPath(value) {
+  const segments = value.split('/');
+  return segments.every((s) => /^[A-Za-z0-9._-]+$/.test(s) && s !== '.' && s !== '..') && segments[segments.length - 1].endsWith('.json');
+}
+
+// { file } from a parsed block: the JSON file the release is read from, or `file: null` when `release_tag` is not set. A value
+// that is not such a path is `{ file: null, problem: { kind: 'unknown', setting: 'release-tag', value } }`.
+export function releaseTagSetting(block) {
+  const value = block?.release_tag;
+  if (value === undefined) return { file: null };
+  if (isJsonPath(value)) return { file: value };
+  return { file: null, problem: { kind: 'unknown', setting: 'release-tag', value } };
 }
 
 export const DELIVERY_MODELS = ['two-prs', 'trunk', 'trunk-auto'];

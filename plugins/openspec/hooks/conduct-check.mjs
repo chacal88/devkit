@@ -59,7 +59,7 @@ const SUBAGENT = {
   readiness: 'devkit-core:plan-readiness-reviewer',
   audit: 'devkit-core:plan-reality-auditor',
 };
-const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'answer', 'worktree', 'rebase', 'rerun-checks',
+const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'tag-release', 'answer', 'worktree', 'rebase', 'rerun-checks',
   'checkout-support', 'merge-into-support'];
 const ASKABLE = ['stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill', 'approve'];
 const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];

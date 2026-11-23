@@ -1,0 +1,569 @@
+✖ release-tags 2: the change's merge that bumped the release asks tag-release before the retro (426.8747ms)
+✖ release-tags 2: the archive merge that bumped the release asks tag-release instead of archived (359.373556ms)
+✖ release-tags 2: an unchanged version asks no tag (445.092004ms)
+✖ release-tags 2: a tag at the merge commit is the step done (lightweight and annotated) (1282.078626ms)
+✔ release-tags 2: without release_tag the answer and the gh calls are today's (2795.867954ms)
+✖ release-tags 2: a tag at another commit stops naming the tag and both commits (423.274935ms)
+✖ release-tags 2: a retro written but a tag still missing is still tag-release (436.83493ms)
+✖ release-tags 2: a file new at the parent, or a parent that is not JSON, is a bump (431.375375ms)
+✖ release-tags 2: a merge commit without a parent has no earlier version, so its version is a bump (427.389372ms)
+✖ release-tags 2: a release file gone at the merge asks nothing (neg) (427.903601ms)
+✖ release-tags 2: a pull request to another base, or one not merged, asks nothing (neg) (460.121202ms)
+✖ release-tags 2: a release file a tag cannot carry is a stop, never a pass (413.094577ms)
+✖ release-tags 2: both merges bumped asks the change first, then the archive (356.334877ms)
+✖ release-tags 2: an archive that did not move the version is archived (neg) (345.224892ms)
+✖ release-tags 2: an archive with the change tag done and its own missing is tag-release for the archive (364.948294ms)
+✖ release-tags 2: the ref endpoint answering a list is read for the exact ref only (1213.480202ms)
+✖ release-tags 2: an invalid release_tag value is refused by the CLI with exit 3, naming devkit.release_tag (519.955903ms)
+✖ release-tags 2: each fact GitHub does not answer stops tag-release, never a pass (418.32767ms)
+✖ release-tags 2: a pull request answer without a merge commit is a stop (460.069511ms)
+✖ release-tags 2: an answer that is not JSON, or has no parent list, or names another ref is a stop (427.209291ms)
+✖ release-tags 2: a gh that times out on the tag read is a stop naming it (434.107354ms)
+✖ release-tags 2: an archive PR list that cannot be read, on an archived change, is a stop (354.643834ms)
+✖ release-tags 2: HTTP 404 on the tag read is the step to run, not a stop (neg) (401.469758ms)
+✖ release-tags 2: an archived change whose archive PR list has no merged entry asks nothing (370.944264ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 1
+ℹ fail 23
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14128.86402
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-tags.test.mjs:171:1
+✖ release-tags 2: the change's merge that bumped the release asks tag-release before the retro (426.8747ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      base: 'main',
+  +   file: undefined,
+  +   merged: undefined,
+  -   file: 'release.json',
+  -   merged: 'change',
+      number: 12,
+  +   sha: undefined,
+  +   step: 'retro',
+  +   tag: undefined,
+  +   version: undefined
+  -   sha: '1111111111111111111111111111111111111111',
+  -   step: 'tag-release',
+  -   tag: 'v1.3.0',
+  -   version: '1.3.0'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:174:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { step: 'retro', tag: undefined, sha: undefined, number: 12, merged: undefined, version: undefined, file: undefined, base: 'main' },
+    expected: { step: 'tag-release', tag: 'v1.3.0', sha: '1111111111111111111111111111111111111111', number: 12, merged: 'change', version: '1.3.0', file: 'release.json', base: 'main' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:186:1
+✖ release-tags 2: the archive merge that bumped the release asks tag-release instead of archived (359.373556ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   merged: undefined,
+  +   number: undefined,
+  +   sha: undefined,
+  +   step: 'archived',
+  +   tag: undefined,
+  +   version: undefined
+  -   merged: 'archive',
+  -   number: 13,
+  -   sha: '3333333333333333333333333333333333333333',
+  -   step: 'tag-release',
+  -   tag: 'v1.3.0',
+  -   version: '1.3.0'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:189:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { step: 'archived', tag: undefined, sha: undefined, number: undefined, merged: undefined, version: undefined },
+    expected: { step: 'tag-release', tag: 'v1.3.0', sha: '3333333333333333333333333333333333333333', number: 13, merged: 'archive', version: '1.3.0' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:195:1
+✖ release-tags 2: an unchanged version asks no tag (445.092004ms)
+  AssertionError [ERR_ASSERTION]: the pull request, the file at the merge, the merge commit and the file at its parent: nothing else
+  
+  0 !== 4
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:199:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 4,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:202:1
+✖ release-tags 2: a tag at the merge commit is the step done (lightweight and annotated) (1282.078626ms)
+  AssertionError [ERR_ASSERTION]: the annotated tag is followed to its commit
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:209:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:225:1
+✖ release-tags 2: a tag at another commit stops naming the tag and both commits (423.274935ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   archiveStep: undefined,
+  +   at: undefined,
+  -   archiveStep: 'tag-release',
+  -   at: '5555555555555555555555555555555555555555',
+      number: 12,
+  +   sha: undefined,
+  +   step: 'retro',
+  +   tag: undefined
+  -   sha: '1111111111111111111111111111111111111111',
+  -   step: 'stop-archive',
+  -   tag: 'v1.3.0'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:228:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { step: 'retro', archiveStep: undefined, tag: undefined, at: undefined, sha: undefined, number: 12 },
+    expected: { step: 'stop-archive', archiveStep: 'tag-release', tag: 'v1.3.0', at: '5555555555555555555555555555555555555555', sha: '1111111111111111111111111111111111111111', number: 12 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:240:1
+✖ release-tags 2: a retro written but a tag still missing is still tag-release (436.83493ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'archive'
+  - 'tag-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:243:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'archive',
+    expected: 'tag-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:246:1
+✖ release-tags 2: a file new at the parent, or a parent that is not JSON, is a bump (431.375375ms)
+  AssertionError [ERR_ASSERTION]: null
+  + actual - expected
+  
+    [
+  +   'retro',
+  +   undefined
+  -   'tag-release',
+  -   'v1.3.0'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:251:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'retro', undefined ],
+    expected: [ 'tag-release', 'v1.3.0' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:255:1
+✖ release-tags 2: a merge commit without a parent has no earlier version, so its version is a bump (427.389372ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'retro'
+  - 'tag-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:258:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'retro',
+    expected: 'tag-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:261:1
+✖ release-tags 2: a release file gone at the merge asks nothing (neg) (427.903601ms)
+  AssertionError [ERR_ASSERTION]: read, and nothing after the 404
+  + actual - expected
+  
+  + []
+  - [
+  -   'pulls/12',
+  -   'contents/release.json?ref=1111111111111111111111111111111111111111'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:265:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'pulls/12', 'contents/release.json?ref=1111111111111111111111111111111111111111' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:268:1
+✖ release-tags 2: a pull request to another base, or one not merged, asks nothing (neg) (460.121202ms)
+  AssertionError [ERR_ASSERTION]: the pull request answered: nothing else is read
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:273:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:277:1
+✖ release-tags 2: a release file a tag cannot carry is a stop, never a pass (413.094577ms)
+  AssertionError [ERR_ASSERTION]: {"raw":"not json"}
+  + actual - expected
+  
+    [
+  +   'retro',
+  +   undefined,
+  -   'stop-archive',
+  -   'tag-release',
+      12
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:282:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'retro', undefined, 12 ],
+    expected: [ 'stop-archive', 'tag-release', 12 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:287:1
+✖ release-tags 2: both merges bumped asks the change first, then the archive (356.334877ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'archived',
+  +   undefined,
+  +   undefined,
+  +   undefined
+  -   'tag-release',
+  -   'change',
+  -   12,
+  -   'v1.3.0'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:291:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'archived', undefined, undefined, undefined ],
+    expected: [ 'tag-release', 'change', 12, 'v1.3.0' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:297:1
+✖ release-tags 2: an archive that did not move the version is archived (neg) (345.224892ms)
+  AssertionError [ERR_ASSERTION]: the archive merge was read
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:300:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:303:1
+✖ release-tags 2: an archive with the change tag done and its own missing is tag-release for the archive (364.948294ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'archived',
+  +   undefined,
+  +   undefined
+  -   'tag-release',
+  -   'archive',
+  -   13
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:307:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'archived', undefined, undefined ],
+    expected: [ 'tag-release', 'archive', 13 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:310:1
+✖ release-tags 2: the ref endpoint answering a list is read for the exact ref only (1213.480202ms)
+  AssertionError [ERR_ASSERTION]: a longer name is no tag
+  + actual - expected
+  
+    [
+  +   'retro',
+  +   undefined
+  -   'tag-release',
+  -   'v1.3.0'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:315:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'retro', undefined ],
+    expected: [ 'tag-release', 'v1.3.0' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:320:1
+✖ release-tags 2: an invalid release_tag value is refused by the CLI with exit 3, naming devkit.release_tag (519.955903ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:323:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:336:1
+✖ release-tags 2: each fact GitHub does not answer stops tag-release, never a pass (418.32767ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'retro',
+  +   undefined,
+  -   'stop-archive',
+  -   'tag-release',
+      12
+    ]
+  
+      at stops (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:332:10)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:349:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'retro', undefined, 12 ],
+    expected: [ 'stop-archive', 'tag-release', 12 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:354:1
+✖ release-tags 2: a pull request answer without a merge commit is a stop (460.069511ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'retro',
+  +   undefined,
+  -   'stop-archive',
+  -   'tag-release',
+      12
+    ]
+  
+      at stops (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:332:10)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:357:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'retro', undefined, 12 ],
+    expected: [ 'stop-archive', 'tag-release', 12 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:363:1
+✖ release-tags 2: an answer that is not JSON, or has no parent list, or names another ref is a stop (427.209291ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'retro',
+  +   undefined,
+  -   'stop-archive',
+  -   'tag-release',
+      12
+    ]
+  
+      at stops (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:332:10)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:377:5)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'retro', undefined, 12 ],
+    expected: [ 'stop-archive', 'tag-release', 12 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:382:1
+✖ release-tags 2: a gh that times out on the tag read is a stop naming it (434.107354ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'retro',
+  +   undefined
+  -   'stop-archive',
+  -   'tag-release'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:387:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'retro', undefined ],
+    expected: [ 'stop-archive', 'tag-release' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:391:1
+✖ release-tags 2: an archive PR list that cannot be read, on an archived change, is a stop (354.643834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'archived',
+  +   undefined,
+  +   undefined
+  -   'stop-archive',
+  -   'tag-release',
+  -   null
+    ]
+  
+      at stops (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:332:10)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:394:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'archived', undefined, undefined ],
+    expected: [ 'stop-archive', 'tag-release', null ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:398:1
+✖ release-tags 2: HTTP 404 on the tag read is the step to run, not a stop (neg) (401.469758ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'retro'
+  - 'tag-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:400:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'retro',
+    expected: 'tag-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:403:1
+✖ release-tags 2: an archived change whose archive PR list has no merged entry asks nothing (370.944264ms)
+  AssertionError [ERR_ASSERTION]: the archive PR list was read
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:406:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
