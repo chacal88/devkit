@@ -64,6 +64,15 @@ retry for a stage subagent that returns `Outcome: failure`, which ends the run b
    subagent transcripts; nothing is written to the change.
 7. ADR 0014's other decisions, and ADR 0010's, are unchanged.
 
+Note (stage-models, 2026-11-23): decision 5's retry reaches a stage subagent
+that stops with `Outcome: failure` without writing its stage file. A subagent that writes its
+stage file with `result=failed`, as the `subagent-stop` hook asks of one that stops without it,
+is a failed stage and takes the stage's existing fix path, with no retry. Decision 2's `[1m]`
+opt-in reaches a session's own model and the retry's mapping, never a stage subagent: the Agent
+call takes no suffix. So the Consequences' mitigation "one retry a model up" reaches only an
+agent that cannot finish; a stage agent that obeys the hook and records `result=failed` takes the
+fix path, bounded by the stage's ceiling. No decision's text changes.
+
 ## Consequences
 
 - Positive: most of a run's tokens move from Opus to Sonnet and Haiku; the table is tuned in one

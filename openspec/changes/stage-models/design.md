@@ -291,6 +291,35 @@ Without a readable transcript the run behaves as before this change except for w
 session no longer declares `role-failed`, so a call with the failed action's key ends for no
 progress (K1), or not delivered (K2) when the stage file is pending.
 
+**The retry's reach (review round 1).** `retried` matches the newest runs by `handOffKey` of the
+action `decide` would hand now, so a retry happens only when that action is the same hand-off as the
+failed one: the stage checker still names the same stage with the same reason, which holds when the
+subagent stopped with `Outcome: failure` and wrote no stage file (or left it `pending`). That is the
+retry's whole reach: a stage agent that could not finish. A stage agent that finished its work and
+recorded `result=failed` in its stage file is a failed stage, not a failed agent: `flow-check`
+offers the stage's `onFail` with `fix-after-failure`, so `decide` builds a different brief (the
+implementer's `fix-tests` after `unit-tests` or `e2e-tests`, `testStageStep`; "revise the plan from
+its findings" after a plan stage, `planPart`), on that action's own table model, and `retried` finds
+no run of that brief and hands no retry. The other two answers of `flow-check` to a failed stage
+(`flow-check.mjs:633-637`) hand no retry either: a stage at its ceiling ends blocked with the
+ceiling's reason (`ceiling-reached`), as it did before this change (spec scenario "A test stage
+recorded as failed at its ceiling", pinned by the task 5.1 test), and a failed test stage whose
+code changed since is run again (`rerun-after-fix`) with the "run it again" brief on the stage's
+table model, a brief other than the failed one, so `retried` finds no run of it (covered by the
+existing `rerun-after-fix` tests of `flow-check.test.mjs` and `change-loop.test.mjs`; no new
+scenario). Its last line (`Outcome: failure` or another) does not
+matter. The `subagent-stop` hook (`guard.mjs subagent-stop`, `subagentStopFor` U2, `refuseOnce`)
+refuses the first stop of a stage agent whose stage file does not exist and asks it to write the
+file, so an agent that obeys it records a result and takes the fix path; one that stops again
+without the file takes the retry. This is the code as built at `e057874` and it is kept: a red test
+stage needs a code fix, not a stronger test runner, and the fix path already counts its attempts
+against the stage's ceiling. No product code changes for it; the spec (`stage-models`, "Only a
+stage subagent that could not finish is retried", scenarios "A failure with a written result=failed
+file", "A plan stage recorded as failed" and "A test stage recorded as failed at its ceiling"), a
+D-12 test that pins it, D-13's real run 3 that shows it with a real agent, D-13's stub text and the
+D-10 words state it. The narrowing is a reading of the owner's AC-10 and of ADR 0020 decision 5,
+which the owner accepts at plan approval (`proposal.md`, the resolved criteria and readings).
+
 ## D-6 The roadmap: start model and step-down (AC-6, AC-7; spec `roadmap-coordination`)
 
 **The start.** `sessionStartOf` adds `model: a.model` to `input` when the action carries one (the
@@ -519,13 +548,23 @@ do not change.
 
 ## D-10 ADRs and documents
 
-- ADR 0020 (`docs/adr/0020-the-model-is-chosen-by-stage.md`) is the adr-author's and stays as it
-  is. Its number is checked against `origin/main` before review (task 4.1). It is marked accepted by
-  the loop's `accept-decisions` step after the owner's approval.
+- ADR 0020 (`docs/adr/0020-the-model-is-chosen-by-stage.md`) is the adr-author's and its
+  decisions stay as they are. Its number is checked against `origin/main` before review (task 4.1).
+  `origin/main` (local ref `b92e6b1`, not fetched) already holds another
+  `docs/adr/0020-a-change-can-run-on-another-machine.md` and devkit-openspec 0.32.0, so tasks 4.1
+  and 4.5 are redone at the delivery merge (this change's ADR takes the next free number, 0021 at
+  `b92e6b1`, every reference in this change's files, `docs/`, `openspec/config.yaml` and
+  `CHANGELOG.md` follows, the release moves above `origin/main`'s), and the tests that hard-code
+  `0020` (`ADR_FILE` and the `0020` assertions of `plugins/openspec/hooks/stage-models.test.mjs`)
+  follow in the same commit; phase 5 is done on the current names first, so it stays one rename
+  away.
+  It is marked accepted by the loop's `accept-decisions` step after the owner's approval. The one
+  addition is the clarifying Note of "The retry's reach and the 1M reach in words" below (task 5.3),
+  in the form the Notes of ADR 0014 use; it changes no decision.
 - `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`: header line
   `- Amended by ADR 0020 (0020-the-model-is-chosen-by-stage.md)` and a Note
-  `Note (stage-models, 2026-11-23): ADR 0020 amends decision 1: ...` in the form ADR 0018's Notes
-  use.
+  `Note (stage-models, 2026-11-23): ADR 0020 amends decision 1: ...` in the form of ADR 0014's own
+  `Note (change-state, 2026-11-22)`.
 - `openspec/config.yaml`: the comment above `devkit:` names the optional `models:` table; the
   `ADRs:` line of `context` gains `0020 the model chosen by stage, sessions only step down and never
   below the stages they still run, a failed stage retried once a model up, amends 0014`.
@@ -550,6 +589,50 @@ do not change.
   `stage-models` on 2026-11-23.
 - `plugins/openspec/hooks/change-loop.mjs` header comment: one sentence on the `model` field and
   the retry.
+
+**The retry's reach and the 1M reach in words (review round 1, task 5.3).** Three places say the
+same, with these sentences (the implementer copies them):
+
+- `docs/openspec-flow.md`, paragraph **The model of each stage.**: the sentence "A stage agent that
+  returns `Outcome: failure` on Haiku or Sonnet is handed again once on the next model up (Haiku to
+  Sonnet, Sonnet to Opus, `sonnet[1m]` to `opus[1m]`); a second failure in a row, or a failure on
+  Opus, ends the run blocked." becomes "A stage agent that cannot finish, and stops with `Outcome:
+  failure` on Haiku or Sonnet without writing its stage file, is handed again once on the next model
+  up (Haiku to Sonnet, Sonnet to Opus, `sonnet[1m]` to `opus[1m]`); a second failure in a row, or a
+  failure on Opus, ends the run blocked. A stage agent that finished and recorded `result=failed` in its stage
+  file (red tests, for instance) is a failed stage, not a failed agent: the loop hands the stage's
+  usual fix (the implementer's `fix-tests` after a test stage, a revision after a plan stage) on the
+  table's model, and no retry. The `subagent-stop` hook asks an agent that stops without its file to
+  write it, so an agent that then records `result=failed` takes the fix, and one that stops again
+  without the file takes the retry." In the same paragraph, the sentence "No default uses the
+  1M-token context: `opus[1m]` and `sonnet[1m]` are accepted as an explicit opt-in for one stage,
+  and `haiku[1m]` is not a value." gains, after it: "The suffix reaches only a session's own model
+  (a change session's start model, or a step-down to that value) and the retry's mapping on the
+  action; it never reaches a stage agent, whose Agent call drops it, so a stage agent runs with the
+  plain family's context window."
+- `docs/adr/0020-the-model-is-chosen-by-stage.md`: after decision 7 and before `## Consequences`,
+  a paragraph "Note (stage-models, 2026-11-23): decision 5's retry reaches a stage subagent
+  that stops with `Outcome: failure` without writing its stage file. A subagent that writes its
+  stage file with `result=failed`, as the `subagent-stop` hook asks of one that stops without it,
+  is a failed stage and takes the stage's existing fix path, with no retry. Decision 2's `[1m]`
+  opt-in reaches a session's own model and the retry's mapping, never a stage subagent: the Agent
+  call takes no suffix. So the Consequences' mitigation "one retry a model up" reaches only an
+  agent that cannot finish; a stage agent that obeys the hook and records `result=failed` takes the
+  fix path, bounded by the stage's ceiling. No decision's text changes."
+- `CHANGELOG.md`, this change's section (`the model is chosen by stage`, whatever its number after
+  task 4.5): "(... ; `opus[1m]` and `sonnet[1m]` only as an opt-in)" becomes "(... ; `opus[1m]` and
+  `sonnet[1m]` only as an opt-in, which reaches a session's own model and the retry's mapping, never
+  a stage agent, whose Agent call drops the suffix)"; "A stage agent that returns `Outcome: failure`
+  on Haiku or Sonnet is handed again once on the next model up," becomes "A stage agent that stops
+  with `Outcome: failure` on Haiku or Sonnet without writing its stage file is handed again once on
+  the next model up (one that records `result=failed` in its stage file takes the stage's usual fix,
+  with no retry),".
+
+Anchors: the phrase `without writing its stage file` is in all three; the 1M reach is `never
+reaches a stage agent` in the flow document, `never a stage subagent` in the ADR and `never a stage
+agent` in `CHANGELOG.md`; `result=failed` is in all three. When the ADR and `CHANGELOG.md` are
+wrapped, each anchor stays on one line. The D-12 "Skill and docs" test reads the flow document and
+the ADR with whitespace collapsed; task 5.3's checks `grep` the `CHANGELOG.md` anchors.
 
 ## D-11 Existing tests that change
 
@@ -606,15 +689,19 @@ the change too.
 | Settings (D-2) | AC-2 the project's entry changes one stage, the others keep the default; AC-2 the change's entry wins for that change and another change keeps the project's; AC-2 an empty value is absent; AC-2 a quoted value and a comment read the model; AC-4 `opus[1m]` and `sonnet[1m]` are returned as written; AC-3 an unknown stage (`implement`), an unknown value (`gpt`), `haiku[1m]` and an inline `models: opus` each make `start` answer mode `setting-unknown` naming the setting and accepted values, and `open` create nothing; AC-3 the same in the change's file makes `next` exit 3 with the reply in both languages and no hand-off; AC-3 a lenient read (`stopDecision`, `collectRoadmap`) ignores a bad change table and gives the project's or the default model; AC-3 a bad project table makes `roadmap-loop.mjs run` and `status` and `project-loop.mjs` answer mode `setting-unknown` (F-9: `/devkit project` refuses it as every project setting); AC-2 the parser's `delivery` and `budget` read as before with a `models:` block beside them (kept for the delivery part) |
 | Action (D-3) | AC-5 every `agent` action of `next` over a change walked through its plan stages and its implementation carries `model`; AC-8 a design hand-off carries `opus` whatever the session; AC-9 no action of `change-loop.mjs` has a kind that switches a session, and `decide` without `models` prints no `model` (kept) |
 | Reader (D-4) | AC-10 `subagentRun` gives prompt, family, failed and usage of a fixture; a cut-off last line is skipped; an empty file is not failed; `handOffKey` cuts the dispatch sentence and the attribution block; `handOffKey` keys a brief whose files language is a raw tag (`zh-CN`); `handOffsOf` keeps only runs at or after `since`; `typedSince` gives the newest `/devkit` command's time, and a `/devkit status` typed after it does not move it |
-| Retry (D-5) | AC-10 a failure on `haiku` gives the same stage on `sonnet`, marked, with the same progress key, called with that key; AC-10 a failure on `sonnet[1m]` gives `opus[1m]`; AC-10 two failures in a row end blocked `role-failed`, exit 2, `devkit-end: <id> blocked`; AC-10 a failure on `opus` ends blocked; AC-10 a success between two failures gives one retry again; AC-10 a new typed `/devkit change` after two failures hands the table model; AC-10 a `/devkit status` typed between a failure and the next call keeps the retry; AC-10 another change's subagents between do not break the chain; AC-10 no transcript: the progress key ends for no progress (kept); AC-10 a `next` with no `--after` after a failed hand-off, with no budget set, reads neither the session transcript nor the subagent folder and hands the stage on its table model with no `retry` mark, while the same call with `--after` and the failed action's key reads them and hands the retry (task 2.3); AC-10 in a one-session roadmap run, `roadmap-loop.mjs next` after a failed hand-off returns the retry, and `collectRoadmap` reads the subagent folder once for every change; AC-10 the stop lock (`roadmapStopDecision`) and `roadmap-loop.mjs status` decide and print the same with and without a subagent folder holding a failed hand-off of the open change (they read no hand-off, B1), and with sessions per change `next` reads none either; AC-11 a retry at the cap is held by the budget, and `spentOf` counts the retry's tokens |
+| Retry (D-5) | AC-10 a failure on `haiku` gives the same stage on `sonnet`, marked, with the same progress key, called with that key; AC-10 a failure on `sonnet[1m]` gives `opus[1m]`; AC-10 two failures in a row end blocked `role-failed`, exit 2, `devkit-end: <id> blocked`; AC-10 a failure on `opus` ends blocked; AC-10 a success between two failures gives one retry again; AC-10 a new typed `/devkit change` after two failures hands the table model; AC-10 a `/devkit status` typed between a failure and the next call keeps the retry; AC-10 another change's subagents between do not break the chain; AC-10 no transcript: the progress key ends for no progress (kept); AC-10 a `next` with no `--after` after a failed hand-off, with no budget set, reads neither the session transcript nor the subagent folder and hands the stage on its table model with no `retry` mark, while the same call with `--after` and the failed action's key reads them and hands the retry (task 2.3); AC-10 in a one-session roadmap run, `roadmap-loop.mjs next` after a failed hand-off returns the retry, and `collectRoadmap` reads the subagent folder once for every change; AC-10 the stop lock (`roadmapStopDecision`) and `roadmap-loop.mjs status` decide and print the same with and without a subagent folder holding a failed hand-off of the open change (they read no hand-off, B1), and with sessions per change `next` reads none either; AC-11 a retry at the cap is held by the budget, and `spentOf` counts the retry's tokens; AC-10 (review round 1, task 5.1, pins the code at `e057874`, so it passes there) a failure with a written `result=failed` file: a `devkit-lite` change at its unit tests, the unit-test hand-off on `haiku`, a subagent file of that brief on `claude-haiku-5-5` ending `Outcome: failure`, and `unit-tests.md` written with the header `<!-- devkit-stage unit-tests result=failed attempt=1 commit=<HEAD> -->`; `next --after <id>=<that action's progressKey>` exits 0 with no `devkit-end:` line and an `agent` action at stage `implementation`, agent `devkit-core:tdd-implementer`, step `fix-tests`, `model` `sonnet` (the implementation's default), no `retry` field and a brief other than the failed one; in the same test, the same world without `unit-tests.md` gives the retry on `sonnet` with `retry.failedOn` `haiku`, so the only difference is the written file; a `devkit` change at its `decisions` stage with no table (`featWith({ have: PLAN_OF.decisions })`, decisions on `opus`; `adr-author` is a role whose Output names `failure`, A-6) whose decisions subagent, on `claude-opus-5-5`, ended `Outcome: failure` after `decisions.md` was written with `<!-- devkit-stage decisions result=failed attempt=1 commit=<HEAD> -->` gives, exit 0 and no `devkit-end:` line, an `agent` action at `decisions`, agent `devkit-core:adr-author`, whose brief holds `revise the plan from its findings`, `model` `opus` and no `retry` field (spec scenario "A plan stage recorded as failed"); and the unit-test world with `unit-tests.md` at `result=failed attempt=3` (the stage's ceiling, 3) and its subagent ending `Outcome: failure` gives exit 2, `devkit-end: <id> blocked` with the ceiling's reason, and no `retry` field on any action (spec scenario "A test stage recorded as failed at its ceiling") |
 | Roadmap (D-6) | AC-6 a new change's `session-start` input holds `opus` and a resumed change at its implementation `sonnet`; AC-6 the start's `input` holds `context: 'fresh'` beside `model`; AC-6 `--after a=session-start` records the model, `--after a=session-found` records none; AC-6 after `--after a=session-found`, `a` is `own`: the same call and the next return no `session-start` for `a` and no stage action of `a`, and `roadmap-session-started` is announced for `a` once, as after `session-start`; AC-7 `stepDownOf` with every session-run stage on the same model as the stage, over every pair of `MODEL_VALUES` for the current model and that model, returns it only when it is cheaper and not the refused one; AC-7 `stepDownOf` with the default table over every stage of each script's order, from a session on `opus`, returns `sonnet` or `null` and never `haiku` (at `unit-tests` and at `delivery` it returns `sonnet`); AC-7 `stepDownOf` at `delivery` (`haiku`) with `retro: haiku` in the table, from a session on `sonnet`, returns `haiku`, and at `unit-tests` with `review: opus` from a session on `opus` returns `null`; AC-7 `stepDownOf` returns `null` for a `null` stage, and when the refused model equals the floor; AC-7 `stepDownOf` at `tasks` with `tasks: sonnet` and `approval: opus` in the table, from a session on `opus`, returns `sonnet` on the `devkit-lite` order (`approval` is not in that flow) and `null` on the `devkit` order (`approval` ahead); AC-7 at `implementation` on the `devkit` order with `approval: opus`, from `opus`, returns `sonnet` (`approval` is behind); AC-7 a session on `opus` with its change waiting at the approval gets one `session-model` to `sonnet` on an `event` turn; AC-7 a session on `sonnet` with its change at its unit tests or its delivery gets none; AC-7 a session on `sonnet` with its change at its retro and `retro: opus` in the project's table gets none (no upward switch); AC-7 equal or upward floors give none; AC-7 after `session-model` the record holds the target and no switch follows; AC-7 after `session-model-refused` the same target is not returned again; AC-7 none while stopping; AC-7 the stop lock's decision holds no switch; AC-6 an old `{ at }` entry reads back as `{ at }` |
 | Spend (D-7) | AC-12 the spec's "Known numbers" give 3210 and 1105, 4315 in all; AC-12 another change's run line and the lines before the first run line do not count; AC-11 a retry is listed with its families and tokens; AC-12 the total line with a cap and with none; AC-12 for every `SPEND_MESSAGES` row in both languages, `spendLines`'s own filling equals `render` of the row from `change-loop.mjs` with the same parameters, and a stage line reads `Stage Design: ...` and `Etapa Design: ...` (no doubled stage phrase); AC-12 `budgetValue` imported from `guard.mjs` and from `change-loop.mjs` is the same function; AC-12 `flow-check.mjs <id> --lang en` prints the block after the readout, and `--json` is unchanged; AC-12 `roadmap-loop.mjs status` prints one block for the change with tokens and none for the other; AC-12 neither writes a file (the repository's status and the run file unchanged); AC-12 with no transcript both outputs equal today's (kept) |
-| Skill and docs (D-9, D-10) | AC-5 the Loop's `agent` item says the `model` clause; AC-9 the change sections name no session-model tool; AC-7 the session-per-change part names `session-model`, `session-found`, `session-model-refused` and `set_session_model`; the flow doc's **The model of each stage.** paragraph names `models:`, `[1m]`, the retry, the step-down and its floor at the session-run stages; the ADR 0014 header and Note; the config's `ADRs:` line names 0020 |
+| Skill and docs (D-9, D-10) | AC-5 the Loop's `agent` item says the `model` clause; AC-9 the change sections name no session-model tool; AC-7 the session-per-change part names `session-model`, `session-found`, `session-model-refused` and `set_session_model`; the flow doc's **The model of each stage.** paragraph names `models:`, `[1m]`, the retry, the step-down and its floor at the session-run stages; the ADR 0014 header and Note; the config's `ADRs:` line names 0020; AC-10 (review round 1, task 5.2) the flow document's **The model of each stage.** paragraph and ADR 0020, whitespace collapsed, each hold `without writing its stage file` and `result=failed`; AC-4 (task 5.2) the paragraph holds `never reaches a stage agent` and the ADR `never a stage subagent` |
 
 ## D-13 The real-run proof (AC-13)
 
-Two runs in scratch projects outside this repository, the full outputs saved under
-`openspec/changes/stage-models/proof/`; `pr-verifier` runs them again at evidence.
+Three runs in scratch projects outside this repository (under `/var/tmp/devkit-stage-models/proof/`),
+the full outputs saved under `openspec/changes/stage-models/proof/`; `pr-verifier` runs them again at
+evidence. Runs 1 and 2 (tasks 4.3, 4.4) prove the retry of an agent that cannot finish; run 3
+(review round 5, task 5.4) proves the path a real agent that obeys the `subagent-stop` hook takes,
+the owner's choice of 2026-11-23 (run it, not waive it), as `CLAUDE.md` requires that a change's
+real-run proof cover every case the plan declares.
 
 **The probe (A-3, task 1.1, before any code).** In an empty scratch folder outside this repository:
 `command claude -p --model sonnet --plugin-dir <worktree>/plugins/core --output-format stream-json
@@ -632,10 +719,24 @@ D-9 rest on it.
 **The stub pack.** A copy of this worktree's `plugins/core` in the scratch folder whose
 `agents/test-runner.md` and `agents/e2e-tester.md` bodies are replaced (frontmatter kept). The
 `test-runner` body: "If the file `<root>/.proof-unit-once` does not exist, create it and end with the
-line `Outcome: failure — proof`. Otherwise write `unit-tests.md` with the header `result=passed` and
-the commit of `HEAD`, and end with `Outcome: green`." The `e2e-tester` body: "End with the line
-`Outcome: failure — proof` and write nothing." Both are agents whose real Output sections already
-name `failure` (A-6).
+line `Outcome: failure — proof`, and write no file: when a stop hook asks for `unit-tests.md` before
+you stop, do not write it, stop again at once with the same last line (the file must stay absent).
+Otherwise write `unit-tests.md` in the change's folder with the header `<!-- devkit-stage unit-tests
+result=passed attempt=1 commit=<git rev-parse HEAD> -->` on line 1, and end with `Outcome: green`."
+The `e2e-tester` body: "End with the line `Outcome: failure — proof` and write nothing: when a stop
+hook asks for `e2e-tests.md` before you stop, do not write it, stop again at once with the same last
+line." Both are agents whose real Output sections already name `failure` (A-6).
+
+Why the stubs stop again at once without the file (review round 1; `proof/run-notes.txt`, deviation
+3): the retry reaches only an agent that stops with `Outcome: failure` and no stage file (D-5 "The
+retry's reach"). The `subagent-stop` hook refuses the first stop of a stage agent whose file does
+not exist and asks for it; a stub that obeys writes the file with `result=failed`, and the loop then
+hands the implementer's `fix-tests`, a normal failed stage, so the retry would never run. Stopping
+again at once without the file is the case of an agent that cannot finish, which is what the proof
+must show in runs 1 and 2; the failure-plus-`result=failed` case is pinned by the D-12 test of task
+5.1 and shown with a stub that obeys the hook by run 3 below. The scratch repository also lists `.proof-unit-once` in `.git/info/exclude` (deviation 2), so
+the untracked marker does not read as uncommitted code and send the change back to the
+implementation.
 
 **Run 1, a lone change.** A `devkit-lite` scratch project (`git init`, `openspec/config.yaml` with
 `schema: devkit-lite` and `devkit:` holding `tests:` with `unit: "true"` and `e2e: "true"`), a change
@@ -655,12 +756,71 @@ that run, its stage (from the brief) and its `message.model` values; and `flow-c
 the stages, as background agents. Expected and recorded as in run 1 (`proof/road-run.jsonl`,
 `proof/road-models.txt`, `proof/road-spend.txt`).
 
+**Run 3, a stage agent that obeys the hook (review round 5, task 5.4).** The path real agents take:
+a test runner that stops with `Outcome: failure`, is asked for its file by the `subagent-stop` hook,
+writes it with `result=failed`, and the loop hands the implementer's fix on the implementation's
+table model with no retry. Scratch project `/var/tmp/devkit-stage-models/proof/fix`, built as run 1's
+(`git init`, the schemas copied from `plugins/openspec/schemas`, `openspec/config.yaml` with `schema:
+devkit-lite` and `devkit:` holding `tests:` with `unit: "true"` and no `e2e`, so the E2E stage does
+not apply), a change `proof-fix` with `requirements.md`, `proposal.md`, one spec delta and `tasks.md`
+at `result=passed`, every task ticked and one commit after them, and no `models:` table (the
+defaults: `unit-tests` on `haiku`, `implementation` on `sonnet`). Its stub pack,
+`/var/tmp/devkit-stage-models/proof/fix/core`, is a fresh copy of this worktree's `plugins/core`
+whose `agents/test-runner.md` and `agents/tdd-implementer.md` bodies are replaced (frontmatter
+kept). The `test-runner` body, which obeys the hook: "Write no file and end with the line `Outcome:
+failure — proof`. When a stop hook asks for `unit-tests.md` before you stop, do what it asks: write
+`unit-tests.md` in the change's folder with the header `<!-- devkit-stage unit-tests result=failed
+attempt=1 commit=<git rev-parse HEAD> -->` on line 1 and the line `Finding: proof, the suite is
+red.`, then end again with the line `Outcome: failure — proof`." The `tdd-implementer` body: "Change
+no file and end with the line `Outcome: success — proof`." (so the fix hand-off is seen and costs
+almost nothing). Command as in run 1, with `--plugin-dir /var/tmp/devkit-stage-models/proof/fix/core`
+and the prompt `/devkit-openspec:devkit change proof-fix`, output to `proof/fix-run.jsonl`.
+Expected: the unit-test subagent on a Haiku model id stops once, the hook asks for `unit-tests.md`,
+it writes the file with `result=failed` and ends `Outcome: failure — proof`; the session calls
+`next --after proof-fix=<that action's progressKey>`, whose action is an `agent` action at stage
+`implementation`, agent `devkit-core:tdd-implementer`, step `fix-tests`, `model` `sonnet` and no
+`retry` field; the implementer subagent runs on a Sonnet model id; the run then ends as the loop
+decides (blocked for no progress, since the stub changes nothing), which the check does not read.
+Saved under `openspec/changes/stage-models/proof/`:
+
+- `fix-run.jsonl`, the run's full output.
+- `fix-models.txt`, written from the run's transcripts, with no content: one line
+  `subagent unit-tests model=<message.model> stop-hook-asked=<yes|no> wrote=unit-tests.md
+  result=<the header's result> outcome=<the last line's outcome>` for the test runner (the hook's ask
+  is the refusal of `guard.mjs subagent-stop` naming `unit-tests.md` in the subagent's transcript);
+  one line `hand-off stage=<stage> agent=<agent> step=<step> model=<model> retry=<none|the retry
+  field>` for the action of the `next` call that followed it, read from that call's output in
+  `fix-run.jsonl`; and one line `subagent implementation step=fix-tests model=<message.model>` for
+  the implementer.
+- `fix-unit-tests.txt`, a copy of the scratch change's `unit-tests.md` as the test runner wrote it
+  (a `.txt`, so no checker reads it as a stage file).
+- `fix-spend.txt`, `flow-check.mjs proof-fix --lang en` run with that session's id: the run's cost,
+  with no retry listed.
+
+The run holds when `fix-models.txt` holds `stop-hook-asked=yes`, `result=failed`,
+`outcome=failure` and the line `hand-off stage=implementation agent=devkit-core:tdd-implementer
+step=fix-tests model=sonnet retry=none`. When the test runner writes the file before its first stop
+(`stop-hook-asked=no`), the run is repeated once; a second such run, or any other hand-off line,
+stops the task for a plan revision (no product code changes in this phase). Its notes (the session
+id, any rerun) are appended to `proof/run-notes.txt` under "Run 3".
+
+Cost: one `claude -p` session on Sonnet with two stub subagents (one on Haiku, one on Sonnet) that
+do almost no work, about 0.5 h of the conducting session and that run's tokens, which
+`proof/fix-spend.txt` records; well below run 1 (four subagents, two of them retries, one on Opus).
+A repeat doubles it.
+
 Trust a run only when its `system`/`init` event lists both packs with paths under this worktree and
 the scratch folder. A run that shows a permission denial runs again with
-`--permission-mode bypassPermissions` (the scratch folder only) and says so in the proof. When a
+`--permission-mode bypassPermissions` (the scratch folder only) and says so in the proof. Runs 1 and
+2 used `--permission-mode bypassPermissions`, and only inside their scratch folders
+(`/var/tmp/devkit-stage-models/proof/lone` and `/var/tmp/devkit-stage-models/proof/road`), after the
+first attempt without it was denied at its first Bash call (`proof/run-notes.txt`, deviation 1);
+run 3 uses it from the start, in `/var/tmp/devkit-stage-models/proof/fix` only, and says so in
+`proof/run-notes.txt`. When a
 nested `claude -p` is refused inside the implementer, or `-p` ends before the background agents of
 run 2 return, the conducting session runs that run itself in Bash (it writes only the scratch folder
-and `proof/`). The implementer reports that case with `Outcome: failure` naming the task (task 4.4);
+and `proof/`). The implementer reports that case with `Outcome: failure` naming the task (task 4.4, or task
+5.4 for run 3);
 when the loop driving this change already has this change's retry rule, it hands the stage once
 more on a stronger model before ending blocked. That extra attempt meets the same limit and ends the
 same way; it is accepted, and its tokens are part of this change's own spend.
@@ -698,7 +858,17 @@ No new ADR beyond `decisions.md`'s ADR 0020. Read, with their rejected alternati
   decision 5 already lists.
 - ADR 0014 decision 1 is amended by ADR 0020 decision 4 (D-6); decision 2 (starts on typed turns
   only) is unchanged: a switch is not a start.
-- ADR 0016 (stage roles write their own files): unchanged; a retry is the same role.
+- ADR 0016 (stage roles write their own files): unchanged; a retry is the same role. A role that
+  writes its file with `result=failed` has delivered its stage, so the retry, which is for an agent
+  that could not finish, does not apply (D-5 "The retry's reach").
+- ADR 0020 decision 5 is read as D-5 "The retry's reach" says; review round 1 found the decision's
+  words silent on the agent that writes `result=failed`, and the clarifying Note of D-10 (task 5.3)
+  states the reading without changing a decision, with the clause that the Consequences'
+  mitigation "one retry a model up" reaches only an agent that cannot finish. ADR 0020 decision 2's
+  `[1m]` opt-in is read as reaching a session's own model and the retry's mapping, never a stage
+  subagent (D-9, task 1.5), and the same Note states it. Both readings, and AC-10 as narrowed from
+  the owner's `requirements.md` text, are listed in `proposal.md` among the criteria and readings
+  the owner accepts at the plan's approval; the owner confirms them there or names another reading.
 
 **Alternatives considered.**
 
@@ -742,6 +912,12 @@ No new ADR beyond `decisions.md`'s ADR 0020. Read, with their rejected alternati
   observed form, ADR 0011's review trigger.
 - [A failed agent that writes no `Outcome: failure` line is not seen as failed] → K1/K2 still end the
   run, as they do today for the agents whose outcomes name no failure (A-6).
+- [A stage agent that obeys the `subagent-stop` hook and writes `result=failed` never gets the
+  retry a model up, so a Haiku unit-test run that misreads the suite goes to the implementer's fix
+  instead of a Sonnet rerun] → MEDIUM × LOW: accepted (D-5 "The retry's reach"); the fix path
+  counts its attempts against the stage's ceiling and ends blocked at it, the readout shows the
+  stage's model, and a project that sees it often sets `unit-tests: sonnet`; the documents say it
+  (D-10), so nobody expects a retry there.
 - [A session that calls `next` with no `--after` after a failed hand-off gets no retry] → LOW × LOW:
   the skill always reports an agent with `--after` (D-9); such a call hands the stage on its table
   model, the failure stays in the window, and the next call with `--after` counts both runs, so the
@@ -768,20 +944,26 @@ release. No schema, agent, frontend or CI file.
 
 **Order.** The Agent `model` probe (A-3, task 1.1), then the table and its reading (D-1, D-2, D-3), then the readers and the retry (D-4, D-5),
 then the roadmap and the readout (D-6, D-7) with the messages (D-8), then the skill, the docs and
-the proof (D-9, D-10, D-13), then the release (D-14).
+the proof (D-9, D-10, D-13), then the release (D-14); after review round 1, the retry's reach (D-5,
+D-10, D-12, D-13): the pinning test, the doc test, the three documents, then real run 3 of D-13 (a
+stub test runner that obeys the hook) and the whole suite again (tasks 5.1 to 5.5); at the
+delivery merge, tasks 4.1 and 4.5 again (D-10).
 
 **File structure.** Create: `plugins/openspec/hooks/stage-models.test.mjs`,
-`openspec/changes/stage-models/proof/` (the probe's and the runs' outputs). Modify:
+`openspec/changes/stage-models/proof/` (the probe's and the runs' outputs; run 3 adds
+`fix-run.jsonl`, `fix-models.txt`, `fix-unit-tests.txt` and `fix-spend.txt`, and appends to
+`run-notes.txt`). Modify:
 `plugins/openspec/hooks/guard.mjs`, `plugins/openspec/hooks/change-loop.mjs`,
 `plugins/openspec/hooks/roadmap-loop.mjs`, `plugins/openspec/hooks/flow-check.mjs`,
 `plugins/openspec/hooks/guard.test.mjs` (one import), `plugins/openspec/hooks/change-loop.test.mjs`,
 `plugins/openspec/hooks/roadmap-loop.test.mjs`, `plugins/openspec/hooks/flow-check.test.mjs`,
 `plugins/openspec/skills/devkit/SKILL.md`, `docs/openspec-flow.md`, `docs/coordination-design.md`,
-`docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`, `openspec/config.yaml`,
+`docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`,
+`docs/adr/0020-the-model-is-chosen-by-stage.md` (the Note of task 5.3), `openspec/config.yaml`,
 `plugins/openspec/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`.
 Delete none.
 
-**Estimate.** Optimistic 17.5 h, likely 24.5 h (the table's sum), pessimistic 35 h.
+**Estimate.** Optimistic 19.5 h, likely 27.5 h (the table's sum), pessimistic 39 h.
 
 | Deliverable | Hours | Type | Risk |
 |---|---|---|---|
@@ -796,6 +978,9 @@ Delete none.
 | Skill (D-9) and docs, ADR 0014 Note, config (D-10) | 1.5 | Documentation | LOW |
 | Real-run proof (D-13) | 2 | Integration | HIGH |
 | Release and the whole suite (D-14) | 0.5 | Integration | LOW |
+| The retry's reach, review round 1 (D-5, D-10, D-12, D-13): the pinning test, the doc test, the flow document, the ADR 0020 Note and the CHANGELOG, the whole suite again | 1.5 | Testing | LOW |
+| Real run 3 of D-13, a stub test runner that obeys the hook (review round 5, task 5.4) | 0.5 | Integration | MEDIUM |
+| Tasks 4.1 and 4.5 redone at the delivery merge: the ADR renumbered, its references and `0020` tests, the release above `origin/main`'s (D-10) | 1 | Migration | MEDIUM |
 
 **Risks (probability × impact).**
 
@@ -809,6 +994,10 @@ Delete none.
 | The floor reads a change's table or flow that the session's own loop reads differently | LOW × LOW | Both use `modelsOf` and `readFlow`; the roadmap's read is lenient, so a bad change table gives the project's or the default model, and an unreadable flow gives `MODEL_STAGES`, never a wrong cheaper floor below a session-run stage of the default flows |
 | A nested `claude -p` is refused inside the implementer | MEDIUM × LOW | The conducting session runs D-13 in Bash |
 | `-p` ends before background agents return (run 2) | MEDIUM × MEDIUM | The conducting session reruns it; D-13 says so |
+| A stage agent that writes `result=failed` takes the fix path, not the retry (review round 1) | MEDIUM × LOW | Stated in the spec, D-5, D-10's three documents and D-13; pinned by the task 5.1 test; shown with a real agent by run 3 of D-13 (task 5.4); the owner accepts the narrowed AC-10 at approval (`proposal.md`) |
+| Run 3's Haiku test runner writes its file before its first stop, so the hook's ask is not shown (D-13) | LOW × LOW | One repeat; a second stops task 5.4 for a plan revision, with no product code change |
+| The delivery merge brings `origin/main`'s ADR 0020 and devkit-openspec 0.32.0 (review round 5) | HIGH × MEDIUM | Tasks 4.1 and 4.5 are redone at that merge, with the `0020` tests in the same commit (D-10); phase 5 is done on the current names first; the coordinator is asked to hold `main` at the release step |
+| The whole suite run of task 5.5 fills `/tmp` (the Avell's inode limit) | MEDIUM × LOW | The gate sets `TMPDIR=/var/tmp/devkit-stage-models` |
 | A new hook test passes locally and fails on CI | MEDIUM × MEDIUM | New tests take `cleanEnv`; every gate runs with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set |
 | A sibling change edits the same table, skill or version | MEDIUM × LOW | Versions and ADR number read at the last merge before review (tasks 4.1, 4.5) |
 
@@ -833,7 +1022,9 @@ Delete none.
   `adr-author`, `screen-designer`, `test-runner`, `e2e-tester`); `change-planner` (`escalated`),
   `pr-verifier` (`defect-found`) and `commit-and-pr` (`refused`) name no failure, so they are never
   retried, as today the session declares no failure for them (their Output sections,
-  `plugins/core/agents/*.md`).
+  `plugins/core/agents/*.md`). Of those that can fail, only a run that ends with that line and no
+  stage file is retried; one that writes its stage file with `result=failed` takes the stage's fix
+  path (D-5 "The retry's reach").
 
 **Dependencies.** `change-budget` (archived 2026-11-23: `sessionTranscript`, `spentOf`, the
 `budget` cap); `roadmap-coordinator-followups` (archived 2026-11-22: sessions per change); ADR 0020

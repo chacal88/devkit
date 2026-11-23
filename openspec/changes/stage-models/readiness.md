@@ -1,4 +1,4 @@
-<!-- devkit-stage readiness result=passed attempt=4 commit=19c0196ddbe3084153ae8b3f169b9203fc586058 -->
+<!-- devkit-stage readiness result=passed attempt=6 commit=e05787469f3a59a3de0a574a325a230566707b5e -->
 # Readiness review: stage-models
 
 ## 1. Decision
@@ -6,150 +6,163 @@
 - Confidence: high
 - Ready to implement: yes
 
-Round 4. The plan was revised after the phase 2 stop: `next` now reads the stage hand-offs only when it is
-called with `--after` (design D-5, D-11, D-12, the risks table and the alternatives table; tasks 2.2 and
-2.3; the `stage-models` spec delta, requirement "Only a next-action call after a hand-off reads the
-hand-offs"). This round re-reads that delta end to end and re-derives it against the code as built so far
-in `plugins/openspec/hooks/` (HEAD `19c0196`, working tree modified: phase 1 done, task 2.1, 2.4 and 2.5
-done, the readers of 2.2 and the `nextAction`/`decide` half of 2.3 already in the tree). No mandatory
-finding is open. `openspec validate stage-models --strict` passes and `python3 scripts/check.py` passes.
-No decision is left open.
+Round 6. The plan was revised after the round-5 NEEDS-REVISION: `design.md` D-13 gained a Run 3 (a test-runner
+stub that obeys the `subagent-stop` hook); phase 5 in `tasks.md` is renumbered (5.4 the run, 5.5 the gate); the
+proposal's consent list and D-10's ADR 0020 Note text changed; the Lows were fixed. Phases 1 to 4 are built and
+committed (HEAD `e057874`); phase 5 (tasks 5.1 to 5.5) is the work left, and it changes no product code. I read
+the revision end to end and re-derived its claims against the code as built. Both round-5 mandatory fixes are
+closed (section 9). No open Mandatory finding remains.
+
+Checks run here, on the base with `TMPDIR=/var/tmp/devkit-stage-models` and `GITHUB_HEAD_REF`/`GITHUB_BASE_REF`
+set: `openspec validate stage-models --strict` passes; `python3 scripts/check.py` passes;
+`python3 scripts/gen-catalog.py --check` passes; `^stage-models AC-(4|10) ` (35 tests) passes. The whole guard
+suite (13 to 21 minutes) is marked long and was not run by me; phases 1 to 4 passed it at their gates (task 4.6),
+and phase 5 changes no product code, so a red guard suite on the base is not expected (task 5.5 runs it).
 
 ## 2. Scope validation
 Classification: correct
 
-The revision narrows when the loop reads a transcript; it adds no surface. The change from "every `next`"
-to "`next` with `--after`" is one argument of `runNext` plus the roadmap's own, unchanged, one-read rule.
-Proposal scope, non-goals and the ADR 0019 decisions are not touched by it.
+Phase 5 pins built behaviour with one test, states it in two tests and three documents, and shows it in one real
+run. It adds no product code. The one scope edge, that it narrows an owner-grilled criterion (AC-10) and reads
+two decisions of ADR 0020, is now disclosed to the owner for acceptance (section 3), so it is a consent item, not
+inflation.
 
 ## 3. Proposal review
-No finding. `proposal.md` says only "the retry is read from the session's transcripts" (lines 29, 41) and
-AC-10 and AC-11 (lines 98-99), none of which names the call that reads; they stay true. The three AC
-resolutions are still put to the owner at approval.
+- `proposal.md` "Acceptance criteria" now says AC-1 to AC-9 and AC-11 to AC-13 are the owner's text as written
+  and AC-10 is not. I diffed each line against `requirements.md`: AC-1 to AC-9, AC-11 to AC-13 are identical;
+  AC-10 differs exactly as the proposal says (the added "that wrote no stage file" and the `result=failed`
+  clause). The claim holds.
+- The resolved-by-design list now reads "Four criteria and two readings of ADR 0020", and names AC-10 (narrowed,
+  with the consequence that a red Haiku unit-test run goes to the implementer's fix and not to a Sonnet rerun),
+  ADR 0020 decision 5 and decision 2 (`[1m]` reach). The owner accepts each at plan approval. Round-5 fix 2 closed.
+- "What Changes" states the narrowed retry; Impact now lists `docs/adr/0020-the-model-is-chosen-by-stage.md` and
+  its renumbering at the delivery merge. Non-goals unchanged and still true.
 
 ## 4. Design review
-The claims of the revision, re-derived against the code:
+Claims of the revision, re-derived against the code:
 
 | Claim | Where checked | Result |
 |---|---|---|
-| `runNext` is where the retry is switched on; today it passes `retry: true` and the plan changes it to `retry: opts.after !== undefined` | `change-loop.mjs:2046-2051` | holds; the tree still says `retry: true`, which is exactly what 2.3's red test is written against |
-| `opts.after` is `undefined` when the flag is absent and a string when present | `parseArgs`, `change-loop.mjs:2023-2035` (`opts[a.slice(2)] = v` only when the flag is read; a flag with no value throws) | holds; an empty-string value counts as given, which is harmless |
-| `nextAction` has the `retry` and `handOffs` options and the `handOffsFact` | `change-loop.mjs:1191, 1210-1217` | holds; already built, with the lock, `wait`, `state` and roadmap-status callers passing neither (`:1561, :1917, :2152`, `roadmap-loop.mjs:793, :836`) |
-| `decide`'s inner `agent` calls `retried` before `guard`, with the failure count, `oneUp`, the `[1m]` suffix and `blocked('role-failed', ...)` | `change-loop.mjs:1000-1023` | holds, as D-5 writes it |
-| `handOffKey`, `subagentRun`, `handOffsOf`, `typedSince`, `familyOfId` exist as D-4 lists them; `usage` events carry `model` | `guard.mjs:710-787`, `:681-685` | holds |
-| The kept test "change-budget AC-4 with no budget next prints the same output with and without a session transcript, and reads none (kept)" calls `next` with no `--after` and no budget, and asserts zero reads | `change-loop.test.mjs:4340-4350` | holds; I ran it on the tree: it fails today with `1 !== 0` because `runNext` passes `retry: true`. It is the one failure, and it is the one task 2.3 fixes. |
-| Every retry and failure test of a lone change calls `next` with `--after` (or, for the "new typed command" and "no transcript" ones, expects no retry) | `stage-models.test.mjs:656-806` | holds; I ran `stage-models AC-1[01]` and `change-budget AC-4`: nothing else fails, so `--after` only wiring cannot break a built retry test |
-| The skill passes `--after` after every `agent` and `session` action, a failure included, in a change's own session and in the roadmap | `SKILL.md:83, :87, :168` (diff of 2.5 read) | holds; D-5's "every failure already comes back with `--after`" is true of the skill as written |
-| The roadmap's reading does not depend on `--after`: only `runCmd` and `nextCmd` pass `retry: true`; with one session it reads once and passes `handOffs` | `roadmap-loop.mjs:451-453, 476-483, 491, 739, 766` | holds; the lock and `statusCmd` pass nothing |
-| `--after` is the only trigger | `nextAction` callers listed above | holds |
+| `retried` matches the newest runs by `handOffKey` of the action `decide` would hand now | `change-loop.mjs:1013-1023`; `guard.mjs:710-722` (`BRIEF_END`, `handOffKey`) | holds |
+| A stage agent that wrote `result=failed` gets `fix-after-failure`; `decide` builds a different brief, so no retry | `flow-check.mjs:518` (`header-failed`), `:633-637`; `change-loop.mjs:1063-1066` (`planPart`), `:1101-1105` (`testStageStep`, `fix-tests` on `implementation`) | holds |
+| Plan-stage case at `decisions` on `opus` gives a revision, no `retry`, exit 0; the same world with no file gives exit 2 (failure on Opus) | I ran a throwaway test (scratchpad, not in the repo) on `planChange({have:['requirements']})`: with `decisions.md` at `result=failed attempt=1` the action is `decisions` / `devkit-core:adr-author` / `opus`, brief holds "revise the plan from its findings", no `retry`; with no file, exit 2 | holds; the revised scenario (the `decisions` stage, not `design`) is the one a real run can reach |
+| A stage at its ceiling ends blocked, no retry | `flow-check.mjs:634-635` (`ceiling-reached`); `decisions`/`unit-tests` ceiling 3 in both `flow.json` | holds; the new scenario "A test stage recorded as failed at its ceiling" states it (round-5 Low closed) |
+| `rerun-after-fix` is a different brief, so no retry | `flow-check.mjs:636`; `change-loop.mjs:1096-1098` ("run it again") | holds; D-5 now says it and points to existing tests |
+| `subagent-stop` asks for a missing stage file once, lets the second stop through | `change-loop.mjs:1896-1904` (`refuseOnce`), `:1945-1964` (U2 `no-file`) | holds |
+| `unit-tests` has `onFail: implementation`, `codeBound`, `appliesWhen tests.unit`; `e2e-tests` the same with `tests.e2e` | `plugins/openspec/schemas/devkit*/flow.json` | holds; Run 3's scratch config (`tests.unit` only) makes `e2e-tests` not apply |
+| Runs 1 and 2 used the "stop again at once" stubs; the first attempts showed the obeying path | `proof/run-notes.txt` deviations 2 and 3; `proof/lone-models.txt` | holds; D-13 now says it (round-5 Low closed) |
+| The Agent call's `model` overrides the frontmatter | `proof/probe-agent-model.txt` (Agent input `model=haiku`, subagent `message.model=claude-haiku-5-5`) | holds |
+| Replaced sentences exist as D-10 quotes them | `docs/openspec-flow.md:240` (one line); `CHANGELOG.md:5-11` (wrapped; D-10's one-line anchor rule covers it); ADR 0020 decision 7 at line 65, `## Consequences` at 67 | holds |
 
-Not verifiable here, as in round 3: A-1 and A-2 (the host's start and switch tools) are recorded as facts
-of 2026-11-23; A-3 (the Agent `model` parameter) is probed by task 1.1, which is ticked (its proof files
-are in `proof/`).
+**Run 3 (D-13), the new real-run proof.** The path is what the code does: a Haiku `unit-tests` agent stops once,
+the hook refuses (U2 `no-file`), the stub writes `unit-tests.md` at `result=failed attempt=1 commit=HEAD`, and
+`flow-check` offers `implementation` with `fix-after-failure`, which `testStageStep` turns into `fix-tests` on the
+implementation's table model (`sonnet`) with no `retry` field. The staleness trap that hit run 1 (an untracked
+marker read as uncommitted code, so `fixed` and `rerun-after-fix`) does not arise: Run 3's stubs write no marker,
+and the stage file in the change folder is the same kind of file run 1's `result=passed` file was. The "ends as
+the loop decides" tail is correctly left out of the check. The repeat rule and the stop-and-report rule bound the
+one place the run could surprise (a Haiku agent that writes the file before its first stop).
+
+**ADR 0020 Note (D-10).** The text now carries the clause round 5 asked for ("So the Consequences' mitigation
+'one retry a model up' reaches only an agent that cannot finish; a stage agent that obeys the hook and records
+`result=failed` takes the fix path, bounded by the stage's ceiling"), and both readings. It needs no superseding
+ADR: no decision's text changes, the ADR is unmerged and ships in this pull request, and ADR 0014 sets the
+precedent of a Note. `design.md:563` now says "the Notes of ADR 0014" (round-5 Low closed). The consent trail is
+in `design.md` "Decisions and ADRs" and `proposal.md`.
 
 ## 5. Specs review
-- The new requirement "Only a next-action call after a hand-off reads the hand-offs" uses SHALL and has
-  two scenarios: "A call with no progress key reads no hand-off" and "A lock reads no hand-off". Each
-  outcome row of D-5's read rule has one: no `--after` reads none, with `--after` reads (the retry
-  scenarios of the same spec all pass the key), a roadmap in one session reads once, a lock and the board
-  read none.
-- The requirement "A failed stage subagent is retried" and its three scenarios still say "called again
-  with that action's progress key", which matches the revised trigger.
-- Low: the requirement says the call "with the progress key of the action before it", while D-5 and the
-  skill also pass `--after` after a `session` action, so such a call reads the hand-offs too. Harmless (the
-  hand-offs are keyed by brief), and the requirement's own sentence "the call the session makes after every
-  stage agent" stays true. No change needed.
+- `stage-models` delta: "Only a stage subagent that could not finish is retried" uses SHALL and has three
+  scenarios (a test stage, a plan stage at `decisions`, a test stage at its ceiling); "The 1M variant is an
+  explicit opt-in" gains the subagent scenario; the two existing retry scenarios now say "without writing
+  `unit-tests.md`". `change-coordination` "A failed stage agent" says "without writing its stage file".
+  `openspec validate --strict` passes. Every outcome row of D-5's decision (retry, second failure, Opus, written
+  failed file, plan stage, ceiling, `rerun-after-fix` by existing tests) has a scenario or a named existing test.
+- Nothing in the specs lives only in a support doc.
 
 ## 6. Tasks review
-- 2.3 is test first, names its red test, the three options, the header-comment sentence and a gate that
-  runs the kept change-budget and lock tests. 2.2's check still names the kept test as passing "unchanged";
-  see section 10 for the resume point, since the tree already holds 2.3's `nextAction` and `decide` half.
-- Gates run on the base here: `openspec validate stage-models --strict` and `python3 scripts/check.py`
-  green. I ran the part of 2.3's gate that already exists: `--test-name-pattern="^stage-models AC-1[01] "`
-  with `^change-budget AC-4` over `stage-models.test.mjs` and `change-loop.test.mjs`: one failure, the kept
-  test, as described. The whole suite (13 to 21 minutes) was not run; task 4.6 runs it once.
-- The AC table still maps AC-1 to AC-13; AC-10 lists 2.2 and 2.3 for the reader and the trigger.
+- 5.1 to 5.5 are ordered and map to the checks. 5.1 is a pin (passes with no code change; the stop-and-report rule
+  is right, and I confirmed the plan-stage half above). 5.2 is red first and names its helpers and its
+  expected failures. 5.3 states exact greps; I checked the anchors against the current files (the only `without
+  writing its stage file` of `CHANGELOG.md` is the retry sentence, `on Haiku or Sonnet is handed again` is on
+  one line of `docs/openspec-flow.md:240` and goes). 5.4 states the scratch paths, the permission mode, the
+  files saved, the lines the check holds, the fallback when a nested `claude -p` is refused, and the repeat rule.
+  5.5 is the gate, with `TMPDIR` set, the guard suite marked long, and the new `grep -q` checks on
+  `fix-models.txt` and `fix-unit-tests.txt`.
+- The AC table maps AC-4, AC-10 and AC-13 to the new tasks, with 5.5 for the gate. The renumbering is consistent:
+  every `5.4` in `design.md` means the run, every `5.5` the gate.
+- No task path is outside a real directory; scratch projects live under `/var/tmp/devkit-stage-models/proof/` and
+  nothing of them is left in the repository (task 5.4 says so).
+- Tasks 4.1 and 4.5 stay ticked and are redone at the delivery merge (D-10 and the phase-5 preface): `origin/main`
+  (local ref `b92e6b1`, not fetched) holds another ADR 0020 and 0.32.0. This is now planned, with the `0020` tests
+  following in the same commit and an estimate row; round-5 section 10 item closed.
 
 ## 7. Omission detection
-- Validation, error handling, retries, compatibility, idempotency, observability and rollback are defined,
-  as in round 3. The revision adds a defined behavior for the one case it opens: a call with no `--after`
-  after a failure hands the stage on its table model, the failure stays in the window, and the next call
-  with `--after` counts both runs, so the run still ends blocked after two failures in a row (D-5 and the
-  risks table). That case has a test row in D-12 (task 2.3).
-- A start at a Haiku stage under the default table (a session resumed at `unit-tests` or `delivery`) is
-  still the open note of round 3 (section 10).
+- Validation, error handling, retries, idempotency, compatibility, observability and rollback: defined as in
+  round 5. The case phase 5 opens (a failed agent that wrote its file) has a requirement, three scenarios, D-5
+  prose, a risk row, a pinning test, a document test and a real run.
+- Test strategy and evidence: the fixture half (5.1, 5.2) and the real half (5.4) now both cover the
+  `result=failed` case; CLAUDE.md's "every case the plan declares" is met.
+- Release and ADR numbering at the merge: planned (D-10, risk row, estimate row).
 
 ## 8. Execution risks (top 5 failures)
-1. Cause: a driver that drops `--after` after a failed agent. Impact: the failed stage is handed again on
-   its table model instead of one model up, once. Prevention: D-5 accepts it and the next call with
-   `--after` still ends the run blocked after two failures in a row.
-2. Cause: the Agent tool ignores `model` (A-3). Prevention: task 1.1 probed it first.
-3. Cause: the host ignores a start `model` above the coordinating session's family (A-1). Prevention:
-   recorded, with the Troubleshooting row.
-4. Cause: `-p` cannot carry the roadmap proof run (D-13). Prevention: the fallback and the accepted extra
-   attempt.
-5. Cause: a sibling change edits the release numbers or the ADR number. Prevention: tasks 4.1 and 4.5 read
-   `origin/main` at the last merge before review (no `0019` file on `origin/main` today).
+1. Cause: the delivery merge brings in `origin/main`'s ADR 0020 and 0.32.0. Impact: `stage-models AC-1`'s
+   "no other file takes 0020" and the `0020` tests name the wrong ADR; a re-merge, evidence and review round costs
+   1-2 h. Prevention: tasks 4.1 and 4.5 redone with the renumber at the merge (D-10); ask the coordinator to hold
+   `main` at the release step.
+2. Cause: Run 3's Haiku test runner writes the file before its first stop, so the hook's ask is not shown.
+   Impact: a wasted run. Prevention: the repeat-once rule and the stop on a second occurrence (task 5.4).
+3. Cause: the wrapped `CHANGELOG.md` splits an anchor across lines. Impact: 5.3's `grep -c` prints 0.
+   Prevention: D-10's one-line anchor rule; run the greps.
+4. Cause: a nested `claude -p` is refused inside the implementer. Impact: task 5.4 cannot run. Prevention: the
+   `Outcome: failure` naming the task and the conducting session's Bash run, both written in D-13.
+5. Cause: a Haiku unit-test run that misreads the suite goes to the implementer's fix, not to a Sonnet rerun.
+   Impact: a wasted fix attempt against the ceiling. Prevention: accepted in the risk table and in the owner's
+   consent list; `unit-tests: sonnet` is the project lever.
 
 ## 9. Mandatory fixes before implementation
-None.
+None. The two round-5 fixes are closed:
+- [x] High, Run 3: D-13 "Run 3", tasks 5.4 and 5.5, the AC-10 and AC-13 rows of the AC table.
+- [x] Medium, consent trail: `proposal.md` (AC-10 flagged as narrowed, listed with the two ADR readings),
+  `design.md` D-10 (the Note's clause on the narrowed mitigation), "Decisions and ADRs".
 
 ## 10. Optional improvements (within scope)
-- [ ] Medium, fix during implementation: the resume point of phase 2. The tree already holds the readers of
-  task 2.2 and the `nextAction`, `handOffs` and `retried` half of task 2.3, with `runNext` still passing
-  `retry: true`. Task 2.2's check ("`change-budget AC-4 ... (kept)` passes unchanged") therefore cannot pass
-  until 2.3's one-argument edit of `runNext` is made. Do 2.3's red test first, then the `runNext` edit and
-  the header-comment sentence, and run 2.2's and 2.3's checks together; do not weaken the kept test.
-- [ ] Low, fix during implementation: the title of `stage-models.test.mjs:780` says "nextAction reads the
-  subagent folder only when asked to retry, and next asks". After the revision `next` asks only with
-  `--after`; rename the test (it tests `nextAction`'s options, not `next`) so the 2.3 test is the one that
-  speaks of `next`.
-- [ ] Low, carried from round 3: `design.md:527` says the ADR 0014 Note is written "in the form ADR 0018's
-  Notes use", but ADR 0018 has no Note; the form is ADR 0014's own existing Note
-  (`Note (change-state, 2026-11-22):`).
-- [ ] Low, carried: a session started at a Haiku stage (a change resumed at `unit-tests` or `delivery` with
-  no session of its own) starts on Haiku and performs its review and retro there, which the floor forbids
-  for switches. ADR 0019 Consequences accept it; no scenario shows it. Either add the scenario and the D-10
-  Troubleshooting words, or have `sessionStartOf` send the floor. The plan builds the first as written.
-- [ ] Low, carried: the D-12 group "Skill and docs" is not assigned to a red-half task (write the skill
-  tests in the red half of 1.2 and 3.1, the docs tests in 4.2); `design.md:377-378` says a declined host
-  question gives `session-model-refused` while a decline may end the turn with no call result (treat any
-  non-success as a refusal); `tasks.md:61` counts a compact-JSON string (use a JSON-aware count if the host
-  prints spaces).
-- [ ] Note for the flow: `approval.md` holds `Readiness: sha256:e1f3db14a94b`, the hash of the round 3
-  file. This file replaces it, so the approval's hash no longer matches; the flow re-asks the owner, who
-  already chose the `--after` rule on 2026-11-23.
+- [ ] Low, fix during implementation: `design.md` A-3 (about line 1014) still says "Not yet checked; task 1.1
+  probes it before any code". Task 1.1 is done and `proof/probe-agent-model.txt` shows `model=haiku` on the Agent
+  input and `claude-haiku-5-5` on the subagent. Say "checked in task 1.1".
+- [ ] Low, carried: a session started at a Haiku stage (a change resumed at `unit-tests` or `delivery`) has no
+  scenario or Troubleshooting words; the D-12 "Skill and docs" group is not assigned to a red-half task; a declined
+  host question may end the turn with no call result; `tasks.md:61` counts a compact-JSON string.
+- [ ] Note for the flow: `approval.md` holds `Readiness: sha256:e1f3db14a94b`, the hash of the round 3 file. This
+  file replaces it; the flow re-asks the owner, who now also accepts the narrowed AC-10 and the two ADR 0020
+  readings listed in `proposal.md`.
 
 ## 11. Explicitly out of scope
-- [ ] The coordinating session's own model, switching a lone change's session, a status bar, a model above
-  Opus, writing the spend to a file (`requirements.md` "Out of scope").
-- [ ] `project-loop.mjs` hand-offs, the review round's reviewers, the CompozyOS driver, the agents'
-  frontmatter.
+- [ ] The coordinating session's own model, switching a lone change's session, a status bar, a model above Opus,
+  writing the spend to a file (`requirements.md` "Out of scope").
+- [ ] `project-loop.mjs` hand-offs, the review round's reviewers, the CompozyOS driver, the agents' frontmatter.
+- [ ] Changing `retried` to also retry a `result=failed` agent: the review chose to keep the code (D-5), and the
+  test-runner contract makes a red run a stage result.
 
 ## 12. Mandatory review questions
-1. Is the problem objectively defined? Yes (`proposal.md` Why; ADR 0019 Context).
-2. Is the result measurable? Yes. AC-1 to AC-12 have tests named in D-12; AC-13 reads transcript model
-   fields.
-3. Are error behaviors defined? Yes: `setting-unknown`, `LoopRefusal`, `role-failed`, fail-open readers, a
-   refused switch, a lenient read outside a change's own loop, each with a scenario.
-4. Are edge cases covered? Yes: a call with no `--after` after a failure, a `/devkit status` mid-run,
-   success resetting the count, no transcript, other changes' subagents between, a found session, a floor
-   above the stage. One accepted edge has no scenario (the Haiku start).
-5. Are dependencies clear? Yes: `change-budget`, ADRs, the host tools with the probe for A-3.
-6. Are contracts defined? Yes: the `model` field, the `retry` mark, `nextAction`'s `retry` and `handOffs`
-   options, `runNext`'s argument, the start `input`, the `session-model` action, the `--after` keys, the
-   spend messages.
-7. Can two developers interpret this differently? Not on a point that changes behavior: the read rule is
-   one argument (`opts.after !== undefined`), the failure count four numbered steps.
-8. Are any decisions implicit instead of written? No. The `--after` rule is written in D-5, D-11, D-12, the
-   risks, the alternatives, the tasks and the spec.
-9. Do the tasks fully deliver the intended outcome? Yes; the AC table maps all 13 criteria.
-10. What will be discovered too late if implementation starts now? Little. The live half of AC-6 and AC-7
-    is a declared dogfood step; A-1 is recorded with a fallback.
+1. Is the problem objectively defined? Yes (`proposal.md` Why; ADR 0020 Context).
+2. Is the result measurable? Yes: AC-1 to AC-12 by named tests; AC-13 by runs 1 and 2 (the retry of an agent that
+   cannot finish) and run 3 (the fix path), with the gate's greps.
+3. Are error behaviors defined? Yes, including a failed agent that wrote its file, a stage at its ceiling, a
+   failure on Opus and a second failure.
+4. Are edge cases covered? Yes, with the carried Lows of section 10.
+5. Are dependencies clear? Yes; the ADR number and release collision with `origin/main` is planned for.
+6. Are contracts defined? Yes: the retry's reach, the `fix-tests` and revision briefs, the Note's and the
+   documents' sentences with their anchors, the line forms of `fix-models.txt`.
+7. Can two developers interpret this differently? Not on code or on the documents' text (D-10 gives the sentences).
+8. Are any decisions implicit instead of written? No. The narrowed AC-10 and the two ADR readings are written and
+   put to the owner for acceptance.
+9. Do the tasks fully deliver the intended outcome? Yes: the pin, the document tests, the three documents, the
+   real run of the case real agents take, and the gate.
+10. What will be discovered too late if implementation starts now? The ADR and release renumbering at the delivery
+    merge (planned), and a Haiku test runner that does not wait for the hook (bounded by the repeat rule).
 
 ## 13. Final conclusion
-- Can we start? Yes, from task 2.3 (2.2's readers and 2.3's `nextAction` half are in the tree).
-- What must be fixed? Nothing before implementation. The Medium note in section 10 is the order of the
-  resume.
-- Main risk if ignored? Treating the red kept change-budget test as a test to change instead of the code to
-  fix: D-5 and D-11 say the code changes, not the test.
+- Can we start? Yes. Phase 5 can be implemented without a question that changes behaviour or scope.
+- What must be fixed? Nothing before implementation. The Lows of section 10 can be fixed during it.
+- Main risk if ignored? The merge-time renumbering of ADR 0020 and the release number; it is in the plan and costs
+  a re-merge round if `main` moves again.

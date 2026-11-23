@@ -24,8 +24,9 @@ ends the run. The owner asked that the model be chosen by stage, never by the ow
 - Every action of `change-loop.mjs next` whose stage has a row carries a `model` field; the `devkit`
   skill passes it on every Agent call, so a stage subagent runs on its stage's model whatever the
   session's own model.
-- A stage subagent that returns `Outcome: failure` on Haiku or Sonnet is handed once more on the next
-  family up; a second failure, or one on Opus, ends the run blocked (`role-failed`), now decided by
+- A stage subagent that returns `Outcome: failure` on Haiku or Sonnet without writing its stage file
+  is handed once more on the next family up (one that records `result=failed` in its stage file takes
+  the stage's existing fix path, with no retry); a second failure, or one on Opus, ends the run blocked (`role-failed`), now decided by
   the loop instead of declared by the session. The retry is read from the session's transcripts.
 - In a roadmap run with a session per change, the `session-start` action's `input` holds the model
   of the change's current stage, and a new `session-model` action steps a change session down to
@@ -84,7 +85,9 @@ Consequences accept). The rule lives in one function, `stepDownOf` (`design.md` 
 
 ## Acceptance criteria
 
-Copied from `requirements.md`, with their ids.
+From `requirements.md`, with their ids. AC-1 to AC-9 and AC-11 to AC-13 are the owner's text as
+written; AC-10 is not: its line below is the design's narrowed reading of the owner's AC-10, which
+the owner accepts at plan approval with the other resolved readings listed after the criteria.
 
 - AC-1 `default-table`: with no `models:` key, `next` for each stage of a change returns the model the built-in default names (Opus for the grill, plan and ADR stages, Sonnet for implement, review and deliver, Haiku for the commit hand-off, unit-test run and validation).
 - AC-2 `config-table`: a `models:` entry in the `devkit:` block of `openspec/config.yaml` changes the model `next` returns for that stage, and the same entry in the change's `.openspec.yaml` wins over the project's.
@@ -95,13 +98,14 @@ Copied from `requirements.md`, with their ids.
 - AC-7 `session-step-down`: when a change's stage changes in a roadmap run, the roadmap loop returns a switch action only when the new stage's model is cheaper than the session's current one; it never returns a switch to a more expensive model.
 - AC-8 `upward-stage-subagent`: a stage whose model is above the session's current one is returned as an `agent` action with that model, never as a session switch.
 - AC-9 `lone-change`: `/devkit change` alone never calls the session-model tool; only its `agent` actions carry models.
-- AC-10 `retry-one-step-up`: after one `Outcome: failure` of a stage subagent on Haiku or Sonnet, `next` returns the same stage on the next family up; a second failure, or a first failure on Opus, ends the run blocked with `role-failed`.
+- AC-10 `retry-one-step-up`: after one `Outcome: failure` of a stage subagent on Haiku or Sonnet that wrote no stage file, `next` returns the same stage on the next family up; a second failure, or a first failure on Opus, ends the run blocked with `role-failed`; a subagent that recorded `result=failed` in its stage file gets the stage's existing fix hand-off, not a retry.
 - AC-11 `retry-counted`: the retry's tokens are in the `budget` count and in the spend readout, marked as a retry.
 - AC-12 `spend-readout`: `flow-check` and `/devkit status` print tokens per stage and per model, the retries and the total against the `budget` cap, and write no file.
 - AC-13 `real-run-proof`: the change's real-run proof covers a lone change and a roadmap run on at least two stages with different models, each shown in the transcripts' model fields, plus one retry; the guard test suite passes.
 
-Three criteria are resolved by the design, and the evidence is checked against the resolved wording
-below; the owner accepts them at plan approval or names another reading:
+Four criteria and two readings of ADR 0020 are resolved by the design, and the evidence is checked
+against the resolved wording below; the owner accepts each at plan approval or names another
+reading:
 
 - AC-1, "validation": no stage of either script is validation. The `openspec-validator` helper runs
   inside the plan stages and already declares `model: haiku`, so AC-1's "validation" is met by that
@@ -121,6 +125,28 @@ below; the owner accepts them at plan approval or names another reading:
   a switch to an equal or more expensive model. A switch so returned is still only to a model cheaper
   than the session's, and the new stage's model is never above its target (`design.md` D-6; spec
   `roadmap-coordination`, "A change session only steps down").
+- AC-10, narrowed (review round 1). The owner's text (`requirements.md` AC-10) retries "one
+  `Outcome: failure` of a stage subagent on Haiku or Sonnet" with no condition. The design narrows
+  the trigger to a stage subagent that stopped with `Outcome: failure` and wrote no stage file (an
+  agent that could not finish); one that recorded `result=failed` in its stage file, as the
+  `subagent-stop` hook asks of an agent that stops without it, is a failed stage and gets the
+  stage's existing fix hand-off (the implementer's `fix-tests` after a test stage, a revision after a
+  plan stage) on that action's table model, with no retry. Since a real agent usually obeys the hook,
+  the retry reaches fewer failures than the owner's text suggests: a red Haiku unit-test run goes to
+  the implementer's fix, not to a Sonnet rerun. AC-10 is checked as its line above says (`design.md`
+  D-5 "The retry's reach"; spec `stage-models`, "Only a stage subagent that could not finish is
+  retried"; the real run 3 of `design.md` D-13).
+- ADR 0020 decision 5, read. "A stage subagent that returns `Outcome: failure` on Haiku or Sonnet is
+  handed again once on the next family up" is read as AC-10 above: only an agent that stopped
+  without writing its stage file. The ADR's Consequences mitigation "one retry a model up" therefore
+  reaches only an agent that cannot finish; a stage that records `result=failed` is mitigated by its
+  fix path and its ceiling instead. The ADR's Note states this reading and changes no decision
+  (`design.md` D-10, task 5.3).
+- ADR 0020 decision 2, read. The `[1m]` opt-in reaches a session's own model (a change session's
+  start model or a step-down to that value) and the retry's mapping on the action, never a stage
+  subagent: the Agent call drops the suffix (built in task 1.5), so a stage agent whose row is
+  `opus[1m]` runs with the plain family's context window. The ADR's Note states this reading too
+  (`design.md` D-10, task 5.3).
 
 Exit criteria: every phase gate of `tasks.md` green, then
 `node --test plugins/openspec/hooks/guard.test.mjs`, `python3 scripts/check.py`,
@@ -162,6 +188,8 @@ Exit criteria: every phase gate of `tasks.md` green, then
   `flow-check.test.mjs`.
 - Docs and release: `docs/openspec-flow.md`, `docs/coordination-design.md`,
   `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md` (header and Note),
+  `docs/adr/0020-the-model-is-chosen-by-stage.md` (the clarifying Note of task 5.3; its number moves
+  to the next free one at the delivery merge, `design.md` D-10),
   `openspec/config.yaml` (comment and ADR list), `CHANGELOG.md`, devkit-openspec's `plugin.json` and
   `.claude-plugin/marketplace.json`.
 - Dependencies: `change-budget` (archived 2026-11-23; its count and transcript lookup are reused).

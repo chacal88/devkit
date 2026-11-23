@@ -18,7 +18,7 @@ hold it.
 - **THEN** its output holds `devkit-end: <id> blocked` after its `devkit-run: <id>` line
 
 #### Scenario: A failed stage agent
-- **WHEN** a stage agent returned `Outcome: failure` and the loop is called with its action's progress key
+- **WHEN** a stage agent returned `Outcome: failure` without writing its stage file and the loop is called with its action's progress key
 - **THEN** the loop gives the retry of that stage or ends the run blocked itself, with `devkit-end: <id> blocked` after its `devkit-run: <id>` line, and the session declares no end for it
 
 #### Scenario: An end the session declares

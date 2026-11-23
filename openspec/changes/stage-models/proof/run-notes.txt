@@ -43,3 +43,27 @@ the line "proof-road stopped: the E2E tests could not finish its work" (the road
 `devkit-end` line). After that end the session, on its own, tried `roadmap-loop.mjs reply blocked
 --param why=e2e-tests-failed`, which the loop refused as an unknown reply key; it changed nothing.
 The spend blocks (lone-spend.txt, road-spend.txt) list the two retries of each run.
+
+Run 3 (task 5.4, D-13 "Run 3, a stage agent that obeys the hook"), written by the implementer.
+Setup: scratch project /var/tmp/devkit-stage-models/proof/fix (change proof-fix, devkit-lite, tests.unit
+"true", no e2e, no models table), built as run 1's (schemas copied, requirements, proposal, one spec delta
+and tasks at result=passed, task ticked, one code commit after them); stub pack
+/var/tmp/devkit-stage-models/proof/fix/core, a fresh copy of plugins/core with the test-runner and
+tdd-implementer bodies of D-13 run 3 (frontmatter kept).
+Command: claude -p --model sonnet --permission-mode bypassPermissions --plugin-dir
+  <worktree>/plugins/openspec --plugin-dir /var/tmp/devkit-stage-models/proof/fix/core
+  --output-format stream-json --verbose "/devkit-openspec:devkit change proof-fix"
+Permission mode: bypassPermissions from the start, in the scratch folder only (D-13). Session id:
+d6325603-37a2-418f-b0c9-4a6519b68f88; the init event lists devkit-openspec from this worktree and
+devkit-core from the stub pack. One run, no repeat (stop-hook-asked=yes at the first run).
+Deviation: the stub pack lives inside the scratch repository, as D-13 names its path, so `core/` read
+as uncommitted code and sent the change back to the implementation; the scratch repository lists
+`core/` in .git/info/exclude (the same remedy as deviation 2 above), no stub text changed.
+Result: the unit-test subagent ran on claude-haiku-5-5, the `guard.mjs subagent-stop` hook refused its
+first stop asking for unit-tests.md, it wrote the file with result=failed attempt=1 and ended
+`Outcome: failure — proof`; `next --after unit-tests/unit-tests@1259c7c19589` gave an agent action at
+stage implementation, agent devkit-core:tdd-implementer, step fix-tests, model sonnet, no retry field;
+the implementer ran on claude-sonnet-5-5, changed no file and ended `Outcome: success — proof`; the next
+call ended `devkit-end: proof-fix blocked` (no-progress), as expected. The Haiku test runner also ran
+the vendored suite under core/ (10 of 89 red) before it stopped; that is its own work and plays no part in
+the check. fix-spend.txt lists no retry.

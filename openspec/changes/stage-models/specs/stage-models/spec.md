@@ -74,11 +74,17 @@ default instead, so that a typing error in one change stops no other.
 
 ### Requirement: The 1M variant is an explicit opt-in
 A `models:` value of `opus[1m]` or `sonnet[1m]` SHALL be accepted and carried by the loop's actions
-exactly as written.
+exactly as written. The suffix SHALL reach only a session's own model (a change session's start
+model, or a step-down to that value) and the retry's mapping on the action; a stage subagent SHALL
+run on the plain family, since the session drops the suffix on the Agent call.
 
 #### Scenario: A 1M variant for one stage
 - **WHEN** the project's `models:` holds `implementation: sonnet[1m]`
 - **THEN** the implementation's hand-offs carry the model `sonnet[1m]`
+
+#### Scenario: A 1M variant on a stage subagent
+- **WHEN** the implementation's hand-off carries `sonnet[1m]` and the `devkit` skill's Loop is followed
+- **THEN** the Agent call's `model` is `sonnet`, and the documents say the opt-in never reaches a stage subagent
 
 ### Requirement: Every action at a stage carries the stage's model
 Every action the loop prints whose stage has a row SHALL carry a `model` field, the stage's model.
@@ -112,7 +118,7 @@ same stage again with the next family up (Haiku to Sonnet, Sonnet to Opus, a `[1
 marked as a retry.
 
 #### Scenario: A failure on Haiku
-- **WHEN** the unit-test subagent, handed on `haiku`, returned `Outcome: failure`, and the loop is called again with that action's progress key
+- **WHEN** the unit-test subagent, handed on `haiku`, returned `Outcome: failure` without writing `unit-tests.md`, and the loop is called again with that action's progress key
 - **THEN** the next action hands the same unit-test stage with `model` `sonnet`, marked as a retry of a failure on `haiku`, instead of ending for no progress
 
 #### Scenario: A failure on a 1M Sonnet
@@ -122,6 +128,25 @@ marked as a retry.
 #### Scenario: A success after a failure resets the count
 - **WHEN** a stage subagent of a brief failed, its retry succeeded, and later a new subagent of the same brief fails, and the loop is called again with that action's progress key
 - **THEN** the loop hands one retry again
+
+### Requirement: Only a stage subagent that could not finish is retried
+The retry SHALL reach only a stage subagent that stopped with `Outcome: failure` without writing its
+stage file. A stage subagent that recorded `result=failed` in its stage file (as the
+`subagent-stop` hook asks) is a failed stage: below the stage's ceiling the loop SHALL hand the
+stage's existing fix on the fix action's own model, with no retry mark, whatever its last line says;
+at the stage's ceiling the run SHALL end blocked as it did before, with no retry.
+
+#### Scenario: A failure with a written result=failed file
+- **WHEN** the unit-test subagent, handed on `haiku`, wrote `unit-tests.md` with `result=failed` in its stage header and returned `Outcome: failure`, and the loop is called again with that action's progress key
+- **THEN** the next action hands the implementation to the implementer with the step `fix-tests` and the implementation's table model, carries no retry mark, and the run does not end
+
+#### Scenario: A plan stage recorded as failed
+- **WHEN** the decisions subagent, handed on `opus`, wrote `decisions.md` with `result=failed` in its stage header and returned `Outcome: failure`, and the loop is called again with that action's progress key
+- **THEN** the next action hands the decisions stage to its ADR author for a revision from its findings, on `opus`, with no retry mark, and the run does not end for a failure on Opus
+
+#### Scenario: A test stage recorded as failed at its ceiling
+- **WHEN** the unit-test subagent wrote `unit-tests.md` with `result=failed` at the stage's last allowed attempt and returned `Outcome: failure`, and the loop is called again with that action's progress key
+- **THEN** the run ends blocked with the reason that the stage reached its ceiling, prints `devkit-end: <id> blocked`, exits 2, and hands no retry
 
 ### Requirement: A second failure or a failure on Opus ends the run blocked
 When the stage subagents of the same brief failed twice in a row in the current run, or the newest

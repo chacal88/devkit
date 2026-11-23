@@ -6,10 +6,13 @@
   `devkit:` block of `openspec/config.yaml`, or in a change's own `.openspec.yaml` (which wins),
   overrides single stages of a built-in table (Opus for the grill, the ADRs and the plan, Haiku for
   the unit-test run and the delivery hand-off, Sonnet for the rest; `opus[1m]` and `sonnet[1m]` only
-  as an opt-in); an unknown stage or value is refused with `setting-unknown`. Every hand-off `next`
-  prints carries the stage's `model`, which the session sets on the Agent call. A stage agent that
-  returns `Outcome: failure` on Haiku or Sonnet is handed again once on the next model up, read from
-  the transcripts on a `next` called with `--after`; a second failure, or one on Opus, ends the run
+  as an opt-in, which reaches a session's own model and the retry's mapping, never a stage agent,
+  whose Agent call drops the suffix); an unknown stage or value is refused with `setting-unknown`.
+  Every hand-off `next` prints carries the stage's `model`, which the session sets on the Agent
+  call. A stage agent that stops with `Outcome: failure` on Haiku or Sonnet
+  without writing its stage file is handed again once on the next model up (one that records
+  `result=failed` in its stage file takes the stage's usual fix, with no retry), read from the
+  transcripts on a `next` called with `--after`; a second failure, or one on Opus, ends the run
   blocked, as the loop and no longer the session declares it. In a roadmap run with a session per
   change, the coordinating session starts each change session on its first stage's model and
   switches it only down, never below the strongest model among the stage and the session-run

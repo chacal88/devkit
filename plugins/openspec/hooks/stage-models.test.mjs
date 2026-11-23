@@ -11,7 +11,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
-import { put } from './deliver-check.test.mjs';
+import { put, gitRepo, commitAll, git } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { FLOWS, cleanEnv, planChange, actionOf, run, nextOf, endOf, rowOf, reportOf } from './change-loop.test.mjs';
 import { typedLine, runLine, transcriptOf, stopInput, assistantLine } from './change-loop.test.mjs';
@@ -810,6 +810,69 @@ test('stage-models AC-10 a next with no --after after a failed hand-off, with no
   assert.equal(keyedReads[file], 1, 'with --after the folder is read once');
 });
 
+// A `devkit-lite` change `feat` at its unit tests: the plan files passed, every task ticked, the code committed, the unit-test
+// command `true`. Its unit-test hand-off is on `haiku` (the default table). `stage(file, result, attempt)` writes a stage file
+// whose header names the code commit and commits it, as a stage agent does.
+function unitWorld() {
+  const root = gitRepo({ config: 'schema: devkit-lite\ndevkit:\n  tests:\n    unit: "true"\n' });
+  const head = (stage, commit, result = 'passed', attempt = 1) => `<!-- devkit-stage ${stage} result=${result} attempt=${attempt} commit=${commit} -->\n`;
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const dir = (f) => `openspec/changes/feat/${f}`;
+  put(root, {
+    [dir('.openspec.yaml')]: 'schema: devkit-lite\n', [dir('requirements.md')]: `${head('requirements', c0)}# Requirements\n`,
+    [dir('proposal.md')]: `${head('proposal', c0)}# Proposal\n`, [dir('specs/s/spec.md')]: `${head('specs', c0)}# Spec\n`,
+    [dir('tasks.md')]: `${head('tasks', c0)}# Tasks\n\n- [x] 1.1 a\n`, 'src/feat.ts': 'code\n',
+  });
+  const code = commitAll(root, 'change files and code');
+  const w = sessionWorld();
+  const stage = (file, result, attempt = 1) => { put(root, { [dir(file)]: `${head(file.replace(/\.md$/, ''), git(root, 'rev-parse', 'HEAD'), result, attempt)}# ${file}\n` }); return commitAll(root, `${file} ${result}`); };
+  return { root, w, code, stage, first: actionOf(nextIn(root, { env: w.env }).stdout) };
+}
+
+test('stage-models AC-10 a failure with a written result=failed file takes the fix path and no retry, at a test stage and at a plan stage, ends blocked at the stage ceiling, and the same failure with no file takes the retry', () => {
+  // A test stage: the file written or not is the only difference between the retry and the fix.
+  const unit = unitWorld();
+  assert.deepEqual([unit.first.kind, unit.first.stage, unit.first.step, unit.first.model], ['agent', 'unit-tests', 'unit-tests', 'haiku'], 'the unit-test hand-off, on the default haiku');
+  unit.w.handOff(1, { prompt: `${unit.first.brief} Run it in the background.`, model: 'claude-haiku-5-5', text: FAILED, start: 10 });
+  const noFile = nextAfter(unit.root, unit.w.env, unit.first.progressKey);
+  assert.equal(noFile.code, 0, noFile.stdout);
+  const retry = actionOf(noFile.stdout);
+  assert.deepEqual([retry.kind, retry.stage, retry.step, retry.model, retry.retry], ['agent', 'unit-tests', 'unit-tests', 'sonnet', { failedOn: 'haiku', attempt: 2 }], 'no file: the retry');
+  unit.stage('unit-tests.md', 'failed');
+  const written = nextAfter(unit.root, unit.w.env, unit.first.progressKey);
+  assert.equal(written.code, 0, written.stdout);
+  assert.deepEqual(markers(written), ['devkit-run: feat'], 'the fix path is no end');
+  const fix = actionOf(written.stdout);
+  assert.deepEqual([fix.kind, fix.stage, fix.agent, fix.step, fix.model], ['agent', 'implementation', 'devkit-core:tdd-implementer', 'fix-tests', 'sonnet'], 'the fix on the implementation default');
+  assert.ok(!('retry' in fix), 'no retry mark');
+  assert.notEqual(fix.brief, unit.first.brief, 'a brief other than the failed one');
+  // A plan stage: the decisions record failed is revised from its findings, on the table model, with no retry.
+  const root = featWith({ have: PLAN_OF.decisions });
+  const w = sessionWorld();
+  const first = actionOf(nextIn(root, { env: w.env }).stdout);
+  assert.deepEqual([first.stage, first.agent, first.model], ['decisions', 'devkit-core:adr-author', 'opus'], 'the decisions hand-off');
+  w.handOff(1, { prompt: first.brief, model: 'claude-opus-5-5', text: FAILED, start: 10 });
+  put(root, { 'openspec/changes/feat/decisions.md': `<!-- devkit-stage decisions result=failed attempt=1 commit=${git(root, 'rev-parse', 'HEAD')} -->\n# decisions\n` });
+  commitAll(root, 'decisions failed');
+  const revised = nextAfter(root, w.env, first.progressKey);
+  assert.equal(revised.code, 0, revised.stdout);
+  assert.deepEqual(markers(revised), ['devkit-run: feat']);
+  const again = actionOf(revised.stdout);
+  assert.deepEqual([again.kind, again.stage, again.agent, again.model], ['agent', 'decisions', 'devkit-core:adr-author', 'opus']);
+  assert.match(again.brief, /revise the plan from its findings/);
+  assert.ok(!('retry' in again), 'no retry mark');
+  // A test stage at its ceiling: blocked with the ceiling, and no retry.
+  const last = unitWorld();
+  last.w.handOff(1, { prompt: last.first.brief, model: 'claude-haiku-5-5', text: FAILED, start: 10 });
+  last.stage('unit-tests.md', 'failed', 3);
+  const ended = nextAfter(last.root, last.w.env, last.first.progressKey);
+  assert.equal(ended.code, 2, ended.stdout);
+  assert.deepEqual(markers(ended), ['devkit-run: feat', 'devkit-end: feat blocked']);
+  const end = actionOf(ended.stdout);
+  assert.deepEqual([end.kind, end.end.why, end.stage], ['end', 'ceiling', 'unit-tests']);
+  assert.ok(!('retry' in end), 'no retry mark');
+});
+
 test('stage-models AC-11 a retry at the cap is held by the budget, and the retry counts its tokens', () => {
   const capped = (cap) => designWorld({ project: `devkit:\n  budget: ${cap}\n  models:\n    design: haiku\n`, lines: [typedAt('change feat', at(0)), resultAt('devkit-run: feat\n{"version":1}', at(1))] });
   const { root, w, first } = capped(1000);
@@ -1352,6 +1415,22 @@ test('stage-models AC-1 the flow document Cost section states the table, not the
   assert.ok(!flow.includes('only `change-planner` uses Opus'), 'the old claim is gone');
   assert.match(cost, /Each stage's hand-off runs on the model of the stage's row in the\s+`models:` table/);
   assert.match(cost, /reviewers of a review round keep their own `model:`/);
+});
+
+// A text with every run of whitespace as one space, so a wrapped sentence reads as one line.
+const flat = (text) => text.replace(/\s+/g, ' ');
+
+test('stage-models AC-10 the flow document and ADR 0020 say the retry reaches only an agent that writes no stage file', () => {
+  for (const [name, text] of [['the flow document paragraph', modelParagraph()], ['ADR 0020', textOf('docs', 'adr', ADR_FILE)]]) {
+    assert.ok(text, `${name} exists`);
+    assert.ok(flat(text).includes('without writing its stage file'), `${name} names the agent that writes no stage file`);
+    assert.ok(flat(text).includes('result=failed'), `${name} names the stage file that records a failed stage`);
+  }
+});
+
+test('stage-models AC-4 the flow document and ADR 0020 say the 1M opt-in never reaches a stage subagent', () => {
+  assert.ok(flat(modelParagraph()).includes('never reaches a stage agent'), 'the flow document paragraph');
+  assert.ok(flat(textOf('docs', 'adr', ADR_FILE)).includes('never a stage subagent'), 'ADR 0020');
 });
 
 test('stage-models AC-2 the coordination design names devkit.models as final, decided by stage-models', () => {

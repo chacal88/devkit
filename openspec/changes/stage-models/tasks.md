@@ -7,8 +7,9 @@ Work only in this change's worktree, on its branch. Every rule, function, messag
 is in `design.md`: D-1 the table, D-2 reading it, D-3 the `model` field, D-4 the subagent reader, D-5
 the retry, D-6 the roadmap's start model, `session-found` and the step-down, D-7 the spend readout,
 D-8 the messages, D-9 the skill, D-10 ADRs and documents, D-11 the existing tests that change, D-12
-the new tests, D-13 the probe and the real-run proof, D-14 the release. The implementer copies them
-and makes no design choice.
+the new tests, D-13 the probe and the real-run proof, D-14 the release; phase 5 follows review round
+1 (D-5 "The retry's reach", D-10 "The retry's reach and the 1M reach in words") and review round 5
+(D-13 run 3). The implementer copies them and makes no design choice.
 
 Every gate is one backticked command, run as written; the flow runs each `&&` part on its own, so no
 part holds a `|`. Every new test lives in `plugins/openspec/hooks/stage-models.test.mjs` and its name
@@ -37,16 +38,16 @@ session-run stages still ahead of it. Task 1.3 adds the list of session-run stag
 | AC-1 | `default-table` | 1.2, 1.3, 1.6, 4.6 |
 | AC-2 | `config-table` | 1.2, 1.4, 1.6, 4.6 |
 | AC-3 | `invalid-refused` | 1.2, 1.4, 1.6, 4.6 |
-| AC-4 | `one-million-opt-in` | 1.2, 1.3, 1.4, 1.6, 4.6 |
+| AC-4 | `one-million-opt-in` | 1.2, 1.3, 1.4, 1.6, 4.6, 5.2, 5.3, 5.5 |
 | AC-5 | `agent-model` | 1.1, 1.2, 1.5, 1.6, 4.6 |
 | AC-6 | `session-start-model` | 3.1, 3.2, 3.5, 4.6 |
 | AC-7 | `session-step-down` | 3.1, 3.2, 3.5, 4.6 |
 | AC-8 | `upward-stage-subagent` | 1.1, 1.2, 1.5, 1.6, 4.6 |
 | AC-9 | `lone-change` | 1.2, 1.5, 1.6, 3.2, 4.6 |
-| AC-10 | `retry-one-step-up` | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 4.3, 4.6 |
+| AC-10 | `retry-one-step-up` | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 4.3, 4.6, 5.1, 5.2, 5.3, 5.4, 5.5 |
 | AC-11 | `retry-counted` | 2.1, 2.3, 2.6, 3.1, 3.3, 3.5, 4.3, 4.6 |
 | AC-12 | `spend-readout` | 3.1, 3.3, 3.4, 3.5, 4.3, 4.6 |
-| AC-13 | `real-run-proof` | 1.1, 4.3, 4.4, 4.6 |
+| AC-13 | `real-run-proof` | 1.1, 4.3, 4.4, 4.6, 5.4, 5.5 |
 
 ## 1. The probe, the table and the model of each action (AC-1 to AC-5, AC-8, AC-9)
 
@@ -243,6 +244,73 @@ session-run stages still ahead of it. Task 1.3 adds the list of session-run stag
   `node --test --test-name-pattern="change-loop docs: the design records the answers" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
 - [x] 4.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate stage-models --strict && grep -q "devkit-end: proof-lone blocked" openspec/changes/stage-models/proof/lone-run.jsonl && test -s openspec/changes/stage-models/proof/road-models.txt && test -s openspec/changes/stage-models/proof/probe-agent-model.txt` green (the guard suite as a background command of the tool); covers AC-1 to AC-13.
+
+## 5. The retry's reach, stated and run (review rounds 1 and 5; AC-4, AC-10, AC-13)
+
+Review round 1 found that no spec, document or test said the retry a model up reaches only a stage
+agent that stops with `Outcome: failure` without writing its stage file, while one that writes
+`result=failed` takes the stage's fix path (D-5 "The retry's reach"). Review round 5 found that the
+real runs prove only the first case; the owner chose on 2026-11-23 to run the second (D-13 run 3),
+not to waive it. No product code changes in this phase: one test pins the built behaviour, one test
+and three documents state it, and one real run shows it. Every command of this phase runs with
+`TMPDIR=/var/tmp/devkit-stage-models` (created first with `mkdir -p`), never `/tmp`; every scratch
+project lives under `/var/tmp/devkit-stage-models/proof/`, as in tasks 4.3 and 4.4.
+
+Tasks 4.1 and 4.5 stay ticked and are redone at the delivery merge (D-10): `origin/main` (local ref
+`b92e6b1`, not fetched) holds another `docs/adr/0020-a-change-can-run-on-another-machine.md` and
+devkit-openspec 0.32.0, so at that merge this change's ADR takes the next free number (0021 at
+`b92e6b1`) with every reference to it, the tests that hard-code `0020` (`ADR_FILE` and the `0020`
+assertions of `plugins/openspec/hooks/stage-models.test.mjs`) follow in the same commit, and the
+release moves above `origin/main`'s; 4.1's check then holds by its second branch (the renumbered
+file exists and `grep -rn` names no other ADR by this change's old number). Phase 5 is done on the
+current names first.
+
+- [x] 5.1 The pinning test of D-12 "Retry" (review rounds 1 and 5) in
+  `plugins/openspec/hooks/stage-models.test.mjs`, named `stage-models AC-10 a failure with a written
+  result=failed file takes the fix path and no retry, at a test stage and at a plan stage, ends
+  blocked at the stage's ceiling, and the same failure with no file takes the retry` (spec
+  `stage-models`, requirement "Only a stage subagent that could not finish is retried", scenarios "A
+  failure with a written result=failed file", "A plan stage recorded as failed", at the `decisions`
+  stage, and "A test stage recorded as failed at its ceiling"). It pins the
+  code at `e057874`, so it passes there with no code change; a failing run means the code differs
+  from D-5 "The retry's reach": stop and report, and change no product code. Check:
+  `mkdir -p /var/tmp/devkit-stage-models && env TMPDIR=/var/tmp/devkit-stage-models GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^stage-models AC-10 " plugins/openspec/hooks/stage-models.test.mjs`
+  passes, the new test and every earlier `AC-10` test included.
+- [x] 5.2 Red half. Add to `plugins/openspec/hooks/stage-models.test.mjs`, beside the flow-document
+  tests and with their helpers (`modelParagraph`, `textOf`, `ADR_FILE`), the two D-12 "Skill and
+  docs" tests of review round 1: `stage-models AC-10 the flow document and ADR 0020 say the retry
+  reaches only an agent that writes no stage file` (each text, whitespace collapsed, holds `without
+  writing its stage file` and `result=failed`) and `stage-models AC-4 the flow document and ADR 0020
+  say the 1M opt-in never reaches a stage subagent` (the paragraph holds `never reaches a stage
+  agent`, the ADR `never a stage subagent`). Run
+  `mkdir -p /var/tmp/devkit-stage-models && env TMPDIR=/var/tmp/devkit-stage-models GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^stage-models AC-(4|10) the flow document and ADR 0020" plugins/openspec/hooks/stage-models.test.mjs`
+  on the documents before task 5.3. Check: both new tests fail there, and no other test changes.
+- [x] 5.3 Word the three documents with the sentences of D-10 "The retry's reach and the 1M reach in
+  words": the **The model of each stage.** paragraph of `docs/openspec-flow.md` (the retry sentence
+  replaced, the 1M sentence added), the Note of `docs/adr/0020-the-model-is-chosen-by-stage.md`
+  after decision 7 (no decision's text changes), and this change's section of `CHANGELOG.md` (the
+  opt-in parenthesis and the retry sentence), each anchor on one line. Check: the two tests of task
+  5.2 pass with the command of 5.2,
+  `grep -c "without writing its stage file" CHANGELOG.md` prints 1,
+  `grep -c "never a stage agent" CHANGELOG.md` prints 1,
+  `grep -c "on Haiku or Sonnet is handed again" docs/openspec-flow.md`
+  prints 0, and `python3 scripts/check.py` passes.
+- [x] 5.4 Real run 3 of D-13, a stub test runner that obeys the hook, after 5.3. In the scratch
+  project `/var/tmp/devkit-stage-models/proof/fix` with its stub pack
+  `/var/tmp/devkit-stage-models/proof/fix/core` (the `test-runner` and `tdd-implementer` bodies of
+  D-13 run 3, frontmatter kept), run the D-13 run 3 command with
+  `--permission-mode bypassPermissions` (that scratch folder only) and save, under
+  `openspec/changes/stage-models/proof/`, `fix-run.jsonl`, `fix-models.txt` (the three line forms
+  of D-13, no content), `fix-unit-tests.txt` and `fix-spend.txt`, and append a "Run 3" section to
+  `proof/run-notes.txt` (the session id, the permission mode, any repeat). Leave nothing of the
+  scratch project in this repository. When a nested `claude -p` is refused, end with `Outcome:
+  failure` naming this task: the conducting session runs it in Bash, as D-13 says. Check:
+  `fix-models.txt` holds `stop-hook-asked=yes`, `result=failed`, `outcome=failure` and the line
+  `hand-off stage=implementation agent=devkit-core:tdd-implementer step=fix-tests model=sonnet
+  retry=none`, and `fix-unit-tests.txt` holds `result=failed`. With `stop-hook-asked=no`, repeat the
+  run once; a second such run, or any other hand-off line, stops the task: report it, and change no
+  product code (the plan is revised).
+- [ ] 5.5 Gate (numbered 5.4 before review round 5): `mkdir -p /var/tmp/devkit-stage-models && env TMPDIR=/var/tmp/devkit-stage-models GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate stage-models --strict && grep -q "stop again at once" openspec/changes/stage-models/design.md && grep -q "devkit-end: proof-lone blocked" openspec/changes/stage-models/proof/lone-run.jsonl && test -s openspec/changes/stage-models/proof/fix-run.jsonl && grep -q "stop-hook-asked=yes" openspec/changes/stage-models/proof/fix-models.txt && grep -q "hand-off stage=implementation agent=devkit-core:tdd-implementer step=fix-tests model=sonnet retry=none" openspec/changes/stage-models/proof/fix-models.txt && grep -q "result=failed" openspec/changes/stage-models/proof/fix-unit-tests.txt` green (the guard suite, 13 to 21 minutes, as a background command of the tool, never with a shell `&`); covers AC-4, AC-10 and AC-13 (D-13's stub text, the proof runs 1 and 2 ran and run 3's fix path with no retry), with every earlier test passing.
 
 ## Workflow follow-up
 
