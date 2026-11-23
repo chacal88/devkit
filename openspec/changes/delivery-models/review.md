@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=64ed99fa03ddad4e40b2e6680588e424e61ee715 -->
+<!-- devkit-stage review result=passed attempt=1 commit=95968f98dd0d1972b3d5edc49eaf933941e32286 -->
 # Review: delivery-models, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -51,6 +51,33 @@ None.
 
 ## Notes
 - Round 2 re-ran all six reviewers: the merge of origin/main in 99ef2bd staled every round-1 verdict. Each reviewed only this change's part of 26e00b1..HEAD.
+
+## Next
+Ready to ship.
+
+# Review: delivery-models, round 1
+
+Path: agents · range `64ed99fa03ddad4e40b2e6680588e424e61ee715..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 95968f9 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 95968f9 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 95968f9 |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 95968f9 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 95968f9 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 95968f9 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Stale-only re-review (no round budget): the merge of origin/main in c093f6e for PR 73 staled every verdict at 64ed99f. Each reviewer checked only this change's part of 64ed99f..HEAD.
 
 ## Next
 Ready to ship.
