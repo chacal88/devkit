@@ -235,7 +235,9 @@ Every action of such a change carries `task` (D-6), the grill's included.
 - `writeBack: { key, link, number, url }` when all four of these hold:
   - the change records a task;
   - the checkout is not on `chore/archive-<id>`;
-  - the action is not a blocked end;
+  - the action is neither a blocked end nor the budget end (`end.why` `waiting-budget`, the stop that
+    waits for the owner, from `change-budget` D-4), so the question is not asked while the owner
+    still has to decide on the stop;
   - the delivery report read in this call has `pr` and `readWriteBack(writeBackFile(found.root, id))`
     is not "asked" for `(key, pr.number)`.
 

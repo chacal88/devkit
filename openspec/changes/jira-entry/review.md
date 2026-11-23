@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=90aecc592096f6a94b6286e4c5d0459779d07691 -->
+<!-- devkit-stage review result=failed attempt=1 commit=2fd34f861706ff18a2a88efbd0981eef44ff8505 -->
 # Review: jira-entry, round 1
 
 Path: agents · range `c561553..0637603bc47cf3382a7b2d09bd7fc2fb8b5881b3` · structural: PASS
@@ -76,3 +76,29 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: jira-entry, round 1
+
+Path: agents · range `90aecc592096f6a94b6286e4c5d0459779d07691..2fd34f861706ff18a2a88efbd0981eef44ff8505` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 2fd34f8 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 2fd34f8 |
+| code-quality-reviewer | rejected | 0 | 1 | 1 | 0 | 2fd34f8 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 2fd34f8 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 2fd34f8 |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- code-quality-reviewer — [important] openspec/changes/jira-entry/design.md D-6 — D-6 still says writeBack needs 'the action is not a blocked end'; the code (change-loop.mjs:1120) and the AC-6 test also withhold it on the waiting-budget end. Update D-6.
+
+## Refuted by verification
+None.
+
+## Notes
+- Re-review after the fourth merge of main (e147d74, #72) and the renumbering to 0.30.0; 2fd34f8 committed the refreshed evidence.
+
+## Next
+Fix the open findings, then run review-change again (round 2).

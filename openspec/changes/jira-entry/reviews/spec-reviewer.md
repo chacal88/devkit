@@ -1,12 +1,15 @@
 Verdict: approved
-Commit: 90aecc592096f6a94b6286e4c5d0459779d07691
+Commit: 2fd34f861706ff18a2a88efbd0981eef44ff8505
 
-## Spec review — jira-entry (round 1, re-review after the third merge of main)
+## Spec review — jira-entry (round 1, re-review after the fourth merge of main)
 
 ### Findings
+- [nit] openspec/changes/jira-entry/design.md:238 (D-6); openspec/changes/jira-entry/specs/jira-tasks/spec.md, requirement 'The write-back question is asked once when the pull request opens' — e147d74 also withholds writeBack on the budget end (waiting-budget), and the AC-6 test at change-loop.test.mjs:3627 covers it. D-6 still says only 'the action is not a blocked end' and the spec delta is silent. Update D-6 (and the spec scenario if the owner wants it contractual) to say the question is held on a blocked end and on the budget end.
 - [nit] plugins/openspec/hooks/jira-task.mjs:taskIdPrefix; openspec/changes/jira-entry/specs/jira-tasks/spec.md, requirement 'A change opened from a task records the task' — Previous nit, still open: the code maps '_' to '-' in the id prefix and the spec says nothing about it.
 - [nit] docs/openspec-flow.md ('The forms' paragraph and the roadmap/status bullet) — Previous nit, still open: the change also rewrites 'project and help are not built' to 'project is built, only help is not', which no jira-tasks requirement asks for. Keep it or move it to its own change.
-- [nit] openspec/changes/jira-entry/evidence.md — Previous nit: evidence.md was uncommitted; it is now tracked. · fixed in 484a8a7
+- [nit] openspec/changes/jira-entry/evidence.md — Previous nit: evidence.md was uncommitted; it is now tracked and was refreshed in 2fd34f8. · fixed in 484a8a7
+
+## Spec review — jira-entry (round 1, re-review after the fourth merge of main)
 
 In-scope specs: openspec/changes/jira-entry/specs/jira-tasks/spec.md.
 
@@ -22,7 +25,7 @@ In-scope specs: openspec/changes/jira-entry/specs/jira-tasks/spec.md.
 | The write-back question is asked once when the pull request opens | covered |
 | Jira is written only on the developer's yes | covered |
 
-The conflict resolution of e0846e6 keeps the change's side intact beside #70's state code: nextAction sets action.state and sessionTitle from #70, then adds action.task and action.writeBack; writeBack is skipped when blocked or archiving, so it stays a question and not a gate; USAGE and main route open --task, write-back and state; versions (0.29.0, 0.12.0, 0.25.0), CHANGELOG order and the v0.25.0 pins agree.
+The conflict resolution of e147d74 keeps the change's side intact beside #72's budget code: nextAction keeps the budget end, adds task after it, and withholds writeBack on a blocked end, on waiting-budget and on the archive branch (task still attaches); versions (0.30.0, 0.12.0, 0.26.0), CHANGELOG order and the v0.26.0 pins agree. The budget-end withholding is a refinement no jira-tasks requirement states; it is tested (AC-6) but unrecorded in D-6 and the spec delta.
 
 ### Summary
-- 2 open findings, both nits (1 scope creep, 0 gaps); 0 blocking.
+- 3 open findings, all nits (1 new, 2 carried over); 0 blocking, 0 gaps.
