@@ -883,7 +883,7 @@ const detailOf = (next) => {
   return rest;
 };
 
-// How each step of the delivery checker (and the two overrides of conduct-check) is handled: the stage it belongs to
+// How each step of the delivery checker (and the override of conduct-check) is handled: the stage it belongs to
 // and, for a hand-off, the role (its agent comes from the checker's row, `AGENT` below only as the fallback); `end` rows
 // build their own end.
 const handOff = (stage, role) => ({ stage, role });
@@ -900,7 +900,6 @@ const ROWS = {
   'open-pr': handOff('delivery', 'commit-and-pr'),
   push: handOff('delivery', 'commit-and-pr'),
   'open-archive-pr': handOff('delivery', 'commit-and-pr'),
-  'push-rebased': handOff('delivery', 'commit-and-pr'),
   'open-prs': handOff('delivery', 'commit-and-pr'),
   'open-test-pr': handOff('delivery', 'commit-and-pr'),
   'push-support': handOff('delivery', 'commit-and-pr'),

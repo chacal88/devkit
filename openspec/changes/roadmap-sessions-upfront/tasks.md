@@ -357,11 +357,11 @@ names it (T-1 to T-16), the task saying its invariant, layer and suite. Leave no
   Check: `README and the pack README describe how one change runs, with no cron` and `change-budget
   AC-10 docs/openspec-flow.md describes the budget` pass unchanged and `python3 scripts/check.py`
   passes.
-- [x] 6.4 Release (D-14): devkit-openspec 0.28.0 → 0.29.0 and devkit-core 0.13.0 → 0.14.0 in both
-  `plugin.json` and `.claude-plugin/marketplace.json`, marketplace 0.32.0 → 0.33.0, the `CHANGELOG.md`
-  entry `## 0.33.0`, the CI pin `v0.29.0` in `docs/openspec-flow.md` (lines 638, 639 and 650) and its
+- [x] 6.4 Release (D-14): devkit-openspec 0.29.0 → 0.30.0 and devkit-core 0.13.1 → 0.14.0 in both
+  `plugin.json` and `.claude-plugin/marketplace.json`, marketplace 0.33.0 → 0.34.0, the `CHANGELOG.md`
+  entry `## 0.34.0`, the CI pin `v0.30.0` in `docs/openspec-flow.md` (lines 643, 644 and 655) and its
   assertion in `plugins/openspec/hooks/change-loop.test.mjs` (`change-loop docs: the design records the
-  answers`, near line 2543: `v0.29.0` matched, `v0.28.0` joining the pins that must be gone; invariant:
+  answers`, near line 2567: `v0.30.0` matched, `v0.29.0` joining the pins that must be gone; invariant:
   the CI snippet pins the current release; layer: docs; suite: change-loop); regenerate
   `docs/catalog.md` with `python3 scripts/gen-catalog.py`. Check: `python3 scripts/gen-catalog.py
   --check` passes, `change-loop docs: the design records the answers` passes, and `claude plugin

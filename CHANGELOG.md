@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.33.0 — every change of a roadmap run opens at its start
+## 0.34.0 — every change of a roadmap run opens at its start
 
-- **devkit-openspec** 0.29.0: a `/devkit roadmap` run on the desktop app opens every pending change
+- **devkit-openspec** 0.30.0: a `/devkit roadmap` run on the desktop app opens every pending change
   at its start and starts each change's session with a one-use ticket, so the session runs its loop
   from its first turn with no typed command: the new `devkit-session` skill is the entry, and a hook
   on the Skill tool (`guard.mjs skill`) lets it run only on the run's unclaimed ticket
@@ -13,11 +13,23 @@
   the run holds one periodic check while it lasts and cleans up its waits, cron and finished sessions
   at its end. New subcommands: `session-next`, `session-wait`, `merge-base`, `push`, `schedule-check`
   and `delete-check`. A change session's `session-next` now honours the token budget as `next` does.
-  The CI snippet now pins `v0.29.0`, the release's tag.
+  The CI snippet now pins `v0.30.0`, the release's tag.
 - **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
   files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
 - Docs: ADR 0019, with Notes in ADRs 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
   coordination design, the roles and the READMEs describe the new run.
+
+## 0.33.0 — release conflicts resolved by a merge
+
+- **devkit-openspec** 0.29.0: when a pull request conflicts with its base only in release files, the
+  release-conflict step merges `origin/<base>` into the branch with `hooks/release-merge.mjs` (was
+  `release-rebase.mjs`, which rebased), renumbers the release above the base's and commits the
+  merge, never pushing. After the evidence and the review run again, the loop hands a plain
+  `git push`. The `push-rebased` step and its force-with-lease push are gone. The CI-pin assertion
+  of the hook tests reads the version from the manifest. The CI snippet now pins `v0.29.0`, the
+  release's tag.
+- Docs: the flow document, the `devkit` skill, the pack's README and CONTRIBUTING follow, and the
+  roadmap gains a line for the live check.
 
 ## 0.32.3 — retro proposals of delivery-models
 

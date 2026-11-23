@@ -112,8 +112,8 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 ## Impact
 
 - Surfaces: `plugins/openspec` (hooks, skills, schemas) and `plugins/core` (one new agent, the
-  `requirements-grill` skill, the `change-planner` agent). Release: devkit-openspec 0.29.0,
-  devkit-core 0.14.0, marketplace 0.33.0, `CHANGELOG.md`, `docs/catalog.md`, the CI pin `v0.29.0`.
+  `requirements-grill` skill, the `change-planner` agent). Release: devkit-openspec 0.30.0,
+  devkit-core 0.14.0, marketplace 0.34.0, `CHANGELOG.md`, `docs/catalog.md`, the CI pin `v0.30.0`.
 - `plugins/openspec/hooks/guard.mjs`: the `skill` mode, the started task's shared reader, the
   lock routing of a change session's stop.
 - `plugins/openspec/hooks/roadmap-loop.mjs`: the run file's new fields, the session mode of

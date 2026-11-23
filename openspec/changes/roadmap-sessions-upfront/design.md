@@ -489,8 +489,8 @@ the run's end deletes." No section before `## Roadmap` names `CronCreate`.
 
 ## D-10 Drift without the owner (AC-11)
 
-- **ADR numbers.** `conduct-check.mjs#deliveryRow` gains an override, after `rewrittenBranch` and
-  before `releaseConflict`: `adrClash(ctx, row)`. `ADR_DIRS = ['docs/adr', 'docs/decisions']`. The
+- **ADR numbers.** `conduct-check.mjs#deliveryRow` gains an override, first in the chain and
+  before `releaseConflict` (main's release-merge-conflict removed `rewrittenBranch`): `adrClash(ctx, row)`. `ADR_DIRS = ['docs/adr', 'docs/decisions']`. The
   files the branch added since `git merge-base <ctx.ref> HEAD` (`git diff --name-only
   --diff-filter=A`) that match `<dir>/NNNN-*.md`; the files of the same folder on `ctx.ref` (`git
   ls-tree --name-only`). A clash is a branch file whose number a different base file has. Each
@@ -501,7 +501,7 @@ the run's end deletes." No section before `## Roadmap` names `CronCreate`.
   'tdd-implementer')`, so in a change session it is a load stage. A `ctx.ref` that does not resolve
   gives no override.
 - **Release versions.** Unchanged: the `resolve-release-conflict` step already resolves a conflict in
-  release files only, without the owner (`release-rebase.test.mjs`, `conduct-check.test.mjs`); the
+  release files only, without the owner (`release-merge.test.mjs`, `conduct-check.test.mjs`); the
   merge mode of round 17e is out of scope.
 - **A contradicted requirement.** The proposal instruction of both `devkit` schema copies and
   `plugins/core/agents/change-planner.md` gain: "When code merged since the grill contradicts what a
@@ -823,13 +823,13 @@ as they are). Any other test found failing is a defect of this change, not a tes
 - `README.md`, `plugins/core/README.md` (the new agent), `plugins/openspec/README.md` (the new skill,
   the `skill` hook mode, the new subcommands), `docs/getting-started.md` where it lists agents.
 - `docs/catalog.md` regenerated (`python3 scripts/gen-catalog.py`).
-- Release (the next free minors over main at `a9ecdc1`): devkit-openspec 0.28.0 → 0.29.0 and
-  devkit-core 0.13.0 → 0.14.0 in each `plugin.json` and in `.claude-plugin/marketplace.json`,
-  marketplace 0.32.0 → 0.33.0, a `CHANGELOG.md` entry `## 0.33.0`, the CI pin `v0.29.0` in
-  `docs/openspec-flow.md` (lines 638 and 639, the snippet's comment and its sha placeholder, and line
-  650, the "Pin the commit sha" paragraph) and its assertion in
+- Release (the next free minors over main at `78b6cd7`): devkit-openspec 0.29.0 → 0.30.0 and
+  devkit-core 0.13.1 → 0.14.0 in each `plugin.json` and in `.claude-plugin/marketplace.json`,
+  marketplace 0.33.0 → 0.34.0, a `CHANGELOG.md` entry `## 0.34.0`, the CI pin `v0.30.0` in
+  `docs/openspec-flow.md` (lines 643 and 644, the snippet's comment and its sha placeholder, and line
+  655, the "Pin the commit sha" paragraph) and its assertion in
   `plugins/openspec/hooks/change-loop.test.mjs` (the test `change-loop docs: the design records the
-  answers`, near line 2543: `v0.29.0` matched, `v0.28.0` joining the pins that must be gone, its
+  answers`, near line 2567: `v0.30.0` matched, `v0.29.0` joining the pins that must be gone, its
   Invariant comment naming this change's move; invariant: the CI snippet pins the current release;
   layer: docs; suite: change-loop). A sibling merged first moves these numbers; the release step
   renumbers.

@@ -12,6 +12,7 @@ import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test
 import { roundRepo } from './conduct-check.test.mjs';
 import { shipConfig, collectState, buildReport, approvalState } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
+import { pinsIn } from './release-merge.mjs';
 import { TEXT } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
 import * as changeLoopModule from './change-loop.mjs';
@@ -394,7 +395,7 @@ test('change-loop decide: B1 implementation and fixes go to the implementer', ()
 });
 
 test('change-loop decide: B1a a conflict only in release files goes to the implementer with the command and the paths', () => {
-  const command = ['node', '/hooks/release-rebase.mjs', '--base', 'main', '--json'];
+  const command = ['node', '/hooks/release-merge.mjs', '--base', 'main', '--json'];
   const a = build(rowOf('resolve-release-conflict', { number: 12, paths: ['.claude-plugin/marketplace.json', 'CHANGELOG.md'], base: 'main', command }));
   assert.deepEqual([a.kind, a.agent, a.step, a.stage], ['agent', TDD, 'resolve-release-conflict', 'implementation']);
   assert.deepEqual(a.detail.command, command);
@@ -418,11 +419,11 @@ test('change-loop decide: B2 commits and pull requests go to the commit agent', 
   }
 });
 
-test('change-loop decide: B2a a branch the loop rebased goes to the commit agent with the old head', () => {
-  const command = ['git', 'push', '--force-with-lease=feat:abc', 'origin', 'feat'];
-  const a = build(rowOf('push-rebased', { number: 12, oldHead: 'abc', branch: 'feat', paths: ['CHANGELOG.md'], command }));
-  assert.deepEqual([a.kind, a.agent, a.step, a.stage], ['agent', COMMIT, 'push-rebased', 'delivery']);
-  assert.deepEqual([a.detail.oldHead, a.detail.branch, a.detail.paths, a.detail.command], ['abc', 'feat', ['CHANGELOG.md'], command]);
+test('release-merge-conflict 14: a push row with a plain command goes to the commit agent', () => {
+  const command = ['git', 'push', 'origin', 'feat'];
+  const a = build(rowOf('push', { number: 12, branch: 'feat', command }));
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage], ['agent', COMMIT, 'push', 'delivery']);
+  assert.deepEqual(a.detail.command, command);
 });
 
 test('change-loop decide: B3 the demonstration goes to the verifier', () => {
@@ -536,7 +537,9 @@ test('change-loop decide: the B rows are exactly the steps the checkers can retu
   const overrides = conduct.slice(conduct.indexOf('the overrides (design D9)'), conduct.indexOf('function deliveryRow('));
   assert.ok(overrides.length > 500, 'the overrides section was found');
   const returnable = new Set([...stepsIn(read('deliver-check.mjs')), ...stepsIn(overrides)]);
-  for (const name of ['push-rebased', 'resolve-release-conflict', 'update-branch', 'blocked']) assert.ok(returnable.has(name), `the scan sees ${name}`);
+  for (const name of ['resolve-release-conflict', 'update-branch', 'blocked']) assert.ok(returnable.has(name), `the scan sees ${name}`);
+  assert.equal(returnable.has('push-rebased'), false, 'the rebase push is gone');
+  assert.doesNotMatch(overrides, /--force/);
   assert.ok(returnable.size > 30, `the scan found ${returnable.size} steps`);
   const rows = new Set(ROW_STEPS);
   assert.deepEqual([...returnable].filter((s) => !rows.has(s)), [], 'a returnable step with no row');
@@ -544,7 +547,7 @@ test('change-loop decide: the B rows are exactly the steps the checkers can retu
 });
 
 test('change-loop decide: the agent of a delivery hand-off is the one the checker\'s row names, and the loop\'s own map only when the row names none', () => {
-  for (const step of ['implement', 'commit', 'verify', 'resolve-release-conflict', 'push-rebased']) {
+  for (const step of ['implement', 'commit', 'verify', 'resolve-release-conflict', 'push']) {
     const named = build(rowOf(step, { agent: 'devkit-core:named-by-the-row', paths: [] }));
     assert.equal(named.kind, 'agent', step);
     assert.equal(named.agent, 'devkit-core:named-by-the-row', `${step}: from the row`);
@@ -874,7 +877,7 @@ test('change-loop next: a pull request conflicting only in release files hands r
   assert.deepEqual([action.kind, action.agent, action.step, action.stage], ['agent', TDD, 'resolve-release-conflict', 'implementation']);
   assert.deepEqual(action.detail.paths, ['.claude-plugin/marketplace.json', 'CHANGELOG.md']);
   assert.equal(action.detail.base, 'main');
-  assert.match(action.detail.command[1], /release-rebase\.mjs$/);
+  assert.match(action.detail.command[1], /release-merge\.mjs$/);
   assert.ok(action.brief.includes('resolve-release-conflict'));
 });
 
@@ -2352,13 +2355,11 @@ test('change-loop skill: start and open read the request through a quoted heredo
   assert.match(md, /`DEVKIT_ARGS_` followed by digits that no line of the request holds/);
 });
 
-test('change-loop skill: the two override sentences of the release conflict and the rebased branch', () => {
+test('change-loop skill: the release-conflict sentence', () => {
   const md = skillText();
   assert.ok(md.includes('`resolve-release-conflict`'));
   assert.ok(md.includes('Run `detail.command` in the worktree, then the project\'s test command; report the JSON and the result; change nothing else.'));
   assert.match(md, /`Outcome: failure` ends the run blocked/);
-  assert.ok(md.includes('`push-rebased`'));
-  assert.ok(md.includes('The branch was rewritten by a rebase. Commit these files by name if any, then push with `git push --force-with-lease=<branch>:<oldHead> origin <branch>`. No PR edit.'));
 });
 
 test('change-loop skill: the script rule and its correction', () => {
@@ -2506,6 +2507,29 @@ test('change-loop retire: /conduct is not shipped and nothing points at it', () 
   assert.deepEqual(stray, [], 'every line naming /conduct names /devkit change as well');
 });
 
+// Every pin of `text` that is not `v<version>`.
+const pinMismatches = (text, version) => pinsIn(text).filter((p) => p !== `v${version}`);
+
+test('release-merge-conflict 15: the CI-pin check names the pin that differs from the manifest', () => {
+  const version = JSON.parse(readRepo('plugins', 'openspec', '.claude-plugin', 'plugin.json')).version;
+  const flow = readRepo('docs', 'openspec-flow.md');
+  const changed = flow.replace(/<commit sha of v[0-9.]+>/, '<commit sha of v9.9.9>');
+  assert.notEqual(changed, flow, 'the doc has a pin to change');
+  assert.deepEqual(pinMismatches(changed, version), ['v9.9.9']);
+  assert.deepEqual(pinMismatches('', version), []);
+  assert.deepEqual(pinsIn(''), []);
+});
+
+test('release-merge-conflict 16: the flow doc and the skill describe the release step as a merge and a plain push', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  for (const text of ['**Release-file conflicts: `release-merge.mjs`.**', 'git merge --no-ff --no-commit origin/<base>', 'git push origin <branch>']) assert.ok(flow.includes(text), text);
+  for (const re of [/push-rebased/, /release-rebase\.mjs/, /force-with-lease/]) assert.doesNotMatch(flow, re);
+  const skill = skillText();
+  assert.ok(skill.includes('The command merges `origin/<base>` into the branch and commits the merge with the release renumbered above the base\'s; then the loop hands `verify`, `review` and a plain `push` (`open-archive-pr` on an archive branch) with `detail.command` `git push origin <branch>`, never a force push.'));
+  for (const re of [/push-rebased/, /rebase/, /--force/]) assert.doesNotMatch(skill, re);
+  assert.ok(readRepo('plugins', 'openspec', 'README.md').includes('(hooks/release-merge.mjs)'));
+});
+
 test('change-loop docs: the design records the answers', () => {
   const design = readRepo('docs', 'coordination-design.md');
   const part = (from, to) => { const a = design.indexOf(from); assert.ok(a >= 0, from); const b = design.indexOf(to, a + from.length); return design.slice(a, b < 0 ? design.length : b); };
@@ -2540,8 +2564,9 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); roadmap-sessions-upfront moves it to 0.29.0 (release 0.33.0); 0.28.2 went to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.29\.0/, 'the CI snippet pins the current release (roadmap-sessions-upfront: 0.29.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); roadmap-sessions-upfront moves it to 0.30.0 (release 0.34.0); 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.30\.0/, 'the CI snippet pins the current release (roadmap-sessions-upfront: 0.30.0)');
+  assert.doesNotMatch(flow, /v0\.29\.0/, 'no pin left on main\'s release before it (release-merge-conflict)');
   assert.doesNotMatch(flow, /v0\.28\.2/, 'no pin left on main\'s release before it (change-state-retro-fixes)');
   assert.doesNotMatch(flow, /v0\.28\.1/, 'no pin left on the release before that (retro of change-budget)');
   assert.doesNotMatch(flow, /v0\.28\.0/, 'no pin left on the release before that (delivery-models)');
@@ -2560,17 +2585,13 @@ test('change-loop docs: the design records the answers', () => {
   const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
   assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
   assert.match(flow, /moves this pin to `v0\.20\.0` or later first/, 'the slice-merge floor (project-phases) is kept');
-  assert.doesNotMatch(flow, /v0\.19\.1/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.19\.0/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.18\.0/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.18\.1/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.17\.1/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.16\.0/, 'no pin left on the previous release');
+  const version = JSON.parse(readRepo('plugins', 'openspec', '.claude-plugin', 'plugin.json')).version;
+  assert.ok(pinsIn(flow).length >= 3, 'the CI snippet holds its pins');
+  assert.deepEqual(pinMismatches(flow, version), [], 'every CI pin names the devkit-openspec version of its manifest');
   assert.match(flow, /prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end/, 'the loop paragraph names the end marker');
   assert.match(flow, /an end the run already recorded/, 'the stop lock reads a recorded end');
   assert.match(flow, /refuses a hand-off with no agent type, to a general-purpose agent, to another plugin's agent even when it is named like a role/, 'the hand-off rule');
   assert.match(flow, /a usage error included[^\n]*keeps its raw message in the JSON's `error` field/, 'the usage-error reply');
-  assert.doesNotMatch(flow, /v0\.15\.1/);
   const road = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] review-writer-prompt/.test(l));
   assert.match(road, /touches only tests/);
   assert.match(road, /fenced example/);
@@ -5287,13 +5308,14 @@ const COMMIT_ROWS = {
   'open-pr': { number: 12 },
   push: { number: 12 },
   'open-archive-pr': { branch: 'chore/archive-feat', title: 't' },
-  'push-rebased': { number: 12, oldHead: 'abc', branch: 'feat', paths: ['CHANGELOG.md'], command: ['git', 'push', '--force-with-lease=feat:abc', 'origin', 'feat'] },
+  'push after a release merge': { number: 12, branch: 'feat', command: ['git', 'push', 'origin', 'feat'] },
 };
 
-for (const [n, step] of [[1, 'commit'], [2, 'open-pr'], [3, 'push'], [4, 'open-archive-pr'], [5, 'push-rebased']]) {
+for (const [n, step] of [[1, 'commit'], [2, 'open-pr'], [3, 'push'], [4, 'open-archive-pr'], [5, 'push after a release merge']]) {
   test(`commit-attribution AC-1 T${n} the ${step} hand-off to the commit agent ends with the attribution request once`, () => {
-    const a = build(rowOf(step, COMMIT_ROWS[step]));
+    const a = build(rowOf(step === 'push after a release merge' ? 'push' : step, COMMIT_ROWS[step]));
     assert.equal(a.agent, COMMIT);
+    assert.doesNotMatch(JSON.stringify(a), /--force|push-rebased/, 'a plain push, never a rewrite');
     assert.ok(ASK().length > 0, 'the request is exported');
     assert.ok(a.brief.endsWith(ASK()), a.brief);
     assert.equal(a.brief.split(ASK()).length - 1, 1, 'the request is there once');
@@ -5348,7 +5370,7 @@ const devkitLine = (start) => skillText().split('\n').find((l) => l.startsWith(s
 const BLOCK_SENTENCE = "the attribution block of the `ship-change` skill's Attribution section";
 for (const [n, label, start] of [
   [16, 'Loop agent item', '- `agent`: one Agent call'],
-  [17, 'push-rebased item', '- `push-rebased`:'],
+  [17, 'Loop agent item (the plain push after a release merge)', '- `agent`: one Agent call'],
   [18, 'roadmap agent item', '   - `agent`: hand every one'],
   [19, 'project agent item', '   - `agent`: as the Loop of the change sections says'],
 ]) {

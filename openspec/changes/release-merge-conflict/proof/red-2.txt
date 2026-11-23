@@ -1,0 +1,117 @@
+✔ release-merge-conflict 1: a base that released after the branch forked is merged, renumbered and committed, and a plain push of the result is accepted (3803.989417ms)
+✔ release-merge-conflict 2: an aborted merge leaves an untracked file and an unstaged openspec/ edit as they were (1464.853875ms)
+✔ release-merge-conflict 3: an unstaged openspec/ edit stays out of the merge commit (2605.218125ms)
+✔ release-merge-conflict 4: a tracked change outside openspec/ stops the run with exit 3 and touches nothing (872.618709ms)
+✔ release-merge-conflict 5: a rebase in progress stops the run with exit 3 (580.163916ms)
+✔ release-merge-conflict 6: a generator that fails after the files are rewritten aborts the merge and restores every file (1643.992125ms)
+✔ release-merge-conflict 7: a branch that already holds origin/<base> is left alone with exit 0 (654.771542ms)
+✖ release-merge-conflict 8: after a release merge that is not pushed, verify and review run again, then push hands a plain git push (2405.279667ms)
+✔ release-merge-conflict 9: a merge already pushed while GitHub still reports the conflict keeps update-branch in merge mode (2074.967042ms)
+✔ release-merge-conflict 10: a local commit ahead of the PR head without origin/<base> is not pushed by the override (1597.609542ms)
+✖ release-merge-conflict 11: a PR head that is not in the local history is stopped, neither pushed nor updated, in pr and in merge mode (1553.044ms)
+✖ release-merge-conflict 12: an archive PR after its release merge hands open-archive-pr with a plain push; a foreign head stays stopped (1403.7635ms)
+✔ release-merge-conflict 13: auto-merge still on is switched off before the push, on a change PR and on an archive PR (2980.501583ms)
+✔ release-merge-conflict 14: a push row with a plain command goes to the commit agent (0.326ms)
+✔ release-merge-conflict 15: the CI-pin check names the pin that differs from the manifest (2.065375ms)
+✖ release-merge-conflict 16: the flow doc and the skill describe the release step as a merge and a plain push (0.255667ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 12
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23766.506875
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:789:1
+✖ release-merge-conflict 8: after a release merge that is not pushed, verify and review run again, then push hands a plain git push (2405.279667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'blocked',
+  +   'stop'
+  -   'push',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/conduct-check.test.mjs:797:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'blocked', 'stop' ],
+    expected: [ 'push', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:827:1
+✖ release-merge-conflict 11: a PR head that is not in the local history is stopped, neither pushed nor updated, in pr and in merge mode (1553.044ms)
+  AssertionError [ERR_ASSERTION]: schema: devkit-lite
+  ship:
+    devkit-lite: pr
+    devkit: pr
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/conduct-check.test.mjs:836:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'blocked: item 5: PR #12 has merge conflicts with main',
+    expected: /not in local history/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:852:1
+✖ release-merge-conflict 12: an archive PR after its release merge hands open-archive-pr with a plain push; a foreign head stays stopped (1403.7635ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'stop-archive',
+  +   'stop'
+  -   'open-archive-pr',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/conduct-check.test.mjs:855:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stop-archive', 'stop' ],
+    expected: [ 'open-archive-pr', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2458:1
+✖ release-merge-conflict 16: the flow doc and the skill describe the release step as a merge and a plain push (0.255667ms)
+  AssertionError [ERR_ASSERTION]: **Release-file conflicts: `release-merge.mjs`.**
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/change-loop.test.mjs:2460:158)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
