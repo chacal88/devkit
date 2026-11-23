@@ -243,6 +243,26 @@ task with `git status --short`.
   the live CLI that `compozy agent list --workspace devkit -o json` shows no `diagnostics` for the
   twenty kit agents; design.md, "Phase 4 amendments", records the defect.
 - [x] 4.10 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers AC-7 and the CompozyOS 280-character rule for the kit (the `^compozy-` pattern includes `^compozy-agents`).
+- [x] 4.11 Defect found by the live proof (task 5.3, run `looprun-a4bc9068808707a9` of `add-mul`): after
+  the view said `gate` and `confirm` passed, the `phase_gate` node failed in 3 seconds without running
+  the tests, the next view was `blocked` ("the tests of phase 1 failed") and `run-gate` by hand said
+  `the run does not ask for the gate now (it asks for blocked)`. Cause: `compozyState` always passed
+  `after: record.handed?.key` to `nextAction`, and `confirm` records the key of the step just handed, so
+  every record step (`run-gate`, `run-step`, `record-approval`, `record-mockup`, `record-answer`) computed
+  its view through `stateFor` with `--after <the key of the step about to run>`, nothing changed yet, and
+  the checker's K1/K2 guards answered `blocked` (no-progress). Fix with a failing test first each, in
+  `plugins/openspec/hooks/change-loop.mjs` and `change-loop.test.mjs` (names `change-loop compozy ...`):
+  `compozyState` takes `guard` (default true); `stateFor`, so every record step, passes `guard: false`
+  and computes the action with `after: null`; `next --view compozy` and `confirm` keep
+  `after: record.handed?.key`, so a turn that changed nothing is still `blocked` with `no-progress`, and
+  `confirm` still compares the handed view with the current view computed the same way as `next --view`
+  did. Tests, each with a run record whose `handed.key` is the key of the step under test: `run-gate`
+  runs the gate command and ticks the task (green), and exits 1 with `failed` and the output tail (red);
+  `run-step` runs; `record-approval` writes approval.md; `record-mockup` writes; `record-answer` writes
+  for the grill and for the retro; and the negatives: `next --view compozy` with `handed.key` equal to
+  the current gate key and nothing changed is `blocked` with `no-progress`, and `confirm` still refuses
+  a view that differs. design.md, "Phase 4 amendments", records the defect.
+- [x] 4.12 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop compozy" --test-name-pattern="^compozy-driver" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers the record steps under a handed key (AC-2, AC-3, AC-11, AC-12).
 
 ## 5. The local proof (AC-1 to AC-5, AC-8, AC-9, AC-11; owner-run)
 

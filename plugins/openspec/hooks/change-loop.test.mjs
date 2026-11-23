@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
-import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, openspecStub, pm, writeRetro, retroMd, proposal } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { fakeCompozy } from './compozy-driver.test.mjs';
 import { shipConfig, collectState, buildReport, approvalState } from './deliver-check.mjs';
@@ -4312,6 +4312,135 @@ test('change-loop compozy run-gate: a red part exits 1 and ticks nothing, and it
   const elsewhere = planChange({ have: ['requirements'] });
   assert.equal(step(elsewhere, ['run-gate', '--change', 'feat']).code, 3);
   assert.ok(t);
+});
+
+// ---------------------------------------------------------------- the record steps under a handed key (task 4.11)
+
+// `confirm` records the key of the step just handed, and the record step then runs with nothing changed yet: the record holds the
+// key of the very step under test. The record steps must compute the step they check without that key as `--after`.
+const handedAs = (cwd, view, over = {}) => {
+  const file = changeLoopModule.runRecordPath(cwd, 'feat');
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(rec({ handed: { key: view.progress_key, at: 't' }, ...over })));
+  return file;
+};
+const tasksOf = (root) => readFileSync(join(root, 'openspec', 'changes', 'feat', 'tasks.md'), 'utf8');
+
+test('change-loop compozy handed key: run-gate runs the gate and ticks its task when the record holds the key of the gate', () => {
+  const { wt, env } = gateChange('true && true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  assert.equal(view.kind, 'gate');
+  handedAs(wt, view);
+  const r = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).green, true);
+  assert.match(tasksOf(wt), /- \[x\] 1\.2 Gate:/);
+});
+
+test('change-loop compozy handed key: a red run-gate still exits 1 with the part that failed and the output tail, and ticks nothing', () => {
+  const { wt, env } = gateChange('true && echo tail-line; false');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  assert.equal(view.kind, 'gate');
+  handedAs(wt, view);
+  const before = tasksOf(wt);
+  const r = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(r.code, 1, r.stdout + r.stderr);
+  const body = JSON.parse(r.stdout);
+  assert.deepEqual([body.green, body.task, body.failed, body.output], [false, '1.2', 'echo tail-line; false', 'tail-line']);
+  assert.equal(tasksOf(wt), before, 'nothing ticked');
+});
+
+test('change-loop compozy handed key: confirm records the gate as handed, and run-gate then runs it, as the live run does', () => {
+  const { wt, env } = gateChange('true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  const ok = confirmRun(wt, view, { env });
+  assert.equal(ok.code, 0, ok.stdout + ok.stderr);
+  const file = changeLoopModule.runRecordPath(wt, 'feat');
+  assert.equal(JSON.parse(readFileSync(file, 'utf8')).handed.key, view.progress_key);
+  const r = step(wt, ['run-gate', '--change', 'feat'], { env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(tasksOf(wt), /- \[x\] 1\.2 Gate:/);
+});
+
+test('change-loop compozy handed key: run-step runs the command of the step the record holds the key of', () => {
+  const root = proposedRecords();
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.deepEqual([view.kind, view.step], ['command', 'accept-decisions']);
+  handedAs(root, view);
+  const r = step(root, ['run-step', '--change', 'feat']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(readFileSync(join(root, ADR_FOLDER, '0001-a.md'), 'utf8'), /Status: accepted/i);
+});
+
+test('change-loop compozy handed key: record-approval writes approval.md when the record holds the key of the approval', () => {
+  const root = approvalPlan();
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.equal(view.kind, 'approval');
+  handedAs(root, view);
+  const r = step(root, ['record-approval', '--change', 'feat', '--words', 'go ahead']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(approvalState(join(root, 'openspec', 'changes', 'feat')).ok, true);
+});
+
+test('change-loop compozy handed key: record-mockup writes mockup.md when the record holds the key of the mock-up', () => {
+  const root = mockupChange();
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.equal(view.kind, 'mockup');
+  handedAs(root, view);
+  const r = step(root, ['record-mockup', '--change', 'feat', '--decision', 'approve', '--words', 'looks right']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(readFileSync(changeFile(root, 'mockup.md'), 'utf8'), /result=passed/);
+});
+
+test('change-loop compozy handed key: record-answer writes a grill answer when the record holds the key of the grill', () => {
+  const root = planChange({ have: [] });
+  const view = JSON.parse(viewOf(root).stdout);
+  assert.equal(view.kind, 'grill');
+  handedAs(root, view);
+  const r = step(root, ['record-answer', '--change', 'feat', '--gate', 'grill', '--answer', 'The admins', '--question', 'Who uses it?']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual(readRec(root).answers.grill.map((a) => [a.question, a.answer]), [['Who uses it?', 'The admins']]);
+});
+
+test('change-loop compozy handed key: record-answer writes the retro answers when the record holds the key of the retro', () => {
+  const t = pm();
+  const at = (f) => join(t.root, 'openspec', 'changes', 'feat', f);
+  const staged = (stage, body) => `<!-- devkit-stage ${stage} result=passed attempt=1 commit=none -->\n${body}`;
+  put(t.root, { // a change of the current script, every stage passed: the merged change waits for its retro answers
+    'openspec/changes/feat/requirements.md': staged('requirements', '# Requirements\n'),
+    'openspec/changes/feat/proposal.md': staged('proposal', readFileSync(at('proposal.md'), 'utf8')),
+    'openspec/changes/feat/specs/s/spec.md': staged('specs', '# Spec\n'),
+    'openspec/changes/feat/tasks.md': staged('tasks', readFileSync(at('tasks.md'), 'utf8')),
+    'openspec/changes/feat/review.md': staged('review', 'Consensus: PASS (round 1/2)\n\n# Review\n'),
+    'openspec/changes/feat/evidence.md': staged('evidence', 'Commit: none\n\n# Evidence\n'),
+  });
+  commitAll(t.root, 'a staged change');
+  writeRetro(t, retroMd(proposal(['CONTRIBUTING.md'])));
+  const view = JSON.parse(viewOf(t.root, { env: t.env }).stdout);
+  assert.equal(view.kind, 'retro-answers', JSON.stringify(view));
+  handedAs(t.root, view);
+  const r = step(t.root, ['record-answer', '--change', 'feat', '--gate', 'retro', '--answer', '1: approve'], { env: t.env });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(readFileSync(changeLoopModule.runRecordPath(t.root, 'feat'), 'utf8')).answers.retro, '1: approve');
+});
+
+test('change-loop compozy handed key: next --view compozy with the key of the gate and nothing changed is still blocked with no-progress', () => {
+  const { wt, env } = gateChange('true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  handedAs(wt, view);
+  const again = JSON.parse(viewOf(wt, { env }).stdout);
+  assert.deepEqual([again.kind, again.progress_key], ['blocked', `end/blocked/no-progress/${view.stage}`]);
+});
+
+test('change-loop compozy handed key: confirm still refuses a view that differs from the guarded one, and records nothing', () => {
+  const { wt, env } = gateChange('true');
+  const view = JSON.parse(viewOf(wt, { env }).stdout);
+  const file = handedAs(wt, view);
+  const before = readFileSync(file, 'utf8');
+  const r = confirmRun(wt, view, { env });
+  assert.equal(r.code, 1, 'the gate view is not the current view: the checker says no-progress');
+  assert.deepEqual([JSON.parse(r.stdout).kind, JSON.parse(r.stdout).progress_key], ['blocked', `end/blocked/no-progress/${view.stage}`]);
+  assert.equal(readFileSync(file, 'utf8'), before, 'the record is left as it was');
 });
 
 test('change-loop compozy retry: it clears the handed key and a recorded failure, and only those', () => {

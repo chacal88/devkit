@@ -1174,3 +1174,17 @@ Found while writing the loops, the resolver and the installer; each is a point t
    description changes in the part that is kept, not when only the dropped tail changes (the generated agent would not
    differ). A test pins the limit on every generated file (task 4.9; task 4.10 is its gate), because the plan knew the
    daemon's frontmatter keys but not this validation.
+10. D-3 and D-4, the guard of the record steps (found by the live proof, task 5.3, run `looprun-a4bc9068808707a9` of
+    `add-mul`). After the view said `gate` and `confirm` passed, the `phase_gate` node failed in 3 seconds without running the
+    tests, the next view was `blocked` ("the tests of phase 1 failed") and `run-gate` by hand said `the run does not ask for
+    the gate now (it asks for blocked)`. The cause: `compozyState` always gave `nextAction` the handed key of the run record as
+    `--after`, and `confirm` records the key of the step just handed. Every record step reads its state first (`stateFor`),
+    so `run-gate` and `run-step` saw `--after <the key of the step about to run>` with nothing changed yet, and the checker's
+    K1 guard answered `blocked` (no-progress). The unit tests missed it because no fixture had a record whose handed key was
+    that of the step under test. `compozyState` now takes `guard` (default true): the record steps pass `guard: false` and
+    compute the action with no `--after`, so their view is the one the checker gives for the step about to run; `next --view
+    compozy` and `confirm` keep the handed key of the previous turn as `--after`, so K1 and K2 still catch a turn that changed
+    nothing, and `confirm` compares the handed view with the current view computed the same way `next --view` did (task 4.11;
+    task 4.12 is its gate). The approval, mock-up, grill and retro steps were not hit: those views are ends that wait for
+    the owner, which K1 and K2 never wrap, and `confirm` clears the handed key for them; their tests keep the fixture so that it
+    stays so.

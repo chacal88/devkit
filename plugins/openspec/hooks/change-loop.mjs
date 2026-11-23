@@ -2116,8 +2116,10 @@ export function afterConfirm(record, { view, uses }, action, at) {
 }
 
 // What the loop reads for change `id`: { action, view, uses, record, file, start }. A change no checkout holds is the `open` action
-// of the run (it opens the change itself); any other is `nextAction`, given the key the record holds as handed as `--after`.
-export function compozyState(cwd, id, { env = process.env, lang = 'pt-BR', openspec, gh } = {}) {
+// of the run (it opens the change itself); any other is `nextAction`, given the key the record holds as handed as `--after`, so that
+// K1 and K2 catch a turn that changed nothing. `guard: false` gives no `--after`: the view of a record step is the one the checker gives
+// for the step about to run, whose own key `confirm` has just recorded as handed and which has not changed anything yet.
+export function compozyState(cwd, id, { env = process.env, lang = 'pt-BR', openspec, gh, guard = true } = {}) {
   if (!NAME.test(id) || id === 'archive') throw new LoopUsageError(`${id} cannot be a change name`);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -2127,7 +2129,7 @@ export function compozyState(cwd, id, { env = process.env, lang = 'pt-BR', opens
   let action;
   let dir;
   if (knownChange(start, id)) {
-    action = nextAction(cwd, id, { env, lang: l, after: record.handed?.key ?? null, openspec, gh });
+    action = nextAction(cwd, id, { env, lang: l, after: guard ? record.handed?.key ?? null : null, openspec, gh });
     dir = locateChange(action.root, id)?.dir;
   } else {
     const main = mainRoot(start);
@@ -2209,7 +2211,7 @@ export function mockupText({ text: current, header, decision, date, commit, word
 }
 
 const stateFor = (cwd, id, kind, ctx) => {
-  const st = compozyState(cwd, id, ctx);
+  const st = compozyState(cwd, id, { ...ctx, guard: false });
   if (st.view.kind !== kind) throw refusal(`the run does not ask for the ${kind} now (it asks for ${st.view.kind || 'nothing'})`);
   return st;
 };

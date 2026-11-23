@@ -3838,18 +3838,18 @@ const ARCHIVED_DIR = 'openspec/changes/archive/2026-11-09-feat';
 const NOT_FOUND = { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' };
 
 const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
-const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
+export const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
   `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
-const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
+export const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
 const retroPath = (archived) => (archived ? `${ARCHIVED_DIR}/retro.md` : 'openspec/changes/feat/retro.md');
-const writeRetro = (t, md, archived = false) => put(t.root, { [retroPath(archived)]: md });
+export const writeRetro = (t, md, archived = false) => put(t.root, { [retroPath(archived)]: md });
 // What `openspec archive feat --yes` does to the working tree.
 const archiveFolder = (t) => renameSync(join(t.root, 'openspec/changes/feat'), join(t.root, ARCHIVED_DIR));
 const ticked = '## Round 3\n- [x] feat\n';
 
 // A repository after the change PR was merged: the default branch holds the change
 // folder and the roadmap, origin/main is that commit, GitHub lists the merged PR.
-function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs = [], mergedPrs = [mergedPr()] } = {}) {
+export function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs = [], mergedPrs = [mergedPr()] } = {}) {
   const t = shipRepo({ ship });
   git(t.root, 'switch', '-q', 'main');
   put(t.root, { 'openspec/roadmap.md': '## Round 3\n- [ ] feat\n', 'CONTRIBUTING.md': 'old\n' });
