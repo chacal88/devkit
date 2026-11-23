@@ -18,10 +18,8 @@
 // (the pull request and the task's transitions as JSON on standard input: whether to ask about writing the link on the Jira
 // task, and the question) and `write-back answer <id> --choice <comment|no|transition:<id>> --lang <l>` (what the session may
 // then write to Jira, jira-entry D-7). Only `open`, `script`, `accept-decisions`, `flow` and `write-back` write, the last only
-// its record in the git common directory; `start` and `next` do not. The CompozyOS driver adds (compozy-driver D-1, D-3, D-4): `compozy-start <id> --lang <l>` (starts the
-// run), `next --view compozy` (the checker's view of the next action, one JSON object), `confirm --change <id> --lang <l> --view <json>`
-// and the record steps `record-approval`, `record-mockup`, `record-answer`, `run-gate`, `run-step` and `compozy-retry`, which write the
-// run record (`<git common dir>/devkit-compozy/<id>.json`) or the owner's answer files from the answer a CompozyOS request carries. `next` and `wait` print
+// its record in the git common directory; `start` and `next` do not. The CompozyOS driver (compozy-driver D-1, D-3, D-4) adds `compozy-start <id>`, `next --view compozy`, `confirm --view <json>`
+// and the record steps `record-approval`, `record-mockup`, `record-answer`, `run-gate`, `run-step` and `compozy-retry`, which write the run record (`<git common dir>/devkit-compozy/<id>.json`). `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
