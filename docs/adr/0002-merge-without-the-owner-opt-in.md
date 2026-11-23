@@ -1,12 +1,15 @@
 # ADR 0002: Merge without the owner, by opt-in
 
 - Status: accepted
+- Amended by ADR 0017 (0017-the-delivery-model-is-chosen-per-project.md)
 - Date: 2026-11-08
 - Change: auto-merge
 
 ## Context
 
 Note (coordinator-field-fixes, 2026-11-20): ADR 0012 limits what devkit-reviews judges to changes on a devkit script, judges each delivered change of a pull request that touches several, and passes other changes with a note; for every change it judges it still recomputes reviews, findings, gates and acceptance proof at the PR head. The Decision is otherwise unchanged.
+
+Note (delivery-models, 2026-11-22): ADR 0017 amends the sentence of the Decision that names `ship: <schema>: merge` as the opt-in: a project may also choose `trunk-auto` in `devkit.delivery.model`, which is this merge mode under a second spelling with all of the conditions below, and every `ship:` entry must then agree with it. The Decision is otherwise unchanged.
 
 This ADR builds on ADR 0001 and leaves its gates unchanged. Since ADR 0001, `ship-change` takes an approved change to a PR that `deliver-check` reports
 as ready (8/8), and the owner merges it. Owners of some repositories want that merge to happen

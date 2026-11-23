@@ -4,6 +4,7 @@
 - Amended by ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md)
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
 - Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
+- Amended by ADR 0017 (0017-the-delivery-model-is-chosen-per-project.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -12,6 +13,8 @@
 
 Note (design-open-points, 2026-11-19): the owner answered points this ADR left open, and
 [docs/coordination-design.md](../coordination-design.md) records each answer with who decided it.
+Note (delivery-models, 2026-11-22): ADR 0017 amends decision 6, which keeps the merge rules of ADR 0002 and ADR 0003 unchanged: the delivery model is now chosen per project in `devkit.delivery`, and the test-branch lock of decision 5 exists for `two-prs`. The Decision is otherwise unchanged.
+
 The names are decided, by the assistant on the owner's delegation: `manager` is the roadmap
 coordinator and `tech-lead` the change coordinator, and the CompozyOS kit's present `tech-lead`
 role, which plans, is renamed `planner` in round 21 (compozy-driver). This answers the last

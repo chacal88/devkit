@@ -552,9 +552,41 @@ Any other value, a scalar (`ship: pr`), a nested map or a duplicate schema key i
 
 **The `tdd-implementer` gate report applies in every mode.** The agent now reports the phase gate's command and output in its Validation section instead of writing `evidence.md` (the hook already blocked that write; `pr-verifier` is the only writer, and its `### Gates` table is the durable record). That is a bug fix, not `ship` behavior, and the go-ahead may come from you or from a skill that re-ran the gate green.
 
+### Delivery models
+
+A project can choose how a change reaches its branches, in the `devkit:` block of `openspec/config.yaml`:
+
+```yaml
+devkit:
+  delivery:
+    model: two-prs        # two-prs | trunk | trunk-auto
+    base: master          # two-prs only: the repository's default branch
+    test_branch: develop  # two-prs only
+```
+
+Without `devkit.delivery.model`, the `ship:` map above decides, as before. With it, every `ship:` entry must agree, or the configuration is refused and nothing runs:
+
+| Model | Meaning | `ship:` entries that agree |
+|---|---|---|
+| `trunk` | The `pr` mode: a short branch, one pull request, the owner merges | none, or `pr` |
+| `trunk-auto` | The `merge` mode under a second spelling, with every condition of [ADR 0002](adr/0002-merge-without-the-owner-opt-in.md) | none, or `merge` |
+| `two-prs` | Two pull requests from one branch (below) | none (any entry is refused; `plan` too) |
+
+`two-prs` names `base` and `test_branch`, both required and different; a missing or unknown value stops `/devkit change` with `setting-missing` or `setting-unknown`. Why the model is chosen per project and how it amends the earlier ADRs: [ADR 0017](adr/0017-the-delivery-model-is-chosen-per-project.md).
+
+**`two-prs`, from opening to the archive.**
+
+1. `/devkit change <id>` cuts the task branch from `origin/<base>`. The base branch must be the repository's default branch and the test branch must exist on the remote, or the change does not open (`base-not-default`, `test-branch-missing`); a change id ending in `-<test_branch>` is refused (`name-test-suffix`), because that suffix names the support branches.
+2. `ship-change` opens both pull requests together from the task branch (`open-prs`): one to the base branch, one to the test branch. The owner merges both pull requests, the one to the test branch first; devkit enables auto-merge on neither. The state names both (`ready-test-branch`, then `ready-base`).
+3. The pull request to the base branch stays red in `devkit-reviews` until the one to the test branch is merged (`rerun-checks` runs the failed check again after that merge).
+4. The test branch never enters the task branch. When the pull request to the test branch has a conflict, the flow cuts the support branch `<id>-<test_branch>` from the task branch, merges the test branch there (`merge-into-support`) and a `tdd-implementer` call resolves the conflict. The resolution, read as the support branch's own work, goes through `review-change` again (`review-resolution`, verdicts in `reviews/resolution/`) before the support branch is pushed (`push-support`). The pull request to the test branch is then closed and opened again from the support branch (`move-test-pr`); the pull request to the base branch stays as it is. A later fix on the task branch reaches the support branch by a merge into it.
+5. After both are merged, the change is archived through two archive pull requests, `chore/archive-<id>` to the base branch and `chore/archive-<id>-<test_branch>` to the test branch, with the same commits (`open-archive-pr`, `open-test-archive-pr`); the owner merges both (`archive-prs-ready`), and the change counts as archived when both branches hold it.
+
+**The lock, in the Claude driver.** A `git merge`, `rebase` or `pull` that would bring the test branch into any branch other than the test branch or a branch named `<name>-<test_branch>` is refused, naming the support branch. The limits, accepted: a ref inside quotes is not read, and `git cherry-pick`, `git reset <ref>` and `git merge FETCH_HEAD` are not read. The `devkit-reviews` check (below) is the backstop for all three, in every driver.
+
 ## CI
 
-Hooks run only inside Claude Code. To make the gates independent of the agent, run them in CI as well. The `devkit-reviews` workflow runs `deliver-check --ci`: it checks readiness (in `devkit`) and the first four items of the delivery contract (tasks and gates, reviews current at head, findings disposed, acceptance criteria proven) for the change the PR is about. Unlike the review consensus `guard.mjs ci` checked before 0.5.0, it applies the same staleness rule as `deliver-check` and the agent: a review or `evidence.md` recorded before a later product commit fails the job (after a commit of test files only, the reviews of `spec-reviewer`, `adr-reviewer`, `architecture-reviewer` and `security-reviewer` stay current). It ignores `DEVKIT_BYPASS` and does not read `ship` or `merge_method`. A change is never selected through an archive branch (`chore/archive-<id>`) once its folder has moved, so an archive PR is never held to another change's reviews even while other changes are open. It is checked as an archive PR instead: when the PR (against `GITHUB_BASE_REF`) brings an `openspec/changes/archive/<date>-<id>/` folder, `devkit-reviews` runs the same exact-path file check as P13 on the PR's changed files, and requires its `retro.md` to be readable with every proposal answered. A file no approved proposal names, an unanswered proposal or a missing retro fails the job. A PR that archives nothing passes with the "nothing to check" note. The check applies only to changes on a devkit script (ADR 0012): the change's own `.openspec.yaml` (else `openspec/config.yaml`) names the schema `devkit` or `devkit-lite`. For a change on any other schema the job passes and prints `devkit-reviews: <id> is on the <schema> script, not a devkit script (devkit, devkit-lite); nothing was checked`; an archive PR judges each archived folder by its own schema, so a folder of another schema is a note. A devkit folder with no `retro.md` still fails, and the message names the file, what it must hold (a `## Proposed updates` section with each proposal and the owner's answer) and the retro step of the archive that writes it.
+Hooks run only inside Claude Code. To make the gates independent of the agent, run them in CI as well. The `devkit-reviews` workflow runs `deliver-check --ci`: it checks readiness (in `devkit`) and the first four items of the delivery contract (tasks and gates, reviews current at head, findings disposed, acceptance criteria proven) for the change the PR is about. Unlike the review consensus `guard.mjs ci` checked before 0.5.0, it applies the same staleness rule as `deliver-check` and the agent: a review or `evidence.md` recorded before a later product commit fails the job (after a commit of test files only, the reviews of `spec-reviewer`, `adr-reviewer`, `architecture-reviewer` and `security-reviewer` stay current). It ignores `DEVKIT_BYPASS` and does not read `ship` or `merge_method`; it reads `devkit.delivery` from the default branch, and applies rules only in `two-prs` (see "Delivery models" and "The `two-prs` rules" below). A change is never selected through an archive branch (`chore/archive-<id>`) once its folder has moved, so an archive PR is never held to another change's reviews even while other changes are open. It is checked as an archive PR instead: when the PR (against `GITHUB_BASE_REF`) brings an `openspec/changes/archive/<date>-<id>/` folder, `devkit-reviews` runs the same exact-path file check as P13 on the PR's changed files, and requires its `retro.md` to be readable with every proposal answered. A file no approved proposal names, an unanswered proposal or a missing retro fails the job. A PR that archives nothing passes with the "nothing to check" note. The check applies only to changes on a devkit script (ADR 0012): the change's own `.openspec.yaml` (else `openspec/config.yaml`) names the schema `devkit` or `devkit-lite`. For a change on any other schema the job passes and prints `devkit-reviews: <id> is on the <schema> script, not a devkit script (devkit, devkit-lite); nothing was checked`; an archive PR judges each archived folder by its own schema, so a folder of another schema is a note. A devkit folder with no `retro.md` still fails, and the message names the file, what it must hold (a `## Proposed updates` section with each proposal and the owner's answer) and the retro step of the archive that writes it.
 
 ```yaml
 # .github/workflows/devkit-reviews.yml (templates/devkit-reviews.yml in the openspec-setup skill)
@@ -563,6 +595,7 @@ on:
   pull_request:
 permissions:
   contents: read
+  pull-requests: read
 jobs:
   devkit-reviews:
     runs-on: ubuntu-latest
@@ -575,17 +608,19 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.21.2 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.21.2>/plugins/openspec/hooks
+          # pinned to the commit of v0.22.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.22.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
+        env:
+          GH_TOKEN: ${{ github.token }}
 ```
 
 The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.20.0` or later first, because older releases pass a slice with a note.
 
-Pin the commit sha of the release tag (`v0.21.2` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.21.2` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.22.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.22.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
@@ -625,6 +660,8 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 
 **`guard.mjs ci`.** Projects that already run `node guard.mjs ci` keep working: it now runs the same `deliver-check --ci` and prints its output and exit code. It needs `deliver-check.mjs` and `merge-setup.mjs` in the same folder as `guard.mjs` (download all three, as the template does) and the same full-history, PR-head checkout; without them it prints `devkit ci: guard.mjs ci needs deliver-check.mjs and merge-setup.mjs in the same folder` and exits 1. The local `gh pr create` hook is unchanged: it still checks verdict values only.
 
+**The `two-prs` rules.** In a project whose default branch's `openspec/config.yaml` names `model: two-prs`, `devkit-reviews` also judges, on a pull request to the base branch, that the head holds no commit of the test branch's first-parent history that the base branch lacks, and that the pull request to the test branch from the same branch (or its support branch) is merged; the failures read `two-prs  open  <sha> (<subject>) is on <test_branch> and not on <base>`, `waits for pull request #<n> to <test_branch> to merge` and `the base branch <base> is not the repository's default branch <default>`. On a pull request to the test branch it does not judge the delivery contract, which the pull request to the base branch carries; from a support branch it judges the resolution's verdicts. The settings are read from the repository's default branch, never from the pull request's head or from the test branch: from the event payload's `repository.default_branch`, else `origin/HEAD`, else, outside GitHub Actions in a clone without `origin/HEAD`, from the pull request's base branch, where a pull request to the test branch whose own copy names no model is judged as before. The job needs `pull-requests: read` and `GH_TOKEN` (both in the template above). After the test-branch pull request merges, GitHub does not run the check of the base pull request again: outside the Claude driver, re-run it by hand or with `gh run rerun --failed`.
+
 ## Customizing
 
 - **Rules for one project**: add them under `rules.<artifact>` in `openspec/config.yaml`. They reach the agent with that artifact's instructions.
@@ -658,6 +695,12 @@ Exit codes: `0` pass, `1` something failed, `3` setup or usage error. `--json` p
 | `archive: waiting for the owner's answers` | Every retro proposal needs an `- Answer:` line in `retro.md` before the archive PR exists | Approve or reject each proposal listed, then run `ship-change` again |
 | `archive PR open: waiting for <what>` | The archive PR has auto-merge on and GitHub has not merged yet | Run `deliver-check <id> --watch` or `ship-change` again |
 | `deliver-check` exits 3: `no openspec/changes/<id>/ and no openspec/changes/archive/<date>-<id>/` | The id is in neither place in this checkout | Switch to the default branch and pull, or to the change's branch |
+| `/devkit change` says `setting-missing`, or the settings problem for `two-prs` | `devkit.delivery.model` is `two-prs` without `base` or `test_branch` | Write both names under `devkit.delivery` in `openspec/config.yaml` |
+| `/devkit change` says the test branch does not exist on the remote (`test-branch-missing`) | The `test_branch` of `two-prs` has not been pushed | Create it on the remote, then call `/devkit change` again |
+| `/devkit change` says the base branch is not the repository's default branch (`base-not-default`) | `devkit.delivery.base` differs from the default branch | Make them the same branch; a base other than the default branch is not supported |
+| A `git merge` of the test branch was refused: "the task branch never receives `<test>`" | The lock of `two-prs` | Merge it into the support branch `<change>-<test>` the message names, never into the task branch |
+| `devkit-reviews` fails with `waits for pull request #<n> to <test>` | The pull request to the test branch is open or missing | The owner merges it first, then the check runs again (`gh run rerun --failed`) |
+| `devkit-reviews` fails with `<sha> (<subject>) is on <test> and not on <base>` | The head holds a test-branch commit | Remove it from the task branch; solve a conflict on the support branch |
 | `in progress: item 6` | Required checks are still running, or failing | Run `deliver-check <id> --watch` or `ship-change` again; a failing check is fixed through `tdd-implementer` |
 | `blocked: rebase of <id> stopped: resolve or abort it in <worktree>` | A rebase left in progress in the change's worktree (a conflict outside the release files) | Resolve it there, or `git -C <worktree> rebase --abort`, then run `/devkit change <id>` again; the session aborts only when you ask |
 | `git worktree list` shows a worktree whose folder is gone (`prunable`) | A change's worktree was deleted by hand | `git worktree prune`; `/devkit change <id>` finds the change's branch and reuses it |

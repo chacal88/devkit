@@ -2056,3 +2056,52 @@ test('delivery-models conduct: actorOf and the final state name the archive step
   const ready = got('archive-prs-ready', { list: '#5 to main, #6 to develop' });
   assert.deepEqual([ready.next.actor, ready.next.askable, ready.state], ['owner', false, 'waiting for the owner: merge archive PRs #5 to main, #6 to develop']);
 });
+
+// ---------------------------------------------------------------- P16 the documents (D-12, D-13, phase 6)
+
+// Invariant (AC-1, AC-9): ADR 0017 and its four Notes, the config line, the design page's answered conflict and lock row,
+// the flow page's subsection and CI lines, the skill's one row per new step and the README say what the delivery models are.
+// Layer: the documents. Suite: this file.
+test('delivery-models docs: the documents follow', () => {
+  const root = join(HERE, '..', '..', '..');
+  const read = (...p) => readFileSync(join(root, ...p), 'utf8');
+  const adrName = '0017-the-delivery-model-is-chosen-per-project.md';
+  const adr = read('docs', 'adr', adrName);
+  assert.match(adr, /^- Status: (proposed|accepted)$/m);
+  assert.match(adr, /^- Change: delivery-models$/m);
+  for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
+    assert.ok(adr.split('\n').includes(h), `ADR 0017 has ${h}`);
+  }
+  const old = ['0002-merge-without-the-owner-opt-in.md', '0003-auto-merge-the-archive-pr.md', '0010-openspec-as-the-harness.md', '0012-the-reviews-check-follows-the-change-script.md'];
+  for (const f of old) {
+    const t = read('docs', 'adr', f);
+    assert.match(t, /Note \(delivery-models, \d{4}-\d{2}-\d{2}\): ADR 0017 amends /, `${f} has the Note`);
+    if (/^- Status: accepted$/m.test(adr)) assert.ok(t.split('\n').includes(`- Amended by ADR 0017 (${adrName})`), `${f} names ADR 0017 in its header`);
+  }
+  if (/^- Status: accepted$/m.test(adr)) assert.match(adr, /^- Accepted by: the owner, on \d{4}-\d{2}-\d{2}, /m);
+  const config = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
+  assert.match(config, /0017 the delivery model chosen per project and the test-branch lock, amends 0002, 0003, 0010 and 0012/, 'the ADRs line names 0017');
+
+  const design = read('docs', 'coordination-design.md');
+  const part = (from, to) => { const a = design.indexOf(from); assert.ok(a >= 0, from); const b = design.indexOf(to, a + from.length); return design.slice(a, b < 0 ? design.length : b); };
+  assert.match(part('## 5. ', '## 6. '), /answered by the owner on 2026-11-21, round 17 grill, questions 3 to 5/, 'section 5 records the answer');
+  assert.doesNotMatch(part('## Open points', '## What stays shipped'), /conflicts with `develop`; settled/, 'the conflict left Open points');
+  assert.match(design, /\| The task branch never receives `develop` \| the command is refused \(exists\) \|/, 'the lock row is built');
+
+  const flow = read('docs', 'openspec-flow.md');
+  assert.ok(flow.split('\n').includes('### Delivery models'), 'the flow page has the subsection');
+  for (const k of ['two-prs', 'trunk-auto', 'setting-missing', 'test-branch-missing', 'base-not-default', 'pull-requests: read', 'GH_TOKEN: ${{ github.token }}']) {
+    assert.ok(flow.includes(k), `the flow page names ${k}`);
+  }
+  assert.match(flow, /reads `devkit\.delivery` from the default branch, and applies rules only in `two-prs`/, 'the CI sentence names the default branch');
+
+  const skill = read('plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md');
+  for (const step of ['open-prs', 'open-test-pr', 'checkout-support', 'merge-into-support', 'resolve-support-conflict', 'review-resolution', 'fix-resolution', 'push-support', 'move-test-pr', 'rerun-checks', 'ready-test-branch', 'ready-base', 'open-test-archive-pr', 'archive-prs-ready']) {
+    assert.equal(skill.split('\n').filter((l) => l.startsWith(`| \`${step}\` |`)).length, 1, `one row for ${step}`);
+  }
+  assert.match(skill, /^\*\*`two-prs`\./m, 'the skill has the two-prs paragraph');
+  const agent = read('plugins', 'core', 'agents', 'commit-and-pr.md');
+  assert.match(agent, /^## Two-PR call$/m);
+  assert.match(agent, /^## Test-branch archive call$/m);
+  assert.match(read('plugins', 'openspec', 'README.md'), /two-prs/, 'the README names the delivery models');
+});

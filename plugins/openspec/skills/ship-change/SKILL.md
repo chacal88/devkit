@@ -25,6 +25,8 @@ Path used below, relative to this skill's directory: `../../hooks/deliver-check.
 
 `ship` comes from `openspec/config.yaml`; a schema without an entry is `plan`. In `plan` mode (`stop-plan-mode`) this skill does nothing: say "ship mode for <schema> is plan; follow the usual flow" (plan, readiness, `tdd-implementer` per phase with the owner's go-ahead, `pr-verifier`, `review-change`, `commit-and-pr`) and stop. In `pr` mode the run ends at `ready` and the merge is the owner's. In `merge` mode (`ship: { <schema>: merge }`, optionally `merge_method`) the repository must be prepared first (the `openspec-setup` GitHub step); then the run goes on to `enable-auto-merge` at 8/8 and GitHub merges when its rules pass. Enable auto-merge only at the step `enable-auto-merge`, never on your own reading of the state.
 
+**`two-prs`.** When the JSON's `ship` is `pr` and `delivery.model` of `openspec/config.yaml` is `two-prs`, the change goes to two pull requests from one branch, both opened together: one to the base branch and one to the test branch. The test branch never enters the task branch: a conflict with it is solved on the support branch `<id>-<test branch>`, whose resolution goes through `review-change` on its own before `push-support`, and the pull request to the test branch is moved there (`move-test-pr`). The owner merges both pull requests, the one to the test branch first; auto-merge is never enabled, on either pull request or on either archive pull request. The loop is the same: do the step `next.step` names, with the rows below for the steps only `two-prs` returns.
+
 ## Loop
 
 Repeat: run `deliver-check <id> --json`; do exactly the step `next.step` names; run it again. Never choose the order yourself.

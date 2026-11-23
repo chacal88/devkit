@@ -1,12 +1,15 @@
 # ADR 0003: Auto-merge the archive PR without the delivery contract
 
 - Status: accepted
+- Amended by ADR 0017 (0017-the-delivery-model-is-chosen-per-project.md)
 - Date: 2026-11-09
 - Change: archive-after-merge
 
 ## Context
 
 Note (coordinator-field-fixes, 2026-11-20): ADR 0012 judges an archive PR per archived folder by its schema; a devkit-script folder without retro.md still fails, with a message that explains. The archive starts after the change is delivered, its own pull request merged and every task ticked on the default branch (a change may ship over several pull requests). The Decision is unchanged.
+
+Note (delivery-models, 2026-11-22): ADR 0017 amends the sentence on who merges the archive PR in `pr` mode: in the `two-prs` model the owner merges both archive pull requests, and devkit enables auto-merge on neither. The Decision is otherwise unchanged.
 
 This ADR builds on ADR 0001 and ADR 0002 and leaves both decisions unchanged. Under ADR 0002,
 `ship-change` enables auto-merge on a change PR only when `deliver-check` reports 8/8, and

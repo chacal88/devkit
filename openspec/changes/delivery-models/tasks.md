@@ -155,37 +155,37 @@ proven by every existing suite staying green, and only 6.9 runs them all.
 
 ## 6. ADR 0015, documents, skills, release and the whole suite (AC-1 to AC-10)
 
-- [ ] 6.1 Write `docs/adr/0015-the-delivery-model-is-chosen-per-project.md` with the text of D-12,
+- [x] 6.1 Write `docs/adr/0015-the-delivery-model-is-chosen-per-project.md` with the text of D-12,
   status `proposed`, the date of the day. Check: the file has `## Context`, `## Decision`,
   `## Consequences`, `### Review trigger`, `## Alternatives considered`.
-- [ ] 6.2 Only when `approval.md`'s owner's words accept ADR 0015: status `accepted` with an `Accepted
+- [x] 6.2 Only when `approval.md`'s owner's words accept ADR 0015: status `accepted` with an `Accepted
   by:` line in ADR 0012's form, and the `- Amended by ADR 0015 (…)` header line in
   `docs/adr/0002-merge-without-the-owner-opt-in.md`, `docs/adr/0003-auto-merge-the-archive-pr.md`,
   `docs/adr/0010-openspec-as-the-harness.md` and `docs/adr/0012-the-reviews-check-follows-the-change-script.md`;
   otherwise stop and report. Check: the five headers read as D-12 says.
-- [ ] 6.3 The dated Notes of D-12 in the four ADRs, and the ADR 0015 entry of the `ADRs:` line of
+- [x] 6.3 The dated Notes of D-12 in the four ADRs, and the ADR 0015 entry of the `ADRs:` line of
   `openspec/config.yaml`. Check: `ADR 0002 exists, is cited by README and docs/openspec-flow.md, and
   says Status: accepted` (`deliver-check.test.mjs`) passes unchanged.
-- [ ] 6.4 Update `docs/coordination-design.md` as D-13 says. Check: `change-loop docs: the design
+- [x] 6.4 Update `docs/coordination-design.md` as D-13 says. Check: `change-loop docs: the design
   records the answers` and `roadmap-loop docs: the documents follow` pass for this file.
-- [ ] 6.5 Update `docs/openspec-flow.md` and `plugins/openspec/README.md` as D-13 says, and write
+- [x] 6.5 Update `docs/openspec-flow.md` and `plugins/openspec/README.md` as D-13 says, and write
   `delivery-models docs: the documents follow` (D-14 P16). Check: P16 and `docs sweep: "never merges"
   …` pass.
-- [ ] 6.6 Add the new steps' rows and the `two-prs` paragraph to
+- [x] 6.6 Add the new steps' rows and the `two-prs` paragraph to
   `plugins/openspec/skills/ship-change/SKILL.md`, and the two-PR call and the test-branch archive call
   to `plugins/core/agents/commit-and-pr.md` (D-13). Check: `python3 scripts/check.py` passes and P16
   reads one row per new step in the skill.
-- [ ] 6.7 Release as D-13 says: `plugins/openspec/.claude-plugin/plugin.json`,
+- [x] 6.7 Release as D-13 says: `plugins/openspec/.claude-plugin/plugin.json`,
   `plugins/core/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`,
   `python3 scripts/gen-catalog.py` for `docs/catalog.md`, every CI pin of `docs/openspec-flow.md` to
   the new devkit-openspec tag, and the version assertion of `change-loop docs: the design records the
   answers` moved to the new tag with a `doesNotMatch` for the previous one (invariant: the CI snippet
   pins the current release). Check: `python3 scripts/gen-catalog.py --check` passes and `git grep -c`
   of the previous tag in `docs/openspec-flow.md` prints nothing.
-- [ ] 6.8 Record, in `openspec/changes/delivery-models/proof/ac-map.md`, each acceptance criterion with
+- [x] 6.8 Record, in `openspec/changes/delivery-models/proof/ac-map.md`, each acceptance criterion with
   the test name of D-14's AC-10 table and its result in the 6.9 run. Check: ten rows, each naming a
   test that exists in the suite.
-- [ ] 6.9 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate delivery-models --strict` green (the guard suite as a background command); covers AC-1 to AC-10 and every other suite at once.
+- [x] 6.9 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate delivery-models --strict` green (the guard suite as a background command); covers AC-1 to AC-10 and every other suite at once.
 
 ## Workflow follow-up
 

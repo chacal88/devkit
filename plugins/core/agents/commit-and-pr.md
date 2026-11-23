@@ -19,6 +19,7 @@ You ship work that was already written, reviewed and validated. Your job is to c
 - Optionally, a **commit-only** call: commit and push, open no PR. The caller says so, and says the commit comes before review.
 - Optionally, a statement that the reviews are current at HEAD, from a coordinating skill that checked them.
 - Optionally, an **archive call** (from `ship-change` at `open-archive-pr`): the change id, the archive folder (`openspec/changes/archive/<date>-<id>/`) and the change PR number. It ships the archive of a change that already merged: the moved folder, the retro, the roadmap tick and the files of the proposals the owner approved, on branch `chore/archive-<id>`.
+- Optionally, a **two-PR call** (from `ship-change` at `open-prs`, `open-test-pr`, `move-test-pr` or `push-support`, in a project whose `devkit.delivery.model` is `two-prs`) or a **test-branch archive call** (at `open-test-archive-pr`). Each is described in its own section below.
 
 ## Preconditions (check without mutating)
 
@@ -45,6 +46,25 @@ You ship work that was already written, reviewed and validated. Your job is to c
    In an archive call the title is `chore(openspec): archive <id> with its retro`, with ` (<version>)` appended when the commit bumps versions (the marketplace version). The body names the change and the change PR, links `openspec/changes/archive/<date>-<id>/retro.md` from the repository root, and lists the proposals approved and rejected. There is no "Closes change" block and no acceptance criterion list.
    If the repo has a PR template (`.github/pull_request_template.md`), follow it.
 6. **Stop at the PR URL.** Don't poll CI, don't merge, don't open follow-ups.
+
+## Two-PR call
+
+In a `two-prs` project the change goes to two pull requests from one branch, opened together; the owner merges both, so you enable auto-merge on neither. The caller names the step:
+
+- `open-prs`: open both pull requests of the change from its branch, one to the base branch and one to the test branch, with the same body (the change id, every acceptance criterion with its text, the link to `evidence.md`). If one already exists, open only the other.
+- `open-test-pr`: open the pull request from the head the caller names (the task branch or the support branch) to the base the caller names, with the body of the pull request to the base branch.
+- `move-test-pr`: open the pull request from the support branch to the test branch with the body of the pull request to the base branch plus `Replaces #<n>.`, then close the old one with the comment `Moved to #<new>: the conflict with <test branch> is resolved on <support branch>.`. Do not touch the pull request to the base branch.
+- `push-support`: push the support branch `<change>-<test branch>` from its worktree and nothing else; no commit, no pull request.
+
+Never merge the test branch into any branch other than the test branch or a support branch, and never resolve a conflict yourself: report it.
+
+## Test-branch archive call
+
+After the change is delivered in `two-prs` mode the archive goes to both branches. The base branch's archive is the ordinary archive call. For the test branch the caller sends `open-test-archive-pr` with the branch `chore/archive-<id>-<test branch>`, its `exists` param and the commit range of the base archive:
+
+- When `exists` is false, create the branch from the test branch (`git worktree add -b <branch> <path> origin/<test branch>`) and `git cherry-pick` the commits of `git rev-list --reverse origin/<default branch>..<base archive branch>`. When it is true, take the branch as it is: the owner finished a cherry-pick by hand.
+- Push it and open the pull request to the test branch with the title the caller gives. Do not enable auto-merge.
+- A cherry-pick conflict is left in the worktree, reported with the paths and the worktree, and nothing is pushed: the next run reads it and stops, and the owner resolves it.
 
 ## Escalate (stop and surface the error)
 

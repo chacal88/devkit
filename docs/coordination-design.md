@@ -31,9 +31,12 @@ owner's session, run by the script `roadmap-loop.mjs`, in the desktop app each c
 setting `load_limit`. So do, since the change `project-phases` (round 19), the command `/devkit project`,
 the `devkit-project` schema (with its `flow.json`), the script `project-loop.mjs` and the slice contract
 the `devkit-reviews` check applies to a slice's pull request
-([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). `/conduct` no longer
+([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). So do, since the
+change `delivery-models` (round 17), the delivery models chosen per project in `devkit.delivery`, the
+two-PR model and its lock, and the support branch that solves a conflict with the test branch
+([ADR 0017](adr/0017-the-delivery-model-is-chosen-per-project.md)). `/conduct` no longer
 exists. Everything else (the other verbs of `/devkit`, the new roles and skills, the rest of the `devkit:`
-configuration block, the other two drivers, the two-PR model and its lock,
+configuration block, the other two drivers,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
 builds it. The section "What stays shipped until its round" lists what keeps working meanwhile.
 
@@ -153,7 +156,7 @@ driver if a live test shows it holds (open until that test). The flow never depe
 
 The stages are the owner's (decided); the agents, skills and gates are proposed. `new` marks what
 does not exist today. The new roles and skills are to be built in round 16 (the change coordinator
-exists since round 15), the roadmap coordinator in round 18 and the second pull request in round 17.
+exists since round 15), the roadmap coordinator in round 18; the second pull request exists since round 17.
 
 | # | Stage | Who and skills | Produces | Gate |
 |---|---|---|---|---|
@@ -170,8 +173,8 @@ exists since round 15), the roadmap coordinator in round 18 and the second pull 
 | 10 | E2E tests, only where the project has E2E configured | `e2e-tester` (new), skill `e2e-testing` (new) | E2E tests written from the acceptance criteria, apart from the implementer, and their result | green; it is a delivery condition |
 | 11 | Demonstration | `pr-verifier` | `evidence.md`, as text, inside the change: per acceptance criterion, what the agent did, what it observed and whether it passed | every criterion demonstrated and recorded |
 | 12 | Code review | the six reviewers, `finding-verifier` x3; `review-change` | `reviews/*.md`, `review.md` | consensus; two rounds at most |
-| 13 | Delivery | `commit-and-pr`; `commit-message-guidelines` | commit, push, the pull request to the base of the delivery model | GitHub checks green and the merge the model defines |
-| 14 | Second pull request, two-PR model only (new, round 17) | `commit-and-pr` | the pull request from the same branch to `master` | the first one was approved on `develop`; checks green; merged |
+| 13 | Delivery | `commit-and-pr`; `commit-message-guidelines` | commit, push, the pull request to the base of the delivery model (in the two-PR model, both pull requests open together) | GitHub checks green and the merge the model defines |
+| 14 | Second pull request, two-PR model only (built, round 17) | `commit-and-pr` | the pull request from the same branch to `master`, opened together with the one to `develop` | the owner merges the one to `develop` first; the check on the one to `master` then turns green; the owner merges it |
 | 15 | Retro and archive | change coordinator with the owner; `retro` | `retro.md`, `openspec archive`, the roadmap line ticked | the owner answered each proposal |
 
 Owner decisions inside this table (decided unless marked):
@@ -197,23 +200,30 @@ Owner decisions inside this table (decided unless marked):
 
 ## 5. Delivery models (D-5)
 
-Chosen per project, in configuration (decided by the owner; the configuration is to be built in
-round 17):
+Chosen per project, in configuration (decided by the owner; built in round 17 by the change
+`delivery-models`, key `devkit.delivery.model`):
 
-- **Two pull requests from the same branch (decided; new in devkit, round 17).** How one of the owner's
+- **Two pull requests from the same branch (decided; built in round 17).** How one of the owner's
   projects works. Every task branch is cut from `master` or `main`; a first pull request goes to
   `develop`, for testing; once approved, a second pull request from the same task branch goes to
   `master`. `develop` never goes to `master`, so the task branch never receives `develop` either,
-  not even to solve a conflict. The lock that keeps `develop` out of the task branch is in section 8.
+  not even to solve a conflict. Both pull requests open together and the owner merges both. The lock
+  that keeps `develop` out of the task branch is in section 8.
 - **Trunk-based (decided; exists today).** A short branch, a pull request to the main branch, the
   owner merges.
 - **Trunk-based with automatic merge (decided; exists today).** The same, and GitHub merges when the
   gates are green.
 
-devkit knows only the last two today.
+devkit knows all three since round 17; trunk-based with automatic merge is ADR 0002's `merge` mode
+under a second spelling.
 
-**The conflict with `develop` (open).** What to do when the task branch conflicts with `develop` is
-not decided; it is settled in the grill of round 17 (delivery models).
+**The conflict with `develop` (answered by the owner on 2026-11-21, round 17 grill, questions 3 to 5).**
+A support branch `<task-branch>-develop`, cut from the task branch, alone receives `develop`; the
+conflict is solved there, and the pull request to `develop` is closed and opened again from it. The pull
+request to `master` stays red until the one to `develop` is merged. The resolution, read as the support
+branch's own work, goes through the review bench again before the branch is pushed, and the change is
+archived through two archive pull requests, one to each branch
+([ADR 0017](adr/0017-the-delivery-model-is-chosen-per-project.md)).
 
 ## 6. Panels (D-6)
 
@@ -329,8 +339,8 @@ OpenSpec prints that its `schema` commands are experimental and may change.
   waiting on GitHub, blocked.
 
 **The locks and how each is enforced (proposed).** "Exists" marks a lock that ships today (the two stop
-locks and the coordinator's lock since round 15); "new" marks one to be built (the `develop` lock in
-round 17).
+locks and the coordinator's lock since round 15, and the `develop` lock since round 17); "new" marks
+one to be built.
 
 | Lock | In the Claude driver | In other drivers |
 |---|---|---|
@@ -340,7 +350,7 @@ round 17).
 | The change coordinator does not stop while a stage is ready | refused when it tries to stop, with the next stage named (exists) | not needed: the loop is a program |
 | A subagent does not stop without delivering | refused when it tries to stop and its stage file is missing (exists) | the program checks the file before going on |
 | The change coordinator calls only the listed roles and edits no code | refused when it edits product code or hands work to a role the script does not list: the coordinator is the owner's session, held by a hook (ADR 0011) (exists) | the role's definition in the driver |
-| The task branch never receives `develop` | the command is refused (new) | a GitHub check on the pull request to `master` |
+| The task branch never receives `develop` | the command is refused (exists) | a GitHub check on the pull request to `master` |
 | Approval only from the owner's message | the file is writable only by the main session (exists; the weakest lock) | the driver's human-review step |
 
 **What the hooks can do (checked on 2026-11-19 in the Claude Code hooks reference).** `Stop` and
@@ -369,8 +379,9 @@ devkit:
 
 **The configuration's field names. Decided by `change-coordinator` on 2026-11-20 (A-8).**
 `devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,
-`compozy` or `script`; default `claude`) are final. The other fields stay proposed, for rounds 16, 17
-and 20.
+`compozy` or `script`; default `claude`) are final. `devkit.delivery.model` (`two-prs`, `trunk` or `trunk-auto`), `devkit.delivery.base` and
+`devkit.delivery.test_branch` are decided by `delivery-models` (round 17). The other fields stay proposed,
+for rounds 16 and 20.
 
 **The header's field names (decided by `flow-script-checker`).** The three facts are `result`, `attempt` and
 `commit`, in one comment line at the top of each stage file:
@@ -493,10 +504,8 @@ The points still to prove are proved together, in one live test session, when th
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
 machine is loaded (and how the load is measured, answered by the change `roadmap-coordinator` on 2026-11-21, section 2), writing back to Jira, small work and the roadmap, and the lean pull-request
-template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
+template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
 
-- What to do when the task branch conflicts with `develop`; settled in the grill of round 17
-  (section 5).
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
 - Whether CompozyOS can choose the role at each turn (section 10).
 - The script driver for an AI other than Claude (section 10).

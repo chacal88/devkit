@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.26.0 — delivery models per project
+
+- **devkit-openspec** 0.22.0: a project chooses its delivery model in `devkit.delivery.model` of
+  `openspec/config.yaml`: `two-prs`, `trunk` or `trunk-auto` ([ADR 0017](docs/adr/0017-the-delivery-model-is-chosen-per-project.md)).
+  In `two-prs` both pull requests open together from the task branch and the owner merges both; the
+  test branch never enters the task branch (a hook refuses the command, and `devkit-reviews` fails a
+  pull request to the base branch that holds a test-branch commit or whose test-branch pull request is
+  not merged); a conflict is solved on the support branch `<id>-<test branch>`, reviewed on its own
+  before it is pushed; the change is archived through two archive pull requests. A project on `two-prs`
+  adds `pull-requests: read` and `GH_TOKEN` to its `devkit-reviews` workflow (the template has both).
+  The CI snippet now pins `v0.22.0`, the release's tag.
+- **devkit-core** 0.10.0: `review-change` reviews a support branch's resolution on its own, the
+  `code-quality-reviewer` and `test-coverage-reviewer` read it, and `commit-and-pr` gains the two-PR
+  call and the test-branch archive call.
+- Docs: ADR 0017, with Notes in ADRs 0002, 0003, 0010 and 0012; the coordination design records the
+  conflict answer and the built lock; `docs/openspec-flow.md` gains "Delivery models".
+
 ## 0.25.2 — follow-ups of the project phases
 
 - **devkit-openspec** 0.21.2: the slice contract refuses an ADR verdict recorded with uncommitted
