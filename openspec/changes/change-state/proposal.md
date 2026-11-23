@@ -38,7 +38,7 @@ store none (ADR 0010, decisions 3 and 6).
   `📦 <id>` once archived; still cut to 59 code points. A change session starts with that title too.
 - **ADR 0017 (new, proposed)** records the one derivation, the GitHub rule and the title; it amends
   ADR 0014 decision 3.
-- Docs and release: devkit-openspec 0.23.0, marketplace 0.27.0.
+- Docs and release: devkit-openspec 0.24.0, marketplace 0.28.0.
 
 Non-goals: rewiring any panel (`coordination-panels`); a stored event log or state file (ADR 0010);
 a budget or a new end of the loop (`change-budget`); the transcript reading of `guard.mjs`'s locks,

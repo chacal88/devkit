@@ -125,10 +125,10 @@ the tree; end every task with `git status --short`.
   the design records the answers` pass; the fields the new paragraph names are the keys `change-state
   AC-1 command: one change prints its state, reason, stage and title in the person's language`
   asserts, no more and no fewer.
-- [x] 3.3 Release as D-11 says: `plugins/openspec/.claude-plugin/plugin.json` (0.23.0),
-  `.claude-plugin/marketplace.json` (devkit-openspec 0.23.0, marketplace 0.27.0), `CHANGELOG.md`
-  (`## 0.27.0 — one state per change`), the CI pin lines of `docs/openspec-flow.md` moved to
-  `v0.23.0` with `setPins` of `release-rebase.mjs` and the assertion of `change-loop docs: the design
+- [x] 3.3 Release as D-11 says: `plugins/openspec/.claude-plugin/plugin.json` (0.24.0),
+  `.claude-plugin/marketplace.json` (devkit-openspec 0.24.0, marketplace 0.28.0), `CHANGELOG.md`
+  (`## 0.28.0 — one state per change`), the CI pin lines of `docs/openspec-flow.md` moved to
+  `v0.24.0` with `setPins` of `release-rebase.mjs` and the assertion of `change-loop docs: the design
   records the answers` moved with them, then `python3 scripts/gen-catalog.py`. Check: `python3
   scripts/gen-catalog.py --check` passes and `release-rebase pin: the real docs/openspec-flow.md …`
   passes.
@@ -141,8 +141,8 @@ the tree; end every task with `git status --short`.
 
 ## Workflow follow-up
 
-- After the merge, tag `v0.23.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
-- The CI pin of `docs/openspec-flow.md` already moved to `v0.23.0` in this release (task 3.3), with
+- After the merge, tag `v0.24.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
+- The CI pin of `docs/openspec-flow.md` already moved to `v0.24.0` in this release (task 3.3), with
   the assertion of `change-loop docs: the design records the answers`; the tag only has to exist.
 - Archive with the retro; the archive ticks the `change-state` line of `openspec/roadmap.md`.
 - The first roadmap run after the release shows a change session renamed to a state title

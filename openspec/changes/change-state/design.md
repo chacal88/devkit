@@ -476,7 +476,7 @@ Read and pass unchanged (the task that changes their code names them in its chec
   S25 … S26 …` (`project-loop.test.mjs`): `project-loop.mjs` is not changed and `waitLoop` still counts
   its blocked form.
 - `change-loop docs: the design records the answers` (`change-loop.test.mjs`), which pinned `v0.22.0`
-  in `docs/openspec-flow.md`: the pin moves in this release to `v0.23.0` (task 3.3) and the assertion moves with it
+  in `docs/openspec-flow.md`: the pin moves in this release to `v0.24.0` (task 3.3) and the assertion moves with it
   (`release-rebase pin: the real docs/openspec-flow.md …` ties the pin to the plugin version).
 
 The search behind this list (every suite under `plugins/openspec/hooks/`, `guard.test.mjs` included)
@@ -506,12 +506,12 @@ it, do not change it.
   sentence: the change loop's `state` command gives each change's state, read by `/devkit status`,
   the session titles and the panels (ADR 0017).
 - ADR 0017, ADR 0014, ADR 0010, `openspec/config.yaml`: D-8.
-- Release: `plugins/openspec/.claude-plugin/plugin.json` 0.23.0; `.claude-plugin/marketplace.json`
-  devkit-openspec 0.23.0 and the marketplace 0.27.0; `CHANGELOG.md` `## 0.27.0 — one state per
+- Release: `plugins/openspec/.claude-plugin/plugin.json` 0.24.0; `.claude-plugin/marketplace.json`
+  devkit-openspec 0.24.0 and the marketplace 0.28.0; `CHANGELOG.md` `## 0.28.0 — one state per
   change` with one devkit-openspec line (the `state` command, the GitHub wait, the title, the board)
   and a Docs line (ADR 0017); then `python3 scripts/gen-catalog.py`. Take the next versions after
   `main`'s if another change merges first. The CI pin lines in `docs/openspec-flow.md` move to
-  `v0.23.0` in this release, with `setPins` of `release-rebase.mjs` (the release tests tie the pin to
+  `v0.24.0` in this release, with `setPins` of `release-rebase.mjs` (the release tests tie the pin to
   the plugin version) and the assertion of `change-loop docs: the design records the answers`.
 
 ## Proof map
@@ -538,7 +538,7 @@ seen in the next change a roadmap run starts (SKILL.md Loop 1a is unchanged and 
 | The delivery checker's own GitHub failures (before the delivery stage, on the archive branch) still end blocked | MEDIUM × LOW | a Non-Goal, recorded in ADR 0017's consequences; `change-state AC-5 build` (`change-loop.test.mjs`) pins what the base gives; a later change can carry the failure's kind |
 | Moving the run file's reader breaks an importer | LOW × MEDIUM | `roadmap-loop.mjs` re-exports the same names; the whole suite runs in the last gate |
 | `state` for all changes is slow (one `next` per change) | MEDIUM × LOW | the same reads `/devkit status` already makes; no extra gh call per change beyond `next`'s |
-| A parallel change takes ADR 0017 or version 0.23.0 first | MEDIUM × LOW | `CONTRIBUTING.md` step 5: take the next free number and version at merge, renumbering the references |
+| A parallel change takes ADR 0017 or version 0.24.0 first | MEDIUM × LOW | `CONTRIBUTING.md` step 5: take the next free number and version at merge, renumbering the references |
 | The state command prints a run marker and starts a run lock | LOW × HIGH | `change-state AC-1 command: the output holds no run marker` |
 
 ## Migration Plan
