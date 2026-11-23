@@ -1,17 +1,28 @@
 # Changelog
 
-## 0.27.0 — the change budget
+## 0.28.0 — the change budget
 
-- **devkit-openspec** 0.23.0: a `/devkit change` run stops at a token budget. `budget:` in the
+- **devkit-openspec** 0.24.0: a `/devkit change` run stops at a token budget. `budget:` in the
   `devkit:` block of `openspec/config.yaml`, or in a `devkit:` block of a change's own
   `.openspec.yaml` (which wins), is a whole number of tokens; the loop counts the session's
   spend from its transcripts and, between hand-offs, turns the next hand-off into an end waiting
   for the owner (`waiting-budget`) that names the spend, the cap and the file to raise. With no
   cap, no session id or an unreadable transcript, nothing is counted and nothing stops. An invalid
   value is refused with the settings reply. The roadmap loop maps the new end to a gate. The CI
-  snippet now pins `v0.23.0`, the release's tag.
+  snippet now pins `v0.24.0`, the release's tag.
 - Docs: `docs/openspec-flow.md` gains "The token budget" and a troubleshooting row;
   `docs/coordination-design.md` records the setting's name as final.
+
+## 0.27.0 — commit attribution
+
+- **devkit-core** 0.11.0: `commit-and-pr` takes an attribution block from the caller and writes exactly its
+  commit trailer and pull-request footer lines over the ones its own environment gives it; with `none` it writes
+  no attribution, and with no block it behaves as before.
+- **devkit-openspec** 0.23.0: every hand-off to `commit-and-pr`, in `/devkit change`, `/devkit roadmap` and
+  `/devkit project`, ends with a request that the session append its own attribution block; the `ship-change`
+  skill gains an Attribution section and its `commit`, `open-pr`/`push` and `open-archive-pr` rows name it.
+- Docs: `docs/openspec-flow.md` describes the Attribution paragraph. The CI snippet now pins `v0.23.0`, the
+  release's tag.
 
 ## 0.26.1 — test fixtures clean up after themselves
 

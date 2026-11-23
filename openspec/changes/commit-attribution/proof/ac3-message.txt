@@ -1,0 +1,6 @@
+docs(proof): add b.txt
+
+Add b.txt as the proof file for the attribution-proof change.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+

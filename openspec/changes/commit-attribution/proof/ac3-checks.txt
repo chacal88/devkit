@@ -1,0 +1,11 @@
+# One check per proof file. Every run: scratch project under /var/tmp, `command claude -p`, devkit-core (and, for the loop run, devkit-openspec) loaded with --plugin-dir from this worktree (see the init event); gh is a fake first on PATH that records its arguments and stdin instead of calling GitHub.
+ac3-none-run.jsonl: stream of the agent run with the block `Attribution (from the caller): none`; holds an Agent call to devkit-core:commit-and-pr.
+ac3-none-message.txt: PASS when `grep -ci co-authored-by` prints 0 (the commit carries no trailer, no footer).
+ac3-pr-run.jsonl: stream of the agent run with a trailer and a PR footer, no commit-only; holds an Agent call to devkit-core:commit-and-pr.
+ac3-pr-message.txt: PASS when its last non-empty line is `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` and it holds no other such line.
+ac3-pr-gh-record.txt: PASS when the last non-empty line between BODY-STDIN-BEGIN and BODY-STDIN-END is exactly `🤖 Generated with [Claude Code](https://claude.com/claude-code)`, and nothing else in the body is an attribution line.
+ac3-loop-actions.jsonl: the `commit` and `open-pr` actions as change-loop.mjs (decide) prints them in this worktree; each brief ends with the attribution request.
+ac3-loop-run.jsonl: stream of a conducting session on Opus (the agent is Sonnet) with this worktree's devkit-core and devkit-openspec, given those two actions and the ship-change skill.
+ac3-loop-extract.txt: PASS when it shows two Agent calls to devkit-core:commit-and-pr, each `prompt ends with the block: True`, the block naming the session's own Opus line.
+ac3-loop-messages.txt: PASS when both commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (grep -c "Opus 5.5" prints 2) and no Sonnet line appears (grep -c Sonnet prints 0).
+ac3-loop-gh-record.txt: PASS when the PR body ends with the session's footer line, once.
