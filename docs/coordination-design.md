@@ -336,6 +336,8 @@ OpenSpec prints that its `schema` commands are experimental and may change.
   back twice with nothing changed stops.
 - The loop ends in exactly one of four states, each with its reason: archived, waiting for the owner,
   waiting on GitHub, blocked.
+  The change loop's `state` command gives each change's state, read by `/devkit status`, the session
+  titles and the panels ([ADR 0017](adr/0017-a-change-state-is-derived-in-one-place.md)).
 
 **The locks and how each is enforced (proposed).** "Exists" marks a lock that ships today (the two stop
 locks and the coordinator's lock since round 15); "new" marks one to be built (the `develop` lock in

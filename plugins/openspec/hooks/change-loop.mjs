@@ -32,7 +32,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, readValue, isDecisionRecord } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, isChangeId, readRoadmap, readValue, isDecisionRecord } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
@@ -192,6 +192,7 @@ export const MESSAGES = {
     'running.phase': '{title}, phase {phase} of {phases}',
     'running.github': 'waiting on GitHub ({what})',
     'running.no-session': 'no session of its own yet: it starts at your next message',
+    'running.ready': 'ready, waiting for someone to continue',
     'status-no-roadmap': 'This project has no roadmap. Unfinished changes:',
     'status-nothing': 'This project has no roadmap and no unfinished change.',
     'script.devkit': 'full script',
@@ -224,6 +225,7 @@ export const MESSAGES = {
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
+    'what.silent': 'GitHub did not answer',
     'where.next': 'next is {stage}',
     'where.owner': 'waiting for you at {stage}',
     'where.github': 'waiting on GitHub',
@@ -387,6 +389,7 @@ export const MESSAGES = {
     'running.phase': '{title}, fase {phase} de {phases}',
     'running.github': 'esperando o GitHub ({what})',
     'running.no-session': 'ainda sem sessão própria: começa na sua próxima mensagem',
+    'running.ready': 'pronta, esperando alguém continuar',
     'status-no-roadmap': 'Este projeto não tem roadmap. Changes por terminar:',
     'status-nothing': 'Este projeto não tem roadmap nem change por terminar.',
     'script.devkit': 'roteiro completo',
@@ -419,6 +422,7 @@ export const MESSAGES = {
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
+    'what.silent': 'o GitHub não respondeu',
     'where.next': 'a próxima é {stage}',
     'where.owner': 'esperando você {inStage}',
     'where.github': 'esperando o GitHub',
@@ -514,6 +518,70 @@ export function render(lang, key, params = {}) {
   });
 }
 
+// ---------------------------------------------------------------- the run file and the gates (change-state D-2)
+// Moved from roadmap-loop.mjs unchanged: the state of a change reads the run file's facts and the gate of each owner wait.
+
+export const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+// The gate code of each end that waits for the owner: every `waiting-` key of the message table but `waiting-github`.
+export const GATE_OF_WHY = {
+  'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
+  'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
+  'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup',
+};
+
+// The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
+// the table does not know, is a LoopUsageError, so a new owner wait added later fails a test instead of printing a wrong phrase.
+export function gateOf(action) {
+  if (action?.kind === 'grill') return 'grill';
+  const why = action?.kind === 'end' && action.end?.state === 'waiting-for-owner' ? action.end.why : undefined;
+  const code = why === undefined ? undefined : GATE_OF_WHY[why];
+  if (!code) throw new LoopUsageError(`no gate for the action ${action?.kind ?? 'none'} ${action?.end?.why ?? ''}`.trim());
+  return code;
+}
+
+// One run's bookkeeping and nothing the files, the repository or GitHub can say.
+export const emptyRun = () => ({
+  version: 1, session: null, places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [],
+  held: false, holding: null, changeSessions: false, startedSessions: {}, turn: null, updatedAt: null,
+});
+
+// `<common git directory>/devkit/roadmap-run.json`: every checkout of the clone and every session see the same file, and no commit holds it.
+export function runFilePath(cwd) {
+  let common;
+  try {
+    common = execFileSync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch { throw new LoopUsageError(`${cwd} is not inside a git repository`); }
+  return join(common, 'devkit', 'roadmap-run.json');
+}
+
+// The file as it is; a missing or broken one is an empty run with one place, and a field of the wrong type is dropped.
+export function readRun(file) {
+  let parsed;
+  try { parsed = JSON.parse(readFileSync(file, 'utf8')); } catch { return emptyRun(); }
+  if (!isObject(parsed)) return emptyRun();
+  const run = emptyRun();
+  if (Number.isInteger(parsed.places) && parsed.places >= 1) run.places = parsed.places;
+  if (typeof parsed.session === 'string') run.session = parsed.session;
+  if (typeof parsed.asking === 'string') run.asking = parsed.asking;
+  if (typeof parsed.updatedAt === 'string') run.updatedAt = parsed.updatedAt;
+  for (const key of ['stopping', 'held', 'changeSessions']) if (typeof parsed[key] === 'boolean') run[key] = parsed[key];
+  if (parsed.turn === 'typed' || parsed.turn === 'event') run.turn = parsed.turn;
+  // The change sessions the run started (D-3): { <change id>: { at } }; a key that is no change id is dropped.
+  if (isObject(parsed.startedSessions)) {
+    for (const [id, entry] of Object.entries(parsed.startedSessions)) {
+      if (isChangeId(id) && isObject(entry)) run.startedSessions[id] = { at: typeof entry.at === 'string' ? entry.at : null };
+    }
+  }
+  // The watch of the load: { pid, at } (D-7); the boolean of 0.18.0, or anything else, is no watch.
+  if (isObject(parsed.holding) && Number.isInteger(parsed.holding.pid) && parsed.holding.pid > 0) {
+    run.holding = { pid: parsed.holding.pid, at: typeof parsed.holding.at === 'string' ? parsed.holding.at : null };
+  }
+  for (const key of ['inflight', 'declared', 'announced']) if (isObject(parsed[key])) run[key] = parsed[key];
+  if (Array.isArray(parsed.starting)) run.starting = parsed.starting.filter((id) => typeof id === 'string');
+  return run;
+}
+
 // ---------------------------------------------------------------- the stage icon (roadmap-coordinator-followups D-5)
 
 // The icon of the stage an action is in, for the title of a change session: ❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery,
@@ -532,10 +600,88 @@ export function stageIcon(action) {
   return typeof stage === 'string' && Object.hasOwn(STAGE_ICON, stage) ? STAGE_ICON[stage] : null;
 }
 
-// A change session's title: the icon and the change id, cut to 59 code points when it has 60 or more (the start tool's title is under 60).
-export function sessionTitle(icon, id) {
-  const code = [...`${icon} ${id}`];
+// A change session's title: the state icon (when there is one), the stage icon and the change id, cut to 59 code points when it
+// has 60 or more (the start tool's title is under 60).
+export function sessionTitle(icon, id, stateIcon = null) {
+  const code = [...[stateIcon, icon, id].filter(Boolean).join(' ')];
   return code.length >= 60 ? code.slice(0, 59).join('') : code.join('');
+}
+
+// ---------------------------------------------------------------- the state of a change (change-state D-1, D-2, D-5)
+
+export const STATE_ICON = { 'waiting-for-owner': '🙋', 'waiting-on-github': '⏳', blocked: '⛔', archived: '📦' };
+
+// What the run file says about one change, for `changeState`: `run` is `readRun`'s result or the facts of the board (the same
+// fields and an `after`); `onRoadmap` says the id is a line of the roadmap.
+export function runFactsOf(run, id, { onRoadmap = false } = {}) {
+  const after = run.after ?? {};
+  const announced = run.announced?.[id];
+  return {
+    sessionMode: run.changeSessions === true && onRoadmap === true,
+    started: Boolean(run.startedSessions?.[id]) || after[id] === 'session-start',
+    inflight: Object.hasOwn(after, id) ? null : run.inflight?.[id] ?? null,
+    declared: run.declared?.[id] ?? null,
+    waits: Boolean(run.starting?.includes(id)) || announced === 'waits-turn' || announced === 'waits-refused',
+  };
+}
+
+const READY = (lang) => ({ code: 'ready', text: render(lang, 'running.ready') });
+const blockedReason = (lang, why, params, id) => ({ code: why, text: render(lang, `blocked-why.${why}`, { ...params, id, why }) });
+
+// The end an owner wait or a blocked end of the action gives, or what the session declared.
+function endOfAction(action, lang, id) {
+  if (action?.kind === 'grill') return { state: 'waiting-for-owner', reason: { code: 'grill', text: render(lang, 'gate.grill') } };
+  if (action?.kind !== 'end') return { state: 'running', reason: null };
+  const { state, why } = action.end;
+  if (state === 'archived') return { state, reason: null };
+  if (state === 'waiting-for-owner') return { state, reason: { code: why, text: render(lang, `gate.${gateOf(action)}`) } };
+  if (state === 'waiting-on-github') return { state, reason: { code: action.params.what, text: render(lang, `what.${action.params.what}`) } };
+  return { state: 'blocked', reason: blockedReason(lang, why, action.params, id) };
+}
+
+function declaredEnd(declared, lang, id) {
+  if (declared.state === 'waiting-for-owner') {
+    const gate = declared.params?.gate ?? GATE_OF_WHY[declared.why];
+    if (!gate) throw new LoopUsageError(`the declared wait of ${id} names no gate`);
+    return { state: 'waiting-for-owner', reason: { code: declared.why, text: render(lang, `gate.${gate}`) } };
+  }
+  return { state: 'blocked', reason: blockedReason(lang, declared.why, declared.params, id) };
+}
+
+// The one place a change's state is derived (D-1). `action` is what `decide` gave (or null, or the stand-in of a change the run
+// file lists with no folder); `facts` is `runFactsOf`'s result, or null outside a roadmap run; `id` names the change when there is
+// no action. Pure.
+export function changeState(action, facts = null, { lang, id: given = null } = {}) {
+  const l = normalizeLang(lang);
+  const id = action?.change ?? given;
+  let stage = action?.stage ?? null;
+  let stageTitle = action?.stageTitle ?? null;
+  let done = endOfAction(action, l, id);
+  if (facts) { // S1 to S8, first match wins
+    const { sessionMode, started, inflight, declared } = facts;
+    const githubWait = action?.kind === 'end' && action.end.state === 'waiting-on-github';
+    if (sessionMode && declared) done = declaredEnd(declared, l, id);
+    else if (sessionMode && started) done = action ? done : { state: 'running', reason: null };
+    else if (sessionMode) done = { state: 'running', reason: READY(l) };
+    else if (inflight && (inflight.kind === 'wait' || githubWait)) {
+      const what = action?.params?.what ?? inflight.what ?? 'merge';
+      done = { state: 'waiting-on-github', reason: { code: what, text: render(l, `what.${what}`) } };
+    } else if (inflight) {
+      done = { state: 'running', reason: null };
+      stage = action?.stage ?? inflight.stage ?? null;
+      stageTitle = action?.stageTitle ?? inflight.stage ?? null;
+    } else if (declared) done = declaredEnd(declared, l, id);
+    else if (facts.waits || !action || action.kind === 'none') done = { state: 'running', reason: READY(l) };
+  }
+  const { state, reason } = done;
+  const icon = stage === (action?.stage ?? null) ? stageIcon(action) : stageIcon({ stage });
+  const stateIcon = STATE_ICON[state] ?? null;
+  let title;
+  if (state === 'archived') title = sessionTitle('📦', id);
+  else if (state === 'running') title = icon ? sessionTitle(icon, id) : null;
+  else title = icon ? sessionTitle(icon, id, stateIcon) : sessionTitle(stateIcon, id);
+  const phase = typeof action?.detail?.phase === 'number' ? action.detail.phase : null;
+  return { state, reason, stage, stageTitle, phase, stageIcon: icon, stateIcon, title };
 }
 
 // ---------------------------------------------------------------- the decision (D-5), pure
@@ -564,7 +710,10 @@ const TEST_STAGES = ['unit-tests', 'e2e-tests'];
 const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix'];
 const NOT_DELIVERED = ['no-file', 'not-judged', 'no-header', 'bad-header', 'header-other-stage'];
 const SWITCH_FLAGS = ['architecture', 'contract', 'ui'];
-const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-error': 'github-unreadable', 'checks-unreadable': 'github-unreadable', 'pr-closed': 'pr-closed' };
+const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'pr-closed': 'pr-closed' };
+
+// True for the two blocked ends of the stage checker that mean GitHub did not answer (change-state D-4): they are a wait on GitHub, not a stop.
+export const githubSilent = (end) => end?.state === 'blocked' && (end.reasonCode === 'gh-error' || end.reasonCode === 'checks-unreadable');
 
 // True when the step inside the stage comes from the delivery checker: the current stage is in the build-to-archive
 // part, or the change is archived while its archive pull request may still be open.
@@ -778,6 +927,7 @@ export function decide(facts) {
 
   // P9 and B0: a blocked end of the stage checker, in plain words.
   function blockedEnd(e) {
+    if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
     return blocked(why, { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number }, e.stage);
@@ -894,9 +1044,10 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     archiving,
     row,
   });
-  // The icon of the action's stage and the change session's title for it (D-5); the title only with an icon.
+  // The icon of the action's stage, its state and the change session's title for it (change-state D-1, D-5); the title only when the state has one.
   action.icon = stageIcon(action);
-  if (action.icon) action.sessionTitle = sessionTitle(action.icon, id);
+  action.state = changeState(action, null, { lang });
+  if (action.state.title !== null) action.sessionTitle = action.state.title;
   // The Jira task the change records, and the write-back question the developer is still owed (jira-entry D-6).
   const task = recordedTask(readRequirements({ root: found.root, id }));
   if (task) {
@@ -1159,8 +1310,42 @@ export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec
   if (e?.state === 'archived') return render(l, found.branch === `chore/archive-${id}` ? 'where.archiving' : 'where.archived');
   if (report.next) return render(l, 'where.next', { stage: title(report.next.stage) });
   if (e?.state === 'waiting-for-owner') return render(l, 'where.owner', { stage: title(e.stage) });
-  if (e?.state === 'waiting-on-github') return render(l, 'where.github');
+  if (e?.state === 'waiting-on-github' || githubSilent(e)) return render(l, 'where.github');
   return render(l, 'where.blocked', { stage: title(e?.stage) });
+}
+
+// ---------------------------------------------------------------- the state command (change-state D-3)
+
+// The ids the run file names and the state command lists: starts, changes in flight, declared ends, change sessions and starts left for the owner's next message.
+const namedByRun = (run) => new Set([
+  ...run.starting, ...Object.keys(run.inflight), ...Object.keys(run.declared), ...Object.keys(run.startedSessions),
+  ...Object.entries(run.announced).filter(([, what]) => what === 'waits-turn' || what === 'waits-refused').map(([name]) => name),
+]);
+
+// The state of each change in play (every unfinished change and every change the run file names, or just `id`), in id order.
+// Reads only; calls `nextAction` per change and never `updateRun`.
+export function stateEntries(cwd, { id = null, lang, env = process.env, openspec, gh } = {}) {
+  const l = normalizeLang(lang);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const run = readRun(runFilePath(start));
+  const roadmapIds = new Set((readRoadmap(start) ?? []).flatMap((round) => round.items.map((item) => item.id)));
+  const named = namedByRun(run);
+  const ids = id !== null ? [id] : [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...named])].sort((a, b) => a.localeCompare(b));
+  let archived = null;
+  const openTitle = () => {
+    try { return readFlow(start, 'devkit')?.stages.find((s) => s.id === 'open')?.title[l] ?? 'open'; } catch { return 'open'; }
+  };
+  return ids.map((cid) => {
+    let action;
+    if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
+    else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) {
+      action = { kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } };
+    } else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
+    else throw new LoopUsageError(`no change named ${cid}`);
+    const facts = runFactsOf(run, cid, { onRoadmap: roadmapIds.has(cid) });
+    return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch };
+  });
 }
 
 // ---------------------------------------------------------------- start (D-3)
@@ -1432,11 +1617,11 @@ export function switchScript(cwd, id, script, { why, lang = 'pt-BR' } = {}) {
 
 const isWait = (a) => a.kind === 'end' && a.end.state === 'waiting-on-github';
 const decisionKey = (a) => JSON.stringify([a.kind, a.end?.state ?? null, a.end?.why ?? null, a.agent ?? null, a.step ?? null, a.reply ?? null]);
-const isUnreadable = (a) => a.kind === 'end' && a.end.why === 'github-unreadable';
+const isUnreadable = (a) => a.kind === 'end' && (a.end.why === 'github-unreadable' || (a.end.state === 'waiting-on-github' && a.params?.what === 'silent'));
 
 // Polls `poll()` (the decision `next` gives) every `interval` seconds while it stays the same wait on GitHub, with no
 // limit of its own, and returns the first decision that is anything else (the first decision itself when it is not a
-// wait). A poll that throws, or that says GitHub cannot be read, is retried; `maxFailures` in a row return blocked,
+// wait). A poll that throws, that says GitHub cannot be read or that is a wait on GitHub with no answer (`what` silent) is a failed read, retried; `maxFailures` in a row return blocked,
 // `github-unreadable`. Holds no state but the first decision.
 export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 3 }) {
   const first = await poll();
@@ -1451,9 +1636,9 @@ export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 
     if (error || isUnreadable(action)) {
       failures += 1;
       if (failures < maxFailures) continue;
-      if (action) return action;
+      if (action?.end.why === 'github-unreadable') return action;
       const { version, change, script, root, branch, filesLanguage, stage, stageTitle, role, skills } = first;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error ? (error instanceof Error ? error.message : String(error)) : action.detail?.error ?? '';
       return {
         version, change: change ?? id, script, root, branch, filesLanguage, kind: 'end', stage, stageTitle, role, skills,
         end: { state: 'blocked', why: 'github-unreadable' }, reply: render(lang, 'blocked', { id, why: 'github-unreadable', error: message }),
@@ -1603,7 +1788,7 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> (the request on standard input, or with --task the task as JSON) '
-  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
+  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>';
 
 function parseArgs(argv, { values = [], multi = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -1633,6 +1818,13 @@ function runNext(args, { env, cwd, openspec, gh }) {
   if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
   const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
+}
+
+function runState(args, { env, cwd, openspec, gh }) {
+  const opts = parseArgs(args, { values: ['--change', '--lang'] });
+  if (opts.positional.length) throw new LoopUsageError(USAGE);
+  const changes = stateEntries(cwd, { id: opts.change ?? null, lang: opts.lang, env, openspec, gh });
+  return { code: 0, stdout: json({ version: 1, changes }), stderr: '' };
 }
 
 function runReply(args) {
@@ -1747,6 +1939,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     const [sub, ...rest] = argv;
     if (sub === 'next') return runNext(rest, { env, cwd, openspec, gh });
     if (sub === 'reply') return runReply(rest);
+    if (sub === 'state') return runState(rest, { env, cwd, openspec, gh });
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'write-back') return runWriteBack(rest, { env, cwd, stdin, gh });

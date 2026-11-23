@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.28.0 — the Jira entry
+## 0.29.0 — the Jira entry
 
-- **devkit-openspec** 0.24.0: `/devkit change <Jira key or link>` opens the change from that task.
+- **devkit-openspec** 0.25.0: `/devkit change <Jira key or link>` opens the change from that task.
   The session reads it through its own Atlassian connector; `change-loop.mjs` makes no call and
   keeps no token. `start` answers the `task` mode, `open --task <KEY>` writes a `Jira: <KEY> <link>`
   line and the quoted title, description and acceptance-criteria field under `## Request`, and the
@@ -14,7 +14,18 @@
   task leaves open, recording the rest as assumptions answered by the task.
 - Docs: the flow document, the design document and ADR 0010 (a dated Note: no task-source
   setting) record the entry; the roadmap gains round 20b (`jira-entry-live`).
-- CI: the snippet now pins `v0.24.0`, the release's tag.
+- CI: the snippet now pins `v0.25.0`, the release's tag.
+
+## 0.28.0 — one state per change
+
+- **devkit-openspec** 0.24.0: the change loop derives one state per change in one place, and a new
+  `change-loop.mjs state` command prints it (state, reason, stage and the session title) for one
+  change or every unfinished one. A GitHub that does not answer is a wait on GitHub, not a block,
+  and three failed reads in a row still end the wait blocked. A stopped change's session title
+  carries its state icon (🙋, ⏳ or ⛔) before the stage icon, and `/devkit status` places its rows
+  by the same state.
+- Docs: ADR 0017 (a change's state is derived in one place, amends 0014), Notes in ADR 0010 and
+  ADR 0014, the flow and design pages.
 
 ## 0.27.0 — commit attribution
 
