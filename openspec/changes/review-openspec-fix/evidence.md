@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=5 commit=a700544cc304b53c6781596a5c29769631bfc3d5 -->
-Commit: a700544cc304b53c6781596a5c29769631bfc3d5
+<!-- devkit-stage evidence result=passed attempt=6 commit=3fc0375bfd0043be35aef540081ec10636f9638e -->
+Commit: 3fc0375bfd0043be35aef540081ec10636f9638e
 
 # Evidence
 
-Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean tree, re-run at commit a700544, which merged main (commit-attribution, #68) and moved this release to 0.27.1 (devkit-core 0.11.1, devkit-openspec 0.23.1, CI pin v0.23.1); run with TMPDIR=/var/tmp.
+Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean tree, re-run at commit 3fc0375, which merged main (change-state, #70) and moved this release to 0.28.1 (devkit-core 0.11.1, devkit-openspec 0.24.1, CI pin v0.24.1); run with TMPDIR=/var/tmp.
 
 ## Verification
 
@@ -13,7 +13,7 @@ Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean t
 |---|---|---|
 | 1.4 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/flow-check.test.mjs` | pass: 688 tests, 688 pass, 0 fail (includes the deliver-check suite and tests 1 to 20) |
 | 1.4 | `python3 scripts/check.py` | pass: all checks passed |
-| 2.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1588 tests, 1588 pass, 0 fail |
+| 2.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1732 tests, 1732 pass, 0 fail |
 | 2.2 | `python3 scripts/check.py` | pass: all checks passed |
 | 2.2 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
 | 2.2 | `command claude plugin validate .` | pass: Validation passed |
@@ -32,7 +32,7 @@ Proof: scratch-repository tests `review-openspec-fix 1` to `20` in `plugins/open
 ### Task checks
 
 - `git grep -n "function reviewRecord\|function verdictAllowed\|const approved =" -- plugins ':!*.test.*'` prints three lines, all in `plugins/openspec/hooks/deliver-check.mjs`.
-- Against the merge base with `origin/main` (ac40615, no fetch; the local `main` ref is older and would count the merged-in changes), `deliver-check.test.mjs` and `flow-check.test.mjs` each have 0 deleted lines (218 and 38 added). The CI pin reads `v0.23.1`.
-- `git grep -c "v0.21.1" -- docs/openspec-flow.md` prints nothing (the docs pin `v0.23.1`); `git grep -n "leaves reviews and evidence current" -- docs plugins` prints nothing; versions in the tree: marketplace 0.27.1, devkit-openspec 0.23.1, devkit-core 0.11.1, changelog section `## 0.27.1 — a review fixed in the plan files`.
+- Against the merge base with `origin/main` (90c9786, no fetch; the local `main` ref is older and would count the merged-in changes), `deliver-check.test.mjs` and `flow-check.test.mjs` each have 0 deleted lines (218 and 38 added). The CI pin reads `v0.24.1`.
+- `git grep -c "v0.21.1" -- docs/openspec-flow.md` prints nothing (the docs pin `v0.24.1`; `git grep -c "v0.23.1" -- docs/openspec-flow.md` also prints nothing); `git grep -n "leaves reviews and evidence current" -- docs plugins` prints nothing; versions in the tree: marketplace 0.28.1, devkit-openspec 0.24.1, devkit-core 0.11.1, changelog section `## 0.28.1 — a review fixed in the plan files`.
 
 No UI, API or deploy surface is touched; no screenshots apply.

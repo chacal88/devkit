@@ -1,16 +1,29 @@
 # Changelog
 
-## 0.28.1 — a review fixed in the plan files
+## 0.29.1 — a review fixed in the plan files
 
-- **devkit-openspec** 0.24.1: a rejected verdict goes stale after any later commit outside the
+- **devkit-openspec** 0.25.1: a rejected verdict goes stale after any later commit outside the
   change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
   included, so a fix made in the plan files gets the next review round with no hand from the owner;
   a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
-  The CI snippet now pins `v0.24.1`, the release's tag.
+  The CI snippet now pins `v0.25.1`, the release's tag.
 - **devkit-core** 0.11.1: the `review-change` skill's stale definition names the rule for a rejected
   verdict.
 - Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
   document.
+
+## 0.29.0 — the change budget
+
+- **devkit-openspec** 0.25.0: a `/devkit change` run stops at a token budget. `budget:` in the
+  `devkit:` block of `openspec/config.yaml`, or in a `devkit:` block of a change's own
+  `.openspec.yaml` (which wins), is a whole number of tokens; the loop counts the session's
+  spend from its transcripts and, between hand-offs, turns the next hand-off into an end waiting
+  for the owner (`waiting-budget`) that names the spend, the cap and the file to raise. With no
+  cap, no session id or an unreadable transcript, nothing is counted and nothing stops. An invalid
+  value is refused with the settings reply. The roadmap loop maps the new end to a gate. The CI
+  snippet now pins `v0.25.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` gains "The token budget" and a troubleshooting row;
+  `docs/coordination-design.md` records the setting's name as final.
 
 ## 0.28.0 — one state per change
 
