@@ -1,0 +1,269 @@
+✖ remote AC-10 next: with no free place the change ends waiting for a place, icon ⏳ (5354.401393ms)
+✖ remote AC-10 next: a change held by no approval, or by another machine, takes no place (6247.825942ms)
+✖ remote AC-10 next: a free place gives take-place, and after it the implementation step (4893.016518ms)
+✖ remote AC-10 next: the places of a run come from the run file (4757.820527ms)
+✖ remote AC-10 next: the grill and the plan never wait for a place (4800.067337ms)
+✖ remote AC-10 next: a change without x-devkit-places never waits (2777.505887ms)
+✖ remote AC-10 next: a place already taken is not checked again (1270.114527ms)
+✖ remote AC-10 place: two changes of one machine at once, one takes the place (2699.630805ms)
+✖ remote AC-11 place: a wake that comes too early leaves the change waiting (2472.270206ms)
+✖ remote AC-10 stop: the blocked end no-place lets a /devkit change run stop (5146.857267ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 0
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40863.533923
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3077:1
+✖ remote AC-10 next: with no free place the change ends waiting for a place, icon ⏳ (5354.401393ms)
+  AssertionError [ERR_ASSERTION]: devkit-run: mine
+  {
+    "version": 1,
+    "change": "mine",
+    "script": "devkit",
+    "root": "/var/tmp/devkit-deliver-E5lLNj/.claude/worktrees/mine",
+    "branch": "mine",
+    "filesLanguage": "en",
+    "kind": "agent",
+    "stage": "implementation",
+    "stageTitle": "Implementation",
+    "role": "tdd-implementer",
+    "skills": [
+      "test-driven-development",
+      "systematic-debugging"
+    ],
+    "agent": "devkit-core:tdd-implementer",
+    "step": "implement",
+    "detail": {
+      "step": "implement",
+      "reason": "phase 1 has unticked tasks: 1.1",
+      "phase": 1
+    },
+    "brief": "Change mine (devkit script), stage implementation: step implement {\"step\":\"implement\",\"reason\":\"phase 1 has unticked tasks: 1.1\",\"phase\":1}. Work only in /var/tmp/devkit-deliver-E5lLNj/.claude/worktrees/mine on branch mine; every file path is absolute under it; start every Bash command with cd /var/tmp/devkit-deliver-E5lLNj/.claude/worktrees/mine && ; do not fetch. Write the change's files in English.",
+    "progressKey": "implementation/implement@6e791a7fbeda",
+    "icon": "🛠️",
+    "sessionTitle": "🛠️ mine"
+  }
+  
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3082:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3097:1
+✖ remote AC-10 next: a change held by no approval, or by another machine, takes no place (6247.825942ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'slice')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3103:54)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3106:1
+✖ remote AC-10 next: a free place gives take-place, and after it the implementation step (4893.016518ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'implement',
+  -   'session',
+  -   'take-place',
+      'implementation',
+      '🛠️'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3111:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'implement', 'implementation', '🛠️' ],
+    expected: [ 'session', 'take-place', 'implementation', '🛠️' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3128:1
+✖ remote AC-10 next: the places of a run come from the run file (4757.820527ms)
+  AssertionError [ERR_ASSERTION]: run file with 1 place, 1 held
+  + actual - expected
+  
+  + undefined
+  - 'no-place'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3132:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'no-place',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3140:1
+✖ remote AC-10 next: the grill and the plan never wait for a place (4800.067337ms)
+  AssertionError [ERR_ASSERTION]: with its plan approved this change waits
+  + actual - expected
+  
+  + undefined
+  - 'no-place'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3144:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'no-place',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3151:1
+✖ remote AC-10 next: a change without x-devkit-places never waits (2777.505887ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3155:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3163:1
+✖ remote AC-10 next: a place already taken is not checked again (1270.114527ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3165:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3180:1
+✖ remote AC-10 place: two changes of one machine at once, one takes the place (2699.630805ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  
+  + actual - expected
+  
+    [
+  +   3,
+  +   3
+  -   0,
+  -   2
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3184:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 3, 3 ],
+    expected: [ 0, 2 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3193:1
+✖ remote AC-11 place: a wake that comes too early leaves the change waiting (2472.270206ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3197:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3206:1
+✖ remote AC-10 stop: the blocked end no-place lets a /devkit change run stop (5146.857267ms)
+  AssertionError [ERR_ASSERTION]: devkit guard: the change mine has the stage implementation ready (devkit-core:tdd-implementer); run it, or end the run as blocked and say why. The next action comes from: node /home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.mjs next --change mine --lang pt-BR
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/change-loop.test.mjs:3212:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

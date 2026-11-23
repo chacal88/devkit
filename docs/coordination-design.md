@@ -39,6 +39,8 @@ skills `screen-mockup`, `adr-authoring` and `e2e-testing`, the demonstration as 
 models chosen per project in `devkit.delivery`, the two-PR model and its lock, and the support branch
 that solves a conflict with the test branch
 ([ADR 0018](adr/0018-the-delivery-model-is-chosen-per-project.md)).
+So does, since the change `remote-worker` (round 28), running a change on another machine
+([ADR 0020](adr/0020-a-change-can-run-on-another-machine.md)).
 Everything else (the other verbs of `/devkit`, the rest of the `devkit:`
 configuration block, the other two drivers,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
@@ -96,7 +98,7 @@ coordinator holds the start of a new change while the machine is loaded, and wha
 finishes first. **Decided by
 `roadmap-coordinator` on 2026-11-21 (A-6, grill questions 8 and 9):** it measures the processor load of
 the last minute per logical core against the per-person `load_limit` (80 by default); memory is not
-measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)).
+measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). When the person's `machines` setting lists another machine, a loaded machine sends the start there, and the start is held only when no machine can take it ([ADR 0020](adr/0020-a-change-can-run-on-another-machine.md)).
 
 **The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 15
 (`change-coordinator`). It takes one change from its opening to its archive. It asks the script which
@@ -548,28 +550,33 @@ the round that replaces it:
 | `devkit-panel`, the current panel | round 24 (cleanup), after round 23's panels |
 | The CompozyOS twelve-stage loop (ADR 0009) | round 21 (CompozyOS driver) replaces it; round 24 removes the old loop |
 
-## Where a change runs (proposed)
+## Where a change runs
 
-Proposed, not built; requested by the owner on 2026-11-20. It is planned as round 28 (`remote-worker`,
-after `roadmap-coordinator`) and changes nothing today.
+Built by the change `remote-worker` (round 28), requested by the owner on 2026-11-20
+([ADR 0020](adr/0020-a-change-can-run-on-another-machine.md)).
 
-**Any machine.** A change can run on another machine. The project configures one command that starts
-a change there and one that asks its state, and the roadmap coordinator chooses where each change
-runs. The loop keeps no memory, so where its session runs does not matter.
+**Any machine.** A change can run on another machine. The machines are the per-person `machines`
+setting of the devkit-openspec pack (never a project file), a JSON list of the app's SSH connection
+name, the repository folder there and how many changes may implement there at once. The roadmap
+coordinator chooses where each change opens: the machine with the fewest open changes, this machine
+first on a tie. The loop keeps no memory, so where its session runs does not matter.
 
-**State by asking.** State is read by asking `flow-check --json` over the connection, never by
-reading the other machine's screen.
+**State by asking.** The branches on `origin` are the record of which change is open where: opening a
+change pushes its branch at once with the machine's name. The state of another machine is read by
+asking `roadmap-loop.mjs status --json` over SSH (through `machine-probe.mjs`), never by reading the
+other machine's screen. A machine that does not answer keeps its changes and receives none.
 
-**The owner's gates.** No session types the owner's gates on the owner's behalf. Either the owner
-answers in the remote session, or planning and approval happen locally and only the part after the
-approval runs remotely. The second way needs the approved plan pushed to the branch first, which the
-flow does not do today.
+**The owner's gates.** No session types the owner's gates on the owner's behalf. A change on another
+machine runs in an app session the coordinating session starts on that machine's connection, so the
+owner answers there. The change takes a place of its machine only from its implementation on, by
+pushing its approved plan; with none free it ends blocked, waiting for a place.
 
 **What the worker needs.** The same devkit plugin version, the same OpenSpec CLI and a restricted
 GitHub credential.
 
 **Load.** It also answers the open point of how the roadmap coordinator holds a start while the
-machine is loaded: it can send the start to another machine.
+machine is loaded: it sends the start to another machine when the setting lists one, and holds it
+only when no machine can take it.
 
 ## Withdrawn roadmap items
 
