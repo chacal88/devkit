@@ -24,6 +24,7 @@
 | 5 | The loop did not see a plan revised after the implementation started | tooling | followup (already carried to `coordinator-loop-fixes`) | project |
 | 6 | The installed 0.18.1 loop could not read the new `flow.json`, so the run used the worktree's script | tooling | memory-only: a change that adds a flow key runs its own loop until it ships | project |
 | 7 | Hook test suites fill a tmpfs `/tmp`; runs on the Linux worker use `TMPDIR=/var/tmp` | environment | followup (already the roadmap line `test-fixture-cleanup`, round 17g) | project |
+| 8 | A docs test read `openspec/changes/stage-roles/approval.md`, a live change path that the archive moves, so the archive PR's check went red | bug-class | regression-gate (proposal 3) | project |
 
 ## Proposed updates
 
@@ -38,5 +39,12 @@ Two lines for the context every agent gets, after the `Parsers:` line: the plann
 One follow-up line in round 17h, after `archive-release-pin`.
 - before: (round 17h ends with the line `archive-release-pin`)
 + after: `- [ ] post-merge-validate — after a merge from the base, the delivery loop runs \`openspec validate <id> --strict\` before the evidence and sends a failure to the planner as a merge defect, and an evidence attempt that a base merge made stale or red does not count toward the stage's limit; in stage-roles a merge from main left the roadmap-coordination delta without main's new scenario, and the evidence's third attempt hit the limit (stage-roles retro, item 3)`
+- Answer: approved
+- Applied: yes
+
+### `plugins/openspec/hooks/change-loop.test.mjs` (bug-class)
+Found at the archive: the test of ADR 0016 read the change's `approval.md` from its live folder, which `openspec archive` moves, so the archive PR's `check` job failed with ENOENT. The test now reads `approval.md` from the live folder when it exists, else from the archived one; every assertion is unchanged. The owner approved this fix in the archive PR on 2026-11-22, in the answer `Sim, corrigir`.
+- before: `const approval = readRepo('openspec', 'changes', 'stage-roles', 'approval.md');`
++ after: the test reads `openspec/changes/stage-roles/approval.md` when it exists, else the latest `openspec/changes/archive/<date>-stage-roles/approval.md`
 - Answer: approved
 - Applied: yes
