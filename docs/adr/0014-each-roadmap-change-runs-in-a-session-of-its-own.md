@@ -1,6 +1,7 @@
 # ADR 0014: In the desktop app each change of a roadmap run runs in a session of its own
 
 - Status: accepted
+- Amended by ADR 0017 (0017-a-change-state-is-derived-in-one-place.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator-followups
 - Supersedes: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 1 where
@@ -10,6 +11,10 @@
 - Accepted by: the owner, on 2026-11-21, in the message that approved the plan of the change: `Aprovo` ("I approve"), given in answer to the question whether the owner approves the plan and ADR 0014; recorded in `openspec/changes/roadmap-coordinator-followups/approval.md`
 
 ## Context
+
+Note (change-state, 2026-11-22): [ADR 0017](0017-a-change-state-is-derived-in-one-place.md) amends
+decision 3: while the change is stopped, the title carries the state icon (🙋, ⏳ or ⛔) before the
+stage icon, and 📦 alone once archived. Decisions 1, 2 and 4 to 6 are unchanged.
 
 The first real `/devkit roadmap` on this repository (2026-11-21) ran two changes inside the session
 the owner typed it in, as ADR 0013 decision 1 says. Only one background task showed in the app, and

@@ -1,11 +1,23 @@
 # Changelog
 
-## 0.28.0 — gh version check
 
-- **devkit-openspec** 0.24.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
+## 0.29.0 — gh version check
+
+- **devkit-openspec** 0.25.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
   first with `gh pr checks --json`) with its own blocked reason that gives the installed version
   and asks for an update, instead of "GitHub cannot be read"; `openspec-setup` step 1 checks `gh`
-  once and warns without stopping the setup. The CI snippet now pins `v0.24.0`, the release's tag.
+  once and warns without stopping the setup. The CI snippet now pins `v0.25.0`, the release's tag.
+
+## 0.28.0 — one state per change
+
+- **devkit-openspec** 0.24.0: the change loop derives one state per change in one place, and a new
+  `change-loop.mjs state` command prints it (state, reason, stage and the session title) for one
+  change or every unfinished one. A GitHub that does not answer is a wait on GitHub, not a block,
+  and three failed reads in a row still end the wait blocked. A stopped change's session title
+  carries its state icon (🙋, ⏳ or ⛔) before the stage icon, and `/devkit status` places its rows
+  by the same state.
+- Docs: ADR 0017 (a change's state is derived in one place, amends 0014), Notes in ADR 0010 and
+  ADR 0014, the flow and design pages.
 
 ## 0.27.0 — commit attribution
 
