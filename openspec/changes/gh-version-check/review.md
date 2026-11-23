@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=492b58633030aa9bb39198b03161304b67082701 -->
+<!-- devkit-stage review result=passed attempt=1 commit=efa4568aeaf63174d4c77d56972dafb7fc79390d -->
 # Review: gh-version-check, round 1
 
 Path: agents · range `c56155334749cdc46bad077ba8f53c4bbec5d140..4fadc2a97437f4af8bdffab9070a42aa3eefaa52` · structural: PASS
@@ -65,6 +65,29 @@ None.
 ## Notes
 - A stale-review call after merging origin/main (cc4d863) into the branch and moving the release to devkit-openspec 0.23.0 / marketplace 0.27.0 (492b586); scoped to the conflict resolutions and the renumbering.
 - Both reviewers first set uncommitted: true; asked, each confirmed no finding rests on an uncommitted edit (the only one was evidence.md, unread) and re-sent uncommitted: false.
+
+## Next
+Ready to ship.
+
+# Review: gh-version-check, round 1
+
+Path: agents · range `492b58633030aa9bb39198b03161304b67082701..efa4568aeaf63174d4c77d56972dafb7fc79390d` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | efa4568 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | efa4568 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- A stale-review call after five merges of origin/main into the branch (68be5be, 4a771f7, 748ebd2, a1cd6d3, efa4568) and the release moving to devkit-openspec 0.27.0 / marketplace 0.31.0; scoped to what this change contributes to those merges.
 
 ## Next
 Ready to ship.
