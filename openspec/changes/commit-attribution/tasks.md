@@ -74,6 +74,12 @@ task with `git status --short`.
   command, run in the worktree, lists for each commit exactly the session's trailer and no Sonnet line (no commit is
   listed while the branch has none); `pr-verifier` runs it again at its HEAD and records it under AC-4.
 - [x] 2.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate commit-attribution --strict && grep -qx "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" openspec/changes/commit-attribution/proof/ac3-trailers.txt && test "$(grep -c . openspec/changes/commit-attribution/proof/ac3-trailers.txt)" = 1 && grep -q "devkit-core:commit-and-pr" openspec/changes/commit-attribution/proof/ac3-run.jsonl` green, the whole suite run once as a background command; covers AC-1 to AC-3, and AC-4 through 2.4.
+- [x] 2.6 Fix (test-coverage-reviewer, 52fb4fa): real-run proof beyond the commit trailer, saved in `proof/` with a
+  one-line check per file in `proof/ac3-checks.txt`. (a) The agent honours `none` (`ac3-none-*`: the commit has no
+  `Co-Authored-By` line) and a PR footer (`ac3-pr-*`: the PR body, recorded from a fake `gh`, ends with exactly the
+  footer line). (b) A conducting session on Opus given the `commit` and `open-pr` actions as `change-loop.mjs` prints
+  them, with this worktree's `devkit-core` and `devkit-openspec`, ends each Agent prompt to the Sonnet commit agent with
+  its own block (`ac3-loop-*`), and both commits and the PR carry that block's lines. No test string was added.
 
 ## Workflow follow-up
 
