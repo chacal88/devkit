@@ -23,6 +23,11 @@ propose ─▶ plan gate ─▶ design ─▶ implement ─▶ review ─▶ ver
   this pack's own `screens-check` through `.compozy/bin/devkit-kit`, a portable resolver: no
   shipped template holds a path that exists in only one repository (design D9).
 
+The shells dispatch the devkit agents of the stage roles: `tech-lead` the `adr-author`, `design` the
+`screen-designer`, `qa` the `test-runner` and the `e2e-tester`, and `dev` the `tdd-implementer` that
+accepts the listed ADRs and the mock-up once the operator approved the plan. The kit still ships
+four shells.
+
 ## What a project must provide
 
 - `verify_command`: the shell command the `verify` gate runs inside the worktree, deciding the

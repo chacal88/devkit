@@ -10,8 +10,10 @@
 // `reply <key> --lang <l> [--param name=value]...` (renders one message of the table),
 // `start --lang <l>` (the request on standard input: what `/devkit` does with it, D-3), `open <id> --script <s>
 // --why <code> --lang <l>` (creates the worktree, the change and its requirements file, D-4), `script <id> <s>
-// --why <code> --lang <l>` (the correction of the script, D-4) and `wait --change <id> --lang <l> [--interval <s>]`
-// (waits on GitHub with no limit, D-7). Only `open` and `script` write; `start` and `next` do not. `next` and `wait` print
+// --why <code> --lang <l>` (the correction of the script, D-4), `wait --change <id> --lang <l> [--interval <s>]`
+// (waits on GitHub with no limit, D-7) and `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
+// lists to accepted, after the owner's current approval; stage-roles D-4). Only `open`, `script` and `accept-decisions` write;
+// `start` and `next` do not. `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
@@ -22,12 +24,12 @@
 // No dependencies.
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, parseDevkitBlock, deliverySettings } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow } from './flow-check.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings } from './guard.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 
@@ -50,7 +52,8 @@ const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 // { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml, plus
 // `delivery: { model, base, testBranch }` when a delivery model is set and `missing: [{ setting }]` when two pull requests
 // are chosen without a name (delivery-models D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
-// other keys of the block are ignored.
+// other keys of the block are ignored, except the tests' coverage target, whose bad value is listed in `unknown` after the
+// two above (flow-check's `readTestSettings`).
 export function readDevkitSettings(root) {
   let text = '';
   try { text = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'); } catch (e) {
@@ -62,6 +65,7 @@ export function readDevkitSettings(root) {
   const unknown = [];
   if (!DRIVERS.includes(driver)) unknown.push({ setting: 'driver', value: driver, accepted: DRIVERS.join(', ') });
   if (!LANGUAGE_TAG.test(language)) unknown.push({ setting: 'language', value: language, accepted: 'a language tag such as en or pt-BR' });
+  unknown.push(...readTestSettings(root).unknown);
   const settings = { driver, language, unknown };
   const { model, base, testBranch, problems } = deliverySettings(block);
   if (model) settings.delivery = { model, base, testBranch };
@@ -109,6 +113,7 @@ export const MESSAGES = {
     'script-locked': 'The plan of {id} is already written, so its script stays as it is.',
     'waiting-approval': 'The plan of {id} is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.',
     'waiting-approval-again': 'The plan of {id} changed after your approval, so it needs your approval again.',
+    'waiting-mockup': 'The mock-up of {id} is drawn. Look at it and tell me whether you approve it or what to change; I go on as soon as you answer.',
     'waiting-retro': 'The retro of {id} has proposals for you: approve or reject each one, and I archive the change.',
     'waiting-merge': 'Pull request #{number} of {id} is ready: in this project, merging it is up to you.',
     'waiting-archive-merge': 'The archive pull request #{number} of {id} is ready: in this project, merging it is up to you.',
@@ -151,6 +156,7 @@ export const MESSAGES = {
     'need.blocked': '{id}, a fix: {why}',
     'need.after': '{id}, {after} archived first',
     'gate.grill': 'your answers about its request',
+    'gate.mockup': 'your approval of the mock-up',
     'gate.approval': 'your approval of the plan',
     'gate.retro': 'your answers to its retro',
     'gate.merge': 'your merge of its pull request',
@@ -178,6 +184,7 @@ export const MESSAGES = {
     'running.phase': '{title}, phase {phase} of {phases}',
     'running.github': 'waiting on GitHub ({what})',
     'running.no-session': 'no session of its own yet: it starts at your next message',
+    'running.ready': 'ready, waiting for someone to continue',
     'status-no-roadmap': 'This project has no roadmap. Unfinished changes:',
     'status-nothing': 'This project has no roadmap and no unfinished change.',
     'script.devkit': 'full script',
@@ -206,9 +213,11 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'the next step is one this version does not know',
     'blocked-why.unreadable': 'the change cannot be read ({error})',
     'blocked-why.cannot-open': 'it could not be opened ({error})',
+    'blocked-why.cannot-accept': 'the decision records could not be marked accepted ({error})',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
+    'what.silent': 'GitHub did not answer',
     'where.next': 'next is {stage}',
     'where.owner': 'waiting for you at {stage}',
     'where.github': 'waiting on GitHub',
@@ -224,6 +233,7 @@ export const MESSAGES = {
     'setting.delivery-model': 'delivery model',
     'setting.delivery-base': 'base branch',
     'setting.delivery-test-branch': 'test branch',
+    'setting.coverage-target': 'coverage target',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
     'project-resumed': 'Continuing the slice {id}: {where}.',
     'project-choose': '{n} slices are unfinished: {list}. Which one should I continue?',
@@ -296,6 +306,7 @@ export const MESSAGES = {
     'script-locked': 'O plano de {id} já foi escrito, então o roteiro fica como está.',
     'waiting-approval': 'O plano de {id} está escrito e revisado. Leia e me diga se aprova; eu sigo assim que você responder.',
     'waiting-approval-again': 'O plano de {id} mudou depois da sua aprovação, então precisa ser aprovado de novo.',
+    'waiting-mockup': 'O mock-up de {id} está desenhado. Veja e me diga se aprova ou o que mudar; eu sigo assim que você responder.',
     'waiting-retro': 'A retro de {id} tem propostas para você: aprove ou recuse cada uma, e eu arquivo a change.',
     'waiting-merge': 'O pull request #{number} de {id} está pronto: neste projeto, o merge é com você.',
     'waiting-archive-merge': 'O pull request de arquivo #{number} de {id} está pronto: neste projeto, o merge é com você.',
@@ -338,6 +349,7 @@ export const MESSAGES = {
     'need.blocked': '{id}, uma correção: {why}',
     'need.after': '{id}, que {after} seja arquivada antes',
     'gate.grill': 'as suas respostas sobre o pedido',
+    'gate.mockup': 'a sua aprovação do mock-up',
     'gate.approval': 'a sua aprovação do plano',
     'gate.retro': 'as suas respostas à retro',
     'gate.merge': 'o seu merge do pull request',
@@ -365,6 +377,7 @@ export const MESSAGES = {
     'running.phase': '{title}, fase {phase} de {phases}',
     'running.github': 'esperando o GitHub ({what})',
     'running.no-session': 'ainda sem sessão própria: começa na sua próxima mensagem',
+    'running.ready': 'pronta, esperando alguém continuar',
     'status-no-roadmap': 'Este projeto não tem roadmap. Changes por terminar:',
     'status-nothing': 'Este projeto não tem roadmap nem change por terminar.',
     'script.devkit': 'roteiro completo',
@@ -393,9 +406,11 @@ export const MESSAGES = {
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
     'blocked-why.cannot-open': 'não foi possível abrir ({error})',
+    'blocked-why.cannot-accept': 'não foi possível marcar os registros de decisão como aceitos ({error})',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
+    'what.silent': 'o GitHub não respondeu',
     'where.next': 'a próxima é {stage}',
     'where.owner': 'esperando você {inStage}',
     'where.github': 'esperando o GitHub',
@@ -411,6 +426,7 @@ export const MESSAGES = {
     'setting.delivery-model': 'modelo de entrega',
     'setting.delivery-base': 'a branch base',
     'setting.delivery-test-branch': 'a branch de teste',
+    'setting.coverage-target': 'meta de cobertura',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
     'project-resumed': 'Continuando a fatia {id}: {where}.',
     'project-choose': '{n} fatias estão por terminar: {list}. Qual delas eu continuo?',
@@ -493,6 +509,71 @@ export function render(lang, key, params = {}) {
   });
 }
 
+// ---------------------------------------------------------------- the run file and the gates (change-state D-2)
+// Moved from roadmap-loop.mjs unchanged: the state of a change reads the run file's facts and the gate of each owner wait.
+
+export const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+// The gate code of each end that waits for the owner: every `waiting-` key of the message table but `waiting-github`.
+export const GATE_OF_WHY = {
+  'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
+  'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
+  'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup',
+  'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge',
+};
+
+// The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
+// the table does not know, is a LoopUsageError, so a new owner wait added later fails a test instead of printing a wrong phrase.
+export function gateOf(action) {
+  if (action?.kind === 'grill') return 'grill';
+  const why = action?.kind === 'end' && action.end?.state === 'waiting-for-owner' ? action.end.why : undefined;
+  const code = why === undefined ? undefined : GATE_OF_WHY[why];
+  if (!code) throw new LoopUsageError(`no gate for the action ${action?.kind ?? 'none'} ${action?.end?.why ?? ''}`.trim());
+  return code;
+}
+
+// One run's bookkeeping and nothing the files, the repository or GitHub can say.
+export const emptyRun = () => ({
+  version: 1, session: null, places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [],
+  held: false, holding: null, changeSessions: false, startedSessions: {}, turn: null, updatedAt: null,
+});
+
+// `<common git directory>/devkit/roadmap-run.json`: every checkout of the clone and every session see the same file, and no commit holds it.
+export function runFilePath(cwd) {
+  let common;
+  try {
+    common = execFileSync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch { throw new LoopUsageError(`${cwd} is not inside a git repository`); }
+  return join(common, 'devkit', 'roadmap-run.json');
+}
+
+// The file as it is; a missing or broken one is an empty run with one place, and a field of the wrong type is dropped.
+export function readRun(file) {
+  let parsed;
+  try { parsed = JSON.parse(readFileSync(file, 'utf8')); } catch { return emptyRun(); }
+  if (!isObject(parsed)) return emptyRun();
+  const run = emptyRun();
+  if (Number.isInteger(parsed.places) && parsed.places >= 1) run.places = parsed.places;
+  if (typeof parsed.session === 'string') run.session = parsed.session;
+  if (typeof parsed.asking === 'string') run.asking = parsed.asking;
+  if (typeof parsed.updatedAt === 'string') run.updatedAt = parsed.updatedAt;
+  for (const key of ['stopping', 'held', 'changeSessions']) if (typeof parsed[key] === 'boolean') run[key] = parsed[key];
+  if (parsed.turn === 'typed' || parsed.turn === 'event') run.turn = parsed.turn;
+  // The change sessions the run started (D-3): { <change id>: { at } }; a key that is no change id is dropped.
+  if (isObject(parsed.startedSessions)) {
+    for (const [id, entry] of Object.entries(parsed.startedSessions)) {
+      if (isChangeId(id) && isObject(entry)) run.startedSessions[id] = { at: typeof entry.at === 'string' ? entry.at : null };
+    }
+  }
+  // The watch of the load: { pid, at } (D-7); the boolean of 0.18.0, or anything else, is no watch.
+  if (isObject(parsed.holding) && Number.isInteger(parsed.holding.pid) && parsed.holding.pid > 0) {
+    run.holding = { pid: parsed.holding.pid, at: typeof parsed.holding.at === 'string' ? parsed.holding.at : null };
+  }
+  for (const key of ['inflight', 'declared', 'announced']) if (isObject(parsed[key])) run[key] = parsed[key];
+  if (Array.isArray(parsed.starting)) run.starting = parsed.starting.filter((id) => typeof id === 'string');
+  return run;
+}
+
 // ---------------------------------------------------------------- the stage icon (roadmap-coordinator-followups D-5)
 
 // The icon of the stage an action is in, for the title of a change session: ❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery,
@@ -511,26 +592,120 @@ export function stageIcon(action) {
   return typeof stage === 'string' && Object.hasOwn(STAGE_ICON, stage) ? STAGE_ICON[stage] : null;
 }
 
-// A change session's title: the icon and the change id, cut to 59 code points when it has 60 or more (the start tool's title is under 60).
-export function sessionTitle(icon, id) {
-  const code = [...`${icon} ${id}`];
+// A change session's title: the state icon (when there is one), the stage icon and the change id, cut to 59 code points when it
+// has 60 or more (the start tool's title is under 60).
+export function sessionTitle(icon, id, stateIcon = null) {
+  const code = [...[stateIcon, icon, id].filter(Boolean).join(' ')];
   return code.length >= 60 ? code.slice(0, 59).join('') : code.join('');
 }
 
+// ---------------------------------------------------------------- the state of a change (change-state D-1, D-2, D-5)
+
+export const STATE_ICON = { 'waiting-for-owner': '🙋', 'waiting-on-github': '⏳', blocked: '⛔', archived: '📦' };
+
+// What the run file says about one change, for `changeState`: `run` is `readRun`'s result or the facts of the board (the same
+// fields and an `after`); `onRoadmap` says the id is a line of the roadmap.
+export function runFactsOf(run, id, { onRoadmap = false } = {}) {
+  const after = run.after ?? {};
+  const announced = run.announced?.[id];
+  return {
+    sessionMode: run.changeSessions === true && onRoadmap === true,
+    started: Boolean(run.startedSessions?.[id]) || after[id] === 'session-start',
+    inflight: Object.hasOwn(after, id) ? null : run.inflight?.[id] ?? null,
+    declared: run.declared?.[id] ?? null,
+    waits: Boolean(run.starting?.includes(id)) || announced === 'waits-turn' || announced === 'waits-refused',
+  };
+}
+
+const READY = (lang) => ({ code: 'ready', text: render(lang, 'running.ready') });
+const blockedReason = (lang, why, params, id) => ({ code: why, text: render(lang, `blocked-why.${why}`, { ...params, id, why }) });
+
+// The end an owner wait or a blocked end of the action gives, or what the session declared.
+function endOfAction(action, lang, id) {
+  if (action?.kind === 'grill') return { state: 'waiting-for-owner', reason: { code: 'grill', text: render(lang, 'gate.grill') } };
+  if (action?.kind !== 'end') return { state: 'running', reason: null };
+  const { state, why } = action.end;
+  if (state === 'archived') return { state, reason: null };
+  if (state === 'waiting-for-owner') return { state, reason: { code: why, text: render(lang, `gate.${gateOf(action)}`) } };
+  if (state === 'waiting-on-github') return { state, reason: { code: action.params.what, text: render(lang, `what.${action.params.what}`) } };
+  return { state: 'blocked', reason: blockedReason(lang, why, action.params, id) };
+}
+
+function declaredEnd(declared, lang, id) {
+  if (declared.state === 'waiting-for-owner') {
+    const gate = declared.params?.gate ?? GATE_OF_WHY[declared.why];
+    if (!gate) throw new LoopUsageError(`the declared wait of ${id} names no gate`);
+    return { state: 'waiting-for-owner', reason: { code: declared.why, text: render(lang, `gate.${gate}`) } };
+  }
+  return { state: 'blocked', reason: blockedReason(lang, declared.why, declared.params, id) };
+}
+
+// The one place a change's state is derived (D-1). `action` is what `decide` gave (or null, or the stand-in of a change the run
+// file lists with no folder); `facts` is `runFactsOf`'s result, or null outside a roadmap run; `id` names the change when there is
+// no action. Pure.
+export function changeState(action, facts = null, { lang, id: given = null } = {}) {
+  const l = normalizeLang(lang);
+  const id = action?.change ?? given;
+  let stage = action?.stage ?? null;
+  let stageTitle = action?.stageTitle ?? null;
+  let done = endOfAction(action, l, id);
+  if (facts) { // S1 to S8, first match wins
+    const { sessionMode, started, inflight, declared } = facts;
+    const githubWait = action?.kind === 'end' && action.end.state === 'waiting-on-github';
+    if (sessionMode && declared) done = declaredEnd(declared, l, id);
+    else if (sessionMode && started) done = action ? done : { state: 'running', reason: null };
+    else if (sessionMode) done = { state: 'running', reason: READY(l) };
+    else if (inflight && (inflight.kind === 'wait' || githubWait)) {
+      const what = action?.params?.what ?? inflight.what ?? 'merge';
+      done = { state: 'waiting-on-github', reason: { code: what, text: render(l, `what.${what}`) } };
+    } else if (inflight) {
+      done = { state: 'running', reason: null };
+      stage = action?.stage ?? inflight.stage ?? null;
+      stageTitle = action?.stageTitle ?? inflight.stage ?? null;
+    } else if (declared) done = declaredEnd(declared, l, id);
+    else if (facts.waits || !action || action.kind === 'none') done = { state: 'running', reason: READY(l) };
+  }
+  const { state, reason } = done;
+  const icon = stage === (action?.stage ?? null) ? stageIcon(action) : stageIcon({ stage });
+  const stateIcon = STATE_ICON[state] ?? null;
+  let title;
+  if (state === 'archived') title = sessionTitle('📦', id);
+  else if (state === 'running') title = icon ? sessionTitle(icon, id) : null;
+  else title = icon ? sessionTitle(icon, id, stateIcon) : sessionTitle(stateIcon, id);
+  const phase = typeof action?.detail?.phase === 'number' ? action.detail.phase : null;
+  return { state, reason, stage, stageTitle, phase, stageIcon: icon, stateIcon, title };
+}
+
 // ---------------------------------------------------------------- the decision (D-5), pure
+
+// commit-attribution D-1: the loop cannot read the session's attribution lines (the host gives them to the session),
+// so every hand-off to the commit agent ends with this request and the session appends its own lines (the ship-change
+// skill's Attribution section). Keyed on the agent the action names, so any step handed to that agent carries it.
+export const COMMIT_AGENT = 'devkit-core:commit-and-pr';
+export const ATTRIBUTION_HEADER = 'Attribution (from the caller):';
+export const ATTRIBUTION_ASK = ' Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.';
+export const withAttribution = (agent, text) => (agent === COMMIT_AGENT ? `${text}${ATTRIBUTION_ASK}` : text);
 
 const AGENT = {
   'change-planner': 'devkit-core:change-planner',
   'plan-readiness-reviewer': 'devkit-core:plan-readiness-reviewer',
   'tdd-implementer': 'devkit-core:tdd-implementer',
   'pr-verifier': 'devkit-core:pr-verifier',
-  'commit-and-pr': 'devkit-core:commit-and-pr',
+  'commit-and-pr': COMMIT_AGENT,
+  'screen-designer': 'devkit-core:screen-designer',
+  'adr-author': 'devkit-core:adr-author',
+  'test-runner': 'devkit-core:test-runner',
+  'e2e-tester': 'devkit-core:e2e-tester',
 };
 const BUILD_PARTS = ['build', 'after', 'delivery', 'close'];
+const TEST_STAGES = ['unit-tests', 'e2e-tests'];
 const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix'];
 const NOT_DELIVERED = ['no-file', 'not-judged', 'no-header', 'bad-header', 'header-other-stage'];
 const SWITCH_FLAGS = ['architecture', 'contract', 'ui'];
-const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-error': 'github-unreadable', 'checks-unreadable': 'github-unreadable', 'pr-closed': 'pr-closed' };
+const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'pr-closed': 'pr-closed' };
+
+// True for the two blocked ends of the stage checker that mean GitHub did not answer (change-state D-4): they are a wait on GitHub, not a stop.
+export const githubSilent = (end) => end?.state === 'blocked' && (end.reasonCode === 'gh-error' || end.reasonCode === 'checks-unreadable');
 
 // True when the step inside the stage comes from the delivery checker: the current stage is in the build-to-archive
 // part, or the change is archived while its archive pull request may still be open.
@@ -624,7 +799,8 @@ export function exitCodeOf(action) {
 }
 
 // facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
-// approval (deliver-check's approvalState), hasProposal, flags (the grill's classification), archiving, row
+// approval (deliver-check's approvalState), tests (flow-check's readTestSettings), decisions (`decisionRecords`'s result),
+// hasProposal, flags (the grill's classification), archiving, row
 // (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
@@ -669,10 +845,13 @@ export function decide(facts) {
   };
   // The agent of a delivery hand-off is the checker's row's (`conduct-check`'s actorOf owns the fact); the role's map only
   // when the row names none, and for the plan stages, which have no row.
-  const agent = (stage, role, step, what, detail, named) => guard({
-    ...base, kind: 'agent', ...stageFields(stage), agent: named ?? AGENT[role], ...(step ? { step } : {}), ...(detail ? { detail } : {}),
-    brief: brief(stage, what, detail), progressKey: key(stage, step),
-  });
+  const agent = (stage, role, step, what, detail, named) => {
+    const id = named ?? AGENT[role];
+    return guard({
+      ...base, kind: 'agent', ...stageFields(stage), agent: id, ...(step ? { step } : {}), ...(detail ? { detail } : {}),
+      brief: withAttribution(id, brief(stage, what, detail)), progressKey: key(stage, step),
+    });
+  };
   const sessionAction = (stage, step, detail, extra = {}) => guard({
     ...base, kind: 'session', ...stageFields(stage), step, ...(detail ? { detail } : {}), ...extra, progressKey: key(stage, step),
   });
@@ -681,6 +860,13 @@ export function decide(facts) {
   const currentId = report.next?.stage ?? report.end?.stage ?? null;
   const endState = report.end?.state;
   if (endState === 'archived' && !facts.archiving) return finish('archived', 'archived', 'archived', {}, null);
+
+  // The owner's plan approval accepts the records `decisions.md` lists: the session runs the command that marks them.
+  const open = facts.decisions;
+  if (facts.approval?.ok && !facts.archiving && (open?.proposed?.length || open?.unreadable?.length)) {
+    const command = ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'accept-decisions', ctx.id, '--lang', lang];
+    return sessionAction('approval', 'accept-decisions', { command, records: [...open.proposed, ...open.unreadable.map((u) => u.path)] });
+  }
 
   if (!inDelivery(report, flow, facts.archiving)) return planPart();
   return buildPart();
@@ -701,27 +887,59 @@ export function decide(facts) {
         const command = ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'script', ctx.id, 'devkit', '--why', flags[0], '--lang', lang];
         return sessionAction('proposal', 'switch-script', { command }, { reply: say('script-switched', { script: 'devkit', why: flags[0] }) });
       }
+      if (n.reasonCode === 'owner-changes') {
+        const attempt = n.params.attempt;
+        return agent(n.stage, s.role, null, `the owner asked for changes at attempt ${attempt}: redraw from the owner's notes in ${s.file} as attempt ${attempt + 1}`);
+      }
       if (n.reasonCode === 'fix-after-failure') {
         const { failed, attempt, ceiling } = n.params;
         return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} of ${ceiling}: revise the plan from its findings`);
       }
       if (PLAN_REASONS.includes(n.reasonCode) && s && AGENT[s.role]) {
-        const what = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode) ? `${n.stage} is out of date: bring it up to date`
+        const stale = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode);
+        const what = stale ? `${n.stage} is out of date: bring it up to date`
           : s.role === 'plan-readiness-reviewer' ? 'review the plan'
-            : `write the plan files the script still lacks, from ${n.stage} on, each from \`openspec instructions <artifact> --change ${ctx.id}\``;
+            : s.role === 'change-planner' ? `write the plan files the script still lacks, from ${n.stage} on, each from \`openspec instructions <artifact> --change ${ctx.id}\``
+              : `write ${s.file} from \`openspec instructions ${n.stage} --change ${ctx.id}\``;
         return agent(n.stage, s.role, null, what);
       }
       return blocked('unknown-step', {}, n.stage);
     }
     if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
     if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
+    if (e.state === 'waiting-for-owner' && e.stage === 'mockup' && e.reasonCode === 'owner-pending') {
+      return waiting('waiting-for-owner', 'waiting-mockup', 'mockup', {}, { file: `openspec/changes/${ctx.id}/mockup.md`, folder: `openspec/changes/${ctx.id}/mock/` });
+    }
     if (e.state === 'waiting-for-owner' && e.reasonCode === 'unshipped-role-pending') return waiting('waiting-for-owner', 'waiting-unrun-stage', e.stage, { stage: titleOf(e.stage) });
     if (e.state === 'blocked') return blockedEnd(e);
     return blocked('unknown-step', {}, e.stage);
   }
 
+  // The unit tests and the E2E tests, which the delivery checker does not know, come from the stage checker alone: the stage
+  // goes to its role whatever step the delivery row would give, and a red one sends the implementer back with `fix-tests`.
+  function testStageStep() {
+    const n = report.next;
+    if (!n) return null;
+    const tests = facts.tests ?? {};
+    if (TEST_STAGES.includes(n.stage)) {
+      const detail = n.stage === 'unit-tests'
+        ? { unit: tests.unit ?? null, coverage: { command: tests.coverage?.command ?? null, target: tests.coverage?.target ?? null } }
+        : { e2e: tests.e2e ?? null };
+      const again = ['stale-code', 'rerun-after-fix'].includes(n.reasonCode);
+      const what = again ? 'the work changed since the last run: run it again' : `run the ${n.stage} stage from \`openspec instructions ${n.stage} --change ${ctx.id}\``;
+      return agent(n.stage, stageById(n.stage).role, n.stage, what, detail);
+    }
+    if (n.stage === 'implementation' && n.reasonCode === 'fix-after-failure' && TEST_STAGES.includes(n.params?.failed)) {
+      const { failed, attempt, ceiling } = n.params;
+      const file = stageById(failed)?.file ?? null;
+      return agent('implementation', 'tdd-implementer', 'fix-tests', `${failed} failed at attempt ${attempt} of ${ceiling}: fix the code from ${file}, test first, within the approved tasks`, { failed, file });
+    }
+    return null;
+  }
+
   // P9 and B0: a blocked end of the stage checker, in plain words.
   function blockedEnd(e) {
+    if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
     return blocked(why, { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number }, e.stage);
@@ -730,6 +948,8 @@ export function decide(facts) {
   // -------- from the implementation to the archive: B0 to B17
   function buildPart() {
     if (endState === 'blocked') return blockedEnd(report.end);
+    const testStage = testStageStep();
+    if (testStage) return testStage;
     const row = facts.row;
     if (!row) return blocked('unknown-step', {}, currentId);
     if (row.error !== undefined) return blocked('unreadable', { error: row.error }, currentId);
@@ -795,14 +1015,6 @@ export function locate(start, id) {
   return { root, branch: tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) };
 }
 
-// The flags of the grill's `Classification: ... flags=[..]` line in requirements.md.
-function classificationFlags(dir) {
-  const file = join(dir, 'requirements.md');
-  if (!existsSync(file)) return [];
-  const m = /^.*Classification:.*flags=\[([^\]]*)\]/m.exec(readFileSync(file, 'utf8'));
-  return m ? m[1].split(',').map((f) => f.trim().toLowerCase()).filter(Boolean) : [];
-}
-
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
 export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh } = {}) {
@@ -836,15 +1048,101 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     after,
     fingerprint: facts.fingerprint ?? fingerprint(found.root, facts.head ?? null),
     approval: approvalState(dir),
+    tests: readTestSettings(found.root),
+    decisions: decisionRecords(found.root, dir),
     hasProposal: existsSync(join(dir, 'proposal.md')),
     flags: classificationFlags(dir),
     archiving,
     row,
   });
-  // The icon of the action's stage and the change session's title for it (D-5); the title only with an icon.
+  // The icon of the action's stage, its state and the change session's title for it (change-state D-1, D-5); the title only when the state has one.
   action.icon = stageIcon(action);
-  if (action.icon) action.sessionTitle = sessionTitle(action.icon, id);
+  action.state = changeState(action, null, { lang });
+  if (action.state.title !== null) action.sessionTitle = action.state.title;
   return action;
+}
+
+// ---------------------------------------------------------------- the decision records (design stage-roles D-4)
+
+const STATUS_LINE = /^(\s*[-*]?\s*\**Status\**\s*:\s*\**\s*)(\S+)(.*)$/im;
+const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
+
+// One record `decisions.md` lists, read from `root`: { path, ok: true, rel, text, status, match } or { path, ok: false, why }.
+function readRecord(root, path) {
+  const bad = (why) => ({ path, ok: false, why });
+  if (isAbsolute(path)) return bad('the path is absolute');
+  const abs = resolve(root, path);
+  const rel = relative(root, abs);
+  const outside = (r) => r === '..' || r.startsWith('..' + sep) || isAbsolute(r);
+  if (outside(rel)) return bad('the file is outside the repository');
+  let text;
+  try {
+    // A symlink inside the repository may point out of it: the real path is the one that must stay inside.
+    if (outside(relative(realpathSync(root), realpathSync(abs)))) return bad('the file is outside the repository');
+    if (!statSync(abs).isFile()) return bad('it is not a file');
+    text = readFileSync(abs, 'utf8');
+  } catch { return bad('the file does not exist'); }
+  if (!isDecisionRecord(rel)) return bad('it is not a Markdown file in a folder named adr, adrs or decisions');
+  const match = STATUS_LINE.exec(text);
+  if (!match) return bad('it has no status line');
+  const status = match[2].toLowerCase();
+  if (status !== 'proposed' && status !== 'accepted') return bad(`its status is ${match[2]}, not proposed or accepted`);
+  return { path, ok: true, rel, text, status, match };
+}
+
+// The records the change's `decisions.md` lists (`- ADR: \`<path>\``): { listed, proposed, unreadable: [{ path, why }] }.
+export function decisionRecords(root, dir) {
+  const file = join(dir, 'decisions.md');
+  const out = { listed: [], proposed: [], unreadable: [] };
+  if (!existsSync(file)) return out;
+  const paths = [...new Set([...readFileSync(file, 'utf8').matchAll(ADR_LINES)].map((m) => m[1].trim()))];
+  for (const path of paths) {
+    out.listed.push(path);
+    const record = readRecord(root, path);
+    if (!record.ok) out.unreadable.push({ path, why: record.why });
+    else if (record.status === 'proposed') out.proposed.push(path);
+  }
+  return out;
+}
+
+// The status value in the letter case it had: PROPOSED to ACCEPTED, Proposed to Accepted, proposed to accepted.
+const acceptedLike = (value) => (value === value.toUpperCase() ? 'ACCEPTED' : value[0] === value[0].toUpperCase() ? 'Accepted' : 'accepted');
+
+// `accept-decisions <id>`: sets every proposed record `decisions.md` lists to accepted, after the owner's current approval. Every
+// check runs before the first write; a refusal (exit 3) changes no file.
+export function acceptDecisions(cwd, id, { lang = 'pt-BR' } = {}) {
+  const l = normalizeLang(lang);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const root = locate(start, id).root;
+  const located = locateChange(root, id);
+  if (!located) throw new LoopUsageError(`unknown change ${id}`);
+  const refuse = (error) => new LoopRefusal(error, render(l, 'blocked', { id, why: 'cannot-accept', error }));
+  const approval = approvalState(located.dir);
+  if (!approval.ok) throw refuse(approval.status === 'APPROVED' && approval.recorded ? 'approval.md is for an earlier readiness.md' : 'the plan has no current recorded approval (approval.md)');
+  const approvalFile = join(located.dir, 'approval.md');
+  const date = readValue(approvalFile, 'Date');
+  if (!date) throw refuse('approval.md has no Date line');
+  const { listed } = decisionRecords(root, located.dir);
+  const records = listed.map((path) => readRecord(root, path));
+  const unusable = records.find((r) => !r.ok);
+  if (unusable) throw refuse(`${unusable.path}: ${unusable.why}`);
+  const by = `Accepted by: the owner, on ${date}, in the approval of the plan of change ${id} (${relative(root, approvalFile).split('\\').join('/')})`;
+  const writes = [];
+  for (const r of records.filter((x) => x.status === 'proposed')) {
+    const { match, text } = r;
+    const cut = match[1].lastIndexOf('\n') + 1; // the pattern's leading `\s*` may span blank lines: the prefix is the status line's own
+    const prefix = match[1].slice(cut);
+    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${prefix}${by}${text.slice(match.index + match[0].length)}`;
+    writes.push([join(root, r.rel), next]);
+  }
+  for (const [file, body] of writes) writeFileSync(file, body);
+  return {
+    version: 1, change: id,
+    accepted: records.filter((r) => r.status === 'proposed').map((r) => r.path),
+    already: records.filter((r) => r.status === 'accepted').map((r) => r.path),
+  };
 }
 
 // ---------------------------------------------------------------- checkouts and unfinished work (D-3, D-6)
@@ -972,8 +1270,42 @@ export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec
   if (e?.state === 'archived') return render(l, found.branch === `chore/archive-${id}` ? 'where.archiving' : 'where.archived');
   if (report.next) return render(l, 'where.next', { stage: title(report.next.stage) });
   if (e?.state === 'waiting-for-owner') return render(l, 'where.owner', { stage: title(e.stage) });
-  if (e?.state === 'waiting-on-github') return render(l, 'where.github');
+  if (e?.state === 'waiting-on-github' || githubSilent(e)) return render(l, 'where.github');
   return render(l, 'where.blocked', { stage: title(e?.stage) });
+}
+
+// ---------------------------------------------------------------- the state command (change-state D-3)
+
+// The ids the run file names and the state command lists: starts, changes in flight, declared ends, change sessions and starts left for the owner's next message.
+const namedByRun = (run) => new Set([
+  ...run.starting, ...Object.keys(run.inflight), ...Object.keys(run.declared), ...Object.keys(run.startedSessions),
+  ...Object.entries(run.announced).filter(([, what]) => what === 'waits-turn' || what === 'waits-refused').map(([name]) => name),
+]);
+
+// The state of each change in play (every unfinished change and every change the run file names, or just `id`), in id order.
+// Reads only; calls `nextAction` per change and never `updateRun`.
+export function stateEntries(cwd, { id = null, lang, env = process.env, openspec, gh } = {}) {
+  const l = normalizeLang(lang);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const run = readRun(runFilePath(start));
+  const roadmapIds = new Set((readRoadmap(start) ?? []).flatMap((round) => round.items.map((item) => item.id)));
+  const named = namedByRun(run);
+  const ids = id !== null ? [id] : [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...named])].sort((a, b) => a.localeCompare(b));
+  let archived = null;
+  const openTitle = () => {
+    try { return readFlow(start, 'devkit')?.stages.find((s) => s.id === 'open')?.title[l] ?? 'open'; } catch { return 'open'; }
+  };
+  return ids.map((cid) => {
+    let action;
+    if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
+    else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) {
+      action = { kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } };
+    } else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
+    else throw new LoopUsageError(`no change named ${cid}`);
+    const facts = runFactsOf(run, cid, { onRoadmap: roadmapIds.has(cid) });
+    return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch };
+  });
 }
 
 // ---------------------------------------------------------------- start (D-3)
@@ -1223,11 +1555,11 @@ export function switchScript(cwd, id, script, { why, lang = 'pt-BR' } = {}) {
 
 const isWait = (a) => a.kind === 'end' && a.end.state === 'waiting-on-github';
 const decisionKey = (a) => JSON.stringify([a.kind, a.end?.state ?? null, a.end?.why ?? null, a.agent ?? null, a.step ?? null, a.reply ?? null]);
-const isUnreadable = (a) => a.kind === 'end' && a.end.why === 'github-unreadable';
+const isUnreadable = (a) => a.kind === 'end' && (a.end.why === 'github-unreadable' || (a.end.state === 'waiting-on-github' && a.params?.what === 'silent'));
 
 // Polls `poll()` (the decision `next` gives) every `interval` seconds while it stays the same wait on GitHub, with no
 // limit of its own, and returns the first decision that is anything else (the first decision itself when it is not a
-// wait). A poll that throws, or that says GitHub cannot be read, is retried; `maxFailures` in a row return blocked,
+// wait). A poll that throws, that says GitHub cannot be read or that is a wait on GitHub with no answer (`what` silent) is a failed read, retried; `maxFailures` in a row return blocked,
 // `github-unreadable`. Holds no state but the first decision.
 export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 3 }) {
   const first = await poll();
@@ -1242,9 +1574,9 @@ export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 
     if (error || isUnreadable(action)) {
       failures += 1;
       if (failures < maxFailures) continue;
-      if (action) return action;
+      if (action?.end.why === 'github-unreadable') return action;
       const { version, change, script, root, branch, filesLanguage, stage, stageTitle, role, skills } = first;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error ? (error instanceof Error ? error.message : String(error)) : action.detail?.error ?? '';
       return {
         version, change: change ?? id, script, root, branch, filesLanguage, kind: 'end', stage, stageTitle, role, skills,
         end: { state: 'blocked', why: 'github-unreadable' }, reply: render(lang, 'blocked', { id, why: 'github-unreadable', error: message }),
@@ -1303,7 +1635,7 @@ export function stopDecision(input, { env = process.env, events } = {}) {
 
 // The stage file a role writes, and what flow-check says of the change, for the subagent lock.
 const roleOf = (agentType) => String(agentType || '').split(':').pop();
-const UNDELIVERED = ['no-header', 'bad-header', 'header-other-stage', 'not-judged'];
+const UNDELIVERED = ['no-header', 'bad-header', 'header-other-stage', 'not-judged', 'owner-changes'];
 
 // `guard.mjs subagent-stop` (U1 to U7): a stage agent does not stop before its stage file is delivered.
 export function subagentStopDecision(input, { env = process.env, events } = {}) {
@@ -1353,7 +1685,7 @@ export function scriptAgents(flow) {
 export const PACKS = {
   ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
     'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
-    'spec-reviewer', 'finding-verifier'].map((r) => [r, 'devkit-core'])),
+    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'].map((r) => [r, 'devkit-core'])),
   'openspec-validator': 'devkit-openspec',
 };
 
@@ -1394,7 +1726,7 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
-  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
+  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>';
 
 function parseArgs(argv, { values = [], multi = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -1424,6 +1756,13 @@ function runNext(args, { env, cwd, openspec, gh }) {
   if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
   const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
+}
+
+function runState(args, { env, cwd, openspec, gh }) {
+  const opts = parseArgs(args, { values: ['--change', '--lang'] });
+  if (opts.positional.length) throw new LoopUsageError(USAGE);
+  const changes = stateEntries(cwd, { id: opts.change ?? null, lang: opts.lang, env, openspec, gh });
+  return { code: 0, stdout: json({ version: 1, changes }), stderr: '' };
 }
 
 function runReply(args) {
@@ -1460,6 +1799,12 @@ function runScript(args, { cwd }) {
   return { code, stdout: json(body), stderr: '' };
 }
 
+function runAccept(args, { cwd }) {
+  const opts = parseArgs(args, { values: ['--lang'] });
+  if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+  return { code: 0, stdout: json(acceptDecisions(cwd, opts.positional[0], { lang: opts.lang })), stderr: '' };
+}
+
 const MIN_INTERVAL = 5;
 const DEFAULT_INTERVAL = 60;
 const realSleep = (seconds) => new Promise((resolve) => { setTimeout(resolve, seconds * 1000); });
@@ -1490,9 +1835,11 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     const [sub, ...rest] = argv;
     if (sub === 'next') return runNext(rest, { env, cwd, openspec, gh });
     if (sub === 'reply') return runReply(rest);
+    if (sub === 'state') return runState(rest, { env, cwd, openspec, gh });
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec });
     if (sub === 'script') return runScript(rest, { cwd });
+    if (sub === 'accept-decisions') return runAccept(rest, { cwd });
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);

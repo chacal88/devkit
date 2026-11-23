@@ -1,4 +1,4 @@
-# ADR 0017: The delivery model is chosen per project, and the two-PR model keeps the test branch out of the task branch
+# ADR 0018: The delivery model is chosen per project, and the two-PR model keeps the test branch out of the task branch
 
 - Status: accepted
 - Date: 2026-11-22

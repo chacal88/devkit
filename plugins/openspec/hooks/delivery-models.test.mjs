@@ -3,11 +3,11 @@
 // Every scenario runs on real Git in a temporary folder; the env blanks every branch variable, as a pull-request run on CI sets them.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, renameSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from './test-tmp.mjs';
 import { git, put, commitAll } from './deliver-check.test.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import * as guard from './guard.mjs';
@@ -24,7 +24,7 @@ const cleanEnv = { ...process.env, ...SET };
 const TWO_PRS = 'devkit:\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
 
 function configRepo(text) {
-  const root = mkdtempSync(join(tmpdir(), 'delivery-models-cfg-'));
+  const root = tmpFolder('devkit-delivery-models-cfg-');
   mkdirSync(join(root, 'openspec'), { recursive: true });
   if (text !== null) writeFileSync(join(root, 'openspec', 'config.yaml'), text);
   return root;
@@ -347,7 +347,7 @@ fail('simGitHub: unhandled ' + args.join(' '), 99);
 `;
 
 function simGitHub({ origin, defaultBranch = 'main' }) {
-  const dir = mkdtempSync(join(tmpdir(), 'delivery-models-gh-'));
+  const dir = tmpFolder('devkit-delivery-models-gh-');
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   writeFileSync(join(bin, 'gh'), SIM_GH);
@@ -495,6 +495,26 @@ test('delivery-models P7 T4: no test-branch pull request opens it from the task 
 test('delivery-models P7 T5: a test-branch pull request closed without merging blocks', () => {
   const n = deliver.nextStep(twoState({}, { test: { pr: { ...TEST_PR, state: 'CLOSED' } } }));
   assert.deepEqual([n.step, n.reason], ['blocked', 'pull request #13 to develop was closed without merging']);
+});
+
+// Invariant (spec "The two-pull-request delivery stops where it cannot go on by itself", design D-4): a blocked row opens, pushes
+// and edits nothing, so the closed test-branch pull request blocks before any row about the base branch's pull request.
+const CLOSED_TEST = { pr: { ...TEST_PR, state: 'CLOSED' } };
+const CLOSED_REASON = 'pull request #13 to develop was closed without merging';
+
+test('delivery-models P7 T5: a closed test-branch pull request blocks before opening the missing base pull request', () => {
+  const n = deliver.nextStep({ ...noBasePr(), twoPrs: { ...twoState().twoPrs, test: CLOSED_TEST } });
+  assert.deepEqual([n.step, n.reason], ['blocked', CLOSED_REASON]);
+});
+
+test('delivery-models P7 T5: a closed test-branch pull request blocks before pushing an unpushed base branch', () => {
+  const n = deliver.nextStep(withItemOf(twoState({}, { test: CLOSED_TEST }), 5, 'open', { ahead: true }));
+  assert.deepEqual([n.step, n.reason], ['blocked', CLOSED_REASON]);
+});
+
+test('delivery-models P7 T5: a closed test-branch pull request blocks before editing an incomplete base pull request body', () => {
+  const n = deliver.nextStep(withItemOf(twoState({}, { test: CLOSED_TEST }), 8, 'open', { missing: ['evidence link'] }));
+  assert.deepEqual([n.step, n.reason], ['blocked', CLOSED_REASON]);
 });
 
 test('delivery-models P7 T5: an unreadable test-branch pull request blocks', () => {
@@ -1069,6 +1089,8 @@ function hookRepo() {
   hookProject = at;
   return at;
 }
+// Built at load, outside any test: test-tmp.mjs removes a folder when the test that made it ends, and every hook test reads this one.
+hookRepo();
 const refusalOf = (branch) => new RegExp(`the task branch never receives develop: merge develop into the support branch ${branch}-develop instead \\(the flow creates it when the pull request to develop has a conflict\\)`);
 const fill = (command) => command.replace(/\{(\w+)\}/g, (_, k) => hookRepo()[k]);
 const refused = (name, command, where = 'task', branchOf = where) => test(`delivery-models P3 ${name}: refused on the task branch`, () => {
@@ -1224,7 +1246,7 @@ test('delivery-models P7 T1: a clean branch has no foreign commit and reaches th
 // ---------------------------------------------------------------- P5 the CI check on a pull request to the base branch
 
 const eventFile = (payload) => {
-  const f = join(mkdtempSync(join(tmpdir(), 'delivery-models-event-')), 'event.json');
+  const f = join(tmpFolder('devkit-delivery-models-event-'), 'event.json');
   writeFileSync(f, JSON.stringify(payload));
   return f;
 };
@@ -1299,7 +1321,7 @@ test('delivery-models AC-5: the check fails a base pull request that holds a tes
 
 test('delivery-models P5: a GitHub error names the permission and the token', () => {
   const s = scenario();
-  const bin = mkdtempSync(join(tmpdir(), 'delivery-models-gh-denied-'));
+  const bin = tmpFolder('devkit-delivery-models-gh-denied-');
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\necho "HTTP 403: Resource not accessible by integration" >&2\nexit 1\n');
   chmodSync(join(bin, 'gh'), 0o755);
   const r = ci(s, { event: eventFile(ON_MAIN), env: { PATH: `${bin}:${s.env.PATH}` } });
@@ -2059,28 +2081,28 @@ test('delivery-models conduct: actorOf and the final state name the archive step
 
 // ---------------------------------------------------------------- P16 the documents (D-12, D-13, phase 6)
 
-// Invariant (AC-1, AC-9): ADR 0017 and its four Notes, the config line, the design page's answered conflict and lock row,
+// Invariant (AC-1, AC-9): ADR 0018 and its four Notes, the config line, the design page's answered conflict and lock row,
 // the flow page's subsection and CI lines, the skill's one row per new step and the README say what the delivery models are.
 // Layer: the documents. Suite: this file.
 test('delivery-models docs: the documents follow', () => {
   const root = join(HERE, '..', '..', '..');
   const read = (...p) => readFileSync(join(root, ...p), 'utf8');
-  const adrName = '0017-the-delivery-model-is-chosen-per-project.md';
+  const adrName = '0018-the-delivery-model-is-chosen-per-project.md';
   const adr = read('docs', 'adr', adrName);
   assert.match(adr, /^- Status: (proposed|accepted)$/m);
   assert.match(adr, /^- Change: delivery-models$/m);
   for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
-    assert.ok(adr.split('\n').includes(h), `ADR 0017 has ${h}`);
+    assert.ok(adr.split('\n').includes(h), `ADR 0018 has ${h}`);
   }
   const old = ['0002-merge-without-the-owner-opt-in.md', '0003-auto-merge-the-archive-pr.md', '0010-openspec-as-the-harness.md', '0012-the-reviews-check-follows-the-change-script.md'];
   for (const f of old) {
     const t = read('docs', 'adr', f);
-    assert.match(t, /Note \(delivery-models, \d{4}-\d{2}-\d{2}\): ADR 0017 amends /, `${f} has the Note`);
-    if (/^- Status: accepted$/m.test(adr)) assert.ok(t.split('\n').includes(`- Amended by ADR 0017 (${adrName})`), `${f} names ADR 0017 in its header`);
+    assert.match(t, /Note \(delivery-models, \d{4}-\d{2}-\d{2}\): ADR 0018 amends /, `${f} has the Note`);
+    if (/^- Status: accepted$/m.test(adr)) assert.ok(t.split('\n').includes(`- Amended by ADR 0018 (${adrName})`), `${f} names ADR 0018 in its header`);
   }
   if (/^- Status: accepted$/m.test(adr)) assert.match(adr, /^- Accepted by: the owner, on \d{4}-\d{2}-\d{2}, /m);
   const config = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
-  assert.match(config, /0017 the delivery model chosen per project and the test-branch lock, amends 0002, 0003, 0010 and 0012/, 'the ADRs line names 0017');
+  assert.match(config, /0018 the delivery model chosen per project and the test-branch lock, amends 0002, 0003, 0010 and 0012/, 'the ADRs line names 0018');
 
   const design = read('docs', 'coordination-design.md');
   const part = (from, to) => { const a = design.indexOf(from); assert.ok(a >= 0, from); const b = design.indexOf(to, a + from.length); return design.slice(a, b < 0 ? design.length : b); };

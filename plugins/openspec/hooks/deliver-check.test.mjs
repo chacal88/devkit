@@ -2,9 +2,9 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs both files.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync, readdirSync, renameSync } from 'node:fs';
+import { mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync, readdirSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ghError } from './merge-setup.mjs';
@@ -33,7 +33,7 @@ export function git(root, ...args) {
 // A repo with openspec/, the schemas, an optional config and change files,
 // and (unless commit is false) one initial commit. Returns the root.
 export function gitRepo({ config = 'schema: devkit-lite\n', changes = {}, files = {}, branch = 'main', commit = true } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'devkit-deliver-'));
+  const root = tmpFolder('devkit-deliver-');
   git(root, 'init', '-q', '-b', branch);
   mkdirSync(join(root, 'openspec', 'changes', 'archive'), { recursive: true });
   cpSync(schemas, join(root, 'openspec', 'schemas'), { recursive: true });
@@ -827,7 +827,7 @@ if (fx.sleep) setTimeout(finish, fx.sleep); else finish();
 // A gh on PATH answering from JSON fixtures: set('pr-view', { stdout, stderr, exit, sleep }, n?)
 // writes pr-view.json (every call) or pr-view.<n>.json (that call only).
 export function fakeGh() {
-  const base = mkdtempSync(join(tmpdir(), 'devkit-gh-'));
+  const base = tmpFolder('devkit-gh-');
   const bin = join(base, 'bin');
   const dir = join(base, 'fixtures');
   mkdirSync(bin);
@@ -1025,7 +1025,7 @@ test('item 5: a CLOSED or MERGED PR, or a merge conflict, is blocked', () => {
 
 test('item 5: gh missing, not authenticated or failing is blocked with the error text', () => {
   const root = base();
-  const nodeOnly = join(mkdtempSync(join(tmpdir(), 'devkit-nodeonly-')), 'bin');
+  const nodeOnly = join(tmpFolder('devkit-nodeonly-'), 'bin');
   mkdirSync(nodeOnly);
   symlinkSync(process.execPath, join(nodeOnly, 'node'));
   let it = prItem(root, 'feat', fetchPr(makeGh(root, { ...process.env, PATH: nodeOnly })), gitFacts(root));
@@ -2551,7 +2551,7 @@ test('makeGh: a gh call that outlives its timeout is cut, reported as timedOut a
   const gh = fakeGh();
   gh.set('api-GET-repos__owner___repo_', { stdout: {}, sleep: 8000 });
   const started = Date.now();
-  const r = makeGh(tmpdir(), gh.env, 400)(['api', 'repos/{owner}/{repo}']);
+  const r = makeGh(tmpRoot(), gh.env, 400)(['api', 'repos/{owner}/{repo}']);
   assert.ok(Date.now() - started < 5000, 'cut near the timeout, not after the 8s sleep');
   assert.equal(r.timedOut, true);
   assert.notEqual(r.status, 0);
@@ -2704,14 +2704,14 @@ test('CLI: exit 3 for an unknown change, a missing id, no openspec/ and an archi
   mkdirSync(join(t.root, 'openspec/changes/archive/2026-01-01-gone'), { recursive: true });
   assert.notEqual(runCli(t, ['gone']).code, 3, 'an archived change answers (archive-after-merge D3)');
   assert.equal(runCli(t, ['neverexisted']).code, 3);
-  const bare = mkdtempSync(join(tmpdir(), 'devkit-bare-'));
+  const bare = tmpFolder('devkit-bare-');
   const r = runCli(t, ['feat'], { cwd: bare });
   assert.equal(r.code, 3);
   assert.match(r.err, /openspec/);
 });
 
 test('CLI: openspec/ without a git repo is a clear usage error, not a raw git fatal', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-nogit-'));
+  const dir = tmpFolder('devkit-nogit-');
   mkdirSync(join(dir, 'openspec/changes/feat'), { recursive: true });
   writeFileSync(join(dir, 'openspec/config.yaml'), 'schema: devkit\n');
   const r = spawnSync(process.execPath, [join(here, 'deliver-check.mjs'), 'feat'], { cwd: dir, encoding: 'utf8', env: { ...process.env, GIT_CEILING_DIRECTORIES: dirname(dir) } });
@@ -3291,7 +3291,7 @@ test('--ci --watch is a usage error (exit 3)', () => {
 });
 
 test('--ci: a repo without openspec/ passes with a note, like guard.mjs ci; a repo that has not adopted OpenSpec is never broken (R-3)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-noopenspec-'));
+  const dir = tmpFolder('devkit-noopenspec-');
   git(dir, 'init', '-q', '-b', 'main');
   const r = runCi(dir);
   assert.equal(r.code, 0, r.err);
@@ -3304,7 +3304,7 @@ test('--ci: a repo without openspec/ passes with a note, like guard.mjs ci; a re
 });
 
 test('--ci: openspec/ without a git repository is exit 3', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-nogit-ci-'));
+  const dir = tmpFolder('devkit-nogit-ci-');
   mkdirSync(join(dir, 'openspec/changes/feat'), { recursive: true });
   const r = spawnSync(process.execPath, [cli, '--ci'], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...CI_ENV, GIT_CEILING_DIRECTORIES: dirname(dir) } });
   assert.equal(r.status, 3);
@@ -3636,7 +3636,7 @@ test('--ci preflight: a shallow clone is exit 3 naming fetch-depth: 0', () => {
   const root = ciRepo();
   put(root, { 'src/b.ts': 'b\n' });
   commitAll(root, 'second');
-  const clone = join(mkdtempSync(join(tmpdir(), 'devkit-shallow-')), 'c');
+  const clone = join(tmpFolder('devkit-shallow-'), 'c');
   execFileSync('git', ['clone', '-q', '--depth', '1', `file://${root}`, clone], { env: GIT_ENV });
   assert.equal(git(clone, 'rev-parse', '--is-shallow-repository'), 'true');
   const r = runCi(clone);
@@ -3647,7 +3647,7 @@ test('--ci preflight: a shallow clone is exit 3 naming fetch-depth: 0', () => {
 
 test('--ci preflight: a PR head sha that is not HEAD is exit 3 naming the ref: fix; the matching sha passes', () => {
   const root = ciRepo();
-  const event = join(mkdtempSync(join(tmpdir(), 'devkit-event-')), 'event.json');
+  const event = join(tmpFolder('devkit-event-'), 'event.json');
   writeFileSync(event, JSON.stringify({ pull_request: { head: { sha: 'b'.repeat(40) } } }));
   const r = runCi(root, [], { GITHUB_EVENT_PATH: event });
   assert.equal(r.code, 3);
@@ -3912,7 +3912,7 @@ test('makeGh/ghError: output past maxBuffer is named, not a bare exit code (revi
 // ---- readRetro (2.5, design D6)
 
 const readRetroText = (text) => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-retro-'));
+  const dir = tmpFolder('devkit-retro-');
   writeFileSync(join(dir, 'retro.md'), text);
   return readRetro(join(dir, 'retro.md'));
 };
@@ -3939,7 +3939,7 @@ test('readRetro: the last Answer: and the last Applied: line of a block count; u
 test('readRetro: None. is zero proposals; no ## Proposed updates is unreadable; a missing file does not exist (D6)', () => {
   assert.deepEqual(readRetroText(retroMd()), { exists: true, readable: true, proposals: [] });
   assert.deepEqual(readRetroText('# Retro\n\n## Learnings\n\n### `a.md` (x)\n- Answer: approved\n'), { exists: true, readable: false, proposals: [] });
-  assert.deepEqual(readRetro(join(tmpdir(), 'devkit-no-such-retro.md')), { exists: false, readable: false, proposals: [] });
+  assert.deepEqual(readRetro(join(tmpRoot(), 'devkit-no-such-retro.md')), { exists: false, readable: false, proposals: [] });
 });
 
 test('readRetro: diff lines are never read as answers, and headings outside the section are not proposals (D6, AC-2)', () => {
@@ -4700,7 +4700,7 @@ test('round trip: on chore/archive-x with x moved, archiveBranchChange finds x, 
 const fencedBlocks = (md, from) => [...md.slice(md.indexOf(from)).matchAll(/```[^\n]*\n([\s\S]*?)\n```/g)].map((m) => m[1]);
 const retroSkill = () => readFileSync(join(repoRoot, 'plugins', 'core', 'skills', 'retro', 'SKILL.md'), 'utf8');
 function parseExample(block) {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-retro-'));
+  const dir = tmpFolder('devkit-retro-');
   const file = join(dir, 'retro.md');
   writeFileSync(file, block);
   return readRetro(file);
@@ -5228,4 +5228,71 @@ test('review-writer-prompt AC-8 the devkit-reviews check from both entries names
     assert.match(r.out, /stale test-coverage-reviewer/);
     assert.doesNotMatch(r.out, /stale (spec|adr|architecture|security)-reviewer/);
   }
+});
+
+// ================================================================ commit-attribution (D-7, T26 to T36)
+
+const attributionOfAgent = () => {
+  const md = coreAgent('commit-and-pr');
+  const a = md.indexOf('## Attribution');
+  const b = md.indexOf('## Escalate');
+  return a >= 0 && b > a ? md.slice(a, b) : '';
+};
+const methodOfAgent = () => {
+  const md = coreAgent('commit-and-pr');
+  return md.slice(md.indexOf('## Method'), md.indexOf('## Attribution'));
+};
+
+test('commit-attribution AC-2 T26 the agent\'s Receives names the attribution block', () => {
+  const md = coreAgent('commit-and-pr');
+  const receives = md.slice(md.indexOf('## Receives'), md.indexOf('## Preconditions'));
+  for (const part of ['Attribution (from the caller):', 'Commit trailer:', 'PR footer:', 'Attribution (from the caller): none']) assert.ok(receives.includes(part), part);
+});
+
+test('commit-attribution AC-2 T27 with lines given the agent writes exactly those and no other', () => {
+  const s = attributionOfAgent();
+  assert.ok(s.includes('exactly the text after each `Commit trailer:` line'), s);
+  assert.ok(s.includes('Add no other `Co-Authored-By` line, attribution trailer or footer'), s);
+});
+
+test('commit-attribution AC-2 T28 with none the agent writes no attribution line', () => {
+  assert.ok(attributionOfAgent().includes('Write no `Co-Authored-By` line, no attribution trailer and no footer'));
+});
+
+test('commit-attribution AC-2 T29 with no block the agent keeps its earlier rule', () => {
+  const s = attributionOfAgent();
+  const bullet = s.split('\n').find((l) => l.startsWith('- **No block**')) ?? '';
+  assert.ok(bullet.includes('the environment or the user requires'), bullet);
+});
+
+test('commit-attribution AC-2 T30 the caller\'s block wins over the agent\'s environment', () => {
+  assert.ok(attributionOfAgent().includes('wins over the lines your own environment gives you'));
+});
+
+test('commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment rule', () => {
+  const m = methodOfAgent();
+  assert.equal(m.split('Attribution below').length - 1, 2, m);
+  assert.ok(!m.includes('the environment or the user requires'), m);
+});
+
+test('commit-attribution AC-2 T32 Never forbids a line the block does not give', () => {
+  const md = coreAgent('commit-and-pr');
+  assert.ok(md.slice(md.indexOf('## Never')).includes("add one the caller's attribution block does not give"));
+});
+
+for (const [n, step] of [[33, 'commit'], [34, 'open-pr'], [35, 'open-archive-pr']]) {
+  test(`commit-attribution AC-1 T${n} the ship-change ${step} row ends the prompt with the attribution block`, () => {
+    assert.ok(skillRow(shipSkill(), step).includes('End the prompt with the attribution block (Attribution, above).'));
+  });
+}
+
+test('commit-attribution AC-1 T36 the ship-change Attribution section holds the block and names no model', () => {
+  const md = shipSkill();
+  const a = md.indexOf('## Attribution');
+  const b = md.indexOf('\n## Loop');
+  const s = a >= 0 && b > a ? md.slice(a, b) : '';
+  for (const part of ['Attribution (from the caller):', 'Commit trailer: <one line this session ends its commit messages with>', 'PR footer: <one line this session ends its pull-request descriptions with>',
+    "The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.",
+    'Attribution (from the caller): none', 'verbatim', "never take the agent's"]) assert.ok(s.includes(part), part);
+  assert.doesNotMatch(s, /Opus|Sonnet|Haiku|noreply/);
 });

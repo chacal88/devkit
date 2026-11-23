@@ -190,7 +190,8 @@ role the script's stage declaration names; it SHALL NOT choose the order itself.
 From the implementation to the archive, the loop SHALL take the stage from the stage checker and the
 step inside it from the delivery checker, with the two overrides the retired `/conduct` applied and `/devkit change` keeps (a release-file
 conflict, a branch the loop rebased), and hand each step to the role declared for its stage; the stage
-checker's blocked ends SHALL win.
+checker's blocked ends SHALL win. The unit tests and the E2E tests, which the delivery checker does
+not know, SHALL be taken from the stage checker alone.
 
 #### Scenario: Implementation and fixes
 - **WHEN** the delivery checker's step is `implement`, `fix-review`, `fix-defect`, `fix-checks` or `apply-proposals`
@@ -255,6 +256,18 @@ checker's blocked ends SHALL win.
 #### Scenario: The delivery checker cannot read the change
 - **WHEN** the delivery checker fails with a usage or settings error
 - **THEN** the run ends blocked, saying the change cannot be read, and the command exits 3
+
+#### Scenario: The unit tests are next
+- **WHEN** the stage checker's next stage is the unit tests, missing, stale or offered again after a fix
+- **THEN** the next action hands the stage to `devkit-core:test-runner`, its detail carrying the declared unit command, coverage command and coverage target, whatever step the delivery checker would give
+
+#### Scenario: The E2E tests are next
+- **WHEN** the stage checker's next stage is the E2E tests
+- **THEN** the next action hands the stage to `devkit-core:e2e-tester`, its detail carrying the declared E2E command
+
+#### Scenario: A red test stage goes back to the implementer
+- **WHEN** the stage checker's next stage is the implementation because the unit tests or the E2E tests failed below their ceiling and nothing changed since
+- **THEN** the next action hands the step `fix-tests` to the implementer's agent, its detail naming the failed stage and its file
 
 ### Requirement: A run ends in one of four states with a plain reason
 Every call of the loop SHALL give either one action or one end among archived, waiting for the
@@ -506,3 +519,82 @@ ids SHALL both create their change, and two of one id SHALL create it once.
 #### Scenario: A lock left by a dead opening
 - **WHEN** an opening finds a lock older than ten minutes
 - **THEN** it takes the lock over and opens the change
+
+### Requirement: The mock-up and the decisions go to their roles
+Before the plan, the loop SHALL hand the mock-up to `devkit-core:screen-designer` and the decisions
+to `devkit-core:adr-author` when the stage checker offers them, each with a brief that names the
+stage's own instructions, and SHALL hand nothing for a stage the checker reports not applicable.
+
+#### Scenario: The decisions of a full-script change
+- **WHEN** the requirements of a `devkit` change passed and it has no `decisions.md`
+- **THEN** the next action hands the decisions to `devkit-core:adr-author`, after the mock-up when the mock-up applies
+
+#### Scenario: A change with a screen
+- **WHEN** the requirements of a `devkit` change passed, its classification lists `ui`, and it has no `mockup.md`
+- **THEN** the next action hands the mock-up to `devkit-core:screen-designer`
+
+#### Scenario: A change with no screen
+- **WHEN** the classification of a `devkit` change has no `ui` flag
+- **THEN** no action hands the mock-up to any agent
+
+### Requirement: The mock-up waits for the owner's answer
+When the drawn mock-up waits for the owner, the run SHALL end waiting for the owner with a reply
+asking to approve it or say what to change, and a detail naming its folder. An answer recorded as
+changes SHALL make the next action hand the mock-up to its agent again as a new attempt, naming the
+owner's notes; an answer recorded as approval SHALL let the walk go on.
+
+#### Scenario: The mock-up is drawn
+- **WHEN** `mockup.md`'s header says `result=pending`
+- **THEN** the run ends waiting for the owner with the mock-up reply, its detail names the change's `mock/` folder and `mockup.md`, and the exit code is 1
+
+#### Scenario: The owner asks for changes
+- **WHEN** the owner's answer was recorded as changes (`mockup.md`'s header `result=failed attempt=1`, the owner's notes appended)
+- **THEN** the next action hands the mock-up to `devkit-core:screen-designer`, its brief saying the owner asked for changes at attempt 1 and the notes are in `mockup.md`
+
+#### Scenario: The owner approves
+- **WHEN** the owner's answer was recorded as approval (`mockup.md`'s header `result=passed`)
+- **THEN** the next stage is offered as for any passed stage
+
+### Requirement: Approved decisions are accepted before the implementation
+When the owner's plan approval is current and `decisions.md` lists an ADR whose status is still
+proposed, and the change is not being archived, the next action SHALL be the session step
+`accept-decisions` carrying the command that sets every listed ADR to accepted; that command SHALL
+refuse, changing nothing, while the approval is not current.
+
+#### Scenario: The plan was just approved
+- **WHEN** `approval.md` is current for `readiness.md` and `decisions.md` lists two ADRs with status proposed
+- **THEN** the next action is the session step `accept-decisions`, whose command, run, sets both to accepted with the approval's date and the change's id, and the next call offers the implementation
+
+#### Scenario: The plan is under revision
+- **WHEN** `decisions.md` lists an ADR with status proposed and `approval.md` is missing or for an earlier `readiness.md`
+- **THEN** no action is `accept-decisions`, and the command, run by hand, exits 3 naming the missing approval and leaves the ADR proposed
+
+#### Scenario: A record the command cannot set
+- **WHEN** a listed ADR has no status line, or lies outside a folder named `adr`, `adrs` or `decisions`
+- **THEN** the command exits 3 naming the file and changes no file
+
+#### Scenario: A listed record the loop cannot read
+- **WHEN** `approval.md` is current for `readiness.md` and `decisions.md` lists an ADR that has no status line, or that lies outside a folder named `adr`, `adrs` or `decisions`, and no ADR with status proposed
+- **THEN** the next action is still the session step `accept-decisions`, its records name that ADR, and its command, run, exits 3 naming that file and changes no file
+
+#### Scenario: Nothing left to accept
+- **WHEN** every ADR `decisions.md` lists can be read and already says accepted, or `decisions.md` lists none
+- **THEN** no action is `accept-decisions`
+
+#### Scenario: The change is being archived
+- **WHEN** the session is on the change's archive branch (`chore/archive-<id>`), `approval.md` is current for `readiness.md` and `decisions.md` lists an ADR with status proposed
+- **THEN** no action is `accept-decisions`, and the loop goes on to the archive steps
+
+### Requirement: The test settings are read from the devkit block
+The loop and the checker SHALL read `devkit.tests.unit`, `devkit.tests.coverage.command`,
+`devkit.tests.coverage.target` and `devkit.tests.e2e` from the nested `devkit:` block of
+`openspec/config.yaml`. A coverage target that is not a whole number from 0 to 100 SHALL stop the
+command like any unknown setting value.
+
+#### Scenario: The nested block
+- **WHEN** the block holds `tests:` with `unit: "npm test"`, `coverage:` with `command: "npm run cov"` and `target: 80`, and `e2e: "npm run e2e"`
+- **THEN** the four values are read, and `driver` and `language` are read as before
+
+#### Scenario: A target that is not a whole number
+- **WHEN** `devkit.tests.coverage.target` is `80%`
+- **THEN** `/devkit change` replies that the coverage target has an unknown value, names the accepted values, and nothing is created or run

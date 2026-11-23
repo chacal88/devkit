@@ -3,9 +3,9 @@
 // Imported by guard.test.mjs, so the whole suite runs this file too. Phase 3 adds the tests of the loop (`project-loop.mjs`).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync, existsSync, cpSync, mkdirSync, realpathSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, cpSync, mkdirSync, realpathSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import * as GUARD from './guard.mjs';
@@ -42,7 +42,7 @@ const run = (cwd, cmd, ...args) => {
 let sliceCache = null;
 function scratchSlice() {
   if (sliceCache) return sliceCache;
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'devkit-slice-')));
+  const root = realpathSync(tmpFolder('devkit-slice-'));
   run(root, 'git', 'init', '-q');
   run(root, 'openspec', 'init', '--tools', 'none', '--no-animation', '.');
   mkdirSync(join(root, 'openspec', 'schemas'), { recursive: true });
@@ -52,6 +52,8 @@ function scratchSlice() {
   sliceCache = { root, status };
   return sliceCache;
 }
+// test-fixture-cleanup: made at module level, so the sweep removes it and no test's end does.
+scratchSlice();
 
 // The first line of each instruction of a schema.yaml, keyed by the artifact id.
 function instructionsOf(yaml) {
@@ -262,7 +264,7 @@ const commitAll = (root, message) => { gitq(root, 'add', '-A'); gitq(root, 'comm
 // the archive commit holding the six records and the ADR review of that first commit. `records` replaces a record's text
 // (null removes it), `review` is (ctx) => text | null, `before(root)` runs before the archive commit, `after(root)` after it.
 function sliceRepo({ records = {}, review, before, after, baseRoadmap = BASE_ROADMAP, roadmap, extra = {} } = {}) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'devkit-slice-ci-')));
+  const root = realpathSync(tmpFolder('devkit-slice-ci-'));
   gitq(root, 'init', '-q', '-b', 'main');
   put(root, { 'openspec/changes/archive/.gitkeep': '', 'openspec/config.yaml': 'schema: devkit\n', 'src/app.ts': 'a\n', ...(baseRoadmap === null ? {} : { 'openspec/roadmap.md': baseRoadmap }) });
   cpSync(join(PLUGIN_SCHEMAS, 'devkit-project'), join(root, 'openspec', 'schemas', 'devkit-project'), { recursive: true });
@@ -287,7 +289,7 @@ function sliceRepo({ records = {}, review, before, after, baseRoadmap = BASE_ROA
 
 const headOf = (root) => gitq(root, 'rev-parse', 'HEAD').trim();
 function ciEnv(root, env = {}) {
-  const event = join(root, '..', `event-${headOf(root).slice(0, 7)}.json`);
+  const event = join(tmpFolder('devkit-project-loop-event-'), `event-${headOf(root).slice(0, 7)}.json`);
   writeFileSync(event, JSON.stringify({ pull_request: { head: { sha: headOf(root) } } }));
   return { ...ENV, GITHUB_BASE_REF: 'main', GITHUB_HEAD_REF: 'billing', GITHUB_EVENT_PATH: event, ...env };
 }
@@ -540,7 +542,7 @@ const jl = (record) => JSON.stringify(record);
 const typedLine = (args) => jl({ type: 'user', message: { role: 'user', content: `<command-message>devkit</command-message>\n<command-name>/devkit</command-name>\n<command-args>${args}</command-args>` } });
 const printed = (text) => jl({ type: 'user', message: { role: 'user', content: [{ tool_use_id: 'toolu-0001', type: 'tool_result', content: text }] }, toolUseResult: { stdout: text } });
 const transcript = (...lines) => {
-  const file = join(realpathSync(mkdtempSync(join(tmpdir(), 'devkit-locks-'))), 'session.jsonl');
+  const file = join(realpathSync(tmpFolder('devkit-locks-')), 'session.jsonl');
   writeFileSync(file, `${lines.join('\n')}\n`);
   return file;
 };
@@ -569,7 +571,7 @@ test('project-loop locks: the stop and hand-off hooks refuse nothing in a projec
 });
 
 test('project-loop locks: the session writes a phase document in the slice\'s checkout and no lock refuses it', () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'devkit-slice-edit-')));
+  const root = realpathSync(tmpFolder('devkit-slice-edit-'));
   gitq(root, 'init', '-q', '-b', 'billing');
   put(root, { 'openspec/config.yaml': 'schema: devkit\n', 'openspec/changes/billing/.openspec.yaml': 'schema: devkit-project\nskip_specs: true\n' });
   cpSync(join(PLUGIN_SCHEMAS, 'devkit-project'), join(root, 'openspec', 'schemas', 'devkit-project'), { recursive: true });
@@ -624,7 +626,7 @@ const prOf = (wt, over = {}) => ({ number: 7, url: 'https://github.test/o/r/pull
 
 // A scratch project with a bare origin, the shipped schemas, a flat docs/design and the pack enabled.
 function loopProject({ ship = 'merge', files = {}, settings = DESIGN_ON } = {}) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'devkit-loop-')));
+  const root = realpathSync(tmpFolder('devkit-loop-'));
   gitq(root, 'init', '-q', '-b', 'main');
   put(root, {
     'openspec/config.yaml': `schema: devkit\nship:\n  devkit-project: ${ship}\n`, 'openspec/changes/archive/.gitkeep': '', 'openspec/roadmap.md': BASE_ROADMAP,
@@ -633,7 +635,7 @@ function loopProject({ ship = 'merge', files = {}, settings = DESIGN_ON } = {}) 
   });
   cpSync(join(PLUGIN_SCHEMAS, 'devkit-project'), join(root, 'openspec', 'schemas', 'devkit-project'), { recursive: true });
   commitAll(root, 'base');
-  const origin = realpathSync(mkdtempSync(join(tmpdir(), 'devkit-loop-origin-')));
+  const origin = realpathSync(tmpFolder('devkit-loop-origin-'));
   gitq(origin, 'init', '-q', '--bare', '-b', 'main');
   gitq(root, 'remote', 'add', 'origin', origin);
   gitq(root, 'push', '-q', 'origin', 'main');
@@ -1852,4 +1854,52 @@ test('project-loop docs: the documents follow', () => {
   }
   const entry = between(read('CHANGELOG.md'), '## 0.24.0', '\n## 0.23.1');
   assert.match(entry.replace(/\s+/g, ' '), /moves its CI pin to `v0\.20\.0` before it sets `ship: devkit-project: merge`/, 'the entry says to move the CI pin first');
+});
+
+// ================================================================ commit-attribution (D-7, T21 to T25)
+
+test('commit-attribution AC-1 T21 the S8 commit before the review ends with the attribution request after the commit rule', () => {
+  const t = loopProject();
+  const wt = readySlice(t);
+  put(wt, { 'docs/design/billing/2-domain-model.md': 'new\n' });
+  const a = act(t.main, 'billing');
+  assert.equal(a.step, 'commit');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+  assert.ok(a.brief.slice(0, -CL.ATTRIBUTION_ASK.length).endsWith('never on the default branch.'), a.brief);
+});
+
+test('commit-attribution AC-1 T22 the S13 commit in plan ship mode ends with the attribution request', () => {
+  const t = loopProject({ ship: 'plan' });
+  archivedSlice(t);
+  const a = act(t.main, 'billing');
+  assert.equal(a.step, 'commit');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T23 the S16 open-pr ends with the attribution request', () => {
+  const t = loopProject();
+  archivedSlice(t, 'billing', { commit: true });
+  const a = act(t.main, 'billing', { gh: scriptedGh() });
+  assert.equal(a.step, 'open-pr');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T24 the S17 push ends with the attribution request', () => {
+  const t = loopProject();
+  const { gh } = openPr(t, {}, { over: { headRefOid: '0'.repeat(40) } });
+  const a = act(t.main, 'billing', { gh });
+  assert.equal(a.step, 'push');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T25 the S10 ADR reviewer hand-off does not carry the attribution request', () => {
+  const t = loopProject();
+  readySlice(t);
+  const a = act(t.main, 'billing');
+  assert.equal(a.agent, 'devkit-core:adr-reviewer');
+  assert.ok(!a.brief.includes(CL.ATTRIBUTION_ASK ?? '\u0000'), a.brief);
 });

@@ -10,12 +10,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
-  cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync,
+  cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from '../../test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SETUP_DIR = join(here, '..');
@@ -32,10 +32,9 @@ const LOOP = 'loops/openspec-change/loop.yaml';
 
 const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
-// A project root and its own copy of compozy-setup, removed at the end of the test.
+// A project root and its own copy of compozy-setup, removed when the test ends (by test-tmp.mjs).
 function sandbox(t) {
-  const dir = mkdtempSync(join(tmpdir(), 'install-kit-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dir = tmpFolder('devkit-install-kit-');
   const setup = join(dir, 'kit', 'compozy-setup');
   cpSync(SETUP_DIR, setup, { recursive: true, filter: (src) => !src.endsWith('.test.mjs') });
   const root = join(dir, 'project');
@@ -179,7 +178,8 @@ test('field-fixes 8 grill: the loop template and the tech-lead shell say not to 
 test('field-fixes 8 grill: the review prompt names the requirements and its open questions, and the approval node shows the plan\'s open questions', () => {
   const loop = readFileSync(join(SETUP_DIR, 'templates', LOOP), 'utf8');
   const flat = loop.replace(/\s+/g, ' ');
-  assert.match(flat, /\(requirements and its open questions, proposal, tasks, and design and readiness on the devkit schema\)/);
+  // Invariant: the plan approval's prompt names every plan file the operator reads before approving, the files of the devkit script marked as such.
+  assert.match(flat, /\(requirements and its open questions, proposal, tasks, and design, decisions and readiness on the devkit schema\)/);
   assert.doesNotMatch(flat, /\(proposal, design, tasks, readiness\)/);
   assert.match(loop, /Open questions: \{\{ toJson \.nodes\.propose\.output\.open_questions \}\}/);
 });

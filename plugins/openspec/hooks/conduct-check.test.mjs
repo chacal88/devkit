@@ -2,9 +2,9 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
 import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
 import { makeGh } from './merge-setup.mjs';
@@ -21,7 +21,7 @@ const real = (p) => realpathSync(p);
 // A bare origin with main, a clone (the "main checkout") and, per path, its own fake gh.
 export function roundRepo({ roadmap, config = CONFIG, files = {}, changes = {} } = {}) {
   const clone = gitRepo({ config, changes, files: { 'openspec/roadmap.md': roadmap, ...files } });
-  const originDir = mkdtempSync(join(tmpdir(), 'devkit-origin-'));
+  const originDir = tmpFolder('devkit-origin-');
   git(originDir, 'init', '-q', '--bare', '-b', 'main');
   git(clone, 'remote', 'add', 'origin', originDir);
   git(clone, 'push', '-q', 'origin', 'main');
@@ -180,7 +180,8 @@ test('conduct: plan files come from the stage declaration', () => {
     if (flow) put(b, { [`openspec/schemas/${schema}/flow.json`]: JSON.stringify(flow) });
     return byId(t.state(), 'b').next.missing;
   };
-  assert.deepEqual(missing('devkit'), ['proposal.md', 'design.md', 'tasks.md']);
+  // Invariant (T-5, conduct-check, conduct-check.test.mjs): the plan files are the plan stages that always apply and that the change has not passed.
+  assert.deepEqual(missing('devkit'), ['decisions.md', 'proposal.md', 'design.md', 'tasks.md']);
   assert.deepEqual(missing('devkit-lite'), ['proposal.md', 'tasks.md']);
   const stage = (id, file, extra = {}) => ({ id, source: 'artifact', file, role: 'change-planner', part: 'plan', title: { en: id, 'pt-BR': id }, ...extra });
   const flow = { version: 1, script: 'devkit-lite', ceilings: { default: 3 }, stages: [
@@ -193,7 +194,7 @@ test('conduct: plan files come from the stage declaration', () => {
 
 test('conduct: a worktree at a non-standard path is reused: no worktree or create step (AC-11)', () => {
   const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']) });
-  const odd = join(mkdtempSync(join(tmpdir(), 'devkit-odd-')), 'random-name');
+  const odd = join(tmpFolder('devkit-odd-'), 'random-name');
   t.addWt('b', { path: odd });
   const b = byId(t.state(), 'b');
   assert.equal(b.worktree, real(odd));
@@ -1081,7 +1082,7 @@ test('conduct: --busy and --round are read from the command line', () => {
 
 test('conduct: exit 3 for no openspec/, an unreadable default branch, a missing origin/<base>, an unknown option and --round out of range', () => {
   const t = lites(['a']);
-  const none = mkdtempSync(join(tmpdir(), 'devkit-none-'));
+  const none = tmpFolder('devkit-none-');
   assert.equal(cli(t, ['--json'], { cwd: none }).code, 3);
   t.ghAt(t.main).set('api-GET-repos__owner___repo_', { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' });
   let r = cli(t, ['--json']);
@@ -1428,7 +1429,7 @@ test('conduct: unfinished names the dirty paths and the half-done phase together
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const PIN_DOC = 'docs/openspec-flow.md';
-const pinTmpFolders = () => readdirSync(tmpdir()).filter((f) => f.startsWith('devkit-pin-'));
+const pinTmpFolders = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
 // A round whose change and origin both edit CHANGELOG.md and docs/openspec-flow.md.
 function pinConflictRepo({ change, origin }) {
@@ -1493,4 +1494,30 @@ test('field-fixes 10 verdict: an audit with ACCURATE first and OUTDATED later is
   assert.deepEqual(planStep(accurate), ['implement', 'subagent']);
   assert.doesNotMatch(JSON.stringify(accurate.next), /OUTDATED/);
   assert.deepEqual(planStep(twoVerdictAudit('OUTDATED', 'ACCURATE')), ['revise-plan', 'subagent']);
+});
+
+// ---------------------------------------------------------------- stage-roles: plan files of a stage that may not apply
+
+test('stage-roles flow conduct-check: a full-script change before its proposal is asked for decisions.md and never for mockup.md', () => {
+  const t = oneChange();
+  const b = t.addWt('b');
+  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit\n', 'requirements.md': '# Requirements\n\nClassification: domain=x type=y flags=[ui]\n' });
+  const missing = byId(t.state(), 'b').next.missing;
+  assert.deepEqual(missing, ['decisions.md', 'proposal.md', 'design.md', 'tasks.md']);
+  assert.ok(!missing.includes('mockup.md'), 'the mock-up is the screen designer\'s, never the planner\'s');
+});
+
+test('stage-roles flow conduct-check: with proposal.md present the change is past the decisions and is never asked for them', () => {
+  const t = oneChange();
+  const b = t.addWt('b');
+  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit\n', 'requirements.md': '# Requirements\n', 'proposal.md': PROPOSAL });
+  const missing = byId(t.state(), 'b').next.missing;
+  assert.deepEqual(missing, ['design.md', 'tasks.md']);
+});
+
+test('stage-roles flow conduct-check: the short script is asked for no decisions file', () => {
+  const t = oneChange();
+  const b = t.addWt('b');
+  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit-lite\n', 'requirements.md': '# Requirements\n' });
+  assert.deepEqual(byId(t.state(), 'b').next.missing, ['proposal.md', 'tasks.md']);
 });

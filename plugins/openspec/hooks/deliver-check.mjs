@@ -1441,6 +1441,8 @@ export function nextStep(state) {
   if (two?.foreign) return step('blocked', `${two.foreign.sha.slice(0, 7)} (${two.foreign.subject}) is on ${two.testBranch} and not on ${two.base}; the task branch never receives ${two.testBranch}`);
 
   if (two?.test.error) return step('blocked', `cannot read the pull requests to ${two.testBranch}: ${two.test.error}`);
+  // Before every row that opens, pushes or edits (spec: a blocked row writes nothing).
+  if (two?.test.pr?.state === 'CLOSED') return step('blocked', `pull request #${two.test.pr.number} to ${two.testBranch} was closed without merging`);
   if (it(5).details.none) {
     if (!two) return step('open-pr', 'no pull request yet');
     return two.test.pr
@@ -1459,7 +1461,6 @@ export function nextStep(state) {
     const t = two.test;
     const sup = two.support;
     if (t.none) return step('open-test-pr', `no pull request to ${two.testBranch} yet`, { head: sup.exists && sup.pushed ? sup.branch : state.id, base: two.testBranch });
-    if (t.pr.state === 'CLOSED') return step('blocked', `pull request #${t.pr.number} to ${two.testBranch} was closed without merging`);
     if (t.pr.state === 'OPEN') {
       if (sup.merging) return step('resolve-support-conflict', `the merge of ${two.testBranch} into ${sup.branch} has conflicts`, { root: sup.path, branch: sup.branch, paths: sup.merging });
       if (sup.exists && !sup.worktree) return step('checkout-support', `${sup.branch} has no worktree`, { path: sup.path, branch: sup.branch });
