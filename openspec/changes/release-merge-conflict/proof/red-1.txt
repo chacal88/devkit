@@ -1,0 +1,333 @@
+✔ release-merge: bumpKind names the first field that differs, none when equal, and rejects non-semver (0.785708ms)
+✔ release-merge: applyBump resets the lower fields (0.066917ms)
+✔ release-merge: resolveVersion applies the change bump over the base version (0.053416ms)
+✔ release-merge: resolveManifest sets the named packs and metadata, keeping order and format (0.085625ms)
+✔ release-merge: manifestEditsBeyondVersion is empty for a version edit and names a description edit (0.365ms)
+✔ release-merge: resolveChangelog renumbers the change entry above the base newest and keeps every base entry (0.225625ms)
+✔ release-merge: resolveChangelog throws on zero or two new entries and on an edited older entry (0.145583ms)
+✖ release-merge: a minor bump on main and a patch on the branch resolve to a merge commit holding the renumbered release (1357.032958ms)
+✖ release-merge: the base side is kept during the merge and the final values come from oldHead (1280.886917ms)
+✔ release-merge: a branch that bumps another pack resolves only metadata.version and its own pack (1208.631625ms)
+✖ release-merge: only CHANGELOG and marketplace conflict, the clean-merged plugin.json is still resolved (1306.2485ms)
+✔ release-merge: a conflict outside the release files aborts to oldHead with the conflicts listed (793.208084ms)
+✔ release-merge: a manifest edited beyond its version aborts to oldHead (1513.04225ms)
+✔ release-merge: an invalid JSON manifest on the branch restores to oldHead with exit 2 (1364.972958ms)
+✔ release-merge: a docs/catalog.md conflict runs scripts/gen-catalog.py, and aborts without it (2253.09125ms)
+✖ release-merge: a merge left in progress is aborted and redone (513.794875ms)
+✔ release-merge: two new CHANGELOG entries abort to oldHead (1930.393125ms)
+✔ release-merge: a missing origin/<base> and an unknown option are setup errors (exit 3) (690.855333ms)
+✔ release-merge pin: setPins rewrites each of the four marker forms, both pins of one line, and keeps the period of a sentence end (0.294083ms)
+✔ release-merge pin: setPins replaces v1.2.34 whole and leaves a v1.2.3 on a line without a marker (0.046458ms)
+✔ release-merge pin: setPins keeps CRLF endings, leaves a marker line without a pin, and is idempotent (0.067083ms)
+✔ release-merge pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder (18.302917ms)
+✔ release-merge pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder (28.752542ms)
+✔ release-merge pin: classifyConflict lets release files through without reading any stage (0.304833ms)
+✔ release-merge pin: classifyConflict resolves a pin-only docs/openspec-flow.md and blocks one beyond the pin, reading it once (38.690541ms)
+✔ release-merge pin: classifyConflict always blocks README.md and keeps the order of the paths (15.415958ms)
+✔ release-merge pin: the real docs/openspec-flow.md: setPins changes exactly its CI pin lines (2.086125ms)
+✖ release-merge pin: both sides move the pin and add text apart, the merge keeps both texts and commits the resolved version (AC-4) (1411.826666ms)
+✔ release-merge pin: both sides edit the same paragraph, the run aborts to the old head (AC-5) (874.790416ms)
+✖ release-merge pin: a renumbered pack with no conflict in the doc commits the resolved pins in the merge (AC-6) (1381.974958ms)
+✔ release-merge pin: a change that did not bump devkit-openspec takes the base version for every pin (AC-6) (1278.61675ms)
+✔ release-merge pin: without a devkit-openspec pack a pin conflict stops with "cannot set the pin:", and no conflict leaves the file alone (2296.747042ms)
+✖ release-merge pin: two change commits that both touch the pin file are resolved in the one merge (1730.211917ms)
+✖ release-merge-conflict 1: a base that released after the branch forked is merged, renumbered and committed, and a plain push of the result is accepted (1502.710875ms)
+✖ release-merge-conflict 2: an aborted merge leaves an untracked file and an unstaged openspec/ edit as they were (664.058834ms)
+✖ release-merge-conflict 3: an unstaged openspec/ edit stays out of the merge commit (743.342083ms)
+✖ release-merge-conflict 4: a tracked change outside openspec/ stops the run with exit 3 and touches nothing (788.67625ms)
+✖ release-merge-conflict 5: a rebase in progress stops the run with exit 3 (1359.4415ms)
+✔ release-merge-conflict 6: a generator that fails after the files are rewritten aborts the merge and restores every file (1336.540708ms)
+✔ release-merge-conflict 7: a branch that already holds origin/<base> is left alone with exit 0 (650.881458ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 28
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30387.439833
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:180:1
+✖ release-merge: a minor bump on main and a patch on the branch resolve to a merge commit holding the renumbered release (1357.032958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '76120d97eb90930d4badcbce693cd2ceb7f4736f'
+  - 'a2a667c7e73c8fd09b83e6d11033db4c31f0b56b'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:189:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '76120d97eb90930d4badcbce693cd2ceb7f4736f',
+    expected: 'a2a667c7e73c8fd09b83e6d11033db4c31f0b56b',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:203:1
+✖ release-merge: the base side is kept during the merge and the final values come from oldHead (1280.886917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '0.7.0' !== '0.7.1'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:207:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '0.7.0',
+    expected: '0.7.1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:223:1
+✖ release-merge: only CHANGELOG and marketplace conflict, the clean-merged plugin.json is still resolved (1306.2485ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '0.7.0' !== '0.7.1'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:231:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '0.7.0',
+    expected: '0.7.1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:295:1
+✖ release-merge: a merge left in progress is aborted and redone (513.794875ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /conflict|CONFLICT/i. Input:
+  
+  'Error: Command failed: git -C /tmp/devkit-rmc/devkit-release-PK4z1I merge --no-commit origin/main'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:298:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: Command failed: git -C /tmp/devkit-rmc/devkit-release-PK4z1I merge --no-commit origin/main
+        at genericNodeError (node:internal/errors:986:15)
+        at wrappedFn (node:internal/errors:540:14)
+        at checkExecSyncError (node:child_process:943:11)
+        at execFileSync (node:child_process:979:15)
+        at git (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:20:32)
+        at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:298:23
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:298:10)
+        at Test.runInAsyncScope (node:async_hooks:227:14),
+    expected: /conflict|CONFLICT/i,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:453:1
+✖ release-merge pin: both sides move the pin and add text apart, the merge keeps both texts and commits the resolved version (AC-4) (1411.826666ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'v0.11.0'
+  -   'v0.11.1'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:473:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'v0.11.0' ],
+    expected: [ 'v0.11.1' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:493:1
+✖ release-merge pin: a renumbered pack with no conflict in the doc commits the resolved pins in the merge (AC-6) (1381.974958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'v0.10.0'
+  -   'v0.10.1'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:501:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'v0.10.0' ],
+    expected: [ 'v0.10.1' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:537:1
+✖ release-merge pin: two change commits that both touch the pin file are resolved in the one merge (1730.211917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'v0.11.0'
+  -   'v0.11.1'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:554:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'v0.11.0' ],
+    expected: [ 'v0.11.1' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:568:1
+✖ release-merge-conflict 1: a base that released after the branch forked is merged, renumbered and committed, and a plain push of the result is accepted (1502.710875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'b839fdad86ea4021a08877721c34a0859b095061'
+  - '8c7a0a539b82b6d1660f2b1a708ea451251dcfa4'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:574:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'b839fdad86ea4021a08877721c34a0859b095061',
+    expected: '8c7a0a539b82b6d1660f2b1a708ea451251dcfa4',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:598:1
+✖ release-merge-conflict 2: an aborted merge leaves an untracked file and an unstaged openspec/ edit as they were (664.058834ms)
+  AssertionError [ERR_ASSERTION]: release-merge: git rebase failed: error: cannot rebase: You have unstaged changes.
+  error: Please commit or stash them.
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:604:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:613:1
+✖ release-merge-conflict 3: an unstaged openspec/ edit stays out of the merge commit (743.342083ms)
+  AssertionError [ERR_ASSERTION]: release-merge: git rebase failed: error: cannot rebase: You have unstaged changes.
+  error: Please commit or stash them.
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:617:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:623:1
+✖ release-merge-conflict 4: a tracked change outside openspec/ stops the run with exit 3 and touches nothing (788.67625ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /README\.md/. Input:
+  
+  'release-merge: git rebase failed: error: cannot rebase: You have unstaged changes.\n' +
+    'error: Please commit or stash them.\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:630:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'release-merge: git rebase failed: error: cannot rebase: You have unstaged changes.\nerror: Please commit or stash them.\n',
+    expected: /README\.md/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:636:1
+✖ release-merge-conflict 5: a rebase in progress stops the run with exit 3 (1359.4415ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/release-merge-conflict/plugins/openspec/hooks/release-merge.test.mjs:640:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
