@@ -14,7 +14,7 @@ When an implementer resolves a readiness note in a way the design does not say, 
 
 When a fix changes behaviour that an ADR or `design.md` written in the same change describes, update that text in the same fix commit; a stale ADR found by review costs another round.
 
-When a change is rebased onto a base that merged a sibling while the change was in review (`resolve-release-conflict`, or by hand), re-read what the change consumes from that sibling before pushing the rebased head: a skill's argument forms, a checker's exit codes and JSON fields, the text a button fills. The reviews run again on the pushed head either way; a contract found moved by review costs another round.
+When a change is rebased onto a base that merged a sibling while the change was in review (`resolve-release-conflict`, or by hand), re-read what the change consumes from that sibling before pushing the rebased head: a skill's argument forms, a checker's exit codes and JSON fields, the text a button fills. The reviews run again on the pushed head either way; a contract found moved by review costs another round. In a roadmap run, a change that reaches its release step asks the coordinator to hold other merges to `main` until its PR merges, and takes its version numbers from `origin/main` right after a fresh `git fetch`: every sibling merged meanwhile costs one more merge, evidence run and review.
 
 When a change alters how the owner works (what runs, in which order, who starts it), the grill ends with a walkthrough of one concrete day under the new behaviour, including an urgent item, and the owner confirms the walkthrough itself, not only the options.
 
