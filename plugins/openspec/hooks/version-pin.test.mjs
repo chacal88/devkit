@@ -219,10 +219,20 @@ test('version-pin AC-2 locks: a version-1 change may hand the readiness to its r
 test('version-pin AC-2 locks: a version-1 readiness reviewer delivers before it stops', () => {
   const root = shared({ pin: 1, to2: true, stages: PLAN_V1 });
   const input = { cwd: root, agent_type: 'devkit-core:plan-readiness-reviewer', agent_id: 'agent-pin-1', session_id: `pin-${process.pid}-${Date.now()}-a` };
-  const d = CL.subagentStopFor(input, 'feat', { env: ENV });
+  // The refusal is recorded under the temporary root of this process, which `env` does not move: point it at a folder the helper removes.
+  const stopRoot = tmpFolder('devkit-version-pin-stop-');
+  const before = process.env.TMPDIR;
+  process.env.TMPDIR = stopRoot;
+  let d;
+  try {
+    d = CL.subagentStopFor(input, 'feat', { env: ENV });
+  } finally {
+    if (before === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = before;
+  }
   assert.equal(d.decision, 'refuse');
   assert.equal(d.why, 'no-file');
   assert.match(d.reason, /readiness\.md/);
+  assert.deepEqual(readdirSync(join(stopRoot, 'devkit-stop')), [`${input.session_id}-${input.agent_id}.json`], 'the refusal is recorded in the folder of this test');
 });
 
 test('version-pin AC-2 where: a version-1 change after the upgrade stops at its readiness', () => {
