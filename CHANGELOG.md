@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.28.0 — one state per change
+
+- **devkit-openspec** 0.24.0: the change loop derives one state per change in one place, and a new
+  `change-loop.mjs state` command prints it (state, reason, stage and the session title) for one
+  change or every unfinished one. A GitHub that does not answer is a wait on GitHub, not a block,
+  and three failed reads in a row still end the wait blocked. A stopped change's session title
+  carries its state icon (🙋, ⏳ or ⛔) before the stage icon, and `/devkit status` places its rows
+  by the same state.
+- Docs: ADR 0017 (a change's state is derived in one place, amends 0014), Notes in ADR 0010 and
+  ADR 0014, the flow and design pages.
+
 ## 0.27.0 — commit attribution
 
 - **devkit-core** 0.11.0: `commit-and-pr` takes an attribution block from the caller and writes exactly its
