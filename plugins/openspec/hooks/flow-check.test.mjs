@@ -1934,3 +1934,41 @@ test('review-writer-prompt AC-8 after the merge the review stage is read from it
   const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
   assert.equal(stageOf(computeFlow(facts, flow, {}), 'review').state, 'passed');
 });
+
+// ---- review-openspec-fix: the stage readout after a rejected review (spec verdict-files)
+
+// A failed review stage whose code-quality-reviewer rejected at A (record committed): the fix is offered.
+function rejectedStage() {
+  const root = liveChange({ review: 'failed' });
+  const A = git(root, 'rev-parse', 'HEAD');
+  put(root, {
+    'openspec/changes/feat/reviews/code-quality-reviewer.md': `Verdict: REJECTED\nCommit: ${A}\n\n# Review\n`,
+    'openspec/changes/feat/reviews/test-coverage-reviewer.md': reviewFile(A),
+  });
+  commitAll(root, 'review round');
+  const control = liveReport(root).next;
+  assert.deepEqual([control.stage, control.reasonCode], ['implementation', 'fix-after-failure'], 'control');
+  return root;
+}
+
+test('review-openspec-fix 19: the stage readout offers the review again after a failed review is fixed by an openspec/-only commit', () => {
+  const root = rejectedStage();
+  const design = join(root, 'openspec', 'changes', 'feat', 'design.md');
+  writeFileSync(design, `${readFileSync(design, 'utf8')}fixed\n`);
+  commitAll(root, 'plan fix');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/design.md');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'review').state, 'failed');
+  assert.equal(r.next.stage, 'review');
+  assert.equal(r.next.reasonCode, 'rerun-after-fix');
+});
+
+test('review-openspec-fix 20: the stage readout keeps the fix after a commit of the rejecting round\'s record only', () => {
+  const root = rejectedStage();
+  const file = join(root, 'openspec', 'changes', 'feat', 'reviews', 'code-quality-reviewer.md');
+  writeFileSync(file, `${readFileSync(file, 'utf8')}- [nit] noted\n`);
+  commitAll(root, 'record again');
+  const r = liveReport(root);
+  assert.equal(r.next.stage, 'implementation');
+  assert.equal(r.next.reasonCode, 'fix-after-failure');
+});
