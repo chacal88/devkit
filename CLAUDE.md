@@ -42,6 +42,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 - Destructive Git (`reset`, `checkout --`, `clean`, `rm`, `stash`) only with explicit authorization.
 - Commits: conventional (`<type>(<scope>): <description>`), as `docs/conventions.md` states.
 - Before changing a test, name its invariant, the layer that owns it and the suite it lives in.
+- When the installed devkit-openspec cannot read `main`'s `flow.json` (`unknown key ...`), drive the change with the worktree's own `plugins/openspec/hooks/change-loop.mjs` until the plugin is updated.
 
 ## Gates
 

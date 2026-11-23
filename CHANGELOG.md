@@ -1,12 +1,29 @@
 # Changelog
 
-## 0.31.1 — retro of change-budget
+## 0.32.1 — retro of change-budget
 
-- **devkit-openspec** 0.27.1: the `ship-change` `review` row commits every modified or untracked
+- **devkit-openspec** 0.28.1: the `ship-change` `review` row commits every modified or untracked
   file under the change folder before a review round, so the verdicts are not recorded against
   uncommitted changes.
 - Docs: `CONTRIBUTING.md` says to fetch `main` again right before each push of the delivery and
   before `enable-auto-merge`, since a sibling that merged in between took the release number.
+
+## 0.32.0 — delivery models per project
+
+- **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
+  `openspec/config.yaml`: `two-prs`, `trunk` or `trunk-auto` ([ADR 0018](docs/adr/0018-the-delivery-model-is-chosen-per-project.md)).
+  In `two-prs` both pull requests open together from the task branch and the owner merges both; the
+  test branch never enters the task branch (a hook refuses the command, and `devkit-reviews` fails a
+  pull request to the base branch that holds a test-branch commit or whose test-branch pull request is
+  not merged); a conflict is solved on the support branch `<id>-<test branch>`, reviewed on its own
+  before it is pushed; the change is archived through two archive pull requests. A project on `two-prs`
+  adds `pull-requests: read` and `GH_TOKEN` to its `devkit-reviews` workflow (the template has both).
+  The CI snippet now pins `v0.28.0`, the release's tag.
+- **devkit-core** 0.13.0: `review-change` reviews a support branch's resolution on its own, the
+  `code-quality-reviewer` and `test-coverage-reviewer` read it, and `commit-and-pr` gains the two-PR
+  call and the test-branch archive call.
+- Docs: ADR 0018, with Notes in ADRs 0002, 0003, 0010 and 0012; the coordination design records the
+  conflict answer and the built lock; `docs/openspec-flow.md` gains "Delivery models".
 
 ## 0.31.0 — gh version check
 
