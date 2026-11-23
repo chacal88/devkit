@@ -6,8 +6,11 @@
 - Amends: ADR 0002 (0002-merge-without-the-owner-opt-in.md), the sentence of its Decision on what `devkit-reviews` recomputes; ADR 0003 (0003-auto-merge-the-archive-pr.md), the Negative consequence on archive PRs; ADR 0004 (0004-devkit-per-project.md), the sentence on the CI check
 - Accepted by: the owner, on 2026-11-20, in the message that approved the plan of the change: `Aprovo com o ADR 0012` ("I approve, with ADR 0012"); recorded in `openspec/changes/coordinator-field-fixes/approval.md`
 - Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
+- Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
 
 ## Context
+
+Note (delivery-models, 2026-11-22): ADR 0018 amends decision 1: for a pull request to the base branch of a `two-prs` project the check also judges the test-branch rules, reading `devkit.delivery` from the default branch, and on a pull request to the test branch it judges the resolution's verdicts only. The Decision is otherwise unchanged.
 
 ADR 0002 makes `devkit-reviews` (`deliver-check --ci`, also run as `guard.mjs ci`) the check
 GitHub merges on: it "recomputes reviews, findings, gates and acceptance proof at the PR head in
