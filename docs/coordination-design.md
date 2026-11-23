@@ -50,7 +50,7 @@ few verbs, to be built in rounds 15, 18, 19 and 20:
 
 | Command | What it does | Round |
 |---|---|---|
-| `/devkit change PROJ-482` | one task, read from Jira by its key or link | 20 |
+| `/devkit change PROJ-482` | one task, read from Jira by its key or link | 20 (built) |
 | `/devkit change <free text>` | one task, described in text | 15 |
 | `/devkit roadmap` | the whole roadmap, one change at a time | 18 (built) |
 | `/devkit roadmap 3` | the whole roadmap, up to three changes at once | 18 (built) |
@@ -69,7 +69,9 @@ few verbs, to be built in rounds 15, 18, 19 and 20:
 
 **Writing back to Jira (decided by the owner on 2026-11-19).** devkit reads Jira by default and
 writes back (a comment with the pull request link, a status change) only when the developer asks:
-the developer decides.
+the developer decides. Built by `jira-entry` on 2026-11-22: the session asks one question when the pull request
+opens, offering a comment, a comment with a move to one of the task's transitions, or no; the yes is taken only
+from the developer's own message, and nothing is written after the archive.
 
 ## 2. Two coordinators and three entries (D-2)
 
@@ -363,14 +365,12 @@ devkit:
   tests:
     unit: "npm test"
     e2e: "npm run e2e"      # without this line the E2E stage does not run
-  tasks:
-    source: jira
 ```
 
 **The configuration's field names. Decided by `change-coordinator` on 2026-11-20 (A-8).**
 `devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,
 `compozy` or `script`; default `claude`) are final. The other fields stay proposed, for rounds 16, 17
-and 20.
+and 20. Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
 
 **The header's field names (decided by `flow-script-checker`).** The three facts are `result`, `attempt` and
 `commit`, in one comment line at the top of each stage file:
@@ -474,7 +474,7 @@ All proposed.
 - The two stop locks hold without looping (shown live by the live test of `change-coordinator`, with the
   hook log it records; the interrupt case rests on the documented fact that an interrupt fires no stop event).
 - CompozyOS accepts the generic loop.
-- Jira can be read on each platform.
+- Jira can be read on each platform (the follow-up `jira-entry-live`, round 20b).
 - Grouped sessions work as a view.
 
 The points still to prove are proved together, in one live test session, when their round comes

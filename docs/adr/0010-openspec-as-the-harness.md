@@ -53,6 +53,12 @@ Note (project-phases, 2026-11-22): the project entry and the `devkit-project` sc
 (the hooks act in a slice's checkout as for any change, no run lock holds a `/devkit project` run) and
 records the slice model. Decisions 1 to 8 are otherwise unchanged.
 
+Note (jira-entry, 2026-11-22): round 20 adds no task-source setting to the configuration block
+of decision 1. The key or link the owner types names the task, and the session's Atlassian
+connector reads it, so the project keeps no Jira token or setting. The 'task source, round 20' of
+decision 1 and the task source of decision 8 need no field; decisions 1 to 8 are otherwise
+unchanged.
+
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions
 (ADR 0006), one change on request and never a sweep (ADR 0007), the reviewer round as a Workflow

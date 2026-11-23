@@ -3,15 +3,19 @@
 // Given a change, it asks the stage checker (flow-check) which stage the change is in and, from the
 // implementation on, the delivery checker (deliver-check, through conduct-check's `deliveryRow`) which step
 // inside that stage comes next, and answers with ONE action or ONE end for the session to carry out. It reads
-// files, git and (through gh) GitHub, writes nothing, calls no AI, and runs nothing when imported.
+// files, git and (through gh) GitHub, writes nothing but the commands above, calls no AI, never calls Jira, and runs nothing when imported.
 //
 // Subcommands: `next --change <id> --lang <l> [--after <progressKey>]` (prints `devkit-run: <id>`, then the JSON
 // action; exit 0 an action or archived, 1 waiting, 2 blocked, 3 a usage or preflight error),
 // `reply <key> --lang <l> [--param name=value]...` (renders one message of the table),
 // `start --lang <l>` (the request on standard input: what `/devkit` does with it, D-3), `open <id> --script <s>
-// --why <code> --lang <l>` (creates the worktree, the change and its requirements file, D-4), `script <id> <s>
+// --why <code> [--task <KEY>] --lang <l>` (creates the worktree, the change and its requirements file, D-4; with `--task` the
+// standard input is the Jira task the session read, as JSON, and the request section records its key), `script <id> <s>
 // --why <code> --lang <l>` (the correction of the script, D-4) and `wait --change <id> --lang <l> [--interval <s>]`
-// (waits on GitHub with no limit, D-7). Only `open` and `script` write; `start` and `next` do not. `next` and `wait` print
+// (waits on GitHub with no limit, D-7), `write-back ask <id> --lang <l>` (the pull request and the task's transitions as JSON
+// on standard input: whether to ask about writing the link on the Jira task, and the question) and `write-back answer <id>
+// --choice <comment|no|transition:<id>> --lang <l>` (what the session may then write to Jira, jira-entry D-7). Only `open`,
+// `script` and `write-back` write, the last only its record in the git common directory; `start` and `next` do not. `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
@@ -21,7 +25,7 @@
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
 // No dependencies.
 
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +34,7 @@ import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt } from './guard.mj
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
+import { TASK_KEY, parseTaskRef, taskIdPrefix, recordedTask, taskFromJson, quoteLines, taskRequest, commentText, writeBackInput, writeBackChoices } from './jira-task.mjs';
 
 export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -105,6 +110,20 @@ export const MESSAGES = {
     'ask-unfinished': 'Before starting: {list} is unfinished. Should I continue it, or start your new request?',
     'ask-unfinished-many': 'Before starting: {list} are unfinished. Should I continue one of them, or start your new request?',
     opened: 'I opened the change {id} on the {script}, because {why}. Next come a few questions about your request; to use the {other} instead, say so before the plan is written.',
+    'task-no-connector': 'This session has no Jira connector, so I cannot read {key}. Nothing was opened: type /devkit change and what you want done, in your own words.',
+    'task-unreadable': 'I could not read the task {key} in Jira: it was not found, or this account cannot see it. Nothing was opened: type /devkit change and what you want done, in your own words.',
+    'task-taken': 'The task {key} already has the unfinished change {id}: type /devkit change {key} to continue it. Nothing was opened.',
+    'opened-task': 'I read the task {key} and opened the change {id} on the {script}, because {why}. Next come a few questions on what the task leaves open; to use the {other} instead, say so before the plan is written.',
+    'write-back-ask': 'Pull request #{number} of {id} is open. Should I write its link on the task {key}? Answer one of: {choices}. Nothing is written to {key} until you answer, and the delivery goes on meanwhile.',
+    'choice.transition': 'move it to "{name}"',
+    'choice.comment': 'only comment',
+    'choice.no': 'no',
+    'write-back-commented': 'I wrote the link of pull request #{number} on {key}.',
+    'write-back-moved': 'I wrote the link of pull request #{number} on {key} and moved it to "{name}".',
+    'write-back-none': 'Nothing was written to {key}.',
+    'write-back-late': 'The change {id} is already archived, so nothing was written to {key}.',
+    'write-back-unknown': 'That is not one of the choices {key} had when I asked. Answer one of: {choices}.',
+    'write-back-failed': 'Jira did not accept the write on {key} ({error}). Nothing more is tried; you can add the link to the task by hand.',
     'name-taken': 'A change named {id} already exists; I will choose another name.',
     'name-invalid': '{id} cannot be a change name: use lowercase letters, digits and dashes.',
     resumed: 'Continuing the change {id}: {where}.',
@@ -281,6 +300,20 @@ export const MESSAGES = {
     'ask-unfinished': 'Antes de começar: {list} está por terminar. Continuo essa change ou começo o seu novo pedido?',
     'ask-unfinished-many': 'Antes de começar: {list} estão por terminar. Continuo uma delas ou começo o seu novo pedido?',
     opened: 'Abri a change {id} no {script}, porque {why}. Agora vêm algumas perguntas sobre o seu pedido; para usar o {other}, é só dizer antes de o plano ser escrito.',
+    'task-no-connector': 'Esta sessão não tem um conector do Jira, então não consigo ler {key}. Nada foi aberto: digite /devkit change e o que você quer fazer, com as suas palavras.',
+    'task-unreadable': 'Não consegui ler a tarefa {key} no Jira: ela não foi encontrada, ou esta conta não a enxerga. Nada foi aberto: digite /devkit change e o que você quer fazer, com as suas palavras.',
+    'task-taken': 'A tarefa {key} já tem a change não terminada {id}: digite /devkit change {key} para continuá-la. Nada foi aberto.',
+    'opened-task': 'Li a tarefa {key} e abri a change {id} no {script}, porque {why}. Agora vêm algumas perguntas sobre o que a tarefa deixa em aberto; para usar o {other}, é só dizer antes de o plano ser escrito.',
+    'write-back-ask': 'O pull request #{number} de {id} está aberto. Devo escrever o link dele na tarefa {key}? Responda uma destas: {choices}. Nada é escrito em {key} até você responder, e a entrega segue enquanto isso.',
+    'choice.transition': 'mover para "{name}"',
+    'choice.comment': 'só comentar',
+    'choice.no': 'não',
+    'write-back-commented': 'Escrevi o link do pull request #{number} em {key}.',
+    'write-back-moved': 'Escrevi o link do pull request #{number} em {key} e movi a tarefa para "{name}".',
+    'write-back-none': 'Nada foi escrito em {key}.',
+    'write-back-late': 'A change {id} já foi arquivada, então nada foi escrito em {key}.',
+    'write-back-unknown': 'Essa não é uma das opções que {key} tinha quando perguntei. Responda uma destas: {choices}.',
+    'write-back-failed': 'O Jira não aceitou a escrita em {key} ({error}). Nada mais é tentado; você pode colocar o link na tarefa à mão.',
     'name-taken': 'Já existe uma change chamada {id}; vou escolher outro nome.',
     'name-invalid': '{id} não serve como nome de change: use letras minúsculas, números e hífens.',
     resumed: 'Continuando a change {id}: {where}.',
@@ -782,11 +815,13 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   const archiving = found.branch === `chore/archive-${id}`;
   const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
   let row = null;
+  let deliveredPr = null;
   if (inDelivery(report, flow, archiving)) {
     try {
       const ghRun = gh ?? makeGh(found.root, clean);
       const state = collectState(found.root, id, { env: clean, gh: ghRun });
       const delivered = buildReport(state, clean);
+      deliveredPr = delivered.pr ?? null;
       const baseBranch = defaultBase(found.root);
       row = deliveryRow({ ref: `origin/${baseBranch}`, base: baseBranch }, { id, worktree: found.root }, { state, report: delivered });
     } catch (e) {
@@ -808,7 +843,71 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   // The icon of the action's stage and the change session's title for it (D-5); the title only with an icon.
   action.icon = stageIcon(action);
   if (action.icon) action.sessionTitle = sessionTitle(action.icon, id);
+  // The Jira task the change records, and the write-back question the developer is still owed (jira-entry D-6).
+  const task = recordedTask(readRequirements({ root: found.root, id }));
+  if (task) {
+    action.task = task;
+    const blocked = action.kind === 'end' && action.end.state === 'blocked';
+    if (deliveredPr && !archiving && !blocked && !writeBackAsked(readWriteBack(writeBackFile(found.root, id)), task.key, deliveredPr.number)) {
+      action.writeBack = { key: task.key, link: task.link, number: deliveredPr.number, url: deliveredPr.url };
+    }
+  }
   return action;
+}
+
+// ---------------------------------------------------------------- the write-back record (jira-entry D-7)
+
+// The record of the write-back question of change `id`: one file in the git common directory, never in the worktree.
+export function writeBackFile(root, id) {
+  const common = tryGit(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']) || join(root, '.git');
+  return join(common, 'devkit', 'write-back', `${id}.json`);
+}
+
+// The record, `null` when there is none, `{ corrupt: true }` when it cannot be read: a damaged record asks and writes nothing.
+export function readWriteBack(file) {
+  if (!existsSync(file)) return null;
+  try {
+    const record = JSON.parse(readFileSync(file, 'utf8'));
+    return record?.version === 1 ? record : { corrupt: true };
+  } catch { return { corrupt: true }; }
+}
+
+// "Asked" for a task and a pull request: the record is damaged, or it names that key and that number.
+const writeBackAsked = (record, key, number) => Boolean(record) && (record.corrupt === true || (record.key === key && record.number === number));
+
+// The record is written to a temporary file in its folder and then renamed, so it is never half written.
+function saveWriteBack(file, record) {
+  mkdirSync(dirname(file), { recursive: true });
+  const part = `${file}.${process.pid}.tmp`;
+  writeFileSync(part, `${JSON.stringify(record, null, 2)}\n`);
+  renameSync(part, file);
+}
+
+// The change `id` and the task it records, for `write-back`: an unknown change, or one that records no task, is a usage error.
+function taskChangeOf(cwd, id, env) {
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const found = locate(start, id);
+  if (!locateChange(found.root, id)) throw new LoopUsageError(`no change ${id} found`);
+  const task = recordedTask(readRequirements({ root: found.root, id }));
+  if (!task) throw new LoopUsageError(`the change ${id} records no Jira task`);
+  return { start, found, task, archived: found.branch === `chore/archive-${id}` };
+}
+
+// `write-back ask <id>`: whether to ask the developer about writing the pull request's link on the task, and the question.
+// Records that it asked, so it asks once per task and pull request. Writes only that record.
+export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env, gh } = {}) {
+  const l = normalizeLang(lang);
+  const { start, found, task, archived } = taskChangeOf(cwd, id, env);
+  const read = writeBackInput(input);
+  if (read.error) throw new LoopUsageError(read.error);
+  const out = (extra) => ({ version: 1, change: id, key: task.key, ...extra });
+  if (archived || archivedOnDefault(start, { env, gh }).has(id)) return out({ ask: false, why: 'archived' });
+  const file = writeBackFile(found.root, id);
+  if (readWriteBack(file)) return out({ ask: false, why: 'asked' });
+  saveWriteBack(file, { version: 1, change: id, key: task.key, number: read.number, url: read.url, askedAt: new Date().toISOString(), transitions: read.transitions, answer: null });
+  const choices = writeBackChoices(read.transitions).map((c) => ({ choice: c.choice, label: render(l, `choice.${c.kind}`, { name: c.name }) }));
+  return out({ ask: true, question: render(l, 'write-back-ask', { id, key: task.key, number: read.number, choices: choices.map((c) => c.label).join('; ') }), choices });
 }
 
 // ---------------------------------------------------------------- checkouts and unfinished work (D-3, D-6)
@@ -929,6 +1028,12 @@ export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec
 
 // ---------------------------------------------------------------- start (D-3)
 
+// The text of the change's `requirements.md` in its checkout; empty when it cannot be read.
+function readRequirements(u) {
+  const dir = locateChange(u.root, u.id)?.dir;
+  try { return dir ? readFileSync(join(dir, 'requirements.md'), 'utf8') : ''; } catch { return ''; }
+}
+
 const VERB_ROUND = { help: 23 };
 const DRIVER_ROUND = { compozy: 21, script: 22 };
 
@@ -950,15 +1055,18 @@ export function projectGate(start, settings) {
 
 export const filesLanguageOf = (settings) => (settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language);
 
-// What `/devkit change` does with the request: { version, mode, verb, text, change, unfinished, settings, reply }.
-// Read-only: it creates and runs nothing.
+// What `/devkit change` does with the request: { version, mode, verb, text, change, unfinished, task, settings, reply }.
+// `task` is { key, link, idPrefix } when the text is a Jira key or link (jira-entry D-2), else null. Read-only: it creates
+// and runs nothing.
 export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, openspec, gh } = {}) {
   const l = normalizeLang(lang);
   const { verb, text } = parseStart(input);
   const start = findRoot(cwd);
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] }; // S0 when unreadable
+  const ref = verb === 'change' ? parseTaskRef(text) : null;
+  const task = ref ? { ...ref, idPrefix: taskIdPrefix(ref.key) } : null;
   const out = (mode, extra = {}) => ({
-    version: 1, mode, verb, text, change: null, unfinished: [],
+    version: 1, mode, verb, text, change: null, unfinished: [], task,
     settings: { driver: settings.driver, filesLanguage: filesLanguageOf(settings), personLanguage: l }, ...extra,
   });
   const say = (key, params = {}) => render(l, key, params);
@@ -975,19 +1083,26 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
     return { id: u.id, root: u.root, where };
   });
   const resume = (id, where) => out('resume', { change: id, unfinished: list, reply: say('resumed', { id, where }) });
+  const listed = list.map((u) => (u.where ? `${u.id} (${u.where})` : u.id)).join('; ');
+  const askFirst = () => out('ask-unfinished', { unfinished: list, reply: say(list.length === 1 ? 'ask-unfinished' : 'ask-unfinished-many', { list: listed }) });
+  if (task) {
+    const own = list.find((u) => recordedTask(readRequirements(u))?.key === task.key);
+    if (own) return resume(own.id, own.where ?? whereOf({ root: own.root, branch: '' }, own.id, read));
+    if (list.length) return askFirst();
+    return out('task', { reply: null });
+  }
   if (/^\S+$/.test(text)) {
     const known = knownChange(start, text);
     const knownDir = known ? locateChange(known.root, text)?.dir : null;
     if (knownDir && isSliceDir(knownDir)) return out('is-slice', { change: text, reply: say('is-slice', { id: text }) });
     if (known) return resume(text, list.find((u) => u.id === text)?.where ?? whereOf(known, text, read));
   }
-  const listed = list.map((u) => (u.where ? `${u.id} (${u.where})` : u.id)).join('; ');
   if (text === '') {
     if (list.length === 1) return resume(list[0].id, list[0].where ?? whereOf({ root: list[0].root, branch: '' }, list[0].id, read));
     if (list.length > 1) return out('choose', { unfinished: list, reply: say('choose', { n: list.length, list: listed }) });
     return out('nothing', { reply: say('nothing-to-resume') });
   }
-  if (list.length) return out('ask-unfinished', { unfinished: list, reply: say(list.length === 1 ? 'ask-unfinished' : 'ask-unfinished-many', { list: listed }) });
+  if (list.length) return askFirst();
   return out('new');
 }
 
@@ -1007,11 +1122,11 @@ function gitRun(root, args) {
   }
 }
 
-// The request as a Markdown quote under `## Request` of the schema's requirements template (header left pending).
-function requirementsFor(template, request) {
-  const quoted = request.split('\n').map((line) => (line.trim() === '' ? '>' : `> ${line.replace(/\s+$/, '')}`)).join('\n');
+// `body` placed under `## Request` of the schema's requirements template (header left pending): a quoted request, or a task's
+// key line and quoted parts.
+function withRequest(template, body) {
   if (!/## Request\n[\s\S]*?\n## /.test(template)) throw new LoopUsageError('the requirements template has no "## Request" section');
-  return template.replace(/(## Request\n)[\s\S]*?(\n## )/, (_, open, close) => `${open}\n${quoted}\n${close}`);
+  return template.replace(/(## Request\n)[\s\S]*?(\n## )/, (_, open, close) => `${open}\n${body}\n${close}`);
 }
 
 // Every reason an id is taken (O2): a change folder (active or archived) in any checkout, a local branch, an archive
@@ -1064,8 +1179,9 @@ function withOpenLock(main, work, lockSleep) {
 }
 
 // `open <id> --script <s> --why <code>`, the request on standard input. Creates the worktree, the change and its
-// requirements file; refusals are LoopRefusal (exit 3, nothing created).
-export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env = process.env, openspec, lockSleep } = {}) {
+// requirements file; refusals are LoopRefusal (exit 3, nothing created). With `task` (a Jira key) the standard input is the
+// task as JSON, and the request section records the key and quotes the task's title, description and criteria field.
+export function openChange(cwd, id, { script, why, request, task: taskKey, lang = 'pt-BR', env = process.env, openspec, gh, lockSleep } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   if (!NAME.test(id) || id === 'archive') throw refuse('name-invalid', { id });
@@ -1073,10 +1189,24 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
   if (!WHY_CODES.includes(why)) throw new LoopUsageError(`open needs --why with one of: ${WHY_CODES.join(', ')}`);
   const text = String(request ?? '').trim();
   if (!text) throw new LoopUsageError('open needs the request on standard input');
+  let task = null;
+  if (taskKey !== undefined) {
+    if (!TASK_KEY.test(taskKey)) throw new LoopUsageError('open --task needs a Jira key');
+    const read = taskFromJson(text, taskKey);
+    if (read.error) throw new LoopUsageError(read.error);
+    task = read.task;
+    const prefix = `${taskIdPrefix(taskKey)}-`;
+    if (!id.startsWith(prefix)) throw new LoopUsageError(`a change opened from ${taskKey} needs an id that starts with ${prefix}`);
+  }
   const start = findRoot(cwd);
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
   const gate = projectGate(start, settings);
   if (gate) throw refuse(gate.key, gate.params);
+  if (task) {
+    const taken = unfinished(start, { env, gh }).find((u) => recordedTask(readRequirements(u))?.key === taskKey);
+    if (taken) throw refuse('task-taken', { key: taskKey, id: taken.id });
+  }
+  const requestBody = task ? taskRequest(task) : quoteLines(text);
 
   // The change's own first file: its request, as a quote in the schema's requirements template.
   const prepare = (folder, worktree) => {
@@ -1084,10 +1214,11 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
     const template = schema ? join(dirname(schema), 'templates', 'requirements.md') : null;
     if (!template || !existsSync(template)) throw new LoopUsageError(`the ${script} schema has no requirements template`);
     mkdirSync(folder, { recursive: true });
-    writeFileSync(join(folder, 'requirements.md'), requirementsFor(readFileSync(template, 'utf8'), text));
+    writeFileSync(join(folder, 'requirements.md'), withRequest(readFileSync(template, 'utf8'), requestBody));
   };
   const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep });
-  return { version: 1, change: id, script, worktree, branch: id, base, reply: render(l, 'opened', { id, script, other: otherScript(script), why }) };
+  const reply = render(l, task ? 'opened-task' : 'opened', { id, script, other: otherScript(script), why, key: taskKey });
+  return { version: 1, change: id, script, worktree, branch: id, base, ...(task ? { task: { key: task.key, link: task.url } } : {}), reply };
 }
 
 // The open steps every script shares (project-phases D-5): the open lock, the fetch, the id check, the worktree from the default
@@ -1334,8 +1465,8 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 // ---------------------------------------------------------------- the command line (D-5)
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
-  + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
-  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
+  + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> (the request on standard input, or with --task the task as JSON) '
+  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
 
 function parseArgs(argv, { values = [], multi = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -1387,11 +1518,53 @@ function runStart(args, { env, cwd, stdin, openspec, gh }) {
   return { code: 0, stdout: json(startMode(cwd, stdin, { lang: opts.lang, env, openspec, gh })), stderr: '' };
 }
 
-function runOpen(args, { env, cwd, stdin, openspec }) {
-  const opts = parseArgs(args, { values: ['--script', '--why', '--lang'] });
+function runOpen(args, { env, cwd, stdin, openspec, gh }) {
+  const opts = parseArgs(args, { values: ['--script', '--why', '--task', '--lang'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
-  const result = openChange(cwd, opts.positional[0], { script: opts.script, why: opts.why, request: stdin, lang: opts.lang, env, openspec });
+  const result = openChange(cwd, opts.positional[0], { script: opts.script, why: opts.why, request: stdin, task: opts.task, lang: opts.lang, env, openspec, gh });
   return { code: 0, stdout: `devkit-run: ${result.change}\n${json(result)}`, stderr: '' };
+}
+
+const WRITE_BACK_CHOICE = /^(?:comment|no|transition:\S+)$/;
+
+// `write-back answer <id> --choice <c>`: what the session may write to Jira for the developer's answer. The answer is recorded
+// before the session writes, so a repeated call never comments twice. Writes only that record.
+export function writeBackAnswer(cwd, id, { choice, lang = 'pt-BR', env = process.env, gh } = {}) {
+  const l = normalizeLang(lang);
+  const { start, found, task } = taskChangeOf(cwd, id, env);
+  if (!WRITE_BACK_CHOICE.test(String(choice ?? ''))) throw new LoopUsageError('write-back answer needs --choice comment, no or transition:<id>');
+  const file = writeBackFile(found.root, id);
+  const record = readWriteBack(file);
+  const none = (why, key = 'write-back-none', params = {}) => ({ version: 1, change: id, key: task.key, write: false, why, reply: render(l, key, { id, key: task.key, ...params }) });
+  if (!record || record.corrupt || record.key !== task.key) return none('not-asked');
+  if (record.answer) return none('answered');
+  const answer = (written) => saveWriteBack(file, { ...record, answer: { choice, at: new Date().toISOString(), written } });
+  if (archivedOnDefault(start, { env, gh }).has(id)) { answer(false); return none('archived', 'write-back-late'); }
+  if (choice === 'no') { answer(false); return none('no'); }
+  const transition = choice === 'comment' ? null : record.transitions.find((t) => `transition:${t.id}` === choice) ?? null;
+  if (choice !== 'comment' && !transition) {
+    const labels = writeBackChoices(record.transitions).map((c) => render(l, `choice.${c.kind}`, { name: c.name }));
+    return none('unknown-choice', 'write-back-unknown', { choices: labels.join('; ') });
+  }
+  answer(true);
+  const comment = commentText(filesLanguageOf(readDevkitSettings(found.root)), { url: record.url, id });
+  const reply = render(l, transition ? 'write-back-moved' : 'write-back-commented', { key: task.key, number: record.number, name: transition?.name });
+  return { version: 1, change: id, key: task.key, write: true, comment, transition: transition ? { id: transition.id, name: transition.name } : null, reply };
+}
+
+function runWriteBack(args, { env, cwd, stdin, gh }) {
+  const [sub, ...rest] = args;
+  if (sub === 'ask') {
+    const opts = parseArgs(rest, { values: ['--lang'] });
+    if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+    return { code: 0, stdout: json(writeBackAsk(cwd, opts.positional[0], { input: stdin, lang: opts.lang, env, gh })), stderr: '' };
+  }
+  if (sub === 'answer') {
+    const opts = parseArgs(rest, { values: ['--choice', '--lang'] });
+    if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+    return { code: 0, stdout: json(writeBackAnswer(cwd, opts.positional[0], { choice: opts.choice, lang: opts.lang, env, gh })), stderr: '' };
+  }
+  throw new LoopUsageError(USAGE);
 }
 
 function runScript(args, { cwd }) {
@@ -1432,7 +1605,8 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     if (sub === 'next') return runNext(rest, { env, cwd, openspec, gh });
     if (sub === 'reply') return runReply(rest);
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
-    if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec });
+    if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec, gh });
+    if (sub === 'write-back') return runWriteBack(rest, { env, cwd, stdin, gh });
     if (sub === 'script') return runScript(rest, { cwd });
     throw new LoopUsageError(USAGE);
   } catch (e) {
@@ -1481,7 +1655,7 @@ function isMain() {
 
 if (isMain()) {
   const argv = process.argv.slice(2);
-  runCommand(argv, { stdin: ['start', 'open'].includes(argv[0]) ? readStdin() : '' }).then((r) => {
+  runCommand(argv, { stdin: ['start', 'open', 'write-back'].includes(argv[0]) ? readStdin() : '' }).then((r) => {
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
     process.exitCode = r.code;

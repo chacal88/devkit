@@ -105,6 +105,9 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 ## Round 20: the Jira entry
 - [ ] jira-entry (after: change-coordinator) — `/devkit change <key or link>` reads a Jira task as the request and writes back to it (a comment with the pull request link, a status change) only when the developer asks, and the grill asks only what the task does not answer (D-1)
 
+## Round 20b: live proof of the Jira entry
+- [ ] jira-entry-live (after: jira-entry) — read a real Jira task through the session's Atlassian connector with `/devkit change <key>`, and write back once on a disposable test task the owner names (one comment, one transition), on each platform the owner uses; it checks what the jira-entry plan assumed: the connector's tool names, the description's text form and the acceptance-criteria field (coordination-design D-13: Jira can be read on each platform)
+
 ## Round 21: the CompozyOS driver
 - [ ] compozy-driver (after: change-coordinator) — CompozyOS runs the same short loop (ask the checker, run the role, check the gate) in place of the twelve-stage loop, `/devkit` starts the run when the project's driver is CompozyOS, and the kit's planning role is renamed from `tech-lead` to `planner` (D-2, D-3, D-10)
 

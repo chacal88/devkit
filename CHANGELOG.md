@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.26.0 — the Jira entry
+
+- **devkit-openspec** 0.22.0: `/devkit change <Jira key or link>` opens the change from that task.
+  The session reads it through its own Atlassian connector; `change-loop.mjs` makes no call and
+  keeps no token. `start` answers the `task` mode, `open --task <KEY>` writes a `Jira: <KEY> <link>`
+  line and the quoted title, description and acceptance-criteria field under `## Request`, and the
+  key resumes its unfinished change (a second change for it is refused). When the pull request
+  opens, `next` carries `writeBack` and `write-back ask|answer` asks the developer once whether to
+  comment the link and move the task; Jira is written only on that yes, and the question is
+  recorded in the git common directory. New module `jira-task.mjs`.
+- **devkit-core** 0.10.0: the `requirements-grill` skill asks only what a request copied from a
+  task leaves open, recording the rest as assumptions answered by the task.
+- Docs: the flow document, the design document and ADR 0010 (a dated Note: no task-source
+  setting) record the entry; the roadmap gains round 20b (`jira-entry-live`).
+
 ## 0.25.1 — retro of review-writer-prompt
 
 - **devkit-openspec** 0.21.1: the `ship-change` `stop-plan-approval` row writes the owner's words

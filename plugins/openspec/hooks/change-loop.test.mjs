@@ -17,7 +17,7 @@ import * as guardModule from './guard.mjs';
 import * as changeLoopModule from './change-loop.mjs';
 import {
   readDevkitSettings, normalizeLang, MESSAGES, render, decide, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError,
-  runCommand, waitLoop, PACKS, withLockFile, openChange,
+  runCommand, waitLoop, PACKS, withLockFile, openChange, nextAction,
 } from './change-loop.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -84,7 +84,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  base: 'main', state: 'github',
+  base: 'main', state: 'github', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
 };
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
@@ -153,6 +153,22 @@ test('change-loop replies: no internal term in either language', () => {
   for (const key of Object.keys(MESSAGES.en)) {
     if (EXEMPT_EQUAL.includes(key)) continue;
     assert.notEqual(MESSAGES.en[key], MESSAGES['pt-BR'][key], `${key} is translated`);
+  }
+});
+
+test('jira-entry AC-3 the replies for no connector and an unreadable task name the key, ask for text and hold no internal term, in both languages', () => {
+  for (const key of ['task-no-connector', 'task-unreadable']) {
+    const said = {};
+    for (const lang of ['en', 'pt-BR']) {
+      const r = main(['reply', key, '--lang', lang, '--param', 'key=PROJ-482'], { env: cleanEnv });
+      assert.equal(r.code, 0, `${lang} ${key}: ${r.stderr}`);
+      assert.match(r.stdout, /PROJ-482/, `${lang} ${key} names the key`);
+      assert.match(r.stdout, /\/devkit change/, `${lang} ${key} asks for text`);
+      assert.doesNotMatch(r.stdout, /devkit-end:/, `${lang} ${key} ends no run`);
+      assert.doesNotMatch(r.stdout, /change-loop|\.mjs|connector tool|getJiraIssue/, `${lang} ${key} holds no internal term`);
+      said[lang] = r.stdout;
+    }
+    assert.notEqual(said.en, said['pt-BR'], `${key} is translated`);
   }
 });
 
@@ -749,14 +765,14 @@ const RELEASE = { 'CHANGELOG.md': '# c\n', '.claude-plugin/marketplace.json': '{
 // A `devkit-lite` change `feat` in a worktree (a bare origin, a clone), every stage up to the code review passed at the
 // code commit, the reviews and the evidence current, its pull request open with `checks`. `conflicts` are the files both
 // the branch and origin/main edit (the same shape as conflictRepo in conduct-check.test.mjs, which is private to that file).
-function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE' } = {}) {
+function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n' } = {}) {
   const t = roundRepo({ roadmap: '# Roadmap\n\n## Round 1: x\n- [ ] feat\n', config: PR_CONFIG, files: RELEASE });
   const wt = t.addWt('feat');
   const dir = (f) => `openspec/changes/feat/${f}`;
   const own = Object.fromEntries(conflicts.map((f) => [f, `feat edits ${f}\n`]));
   put(wt, {
     [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
-    [dir('proposal.md')]: PROPOSAL, [dir('requirements.md')]: '# Requirements\n', [dir('specs/s/spec.md')]: '# Spec\n',
+    [dir('proposal.md')]: PROPOSAL, [dir('requirements.md')]: requirements, [dir('specs/s/spec.md')]: '# Spec\n',
     [dir('tasks.md')]: '# Tasks\n\n## 1. First\n- [x] 1.1 code\n',
     'src/feat.ts': 'code\n', ...own,
   });
@@ -767,7 +783,7 @@ function deliveredChange({ checks = [check('build', 'pending')], conflicts = [],
     [dir('reviews/code-quality-reviewer.md')]: review, [dir('reviews/test-coverage-reviewer.md')]: review,
     [dir('evidence.md')]: withHead('evidence', `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n`),
     [dir('review.md')]: withHead('review', 'Consensus: PASS (round 1/2)\n\n# Review\n'),
-    [dir('proposal.md')]: withHead('proposal', PROPOSAL), [dir('requirements.md')]: withHead('requirements', '# Requirements\n'),
+    [dir('proposal.md')]: withHead('proposal', PROPOSAL), [dir('requirements.md')]: withHead('requirements', requirements),
     [dir('specs/s/spec.md')]: withHead('specs', '# Spec\n'), [dir('tasks.md')]: withHead('tasks', '# Tasks\n\n## 1. First\n- [x] 1.1 code\n'),
   });
   commitAll(wt, 'reviews, evidence and stage headers');
@@ -2475,7 +2491,8 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  assert.match(flow, /v0\.21\.1/, 'the CI snippet pins the current release (review-writer-prompt retro: 0.21.1)');
+  assert.match(flow, /v0\.22\.0/, 'the CI snippet pins the current release (jira-entry: 0.22.0)');
+  assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
   const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
   assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
@@ -2805,4 +2822,505 @@ test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 c
   assert.equal([...exact].length, 59);
   assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
   assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
+});
+
+// ================================================================ jira-entry: the entry (start and open)
+
+const TASK_LINK = 'https://acme.atlassian.net/browse/PROJ-482';
+const BOARD_LINK = 'https://acme.atlassian.net/jira/software/projects/PROJ/boards/1?selectedIssue=PROJ-482';
+const TASK_OF_482 = { key: 'PROJ-482', link: null, idPrefix: 'proj-482' };
+
+// A committed change `id` whose requirements record the Jira key on the first line of its request section.
+function addTaskChange(root, id, line = `Jira: PROJ-482 ${TASK_LINK}`) {
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  put(root, {
+    [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit\n',
+    [`openspec/changes/${id}/requirements.md`]: `${head('requirements', c0)}# Requirements\n\n## Request\n\n${line}\n\nTitle:\n\n> Login times out after 30 seconds\n\n## Assumptions\n\n- \n`,
+  });
+  commitAll(root, `change ${id}`);
+}
+
+test('jira-entry AC-1 start answers task for a key in a project with no unfinished change, and creates nothing', () => {
+  const root = devkitRepo();
+  const before = snapshot(root);
+  const b = body(startRun(root, 'change PROJ-482'));
+  assert.deepEqual([b.mode, b.verb, b.text, b.change, b.unfinished, b.reply, b.version], ['task', 'change', 'PROJ-482', null, [], null, 1]);
+  assert.deepEqual(b.task, TASK_OF_482);
+  assert.equal(snapshot(root), before);
+});
+
+test('jira-entry AC-2 start answers the same task for a browse link and a board link', () => {
+  const root = devkitRepo();
+  for (const link of [TASK_LINK, `${TASK_LINK}?atlOrigin=abc`, BOARD_LINK]) {
+    const b = body(startRun(root, `change ${link}`));
+    assert.equal(b.mode, 'task', link);
+    assert.deepEqual(b.task, { key: 'PROJ-482', link, idPrefix: 'proj-482' }, link);
+  }
+});
+
+test('jira-entry AC-5 start resumes the unfinished change that records the key, for the key and for its link', () => {
+  const t = freshProject();
+  addTaskChange(t.main, 'proj-482-login-timeout');
+  addChange(t.main, 'other');
+  for (const typed of ['PROJ-482', TASK_LINK, BOARD_LINK]) {
+    const b = body(startRun(t.main, `change ${typed}`));
+    assert.deepEqual([b.mode, b.change], ['resume', 'proj-482-login-timeout'], typed);
+    assert.equal(b.reply, render('en', 'resumed', { id: 'proj-482-login-timeout', where: whereNext('proposal') }), typed);
+  }
+});
+
+test('jira-entry AC-5 start asks about other unfinished changes before a task, and carries the task', () => {
+  const t = freshProject();
+  addChange(t.main, 'other');
+  const before = snapshot(t.main);
+  const b = body(startRun(t.main, 'change PROJ-482'));
+  assert.deepEqual([b.mode, b.change], ['ask-unfinished', null]);
+  assert.deepEqual(b.task, TASK_OF_482);
+  assert.deepEqual(b.unfinished.map((u) => u.id), ['other']);
+  assert.equal(b.reply, render('en', 'ask-unfinished', { list: `other (${whereNext('proposal')})` }));
+  assert.equal(snapshot(t.main), before);
+});
+
+test('jira-entry AC-5 a key whose only change is archived reads as a new task', () => {
+  const root = devkitRepo();
+  put(root, {
+    'openspec/changes/archive/2026-11-22-feat/.openspec.yaml': 'schema: devkit\n',
+    'openspec/changes/archive/2026-11-22-feat/requirements.md': `# Requirements\n\n## Request\n\nJira: PROJ-482 ${TASK_LINK}\n`,
+  });
+  const b = body(startRun(root, 'change PROJ-482'));
+  assert.deepEqual([b.mode, b.unfinished], ['task', []]);
+  assert.deepEqual(b.task, TASK_OF_482);
+});
+
+test('jira-entry AC-8 start answers free text, a lower-case key, a change id and no text as before, with task null', () => {
+  const root = devkitRepo();
+  for (const [text, mode] of [['add a csv export', 'new'], ['proj-482', 'new'], ['PROJ-482 and more words', 'new'], ['see https://example.com/x', 'new'], ['', 'nothing']]) {
+    const b = body(startRun(root, `change ${text}`.trim()));
+    assert.deepEqual([b.mode, b.task], [mode, null], text);
+  }
+  const t = freshProject();
+  addChange(t.main, 'feat');
+  const b = body(startRun(t.main, 'change feat'));
+  assert.deepEqual([b.mode, b.change, b.task], ['resume', 'feat', null]);
+  assert.equal(body(startRun(t.main, 'roadmap PROJ-482')).task, null, 'only the change verb reads a task');
+});
+
+const FAKE_TASK = {
+  key: 'PROJ-482', url: TASK_LINK, title: 'Login times out after 30 seconds',
+  description: 'Users see a blank page.\n\n## Not a heading\nJira: OTHER-1', acceptanceCriteria: 'Login answers within 5 seconds',
+};
+const taskOpen = (cwd, id, task = FAKE_TASK, { key = 'PROJ-482', raw } = {}) => main(
+  ['open', id, '--script', 'devkit', '--why', 'doubt', '--task', key, '--lang', 'en'], { cwd, env: cleanEnv, stdin: raw ?? JSON.stringify(task) });
+const requestSection = (t, id) => /## Request\n([\s\S]*?)\n## /.exec(readFileSync(join(wtOf(t, id), 'openspec', 'changes', id, 'requirements.md'), 'utf8'))[1];
+
+test('jira-entry AC-1 open --task writes the key line and the three quoted parts under Request, and nothing else of the task', () => {
+  const t = freshProject();
+  const noise = { comments: ['secret comment text'], subtasks: [{ key: 'PROJ-483', summary: 'secret subtask text' }], issuelinks: ['secret link text'] };
+  const r = taskOpen(t.main, 'proj-482-login-timeout', { ...FAKE_TASK, ...noise });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const [first, ...rest] = r.stdout.split('\n');
+  assert.equal(first, 'devkit-run: proj-482-login-timeout');
+  const b = JSON.parse(rest.join('\n'));
+  assert.deepEqual(b.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.equal(b.reply, render('en', 'opened-task', { key: 'PROJ-482', id: 'proj-482-login-timeout', script: 'devkit', other: 'devkit-lite', why: 'doubt' }));
+  assert.equal(requestSection(t, 'proj-482-login-timeout'), [
+    '', `Jira: PROJ-482 ${TASK_LINK}`, '', 'Title:', '', '> Login times out after 30 seconds', '', 'Description:', '',
+    '> Users see a blank page.', '>', '> ## Not a heading', '> Jira: OTHER-1', '', 'Acceptance criteria field:', '', '> Login answers within 5 seconds', '',
+  ].join('\n'));
+  const file = readFileSync(join(wtOf(t, 'proj-482-login-timeout'), 'openspec', 'changes', 'proj-482-login-timeout', 'requirements.md'), 'utf8');
+  assert.doesNotMatch(file, /secret/);
+  assert.equal(body(startRun(t.main, 'change PROJ-482')).mode, 'resume', 'the key now resumes the change');
+});
+
+test('jira-entry AC-1 open --task without an acceptance-criteria field writes the key line, the title and the description', () => {
+  const t = freshProject();
+  const { acceptanceCriteria: _dropped, ...noField } = FAKE_TASK;
+  assert.equal(taskOpen(t.main, 'proj-482-login', noField).code, 0);
+  const section = requestSection(t, 'proj-482-login');
+  assert.match(section, /^\nJira: PROJ-482 /);
+  assert.match(section, /Title:\n\n> Login times out/);
+  assert.match(section, /Description:\n\n> Users see/);
+  assert.doesNotMatch(section, /Acceptance criteria field/);
+});
+
+test('jira-entry AC-1 open --task refuses an id that does not start with the key, and creates nothing', () => {
+  const t = freshProject();
+  const before = snapshot(t.main);
+  for (const id of ['login-timeout', 'proj-48-login', 'proj-4820-login']) {
+    const r = taskOpen(t.main, id);
+    assert.equal(r.code, 3, id);
+    assert.match(body(r).error, /proj-482-/, id);
+    assert.equal(r.stdout.startsWith('devkit-run:'), false);
+    assert.equal(snapshot(t.main), before, id);
+  }
+});
+
+test('jira-entry AC-3 open --task refuses a task answer it cannot read, and creates nothing', () => {
+  const t = freshProject();
+  const before = snapshot(t.main);
+  const answers = {
+    empty: '', 'cut short': '{"key":"PROJ-482","title":"Log', 'another key': JSON.stringify({ ...FAKE_TASK, key: 'PROJ-1' }),
+    'no title': JSON.stringify({ ...FAKE_TASK, title: undefined }), 'not an object': '["PROJ-482"]',
+  };
+  for (const [label, raw] of Object.entries(answers)) {
+    const r = taskOpen(t.main, 'proj-482-login', FAKE_TASK, { raw });
+    assert.equal(r.code, 3, label);
+    assert.doesNotMatch(body(r).error, /unknown option/, label);
+    assert.match(body(r).error, /task|standard input/, label);
+    assert.equal(r.stdout.startsWith('devkit-run:'), false, label);
+    assert.equal(snapshot(t.main), before, label);
+  }
+  assert.match(body(taskOpen(t.main, 'proj-482-login', FAKE_TASK, { key: 'proj-482' })).error, /needs a Jira key/, 'a key that is not a key');
+  assert.equal(snapshot(t.main), before);
+});
+
+test('jira-entry AC-5 open --task refuses a second change for a key whose change is unfinished', () => {
+  const t = freshProject();
+  assert.equal(taskOpen(t.main, 'proj-482-login-timeout').code, 0);
+  const before = snapshot(t.main);
+  const r = taskOpen(t.main, 'proj-482-second-try');
+  assert.equal(r.code, 3);
+  assert.equal(body(r).reply, render('en', 'task-taken', { key: 'PROJ-482', id: 'proj-482-login-timeout' }));
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  assert.equal(snapshot(t.main), before);
+});
+
+test('jira-entry AC-8 open without --task writes the request byte for byte as before', () => {
+  const t = freshProject();
+  assert.equal(openRun(t.main, 'plain-request', { request: 'Add a CSV export\nwith two lines\n' }).code, 0);
+  assert.equal(requestSection(t, 'plain-request'), '\n> Add a CSV export\n> with two lines\n');
+  const b = JSON.parse(openRun(t.main, 'plain-two', { request: 'one' }).stdout.split('\n').slice(1).join('\n'));
+  assert.equal('task' in b, false);
+  assert.equal(b.reply, render('en', 'opened', { id: 'plain-two', script: 'devkit', other: 'devkit-lite', why: 'doubt' }));
+});
+
+// ================================================================ jira-entry: the write-back (next)
+
+const TASK_REQUIREMENTS = `# Requirements\n\n## Request\n\nJira: PROJ-482 ${TASK_LINK}\n\nTitle:\n\n> Login times out after 30 seconds\n\n## Assumptions\n\n- \n`;
+const recordFile = (t, id = 'feat') => join(t.main, '.git', 'devkit', 'write-back', `${id}.json`);
+const asked = (t, over = {}, id = 'feat') => {
+  mkdirSync(dirname(recordFile(t, id)), { recursive: true });
+  writeFileSync(recordFile(t, id), JSON.stringify({ version: 1, change: id, key: 'PROJ-482', number: 12, url: 'https://github.com/o/r/pull/12', askedAt: '2026-11-22T00:00:00Z', transitions: [], answer: null, ...over }));
+};
+
+test('jira-entry AC-4 next hands the grill of a task change with the task\'s key and link', () => {
+  const t = freshProject();
+  assert.equal(taskOpen(t.main, 'proj-482-login-timeout').code, 0);
+  const r = main(['next', '--change', 'proj-482-login-timeout', '--lang', 'en'], { cwd: t.main, env: cleanEnv });
+  const a = actionOf(r.stdout);
+  assert.deepEqual([a.kind, a.stage], ['grill', 'requirements']);
+  assert.deepEqual(a.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.equal('writeBack' in a, false);
+});
+
+test('jira-entry AC-6 next carries writeBack once the pull request exists, for a change that records a task', () => {
+  const { t, env } = deliveredChange({ requirements: TASK_REQUIREMENTS });
+  const a = parsed(next(t.main, [], env)).action;
+  assert.deepEqual(a.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.deepEqual(a.writeBack, { key: 'PROJ-482', link: TASK_LINK, number: 12, url: 'https://github.com/o/r/pull/12' });
+});
+
+test('jira-entry AC-6 next carries no writeBack after the question was asked, for a change with no task, for a corrupt record, and on the archive branch', () => {
+  const plain = deliveredChange();
+  const none = parsed(next(plain.t.main, [], plain.env)).action;
+  assert.equal('task' in none, false);
+  assert.equal('writeBack' in none, false);
+
+  const { t, wt, env } = deliveredChange({ requirements: TASK_REQUIREMENTS });
+  assert.ok(parsed(next(t.main, [], env)).action.writeBack, 'before the question');
+  asked(t);
+  assert.equal('writeBack' in parsed(next(t.main, [], env)).action, false, 'asked for this pull request');
+  asked(t, { number: 9 });
+  assert.ok(parsed(next(t.main, [], env)).action.writeBack, 'another pull request asks again');
+  writeFileSync(recordFile(t), '{ not json');
+  const corrupt = parsed(next(t.main, [], env)).action;
+  assert.deepEqual(corrupt.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.equal('writeBack' in corrupt, false, 'a damaged record asks nothing');
+  rmSync(recordFile(t));
+  git(wt, 'branch', '-m', 'chore/archive-feat');
+  assert.equal('writeBack' in parsed(next(t.main, [], env)).action, false, 'not on the archive branch');
+});
+
+test('jira-entry AC-6 a pending question changes no decision', async () => {
+  const withTask = deliveredChange({ requirements: TASK_REQUIREMENTS });
+  const without = deliveredChange();
+  const A = parsed(next(withTask.t.main, [], withTask.env)).action;
+  const B = parsed(next(without.t.main, [], without.env)).action;
+  assert.ok(A.writeBack, 'the question is pending');
+  for (const k of ['kind', 'end', 'step', 'agent', 'reply']) assert.deepEqual(A[k], B[k], k);
+  // The wait ends on the same decision and sleeps the same number of times: the pending question is not part of its key.
+  const waitOf = async (c) => {
+    let sleeps = 0;
+    const sleep = async () => { sleeps++; c.gh.set('pr-checks', { stdout: [check('build', 'pass')] }); };
+    const poll = async () => nextAction(c.t.main, 'feat', { env: c.env, lang: 'en', gh: c.t.ghFor(c.wt) });
+    const action = await waitLoop({ poll, sleep, interval: 5, id: 'feat', lang: 'en' });
+    return { sleeps, end: action.end, reply: action.reply };
+  };
+  assert.deepEqual(await waitOf(withTask), await waitOf(without));
+});
+
+// ---- write-back ask
+
+const PR_URL = 'https://github.com/o/r/pull/12';
+const TRANSITIONS = [{ id: '31', name: 'In Review' }, { id: '41', name: 'Done' }];
+const taskDelivery = () => deliveredChange({ requirements: TASK_REQUIREMENTS });
+const writeBack = (c, sub, args, { stdin = '', lang = 'en', id = 'feat' } = {}) => main(
+  ['write-back', sub, id, ...args, '--lang', lang], { cwd: c.t.main, env: c.env, gh: c.t.ghFor(c.wt), stdin });
+const askBack = (c, input = { number: 12, url: PR_URL, transitions: TRANSITIONS }, opts = {}) => writeBack(c, 'ask', [], { stdin: JSON.stringify(input), ...opts });
+const answerBack = (c, choice, opts = {}) => writeBack(c, 'answer', ['--choice', choice], opts);
+const archiveOnMain = (c, id = 'feat') => mkdirSync(join(c.t.main, 'openspec', 'changes', 'archive', `2026-11-22-${id}`), { recursive: true });
+
+test('jira-entry AC-6 write-back ask lists the transitions, only comment and no, records the question, and answers ask false the second time', () => {
+  const c = taskDelivery();
+  const r = askBack(c);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout.startsWith('{'), true, 'no devkit-run or devkit-end line');
+  const b = body(r);
+  const labels = ['move it to "In Review"', 'move it to "Done"', 'only comment', 'no'];
+  assert.deepEqual([b.version, b.change, b.key, b.ask], [1, 'feat', 'PROJ-482', true]);
+  assert.deepEqual(b.choices, [
+    { choice: 'transition:31', label: labels[0] }, { choice: 'transition:41', label: labels[1] },
+    { choice: 'comment', label: labels[2] }, { choice: 'no', label: labels[3] },
+  ]);
+  assert.equal(b.question, render('en', 'write-back-ask', { id: 'feat', key: 'PROJ-482', number: 12, choices: labels.join('; ') }));
+  const record = JSON.parse(readFileSync(recordFile(c.t), 'utf8'));
+  assert.deepEqual([record.version, record.change, record.key, record.number, record.url, record.transitions, record.answer], [1, 'feat', 'PROJ-482', 12, PR_URL, TRANSITIONS, null]);
+  assert.deepEqual(body(askBack(c)), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'asked' });
+  assert.equal('writeBack' in parsed(next(c.t.main, [], c.env)).action, false, 'next asks nothing once asked');
+  assert.match(body(askBack(taskDelivery(), undefined, { lang: 'pt-BR' })).question, /Devo escrever o link/, 'the question is in the person\'s language');
+});
+
+test('jira-entry AC-6 write-back ask with no transitions offers only comment and no', () => {
+  const c = taskDelivery();
+  for (const input of [{ number: 12, url: PR_URL, transitions: [] }, { number: 12, url: PR_URL }]) {
+    rmSync(recordFile(c.t), { force: true });
+    assert.deepEqual(body(askBack(c, input)).choices.map((x) => x.choice), ['comment', 'no']);
+  }
+});
+
+test('jira-entry AC-6 write-back ask refuses a change with no task and malformed input with exit 3', () => {
+  const plain = deliveredChange();
+  assert.equal(askBack(plain).code, 3, 'no task');
+  assert.match(body(askBack(plain)).error, /records no Jira task/);
+  assert.equal(existsSync(recordFile(plain.t)), false);
+  const c = taskDelivery();
+  for (const raw of ['', '{ cut', '[]', JSON.stringify({ number: 0, url: PR_URL }), JSON.stringify({ number: 12, url: 'ftp://x' }), JSON.stringify({ number: 12, url: PR_URL, transitions: [{ id: '1' }] })]) {
+    const r = writeBack(c, 'ask', [], { stdin: raw });
+    assert.equal(r.code, 3, raw);
+    assert.equal(body(r).version, 1);
+    assert.equal(r.stdout.startsWith('devkit-'), false);
+  }
+  assert.equal(existsSync(recordFile(c.t)), false, 'nothing recorded');
+  assert.equal(askBack(c, undefined, { id: 'nope' }).code, 3, 'an unknown change');
+  assert.match(body(askBack(c, undefined, { id: 'nope' })).error, /no change nope/);
+});
+
+test('jira-entry AC-6 write-back ask on an archived change asks nothing', () => {
+  const c = taskDelivery();
+  archiveOnMain(c);
+  assert.deepEqual(body(askBack(c)), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'archived' });
+  assert.equal(existsSync(recordFile(c.t)), false);
+  const d = taskDelivery();
+  git(d.wt, 'branch', '-m', 'chore/archive-feat');
+  assert.equal(body(askBack(d)).why, 'archived', 'on the archive branch');
+});
+
+// ---- write-back answer
+
+const answerOf = (c) => JSON.parse(readFileSync(recordFile(c.t), 'utf8')).answer;
+const COMMENT_EN = `devkit opened the pull request ${PR_URL} for this task (change feat).`;
+
+test('jira-entry AC-7 write-back answer with a transition gives one comment and that transition', () => {
+  const c = taskDelivery();
+  askBack(c);
+  const r = answerBack(c, 'transition:31');
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout.startsWith('{'), true);
+  assert.deepEqual(body(r), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: true, comment: COMMENT_EN, transition: { id: '31', name: 'In Review' },
+    reply: render('en', 'write-back-moved', { key: 'PROJ-482', number: 12, name: 'In Review' }),
+  });
+  assert.deepEqual([answerOf(c).choice, answerOf(c).written], ['transition:31', true]);
+  assert.match(answerOf(c).at, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('jira-entry AC-7 write-back answer only comment gives the comment and no transition', () => {
+  const c = taskDelivery();
+  askBack(c);
+  assert.deepEqual(body(answerBack(c, 'comment')), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: true, comment: COMMENT_EN, transition: null,
+    reply: render('en', 'write-back-commented', { key: 'PROJ-482', number: 12 }),
+  });
+  assert.equal(answerOf(c).written, true);
+});
+
+test('jira-entry AC-7 write-back answer no, a second answer, and an answer before the question write nothing', () => {
+  const c = taskDelivery();
+  const none = (why) => ({ version: 1, change: 'feat', key: 'PROJ-482', write: false, why, reply: render('en', 'write-back-none', { key: 'PROJ-482' }) });
+  assert.deepEqual(body(answerBack(c, 'comment')), none('not-asked'));
+  assert.equal(existsSync(recordFile(c.t)), false, 'an answer before the question records nothing');
+  askBack(c);
+  assert.deepEqual(body(answerBack(c, 'no')), none('no'));
+  assert.deepEqual([answerOf(c).choice, answerOf(c).written], ['no', false]);
+  assert.deepEqual(body(answerBack(c, 'comment')), none('answered'));
+  assert.equal(answerOf(c).choice, 'no', 'the first answer stands');
+  writeFileSync(recordFile(c.t), '{ not json');
+  assert.deepEqual(body(answerBack(c, 'comment')), none('not-asked'), 'a damaged record writes nothing');
+  asked(c.t, { key: 'OTHER-9' });
+  assert.deepEqual(body(answerBack(c, 'comment')), none('not-asked'), 'a record of another key');
+});
+
+test('jira-entry AC-7 write-back answer after the archive writes nothing', () => {
+  const c = taskDelivery();
+  askBack(c);
+  archiveOnMain(c);
+  assert.deepEqual(body(answerBack(c, 'comment')), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: false, why: 'archived', reply: render('en', 'write-back-late', { id: 'feat', key: 'PROJ-482' }),
+  });
+  assert.deepEqual([answerOf(c).choice, answerOf(c).written], ['comment', false]);
+});
+
+test('jira-entry AC-7 write-back answer with a transition not offered writes nothing and lists the choices again', () => {
+  const c = taskDelivery();
+  askBack(c);
+  const r = answerBack(c, 'transition:99');
+  assert.equal(r.code, 0);
+  const labels = 'move it to "In Review"; move it to "Done"; only comment; no';
+  assert.deepEqual(body(r), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: false, why: 'unknown-choice', reply: render('en', 'write-back-unknown', { key: 'PROJ-482', choices: labels }),
+  });
+  assert.equal(answerOf(c), null, 'nothing recorded');
+  assert.equal(body(answerBack(c, 'transition:41')).write, true, 'a valid answer can follow');
+  const bad = answerBack(taskDelivery(), 'maybe');
+  assert.equal(bad.code, 3, 'a choice outside the form is a usage error');
+});
+
+test('jira-entry AC-7 the comment names the link and the change in the files language', () => {
+  const en = taskDelivery();
+  askBack(en);
+  assert.equal(body(answerBack(en, 'comment')).comment, COMMENT_EN);
+  const pt = taskDelivery();
+  const config = join(pt.wt, 'openspec', 'config.yaml');
+  writeFileSync(config, `${readFileSync(config, 'utf8')}devkit:\n  language: pt-BR\n`);
+  askBack(pt);
+  const b = body(answerBack(pt, 'comment', { lang: 'en' }));
+  assert.equal(b.comment, `o devkit abriu o pull request ${PR_URL} para esta tarefa (change feat).`);
+  assert.match(b.reply, /I wrote the link/, 'the reply stays in the person\'s language');
+});
+
+// ---- jira-entry 4.1: the skill's side of the Jira entry (D-3, D-5, D-7)
+
+test("jira-entry AC-1 skill: the task mode, the connector's read, open --task and the two replies that open nothing", () => {
+  const md = skillText();
+  assert.ok(md.includes('`task`'), 'the task mode of start');
+  const start = section(md, '## Start', '## A new change');
+  assert.match(start, /- `task`: .*### A Jira task/, 'the task mode points at the subsection');
+  assert.match(start, /`ask-unfinished`[^\n]*"start the new request"[^\n]*`task` is not null[^\n]*### A Jira task/, 'ask-unfinished sends a task to the subsection');
+  const jira = section(md, '### A Jira task', '## Loop');
+  assert.match(jira, /ToolSearch/);
+  assert.match(jira, /jira issue/);
+  for (const tool of ['getJiraIssue', 'getTransitionsForJiraIssue', 'addCommentToJiraIssue', 'transitionJiraIssue', 'getAccessibleAtlassianResources']) {
+    assert.ok(jira.includes(tool), `names ${tool}`);
+  }
+  assert.match(jira, /change-loop\.mjs reply task-no-connector --param key=<KEY> --lang \$\{user_config\.language\}/);
+  assert.match(jira, /change-loop\.mjs reply task-unreadable --param key=<KEY> --lang \$\{user_config\.language\}/);
+  for (const field of ['`key`', '`url`', '`title`', '`description`', '`acceptanceCriteria`']) assert.ok(jira.includes(field), `the JSON holds ${field}`);
+  assert.match(jira, /Nothing else of the task goes in/);
+  assert.match(jira, /task\.idPrefix/);
+  assert.match(jira, /change-loop\.mjs open <id> --script <s> --why <code> --task <KEY> --lang \$\{user_config\.language\}/);
+  assert.match(jira, /<<'DEVKIT_ARGS'/);
+  assert.match(jira, /`name-taken`/);
+  assert.match(jira, /`task-taken`/);
+  const calls = md.split('\n').filter((l) => /change-loop\.mjs (open|reply|write-back)\b/.test(l) && l.includes('<KEY>'));
+  for (const l of calls) assert.ok(l.includes(LANG_FLAG), `--lang on: ${l}`);
+});
+
+test('jira-entry AC-4 skill: the grill of a task leaves the request section as it is', () => {
+  const grill = skillText().split('\n').find((l) => l.startsWith('- `grill`'));
+  assert.ok(grill, 'a grill item');
+  assert.match(grill, /carries `task`/);
+  assert.match(grill, /paragraph on a request copied from a task/);
+  assert.match(grill, /leave `## Request`[^.]*exactly as it is/);
+});
+
+test('jira-entry AC-6 skill: the write-back question is asked once, in plain text, never with AskUserQuestion, and holds nothing', () => {
+  const md = skillText();
+  const wb = section(md, '### Writing back to the task', '## Owner gates');
+  assert.match(wb, /carries `writeBack`/);
+  assert.match(wb, /change-loop\.mjs write-back ask <id> --lang \$\{user_config\.language\}/);
+  assert.match(wb, /<<'DEVKIT_ARGS'/);
+  assert.match(wb, /"transitions"/);
+  assert.match(wb, /plain text, never with AskUserQuestion/);
+  assert.match(wb, /hold the turn/);
+  assert.match(wb, /`ask: true`/);
+  assert.match(md.slice(md.indexOf('## Owner gates')), /write-back question is not a gate and blocks nothing/);
+});
+
+test("jira-entry AC-7 skill: Jira is written only through write-back answer on the owner's own message, and a failed write is said and not retried", () => {
+  const md = skillText();
+  const wb = section(md, '### Writing back to the task', '## Owner gates');
+  assert.match(wb, /Only the owner's own typed message answers/);
+  assert.match(wb, /change-loop\.mjs write-back answer <id> --choice <choice> --lang \$\{user_config\.language\}/);
+  assert.match(wb, /`write: true`/);
+  assert.match(wb, /`write: false`/);
+  assert.match(wb, /reply write-back-failed --param key=<KEY> --param error="<message>"/);
+  assert.match(wb, /not retried/);
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Write to Jira except from `write-back answer` on the owner's own message/);
+  assert.match(never, /Ask the write-back question with AskUserQuestion/);
+  assert.match(never, /Copy a comment, subtask, linked task or attachment of a task into the change/);
+  assert.match(never, /Keep a Jira token or a Jira setting in the project/);
+});
+
+test('jira-entry AC-4 grill skill: a request copied from a task is asked only what it leaves open', () => {
+  const md = readRepo('plugins', 'core', 'skills', 'requirements-grill', 'SKILL.md');
+  const step3 = section(md, '### 3. Grill on the four axes', '### 4. ');
+  const para = step3.split('\n').find((l) => l.startsWith('**A request copied from a task.**'));
+  assert.ok(para, 'the paragraph ends step 3');
+  assert.match(para, /`Jira: <KEY>`/);
+  assert.match(para, /\(answered by the task\)/);
+  assert.match(para, /one question that confirms/);
+  assert.match(para, /never edit the request section/);
+});
+
+test('jira-entry docs: the flow document, the design document and ADR 0010 record the Jira entry', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  assert.ok(flow.split('\n').some((l) => l.startsWith('- `/devkit change <Jira key or link>`:')), 'the forms list has the Jira form');
+  const para = flow.split('\n').find((l) => l.startsWith('**A Jira task.**'));
+  assert.ok(para, 'the paragraph A Jira task');
+  assert.match(para, /Atlassian connector/);
+  assert.match(para, /makes no call and keeps no token/);
+  assert.match(para, /`requirements\.md`/);
+  assert.match(para, /resum/);
+  assert.match(para, /git common directory/);
+  assert.match(flow, /`project` is built and only `help` is not/);
+  assert.doesNotMatch(flow, /`project` and `help` are (still )?not built/);
+
+  const design = readRepo('docs', 'coordination-design.md');
+  const part = (from, to) => { const a = design.indexOf(from); assert.ok(a >= 0, from); const b = design.indexOf(to, a + from.length); return design.slice(a, b < 0 ? design.length : b); };
+  assert.match(design, /\| `\/devkit change PROJ-482` \| one task, read from Jira by its key or link \| 20 \(built\) \|/);
+  assert.match(part('## 1. ', '## 2. '), /Built by `jira-entry` on 2026-11-22: /);
+  assert.match(part('## 8. ', '## 9. '), /Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it\./);
+  assert.doesNotMatch(design, /source: jira/);
+  assert.match(part('## 13. ', '## 14. '), /Jira can be read on each platform \(the follow-up `jira-entry-live`, round 20b\)\./);
+
+  const adr = readRepo('docs', 'adr', '0010-openspec-as-the-harness.md');
+  const ctx = adr.slice(adr.indexOf('## Context'), adr.indexOf('ADR 0001 let devkit coordinate'));
+  assert.match(ctx, /Note \(jira-entry, 2026-11-22\): round 20 adds no task-source setting/);
+  assert.ok(ctx.indexOf('Note (project-phases') < ctx.indexOf('Note (jira-entry'), 'after the project-phases Note');
+  assert.match(adr, /^- Status: accepted$/m, 'its status does not change');
+});
+
+test('jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry', () => {
+  const text = readRepo('openspec', 'roadmap.md');
+  const lines = text.split('\n');
+  const at = lines.findIndex((l) => l.startsWith('## Round 20b: live proof of the Jira entry'));
+  assert.ok(at > lines.findIndex((l) => l.startsWith('## Round 20: the Jira entry')), 'the block follows round 20');
+  const line = lines.find((l) => l.startsWith('- [ ] jira-entry-live (after: jira-entry)'));
+  assert.ok(line, 'the unticked live-proof line');
+  assert.match(line, /disposable test task the owner names/);
+  const rounds = guardModule.readRoadmap(REPO_ROOT);
+  const round = rounds.find((r) => r.title.startsWith('Round 20b'));
+  assert.ok(round, 'readRoadmap reads the round');
+  assert.deepEqual(round.items.map((i) => ({ id: i.id, done: i.done, after: i.after })), [{ id: 'jira-entry-live', done: false, after: ['jira-entry'] }]);
 });
