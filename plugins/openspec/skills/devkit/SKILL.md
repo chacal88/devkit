@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /devkit change
 
-`/devkit change <request>` takes one change from the owner's words to its archive, in this session, with one script that decides. This skill is the session's side of it: the script `change-loop.mjs` says what comes next, and this text says how to carry it out. It keeps no state: every call re-reads the change's files, git and GitHub. The session is the change coordinator; it never writes product code itself.
+`/devkit change <request>` takes one change from the owner's words to its archive, in this session, with one script that decides. This skill is the session's side of it: the script `change-loop.mjs` says what comes next, and this text says how to carry it out. It keeps no state: every call re-reads the change's files, git and GitHub, and the session's transcripts when the project sets a token budget. The session is the change coordinator; it never writes product code itself.
 
 Path used below: `<skill-dir>/../../hooks/change-loop.mjs`, where `<skill-dir>` is this skill's directory. Every call of the script carries `--lang ${user_config.language}`. The roadmap sections below use `<skill-dir>/../../hooks/roadmap-loop.mjs`, whose every call also carries `--load-limit ${user_config.load_limit}`. The Project section uses `<skill-dir>/../../hooks/project-loop.mjs`.
 
@@ -80,7 +80,7 @@ DEVKIT_ARGS
 
 Repeat until an action of kind `end`. From the implementation on, the order is the script's: `verify` (the evidence) comes before `review`, and a fix outside the change's folder makes both stale (`verify`, then `review`).
 
-1. Run `node <skill-dir>/../../hooks/change-loop.mjs next --change <id> --lang ${user_config.language}`. After every `agent` or `session` action, add `--after` and the `progressKey` of that action. The first line printed is `devkit-run: <id>`; when the action is an end, a second line `devkit-end: <id> <state>` follows; the rest is one JSON action. Those marker lines are the record the stop lock reads: never show one to the owner.
+1. Run `node <skill-dir>/../../hooks/change-loop.mjs next --change <id> --lang ${user_config.language}`. After every `agent` or `session` action, add `--after` and the `progressKey` of that action. The first line printed is `devkit-run: <id>`; when the action is an end, a second line `devkit-end: <id> <state>` follows; the rest is one JSON action. Those marker lines are the record the stop lock reads: never show one to the owner. When `next` exits 3 with a `reply` and no `kind`, say `reply` and end the turn.
 1a. In a session a roadmap run started (its first message begins with `Background (from the session that started this one):` and names `/devkit roadmap`), after every `next` whose `sessionTitle` is present and differs from the title this session last set or was started with, load the tool with the ToolSearch query `select:mcp__ccd_session_mgmt__set_session_title` and call `mcp__ccd_session_mgmt__set_session_title` with `session_id` `"self"` and `title` the action's `sessionTitle`, from the main thread (a subagent cannot rename the session it runs in), before carrying out the action. A rename that fails or that the owner declines is not retried for the same `sessionTitle`, and the action goes on.
 2. Carry out the action by its `kind`:
 
@@ -91,7 +91,7 @@ Repeat until an action of kind `end`. From the implementation on, the order is t
 - `gate`: a `session` step. Run `detail.command` in Bash, alone: the exit code decides. Green: tick the gate task `detail.task` in `tasks.md`. Red: declare the end: run `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=tests-red --param phase=<n> --lang ${user_config.language}`, show its reply and end the run.
 - `resolve-release-conflict`: an `agent` hand-off to `devkit-core:tdd-implementer` with the brief and this sentence: Run `detail.command` in the worktree, then the project's test command; report the JSON and the result; change nothing else. `Outcome: failure` ends the run blocked.
 - `push-rebased`: an `agent` hand-off to `devkit-core:commit-and-pr` with the brief, `detail.oldHead` and `detail.paths`: The branch was rewritten by a rebase. Commit these files by name if any, then push with `git push --force-with-lease=<branch>:<oldHead> origin <branch>`. No PR edit. End the prompt with the attribution block of the `ship-change` skill's Attribution section.
-- `end`: say `reply`. `archived` and `blocked` end the run. `waiting-for-owner` ends the turn: the owner's next message is the answer. `waiting-on-github`: Waiting on GitHub, below.
+- `end`: say `reply`. `archived` and `blocked` end the run. `waiting-for-owner` ends the turn: the owner's next message is the answer. A `waiting-for-owner` end whose `end.why` is `waiting-budget` records nothing: the owner raises the cap in the file the reply names and types `/devkit change` again. `waiting-on-github`: Waiting on GitHub, below.
 
 An end the session declares itself (an agent's failure, a red gate, a pull-request decision left to the owner) goes through `reply`, never through a sentence of your own: its first output line, `devkit-end: <id> <state>`, is what lets the turn end without a refusal, and only the lines after it are shown to the owner.
 

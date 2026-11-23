@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.29.0 — the Jira entry
+## 0.30.0 — the Jira entry
 
-- **devkit-openspec** 0.25.0: `/devkit change <Jira key or link>` opens the change from that task.
+- **devkit-openspec** 0.26.0: `/devkit change <Jira key or link>` opens the change from that task.
   The session reads it through its own Atlassian connector; `change-loop.mjs` makes no call and
   keeps no token. `start` answers the `task` mode, `open --task <KEY>` writes a `Jira: <KEY> <link>`
   line and the quoted title, description and acceptance-criteria field under `## Request`, and the
@@ -14,7 +14,20 @@
   task leaves open, recording the rest as assumptions answered by the task.
 - Docs: the flow document, the design document and ADR 0010 (a dated Note: no task-source
   setting) record the entry; the roadmap gains round 20b (`jira-entry-live`).
-- CI: the snippet now pins `v0.25.0`, the release's tag.
+- CI: the snippet now pins `v0.26.0`, the release's tag.
+
+## 0.29.0 — the change budget
+
+- **devkit-openspec** 0.25.0: a `/devkit change` run stops at a token budget. `budget:` in the
+  `devkit:` block of `openspec/config.yaml`, or in a `devkit:` block of a change's own
+  `.openspec.yaml` (which wins), is a whole number of tokens; the loop counts the session's
+  spend from its transcripts and, between hand-offs, turns the next hand-off into an end waiting
+  for the owner (`waiting-budget`) that names the spend, the cap and the file to raise. With no
+  cap, no session id or an unreadable transcript, nothing is counted and nothing stops. An invalid
+  value is refused with the settings reply. The roadmap loop maps the new end to a gate. The CI
+  snippet now pins `v0.25.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` gains "The token budget" and a troubleshooting row;
+  `docs/coordination-design.md` records the setting's name as final.
 
 ## 0.28.0 — one state per change
 

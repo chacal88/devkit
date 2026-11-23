@@ -383,8 +383,11 @@ devkit:
 `devkit.language` (the language of the project's files; default `en`) and `devkit.driver` (`claude`,
 `compozy` or `script`; default `claude`) are final. Decided by `stage-roles` on
 2026-11-21: `devkit.tests.unit`, `devkit.tests.coverage.command`, `devkit.tests.coverage.target`,
-`devkit.tests.e2e`. The other fields stay proposed, for rounds 17 and 20.
+`devkit.tests.e2e`. The other fields stay proposed, for rounds 17 and 20. `devkit.budget` (a whole number of tokens, the
+cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml`, are final too, decided by
+`change-budget` on 2026-11-22.
 Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
+
 
 **The header's field names (decided by `flow-script-checker`).** The three facts are `result`, `attempt` and
 `commit`, in one comment line at the top of each stage file:

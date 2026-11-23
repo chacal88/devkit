@@ -25,7 +25,7 @@ const SCHEMAS = join(HERE, '..', 'schemas');
 const LOOP = join(HERE, 'change-loop.mjs');
 
 // Every env a test of this file builds blanks the branch variables together (CONTRIBUTING.md, testing rules).
-const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
 const cleanEnv = { ...process.env, ...SET };
 
 const TDD = 'devkit-core:tdd-implementer';
@@ -85,7 +85,11 @@ const SAMPLE = {
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
   base: 'main', state: 'github', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  spent: 2100000, cap: 2000000,
+  file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
+// The one reply that names a file: the budget stop names the change's settings file, where the owner raises the cap.
+const NAMES_ITS_FILE = ['waiting-budget'];
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
 const codes = (lang, prefix) => Object.keys(MESSAGES[lang]).filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length));
@@ -123,12 +127,12 @@ test('change-loop replies: no internal term in either language', () => {
   assert.ok(refusedIds.length > 20 && refusedIds.includes('code-quality-reviewer') && refusedIds.includes('stop-branch') && refusedIds.includes('no-progress'));
   assert.deepEqual(Object.keys(MESSAGES.en).sort(), Object.keys(MESSAGES['pt-BR']).sort(), 'the same keys in both languages');
   // Parameter texts the design table gives identically in both languages (a product name and a word that is the same).
-  const EXEMPT_EQUAL = ['driver.compozy', 'setting.driver', 'roadmap-stayed', 'need.owner', 'running.stage'];
+  const EXEMPT_EQUAL = ['driver.compozy', 'setting.driver', 'roadmap-stayed', 'need.owner', 'running.stage', 'setting.budget'];
   for (const lang of ['en', 'pt-BR']) {
     for (const { key, text } of renderings(lang)) {
       assert.ok(typeof text === 'string' && text.length > 0 && !/undefined|NaN|\[object|\{\w+\}/.test(text), `${lang} ${key}: ${text}`);
       assert.ok(!text.includes('`'), `${lang} ${key} has a backtick: ${text}`);
-      assert.ok(!/[\w.-]+\.(md|json|mjs|js|ts|ya?ml)\b/.test(text), `${lang} ${key} names a file: ${text}`);
+      if (!NAMES_ITS_FILE.includes(key)) assert.ok(!/[\w.-]+\.(md|json|mjs|js|ts|ya?ml)\b/.test(text), `${lang} ${key} names a file: ${text}`);
       assert.ok(!/\b[a-z][\w-]*=\S/i.test(text), `${lang} ${key} has a name=value shape: ${text}`);
       for (const name of [...refusedIds, ...refusedWords]) assert.ok(!wordRe(name).test(text), `${lang} ${key} holds ${name}: ${text}`);
       assert.ok(!/(^|\s)--[a-z]/i.test(text), `${lang} ${key} holds an option: ${text}`);
@@ -2493,11 +2497,12 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); jira-entry moves it to 0.25.0 (release 0.29.0); 0.24.0 went to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.25\.0/, 'the CI snippet pins the current release (jira-entry: 0.25.0)');
-  assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release (jira-entry)');
-  assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release (jira-entry)');
-  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); jira-entry moves it to 0.26.0 (release 0.30.0); 0.25.0 went to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.26\.0/, 'the CI snippet pins the current release (jira-entry: 0.26.0)');
+  assert.doesNotMatch(flow, /v0\.25\.0/, 'no pin left on the previous release (change-budget)');
+  assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release (change-state)');
+  assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release (commit-attribution)');
+  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release (test-fixture-cleanup)');
   assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
@@ -3300,7 +3305,7 @@ test('followups AC-10 open lock: open on a held open lock fails with its own mes
 });
 
 test('followups AC-10 guard: an edit and a shell write in a change run read the transcript once', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   for (const [mode, input] of [
     ['edit', (t) => editInput(root, 'src/a.ts', t)],
     ['bash', (t) => bashInput(root, 'echo x > src/a.ts', t)],
@@ -3328,7 +3333,7 @@ test('followups F-4 guard: the task of a session started by another session make
   const run = runOf({ transcript_path: transcript });
   assert.equal(run?.change, 'feat');
   assert.equal(run?.command, 'change feat');
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const w = hook('edit', editInput(root, 'src/a.ts', transcript), { TMPDIR: sandbox() });
   assert.equal(w.code, 2, `a product edit is refused as in any change run: ${w.err}`);
   assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat')), assistantLine()]) }), null, 'no devkit-run line yet: no run');
@@ -3619,6 +3624,19 @@ test('jira-entry AC-6 next carries no writeBack after the question was asked, fo
   assert.equal('writeBack' in parsed(next(t.main, [], env)).action, false, 'not on the archive branch');
 });
 
+test('jira-entry AC-6 next carries the task but no writeBack on a budget end held at the pull request', () => {
+  const { t, wt, env } = deliveredChange({ checks: [check('build', 'fail')], requirements: TASK_REQUIREMENTS });
+  const open = parsed(next(t.main, [], env)).action;
+  assert.notEqual(open.kind, 'end', 'under no cap the failing checks hand a step');
+  assert.ok(open.writeBack, 'the question is pending before the stop');
+  writeFileSync(join(wt, 'openspec', 'changes', 'feat', '.openspec.yaml'), 'schema: devkit-lite\ndevkit:\n  budget: 1000\n');
+  const capped = { ...budgetEnv(sandbox(), 'sess-budget', [typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: 5000 })]) };
+  const stopped = parsed(next(t.main, [], { ...env, CLAUDE_CONFIG_DIR: capped.CLAUDE_CONFIG_DIR, CLAUDE_CODE_SESSION_ID: capped.CLAUDE_CODE_SESSION_ID })).action;
+  assert.equal(stopped.end?.why, 'waiting-budget', 'the cap holds the step');
+  assert.deepEqual(stopped.task, { key: 'PROJ-482', link: TASK_LINK }, 'the task still attaches');
+  assert.equal('writeBack' in stopped, false, 'a budget-stopped end asks nothing');
+});
+
 test('jira-entry AC-6 a pending question changes no decision', async () => {
   const withTask = deliveredChange({ requirements: TASK_REQUIREMENTS });
   const without = deliveredChange();
@@ -3903,6 +3921,441 @@ test('jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry
   assert.deepEqual(round.items.map((i) => ({ id: i.id, done: i.done, after: i.after })), [{ id: 'jira-entry-live', done: false, after: ['jira-entry'] }]);
 });
 
+// ---------------------------------------------------------------- the token budget (change-budget)
+
+// A model message line with a usage object; `sidechain` marks a subagent's own line.
+const usageLine = ({ id = null, input = 0, output = 0, cacheWrite = 0, cacheRead = 0, at = '2026-11-20T10:00:00.000Z', sidechain = false } = {}) => stored({
+  type: 'assistant',
+  timestamp: at,
+  isSidechain: sidechain,
+  message: { role: 'assistant', ...(id ? { id } : {}), content: [{ type: 'text', text: 'working' }], usage: { input_tokens: input, output_tokens: output, cache_creation_input_tokens: cacheWrite, cache_read_input_tokens: cacheRead } },
+});
+const at = (minute) => `2026-11-20T10:${String(minute).padStart(2, '0')}:00.000Z`;
+// The env of a test that reads a transcript: a config folder with `projects/p/<id>.jsonl` written.
+const budgetEnv = (dir, id, lines = [assistantLine()]) => {
+  mkdirSync(join(dir, 'projects', 'p'), { recursive: true });
+  writeFileSync(join(dir, 'projects', 'p', `${id}.jsonl`), `${lines.join('\n')}\n`);
+  return { ...cleanEnv, CLAUDE_CONFIG_DIR: dir, CLAUDE_CODE_SESSION_ID: id };
+};
+// A session transcript with `lines`, and subagent files `{ name: lines }` beside it.
+const spendTranscript = (lines, subagents = {}) => {
+  const file = transcriptOf(lines);
+  const folder = join(dirname(file), SESSION, 'subagents');
+  if (Object.keys(subagents).length) mkdirSync(folder, { recursive: true });
+  for (const [name, content] of Object.entries(subagents)) writeFileSync(join(folder, name), `${content.join('\n')}\n`);
+  return file;
+};
+const spent = (file, change = 'feat') => guardModule.spentOf(file, change);
+
+test('change-budget AC-9 sessionTranscript finds the session file under CLAUDE_CONFIG_DIR', () => {
+  const dir = sandbox();
+  const env = budgetEnv(dir, 'sess-1');
+  assert.equal(guardModule.sessionTranscript(env), join(dir, 'projects', 'p', 'sess-1.jsonl'));
+});
+
+test('change-budget AC-9 sessionTranscript falls back to HOME/.claude', () => {
+  const home = sandbox();
+  const env = { ...budgetEnv(join(home, '.claude'), 'sess-2'), CLAUDE_CONFIG_DIR: '', HOME: home };
+  assert.equal(guardModule.sessionTranscript(env), join(home, '.claude', 'projects', 'p', 'sess-2.jsonl'));
+});
+
+test('change-budget AC-9 sessionTranscript is null with no id, an unsafe id, no file or no projects folder', () => {
+  const dir = sandbox();
+  const env = budgetEnv(dir, 'sess-3');
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: '' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: undefined }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: '../sess-3' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: 'a/b' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: 'other' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CONFIG_DIR: sandbox() }), null);
+});
+
+test('change-budget AC-7 the fixture of the spec counts exactly 7525', () => {
+  const model = (id) => usageLine({ id, input: 10, output: 200, cacheWrite: 3000, cacheRead: 50000, at: at(5) });
+  const file = spendTranscript(
+    [typedLine('change feat'), skillBodyLine('change feat'), runLine('feat'), model('m1'), model('m2')],
+    { 'agent-a.jsonl': [usageLine({ id: 's1', input: 5, output: 100, cacheWrite: 1000, at: at(6), sidechain: true })] },
+  );
+  const r = spent(file);
+  assert.equal(r.spent, 7525);
+  assert.equal(typeof r.since, 'string');
+});
+
+test('change-budget AC-7 lines before the first run line do not count and the first run line wins', () => {
+  const file = spendTranscript([
+    typedLine('change feat'), usageLine({ id: 'old', input: 1000 }), toolResultLine(`devkit-run: feat\n{}`),
+    usageLine({ id: 'a', input: 10, at: at(1) }), toolResultLine(`devkit-run: feat\n{}`), usageLine({ id: 'b', input: 20, at: at(2) }),
+  ]);
+  assert.equal(spent(file).spent, 30);
+});
+
+test('change-budget AC-7 another change run line starts no count', () => {
+  const file = spendTranscript([typedLine('change other'), runLine('other'), usageLine({ id: 'a', input: 10 })]);
+  assert.deepEqual(spent(file), { spent: 0, since: null });
+});
+
+test('change-budget AC-7 a message on several lines counts once and a line with no id counts each time', () => {
+  const file = spendTranscript([
+    typedLine('change feat'), runLine('feat'),
+    usageLine({ id: 'm', input: 10 }), usageLine({ id: 'm', input: 10 }), usageLine({ id: 'm', input: 10 }),
+    usageLine({ input: 7 }), usageLine({ input: 7 }),
+  ]);
+  assert.equal(spent(file).spent, 24);
+});
+
+test('change-budget AC-7 a subagent started before the run line does not count', () => {
+  // the run line carries the stored default timestamp (10:00); the subagent starts at 09:59 and records a message at 10:20
+  const file = spendTranscript(
+    [typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: 1, at: at(10) })],
+    {
+      'agent-early.jsonl': [usageLine({ id: 'e', input: 500, at: '2026-11-20T09:59:00.000Z', sidechain: true }), usageLine({ id: 'e2', input: 500, at: at(20), sidechain: true })],
+      'agent-late.jsonl': [usageLine({ id: 'l', input: 70, at: at(15), sidechain: true })],
+    },
+  );
+  assert.equal(spent(file).spent, 71);
+});
+
+test('change-budget AC-7 a subagent file with no timestamp does not count', () => {
+  const noStamp = JSON.stringify({ type: 'assistant', isSidechain: true, message: { id: 'n', usage: { input_tokens: 900 } } });
+  const file = spendTranscript([typedLine('change feat'), runLine('feat')], { 'agent-none.jsonl': [noStamp] });
+  assert.equal(spent(file).spent, 0);
+});
+
+test('change-budget AC-7 a sidechain model line of the session transcript counts', () => {
+  const file = spendTranscript([typedLine('change feat'), runLine('feat'), usageLine({ id: 's', input: 40, sidechain: true })]);
+  assert.equal(spent(file).spent, 40);
+});
+
+test('change-budget AC-7 a missing or non-number usage field counts 0', () => {
+  const odd = stored({ type: 'assistant', message: { id: 'odd', usage: { input_tokens: 'x', output_tokens: -4, cache_creation_input_tokens: null } } });
+  const half = stored({ type: 'assistant', message: { id: 'half', usage: { output_tokens: 6 } } });
+  const file = spendTranscript([typedLine('change feat'), runLine('feat'), odd, half]);
+  assert.equal(spent(file).spent, 6);
+});
+
+test('change-budget AC-9 an unreadable session transcript gives null, an unreadable subagent adds nothing', () => {
+  assert.equal(spent(join(sandbox(), 'missing.jsonl')), null);
+  const file = spendTranscript([typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: 3 })]);
+  const folder = join(dirname(file), SESSION, 'subagents');
+  mkdirSync(join(folder, 'agent-dir.jsonl'), { recursive: true });
+  assert.equal(spent(file).spent, 3);
+});
+
+test('change-budget AC-4 the scan without the option returns the same events as before (kept)', () => {
+  const file = transcriptOf([typedLine('change feat'), usageLine({ id: 'a', input: 5 }), runLine('feat')]);
+  const events = guardModule.transcriptEvents({ transcript_path: file });
+  assert.equal(events.length, 2);
+  for (const event of events) {
+    assert.equal('at' in event, false);
+    assert.equal('start' in event, false);
+    assert.equal('usage' in event, false);
+  }
+});
+
+// ---- the setting (D-1)
+
+const CHANGE_FILE = (dir) => join(dir, '.openspec.yaml');
+// A project root holding `config` as its openspec/config.yaml, and a change folder (outside it) holding `change` as its .openspec.yaml.
+const budgetFiles = (config, change = null) => {
+  const root = configRepo(config);
+  const dir = tmpFolder('devkit-change-budget-dir-');
+  if (change !== null) writeFileSync(CHANGE_FILE(dir), change);
+  return { root, dir };
+};
+const capOf = (config, change = null, lang = 'en') => {
+  const { root, dir } = budgetFiles(config, change);
+  return changeLoopModule.budgetOf(root, dir, lang);
+};
+const block = (...lines) => `schema: devkit\ndevkit:\n${lines.map((l) => `  ${l}\n`).join('')}`;
+
+test('change-budget AC-5 the project budget applies when the change sets none', () => {
+  const { root, dir } = budgetFiles(block('budget: 2000000'), 'schema: devkit\n');
+  assert.deepEqual(changeLoopModule.budgetOf(root, dir, 'en'), { cap: 2000000, from: 'project', file: CHANGE_FILE(dir) });
+  assert.deepEqual(readDevkitSettings(root), { driver: 'claude', language: 'en', unknown: [] }, 'the settings keep their shape');
+  const noFile = budgetFiles(block('budget: 2000000'));
+  assert.equal(changeLoopModule.budgetOf(noFile.root, noFile.dir, 'en').cap, 2000000, 'a change with no .openspec.yaml at all');
+});
+
+test('change-budget AC-5 the change block wins for that change only', () => {
+  const project = block('budget: 2000000');
+  const a = budgetFiles(project, block('budget: 500000'));
+  const b = budgetFiles(project, 'schema: devkit\n');
+  const capA = changeLoopModule.budgetOf(a.root, a.dir, 'en');
+  assert.deepEqual([capA.cap, capA.from, capA.file], [500000, 'change', CHANGE_FILE(a.dir)]);
+  assert.deepEqual([changeLoopModule.budgetOf(b.root, b.dir, 'en').cap, changeLoopModule.budgetOf(b.root, b.dir, 'en').from], [2000000, 'project']);
+});
+
+test('change-budget AC-4 no key, or an empty value, in either file is no cap', () => {
+  assert.equal(capOf('schema: devkit\n'), null);
+  assert.equal(capOf('schema: devkit\n', 'schema: devkit\n'), null);
+  assert.equal(capOf(block('budget:'), block('budget:')), null);
+  assert.equal(capOf(block('budget:   # none'), null), null);
+  assert.equal(capOf(block('budget: ""'), null), null);
+  assert.equal(capOf(block('driver: claude'), block('language: en')), null);
+});
+
+test('change-budget AC-4 an empty value in the change falls through to the project value', () => {
+  const cap = capOf(block('budget: 300'), block('budget:'));
+  assert.deepEqual([cap.cap, cap.from], [300, 'project']);
+});
+
+test('change-budget AC-5 a top-level budget of .openspec.yaml is not read', () => {
+  assert.equal(capOf('schema: devkit\n', 'schema: devkit\nbudget: 100\n'), null);
+  assert.equal(capOf(block('budget: 700'), 'schema: devkit\nbudget: 100\n').cap, 700);
+  assert.equal(capOf('schema: devkit\nbudget: 100\n', null), null, 'nor one of openspec/config.yaml');
+});
+
+test('change-budget AC-5 a quoted value, a comment and an unclosed quote read the number', () => {
+  for (const line of ['budget: "2000000"  # two million', 'budget: 2000000   # two million', "budget: '2000000'", 'budget: "2000000', 'budget: 007']) {
+    const cap = capOf(block(line));
+    assert.equal(cap.cap, line.endsWith('007') ? 7 : 2000000, line);
+  }
+});
+
+test('change-budget AC-4 other keys of the change block are not read (kept)', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/changes/feat/.openspec.yaml': block('driver: robot', 'language: "not a tag"') });
+  commitAll(root, 'odd keys');
+  const r = next(root);
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(parsed(r).action.agent, PLANNER);
+});
+
+test('change-budget AC-8 budgetValue refuses everything but a whole number above zero', () => {
+  const fn = changeLoopModule.budgetValue;
+  for (const bad of ['abc', '0', '-5', '1.5', '2e6', '2_000_000', '9007199254740993', ' 5x']) assert.deepEqual(fn(bad), { invalid: bad }, bad);
+  assert.equal(fn(undefined), null);
+  assert.equal(fn(''), null);
+  assert.deepEqual(fn('2000000'), { cap: 2000000 });
+  assert.deepEqual(fn('007'), { cap: 7 });
+});
+
+test('change-budget AC-8 an invalid project budget makes start answer setting-unknown and open create nothing', () => {
+  for (const value of ['abc', '0', '-5', '1.5', '2e6', '2_000_000']) {
+    const config = `schema: devkit\ndevkit:\n  budget: ${value}\n`;
+    const root = devkitRepo(config);
+    const before = snapshot(root);
+    const b = body(startRun(root, 'change add an export'));
+    assert.equal(b.mode, 'setting-unknown', value);
+    assert.equal(b.reply, render('en', 'setting-unknown', { setting: 'budget', value, accepted: '1, 2, 3, …' }), value);
+    assert.equal(snapshot(root), before, value);
+    const t = freshProject(config);
+    const beforeOpen = snapshot(t.main);
+    const r = openRun(t.main, 'new-thing');
+    assert.equal(r.code, 3, value);
+    assert.equal(body(r).reply, b.reply, 'the reply is the one the typed command gives');
+    assert.equal(snapshot(t.main), beforeOpen, value);
+  }
+});
+
+test('change-budget AC-8 an invalid change budget makes next exit 3 with the settings reply and no hand-off', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/changes/feat/.openspec.yaml': block('budget: 0') });
+  commitAll(root, 'zero budget');
+  const r = next(root);
+  assert.equal(r.code, 3, r.stderr);
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  const out = body(r);
+  assert.equal(out.reply, render('en', 'setting-unknown', { setting: 'budget', value: '0', accepted: '1, 2, 3, …' }));
+  assert.equal('kind' in out, false, 'no hand-off');
+});
+
+test('change-budget AC-8 an invalid project budget makes next exit 3 even under a valid change value', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/config.yaml': block('budget: abc'), 'openspec/changes/feat/.openspec.yaml': block('budget: 500') });
+  commitAll(root, 'bad project budget');
+  const r = next(root);
+  assert.equal(r.code, 3, r.stderr);
+  assert.equal(body(r).reply, render('en', 'setting-unknown', { setting: 'budget', value: 'abc', accepted: '1, 2, 3, …' }));
+});
+
+test('change-budget AC-8 the settings reply names budget and the value in both languages', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const reply = render(lang, 'setting-unknown', { setting: 'budget', value: '2e6', accepted: '1, 2, 3, …' });
+    assert.ok(reply.includes('budget') && reply.includes('2e6') && reply.includes('1, 2, 3'), `${lang}: ${reply}`);
+    assert.throws(() => capOf(block('budget: 2e6'), null, lang), (e) => e.name === 'LoopRefusal' && e.reply === reply, lang);
+  }
+});
+
+// ---- the decision (D-4)
+
+const AT_PLAN = () => ({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } } });
+const BUDGET_FILE = '/w/feat/openspec/changes/feat/.openspec.yaml';
+const withBudget = (spent, cap = 2000000) => ({ budget: { cap, file: BUDGET_FILE, spent } });
+
+test('change-budget AC-1 at the cap an agent hand-off becomes the budget end', () => {
+  const held = run(AT_PLAN());
+  assert.equal(held.kind, 'agent');
+  const a = run({ ...AT_PLAN(), facts: withBudget(2000000) });
+  assert.deepEqual(shape(a), ['end', 'waiting-for-owner', 'waiting-budget', 1]);
+  assert.deepEqual(a.params, { id: 'feat', spent: 2000000, cap: 2000000, file: BUDGET_FILE });
+  assert.deepEqual(a.detail.held, { kind: 'agent', stage: 'proposal', step: null, agent: PLANNER });
+  assert.equal(a.stage, 'proposal');
+  assert.equal(a.reply, says('waiting-budget', { spent: 2000000, cap: 2000000, file: BUDGET_FILE }));
+});
+
+test('change-budget AC-1 above the cap a session step becomes the budget end', () => {
+  const lite = FLOWS['devkit-lite'];
+  const rep = { schema: 'devkit-lite', next: nextOf(lite, 'proposal', 'no-file') };
+  const over = { flow: lite, ctx: { script: 'devkit-lite' }, report: reportOf(lite, rep), facts: { flags: ['ui'], ...withBudget(2100000) } };
+  const a = run(over);
+  assert.deepEqual(shape(a), ['end', 'waiting-for-owner', 'waiting-budget', 1]);
+  assert.deepEqual([a.detail.held.kind, a.detail.held.step], ['session', 'switch-script']);
+  assert.equal(a.params.spent, 2100000);
+});
+
+test('change-budget AC-3 under the cap the action is the one given with no budget (kept)', () => {
+  const plain = run(AT_PLAN());
+  assert.deepEqual(run({ ...AT_PLAN(), facts: withBudget(1999999) }), plain);
+  assert.deepEqual(run({ ...AT_PLAN(), facts: { budget: null } }), plain);
+});
+
+test('change-budget AC-9 a spend of null holds nothing (kept)', () => {
+  assert.deepEqual(run({ ...AT_PLAN(), facts: withBudget(null) }), run(AT_PLAN()));
+});
+
+test('change-budget AC-1 the grill and the ends are not held (kept)', () => {
+  const over = withBudget(9000000);
+  const grill = run({ rep: { next: nextOf(FLOWS.devkit, 'requirements', 'no-file') }, facts: over });
+  assert.equal(grill.kind, 'grill');
+  const approval = run({ rep: { end: endOf('waiting-for-owner', 'approval', 'owner-pending') }, facts: over });
+  assert.equal(approval.end.state, 'waiting-for-owner');
+  assert.notEqual(approval.end.why, 'waiting-budget');
+  const blockedEnd = run({ rep: { next: nextOf(FLOWS.devkit, 'open', 'no-file', { file: '.openspec.yaml' }), stages: { open: { state: 'pending', reasonCode: 'no-file' } } }, facts: over });
+  assert.equal(blockedEnd.end.why, 'not-opened');
+  const archived = run({ rep: { end: endOf('archived', null, 'archived') }, facts: over });
+  assert.equal(archived.end.state, 'archived');
+});
+
+test('change-budget AC-1 a no-progress end wins over the budget (kept)', () => {
+  const stuck = run({ ...AT_PLAN(), facts: { after: 'proposal/proposal@abc123', ...withBudget(9000000) } });
+  assert.deepEqual([stuck.end.state, stuck.end.why], ['blocked', 'no-progress']);
+});
+
+// ---- next (D-4, D-5)
+
+// A `feat` change at its plan stage with a cap, and a session transcript of `spent` tokens after its run line.
+function cappedRun({ cap, spent, project = null, lines = null } = {}) {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  const files = { 'openspec/changes/feat/.openspec.yaml': cap === null ? 'schema: devkit\n' : block(`budget: ${cap}`) };
+  if (project !== null) files['openspec/config.yaml'] = block(`budget: ${project}`);
+  put(root, files);
+  commitAll(root, 'budget');
+  const env = budgetEnv(sandbox(), 'sess-budget', lines ?? [typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: spent })]);
+  return { root, env, file: join(root, 'openspec', 'changes', 'feat', '.openspec.yaml') };
+}
+
+test('change-budget AC-1 next at the cap prints the run line and the end line and exits 1', () => {
+  const t = cappedRun({ cap: 1000, spent: 1000 });
+  const r = next(t.root, [], t.env);
+  assert.equal(r.code, 1, r.stderr);
+  const lines = r.stdout.split('\n');
+  assert.deepEqual(lines.slice(0, 2), ['devkit-run: feat', 'devkit-end: feat waiting-for-owner']);
+  const action = actionOf(r.stdout);
+  assert.deepEqual([action.end.state, action.end.why, action.stage], ['waiting-for-owner', 'waiting-budget', 'proposal']);
+  assert.deepEqual([action.params.spent, action.params.cap, action.params.file], [1000, 1000, t.file]);
+});
+
+test('change-budget AC-2 the reply says the spend, the cap, the file, budget and /devkit change in both languages', () => {
+  const t = cappedRun({ cap: 1000, spent: 1200 });
+  for (const lang of ['en', 'pt-BR']) {
+    const r = main(['next', '--change', 'feat', '--lang', lang], { cwd: t.root, env: t.env });
+    const { reply } = actionOf(r.stdout);
+    assert.equal(reply, render(lang, 'waiting-budget', { id: 'feat', spent: 1200, cap: 1000, file: actionOf(r.stdout).params.file }), lang);
+    for (const part of ['feat', '1200', '1000', actionOf(r.stdout).params.file, 'budget', '/devkit change']) assert.ok(reply.includes(part), `${lang} names ${part}: ${reply}`);
+  }
+  assert.ok(actionOf(next(t.root, [], t.env).stdout).params.file.endsWith('/openspec/changes/feat/.openspec.yaml'));
+  assert.match(MESSAGES['pt-BR']['waiting-budget'], /orçamento/);
+});
+
+test('change-budget AC-6 a raised cap in the change file gives back the held hand-off', () => {
+  const t = cappedRun({ cap: 1000, spent: 1500 });
+  const held = actionOf(next(t.root, [], t.env).stdout).detail.held;
+  put(t.root, { 'openspec/changes/feat/.openspec.yaml': block('budget: 5000') });
+  const r = next(t.root, [], t.env);
+  assert.equal(r.code, 0, r.stderr);
+  const action = actionOf(r.stdout);
+  assert.deepEqual([action.kind, action.agent, action.stage], [held.kind, held.agent, held.stage]);
+});
+
+test('change-budget AC-6 an unchanged cap stops again', () => {
+  const t = cappedRun({ cap: 1000, spent: 1500 });
+  for (let i = 0; i < 2; i += 1) {
+    const r = next(t.root, [], t.env);
+    assert.deepEqual([r.code, actionOf(r.stdout).end.why], [1, 'waiting-budget']);
+  }
+});
+
+test('change-budget AC-4 with no budget next prints the same output with and without a session transcript, and reads none (kept)', () => {
+  const t = cappedRun({ cap: null, spent: 5000000 });
+  const spy = readCounter();
+  const transcript = join(t.env.CLAUDE_CONFIG_DIR, 'projects', 'p', 'sess-budget.jsonl');
+  const run = (env) => spawnSync(process.execPath, [LOOP, 'next', '--change', 'feat', '--lang', 'en'], { cwd: t.root, env, encoding: 'utf8' });
+  const withTranscript = run({ ...t.env, ...spy.env(transcript) });
+  const without = run(cleanEnv);
+  assert.equal(withTranscript.status, 0, withTranscript.stderr);
+  assert.equal(withTranscript.stdout, without.stdout);
+  assert.equal(spy.reads(), 0, 'the transcript was not read');
+});
+
+test('change-budget AC-9 with a cap and no session id, or a folder for the transcript, next hands the stage (kept)', () => {
+  const t = cappedRun({ cap: 1, spent: 999 });
+  const noId = next(t.root, [], { ...t.env, CLAUDE_CODE_SESSION_ID: '' });
+  assert.deepEqual([noId.code, actionOf(noId.stdout).kind], [0, 'agent']);
+  const dir = sandbox();
+  const env = budgetEnv(dir, 'sess-dir');
+  rmSync(join(dir, 'projects', 'p', 'sess-dir.jsonl'));
+  mkdirSync(join(dir, 'projects', 'p', 'sess-dir.jsonl'));
+  const asDir = next(t.root, [], env);
+  assert.deepEqual([asDir.code, actionOf(asDir.stdout).kind], [0, 'agent']);
+});
+
+test('change-budget AC-5 next on two changes uses each one cap', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/config.yaml': block('budget: 2000000'), 'openspec/changes/feat/.openspec.yaml': block('budget: 500'), 'openspec/changes/other/.openspec.yaml': 'schema: devkit\n', 'openspec/changes/other/requirements.md': '# requirements\n' });
+  commitAll(root, 'two changes');
+  const env = budgetEnv(sandbox(), 'sess-two', [typedLine('change feat'), runLine('feat'), runLine('other'), usageLine({ id: 'a', input: 1000 })]);
+  const feat = main(['next', '--change', 'feat', '--lang', 'en'], { cwd: root, env });
+  assert.equal(actionOf(feat.stdout).end?.why, 'waiting-budget', 'feat has the cap of 500');
+  const other = main(['next', '--change', 'other', '--lang', 'en'], { cwd: root, env });
+  assert.notEqual(actionOf(other.stdout).end?.why, 'waiting-budget', 'other keeps the project cap of 2000000');
+});
+
+test('change-budget AC-1 nextAction without the option applies no cap (kept)', () => {
+  const t = cappedRun({ cap: 1, spent: 999 });
+  const action = changeLoopModule.nextAction(t.root, 'feat', { env: t.env, lang: 'en' });
+  assert.equal(action.kind, 'agent');
+});
+
+test('change-budget AC-1 the stop hook lets the turn end at the first attempt on the budget output', () => {
+  const t = cappedRun({ cap: 1000, spent: 1000 });
+  const r = next(t.root, [], t.env);
+  assert.equal(r.code, 1, r.stderr);
+  const transcript = transcriptOf([typedLine('change feat'), toolResultLine(r.stdout)]);
+  const stop = hook('stop', stopInput(t.root, transcript), { TMPDIR: sandbox() });
+  assert.equal(stop.code, 0, stop.err);
+});
+
+// ---- the docs (D-10)
+
+test('change-budget AC-10 docs/openspec-flow.md describes the budget', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  const at = flow.indexOf('**The token budget.**');
+  assert.ok(at >= 0, 'the paragraph exists');
+  const part = flow.slice(at, flow.indexOf('\n\n', flow.indexOf('\n\n', at) + 2));
+  const whole = flow.slice(at, at + 4000);
+  assert.match(part, /`budget:`/);
+  assert.match(whole, /devkit:` block of `openspec\/config\.yaml`/);
+  assert.match(whole, /\.openspec\.yaml/);
+  assert.match(whole, /input_tokens/);
+  assert.match(whole, /output_tokens/);
+  assert.match(whole, /cache_creation_input_tokens/);
+  assert.match(whole, /cache_read_input_tokens/);
+  assert.match(whole, /waiting for the owner|waits for the owner/);
+  assert.match(whole, /`\/devkit change` again/);
+  assert.match(flow, /\*\*The settings\.\*\*/);
+});
+
 // ---------------------------------------------------------------- change-state: phase 1, the state, the GitHub rule and the title (design D-1, D-2, D-4, D-5)
 
 const { changeState, runFactsOf, githubSilent, sessionTitle: titleOf, STATE_ICON } = changeLoopModule;
@@ -4014,6 +4467,19 @@ test('change-state AC-3 state: the drawn mock-up waits for the owner with its ga
   assert.equal(changeLoopModule.gateOf(a), 'mockup');
   const facts = { sessionMode: true, started: true, inflight: null, declared: { state: 'waiting-for-owner', why: 'waiting-mockup', params: {} }, waits: false };
   assert.deepEqual(stateOf(a, facts).reason, { code: 'waiting-mockup', text: 'your approval of the mock-up' });
+});
+
+test('change-budget AC-1 state: the budget end waits for the owner with its gate phrase, as an end and as a declared wait', () => {
+  const a = run({ ...AT_PLAN(), facts: withBudget(2000000) });
+  assert.equal(a.end.why, 'waiting-budget', 'the fixture is the end decide gives');
+  const s = stateOf(a);
+  assert.equal(s.state, 'waiting-for-owner');
+  assert.deepEqual(s.reason, { code: 'waiting-budget', text: 'a higher token budget' });
+  assert.equal(s.stateIcon, '🙋');
+  assert.equal(changeLoopModule.gateOf(a), 'budget');
+  const facts = { sessionMode: true, started: true, inflight: null, declared: { state: 'waiting-for-owner', why: 'waiting-budget', params: {} }, waits: false };
+  assert.deepEqual(stateOf(a, facts).reason, { code: 'waiting-budget', text: 'a higher token budget' });
+  assert.equal(stateOf(a, facts, { lang: 'pt-BR' }).reason.text, 'um orçamento de tokens maior');
 });
 
 test('change-state AC-3 state: a stage role of the decisions stage has its icon', () => {
