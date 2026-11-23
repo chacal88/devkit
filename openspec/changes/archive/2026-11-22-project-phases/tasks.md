@@ -1,6 +1,8 @@
 <!-- devkit-stage tasks result=passed attempt=2 commit=2300f84524e5c1ec5ed8a0da41e5a5dccff9cc34 -->
 # Tasks
 
+> Note (project-phases-followups, 2026-11-22): the slice ADR this plan calls ADR 0014 shipped as ADR 0015 (`docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md`), because another change took the number 0014 first (`docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`). The approved text below is unchanged.
+
 Change: `project-phases` · Date: 2026-11-21 · Owner: Kaue (chacal88)
 
 Work only in this change's worktree, on its branch. Every rule, table, text and test name is in
