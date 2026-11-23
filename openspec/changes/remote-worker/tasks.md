@@ -45,8 +45,8 @@ test `main` added that the claim commit moves (T-14 of D-14, task 5.8), and `ope
 remote-worker --strict` refused the `roadmap-coordination` delta, which this revision fixes. Tasks
 5.5 and 5.6 run again at the merged commit. The same revision makes ADR 0019 amend ADR 0017
 decision 4 (the place wait is the one blocked end titled `⏳ <id>`; D-13, task 5.9, D-14 T-15), and
-the whole-suite gate is now 5.10. The release took devkit-openspec `0.29.0`, marketplace `0.33.0`
-and ADR 0019 at that merge. Leave no backup or scratch file in the tree;
+the whole-suite gate is now 5.10. The release took ADR 0019 at that merge; after `origin/main` at
+`aa7329a` it takes devkit-openspec `0.30.0` and marketplace `0.34.0` (D-15). Leave no backup or scratch file in the tree;
 end every task with `git status --short`.
 
 | Id | Slug | Tasks |
@@ -213,21 +213,25 @@ what the tests cover in its place.
   pass unchanged, except T-11, T-12 and T-13 of D-14, which task 5.7 changes (gate 5.10 runs them all).
 - [x] 5.3 `docs/openspec-flow.md`, `docs/coordination-design.md` and `plugins/openspec/README.md` as
   D-15 lists, with the two corrected claims of `docs/coordination-design.md` and the CI pins at
-  `v0.29.0`. Check: `git grep -n "configures one command" docs`, `git grep -n "Where a change runs (proposed)" docs`
-  and `git grep -n -F "(ready, waits for a place)" docs/openspec-flow.md` each find nothing.
-- [x] 5.4 The release (D-15): devkit-openspec `0.29.0` in `plugins/openspec/.claude-plugin/plugin.json`
-  and `.claude-plugin/marketplace.json`, marketplace `0.33.0`, the `CHANGELOG.md` entry
-  `## 0.33.0 — remote worker`, and `python3 scripts/gen-catalog.py` for `docs/catalog.md`. Check:
+  `v0.30.0`. Check: `git grep -n "configures one command" docs`, `git grep -n "Where a change runs (proposed)" docs`
+  and `git grep -n -F "(ready, waits for a place)" docs/openspec-flow.md` each find nothing; the pin
+  test (T-10 of D-14, no edit) passes:
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-loop docs: the design records" plugins/openspec/hooks/guard.test.mjs`
+  exits 0 with 1 test and 1 passing, run as a background command (gate 5.10 runs it again).
+- [x] 5.4 The release (D-15): devkit-openspec `0.30.0` in `plugins/openspec/.claude-plugin/plugin.json`
+  and `.claude-plugin/marketplace.json`, marketplace `0.34.0`, the `CHANGELOG.md` entry
+  `## 0.34.0 — remote worker`, and `python3 scripts/gen-catalog.py` for `docs/catalog.md`. Check:
   `python3 scripts/gen-catalog.py --check` exits 0.
-- [ ] 5.5 Run `claude plugin validate .` at the merged commit (the manifests at `0.29.0` and
-  `0.33.0`) and save its output to `${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt`,
+- [ ] 5.5 Run `claude plugin validate .` at the merged commit (the manifests at `0.30.0` and
+  `0.34.0`) and save its output to `${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt`,
   replacing the file of the run before the merge. Check: the file holds `Validation passed` and is
   newer than the merge commit `ccb3dfb`.
 - [ ] 5.6 `openspec validate remote-worker --strict`, at the merged commit with the
   `roadmap-coordination` delta of this revision (its MODIFIED requirement "A change session shows
   the stage its change is in" carries main's 9 scenarios and "Waiting for a place"). Check: it
   prints that the change is valid.
-- [x] 5.7 Change T-6 to T-13 of D-14 exactly as D-14 gives them, and nothing else in the two test
+- [x] 5.7 Change T-6 to T-9 and T-11 to T-13 of D-14 exactly as D-14 gives them (T-10 needs no edit:
+  the test reads the manifest since `aa7329a`, and task 5.3's check runs it), and nothing else in the two test
   files. The invariants stay as D-14 states them.
   - T-6, `change-loop replies: no internal term in either language`. Invariant: every key renders in
     both languages and holds no internal term. Layer: the message table. Suite:
@@ -242,9 +246,6 @@ what the tests cover in its place.
   - T-9, `followups AC-8 next: start anyway ...`. Invariant: the run file gains no field except its
     write time. Layer: `next --start-anyway` and the run file. Suite: `roadmap-loop.test.mjs`.
     Change: the fixture's `putRun` gets `placed: {}`.
-  - T-10, `change-loop docs: the design records the answers`. Invariant: the pin is the current
-    release and no earlier one. Layer: the documents. Suite: `change-loop.test.mjs`. Change: it pins
-    `v0.29.0` and refuses `v0.28.2` (main's pin at `212d007`).
   - T-11 and T-12, `followups F-2 skill: ...` and `followups AC-15 skill: ...`. Invariant: the call
     carries every setting. Layer: the skill text. Suite: `roadmap-loop.test.mjs`. Change: the
     expected call gains `${SK_MACHINES}`.
@@ -254,11 +255,11 @@ what the tests cover in its place.
     `wake_when_done` stays refused everywhere, and the Never text grows by D-15's two items.
 
   Check:
-  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-loop replies: no internal term" --test-name-pattern="^change-loop docs: the design records" --test-name-pattern="^roadmap-loop replies" --test-name-pattern="^followups AC-8 next: start anyway" --test-name-pattern="^followups F-2 skill" --test-name-pattern="^followups AC-13 skill" --test-name-pattern="^followups AC-15 skill" plugins/openspec/hooks/guard.test.mjs`
-  exits 0 with 8 tests and 8 passing, run as a background command (13 s in a dry run of these exact
-  edits). In `git diff 212d007 -- plugins/openspec/hooks/change-loop.test.mjs
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-loop replies: no internal term" --test-name-pattern="^roadmap-loop replies" --test-name-pattern="^followups AC-8 next: start anyway" --test-name-pattern="^followups F-2 skill" --test-name-pattern="^followups AC-13 skill" --test-name-pattern="^followups AC-15 skill" plugins/openspec/hooks/guard.test.mjs`
+  exits 0 with 7 tests and 7 passing, run as a background command (the dry run of 2026-11-22 ran
+  these edits with T-10's, 8 tests in 13 s). In `git diff aa7329a -- plugins/openspec/hooks/change-loop.test.mjs
   plugins/openspec/hooks/roadmap-loop.test.mjs` (against the merged `main`), no existing test
-  changes except T-1, T-2 and T-6 to T-13. The import lines, the new `remote` tests and their helpers are additions. End with
+  changes except T-1, T-2, T-6 to T-9 and T-11 to T-13. The import lines, the new `remote` tests and their helpers are additions. End with
   `git status --short`.
 - [ ] 5.8 Change T-14 of D-14 exactly as D-14 gives it, and nothing else in
   `plugins/openspec/hooks/delivery-models.test.mjs`. The invariant stays as D-14 states it.
@@ -298,14 +299,15 @@ None of these is a task of the change loop: no gate of this change needs them, a
 `tdd-implementer`. They run after the merge, as `CONTRIBUTING.md` says for a fact that exists only
 after it.
 
-- After the merge, tag `v0.29.0` on the merge commit and push the tag (`CONTRIBUTING.md`). Checked on
-  2026-11-23 at `ccb3dfb`: `v0.29.0` matches devkit-openspec `0.29.0` in both
+- After the merge, tag `v0.30.0` on the merge commit and push the tag (`CONTRIBUTING.md`). Checked on
+  2026-11-23 against `origin/main` at `aa7329a`: `v0.30.0` matches devkit-openspec `0.30.0` in both
   `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` of this
-  worktree (marketplace `metadata.version` `0.33.0`), renumbered from `0.22.0` and `0.26.0` by the
-  release merge of `origin/main` at `212d007` (devkit-openspec `0.28.2`, marketplace `0.32.2`). If
+  worktree (marketplace `metadata.version` `0.34.0`), renumbered from `0.22.0` and `0.26.0` by the
+  release merge of `origin/main` at `212d007` (devkit-openspec `0.28.2`, marketplace `0.32.2`), and
+  again after `origin/main` at `aa7329a` (devkit-openspec `0.29.0`, marketplace `0.33.0`). If
   `origin/main` moves again before the merge, the release rebase of D-15 renumbers once more: every
-  version number of this change (the tag, the two manifests, the `CHANGELOG.md` heading, the CI
-  pins of `docs/openspec-flow.md` and T-10 of D-14) and the ADR number are re-checked against
+  version number of this change (the tag, the two manifests, the `CHANGELOG.md` heading and the CI
+  pins of `docs/openspec-flow.md`, which T-10 of D-14 compares with the manifest) and the ADR number are re-checked against
   `origin/main` at delivery, and the tag takes the number that merged.
 - Archive with the retro. The retro proposes, for the owner, a roadmap line for the claim of a
   `/devkit project` slice (left out here, `design.md` Non-Goals), and the roadmap line of the live

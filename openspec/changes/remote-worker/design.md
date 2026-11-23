@@ -705,7 +705,7 @@ runs unchanged; one not named here that fails stops the phase for a plan revisio
 Plan revision (2026-11-22, approved by the owner): the whole-suite gate of phase 5 (then 5.7, now
 5.10) ran 1425 tests with 8 failures, all existing tests this table did not name. Each failure comes
 from behaviour this plan specifies (D-4, D-8, D-9, D-10, D-12, D-15), not from a fault in the code.
-Task 5.7 changes them as T-6 to T-13 say. Each change keeps the test's invariant and widens only what
+Task 5.7 changes them as T-6 to T-13 say, except T-10, which needs no edit since the merge of `origin/main` at `aa7329a`. Each change keeps the test's invariant and widens only what
 the new behaviour requires. Every test is run through `guard.test.mjs`.
 
 | Id | Test (file) | Invariant · layer · suite | Change |
@@ -714,7 +714,7 @@ the new behaviour requires. Every test is run through `guard.test.mjs`.
 | T-7 | `roadmap-loop replies: a blocked line renders every blocked reason in both languages` (`roadmap-loop.test.mjs`) | every key with a blocked `{why}` renders every `blocked-why.` reason in both languages · message table · `roadmap-loop.test.mjs` | its `BLOCKED_PARAMS` constant gains `machine: 'avel'`, `taken: 1` and `places: 1`: `blocked-why.no-place` needs all three and `blocked-why.cannot-check-out` needs `{machine}` (D-12). The loop and its assertions stay as they are |
 | T-8 | `roadmap-loop replies: every owner wait has a gate` (`roadmap-loop.test.mjs`) | every `waiting-` key that is an owner wait maps to a gate with a phrase in both languages, and `gateOf` refuses anything else · `gateOf` of `roadmap-loop.mjs` · `roadmap-loop.test.mjs` | `waiting-place` is the reply key of the blocked end `no-place` (D-9), not an owner wait, so it gets no gate. The `waits` filter leaves it out, as it already leaves out `waiting-github`: `k !== 'waiting-github' && k !== 'waiting-place'`. The `expected` map does not change. Two assertions follow the `waiting-github` one: `MESSAGES.en['waiting-place']` and `MESSAGES['pt-BR']['waiting-place']` exist, and `gateOf(endAct('x', 'blocked', 'no-place'))` throws `LoopUsageError` ("waiting for a place is a blocked end, not a gate") |
 | T-9 | `followups AC-8 next: start anyway starts what is held now, and a change ready later is held and said again` (`roadmap-loop.test.mjs`) | start anyway keeps no permission: the run file gains no field except the time of its write · `next --start-anyway` and the run file · `roadmap-loop.test.mjs` | the fixture writes a run file of this release, which always holds `placed`: `readRun` returns `placed: {}` when the field is missing, and every write keeps it (D-8, Migration Plan). `putRun(root, { places: 3 })` becomes `putRun(root, { places: 3, placed: {} })`. The key-list assertion stays exact and unchanged |
-| T-10 | `change-loop docs: the design records the answers` (`change-loop.test.mjs`) | the CI snippet pins the current release and no earlier one · documents · `change-loop.test.mjs` | `assert.match(flow, /v0\.28\.2/, ...)` (main's pin at `212d007`) becomes `assert.match(flow, /v0\.29\.0/, 'the CI snippet pins the current release (remote-worker: 0.29.0)')`, followed by `assert.doesNotMatch(flow, /v0\.28\.2/, 'no pin left on the previous release (change-state-retro-fixes)')`, and the comment above them names remote-worker's 0.29.0 first, as earlier releases did. The refusals of the earlier pins stay. When a later release rebase renumbers (D-15), this pin follows it |
+| T-10 | `change-loop docs: the design records the answers` (`change-loop.test.mjs`) | every CI pin names the devkit-openspec version of its manifest · documents · `change-loop.test.mjs` | none. Since the merge of `origin/main` at `aa7329a` (main's D-4 of `release-merge-conflict`) the test reads the manifest: `pinMismatches(flow, version)` compares every CI pin of `docs/openspec-flow.md` with the version in `plugins/openspec/.claude-plugin/plugin.json`, and it refuses only `v0.20.0` by name; the literal `assert.match(flow, /v0\.xx/)` and its `doesNotMatch` chain are gone. It passes when the doc pins `v0.30.0` and the manifest holds `0.30.0` (D-15, tasks 5.3 and 5.4); task 5.3's check runs it and gate 5.10 runs it again. Plan revision of 2026-11-23: this row replaces the edit the earlier revisions gave it; it stays so the table accounts for the test |
 | T-11 | `followups F-2 skill: start anyway only on the owner's own message, with both flags` (`roadmap-loop.test.mjs`) | `--start-anyway` is passed only on the owner's own typed message, on a `next` call that carries every setting · skill text · `roadmap-loop.test.mjs` | D-15 puts `--machines` on every `next`, between the settings and `--start-anyway`. A constant `SK_MACHINES = "--machines '${user_config.machines}'"` goes beside `SK_LIMIT`. The expected text becomes `` `roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --start-anyway` `` with the message 'the call carries the settings and --start-anyway'. The test's name and its other assertions stay |
 | T-12 | `followups AC-15 skill: the turn's two words, event when in doubt or on another session's note, and next first on a typed turn` (`roadmap-loop.test.mjs`) | every `next` of a run with a session per change names its turn, with every setting · skill text · `roadmap-loop.test.mjs` | for the same reason, the expected text becomes `` `roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --turn <typed\|event>` `` with the message 'with the settings'. The other assertions stay |
 | T-13 | `followups AC-13 skill: the session-per-change part names the tools, the list check, the session keys and the turn, and hands nothing` (`roadmap-loop.test.mjs`) | in a run with a session per change the coordinating session hands nothing (no stage, no gate, no wait on GitHub) and names its tools as the app names them; the skill uses no wake-up field and sends no message except the ones `next` returns · skill text · `roadmap-loop.test.mjs` | `assert.doesNotMatch(md, /wake_when_done\|SendMessage/, ...)` is split in two, and the Never assertion grows by D-15's two items. Both are given in full below |
@@ -814,7 +814,7 @@ never with `open`. The whole suite at `ccb3dfb` agrees: T-14's test is its only 
   change". It does not write the words "(ready, waits for a place)" in parentheses (the test
   `followups ADR 0014: the documents follow` refuses them). In the change coordinator section, one
   sentence says opening pushes the branch. Troubleshooting: rows for `claimed` and for "no answer".
-  The CI pins move to `v0.29.0` (T-10 of D-14 follows them).
+  The CI pins move to `v0.30.0`, the tag of `0.30.0` in `plugin.json`; T-10 of D-14 reads the manifest, so it needs no edit.
 - `docs/coordination-design.md`: the section "Where a change runs (proposed)" becomes "Where a change
   runs" and describes what is built. Its two claims are corrected: "The project configures one
   command that starts a change there and one that asks its state" becomes the per-person `machines`
@@ -825,12 +825,16 @@ never with `open`. The whole suite at `ccb3dfb` agrees: T-14's test is its only 
   which stays as written.
 - `plugins/openspec/README.md`: the `devkit` skill row names the `machines` setting; the
   `roadmap-loop.mjs` row names `checkout` and `status --json`; a row for `machine-probe.mjs`.
-- Release: devkit-openspec `0.28.2` → `0.29.0` in `plugins/openspec/.claude-plugin/plugin.json` and
-  `.claude-plugin/marketplace.json`; marketplace `metadata.version` `0.32.2` → `0.33.0`;
-  `CHANGELOG.md` gains `## 0.33.0 — remote worker`; `docs/catalog.md` regenerated by `python3
-  scripts/gen-catalog.py`. When `main` moved first, the release rebase renumbers. It did once:
-  drafted as devkit-openspec `0.22.0` and marketplace `0.26.0`, the release took `0.29.0` and
-  `0.33.0` at the merge of `origin/main` at `212d007` (merge commit `ccb3dfb`).
+- Release: devkit-openspec `0.29.0` → `0.30.0` in `plugins/openspec/.claude-plugin/plugin.json` and
+  `.claude-plugin/marketplace.json`; marketplace `metadata.version` `0.33.0` → `0.34.0`;
+  `CHANGELOG.md` gains `## 0.34.0 — remote worker`; `docs/catalog.md` regenerated by `python3
+  scripts/gen-catalog.py`. When `main` moved first, the release rebase renumbers. It did twice:
+  drafted as devkit-openspec `0.22.0` and marketplace `0.26.0`, the release was renumbered at the
+  merge of `origin/main` at `212d007` (merge commit `ccb3dfb`), and again when `origin/main` at
+  `aa7329a` took devkit-openspec `0.29.0` and marketplace `0.33.0` for `release-merge-conflict`.
+  The numbers `0.30.0`, `0.34.0` and the tag `v0.30.0` were taken from `origin/main` at `aa7329a`
+  on 2026-11-23, and the release step re-checks them against `origin/main` before the push and
+  before auto-merge.
 
 ## D-16 Proof
 

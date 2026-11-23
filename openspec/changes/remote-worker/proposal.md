@@ -50,7 +50,7 @@ machine the way that run did: over SSH, one app session per change (grill answer
   0013 (starts held only by this machine's load; the run file's fields), ADR 0014 (each change
   session started in this machine's worktree) and ADR 0017 decision 4 (a change waiting for a place
   is the one blocked end titled `⏳ <id>`, with no ⛔: a wait for a resource, not a fault).
-- Docs, the skill and the release: devkit-openspec 0.29.0, marketplace 0.33.0.
+- Docs, the skill and the release: devkit-openspec 0.30.0, marketplace 0.34.0.
 
 Non-goals (requirements, Out of scope): Claude Managed Agents as a place to run; moving an open
 change to another machine; starting a remote change without the desktop app; the app's cloud
