@@ -13,7 +13,10 @@
 // --why <code> --lang <l>` (the correction of the script, D-4), `wait --change <id> --lang <l> [--interval <s>]`
 // (waits on GitHub with no limit, D-7) and `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
 // lists to accepted, after the owner's current approval; stage-roles D-4). Only `open`, `script` and `accept-decisions` write;
-// `start` and `next` do not. `next` and `wait` print
+// `start` and `next` do not. The CompozyOS driver adds (compozy-driver D-1, D-3, D-4): `compozy-start <id> --lang <l>` (starts the
+// run), `next --view compozy` (the checker's view of the next action, one JSON object), `confirm --change <id> --lang <l> --view <json>`
+// and the record steps `record-approval`, `record-mockup`, `record-answer`, `run-gate`, `run-step` and `compozy-retry`, which write the
+// run record (`<git common dir>/devkit-compozy/<id>.json`) or the owner's answer files from the answer a CompozyOS request carries. `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
@@ -23,15 +26,16 @@
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
 // No dependencies.
 
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, readValue, isDecisionRecord } from './guard.mjs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, readValue, isDecisionRecord, parseStageHeader } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
+import { readiness, liveRuns, startRun, CHANGE_LOOP } from './compozy-driver.mjs';
 
 export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -93,6 +97,16 @@ export const MESSAGES = {
     'not-set-up': 'This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.',
     'setting-unknown': 'The project\'s devkit settings have an unknown {setting}, "{value}"; use one of: {accepted}. Nothing was run.',
     'driver-not-built': 'This project is set to run on {driver}, which is not built yet (round {round}). Nothing was run.',
+    'driver-no-project': '/devkit project does not run on CompozyOS yet; nothing was run.',
+    'compozy-started': '{id} runs in CompozyOS now: follow it and answer its questions there, at {url}.',
+    'compozy-started-no-url': '{id} runs in CompozyOS now (run {run}): follow it and answer its questions there.',
+    'compozy-running': '{id} already runs in CompozyOS (run {run}): follow it and answer its questions there.',
+    'compozy-not-installed': 'CompozyOS is not installed on this machine, so nothing was run: install it with {fix}, then call /devkit again.',
+    'compozy-stopped': 'CompozyOS is not running, so nothing was run: start it with {fix}, then call /devkit again.',
+    'compozy-workspace': 'This project is not a CompozyOS workspace yet, so nothing was run: register it with {fix}, then call /devkit again.',
+    'compozy-kit-missing': 'The devkit kit is not installed in CompozyOS for this project, so nothing was run: run /compozy-setup first, then call /devkit again.',
+    'compozy-roadmap-started': 'The roadmap runs in CompozyOS with up to {places} changes at once: {url}.',
+    'compozy-requests': '{n} questions wait for you in CompozyOS.',
     'nothing-to-resume': 'There is no unfinished change to continue: type /devkit change and what you want done.',
     choose: 'There are {n} unfinished changes: {list}. Which one should I continue?',
     'ask-unfinished': 'Before starting: {list} is unfinished. Should I continue it, or start your new request?',
@@ -202,6 +216,7 @@ export const MESSAGES = {
     'blocked-why.unreadable': 'the change cannot be read ({error})',
     'blocked-why.cannot-open': 'it could not be opened ({error})',
     'blocked-why.cannot-accept': 'the decision records could not be marked accepted ({error})',
+    'blocked-why.open-failed': 'the run could not open it; start it again from Claude Code with its request, /devkit change <request>',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
@@ -274,6 +289,16 @@ export const MESSAGES = {
     'not-set-up': 'Este projeto ainda não está preparado para o devkit: rode /openspec-setup primeiro. Nada foi executado.',
     'setting-unknown': 'As configurações devkit do projeto têm {setting} desconhecido, "{value}"; use um de: {accepted}. Nada foi executado.',
     'driver-not-built': 'Este projeto está configurado para rodar em {driver}, que ainda não existe (rodada {round}). Nada foi executado.',
+    'driver-no-project': '/devkit project ainda não roda no CompozyOS; nada foi executado.',
+    'compozy-started': '{id} roda agora no CompozyOS: acompanhe e responda às perguntas dela lá, em {url}.',
+    'compozy-started-no-url': '{id} roda agora no CompozyOS (execução {run}): acompanhe e responda às perguntas dela lá.',
+    'compozy-running': '{id} já roda no CompozyOS (execução {run}): acompanhe e responda às perguntas dela lá.',
+    'compozy-not-installed': 'O CompozyOS não está instalado nesta máquina, então nada foi executado: instale com {fix} e chame /devkit de novo.',
+    'compozy-stopped': 'O CompozyOS não está rodando, então nada foi executado: inicie com {fix} e chame /devkit de novo.',
+    'compozy-workspace': 'Este projeto ainda não é um workspace do CompozyOS, então nada foi executado: registre com {fix} e chame /devkit de novo.',
+    'compozy-kit-missing': 'O kit do devkit não está instalado no CompozyOS para este projeto, então nada foi executado: rode /compozy-setup primeiro e chame /devkit de novo.',
+    'compozy-roadmap-started': 'O roadmap roda no CompozyOS com até {places} changes ao mesmo tempo: {url}.',
+    'compozy-requests': '{n} perguntas esperam você no CompozyOS.',
     'nothing-to-resume': 'Não há change por terminar: digite /devkit change e o que você quer fazer.',
     choose: 'Há {n} changes por terminar: {list}. Qual delas eu continuo?',
     'ask-unfinished': 'Antes de começar: {list} está por terminar. Continuo essa change ou começo o seu novo pedido?',
@@ -383,6 +408,7 @@ export const MESSAGES = {
     'blocked-why.unreadable': 'não foi possível ler a change ({error})',
     'blocked-why.cannot-open': 'não foi possível abrir ({error})',
     'blocked-why.cannot-accept': 'não foi possível marcar os registros de decisão como aceitos ({error})',
+    'blocked-why.open-failed': 'a execução não conseguiu abri-la; comece de novo pelo Claude Code com o pedido dela, /devkit change <pedido>',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
@@ -1056,7 +1082,7 @@ export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec
 // ---------------------------------------------------------------- start (D-3)
 
 const VERB_ROUND = { help: 23 };
-const DRIVER_ROUND = { compozy: 21, script: 22 };
+const DRIVER_ROUND = { script: 22 };
 
 // The verb is the first word, lower-cased; the text is the rest, trimmed.
 export function parseStart(input) {
@@ -1065,12 +1091,13 @@ export function parseStart(input) {
 }
 
 // Rows S3 to S5 (and O3): the project is set up, its settings are known and its driver is built; else the reply of
-// the row that stops it.
-export function projectGate(start, settings) {
+// the row that stops it. The verb matters for one cell: `/devkit project` does not run on the compozy driver (compozy-driver D-1).
+export function projectGate(start, settings, verb) {
   if (!start || !optedIn(start)) return { mode: 'not-set-up', key: 'not-set-up', params: {} };
   const unknown = settings.unknown[0];
   if (unknown) return { mode: 'setting-unknown', key: 'setting-unknown', params: { setting: unknown.setting, value: unknown.value, accepted: unknown.accepted } };
   if (DRIVER_ROUND[settings.driver]) return { mode: 'driver-not-built', key: 'driver-not-built', params: { driver: settings.driver, round: DRIVER_ROUND[settings.driver] } };
+  if (settings.driver === 'compozy' && verb === 'project') return { mode: 'driver-no-project', key: 'driver-no-project', params: {} };
   return null;
 }
 
@@ -1090,7 +1117,7 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   const say = (key, params = {}) => render(l, key, params);
   if (VERB_ROUND[verb]) return out('not-built', { reply: say('verb-not-built', { verb, round: VERB_ROUND[verb] }) });
   if (!['change', 'roadmap', 'status', 'project'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
-  const gate = projectGate(start, settings);
+  const gate = projectGate(start, settings, verb);
   if (gate) return out(gate.mode, { reply: say(gate.key, gate.params) });
   if (verb !== 'change') return out(verb); // the skill calls roadmap-loop.mjs or project-loop.mjs for these (roadmap-coordinator D-3, project-phases D-4)
 
@@ -1201,7 +1228,7 @@ export function openChange(cwd, id, { script, why, request, lang = 'pt-BR', env 
   if (!text) throw new LoopUsageError('open needs the request on standard input');
   const start = findRoot(cwd);
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
-  const gate = projectGate(start, settings);
+  const gate = projectGate(start, settings, 'change');
   if (gate) throw refuse(gate.key, gate.params);
 
   // The change's own first file: its request, as a quote in the schema's requirements template.
@@ -1422,6 +1449,7 @@ export const PACKS = {
     'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
     'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'].map((r) => [r, 'devkit-core'])),
   'openspec-validator': 'devkit-openspec',
+  'change-coordinator': 'devkit-openspec',
 };
 
 // `guard.mjs agent` (H1 to H5): in a run the session hands work only to the roles of the change's script, named with no
@@ -1457,11 +1485,356 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
   return { decision: 'refuse', why: 'not-a-role', change, reason: `${lead}; ${type} is not one of them` };
 }
 
+// ---------------------------------------------------------------- the CompozyOS driver (compozy-driver D-1, D-3, D-4)
+
+// The run record: `<git common dir>/devkit-compozy/<id>.json`, outside every working tree. It is bookkeeping: losing it costs one
+// repeated stage (or one repeated command, or the mock-up facts of one approval), never a wrong gate.
+const emptyRecord = () => ({ version: 1, handed: null, failed: null, answers: { grill: [], approvalNotes: null, retro: null, mockup: null } });
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const str = (v) => (typeof v === 'string' ? v : '');
+
+export function runRecordPath(start, id) {
+  const common = tryGit(start, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  if (!common) throw new LoopUsageError(`${start} is not inside a git repository`);
+  return join(common, 'devkit-compozy', `${id}.json`);
+}
+
+// The record as it is; an empty, cut short or non-JSON file is an empty record, and a field of the wrong type is dropped.
+export function readRunRecord(file) {
+  let parsed;
+  try { parsed = JSON.parse(readFileSync(file, 'utf8')); } catch { return emptyRecord(); }
+  if (!isObject(parsed)) return emptyRecord();
+  const out = emptyRecord();
+  if (isObject(parsed.handed) && str(parsed.handed.key)) out.handed = { key: parsed.handed.key, at: str(parsed.handed.at) };
+  if (isObject(parsed.failed) && str(parsed.failed.key)) out.failed = { key: parsed.failed.key, reply: str(parsed.failed.reply), at: str(parsed.failed.at) };
+  const answers = isObject(parsed.answers) ? parsed.answers : {};
+  if (Array.isArray(answers.grill)) {
+    out.answers.grill = answers.grill.filter((g) => isObject(g) && str(g.answer)).map((g) => ({ question: str(g.question), answer: g.answer, at: str(g.at) }));
+  }
+  for (const key of ['approvalNotes', 'retro', 'mockup']) if (str(answers[key])) out.answers[key] = answers[key];
+  return out;
+}
+
+// Reads the record under its lock, gives it to `change` and writes what that returns atomically (a temp file, then a rename).
+export function updateRunRecord(file, change) {
+  mkdirSync(dirname(file), { recursive: true });
+  return withLockFile({
+    lock: `${file}.lock`, stepMs: 50, waitMs: 10_000, staleMs: 60_000,
+    timeout: () => new LoopUsageError('another call holds the run record for too long'),
+  }, () => {
+    const next = change(readRunRecord(file));
+    const temp = `${file}.${process.pid}.tmp`;
+    writeFileSync(temp, `${JSON.stringify(next, null, 2)}\n`);
+    renameSync(temp, file);
+    return next;
+  });
+}
+
+// The pure answer-recording step of `record-answer`: a copy of `record` with the answer set (approval, retro) or appended (grill).
+export function applyAnswer(record, gate, { answer, question = '', at }) {
+  const next = structuredClone(record);
+  if (gate === 'grill') next.answers.grill.push({ question, answer, at });
+  else if (gate === 'approval') next.answers.approvalNotes = answer;
+  else next.answers.retro = answer;
+  return next;
+}
+
+// ---- the view (D-3)
+
+const SHIP_ROW_STEPS = ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify'];
+const SKILL_LOOP_STEPS = ['resolve-release-conflict', 'push-rebased'];
+const COMMAND_STEPS = ['switch-script', 'accept-decisions'];
+// The kinds whose progress key a confirmed view records as handed; any other kind clears it.
+export const HANDED_KINDS = ['agent', 'coordinator', 'review', 'gate', 'command', 'open'];
+const VIEW_FIELDS = ['version', 'kind', 'change', 'root', 'stage', 'stage_title', 'agent', 'step', 'brief', 'progress_key', 'question', 'reply'];
+const WORDS_MAX = 200;
+
+// { view, uses }: the action of `decide` as the loop reads it (the fourteen kinds of D-3), and what recorded fact the view was built from
+// (`failure`, `mockup`, `notes`, `retro`, or null), which `confirm` clears once the view is confirmed. Pure.
+export function buildView(action, record, { lang = 'pt-BR', dir } = {}) {
+  const l = normalizeLang(lang);
+  const id = action.change;
+  const say = (key, params = {}) => render(l, key, { id, ...params });
+  const stage = action.stage ?? '';
+  const end = action.kind === 'end' ? action.end : null;
+  const make = (over, uses = null) => ({
+    view: {
+      version: 1, kind: '', change: id, root: action.root ?? '', stage, stage_title: action.stageTitle ?? '', agent: '', step: action.step ?? '',
+      brief: '', progress_key: action.progressKey ?? (end ? `end/${end.state}/${end.why}/${stage}` : ''), question: '', reply: action.reply ?? '', ...over,
+    },
+    uses,
+  });
+  // The brief frame of `decide`: the change, the checkout, the files' language.
+  const frame = (forStage, what) => `Change ${id}${action.script ? ` (${action.script} script)` : ''}, stage ${forStage}: ${what}. Work only in ${action.root}`
+    + `${action.branch ? ` on branch ${action.branch}` : ''}; every file path is absolute under it; start every Bash command with cd ${action.root} && ; do not fetch. `
+    + `Write the change's files in ${filesLanguageName(action.filesLanguage)}.`;
+  const planDir = dir ?? join(action.root ?? '', 'openspec', 'changes', id);
+  const coordinator = (brief, over = {}, uses = null) => make({ kind: 'coordinator', agent: 'change-coordinator', brief, ...over }, uses);
+
+  const failed = record.failed;
+  if (failed && (failed.key === record.handed?.key || failed.key === action.progressKey)) {
+    return make({ kind: 'blocked', progress_key: `end/blocked/step-failed/${stage}`, question: failed.reply }, 'failure');
+  }
+  if (record.answers.mockup) {
+    return coordinator(frame('mockup', `the owner approved the mock-up (\`${record.answers.mockup}\`): append to requirements.md, under \`## What the mock-up revealed\`, each fact the mock-up `
+      + 'settled that the requirements did not hold, as the `ship-change` `stop-mockup-approval` row says (none: say so in one line); change nothing else'), { progress_key: `mockup-facts/${id}` }, 'mockup');
+  }
+
+  if (action.kind === 'open') {
+    if (record.handed?.key === `open/${id}`) return make({ kind: 'blocked', progress_key: 'end/blocked/open-failed/open', question: say('blocked', { why: 'open-failed' }) });
+    return make({
+      kind: 'open', agent: 'change-coordinator',
+      brief: frame('open', 'open the change: choose the script by the rule of the `devkit` skill\'s "A new change" and run `change-loop open` with the request; with an empty request, open nothing and return `failure`'),
+    });
+  }
+  if (action.kind === 'agent') {
+    const dispatch = SHIP_ROW_STEPS.includes(action.step) ? ` Then add the dispatch sentence of the \`ship-change\` row of step \`${action.step}\`.`
+      : SKILL_LOOP_STEPS.includes(action.step) ? ` Then add the dispatch sentence of the \`devkit\` skill's Loop bullet \`${action.step}\`.` : '';
+    return make({ kind: 'agent', agent: String(action.agent).split(':').pop(), brief: `${action.brief}${dispatch}` });
+  }
+  if (action.kind === 'session') {
+    if (action.step === 'review') return make({ kind: 'review', question: say('blocked', { why: 'role-failed', stage: action.stageTitle ?? '' }) });
+    if (action.step === 'gate') return make({ kind: 'gate', question: say('blocked', { why: 'tests-red', phase: action.detail?.phase ?? '' }) });
+    if (COMMAND_STEPS.includes(action.step)) return make({ kind: 'command' });
+    return coordinator(frame(stage, `carry out step ${action.step} as the \`ship-change\` row of that name says, with this \`next\` object: ${JSON.stringify(action.detail ?? {})}`));
+  }
+  if (action.kind === 'grill') {
+    const answers = record.answers.grill;
+    const person = filesLanguageName(l);
+    const what = answers.length === 0
+      ? `run the first turn of the requirements grill (skill requirements-grill): read requirements.md and return the first question in ${person}`
+      : `run the next turn of the requirements grill (skill requirements-grill): write these answers of the owner into requirements.md, ${answers.map((a, i) => `${i + 1}. ${a.question ? `question: ${a.question}; ` : ''}answer: ${a.answer}`).join(' | ')}; `
+        + `then return the next question in ${person}, or an empty question once the owner answered the last one and you set the stage header to passed`;
+    return make({ kind: 'grill', agent: 'change-coordinator', brief: frame('requirements', what) });
+  }
+  if (end?.state === 'waiting-for-owner') {
+    const why = end.why;
+    if (why === 'waiting-mockup') {
+      return make({ kind: 'mockup', question: `${action.reply}\n${join(action.root, action.detail?.file ?? '')}\n${join(action.root, action.detail?.folder ?? '')}` });
+    }
+    if (why === 'waiting-approval' || why === 'waiting-approval-again') {
+      if (record.answers.approvalNotes) {
+        return make({ kind: 'agent', agent: 'change-planner', brief: frame('approval', `the owner did not approve the plan and asked: \`${record.answers.approvalNotes}\`; revise the plan`) }, 'notes');
+      }
+      return make({ kind: 'approval', question: `${action.reply}\n${planDir}/` });
+    }
+    if (why === 'waiting-retro') {
+      if (record.answers.retro) {
+        return coordinator(frame('retro', `record these answers of the owner as the \`ship-change\` \`stop-retro-answers\` row says: \`${record.answers.retro}\``), {}, 'retro');
+      }
+      return make({ kind: 'retro-answers', question: `${action.reply}\n${join(planDir, 'retro.md')}` });
+    }
+    return make({ kind: 'owner', question: action.reply });
+  }
+  if (end?.state === 'waiting-on-github') return make({ kind: 'github' });
+  if (end?.state === 'archived') return make({ kind: 'archived' });
+  return make({ kind: 'blocked', question: action.reply ?? '' });
+}
+
+export const compozyView = (action, record, ctx) => buildView(action, record, ctx).view;
+
+// The record after a view was confirmed: the handed key (set for the six kinds of HANDED_KINDS, else cleared), the answer or failure
+// the view was built from cleared, and the grill answers cleared once the requirements stage has passed. Pure.
+export function afterConfirm(record, { view, uses }, action, at) {
+  const next = structuredClone(record);
+  next.handed = HANDED_KINDS.includes(view.kind) ? { key: view.progress_key, at } : null;
+  if (uses === 'notes') next.answers.approvalNotes = null;
+  if (uses === 'retro') next.answers.retro = null;
+  if (uses === 'mockup') next.answers.mockup = null;
+  if (uses !== 'failure') next.failed = null;
+  if (action.kind !== 'grill' && action.kind !== 'open' && action.stage && action.stage !== 'requirements') next.answers.grill = [];
+  return next;
+}
+
+// What the loop reads for change `id`: { action, view, uses, record, file, start }. A change no checkout holds is the `open` action
+// of the run (it opens the change itself); any other is `nextAction`, given the key the record holds as handed as `--after`.
+export function compozyState(cwd, id, { env = process.env, lang = 'pt-BR', openspec, gh } = {}) {
+  if (!NAME.test(id) || id === 'archive') throw new LoopUsageError(`${id} cannot be a change name`);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const l = normalizeLang(lang);
+  const file = runRecordPath(start, id);
+  const record = readRunRecord(file);
+  let action;
+  let dir;
+  if (knownChange(start, id)) {
+    action = nextAction(cwd, id, { env, lang: l, after: record.handed?.key ?? null, openspec, gh });
+    dir = locateChange(action.root, id)?.dir;
+  } else {
+    const main = mainRoot(start);
+    action = {
+      version: 1, kind: 'open', change: id, script: null, root: main, branch: tryGit(main, ['symbolic-ref', '--short', '-q', 'HEAD']),
+      filesLanguage: filesLanguageOf(readDevkitSettings(main)), stage: 'open', stageTitle: '', progressKey: `open/${id}`,
+    };
+  }
+  return { start, file, record, action, lang: l, id, ...buildView(action, record, { lang: l, dir }) };
+}
+
+const sameView = (given, view) => isObject(given) && Object.keys(given).length === VIEW_FIELDS.length && VIEW_FIELDS.every((f) => given[f] === view[f]);
+const now = () => new Date().toISOString();
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// The owner's words as one line of at most 200 characters, with no backtick (the forms wrap them in quotes or backticks).
+const wordsOf = (value) => {
+  const words = String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, WORDS_MAX).replace(/`/g, "'");
+  if (!words) throw new LoopUsageError('the owner\'s words are empty');
+  return words;
+};
+
+// ---- compozy-start (D-1)
+
+export const READINESS_KEY = { 'not-installed': 'compozy-not-installed', 'daemon-stopped': 'compozy-stopped', 'workspace-unknown': 'compozy-workspace', 'kit-missing': 'compozy-kit-missing' };
+
+// `compozy-start <id>`: rows C1 to C8. { code, body }; a refusal is code 3 with its mode and reply, nothing started.
+export function compozyStart(cwd, id, { request = '', lang = 'pt-BR', env = process.env } = {}) {
+  const l = normalizeLang(lang);
+  const stop = (mode, reply) => ({ code: 3, body: { version: 1, mode, change: id, runId: null, url: null, reply } });
+  const done = (mode, runId, url, reply) => ({ code: 0, body: { version: 1, mode, change: id, runId, url, reply } });
+  if (!NAME.test(id) || id === 'archive') return stop('name-invalid', render(l, 'name-invalid', { id })); // C1
+  const start = findRoot(cwd);
+  const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
+  const gate = projectGate(start, settings, 'change');
+  if (gate) return stop(gate.mode, render(l, gate.key, gate.params)); // C2
+  const main = mainRoot(start);
+  const ready = readiness(main, { env });
+  if (!ready.ok) return stop('compozy-unavailable', render(l, READINESS_KEY[ready.reason], { fix: ready.fix })); // C3
+  const running = liveRuns(main, CHANGE_LOOP, { env }).find((r) => r.inputs?.change_id === id);
+  if (running) return done('compozy-running', running.runId, null, render(l, 'compozy-running', { id, run: running.runId })); // C4
+  const words = String(request ?? '').trim();
+  const begin = () => {
+    const { runId, url } = startRun(main, CHANGE_LOOP, { change_id: id, request: words, lang: l }, { env });
+    return done('compozy-started', runId, url, url ? render(l, 'compozy-started', { id, url }) : render(l, 'compozy-started-no-url', { id, run: runId }));
+  };
+  if (knownChange(start, id)) return begin(); // C5, an empty request
+  if (words === '') throw new LoopUsageError('compozy-start needs the request on standard input for a new change'); // C6
+  if (nameTaken(start, main, id)) return stop('name-taken', render(l, 'name-taken', { id })); // C7
+  return begin(); // C8
+}
+
+// ---- the record steps (D-4)
+
+const refusal = (what) => new LoopUsageError(`${what}: nothing was written or run`);
+const changeFolder = (action, id) => locateChange(action.root, id)?.dir ?? join(action.root, 'openspec', 'changes', id);
+const headOf = (root) => tryGit(root, ['rev-parse', 'HEAD']) || 'none';
+
+// The text of approval.md in the form of the `stop-plan-approval` row of `ship-change`.
+export function approvalText({ id, attempt, commit, readiness: hash, date, words }) {
+  return `<!-- devkit-stage approval result=passed attempt=${attempt} commit=${commit} -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hash}\n- Date: ${date}\n- Owner's words: "\`${words}\`"\n`;
+}
+
+// The text of mockup.md after the owner's answer, in the form of the `stop-mockup-approval` row: `approve` or `changes`.
+export function mockupText({ text: current, header, decision, date, commit, words }) {
+  const lineEnd = current.indexOf('\n');
+  const body = `${(lineEnd === -1 ? '' : current.slice(lineEnd + 1)).replace(/\s*$/, '')}\n`;
+  if (decision === 'approve') {
+    return `<!-- devkit-stage mockup result=passed attempt=${header.attempt} commit=${commit} -->\n${body}\n## Owner's approval\n\n- Date: ${date}\n- Owner's words: "${words}"\n`;
+  }
+  return `<!-- devkit-stage mockup result=failed attempt=${header.attempt} commit=${commit} -->\n${body}\n## Owner's notes (attempt ${header.attempt})\n\n${words}\n`;
+}
+
+const stateFor = (cwd, id, kind, ctx) => {
+  const st = compozyState(cwd, id, ctx);
+  if (st.view.kind !== kind) throw refusal(`the run does not ask for the ${kind} now (it asks for ${st.view.kind || 'nothing'})`);
+  return st;
+};
+
+export function recordApproval(cwd, id, { words, lang, env, openspec, gh } = {}) {
+  const st = stateFor(cwd, id, 'approval', { env, lang, openspec, gh });
+  const dir = changeFolder(st.action, id);
+  const hash = approvalState(dir).readiness;
+  if (!hash) throw refusal('the plan has no readiness.md to approve');
+  const file = join(dir, 'approval.md');
+  const earlier = existsSync(file) ? parseStageHeader(readFileSync(file, 'utf8')) : null;
+  const attempt = earlier && !earlier.malformed ? earlier.attempt + 1 : 1;
+  writeFileSync(file, approvalText({ id, attempt, commit: headOf(st.action.root), readiness: hash, date: today(), words: wordsOf(words) }));
+  return { version: 1, change: id, recorded: 'approval', attempt };
+}
+
+export function recordMockup(cwd, id, { decision, words, lang, env, openspec, gh } = {}) {
+  if (decision !== 'approve' && decision !== 'changes') throw new LoopUsageError('record-mockup needs --decision approve or changes');
+  const st = stateFor(cwd, id, 'mockup', { env, lang, openspec, gh });
+  const file = join(changeFolder(st.action, id), 'mockup.md');
+  let current;
+  try { current = readFileSync(file, 'utf8'); } catch { throw refusal('mockup.md cannot be read'); }
+  const header = parseStageHeader(current);
+  if (!header || header.malformed || header.stage !== 'mockup') throw refusal('mockup.md has no valid mockup stage header');
+  const owner = wordsOf(words);
+  writeFileSync(file, mockupText({ text: current, header, decision, date: today(), commit: headOf(st.action.root), words: owner }));
+  if (decision === 'approve') updateRunRecord(st.file, (record) => ({ ...record, answers: { ...record.answers, mockup: owner } }));
+  return { version: 1, change: id, recorded: 'mockup', decision };
+}
+
+const GATE_VIEW = { grill: 'grill', approval: 'approval', retro: 'retro-answers' };
+
+export function recordAnswer(cwd, id, { gate, answer, question, lang, env, openspec, gh } = {}) {
+  if (!Object.hasOwn(GATE_VIEW, gate)) throw new LoopUsageError(`record-answer needs --gate ${Object.keys(GATE_VIEW).join(', ')}`);
+  if (!String(answer ?? '').trim()) throw new LoopUsageError('record-answer needs --answer');
+  const st = stateFor(cwd, id, GATE_VIEW[gate], { env, lang, openspec, gh });
+  updateRunRecord(st.file, (record) => applyAnswer(record, gate, { answer: String(answer), question: String(question ?? ''), at: now() }));
+  return { version: 1, change: id, recorded: gate };
+}
+
+// Ticks the gate task `task` of tasks.md: `- [ ] <task> ...` becomes `- [x] <task> ...`.
+function tickTask(file, task) {
+  const escaped = task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`^(\\s*[-*]\\s+\\[) (\\]\\s+${escaped}\\s)`, 'm');
+  const body = readFileSync(file, 'utf8');
+  if (!pattern.test(body)) throw new LoopUsageError(`tasks.md has no open task ${task}`);
+  writeFileSync(file, body.replace(pattern, '$1x$2'));
+}
+
+// { code, body }: 0 when every `&&` part of the gate is green (the task is ticked), 1 at the first red part (nothing ticked).
+export function runGate(cwd, id, { lang, env, openspec, gh } = {}) {
+  const st = stateFor(cwd, id, 'gate', { env, lang, openspec, gh });
+  const { command, task } = st.action.detail;
+  for (const part of String(command).split(/\s+&&\s+/)) {
+    const r = spawnSync('/bin/sh', ['-c', part], { cwd: st.action.root, env: { ...process.env, ...env }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    if (r.status !== 0) {
+      const tail = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim().split('\n').slice(-20).join('\n');
+      return { code: 1, body: { version: 1, change: id, task, green: false, failed: part, output: tail } };
+    }
+  }
+  tickTask(join(changeFolder(st.action, id), 'tasks.md'), task);
+  return { code: 0, body: { version: 1, change: id, task, green: true } };
+}
+
+// Runs the argv the checker built, in `cwd`, no shell: { ok: true } on exit 0, else { ok: false, reply } with the `reply` field of its
+// JSON output when it prints one, else the blocked reply with why role-failed.
+export function runViewCommand(command, { cwd, lang, id, stageTitle, env = process.env }) {
+  const r = spawnSync(command[0], command.slice(1), { cwd, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (!r.error && r.status === 0) return { ok: true, reply: '' };
+  let reply = '';
+  try { const out = JSON.parse(r.stdout); if (typeof out?.reply === 'string') reply = out.reply; } catch { /* no JSON: the generic reply */ }
+  return { ok: false, reply: reply || render(lang, 'blocked', { id, why: 'role-failed', stage: stageTitle ?? '' }) };
+}
+
+export function runStepCommand(cwd, id, { lang, env, openspec, gh } = {}) {
+  const st = stateFor(cwd, id, 'command', { env, lang, openspec, gh });
+  const result = runViewCommand(st.action.detail.command, { cwd: st.action.root, lang: st.lang, id, stageTitle: st.action.stageTitle, env: env ?? process.env });
+  if (result.ok) {
+    updateRunRecord(st.file, (record) => ({ ...record, failed: null }));
+    return { code: 0, body: { version: 1, change: id, step: st.action.step, ok: true } };
+  }
+  updateRunRecord(st.file, (record) => ({ ...record, failed: { key: st.view.progress_key, reply: result.reply, at: now() } }));
+  return { code: 1, body: { version: 1, change: id, step: st.action.step, ok: false, reply: result.reply } };
+}
+
+export function compozyRetry(cwd, id) {
+  if (!NAME.test(id) || id === 'archive') throw new LoopUsageError(`${id} cannot be a change name`);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  updateRunRecord(runRecordPath(start, id), (record) => ({ ...record, handed: null, failed: null }));
+  return { version: 1, change: id, retried: true };
+}
+
 // ---------------------------------------------------------------- the command line (D-5)
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
-  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
+  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] '
+  + '| next --change <id> --lang <l> --view compozy | compozy-start <id> --lang <l> (the request on standard input) | confirm --change <id> --lang <l> --view <json> '
+  + '| record-approval --change <id> --words <text> --lang <l> | record-mockup --change <id> --decision <approve|changes> --words <text> --lang <l> '
+  + '| record-answer --change <id> --gate <grill|approval|retro> --answer <text> [--question <text>] --lang <l> | run-gate --change <id> --lang <l> '
+  + '| run-step --change <id> --lang <l> | compozy-retry --change <id>';
 
 function parseArgs(argv, { values = [], multi = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -1487,8 +1860,13 @@ const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ?
 const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-owner' };
 
 function runNext(args, { env, cwd, openspec, gh }) {
-  const opts = parseArgs(args, { values: ['--change', '--lang', '--after'] });
+  const opts = parseArgs(args, { values: ['--change', '--lang', '--after', '--view'] });
   if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
+  if (opts.view !== undefined) {
+    // The CompozyOS view (D-3): the object alone, no `devkit-run:` line; the handed key of the run record is the `--after`.
+    if (opts.view !== 'compozy') throw new LoopUsageError(`--view needs compozy; ${USAGE}`);
+    return { code: 0, stdout: json(compozyState(cwd, opts.change, { env, lang: opts.lang, openspec, gh }).view), stderr: '' };
+  }
   const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
@@ -1512,6 +1890,63 @@ function runStart(args, { env, cwd, stdin, openspec, gh }) {
   if (opts.positional.length) throw new LoopUsageError(USAGE);
   return { code: 0, stdout: json(startMode(cwd, stdin, { lang: opts.lang, env, openspec, gh })), stderr: '' };
 }
+
+function runCompozyStart(args, { env, cwd, stdin }) {
+  const opts = parseArgs(args, { values: ['--lang'] });
+  if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+  const { code, body } = compozyStart(cwd, opts.positional[0], { request: stdin, lang: opts.lang, env });
+  return { code, stdout: json(body), stderr: '' };
+}
+
+// `--change <id> [--lang <l>] <the options of the step>`: the shared parse of the confirm and record steps.
+function changeOptions(args, values) {
+  const opts = parseArgs(args, { values: ['--change', '--lang', ...values] });
+  if (!opts.change || opts.positional.length) throw new LoopUsageError(USAGE);
+  return opts;
+}
+
+function runConfirm(args, { env, cwd, openspec, gh }) {
+  const opts = changeOptions(args, ['--view']);
+  if (opts.view === undefined) throw new LoopUsageError(USAGE);
+  const st = compozyState(cwd, opts.change, { env, lang: opts.lang, openspec, gh });
+  let given = null;
+  try { given = JSON.parse(opts.view); } catch { /* an unparsable view differs from the current one */ }
+  if (!sameView(given, st.view)) return { code: 1, stdout: json(st.view), stderr: '' };
+  updateRunRecord(st.file, (record) => afterConfirm(record, st, st.action, now()));
+  return { code: 0, stdout: json(st.view), stderr: '' };
+}
+
+function runRecord(sub, args, { env, cwd, openspec, gh }) {
+  const common = { env, openspec, gh };
+  if (sub === 'record-approval') {
+    const opts = changeOptions(args, ['--words']);
+    if (opts.words === undefined) throw new LoopUsageError(USAGE);
+    return { code: 0, stdout: json(recordApproval(cwd, opts.change, { ...common, words: opts.words, lang: opts.lang })), stderr: '' };
+  }
+  if (sub === 'record-mockup') {
+    const opts = changeOptions(args, ['--decision', '--words']);
+    if (opts.words === undefined || opts.decision === undefined) throw new LoopUsageError(USAGE);
+    return { code: 0, stdout: json(recordMockup(cwd, opts.change, { ...common, decision: opts.decision, words: opts.words, lang: opts.lang })), stderr: '' };
+  }
+  if (sub === 'record-answer') {
+    const opts = changeOptions(args, ['--gate', '--answer', '--question']);
+    if (opts.gate === undefined || opts.answer === undefined) throw new LoopUsageError(USAGE);
+    return { code: 0, stdout: json(recordAnswer(cwd, opts.change, { ...common, gate: opts.gate, answer: opts.answer, question: opts.question, lang: opts.lang })), stderr: '' };
+  }
+  if (sub === 'run-gate') {
+    const opts = changeOptions(args, []);
+    const { code, body } = runGate(cwd, opts.change, { ...common, lang: opts.lang });
+    return { code, stdout: json(body), stderr: '' };
+  }
+  if (sub === 'run-step') {
+    const opts = changeOptions(args, []);
+    const { code, body } = runStepCommand(cwd, opts.change, { ...common, lang: opts.lang });
+    return { code, stdout: json(body), stderr: '' };
+  }
+  return { code: 0, stdout: json(compozyRetry(cwd, changeOptions(args, []).change)), stderr: '' }; // compozy-retry
+}
+
+const RECORD_STEPS = ['record-approval', 'record-mockup', 'record-answer', 'run-gate', 'run-step', 'compozy-retry'];
 
 function runOpen(args, { env, cwd, stdin, openspec }) {
   const opts = parseArgs(args, { values: ['--script', '--why', '--lang'] });
@@ -1567,6 +2002,9 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec });
     if (sub === 'script') return runScript(rest, { cwd });
     if (sub === 'accept-decisions') return runAccept(rest, { cwd });
+    if (sub === 'compozy-start') return runCompozyStart(rest, { env, cwd, stdin });
+    if (sub === 'confirm') return runConfirm(rest, { env, cwd, openspec, gh });
+    if (RECORD_STEPS.includes(sub)) return runRecord(sub, rest, { env, cwd, openspec, gh });
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);
@@ -1614,7 +2052,7 @@ function isMain() {
 
 if (isMain()) {
   const argv = process.argv.slice(2);
-  runCommand(argv, { stdin: ['start', 'open'].includes(argv[0]) ? readStdin() : '' }).then((r) => {
+  runCommand(argv, { stdin: ['start', 'open', 'compozy-start'].includes(argv[0]) ? readStdin() : '' }).then((r) => {
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
     process.exitCode = r.code;

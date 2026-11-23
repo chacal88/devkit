@@ -36,8 +36,9 @@ import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.m
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, stageIcon, sessionTitle,
-  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile,
+  HOOKS_DIR, locate, cleanOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, mainRoot, tryGit, READINESS_KEY,
 } from './change-loop.mjs';
+import { readiness, liveRuns, startRun, pauseRun, resumeRun, cancelRun, pendingRequests, CHANGE_LOOP } from './compozy-driver.mjs';
 
 // ---------------------------------------------------------------- the setting, the load and the word (D-6, D-3)
 
@@ -703,7 +704,8 @@ export function roadmapSubagentStopDecision(input, { env = process.env, run } = 
 
 const USAGE = 'usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessions] (the owner\'s arguments on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--turn typed|event] [--start-anyway] '
   + '| status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] '
-  + '| hold --lang <l> --load-limit <p> [--interval <seconds>]';
+  + '| hold --lang <l> --load-limit <p> [--interval <seconds>] '
+  + '| compozy-start --lang <l> --load-limit <p> (the owner\'s arguments on standard input) | compozy-tick --places <n> --load-limit <p> --lang <l> | compozy-state --lang <l>';
 
 function parseOpts(argv, { values = [], multi = [], flags = [] } = {}) {
   const out = { positional: [], value: {}, many: {}, flag: {} };
@@ -833,7 +835,127 @@ function statusCmd(args, ctx) {
   if (opts.positional.length) throw new LoopUsageError(USAGE);
   const { lang, limit, load } = settingsOf(ctx, opts);
   const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: 'board', readFlying: true });
-  return plain(boardOf(facts));
+  const board = boardOf(facts);
+  const start = findRoot(ctx.cwd);
+  if (!start || readDevkitSettings(start).driver !== 'compozy') return plain(board);
+  return plain(`${board}\n${compozyStatusLine(start, lang, ctx)}`);
+}
+
+// ---------------------------------------------------------------- the roadmap on CompozyOS (compozy-driver D-7)
+
+const ROADMAP_LOOP = 'devkit-roadmap';
+const DONE_CLASSES = [...ARCHIVED_CLASSES, 'ticked'];
+const refused = (text) => ({ code: 3, stdout: `${text}\n`, stderr: '' });
+
+// `{ ok: true }`, or `{ ok: false, text }` with the reply of the first failing row of the CompozyOS check (D-2).
+function compozyCheck(main, lang, env) {
+  const ready = readiness(main, { env });
+  return ready.ok ? { ok: true } : { ok: false, text: render(lang, READINESS_KEY[ready.reason], { fix: ready.fix }) };
+}
+
+// The line `status` adds on the compozy driver: the pending requests, or the reason CompozyOS cannot be reached.
+function compozyStatusLine(start, lang, ctx) {
+  const main = mainRoot(start);
+  const check = compozyCheck(main, lang, ctx.env);
+  if (!check.ok) return check.text;
+  try { return render(lang, 'compozy-requests', { n: pendingRequests(main, { env: ctx.env }) }); } catch (e) { if (e instanceof LoopUsageError) return ''; throw e; }
+}
+
+// The roadmap's lines in their classes, with the open changes (nothing is on the previous script or declared here: the runs say so).
+function compozyLines(start, ctx) {
+  const rounds = readRoadmap(start);
+  if (rounds === null) throw new LoopRefusal('roadmap-none', render(ctx.lang, 'roadmap-none'));
+  const archived = archivedOnDefault(start, { env: ctx.env, gh: ctx.gh });
+  const list = unfinished(start, { env: ctx.env, gh: ctx.gh });
+  const lines = classifyLines(rounds, { archived, open: new Set(list.map((u) => u.id)), previous: new Set(), declared: {} });
+  return { lines, list };
+}
+
+// The facts of a tick and of the state: the lines, the ids whose change run is live, the lines that fill a place and the ones that can start.
+function compozyFacts(start, main, ctx) {
+  const env = cleanOf(ctx.env);
+  if (tryGit(main, ['remote']).split('\n').includes('origin')) {
+    try { execFileSync('git', ['-C', main, 'fetch', 'origin', '--prune', '--quiet'], { stdio: 'ignore', env }); } catch { /* offline: the local refs answer */ }
+  }
+  const { lines, list } = compozyLines(start, ctx);
+  const live = new Set(liveRuns(main, CHANGE_LOOP, { env: ctx.env }).map((r) => r.inputs.change_id).filter(Boolean));
+  const filled = lines.filter((x) => x.cls === 'open' || (live.has(x.id) && !DONE_CLASSES.includes(x.cls)));
+  const ready = lines.filter((x) => x.cls === 'ready' && !live.has(x.id));
+  return { lines, list, live, filled, ready };
+}
+
+// The roadmap's own prefix of an open change: where it stays, one `roadmap-stayed` line each.
+function stayedLines(lang, facts, ctx) {
+  const byId = new Map(facts.list.map((u) => [u.id, u]));
+  return facts.lines.filter((x) => x.cls === 'open').map((x) => {
+    let where = '';
+    try { where = whereOf(byId.get(x.id), x.id, { lang, env: ctx.env, openspec: ctx.openspec, gh: ctx.gh }); } catch (e) { if (!(e instanceof LoopUsageError)) throw e; }
+    return render(lang, 'roadmap-stayed', { id: x.id, where });
+  });
+}
+
+function compozyStartCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--lang', '--load-limit'] });
+  if (opts.positional.length) throw new LoopUsageError(USAGE);
+  const lang = normalizeLang(opts.value['--lang']);
+  const word = parseRunInput(ctx.stdin);
+  if (word.kind === 'invalid') return plain(render(lang, 'roadmap-invalid', { word: word.word }));
+  const start = rootOf(ctx.cwd);
+  if (!hasRoadmapFile(start)) return plain(render(lang, 'roadmap-none'));
+  const main = mainRoot(start);
+  const check = compozyCheck(main, lang, ctx.env);
+  if (!check.ok) return refused(check.text);
+  const env = { env: ctx.env };
+  for (const run of liveRuns(main, ROADMAP_LOOP, env)) cancelRun(main, run.runId, env);
+  const changeRuns = liveRuns(main, CHANGE_LOOP, env);
+  if (word.kind === 'stop') {
+    const { lines, list } = compozyLines(start, { ...ctx, lang });
+    const onRoadmap = new Set(lines.map((x) => x.id));
+    for (const run of changeRuns) if (run.status !== 'paused' && onRoadmap.has(run.inputs.change_id)) pauseRun(main, run.runId, env);
+    return plain([render(lang, 'roadmap-stopping'), ...stayedLines(lang, { lines, list }, ctx)].join('\n'));
+  }
+  for (const run of changeRuns) if (run.status === 'paused') resumeRun(main, run.runId, env);
+  const { runId, url } = startRun(main, ROADMAP_LOOP, { places: word.places, load_limit: limitOf(opts.value['--load-limit']), lang }, env);
+  return plain(render(lang, 'compozy-roadmap-started', { places: word.places, url: url ?? `run ${runId}` }));
+}
+
+function compozyTickCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--places', '--load-limit', '--lang'] });
+  if (opts.positional.length) throw new LoopUsageError(USAGE);
+  const lang = normalizeLang(opts.value['--lang']);
+  const places = Number(opts.value['--places']);
+  if (!Number.isInteger(places) || places < 1) throw new LoopUsageError(`compozy-tick needs --places, a whole number from 1; ${USAGE}`);
+  const limit = limitOf(opts.value['--load-limit']);
+  const start = rootOf(ctx.cwd);
+  const main = mainRoot(start);
+  const check = compozyCheck(main, lang, ctx.env);
+  if (!check.ok) return refused(check.text);
+  const facts = compozyFacts(start, main, { ...ctx, lang });
+  const free = places - facts.filled.length;
+  if (free <= 0 || facts.ready.length === 0) return { code: 0, stdout: '', stderr: '' };
+  const load = ctx.load();
+  if (load > limit) return plain(render(lang, 'roadmap-held', { id: facts.ready[0].id, load, limit }));
+  const out = facts.ready.slice(0, free).map((line, i) => {
+    startRun(main, CHANGE_LOOP, { change_id: line.id, request: requestOf(line), lang }, { env: ctx.env });
+    return render(lang, 'roadmap-started', { id: line.id, open: facts.filled.length + i + 1, places });
+  });
+  return plain(out.join('\n'));
+}
+
+// Exit 0 while something is under way or can start, 10 when every line is archived, 11 when nothing can start and no run is live.
+function compozyStateCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--lang'] });
+  if (opts.positional.length) throw new LoopUsageError(USAGE);
+  const lang = normalizeLang(opts.value['--lang']);
+  const start = rootOf(ctx.cwd);
+  const main = mainRoot(start);
+  const check = compozyCheck(main, lang, ctx.env);
+  if (!check.ok) return refused(check.text);
+  const facts = compozyFacts(start, main, { ...ctx, lang });
+  if (facts.lines.every((x) => DONE_CLASSES.includes(x.cls))) return { code: 10, stdout: '', stderr: '' };
+  if (facts.ready.length > 0 || facts.lines.some((x) => facts.live.has(x.id))) return { code: 0, stdout: '', stderr: '' };
+  const said = stayedLines(lang, facts, ctx);
+  return { code: 11, stdout: said.length ? `${said.join('\n')}\n` : '', stderr: '' };
 }
 
 // The draft (D-9): written only when `openspec/roadmap.md` is absent, never committed, naming the changes it left out.
@@ -942,6 +1064,9 @@ export function main(argv, opts = {}) {
     if (sub === 'status') return statusCmd(rest, ctx);
     if (sub === 'draft') return draftCmd(rest, ctx);
     if (sub === 'reply') return replyCmd(rest, ctx);
+    if (sub === 'compozy-start') return compozyStartCmd(rest, ctx);
+    if (sub === 'compozy-tick') return compozyTickCmd(rest, ctx);
+    if (sub === 'compozy-state') return compozyStateCmd(rest, ctx);
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);
@@ -965,7 +1090,7 @@ function isMain() {
 
 if (isMain()) {
   const argv = process.argv.slice(2);
-  runCommand(argv, { stdin: argv[0] === 'run' ? readStdin() : '' }).then((r) => {
+  runCommand(argv, { stdin: argv[0] === 'run' || argv[0] === 'compozy-start' ? readStdin() : '' }).then((r) => {
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
     process.exitCode = r.code;

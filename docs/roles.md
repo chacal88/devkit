@@ -18,7 +18,7 @@ In `docs/coordination-design.md` this role is the team's `tech-lead`; the Compoz
 - Delivers: The change folder, `requirements.md` and `retro.md`, each with its stage header.
 - Never: Writes product code, approves its own change, or skips a stage the checker has not passed.
 - Stages: `open`, `requirements`, `retro` (both scripts).
-- Played today by: The main session running `/devkit change` (the `devkit` skill of devkit-openspec), or `/devkit roadmap` for every open change of its run, held by the stop and hand-off locks (in the desktop app each change of a run has a session of its own, which plays the change coordinator, [ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)); `ship-change` still finishes a change begun under the previous script. The `requirements-grill` and `retro` skills carry its two writing steps.
+- Played today by: The agent `devkit-openspec:change-coordinator` on the CompozyOS driver; in Claude Code, the main session running `/devkit change` (the `devkit` skill of devkit-openspec), or `/devkit roadmap` for every open change of its run, held by the stop and hand-off locks (in the desktop app each change of a run has a session of its own, which plays the change coordinator, [ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)); `ship-change` still finishes a change begun under the previous script. The `requirements-grill` and `retro` skills carry its two writing steps.
 
 ## roadmap-coordinator
 
@@ -38,7 +38,7 @@ In `docs/coordination-design.md` this role is the team's `tech-lead` for a new p
 - Delivers: The slice's stage records, each with its stage header, and the documents under `docs/design/<slice>/` and the new ADRs the owner approved.
 - Never: Writes product code, sets a stage record to passed without the owner's approval, edits `openspec/roadmap.md` by hand, edits a flat `docs/design/` or another slice's folder, or merges.
 - Stages: `open`, `business`, `domain-model`, `architecture`, `implementation-plan`, `roadmap` (`devkit-project` only).
-- Played today by: The main session running `/devkit project` (the `devkit` skill of devkit-openspec); it has no agent file, as `change-coordinator` has none.
+- Played today by: The main session running `/devkit project` (the `devkit` skill of devkit-openspec); it has no agent file.
 
 ## owner
 
