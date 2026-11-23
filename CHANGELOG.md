@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.34.1 — retro proposals of release-tags
+
+- **devkit-openspec** 0.30.1: `accept-decisions` writes the acceptance line of an ADR whose status is
+  a bulleted `- Status:` line as `- Accepted by: ...`, as ADR 0017 and 0018 read, not as a second
+  `- Status: Accepted by: ...` line; a status line of another form keeps its prefix. The CI snippet
+  now pins `v0.30.1`, the release's tag.
+- Docs: CONTRIBUTING asks a change that reads a GitHub route for the first time to record one
+  read-only live call of it in `evidence.md`; a fake-gh fixture alone does not prove the route or
+  the shape.
+
 ## 0.34.0 — release tags
 
 - **devkit-openspec** 0.30.0: a project that sets `devkit.release_tag` (a path from the repository
