@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=4fadc2a97437f4af8bdffab9070a42aa3eefaa52 -->
+<!-- devkit-stage review result=passed attempt=2 commit=7492d49d748b5d124b792a98a889e599df61702e -->
 # Review: gh-version-check, round 1
 
 Path: agents · range `c56155334749cdc46bad077ba8f53c4bbec5d140..4fadc2a97437f4af8bdffab9070a42aa3eefaa52` · structural: PASS
@@ -21,3 +21,26 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: gh-version-check, round 2
+
+Path: agents · range `4fadc2a97437f4af8bdffab9070a42aa3eefaa52..7492d49d748b5d124b792a98a889e599df61702e` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 7492d49 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 7492d49 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Both reviewers were re-summoned: test-coverage-reviewer for its round-1 finding, code-quality-reviewer because its Commit: line went stale after the test-only fix commit 7492d49.
+
+## Next
+Ready to ship.
