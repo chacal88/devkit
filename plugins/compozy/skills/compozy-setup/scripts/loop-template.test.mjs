@@ -396,3 +396,25 @@ test('AC-2 loop-shape: compozy loop validate accepts the raw template (skipped w
   }
   assert.equal(parsed.valid, true, `compozy loop validate rejected the template: ${JSON.stringify(parsed)}`);
 });
+
+// stage-roles D-8 (spec compozy-kit-setup): the prompts name the new stage agents and files.
+test('stage-roles kit: the design node prompt names the screen-designer and mockup.md', () => {
+  const block = nodeBlock('design').replace(/\s+/g, ' ');
+  assert.match(block, /devkit-core:screen-designer/);
+  assert.match(block, /mockup\.md/);
+  assert.match(block, /mock\//);
+});
+
+test('stage-roles kit: the review node prompt names the two test agents and the two blocking ids', () => {
+  const block = nodeBlock('review').replace(/\s+/g, ' ');
+  assert.match(block, /devkit-core:test-runner/);
+  assert.match(block, /devkit-core:e2e-tester/);
+  assert.match(block, /unit_tests_red/);
+  assert.match(block, /e2e_tests_red/);
+});
+
+test('stage-roles kit: the implement node review prompt lists decisions among the files and asks for the records to be approved with the plan', () => {
+  const flat = readFileSync(TEMPLATE, 'utf8').replace(/\s+/g, ' ');
+  assert.match(flat, /\(requirements and its open questions, proposal, tasks, and design, decisions and readiness on the devkit schema\)/);
+  assert.match(flat, /together with the (?:ADRs|records) (?:it|`decisions\.md`) lists/);
+});

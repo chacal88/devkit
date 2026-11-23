@@ -21,7 +21,8 @@ export { STAGE_HEADER, parseStageHeader };
 const SOURCES = ['folder', 'artifact', 'tasks', 'github'];
 const PARTS = ['open', 'plan', 'build', 'after', 'delivery', 'close'];
 const STAGE_KEYS = ['id', 'source', 'file', 'role', 'skills', 'helpers', 'part', 'title', 'shipped', 'owner',
-  'ceiling', 'onFail', 'staleAfter', 'codeBound'];
+  'ceiling', 'onFail', 'staleAfter', 'codeBound', 'appliesWhen', 'notAfter'];
+const SETTING_PATH = /^[A-Za-z][\w-]*(\.[A-Za-z][\w-]*)*$/;
 const LANGS = ['en', 'pt-BR'];
 
 // The script's declaration of its stages (design D-5): flow.json next to the schema's schema.yaml.
@@ -53,6 +54,16 @@ export function readFlowFile(f, name = f) {
     if (s.source === 'artifact' && typeof s.file !== 'string') throw bad(`stage ${s.id} has no file`);
     if (typeof s.role !== 'string' || !s.role) throw bad(`stage ${s.id} has no role`);
     for (const l of LANGS) if (typeof s.title?.[l] !== 'string' || !s.title[l]) throw bad(`stage ${s.id} has no ${l} title`);
+    if (s.ceiling !== undefined && s.ceiling !== 'owner' && !(Number.isInteger(s.ceiling) && s.ceiling >= 1)) {
+      throw bad(`stage ${s.id} has a ceiling that is neither a whole number from 1 nor "owner": ${JSON.stringify(s.ceiling)}`);
+    }
+    if (s.appliesWhen !== undefined) {
+      const w = s.appliesWhen;
+      const keys = w && typeof w === 'object' && !Array.isArray(w) ? Object.keys(w) : [];
+      const value = keys.length === 1 ? w[keys[0]] : undefined;
+      const ok = (keys[0] === 'flag' && typeof value === 'string' && value !== '') || (keys[0] === 'setting' && typeof value === 'string' && SETTING_PATH.test(value));
+      if (!ok) throw bad(`stage ${s.id} has an appliesWhen that is not exactly one of a flag or a dotted setting, each a non-empty string`);
+    }
   });
   flow.stages.forEach((s, i) => {
     if (s.onFail !== undefined && !(index.has(s.onFail) && index.get(s.onFail) <= i)) {
@@ -60,6 +71,9 @@ export function readFlowFile(f, name = f) {
     }
     for (const a of s.staleAfter ?? []) {
       if (!(index.has(a) && index.get(a) < i)) throw bad(`stage ${s.id} has a staleAfter that is unknown or later: ${a}`);
+    }
+    if (s.notAfter !== undefined && !(index.has(s.notAfter) && index.get(s.notAfter) > i && flow.stages[index.get(s.notAfter)].source === 'artifact')) {
+      throw bad(`stage ${s.id} has a notAfter that is not a later artifact stage: ${JSON.stringify(s.notAfter)}`);
     }
   });
   return flow;
@@ -143,6 +157,60 @@ export function stageFiles(dir, file) {
   return paths.map((path) => ({ path, header: parseStageHeader(readFileSync(join(dir, path), 'utf8')), mtimeMs: statSync(join(dir, path)).mtimeMs }));
 }
 
+// The value of a `key: value` line: quoted or not, with an optional trailing `# comment`.
+export function plainValue(raw) {
+  const text = raw.replace(/\r$/, '').trim();
+  const quote = text[0];
+  if (quote === '"' || quote === "'") {
+    const end = text.indexOf(quote, 1);
+    return end === -1 ? text.slice(1) : text.slice(1, end);
+  }
+  return text.replace(/(^|\s)#.*$/, '').trim();
+}
+
+// The flags of the grill's `Classification: ... flags=[..]` line in the change's requirements.md, lower-cased: none
+// when the file or the line is missing. No other line of the file is read.
+export function classificationFlags(dir) {
+  const file = join(dir, 'requirements.md');
+  if (!existsSync(file)) return [];
+  const m = /^.*Classification:.*flags=\[([^\]]*)\]/m.exec(readFileSync(file, 'utf8'));
+  return m ? m[1].split(',').map((f) => f.trim().toLowerCase()).filter(Boolean) : [];
+}
+
+// The test settings of the `devkit:` block of openspec/config.yaml, read by indentation (design stage-roles D-3):
+// { unit, e2e, coverage: { command, target }, paths, unknown }. Missing values are null; `paths` maps every dotted path
+// under `devkit` that holds a value to its text; `target` is a number only when the text is a whole number from 0 to 100,
+// else null and the text is listed in `unknown` as { setting, value, accepted }.
+export function readTestSettings(root) {
+  let text = '';
+  try { text = readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'); } catch (e) {
+    if (e?.code !== 'ENOENT') throw new FlowUsageError(`openspec/config.yaml cannot be read (${e?.code ?? e})`);
+  }
+  const paths = {};
+  const open = [];
+  let inBlock = false;
+  for (const line of text.split('\n')) {
+    if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; open.length = 0; continue; }
+    if (!inBlock) continue;
+    if (line.trim() === '' || /^\s*#/.test(line)) continue;
+    if (!/^\s/.test(line)) { inBlock = false; continue; }
+    const m = /^(\s+)([A-Za-z][\w-]*):(.*)$/.exec(line);
+    if (!m) continue;
+    while (open.length && open[open.length - 1].indent >= m[1].length) open.pop();
+    const value = plainValue(m[3]);
+    if (value === '') open.push({ indent: m[1].length, key: m[2] });
+    else paths[[...open.map((o) => o.key), m[2]].join('.')] = value;
+  }
+  const unknown = [];
+  let target = null;
+  const targetText = paths['tests.coverage.target'];
+  if (targetText !== undefined) {
+    if (/^\d+$/.test(targetText) && Number(targetText) <= 100) target = Number(targetText);
+    else unknown.push({ setting: 'coverage-target', value: targetText, accepted: 'a whole number from 0 to 100' });
+  }
+  return { unit: paths['tests.unit'] ?? null, e2e: paths['tests.e2e'] ?? null, coverage: { command: paths['tests.coverage.command'] ?? null, target }, paths, unknown };
+}
+
 // A change begun under the previous script (D-2): the earliest artifact stage that has a file, in the order the
 // declaration lists them, has no header on any of its files. A header on a later file (a readiness, an evidence or a
 // review the current agents wrote) does not change that. No file at all is a change being opened: current.
@@ -216,7 +284,8 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   if (located.archived || !flow) return { facts, flow };
   const files = {};
   for (const s of flow.stages) if (s.source === 'artifact') files[s.id] = stageFiles(located.dir, s.file);
-  Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null });
+  Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
+    flags: classificationFlags(located.dir), settings: readTestSettings(root).paths });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
   try { config = shipConfig(root, schema); } catch (e) {
@@ -283,6 +352,11 @@ export const TEXT = {
     'rerun-after-fix': (p, n) => `the ${nameOf(n, p.stage)} failed and the work changed since; it runs again`,
     'ceiling-reached': (p, n) => `the ${nameOf(n, p.stage)} failed at attempt ${p.attempt} and its ceiling is ${p.ceiling}`,
     'no-progress': (p, n) => `the ${nameOf(n, p.stage)} came back with nothing changed since the last run`,
+    'past-point': (p, n) => `the change was already past the ${nameOf(n, p.after)} when this stage arrived`,
+    'flag-absent': (p) => `the requirements' classification has no ${p.flag} flag`,
+    'setting-absent': (p) => `openspec/config.yaml declares no devkit.${p.setting}`,
+    'changes-asked': (p) => `the owner asked for changes at attempt ${p.attempt}`,
+    'owner-changes': (p, n) => `the owner asked for changes to the ${nameOf(n, p.stage)} at attempt ${p.attempt}; it is drawn again`,
     'owner-pending': (p, n) => `the ${nameOf(n, p.stage)} waits for the owner`,
     'approval-stale': (p, n) => `the ${nameOf(n, p.stage)} is stale: the owner approves the revised plan again`,
     'undeclared-stage': (p) => `the script declares no ${p.stage} stage (${p.why})`,
@@ -327,6 +401,11 @@ export const TEXT = {
     'rerun-after-fix': (p, n) => `a etapa ${nameOf(n, p.stage)} falhou e o trabalho mudou desde então; ela roda de novo`,
     'ceiling-reached': (p, n) => `a etapa ${nameOf(n, p.stage)} falhou na tentativa ${p.attempt} e o limite é ${p.ceiling}`,
     'no-progress': (p, n) => `a etapa ${nameOf(n, p.stage)} voltou sem nada ter mudado desde a última execução`,
+    'past-point': (p, n) => `a change já tinha passado da etapa ${nameOf(n, p.after)} quando esta etapa chegou`,
+    'flag-absent': (p) => `a classificação dos requisitos não tem a marca ${p.flag}`,
+    'setting-absent': (p) => `o openspec/config.yaml não declara devkit.${p.setting}`,
+    'changes-asked': (p) => `o dono pediu mudanças na tentativa ${p.attempt}`,
+    'owner-changes': (p, n) => `o dono pediu mudanças na etapa ${nameOf(n, p.stage)} na tentativa ${p.attempt}; ela é refeita`,
     'owner-pending': (p, n) => `a etapa ${nameOf(n, p.stage)} espera o dono`,
     'approval-stale': (p, n) => `a etapa ${nameOf(n, p.stage)} está desatualizada: o dono aprova de novo o plano revisado`,
     'undeclared-stage': (p) => `o roteiro não declara a etapa ${p.stage} (${p.why})`,
@@ -360,6 +439,12 @@ function artifactState(stage, files, facts, flow, started) {
   const out = (state, reasonCode, params = {}, more = {}) => ({ ...base, state, reasonCode, params, ...more });
   if (facts.skipped.includes(stage.id)) return out('not-applicable', 'skipped');
   if (files.length === 0) {
+    // First match wins (design stage-roles D-2): a stage the change was already past, a flag or a setting that does not
+    // hold, a role that is not shipped; else the file is the next thing to write. A file that exists skips all of these.
+    if (stage.notAfter && (facts.files[stage.notAfter] ?? []).length > 0) return out('not-applicable', 'past-point', { after: stage.notAfter });
+    const when = stage.appliesWhen;
+    if (when?.flag && !(facts.flags ?? []).includes(when.flag.toLowerCase())) return out('not-applicable', 'flag-absent', { flag: when.flag });
+    if (when?.setting && !(when.setting in (facts.settings ?? {}))) return out('not-applicable', 'setting-absent', { setting: when.setting });
     return stage.shipped === false ? out('not-applicable', 'role-not-shipped', { role: stage.role }) : out('pending', 'no-file', { file: stage.file });
   }
   for (const f of files) {
@@ -396,7 +481,8 @@ function artifactState(stage, files, facts, flow, started) {
       if (mine !== null && other !== null && other - mine > FRESH_MS) { stale = { code: 'stale-plan', params: { by: a } }; break; }
     }
   }
-  const ceiling = stage.ceiling ?? flow.ceilings.default;
+  const ceiling = stage.ceiling === 'owner' ? null : stage.ceiling ?? flow.ceilings.default;
+  if (result === 'failed' && stage.ceiling === 'owner') return out('failed', 'changes-asked', { attempt: h.attempt }, info);
   if (result === 'failed') return out('failed', 'header-failed', { attempt: h.attempt, ceiling }, { ...info, fixed: stale !== null });
   if (stale) return out('stale', stale.code, stale.params, info);
   return out('passed', 'passed', { attempt: h.attempt }, info);
@@ -511,6 +597,8 @@ export function computeFlow(facts, flow, { after = null } = {}) {
     return finishEnd(delivered.end.state, s.id, delivered.end.reasonCode, delivered.end.params);
   }
   if (raw.state === 'failed') {
+    // The owner ends the attempts of a stage declared `ceiling: "owner"`: it is drawn again, never blocked by a number.
+    if (s.ceiling === 'owner') return offer(s.id, 'owner-changes', { stage: s.id, attempt: raw.attempt });
     const ceiling = ceilingOf(s);
     if (raw.attempt >= ceiling) return finishEnd('blocked', s.id, 'ceiling-reached', { stage: s.id, attempt: raw.attempt, ceiling });
     if (raw.fixed) return offer(s.id, 'rerun-after-fix', { stage: s.id });
@@ -554,7 +642,7 @@ const sentence = (text) => {
 function situation(lang, entry, names) {
   const words = WORDS[lang].states;
   const said = reasonText(lang, entry.reasonCode, entry.params, names);
-  if (entry.reasonCode === 'passed' || entry.reasonCode === 'header-failed') return said;
+  if (entry.reasonCode === 'passed' || entry.reasonCode === 'header-failed' || entry.reasonCode === 'changes-asked') return said;
   if (entry.reasonCode === 'not-applicable') return words[entry.state];
   return `${words[entry.state]}: ${said}`;
 }

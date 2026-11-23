@@ -1,14 +1,34 @@
 # Changelog
 
-## 0.25.3 — test fixtures clean up after themselves
+## 0.26.1 — test fixtures clean up after themselves
 
-- **devkit-openspec** 0.21.3: `test-tmp.mjs` makes every temporary folder of the hook tests and
+- **devkit-openspec** 0.22.1: `test-tmp.mjs` makes every temporary folder of the hook tests and
   removes it when its test ends, passed or failed, and sweeps the rest at the end of the run or on
-  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.21.3`.
-- **devkit-core** 0.9.1: the same helper, a byte-identical copy, for the `review-round` tests.
-- **devkit-compozy** 0.2.1: the same helper, a byte-identical copy, for the compozy tests.
+  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.22.1`.
+- **devkit-core** 0.10.1: the same helper, a byte-identical copy, for the `review-round` tests.
+- **devkit-compozy** 0.3.1: the same helper, a byte-identical copy, for the compozy tests.
 - CI: the hook tests run on an empty `TMPDIR` and a new step fails the job when anything is left in
   it. `CONTRIBUTING.md` states the rule: a test makes its folders through `test-tmp.mjs`.
+
+## 0.26.0 — the stage roles
+
+- **devkit-core** 0.10.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and
+  `e2e-tester`, with the skills `screen-mockup`, `adr-authoring` and `e2e-testing`. `pr-verifier`
+  records the demonstration as text in `evidence.md`, with no image and no pull-request comment.
+- **devkit-openspec** 0.22.0: the `devkit` script's mock-up, decisions, unit-tests and E2E stages
+  run. The mock-up applies only when the grill flags `ui` and waits for the owner's answer; the
+  decisions stage always runs; the unit and E2E stages run when the project declares
+  `devkit.tests.unit` or `devkit.tests.e2e` (and `devkit.tests.coverage.command` and
+  `devkit.tests.coverage.target`). A stage that does not apply, or that the change had already
+  passed, leaves no file, and the readout says why. `change-loop.mjs` hands the new stages to their
+  roles, adds `fix-tests` and the `accept-decisions` step (the loop's new subcommand, run once the
+  plan approval is recorded). The edit lock lets `adr-author` write decision records and
+  `e2e-tester` write test files. `devkit-lite` no longer lists the mock-up and decisions stages.
+  The CI snippet now pins `v0.22.0`, the release's tag.
+- **devkit-compozy** 0.3.0: the four role shells name the new agents, and the loop's design, review
+  and implement prompts name the mock-up, the test agents and the decision records.
+- Docs: ADR 0016 (stage roles write their own files, amends 0010 and 0011), `docs/roles.md`, the
+  flow and design pages, the roadmap (round 16b `coordinator-loop-fixes` carries the retros' items).
 
 ## 0.25.2 — follow-ups of the project phases
 

@@ -1,4 +1,4 @@
 <!-- devkit-stage mockup result=pending attempt=1 commit=none -->
 # Mock-up
 
-<!-- The screens this change alters, drawn with real example data: each screen, the file under mock/ that holds it and the data it shows. With no screen, set result=not-applicable above and say why in one line. -->
+<!-- Each screen this change alters: its file under `mock/` (`<screen>.html`, self-contained, for a web page or panel; `<screen>.md`, monospaced, for a terminal, CLI or band), the real example its data comes from. The owner's notes of each attempt and the owner's approval are appended below by the session. -->

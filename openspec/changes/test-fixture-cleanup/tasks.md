@@ -273,8 +273,10 @@ planning).
   and the marketplace to 0.25.2. Add a `CHANGELOG.md` section `## 0.25.2 — test fixtures clean up
   after themselves` with one bullet per pack (the helper and its migrated tests) and one for CI (the
   empty-`TMPDIR` step) and `CONTRIBUTING.md`. Check: `python3 scripts/gen-catalog.py --check` passes.
-  At delivery the release moved to devkit-openspec 0.21.3, marketplace 0.25.3 and the pin `v0.21.3`:
-  main had already released 0.21.2 / 0.25.2 (project-phases-followups, #61); see merge commit 64a9573.
+  At delivery the release moved to devkit-openspec 0.22.1, devkit-core 0.10.1, devkit-compozy 0.3.1,
+  marketplace 0.26.1 and the pin `v0.22.1`: main had already released 0.21.2 / 0.25.2
+  (project-phases-followups, #61) and then 0.22.0 / 0.26.0 (stage-roles, #58); see merge commit 64a9573
+  and the second merge of origin/main.
 - [x] 4.3 Move the CI pin to the release: the three `v0.21.1` of `docs/openspec-flow.md` (lines 578,
   579 and 588 at c561553) become `v0.21.2`. In the same task change the assertion of "change-loop
   docs: the design records the answers" in `plugins/openspec/hooks/change-loop.test.mjs`
@@ -290,7 +292,7 @@ planning).
 
 - On the pull request, the `check` job runs the hook tests with the empty `TMPDIR` and its new step;
   the evidence cites that run for AC-5.
-- After the merge, tag `v0.21.3` on the merge commit and push the tag (`CONTRIBUTING.md`).
+- After the merge, tag `v0.22.1` on the merge commit and push the tag (`CONTRIBUTING.md`).
 - Archive with the retro; the archive ticks the round 17g line of `openspec/roadmap.md`.
 - In the projects that use devkit, update devkit-openspec, devkit-core and devkit-compozy, and move
-  the pinned `devkit-reviews` workflow to `v0.21.3` through each project's own pull request.
+  the pinned `devkit-reviews` workflow to `v0.22.1` through each project's own pull request.

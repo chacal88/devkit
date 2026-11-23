@@ -180,7 +180,8 @@ test('conduct: plan files come from the stage declaration', () => {
     if (flow) put(b, { [`openspec/schemas/${schema}/flow.json`]: JSON.stringify(flow) });
     return byId(t.state(), 'b').next.missing;
   };
-  assert.deepEqual(missing('devkit'), ['proposal.md', 'design.md', 'tasks.md']);
+  // Invariant (T-5, conduct-check, conduct-check.test.mjs): the plan files are the plan stages that always apply and that the change has not passed.
+  assert.deepEqual(missing('devkit'), ['decisions.md', 'proposal.md', 'design.md', 'tasks.md']);
   assert.deepEqual(missing('devkit-lite'), ['proposal.md', 'tasks.md']);
   const stage = (id, file, extra = {}) => ({ id, source: 'artifact', file, role: 'change-planner', part: 'plan', title: { en: id, 'pt-BR': id }, ...extra });
   const flow = { version: 1, script: 'devkit-lite', ceilings: { default: 3 }, stages: [
@@ -1493,4 +1494,30 @@ test('field-fixes 10 verdict: an audit with ACCURATE first and OUTDATED later is
   assert.deepEqual(planStep(accurate), ['implement', 'subagent']);
   assert.doesNotMatch(JSON.stringify(accurate.next), /OUTDATED/);
   assert.deepEqual(planStep(twoVerdictAudit('OUTDATED', 'ACCURATE')), ['revise-plan', 'subagent']);
+});
+
+// ---------------------------------------------------------------- stage-roles: plan files of a stage that may not apply
+
+test('stage-roles flow conduct-check: a full-script change before its proposal is asked for decisions.md and never for mockup.md', () => {
+  const t = oneChange();
+  const b = t.addWt('b');
+  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit\n', 'requirements.md': '# Requirements\n\nClassification: domain=x type=y flags=[ui]\n' });
+  const missing = byId(t.state(), 'b').next.missing;
+  assert.deepEqual(missing, ['decisions.md', 'proposal.md', 'design.md', 'tasks.md']);
+  assert.ok(!missing.includes('mockup.md'), 'the mock-up is the screen designer\'s, never the planner\'s');
+});
+
+test('stage-roles flow conduct-check: with proposal.md present the change is past the decisions and is never asked for them', () => {
+  const t = oneChange();
+  const b = t.addWt('b');
+  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit\n', 'requirements.md': '# Requirements\n', 'proposal.md': PROPOSAL });
+  const missing = byId(t.state(), 'b').next.missing;
+  assert.deepEqual(missing, ['design.md', 'tasks.md']);
+});
+
+test('stage-roles flow conduct-check: the short script is asked for no decisions file', () => {
+  const t = oneChange();
+  const b = t.addWt('b');
+  writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit-lite\n', 'requirements.md': '# Requirements\n' });
+  assert.deepEqual(byId(t.state(), 'b').next.missing, ['proposal.md', 'tasks.md']);
 });

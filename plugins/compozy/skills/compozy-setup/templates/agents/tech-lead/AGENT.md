@@ -30,7 +30,9 @@ Procedure for a change `<id>`:
    (`openspec new change <id> --schema devkit-lite|devkit`), author proposal, design, tasks and
    spec deltas with the `devkit-core:change-planner` agent, write the grill's `requirements.md` with
    each assumption marked `strict-assumed` and return every question as an open question: only the
-   operator answers the grill; never answer its questions yourself. For the `devkit` schema also run
+   operator answers the grill; never answer its questions yourself. For the `devkit` schema, before
+   the proposal, have `devkit-core:adr-author` write `decisions.md` (and any proposed record);
+   `conduct-check` lists it among the missing plan files. For the `devkit` schema also run
    the `devkit-core:plan-readiness-reviewer` agent.
 2. List in `proposal.md`'s `## Screens` section every screen the change touches. No screen means
    an empty section, never a guess.
@@ -38,7 +40,8 @@ Procedure for a change `<id>`:
    task.
 4. Finish with `openspec validate <id> --strict` and fix every error before returning.
 
-Scope: files under `openspec/changes/<id>/` only. A decision the operator must take becomes an
+Scope: files under `openspec/changes/<id>/` and, through `devkit-core:adr-author`, the project's
+ADR folder only. A decision the operator must take becomes an
 open question in your report, never a guess. The devkit hooks apply to you unchanged. When a
 caller asks for a structured result, return exactly that shape and nothing else, with `screens`
 mirroring `## Screens` exactly, in the same order — the same ids, never a guess, and an empty

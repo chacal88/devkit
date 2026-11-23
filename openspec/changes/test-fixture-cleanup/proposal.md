@@ -79,22 +79,22 @@ None.
 
 ## Impact
 
-- devkit-openspec (0.21.1 to 0.21.3; 0.21.2 went to project-phases-followups, #61): `hooks/test-tmp.mjs` and `hooks/test-tmp.test.mjs` (new); the
+- devkit-openspec (0.21.1 to 0.22.1; 0.21.2 went to project-phases-followups, #61 and 0.22.0 to stage-roles, #58): `hooks/test-tmp.mjs` and `hooks/test-tmp.test.mjs` (new); the
   nine hook test files (`guard`, `deliver-check`, `flow-check`, `conduct-check`, `merge-setup`,
   `release-rebase`, `change-loop`, `roadmap-loop`, `project-loop`) and the five
   `skills/openspec-setup/scripts/` test files (`github-setup`, `install-schemas`,
   `changes-under-way`, `project-settings`, `ship-entry`).
-- devkit-core (0.9.0 to 0.9.1): `skills/review-change/scripts/test-tmp.mjs` (new) and
+- devkit-core (0.9.0 to 0.10.1; 0.10.0 went to stage-roles): `skills/review-change/scripts/test-tmp.mjs` (new) and
   `review-round.test.mjs`.
-- devkit-compozy (0.2.0 to 0.2.1): `skills/test-tmp.mjs` (new) and the test files of
+- devkit-compozy (0.2.0 to 0.3.1; 0.3.0 went to stage-roles): `skills/test-tmp.mjs` (new) and the test files of
   `screen-design/scripts/screens-check`, `compozy-setup/scripts/install-kit` and
   `compozy-setup/scripts/devkit-kit`.
 - CI: `.github/workflows/ci.yml` (the `check` job keeps its id, so the ruleset's required check is
   unchanged).
 - Docs and release: `CONTRIBUTING.md`, `CHANGELOG.md`, `.claude-plugin/marketplace.json` (0.25.1 to
-  0.25.3), the three `v0.21.1` pins of `docs/openspec-flow.md` and their assertion in
+  0.26.1; 0.26.0 went to stage-roles), the three `v0.21.1` pins of `docs/openspec-flow.md` and their assertion in
   `plugins/openspec/hooks/change-loop.test.mjs` ("change-loop docs: the design records the
-  answers"); the tag `v0.21.3` after the merge.
+  answers"); the tag `v0.22.1` after the merge.
 - Runtime: each test removes its folders as it ends, so the peak of a run on the worker's temporary
   folder drops from hundreds of thousands of inodes to the folders of the test under way plus the
   module-level fixtures; the removals add some seconds to a run.
