@@ -174,13 +174,17 @@ export function proposeSchema(text, notes) {
 // ---------------------------------------------------------------- planning rows (design D6)
 
 // The plan files of `schema`: the plan stages of its flow.json (design flow-script-checker D-10) when it
-// has one; else the artifacts of its schema.yaml that are plain files, except requirements and readiness.
-function planArtifactsOf(root, schema) {
+// has one, that are shipped, always apply (no `appliesWhen`) and that the change has not already passed (its
+// `notAfter` stage has no file in `dir`, the change's folder); else the artifacts of its schema.yaml that are plain
+// files, except requirements and readiness.
+export function planArtifactsOf(root, schema, dir) {
   let flow = null;
   try { flow = schema ? readFlow(root, schema) : null; } catch (e) { if (!(e instanceof FlowUsageError)) throw e; }
   if (flow) {
+    const fileOf = (id) => flow.stages.find((x) => x.id === id)?.file;
     const files = flow.stages
       .filter((s) => s.part === 'plan' && s.source === 'artifact' && s.shipped !== false && !s.file.includes('*')
+        && !s.appliesWhen && !(s.notAfter && dir && existsSync(join(dir, fileOf(s.notAfter) ?? '')))
         && !['requirements', 'readiness', 'approval'].includes(s.id))
       .map((s) => s.file);
     if (files.length) return files;
@@ -207,7 +211,7 @@ function planFacts(ctx, item, entry) {
   const located = locateChange(root, id);
   const dir = located?.dir ?? join(root, 'openspec', 'changes', id);
   const schema = located ? changeSchemaAt(root, dir) : null;
-  const artifacts = located ? planArtifactsOf(root, schema) : [];
+  const artifacts = located ? planArtifactsOf(root, schema, dir) : [];
   const tasksFile = join(dir, 'tasks.md');
   const started = Boolean(located?.archived) || (existsSync(tasksFile) && parseTasks(readFileSync(tasksFile, 'utf8')).some((t) => t.done));
   const planned = artifacts.map((a) => mtime(join(dir, a))).filter((m) => m !== null);

@@ -47,20 +47,36 @@ apply (implementation ─▶ unit-tests, e2e-tests ─▶ evidence ─▶ review
 | Artifact | Role | Contents |
 |---|---|---|
 | `requirements.md` | `change-coordinator` with the owner (`requirements-grill`) | The request in the owner's words, confirmed assumptions, acceptance criteria with ids (`AC-1`...), out of scope. If the owner skips the grill: the derived criteria and `Grill: skipped by owner` |
-| `mockup.md` | `screen-designer` (role not shipped yet) | The screen mock-up, for a change with a screen |
-| `decisions.md` | `adr-author` (role not shipped yet) | The decisions and ADRs the change needs |
+| `mockup.md` | `screen-designer` | The screen mock-up, drawn only when the grill's classification lists `ui` and before the proposal exists; the owner approves it |
+| `decisions.md` | `adr-author` | The decisions and ADRs the change needs, proposed before the proposal exists; the owner's plan approval accepts them |
 | `proposal.md` | `change-planner` | Why, what changes, acceptance criteria (copied with their ids), capabilities, impact |
 | `specs/**/spec.md` | `change-planner` | Requirement deltas with WHEN/THEN scenarios |
 | `design.md` | `change-planner` | Context, decisions with alternatives, risks, migration |
 | `tasks.md` | `change-planner` | One `## N.` group per phase, each ending with a gate task naming the test command; every AC id covered |
 | `readiness.md` | `plan-readiness-reviewer` (never written by the author) | The readiness report; its Decision section has exactly one `- Status: APPROVED`, `NEEDS-REVISION` or `BLOCKED` |
 | `approval.md` | the owner | The owner's plan approval, written by the main session from the owner's message |
-| `unit-tests.md`, `e2e-tests.md` | `test-runner`, `e2e-tester` (roles not shipped yet) | The test runs of a change that needs them |
+| `unit-tests.md`, `e2e-tests.md` | `test-runner`, `e2e-tester` | The test runs, only when the project declares `devkit.tests.unit` or `devkit.tests.e2e`, and not once `evidence.md` exists |
 | `evidence.md` | `pr-verifier` | The gates and criteria proof, with its `Commit:` line |
 | `review.md` | `review-bench` | The summary of each review round |
 | `retro.md` | `change-coordinator` with the owner | What the change taught and the proposed updates |
 
-`apply` requires `approval`. Its instruction tells the main session to dispatch the `tdd-implementer` agent once per phase, run `pr-verifier` (it writes `evidence.md`; a defect it records is fixed by `tdd-implementer` and verified again), then run `review-change` (each reviewer agent writes `reviews/<reviewer>.md`) and finally `commit-and-pr`. The main session coordinates; the subagents do the work, and the hooks make sure of it. Until a role ships, nobody is required to write its file, and `flow-check` reports the stage as not applying.
+`apply` requires `approval`. Its instruction tells the main session to dispatch the `tdd-implementer` agent once per phase, run `pr-verifier` (it writes `evidence.md`; a defect it records is fixed by `tdd-implementer` and verified again), then run `review-change` (each reviewer agent writes `reviews/<reviewer>.md`) and finally `commit-and-pr`. The main session coordinates; the subagents do the work, and the hooks make sure of it. A stage may declare when it applies: a flag of the grill's classification, a setting of the `devkit:` block, or a later stage the change has not reached. A stage whose condition does not hold, or that the change had already passed, leaves no file, `flow-check` says why in the stage's line, and a change under way is never sent back to it.
+
+**Test settings.** The unit and E2E stages run only when the project declares their commands in the `devkit:` block of `openspec/config.yaml`; a stage whose command is absent does not run, and the phase gates of `tasks.md` carry the proof.
+
+```yaml
+devkit:
+  language: en
+  driver: claude
+  tests:
+    unit: "npm test"                 # the whole unit suite
+    coverage:
+      command: "npm run coverage"    # prints the total coverage
+      target: 80                     # whole number, percent; absent: coverage is recorded, never fails
+    e2e: "npm run e2e"               # absent: the E2E stage does not run
+```
+
+`/openspec-setup` asks for the values. The E2E tests the `e2e-tester` writes are a product commit, so the unit and E2E stages run once more after it; the rerun finds the tests present, and it is bounded.
 
 ## The `devkit-lite` schema
 
@@ -70,7 +86,7 @@ For small, contained changes, with or without a spec-level behavior change.
 requirements ─▶ proposal ─▶ specs (optional) ─▶ tasks ─▶ apply
 ```
 
-The same stages as `devkit` without `design`, `readiness` and `approval`: it starts with the requirements grill, has no readiness gate and no separate plan approval (the go-ahead is the owner's message to ship), and the main session may write the code itself. Write a spec delta when the proposal lists a capability; otherwise set `skip_specs: true` in the change's `.openspec.yaml`. The PR still needs `evidence.md` and the reviews (`code-quality-reviewer` and `test-coverage-reviewer` at least). If the change turns out to meet a full-flow criterion, recreate it with `--schema devkit`.
+The same stages as `devkit` without `mockup`, `decisions`, `design`, `readiness` and `approval`: it has no mock-up and no decisions stage, runs the unit and E2E tests when the project declares their commands, starts with the requirements grill, has no readiness gate and no separate plan approval (the go-ahead is the owner's message to ship), and the main session may write the code itself. Write a spec delta when the proposal lists a capability; otherwise set `skip_specs: true` in the change's `.openspec.yaml`. The PR still needs `evidence.md` and the reviews (`code-quality-reviewer` and `test-coverage-reviewer` at least). If the change turns out to meet a full-flow criterion, recreate it with `--schema devkit`.
 
 ## The `devkit-project` schema
 
@@ -202,7 +218,7 @@ A project that is not set up (no `openspec/`, or a schema other than `devkit` or
 
 **Opening a change.** Typing `/devkit change <text>` is the go-ahead: the session names the id (kebab-case, at most five words) and chooses the script with one rule (`devkit-lite` only for a small, easy-to-undo change that touches no screen, no boundary and no contract; `devkit` whenever in doubt), saying why, without a question. `change-loop.mjs open` then creates the worktree `<main checkout>/.claude/worktrees/<id>` on the branch `<id>`, cut from `origin/<default branch>` after a fetch (from `HEAD` when there is no remote), writes `.openspec.yaml` naming the script and `requirements.md` with a pending header and your request under `## Request`, and refuses an id already taken or a project not set up. `change-loop.mjs script <id> <script>` switches the script until the plan is written; the grill may also correct a wrong guess.
 
-**The loop.** `node <devkit>/plugins/openspec/hooks/change-loop.mjs next --change <id>` prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end, and one JSON action: an `agent` hand-off (the role, a brief naming the role, the change and the stage, and the language of the files), a `session` step the coordinator does itself (a review round, a gate command, a rebase), the `grill`, or an `end` in one of four states (archived, waiting for the owner, waiting on GitHub, blocked), each with its reason and a reply in your language. Which checker decides what: [`flow-check`](#the-stage-header-and-flow-check) decides the stages up to the plan's approval (the owner's `approval.md` included) from the stage headers, and, from the implementation on, the same engine as `deliver-check` and the delivery rows of the `conduct-check` section below decide the step; the loop copies their decision and adds none. The stages run in the foreground, one per hand-off, and the loop calls `next` again after each. A stage that fails, a gate that stays red or a stage the same state hands twice ends the run `blocked`, with the reason in plain words. Every reply is written without internal terms, in the person's language, a usage error included: a command the script cannot read (an unknown option, a missing argument) exits 3 and answers with one plain sentence asking for the request again, and keeps its raw message in the JSON's `error` field, which the session does not show. An end the session itself declares (a stage agent's failure, a red gate, a pull-request decision left to the owner) goes through `change-loop.mjs reply`, whose first line is the same `devkit-end:` marker.
+**The loop.** `node <devkit>/plugins/openspec/hooks/change-loop.mjs next --change <id>` prints `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end, and one JSON action: an `agent` hand-off (the role, a brief naming the role, the change and the stage, and the language of the files), a `session` step the coordinator does itself (a review round, a gate command, a rebase), the `grill`, or an `end` in one of four states (archived, waiting for the owner, waiting on GitHub, blocked), each with its reason and a reply in your language. Which checker decides what: [`flow-check`](#the-stage-header-and-flow-check) decides the stages up to the plan's approval (the owner's `approval.md` included) from the stage headers, and, from the implementation on, the same engine as `deliver-check` and the delivery rows of the `conduct-check` section below decide the step, except the unit and E2E tests, which `flow-check` alone decides (the loop reads their commands from the `devkit.tests` settings); the loop copies their decision and adds none. A drawn mock-up ends the run waiting for the owner, who approves it or asks for changes (which send it back to its designer), and once the plan approval is recorded the loop has the session run `accept-decisions`, which marks the records `decisions.md` lists as accepted. The stages run in the foreground, one per hand-off, and the loop calls `next` again after each. A stage that fails, a gate that stays red or a stage the same state hands twice ends the run `blocked`, with the reason in plain words. Every reply is written without internal terms, in the person's language, a usage error included: a command the script cannot read (an unknown option, a missing argument) exits 3 and answers with one plain sentence asking for the request again, and keeps its raw message in the JSON's `error` field, which the session does not show. An end the session itself declares (a stage agent's failure, a red gate, a pull-request decision left to the owner) goes through `change-loop.mjs reply`, whose first line is the same `devkit-end:` marker.
 
 **Resuming and the unfinished question.** Nothing is remembered between runs: `next` re-reads the change's folder, the stage headers, git and GitHub on every call, so a session killed at any stage resumes at the same action by `/devkit change` or `/devkit change <id>`. A dirty worktree in the middle of a run is expected and not asked about. Of ADR 0007's rules the coordinator keeps the question about unfinished work for a new request (it names each unfinished change and where it stopped, and asks before anything is created or run); a missing change is created by your typed command, not by an answer.
 
@@ -320,7 +336,7 @@ Planning of a dependent change (grill, plan, readiness, approval) runs while its
 
 **The delivery.** The ADR reviewer checks the new ADRs against the existing ones; its verdict is the slice's only review. The slice's folder is then archived on its branch, and one pull request carries the documents, the ADRs, the appended rounds and the archived folder. It follows `ship: devkit-project:` as any script follows its entry: in `merge` mode GitHub merges it once the checks pass. No archive pull request or retro follows.
 
-**The slice contract.** `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one contract: every stage record passed or not applicable, the ADR reviewer's verdict approved or declined and current, only the slice's documents, the ADR folders, the roadmap (appended to, or untouched when the roadmap stage does not apply) and the archived folder in the diff. A selected active slice fails the check. `/devkit status` shows each slice's readout: its five stages, then the review and the pull request.
+**The slice contract.** `devkit-reviews` and the `gh pr create` hook judge a slice's pull request by one contract: every stage record passed or not applicable, the ADR reviewer's verdict approved or declined, recorded with no uncommitted changes, and current (no later commit changes, against its first parent, a file under the slice's design folder or an ADR folder, so a merge of the default branch that brings another change's ADR sends the slice back to the ADR reviewer), only the slice's documents, the ADR folders, the roadmap (appended to, or untouched when the roadmap stage does not apply) and the archived folder in the diff. A selected active slice fails the check. `/devkit status` shows each slice's readout: its five stages, then the review and the pull request.
 
 ## The panel: devkit-panel
 
@@ -575,8 +591,8 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.22.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.22.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.23.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.23.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
@@ -585,7 +601,7 @@ jobs:
 
 The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.20.0` or later first, because older releases pass a slice with a note.
 
-Pin the commit sha of the release tag (`v0.22.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.22.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.23.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.23.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 

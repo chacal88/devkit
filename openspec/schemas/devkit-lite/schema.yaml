@@ -34,56 +34,6 @@ artifacts:
       Gate: the owner answered.
     requires: []
 
-  - id: mockup
-    generates: mockup.md
-    description: Screens drawn with real example data, when the change alters a screen
-    template: mockup.md
-    instruction: |
-      Role: screen-designer. Skills: screen-mockup, screen-design.
-
-      The file's first line is the stage header of the template:
-      `<!-- devkit-stage mockup result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
-      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
-      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
-      rewrite, and `commit` to `git rev-parse HEAD`.
-
-      Draw the screens this change alters, with real example data, and save them under the
-      change's `mock/` folder, one file per screen. Write mockup.md listing each screen, the file that
-      holds it and the data it shows. What the mock reveals goes back into requirements.md.
-      When the change alters no screen, write the header with `result=not-applicable` and one line
-      saying why.
-
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
-
-      Gate: the owner approves the mock; what it reveals goes back into the requirements.
-    requires:
-      - requirements
-
-  - id: decisions
-    generates: decisions.md
-    description: Proposed ADRs for the decisions this change needs, or one line saying none
-    template: decisions.md
-    instruction: |
-      Role: adr-author. Skills: adr-authoring.
-
-      The file's first line is the stage header of the template:
-      `<!-- devkit-stage decisions result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
-      gate is met, set `result` to `passed` (or `failed`, or `not-applicable` with one line in the body
-      saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
-      rewrite, and `commit` to `git rev-parse HEAD`.
-
-      Analyse what this change will do and decide whether it needs an ADR. When it does, write
-      each proposed ADR in the project's ADR folder and list them in decisions.md. When it does not,
-      write the header with `result=not-applicable` and one line saying so.
-
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
-
-      Gate: the role first analyses whether an ADR is needed; if not, it leaves one line saying so.
-    requires:
-      - requirements
-
   - id: proposal
     generates: proposal.md
     description: Initial proposal document outlining the change
@@ -381,12 +331,11 @@ artifacts:
       saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
       rewrite, and `commit` to `git rev-parse HEAD`.
 
-      Run the project's whole test suite with its own command, apart from the implementer, and
-      record in unit-tests.md the command, its result and the coverage against the project's target.
+      This stage applies only when `devkit.tests.unit` is declared in `openspec/config.yaml`, and not once
+      `evidence.md` exists. Run `devkit.tests.unit` and, when declared, `devkit.tests.coverage.command`; compare the coverage with
+      `devkit.tests.coverage.target` when declared. Record in unit-tests.md each command, its exit code and
+      its summary, and the coverage against the target, apart from the implementer.
       Fix nothing: a red suite is recorded with `result=failed` and goes back to the implementation.
-
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
 
       Gate: the whole suite is green and its coverage is within the project's target.
     requires:
@@ -405,13 +354,10 @@ artifacts:
       saying why), `attempt` to 1 on the first write and to one more than the replaced header's on a
       rewrite, and `commit` to `git rev-parse HEAD`.
 
-      Where the project has E2E tests configured, write E2E tests from the acceptance criteria,
-      apart from the implementer, run them and record in e2e-tests.md what they cover and their result.
-      When the project has no E2E structure, write the header with `result=not-applicable` and one line
-      saying why.
-
-      Until this stage's role ships, nobody is required to write this file, and the checker
-      reports the stage as not applying.
+      This stage applies only when `devkit.tests.e2e` is declared, and not once `evidence.md` exists.
+      Write the tests from the acceptance criteria without reading the test files
+      the change's diff adds or modifies; write only test files. Run `devkit.tests.e2e`, apart from the
+      implementer, and record in e2e-tests.md what the tests cover and their result.
 
       Gate: the E2E tests are green; it is a delivery condition.
     requires:
@@ -436,6 +382,9 @@ artifacts:
       table with one row per gate command and a table with one row of proof per acceptance criterion id.
       `result=passed` when it verified, `result=failed` when it records a defect; a defect goes back to
       the implementation.
+
+      Record the demonstration as text: per acceptance criterion what was done, what was observed and whether it
+      passed; no screenshot, no image, no pull-request comment.
 
       Gate: every acceptance criterion is demonstrated and recorded.
     requires:

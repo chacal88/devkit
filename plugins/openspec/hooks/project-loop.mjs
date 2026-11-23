@@ -68,7 +68,7 @@ function readVerdict(file, root, head) {
   const word = readValue(file, 'Verdict');
   const commit = parseCommitLine(text);
   const full = commit ? tryGit(root, ['rev-parse', '--verify', '--quiet', `${commit.sha}^{commit}`]) : '';
-  return { exists: true, word, sha: commit?.sha ?? null, full, uncommitted: Boolean(commit?.uncommitted), isHead: Boolean(full) && full === head, usable: Boolean(word && commit && full) };
+  return { exists: true, word, sha: commit?.sha ?? null, full, uncommitted: Boolean(commit?.uncommitted), isHead: Boolean(full) && full === head, usable: Boolean(word && commit && full && !commit.uncommitted) };
 }
 
 // { result, attempt, commit } of a stage record's header, or null.
@@ -543,6 +543,7 @@ export function recordReviewCommand(cwd, slice, { lang = 'pt-BR', env = process.
   if (!v.exists) return unusable('no-verdict-file');
   if (!v.word) return unusable('no-verdict');
   if (!v.sha) return unusable('no-commit');
+  if (v.uncommitted) return unusable('uncommitted');
   if (!v.isHead) return unusable('other-commit');
   const result = v.word === 'APPROVED' || v.word === 'DECLINED' ? 'passed' : 'failed';
   const attempt = (readRecord(join(dir, 'review.md'))?.attempt ?? 0) + 1;
