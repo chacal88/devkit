@@ -3221,7 +3221,11 @@ test('stage-roles docs: ADR 0016 has its headings, its status and the owner\'s a
   assert.match(adr, /^- Status: accepted$/m);
   assert.match(adr, /^- Change: stage-roles$/m);
   assert.match(adr, /^- Amends: ADR 0010 \(0010-openspec-as-the-harness\.md\)[^\n]*ADR 0011 \(0011-the-change-coordinator-is-the-owners-session\.md\), decision 3$/m);
-  const approval = readRepo('openspec', 'changes', 'stage-roles', 'approval.md');
+  // The change folder moves to openspec/changes/archive/<date>-stage-roles/ when the change is archived.
+  const changesDir = join(REPO_ROOT, 'openspec', 'changes');
+  const archived = existsSync(join(changesDir, 'archive')) ? readdirSync(join(changesDir, 'archive')).filter((d) => /^\d{4}-\d{2}-\d{2}-stage-roles$/.test(d)).sort() : [];
+  const approvalPath = existsSync(join(changesDir, 'stage-roles', 'approval.md')) ? join(changesDir, 'stage-roles', 'approval.md') : join(changesDir, 'archive', archived[archived.length - 1] ?? '', 'approval.md');
+  const approval = readFileSync(approvalPath, 'utf8');
   const date = approval.match(/^- Date: (\d{4}-\d{2}-\d{2})$/m)?.[1];
   const words = approval.match(/^- Owner's words: "(.+)"$/m)?.[1];
   assert.ok(date && words, 'approval.md has its date and the owner\'s words');

@@ -158,12 +158,12 @@ SHALL be said in that change's session and not in the coordinating session.
 - **THEN** its line is not shown again
 
 ### Requirement: The owner's gates are asked one change at a time
-When open changes wait at gates of the owner (the grill, the plan approval, the retro answers, a
-pull-request decision only the owner can take, a merge left to the owner) in a run whose changes run
-in the coordinating session, that session SHALL ask the gates of one change at a time, in the order
-of the roadmap file, naming the change; the next change's questions SHALL come only when that
-change's gate is answered. In a run whose changes each have a session of their own, each change's
-gates SHALL be asked in its own session, and the coordinating session SHALL ask none.
+When open changes wait at gates of the owner (the grill, the mock-up approval, the plan approval,
+the retro answers, a pull-request decision only the owner can take, a merge left to the owner) in a
+run whose changes run in the coordinating session, that session SHALL ask the gates of one change at
+a time, in the order of the roadmap file, naming the change; the next change's questions SHALL come
+only when that change's gate is answered. In a run whose changes each have a session of their own,
+each change's gates SHALL be asked in its own session, and the coordinating session SHALL ask none.
 
 #### Scenario: Two changes at their grill
 - **WHEN** two open changes wait for their grill, the first in the file being `a`
@@ -180,6 +180,10 @@ gates SHALL be asked in its own session, and the coordinating session SHALL ask 
 #### Scenario: Two changes at their grill, each in its own session
 - **WHEN** in a run whose changes each have a session of their own, `a` and `b` both wait for their grill
 - **THEN** `a`'s questions are asked in `a`'s session and `b`'s in `b`'s, and the coordinating session asks neither
+
+#### Scenario: A mock-up waits while another change is asked
+- **WHEN** `a`'s plan approval is being asked and `b`, later in the file, reaches its mock-up approval
+- **THEN** `b`'s mock-up is shown and asked only after `a`'s approval is answered
 
 ### Requirement: Stopping a run lets each stage end
 `/devkit roadmap stop` SHALL start nothing new and hand no new stage; each change under way SHALL
@@ -342,7 +346,7 @@ Every line and reply of `/devkit roadmap` and `/devkit status` SHALL come from t
 - **THEN** its line and its entry in the list of a run that ends say that reason in the person's language, with the reason's own details, and the run goes on
 
 #### Scenario: A gate phrase for every owner gate
-- **WHEN** a change of the run waits for the owner at any gate a change can wait at (the grill, the plan approval, the retro, a merge, a decision, a disputed review, an unfinished file, a delivery by hand)
+- **WHEN** a change of the run waits for the owner at any gate a change can wait at (the grill, the mock-up approval, the plan approval, the retro, a merge, a decision, a disputed review, an unfinished file, a delivery by hand)
 - **THEN** its line names the change and says what the owner is asked for in the person's language
 
 ### Requirement: Each change of a roadmap run runs in a session of its own where the host can start sessions
