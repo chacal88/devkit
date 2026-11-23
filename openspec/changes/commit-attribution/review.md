@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=52fb4faab60c31831cbeeb138b5e340f9df76392 -->
+<!-- devkit-stage review result=passed attempt=2 commit=16eee42c701ec79197e5af5aa57cad84867e9a95 -->
 
 # Review: commit-attribution, round 1
 
@@ -23,3 +23,25 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: commit-attribution, round 2
+
+Path: agents · range `52fb4faab60c31831cbeeb138b5e340f9df76392..16eee42c701ec79197e5af5aa57cad84867e9a95` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 16eee42 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 was run directly after round 1: the fix touched only the change folder (proof files), so the loop kept the round-1 verdict current and kept asking for the fix; the review skill re-summons the failed reviewer after a fix. code-quality-reviewer approved in round 1 at 52fb4fa; only openspec/ changed since.
+
+## Next
+Ready to ship.
