@@ -1,0 +1,45 @@
+Notes on the real runs of D-13 (tasks 4.3 and 4.4), written by the implementer.
+
+Setup: scratch projects /var/tmp/devkit-stage-models/proof/lone (change proof-lone, devkit-lite) and
+/var/tmp/devkit-stage-models/proof/road (change proof-road, one roadmap line), each with the schemas
+copied from plugins/openspec/schemas, the requirements, proposal, one spec delta and tasks at
+result=passed, every task ticked and one commit after them; stub pack = a copy of plugins/core whose
+test-runner and e2e-tester bodies are replaced (frontmatter kept). Command, both runs:
+  claude -p --model sonnet --permission-mode bypassPermissions --plugin-dir <worktree>/plugins/openspec
+    --plugin-dir <scratch>/core --output-format stream-json --verbose "<prompt>"
+with the prompts "/devkit-openspec:devkit change proof-lone" and "/devkit-openspec:devkit roadmap".
+Both init events list devkit-openspec from this worktree and devkit-core from the stub pack.
+
+Deviations from the text of D-13, each forced by what the first attempts showed:
+1. Permissions. The first run without --permission-mode bypassPermissions was denied at its first Bash
+   call ("This command requires approval"); D-13 says to run again with bypassPermissions in the
+   scratch folder only, which is what both proof runs do.
+2. The marker file. The stub's `<root>/.proof-unit-once` is an untracked file in the project root, so
+   `flow-check` read "code changed and is not committed" and sent the change back to the implementation
+   (a fix-tests hand-off to tdd-implementer) instead of retrying the unit tests. The scratch repository
+   lists the marker in `.git/info/exclude`; no stub text changed for this.
+3. The stub's "write nothing". `guard.mjs subagent-stop` (U2, refuseOnce) refuses the first stop of a
+   stage agent whose stage file does not exist. With the stub as written ("end with Outcome: failure"),
+   the Haiku test-runner obeyed the hook, wrote unit-tests.md with result=failed, and the loop answered
+   with a fix-tests hand-off, not a retry: the retry rule never ran. Both stubs now say: when a stop hook
+   asks for the file, do not write it and stop again at once with the same last line. The two proof runs
+   use that text (see the stub bodies below). D-13 should say it in the plan.
+   test-runner: "If the file `<root>/.proof-unit-once` does not exist, create it and end with the line
+   `Outcome: failure — proof`, and write no file: when a stop hook asks for `unit-tests.md` before you
+   stop, do not write it, stop again at once with the same last line (the file must stay absent).
+   Otherwise write `unit-tests.md` in the change's folder with the header
+   `<!-- devkit-stage unit-tests result=passed attempt=1 commit=<git rev-parse HEAD> -->` on line 1,
+   and end with `Outcome: green`."
+   e2e-tester: "End with the line `Outcome: failure — proof` and write nothing: when a stop hook asks
+   for `e2e-tests.md` before you stop, do not write it, stop again at once with the same last line."
+
+Results. Run 1 (session 9505c916-d00a-46b8-80b0-5aa5a7134457): unit-tests on claude-haiku-5-5 failed,
+its retry on claude-sonnet-5-5 passed; e2e-tests on claude-sonnet-5-5 failed, its retry on
+claude-opus-5-5 failed; the loop ended the run `devkit-end: proof-lone blocked` (lone-run.jsonl).
+Run 2 (session fee2550f-99f1-418e-b18d-68ee365b9c0f, the one-session roadmap mode, the coordinating
+session handing the stages as background agents; `-p` carried the run across the agents' returns):
+the same four subagent models in the same order, then `roadmap-loop.mjs next` ended with why=stuck and
+the line "proof-road stopped: the E2E tests could not finish its work" (the roadmap loop prints no
+`devkit-end` line). After that end the session, on its own, tried `roadmap-loop.mjs reply blocked
+--param why=e2e-tests-failed`, which the loop refused as an unknown reply key; it changed nothing.
+The spend blocks (lone-spend.txt, road-spend.txt) list the two retries of each run.

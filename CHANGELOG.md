@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.35.0 — the model is chosen by stage
+
+- **devkit-openspec** 0.31.0: every stage has a model, chosen by the loop. `models:` in the
+  `devkit:` block of `openspec/config.yaml`, or in a change's own `.openspec.yaml` (which wins),
+  overrides single stages of a built-in table (Opus for the grill, the ADRs and the plan, Haiku for
+  the unit-test run and the delivery hand-off, Sonnet for the rest; `opus[1m]` and `sonnet[1m]` only
+  as an opt-in); an unknown stage or value is refused with `setting-unknown`. Every hand-off `next`
+  prints carries the stage's `model`, which the session sets on the Agent call. A stage agent that
+  returns `Outcome: failure` on Haiku or Sonnet is handed again once on the next model up, read from
+  the transcripts on a `next` called with `--after`; a second failure, or one on Opus, ends the run
+  blocked, as the loop and no longer the session declares it. In a roadmap run with a session per
+  change, the coordinating session starts each change session on its first stage's model and
+  switches it only down, never below the strongest model among the stage and the session-run
+  stages still ahead of it (`session-model`, `session-found`, `session-model-refused`).
+  `flow-check` and `/devkit status` print the tokens spent per stage and per model, the retries and
+  the total against the budget cap. The CI snippet now pins `v0.31.0`, the release's tag.
+- Docs: [ADR 0020](docs/adr/0020-the-model-is-chosen-by-stage.md) amends ADR 0014 decision 1;
+  `docs/openspec-flow.md` gains "The model of each stage", four troubleshooting rows and a new Cost
+  bullet; `docs/coordination-design.md` records `devkit.models` as final.
+
 ## 0.33.0 — release conflicts resolved by a merge
 
 - **devkit-openspec** 0.29.0: when a pull request conflicts with its base only in release files, the

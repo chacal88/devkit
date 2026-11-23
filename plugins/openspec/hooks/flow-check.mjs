@@ -7,7 +7,7 @@ import { dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader } from './guard.mjs';
+import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
 import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
@@ -704,6 +704,31 @@ export function renderText(report, flow, lang = 'pt-BR') {
   return `${lines.join('\n')}\n`;
 }
 
+// ---------------------------------------------------------------- the spend block (stage-models D-7)
+
+// The token cap of change `id`: its own `budget:`, else the project's; null when none is set or the value is no cap (a file that cannot
+// be read and an invalid value show no cap here: the loop's own `next` is what refuses them).
+function capOf(root, id) {
+  const budgetIn = (file) => { try { return budgetValue(parseDevkitBlock(readFileSync(file, 'utf8')).budget); } catch { return null; } };
+  const dir = locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id);
+  const picked = budgetIn(join(dir, '.openspec.yaml')) ?? budgetIn(join(root, 'openspec', 'config.yaml'));
+  return picked?.cap ?? null;
+}
+
+// The lines of the spend block of change `id` in its checkout `root` (none when no token was counted), the stages named by their titles
+// in `lang` as the change's flow gives them (`flow` when the caller has read it). It writes nothing.
+export function spendBlock(root, id, { lang = 'pt-BR', env = process.env, flow } = {}) {
+  let stages = flow;
+  if (stages === undefined) {
+    try {
+      const dir = locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id);
+      stages = readFlow(root, changeSchemaAt(root, dir));
+    } catch { stages = null; }
+  }
+  const titleOf = (stage) => { const title = stages?.stages.find((s) => s.id === stage)?.title; return title?.[lang] ?? title?.en ?? stage; };
+  try { return spendLines(lang, spendOf(spendSources(env, root), id), { cap: capOf(root, id), titleOf }); } catch { return []; }
+}
+
 // ---------------------------------------------------------------- the command line (design D-6)
 
 const USAGE = 'usage: flow-check.mjs <change-id> [--json] [--lang pt-BR|en] [--after <progress-key>]';
@@ -753,7 +778,9 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     const { facts, flow } = collectFlow(root, opts.id, { env, openspec: run, ...(gh ? { gh } : {}) });
     const report = computeFlow(facts, flow, { after: opts.after });
     const code = report.end ? EXIT[report.end.state] : 0;
-    return { code, stdout: json ? `${JSON.stringify(report, null, 2)}\n` : renderText(report, flow, opts.lang), stderr: '' };
+    const spend = json ? [] : spendBlock(root, opts.id, { lang: opts.lang, env, flow });
+    const text = json ? `${JSON.stringify(report, null, 2)}\n` : `${renderText(report, flow, opts.lang)}${spend.length ? `\n${spend.join('\n')}\n` : ''}`;
+    return { code, stdout: text, stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return { code: 3, stdout: json ? `${JSON.stringify({ version: 1, error: message })}\n` : '', stderr: `flow-check: ${message}\n` };

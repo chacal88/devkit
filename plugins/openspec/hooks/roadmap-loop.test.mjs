@@ -20,7 +20,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SCHEMAS = join(HERE, '..', 'schemas');
 
 // Every env a test of this file builds blanks the branch variables together (CONTRIBUTING.md, testing rules).
-const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
 const cleanEnv = { ...process.env, ...SET };
 
 const FLOWS = Object.fromEntries(['devkit', 'devkit-lite'].map((s) => [s, JSON.parse(readFileSync(join(SCHEMAS, s, 'flow.json'), 'utf8'))]));
@@ -84,27 +84,27 @@ const clsOf = (classified) => Object.fromEntries(classified.map((l) => [l.id, l.
 
 // The actions of change-loop as decideRoadmap reads them (the fields of a real action, nothing the loop does not read).
 const base = (id) => ({ version: 1, change: id, script: 'devkit', root: `/w/${id}`, branch: id, filesLanguage: 'en' });
-const agentAct = (id, stage = 'proposal', over = {}) => ({
+export const agentAct = (id, stage = 'proposal', over = {}) => ({
   ...base(id), kind: 'agent', stage, stageTitle: 'Proposal', role: 'change-planner', skills: [], agent: 'devkit-core:change-planner',
-  brief: `Change ${id} (devkit script), stage ${stage}: write the plan.`, progressKey: `${stage}/${stage}@abc123`, ...over,
+  brief: `Change ${id} (devkit script), stage ${stage}: write the plan.`, progressKey: `${stage}/${stage}@abc123`, model: 'opus', ...over,
 });
 const sessionAct = (id, step = 'review', over = {}) => ({
   ...base(id), kind: 'session', stage: 'review', stageTitle: 'Code review', role: 'change-coordinator', skills: [], step, progressKey: `review/${step}@abc123`, ...over,
 });
-const grillAct = (id) => ({
-  ...base(id), kind: 'grill', stage: 'requirements', stageTitle: 'Requirements', role: 'change-coordinator', skills: ['requirements-grill'], progressKey: 'requirements@abc123',
+export const grillAct = (id) => ({
+  ...base(id), kind: 'grill', stage: 'requirements', stageTitle: 'Requirements', role: 'change-coordinator', skills: ['requirements-grill'], progressKey: 'requirements@abc123', model: 'opus',
 });
 const endAct = (id, state, why, params = {}, over = {}) => ({
   ...base(id), kind: 'end', stage: null, stageTitle: null, role: null, skills: [], end: { state, why }, params: { id, ...params }, reply: 'x', ...over,
 });
-const ownerAct = (id, why = 'waiting-approval') => endAct(id, 'waiting-for-owner', why, {}, { stage: 'approval', stageTitle: 'Plan approval' });
+export const ownerAct = (id, why = 'waiting-approval') => endAct(id, 'waiting-for-owner', why, {}, { stage: 'approval', stageTitle: 'Plan approval' });
 const githubAct = (id, what = 'merge') => endAct(id, 'waiting-on-github', 'waiting-github', { what }, { stage: 'delivery', stageTitle: 'Delivery' });
 const blockedAct = (id, why, params = {}) => endAct(id, 'blocked', why, { why, ...params });
 const archivedAct = (id) => endAct(id, 'archived', 'archived');
 const FLYING = { kind: 'agent', stage: 'proposal', agentType: 'change-planner', at: '2026-11-21T10:00:00.000Z' };
 
 // The facts of one decision: a roadmap, what is archived, the open changes' actions and the run's bookkeeping.
-function world(over = {}) {
+export function world(over = {}) {
   const { lines = [], archived = [], actions = {}, previous = [], declared = {}, inflight = {}, openExtra = [], ...rest } = over;
   const open = [...Object.keys(actions), ...Object.keys(inflight), ...previous, ...openExtra];
   return {
@@ -753,20 +753,20 @@ test('roadmap-loop draft: the text is one round with an unticked line per change
 
 const OFFLINE = () => ({ status: 1, stdout: '', stderr: 'offline' });
 const LOOP_FILE = join(HERE, 'roadmap-loop.mjs');
-const FLAGS = ['--lang', 'en', '--load-limit', '80'];
-const roadmapText = (...lines) => `# Roadmap\n\n## Round 1: flags\n${lines.map((l) => `- ${l}`).join('\n')}\n`;
-const projectWith = (roadmap, { config = 'schema: devkit\n' } = {}) => gitRepo({ config, files: roadmap === null ? {} : { 'openspec/roadmap.md': roadmap } });
+export const FLAGS = ['--lang', 'en', '--load-limit', '80'];
+export const roadmapText = (...lines) => `# Roadmap\n\n## Round 1: flags\n${lines.map((l) => `- ${l}`).join('\n')}\n`;
+export const projectWith = (roadmap, { config = 'schema: devkit\n' } = {}) => gitRepo({ config, files: roadmap === null ? {} : { 'openspec/roadmap.md': roadmap } });
 const titleEn = (stage) => FLOWS.devkit.stages.find((s) => s.id === stage).title.en;
 
 // One command of roadmap-loop, with no GitHub and the load handed in (a percentage).
-const cmd = (cwd, argv, { stdin = '', load = 10, env = cleanEnv, ...rest } = {}) => loopModule.main(argv, { cwd, env, stdin, gh: OFFLINE, load: () => load, ...rest });
-const doRun = (cwd, word = '', { session = 'S1', extra = [], ...opts } = {}) => cmd(cwd, ['run', ...FLAGS, '--session', session, ...extra], { stdin: word, ...opts });
-const doNext = (cwd, extra = [], opts = {}) => cmd(cwd, ['next', ...FLAGS, ...extra], opts);
-const doStatus = (cwd, opts = {}) => cmd(cwd, ['status', ...FLAGS], opts);
-const jsonOf = (stdout) => { const lines = stdout.split('\n'); return JSON.parse(lines.slice(lines.indexOf('{')).join('\n')); };
+export const cmd = (cwd, argv, { stdin = '', load = 10, env = cleanEnv, ...rest } = {}) => loopModule.main(argv, { cwd, env, stdin, gh: OFFLINE, load: () => load, ...rest });
+export const doRun = (cwd, word = '', { session = 'S1', extra = [], ...opts } = {}) => cmd(cwd, ['run', ...FLAGS, '--session', session, ...extra], { stdin: word, ...opts });
+export const doNext = (cwd, extra = [], opts = {}) => cmd(cwd, ['next', ...FLAGS, ...extra], opts);
+export const doStatus = (cwd, opts = {}) => cmd(cwd, ['status', ...FLAGS], opts);
+export const jsonOf = (stdout) => { const lines = stdout.split('\n'); return JSON.parse(lines.slice(lines.indexOf('{')).join('\n')); };
 const runFileOf = (cwd) => loopModule.runFilePath(cwd);
-const stateOf = (cwd) => JSON.parse(readFileSync(runFileOf(cwd), 'utf8'));
-const putRun = (cwd, patch) => {
+export const stateOf = (cwd) => JSON.parse(readFileSync(runFileOf(cwd), 'utf8'));
+export const putRun = (cwd, patch) => {
   mkdirSync(dirname(runFileOf(cwd)), { recursive: true });
   writeFileSync(runFileOf(cwd), JSON.stringify({
     version: 1, session: 'S1', places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [], held: false, holding: false,
@@ -774,8 +774,8 @@ const putRun = (cwd, patch) => {
   }));
 };
 // The event lines a command shows: the ones it printed itself, then the `lines` of its decision.
-const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsWith('▸ ')), ...jsonOf(stdout).lines];
-const addOpen = (root, id) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit\n' }); commitAll(root, `open ${id}`); };
+export const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsWith('▸ ')), ...jsonOf(stdout).lines];
+export const addOpen = (root, id) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit\n' }); commitAll(root, `open ${id}`); };
 // The mark of a watch of the load that runs: this process (design roadmap-coordinator-followups D-7).
 const WATCH = { pid: process.pid, at: '2026-11-21T10:00:00.000Z' };
 const inFlight = (stage = 'proposal') => ({ kind: 'agent', stage, agentType: 'change-planner', at: '2026-11-21T10:00:00.000Z' });
@@ -1843,7 +1843,8 @@ test('roadmap-loop skill: background hand-offs, one change per question, and the
   assert.match(roadmap, /`hold`: start `node <skill-dir>\/\.\.\/\.\.\/hooks\/roadmap-loop\.mjs hold[^`]*` with the Bash tool's background option/);
   assert.ok(roadmap.includes('--after <id>=<progressKey of its action>'), 'a returned subagent passes the key of its action');
   assert.match(roadmap, /when a wait or a hold ends, run the same call with no `--after`/);
-  assert.match(roadmap, /`Outcome: failure` is declared with `node [^`]*roadmap-loop\.mjs reply blocked --param id=<id> --param why=role-failed/);
+  assert.match(roadmap, /`Outcome: failure` is reported like its success, with `--after <id>=<progressKey of its action>`/);
+  assert.ok(!roadmap.includes('why=role-failed'), 'a failed agent is the loop\'s end, not the session\'s');
   // One change per question; the answer belongs to that change only.
   assert.match(roadmap, /The owner is asked one change at a time\. `ask` names the change at the head of the owner's queue/);
   assert.match(roadmap, /naming that change in the question \(the grill's questions included/);
@@ -2293,7 +2294,7 @@ test('followups F-2 skill: start anyway only on the owner\'s own message, with b
 // ================================================================ roadmap-coordinator-followups, phase 3: a session per change, the turn
 
 const AT = '2026-11-21T10:00:00.000Z';
-const START_FIELDS = ['background', 'context', 'cwd', 'initiation', 'name', 'prompt', 'title', 'use_worktree'];
+const START_FIELDS = ['background', 'context', 'cwd', 'initiation', 'model', 'name', 'prompt', 'title', 'use_worktree'];
 // The facts of a run with a session per change (design D-3): the coordinating session `S-main`, the turn named by the caller.
 const sessionWorld = (over = {}) => world({ changeSessions: true, coordinator: 'S-main', turn: 'typed', startedSessions: {}, ...over });
 const linesOf = (r) => r.lines;
@@ -2306,9 +2307,9 @@ test('followups F-3 decide: with a session per change the coordinator hands no s
   const [a, b] = r.actions;
   assert.deepEqual([a.cwd, a.title, a.progressKey], ['/w/a', '📝 a', 'session-start']);
   assert.deepEqual([b.cwd, b.title, b.input.title], ['/w/b', '🙋 ❓ b', '🙋 ❓ b']);
-  assert.deepEqual(Object.keys(a.input).sort(), START_FIELDS, 'the eight fields of the start tool and no other');
+  assert.deepEqual(Object.keys(a.input).sort(), START_FIELDS, 'the nine fields of the start tool and no other');
   assert.deepEqual(a.input, {
-    initiation: 'user_asked', context: 'fresh', title: '📝 a', name: loopModule.sessionName('a'), cwd: '/w/a', use_worktree: false,
+    initiation: 'user_asked', context: 'fresh', title: '📝 a', name: loopModule.sessionName('a'), cwd: '/w/a', use_worktree: false, model: 'opus',
     prompt: '/devkit-openspec:devkit change a',
     background: loopModule.sessionBackground({ id: 'a', root: '/w/a', branch: 'a', coordinator: 'S-main', lang: 'en' }),
   });
