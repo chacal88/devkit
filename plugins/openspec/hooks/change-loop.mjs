@@ -13,11 +13,12 @@
 // standard input is the Jira task the session read, as JSON, and the request section records its key), `script <id> <s>
 // --why <code> --lang <l>` (the correction of the script, D-4), `wait --change <id> --lang <l> [--interval <s>]`
 // (waits on GitHub with no limit, D-7), `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
-// lists to accepted, after the owner's current approval; stage-roles D-4), `write-back ask <id> --lang <l>` (the pull request
-// and the task's transitions as JSON on standard input: whether to ask about writing the link on the Jira task, and the
-// question) and `write-back answer <id> --choice <comment|no|transition:<id>> --lang <l>` (what the session may then write to
-// Jira, jira-entry D-7). Only `open`, `script`, `accept-decisions` and `write-back` write, the last only its record in the git
-// common directory; `start` and `next` do not. `next` and `wait` print
+// lists to accepted, after the owner's current approval; stage-roles D-4), `flow <id> --lang <l>` (moves the change to the
+// installed version of its script's flow, only when the owner asks; change-version-pin D-7), `write-back ask <id> --lang <l>`
+// (the pull request and the task's transitions as JSON on standard input: whether to ask about writing the link on the Jira
+// task, and the question) and `write-back answer <id> --choice <comment|no|transition:<id>> --lang <l>` (what the session may
+// then write to Jira, jira-entry D-7). Only `open`, `script`, `accept-decisions`, `flow` and `write-back` write, the last only
+// its record in the git common directory; `start` and `next` do not. `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
@@ -34,8 +35,8 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, readTestSettings } from './flow-check.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseDevkitBlock, deliverySettings, releaseTagSetting } from './guard.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
@@ -66,6 +67,7 @@ export function budgetValue(raw) {
   return n > 0 && Number.isSafeInteger(n) ? { cap: n } : { invalid: raw };
 }
 const BUDGET_ACCEPTED = '1, 2, 3, …';
+const RELEASE_TAG_ACCEPTED = 'a path from the repository root to a JSON file, such as package.json';
 
 // The text of a settings file; a missing file is '' and any other read error a LoopUsageError.
 function settingsText(file, label) {
@@ -79,7 +81,8 @@ function settingsText(file, label) {
 // `delivery: { model, base, testBranch }` when a delivery model is set and `missing: [{ setting }]` when two pull requests
 // are chosen without a name (delivery-models D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
 // other keys of the block are ignored, except an invalid `budget` and the tests' coverage target, whose bad values are
-// listed in `unknown` after the two above (flow-check's `readTestSettings`).
+// listed in `unknown` after the two above (flow-check's `readTestSettings`), then an invalid `release_tag` (release-tags D-1);
+// a valid one sets `releaseTag`, the path of the JSON file the release is read from, and only then.
 export function readDevkitSettings(root) {
   const block = parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml'));
   const driver = block.driver || 'claude';
@@ -90,7 +93,10 @@ export function readDevkitSettings(root) {
   const budget = budgetValue(block.budget);
   if (budget?.invalid !== undefined) unknown.push({ setting: 'budget', value: budget.invalid, accepted: BUDGET_ACCEPTED });
   unknown.push(...readTestSettings(root).unknown);
+  const releaseTag = releaseTagSetting(block);
+  if (releaseTag.problem) unknown.push({ setting: releaseTag.problem.setting, value: releaseTag.problem.value, accepted: RELEASE_TAG_ACCEPTED });
   const settings = { driver, language, unknown };
+  if (releaseTag.file) settings.releaseTag = releaseTag.file;
   const { model, base, testBranch, problems } = deliverySettings(block);
   if (model) settings.delivery = { model, base, testBranch };
   const missing = [];
@@ -166,6 +172,9 @@ export const MESSAGES = {
     resumed: 'Continuing the change {id}: {where}.',
     'script-switched': 'The change {id} moves to the {script}, because {why}.',
     'script-locked': 'The plan of {id} is already written, so its script stays as it is.',
+    'flow-newer': 'It follows version {version} of its script\'s flow; version {installed} is installed, and it moves to it only if you ask me.',
+    'flow-moved': 'The change {id} now follows version {installed} of its script\'s flow; it followed version {version}.',
+    'flow-ahead': 'The change {id} follows version {version} of its script\'s flow, newer than the installed version {installed}: update devkit in this project before moving it.',
     'waiting-approval': 'The plan of {id} is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.',
     'waiting-approval-again': 'The plan of {id} changed after your approval, so it needs your approval again.',
     'waiting-mockup': 'The mock-up of {id} is drawn. Look at it and tell me whether you approve it or what to change; I go on as soon as you answer.',
@@ -285,6 +294,7 @@ export const MESSAGES = {
     'blocked-why.wrong-branch': 'its folder is on a branch with another name',
     'blocked-why.merge-setup': 'the repository is not prepared for automatic merging yet, which /openspec-setup does',
     'blocked-why.archive-failed': 'a step of the archive failed',
+    'blocked-why.tag-elsewhere': 'the tag {tag} is already on the remote at {at}, not at the merge commit {sha}; the run never moves a tag, so you settle it',
     'blocked-why.plan-not-approved': 'its plan review is not approved',
     'blocked-why.pr-problem': 'the pull request has a problem the session cannot fix alone',
     'blocked-why.unknown-step': 'the next step is one this version does not know',
@@ -314,6 +324,7 @@ export const MESSAGES = {
     'setting.delivery-test-branch': 'test branch',
     'setting.budget': 'budget',
     'setting.coverage-target': 'coverage target',
+    'setting.release-tag': 'release file',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
     'project-resumed': 'Continuing the slice {id}: {where}.',
     'project-choose': '{n} slices are unfinished: {list}. Which one should I continue?',
@@ -401,6 +412,9 @@ export const MESSAGES = {
     resumed: 'Continuando a change {id}: {where}.',
     'script-switched': 'A change {id} passa para o {script}, porque {why}.',
     'script-locked': 'O plano de {id} já foi escrito, então o roteiro fica como está.',
+    'flow-newer': 'Ela segue a versão {version} do fluxo do roteiro; a versão {installed} está instalada, e só muda para ela se você me pedir.',
+    'flow-moved': 'A change {id} agora segue a versão {installed} do fluxo do roteiro; antes seguia a versão {version}.',
+    'flow-ahead': 'A change {id} segue a versão {version} do fluxo do roteiro, mais nova que a versão instalada {installed}: atualize o devkit neste projeto antes de mudá-la.',
     'waiting-approval': 'O plano de {id} está escrito e revisado. Leia e me diga se aprova; eu sigo assim que você responder.',
     'waiting-approval-again': 'O plano de {id} mudou depois da sua aprovação, então precisa ser aprovado de novo.',
     'waiting-mockup': 'O mock-up de {id} está desenhado. Veja e me diga se aprova ou o que mudar; eu sigo assim que você responder.',
@@ -520,6 +534,7 @@ export const MESSAGES = {
     'blocked-why.wrong-branch': 'a pasta dela está num branch com outro nome',
     'blocked-why.merge-setup': 'o repositório ainda não está preparado para o merge automático, que /openspec-setup prepara',
     'blocked-why.archive-failed': 'um passo do arquivamento falhou',
+    'blocked-why.tag-elsewhere': 'a tag {tag} já está no remoto em {at}, não no commit do merge {sha}; a execução nunca move uma tag, então quem resolve é você',
     'blocked-why.plan-not-approved': 'a revisão do plano dela não está aprovada',
     'blocked-why.pr-problem': 'o pull request tem um problema que a sessão não resolve sozinha',
     'blocked-why.unknown-step': 'o próximo passo é um que esta versão não conhece',
@@ -549,6 +564,7 @@ export const MESSAGES = {
     'setting.delivery-test-branch': 'a branch de teste',
     'setting.budget': 'budget',
     'setting.coverage-target': 'meta de cobertura',
+    'setting.release-tag': 'arquivo da versão',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
     'project-resumed': 'Continuando a fatia {id}: {where}.',
     'project-choose': '{n} fatias estão por terminar: {list}. Qual delas eu continuo?',
@@ -846,6 +862,7 @@ const ROWS = {
   retro: session('retro'),
   archive: session('retro'),
   'tick-roadmap': session('retro'),
+  'tag-release': session('delivery'),
   'wait-checks': { end: 'github' },
   'wait-merge': { end: 'github' },
   ready: { end: 'owner' },
@@ -1061,6 +1078,10 @@ export function decide(facts) {
     const detail = detailOf(row.next);
     if (spec.role) return agent(spec.stage, spec.role, step, `step ${step} ${JSON.stringify(detail)}`, detail, row.next.agent);
     if (spec.session) return sessionAction(spec.stage, step, detail);
+    // A tag on the remote at another commit is the owner's to settle; every other stop of the archive stays `archive-failed`.
+    if (step === 'stop-archive' && row.next.archiveStep === 'tag-release' && row.next.at) {
+      return blocked('tag-elsewhere', { tag: row.next.tag, at: String(row.next.at).slice(0, 7), sha: String(row.next.sha).slice(0, 7) }, currentId);
+    }
     switch (spec.end) {
       case 'github': return waiting('waiting-on-github', 'waiting-github', currentId, { what: step === 'wait-checks' ? 'checks' : facts.archiving ? 'archive-merge' : 'merge' });
       case 'blocked': return blocked(BLOCKED_STEP[step], {}, currentId);
@@ -1262,6 +1283,7 @@ export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env
 // ---------------------------------------------------------------- the decision records (design stage-roles D-4)
 
 const STATUS_LINE = /^(\s*[-*]?\s*\**Status\**\s*:\s*\**\s*)(\S+)(.*)$/im;
+const BULLETED_STATUS = /^([ \t]*[-*][ \t]+)Status[ \t]*:[ \t]*$/i; // the bullet and its indent, when the status line is a plain bulleted `- Status:` one
 const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
 
 // One record `decisions.md` lists, read from `root`: { path, ok: true, rel, text, status, match } or { path, ok: false, why }.
@@ -1330,8 +1352,9 @@ export function acceptDecisions(cwd, id, { lang = 'pt-BR' } = {}) {
     const { match, text } = r;
     const cut = match[1].lastIndexOf('\n') + 1; // the pattern's leading `\s*` may span blank lines: the prefix is the status line's own
     const prefix = match[1].slice(cut);
+    const lead = BULLETED_STATUS.exec(prefix)?.[1] ?? prefix; // a bulleted `- Status:` line gets a bulleted `- Accepted by:` line, not a second Status label
     const eol = text.includes('\r\n') ? '\r\n' : '\n';
-    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${prefix}${by}${text.slice(match.index + match[0].length)}`;
+    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${lead}${by}${text.slice(match.index + match[0].length)}`;
     writes.push([join(root, r.rel), next]);
   }
   for (const [file, body] of writes) writeFileSync(file, body);
@@ -1536,6 +1559,15 @@ export function projectGate(start, settings) {
 
 export const filesLanguageOf = (settings) => (settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language);
 
+// { version, installed } when the change follows an older flow than the one installed in `root`, else null; an error reads as null
+// (the resume reply stays as it was).
+function flowNotice(root, id) {
+  try {
+    const { version, installed } = changeFlow(root, locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id));
+    return typeof version === 'number' && typeof installed === 'number' && installed > version ? { version, installed } : null;
+  } catch { return null; }
+}
+
 // What `/devkit change` does with the request: { version, mode, verb, text, change, unfinished, task, settings, reply }.
 // `task` is { key, link, idPrefix } when the text is a Jira key or link (jira-entry D-2), else null. Read-only: it creates
 // and runs nothing.
@@ -1563,12 +1595,16 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
     try { where = whereOf(u, u.id, read); } catch (e) { if (!(e instanceof LoopUsageError)) throw e; }
     return { id: u.id, root: u.root, where };
   });
-  const resume = (id, where) => out('resume', { change: id, unfinished: list, reply: say('resumed', { id, where }) });
+  const resume = (id, where, root) => {
+    const newer = flowNotice(root, id);
+    const reply = say('resumed', { id, where });
+    return out('resume', { change: id, unfinished: list, reply: newer ? `${reply}\n${say('flow-newer', newer)}` : reply });
+  };
   const listed = list.map((u) => (u.where ? `${u.id} (${u.where})` : u.id)).join('; ');
   const askFirst = () => out('ask-unfinished', { unfinished: list, reply: say(list.length === 1 ? 'ask-unfinished' : 'ask-unfinished-many', { list: listed }) });
   if (task) {
     const own = list.find((u) => recordedTask(readRequirements(u))?.key === task.key);
-    if (own) return resume(own.id, own.where ?? whereOf({ root: own.root, branch: '' }, own.id, read));
+    if (own) return resume(own.id, own.where ?? whereOf({ root: own.root, branch: '' }, own.id, read), own.root);
     if (list.length) return askFirst();
     return out('task', { reply: null });
   }
@@ -1576,10 +1612,10 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
     const known = knownChange(start, text);
     const knownDir = known ? locateChange(known.root, text)?.dir : null;
     if (knownDir && isSliceDir(knownDir)) return out('is-slice', { change: text, reply: say('is-slice', { id: text }) });
-    if (known) return resume(text, list.find((u) => u.id === text)?.where ?? whereOf(known, text, read));
+    if (known) return resume(text, list.find((u) => u.id === text)?.where ?? whereOf(known, text, read), known.root);
   }
   if (text === '') {
-    if (list.length === 1) return resume(list[0].id, list[0].where ?? whereOf({ root: list[0].root, branch: '' }, list[0].id, read));
+    if (list.length === 1) return resume(list[0].id, list[0].where ?? whereOf({ root: list[0].root, branch: '' }, list[0].id, read), list[0].root);
     if (list.length > 1) return out('choose', { unfinished: list, reply: say('choose', { n: list.length, list: listed }) });
     return out('nothing', { reply: say('nothing-to-resume') });
   }
@@ -1859,8 +1895,11 @@ function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env
   try {
     const created = (openspec ?? makeOpenspec(worktree, cleanOf(env)))(['new', 'change', id, '--schema', script]);
     if (created.status !== 0) throw new LoopUsageError(`openspec new change failed: ${(created.stderr || created.stdout).trim()}`);
+    // The claim keys go in before the pin, so the pin stays the last lines of the file whether or not the change is claimed.
+    if (hasOrigin && claim) writeClaimKeys(join(worktree, 'openspec', 'changes', id), claim);
+    recordPin(worktree, join(worktree, 'openspec', 'changes', id), script);
     prepare?.(join(worktree, 'openspec', 'changes', id), worktree);
-    if (hasOrigin && claim) claimOnOrigin({ main, worktree, id, claim, beforePush });
+    if (hasOrigin && claim) claimOnOrigin({ worktree, id, beforePush });
   } catch (e) {
     // O5: leave nothing half made: the worktree, its folder if still there (and its registration, which git keeps while the
     // branch is "used by" it), then the branch this call just created.
@@ -1879,13 +1918,17 @@ function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env
   return { worktree, base };
 }
 
-// D-1 step 4: the claim keys in the change's `.openspec.yaml`, the commit, and the push that only creates the branch. A push
-// refused because the branch exists is the lost race (ClaimRace); any other failure is the original error.
-function claimOnOrigin({ main, worktree, id, claim, beforePush }) {
-  const file = join(worktree, 'openspec', 'changes', id, '.openspec.yaml');
+// D-1 step 4: the claim keys in the change's `.openspec.yaml`, ...
+function writeClaimKeys(dir, claim) {
+  const file = join(dir, '.openspec.yaml');
   const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
   const keys = `x-devkit-machine: ${claim.machine}\n${claim.places ? `x-devkit-places: ${claim.places}\n` : ''}`;
   writeFileSync(file, `${text}${text === '' || text.endsWith('\n') ? '' : '\n'}${keys}`);
+}
+
+// ... the commit, and the push that only creates the branch. A push refused because the branch exists is the lost race
+// (ClaimRace); any other failure is the original error.
+function claimOnOrigin({ worktree, id, beforePush }) {
   gitRun(worktree, ['add', '--', `openspec/changes/${id}`]);
   gitRun(worktree, ['commit', '-q', '-m', `chore(openspec): open ${id}`]);
   beforePush?.();
@@ -1936,6 +1979,47 @@ export function placeChange(cwd, id, { env = process.env, gh } = {}) {
   });
 }
 
+// ---------------------------------------------------------------- the pin (change-version-pin D-1)
+
+// The `version` of this pack's `plugin.json` (`<pluginDir>/.claude-plugin/plugin.json`), or null when the file is missing, is
+// not JSON or has no string `version`.
+export function packVersion(pluginDir = join(HOOKS_DIR, '..')) {
+  try {
+    const { version } = JSON.parse(readFileSync(join(pluginDir, '.claude-plugin', 'plugin.json'), 'utf8'));
+    return typeof version === 'string' ? version : null;
+  } catch { return null; }
+}
+
+const PIN_KEYS = [['devkit', 'x-devkit-version'], ['flow', 'x-devkit-flow']];
+
+// The only writer of the pin in a change's `.openspec.yaml`: for each key, a value replaces the first line of the key (later
+// lines of it are dropped) or is appended; null drops every line of the key. Every other line stays byte for byte.
+export function writePin(dir, pin) {
+  const file = join(dir, '.openspec.yaml');
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const lines = text === '' ? [] : text.split('\n');
+  let closed = lines.at(-1) === ''; // the text ended with a newline
+  if (closed) lines.pop();
+  for (const [field, key] of PIN_KEYS) {
+    const at = lines.flatMap((l, i) => (l.startsWith(`${key}:`) ? [i] : []));
+    if (pin[field] === null || pin[field] === undefined) {
+      for (const i of at.reverse()) lines.splice(i, 1);
+    } else if (at.length === 0) {
+      lines.push(`${key}: ${pin[field]}`);
+      closed = true;
+    } else {
+      lines[at[0]] = `${key}: ${pin[field]}`;
+      for (const i of at.slice(1).reverse()) lines.splice(i, 1);
+    }
+  }
+  writeFileSync(file, lines.length && closed ? `${lines.join('\n')}\n` : lines.join('\n'));
+}
+
+// Records the flow the installed `script` declares, and this pack's version, as the change's pin.
+function recordPin(root, dir, script) {
+  writePin(dir, { devkit: packVersion(), flow: readFlow(root, script)?.version ?? null });
+}
+
 // `script <id> <script> --why <code>`: the correction of the script until the proposal is written (C1 to C3).
 // { code, body }.
 export function switchScript(cwd, id, script, { why, lang = 'pt-BR' } = {}) {
@@ -1956,7 +2040,29 @@ export function switchScript(cwd, id, script, { why, lang = 'pt-BR' } = {}) {
   if (current === script) return { code: 0, body }; // C3
   if (why === undefined) throw new LoopUsageError('script needs --why to switch');
   writeFileSync(file, text.replace(/^schema:[ \t]*\S+/m, `schema: ${script}`)); // C1
+  recordPin(found.root, located.dir, script);
   return { code: 0, body: { ...body, script, reply: render(l, 'script-switched', { id, script, why }) } };
+}
+
+// `flow <id>`: moves a change to the installed version of its script's flow, only when it is asked (change-version-pin D-7).
+// { code, body }. It reads the pin and the installed flow itself, not `changeFlow`, so a change whose kept file is missing
+// can still be moved.
+export function moveFlow(cwd, id, { lang = 'pt-BR' } = {}) {
+  const l = normalizeLang(lang);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const found = locate(start, id);
+  const located = locateChange(found.root, id);
+  if (!located || located.archived) throw new LoopUsageError(`no active change named ${id}`);
+  const schema = changeSchemaAt(found.root, located.dir);
+  const installed = readFlow(found.root, schema)?.version;
+  if (installed === undefined) throw new LoopUsageError(`the ${schema} script has no installed flow.json`);
+  const version = readPin(located.dir).flow ?? 1;
+  const body = { version: 1, change: id, script: schema, flow: installed };
+  if (version === installed) return { code: 0, body };
+  if (version > installed) return { code: 2, body: { ...body, reply: render(l, 'flow-ahead', { id, version, installed }) } };
+  recordPin(found.root, located.dir, schema);
+  return { code: 0, body: { ...body, reply: render(l, 'flow-moved', { id, version, installed }) } };
 }
 
 // ---------------------------------------------------------------- wait (D-7)
@@ -2064,7 +2170,7 @@ export function subagentStopFor(input, change, { env = process.env } = {}) {
   if (!start) return allow('no-project', change);
   const found = locate(start, change);
   const clean = cleanOf(env);
-  const flow0 = readFlow(found.root, changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change)));
+  const flow0 = changeFlow(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change)).flow;
   if (!flow0 || !flow0.stages.some((s) => s.source === 'artifact' && s.role === role)) return allow('no-stage-file', change);
   const { facts, flow } = collectFlow(found.root, change, { env: clean, openspec: makeOpenspec(found.root, clean) });
   const report = computeFlow(facts, flow, {});
@@ -2116,8 +2222,7 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
   const start = findRoot(input.cwd ?? process.cwd());
   if (!start) return allow('no-project', change);
   const found = locate(start, change);
-  const schema = changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change));
-  const flow = readFlow(found.root, schema);
+  const { flow, schema } = changeFlow(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change));
   if (!flow) return allow('no-script', change);
   const roles = scriptAgents(flow);
   const lead = `in a /devkit ${command} run this session hands work${command === 'change' ? '' : ` for ${change}`} only to the roles of the ${schema} script: ${roles.join(', ')}`;
@@ -2134,7 +2239,7 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) '
-  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>';
+  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>';
 
 function parseArgs(argv, { values = [], multi = [], flags = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -2257,6 +2362,13 @@ function runScript(args, { cwd }) {
   return { code, stdout: json(body), stderr: '' };
 }
 
+function runFlow(args, { cwd }) {
+  const opts = parseArgs(args, { values: ['--lang'] });
+  if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+  const { code, body } = moveFlow(cwd, opts.positional[0], { lang: opts.lang });
+  return { code, stdout: json(body), stderr: '' };
+}
+
 function runAccept(args, { cwd }) {
   const opts = parseArgs(args, { values: ['--lang'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
@@ -2300,6 +2412,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     if (sub === 'script') return runScript(rest, { cwd });
     if (sub === 'place') return runPlace(rest, { env, cwd, gh });
     if (sub === 'accept-decisions') return runAccept(rest, { cwd });
+    if (sub === 'flow') return runFlow(rest, { cwd });
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);

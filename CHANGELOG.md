@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.34.0 — remote worker
+## 0.36.0 — remote worker
 
-- **devkit-openspec** 0.30.0: a change can run on another machine. Opening a change in a repository
+- **devkit-openspec** 0.32.0: a change can run on another machine. Opening a change in a repository
   with an `origin` commits its folder with the request and the machine's name and pushes its branch
   at once, so no machine opens an id that is open on another one (`claimed`); of two machines opening
   one id at the same moment, one wins. The new per-person `machines` setting lists the other machines
@@ -12,8 +12,47 @@
   implementation on (`change-loop.mjs place`); with none free it ends blocked (waiting for a place),
   and a freed place wakes one waiting change. `/devkit status` shows where each change is and reads
   "no answer" for a machine that does not answer (`status --json`, `machine-probe.mjs`).
-- Docs: ADR 0019 (accepted) amends ADR 0013, ADR 0014 and ADR 0017 (decision 4: the title of a change waiting for a place); the flow page, the coordination design and
-  the pack README follow. The CI snippet now pins `v0.30.0`, the release's tag.
+- Docs: ADR 0020 (accepted) amends ADR 0013, ADR 0014 and ADR 0017 (decision 4: the title of a change waiting for a place); the flow page, the coordination design and
+  the pack README follow. The CI snippet now pins `v0.32.0`, the release's tag.
+
+## 0.35.0 — change-version-pin
+
+- **devkit-openspec** 0.31.0: a change follows the flow it was opened with. `change-loop.mjs open`
+  records `x-devkit-version` and `x-devkit-flow` in the change's `.openspec.yaml`; every reader of
+  the change's stages (the readout, the change, roadmap and project loops, the edit hook, the CI
+  check, the conductor and the locks) reads `flows/<n>.json` of that version, and a change with no
+  record follows version 1. Each schema folder keeps every released `flows/<n>.json`. When a newer
+  flow is installed, the readout and the `resume` reply say so in one line, and the change moves
+  only on the owner's request, with the new `change-loop.mjs flow <id>`; the `script` switch
+  records the new script's flow. `scripts/check.py` refuses a `flow.json` changed with its version
+  kept, against `scripts/released-flows.json`. The CI snippet now pins `v0.31.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` ("The flow a change follows", "Moving to a newer flow"),
+  CONTRIBUTING.md (a flow change raises its version), the pack README and the setup skill.
+- Projects: move the pinned `devkit-reviews` workflow to the commit of `v0.31.0` to honour the
+  recorded flows in CI; re-run `openspec-setup` to get `flows/`.
+
+## 0.34.1 — retro proposals of release-tags
+
+- **devkit-openspec** 0.30.1: `accept-decisions` writes the acceptance line of an ADR whose status is
+  a bulleted `- Status:` line as `- Accepted by: ...`, as ADR 0017 and 0018 read, not as a second
+  `- Status: Accepted by: ...` line; a status line of another form keeps its prefix. The CI snippet
+  now pins `v0.30.1`, the release's tag.
+- Docs: CONTRIBUTING asks a change that reads a GitHub route for the first time to record one
+  read-only live call of it in `evidence.md`; a fake-gh fixture alone does not prove the route or
+  the shape.
+
+## 0.34.0 — release tags
+
+- **devkit-openspec** 0.30.0: a project that sets `devkit.release_tag` (a path from the repository
+  root to a JSON file with a top-level `version`) has the tag of each release pushed by the delivery
+  loop. After a merge that bumped the version, `deliver-check` answers the new `tag-release` step
+  (before the retro; for the archive PR, before `archived`), and `ship-change` creates the
+  lightweight tag `v<version>` on the merge commit and pushes it alone. A tag at another commit ends
+  the run `blocked` and is never moved; a read GitHub does not answer stops, never passes. Without
+  the key nothing changes. This repository sets it to devkit-openspec's `plugin.json`
+  ([ADR 0019](docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)). The CI snippet now
+  pins `v0.30.0`, the release's tag.
+- Docs: CONTRIBUTING step 5 and the flow page describe the key, rows R1 to R3 and the step.
 
 ## 0.33.0 — release conflicts resolved by a merge
 

@@ -40,7 +40,7 @@ models chosen per project in `devkit.delivery`, the two-PR model and its lock, a
 that solves a conflict with the test branch
 ([ADR 0018](adr/0018-the-delivery-model-is-chosen-per-project.md)).
 So does, since the change `remote-worker` (round 28), running a change on another machine
-([ADR 0019](adr/0019-a-change-can-run-on-another-machine.md)).
+([ADR 0020](adr/0020-a-change-can-run-on-another-machine.md)).
 Everything else (the other verbs of `/devkit`, the rest of the `devkit:`
 configuration block, the other two drivers,
 the new panels) is to be built, and each section names the round of `openspec/roadmap.md` that
@@ -98,7 +98,7 @@ coordinator holds the start of a new change while the machine is loaded, and wha
 finishes first. **Decided by
 `roadmap-coordinator` on 2026-11-21 (A-6, grill questions 8 and 9):** it measures the processor load of
 the last minute per logical core against the per-person `load_limit` (80 by default); memory is not
-measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). When the person's `machines` setting lists another machine, a loaded machine sends the start there, and the start is held only when no machine can take it ([ADR 0019](adr/0019-a-change-can-run-on-another-machine.md)).
+measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). When the person's `machines` setting lists another machine, a loaded machine sends the start there, and the start is held only when no machine can take it ([ADR 0020](adr/0020-a-change-can-run-on-another-machine.md)).
 
 **The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 15
 (`change-coordinator`). It takes one change from its opening to its archive. It asks the script which
@@ -553,7 +553,7 @@ the round that replaces it:
 ## Where a change runs
 
 Built by the change `remote-worker` (round 28), requested by the owner on 2026-11-20
-([ADR 0019](adr/0019-a-change-can-run-on-another-machine.md)).
+([ADR 0020](adr/0020-a-change-can-run-on-another-machine.md)).
 
 **Any machine.** A change can run on another machine. The machines are the per-person `machines`
 setting of the devkit-openspec pack (never a project file), a JSON list of the app's SSH connection

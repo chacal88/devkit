@@ -86,9 +86,9 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder',
+  version: 1, state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder',
   branch: 'develop', base: 'master', default: 'main', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
-  spent: 2100000, cap: 2000000,
+  spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
 // The one reply that names a file: the budget stop names the change's settings file, where the owner raises the cap.
@@ -2332,8 +2332,8 @@ test('change-loop skill: the frontmatter', () => {
 
 test('change-loop skill: every change-loop command and the readout carry the person\'s language', () => {
   const md = skillText();
-  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|wait|next|reply)\b/.test(l));
-  for (const sub of ['start', 'open', 'script', 'wait', 'next', 'reply']) {
+  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|flow|wait|next|reply)\b/.test(l));
+  for (const sub of ['start', 'open', 'script', 'flow', 'wait', 'next', 'reply']) {
     assert.ok(calls.some((l) => l.includes(`change-loop.mjs ${sub}`)), `the body runs ${sub}`);
   }
   for (const l of calls) assert.ok(l.includes(LANG_FLAG), `--lang on: ${l}`);
@@ -3064,19 +3064,26 @@ test('stage-roles loop: accept-decisions sets every proposed record accepted wit
   assert.deepEqual(JSON.parse(r.stdout), { version: 1, change: 'feat', accepted: [`${ADR_FOLDER}/0001-a.md`, `${ADR_FOLDER}/0002-b.md`], already: [] });
   const by = 'Accepted by: the owner, on 2026-11-22, in the approval of the plan of change feat (openspec/changes/feat/approval.md)';
   assert.match(readFileSync(join(root, ADR_FOLDER, '0001-a.md'), 'utf8'), new RegExp(`\\nStatus: accepted\\nStatus: ${by.replace(/[()/.]/g, '\\$&')}\\n`));
-  assert.match(readFileSync(join(root, ADR_FOLDER, '0002-b.md'), 'utf8'), new RegExp(`\\n- Status: Accepted\\n- Status: ${by.replace(/[()/.]/g, '\\$&')}\\n`));
+  assert.match(readFileSync(join(root, ADR_FOLDER, '0002-b.md'), 'utf8'), new RegExp(`\\n- Status: Accepted\\n- ${by.replace(/[()/.]/g, '\\$&')}\\n`));
 });
 
 test('stage-roles loop: accept-decisions keeps the letter case and the prefix of the status line', () => {
   const root = adrChange({ records: {
     [`${ADR_FOLDER}/a.md`]: adrRecord('Status: PROPOSED'),
     [`${ADR_FOLDER}/b.md`]: adrRecord('  * **Status:** Proposed — pending'),
+    [`${ADR_FOLDER}/c.md`]: adrRecord('  - Status: PROPOSED'),
+    [`${ADR_FOLDER}/d.md`]: adrRecord('* Status: proposed'),
   } });
   assert.equal(accept(root).code, 0);
   const a = readFileSync(join(root, ADR_FOLDER, 'a.md'), 'utf8');
   assert.match(a, /\nStatus: ACCEPTED\nStatus: Accepted by: the owner, on 2026-11-22/);
   const b = readFileSync(join(root, ADR_FOLDER, 'b.md'), 'utf8');
   assert.match(b, /\n {2}\* \*\*Status:\*\* Accepted — pending\n {2}\* \*\*Status:\*\* Accepted by: the owner, on 2026-11-22/);
+  const c = readFileSync(join(root, ADR_FOLDER, 'c.md'), 'utf8');
+  assert.match(c, /\n {2}- Status: ACCEPTED\n {2}- Accepted by: the owner, on 2026-11-22/, 'a bulleted Status line gets a bulleted Accepted by line, not a second Status label');
+  assert.doesNotMatch(c, /Status: Accepted by/);
+  const d = readFileSync(join(root, ADR_FOLDER, 'd.md'), 'utf8');
+  assert.match(d, /\n\* Status: accepted\n\* Accepted by: the owner, on 2026-11-22/);
 });
 
 test('stage-roles loop: accept-decisions leaves an accepted record alone and lists it as already accepted', () => {
@@ -3632,13 +3639,13 @@ test('remote AC-4 open: with no origin nothing is committed or pushed', () => {
   assert.equal(git(wt, 'rev-parse', 'HEAD'), before, 'no commit was made');
   assert.equal(git(wt, 'rev-list', '--count', 'HEAD'), git(root, 'rev-list', '--count', 'main'));
   assert.match(git(wt, 'status', '--porcelain'), /openspec\/changes/, 'the folder is left uncommitted, as before');
-  assert.equal(/x-devkit/.test(yamlOf(wt, 'no-origin')), false);
+  assert.equal(/x-devkit-(machine|places)/.test(yamlOf(wt, 'no-origin')), false);
   assert.ok(existsSync(join(wt, 'openspec', 'changes', 'no-origin', 'requirements.md')));
   const named = openRun(root, 'no-origin-named', { args: ['--script', 'devkit', '--why', 'doubt', '--machine', 'avel', '--places', '2'] });
   assert.equal(named.code, 0, named.stdout + named.stderr);
   const namedWt = join(root, '.claude', 'worktrees', 'no-origin-named');
   assert.equal(git(namedWt, 'rev-parse', 'HEAD'), before, 'a machine name with no origin commits nothing either');
-  assert.equal(/x-devkit/.test(yamlOf(namedWt, 'no-origin-named')), false, 'and writes no claim key');
+  assert.equal(/x-devkit-(machine|places)/.test(yamlOf(namedWt, 'no-origin-named')), false, 'and writes no claim key');
 });
 
 test('remote locks claims: the claims of a stale clone cost at most 8 gh calls, and none for the default branch', () => {
@@ -4665,6 +4672,28 @@ test('change-budget AC-8 the settings reply names budget and the value in both l
   }
 });
 
+test('release-tags 1: /devkit change refuses a release_tag that is not a path to a JSON file', () => {
+  const accepted = 'a path from the repository root to a JSON file, such as package.json';
+  for (const value of ['/abs.json', '../x.json', 'x.yaml', '[a.json]', 'a b.json']) {
+    const config = `schema: devkit\ndevkit:\n  release_tag: ${value}\n`;
+    for (const [lang, name] of [['en', 'release file'], ['pt-BR', 'arquivo da versão']]) {
+      const root = devkitRepo(config);
+      const before = snapshot(root);
+      const b = body(startRun(root, 'change add an export', { lang }));
+      assert.equal(b.mode, 'setting-unknown', `${lang} ${value}`);
+      assert.equal(b.reply, render(lang, 'setting-unknown', { setting: 'release-tag', value, accepted }), `${lang} ${value}`);
+      assert.ok(b.reply.includes(name) && b.reply.includes(value), `${lang}: ${b.reply}`);
+      assert.equal(snapshot(root), before, `${lang} ${value}`);
+      const t = freshProject(config);
+      const beforeOpen = snapshot(t.main);
+      const r = openRun(t.main, 'new-thing', { lang });
+      assert.equal(r.code, 3, `${lang} ${value}`);
+      assert.equal(body(r).reply, b.reply, 'the reply is the one the typed command gives');
+      assert.equal(snapshot(t.main), beforeOpen, `${lang} ${value}`);
+    }
+  }
+});
+
 // ---- the decision (D-4)
 
 const AT_PLAN = () => ({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } } });
@@ -4925,6 +4954,7 @@ test('change-state AC-3 state: each blocked reason decide gives is the reason, w
     'wrong-branch': build(rowOf('stop-branch')),
     'merge-setup': build(rowOf('stop-merge-setup')),
     'archive-failed': build(rowOf('stop-archive')),
+    'tag-elsewhere': build(rowOf('stop-archive', { archiveStep: 'tag-release', tag: 'v1.3.0', at: 'd4e5f60abc', sha: 'a1b2c3dabc', number: 12 })),
     'plan-not-approved': build(rowOf('stop-not-approved')),
     'pr-problem': build(rowOf('blocked')),
     'unknown-step': run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'something-new') } }),

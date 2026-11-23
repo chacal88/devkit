@@ -7,77 +7,17 @@ import { dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { schemaFile, findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader } from './guard.mjs';
+import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow } from './guard.mjs';
 import { gitFacts, staleness, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
-export class FlowUsageError extends Error {
-  constructor(message) { super(message); this.name = 'FlowUsageError'; }
-}
+// The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
+export { FlowUsageError, readFlow, readFlowFile };
 
-// The stage header reader lives in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
+// The stage header reader lives in guard.mjs for the same reason.
 export { STAGE_HEADER, parseStageHeader };
 
-const SOURCES = ['folder', 'artifact', 'tasks', 'github'];
-const PARTS = ['open', 'plan', 'build', 'after', 'delivery', 'close'];
-const STAGE_KEYS = ['id', 'source', 'file', 'role', 'skills', 'helpers', 'part', 'title', 'shipped', 'owner',
-  'ceiling', 'onFail', 'staleAfter', 'codeBound', 'appliesWhen', 'notAfter'];
-const SETTING_PATH = /^[A-Za-z][\w-]*(\.[A-Za-z][\w-]*)*$/;
-const LANGS = ['en', 'pt-BR'];
-
-// The script's declaration of its stages (design D-5): flow.json next to the schema's schema.yaml.
-// null when the schema folder has none; a FlowUsageError when it is malformed.
-export function readFlow(root, schema) {
-  const sf = schema ? schemaFile(root, schema) : null;
-  if (!sf) return null;
-  const f = join(dirname(sf), 'flow.json');
-  if (!existsSync(f)) return null;
-  return readFlowFile(f, schema);
-}
-
-// The declaration in the flow.json at `f`, checked; `name` is what its error messages call it (a schema name or a path).
-export function readFlowFile(f, name = f) {
-  const bad = (why) => new FlowUsageError(`flow.json of ${name} is malformed: ${why}`);
-  let flow;
-  try { flow = JSON.parse(readFileSync(f, 'utf8')); } catch (e) { throw bad(`not JSON (${e.message})`); }
-  if (!flow || typeof flow !== 'object' || !Array.isArray(flow.stages) || flow.stages.length === 0) throw bad('no stages');
-  if (flow.version !== 1) throw bad(`version ${flow.version} is not 1`);
-  if (!Number.isInteger(flow.ceilings?.default) || flow.ceilings.default < 1) throw bad('ceilings.default is not a positive integer');
-  const index = new Map();
-  flow.stages.forEach((s, i) => {
-    if (!s || typeof s.id !== 'string' || !s.id) throw bad(`stage ${i + 1} has no id`);
-    if (index.has(s.id)) throw bad(`duplicate stage id ${s.id}`);
-    index.set(s.id, i);
-    for (const k of Object.keys(s)) if (!STAGE_KEYS.includes(k)) throw bad(`stage ${s.id} has an unknown key ${k}`);
-    if (!SOURCES.includes(s.source)) throw bad(`stage ${s.id} has an unknown source ${s.source}`);
-    if (!PARTS.includes(s.part)) throw bad(`stage ${s.id} has an unknown part ${s.part}`);
-    if (s.source === 'artifact' && typeof s.file !== 'string') throw bad(`stage ${s.id} has no file`);
-    if (typeof s.role !== 'string' || !s.role) throw bad(`stage ${s.id} has no role`);
-    for (const l of LANGS) if (typeof s.title?.[l] !== 'string' || !s.title[l]) throw bad(`stage ${s.id} has no ${l} title`);
-    if (s.ceiling !== undefined && s.ceiling !== 'owner' && !(Number.isInteger(s.ceiling) && s.ceiling >= 1)) {
-      throw bad(`stage ${s.id} has a ceiling that is neither a whole number from 1 nor "owner": ${JSON.stringify(s.ceiling)}`);
-    }
-    if (s.appliesWhen !== undefined) {
-      const w = s.appliesWhen;
-      const keys = w && typeof w === 'object' && !Array.isArray(w) ? Object.keys(w) : [];
-      const value = keys.length === 1 ? w[keys[0]] : undefined;
-      const ok = (keys[0] === 'flag' && typeof value === 'string' && value !== '') || (keys[0] === 'setting' && typeof value === 'string' && SETTING_PATH.test(value));
-      if (!ok) throw bad(`stage ${s.id} has an appliesWhen that is not exactly one of a flag or a dotted setting, each a non-empty string`);
-    }
-  });
-  flow.stages.forEach((s, i) => {
-    if (s.onFail !== undefined && !(index.has(s.onFail) && index.get(s.onFail) <= i)) {
-      throw bad(`stage ${s.id} has an onFail that is unknown or later: ${s.onFail}`);
-    }
-    for (const a of s.staleAfter ?? []) {
-      if (!(index.has(a) && index.get(a) < i)) throw bad(`stage ${s.id} has a staleAfter that is unknown or later: ${a}`);
-    }
-    if (s.notAfter !== undefined && !(index.has(s.notAfter) && index.get(s.notAfter) > i && flow.stages[index.get(s.notAfter)].source === 'artifact')) {
-      throw bad(`stage ${s.id} has a notAfter that is not a later artifact stage: ${JSON.stringify(s.notAfter)}`);
-    }
-  });
-  return flow;
-}
+const LANGS = FLOW_LANGS;
 
 // OpenSpec's task list ({ id, done, line }) is the source; a checkbox inside a fenced example of
 // tasks.md is not a task. Returns the tasks still open.
@@ -299,14 +239,17 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const located = locateChange(root, id);
   if (!located) throw new FlowUsageError(`no change named ${id}, active or archived`);
   const schema = located.archived ? archivedSchema(located.dir) : schemaOf(root, located);
-  const flow = readFlow(root, schema);
+  // An archived change ends `archived` before any stage is read; an active one follows the flow its pin names (guard.mjs#changeFlow).
+  const followed = located.archived ? null : changeFlow(root, located.dir);
+  const flow = followed ? followed.flow : readFlow(root, schema);
   if (!located.archived && !flow && !DEVKIT_SCHEMAS.includes(schema)) throw new FlowUsageError(`schema ${schema} has no flow.json and is not a devkit schema`);
   const facts = { id, schema, archived: located.archived };
   if (located.archived || !flow) return { facts, flow };
   const files = {};
   for (const s of flow.stages) if (s.source === 'artifact') files[s.id] = stageFiles(located.dir, s.file);
   Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
-    flags: classificationFlags(located.dir), settings: readTestSettings(root).paths });
+    flags: classificationFlags(located.dir), settings: readTestSettings(root).paths,
+    flowVersion: { version: followed.version, installed: followed.installed, pinned: followed.pinned } });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
   try { config = deliveryConfig(root, schema); } catch (e) {
@@ -545,7 +488,7 @@ const progressKeyOf = (stage, facts) => `${stage}@${facts.fingerprint}`;
 export function computeFlow(facts, flow, { after = null } = {}) {
   const names = Object.fromEntries(flow ? flow.stages.map((s) => [s.id, inSentence(s.title.en)]) : []);
   const note = (code, params) => ({ reasonCode: code, params, reason: reasonText('en', code, params, names) });
-  const report = { version: 1, change: facts.id, schema: facts.schema, script: 'current', head: facts.head ?? null, stages: [], next: null, end: null, previous: null };
+  const report = { version: 1, change: facts.id, schema: facts.schema, script: 'current', head: facts.head ?? null, stages: [], next: null, end: null, previous: null, flow: null };
   if (facts.archived) {
     report.end = { state: 'archived', stage: null, ...note('archived', {}) };
     return report;
@@ -553,6 +496,7 @@ export function computeFlow(facts, flow, { after = null } = {}) {
   const previous = (code) => ({ ...report, script: 'previous', previous: { finishedBy: 'ship-change', ...note(code, {}) } });
   if (!flow) return previous('schema-without-declaration');
   if (isPreviousScript(facts.files, flow)) return previous('previous-script');
+  report.flow = facts.flowVersion ?? null;
 
   const stages = flow.stages;
   const started = Boolean(facts.tasks?.done);
@@ -653,6 +597,7 @@ const WORDS = {
     script: (name) => `${name} script`,
     states: { passed: 'passed', failed: 'failed', 'not-applicable': 'does not apply', stale: 'stale', pending: 'pending', blocked: 'blocked' },
     next: 'Next stage', who: 'Who runs it', why: 'Why',
+    newer: (version, installed, schema, id) => `Flow: this change follows version ${version} of the ${schema} script; version ${installed} is installed. To move it: change-loop.mjs flow ${id}.`,
     ends: { archived: 'End: archived.', 'waiting-for-owner': 'End: waiting for the owner.', 'waiting-on-github': 'End: waiting on GitHub.', blocked: 'End: blocked.' },
     previous: "This change began under the previous script: its files carry no stage header. Today's flow finishes it (ship-change, led by deliver-check). This command stops nothing.",
   },
@@ -660,6 +605,7 @@ const WORDS = {
     script: (name) => `roteiro ${name}`,
     states: { passed: 'passou', failed: 'falhou', 'not-applicable': 'não se aplica', stale: 'desatualizada', pending: 'pendente', blocked: 'bloqueada' },
     next: 'Próxima etapa', who: 'Quem executa', why: 'Por quê',
+    newer: (version, installed, schema, id) => `Fluxo: esta change segue a versão ${version} do roteiro ${schema}; a versão ${installed} está instalada. Para mudá-la: change-loop.mjs flow ${id}.`,
     ends: { archived: 'Fim: arquivada.', 'waiting-for-owner': 'Fim: esperando o dono.', 'waiting-on-github': 'Fim: esperando o GitHub.', blocked: 'Fim: bloqueada.' },
     previous: 'Esta change começou no roteiro anterior: os arquivos dela não têm o cabeçalho de etapa. O fluxo de hoje a termina (ship-change, guiado pelo deliver-check). Este comando não para nada.',
   },
@@ -686,6 +632,10 @@ export function renderText(report, flow, lang = 'pt-BR') {
   const names = Object.fromEntries(Object.entries(titles).map(([id, t]) => [id, inSentence(t)]));
   const lines = [`Change ${report.change}${report.schema ? ` (${w.script(report.schema)})` : ''}`, ''];
   if (report.script === 'previous') return `${lines.join('\n')}\n${w.previous}\n`;
+  const flowAt = report.flow;
+  if (Number.isInteger(flowAt?.version) && Number.isInteger(flowAt?.installed) && flowAt.installed > flowAt.version) {
+    lines.splice(1, 0, w.newer(flowAt.version, flowAt.installed, report.schema, report.change));
+  }
   if (report.stages.length) {
     const width = Math.max(24, ...report.stages.map((s) => (titles[s.id] ?? s.title).length + 2));
     for (const s of report.stages) {

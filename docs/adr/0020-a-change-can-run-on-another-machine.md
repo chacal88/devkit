@@ -1,4 +1,4 @@
-# ADR 0019: A change can run on another machine, claimed on GitHub when it opens
+# ADR 0020: A change can run on another machine, claimed on GitHub when it opens
 
 - Status: accepted
 - Date: 2026-11-22

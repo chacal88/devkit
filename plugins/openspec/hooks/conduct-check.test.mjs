@@ -537,7 +537,7 @@ test('conduct: deliveryStep maps every deliver-check step to its actor, agent an
     [{ step: 'retro' }, 'subagent', 'general-purpose', 'ready to run: retro'],
     [{ step: 'review' }, 'review', undefined, 'ready to run: review'],
     [{ step: 'gate' }, 'gate', undefined, 'ready to run: gate'],
-    ...['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap'].map((s) => [{ step: s }, 'main', undefined, `ready to run: ${s}`]),
+    ...['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'tag-release'].map((s) => [{ step: s }, 'main', undefined, `ready to run: ${s}`]),
     [{ step: 'answer' }, 'owner', undefined, 'waiting for the owner: PR decision https://github.com/o/r/pull/12'],
     [{ step: 'stop-retro-answers' }, 'owner', undefined, 'waiting for the owner: retro answers'],
     [{ step: 'stop-plan-approval' }, 'owner', undefined, 'waiting for the owner: plan approval'],

@@ -53,9 +53,13 @@ An acceptance criterion states only what can be proven before the PR: `deliver-c
 
    Use the desktop app's bundled Claude Code (see "Testing a mod pack" below); the npm `claude` (2.1.227) validates the repository and the pack again, since devkit-panel 0.2.0 dropped `userConfig.language.options`, but it still has no `plugin test`.
 
+   A change that reads a GitHub route for the first time records one read-only live call of it in `evidence.md`; a fake-gh fixture alone does not prove the route or the shape.
+
 5. Bump the `version` of every pack you changed, in its `plugin.json` and in `marketplace.json`, and add a line to [CHANGELOG.md](CHANGELOG.md). Changes run in parallel: when you merge `main` before the merge of your pull request, take the next version after `main`'s and the next free ADR number in `main`'s `docs/adr/`, and renumber your ADR and every reference your change made to it when another change took its number first. When a change has had to redo its release against `main` twice, its session asks the coordinator for a merge window: sibling changes hold their own merge (and auto-merge) until that pull request lands, so it does not loop on release collisions. Fetch `main` again right before each push of the delivery and before `enable-auto-merge`: a sibling that merged in between took your number, and merging it then costs one suite and one re-review instead of a conflict found after the checks.
 
    A release that changes devkit-openspec's version is tagged `v<that version>` on its merge commit on `main`: a lightweight tag, pushed after the merge (`git tag v<x> <merge sha>`, then `git push origin v<x>`), because `openspec-setup` pins projects' CI and vendored schemas to that tag's commit (ADR 0002). A release that bumps only other packs gets no new tag: it has nothing new to pin, and `v<that version>` already names an earlier commit.
+
+   This repository sets `devkit.release_tag` to devkit-openspec's `plugin.json`, so after the merge `deliver-check` answers `tag-release` and the session pushes that tag itself, before the retro ([ADR 0019](docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)); the by-hand commands above are for a release made outside the loop.
 
 ## Changing the OpenSpec schemas
 
@@ -69,7 +73,7 @@ cd "$(mktemp -d)" && git init -q && openspec init --tools none
 bash <repo>/plugins/openspec/skills/openspec-setup/scripts/install-schemas.sh .
 ```
 
-Each schema lives in two copies (`plugins/openspec/schemas/` and this repository's `openspec/schemas/`, kept byte-identical by `install-schemas.sh`), and each folder holds `flow.json` and the templates with their stage header: change `schema.yaml`, `flow.json` and the templates together, because `flow-check` reads all three. The suite needs the `openspec` CLI (major 2) on `PATH` (this repository pins none; a project that pins one has it used instead): the schema tests create a change with it.
+Each schema lives in two copies (`plugins/openspec/schemas/` and this repository's `openspec/schemas/`, kept byte-identical by `install-schemas.sh`), and each folder holds `flow.json`, `flows/<n>.json` and the templates with their stage header: change `schema.yaml`, `flow.json` and the templates together, because `flow-check` reads all three. A change to a `flow.json` raises its `version`, copies the new file to `flows/<n>.json` (the same bytes) and records its digest in `scripts/released-flows.json` (`sha256:` and the hex of `shasum -a 256`); a released `flows/<n>.json` is never edited, because changes opened under it keep following it. `scripts/check.py` refuses anything else. The suite needs the `openspec` CLI (major 2) on `PATH` (this repository pins none; a project that pins one has it used instead): the schema tests create a change with it.
 
 The hooks depend on the artifact id `readiness` and on the `- Status:` / `Verdict:` lines; keep them, or change `plugins/openspec/hooks/guard.mjs` and its tests together.
 

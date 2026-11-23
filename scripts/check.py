@@ -5,11 +5,14 @@
 - no leftover non-English prose markers;
 - the panel's copies of the checkers' grammar (plugins/panel/hooks/grammar.ts) match the checkers' literals;
 - every `plugin install` line names its scope: `--scope project` everywhere, and `--scope user`
-  only in docs/migrate-to-project-scope.md (ADR 0004).
+  only in docs/migrate-to-project-scope.md (ADR 0004);
+- every released flow version of the openspec schemas stays: `flow.json` equals `flows/<its version>.json`, and each
+  `flows/<n>.json` matches its digest in scripts/released-flows.json, so a flow change raises its version.
 
     python3 scripts/check.py [--root <dir>]
 """
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -176,6 +179,74 @@ def check_panel_parity():
             problems.append(f"{rel}: copy of NOT_IDS differs from {'/'.join(OPENSPEC_HOOKS)}/conduct-check.mjs")
 
 
+RELEASED_FLOWS = ("scripts", "released-flows.json")
+FLOW_SCHEMAS = ("plugins", "openspec", "schemas")
+FLOW_VERSION_NAME = re.compile(r"^[1-9][0-9]*$")
+
+
+def flow_digest(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def read_json(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def check_flow_versions():
+    """A flow change raises its version (design change-version-pin D-8): each schema's `flow.json` equals
+    `flows/<its version>.json`, and every kept `flows/<n>.json` matches its digest in scripts/released-flows.json."""
+    schemas = ROOT.joinpath(*FLOW_SCHEMAS)
+    if not schemas.is_dir():
+        return
+    listing = "/".join(RELEASED_FLOWS)
+    digest_file = ROOT.joinpath(*RELEASED_FLOWS)
+    if not digest_file.is_file():
+        problems.append(f"{listing} is missing: it records the digest of every released flow version")
+        return
+    digests = read_json(digest_file)
+    if not isinstance(digests, dict):
+        problems.append(f"{listing} is not JSON")
+        return
+    for folder in sorted(p for p in schemas.iterdir() if (p / "flow.json").is_file()):
+        rel = folder.relative_to(ROOT).as_posix()
+        kept = folder / "flows"
+        current = read_json(folder / "flow.json")
+        version = current.get("version") if isinstance(current, dict) else None
+        if isinstance(version, int) and not isinstance(version, bool):
+            released = kept / f"{version}.json"
+            if not released.is_file():
+                problems.append(f"{rel}/flow.json: version {version} has no flows/{version}.json; keep each released flow version there")
+            elif released.read_bytes() != (folder / "flow.json").read_bytes():
+                problems.append(
+                    f"{rel}/flow.json: differs from flows/{version}.json, the released content of version {version}; a flow change raises its version"
+                )
+        else:
+            problems.append(f'{rel}/flow.json: no integer "version"')
+        recorded = digests.get(folder.name)
+        recorded = recorded if isinstance(recorded, dict) else {}
+        for file in sorted(kept.glob("*.json")) if kept.is_dir() else []:
+            if not FLOW_VERSION_NAME.match(file.stem):
+                problems.append(f"{rel}/flows/{file.name}: not a flow version")
+                continue
+            own = read_json(file)
+            own_version = own.get("version") if isinstance(own, dict) else None
+            if own_version != int(file.stem) or isinstance(own_version, bool):
+                problems.append(f"{rel}/flows/{file.name}: its version is {own_version}, not {file.stem}")
+            expected = recorded.get(file.stem)
+            if expected is None:
+                problems.append(f"{rel}/flows/{file.name}: no digest in {listing}")
+            elif expected != flow_digest(file.read_bytes()):
+                problems.append(f"{rel}/flows/{file.name}: does not match the digest of released version {file.stem} in {listing}")
+    for script in sorted(digests):
+        versions = digests[script] if isinstance(digests[script], dict) else {}
+        for n in sorted(versions):
+            if not (schemas / script / "flows" / f"{n}.json").is_file():
+                problems.append(f"{listing}: {script} version {n} has no flows/{n}.json")
+
+
 def main():
     global ROOT
     ap = argparse.ArgumentParser(description="devkit repository checks")
@@ -188,6 +259,7 @@ def main():
     check_changelog()
     check_panel_parity()
     check_awaited_subtests()
+    check_flow_versions()
     print("\n".join(problems) or "all checks passed")
     sys.exit(1 if problems else 0)
 

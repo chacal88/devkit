@@ -76,7 +76,7 @@ unchanged.
 
 Note (remote-worker, 2026-11-22): opening a change pushes its branch at once with the machine's
 name, and a roadmap run may open changes on other machines the person lists
-([ADR 0019](0019-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
 its reason. Decisions 1 to 8 are otherwise unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or

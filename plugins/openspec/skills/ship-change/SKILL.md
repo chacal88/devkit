@@ -73,6 +73,7 @@ Repeat: run `deliver-check <id> --json`; do exactly the step `next.step` names; 
 | `stop-retro-answers` | Stop. Show every proposal in `next.proposals` with its targets, kind, summary and diff, and ask the owner to approve or reject each one. When the owner answers (in the owner's own message), write `- Answer: approved` or `- Answer: rejected: <reason>` under each proposal in `retro.md`, then set line 1 of `retro.md`, the `<!-- devkit-stage retro ... -->` header, to `result=passed` once every proposal has an `- Answer:` line, then run the loop again. Never answer for the owner. |
 | `archive` | `git fetch origin <next.base>`; `git switch -c <next.branch> origin/<next.base>` (`git switch <next.branch>` when `next.create` is false); `openspec archive <id> --yes`. A non-zero exit stops as `blocked: archive (archive): <stderr's first line>`. |
 | `tick-roadmap` | In `openspec/roadmap.md`, change `- [ ] <id>` to `- [x] <id>` on `next.line`. |
+| `tag-release` | `git fetch origin <next.base>`. When `git rev-parse -q --verify refs/tags/<next.tag>` names a commit other than `<next.sha>`, stop `blocked: archive (tag-release): local tag <next.tag> is at <that commit>, not <next.sha>` and leave it. Otherwise `git tag <next.tag> <next.sha>` (lightweight: no `-a`, `-s` or `-f`) unless it already names `<next.sha>`, then `git push origin refs/tags/<next.tag>`, alone (no `--force`, `-f` or `--tags`). A refused push stops as `blocked: archive (tag-release): <git's first error line>`; never retry it with force. Then run the loop again. |
 | `apply-proposals` | Dispatch `devkit-core:tdd-implementer`: "Apply exactly these approved retro proposals of change <id> (archived at <folder>): <next.proposals>. A regression-gate proposal is test-first. Bump the version of each pack whose files you change (`plugin.json` and `.claude-plugin/marketplace.json`) with a CHANGELOG line, regenerate the catalog if an agent or skill description changed, run the test command, and write `- Applied: yes` under each proposal you applied. Nothing else." A proposal whose target is `user memory` is applied by this session to the owner's memory and never touches the repository. `Outcome: failure` stops as `blocked: archive (apply-proposals): <reason>`. |
 | `open-archive-pr` | Dispatch `devkit-core:commit-and-pr` with an archive call: "Archive change <id>: stage by name the moved folder (both paths), `openspec/roadmap.md` and the applied files; commit and open the PR titled `next.title`; push `next.branch`, or reuse its open PR." End the prompt with the attribution block (Attribution, above). |
 | `archive-pr-ready` | Report `archive PR ready` with the PR URL (`pr` mode): the owner merges it, and the next run reports `archived`. |
@@ -135,6 +136,8 @@ End with exactly one of:
 
 plus the reason and the last step run. Never call a change ready or archived from your own reading of the state.
 
+A run that pushed a tag adds `tagged <tag> at <short sha>` for each one.
+
 ## Never
 
 - Edit product code in the main session: every fix goes through `tdd-implementer`, even in `devkit-lite` where the hook would allow the edit.
@@ -146,3 +149,4 @@ plus the reason and the last step run. Never call a change ready or archived fro
 - Run two phases at once, or start or drive another session.
 - Answer an owner decision on a PR.
 - Bypass a hook or a gate (`--no-verify`, `DEVKIT_BYPASS`).
+- Create a tag except at `tag-release`, or move, delete or force-push one.

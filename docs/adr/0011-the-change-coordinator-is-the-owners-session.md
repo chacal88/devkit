@@ -26,7 +26,7 @@ outside the change folder are not product code (decision records, and test files
 writes); decision 2's refusal of the session's product edits is unchanged.
 
 Note (remote-worker, 2026-11-22): a change session on another machine is held by these locks there,
-by the pack installed on that machine ([ADR 0019](0019-a-change-can-run-on-another-machine.md)).
+by the pack installed on that machine ([ADR 0020](0020-a-change-can-run-on-another-machine.md)).
 Decisions 1 to 3 are unchanged.
 
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
