@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: 043b8e02184136a0b8de618114b3c2c0d53a5bda
+Commit: df7cfaccdb7a1bf755959dc95629713fcbbbe4b1
 
 ## Spec review — change-version-pin
 
@@ -23,10 +23,13 @@ In-scope specs: openspec/changes/change-version-pin/specs/change-coordination/sp
 | coordination-locks: The roles of a run are those of the flow the change follows | covered |
 | reviews-check: The check asks for readiness by the flow the change follows | covered |
 
-### Verification at this stage
-Scoped re-review of c1dc403..043b8e0. The commits since are the evidence rewrite, the review files, and the merge of origin/main aa7329a (archive of release-merge-conflict). git diff c1dc403..HEAD over plugins, scripts and .claude-plugin is empty. The only non-openspec file that moved is docs/openspec-flow.md (one sentence, a post-merge procedure, not a requirement of this change). The four spec deltas are all ADDED Requirements; none of their titles exists in the merged canonical change-coordination spec, so the merge creates no conflict or duplicate. openspec validate change-version-pin --strict is valid; python3 scripts/check.py passes. The targeted run of plugins/openspec/hooks/version-pin.test.mjs with GITHUB_HEAD_REF=change-version-pin, GITHUB_BASE_REF=main and a real TMPDIR finished: 645 of 645 pass, 0 fail. The whole guard suite was not re-run, as instructed.
+### Previous findings
+The verdict file at 043b8e0 recorded 0 findings; nothing to re-list.
 
-Scope check: nothing in the delta since c1dc403 adds behavior; no scope creep and no gap.
+### Verification at this stage
+Scoped re-review of 043b8e0..df7cfac. Checked the merge resolution against the change's own diff (origin/main...HEAD): main's release-tag work (PR 86/87) is intact (releaseTagSetting still imported and used in change-loop.mjs and deliver-check.mjs; CI snippet pinned to v0.31.0 in docs/openspec-flow.md); this change's additions in change-loop.mjs (flow subcommand, resume reply with newer-flow line, readPin/readFlow/changeFlow imports) and deliver-check.mjs (changeDeclares for readiness) are intact. change-loop.test.mjs changes are only a fixture `version: 1` and the `flow` subcommand in the docs test. Release numbers are consistent at devkit-openspec 0.31.0 / marketplace 0.35.0 across both manifests, CHANGELOG.md, docs/openspec-flow.md and openspec-setup/SKILL.md; no stale 0.30.x/0.34.x remains outside openspec/changes. The CI fix in version-pin.test.mjs (+11 -1) only isolates the stop test's TMPDIR via tmpFolder and adds one assertion on the recorded refusal file; it adds no behavior. Targeted runs with GITHUB_HEAD_REF=change-version-pin, GITHUB_BASE_REF=main and a fresh empty TMPDIR: version-pin 'AC-2 locks' 2 of 2 pass; change-loop 'release tag|docs' 18 of 18 pass. python3 scripts/check.py passes; openspec validate change-version-pin --strict is valid. The whole guard suite was not re-run, as instructed.
+
+Scope check: nothing in the delta since 043b8e0 adds behavior beyond the four spec deltas; no scope creep and no gap.
 
 ### Summary
 - 0 findings (0 scope creep, 0 gaps). Spec review: pass. Full coverage; no scope creep.

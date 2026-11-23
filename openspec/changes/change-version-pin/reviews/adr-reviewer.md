@@ -1,22 +1,22 @@
 Verdict: approved
-Commit: 043b8e02184136a0b8de618114b3c2c0d53a5bda
+Commit: df7cfaccdb7a1bf755959dc95629713fcbbbe4b1
 
 ## ADR review — change-version-pin
 
 ### Findings
-- [nit] openspec/changes/change-version-pin/design.md § Decisions and ADRs (no new ADR); docs/adr/0010-openspec-as-the-harness.md; docs/adr/0012-the-reviews-check-follows-the-change-script.md — Earlier changes that altered how a locked ADR's mechanism behaves added a dated Note to the ADR. This change makes the devkit-reviews check and the loop judge a change by its recorded flow, but adds no Note to ADR 0010 or ADR 0012, and the design does not say why none is needed. No decision sentence is contradicted. Still open: design.md is unchanged since the previous round.
-- [nit] openspec/changes/change-version-pin/design.md § D-1 and § Decisions and ADRs; plugins/openspec/hooks/deliver-check.mjs checkOne — A pull request can lower its own change's x-devkit-flow to an older kept flow and be judged by it. The design never records that as accepted; ADR 0012 accepts the analogous schema edit because the diff is visible to reviewers, so the design should say the same and cite ADR 0012. Still open: design.md is unchanged since the previous round.
+- [nit] openspec/changes/change-version-pin/design.md § Decisions and ADRs (no new ADR); docs/adr/0010-openspec-as-the-harness.md; docs/adr/0012-the-reviews-check-follows-the-change-script.md — Earlier changes that altered how a locked ADR's mechanism behaves added a dated Note to the ADR; this change adds none to ADR 0010 or ADR 0012 and the design does not say why none is needed. No decision sentence is contradicted. Still open: design.md unchanged since 043b8e0.
+- [nit] openspec/changes/change-version-pin/design.md § D-1 and § Decisions and ADRs; plugins/openspec/hooks/deliver-check.mjs checkOne — A pull request can lower its own change's x-devkit-flow to an older kept flow and be judged by it; the design never records that as accepted, as ADR 0012 does for the analogous schema edit. Still open: design.md unchanged since 043b8e0.
 
-ADRs reviewed: ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`), ADR 0010 (`docs/adr/0010-openspec-as-the-harness.md`), ADR 0011 (`docs/adr/0011-the-change-coordinator-is-the-owners-session.md`), ADR 0012 (`docs/adr/0012-the-reviews-check-follows-the-change-script.md`). These are the ADRs the changed lines touch, and I confirmed from the previous round's verdict, the diff stat and design.md that no ADR changed since `c1dc403`. The project has no open-decisions log.
+ADRs reviewed: ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`), ADR 0010 (`docs/adr/0010-openspec-as-the-harness.md`), ADR 0011 (`docs/adr/0011-the-change-coordinator-is-the-owners-session.md`), ADR 0012 (`docs/adr/0012-the-reviews-check-follows-the-change-script.md`), ADR 0017 (`docs/adr/0017-a-change-state-is-derived-in-one-place.md`), ADR 0019 (`docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md`). ADR 0019 is new since the previous round (it came with the merge of main); the others were already in scope.
 
-Scope of this re-review: `git diff c1dc403..HEAD`.
-- `git diff --stat` shows `plugins/`, `scripts/` and `.claude-plugin/` unchanged, so the conformance results of the previous round still hold.
-- `docs/openspec-flow.md`: the one added sentence runs `openspec validate <id> --strict`, copies scenarios main added to a requirement the change modifies, and searches again for removed rules. No ADR decision is touched, and the merge-staleness cost it sits beside is the one ADR 0002 accepts.
-- `openspec/specs/change-coordination/spec.md` and `openspec/roadmap.md`: the diff brings in the archived `release-merge-conflict` change from main, which is not this change's work. It does not contradict any ADR in scope.
-- `openspec/changes/archive/2026-11-23-release-merge-conflict/retro.md` has no ADR mention.
+Scope of this re-review: the three new things since 043b8e0.
+- Merge resolution: `git diff origin/main HEAD` of `change-loop.mjs`, `deliver-check.mjs` and `conduct-check.mjs` shows only this change's pin edits and none of main's removed. The `tag-release` step (4 occurrences in `deliver-check.mjs`, 2 in `change-loop.mjs`, 1 in `conduct-check.mjs`), the `releaseTagSetting` import and the `release-tags.test.mjs` import in `guard.test.mjs` are intact. The targeted `release-tags` run passes 45/45 (empty TMPDIR, GITHUB_HEAD_REF and GITHUB_BASE_REF set). This conforms to ADR 0019 decisions 1 to 3.
+- Release renumbering: `plugins/openspec/.claude-plugin/plugin.json`, the release file ADR 0019 reads, carries devkit-openspec 0.31.0, above main's 0.30.1; `proof/merge-notes.txt` records that no v0.31.* tag exists. No ADR is touched.
+- Test fix: the `version-pin.test.mjs` change only points TMPDIR at a test-owned folder; no ADR decision is touched.
+- Flow reads still go through `guard.mjs#changeFlow`, so ADR 0017's single place for deriving a change's state is not contradicted. ADR 0011's rule that a lock never traps is respected by the `changeDeclaresOrInstalled` fallback.
 - `evidence.md` has no ADR mention.
 
-The previous round's two nits (F1, F2) stand with no disposition. Neither blocks.
+The previous round's two nits (F1, F2) stand with no disposition; neither blocks. The previous verdict was approved with no blocking or important finding.
 
 ### Summary
 - 2 findings (0 blocking, 0 important, 2 nit)
