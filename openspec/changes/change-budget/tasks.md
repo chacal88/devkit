@@ -118,7 +118,7 @@ every task with `git status --short`.
   `grep -c "v0.21.1" docs/openspec-flow.md` prints 0; and
   `node --test --test-name-pattern="change-loop docs: the design records the answers" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
-- [ ] 3.2 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate change-budget --strict` green (the guard suite as a background command of the tool); covers AC-1 to AC-10 and every other suite at once.
+- [x] 3.2 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate change-budget --strict` green (the guard suite as a background command of the tool); covers AC-1 to AC-10 and every other suite at once.
 
 ## Workflow follow-up
 
