@@ -1,0 +1,23 @@
+## command
+node plugins/openspec/hooks/release-merge.mjs --base main --json
+## stdout
+{
+  "resolved": false,
+  "oldHead": "d31bf8bff472d072955b9ee731d984dd7ca22674",
+  "conflicts": [
+    ".claude-plugin/marketplace.json",
+    "CHANGELOG.md",
+    "docs/openspec-flow.md",
+    "plugins/openspec/.claude-plugin/plugin.json",
+    "plugins/openspec/hooks/change-loop.test.mjs"
+  ]
+}
+## stderr
+## exit code
+2
+## git rev-parse HEAD
+d31bf8bff472d072955b9ee731d984dd7ca22674
+## git status --short
+?? openspec/changes/release-merge-conflict/proof/live-merge-main.txt
+## merge in progress
+ls: /Users/kauesantos/Documents/devkit/.git/worktrees/release-merge-conflict/MERGE_HEAD: No such file or directory

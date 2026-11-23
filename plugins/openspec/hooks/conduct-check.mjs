@@ -16,7 +16,7 @@ import { readFlow, FlowUsageError } from './flow-check.mjs';
 import {
   UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
 } from './deliver-check.mjs';
-import { PIN_FILE, classifyConflict } from './release-rebase.mjs';
+import { PIN_FILE, classifyConflict } from './release-merge.mjs';
 
 // The worktree list lives in deliver-check.mjs (delivery-models D-11) and stays importable from here.
 export { listWorktrees };
@@ -49,7 +49,7 @@ const COMMIT = 'devkit-core:commit-and-pr';
 const PLANNER = 'devkit-core:change-planner';
 const SUBAGENT = {
   implement: TDD, 'fix-review': TDD, 'fix-defect': TDD, 'fix-checks': TDD, 'apply-proposals': TDD, 'resolve-release-conflict': TDD,
-  commit: COMMIT, 'open-pr': COMMIT, push: COMMIT, 'open-archive-pr': COMMIT, 'push-rebased': COMMIT,
+  commit: COMMIT, 'open-pr': COMMIT, push: COMMIT, 'open-archive-pr': COMMIT,
   'open-prs': COMMIT, 'open-test-pr': COMMIT, 'push-support': COMMIT, 'move-test-pr': COMMIT, 'open-test-archive-pr': COMMIT,
   'resolve-support-conflict': TDD, 'fix-resolution': TDD,
   verify: 'devkit-core:pr-verifier',
@@ -331,7 +331,7 @@ function deliver(ctx, row) {
 
 // ---------------------------------------------------------------- the overrides (design D9)
 
-const RELEASE_REBASE = join(dirname(fileURLToPath(import.meta.url)), 'release-rebase.mjs');
+const RELEASE_MERGE = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
 
 // The PR this checkout's branch is open for: the change PR, or the archive PR after the merge.
 const openPrOf = (state) => {
@@ -339,20 +339,15 @@ const openPrOf = (state) => {
   return pr && pr.state === 'OPEN' ? pr : null;
 };
 
-// Override 2: a branch we rewrote. The PR head is not an ancestor of HEAD but the branch held it before our rebase.
-function rewrittenBranch(row, state) {
-  const pr = openPrOf(state);
-  if (!pr?.headRefOid) return null;
-  const root = row.worktree;
-  if (gitOk(root, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD'])) return null;
-  let reflog = [];
-  try { reflog = git(root, ['reflog', 'show', '--format=%H', `refs/heads/${state.branch}`]).split('\n').filter(Boolean); } catch { /* no reflog */ }
-  if (!reflog.includes(pr.headRefOid)) return null;
-  const branch = state.branch;
-  return step('push-rebased', `the branch was rewritten by a rebase; PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}`, {
-    number: pr.number, oldHead: pr.headRefOid, branch, paths: [...state.dirty],
-    command: ['git', 'push', `--force-with-lease=${branch}:${pr.headRefOid}`, 'origin', branch],
-  });
+// A release merge made in this checkout and not pushed yet: GitHub still reports the PR in conflict, but HEAD
+// already holds origin/<base> and is ahead of the PR head (release-merge-conflict D-2).
+function unpushedMerge(root, ref, pr) {
+  if (!pr?.headRefOid) return false;
+  let head;
+  try { head = git(root, ['rev-parse', 'HEAD']).trim(); } catch { return false; }
+  return pr.headRefOid !== head
+    && gitOk(root, ['merge-base', '--is-ancestor', ref, 'HEAD'])
+    && gitOk(root, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD']);
 }
 
 // The paths git merge-tree reports as conflicted between origin/<base> and HEAD: { paths } | { clean: true } | { error }.
@@ -366,7 +361,7 @@ function conflictedPaths(root, ref) {
   return { paths };
 }
 
-// The three versions of `path` the pin merge needs before any rebase: the merge base, origin/<base> and HEAD (null when absent).
+// The three versions of `path` the pin merge needs before the merge: the merge base, origin/<base> and HEAD (null when absent).
 function threeVersions(root, ref, path) {
   const mb = (() => { try { return git(root, ['merge-base', ref, 'HEAD']).trim(); } catch { return null; } })();
   const at = (rev) => { if (rev === null) return null; try { return git(root, ['show', `${rev}:${path}`]); } catch { return null; } };
@@ -379,6 +374,13 @@ function releaseConflict(ctx, row, state, report) {
   const onChange = n.step === 'blocked' && n.item === 5 && n.conflict === true;
   const onArchive = n.step === 'stop-archive' && n.archiveStep === 'archive-pr' && n.conflict === true;
   if (!onChange && !onArchive) return null;
+  const pr = openPrOf(state);
+  if (unpushedMerge(row.worktree, ctx.ref, pr)) {
+    const command = ['git', 'push', 'origin', state.branch];
+    return onChange
+      ? step('push', `the release merge is not pushed yet; PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}`, { number: pr.number, branch: state.branch, command })
+      : step('open-archive-pr', `the release merge is not pushed yet; archive PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}; push it`, { number: pr.number, branch: state.branch, command });
+  }
   const where = onChange ? 'item 5' : 'archive (archive-pr)';
   const stop = (message, extra = {}) => ({ ...step('blocked', message, extra), blockedState: `blocked: ${message}` });
   const found = conflictedPaths(row.worktree, ctx.ref);
@@ -386,25 +388,27 @@ function releaseConflict(ctx, row, state, report) {
     return stop(`${where} ${onChange ? '(cannot classify the conflict: git merge-tree --write-tree needs git 2.38)' : ': cannot classify the conflict: git merge-tree --write-tree needs git 2.38'}`);
   }
   if (found.clean) {
-    const pr = openPrOf(state);
+    if (pr?.headRefOid && !gitOk(row.worktree, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD'])) {
+      const short = pr.headRefOid.slice(0, 7);
+      return stop(onChange ? `item 5 (PR #${pr.number} head ${short} is not in local history)` : `archive (archive-pr): PR #${pr.number} head ${short} is not in local history`);
+    }
     return state.ship === 'merge' && pr ? step('update-branch', `GitHub reports a conflict but ${ctx.ref} merges cleanly; update the branch`, { number: pr.number }) : null;
   }
   const others = classifyConflict(found.paths, (p) => threeVersions(row.worktree, ctx.ref, p)).blocking;
   if (others.length) return stop(onChange ? `item 5 (conflict in ${others.join(', ')})` : `archive (archive-pr): conflict in ${others.join(', ')}`);
-  const pr = openPrOf(state);
   return step('resolve-release-conflict', `the PR conflicts only in release files${found.paths.includes(PIN_FILE) ? ' and the CI pin' : ''}: ${found.paths.join(', ')}`, {
     number: pr?.number ?? null, paths: [...found.paths].sort(), base: ctx.base,
-    command: ['node', RELEASE_REBASE, '--base', ctx.base, '--json'],
+    command: ['node', RELEASE_MERGE, '--base', ctx.base, '--json'],
   });
 }
 
-// deliver-check's report as a conduct row, after the overrides that need git (D9): a rewritten branch first,
+// deliver-check's report as a conduct row, after the override that needs git (D9): the release-file conflict,
 // except that auto-merge is switched off before anything else.
 export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
   if (d.report.next.step === 'disable-auto-merge') return { ...plain, ...info };
-  const override = rewrittenBranch(row, d.state) ?? releaseConflict(ctx, row, d.state, d.report);
+  const override = releaseConflict(ctx, row, d.state, d.report);
   if (!override) return { ...plain, ...info };
   const next = { ...override, ...actorOf(override.step) };
   return { next, state: stateOf(next, { summary: d.report.summary }), ...info };

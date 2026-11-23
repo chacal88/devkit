@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.33.0 — release conflicts resolved by a merge
+
+- **devkit-openspec** 0.29.0: when a pull request conflicts with its base only in release files, the
+  release-conflict step merges `origin/<base>` into the branch with `hooks/release-merge.mjs` (was
+  `release-rebase.mjs`, which rebased), renumbers the release above the base's and commits the
+  merge, never pushing. After the evidence and the review run again, the loop hands a plain
+  `git push`. The `push-rebased` step and its force-with-lease push are gone. The CI-pin assertion
+  of the hook tests reads the version from the manifest. The CI snippet now pins `v0.29.0`, the
+  release's tag.
+- Docs: the flow document, the `devkit` skill, the pack's README and CONTRIBUTING follow, and the
+  roadmap gains a line for the live check.
+
 ## 0.32.3 — retro proposals of delivery-models
 
 - **devkit-core** 0.13.1: `tdd-implementer` runs a long suite in the background and never waits with a
