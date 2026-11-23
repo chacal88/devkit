@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.34.0 — change-version-pin
+## 0.35.0 — change-version-pin
 
-- **devkit-openspec** 0.30.0: a change follows the flow it was opened with. `change-loop.mjs open`
+- **devkit-openspec** 0.31.0: a change follows the flow it was opened with. `change-loop.mjs open`
   records `x-devkit-version` and `x-devkit-flow` in the change's `.openspec.yaml`; every reader of
   the change's stages (the readout, the change, roadmap and project loops, the edit hook, the CI
   check, the conductor and the locks) reads `flows/<n>.json` of that version, and a change with no
@@ -10,11 +10,24 @@
   flow is installed, the readout and the `resume` reply say so in one line, and the change moves
   only on the owner's request, with the new `change-loop.mjs flow <id>`; the `script` switch
   records the new script's flow. `scripts/check.py` refuses a `flow.json` changed with its version
-  kept, against `scripts/released-flows.json`. The CI snippet now pins `v0.30.0`, the release's tag.
+  kept, against `scripts/released-flows.json`. The CI snippet now pins `v0.31.0`, the release's tag.
 - Docs: `docs/openspec-flow.md` ("The flow a change follows", "Moving to a newer flow"),
   CONTRIBUTING.md (a flow change raises its version), the pack README and the setup skill.
-- Projects: move the pinned `devkit-reviews` workflow to the commit of `v0.30.0` to honour the
+- Projects: move the pinned `devkit-reviews` workflow to the commit of `v0.31.0` to honour the
   recorded flows in CI; re-run `openspec-setup` to get `flows/`.
+
+## 0.34.0 — release tags
+
+- **devkit-openspec** 0.30.0: a project that sets `devkit.release_tag` (a path from the repository
+  root to a JSON file with a top-level `version`) has the tag of each release pushed by the delivery
+  loop. After a merge that bumped the version, `deliver-check` answers the new `tag-release` step
+  (before the retro; for the archive PR, before `archived`), and `ship-change` creates the
+  lightweight tag `v<version>` on the merge commit and pushes it alone. A tag at another commit ends
+  the run `blocked` and is never moved; a read GitHub does not answer stops, never passes. Without
+  the key nothing changes. This repository sets it to devkit-openspec's `plugin.json`
+  ([ADR 0019](docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)). The CI snippet now
+  pins `v0.30.0`, the release's tag.
+- Docs: CONTRIBUTING step 5 and the flow page describe the key, rows R1 to R3 and the step.
 
 ## 0.33.0 — release conflicts resolved by a merge
 

@@ -106,3 +106,30 @@ Second merge (origin/main 78b6cd7, PR 65 "resolve release-file conflicts by a me
   no release. version-pin.test.mjs uses '0.29.0' only as a fixture value of a pin it writes, not as the release.
 - conduct-check.mjs auto-merged: `git diff origin/main` shows only this change's pin edits (changeFlow in planArtifactsOf,
   changeDeclaresOrInstalled for needsReadiness and needsRequirements, the imports).
+
+Fourth merge (origin/main 5d85f35, PR 86 "the delivery loop tags the release it merged")
+- Main took devkit-openspec 0.30.0 and marketplace 0.34.0 (ADR 0019, `devkit.release_tag`, the `tag-release` step, rows R1 to R3,
+  release-tags.test.mjs), so this change's release moved to devkit-openspec 0.31.0 and marketplace 0.35.0. Free: origin/main's
+  manifests name 0.30.0 and 0.34.0, the newest local tag is v0.28.2, and CHANGELOG.md has no devkit-openspec 0.31.0 and no 0.35.0
+  (its `## 0.31.0` heading is an older marketplace number).
+- Conflicts, each resolved keeping both sides:
+  - CHANGELOG.md: `## 0.35.0 — change-version-pin` above main's `## 0.34.0 — release tags`; this entry's 0.30.0 and v0.30.0 renamed
+    to 0.31.0 and v0.31.0; main's entry untouched (its own `v0.30.0` pin stays: it names main's release).
+  - deliver-check.mjs: the guard.mjs import line takes main's `releaseTagSetting` and this change's `changeDeclares` in place of
+    `schemaHasArtifact` (the two readiness reads, collectState and checkOne, stay routed through changeDeclares).
+  - change-loop.mjs: the guard.mjs import takes `releaseTagSetting` with this change's `changeFlow`, `readFlow`, `readPin`; the flow-check
+    import drops `readFlow` (it is imported from guard.mjs, where this change moved it; flow-check.mjs still re-exports it).
+  - change-loop.test.mjs: the SAMPLE of the reply tokens keeps `version: 1` (this change) and `tag`, `at`, `sha` (main).
+- Numbers moved to 0.31.0 / 0.35.0: plugins/openspec/.claude-plugin/plugin.json, .claude-plugin/marketplace.json (metadata 0.35.0 and
+  the devkit-openspec entry 0.31.0), docs/openspec-flow.md (the three CI-pin places v0.30.0 -> v0.31.0, and "opened from devkit-openspec
+  0.31.0 on"), plugins/openspec/skills/openspec-setup/SKILL.md. The CI-pin assertion of change-loop.test.mjs derives the pin from
+  the manifest and passes. No other mention of 0.30.0 or 0.34.0 outside CHANGELOG.md's main entry and its `## 0.30.0` history.
+- New readers of a change's flow or schema in PR 86: none. The tag-release step in deliver-check.mjs reads the release file and the
+  merge commit, not a flow; the only deliver-check flow reads are the two readiness reads above. guard.mjs and conduct-check.mjs
+  auto-merged: `git diff origin/main` shows this change's pin edits plus nothing of main's removed; conduct-check.mjs also lists
+  `tag-release` in MAIN (main's). roadmap-loop.mjs and flow-check.mjs differ from origin/main only by this change's pin edits.
+- Validation (GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main; a fresh empty TMPDIR per run, `ls -A` empty after each):
+  node --check on the 10 changed .mjs ok; check.py exit 0; gen-catalog.py --check exit 0; version-pin.test.mjs 645/645;
+  change-loop.test.mjs 1054/1054; deliver-check.test.mjs 443/443; release-tags.test.mjs 828/828; conduct-check.test.mjs 579/579;
+  flow-check.test.mjs 703/703 (all exit 0); claude plugin validate . exit 0 (same unknown `types` warning); openspec validate
+  change-version-pin --strict exit 0. The whole guard.test.mjs was not run (ship-change runs it).
