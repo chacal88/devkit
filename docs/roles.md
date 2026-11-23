@@ -18,7 +18,7 @@ In `docs/coordination-design.md` this role is the team's `tech-lead`; the Compoz
 - Delivers: The change folder, `requirements.md` and `retro.md`, each with its stage header.
 - Never: Writes product code, approves its own change, or skips a stage the checker has not passed.
 - Stages: `open`, `requirements`, `retro` (both scripts).
-- Played today by: The main session running `/devkit change` (the `devkit` skill of devkit-openspec), or `/devkit roadmap` for every open change of its run, held by the stop and hand-off locks (in the desktop app each change of a run has a session of its own, which plays the change coordinator, [ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md); a run opens every change at its start and its session runs on the run's ticket through the `devkit-session` skill, [ADR 0020](adr/0020-a-roadmap-run-opens-every-change-at-its-start.md)); `ship-change` still finishes a change begun under the previous script. The `requirements-grill` and `retro` skills carry its two writing steps.
+- Played today by: The main session running `/devkit change` (the `devkit` skill of devkit-openspec), or `/devkit roadmap` for every open change of its run, held by the stop and hand-off locks (in the desktop app each change of a run has a session of its own, which plays the change coordinator, [ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md); a run opens every change at its start and its session runs on the run's ticket through the `devkit-session` skill, [ADR 0021](adr/0021-a-roadmap-run-opens-every-change-at-its-start.md)); `ship-change` still finishes a change begun under the previous script. The `requirements-grill` and `retro` skills carry its two writing steps.
 
 ## roadmap-coordinator
 
@@ -28,7 +28,7 @@ In `docs/coordination-design.md` this role is the team's `manager`.
 - Delivers: Nothing of its own: the changes it starts, and the run's event lines and board.
 - Never: Writes product code, starts a change the loop did not return, hands two stages of one change at once, or answers an owner gate itself.
 - Stages: none; it starts changes.
-- Played today by: The main session running `/devkit roadmap` (the `devkit` skill of devkit-openspec), held by the roadmap run's locks; in the desktop app each change of a run has a session of its own, which plays the change coordinator ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)); each stage runs as a subagent in the background ([ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)); it asks the grill, the plan approval and the retro answers of every change session, hands no stage, and keeps one periodic check while the run lasts ([ADR 0020](adr/0020-a-roadmap-run-opens-every-change-at-its-start.md)).
+- Played today by: The main session running `/devkit roadmap` (the `devkit` skill of devkit-openspec), held by the roadmap run's locks; in the desktop app each change of a run has a session of its own, which plays the change coordinator ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)); each stage runs as a subagent in the background ([ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)); it asks the grill, the plan approval and the retro answers of every change session, hands no stage, and keeps one periodic check while the run lasts ([ADR 0021](adr/0021-a-roadmap-run-opens-every-change-at-its-start.md)).
 
 ## project-coordinator
 

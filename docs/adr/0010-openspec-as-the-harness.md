@@ -6,7 +6,7 @@
 - Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
 - Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
-- Amended by ADR 0020 (0020-a-roadmap-run-opens-every-change-at-its-start.md)
+- Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -60,7 +60,7 @@ to 8 are otherwise unchanged.
 
 Note (roadmap-sessions-upfront, 2026-11-22): where the host can start sessions, a roadmap run opens every
 pending change at its start, and its number counts only the changes in the implementation, its
-tests, evidence or review; a plan waits for its dependencies ([ADR 0020](0020-a-roadmap-run-opens-every-change-at-its-start.md)). Decision 2
+tests, evidence or review; a plan waits for its dependencies ([ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md)). Decision 2
 holds unchanged where the host cannot start sessions. Decision 8's sentence that the owner's gates
 (grill answers, plan approval, retro answers) stay the owner's is amended for the grill answers the
 project's files settle: in every grill, a lone `/devkit change` as much as a roadmap run, the
@@ -84,6 +84,11 @@ of decision 1. The key or link the owner types names the task, and the session's
 connector reads it, so the project keeps no Jira token or setting. The 'task source, round 20' of
 decision 1 and the task source of decision 8 need no field; decisions 1 to 8 are otherwise
 unchanged.
+
+Note (remote-worker, 2026-11-22): opening a change pushes its branch at once with the machine's
+name, and a roadmap run may open changes on other machines the person lists
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
+its reason. Decisions 1 to 8 are otherwise unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions

@@ -188,7 +188,8 @@ test('delivery-models open: a two-prs change starts from origin/<base>', () => {
   assert.equal(r.code, 0, r.stdout + r.stderr);
   const b = JSON.parse(r.stdout.split('\n').slice(1).join('\n'));
   assert.deepEqual([b.branch, b.base], ['add-export', 'origin/main']);
-  assert.equal(git(worktreeOf(t, 'add-export'), 'rev-parse', 'HEAD'), git(t.main, 'rev-parse', 'origin/main'));
+  assert.equal(git(worktreeOf(t, 'add-export'), 'rev-parse', 'HEAD^'), git(t.main, 'rev-parse', 'origin/main'), 'the new HEAD\'s parent is origin/main: the claim commit sits on the base tip');
+  assert.equal(spawnSync('git', ['-C', worktreeOf(t, 'add-export'), 'merge-base', '--is-ancestor', 'origin/main', 'HEAD']).status, 0, 'origin/main is an ancestor of HEAD');
 });
 
 test('delivery-models open: a missing test branch on the remote creates nothing', () => {

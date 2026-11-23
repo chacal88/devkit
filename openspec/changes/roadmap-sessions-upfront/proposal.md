@@ -155,7 +155,7 @@ record, keeps its words.
 - Schemas (both copies: `plugins/openspec/schemas/` and `openspec/schemas/`): the requirements helper
   and the grill rule; `openspec/config.yaml` (the grill rule and the ADRs line).
 - Flow version 2 (the owner's answer of 2026-11-23, design D-17): the triage helper ships as version 2 of the `devkit` and `devkit-lite` flows (`flows/2.json` and its digest; `flows/1.json` unchanged; `devkit-project` stays at 1), so a change opened before this release, with no recorded flow or with version 1, keeps flow 1 and its grill with no triage until the owner moves it.
-- Docs: the new ADR (0020), Notes and header lines in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017,
+- Docs: the new ADR (0021), Notes and header lines in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017,
   `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/roles.md`, `README.md`,
   `plugins/core/README.md`, `plugins/openspec/README.md`.
 - Tests: `roadmap-loop.test.mjs`, `change-loop.test.mjs`, `conduct-check.test.mjs`, `guard.test.mjs`;

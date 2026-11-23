@@ -1,4 +1,4 @@
-# ADR 0020: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
+# ADR 0021: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
 
 - Status: accepted
 - Date: 2026-11-22
@@ -76,7 +76,7 @@ title of its own.
    is ⏳ and the change id, the stage icon replaced; once it goes on, the title is its stage's again.
    This amends ADR 0017 decision 4 for a held change session only: a wait on GitHub keeps ⏳ beside
    the stage icon, and the owner's gates keep 🙋 beside it.
-6. The run's bookkeeping also holds the start tickets (`tickets`), the places held (`placed`), the
+6. The run's bookkeeping also holds the start tickets (`tickets`), the places held (`occupied`), the
    changes waiting for one (`queued`), the start-anyway of the moment (`anyway`), the wait loops
    under way (`waits`), whether the host offers a session cron (`cron`) and the periodic check
    (`check`).
@@ -92,7 +92,7 @@ title of its own.
 Note (roadmap-sessions-upfront, 2026-11-23): decision 3's triage in every grill holds for a change that
 follows flow version 2 or later of its script. The `devkit` and `devkit-lite` flows are released as
 version 2, which lists `requirements-triage` among the helpers of the grill; a change on flow 1 (opened
-before devkit-openspec 0.32.0, or with no recorded flow) keeps its grill with no triage until the owner
+before devkit-openspec 0.33.0, or with no recorded flow) keeps its grill with no triage until the owner
 moves it with `change-loop.mjs flow <id>`, because a released flow version never changes under the
 changes that follow it. The status and the decisions above stay.
 

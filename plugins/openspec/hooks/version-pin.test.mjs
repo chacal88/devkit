@@ -31,7 +31,7 @@ const ENV = { ...process.env, ...ENV_SET };
 // Invariant (T-21, D-13): a change keeps the flow it opened with across an upgrade, and the repository check refuses a flow change that keeps its version.
 // Layer: the version-pin fixtures. Suite: version-pin. Each fixture stands for a project installed at release 1 of the pack, as this suite was written:
 // `devkit` and `devkit-lite` are at flow version 1, `treeFlow` reads `flows/1.json`, and `flows/2.json` does not exist until a test writes the synthetic
-// version 2 of `flowV2()`. The tree ships version 2 of both scripts since devkit-openspec 0.32.0 (the triage); `upfront AC-5 open` and `version-pin AC-7
+// version 2 of `flowV2()`. The tree ships version 2 of both scripts since devkit-openspec 0.33.0 (the triage); `upfront AC-5 open` and `version-pin AC-7
 // check: the tree's flows pass` read the tree as it is.
 const RELEASE_1_SCRIPTS = ['devkit', 'devkit-lite'];
 const treeFlow = (schema = 'devkit') => JSON.parse(readFileSync(join(PLUGIN_SCHEMAS, schema, 'flows', '1.json'), 'utf8'));

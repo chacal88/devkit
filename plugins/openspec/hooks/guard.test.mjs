@@ -1698,10 +1698,10 @@ test('upfront AC-5 skill: the grill rule of config.yaml and of the four schema f
   assert.match(skill, /- Answer a question yourself/, 'the Never list keeps it');
 });
 
-// Invariant (AC-5, D-17, D-14): the documents say that devkit and devkit-lite are at flow version 2 from devkit-openspec 0.32.0 on, with the triage added
+// Invariant (AC-5, D-17, D-14): the documents say that devkit and devkit-lite are at flow version 2 from devkit-openspec 0.33.0 on, with the triage added
 // to the grill, that a change on flow 1 keeps its grill with no triage until the owner moves it, and that devkit-project stays at version 1.
-// Layer: the flow doc, the changelog entry and ADR 0020's Note. Suite: guard.
-test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.36.0 entry names flow version 2, and ADR 0020\'s Note names flow 1', () => {
+// Layer: the flow doc, the changelog entry and ADR 0021's Note. Suite: guard.
+test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37.0 entry names flow version 2, and ADR 0021\'s Note names flow 1', () => {
   const root = join(here, '..', '..', '..');
   const read = (...p) => readFileSync(join(root, ...p), 'utf8');
   const flat = (text) => text.replace(/\s+/g, ' ');
@@ -1714,27 +1714,27 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.36
   assert.equal(paragraphs.length, 2, 'one paragraph follows the one about raising a version');
   const versions = flat(paragraphs[1]);
   for (const part of [
-    '`devkit` and `devkit-lite` are at version 2 from devkit-openspec 0.32.0 on',
+    '`devkit` and `devkit-lite` are at version 2 from devkit-openspec 0.33.0 on',
     'version 2 adds the `requirements-triage` helper to the grill',
     'a change on version 1 keeps its grill with no triage until it is moved with `change-loop.mjs flow <id>`',
     '`devkit-project` stays at version 1',
   ]) assert.ok(versions.includes(part), `the flow doc says: ${part}`);
-  // CHANGELOG.md: the 0.36.0 entry's sentence under devkit-openspec 0.32.0 and its Projects line
+  // CHANGELOG.md: the 0.37.0 entry's sentence under devkit-openspec 0.33.0 and its Projects line
   const log = read('CHANGELOG.md');
-  const start = log.indexOf('## 0.36.0');
+  const start = log.indexOf('## 0.37.0');
   const entry = flat(log.slice(start, log.indexOf('\n## ', start + 1)));
-  const openspec = entry.slice(entry.indexOf('**devkit-openspec** 0.32.0'), entry.indexOf('- **devkit-core**'));
+  const openspec = entry.slice(entry.indexOf('**devkit-openspec** 0.33.0'), entry.indexOf('- **devkit-core**'));
   assert.ok(openspec.includes('The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill'), 'the devkit-openspec bullet names flow version 2');
   assert.ok(openspec.includes('a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`'), 'and what a change under way keeps');
   assert.ok(entry.includes('- Projects: re-run `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
-  // ADR 0020: the Note after the Decision list
-  const adr = read('docs', 'adr', '0020-a-roadmap-run-opens-every-change-at-its-start.md');
+  // ADR 0021: the Note after the Decision list
+  const adr = read('docs', 'adr', '0021-a-roadmap-run-opens-every-change-at-its-start.md');
   const noteAt = adr.indexOf('Note (roadmap-sessions-upfront, 2026-11-23):');
   assert.ok(noteAt > adr.indexOf('8. The change session\'s own loop') && noteAt < adr.indexOf('## Consequences'), 'the Note sits after the Decision list');
   const note = flat(adr.slice(noteAt, adr.indexOf('## Consequences')));
   for (const part of [
     'decision 3\'s triage in every grill holds for a change that follows flow version 2 or later of its script',
-    'a change on flow 1 (opened before devkit-openspec 0.32.0, or with no recorded flow) keeps its grill with no triage until the owner moves it',
-  ]) assert.ok(note.includes(part), `ADR 0020's Note says: ${part}`);
+    'a change on flow 1 (opened before devkit-openspec 0.33.0, or with no recorded flow) keeps its grill with no triage until the owner moves it',
+  ]) assert.ok(note.includes(part), `ADR 0021's Note says: ${part}`);
   assert.match(adr, /^- Status: accepted$/m, 'its status stays');
 });

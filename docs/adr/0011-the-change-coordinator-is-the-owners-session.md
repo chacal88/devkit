@@ -4,7 +4,7 @@
 - Amended by ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md)
 - Amended by ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md)
 - Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)
-- Amended by ADR 0020 (0020-a-roadmap-run-opens-every-change-at-its-start.md)
+- Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-20
 - Change: change-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), one sentence of decision 8
@@ -14,7 +14,7 @@
 
 Note (roadmap-sessions-upfront, 2026-11-22): a change session a roadmap
 run starts also runs with no typed command, through an entry the guard lets through only with the
-run's ticket ([ADR 0020](0020-a-roadmap-run-opens-every-change-at-its-start.md)); the run is still detected from its task and the loop's line.
+run's ticket ([ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md)); the run is still detected from its task and the loop's line.
 The approval of such a change is written by the coordinating session, from the owner's own typed
 message. This change leaves the other decisions as they are.
 
@@ -31,6 +31,10 @@ otherwise unchanged.
 Note (stage-roles, 2026-11-21): [ADR 0016](0016-stage-roles-write-their-own-files.md) says which files
 outside the change folder are not product code (decision records, and test files the E2E tester
 writes); decision 2's refusal of the session's product edits is unchanged.
+
+Note (remote-worker, 2026-11-22): a change session on another machine is held by these locks there,
+by the pack installed on that machine ([ADR 0020](0020-a-change-can-run-on-another-machine.md)).
+Decisions 1 to 3 are unchanged.
 
 ADR 0010 decision 8 answers ADR 0006's "side door" objection with "the change coordinator has no
 edit tool and product code is still written only by the implementer role under the same hooks",

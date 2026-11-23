@@ -3,11 +3,11 @@
 - Status: accepted
 - Date: 2026-11-09
 - Change: devkit-opt-in
-- Amended by ADR 0020 (0020-a-roadmap-run-opens-every-change-at-its-start.md)
+- Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
 
 ## Context
 
-Note (roadmap-sessions-upfront, 2026-11-23): the hook on the Skill tool acts whatever the project's opt-in ([ADR 0020](0020-a-roadmap-run-opens-every-change-at-its-start.md), decision 1): it refuses only a call of the `devkit-session` skill, which exists only for a roadmap run, and lets every other skill through. Every other hook still blocks nothing outside a devkit project. The Decision is otherwise unchanged.
+Note (roadmap-sessions-upfront, 2026-11-23): the hook on the Skill tool acts whatever the project's opt-in ([ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md), decision 1): it refuses only a call of the `devkit-session` skill, which exists only for a roadmap run, and lets every other skill through. Every other hook still blocks nothing outside a devkit project. The Decision is otherwise unchanged.
 
 Note (coordinator-field-fixes, 2026-11-20): the CI check still does not depend on the project's opt-in; ADR 0012 makes it judge only changes whose own schema is devkit or devkit-lite. The Decision is unchanged.
 

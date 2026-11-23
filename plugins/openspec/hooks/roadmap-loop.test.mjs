@@ -10,9 +10,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
 import { parseRoadmap } from './guard.mjs';
 import * as guardModule from './guard.mjs';
-import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, GATE_OF_WHY, main as changeMain } from './change-loop.mjs';
+import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, GATE_OF_WHY, main as changeMain, openChange, thisMachine } from './change-loop.mjs';
 import * as changeLoopModule from './change-loop.mjs';
 import { approvalState } from './deliver-check.mjs';
+import { roundRepo } from './conduct-check.test.mjs';
 import { readCounter } from './change-loop.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
@@ -557,7 +558,7 @@ test('roadmap-loop decide: after clears the stage in flight and passes its key, 
 
 // ---------------------------------------------------------------- replies (D-12)
 
-const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main', installed: '2.46.0', minimum: '2.50.0', verb: 'change', tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d' };
+const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main', installed: '2.46.0', minimum: '2.50.0', verb: 'change', machine: 'avel', taken: 1, places: 1, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d' };
 
 test('roadmap-loop replies: a blocked line renders every blocked reason in both languages', () => {
   for (const lang of ['en', 'pt-BR']) {
@@ -583,7 +584,7 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
     'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
     'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge',
   };
-  const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github');
+  const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github' && k !== 'waiting-place');
   assert.deepEqual([...waits].sort(), Object.keys(expected).sort(), 'every waiting- key of the table is covered');
   for (const why of waits) {
     const code = gateOf(endAct('x', 'waiting-for-owner', why));
@@ -594,6 +595,8 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
   assert.ok(MESSAGES.en['gate.grill'] && MESSAGES['pt-BR']['gate.grill']);
   assert.throws(() => gateOf(endAct('x', 'waiting-for-owner', 'waiting-something-new')), LoopUsageError);
   assert.throws(() => gateOf(endAct('x', 'waiting-on-github', 'waiting-github')), LoopUsageError, 'a GitHub wait is not a gate');
+  assert.ok(MESSAGES.en['waiting-place'] && MESSAGES['pt-BR']['waiting-place'], 'the blocked end no-place has its reply key in both languages');
+  assert.throws(() => gateOf(endAct('x', 'blocked', 'no-place')), LoopUsageError, 'waiting for a place is a blocked end, not a gate');
   assert.throws(() => gateOf(agentAct('x')), LoopUsageError);
 });
 
@@ -864,7 +867,7 @@ test('roadmap-loop run: U4 the same session keeps what is under way and changes 
   doRun(root, '2');
   assert.deepEqual([stateOf(root).session, stateOf(root).places], ['S1', 2]);
   const under = {
-    tickets: { a: { ticket: '0123456789abcdef', at: '2026-11-21T10:00:00.000Z', claimedBy: 'S-a' } }, placed: { a: { at: '2026-11-21T10:00:00.000Z' } },
+    tickets: { a: { ticket: '0123456789abcdef', at: '2026-11-21T10:00:00.000Z', claimedBy: 'S-a' } }, occupied: { a: { at: '2026-11-21T10:00:00.000Z' } },
     queued: { b: { at: '2026-11-21T10:00:00.000Z', why: 'place' } }, waits: { a: [{ pid: process.pid, kind: 'session', at: '2026-11-21T10:00:00.000Z', session: 'S-a' }] },
   };
   const check = { id: 'job-1', at: '2026-11-21T10:00:00.000Z' };
@@ -880,18 +883,18 @@ test('roadmap-loop run: U4 the same session keeps what is under way and changes 
   assert.deepEqual([kept.places, kept.stopping, kept.declared, kept.holding, Object.keys(kept.inflight)], [3, false, {}, WATCH, ['a']]);
   assert.deepEqual(jsonOf(again.stdout).actions.map((x) => [x.change, x.kind]), [['b', 'start'], ['c', 'start']], 'a stays in flight; the cleared declared change is handed again');
   assert.ok(!events(doRun(root, '3').stdout).some((l) => l.includes('changes at once')), 'the same number says nothing');
-  assert.deepEqual([stateOf(root).tickets, stateOf(root).placed, stateOf(root).queued, stateOf(root).waits, stateOf(root).check], [under.tickets, under.placed, under.queued, under.waits, check], 'the same session keeps them all');
+  assert.deepEqual([stateOf(root).tickets, stateOf(root).occupied, stateOf(root).queued, stateOf(root).waits, stateOf(root).check], [under.tickets, under.occupied, under.queued, under.waits, check], 'the same session keeps them all');
 
   const other = doRun(root, '2', { session: 'S2' });
   assert.ok(!events(other.stdout).some((l) => l.includes('changes at once')));
   assert.deepEqual([stateOf(root).session, stateOf(root).places, stateOf(root).inflight, stateOf(root).holding], ['S2', 2, {}, null]);
   const survived = stateOf(root);
-  assert.deepEqual([survived.tickets, survived.placed, survived.queued, survived.waits], [under.tickets, under.placed, under.queued, under.waits], 'another session keeps what outlives the one that started it');
+  assert.deepEqual([survived.tickets, survived.occupied, survived.queued, survived.waits], [under.tickets, under.occupied, under.queued, under.waits], 'another session keeps what outlives the one that started it');
   assert.equal(survived.check, null, 'a session cron dies with its session');
   putRun(root, { session: 'S2', places: 2, inflight: { a: inFlight() }, holding: WATCH, ...under, check });
   doRun(root, '2', { session: 'S2', extra: ['--fresh'] });
   assert.deepEqual([stateOf(root).inflight, stateOf(root).holding], [{}, null], '--fresh starts from empty in the same session');
-  assert.deepEqual([stateOf(root).tickets, stateOf(root).placed, stateOf(root).queued, stateOf(root).waits, stateOf(root).check], [{}, {}, {}, {}, null], '--fresh empties them');
+  assert.deepEqual([stateOf(root).tickets, stateOf(root).occupied, stateOf(root).queued, stateOf(root).waits, stateOf(root).check], [{}, {}, {}, {}, null], '--fresh empties them');
 });
 
 // ---------------------------------------------------------------- the run file (D-5)
@@ -1808,6 +1811,7 @@ const SESSION_SKILL_PATH = join(HERE, '..', 'skills', 'devkit-session', 'SKILL.m
 const sessionSkillMd = () => readFileSync(SESSION_SKILL_PATH, 'utf8');
 const SK_LANG = '--lang ${user_config.language}';
 const SK_LIMIT = '--load-limit ${user_config.load_limit}';
+const SK_MACHINES = "--machines '${user_config.machines}'";
 const sectionOf = (md, from, to) => {
   const a = md.indexOf(from);
   assert.ok(a >= 0, `section ${from}`);
@@ -1882,7 +1886,7 @@ test('roadmap-loop skill: background hand-offs, one change per question, and the
 
 test('roadmap-loop setting: the load_limit user setting', () => {
   const plugin = JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8'));
-  assert.deepEqual(Object.keys(plugin.userConfig), ['language', 'load_limit']);
+  assert.deepEqual(Object.keys(plugin.userConfig), ['language', 'load_limit', 'machines']);
   const { load_limit: limit, language } = plugin.userConfig;
   assert.deepEqual(language, { type: 'string', title: 'Language', description: 'Language of the /devkit replies and of the stage readout: pt-BR or en', default: 'pt-BR' });
   assert.equal(limit.type, 'string');
@@ -1890,6 +1894,12 @@ test('roadmap-loop setting: the load_limit user setting', () => {
   assert.ok(typeof limit.title === 'string' && limit.title.length > 0, 'a title');
   assert.match(limit.description, /whole number/);
   assert.equal(limitOf(limit.default), 80, 'the default reads as the default limit');
+  assert.deepEqual(plugin.userConfig.machines, {
+    type: 'string', title: 'Machines',
+    description: 'Other machines /devkit roadmap may open changes on, as a JSON list: [{"host": "<the app\'s SSH connection name>", "folder": "<the repository folder there>", "places": <how many changes may implement there at once>}]. Empty runs every change on this machine',
+    default: '[]',
+  });
+  assert.deepEqual(loopModule.parseMachines(plugin.userConfig.machines.default), { machines: [] }, 'the default reads as unset');
   const used = new Set([...skillMd().matchAll(/\$\{user_config\.(\w+)\}/g)].map((m) => m[1]));
   for (const key of used) assert.ok(key in plugin.userConfig, `the skill uses ${key}, which the plugin declares`);
   assert.ok(used.has('load_limit'));
@@ -2205,15 +2215,15 @@ test('followups F-2 decide: start anyway starts the held changes once', () => {
 
 test('followups AC-8 next: start anyway starts what is held now, and a change ready later is held and said again', () => {
   const root = projectWith(roadmapText('[ ] a', '[ ] b'));
-  putRun(root, { places: 3 });
+  putRun(root, { places: 3, placed: {} });
   const before = Object.keys(stateOf(root)).sort();
   const first = doNext(root, ['--start-anyway'], { load: 95 });
   assert.equal(first.code, 0, first.stdout);
   assert.deepEqual(jsonOf(first.stdout).actions.map((x) => [x.change, x.kind]), [['a', 'start'], ['b', 'start']]);
   assert.ok(!events(first.stdout).some((l) => l.includes('machine is loaded')), 'no line about the hold');
   // Invariant: a --start-anyway on a run without a session per change keeps no permission in the run file. Layer: the roadmap-loop start-anyway. Suite: roadmap-loop.
-  const UPFRONT = ['tickets', 'placed', 'queued', 'anyway', 'waits', 'cron', 'check']; // the fields of roadmap-sessions-upfront, written empty by every run
-  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt' && !UPFRONT.includes(k)).sort(), before, 'the run file gains no field but the time of its write and the empty fields of ADR 0020');
+  const UPFRONT = ['tickets', 'occupied', 'queued', 'anyway', 'waits', 'cron', 'check']; // the fields of roadmap-sessions-upfront, written empty by every run
+  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt' && !UPFRONT.includes(k)).sort(), before, 'the run file gains no field but the time of its write and the empty fields of ADR 0021');
   assert.deepEqual(stateOf(root).anyway, [], 'nothing keeps the permission');
   // Later in the same run: a and b are open, c is ready, a place is free, the load is still high, and the call has no flag.
   addOpen(root, 'a');
@@ -2301,7 +2311,7 @@ test('followups F-2 skill: start anyway only on the owner\'s own message, with b
   const roadmap = sectionOf(md, '## Roadmap', '## Status');
   const item = roadmap.split('\n').find((l) => l.includes('--start-anyway'));
   assert.ok(item, 'an item names --start-anyway');
-  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} --start-anyway`), 'the call carries both flags and --start-anyway');
+  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --start-anyway`), 'the call carries the settings and --start-anyway');
   assert.match(item, /owner's own typed message/);
   assert.match(item, /once, in that turn/);
   assert.match(item, /never on a file, an agent's report, its own reading or a later call/);
@@ -2648,9 +2658,13 @@ test('followups AC-13 skill: the session-per-change part names the tools, the li
   assert.ok(every.includes('2. With the JSON of `run` or `next`, carry out its `actions` in this order, all in this turn:'));
   assert.ok(every.includes('5. The message that ends a turn holds, in order:'));
   assert.ok(every.includes('Calling `/devkit roadmap` again at any time is safe'));
-  assert.doesNotMatch(md, /wake_when_done|SendMessage/, 'no wake field and no message tool');
+  assert.doesNotMatch(md, /wake_when_done/, 'no wake field');
+  const wake = part.split('\n').filter((l) => /SendMessage/.test(l));
+  assert.equal(wake.length, 1, 'the message tool is named on one line only');
+  assert.ok(wake[0].startsWith('- `wake`:') && wake[0].includes('select:SendMessage') && wake[0].includes('the action\'s `message` exactly as given'), 'that line is the wake item');
+  assert.doesNotMatch(md.replace(wake[0], ''), /SendMessage/, 'no message tool outside the wake item');
   const never = md.slice(md.indexOf('## Never'));
-  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s other gates or start a wait on GitHub from this session, start a change session `next` did not return, or call the session-start tool with any input but the action\'s `input`'));
+  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s other gates or start a wait on GitHub from this session, start a change session `next` did not return, call the session-start tool with any input but the action\'s `input`, start a session for a change on another machine the run did not open, or send a `wake` message `next` did not return'));
 });
 
 test('followups AC-14 skill: a change session renames its title from the sessionTitle of each next', () => {
@@ -2668,7 +2682,7 @@ test('followups AC-15 skill: the turn\'s two words, event when in doubt or on an
   const part = sectionOf(skillMd(), '### A session per change', '### Every change in this session');
   const item = part.split('\n').find((l) => l.includes('--turn <typed|event>'));
   assert.ok(item, 'an item names the turn flag');
-  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} --turn <typed|event>`), 'with both settings');
+  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --turn <typed|event>`), 'with the settings');
   assert.match(item, /`typed` when the turn began with the owner's own message/);
   assert.match(item, /`event` otherwise/);
   assert.match(item, /another session's message or end-of-turn report/);
@@ -2926,18 +2940,18 @@ test('upfront AC-1 ticket: decide gives each session start a fresh ticket record
   assert.equal(pure.actions[0].input.prompt, '/devkit-openspec:devkit change a', 'decideRoadmap mints nothing: one line');
 });
 
-test('upfront AC-1 run file: readRun reads tickets, placed, queued, anyway, waits, cron and check, and drops a field of the wrong type', () => {
+test('upfront AC-1 run file: readRun reads tickets, occupied, queued, anyway, waits, cron and check, and drops a field of the wrong type', () => {
   const root = projectWith(null);
   const write = (obj) => {
     mkdirSync(dirname(runFileOf(root)), { recursive: true });
     writeFileSync(runFileOf(root), JSON.stringify(obj));
     return loopModule.readRun(runFileOf(root));
   };
-  const read = (run) => ({ tickets: run.tickets, placed: run.placed, queued: run.queued, anyway: run.anyway, waits: run.waits, cron: run.cron, check: run.check });
-  assert.deepEqual(read(loopModule.readRun(join(lkSandbox(), 'none.json'))), { tickets: {}, placed: {}, queued: {}, anyway: [], waits: {}, cron: false, check: null });
+  const read = (run) => ({ tickets: run.tickets, occupied: run.occupied, queued: run.queued, anyway: run.anyway, waits: run.waits, cron: run.cron, check: run.check });
+  assert.deepEqual(read(loopModule.readRun(join(lkSandbox(), 'none.json'))), { tickets: {}, occupied: {}, queued: {}, anyway: [], waits: {}, cron: false, check: null });
   const good = {
     tickets: { a: { ticket: UP_TICKET, at: AT, claimedBy: 'S1' }, b: { ticket: UP_TICKET, at: AT, claimedBy: null } },
-    placed: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, c: { at: AT, why: 'load' } }, anyway: ['c'],
+    occupied: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, c: { at: AT, why: 'load' } }, anyway: ['c'],
     waits: { a: [{ pid: 123, kind: 'github', at: AT, session: 'S1' }, { pid: 124, kind: 'session', at: AT, session: null }] },
     cron: true, check: { id: 'job-1', at: AT },
   };
@@ -2945,12 +2959,12 @@ test('upfront AC-1 run file: readRun reads tickets, placed, queued, anyway, wait
   assert.deepEqual(read(write({ ...good, check: { refused: true, at: AT } })).check, { refused: true, at: AT });
   const bad = {
     tickets: { a: { ticket: 'zzz', at: AT, claimedBy: null }, 'bad id!': { ticket: UP_TICKET, at: AT, claimedBy: null }, c: 'x', d: { ticket: UP_TICKET, at: AT, claimedBy: 5 } },
-    placed: [1], queued: { b: { at: AT }, c: { at: AT, why: 'other' } }, anyway: 'c',
+    occupied: [1], queued: { b: { at: AT }, c: { at: AT, why: 'other' } }, anyway: 'c',
     waits: { a: [{ pid: -1, kind: 'github', at: AT }, { pid: 5, kind: 'other', at: AT }, { pid: 7, kind: 'session', at: AT, session: 'S' }], 'bad id!': [{ pid: 8, kind: 'github', at: AT }], b: 'x' },
     cron: 'yes', check: 'x',
   };
   assert.deepEqual(read(write(bad)), {
-    tickets: {}, placed: {}, queued: {}, anyway: [], waits: { a: [{ pid: 7, kind: 'session', at: AT, session: 'S' }] }, cron: false, check: null,
+    tickets: {}, occupied: {}, queued: {}, anyway: [], waits: { a: [{ pid: 7, kind: 'session', at: AT, session: 'S' }] }, cron: false, check: null,
   });
   assert.deepEqual(write({ anyway: ['a', 3, 'bad id!', 'b'], check: { id: 5, at: AT } }).anyway, ['a', 'b'], 'only change ids stay in anyway');
   assert.equal(write({ check: { id: 5, at: AT } }).check, null);
@@ -3023,7 +3037,7 @@ const partOf = (stage) => FLOWS.devkit.stages.find((s) => s.id === stage)?.part 
 // The facts of one `sessionDecide`: the action, the part of its stage, what the roadmap and the tree say, and the run's places.
 const sdFacts = (action, over = {}) => ({
   id: action.change ?? 'a', action, part: partOf(action.stage), waitsFor: null, notInHead: false, hasProposal: false,
-  places: 1, placed: {}, queued: {}, anyway: [], load: 10, limit: 80, now: AT, lang: 'en', ...over,
+  places: 1, occupied: {}, queued: {}, anyway: [], load: 10, limit: 80, now: AT, lang: 'en', ...over,
 });
 const sd = (action, over) => loopModule.sessionDecide(sdFacts(action, over));
 const implAct = (id = 'a', over = {}) => agentAct(id, 'implementation', { stageTitle: 'Implementation', role: 'tdd-implementer', agent: 'devkit-core:tdd-implementer', ...over });
@@ -3040,7 +3054,7 @@ test('upfront AC-7 session-next: the grill, the plan approval and the retro answ
     assert.equal(h.reply, render('en', 'session-held-owner', { id: 'a', gate }), gate);
     assert.deepEqual([h.change, h.script, h.root, h.branch, h.filesLanguage, h.stage, h.stageTitle, h.version], ['a', 'devkit', '/w/a', 'a', 'en', action.stage, action.stageTitle, 1], gate);
     assert.equal(h.end, undefined, 'a held action is no end of the change loop');
-    assert.deepEqual([r.placed, r.queued], [{}, {}], 'no place is taken at a gate');
+    assert.deepEqual([r.occupied, r.queued], [{}, {}], 'no place is taken at a gate');
   }
   assert.match(sd(grillAct('a'), { lang: 'pt-BR' }).action.reply, /roadmap|sessão/);
 });
@@ -3088,12 +3102,12 @@ test('upfront AC-7 session-next: the held approval goes on once approval.md is w
   assert.ok(!lines.some((l) => l.startsWith('devkit-end:')), 'a held action prints no end line');
   const h = jsonOf(held.stdout);
   assert.deepEqual([h.kind, h.held.why, h.held.gate, h.icon], ['held', 'owner', 'approval', '📝']);
-  assert.equal(stateOf(root).placed?.a, undefined, 'a gate takes no place');
+  assert.equal(stateOf(root).occupied?.a, undefined, 'a gate takes no place');
   approve(root);
   const next = doSessionNext(root);
   const a = jsonOf(next.stdout);
   assert.deepEqual([a.kind, a.stage, a.icon], ['agent', 'implementation', '🛠️'], 'the approval was written: the change goes on');
-  assert.deepEqual(Object.keys(stateOf(root).placed), ['a'], 'and takes the place');
+  assert.deepEqual(Object.keys(stateOf(root).occupied), ['a'], 'and takes the place');
 });
 
 test('upfront AC-8 session-next: a plan stage waits for an unarchived dependency with ⏳', () => {
@@ -3197,94 +3211,94 @@ test('upfront AC-8 merge-base: merges origin\'s default branch, and on a conflic
 });
 
 test('upfront AC-9 place: a free place is claimed', () => {
-  const r = loopModule.placeDecision({ id: 'a', places: 2, placed: { b: { at: AT } }, queued: { a: { at: '2026-11-21T09:00:00.000Z', why: 'place' } }, load: 10, limit: 80, anyway: [], now: AT });
+  const r = loopModule.placeDecision({ id: 'a', places: 2, occupied: { b: { at: AT } }, queued: { a: { at: '2026-11-21T09:00:00.000Z', why: 'place' } }, load: 10, limit: 80, anyway: [], now: AT });
   assert.equal(r.claimed, true);
-  assert.deepEqual(r.placed, { b: { at: AT }, a: { at: AT } });
+  assert.deepEqual(r.occupied, { b: { at: AT }, a: { at: AT } });
   assert.deepEqual(r.queued, {}, 'it leaves the queue');
-  const given = { placed: {}, queued: {}, anyway: ['a'] };
+  const given = { occupied: {}, queued: {}, anyway: ['a'] };
   loopModule.placeDecision({ id: 'a', places: 1, ...given, load: 10, limit: 80, now: AT });
-  assert.deepEqual(given, { placed: {}, queued: {}, anyway: ['a'] }, 'the facts given are not changed');
+  assert.deepEqual(given, { occupied: {}, queued: {}, anyway: ['a'] }, 'the facts given are not changed');
 });
 
 test('upfront AC-9 place: no free place queues the change with why place', () => {
-  const r = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: {}, load: 10, limit: 80, anyway: [], now: AT });
-  assert.deepEqual([r.claimed, r.why, r.placed, r.queued], [false, 'place', { b: { at: AT } }, { a: { at: AT, why: 'place' } }]);
-  const again = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: r.queued, load: 10, limit: 80, anyway: [], now: '2026-11-21T11:00:00.000Z' });
+  const r = loopModule.placeDecision({ id: 'a', places: 1, occupied: { b: { at: AT } }, queued: {}, load: 10, limit: 80, anyway: [], now: AT });
+  assert.deepEqual([r.claimed, r.why, r.occupied, r.queued], [false, 'place', { b: { at: AT } }, { a: { at: AT, why: 'place' } }]);
+  const again = loopModule.placeDecision({ id: 'a', places: 1, occupied: { b: { at: AT } }, queued: r.queued, load: 10, limit: 80, anyway: [], now: '2026-11-21T11:00:00.000Z' });
   assert.deepEqual(again.queued, { a: { at: AT, why: 'place' } }, 'it keeps the time it first queued');
 });
 
 test('upfront AC-9 place: a loaded machine queues it with why load', () => {
-  const r = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: {}, load: 95, limit: 80, anyway: [], now: AT });
-  assert.deepEqual([r.claimed, r.why, r.placed, r.queued], [false, 'load', {}, { a: { at: AT, why: 'load' } }]);
-  const edge = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: {}, load: 80, limit: 80, anyway: [], now: AT });
+  const r = loopModule.placeDecision({ id: 'a', places: 2, occupied: {}, queued: {}, load: 95, limit: 80, anyway: [], now: AT });
+  assert.deepEqual([r.claimed, r.why, r.occupied, r.queued], [false, 'load', {}, { a: { at: AT, why: 'load' } }]);
+  const edge = loopModule.placeDecision({ id: 'a', places: 2, occupied: {}, queued: {}, load: 80, limit: 80, anyway: [], now: AT });
   assert.equal(edge.claimed, false, 'the limit itself is loaded');
-  const both = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: {}, load: 95, limit: 80, anyway: [], now: AT });
+  const both = loopModule.placeDecision({ id: 'a', places: 1, occupied: { b: { at: AT } }, queued: {}, load: 95, limit: 80, anyway: [], now: AT });
   assert.equal(both.why, 'place', 'no place wins over the load');
 });
 
 test('upfront AC-9 place: start anyway claims despite the load once', () => {
-  const r = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: { a: { at: AT, why: 'load' } }, load: 95, limit: 80, anyway: ['a', 'c'], now: AT });
+  const r = loopModule.placeDecision({ id: 'a', places: 2, occupied: {}, queued: { a: { at: AT, why: 'load' } }, load: 95, limit: 80, anyway: ['a', 'c'], now: AT });
   assert.equal(r.claimed, true);
-  assert.deepEqual([r.anyway, r.queued, Object.keys(r.placed)], [['c'], {}, ['a']], 'the permission is used up; another change\'s stays');
-  const second = loopModule.placeDecision({ id: 'a', places: 2, placed: {}, queued: {}, load: 95, limit: 80, anyway: r.anyway, now: AT });
+  assert.deepEqual([r.anyway, r.queued, Object.keys(r.occupied)], [['c'], {}, ['a']], 'the permission is used up; another change\'s stays');
+  const second = loopModule.placeDecision({ id: 'a', places: 2, occupied: {}, queued: {}, load: 95, limit: 80, anyway: r.anyway, now: AT });
   assert.equal(second.claimed, false, 'held again the next time');
-  const full = loopModule.placeDecision({ id: 'a', places: 1, placed: { b: { at: AT } }, queued: {}, load: 95, limit: 80, anyway: ['a'], now: AT });
+  const full = loopModule.placeDecision({ id: 'a', places: 1, occupied: { b: { at: AT } }, queued: {}, load: 95, limit: 80, anyway: ['a'], now: AT });
   assert.deepEqual([full.claimed, full.why, full.anyway], [false, 'place', ['a']], 'it does not make a place');
 });
 
 test('upfront AC-9 place: an earlier queued change goes first', () => {
   const queued = { b: { at: '2026-11-21T09:00:00.000Z', why: 'place' }, c: { at: '2026-11-21T11:00:00.000Z', why: 'place' } };
-  const a = loopModule.placeDecision({ id: 'a', places: 2, placed: { x: { at: AT } }, queued, load: 10, limit: 80, anyway: [], now: AT });
+  const a = loopModule.placeDecision({ id: 'a', places: 2, occupied: { x: { at: AT } }, queued, load: 10, limit: 80, anyway: [], now: AT });
   assert.deepEqual([a.claimed, a.why], [false, 'place'], 'b queued before a and takes the one free place');
-  const b = loopModule.placeDecision({ id: 'b', places: 2, placed: { x: { at: AT } }, queued, load: 10, limit: 80, anyway: [], now: AT });
+  const b = loopModule.placeDecision({ id: 'b', places: 2, occupied: { x: { at: AT } }, queued, load: 10, limit: 80, anyway: [], now: AT });
   assert.equal(b.claimed, true);
-  const c = loopModule.placeDecision({ id: 'c', places: 3, placed: { x: { at: AT } }, queued: { b: queued.b }, load: 10, limit: 80, anyway: [], now: AT });
+  const c = loopModule.placeDecision({ id: 'c', places: 3, occupied: { x: { at: AT } }, queued: { b: queued.b }, load: 10, limit: 80, anyway: [], now: AT });
   assert.equal(c.claimed, true, 'two places free, one change ahead');
-  const later = loopModule.placeDecision({ id: 'a', places: 2, placed: { x: { at: AT } }, queued: { c: queued.c }, load: 10, limit: 80, anyway: [], now: '2026-11-21T10:00:00.000Z' });
+  const later = loopModule.placeDecision({ id: 'a', places: 2, occupied: { x: { at: AT } }, queued: { c: queued.c }, load: 10, limit: 80, anyway: [], now: '2026-11-21T10:00:00.000Z' });
   assert.equal(later.claimed, true, 'a change queued later does not go first');
 });
 
 test('upfront AC-9 session-next: an implementation step claims a place and the delivery releases it', () => {
   const claimed = sd(implAct('a'));
   assert.deepEqual(claimed.action, implAct('a'), 'the action goes on unchanged');
-  assert.deepEqual(claimed.placed, { a: { at: AT } });
+  assert.deepEqual(claimed.occupied, { a: { at: AT } });
   for (const action of [implAct('a'), agentAct('a', 'unit-tests'), agentAct('a', 'e2e-tests'), agentAct('a', 'evidence'), sessionAct('a', 'review')]) {
     assert.equal(sd(action).action.kind === 'held', false, action.stage);
-    assert.deepEqual(Object.keys(sd(action).placed), ['a'], `${action.stage} holds a place`);
+    assert.deepEqual(Object.keys(sd(action).occupied), ['a'], `${action.stage} holds a place`);
   }
-  const kept = sd(implAct('a'), { placed: { a: { at: '2026-11-21T08:00:00.000Z' }, b: { at: AT } }, places: 1 });
-  assert.deepEqual([kept.action.kind, kept.placed.a.at], ['agent', '2026-11-21T08:00:00.000Z'], 'a change that has its place keeps it and its time');
+  const kept = sd(implAct('a'), { occupied: { a: { at: '2026-11-21T08:00:00.000Z' }, b: { at: AT } }, places: 1 });
+  assert.deepEqual([kept.action.kind, kept.occupied.a.at], ['agent', '2026-11-21T08:00:00.000Z'], 'a change that has its place keeps it and its time');
   const delivery = endAct('a', 'waiting-on-github', 'waiting-github', { what: 'merge' }, { stage: 'delivery', stageTitle: 'Delivery' });
-  const released = sd(delivery, { placed: { a: { at: AT }, b: { at: AT } }, queued: { a: { at: AT, why: 'load' } } });
+  const released = sd(delivery, { occupied: { a: { at: AT }, b: { at: AT } }, queued: { a: { at: AT, why: 'load' } } });
   assert.deepEqual(released.action, delivery);
-  assert.deepEqual([released.placed, released.queued], [{ b: { at: AT } }, {}], 'the place and the queue entry of a are gone');
-  const plan = sd(agentAct('a', 'proposal'), { placed: { a: { at: AT } } });
-  assert.deepEqual(plan.placed, {}, 'a stage in another part holds no place');
+  assert.deepEqual([released.occupied, released.queued], [{ b: { at: AT } }, {}], 'the place and the queue entry of a are gone');
+  const plan = sd(agentAct('a', 'proposal'), { occupied: { a: { at: AT } } });
+  assert.deepEqual(plan.occupied, {}, 'a stage in another part holds no place');
 });
 
 test('upfront AC-9 session-next: a blocked change in its implementation keeps its place', () => {
   const blocked = endAct('a', 'blocked', 'tests-red', { why: 'tests-red', phase: 1 }, { stage: 'implementation', stageTitle: 'Implementation' });
-  const r = sd(blocked, { placed: { a: { at: AT } } });
+  const r = sd(blocked, { occupied: { a: { at: AT } } });
   assert.deepEqual(r.action, blocked);
-  assert.deepEqual(r.placed, { a: { at: AT } });
+  assert.deepEqual(r.occupied, { a: { at: AT } });
   const owner = endAct('a', 'waiting-for-owner', 'waiting-by-hand', {}, { stage: 'implementation', stageTitle: 'Implementation' });
-  assert.deepEqual(sd(owner, { placed: { a: { at: AT } } }).placed, { a: { at: AT } }, 'also at an owner gate there');
-  assert.deepEqual(sd(blocked, {}).placed, {}, 'a blocked change that never had a place takes none');
+  assert.deepEqual(sd(owner, { occupied: { a: { at: AT } } }).occupied, { a: { at: AT } }, 'also at an owner gate there');
+  assert.deepEqual(sd(blocked, {}).occupied, {}, 'a blocked change that never had a place takes none');
 });
 
 test('upfront AC-9 session-next: the archived end releases the place', () => {
-  const r = sd(archivedAct('a'), { placed: { a: { at: AT }, b: { at: AT } }, queued: { a: { at: AT, why: 'place' } } });
+  const r = sd(archivedAct('a'), { occupied: { a: { at: AT }, b: { at: AT } }, queued: { a: { at: AT, why: 'place' } } });
   assert.equal(r.action.end.state, 'archived');
-  assert.deepEqual([r.placed, r.queued], [{ b: { at: AT } }, {}]);
+  assert.deepEqual([r.occupied, r.queued], [{ b: { at: AT } }, {}]);
 });
 
 test('upfront AC-9 session-next: no free place or a loaded machine holds the change with why place or load', () => {
-  const full = sd(implAct('a'), { placed: { b: { at: AT }, c: { at: AT } }, places: 2 });
+  const full = sd(implAct('a'), { occupied: { b: { at: AT }, c: { at: AT } }, places: 2 });
   const h = full.action;
   assert.deepEqual([h.kind, h.held.why, h.icon, h.sessionTitle, h.progressKey, h.stage, h.stageTitle], ['held', 'place', '⏳', '⏳ a', 'held/place', 'implementation', 'Implementation']);
   assert.equal(h.reply, render('en', 'session-held-place', { id: 'a', places: 2 }));
   assert.deepEqual(full.queued, { a: { at: AT, why: 'place' } });
-  assert.deepEqual(full.placed, { b: { at: AT }, c: { at: AT } });
+  assert.deepEqual(full.occupied, { b: { at: AT }, c: { at: AT } });
   const loaded = sd(implAct('a'), { load: 91, limit: 80 });
   assert.deepEqual([loaded.action.held.why, loaded.action.progressKey], ['load', 'held/load']);
   assert.equal(loaded.action.reply, render('en', 'session-held-load', { id: 'a', load: 91, limit: 80 }));
@@ -3308,7 +3322,7 @@ function upBudgetEnv(input) {
 }
 
 test('upfront budget session-next: at the cap a change session\'s session-next prints the budget end and keeps its place', () => {
-  const root = upChange({ run: { placed: { a: { at: AT } } }, files: { 'openspec/changes/a/.openspec.yaml': 'schema: devkit\ndevkit:\n  budget: 1000\n' } });
+  const root = upChange({ run: { occupied: { a: { at: AT } } }, files: { 'openspec/changes/a/.openspec.yaml': 'schema: devkit\ndevkit:\n  budget: 1000\n' } });
   approve(root);
   const env = upBudgetEnv(5000);
   const r = doSessionNext(root, [], { env });
@@ -3316,7 +3330,7 @@ test('upfront budget session-next: at the cap a change session\'s session-next p
   const lines = r.stdout.split('\n');
   assert.deepEqual(lines.slice(0, 2), ['devkit-run: a', 'devkit-end: a waiting-for-owner']);
   assert.equal(jsonOf(r.stdout).end.why, 'waiting-budget');
-  assert.deepEqual([stateOf(root).placed, stateOf(root).queued?.a], [{ a: { at: AT } }, undefined], 'the place is kept and nothing is queued');
+  assert.deepEqual([stateOf(root).occupied, stateOf(root).queued?.a], [{ a: { at: AT } }, undefined], 'the place is kept and nothing is queued');
   for (const poll of [loopModule.sessionNext(root, 'a', { env, lang: 'en', gh: OFFLINE }), loopModule.sessionNext(root, 'a', { env, lang: 'en', gh: OFFLINE, write: true })]) {
     assert.equal(poll.kind, 'agent', 'the poll of session-wait and the stop lock read no budget');
   }
@@ -3330,8 +3344,8 @@ test('upfront AC-9 session-next: a change outside a session-mode run gets the ch
   const plain = upChange({ run: { changeSessions: false } });
   approve(plain);
   assert.deepEqual(jsonOf(doSessionNext(plain).stdout), asked(plain));
-  assert.equal(stateOf(plain).placed, undefined, 'no run file write');
-  const unclaimed = upChange({ run: { tickets: upTickets('a', { claimedBy: null }), placed: { b: { at: AT } } } });
+  assert.equal(stateOf(plain).occupied, undefined, 'no run file write');
+  const unclaimed = upChange({ run: { tickets: upTickets('a', { claimedBy: null }), occupied: { b: { at: AT } } } });
   approve(unclaimed);
   const before = readFileSync(runFileOf(unclaimed), 'utf8');
   assert.deepEqual(jsonOf(doSessionNext(unclaimed).stdout), asked(unclaimed), 'a ticket nobody claimed is no session of its own');
@@ -3343,7 +3357,7 @@ test('upfront AC-9 session-next: a change outside a session-mode run gets the ch
 test('upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again', () => {
   assert.equal(changeLoopModule.WAIT_ICON, '⏳');
   const act = { ...implAct('a'), icon: '🛠️', sessionTitle: '🛠️ a' };
-  for (const [name, r] of [['place', sd(act, { placed: { b: { at: AT } } })], ['load', sd(act, { load: 95 })], ['after', sd({ ...agentAct('a', 'proposal'), icon: '📝', sessionTitle: '📝 a' }, { waitsFor: 'x' })]]) {
+  for (const [name, r] of [['place', sd(act, { occupied: { b: { at: AT } } })], ['load', sd(act, { load: 95 })], ['after', sd({ ...agentAct('a', 'proposal'), icon: '📝', sessionTitle: '📝 a' }, { waitsFor: 'x' })]]) {
     assert.deepEqual([r.action.icon, r.action.sessionTitle], ['⏳', '⏳ a'], name);
   }
   const gate = sd({ ...ownerAct('a'), icon: '📝', sessionTitle: '📝 a' });
@@ -3364,13 +3378,13 @@ test('upfront AC-1 session-next: prints devkit-run first, so runOf reads a chang
 });
 
 test('upfront AC-9 session-wait: exits with the new action when a place frees, records and clears its wait', async () => {
-  const root = upChange({ run: { placed: { b: { at: AT } } } });
+  const root = upChange({ run: { occupied: { b: { at: AT } } } });
   approve(root);
   const seen = [];
   const sleep = async (seconds) => {
     seen.push([seconds, stateOf(root).waits?.a]);
     const run = stateOf(root);
-    run.placed = {};
+    run.occupied = {};
     writeFileSync(runFileOf(root), JSON.stringify(run));
   };
   const r = await loopModule.runCommand(['session-wait', '--change', 'a', ...FLAGS, '--interval', '5', '--session', 'S-a'], { cwd: root, env: cleanEnv, gh: OFFLINE, load: () => 10, sleep });
@@ -3383,9 +3397,9 @@ test('upfront AC-9 session-wait: exits with the new action when a place frees, r
   assert.equal(seen[0][1].length, 1, 'recorded while it waits');
   assert.deepEqual([seen[0][1][0].kind, seen[0][1][0].session, seen[0][1][0].pid], ['session', 'S-a', process.pid]);
   assert.equal(stateOf(root).waits.a, undefined, 'cleared at its end');
-  assert.deepEqual(Object.keys(stateOf(root).placed), ['a']);
+  assert.deepEqual(Object.keys(stateOf(root).occupied), ['a']);
   // Also cleared on error: the poll of a repository that cannot be read three times in a row ends blocked, never leaving its record.
-  const lone = upChange({ run: { placed: { b: { at: AT } } } });
+  const lone = upChange({ run: { occupied: { b: { at: AT } } } });
   approve(lone);
   const gone = await loopModule.runCommand(['session-wait', '--change', 'a', ...FLAGS, '--session', 'S-a'], { cwd: lone, env: cleanEnv, gh: OFFLINE, load: () => 10, sleep: async () => { throw new Error('stopped'); } }).catch((e) => e);
   assert.ok(gone instanceof Error || gone.code === 3, 'a failing sleep does not leave a wait behind');
@@ -3402,7 +3416,7 @@ const upStopInput = (root, { session = LK_SESSION } = {}) => ({
 const stopOf2 = (root, opts) => withTmp((tmp) => ({ tmp, d: loopModule.changeSessionStopDecision(upStopInput(root, opts), { env: LK_ENV, gh: OFFLINE, load: () => 10 }) }));
 
 test('upfront AC-9 lock stop: a claimed change session held for a place may stop', () => {
-  const root = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), placed: { b: { at: AT } } } });
+  const root = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), occupied: { b: { at: AT } } } });
   approve(root);
   const before = readFileSync(runFileOf(root), 'utf8');
   const { tmp, d } = stopOf2(root);
@@ -3415,7 +3429,7 @@ test('upfront AC-9 lock stop: a claimed change session held for a place may stop
 });
 
 test('upfront AC-9 lock stop: with its place and a stage ready the stop is refused once', () => {
-  const root = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), placed: { a: { at: AT } } } });
+  const root = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), occupied: { a: { at: AT } } } });
   approve(root);
   const before = readFileSync(runFileOf(root), 'utf8');
   const input = upStopInput(root);
@@ -3430,11 +3444,11 @@ test('upfront AC-9 lock stop: with its place and a stage ready the stop is refus
 });
 
 test('upfront AC-9 lock stop: a session that did not claim the ticket is judged as any change run', () => {
-  const other = upChange({ run: { tickets: upTickets('a', { claimedBy: 'S-other' }), placed: { b: { at: AT } } } });
+  const other = upChange({ run: { tickets: upTickets('a', { claimedBy: 'S-other' }), occupied: { b: { at: AT } } } });
   approve(other);
   const { d } = stopOf2(other);
   assert.deepEqual([d.decision, d.why], ['refuse', 'stage-ready'], 'the change loop\'s lock, whatever the run file says of places');
-  const plain = upChange({ run: { changeSessions: false, placed: { b: { at: AT } } } });
+  const plain = upChange({ run: { changeSessions: false, occupied: { b: { at: AT } } } });
   approve(plain);
   const p = stopOf2(plain).d;
   assert.deepEqual([p.decision, p.why], ['refuse', 'stage-ready'], 'a run with no session per change is the change loop\'s too');
@@ -3498,7 +3512,7 @@ test('upfront AC-3 status: the board lists every opened change, with held-place,
     lines: ['[ ] a', '[ ] b', '[ ] c (after: a)', '[ ] d', '[ ] e'], places: 1,
     actions: { a: impl('a'), b: impl('b'), c: agentAct('c'), d: grillAct('d'), e: impl('e') },
     startedSessions: Object.fromEntries(['a', 'b', 'c', 'd', 'e'].map((id) => [id, { at: AT }])),
-    placed: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, e: { at: AT2, why: 'load' } }, waitsFor: { c: 'a' },
+    occupied: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, e: { at: AT2, why: 'load' } }, waitsFor: { c: 'a' },
   }));
   const row = (id, words) => `  ${id.padEnd(4)}${words}`;
   const rows = text.split('\n');
@@ -3794,17 +3808,17 @@ test('upfront AC-14 check: a freed place goes to the first queued change, and on
     putRun(root, { changeSessions: true, places: 1, ...startedIn('b', 'c'), queued: { c: { at: AT2, why: 'place' }, b: { at: AT, why: 'place' } }, waits: {} });
     const r = doCheck(root);
     assert.equal(r.code, 0, r.stdout + r.stderr);
-    assert.deepEqual([Object.keys(stateOf(root).placed), Object.keys(stateOf(root).queued)], [['b'], ['c']], 'the first to queue takes the place');
+    assert.deepEqual([Object.keys(stateOf(root).occupied), Object.keys(stateOf(root).queued)], [['b'], ['c']], 'the first to queue takes the place');
     assert.ok(events(r.stdout).includes(say('roadmap-check-idle', { id: 'b' })), events(r.stdout).join('|'));
     // The same with the change's own wait loop alive: it sees the place at its next poll, and no line asks for a message.
     putRun(root, { changeSessions: true, places: 1, ...startedIn('b', 'c'), queued: { b: { at: AT, why: 'place' } }, waits: { b: [waitOf(watcher, 'session', AT, 'S-b')] } });
     const watched = doCheck(root);
-    assert.deepEqual(Object.keys(stateOf(root).placed), ['b']);
+    assert.deepEqual(Object.keys(stateOf(root).occupied), ['b']);
     assert.ok(!events(watched.stdout).includes(say('roadmap-check-idle', { id: 'b' })));
     // A loaded machine hands no place.
     putRun(root, { changeSessions: true, places: 1, ...startedIn('b', 'c'), queued: { b: { at: AT, why: 'place' } } });
     doCheck(root, [], { load: 95 });
-    assert.deepEqual([stateOf(root).placed, stateOf(root).queued.b.why], [{}, 'load']);
+    assert.deepEqual([stateOf(root).occupied, stateOf(root).queued.b.why], [{}, 'load']);
   } finally { reap(watcher); }
 });
 
@@ -3950,9 +3964,9 @@ test('upfront AC-9 next: start anyway records the changes queued by the load now
   const r = doNext(root, ['--turn', 'typed', '--start-anyway']);
   assert.equal(r.code, 0, r.stdout);
   assert.deepEqual(stateOf(root).anyway, ['b'], 'only what the load holds, at that moment');
-  const later = loopModule.placeDecision({ id: 'd', places: 1, placed: {}, queued: {}, load: 95, limit: 80, anyway: stateOf(root).anyway, now: AT });
+  const later = loopModule.placeDecision({ id: 'd', places: 1, occupied: {}, queued: {}, load: 95, limit: 80, anyway: stateOf(root).anyway, now: AT });
   assert.deepEqual([later.claimed, later.why], [false, 'load'], 'd, queued later, is held again');
-  const claimed = loopModule.placeDecision({ id: 'b', places: 1, placed: {}, queued: { b: { at: AT, why: 'load' } }, load: 95, limit: 80, anyway: stateOf(root).anyway, now: AT2 });
+  const claimed = loopModule.placeDecision({ id: 'b', places: 1, occupied: {}, queued: { b: { at: AT, why: 'load' } }, load: 95, limit: 80, anyway: stateOf(root).anyway, now: AT2 });
   assert.deepEqual([claimed.claimed, claimed.anyway], [true, []], 'b takes its place despite the load, once');
   const plain = projectWith(roadmapText('[ ] a'));
   putRun(plain, { places: 1, turn: 'typed' });
@@ -3984,7 +3998,10 @@ test('upfront AC-13 skill: the periodic check names CronCreate, CronList, CronDe
   assert.match(check, /start(s)? no session/);
   const never = md.slice(md.indexOf('## Never'));
   assert.ok(never.includes('Create a cron or any scheduled wake-up, except the one periodic check of a roadmap run that `roadmap-loop.mjs` asks for, which only the run\'s end deletes.'));
-  assert.doesNotMatch(md, /wake_when_done|SendMessage/);
+  // The one message tool is remote-worker's `wake` item (a change waiting for a place on its machine, told to go on); the check sends no message of its own.
+  const wakeItem = md.split('\n').find((l) => l.startsWith('- `wake`:')) ?? '';
+  assert.doesNotMatch(md.replace(wakeItem, ''), /wake_when_done|SendMessage/, 'no wake-up field and no message tool outside the wake item');
+  assert.ok(check.includes('`wake`') && !/SendMessage/.test(check), 'the check carries out a wake as the part above says, and names no message tool itself');
 });
 
 test('upfront AC-16 skill: no section before the Roadmap names a scheduling tool', () => {
@@ -4104,6 +4121,494 @@ test('upfront AC-4 lock agent: the coordinating session\'s triage for a change o
   assert.deepEqual([d.decision, d.why, d.change], ['allow', 'grill-helper', 'a'], 'a change on flow 2');
 });
 
+// ================================================================ remote-worker, phase 3: the claims, the machines setting, the board and the probe
+
+// A project with a bare `origin` and a roadmap, and a second clone of it (the "other machine") in which each id of `claims` is opened for
+// the machine named: its branch is pushed to `origin` with the claim. The main checkout fetches, so its remote-tracking refs are current.
+// (The commits of `openChange` use the identity change-loop.test.mjs puts in the environment when it is imported.)
+function remoteProject(lines, claims = {}) {
+  const t = roundRepo({ roadmap: roadmapText(...lines), config: 'schema: devkit\n' });
+  const dir = tmpFolder('devkit-roadmap-machine-');
+  git(dir, 'clone', '-q', t.originDir, join(dir, 'clone'));
+  const other = realpathSync(join(dir, 'clone'));
+  mkdirSync(join(other, 'openspec', 'changes', 'archive'), { recursive: true });
+  for (const [id, machine] of Object.entries(claims)) {
+    openChange(other, id, { script: 'devkit', why: 'doubt', request: `Do ${id}\n`, lang: 'en', env: cleanEnv, machine });
+  }
+  git(t.main, 'fetch', '-q', 'origin');
+  return { ...t, other };
+}
+const MACHINES_AVEL = JSON.stringify([{ host: 'avel', folder: '/home/me/repo', places: 2 }]);
+const silentSsh = () => ({ status: 255, stdout: '', stderr: 'ssh: connect to host avel port 22: no route to host\n' });
+const classesOf = (cwd, extra = {}) => Object.fromEntries(loopModule.collectRoadmap(cwd, { env: cleanEnv, lang: 'en', gh: OFFLINE, ...extra }).lines.map((l) => [l.id, l.cls]));
+
+test('remote AC-5 status: a line open only on another machine is listed under way with its machine, never in the queue', () => {
+  const t = remoteProject(['[ ] aaa', '[ ] bbb'], { aaa: 'avel' });
+  const r = doStatus(t.main);
+  assert.equal(r.code, 0, r.stderr);
+  const row = rowAt('aaa'.length + 3);
+  assert.equal(r.stdout, [
+    render('en', 'status-count', { open: 0, places: 1, queue: 1, archived: 0 }),
+    '',
+    render('en', 'status-running'),
+    row('aaa', `${render('en', 'remote.open', { machine: 'avel' })} · avel`),
+    render('en', 'status-queue'),
+    row('bbb', render('en', 'queue.ready')),
+    '',
+  ].join('\n'));
+  assert.equal(classesOf(t.main).aaa, 'elsewhere');
+});
+
+test('remote AC-5 status: GitHub unreadable prints the board with its line', () => {
+  const t = remoteProject(['[ ] aaa'], {});
+  git(t.main, 'remote', 'set-url', 'origin', join(t.originDir, 'missing'));
+  const r = doStatus(t.main);
+  assert.equal(r.code, 0, r.stderr);
+  assert.deepEqual(r.stdout.split('\n').slice(0, 2), [render('en', 'status-count', { open: 0, places: 1, queue: 1, archived: 0 }), render('en', 'status-claims-unreadable')]);
+  assert.equal(doStatus(remoteProject(['[ ] aaa'], {}).main).stdout.includes(render('en', 'status-claims-unreadable')), false, 'a readable origin prints no such line');
+});
+
+test('remote AC-5 status: the machines block and the machine of each row', () => {
+  const claim = (machine, placed) => ({ id: 'xxx', machine, places: null, placed });
+  const lines = classifyLines(ROUND('[ ] aaa', '[ ] bbb', '[ ] ccc', '[ ] ddd'), {
+    archived: new Set(), open: new Set(['aaa']), previous: new Set(), declared: {},
+    elsewhere: new Map([['bbb', claim('avel', true)], ['ccc', claim('avel', false)], ['ddd', claim('avel', false)]]),
+  });
+  const answered = (id, where) => ({ id, where, icon: '📝', waitsForPlace: false });
+  const f = {
+    ...world({ places: 1, actions: { aaa: agentAct('aaa') }, lines: ['[ ] aaa'] }), lines, thisMachine: 'mac', claimsReadable: true,
+    claims: { aaa: claim('mac', false), bbb: claim('avel', true), ccc: claim('avel', false), ddd: claim('avel', false) },
+    machines: [{ name: 'avel', host: 'avel', folder: '/r', places: 2, answered: true, changes: [answered('bbb', 'Code review'), answered('ccc', 'Requirements'), answered('ddd', 'Proposal')] }],
+  };
+  const row = rowAt('mac (this one)'.length + 3);
+  assert.equal(boardOf(f), [
+    render('en', 'status-count-machines', { open: 4, queue: 0, archived: 0 }),
+    '',
+    render('en', 'status-machines'),
+    row(render('en', 'machine.this', { name: 'mac' }), render('en', 'machine.row', { taken: 0, places: 1, open: 1 })),
+    row('avel', render('en', 'machine.row', { taken: 1, places: 2, open: 3 })),
+    render('en', 'status-running'),
+    row('aaa', 'Proposal · mac'),
+    row('bbb', 'Code review · avel'),
+    row('ccc', 'Requirements · avel'),
+    row('ddd', 'Proposal · avel'),
+  ].join('\n'));
+  const silent = { ...f, machines: [{ ...f.machines[0], answered: false, changes: [] }] };
+  assert.match(boardOf(silent), new RegExp(`avel +${render('en', 'machine.no-answer')}\\n`));
+  assert.match(boardOf({ ...f, lang: 'pt-BR' }), /Máquinas\n/);
+});
+
+test('remote AC-6 next: a line claimed on origin is never started, and its dependent waits', () => {
+  const t = remoteProject(['[ ] aaa', '[ ] bbb', '[ ] ccc (after: aaa)'], { aaa: 'avel' });
+  const r = doRun(t.main, '3');
+  assert.equal(r.code, 0, r.stderr);
+  const d = jsonOf(r.stdout);
+  assert.deepEqual(d.actions.map((a) => [a.change, a.kind]), [['bbb', 'start']]);
+  assert.deepEqual(d.open, [], 'the claimed line fills no place');
+  assert.deepEqual(classesOf(t.main), { aaa: 'elsewhere', bbb: 'ready', ccc: 'waiting' });
+  assert.equal(loopModule.collectRoadmap(t.main, { env: cleanEnv, lang: 'en', gh: OFFLINE }).lines.find((l) => l.id === 'ccc').waitsFor, 'aaa');
+  assert.equal(events(r.stdout).some((e) => /\baaa\b/.test(e)), false, 'no line says a started');
+});
+
+test('remote AC-6 next: a declared cannot-open of a line claimed elsewhere is dropped', () => {
+  const t = remoteProject(['[ ] aaa'], { aaa: 'avel' });
+  putRun(t.main, { declared: { aaa: { state: 'blocked', why: 'cannot-open', params: { error: 'taken' } } } });
+  const r = doNext(t.main);
+  assert.equal(r.code, 0, r.stderr);
+  assert.deepEqual(stateOf(t.main).declared, {}, 'the declared end left the run file');
+  assert.equal(classesOf(t.main).aaa, 'elsewhere');
+  assert.equal(events(r.stdout).some((e) => /could not be opened|blocked/i.test(e)), false);
+});
+
+test('remote AC-7 machines: unset, empty, [] and a placeholder read as unset', () => {
+  for (const unset of [undefined, null, '', '  ', '[]', ' [ ] ', '${user_config.machines}']) assert.deepEqual(loopModule.parseMachines(unset), { machines: [] }, String(unset));
+  const entry = { host: 'avel', folder: '/home/kaue/repos/devkit', places: 2 };
+  assert.deepEqual(loopModule.parseMachines(JSON.stringify([entry, { host: 'a.b-c_1', folder: '/x y/z', places: 99 }])), { machines: [entry, { host: 'a.b-c_1', folder: '/x y/z', places: 99 }] });
+});
+
+test('remote AC-7 machines: an entry without a field is refused naming it, and nothing is written', () => {
+  const bad = (text) => loopModule.parseMachines(text).error;
+  assert.deepEqual(bad('avel:/home/kaue/repos/devkit:2'), { key: 'machines-unreadable', params: {} });
+  assert.deepEqual(bad('{"host":"avel"}'), { key: 'machines-unreadable', params: {} });
+  assert.deepEqual(bad('[{"host":"avel","folder":"/r"}]'), { key: 'machine-incomplete', params: { entry: 'avel', field: 'places' } });
+  assert.deepEqual(bad('[{"host":"avel","places":2}]'), { key: 'machine-incomplete', params: { entry: 'avel', field: 'folder' } });
+  assert.deepEqual(bad('[{"host":"avel","folder":"repo","places":2}]'), { key: 'machine-incomplete', params: { entry: 'avel', field: 'folder' } });
+  assert.deepEqual(bad('[{"folder":"/r","places":2}]'), { key: 'machine-incomplete', params: { entry: '#1', field: 'host' } });
+  assert.deepEqual(bad('[{"host":"-avel","folder":"/r","places":2}]'), { key: 'machine-incomplete', params: { entry: '-avel', field: 'host' } });
+  assert.deepEqual(bad('["avel"]'), { key: 'machine-incomplete', params: { entry: '#1', field: 'host' } });
+  for (const places of [0, 100, 1.5, '2']) assert.equal(bad(JSON.stringify([{ host: 'avel', folder: '/r', places }])).params.field, 'places', String(places));
+  assert.deepEqual(bad('[{"host":"avel","folder":"/r","places":1},{"host":"avel","folder":"/s","places":1}]'), { key: 'machine-duplicate', params: { entry: 'avel' } });
+  // The commands print the reply, exit 0 and read and write nothing else.
+  const t = remoteProject(['[ ] aaa'], {});
+  const before = picture(t.main);
+  const calls = [];
+  const ssh = (...a) => { calls.push(a); return silentSsh(); };
+  const incomplete = '[{"host":"avel","folder":"/home/kaue/repos/devkit"}]';
+  for (const [text, key, params] of [[incomplete, 'machine-incomplete', { entry: 'avel', field: 'places' }], ['avel:/r:2', 'machines-unreadable', {}]]) {
+    for (const r of [doRun(t.main, '', { extra: ['--machines', text], ssh }), doNext(t.main, ['--machines', text], { ssh }), cmd(t.main, ['status', ...FLAGS, '--machines', text], { ssh })]) {
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(r.stdout, `${render('en', key, params)}\n`);
+    }
+  }
+  assert.equal(existsSync(runFileOf(t.main)), false, 'no run file');
+  assert.equal(picture(t.main), before);
+  assert.deepEqual(calls, [], 'no machine was reached');
+});
+
+test('remote AC-7 next: with machines unset the decision is today\'s', () => {
+  const outputs = [[], ['--machines', ''], ['--machines', '[]'], ['--machines', '${user_config.machines}']].map((extra) => {
+    const t = remoteProject(['[ ] aaa', '[ ] bbb'], {});
+    return doNext(t.main, extra, { ssh: () => assert.fail('no machine is reached') });
+  });
+  assert.equal(outputs[0].code, 0, outputs[0].stderr);
+  for (const o of outputs) assert.equal(o.stdout, outputs[0].stdout);
+  assert.deepEqual(jsonOf(outputs[0].stdout).actions.map((a) => [a.change, a.kind]), [['aaa', 'start']]);
+});
+
+test('remote AC-12 status: a silent machine and its changes read no answer', () => {
+  const t = remoteProject(['[ ] aaa', '[ ] bbb', '[ ] eee'], { aaa: 'avel', bbb: 'avel' });
+  const calls = [];
+  const r = cmd(t.main, ['status', ...FLAGS, '--machines', MACHINES_AVEL], { ssh: (host, argv, o) => { calls.push([host, argv[3]]); return silentSsh(host, argv, o); } });
+  assert.equal(r.code, 0, r.stderr);
+  const name = thisMachine();
+  const noAnswer = render('en', 'machine.no-answer');
+  const row = rowAt(Math.max(`${name} (this one)`.length, 'avel'.length) + 3);
+  assert.equal(r.stdout, [
+    render('en', 'status-count-machines', { open: 2, queue: 1, archived: 0 }),
+    '',
+    render('en', 'status-machines'),
+    row(render('en', 'machine.this', { name }), render('en', 'machine.row', { taken: 0, places: 1, open: 0 })),
+    row('avel', noAnswer),
+    render('en', 'status-running'),
+    row('aaa', `${noAnswer} · avel`),
+    row('bbb', `${noAnswer} · avel`),
+    render('en', 'status-queue'),
+    row('eee', render('en', 'queue.ready')),
+    '',
+  ].join('\n'));
+  assert.deepEqual(calls, [['avel', 'state']], 'avel was asked once, for its state');
+});
+
+// The "other machine" is this machine: the injected ssh runs what ssh would run there, with the pack installed by a fixture file.
+function localSsh(calls = []) {
+  const home = tmpFolder('devkit-roadmap-home-');
+  mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
+  writeFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({
+    version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user', installPath: join(HERE, '..'), version: '0.0.0' }] },
+  }));
+  return (host, argv, { input, timeout } = {}) => {
+    calls.push({ host, argv, timeout });
+    const r = spawnSync(process.execPath, argv.slice(1), { input, encoding: 'utf8', env: { ...cleanEnv, HOME: home }, cwd: HERE });
+    return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  };
+}
+
+test('remote AC-12 probe: state through the injected ssh returns the other clone\'s changes, and a failing ssh is no answer', () => {
+  const t = remoteProject(['[ ] aaa'], {});
+  openChange(t.other, 'xxx', { script: 'devkit', why: 'doubt', request: 'Do x\n', lang: 'en', env: cleanEnv, machine: 'avel' });
+  const calls = [];
+  const ssh = localSsh(calls);
+  const machine = { host: 'avel', folder: t.other, places: 2 };
+  const ok = loopModule.askMachine(machine, 'state', [t.other, 'en'], { ssh });
+  assert.equal(ok.ok, true, JSON.stringify(ok));
+  assert.equal(ok.data.version, 1);
+  assert.equal(ok.data.machine, thisMachine());
+  assert.deepEqual(ok.data.changes.map((c) => [c.id, c.icon, c.waitsForPlace]), [['xxx', '❓', false]]);
+  assert.ok(typeof ok.data.changes[0].where === 'string' && ok.data.changes[0].where.length > 0, 'where is a phrase');
+  assert.deepEqual([calls[0].host, calls[0].argv.slice(0, 4), calls[0].timeout], ['avel', ['node', '--input-type=module', '-', 'state'], 20_000]);
+  // A machine that fails, answers in another form or reports an error is no answer.
+  for (const bad of [silentSsh, () => ({ status: 0, stdout: 'not json', stderr: '' }), () => ({ status: 0, stdout: '{"version":2}', stderr: '' }),
+    () => ({ status: 3, stdout: '{"version":1,"error":"no pack"}', stderr: '' }), () => ({ status: 0, stdout: '{"version":1,"error":"no pack"}', stderr: '' })]) {
+    assert.equal(loopModule.askMachine(machine, 'state', [t.other, 'en'], { ssh: bad }).ok, false);
+  }
+  // The roadmap's facts carry the answer, and none when the probe is off.
+  const facts = loopModule.collectRoadmap(t.main, { env: cleanEnv, lang: 'en', gh: OFFLINE, machines: [machine], ssh });
+  assert.deepEqual(facts.machines.map((m) => [m.name, m.host, m.folder, m.places, m.answered, m.changes.map((c) => c.id)]), [['avel', 'avel', t.other, 2, true, ['xxx']]]);
+  const asked = calls.length;
+  const off = loopModule.collectRoadmap(t.main, { env: cleanEnv, lang: 'en', gh: OFFLINE, machines: [machine], ssh, probe: false });
+  assert.deepEqual(off.machines.map((m) => [m.answered, m.changes]), [[false, []]]);
+  assert.equal(calls.length, asked, 'no ssh with the probe off');
+  // `status --json` is what the probe runs: one object, with this clone's changes.
+  const j = cmd(t.other, ['status', '--json', '--lang', 'en']);
+  assert.equal(j.code, 0, j.stderr);
+  assert.deepEqual(JSON.parse(j.stdout).changes.map((c) => c.id), ['xxx']);
+});
+
+// The probe run by itself, as ssh would run it: `installed` is the content of the other machine's installed_plugins.json (null: no
+// file); a pack is a folder whose roadmap-loop.mjs is `script`. Returns the exit status and the parsed stdout.
+function probeState({ installed, folder }) {
+  const home = tmpFolder('devkit-probe-home-');
+  mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
+  if (installed !== null) writeFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), typeof installed === 'string' ? installed : JSON.stringify(installed));
+  const r = spawnSync(process.execPath, [join(HERE, 'machine-probe.mjs'), 'state', folder, 'en'], { encoding: 'utf8', env: { ...cleanEnv, HOME: home }, cwd: HERE });
+  return { status: r.status, out: JSON.parse(r.stdout) };
+}
+function fakePack(script) {
+  const dir = tmpFolder('devkit-probe-pack-');
+  mkdirSync(join(dir, 'hooks'), { recursive: true });
+  writeFileSync(join(dir, 'hooks', 'roadmap-loop.mjs'), script);
+  return dir;
+}
+const sayPack = (name) => fakePack(`process.stdout.write(JSON.stringify({ version: 1, pack: ${JSON.stringify(name)} }) + '\\n');\n`);
+
+test('remote AC-12 probe: the installation is the project-scoped one at or above the folder, else the user-scoped one', () => {
+  const folder = tmpFolder('devkit-probe-folder-');
+  const user = sayPack('user');
+  const project = sayPack('project');
+  const elsewhere = sayPack('elsewhere');
+  const entry = (scope, installPath, projectPath) => ({ scope, installPath, version: '0.0.0', ...(projectPath ? { projectPath } : {}) });
+  const run = (list) => probeState({ installed: { version: 2, plugins: { 'devkit-openspec@devkit': list } }, folder });
+  const packOf = (list) => { const r = run(list); assert.equal(r.status, 0, JSON.stringify(r.out)); return r.out.pack; };
+  assert.equal(packOf([entry('user', user), entry('project', project, folder)]), 'project', 'project scope wins over user scope, whatever the order');
+  assert.equal(packOf([entry('project', project, folder), entry('user', user)]), 'project');
+  assert.equal(packOf([entry('user', user), entry('project', project, dirname(folder))]), 'project', 'a project path above the folder serves it');
+  assert.equal(packOf([entry('user', user), entry('project', project, `${dirname(folder)}/`)]), 'project', 'a trailing slash still matches');
+  assert.equal(packOf([entry('user', user), entry('project', elsewhere, `${folder}-other`)]), 'user', 'a sibling that shares the prefix does not serve it');
+  assert.equal(packOf([entry('user', user), entry('project', elsewhere, join(folder, 'deeper'))]), 'user', 'a project path below the folder does not serve it');
+});
+
+test('remote AC-12 probe: the probe itself answers with an error and exit 3 when the pack is missing, the file unreadable or the status fails', () => {
+  const folder = tmpFolder('devkit-probe-folder-');
+  const failing = fakePack("process.stderr.write('boom happened\\nsecond line\\n'); process.exit(1);\n");
+  const cases = [
+    ['not installed', { version: 2, plugins: { 'other@x': [{ scope: 'user', installPath: '/x' }] } }, /pack is not installed/],
+    ['no installPath', { version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user' }] } }, /pack is not installed/],
+    ['no file', null, /installed_plugins\.json cannot be read/],
+    ['not json', 'not json', /installed_plugins\.json cannot be read/],
+    ['status fails', { version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user', installPath: failing }] } }, /^status failed in .*: boom happened$/],
+  ];
+  for (const [name, installed, why] of cases) {
+    const r = probeState({ installed, folder });
+    assert.equal(r.status, 3, name);
+    assert.equal(r.out.version, 1, name);
+    assert.match(r.out.error, why, name);
+  }
+});
+
+// ================================================================ remote-worker, phase 4: placement, the session on another machine, the wake
+
+const claimOf = (machine, over = {}) => ({ id: 'x', machine, places: 2, placed: false, ...over });
+const avelAnswers = (changes = [], over = {}) => ({ name: 'avel', host: 'avel', folder: '/home/me/repo', places: 2, answered: true, changes, ...over });
+const avelSilent = () => avelAnswers([], { answered: false });
+const waitingOnAvel = (id) => ({ id, where: 'Waiting for a place', icon: '⏳', waitsForPlace: true });
+// The facts of a decision with the machines setting set: `local` are this machine's open changes ({ id: action }), `claims` the claims on
+// `origin` ({ id: claim }); a claimed id that is not local is open elsewhere.
+function machinesWorld({ lines, local = {}, claims = {}, machines = [avelAnswers()], changeSessions = true, ...over }) {
+  const elsewhere = new Map(Object.entries(claims).filter(([id]) => !(id in local)));
+  const classified = classifyLines(ROUND(...lines), { archived: new Set(), open: new Set(Object.keys(local)), previous: new Set(), declared: {}, elsewhere });
+  return {
+    ...world({ places: 3, actions: local }), lines: classified, thisMachine: 'mac', claims, claimsReadable: true, machines, machinesText: MACHINES_AVEL,
+    changeSessions, coordinator: 'S-main', turn: 'typed', startedSessions: Object.fromEntries(Object.keys(local).map((id) => [id, { at: AT }])), placed: {}, ...over,
+  };
+}
+const startsOf = (r) => r.actions.filter((a) => a.kind === 'start').map((a) => [a.change, a.machine, a.remote, a.places]);
+
+test('remote AC-8 next: each ready line goes to the answering machine with the fewest open changes', () => {
+  const f = machinesWorld({ lines: ['[ ] aaa', '[ ] r1', '[ ] r2', '[ ] r3'], local: { aaa: agentAct('aaa') } });
+  assert.deepEqual(startsOf(decideRoadmap(f)), [['r1', 'avel', true, 2], ['r2', 'mac', false, 'run'], ['r3', 'avel', true, 2]],
+    'this machine holds one, avel none: avel first, then the tie goes to this machine, then avel again');
+  // Changes open on a machine, local or claimed, count; a machine with more open changes gets the next one last.
+  const loadedAvel = machinesWorld({ lines: ['[ ] x', '[ ] y', '[ ] z'], claims: { x: claimOf('avel'), y: claimOf('avel') } });
+  assert.deepEqual(startsOf(decideRoadmap(loadedAvel)), [['z', 'mac', false, 'run']], 'avel holds two claimed changes');
+  const here = machinesWorld({ lines: ['[ ] x', '[ ] z'], claims: { x: claimOf('mac') } });
+  assert.deepEqual(startsOf(decideRoadmap(here)), [['z', 'avel', true, 2]], 'a change claimed by this machine counts here');
+  // Each start carries the fields the skill passes to open.
+  const first = decideRoadmap(f).actions.find((a) => a.change === 'r1');
+  assert.deepEqual([first.kind, first.request, first.progressKey], ['start', 'r1', 'start']);
+});
+
+test('remote AC-8 next: this machine is skipped while loaded, and a start is held only when nothing can take it', () => {
+  const loaded = { load: 90, limit: 80 };
+  const toAvel = decideRoadmap(machinesWorld({ lines: ['[ ] r1', '[ ] r2'], ...loaded }));
+  assert.deepEqual(startsOf(toAvel), [['r1', 'avel', true, 2], ['r2', 'avel', true, 2]], 'the loaded machine takes none');
+  assert.equal(toAvel.actions.some((a) => a.kind === 'hold'), false);
+  const none = decideRoadmap(machinesWorld({ lines: ['[ ] r1', '[ ] r2'], machines: [avelSilent()], ...loaded }));
+  assert.deepEqual(changesOf(none).filter(([, kind]) => kind !== 'wake'), [['r1', 'hold']], 'no machine can take the first ready line');
+  assert.ok(none.lines.includes(say('roadmap-held', { id: 'r1', load: 90, limit: 80 })), none.lines.join('|'));
+  const anyway = decideRoadmap(machinesWorld({ lines: ['[ ] r1'], machines: [avelSilent()], startAnyway: true, ...loaded }));
+  assert.deepEqual(startsOf(anyway), [['r1', 'mac', false, 'run']], 'start anyway puts this machine back');
+  // A host that cannot start sessions uses no other machine: a change there could run only in a session of its own (D-8).
+  const alone = decideRoadmap(machinesWorld({ lines: ['[ ] r1', '[ ] r2'], changeSessions: false }));
+  assert.deepEqual(startsOf(alone), [['r1', 'mac', false, 'run'], ['r2', 'mac', false, 'run']]);
+  assert.deepEqual(changesOf(decideRoadmap(machinesWorld({ lines: ['[ ] r1'], changeSessions: false, ...loaded }))), [['r1', 'hold']]);
+  // The board says it when nothing can take a ready line.
+  const board = (f) => boardOf(f);
+  assert.ok(board(machinesWorld({ lines: ['[ ] r1'], machines: [avelSilent()], ...loaded })).includes(render('en', 'queue.no-machine')));
+  assert.ok(board(machinesWorld({ lines: ['[ ] r1'], changeSessions: false, ...loaded })).includes(render('en', 'queue.no-machine')), 'avel answers but cannot start sessions');
+  assert.equal(board(machinesWorld({ lines: ['[ ] r1'], ...loaded })).includes(render('en', 'queue.no-machine')), false);
+});
+
+const RRR_CWD = '/home/me/repo/.claude/worktrees/rrr';
+test('remote AC-9 next: a placed change gets a session-start with its checkout, target ssh, host and the remote cwd, only on a typed turn', () => {
+  const claims = { rrr: claimOf('avel') };
+  const placed = { rrr: { machine: 'avel', at: AT } };
+  const r = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed }));
+  assert.deepEqual(r.actions, [{
+    change: 'rrr', kind: 'session-start', machine: 'avel', cwd: RRR_CWD, title: '❓ rrr', progressKey: 'session-start',
+    checkout: ['node', join(HOOKS_DIR, 'roadmap-loop.mjs'), 'checkout', '--change', 'rrr', '--machines', MACHINES_AVEL, '--lang', 'en'],
+    input: {
+      initiation: 'user_asked', context: 'fresh', title: '❓ rrr', name: 'rrr', cwd: RRR_CWD, use_worktree: false, prompt: '/devkit-openspec:devkit change rrr',
+      background: loopModule.sessionBackground({ id: 'rrr', root: RRR_CWD, branch: 'rrr', coordinator: 'S-main', lang: 'en' }), target: 'ssh', host: 'avel',
+    },
+  }]);
+  assert.deepEqual(Object.keys(r.actions[0].input).sort(), [...START_FIELDS, 'host', 'target'].sort());
+  // Not recorded as placed by this run, a session already started, or a machine that does not list it: none.
+  assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims })).actions, []);
+  assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, startedSessions: { rrr: { at: AT } } })).actions, []);
+  assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims: { rrr: claimOf('other') }, placed })).actions, []);
+  // The start the previous call handed, found claimed now, is placed at once and recorded.
+  const handed = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, starting: ['rrr'] }));
+  assert.deepEqual(changesOf(handed), [['rrr', 'session-start']]);
+  assert.deepEqual(handed.state.placed, { rrr: 'avel' });
+  // On a turn nobody typed it waits, and says so.
+  const event = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, turn: 'event' }));
+  assert.deepEqual(event.actions, []);
+  assert.ok(event.lines.includes(say('roadmap-waits-turn-on', { id: 'rrr', machine: 'avel' })), event.lines.join('|'));
+  // The host reported it started: a line, the change recorded, and no second action.
+  const started = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, after: { rrr: 'session-start' } }));
+  assert.deepEqual(started.actions, []);
+  assert.ok(started.lines.includes(say('roadmap-session-started-on', { id: 'rrr', machine: 'avel' })), started.lines.join('|'));
+  assert.deepEqual(started.state.sessionsStarted, ['rrr']);
+  assert.ok(started.state.openLines.includes('rrr'), 'the record of a started session is kept while the line is open elsewhere');
+});
+
+test('remote AC-9 next: the run file keeps placed, which another session keeps and --fresh clears', () => {
+  const t = remoteProject(['[ ] rrr'], { rrr: 'avel' });
+  const machines = JSON.stringify([{ host: 'avel', folder: t.other, places: 2 }]);
+  const ssh = localSsh();
+  putRun(t.main, { changeSessions: true, turn: 'typed', starting: ['rrr'] });
+  const first = doNext(t.main, ['--turn', 'typed', '--machines', machines], { ssh });
+  assert.equal(first.code, 0, first.stderr);
+  const action = jsonOf(first.stdout).actions[0];
+  assert.deepEqual([action.change, action.kind, action.machine, action.input.host, action.input.cwd], ['rrr', 'session-start', 'avel', 'avel', join(t.other, '.claude', 'worktrees', 'rrr')]);
+  assert.equal(stateOf(t.main).placed.rrr.machine, 'avel');
+  const after = doNext(t.main, ['--turn', 'typed', '--after', 'rrr=session-start', '--machines', machines], { ssh });
+  assert.equal(after.code, 0, after.stderr);
+  assert.deepEqual(Object.keys(stateOf(t.main).startedSessions), ['rrr']);
+  assert.equal(stateOf(t.main).placed.rrr.machine, 'avel', 'kept while its line is open elsewhere');
+  const other = doRun(t.main, '', { session: 'S2', extra: ['--change-sessions', '--machines', machines], ssh });
+  assert.equal(other.code, 0, other.stderr);
+  assert.equal(stateOf(t.main).placed.rrr?.machine, 'avel', 'a run from another session keeps it');
+  const fresh = doRun(t.main, '', { session: 'S3', extra: ['--fresh', '--change-sessions', '--machines', machines], ssh });
+  assert.equal(fresh.code, 0, fresh.stderr);
+  assert.deepEqual(stateOf(t.main).placed, {}, '--fresh clears it');
+  // A file of the earlier form, or a damaged field, reads as nothing placed.
+  putRun(t.main, { placed: { rrr: 'avel', 'not an id!': { machine: 'avel' }, ok: { machine: 'avel', at: AT }, bad: { machine: 3 } } });
+  assert.deepEqual(Object.keys(loopModule.readRun(runFileOf(t.main)).placed), ['ok']);
+  putRun(t.main, {});
+  assert.deepEqual(loopModule.readRun(runFileOf(t.main)).placed, {});
+});
+
+test('remote AC-9 checkout: the worktree is made on the other clone from its branch', () => {
+  const t = remoteProject(['[ ] rrr'], {});
+  openChange(t.main, 'rrr', { script: 'devkit', why: 'doubt', request: 'Do rrr\n', lang: 'en', env: cleanEnv, machine: 'avel', places: '2', remote: true });
+  assert.equal(git(t.main, 'branch', '--list', 'rrr'), '', 'the open left no local branch');
+  assert.equal(git(t.other, 'branch', '--list', 'rrr'), '', 'the other clone has none either');
+  const machines = JSON.stringify([{ host: 'avel', folder: t.other, places: 2 }]);
+  const calls = [];
+  const run = (extra = [], opts = {}) => cmd(t.main, ['checkout', '--change', 'rrr', '--lang', 'en', '--machines', machines, ...extra], { ssh: localSsh(calls), ...opts });
+  const worktree = join(t.other, '.claude', 'worktrees', 'rrr');
+  const r = run();
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), { version: 1, change: 'rrr', machine: 'avel', worktree });
+  assert.equal(git(worktree, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rrr');
+  assert.equal(git(worktree, 'rev-parse', 'HEAD'), git(t.main, 'ls-remote', 'origin', 'refs/heads/rrr').split('\t')[0], 'from the claim\'s branch');
+  assert.equal(existsSync(join(worktree, 'openspec', 'changes', 'rrr', '.openspec.yaml')), true);
+  assert.deepEqual([calls[0].host, calls[0].argv.slice(0, 4), calls[0].argv.slice(4), calls[0].timeout], ['avel', ['node', '--input-type=module', '-', 'checkout'], [t.other, 'rrr'], 120_000]);
+  assert.deepEqual(JSON.parse(run().stdout), { version: 1, change: 'rrr', machine: 'avel', worktree }, 'asked again, it is the same worktree');
+  // Refusals: no claim, a machine that is not listed, a machine that fails. Exit 3, the reply names the change, and nothing is written locally.
+  const refusals = [
+    ['no claim', cmd(t.main, ['checkout', '--change', 'nothing', '--lang', 'en', '--machines', machines], { ssh: localSsh() })],
+    ['not listed', cmd(t.main, ['checkout', '--change', 'rrr', '--lang', 'en', '--machines', JSON.stringify([{ host: 'other', folder: '/x', places: 1 }])], { ssh: localSsh() })],
+    ['ssh fails', run([], { ssh: silentSsh })],
+  ];
+  for (const [name, r] of refusals) {
+    assert.equal(r.code, 3, name);
+    const reply = JSON.parse(r.stdout).reply;
+    assert.match(reply, /I could not make the folder of (nothing|rrr) on /, name);
+  }
+  assert.match(JSON.parse(refusals[2][1].stdout).reply, /no route to host/);
+  assert.equal(existsSync(runFileOf(t.main)), false, 'nothing is written locally');
+  assert.equal(cmd(t.main, ['checkout', '--change', 'rrr', '--lang', 'en', '--machines', 'avel:/r:2'], { ssh: localSsh() }).stdout, `${render('en', 'machines-unreadable')}\n`);
+});
+
+test('remote AC-11 next: a freed place gives one wake per state for the first waiting change', () => {
+  const waiting = [waitingOnAvel('w1'), waitingOnAvel('w2')];
+  const claims = { w1: claimOf('avel', { places: 1 }), w2: claimOf('avel', { places: 1 }) };
+  const holder = { h: claimOf('avel', { places: 1, placed: true }) };
+  const build = ({ claims: extra = {}, ...over } = {}) => machinesWorld({ lines: ['[ ] w1', '[ ] w2'], machines: [avelAnswers(waiting)], claims: { ...claims, ...extra }, ...over });
+  const wakesOf = (r) => r.actions.filter((a) => a.kind === 'wake');
+  const held = decideRoadmap(build({ claims: holder }));
+  assert.deepEqual(wakesOf(held), [], 'the place is held by h');
+  const freed = decideRoadmap(build());
+  assert.deepEqual(wakesOf(freed), [{ change: 'w1', kind: 'wake', machine: 'avel', message: '/devkit-openspec:devkit change w1', progressKey: 'wake' }], 'one, for the first in file order');
+  assert.ok(freed.lines.includes(say('roadmap-woken', { id: 'w1', machine: 'avel' })), freed.lines.join('|'));
+  assert.equal(freed.state.announced.w1, 'woken:0');
+  assert.deepEqual(wakesOf(decideRoadmap(build({ announced: freed.state.announced }))), [], 'never two for one state');
+  // Another change takes the place: the record of the wake is dropped, so the next freeing wakes again.
+  const taken = decideRoadmap(build({ claims: holder, announced: freed.state.announced }));
+  assert.equal(taken.state.announced.w1, undefined);
+  assert.deepEqual(wakesOf(decideRoadmap(build({ announced: taken.state.announced }))).map((a) => a.change), ['w1']);
+  // A wake starts no session: it is not held back on a turn nobody typed.
+  assert.deepEqual(wakesOf(decideRoadmap(build({ turn: 'event' }))).map((a) => a.change), ['w1']);
+  // A change waiting on this machine is woken too, with this machine's places from the run.
+  const local = machinesWorld({
+    lines: ['[ ] w0'], local: { w0: endAct('w0', 'blocked', 'no-place', { machine: 'mac', taken: 1, places: 1 }) }, claims: { w0: claimOf('mac', { places: 'run' }) }, machines: [avelAnswers()], places: 1,
+  });
+  assert.deepEqual(wakesOf(decideRoadmap(local)), [{ change: 'w0', kind: 'wake', machine: 'mac', message: '/devkit-openspec:devkit change w0', progressKey: 'wake' }]);
+  assert.deepEqual(wakesOf(decideRoadmap({ ...local, claims: { w0: claimOf('mac', { places: 'run' }), h: claimOf('mac', { placed: true }) } })), []);
+  // A machine that does not answer shows no waiting change.
+  assert.deepEqual(wakesOf(decideRoadmap(build({ machines: [avelSilent()] }))), []);
+});
+
+test('remote AC-11 next: no wake without session mode', () => {
+  const f = machinesWorld({
+    lines: ['[ ] w0', '[ ] w1'], local: { w0: endAct('w0', 'blocked', 'no-place', { machine: 'mac', taken: 0, places: 1 }) },
+    claims: { w0: claimOf('mac', { places: 'run' }), w1: claimOf('avel', { places: 1 }) }, machines: [avelAnswers([waitingOnAvel('w1')])], places: 1,
+  });
+  assert.deepEqual(decideRoadmap({ ...f, changeSessions: true }).actions.filter((a) => a.kind === 'wake').map((a) => [a.change, a.machine]), [['w0', 'mac'], ['w1', 'avel']], 'one per machine in session mode');
+  const plain = decideRoadmap({ ...f, changeSessions: false });
+  assert.deepEqual(plain.actions.filter((a) => a.kind === 'wake'), []);
+  assert.equal(plain.lines.some((l) => l.includes(render('en', 'roadmap-woken', { id: 'w0', machine: 'mac' }))), false);
+});
+
+test('remote AC-12 next: a silent machine gets no change, and its placed change no session', () => {
+  const claims = { rrr: claimOf('avel') };
+  const f = machinesWorld({ lines: ['[ ] rrr', '[ ] bbb'], claims, machines: [avelSilent()], placed: { rrr: { machine: 'avel', at: AT } } });
+  const r = decideRoadmap(f);
+  assert.deepEqual(changesOf(r), [['bbb', 'start']], 'no session for rrr');
+  assert.deepEqual(startsOf(r), [['bbb', 'mac', false, 'run']], 'the new change stays on this machine');
+  assert.ok(r.lines.includes(say('roadmap-machine-silent', { machine: 'avel' })), r.lines.join('|'));
+  assert.equal(r.state.announced['machine:avel'], 'silent');
+  assert.equal(r.lines.some((l) => /rrr/.test(l) && /started/i.test(l)), false);
+  const again = decideRoadmap({ ...f, announced: r.state.announced });
+  assert.equal(again.lines.includes(say('roadmap-machine-silent', { machine: 'avel' })), false, 'once per silence');
+  // It answers again: the record goes, so a later silence is said again, and its placed change gets its session.
+  const back = decideRoadmap({ ...f, machines: [avelAnswers()], announced: r.state.announced });
+  assert.equal(back.state.announced['machine:avel'], undefined);
+  assert.deepEqual(changesOf(back).filter(([id]) => id === 'rrr'), [['rrr', 'session-start']]);
+  // The run does not end while the changes of a listed machine are only out of reach.
+  const quiet = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, machines: [avelSilent()], placed: { rrr: { machine: 'avel', at: AT } }, startedSessions: { rrr: { at: AT } } }));
+  assert.equal(quiet.end, null);
+});
+
+test('remote locks stop: no ssh from the stop hook, and a start only another machine could take does not refuse the stop', () => {
+  const t = remoteProject(['[ ] rr'], {});
+  openChange(t.other, 'rr', { script: 'devkit', why: 'doubt', request: 'Do rr\n', lang: 'en', env: cleanEnv, machine: 'avel' }); // pushed after this clone's fetch
+  putRun(t.main, { places: 1, changeSessions: true, turn: 'typed', placed: { rr: { machine: 'avel', at: AT } } });
+  const transcript = lkRun(1);
+  const routes = [];
+  const gh = (args) => { routes.push(args[1] ?? ''); return OFFLINE(); };
+  const ssh = () => assert.fail('the stop hook never reaches another machine');
+  withTmp((tmp) => {
+    const d = loopModule.roadmapStopDecision(lkStopInput(t.main, transcript), lkOpts({ env: { ...LK_ENV, CLAUDE_PLUGIN_OPTION_MACHINES: MACHINES_AVEL }, gh, ssh }));
+    assert.deepEqual([d.decision, d.why], ['allow', 'nothing-ready'], 'the placed change of a machine nobody asked has no session to start here');
+    nothingRecorded(tmp);
+  });
+  assert.deepEqual(routes.filter((r) => /changes\/rr/.test(r)), [], 'the claims are read with one ls-remote and no gh call');
+  assert.match(loopModule.readyText({ change: 'w1', kind: 'wake' }), /w1[^.]*place[^.]*free/);
+});
+
 // ---------------------------------------------------------------- change-state: phase 2, the board and the start title (design D-5, D-6, D-9)
 
 // The board text as { id: [block, row text] }, block one of owner, running, blocked, queue, outside.
@@ -4203,13 +4708,13 @@ test('change-state AC-7 start: a change session starts with its state\'s title',
 // The state changeState derives for change `id` of a run with a session per change started at AT, with the records a decision left.
 const heldStateOf = (action, records, waitsFor = null, lang = 'en') => changeLoopModule.changeState(
   action,
-  changeLoopModule.runFactsOf({ changeSessions: true, startedSessions: { [action.change]: { at: AT } }, placed: records.placed, queued: records.queued, waitsFor: { [action.change]: waitsFor } }, action.change, { onRoadmap: true }),
+  changeLoopModule.runFactsOf({ changeSessions: true, startedSessions: { [action.change]: { at: AT } }, occupied: records.occupied, queued: records.queued, waitsFor: { [action.change]: waitsFor } }, action.change, { onRoadmap: true }),
   { lang },
 );
 
 test('upfront AC-10 session-next: every held action carries the state changeState derives, and its title and icon come from it', () => {
   const cases = [
-    ['place', implAct('a'), { placed: { b: { at: AT } } }, 'held-place', '⏳', '⏳ a'],
+    ['place', implAct('a'), { occupied: { b: { at: AT } } }, 'held-place', '⏳', '⏳ a'],
     ['load', implAct('a'), { load: 95 }, 'held-load', '⏳', '⏳ a'],
     ['after', agentAct('a', 'proposal'), { waitsFor: 'x' }, 'held-after', '⏳', '⏳ a'],
     ['owner', grillAct('a'), {}, 'grill', '❓', '🙋 ❓ a'],
@@ -4237,13 +4742,13 @@ test('upfront AC-10 status: a held row is placed by the state\'s reason, in the 
       lang, lines: ['[ ] a', '[ ] b', '[ ] c (after: a)', '[ ] d'], places: 1,
       actions: { a: impl('a'), b: impl('b'), c: agentAct('c'), d: impl('d') },
       startedSessions: Object.fromEntries(['a', 'b', 'c', 'd'].map((id) => [id, { at: AT }])),
-      placed: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, d: { at: AT2, why: 'load' } }, waitsFor: { c: 'a' },
+      occupied: { a: { at: AT } }, queued: { b: { at: AT, why: 'place' }, d: { at: AT2, why: 'load' } }, waitsFor: { c: 'a' },
     });
     const rows = boardOf(facts).split('\n');
     const queueAt = rows.indexOf(render(lang, 'status-queue'));
     assert.ok(queueAt >= 0, `${lang}: the queue block`);
     for (const id of ['b', 'c', 'd']) {
-      const s = heldStateOf(facts.actions[id], { placed: facts.placed, queued: facts.queued }, facts.waitsFor[id] ?? null, lang);
+      const s = heldStateOf(facts.actions[id], { occupied: facts.occupied, queued: facts.queued }, facts.waitsFor[id] ?? null, lang);
       assert.match(s.reason?.code ?? '', /^held-/, `${lang} ${id}: the state's reason`);
       const at = rows.indexOf(`  ${id.padEnd(4)}${s.reason.text}`);
       assert.ok(at > queueAt, `${lang} ${id}: ${s.reason.text}\n${rows.join('\n')}`);
@@ -4252,7 +4757,7 @@ test('upfront AC-10 status: a held row is placed by the state\'s reason, in the 
 });
 
 test('upfront AC-10 command: the state command, session-next and the board agree on a change held for a place and one held for a dependency', () => {
-  const placeRoot = upChange({ roadmap: ['[ ] a'], run: { placed: { b: { at: AT } } } });
+  const placeRoot = upChange({ roadmap: ['[ ] a'], run: { occupied: { b: { at: AT } } } });
   approve(placeRoot);
   const next = jsonOf(doSessionNext(placeRoot).stdout);
   assert.deepEqual([next.kind, next.held.why, next.sessionTitle], ['held', 'place', '⏳ a']);
@@ -4382,39 +4887,39 @@ test('upfront AC-15 decide: the end done spares a recorded pid that is not a wai
 
 // Invariant (AC-9, finding 4): a change no longer open holds no place and no queue entry. Layer: check. Suite: roadmap-loop.
 test('upfront AC-9 check: a change that left the roadmap or was archived frees its place and its queue entry, and the change queued behind it takes the place', () => {
-  const held = { changeSessions: true, places: 1, ...startedIn('b'), placed: { gone: { at: AT } }, queued: { b: { at: AT2, why: 'place' } } };
+  const held = { changeSessions: true, places: 1, ...startedIn('b'), occupied: { gone: { at: AT } }, queued: { b: { at: AT2, why: 'place' } } };
   const left = projectWith(roadmapText('[ ] b'));
   addOpen(left, 'b');
   putRun(left, held);
   const r = doCheck(left);
   assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.deepEqual([Object.keys(stateOf(left).placed), stateOf(left).queued], [['b'], {}], 'gone has no line: b takes the place');
+  assert.deepEqual([Object.keys(stateOf(left).occupied), stateOf(left).queued], [['b'], {}], 'gone has no line: b takes the place');
   const archived = projectWith(roadmapText('[ ] gone', '[ ] b'));
   addOpen(archived, 'b');
   archiveOn(archived, 'gone');
   putRun(archived, held);
   const a = doCheck(archived);
   assert.equal(a.code, 0, a.stdout + a.stderr);
-  assert.deepEqual([Object.keys(stateOf(archived).placed), stateOf(archived).queued], [['b'], {}], 'gone is archived: b takes the place');
+  assert.deepEqual([Object.keys(stateOf(archived).occupied), stateOf(archived).queued], [['b'], {}], 'gone is archived: b takes the place');
   const open = projectWith(roadmapText('[ ] gone', '[ ] b'));
   addOpen(open, 'gone');
   addOpen(open, 'b');
   putRun(open, { ...held, ...startedIn('b', 'gone') });
   doCheck(open);
-  assert.deepEqual([Object.keys(stateOf(open).placed), Object.keys(stateOf(open).queued)], [['gone'], ['b']], 'a change still open keeps its place');
+  assert.deepEqual([Object.keys(stateOf(open).occupied), Object.keys(stateOf(open).queued)], [['gone'], ['b']], 'a change still open keeps its place');
 });
 
 // Invariant (AC-9, finding 4): the coordinating decision prunes the records of lines no longer open in a run with a session per change, and only there.
 // Layer: next command. Suite: roadmap-loop.
 test('upfront AC-9 next: a coordinating decision prunes the places and queue entries of lines no longer open, and a run without a session per change keeps them', () => {
-  const records = () => ({ placed: { a: { at: AT }, gone: { at: AT }, z: { at: AT } }, queued: { gone: { at: AT2, why: 'place' }, z: { at: AT2, why: 'load' } }, anyway: ['gone'] });
+  const records = () => ({ occupied: { a: { at: AT }, gone: { at: AT }, z: { at: AT } }, queued: { gone: { at: AT2, why: 'place' }, z: { at: AT2, why: 'load' } }, anyway: ['gone'] });
   const root = projectWith(roadmapText('[ ] a', '[ ] z'));
   addOpen(root, 'a');
   archiveOn(root, 'z');
   putRun(root, { changeSessions: true, places: 3, turn: 'typed', ...startedIn('a'), ...records() });
   const r = doNext(root, ['--turn', 'typed']);
   assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.deepEqual([Object.keys(stateOf(root).placed), stateOf(root).queued], [['a'], {}], 'only the open line keeps its record');
+  assert.deepEqual([Object.keys(stateOf(root).occupied), stateOf(root).queued], [['a'], {}], 'only the open line keeps its record');
   assert.deepEqual(stateOf(root).anyway, ['gone'], 'anyway is no record of a place: it is not pruned');
   const plain = projectWith(roadmapText('[ ] a', '[ ] z'));
   addOpen(plain, 'a');
@@ -4422,7 +4927,7 @@ test('upfront AC-9 next: a coordinating decision prunes the places and queue ent
   putRun(plain, { places: 3, turn: 'typed', ...records() });
   const p = doNext(plain, ['--turn', 'typed']);
   assert.equal(p.code, 0, p.stdout + p.stderr);
-  assert.deepEqual([Object.keys(stateOf(plain).placed).sort(), Object.keys(stateOf(plain).queued).sort()], [['a', 'gone', 'z'], ['gone', 'z']], 'a run with no session per change keeps them');
+  assert.deepEqual([Object.keys(stateOf(plain).occupied).sort(), Object.keys(stateOf(plain).queued).sort()], [['a', 'gone', 'z'], ['gone', 'z']], 'a run with no session per change keeps them');
 });
 
 // Invariant (AC-14, finding 5): the check has the triage answer a grill whose requirements hold no triage section by the loop's own reader. Layer: check.
@@ -4471,13 +4976,13 @@ test('upfront AC-14 check: a grill of a change on flow 1 gives no triage action,
 test('upfront AC-9 lock stop: guard.mjs stop lets a claimed change session held for a place stop with a held log line, and refuses a session that did not claim the ticket', () => {
   const log = join(lkSandbox(), 'hooks.jsonl');
   const env = { TMPDIR: lkSandbox(), DEVKIT_HOOK_LOG: log, CLAUDE_PLUGIN_OPTION_LANGUAGE: 'en' };
-  const held = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), placed: { b: { at: AT } } } });
+  const held = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), occupied: { b: { at: AT } } } });
   approve(held);
   const before = readFileSync(runFileOf(held), 'utf8');
   const stop = lkHook('stop', upStopInput(held), env);
   assert.equal(stop.code, 0, stop.err);
   assert.equal(readFileSync(runFileOf(held), 'utf8'), before, 'the stop writes nothing');
-  const other = upChange({ run: { tickets: upTickets('a', { claimedBy: 'S-other' }), placed: { b: { at: AT } } } });
+  const other = upChange({ run: { tickets: upTickets('a', { claimedBy: 'S-other' }), occupied: { b: { at: AT } } } });
   approve(other);
   const refused = lkHook('stop', upStopInput(other), { ...env, TMPDIR: lkSandbox() });
   assert.equal(refused.code, 2, refused.out);
@@ -4498,13 +5003,13 @@ test('upfront AC-9 session-next: the place is decided again on the run file as r
   const lockSleep = () => { // the other session takes the place while this one waits for the lock
     calls.push(1);
     if (calls.length > 1) return;
-    writeFileSync(runFileOf(root), JSON.stringify({ ...stateOf(root), placed: { b: { at: AT } } }));
+    writeFileSync(runFileOf(root), JSON.stringify({ ...stateOf(root), occupied: { b: { at: AT } } }));
     rmSync(lock);
   };
   const action = loopModule.sessionNext(root, 'a', { env: cleanEnv, lang: 'en', load: 10, limit: 80, gh: OFFLINE, write: true, lockSleep });
   assert.equal(calls.length, 1, 'the call waited for the lock once');
   assert.deepEqual([action.kind, action.held?.why], ['held', 'place'], 'the place a first read found free was taken: the decision is made again');
-  assert.deepEqual([Object.keys(stateOf(root).placed), Object.keys(stateOf(root).queued), stateOf(root).queued.a?.why], [['b'], ['a'], 'place']);
+  assert.deepEqual([Object.keys(stateOf(root).occupied), Object.keys(stateOf(root).queued), stateOf(root).queued.a?.why], [['b'], ['a'], 'place']);
 });
 
 // The first message of the session the roadmap run started on 2026-11-22 for this change, as the transcript recorded it (Claude Code 2.1.326):
@@ -4591,13 +5096,13 @@ test('upfront AC-8 skill: after a merge-base exit 3 the change session declares 
   assert.ok(r.stdout.includes(render('en', 'blocked-why.base-conflict', { error: 'x' })), r.stdout);
 });
 
-// Invariant (AC-1, AC-2, review round 1): ADR 0020 is accepted by the owner's words in approval.md with its amendments of ADR 0004 and ADR 0010's decision 8,
+// Invariant (AC-1, AC-2, review round 1): ADR 0021 is accepted by the owner's words in approval.md with its amendments of ADR 0004 and ADR 0010's decision 8,
 // its Notes and the config line follow, and the changelog calls the new subcommands by name and the two actions actions. Layer: the documents. Suite: roadmap-loop.
-test('upfront ADR 0020: the documents follow', () => {
+test('upfront ADR 0021: the documents follow', () => {
   const REPO = join(HERE, '..', '..', '..');
   const read = (...p) => readFileSync(join(REPO, ...p), 'utf8');
   const flat = (text) => text.replace(/\s+/g, ' ');
-  const name = '0020-a-roadmap-run-opens-every-change-at-its-start.md';
+  const name = '0021-a-roadmap-run-opens-every-change-at-its-start.md';
   const adr = read('docs', 'adr', name);
   assert.match(adr, /^- Status: accepted$/m);
   const changes = join(REPO, 'openspec', 'changes');
@@ -4614,12 +5119,12 @@ test('upfront ADR 0020: the documents follow', () => {
   assert.match(amends, /ADR 0010 \(0010-openspec-as-the-harness\.md\)[^;]*decision 8/, 'and ADR 0010\'s decision 8');
   const decision = flat(sectionOf(adr, '## Decision', '## Consequences'));
   for (const word of ['renumber', 'follow-up']) assert.ok(decision.includes(word), `the Decision says ${word}`);
-  const link = `[ADR 0020](${name})`;
+  const link = `[ADR 0021](${name})`;
   const adr4 = read('docs', 'adr', '0004-devkit-per-project.md');
-  assert.ok(adr4.split('\n').slice(0, 8).includes(`- Amended by ADR 0020 (${name})`), 'ADR 0004 has the Amended by line in its header');
+  assert.ok(adr4.split('\n').slice(0, 8).includes(`- Amended by ADR 0021 (${name})`), 'ADR 0004 has the Amended by line in its header');
   const note4 = flat(adr4.slice(adr4.indexOf('Note (roadmap-sessions-upfront')));
   assert.ok(adr4.includes('Note (roadmap-sessions-upfront'), 'ADR 0004 has the Note');
-  assert.ok(note4.split(' Note (')[0].includes(link), 'the Note links ADR 0020');
+  assert.ok(note4.split(' Note (')[0].includes(link), 'the Note links ADR 0021');
   const adr10 = read('docs', 'adr', '0010-openspec-as-the-harness.md');
   const note10 = flat(adr10.slice(adr10.indexOf('Note (roadmap-sessions-upfront'))).split(' Note (')[0];
   assert.ok(adr10.includes('Note (roadmap-sessions-upfront'), 'ADR 0010 has the Note');
@@ -4627,7 +5132,7 @@ test('upfront ADR 0020: the documents follow', () => {
   const adrs = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
   assert.ok(adrs.includes('amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017'), 'the ADRs line names the amended ADRs');
   const log = read('CHANGELOG.md');
-  const entryStart = log.indexOf('## 0.36.0');
+  const entryStart = log.indexOf('## 0.37.0');
   const entry = flat(log.slice(entryStart, log.indexOf('\n## ', entryStart + 1)));
   const subcommands = /New subcommands:([^.]*)\./.exec(entry)?.[1] ?? '';
   for (const sub of ['session-next', 'session-wait', 'merge-base', 'push', 'check']) assert.ok(subcommands.includes(`\`${sub}\``), `the entry names ${sub} a subcommand`);
@@ -4635,4 +5140,59 @@ test('upfront ADR 0020: the documents follow', () => {
     assert.ok(!subcommands.includes(action), `${action} is no subcommand`);
     assert.ok(entry.includes(`\`${action}\``), `the entry still names ${action}`);
   }
+});
+
+// ================================================================ roadmap-sessions-upfront over remote-worker: the second merge of main
+
+// Invariant (the run file): the places held (`occupied`, { at }) and the changes opened for another machine (`placed`, { machine, at }) are two records:
+// readRun keeps each in its own shape, and both outlive the session that started the run. Layer: readRun and OUTLIVES. Suite: guard.
+test('upfront merge run file: occupied and placed are two records that readRun keeps apart, and both outlive a session', () => {
+  const root = projectWith(null);
+  mkdirSync(dirname(runFileOf(root)), { recursive: true });
+  const read = (obj) => { writeFileSync(runFileOf(root), JSON.stringify(obj)); return loopModule.readRun(runFileOf(root)); };
+  const both = read({ occupied: { a: { at: AT } }, placed: { b: { machine: 'avel', at: AT } } });
+  assert.deepEqual([both.occupied, both.placed], [{ a: { at: AT } }, { b: { machine: 'avel', at: AT } }]);
+  const crossed = read({ occupied: { a: { machine: 'avel', at: AT } }, placed: { b: { at: AT } } });
+  assert.deepEqual([crossed.occupied, crossed.placed], [{ a: { at: AT } }, {}], 'a place held names no machine, and a change opened elsewhere must');
+  for (const key of ['occupied', 'placed']) assert.ok(changeLoopModule.OUTLIVES.includes(key), `${key} outlives the session that started the run`);
+  assert.deepEqual(Object.keys(loopModule.readRun(join(lkSandbox(), 'none.json'))).filter((k) => ['occupied', 'placed'].includes(k)).sort(), ['occupied', 'placed']);
+});
+
+// Invariant (the machines setting over the one-opening rule): with the setting set the load picks the machine, so a loaded machine opens no change
+// and an opening is held when no machine answers; the lines waiting for a dependency open with the ready ones. Layer: decideRoadmap. Suite: guard.
+test('upfront merge placement: with the machines setting set a run with a session per change opens the waiting lines with the ready ones, a loaded machine opens none', () => {
+  const lines = ['[ ] r1', '[ ] r2 (after: r1)'];
+  assert.deepEqual(startsOf(decideRoadmap(machinesWorld({ lines }))), [['r1', 'mac', false, 'run'], ['r2', 'avel', true, 2]], 'both open, the waiting line too');
+  assert.deepEqual(startsOf(decideRoadmap(machinesWorld({ lines, load: 90, limit: 80 }))), [['r1', 'avel', true, 2], ['r2', 'avel', true, 2]], 'the loaded machine takes none');
+  const held = decideRoadmap(machinesWorld({ lines, machines: [avelSilent()], load: 90, limit: 80 }));
+  assert.deepEqual(startsOf(held), [], 'no machine can take them');
+  assert.deepEqual(changesOf(held).filter(([, kind]) => kind !== 'wake'), [['r1', 'hold']]);
+});
+
+// Invariant (the entry ticket): a session started on another machine cannot be claimed there (that machine's hook reads its own run file), so the
+// start carries the typed form alone, no `devkit-start:` line, and the run records no ticket for it. Layer: next. Suite: guard.
+test('upfront merge ticket: a session start for a change opened on another machine carries no ticket and the run records none', () => {
+  const t = remoteProject(['[ ] rrr'], { rrr: 'avel' });
+  const machines = JSON.stringify([{ host: 'avel', folder: t.other, places: 2 }]);
+  putRun(t.main, { changeSessions: true, turn: 'typed', starting: ['rrr'] });
+  const r = doNext(t.main, ['--turn', 'typed', '--machines', machines], { ssh: localSsh() });
+  assert.equal(r.code, 0, r.stderr);
+  const action = jsonOf(r.stdout).actions[0];
+  assert.deepEqual([action.change, action.kind, action.input.prompt], ['rrr', 'session-start', '/devkit-openspec:devkit change rrr']);
+  assert.deepEqual(stateOf(t.main).tickets, {}, 'no ticket recorded for it');
+});
+
+// Invariant (the periodic check over the machines setting): the check decides over the same machines as `next`, so the cron prompt and the command
+// carry the setting; an unreadable one is refused as `next` refuses it. Layer: checkPrompt and check. Suite: guard.
+test('upfront merge check: the periodic check carries the machines setting it was scheduled with and refuses an unreadable one', () => {
+  const text = JSON.stringify([{ host: 'avel', folder: '/home/me/repo', places: 2 }]);
+  assert.ok(loopModule.checkPrompt('en', 80, text).includes(`check --lang en --load-limit 80 --machines '${text}'`));
+  assert.equal(loopModule.checkPrompt('en', 80).includes('--machines'), false, 'no setting, no flag');
+  const t = remoteProject(['[ ] aaa'], {});
+  const calls = [];
+  const r = doCheck(t.main, ['--machines', 'avel:/r:2'], { ssh: (...a) => { calls.push(a); return silentSsh(); } });
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.stdout, `${render('en', 'machines-unreadable')}\n`);
+  assert.deepEqual(calls, [], 'no machine was reached');
+  assert.equal(existsSync(runFileOf(t.main)), false, 'nothing was written');
 });

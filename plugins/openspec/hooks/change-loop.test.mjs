@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
+import { hostname } from 'node:os';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
@@ -85,7 +86,8 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  version: 1, branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  version: 1, state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder',
+  branch: 'develop', base: 'master', default: 'main', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
@@ -1227,7 +1229,9 @@ test('change-loop open: O4 starts from origin/<default> after a fetch', () => {
   assert.match(b.reply, /short script/);
   assert.match(b.reply, /small change that is easy to undo/);
 
-  assert.equal(git(wt, 'rev-parse', 'HEAD'), sha, 'the branch starts from the fetched origin/main');
+  assert.equal(git(wt, 'rev-parse', 'HEAD~1'), sha, 'the branch starts from the fetched origin/main, the claim on top');
+  assert.equal(git(wt, 'log', '-1', '--format=%s'), 'chore(openspec): open add-csv-export');
+  assert.equal(git(t.main, 'ls-remote', 'origin', 'refs/heads/add-csv-export').split('\t')[0], git(wt, 'rev-parse', 'HEAD'), 'the claim is on origin');
   assert.equal(git(wt, 'symbolic-ref', '--short', 'HEAD'), 'add-csv-export');
   assert.equal(git(t.main, 'rev-parse', 'HEAD'), mainHead, 'the main checkout is untouched');
   assert.match(git(t.main, 'worktree', 'list', '--porcelain'), /branch refs\/heads\/add-csv-export/);
@@ -2450,7 +2454,7 @@ test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () 
   }
   assert.match(md, /AskUserQuestion/);
   // Invariant: the change part of the skill names no retired machinery and no schedule. Layer: skill text. Suite: change-loop.
-  // The session-start tool is named by the Roadmap section now (ADR 0014), and so is the roadmap run's one periodic check (ADR 0020); ADR 0006's wake-up stays retired.
+  // The session-start tool is named by the Roadmap section now (ADR 0014), and so is the roadmap run's one periodic check (ADR 0021); ADR 0006's wake-up stays retired.
   const roadmapAt = md.indexOf('## Roadmap');
   assert.doesNotMatch(md.slice(0, roadmapAt), /conduct-check|CronCreate|wake_when_done/);
   assert.doesNotMatch(md.slice(roadmapAt), /conduct-check|wake_when_done/);
@@ -2570,9 +2574,10 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); roadmap-sessions-upfront moves it to 0.32.0 (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.32\.0/, 'the CI snippet pins the current release (roadmap-sessions-upfront: 0.32.0)');
-  assert.doesNotMatch(flow, /v0\.31\.0/, 'no pin left on main\'s release before it (change-version-pin)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); roadmap-sessions-upfront moves it to 0.33.0 (release 0.37.0), above remote-worker's 0.32.0 (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.33\.0/, 'the CI snippet pins the current release (roadmap-sessions-upfront: 0.33.0)');
+  assert.doesNotMatch(flow, /v0\.32\.0/, 'no pin left on main\'s release before it (remote-worker)');
+  assert.doesNotMatch(flow, /v0\.31\.0/, 'no pin left on the release before that (change-version-pin)');
   assert.doesNotMatch(flow, /v0\.30\.1/, 'no pin left on main\'s release before it (retro of release-tags)');
   assert.doesNotMatch(flow, /v0\.30\.0/, 'no pin left on the release before that (release-tags)');
   assert.doesNotMatch(flow, /v0\.29\.0/, 'no pin left on main\'s release before it (release-merge-conflict)');
@@ -3895,6 +3900,440 @@ test('upfront AC-11 delivery: renumber-adr is a hand-off of the implementer, wit
   assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', TDD, 'renumber-adr', 'implementation', 'tdd-implementer', 0]);
   assert.deepEqual(a.detail.files, files);
   assert.equal(a.progressKey, 'implementation/renumber-adr@abc123');
+});
+
+// ---------------------------------------------------------------- remote-worker: the claim at open (phase 1)
+
+// The claim commits, so the tests carry an identity of their own, as deliver-check.test.mjs does for its helpers.
+const IDENT = { GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid', GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid' };
+for (const [k, v] of Object.entries(IDENT)) process.env[k] ??= v;
+
+// The "other machine": a second clone of the same bare remote.
+function otherClone(t) {
+  const dir = tmpFolder('devkit-change-loop-machine-');
+  const clone = join(dir, 'clone');
+  git(dir, 'clone', '-q', t.originDir, clone);
+  mkdirSync(join(clone, 'openspec', 'changes', 'archive'), { recursive: true }); // git keeps no empty folder: the project's change folder
+  return realpathSync(clone);
+}
+const openOn = (cwd, id, machine, extra = {}) => openChange(cwd, id, { script: 'devkit', why: 'doubt', request: 'Add a thing\n', lang: 'en', env: cleanEnv, machine, ...extra });
+const claimOnOrigin = (t, id) => git(t.main, 'ls-remote', 'origin', `refs/heads/${id}`).split('\t')[0];
+const localHostname = () => hostname().split('.')[0].replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 64) || 'machine';
+const yamlOf = (wt, id) => readFileSync(join(wt, 'openspec', 'changes', id, '.openspec.yaml'), 'utf8');
+// What an open that is refused leaves: nothing local (the remote-tracking refs may have moved with the fetch).
+const localLeft = (t, id) => ({
+  folders: existsSync(join(t.main, 'openspec', 'changes', id)) || existsSync(join(wtOf(t, id), 'openspec')),
+  wt: existsSync(wtOf(t, id)),
+  branch: git(t.main, 'branch', '--list', id),
+  worktrees: git(t.main, 'worktree', 'list', '--porcelain'),
+});
+const refusal = (e) => e?.name === 'LoopRefusal';
+
+test('remote AC-1 open: a branch on origin with a claim refuses the open, naming its machine, and creates nothing', () => {
+  const t = freshProject();
+  const clone = otherClone(t);
+  openOn(clone, 'shared-thing', 'avel');
+  git(t.main, 'fetch', '-q', 'origin');
+  const before = localLeft(t, 'shared-thing');
+  const snap = snapshot(t.main);
+  const r = openRun(t.main, 'shared-thing');
+  assert.equal(r.code, 3, r.stdout + r.stderr);
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  assert.equal(body(r).reply, render('en', 'claimed', { id: 'shared-thing', machine: 'avel' }));
+  assert.match(body(r).reply, /avel/);
+  assert.equal(snapshot(t.main), snap, 'nothing was created: branches, worktrees and folders are as they were');
+  assert.deepEqual(localLeft(t, 'shared-thing'), before);
+  assert.equal(git(t.main, 'branch', '--list', 'shared-thing'), '', 'no refs/heads/shared-thing');
+  assert.equal(body(openRun(t.main, 'shared-thing', { lang: 'pt-BR' })).reply, render('pt-BR', 'claimed', { id: 'shared-thing', machine: 'avel' }));
+});
+
+test('remote AC-1 open: a claim with no machine says another machine', () => {
+  const t = freshProject();
+  const clone = otherClone(t);
+  git(clone, 'checkout', '-q', '-b', 'old-claim');
+  put(clone, { 'openspec/changes/old-claim/.openspec.yaml': 'schema: devkit\n', 'openspec/changes/old-claim/requirements.md': 'x\n' });
+  commitAll(clone, 'a branch from before the claim');
+  git(clone, 'push', '-q', 'origin', 'old-claim');
+  git(t.main, 'fetch', '-q', 'origin');
+  const snap = snapshot(t.main);
+  const r = openRun(t.main, 'old-claim');
+  assert.equal(r.code, 3, r.stdout + r.stderr);
+  assert.equal(body(r).reply, render('en', 'claimed-elsewhere', { id: 'old-claim' }));
+  assert.match(body(r).reply, /another machine/);
+  assert.equal(snapshot(t.main), snap);
+  assert.equal(git(t.main, 'branch', '--list', 'old-claim'), '');
+});
+
+test('remote AC-2 open: the claim on origin holds requirements.md and the machine, with machines unset', () => {
+  const t = freshProject();
+  const r = openRun(t.main, 'claim-me', { script: 'devkit-lite', why: 'small' });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const wt = wtOf(t, 'claim-me');
+  const sha = claimOnOrigin(t, 'claim-me');
+  assert.match(sha, /^[0-9a-f]{40}$/, 'origin has the branch');
+  assert.equal(git(wt, 'rev-parse', 'HEAD'), sha, 'the local branch is the claim');
+  assert.equal(git(wt, 'log', '-1', '--format=%s'), 'chore(openspec): open claim-me');
+  const files = git(wt, 'show', '--name-only', '--format=', 'HEAD').split('\n');
+  assert.ok(files.includes('openspec/changes/claim-me/requirements.md'), files.join());
+  assert.ok(files.includes('openspec/changes/claim-me/.openspec.yaml'), files.join());
+  assert.match(git(t.main, 'show', `${sha}:openspec/changes/claim-me/.openspec.yaml`), new RegExp(`^x-devkit-machine: ${localHostname()}$`, 'm'));
+  assert.equal(/x-devkit-places/.test(yamlOf(wt, 'claim-me')), false, 'no places without a roadmap run');
+  assert.match(yamlOf(wt, 'claim-me'), /^schema: devkit-lite$/m);
+  assert.equal(git(wt, 'status', '--porcelain'), '', 'the claim left nothing uncommitted');
+});
+
+test('remote AC-2 open: a remote open claims for that machine and leaves no local worktree or branch', () => {
+  const t = freshProject();
+  const r = openRun(t.main, 'for-avel', { args: ['--script', 'devkit', '--why', 'doubt', '--machine', 'avel', '--places', '2', '--remote'] });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const b = JSON.parse(r.stdout.split('\n').slice(1).join('\n'));
+  assert.equal(b.worktree, null);
+  assert.equal(b.reply, render('en', 'opened-on', { id: 'for-avel', machine: 'avel', script: 'devkit', why: 'doubt' }));
+  const sha = claimOnOrigin(t, 'for-avel');
+  assert.match(sha, /^[0-9a-f]{40}$/);
+  const yaml = git(t.main, 'show', `${sha}:openspec/changes/for-avel/.openspec.yaml`);
+  assert.match(yaml, /^x-devkit-machine: avel$/m);
+  assert.match(yaml, /^x-devkit-places: 2$/m);
+  assert.equal(git(t.main, 'show', `${sha}:openspec/changes/for-avel/requirements.md`).includes('> Add a CSV export'), true);
+  assert.equal(git(t.main, 'branch', '--list', 'for-avel'), '');
+  assert.equal(existsSync(wtOf(t, 'for-avel')), false);
+  assert.equal(git(t.main, 'worktree', 'list', '--porcelain').includes('for-avel'), false);
+  assert.equal(existsSync(join(t.main, 'openspec', 'changes', 'for-avel')), false);
+});
+
+test('remote AC-2 open: a machine name or a places value that is not valid is a usage error and creates nothing', () => {
+  const t = freshProject();
+  const base = ['--script', 'devkit', '--why', 'doubt'];
+  const cases = {
+    'a name starting with a dash': ['--machine', '-avel'],
+    'a name with a space': ['--machine', 'my mac'],
+    'a name of 65 characters': ['--machine', 'a'.repeat(65)],
+    'places 0': ['--machine', 'avel', '--places', '0'],
+    'places 100': ['--machine', 'avel', '--places', '100'],
+    'places 1.5': ['--machine', 'avel', '--places', '1.5'],
+    'places a word': ['--machine', 'avel', '--places', 'two'],
+    'a remote open with no machine': ['--remote'],
+  };
+  const snap = snapshot(t.main);
+  for (const [label, extra] of Object.entries(cases)) {
+    const r = openRun(t.main, 'bad-claim', { args: [...base, ...extra] });
+    assert.equal(r.code, 3, `${label}: ${r.stdout}`);
+    assert.equal(r.stdout.startsWith('devkit-run:'), false, label);
+    assert.equal(body(r).reply, render('en', 'request-unreadable'), label);
+    assert.equal(snapshot(t.main), snap, `${label}: no worktree, folder or branch`);
+    assert.equal(claimOnOrigin(t, 'bad-claim'), '', `${label}: nothing pushed`);
+  }
+  assert.equal(openRun(t.main, 'good-claim', { args: [...base, '--machine', 'a'.repeat(64), '--places', 'run'] }).code, 0, '64 characters and places run are valid');
+});
+
+test('remote AC-3 open: the clone that pushes second is refused and leaves nothing', () => {
+  const t = freshProject();
+  const clone = otherClone(t);
+  let winner;
+  let refused = null;
+  try { openOn(t.main, 'race-id', 'mac', { beforePush: () => { winner = openOn(clone, 'race-id', 'avel'); } }); } catch (e) { refused = e; }
+  assert.ok(winner, 'the other clone opened between the check and the push');
+  assert.ok(refusal(refused), `the second push is refused: ${refused}`);
+  assert.equal(refused.reply, render('en', 'claimed', { id: 'race-id', machine: 'avel' }));
+  assert.equal(claimOnOrigin(t, 'race-id'), git(winner.worktree, 'rev-parse', 'HEAD'), 'origin holds the winner\'s claim');
+  const left = localLeft(t, 'race-id');
+  assert.deepEqual([left.folders, left.wt, left.branch, left.worktrees.includes('race-id')], [false, false, '', false], 'nothing is left here');
+});
+
+const openChildOn = (cwd, id, machine) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [LOOP, 'open', id, '--script', 'devkit', '--why', 'doubt', '--lang', 'en', '--machine', machine], { cwd, env: { ...cleanEnv, ...IDENT }, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.on('error', reject);
+  child.on('exit', (code) => resolve({ code, stdout }));
+  child.stdin.end('Add a thing\n');
+});
+
+test('remote AC-3 open: two clones opening one id at once, exactly one wins', async () => {
+  const t = freshProject();
+  const clone = otherClone(t);
+  const [a, b] = await Promise.all([openChildOn(t.main, 'same-moment', 'mac'), openChildOn(clone, 'same-moment', 'avel')]);
+  assert.deepEqual([a.code, b.code].sort(), [0, 3], `${a.stdout}\n${b.stdout}`);
+  const [win, lose, winRoot, loseRoot, winName, loseName] = a.code === 0 ? [a, b, t.main, clone, 'mac', 'avel'] : [b, a, clone, t.main, 'avel', 'mac'];
+  assert.equal(JSON.parse(lose.stdout).reply, render('en', 'claimed', { id: 'same-moment', machine: winName }), loseName);
+  const sha = claimOnOrigin(t, 'same-moment');
+  assert.equal(git(join(winRoot, '.claude', 'worktrees', 'same-moment'), 'rev-parse', 'HEAD'), sha, 'origin holds the winner\'s commit');
+  assert.equal(win.code, 0);
+  assert.equal(existsSync(join(loseRoot, '.claude', 'worktrees', 'same-moment')), false);
+  assert.equal(existsSync(join(loseRoot, 'openspec', 'changes', 'same-moment')), false);
+  assert.equal(git(loseRoot, 'branch', '--list', 'same-moment'), '');
+});
+
+test('remote AC-4 open: with no origin nothing is committed or pushed', () => {
+  const root = devkitRepo();
+  const before = git(root, 'rev-parse', 'HEAD');
+  assert.equal(git(root, 'remote'), '');
+  const r = openRun(root, 'no-origin', { script: 'devkit' });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const wt = join(root, '.claude', 'worktrees', 'no-origin');
+  assert.equal(git(wt, 'rev-parse', 'HEAD'), before, 'no commit was made');
+  assert.equal(git(wt, 'rev-list', '--count', 'HEAD'), git(root, 'rev-list', '--count', 'main'));
+  assert.match(git(wt, 'status', '--porcelain'), /openspec\/changes/, 'the folder is left uncommitted, as before');
+  assert.equal(/x-devkit-(machine|places)/.test(yamlOf(wt, 'no-origin')), false);
+  assert.ok(existsSync(join(wt, 'openspec', 'changes', 'no-origin', 'requirements.md')));
+  const named = openRun(root, 'no-origin-named', { args: ['--script', 'devkit', '--why', 'doubt', '--machine', 'avel', '--places', '2'] });
+  assert.equal(named.code, 0, named.stdout + named.stderr);
+  const namedWt = join(root, '.claude', 'worktrees', 'no-origin-named');
+  assert.equal(git(namedWt, 'rev-parse', 'HEAD'), before, 'a machine name with no origin commits nothing either');
+  assert.equal(/x-devkit-(machine|places)/.test(yamlOf(namedWt, 'no-origin-named')), false, 'and writes no claim key');
+});
+
+test('remote locks claims: the claims of a stale clone cost at most 8 gh calls, and none for the default branch', () => {
+  const t = freshProject();
+  const clone = otherClone(t);
+  const ids = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6'];
+  for (const id of ids) openOn(clone, id, 'avel');
+  put(clone, { 'NEWS.md': 'news\n' });
+  commitAll(clone, 'news on origin');
+  git(clone, 'push', '-q', 'origin', 'main');
+  const mainSha = git(clone, 'rev-parse', 'HEAD');
+  assert.equal(git(t.main, 'ls-remote', '--heads', 'origin').split('\n').length, 7, 'six claims and main are on origin');
+  assert.equal(git(t.main, 'branch', '--list', '--remotes', 'origin/c*'), '', 'this clone has not fetched them');
+
+  const calls = [];
+  const gh = (args, opts = {}) => {
+    const route = args[1] ?? '';
+    calls.push({ route, opts });
+    if (/changes\/c\d\?/.test(route)) return { status: 0, stdout: JSON.stringify([{ name: '.openspec.yaml' }, { name: 'requirements.md' }]), stderr: '' };
+    if (/changes\/c\d\/\.openspec\.yaml/.test(route)) return { status: 0, stdout: JSON.stringify({ encoding: 'base64', content: Buffer.from('schema: devkit\nx-devkit-machine: avel\n').toString('base64') }), stderr: '' };
+    return { status: 1, stdout: '', stderr: 'not found' };
+  };
+  const result = changeLoopModule.remoteClaims(t.main, { env: cleanEnv, gh });
+  assert.equal(result.readable, true);
+  const claimCalls = calls.filter((c) => /changes\/c\d/.test(c.route));
+  assert.ok(claimCalls.length >= 1 && claimCalls.length <= 8, `${claimCalls.length} gh calls`);
+  assert.equal(calls.some((c) => c.route.includes(mainSha) || /changes\/main/.test(c.route)), false, 'the default branch is never read through gh');
+  assert.ok(claimCalls.every((c) => c.opts.timeout === 4000), 'every call has its own timeout');
+  assert.deepEqual([...result.claims.keys()].sort(), ids);
+  assert.deepEqual(ids.slice(0, 4).map((id) => result.claims.get(id).machine), ['avel', 'avel', 'avel', 'avel'], 'the first four are read');
+  assert.deepEqual(ids.slice(4).map((id) => result.claims.get(id).machine), [null, null], 'a branch the budget left unread reads as no claim');
+});
+
+test('remote locks claims: a listing with approval.md and a .openspec.yaml with places reads as placed with machine and places', () => {
+  const t = freshProject();
+  const clone = otherClone(t);
+  openOn(clone, 'p1', 'avel');
+  openOn(clone, 'p2', 'avel');
+  openOn(clone, 'p3', 'avel');
+  const yamls = {
+    p1: 'schema: devkit\nx-devkit-machine: avel\nx-devkit-places: 2\n',
+    p2: 'schema: devkit\nx-devkit-machine: avel\nx-devkit-places: run\n',
+    p3: 'schema: devkit\nx-devkit-machine: avel\n',
+  };
+  const listing = { p1: ['.openspec.yaml', 'approval.md'], p2: ['.openspec.yaml', 'approval.md'], p3: ['.openspec.yaml', 'requirements.md'] };
+  const gh = (args) => {
+    const route = args[1] ?? '';
+    const id = /changes\/(p\d)/.exec(route)?.[1];
+    if (!id) return { status: 1, stdout: '', stderr: 'not found' };
+    if (/\.openspec\.yaml/.test(route)) return { status: 0, stdout: JSON.stringify({ encoding: 'base64', content: Buffer.from(yamls[id]).toString('base64') }), stderr: '' };
+    return { status: 0, stdout: JSON.stringify(listing[id].map((name) => ({ name }))), stderr: '' };
+  };
+  const result = changeLoopModule.remoteClaims(t.main, { env: cleanEnv, gh });
+  assert.equal(result.readable, true);
+  const read = (id) => { const c = result.claims.get(id); return [c.machine, c.places, c.placed]; };
+  assert.deepEqual(read('p1'), ['avel', 2, true], 'an approval.md in the folder is a placed change, and a number of places is a number');
+  assert.deepEqual(read('p2'), ['avel', 'run', true], 'places run stays run');
+  assert.deepEqual(read('p3'), ['avel', null, false], 'no approval.md is unplaced, and no places key is null');
+});
+
+// ---------------------------------------------------------------- remote-worker: the place on the change's side (phase 2)
+
+const PLACE_CONFIG = 'schema: devkit\nship:\n  devkit: pr\n';
+const hash12 = (text) => `sha256:${createHash('sha256').update(text).digest('hex').slice(0, 12)}`;
+
+// A change `mine` claimed for machine `avel` with `places` (the open writes the claim), its plan stages passed and
+// approval.md written in its worktree, nothing of it committed after the claim.
+function placedChange({ places = '1', run = null, id = 'mine', project = null } = {}) {
+  const t = project ?? roundRepo({ roadmap: '# Roadmap\n', config: PLACE_CONFIG });
+  if (run) {
+    const file = join(git(t.main, 'rev-parse', '--path-format=absolute', '--git-common-dir'), 'devkit', 'roadmap-run.json');
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, `${JSON.stringify(run)}\n`);
+  }
+  openOn(t.main, id, 'avel', { places: places ?? undefined }); // places null: a change that records none
+  const wt = wtOf(t, id);
+  const c0 = git(wt, 'rev-parse', 'HEAD');
+  const dir = `openspec/changes/${id}`;
+  const readiness = `${head('readiness', c0)}# Readiness\n\n- Status: APPROVED\n`;
+  const files = {
+    requirements: '# Requirements\n', proposal: PROPOSAL, specs: '# Spec\n', design: '# Design\n', tasks: '# Tasks\n\n## 1. First\n- [ ] 1.1 code\n',
+  };
+  put(wt, {
+    [`${dir}/requirements.md`]: `${head('requirements', c0)}${files.requirements}`,
+    [`${dir}/proposal.md`]: `${head('proposal', c0)}${files.proposal}`,
+    [`${dir}/specs/s/spec.md`]: `${head('specs', c0)}${files.specs}`,
+    [`${dir}/design.md`]: `${head('design', c0)}${files.design}`,
+    [`${dir}/tasks.md`]: `${head('tasks', c0)}${files.tasks}`,
+    [`${dir}/readiness.md`]: readiness,
+    [`${dir}/approval.md`]: `${head('approval', c0)}# Approval\n\n- Status: APPROVED\n- Readiness: ${hash12(readiness)}\n`,
+  });
+  return { t, wt, id, env: { ...t.ghAt(wt).env, ...SET } };
+}
+
+// Another change of machine `avel`, opened and pushed from a second clone; `approved` also pushes its approval.md.
+function otherChangeOnAvel(t, id, { approved, machine = 'avel', places = '1' }) {
+  const clone = otherClone(t);
+  openOn(clone, id, machine, { places });
+  if (approved) {
+    const wt = join(clone, '.claude', 'worktrees', id);
+    put(wt, { [`openspec/changes/${id}/approval.md`]: `# Approval\n\n- Status: APPROVED\n` });
+    commitAll(wt, 'plan');
+    git(wt, 'push', '-q', 'origin', id);
+  }
+  return clone;
+}
+const nextIn = (f, extra = []) => main(['next', '--change', f.id, '--lang', 'en', ...extra], { cwd: f.wt, env: f.env });
+
+const fetchOrigin = (t) => git(t.main, 'fetch', '-q', '--prune', 'origin');
+const placeIn = (f, id = f.id) => main(['place', id, '--lang', 'en'], { cwd: wtOf(f.t, id), env: f.env });
+const placeBody = (r) => JSON.parse(r.stdout);
+const actionIn = (f) => parsed(nextIn(f)).action;
+
+test('remote AC-10 next: with no free place the change ends waiting for a place, icon ⏳', () => {
+  const f = placedChange();
+  otherChangeOnAvel(f.t, 'busy', { approved: true });
+  fetchOrigin(f.t);
+  const r = nextIn(f);
+  assert.equal(r.code, 2, r.stdout + r.stderr);
+  assert.match(r.stdout, /^devkit-run: mine\ndevkit-end: mine blocked\n/);
+  const a = actionIn(f);
+  assert.deepEqual([a.kind, a.end.state, a.end.why, a.stage], ['end', 'blocked', 'no-place', 'implementation']);
+  assert.deepEqual(a.params, { id: 'mine', machine: 'avel', taken: 1, places: 1 });
+  assert.equal(a.reply, render('en', 'waiting-place', { id: 'mine', machine: 'avel', taken: 1, places: 1 }));
+  assert.match(a.reply, /waits for a free place on avel/);
+  assert.equal(a.icon, '⏳');
+  assert.equal(a.sessionTitle, '⏳ mine');
+  assert.equal('step' in a, false, 'no implementation step is handed');
+  assert.equal(render('en', 'blocked', { id: 'mine', why: 'no-place', machine: 'avel', taken: 1, places: 1 }).includes('waits for a free place on avel (1 of 1 taken)'), true);
+  assert.equal(parsed(main(['next', '--change', 'mine', '--lang', 'pt-BR'], { cwd: f.wt, env: f.env })).action.reply, render('pt-BR', 'waiting-place', { id: 'mine', machine: 'avel', taken: 1, places: 1 }));
+  assert.equal(git(f.t.main, 'show', `origin/mine:openspec/changes/mine/.openspec.yaml`).includes('x-devkit-places: 1'), true);
+});
+
+test('remote AC-10 next: a change held by no approval, or by another machine, takes no place', () => {
+  const f = placedChange();
+  otherChangeOnAvel(f.t, 'idle', { approved: false });
+  otherChangeOnAvel(f.t, 'elsewhere', { approved: true, machine: 'mac' });
+  fetchOrigin(f.t);
+  const a = actionIn(f);
+  assert.deepEqual([a.kind, a.step, a.detail.command.slice(2)], ['session', 'take-place', ['place', 'mine', '--lang', 'en']]);
+});
+
+test('remote AC-10 next: a free place gives take-place, and after it the implementation step', () => {
+  const f = placedChange({ places: '2' });
+  otherChangeOnAvel(f.t, 'busy', { approved: true });
+  fetchOrigin(f.t);
+  const first = actionIn(f);
+  assert.deepEqual([first.kind, first.step, first.stage, first.icon], ['session', 'take-place', 'implementation', '🛠️']);
+  assert.deepEqual(first.detail.command, ['node', LOOP, 'place', 'mine', '--lang', 'en']);
+  assert.match(first.progressKey, /^implementation\/take-place@/);
+  const placed = placeIn(f);
+  assert.equal(placed.code, 0, placed.stdout + placed.stderr);
+  assert.deepEqual(placeBody(placed), { version: 1, change: 'mine', taken: true, machine: 'avel', held: 1, places: 2 });
+  assert.equal(git(f.wt, 'status', '--porcelain', '--', 'openspec/changes/mine'), '', 'the plan was committed');
+  assert.equal(git(f.wt, 'log', '-1', '--format=%s'), 'chore(openspec): plan of mine');
+  assert.equal(git(f.t.main, 'ls-remote', 'origin', 'refs/heads/mine').split('\t')[0], git(f.wt, 'rev-parse', 'HEAD'), 'origin holds the plan');
+  assert.match(git(f.t.main, 'show', 'origin/mine:openspec/changes/mine/approval.md'), /Status: APPROVED/);
+  const after = actionIn(f);
+  assert.deepEqual([after.kind, after.step], ['agent', 'implement'], 'the place is taken: the first implementation step');
+  const again = placeIn(f);
+  assert.equal(again.code, 0, 'a second run of the step keeps the place');
+  assert.equal(placeBody(again).taken, true);
+});
+
+test('remote AC-10 next: the places of a run come from the run file', () => {
+  const one = placedChange({ places: 'run', run: { version: 1, places: 1 } });
+  otherChangeOnAvel(one.t, 'busy', { approved: true });
+  fetchOrigin(one.t);
+  assert.equal(actionIn(one).end?.why, 'no-place', 'run file with 1 place, 1 held');
+  assert.deepEqual(actionIn(one).params, { id: 'mine', machine: 'avel', taken: 1, places: 1 });
+  const two = placedChange({ places: 'run', run: { version: 1, places: 2 } });
+  otherChangeOnAvel(two.t, 'busy', { approved: true });
+  fetchOrigin(two.t);
+  assert.equal(actionIn(two).step, 'take-place', 'run file with 2 places, 1 held');
+});
+
+test('remote AC-10 next: the grill and the plan never wait for a place', () => {
+  const f = placedChange();
+  otherChangeOnAvel(f.t, 'busy', { approved: true });
+  fetchOrigin(f.t);
+  assert.equal(actionIn(f).end?.why, 'no-place', 'with its plan approved this change waits');
+  rmSync(join(f.wt, 'openspec', 'changes', 'mine', 'approval.md'));
+  const a = actionIn(f);
+  assert.equal(a.end?.why === 'no-place' || a.step === 'take-place', false, JSON.stringify(a));
+  assert.equal(a.kind === 'end' ? a.end.state : a.kind, 'waiting-for-owner', 'a plan waiting for its approval is what it was');
+});
+
+test('remote AC-10 next: a change without x-devkit-places never waits', () => {
+  const f = placedChange({ places: null });
+  otherChangeOnAvel(f.t, 'busy', { approved: true });
+  fetchOrigin(f.t);
+  assert.equal(/x-devkit-places/.test(yamlOf(f.wt, 'mine')), false);
+  const free = actionIn(f);
+  assert.deepEqual([free.kind, free.step], ['agent', 'implement'], 'no place is checked');
+  const file = join(f.wt, 'openspec', 'changes', 'mine', '.openspec.yaml');
+  writeFileSync(file, `${readFileSync(file, 'utf8')}x-devkit-places: 1\n`);
+  assert.equal(actionIn(f).end?.why, 'no-place', 'with the key the same change waits');
+});
+
+test('remote AC-10 next: a place already taken is not checked again', () => {
+  const f = placedChange();
+  assert.equal(placeIn(f).code, 0);
+  otherChangeOnAvel(f.t, 'busy', { approved: true });
+  fetchOrigin(f.t);
+  const a = actionIn(f);
+  assert.deepEqual([a.kind, a.step], ['agent', 'implement']);
+});
+
+const placeChild = (f, id) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [LOOP, 'place', id, '--lang', 'en'], { cwd: wtOf(f.t, id), env: { ...f.env, ...IDENT }, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.on('error', reject);
+  child.on('exit', (code) => resolve({ code, stdout }));
+});
+
+test('remote AC-10 place: two changes of one machine at once, one takes the place', async () => {
+  const f = placedChange({ id: 'first-one' });
+  placedChange({ id: 'second-one', project: f.t });
+  const [a, b] = await Promise.all([placeChild(f, 'first-one'), placeChild(f, 'second-one')]);
+  assert.deepEqual([a.code, b.code].sort(), [0, 2], `${a.stdout}\n${b.stdout}`);
+  const [win, lose, winId, loseId] = a.code === 0 ? [a, b, 'first-one', 'second-one'] : [b, a, 'second-one', 'first-one'];
+  assert.equal(JSON.parse(win.stdout).taken, true);
+  assert.deepEqual([JSON.parse(lose.stdout).taken, JSON.parse(lose.stdout).held], [false, 1]);
+  git(f.t.main, 'fetch', '-q', 'origin');
+  assert.match(git(f.t.main, 'show', `origin/${winId}:openspec/changes/${winId}/approval.md`), /APPROVED/);
+  assert.throws(() => git(f.t.main, 'cat-file', '-e', `origin/${loseId}:openspec/changes/${loseId}/approval.md`), 'the other change\'s plan is not on origin');
+});
+
+test('remote AC-11 place: a wake that comes too early leaves the change waiting', () => {
+  const f = placedChange();
+  otherChangeOnAvel(f.t, 'busy', { approved: true }); // pushed after this clone's last fetch: its view is stale
+  const early = placeIn(f);
+  assert.equal(early.code, 2, early.stdout + early.stderr);
+  assert.deepEqual(placeBody(early), { version: 1, change: 'mine', taken: false, machine: 'avel', held: 1, places: 1 });
+  const onOrigin = git(f.t.main, 'ls-remote', 'origin', 'refs/heads/mine').split('\t')[0];
+  assert.notEqual(onOrigin, git(f.wt, 'rev-parse', 'HEAD'), 'the plan was not pushed: the place is not taken');
+  const a = actionIn(f);
+  assert.deepEqual([a.end?.state, a.end?.why, a.params?.taken], ['blocked', 'no-place', 1]);
+  assert.equal('step' in a, false);
+});
+
+test('remote AC-10 stop: the blocked end no-place lets a /devkit change run stop', () => {
+  const f = placedChange();
+  otherChangeOnAvel(f.t, 'busy', { approved: true });
+  fetchOrigin(f.t);
+  const transcript = transcriptOf([typedLine('change mine'), skillBodyLine('change mine'), assistantLine(), runLine('mine')]);
+  const r = hook('stop', stopInput(f.wt, transcript), { ...f.env, TMPDIR: sandbox() });
+  assert.equal(r.code, 0, r.err);
+  const free = placedChange({ id: 'free-one' });
+  const ready = hook('stop', stopInput(free.wt, transcriptOf([typedLine('change free-one'), skillBodyLine('change free-one'), assistantLine(), runLine('free-one')])), { ...free.env, TMPDIR: sandbox() });
+  assert.equal(ready.code, 2, 'a ready take-place step is refused once, like any step');
+  assert.match(ready.err, /take-place/);
 });
 
 // ================================================================ jira-entry: the entry (start and open)
@@ -5655,22 +6094,22 @@ test('commit-attribution AC-1 T20 the request, the ship-change skill and the age
 
 // ---------------------------------------------------------------- roadmap-sessions-upfront, phase 5: the held state through changeState (design D-6, D-11)
 
-const heldFacts = (over = {}) => ({ sessionMode: true, started: true, inflight: null, declared: null, waits: false, queued: null, placed: false, waitsFor: null, ...over });
+const heldFacts = (over = {}) => ({ sessionMode: true, started: true, inflight: null, declared: null, waits: false, queued: null, occupied: false, waitsFor: null, ...over });
 const AT_HELD = '2026-11-21T10:00:00.000Z';
 
 test('upfront AC-10 facts: runFactsOf reads the change\'s queue entry, its place and its waitsFor, and no other change\'s', () => {
   const file = (over = {}) => ({
     changeSessions: true, startedSessions: {}, inflight: {}, declared: {}, announced: {}, starting: [],
-    queued: { a: { at: AT_HELD, why: 'load' }, b: { at: AT_HELD, why: 'place' } }, placed: { c: { at: AT_HELD } }, waitsFor: { a: 'x', b: 'y' }, ...over,
+    queued: { a: { at: AT_HELD, why: 'load' }, b: { at: AT_HELD, why: 'place' } }, occupied: { c: { at: AT_HELD } }, waitsFor: { a: 'x', b: 'y' }, ...over,
   });
   const a = runFactsOf(file(), 'a', { onRoadmap: true });
-  assert.deepEqual([a.queued, a.placed, a.waitsFor], [{ at: AT_HELD, why: 'load' }, false, 'x']);
+  assert.deepEqual([a.queued, a.occupied, a.waitsFor], [{ at: AT_HELD, why: 'load' }, false, 'x']);
   const c = runFactsOf(file(), 'c', { onRoadmap: true });
-  assert.deepEqual([c.queued, c.placed, c.waitsFor], [null, true, null]);
+  assert.deepEqual([c.queued, c.occupied, c.waitsFor], [null, true, null]);
   const none = runFactsOf(file(), 'd', { onRoadmap: true });
-  assert.deepEqual([none.queued, none.placed, none.waitsFor], [null, false, null], 'another change\'s entries are not this one\'s');
+  assert.deepEqual([none.queued, none.occupied, none.waitsFor], [null, false, null], 'another change\'s entries are not this one\'s');
   const bare = runFactsOf({ changeSessions: true }, 'a', { onRoadmap: true });
-  assert.deepEqual([bare.queued, bare.placed, bare.waitsFor], [null, false, null], 'a run file with none of the three fields');
+  assert.deepEqual([bare.queued, bare.occupied, bare.waitsFor], [null, false, null], 'a run file with none of the three fields');
 });
 
 test('upfront AC-10 state: a running change queued for a place reads held-place with its board words and the title ⏳ <id>', () => {
@@ -5708,8 +6147,8 @@ test('upfront AC-10 state: a plan stage whose dependency is not archived reads h
 });
 
 test('upfront AC-10 state: a change that holds a place, or has no queue entry and no waitsFor, gets no held reason', () => {
-  const placed = stateOf(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'place' }, placed: true }));
-  assert.deepEqual([placed.state, placed.reason, placed.stateIcon, placed.title], ['running', null, null, '📝 feat'], 'a place held');
+  const occupied = stateOf(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'place' }, occupied: true }));
+  assert.deepEqual([occupied.state, occupied.reason, occupied.stateIcon, occupied.title], ['running', null, null, '📝 feat'], 'a place held');
   const plain = stateOf(planStage(), heldFacts());
   assert.deepEqual([plain.state, plain.reason, plain.title], ['running', null, '📝 feat']);
   const ready = stateOf(planStage(), heldFacts({ started: false }));

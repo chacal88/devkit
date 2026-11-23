@@ -210,12 +210,14 @@ in the state command, the change session's action and the board.
 ## MODIFIED Requirements
 
 ### Requirement: Every open change of the roadmap fills a place
-In a run whose changes run in the coordinating session, every change of the roadmap that is open on
-the current script SHALL fill one place, whatever it is doing: running, waiting for the owner,
-waiting on GitHub or blocked. A change open before the run SHALL be resumed and counted before any
-new one starts. With every place filled nothing SHALL start. In a run whose changes each have a
-session of their own, a place SHALL be held as "A place is held only by a change that loads the
-machine" says.
+With the person's machines setting unset, in a run whose changes run in the coordinating session,
+every change of the roadmap that is open on the current script in this clone SHALL fill one place,
+whatever it is doing: running, waiting for the owner, waiting on GitHub or blocked. A change open
+before the run SHALL be resumed and counted before any new one starts. With every place filled
+nothing SHALL start. In a run whose changes each have a session of their own, a place SHALL be held
+as "A place is held only by a change that loads the machine" says. With the setting set, places
+SHALL also be counted per machine as the requirement "A place is taken from the implementation on"
+says.
 
 #### Scenario: Every place filled by changes that do not run
 - **WHEN** the number is 2, one open change waits for the owner's approval, another waits on GitHub, and a third line is ready
@@ -229,13 +231,19 @@ machine" says.
 - **WHEN** in a run with a session per change and the number 1, `a` waits for its plan approval and `b` waits on GitHub
 - **THEN** neither holds a place, and the next change that reaches its implementation takes it
 
+#### Scenario: A change open on another machine
+- **WHEN** the machines setting is unset, the number is 1, a line's change is open only on another machine, and another line is ready
+- **THEN** the change open elsewhere fills no place of this run, and the ready line is started
+
 ### Requirement: Starts are held while the machine is loaded
 Before every start the processor load of the last minute per logical core SHALL be read as a
 percentage. At or above the person's limit (`load_limit`, 80 when unset or not a whole number from 1
-to 1000) no change SHALL start, also when none is open; the hold SHALL be said once, rechecked every
-minute and released by itself below the limit. A change under way SHALL never be stopped by the load.
-In a run with a session per change, the load SHALL hold a change's taking of a place, not its
-opening.
+to 1000) no change SHALL start on this machine, also when none is open; when no other machine can take
+it the hold SHALL be said once, rechecked every minute and released by itself below the limit. A
+change under way SHALL never be stopped by the load. In a run with a session per change and the
+machines setting unset, the load SHALL hold a change's taking of a place, not its opening; with the
+setting set, a loaded machine SHALL open no change, the opening goes to a machine that answers, and
+it is held only when none does.
 
 #### Scenario: Loaded with nothing open
 - **WHEN** no roadmap change is open, a line is ready, and the load reads 92 with the limit 80
@@ -264,6 +272,10 @@ opening.
 #### Scenario: A system that reports no load
 - **WHEN** the system reports a load of 0
 - **THEN** the machine never counts as loaded
+
+#### Scenario: Loaded while another machine answers
+- **WHEN** the machines setting lists `avel`, `avel` answers, a line is ready on a typed turn, and the load reads 92 with the limit 80
+- **THEN** the change is opened for `avel`, and no hold line is shown
 
 ### Requirement: The owner sees one line per event
 While a run goes on, the coordinating session SHALL show, unasked, one short line per event and
@@ -391,8 +403,9 @@ A change session SHALL be titled with its change's stage icon (❓ requirements,
 review, 🚀 delivery, 📦 archive) and the change id while the change runs; while it is stopped, with
 the state icon (🙋 waiting for the owner, ⏳ waiting on GitHub, ⛔ blocked), a space, then that
 title; `📦 <id>` once archived; cut to 59 code points. While a change session of a roadmap run waits
-for a place, for the load or for its dependencies, its title SHALL be ⏳ and the change id, the stage
-icon replaced, and its stage icon again once it goes on. When the title changes, the session SHALL
+for a place (also a free place on its machine, with the machines setting set), for the load or for its
+dependencies, its title SHALL be ⏳ and the change id, the stage icon replaced and no other icon, and
+its stage icon again once it goes on. When the title changes, the session SHALL
 rename itself before it goes on.
 
 #### Scenario: The icon of each stage
@@ -418,6 +431,10 @@ rename itself before it goes on.
 #### Scenario: Waiting for a place, then going on
 - **WHEN** the change reaches its implementation with no place free, and later takes a place
 - **THEN** the title goes from `🙋 📝 <id>` to `⏳ <id>`, then to `🛠️ <id>`
+
+#### Scenario: Waiting for a place
+- **WHEN** the change's plan is approved and its machine has no free place
+- **THEN** the session's title goes from `🙋 📝 <id>` to `⏳ <id>`, with no state icon, and to `🛠️ <id>` once it takes a place
 
 #### Scenario: Waiting for the load
 - **WHEN** the change reaches its implementation with a place free while the load is above the limit
@@ -479,10 +496,11 @@ Nothing SHALL be remembered between runs but one run's bookkeeping (its number, 
 gate being asked, the stages under way, the ends the session declared, the events announced, whether
 its changes run in sessions of their own, which change sessions were started, the start tickets, the
 places held, the changes waiting for a place, the start-anyway of the moment, the wait loops under
-way, the periodic check, and what started the last turn), kept outside every working tree. A run
-started from another session SHALL start that bookkeeping empty, except the change sessions, their
-tickets, the places held, the changes waiting for a place and the wait loops, and continue every open
-change from its files, starting no change twice and losing none. No change SHALL be given a second
+way, the periodic check, which changes it opened for another machine, and what started the last turn),
+kept outside every working tree. A run started from another session SHALL start that bookkeeping
+empty, except the change sessions, their tickets, the places held, the changes waiting for a place, the
+wait loops and which changes it opened for another machine, and continue every open change from its
+files, starting no change twice and losing none. No change SHALL be given a second
 session while a session of its own is still open; only a run asked to start fresh forgets them.
 
 #### Scenario: The session is killed and a new one runs the roadmap
@@ -504,3 +522,7 @@ session while a session of its own is still open; only a run asked to start fres
 #### Scenario: A new coordinating session and the periodic check
 - **WHEN** `/devkit roadmap 2` is typed in a new session while the run file records a periodic check of the earlier session
 - **THEN** the new run asks for a periodic check of its own
+
+#### Scenario: A change opened for another machine before its session started
+- **WHEN** the run opened `a` for `avel`, the session was killed before `a`'s session started, and `/devkit roadmap` is typed in a new session
+- **THEN** `a` is not opened again, and on that typed turn `a` gets its session on `avel`
