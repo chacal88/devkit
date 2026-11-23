@@ -15,7 +15,7 @@ See `proposal.md` (Why). The code each item touches, at `c561553`:
 
 | Item | Where | What it does today |
 |---|---|---|
-| AC-1, AC-2, AC-3, AC-4 | `plugins/openspec/hooks/change-loop.mjs#openChange`, `#openCheckout`, `#openUnderLock`, `#nameTaken` | `open` takes the per-clone open lock, fetches `origin`, refuses an id taken locally or as `refs/remotes/origin/<id>` (`name-taken`), adds the worktree from `origin/<default>`, runs `openspec new change`, writes `requirements.md`. Nothing is committed or pushed. `openCheckout` is shared with `project-loop.mjs` (slices) |
+| AC-1, AC-2, AC-3, AC-4 | `plugins/openspec/hooks/change-loop.mjs#openChange`, `#openCheckout`, `#openUnderLock`, `#nameTaken` | `open` takes the per-clone open lock, fetches `origin`, refuses an id taken locally or as `refs/remotes/origin/<id>` (`name-taken`), adds the worktree from `origin/<default>`, runs `openspec new change`, writes `requirements.md`. Nothing is committed or pushed. After the merge of `origin/main` at `37a7063`, `recordPin` (change-version-pin) also writes the pin lines `x-devkit-version` and `x-devkit-flow` to `.openspec.yaml` right after `openspec new change`; this change's `writeClaimKeys` goes before it and `claimOnOrigin` after `prepare` (D-1 step 4). `openCheckout` is shared with `project-loop.mjs` (slices) |
 | AC-5, AC-6 | `plugins/openspec/hooks/roadmap-loop.mjs#collectRoadmap`, `#classifyLines`, `#boardOf`; `change-loop.mjs#unfinished` | A line is `open` only when a checkout of this clone holds its folder or branch. A change open only on another machine reads `ready` |
 | AC-7 | `plugins/openspec/.claude-plugin/plugin.json` `userConfig` | Two settings, `language` and `load_limit`; no machine list |
 | AC-8 | `roadmap-loop.mjs#decideRoadmap` | `free = places - open`; starts the first `free` ready lines; `holdNow` when the load is at or above the limit |
@@ -54,7 +54,7 @@ Constraints:
 - `guard.mjs`, `deliver-check.mjs` and `merge-setup.mjs` are downloaded by a project's
   `devkit-reviews` workflow: nothing new becomes a static import of them. This design changes none
   of the three.
-- Product code, `docs/adr/` included, is closed until readiness is approved: ADR 0019 and the ADR
+- Product code, `docs/adr/` included, is closed until readiness is approved: ADR 0020 and the ADR
   edits are drafted here (D-13) and written by phase tasks.
 - A Node script cannot start a session or send a message: the script decides and gives each host
   call's exact input; the session carries it out (ADR 0014).
@@ -87,9 +87,15 @@ remote machine (the remote folder is a POSIX path); a poll or a timer for a plac
    `.openspec.yaml` names no machine. A branch without that folder refuses with `name-taken`, as
    today. `nameTaken` keeps its local checks; its `refs/remotes/origin/<id>` check moves into this
    step.
-3. The worktree, `openspec new change`, `prepare`, as today.
-4. Only with `hasOrigin` and a `claim`: append `x-devkit-machine: <machine>` and, when given,
-   `x-devkit-places: <places>` to the folder's `.openspec.yaml`. Then `git add --
+3. The worktree and `openspec new change`, as today.
+4. Only with `hasOrigin` and a `claim`, in two functions of `change-loop.mjs` called from
+   `openCheckout`. First, right after `openspec new change` and before main's `recordPin` writes the
+   pin (change-version-pin), `writeClaimKeys(dir, claim)` appends `x-devkit-machine: <machine>` and,
+   when given, `x-devkit-places: <places>` to the folder's `.openspec.yaml`. The keys go before the
+   pin because main's `version-pin` tests assert that the pin lines (`x-devkit-version`,
+   `x-devkit-flow`) end the file (D-14 T-16 to T-18); with the keys first, the pin ends the file
+   whether the change is claimed or not. Then `recordPin` and `prepare`, as today. Last,
+   `claimOnOrigin({ worktree, id, beforePush })` only commits and pushes: `git add --
    openspec/changes/<id>` and `git commit -q -m "chore(openspec): open <id>"` in the worktree, then
    `git push --force-with-lease=refs/heads/<id>: origin <id>:refs/heads/<id>`.
 5. A push refused because the ref exists (git's "stale info", or "already exists", or "fetch first"
@@ -433,7 +439,7 @@ merged branches, the place frees at the merge; otherwise at the archive.
 **The waiting end.** A blocked end, why `no-place`, with its own reply key `waiting-place`.
 `stageIcon` gives ⏳ for it, and the title carries no state icon: `⏳ <id>`, not ADR 0017's blocked
 form `⛔ <stage icon> <id>` (⏳ is ADR 0017's waiting icon, here waiting for a place; AC-10). ADR
-0019 decision 8 records that exception as an amendment of ADR 0017 decision 4 (D-13), and the
+0020 decision 8 records that exception as an amendment of ADR 0017 decision 4 (D-13), and the
 `roadmap-coordination` delta writes it into the title requirement it modifies. Alternatives rejected: a fifth end state (ADR 0010 decision 3 fixes four,
 and the guard's end markers, the roadmap's entries and the skill would all change); a wait on GitHub
 (its background poll is the option the owner rejected at grill answer 6).
@@ -512,15 +518,18 @@ end; `blocked-why.no-place` is what the board and a roadmap line say.
 
 ## D-13 The ADRs
 
-**ADR 0019 (new, proposed)** `docs/adr/0019-a-change-can-run-on-another-machine.md`, written by task
+**ADR 0020 (new, proposed)** `docs/adr/0020-a-change-can-run-on-another-machine.md`, written by task
 5.1 exactly as below (the ADR 0013 decision 4 bullet comes earlier, with the field, in task 4.4). It
 was drafted as ADR 0016. Other changes took 0016 to 0018 on `main` first (ADR 0016 is stage roles,
 0017 the change state, 0018 the delivery model), so the release merge of `origin/main` at `212d007`
 renumbered it to the next free number, 0019, with every reference this change made to it
-(CONTRIBUTING.md, step 5). Main's ADR 0016 keeps its number; this design names it only here.
+(CONTRIBUTING.md, step 5). Then `origin/main` at `37a7063` took ADR 0019 for release-tags
+(`0019-the-delivery-loop-tags-the-release-it-merged.md`), so this change's ADR is renumbered again,
+to 0020, with every reference. Main's ADRs 0016 and 0019 keep their numbers; this design names
+them only here, in D-14 and in D-15.
 
 ```markdown
-# ADR 0019: A change can run on another machine, claimed on GitHub when it opens
+# ADR 0020: A change can run on another machine, claimed on GitHub when it opens
 
 - Status: proposed
 - Date: 2026-11-22
@@ -615,41 +624,41 @@ app.
 **ADR 0013 decision 4** (task 4.4): a bullet is added after the `changeSessions` bullet, exactly:
 
 ```markdown
-   - which changes the run opened for another machine (`placed`), as ADR 0019 decides;
+   - which changes the run opened for another machine (`placed`), as ADR 0020 decides;
 ```
 
-Task 5.1 adds the rest of the ADR edits below. In each Note, `ADR 0019` is a Markdown link to
-`0019-a-change-can-run-on-another-machine.md` (written as the earlier Notes write theirs). The test
+Task 5.1 adds the rest of the ADR edits below. In each Note, `ADR 0020` is a Markdown link to
+`0020-a-change-can-run-on-another-machine.md` (written as the earlier Notes write theirs). The test
 `followups AC-3 run file: ...` reads decision 4 and passes after task 4.4 (D-14).
 
 ADR 0013, a header line after its `Amended by ADR 0014` line, and a Note after the Note of
 `roadmap-coordinator-followups`:
 
 ```markdown
-- Amended by ADR 0019 (0019-a-change-can-run-on-another-machine.md)
+- Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
 
 Note (remote-worker, 2026-11-22): with the person's machines setting set, a start is held only when
 no machine can take it, and the run file also holds the changes opened for another machine
-([ADR 0019](0019-a-change-can-run-on-another-machine.md)). Decisions 1 to 3 and 5 are otherwise
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Decisions 1 to 3 and 5 are otherwise
 unchanged.
 ```
 
 ADR 0014, a header line after `- Date:`, and a first paragraph of its Context:
 
 ```markdown
-- Amended by ADR 0019 (0019-a-change-can-run-on-another-machine.md)
+- Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
 
 Note (remote-worker, 2026-11-22): a change of a run may run on another machine; its session is
 started on that machine's SSH connection, in its worktree there
-([ADR 0019](0019-a-change-can-run-on-another-machine.md)). Decisions 2 to 6 are otherwise unchanged.
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Decisions 2 to 6 are otherwise unchanged.
 ```
 
-ADR 0010, a Note after the Note of `project-phases` (no header line: ADR 0019 does not amend it):
+ADR 0010, a Note after the Note of `project-phases` (no header line: ADR 0020 does not amend it):
 
 ```markdown
 Note (remote-worker, 2026-11-22): opening a change pushes its branch at once with the machine's
 name, and a roadmap run may open changes on other machines the person lists
-([ADR 0019](0019-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
 its reason. Decisions 1 to 8 are otherwise unchanged.
 ```
 
@@ -657,27 +666,27 @@ ADR 0011, a Note after the Note of `roadmap-coordinator-followups` (no header li
 
 ```markdown
 Note (remote-worker, 2026-11-22): a change session on another machine is held by these locks there,
-by the pack installed on that machine ([ADR 0019](0019-a-change-can-run-on-another-machine.md)).
+by the pack installed on that machine ([ADR 0020](0020-a-change-can-run-on-another-machine.md)).
 Decisions 1 to 3 are unchanged.
 ```
 
 ADR 0017, a header line after `- Status:` (as ADR 0014 carries `Amended by ADR 0017`), and a first
 paragraph of its Context (added by task 5.9, from the plan revision of 2026-11-23; the Note only
-points to ADR 0019, and ADR 0017's decision text does not change):
+points to ADR 0020, and ADR 0017's decision text does not change):
 
 ```markdown
-- Amended by ADR 0019 (0019-a-change-can-run-on-another-machine.md)
+- Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
 
 Note (remote-worker, 2026-11-23): a change waiting for a free place on its machine is the one
-blocked end titled `⏳ <id>`, with no ⛔ ([ADR 0019](0019-a-change-can-run-on-another-machine.md)).
+blocked end titled `⏳ <id>`, with no ⛔ ([ADR 0020](0020-a-change-can-run-on-another-machine.md)).
 Decisions 1 to 4 are otherwise unchanged.
 ```
 
-**`openspec/config.yaml`**, the ADRs line of `context`: append `; 0019 a change can run on another
+**`openspec/config.yaml`**, the ADRs line of `context`: append `; 0020 a change can run on another
 machine, claimed on GitHub when it opens, amends 0013, 0014 and 0017` before the closing parenthesis,
 keeping the 0014 text the test `followups ADR 0014: the documents follow` matches.
 
-Accepting ADR 0019 is the owner's, with the plan; on approval the session that records
+Accepting ADR 0020 is the owner's, with the plan; on approval the session that records
 `approval.md` sets its `Status: accepted` and adds `Accepted by:`, as ADR 0014 records it. The draft
 above keeps `Status: proposed`, and so does the file at `ccb3dfb`: the plan revision of 2026-11-23
 goes back to the owner, and the session that records the approval of the revised plan sets
@@ -714,7 +723,7 @@ the new behaviour requires. Every test is run through `guard.test.mjs`.
 | T-7 | `roadmap-loop replies: a blocked line renders every blocked reason in both languages` (`roadmap-loop.test.mjs`) | every key with a blocked `{why}` renders every `blocked-why.` reason in both languages · message table · `roadmap-loop.test.mjs` | its `BLOCKED_PARAMS` constant gains `machine: 'avel'`, `taken: 1` and `places: 1`: `blocked-why.no-place` needs all three and `blocked-why.cannot-check-out` needs `{machine}` (D-12). The loop and its assertions stay as they are |
 | T-8 | `roadmap-loop replies: every owner wait has a gate` (`roadmap-loop.test.mjs`) | every `waiting-` key that is an owner wait maps to a gate with a phrase in both languages, and `gateOf` refuses anything else · `gateOf` of `roadmap-loop.mjs` · `roadmap-loop.test.mjs` | `waiting-place` is the reply key of the blocked end `no-place` (D-9), not an owner wait, so it gets no gate. The `waits` filter leaves it out, as it already leaves out `waiting-github`: `k !== 'waiting-github' && k !== 'waiting-place'`. The `expected` map does not change. Two assertions follow the `waiting-github` one: `MESSAGES.en['waiting-place']` and `MESSAGES['pt-BR']['waiting-place']` exist, and `gateOf(endAct('x', 'blocked', 'no-place'))` throws `LoopUsageError` ("waiting for a place is a blocked end, not a gate") |
 | T-9 | `followups AC-8 next: start anyway starts what is held now, and a change ready later is held and said again` (`roadmap-loop.test.mjs`) | start anyway keeps no permission: the run file gains no field except the time of its write · `next --start-anyway` and the run file · `roadmap-loop.test.mjs` | the fixture writes a run file of this release, which always holds `placed`: `readRun` returns `placed: {}` when the field is missing, and every write keeps it (D-8, Migration Plan). `putRun(root, { places: 3 })` becomes `putRun(root, { places: 3, placed: {} })`. The key-list assertion stays exact and unchanged |
-| T-10 | `change-loop docs: the design records the answers` (`change-loop.test.mjs`) | every CI pin names the devkit-openspec version of its manifest · documents · `change-loop.test.mjs` | none. Since the merge of `origin/main` at `aa7329a` (main's D-4 of `release-merge-conflict`) the test reads the manifest: `pinMismatches(flow, version)` compares every CI pin of `docs/openspec-flow.md` with the version in `plugins/openspec/.claude-plugin/plugin.json`, and it refuses only `v0.20.0` by name; the literal `assert.match(flow, /v0\.xx/)` and its `doesNotMatch` chain are gone. It passes when the doc pins `v0.30.0` and the manifest holds `0.30.0` (D-15, tasks 5.3 and 5.4); task 5.3's check runs it and gate 5.10 runs it again. Plan revision of 2026-11-23: this row replaces the edit the earlier revisions gave it; it stays so the table accounts for the test |
+| T-10 | `change-loop docs: the design records the answers` (`change-loop.test.mjs`) | every CI pin names the devkit-openspec version of its manifest · documents · `change-loop.test.mjs` | none. Since the merge of `origin/main` at `aa7329a` (main's D-4 of `release-merge-conflict`) the test reads the manifest: `pinMismatches(flow, version)` compares every CI pin of `docs/openspec-flow.md` with the version in `plugins/openspec/.claude-plugin/plugin.json`, and it refuses only `v0.20.0` by name; the literal `assert.match(flow, /v0\.xx/)` and its `doesNotMatch` chain are gone. It passes when the doc pins `v0.32.0` and the manifest holds `0.32.0` (D-15, tasks 5.3 and 5.4); task 5.3's check runs it and gate 5.10 runs it again. Plan revision of 2026-11-23: this row replaces the edit the earlier revisions gave it; it stays so the table accounts for the test |
 | T-11 | `followups F-2 skill: start anyway only on the owner's own message, with both flags` (`roadmap-loop.test.mjs`) | `--start-anyway` is passed only on the owner's own typed message, on a `next` call that carries every setting · skill text · `roadmap-loop.test.mjs` | D-15 puts `--machines` on every `next`, between the settings and `--start-anyway`. A constant `SK_MACHINES = "--machines '${user_config.machines}'"` goes beside `SK_LIMIT`. The expected text becomes `` `roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --start-anyway` `` with the message 'the call carries the settings and --start-anyway'. The test's name and its other assertions stay |
 | T-12 | `followups AC-15 skill: the turn's two words, event when in doubt or on another session's note, and next first on a typed turn` (`roadmap-loop.test.mjs`) | every `next` of a run with a session per change names its turn, with every setting · skill text · `roadmap-loop.test.mjs` | for the same reason, the expected text becomes `` `roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --turn <typed\|event>` `` with the message 'with the settings'. The other assertions stay |
 | T-13 | `followups AC-13 skill: the session-per-change part names the tools, the list check, the session keys and the turn, and hands nothing` (`roadmap-loop.test.mjs`) | in a run with a session per change the coordinating session hands nothing (no stage, no gate, no wait on GitHub) and names its tools as the app names them; the skill uses no wake-up field and sends no message except the ones `next` returns · skill text · `roadmap-loop.test.mjs` | `assert.doesNotMatch(md, /wake_when_done\|SendMessage/, ...)` is split in two, and the Never assertion grows by D-15's two items. Both are given in full below |
@@ -735,7 +744,7 @@ The Never assertion's expected text becomes, exactly:
 In a run with a session per change: hand a stage, ask a change's gate or start a wait on GitHub from this session, start a change session `next` did not return, call the session-start tool with any input but the action's `input`, start a session for a change on another machine the run did not open, or send a `wake` message `next` did not return
 ```
 
-Why the wake is allowed. ADR 0019 decision 5 (grill answer 6, A) adds one message from the
+Why the wake is allowed. ADR 0020 decision 5 (grill answer 6, A) adds one message from the
 coordinating session to one waiting change session when a place frees. No decision of ADR 0014
 forbids that message. ADR 0014 rejected a different option, "A change session messages the
 coordinating session when its change is archived", which runs the other way. It was rejected
@@ -749,7 +758,7 @@ needed, because the archive report already comes back as an end-of-turn report. 
 and the archive report is still not sent as a message. ADR 0014 decision 1 (the coordinating session
 hands no stage) still holds: the message is the change's own resume command. ADR 0014 decision 2
 (nothing is scheduled) and ADR 0006 decision 3 also hold: the wake is sent on an event, never on a
-timer. ADR 0019 therefore adds a decision without amending any decision of ADR 0014 on this point,
+timer. ADR 0020 therefore adds a decision without amending any decision of ADR 0014 on this point,
 and its `Amends:` line stays as D-13 gives it.
 
 A dry run of T-6 to T-13 in a copy of the tree, with exactly these edits, ran the 8 tests and all 8
@@ -772,11 +781,14 @@ default branch.
 
 The amendment of ADR 0017 (D-13, task 5.9) edits a file an existing test reads. The tests were
 searched for every reader of ADR 0017's text or header (`git grep -n "0017" -- 'plugins/**/*.test.mjs'`);
-there is one, and a reader of ADR 0019 (none) would be new to this change.
+there is one, and a reader of ADR 0020 (none) would be new to this change. Main's `release-tags 4`
+tests read main's ADR 0019 (its link in `CONTRIBUTING.md` and `docs/openspec-flow.md`, and `0019 the
+delivery loop tags the release it merged` on the ADRs line of `openspec/config.yaml`); this change
+edits none of those words: its config entry `0020 ...` is appended after them.
 
 | Id | Test (file) | Invariant · layer · suite | Change |
 |---|---|---|---|
-| T-15 | `change-state ADR 0017: the documents follow` (`change-loop.test.mjs`) | ADR 0017 keeps its title line, its five headings, `Status: accepted`, `Change: change-state`, its exact `Amends:` line, its `Accepted by:` line matching the approval of `change-state`, and names 🙋, ⏳, ⛔ and 📦; ADR 0014 and ADR 0010 carry its header line and Notes · the documents · `change-loop.test.mjs`, loaded by `guard.test.mjs` | none: task 5.9 adds a separate `- Amended by ADR 0019 (...)` line after `- Status:` and a Note as the first paragraph of the Context. Every assertion is anchored to its own line (`/m`) or to a heading, so none of them reads the added lines, and the `Amends:` line and decision 4's text stay as they are. Named because task 5.9 edits the file it reads. Task 5.9's check runs it; gate 5.10 never leaves it red |
+| T-15 | `change-state ADR 0017: the documents follow` (`change-loop.test.mjs`) | ADR 0017 keeps its title line, its five headings, `Status: accepted`, `Change: change-state`, its exact `Amends:` line, its `Accepted by:` line matching the approval of `change-state`, and names 🙋, ⏳, ⛔ and 📦; ADR 0014 and ADR 0010 carry its header line and Notes · the documents · `change-loop.test.mjs`, loaded by `guard.test.mjs` | none: task 5.9 adds a separate `- Amended by ADR 0020 (...)` line after `- Status:` and a Note as the first paragraph of the Context. Every assertion is anchored to its own line (`/m`) or to a heading, so none of them reads the added lines, and the `Amends:` line and decision 4's text stay as they are. Named because task 5.9 edits the file it reads. Task 5.9's check runs it; gate 5.10 never leaves it red |
 
 The other tests main added since `c561553` were read for the same cause (`git diff
 c561553..212d007 --stat -- 'plugins/openspec/hooks/*.test.mjs'`: `change-loop`, `conduct-check`,
@@ -789,6 +801,42 @@ main checkout's status, worktrees and run file as they were; none reads the new 
 its refs on `origin`. The tests that read commits (`review-openspec-fix 15`, the `delivery-models`
 archive and scenario fixtures) build their branches with `addWt`, `worktree add` or `switch -c`,
 never with `open`. The whole suite at `ccb3dfb` agrees: T-14's test is its only failure.
+
+Plan revision (2026-11-23, after `origin/main` at `37a7063`): the tests main added since `aa7329a`
+were read for the same cause (`git diff aa7329a origin/main --stat --
+'plugins/openspec/hooks/*.test.mjs'`: `change-loop`, `conduct-check`, `deliver-check`,
+`delivery-models`, `flow-check`, `guard`, `roadmap-loop`, and the new `release-tags` and
+`version-pin`). Three tests of `version-pin.test.mjs` read what the claim writes. Each opens a
+change with `change-loop.mjs open` in `roundRepo`, which has a bare `origin`, so the change is
+claimed, and each asserts that `.openspec.yaml` ends with the pin lines. D-1 step 4 writes the
+claim keys (`writeClaimKeys`) before `recordPin` writes the pin, so the pin still ends the file and
+the three tests pass with no edit. They are named so the table accounts for them: they hold the
+order of D-1 step 4, and a claim key written after the pin would turn them red.
+
+| Id | Test (file) | Invariant · layer · suite | Change |
+|---|---|---|---|
+| T-16 | `version-pin AC-1 open: a devkit and a devkit-lite change record the pack and flow versions` (`version-pin.test.mjs`) | the open records the pack's version and the installed flow's version as the change's pin, keeps the schema and created lines, and gives OpenSpec no unrecognized key · the `open` command of `change-loop.mjs` (`writeClaimKeys`, then `recordPin`, in `openCheckout`) · `version-pin.test.mjs`, loaded by `guard.test.mjs` | none: the claim keys come before the pin (D-1 step 4), so the pin lines still end the file |
+| T-17 | `version-pin AC-1 open: a script with no installed flow.json gets no flow line` (`version-pin.test.mjs`) | the open records the pack's version and no flow line when the script has no installed `flow.json` · the same layer · the same suite | none, for the same reason |
+| T-18 | `version-pin AC-3 open: a change opened after the upgrade records flow 2` (`version-pin.test.mjs`) | the open records flow 2 once version 2 is installed · the same layer · the same suite | none, for the same reason |
+
+One of this change's own tests met main's pin, and is recorded here for the same accounting.
+
+| Id | Test (file) | Invariant · layer · suite | Change |
+|---|---|---|---|
+| T-19 | `remote AC-4 open: with no origin nothing is committed or pushed` (`change-loop.test.mjs`, new in this change, task 1.1) | with no `origin`, `open` commits and pushes nothing and writes no claim key, with or without `--machine` and `--places` · the `open` command of `change-loop.mjs` · `change-loop.test.mjs`, loaded by `guard.test.mjs` | its two assertions that `.openspec.yaml` holds no `/x-devkit/` key are narrowed to `/x-devkit-(machine\|places)/`: main's `recordPin` writes `x-devkit-version` and `x-devkit-flow` on every open, origin or not, and those are not claim keys. The other assertions stay |
+
+No other test main added since `aa7329a` asserts something this change moves. The other opens of
+`version-pin.test.mjs` assert a slice's pin (`project-loop.mjs` passes no `claim`, D-1), a refusal
+that comes before the claim (`a malformed installed flow.json opens nothing`: `recordPin` throws
+before the commit and push of D-1 step 4, and the cleanup removes the worktree with the keys), or the pin of another change (`next, wait, another open ...`); `version-pin AC-1
+skill` reads the `start` item of the skill's roadmap part, whose words and `change-loop.mjs open `
+call D-15 keeps. `release-tags 1` refuses its open on the setting, before anything is made. The
+`release-tags 4` tests read main's ADR 0019, which this change does not edit (D-13), and pins only
+inside `## CI`, where D-15 puts `v0.32.0`. The edits to `change-loop`, `conduct-check`,
+`deliver-check`, `delivery-models`, `flow-check` and `roadmap-loop` add the `tag-release` step, the
+`flow` readout key, sample parameters (`version`, `tag`, `at`, `sha`) and exported fixtures; none reads
+the claim commit, a session title, a version pin of this release or this change's ADR. T-6 and T-7
+keep their additions beside main's new parameters in `SAMPLE` and `BLOCKED_PARAMS`.
 
 ## D-15 Documents, the skill and the release
 
@@ -814,7 +862,7 @@ never with `open`. The whole suite at `ccb3dfb` agrees: T-14's test is its only 
   change". It does not write the words "(ready, waits for a place)" in parentheses (the test
   `followups ADR 0014: the documents follow` refuses them). In the change coordinator section, one
   sentence says opening pushes the branch. Troubleshooting: rows for `claimed` and for "no answer".
-  The CI pins move to `v0.30.0`, the tag of `0.30.0` in `plugin.json`; T-10 of D-14 reads the manifest, so it needs no edit.
+  The CI pins move to `v0.32.0`, the tag of `0.32.0` in `plugin.json`; T-10 of D-14 reads the manifest, so it needs no edit.
 - `docs/coordination-design.md`: the section "Where a change runs (proposed)" becomes "Where a change
   runs" and describes what is built. Its two claims are corrected: "The project configures one
   command that starts a change there and one that asks its state" becomes the per-person `machines`
@@ -825,14 +873,17 @@ never with `open`. The whole suite at `ccb3dfb` agrees: T-14's test is its only 
   which stays as written.
 - `plugins/openspec/README.md`: the `devkit` skill row names the `machines` setting; the
   `roadmap-loop.mjs` row names `checkout` and `status --json`; a row for `machine-probe.mjs`.
-- Release: devkit-openspec `0.29.0` → `0.30.0` in `plugins/openspec/.claude-plugin/plugin.json` and
-  `.claude-plugin/marketplace.json`; marketplace `metadata.version` `0.33.0` → `0.34.0`;
-  `CHANGELOG.md` gains `## 0.34.0 — remote worker`; `docs/catalog.md` regenerated by `python3
-  scripts/gen-catalog.py`. When `main` moved first, the release rebase renumbers. It did twice:
+- Release: devkit-openspec `0.31.0` → `0.32.0` in `plugins/openspec/.claude-plugin/plugin.json` and
+  `.claude-plugin/marketplace.json`; marketplace `metadata.version` `0.35.0` → `0.36.0`;
+  `CHANGELOG.md` gains `## 0.36.0 — remote worker`; `docs/catalog.md` regenerated by `python3
+  scripts/gen-catalog.py`. When `main` moved first, the release rebase renumbers. It did three times:
   drafted as devkit-openspec `0.22.0` and marketplace `0.26.0`, the release was renumbered at the
   merge of `origin/main` at `212d007` (merge commit `ccb3dfb`), and again when `origin/main` at
-  `aa7329a` took devkit-openspec `0.29.0` and marketplace `0.33.0` for `release-merge-conflict`.
-  The numbers `0.30.0`, `0.34.0` and the tag `v0.30.0` were taken from `origin/main` at `aa7329a`
+  `aa7329a` took devkit-openspec `0.29.0` and marketplace `0.33.0` for `release-merge-conflict`
+  (this change then took `0.30.0` and `0.34.0`), and a third time when `origin/main` at `37a7063`
+  took devkit-openspec `0.31.0`, marketplace `0.35.0` and ADR 0019 (change-version-pin, #84, and
+  release-tags, #86 and #87), so this change took `0.32.0`, `0.36.0` and ADR 0020 (D-13).
+  The numbers `0.32.0`, `0.36.0` and the tag `v0.32.0` were taken from `origin/main` at `37a7063`
   on 2026-11-23, and the release step re-checks them against `origin/main` before the push and
   before auto-merge.
 
@@ -913,7 +964,7 @@ re-checks the criterion across real machines; it is not part of this change's ve
   documented in the flow page.
 - [R-4 A hostname that differs from the connection name] (the Linux worker is `avell` by hostname and
   `avel` by connection) → a change opened there by `/devkit change` names `avell`. The board shows
-  it with that name, and `avel`'s places do not count it. Accepted (ADR 0019 Negative); no alias
+  it with that name, and `avel`'s places do not count it. Accepted (ADR 0020 Negative); no alias
   setting (not requested).
 - [R-5 Every ready line opens at once with machines set] → grill answer 5 (grill and plan never
   wait); the session starts still need a typed turn, one at a time.
@@ -924,7 +975,7 @@ re-checks the criterion across real machines; it is not part of this change's ve
   next `/devkit change`; the wake line already names the change; seen live after the merge (L-3).
 - [R-8 SSH time in each decision] → 20 s per machine at most, none in the hooks.
 - [R-9 Places recorded at open go stale] → a change of the setting applies to changes opened after
-  it (ADR 0019 Negative); this machine's places stay live through `run`.
+  it (ADR 0020 Negative); this machine's places stay live through `run`.
 - [R-10 Cross-machine behavior is proven live only after it reaches `main`] (the owner's decision of
   2026-11-23, `B: depois do merge`) → a real push race against GitHub, a real SSH session start on
   `avel`, a real wake and a real silent machine are first seen on the merged release, so a defect
@@ -977,7 +1028,7 @@ record on two machines is not a phase: it runs after the merge (D-16, the Workfl
   `docs/coordination-design.md`, `openspec/config.yaml`, `.claude-plugin/marketplace.json`,
   `CHANGELOG.md`, `docs/catalog.md`.
 - Create: `plugins/openspec/hooks/machine-probe.mjs`, `plugins/openspec/hooks/run-file.mjs`,
-  `docs/adr/0019-a-change-can-run-on-another-machine.md`,
+  `docs/adr/0020-a-change-can-run-on-another-machine.md`,
   `openspec/changes/remote-worker/proof/red-<n>.txt`.
 - Delete: none.
 
@@ -985,7 +1036,7 @@ record on two machines is not a phase: it runs after the merge (D-16, the Workfl
 1 h for D-14 T-6 to T-13; the one of 2026-11-23 moved the 3 h of the live record out of this change,
 to the live check after the merge; the second one of 2026-11-23 adds 0.5 h for D-14 T-14 and the
 re-run of tasks 5.5, 5.6 and gate 5.10 after the release merge, and 0.5 h for the amendment of ADR
-0017, task 5.9).
+0017, task 5.9; the one after `37a7063` adds 0.5 h for the order of D-1 step 4 and D-14 T-19).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -1003,11 +1054,12 @@ re-run of tasks 5.5, 5.6 and gate 5.10 after the release merge, and 0.5 h for th
 | D-10 the wake | 2 | Core | MEDIUM |
 | D-11 the locks without SSH | 1 | Core | LOW |
 | Phase 4 tests (AC-8, AC-9, AC-11, AC-12, locks) | 3 | Testing | MEDIUM |
-| D-13 ADR 0019 and the four ADR edits, config | 1.5 | Documentation | MEDIUM |
-| D-13 ADR 0019 amends ADR 0017: decision 8, ADR 0017's header line and Note, config (task 5.9) | 0.5 | Documentation | LOW |
+| D-13 ADR 0020 and the four ADR edits, config | 1.5 | Documentation | MEDIUM |
+| D-13 ADR 0020 amends ADR 0017: decision 8, ADR 0017's header line and Note, config (task 5.9) | 0.5 | Documentation | LOW |
 | D-15 the skill, the documents and the release | 3 | Documentation | MEDIUM |
 | D-14 T-6 to T-13, the existing tests found at the whole-suite gate | 1 | Testing | LOW |
 | D-14 T-14, the test main added that the claim commit moves | 0.5 | Testing | LOW |
+| D-1 step 4's order (`writeClaimKeys` before the pin) and D-14 T-19 (task 5.8) | 0.5 | Core | LOW |
 | Whole suite, marketplace validation | 1 | Testing | LOW |
 
 **Risks** (probability × impact):
@@ -1015,11 +1067,12 @@ re-run of tasks 5.5, 5.6 and gate 5.10 after the release merge, and 0.5 h for th
 - The claim breaks an existing open test beyond D-14 (MEDIUM × MEDIUM) → phase 1's gate runs every
   `change-loop open` test and the slice opens of `project-loop start: open`; the whole suite runs in
   gate 5.10. A failure not in D-14, at a phase gate or at 5.10, stops for a plan revision (the one of
-  2026-11-22 added T-6 to T-13, the second one of 2026-11-23 added T-14).
+  2026-11-22 added T-6 to T-13, the second one of 2026-11-23 added T-14, the one after `37a7063`
+  named T-16 to T-19).
 - A test `main` adds after this plan asserts what the claim changes (MEDIUM × MEDIUM) → the release
   merge is followed by the whole suite (gate 5.10) before the reviews; a failure stops for a plan
-  revision, as `delivery-models` (#73) did (T-14), and D-14 records the read of every test `main`
-  added since `c561553`.
+  revision, as `delivery-models` (#73) did (T-14) and `version-pin` (#84) did (T-16 to T-19), and
+  D-14 records the read of every test `main` added since `c561553`.
 - A phase gate read as red while still running (MEDIUM × MEDIUM) → the phase gates run only the new
   `remote` tests and the existing groups the phase touches, each named in `tasks.md` with its
   measured duration on the base; every node gate runs as a background command of the tool and is
@@ -1056,7 +1109,7 @@ re-run of tasks 5.5, 5.6 and gate 5.10 after the release merge, and 0.5 h for th
 
 **Dependencies.** `roadmap-coordinator` and `roadmap-coordinator-followups` (archived):
 `roadmap-loop.mjs`, the session per change, `withLockFile`. The OpenSpec CLI 2.x on `PATH` for the
-suite. The owner's acceptance of ADR 0019 and of the two readings (D-1, D-9) with the plan. The
+suite. The owner's acceptance of ADR 0020 and of the two readings (D-1, D-9) with the plan. The
 Linux worker `avel`, with the merged release installed, for the live check after the merge; this
 change's verification does not depend on it (D-16).
 
@@ -1068,9 +1121,9 @@ change's verification does not depend on it (D-16).
   bookkeeping: `placed`).
 - ADR 0011: decision 2 (run detection, unchanged); a lock that fails closed was rejected (D-11).
 - ADR 0013: decision 3 (the stop lock, judged without SSH), decision 4 (gains `placed`), the hold by
-  the load (amended by ADR 0019).
+  the load (amended by ADR 0020).
 - ADR 0017: decision 4 (the title of a stopped change: state icon, then the stage icon), amended by
-  ADR 0019 decision 8: the place wait is the one blocked end titled `⏳ <id>`; the
+  ADR 0020 decision 8: the place wait is the one blocked end titled `⏳ <id>`; the
   `roadmap-coordination` delta keeps decision 4's form for everything else (D-9, D-13).
 - ADR 0018: decision 2 (in `two-prs` every task branch is cut from the base): the claim commit sits
   on `origin/<base>`, so the branch is still cut from it (D-14 T-14).
@@ -1082,6 +1135,6 @@ change's verification does not depend on it (D-16).
 
 ## Open Questions
 
-None that changes the specs, the approach or the tasks. The owner confirms at approval: ADR 0019,
+None that changes the specs, the approach or the tasks. The owner confirms at approval: ADR 0020,
 the two escalations of `requirements.md`, the reading of "GitHub `origin`" (D-1), the reading of
 AC-10 and AC-11 as tied to the `machines` setting (D-9), and the slice claim left out (Non-Goals).

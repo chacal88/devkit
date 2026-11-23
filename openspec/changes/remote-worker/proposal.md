@@ -5,7 +5,10 @@ Change: `remote-worker` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / t
 (sources: `requirements.md`, ADRs 0010, 0011, 0013 and 0014, the "Where a change runs (proposed)"
 section of `docs/coordination-design.md`). Round 28 of `openspec/roadmap.md`. Revised 2026-11-23
 after the release merge of `origin/main` at `212d007`: the release numbers and the ADR number below,
-and the existing test of `delivery-models` the claim moves (`design.md` D-14 T-14).
+and the existing test of `delivery-models` the claim moves (`design.md` D-14 T-14). Revised again
+after `origin/main` at `37a7063`: the release numbers, the ADR number, and the claim keys written
+before main's version pin so main's `version-pin` tests pass unchanged (`design.md` D-1, D-14 T-16
+to T-19).
 
 ## Why
 
@@ -46,11 +49,12 @@ machine the way that run did: over SSH, one app session per change (grill answer
     checks again before implementing.
   - A machine that does not answer gets no new change. The board says "no answer" for it and for
     each of its changes; they keep their places and nothing reopens them.
-- **ADR 0019** (proposed here; drafted as 0016, renumbered at the release merge). It amends ADR
+- **ADR 0020** (proposed here; drafted as 0016, renumbered to 0019 at the release merge of `212d007` and to
+  0020 after `origin/main` at `37a7063`, whose release-tags took 0019). It amends ADR
   0013 (starts held only by this machine's load; the run file's fields), ADR 0014 (each change
   session started in this machine's worktree) and ADR 0017 decision 4 (a change waiting for a place
   is the one blocked end titled `⏳ <id>`, with no ⛔: a wait for a resource, not a fault).
-- Docs, the skill and the release: devkit-openspec 0.30.0, marketplace 0.34.0.
+- Docs, the skill and the release: devkit-openspec 0.32.0, marketplace 0.36.0.
 
 Non-goals (requirements, Out of scope): Claude Managed Agents as a place to run; moving an open
 change to another machine; starting a remote change without the desktop app; the app's cloud
@@ -115,7 +119,7 @@ None.
 - Tests: `change-loop.test.mjs`, `roadmap-loop.test.mjs`, and one existing test of
   `delivery-models.test.mjs` (T-14); the existing tests this plan changes are named in `design.md`
   D-14.
-- Docs: ADR 0019 (new), Notes and "Amended by" in ADRs 0010, 0011, 0013, 0014 and 0017,
+- Docs: ADR 0020 (new), Notes and "Amended by" in ADRs 0010, 0011, 0013, 0014 and 0017,
   `docs/openspec-flow.md`, `docs/coordination-design.md` (its "Where a change runs (proposed)"
   section, which says the project configures two commands and that state is read with `flow-check
   --json`; both are corrected), `plugins/openspec/README.md`, `openspec/config.yaml` (the ADRs line).
@@ -126,7 +130,7 @@ None.
   the same devkit-openspec version on every machine (`design.md`, Assumptions).
 - Decisions cited: ADR 0010 (decisions 3, 5 and 8), ADR 0011 (decision 2; a lock that fails closed
   was rejected), ADR 0013 (decisions 3 and 4), ADR 0014 (decisions 1, 2 and 5), ADR 0006 (decision
-  3, no cron), ADR 0017 (decision 4, the title of a stopped change, amended by ADR 0019 for the
+  3, no cron), ADR 0017 (decision 4, the title of a stopped change, amended by ADR 0020 for the
   place wait, `⏳ <id>`),
-  ADR 0018 (decision 2, a `two-prs` task branch is cut from the base). Open decisions inherited: ADR 0019 needs the owner's acceptance with the plan, and so
+  ADR 0018 (decision 2, a `two-prs` task branch is cut from the base). Open decisions inherited: ADR 0020 needs the owner's acceptance with the plan, and so
   do the two escalations of `requirements.md` (the ADR, and a branch made public at open).
