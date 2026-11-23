@@ -2,9 +2,9 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, mkdtempSync, copyFileSync } from 'node:fs';
+import { readFileSync, existsSync, copyFileSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DEVKIT_REVIEWS_CHECK, WORKFLOW_PATH, RULESET_NAME, MERGE_METHODS, mergeSetup, requiredChecks } from './merge-setup.mjs';
@@ -185,7 +185,7 @@ test('workflow (the setup template): deliver-check --ci and guard.mjs ci run fro
   const yml = read('the setup template');
   const names = [...yml.matchAll(/curl [^\n]*-o "?([^"\s]+)"?/g)].map((m) => basename(m[1]));
   assert.ok(names.includes('deliver-check.mjs') && names.includes('guard.mjs') && names.includes('merge-setup.mjs'), names.join(', '));
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-downloaded-'));
+  const dir = tmpFolder('devkit-downloaded-');
   for (const n of names) copyFileSync(join(here, n), join(dir, n));
   const root = gitRepo({ changes: { feat: { 'tasks.md': '- [x] 1.1 a\n' } } });
   const env = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
@@ -199,7 +199,7 @@ test('workflow (the setup template): deliver-check --ci and guard.mjs ci run fro
 });
 
 test('guard.mjs ci with deliver-check.mjs but without merge-setup.mjs fails closed naming the missing files', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-partial-'));
+  const dir = tmpFolder('devkit-partial-');
   for (const n of ['guard.mjs', 'deliver-check.mjs']) copyFileSync(join(here, n), join(dir, n));
   const root = gitRepo({ changes: { feat: { 'tasks.md': '- [x] 1.1 a\n' } } });
   const r = spawnSync('node', [join(dir, 'guard.mjs'), 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' } });

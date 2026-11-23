@@ -1,0 +1,14 @@
+init model: claude-opus-5-5
+init devkit plugins: ['/home/kaue/repos/devkit/.claude/worktrees/commit-attribution/plugins/core', '/home/kaue/repos/devkit/.claude/worktrees/commit-attribution/plugins/openspec', '/home/kaue/.claude/plugins/cache/devkit/devkit-panel/0.3.0']
+
+Agent call to devkit-core:commit-and-pr | prompt ends with the block: True
+Attribution (from the caller):
+Commit trailer: Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+PR footer: 🤖 Generated with [Claude Code](https://claude.com/claude-code)
+The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.
+
+Agent call to devkit-core:commit-and-pr | prompt ends with the block: True
+Attribution (from the caller):
+Commit trailer: Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+PR footer: 🤖 Generated with [Claude Code](https://claude.com/claude-code)
+The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.

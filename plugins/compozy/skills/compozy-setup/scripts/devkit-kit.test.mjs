@@ -6,17 +6,17 @@
 // $DEVKIT_HOOKS (AC-8 portable-hooks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, cpSync } from 'node:fs';
+import { mkdirSync, writeFileSync, chmodSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from '../../test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const KIT = join(here, '..', 'templates', 'bin', 'devkit-kit');
 
 function tmp(prefix) {
-  return mkdtempSync(join(tmpdir(), prefix));
+  return tmpFolder(prefix);
 }
 
 // A fresh copy of devkit-kit, executable, at its own temp location (so no test shares state

@@ -1,5 +1,5 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=7492d49d748b5d124b792a98a889e599df61702e -->
-Commit: 7492d49d748b5d124b792a98a889e599df61702e
+<!-- devkit-stage evidence result=passed attempt=3 commit=492b58633030aa9bb39198b03161304b67082701 -->
+Commit: 492b58633030aa9bb39198b03161304b67082701
 
 # Evidence
 
@@ -9,21 +9,23 @@ Change: `gh-version-check` · Verified on the branch before the PR exists (no PR
 
 ### Gates
 
-Every gate ran at the commit above (attempt 2, re-run at HEAD after the test-only commit 7492d49; attempt 1 was at 4fadc2a) with `TMPDIR=/var/tmp`, as its own command; the exit code decided.
+Every gate ran at the commit above (attempt 3, re-run at HEAD 492b586; attempt 2 was at 7492d49, attempt 1 at 4fadc2a) with `TMPDIR=/var/tmp`, as its own command; the exit code decided. Since attempt 2, e8d7bb3 recorded the evidence and the round-2 review, and 492b586 merged `origin/main` (cc4d863, "the stage roles") into the branch (conflicts in `change-loop.mjs` message tables, `change-loop.test.mjs` pin test and `CHANGELOG.md`) and renumbered this change's release to devkit-openspec 0.23.0 / marketplace 0.27.0 (CI snippet pin `v0.23.0`). No gate command in `tasks.md` names a version number, so each ran exactly as written; the pin tests that name 0.23.0 ran inside the guard suite (5.3) and passed. Test counts grew because main's suites are now in the tree.
 
 | Gate | Command | Result |
 | --- | --- | --- |
 | 1.2 | `grep -qx "minimum: v2.50.0" openspec/changes/gh-version-check/proof/gh-min-version.txt` | pass: exit 0 |
 | 2.5 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/deliver-check.test.mjs` | pass: 852 tests, 852 pass, 0 fail |
 | 2.5 | `python3 scripts/check.py` | pass: all checks passed |
-| 3.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs` | pass: 2393 tests, 2393 pass, 0 fail (second run; see note) |
+| 3.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs` | pass: 2569 tests, 2569 pass, 0 fail (first run, no flake) |
 | 3.6 | `python3 scripts/check.py` | pass: all checks passed |
 | 4.4 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs` | pass: 417 tests, 417 pass, 0 fail |
 | 4.4 | `python3 scripts/check.py` | pass: all checks passed |
-| 5.3 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1407 tests, 1407 pass, 0 fail |
+| 5.3 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1542 tests, 1542 pass, 0 fail |
 | 5.3 | `python3 scripts/check.py` | pass: all checks passed |
 | 5.3 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
 | 5.3 | `command claude plugin validate .` | pass: Validation passed |
+
+Attempt 3: every gate passed on its first run; the `release-rebase pin` flake did not occur, so no gate was repeated. Earlier run notes follow.
 
 Note on gate 3.6 (attempt 2): the first run printed 2393 tests, 2392 pass, 1 fail, the same `release-rebase pin` test below; the run with nothing changed passed. Attempt 1 note: the first run printed 2390 tests, 2389 pass, 1 fail. The failure was
 `release-rebase pin: mergePins ... leaves no temporary folder` (`release-rebase.test.mjs:392`),
@@ -43,6 +45,8 @@ whole guard run. The gate was run again once, with no other change, and passed a
 | AC-6 | Other failures keep their text; a successful read never calls `gh --version` | Tests `gh-version 8`, `9`, `16` (gates 2.5, 3.6) | pass |
 | AC-7 | Setup step 1 runs the version check: warns on 2.46.0, says not installed when `gh` is missing, `ok` with the version on 2.50.0 or newer, setup goes on | Tests `gh-version 17`, `18`, `19` (gate 4.4). Local runs of `plugins/openspec/skills/openspec-setup/scripts/gh-version.mjs`, each exit 0: with the fake `gh` (and with the system 2.46.0 at `/usr/bin/gh`) it printed `gh: warning: the installed gh is 2.46.0, older than 2.50.0; ... update gh`; with an empty `PATH` it printed `gh: warning: gh is not installed; the pr and merge ship modes need gh 2.50.0 or newer`; with the installed 2.105.0 it printed `gh: ok 2.105.0` | pass |
 
-Product code is unchanged between 4fadc2a and 7492d49 (`git diff 4fadc2a..HEAD --stat` shows only the test file and the change folder); the local fake-`gh` runs in AC-1 and AC-7 were taken at 4fadc2a.
+Earlier note (attempt 2): product code was unchanged between 4fadc2a and 7492d49; the local fake-`gh` runs were then taken at 4fadc2a.
+
+Attempt 3: main's code is now in the tree, so the local fake-`gh` runs were repeated at 492b586, with `PATH` put first on a fake `gh` script. AC-1: `checksItem({ pr: { number: 1 } }, makeGh(cwd))` (`--version` prints `gh version 2.46.0 (2024-03-18)`, `pr checks` exits 1 with `unknown flag: --json`) gave status `blocked`, reason `cannot read the checks: gh pr checks --json needs gh 2.50.0 or newer and the installed gh is 2.46.0; update gh`, `details.ghTooOld` `{installed: 2.46.0, minimum: 2.50.0}`. AC-7: `gh-version.mjs` with the fake `gh` printed the 2.46.0 warning (`... older than 2.50.0 ... update gh`); with `PATH` an empty folder it printed `gh: warning: gh is not installed; the pr and merge ship modes need gh 2.50.0 or newer`; with the real installed `gh` (2.105.0) it printed `gh: ok 2.105.0`; every run exited 0. `git status --short` was clean before this file was written.
 
 No screenshots: the change has no UI surface.

@@ -2,10 +2,10 @@
 // change-coordinator: the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
+import { mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
 import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
@@ -40,7 +40,7 @@ const read = (f) => readFileSync(join(HERE, f), 'utf8');
 // ---------------------------------------------------------------- settings (D-9)
 
 function configRepo(text) {
-  const root = mkdtempSync(join(tmpdir(), 'change-loop-cfg-'));
+  const root = tmpFolder('devkit-change-loop-cfg-');
   mkdirSync(join(root, 'openspec'), { recursive: true });
   if (text !== null) writeFileSync(join(root, 'openspec', 'config.yaml'), text);
   return root;
@@ -138,7 +138,7 @@ test('change-loop replies: no internal term in either language', () => {
   // The usage error's reply (exit 3 of main on an unknown option, a missing change) is one more message of the table.
   for (const lang of ['en', 'pt-BR']) {
     for (const argv of [['next', '--lang', lang, '--bogus'], ['next', '--lang', lang], ['open', '--lang', lang, '--script', 'devkit'], ['reply', 'no-such-key', '--lang', lang], ['teleport', '--lang', lang]]) {
-      const r = main(argv, { cwd: tmpdir(), env: cleanEnv });
+      const r = main(argv, { cwd: tmpRoot(), env: cleanEnv });
       const { reply, error } = JSON.parse(r.stdout);
       assert.equal(r.code, 3, argv.join(' '));
       assert.equal(reply, MESSAGES[lang]['request-unreadable'], `${lang}: ${argv.join(' ')}`);
@@ -608,7 +608,10 @@ test('change-loop brief: names the role, the change and the stage and holds no s
     assert.ok(a.brief.startsWith('Change feat (devkit script), stage '), a.brief);
     assert.ok(a.brief.includes(`stage ${stage}`), a.brief);
     assert.ok(a.brief.includes('Work only in /w/feat on branch feat;') && a.brief.includes('start every Bash command with cd /w/feat &&'), a.brief);
-    assert.ok(a.brief.includes('do not fetch.') && a.brief.endsWith("Write the change's files in English."), a.brief);
+    assert.ok(a.brief.includes('do not fetch.'), a.brief);
+    const base = a.agent === COMMIT ? a.brief.slice(0, -changeLoopModule.ATTRIBUTION_ASK.length) : a.brief;
+    assert.ok(base.endsWith("Write the change's files in English."), a.brief);
+    if (a.agent === COMMIT) assert.ok(a.brief.endsWith(changeLoopModule.ATTRIBUTION_ASK), 'the commit agent\'s brief ends with the attribution request');
     assert.equal(a.agent.endsWith(a.role), true, 'the agent is the role\'s agent');
     const lines = skillLines(stageOf(FLOWS.devkit, stage).skills ?? []);
     assert.equal(lines.length > 0 || stage === 'proposal', true, `the skills of ${stage} were read`);
@@ -772,7 +775,7 @@ test('change-loop next: an unknown change, an unknown option and a missing chang
     assert.equal(body.reply, render('en', 'request-unreadable'), argv.join(' '));
     assert.doesNotMatch(body.reply, /change-loop|--|\?/, 'no script name, option or placeholder');
   }
-  assert.equal(main(['next', '--change', 'feat', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv }).code, 3, 'no openspec folder above');
+  assert.equal(main(['next', '--change', 'feat', '--lang', 'en'], { cwd: tmpRoot(), env: cleanEnv }).code, 3, 'no openspec folder above');
 });
 
 // ---- from the implementation on, over a real repository and a fake gh
@@ -920,7 +923,7 @@ test('change-loop start: S0 a usage error exits 3 and creates nothing', () => {
   assert.match(b.error, /unknown option --bogus/, 'the raw message stays in the error field');
   assert.equal(main(['start'], { cwd: root, env: cleanEnv, stdin: 'change x' }).code, 0, 'no --lang is not an error: the language is Brazilian Portuguese');
   // An unreadable openspec/config.yaml (a directory in its place) is a usage error even for a verb of a later round.
-  const broken = mkdtempSync(join(tmpdir(), 'change-loop-broken-'));
+  const broken = tmpFolder('devkit-change-loop-broken-');
   mkdirSync(join(broken, 'openspec', 'changes'), { recursive: true });
   mkdirSync(join(broken, 'openspec', 'config.yaml'));
   for (const text of ['change add x', 'roadmap']) assert.equal(startRun(broken, text).code, 3, text);
@@ -937,7 +940,7 @@ test('change-loop start: S1 a verb of a later round says its round and creates n
     assert.deepEqual([b.mode, b.verb, b.text, b.change], ['not-built', verb, 'now please', null], verb);
     assert.equal(b.reply, render('en', 'verb-not-built', { verb, round }));
   }
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   assert.equal(body(startRun(bare, 'help')).mode, 'not-built', 'the verb is read before the project is');
   assert.equal(snapshot(root), before);
 });
@@ -955,7 +958,7 @@ test('change-loop start: S2 no verb or an unknown verb names the commands that e
 });
 
 test('change-loop start: S3 a folder with no openspec, or another schema, is not set up', () => {
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   const other = gitRepo({ config: 'schema: spec-driven\n' });
   const none = gitRepo({ config: null });
   for (const cwd of [bare, other, none]) {
@@ -1170,13 +1173,13 @@ test('change-loop open: O3 refuses in a project not set up or with an unknown or
     assert.equal(body(r).reply, asked.reply, 'the reply is the one the typed command gives');
     assert.equal(snapshot(t.main), before, config);
   }
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   assert.equal(openRun(bare, 'new-thing').code, 3);
 });
 
 test('change-loop open: O4 starts from origin/<default> after a fetch', () => {
   const t = freshProject();
-  const other = mkdtempSync(join(tmpdir(), 'change-loop-other-'));
+  const other = tmpFolder('devkit-change-loop-other-');
   const clone = join(other, 'clone');
   git(other, 'clone', '-q', t.originDir, clone);
   put(clone, { 'NEWS.md': 'news\n' });
@@ -1576,7 +1579,7 @@ test('change-loop wait: the CLI polls through the fake gh and ends when the chec
 const GUARD = join(HERE, 'guard.mjs');
 const runOf = (input) => guardModule.runOf(input);
 const SESSION = 'session-0001';
-const sandbox = () => mkdtempSync(join(tmpdir(), 'change-loop-lock-'));
+const sandbox = () => tmpFolder('devkit-change-loop-lock-');
 
 // Transcript lines in the stored forms the probe of D-12a recorded (Claude Code 2.1.326, session ids replaced).
 const LINE_BASE = { parentUuid: null, isSidechain: false, userType: 'external', entrypoint: 'sdk-cli', cwd: '/scratch/project', sessionId: SESSION, version: '2.1.326', gitBranch: 'main' };
@@ -1946,7 +1949,7 @@ test('change-loop lock subagent-stop: U7 an error lets the stop through', () => 
 // change's files, committed there. Returns { main, wt }.
 function worktreeChange({ schema = 'devkit', have = ['requirements', 'decisions'] } = {}) {
   const main = gitRepo({ config: 'schema: devkit\n' });
-  const wt = join(mkdtempSync(join(tmpdir(), 'change-loop-wtlayout-')), 'feat');
+  const wt = join(tmpFolder('devkit-change-loop-wtlayout-'), 'feat');
   git(main, 'worktree', 'add', '-q', '-b', 'feat', wt);
   const c0 = git(wt, 'rev-parse', 'HEAD');
   put(wt, { 'openspec/changes/feat/.openspec.yaml': `schema: ${schema}\n`, ...Object.fromEntries(have.map((stage) => [`openspec/changes/feat/${PLAN_FILES[stage]}`, `${head(stage, c0)}# ${stage}\n`])) });
@@ -2517,8 +2520,10 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); gh-version-check moves it to 0.23.0 (release 0.27.0).
-  assert.match(flow, /v0\.23\.0/, 'the CI snippet pins the current release (gh-version-check: 0.23.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); gh-version-check moves it to 0.24.0 (release 0.28.0).
+  assert.match(flow, /v0\.24\.0/, 'the CI snippet pins the current release (gh-version-check: 0.24.0)');
+  assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
@@ -2546,8 +2551,8 @@ test('change-loop docs: the design records the answers', () => {
 
 function pinnedLoop(version) {
   const root = planChange({ have: ['requirements', 'decisions'] });
-  const marker = join(root, '..', `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
-  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'loop-pathcli-')), { version: '2.1.0', label: 'path', marker });
+  const marker = join(tmpFolder('devkit-change-loop-marker-'), `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+  const pathDir = openspecStub(tmpFolder('devkit-loop-pathcli-'), { version: '2.1.0', label: 'path', marker });
   openspecStub(join(root, 'node_modules', '.bin'), { version, label: 'pinned', marker });
   const env = { ...cleanEnv, PATH: `${pathDir}:${process.env.PATH}` };
   return { root, marker, env };
@@ -2706,7 +2711,7 @@ test('change-loop start: a request written to the pipe after a delay is still re
   assert.deepEqual(JSON.parse(late.stdout), JSON.parse(startRun(root, 'change add a thing').stdout), 'the same answer as for a request there from the start');
 });
 
-const lockDir = () => mkdtempSync(join(tmpdir(), 'devkit-lockfile-'));
+const lockDir = () => tmpFolder('devkit-lockfile-');
 
 test('change-loop withLockFile: holds the lock while the work runs, stores the holder text, removes the lock after', () => {
   const lock = join(lockDir(), 'x.lock');
@@ -3081,7 +3086,7 @@ test('stage-roles loop: accept-decisions refuses a path outside the repository, 
 });
 
 test('stage-roles loop: accept-decisions refuses a listed record that is a symlink to a file outside the repository, and leaves the target alone', () => {
-  const outside = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'adr-outside-'));
+  const outside = tmpFolder('devkit-adr-outside-');
   const target = join(outside, 'x.md');
   writeFileSync(target, adrRecord('Status: proposed'));
   const root = adrChange({ records: {}, listed: [`${ADR_FOLDER}/x.md`] });
@@ -3116,7 +3121,7 @@ test('stage-roles loop: accept-decisions with a good record and a bad one change
 });
 
 test('stage-roles loop: accept-decisions names itself in the usage line and needs a change id', () => {
-  const r = main(['accept-decisions', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv });
+  const r = main(['accept-decisions', '--lang', 'en'], { cwd: tmpFolder('devkit-loop-nocwd-'), env: cleanEnv });
   assert.equal(r.code, 3);
   assert.match(JSON.parse(r.stdout).error, /accept-decisions <id>/);
   assert.match(read('change-loop.mjs'), /accept-decisions <id> --lang/);
@@ -3418,4 +3423,98 @@ test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 c
   assert.equal([...exact].length, 59);
   assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
   assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
+});
+
+// ================================================================ commit-attribution (D-7, T1 to T20)
+
+const ASK = () => changeLoopModule.ATTRIBUTION_ASK;
+const LANGUAGE_SENTENCE = "Write the change's files in English.";
+const COMMIT_ROWS = {
+  commit: { paths: [] },
+  'open-pr': { number: 12 },
+  push: { number: 12 },
+  'open-archive-pr': { branch: 'chore/archive-feat', title: 't' },
+  'push-rebased': { number: 12, oldHead: 'abc', branch: 'feat', paths: ['CHANGELOG.md'], command: ['git', 'push', '--force-with-lease=feat:abc', 'origin', 'feat'] },
+};
+
+for (const [n, step] of [[1, 'commit'], [2, 'open-pr'], [3, 'push'], [4, 'open-archive-pr'], [5, 'push-rebased']]) {
+  test(`commit-attribution AC-1 T${n} the ${step} hand-off to the commit agent ends with the attribution request once`, () => {
+    const a = build(rowOf(step, COMMIT_ROWS[step]));
+    assert.equal(a.agent, COMMIT);
+    assert.ok(ASK().length > 0, 'the request is exported');
+    assert.ok(a.brief.endsWith(ASK()), a.brief);
+    assert.equal(a.brief.split(ASK()).length - 1, 1, 'the request is there once');
+    assert.ok(a.brief.slice(0, -ASK().length).endsWith(LANGUAGE_SENTENCE), a.brief);
+  });
+}
+
+const NO_REQUEST = [
+  [6, 'implement', () => build(rowOf('implement', { phase: 1 }))],
+  [7, 'resolve-release-conflict', () => build(rowOf('resolve-release-conflict', { number: 12, paths: ['CHANGELOG.md'], base: 'main', command: ['git', 'merge', 'origin/main'] }))],
+  [8, 'verify', () => build(rowOf('verify'))],
+  [9, 'proposal', () => run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file') } })],
+  [10, 'readiness', () => run({ rep: { next: nextOf(FLOWS.devkit, 'readiness', 'no-file') } })],
+];
+for (const [n, label, make] of NO_REQUEST) {
+  test(`commit-attribution AC-1 T${n} the ${label} hand-off does not carry the attribution request`, () => {
+    const a = make();
+    assert.equal(a.kind, 'agent');
+    assert.ok(ASK().length > 0, 'the request is exported');
+    assert.ok(!a.brief.includes(ASK()), a.brief);
+    assert.ok(a.brief.endsWith(LANGUAGE_SENTENCE), a.brief);
+  });
+}
+
+test('commit-attribution AC-1 T11 a commit step handed to another agent carries no request', () => {
+  const a = build(rowOf('commit', { agent: TDD, paths: [] }));
+  assert.equal(a.agent, TDD);
+  assert.ok(ASK().length > 0, 'the request is exported');
+  assert.ok(!a.brief.includes(ASK()), a.brief);
+});
+
+test('commit-attribution AC-1 T12 withAttribution appends the request for the commit agent', () => {
+  assert.equal(changeLoopModule.withAttribution(changeLoopModule.COMMIT_AGENT, 'x'), `x${ASK()}`);
+});
+
+test('commit-attribution AC-1 T13 withAttribution leaves another agent\'s text as it is', () => {
+  assert.equal(changeLoopModule.withAttribution('devkit-core:tdd-implementer', 'x'), 'x');
+});
+
+test('commit-attribution AC-1 T14 withAttribution leaves a text with no agent as it is', () => {
+  assert.equal(changeLoopModule.withAttribution(undefined, 'x'), 'x');
+});
+
+test('commit-attribution AC-1 T15 the request names the header, the labels, none and verbatim, and no line of its own', () => {
+  const ask = ASK();
+  assert.ok(ask.includes(changeLoopModule.ATTRIBUTION_HEADER), 'the header');
+  for (const part of ['`Commit trailer: <line>`', '`PR footer: <line>`', '`Attribution (from the caller): none`', 'verbatim']) assert.ok(ask.includes(part), part);
+  assert.doesNotMatch(ask, /Claude|Sonnet|Opus|Haiku|noreply|@|🤖/);
+});
+
+const devkitLine = (start) => skillText().split('\n').find((l) => l.startsWith(start)) ?? '';
+const BLOCK_SENTENCE = "the attribution block of the `ship-change` skill's Attribution section";
+for (const [n, label, start] of [
+  [16, 'Loop agent item', '- `agent`: one Agent call'],
+  [17, 'push-rebased item', '- `push-rebased`:'],
+  [18, 'roadmap agent item', '   - `agent`: hand every one'],
+  [19, 'project agent item', '   - `agent`: as the Loop of the change sections says'],
+]) {
+  test(`commit-attribution AC-1 T${n} the ${label} of the devkit skill names the block for the commit agent`, () => {
+    const line = devkitLine(start);
+    assert.ok(line.length > 0, `the line starting ${start}`);
+    assert.ok(line.includes('devkit-core:commit-and-pr'), line);
+    assert.ok(line.includes(BLOCK_SENTENCE), line);
+  });
+}
+
+test('commit-attribution AC-1 T20 the request, the ship-change skill and the agent share one block format', () => {
+  const ship = readFileSync(join(REPO_ROOT, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const shipSection = section(ship, '## Attribution', '\n## Loop');
+  const agentMd = readFileSync(join(REPO_ROOT, 'plugins', 'core', 'agents', 'commit-and-pr.md'), 'utf8');
+  const receives = section(agentMd, '## Receives', '## Preconditions');
+  for (const part of [changeLoopModule.ATTRIBUTION_HEADER, 'Commit trailer:', 'PR footer:', 'Attribution (from the caller): none']) {
+    assert.ok(ASK().includes(part), `the request: ${part}`);
+    assert.ok(shipSection.includes(part), `the ship-change section: ${part}`);
+    assert.ok(receives.includes(part), `the agent's Receives: ${part}`);
+  }
 });

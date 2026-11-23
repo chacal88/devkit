@@ -2,12 +2,12 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { fakeGh } from '../../../hooks/deliver-check.test.mjs';
+import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, 'gh-version.mjs');
@@ -60,7 +60,7 @@ test('gh-version 18: the script prints one line, exits 0, and exits 2 on an argu
   assert.equal(failing.code, 0);
   assert.equal(failing.out, 'gh: warning: the gh version cannot be read (boom); the pr and merge ship modes need gh 2.50.0 or newer\n');
 
-  const empty = mkdtempSync(join(tmpdir(), 'gh-version-empty-'));
+  const empty = tmpFolder('devkit-gh-version-empty-');
   const missing = run({ ...process.env, PATH: empty });
   assert.equal(missing.code, 0);
   assert.equal(missing.out, 'gh: warning: gh is not installed; the pr and merge ship modes need gh 2.50.0 or newer\n');

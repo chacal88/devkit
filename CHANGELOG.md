@@ -1,11 +1,32 @@
 # Changelog
 
-## 0.27.0 — gh version check
+## 0.28.0 — gh version check
 
-- **devkit-openspec** 0.23.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
+- **devkit-openspec** 0.24.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
   first with `gh pr checks --json`) with its own blocked reason that gives the installed version
   and asks for an update, instead of "GitHub cannot be read"; `openspec-setup` step 1 checks `gh`
-  once and warns without stopping the setup. The CI snippet now pins `v0.23.0`, the release's tag.
+  once and warns without stopping the setup. The CI snippet now pins `v0.24.0`, the release's tag.
+
+## 0.27.0 — commit attribution
+
+- **devkit-core** 0.11.0: `commit-and-pr` takes an attribution block from the caller and writes exactly its
+  commit trailer and pull-request footer lines over the ones its own environment gives it; with `none` it writes
+  no attribution, and with no block it behaves as before.
+- **devkit-openspec** 0.23.0: every hand-off to `commit-and-pr`, in `/devkit change`, `/devkit roadmap` and
+  `/devkit project`, ends with a request that the session append its own attribution block; the `ship-change`
+  skill gains an Attribution section and its `commit`, `open-pr`/`push` and `open-archive-pr` rows name it.
+- Docs: `docs/openspec-flow.md` describes the Attribution paragraph. The CI snippet now pins `v0.23.0`, the
+  release's tag.
+
+## 0.26.1 — test fixtures clean up after themselves
+
+- **devkit-openspec** 0.22.1: `test-tmp.mjs` makes every temporary folder of the hook tests and
+  removes it when its test ends, passed or failed, and sweeps the rest at the end of the run or on
+  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.22.1`.
+- **devkit-core** 0.10.1: the same helper, a byte-identical copy, for the `review-round` tests.
+- **devkit-compozy** 0.3.1: the same helper, a byte-identical copy, for the compozy tests.
+- CI: the hook tests run on an empty `TMPDIR` and a new step fails the job when anything is left in
+  it. `CONTRIBUTING.md` states the rule: a test makes its folders through `test-tmp.mjs`.
 
 ## 0.26.0 — the stage roles
 

@@ -6,16 +6,16 @@
 // exit 1 naming what is missing; exit 3 on a setup error.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, symlinkSync } from 'node:fs';
+import { mkdirSync, writeFileSync, chmodSync, symlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { tmpFolder } from '../../test-tmp.mjs';
 import { main, parseDesign, parseScreens, mapIds, mockupLine, isVersionOrDate } from './screens-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 function tmp() {
-  return mkdtempSync(join(tmpdir(), 'screens-check-'));
+  return tmpFolder('devkit-screens-check-');
 }
 
 function write(root, rel, body) {

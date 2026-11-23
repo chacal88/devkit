@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=7492d49d748b5d124b792a98a889e599df61702e -->
+<!-- devkit-stage review result=passed attempt=1 commit=492b58633030aa9bb39198b03161304b67082701 -->
 # Review: gh-version-check, round 1
 
 Path: agents · range `c56155334749cdc46bad077ba8f53c4bbec5d140..4fadc2a97437f4af8bdffab9070a42aa3eefaa52` · structural: PASS
@@ -41,6 +41,30 @@ None.
 
 ## Notes
 - Both reviewers were re-summoned: test-coverage-reviewer for its round-1 finding, code-quality-reviewer because its Commit: line went stale after the test-only fix commit 7492d49.
+
+## Next
+Ready to ship.
+
+# Review: gh-version-check, round 1
+
+Path: agents · range `7492d49d748b5d124b792a98a889e599df61702e..492b58633030aa9bb39198b03161304b67082701` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 492b586 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 492b586 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- A stale-review call after merging origin/main (cc4d863) into the branch and moving the release to devkit-openspec 0.23.0 / marketplace 0.27.0 (492b586); scoped to the conflict resolutions and the renumbering.
+- Both reviewers first set uncommitted: true; asked, each confirmed no finding rests on an uncommitted edit (the only one was evidence.md, unread) and re-sent uncommitted: false.
 
 ## Next
 Ready to ship.
