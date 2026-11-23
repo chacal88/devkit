@@ -7,6 +7,18 @@
   and asks for an update, instead of "GitHub cannot be read"; `openspec-setup` step 1 checks `gh`
   once and warns without stopping the setup. The CI snippet now pins `v0.27.0`, the release's tag.
 
+## 0.30.1 — a review fixed in the plan files
+
+- **devkit-openspec** 0.26.1: a rejected verdict goes stale after any later commit outside the
+  change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
+  included, so a fix made in the plan files gets the next review round with no hand from the owner;
+  a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
+  The CI snippet now pins `v0.26.1`, the release's tag.
+- **devkit-core** 0.12.1: the `review-change` skill's stale definition names the rule for a rejected
+  verdict.
+- Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
+  document.
+
 ## 0.30.0 — the Jira entry
 
 - **devkit-openspec** 0.26.0: `/devkit change <Jira key or link>` opens the change from that task.

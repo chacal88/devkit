@@ -5334,6 +5334,224 @@ test('review-writer-prompt AC-8 the devkit-reviews check from both entries names
   }
 });
 
+// ---- review-openspec-fix: a rejected verdict and the change's review record (spec verdict-files)
+
+// base(); A = head; the two readers recorded at A (over: `{ name: verdict }`), committed with nothing else.
+function rejectedRepo(over = { 'code-quality-reviewer': 'rejected' }) {
+  const root = base();
+  const A = head(root);
+  const verdicts = { 'code-quality-reviewer': 'approved', 'test-coverage-reviewer': 'approved', ...over };
+  put(root, withReviews(Object.fromEntries(Object.entries(verdicts).map(([n, v]) => [n, review(v, A)]))));
+  commitAll(root, 'review round');
+  return { root, A };
+}
+// A fix committed in the plan files (or in `path`).
+function planFix(root, path = 'openspec/changes/feat/design.md') {
+  put(root, { [path]: 'fixed\n' });
+  return commitAll(root, 'plan fix');
+}
+const itemTwo = (root) => reviewsItem(root, 'feat', gitFacts(root));
+const NOTED = (A) => `${review('rejected', A)}- [nit] noted\n`;
+
+test('review-openspec-fix 1: a rejected verdict is stale after a commit that touches only openspec/ outside the change\'s review record', () => {
+  const { root, A } = rejectedRepo();
+  assert.deepEqual(itemTwo(root).details.stale, [], 'control: current before the fix');
+  const D = planFix(root);
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.deepEqual(r.details.rejected, ['code-quality-reviewer']);
+  assert.ok(r.reason.includes(`stale code-quality-reviewer (${s7(A)} is behind ${s7(D)}, which touches openspec/changes/feat/design.md)`), r.reason);
+});
+
+test('review-openspec-fix 2: a commit of the change\'s reviews/ folder only leaves a rejected verdict current', () => {
+  const { root, A } = rejectedRepo();
+  put(root, withReviews({ 'code-quality-reviewer': NOTED(A) }));
+  commitAll(root, 'record again');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/reviews/code-quality-reviewer.md');
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, []);
+  assert.deepEqual(r.details.rejected, ['code-quality-reviewer']);
+});
+
+test('review-openspec-fix 3: a commit of review.md only leaves a rejected verdict current', () => {
+  const { root } = rejectedRepo();
+  put(root, { 'openspec/changes/feat/review.md': '# Review: feat\n\nConsensus: FAIL (round 1/2)\n' });
+  commitAll(root, 'review.md');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/review.md');
+  assert.deepEqual(itemTwo(root).details.stale, []);
+});
+
+test('review-openspec-fix 4: a commit of evidence.md only leaves a rejected verdict current', () => {
+  const { root, A } = rejectedRepo();
+  put(root, { 'openspec/changes/feat/evidence.md': `Commit: ${A}\n\n# Evidence\n` });
+  commitAll(root, 'evidence');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/evidence.md');
+  assert.deepEqual(itemTwo(root).details.stale, []);
+});
+
+test('review-openspec-fix 5: a commit of the record together with another openspec/ file makes a rejected verdict stale and names that file', () => {
+  const { root, A } = rejectedRepo();
+  put(root, { ...withReviews({ 'code-quality-reviewer': NOTED(A) }), 'openspec/changes/feat/tasks.md': '- [x] 1.1 a\n- [x] 1.2 b\n' });
+  const C = commitAll(root, 'record and a fix');
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.ok(r.reason.includes(`stale code-quality-reviewer (${s7(A)} is behind ${s7(C)}, which touches openspec/changes/feat/tasks.md)`), r.reason);
+});
+
+test('review-openspec-fix 6: paths that only look like the change\'s review record make a rejected verdict stale', () => {
+  for (const p of [
+    'openspec/changes/other/reviews/code-quality-reviewer.md',
+    'openspec/changes/feat/reviews.md',
+    'openspec/changes/feat/reviewsx/a.md',
+    'openspec/changes/featx/review.md',
+    'openspec/changes/feat/proof/evidence.md',
+  ]) {
+    const { root } = rejectedRepo();
+    planFix(root, p);
+    const r = itemTwo(root);
+    assert.deepEqual(r.details.stale, ['code-quality-reviewer'], p);
+    assert.ok(r.reason.includes(`which touches ${p}`), `${p}: ${r.reason}`);
+  }
+});
+
+test('review-openspec-fix 7: a test-spared reviewer\'s rejected verdict is stale after a commit of test files only, and its approved peers stay current', () => {
+  const root = base();
+  const A = head(root);
+  put(root, withReviews(Object.fromEntries(SIX.map((n) => [n, review(n === 'spec-reviewer' ? 'rejected' : 'approved', A)]))));
+  commitAll(root, 'review round');
+  put(root, { 'src/a.test.ts': 't\n' });
+  commitAll(root, 'tests only');
+  assert.deepEqual(staleOf(root), ['code-quality-reviewer', 'spec-reviewer', 'test-coverage-reviewer']);
+});
+
+test('review-openspec-fix 8: a verdict file with no Verdict line is stale after an openspec/-only commit', () => {
+  const root = base();
+  const A = head(root);
+  put(root, withReviews(reviews(A, { 'code-quality-reviewer': `Commit: ${A}\n\n# Review\n` })));
+  commitAll(root, 'review round');
+  planFix(root);
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.deepEqual(r.details.rejected, ['code-quality-reviewer']);
+});
+
+test('review-openspec-fix 9: a rejecting reviewer outside the six is stale after an openspec/-only commit', () => {
+  const { root } = rejectedRepo({ 'perf-reviewer': 'rejected' });
+  planFix(root);
+  assert.deepEqual(itemTwo(root).details.stale, ['perf-reviewer']);
+});
+
+test('review-openspec-fix 10: approved and declined verdicts stay current after an openspec/-only commit outside the record', () => {
+  const { root } = rejectedRepo({ 'code-quality-reviewer': 'approved', 'security-reviewer': 'declined' });
+  planFix(root);
+  const r = itemTwo(root);
+  assert.equal(r.status, 'met', r.reason);
+  assert.deepEqual(r.details.stale, []);
+});
+
+test('review-openspec-fix 11: a test-spared reviewer\'s approved verdict stays current after a commit of test files only', () => {
+  const root = sixRepo();
+  put(root, { 'src/a.test.ts': 't\n' });
+  commitAll(root, 'tests only');
+  assert.deepEqual(staleOf(root), [...TEST_READERS].sort());
+});
+
+test('review-openspec-fix 12: a plan fix written and not committed leaves a rejected verdict current', () => {
+  const { root } = rejectedRepo();
+  put(root, { 'openspec/changes/feat/design.md': 'fixed\n' });
+  assert.deepEqual(itemTwo(root).details.stale, []);
+});
+
+test('review-openspec-fix 13: a merge of main that brings only openspec/ makes a rejected verdict stale and names the merge', () => {
+  const root = base();
+  git(root, 'switch', '-q', '-c', 'feat');
+  const A = head(root);
+  put(root, withReviews(reviews(A, { 'code-quality-reviewer': review('rejected', A) })));
+  commitAll(root, 'review round');
+  git(root, 'switch', '-q', 'main');
+  onlyOpenspec(root);
+  git(root, 'switch', '-q', 'feat');
+  mergeMain(root);
+  const M = head(root);
+  const r = itemTwo(root);
+  assert.deepEqual(r.details.stale, ['code-quality-reviewer']);
+  assert.ok(r.reason.includes(`stale code-quality-reviewer (${s7(A)} is behind ${s7(M)}, which touches openspec/changes/other.md)`), r.reason);
+});
+
+// The loop on a ready change: A = head, a rejecting round recorded and committed (record only).
+function rejectedLoop(t, reviewMd = '# Review: feat\n\nConsensus: FAIL (round 1/2)\n') {
+  const A = head(t.root);
+  put(t.root, withReviews({ 'code-quality-reviewer': review('rejected', A), 'test-coverage-reviewer': review('approved', A) }));
+  put(t.root, changeFiles({ 'review.md': reviewMd }));
+  return A;
+}
+
+test('review-openspec-fix 14: a rejected round fixed by an openspec/-only commit gets review at round 2 naming only the rejecting reviewer', () => {
+  const t = readyRepo();
+  rejectedLoop(t);
+  commitAll(t.root, 'review round');
+  const first = t.next();
+  assert.deepEqual([first.step, first.reviewers], ['fix-review', ['code-quality-reviewer']]);
+  put(t.root, { 'openspec/changes/feat/design.md': 'fixed\n' });
+  commitAll(t.root, 'plan fix');
+  assert.equal(git(t.root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/design.md');
+  const n = t.next();
+  assert.deepEqual([n.step, n.round, n.reviewers], ['review', 2, ['code-quality-reviewer']]);
+});
+
+test('review-openspec-fix 15: committing a rejecting round\'s record alone, twice, keeps fix-review', () => {
+  const t = readyRepo();
+  rejectedLoop(t);
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'review round');
+  let n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['fix-review', ['code-quality-reviewer']]);
+  put(t.root, changeFiles({ 'review.md': '# Review: feat\n\nConsensus: FAIL (round 1/2)\n\nNext: fix.\n' }));
+  commitAll(t.root, 'review.md again');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['fix-review', ['code-quality-reviewer']]);
+  const paths = git(t.root, 'diff', '--name-only', 'HEAD~2', 'HEAD').split('\n');
+  assert.ok(paths.every((p) => p.startsWith('openspec/changes/feat/reviews/') || p === 'openspec/changes/feat/review.md' || p === 'openspec/changes/feat/evidence.md'), paths.join(', '));
+});
+
+const FAIL_TWICE = '# Review: feat\n\nConsensus: FAIL (round 1/2)\n\nConsensus: FAIL (round 2/2)\n';
+
+test('review-openspec-fix 16: a round-2 rejection committed with its record stops on stop-review-deadlock', () => {
+  const t = readyRepo();
+  rejectedLoop(t, FAIL_TWICE);
+  commitAll(t.root, 'review round 2');
+  const n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['stop-review-deadlock', ['code-quality-reviewer']]);
+});
+
+test('review-openspec-fix 17: after the round-2 stop, an openspec/-only commit opens a review at round 1, as a product commit does', () => {
+  const t = readyRepo();
+  rejectedLoop(t, FAIL_TWICE);
+  commitAll(t.root, 'review round 2');
+  assert.equal(t.next().step, 'stop-review-deadlock', 'control');
+  planFix(t.root);
+  const n = t.next();
+  assert.deepEqual([n.step, n.round, n.reviewers], ['review', 1, ['code-quality-reviewer']]);
+});
+
+test('review-openspec-fix 18: the devkit-reviews check fails a rejected review after an openspec/-only fix and names it stale', () => {
+  const root = ciRepo();
+  const A = head(root);
+  put(root, { 'openspec/changes/feat/reviews/test-coverage-reviewer.md': review('rejected', A) });
+  commitAll(root, 'rejecting round');
+  for (const r of bothEntries(root)) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out, /not approved: test-coverage-reviewer \(rejected\)/);
+    assert.doesNotMatch(r.out, /stale test-coverage-reviewer/);
+  }
+  planFix(root);
+  for (const r of bothEntries(root)) {
+    assert.equal(r.code, 1, r.out + r.err);
+    assert.match(r.out, /not approved: test-coverage-reviewer \(rejected\)/);
+    assert.match(r.out, /stale test-coverage-reviewer \(/);
+  }
+});
+
 // ================================================================ commit-attribution (D-7, T26 to T36)
 
 const attributionOfAgent = () => {
