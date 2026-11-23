@@ -5097,13 +5097,14 @@ const COMMIT_ROWS = {
   'open-pr': { number: 12 },
   push: { number: 12 },
   'open-archive-pr': { branch: 'chore/archive-feat', title: 't' },
-  'push-rebased': { number: 12, oldHead: 'abc', branch: 'feat', paths: ['CHANGELOG.md'], command: ['git', 'push', '--force-with-lease=feat:abc', 'origin', 'feat'] },
+  'push after a release merge': { number: 12, branch: 'feat', command: ['git', 'push', 'origin', 'feat'] },
 };
 
-for (const [n, step] of [[1, 'commit'], [2, 'open-pr'], [3, 'push'], [4, 'open-archive-pr'], [5, 'push-rebased']]) {
+for (const [n, step] of [[1, 'commit'], [2, 'open-pr'], [3, 'push'], [4, 'open-archive-pr'], [5, 'push after a release merge']]) {
   test(`commit-attribution AC-1 T${n} the ${step} hand-off to the commit agent ends with the attribution request once`, () => {
-    const a = build(rowOf(step, COMMIT_ROWS[step]));
+    const a = build(rowOf(step === 'push after a release merge' ? 'push' : step, COMMIT_ROWS[step]));
     assert.equal(a.agent, COMMIT);
+    assert.doesNotMatch(JSON.stringify(a), /--force|push-rebased/, 'a plain push, never a rewrite');
     assert.ok(ASK().length > 0, 'the request is exported');
     assert.ok(a.brief.endsWith(ASK()), a.brief);
     assert.equal(a.brief.split(ASK()).length - 1, 1, 'the request is there once');
@@ -5158,7 +5159,7 @@ const devkitLine = (start) => skillText().split('\n').find((l) => l.startsWith(s
 const BLOCK_SENTENCE = "the attribution block of the `ship-change` skill's Attribution section";
 for (const [n, label, start] of [
   [16, 'Loop agent item', '- `agent`: one Agent call'],
-  [17, 'push-rebased item', '- `push-rebased`:'],
+  [17, 'Loop agent item (the plain push after a release merge)', '- `agent`: one Agent call'],
   [18, 'roadmap agent item', '   - `agent`: hand every one'],
   [19, 'project agent item', '   - `agent`: as the Loop of the change sections says'],
 ]) {
