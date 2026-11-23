@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.35.1 — retro proposals of change-version-pin
+
+- **devkit-core** 0.13.2: the stage-1 reviewer prompt of `review-change` now also says: run every
+  test in the foreground and give your answer when it ends; start no background command and leave
+  none running. A reviewer that started its own background wait loop delayed a round by hours; a
+  test in `review-round.test.mjs` pins the sentence.
+- Docs: CONTRIBUTING says how CI judges a test (an empty `TMPDIR` that must stay empty) and what a
+  test that calls code in its own process has to do; the flow page says what a merge of the base
+  costs a change in delivery and who holds the other merges off.
+
 ## 0.35.0 — change-version-pin
 
 - **devkit-openspec** 0.31.0: a change follows the flow it was opened with. `change-loop.mjs open`
