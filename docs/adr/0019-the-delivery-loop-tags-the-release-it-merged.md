@@ -1,7 +1,7 @@
 # ADR 0019: The delivery loop tags the release it merged, when the project names its release file
 
 - Status: accepted
-- Status: Accepted by: the owner, on 2026-11-23, in the approval of the plan of change release-tags (openspec/changes/release-tags/approval.md)
+- Accepted by: the owner, on 2026-11-23, in the approval of the plan of change release-tags (openspec/changes/release-tags/approval.md)
 - Date: 2026-11-23
 - Change: release-tags
 - Builds on: ADR 0002 (0002-merge-without-the-owner-opt-in.md), ADR 0003 (0003-auto-merge-the-archive-pr.md), ADR 0004 (0004-devkit-per-project.md), ADR 0010 (0010-openspec-as-the-harness.md), ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md); amends none of them
@@ -37,7 +37,10 @@ owner stop; a tag already at another commit stops the run and is never moved.
    answers the step `tag-release` naming the tag and the merge commit, before `retro` for the
    change's merge and before `archived` for the archive merge. The session then runs
    `git tag v<version> <merge sha>` and `git push origin v<version>` itself, without asking the
-   owner, and the run's report names the tag. The tag is lightweight.
+   owner, and the run's report names the tag. The tag is lightweight. The archive merge's tag is
+   asked by the run on `chore/archive-<id>` and by `ship-change`; a `/devkit change` run from any
+   other checkout, once the change is archived on the default branch, ends `archived` without
+   asking it (see Consequences).
 4. A tag `v<version>` already on `origin` at the merge commit is the step done. One at another
    commit stops the run blocked, naming the tag, its commit and the merge commit. The loop never
    moves, deletes or force-pushes a tag.
@@ -64,7 +67,10 @@ decision 6 are unchanged, and the run still ends in one of decision 3's four sta
   question 4). The step adds `gh` reads after each merge (Accepted: read-only, and only with the
   key set). A remote that refuses the tag push leaves the tag missing, so the next run asks for
   the step again (Accepted: the session reports git's refusal and stops; it never retries with
-  force).
+  force). A `/devkit change` run from a checkout other than `chore/archive-<id>` ends `archived`
+  without asking the archive merge's tag (Accepted: the archive branch's run and `ship-change` do
+  ask it, and a tag that run missed is still a version the owner can push by hand as
+  CONTRIBUTING.md step 5 says; design R-3, `docs/openspec-flow.md`, "The release tag").
 - Note: CONTRIBUTING.md step 5 keeps the by-hand commands for a release made outside the loop.
 
 ### Review trigger

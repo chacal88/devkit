@@ -121,7 +121,7 @@ message. Leave no backup or scratch file in the tree, and end every task with `g
 
 ## Workflow follow-up
 
-- After the change's pull request merges, `v0.29.0` (or the version 4.4 settled) must be on `origin`
+- After the change's pull request merges, `v0.30.0` (or the version 4.4 settled) must be on `origin`
   at its merge commit. The installed devkit-openspec runs the loop, so the step appears only once a
   version with this change is installed; until then push the tag by hand as CONTRIBUTING.md step 5
   says, and record in `retro.md` whether the loop or the owner pushed it.

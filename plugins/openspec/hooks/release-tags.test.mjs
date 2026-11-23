@@ -16,7 +16,9 @@ import * as deliver from './deliver-check.mjs';
 import { readDevkitSettings, decide, exitCodeOf, render } from './change-loop.mjs';
 import { deliveryStep } from './conduct-check.mjs';
 import { pinsIn } from './release-merge.mjs';
-import { pm, retroMd, writeRetro, mergedPr, archivePrJson, ARCHIVE_PRS, ARCHIVE_LISTING } from './deliver-check.test.mjs';
+import { pm, retroMd, writeRetro, mergedPr, archivePrJson, ARCHIVE_PRS, ARCHIVE_LISTING, fakeGh } from './deliver-check.test.mjs';
+import { scenario, archiving, TWO_PRS } from './delivery-models.test.mjs';
+import { makeGh } from './merge-setup.mjs';
 
 const PLUGIN_JSON = 'plugins/openspec/.claude-plugin/plugin.json';
 const ACCEPTED = 'a path from the repository root to a JSON file, such as package.json';
@@ -410,6 +412,63 @@ test('release-tags 2: an archived change whose archive PR list has no merged ent
   assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('chore/archive-feat')), 'the archive PR list was read');
 });
 
+// ---- two-prs (ADR 0018): only the merges into the base branch are tagged. The delivery-models simulator answers the pull requests of
+// both branches; the release reads go to a fakeGh with the fixtures above, so a read of a test-branch pull request is on record.
+
+const TWO_PRS_RELEASE = `schema: devkit-lite\n${TWO_PRS}  release_tag: ${FILE}\n`;
+const RELEASE_ROUTE = /^repos\/\{owner\}\/\{repo\}\/(pulls\/\d+|contents\/release\.json\?.*|git\/(commits|ref|tags)\/.*)$/;
+
+function withReleases(s) {
+  const fake = fakeGh();
+  const sim = s.sim.gh(s.wt);
+  const release = makeGh(s.wt, fake.env);
+  const seen = [];
+  const gh = (args, opts) => { seen.push(args); return args[0] === 'api' && RELEASE_ROUTE.test(args[1] ?? '') ? release(args, opts) : sim(args, opts); };
+  return {
+    fake,
+    next: () => deliver.nextStep(deliver.collectState(s.wt, 'feat', { env: s.env, gh })),
+    // The numbers of the pull requests whose release facts were read, and every release route that was read.
+    pulls: () => [...new Set(seen.map((a) => /\/pulls\/(\d+)$/.exec(a[1] ?? '')?.[1]).filter(Boolean).map(Number))].sort((a, b) => a - b),
+    routes: () => seen.filter((a) => a[0] === 'api' && RELEASE_ROUTE.test(a[1] ?? '')).map((a) => a[1]),
+  };
+}
+const prOn = (s, base, head) => s.sim.prs().find((p) => p.base === base && p.head === head).number;
+
+test('release-tags 2: two-prs names tag-release for the merge into main and reads nothing of the test-branch change pull request', () => {
+  const s = scenario({ config: TWO_PRS_RELEASE });
+  const { base, test } = s.openBoth();
+  s.sim.merge(test);
+  s.sim.merge(base);
+  const r = withReleases(s);
+  releaseFixtures(r.fake, { number: base, atMerge: '1.3.0', atParent: '1.2.0' });
+  const n = r.next();
+  assert.deepEqual({ step: n.step, tag: n.tag, sha: n.sha, number: n.number, merged: n.merged, base: n.base },
+    { step: 'tag-release', tag: 'v1.3.0', sha: MERGE, number: base, merged: 'change', base: 'main' });
+  assert.deepEqual(r.pulls(), [base], `only pulls/${base} (main) is read, not pulls/${test} (develop): ${r.routes()}`);
+  assert.equal(r.routes().some((x) => x.includes(`pulls/${test}`)), false);
+});
+
+test('release-tags 2: two-prs names tag-release for the archive merge into main and reads nothing of the test-branch archive pull request', () => {
+  const s = archiving({ config: TWO_PRS_RELEASE });
+  const changeBase = prOn(s, 'main', 'feat');
+  const changeTest = prOn(s, 'develop', 'feat');
+  s.sim.merge(s.basePr);
+  s.cutTest();
+  const testArchive = s.testPr();
+  s.sim.merge(testArchive);
+  const r = withReleases(s);
+  // The change's merge did not move the version; the archive merge into main did; the test-branch archive PR (a develop merge) is never read.
+  releaseFixtures(r.fake, { number: changeBase, atMerge: '1.2.0', atParent: '1.2.0' });
+  releaseFixtures(r.fake, { number: s.basePr, merge: AMERGE, parent: APARENT, atMerge: '1.3.0', atParent: '1.2.0' });
+  const n = r.next();
+  assert.deepEqual({ step: n.step, tag: n.tag, sha: n.sha, number: n.number, merged: n.merged, base: n.base },
+    { step: 'tag-release', tag: 'v1.3.0', sha: AMERGE, number: s.basePr, merged: 'archive', base: 'main' });
+  assert.deepEqual(r.pulls(), [changeBase, s.basePr].sort((a, b) => a - b), `no pulls/${changeTest} nor pulls/${testArchive}: ${r.routes()}`);
+  releaseFixtures(r.fake, { number: s.basePr, merge: AMERGE, parent: APARENT, atMerge: '1.3.0', atParent: '1.2.0', tag: { at: AMERGE } });
+  assert.equal(r.next().step, 'archived', 'with the main merge tagged the two-prs archive is done: the develop merge asks nothing');
+  assert.equal(r.pulls().includes(changeTest) || r.pulls().includes(testArchive), false);
+});
+
 // ================================================================ phase 3: the loop and the skills (D-5, D-6)
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -481,6 +540,7 @@ test('release-tags 3: ship-change has the tag-release row, its report line and i
   const row = text.split('\n').find((l) => l.startsWith('| `tag-release` |'));
   assert.ok(row, 'the tag-release row');
   for (const part of ['git fetch origin <next.base>', 'git tag <next.tag> <next.sha>', 'git push origin refs/tags/<next.tag>']) assert.ok(row.includes(part), part);
+  for (const part of ['git rev-parse -q --verify refs/tags/<next.tag>', 'stop `blocked: archive (tag-release)', 'never retry it with force', "<git's first error line>"]) assert.ok(row.includes(part), `the row keeps its guard: ${part}`);
   assert.doesNotMatch(row, /git (tag|push)[^`]*(--force|-f\b|--tags|-a\b|-s\b)/, 'no command of the row forces, annotates or pushes every tag');
   const report = text.slice(text.indexOf('## Report'), text.indexOf('## Never'));
   assert.ok(report.includes('A run that pushed a tag adds `tagged <tag> at <short sha>` for each one'), 'the Report sentence');
