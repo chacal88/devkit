@@ -568,7 +568,10 @@ test('change-loop brief: names the role, the change and the stage and holds no s
     assert.ok(a.brief.startsWith('Change feat (devkit script), stage '), a.brief);
     assert.ok(a.brief.includes(`stage ${stage}`), a.brief);
     assert.ok(a.brief.includes('Work only in /w/feat on branch feat;') && a.brief.includes('start every Bash command with cd /w/feat &&'), a.brief);
-    assert.ok(a.brief.includes('do not fetch.') && a.brief.endsWith("Write the change's files in English."), a.brief);
+    assert.ok(a.brief.includes('do not fetch.'), a.brief);
+    const base = a.agent === COMMIT ? a.brief.slice(0, -changeLoopModule.ATTRIBUTION_ASK.length) : a.brief;
+    assert.ok(base.endsWith("Write the change's files in English."), a.brief);
+    if (a.agent === COMMIT) assert.ok(a.brief.endsWith(changeLoopModule.ATTRIBUTION_ASK), 'the commit agent\'s brief ends with the attribution request');
     assert.equal(a.agent.endsWith(a.role), true, 'the agent is the role\'s agent');
     const lines = skillLines(stageOf(FLOWS.devkit, stage).skills ?? []);
     assert.equal(lines.length > 0 || stage === 'proposal', true, `the skills of ${stage} were read`);
@@ -2477,9 +2480,10 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); test-fixture-cleanup moves it to 0.22.1 (release 0.26.1); 0.22.0 went to stage-roles.
-  assert.match(flow, /v0\.22\.1/, 'the CI snippet pins the current release (test-fixture-cleanup: 0.22.1)');
-  assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release (test-fixture-cleanup)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); commit-attribution moves it to 0.23.0 (release 0.27.0).
+  assert.match(flow, /v0\.23\.0/, 'the CI snippet pins the current release (commit-attribution: 0.23.0)');
+  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
@@ -3378,4 +3382,98 @@ test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 c
   assert.equal([...exact].length, 59);
   assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
   assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
+});
+
+// ================================================================ commit-attribution (D-7, T1 to T20)
+
+const ASK = () => changeLoopModule.ATTRIBUTION_ASK;
+const LANGUAGE_SENTENCE = "Write the change's files in English.";
+const COMMIT_ROWS = {
+  commit: { paths: [] },
+  'open-pr': { number: 12 },
+  push: { number: 12 },
+  'open-archive-pr': { branch: 'chore/archive-feat', title: 't' },
+  'push-rebased': { number: 12, oldHead: 'abc', branch: 'feat', paths: ['CHANGELOG.md'], command: ['git', 'push', '--force-with-lease=feat:abc', 'origin', 'feat'] },
+};
+
+for (const [n, step] of [[1, 'commit'], [2, 'open-pr'], [3, 'push'], [4, 'open-archive-pr'], [5, 'push-rebased']]) {
+  test(`commit-attribution AC-1 T${n} the ${step} hand-off to the commit agent ends with the attribution request once`, () => {
+    const a = build(rowOf(step, COMMIT_ROWS[step]));
+    assert.equal(a.agent, COMMIT);
+    assert.ok(ASK().length > 0, 'the request is exported');
+    assert.ok(a.brief.endsWith(ASK()), a.brief);
+    assert.equal(a.brief.split(ASK()).length - 1, 1, 'the request is there once');
+    assert.ok(a.brief.slice(0, -ASK().length).endsWith(LANGUAGE_SENTENCE), a.brief);
+  });
+}
+
+const NO_REQUEST = [
+  [6, 'implement', () => build(rowOf('implement', { phase: 1 }))],
+  [7, 'resolve-release-conflict', () => build(rowOf('resolve-release-conflict', { number: 12, paths: ['CHANGELOG.md'], base: 'main', command: ['git', 'merge', 'origin/main'] }))],
+  [8, 'verify', () => build(rowOf('verify'))],
+  [9, 'proposal', () => run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file') } })],
+  [10, 'readiness', () => run({ rep: { next: nextOf(FLOWS.devkit, 'readiness', 'no-file') } })],
+];
+for (const [n, label, make] of NO_REQUEST) {
+  test(`commit-attribution AC-1 T${n} the ${label} hand-off does not carry the attribution request`, () => {
+    const a = make();
+    assert.equal(a.kind, 'agent');
+    assert.ok(ASK().length > 0, 'the request is exported');
+    assert.ok(!a.brief.includes(ASK()), a.brief);
+    assert.ok(a.brief.endsWith(LANGUAGE_SENTENCE), a.brief);
+  });
+}
+
+test('commit-attribution AC-1 T11 a commit step handed to another agent carries no request', () => {
+  const a = build(rowOf('commit', { agent: TDD, paths: [] }));
+  assert.equal(a.agent, TDD);
+  assert.ok(ASK().length > 0, 'the request is exported');
+  assert.ok(!a.brief.includes(ASK()), a.brief);
+});
+
+test('commit-attribution AC-1 T12 withAttribution appends the request for the commit agent', () => {
+  assert.equal(changeLoopModule.withAttribution(changeLoopModule.COMMIT_AGENT, 'x'), `x${ASK()}`);
+});
+
+test('commit-attribution AC-1 T13 withAttribution leaves another agent\'s text as it is', () => {
+  assert.equal(changeLoopModule.withAttribution('devkit-core:tdd-implementer', 'x'), 'x');
+});
+
+test('commit-attribution AC-1 T14 withAttribution leaves a text with no agent as it is', () => {
+  assert.equal(changeLoopModule.withAttribution(undefined, 'x'), 'x');
+});
+
+test('commit-attribution AC-1 T15 the request names the header, the labels, none and verbatim, and no line of its own', () => {
+  const ask = ASK();
+  assert.ok(ask.includes(changeLoopModule.ATTRIBUTION_HEADER), 'the header');
+  for (const part of ['`Commit trailer: <line>`', '`PR footer: <line>`', '`Attribution (from the caller): none`', 'verbatim']) assert.ok(ask.includes(part), part);
+  assert.doesNotMatch(ask, /Claude|Sonnet|Opus|Haiku|noreply|@|🤖/);
+});
+
+const devkitLine = (start) => skillText().split('\n').find((l) => l.startsWith(start)) ?? '';
+const BLOCK_SENTENCE = "the attribution block of the `ship-change` skill's Attribution section";
+for (const [n, label, start] of [
+  [16, 'Loop agent item', '- `agent`: one Agent call'],
+  [17, 'push-rebased item', '- `push-rebased`:'],
+  [18, 'roadmap agent item', '   - `agent`: hand every one'],
+  [19, 'project agent item', '   - `agent`: as the Loop of the change sections says'],
+]) {
+  test(`commit-attribution AC-1 T${n} the ${label} of the devkit skill names the block for the commit agent`, () => {
+    const line = devkitLine(start);
+    assert.ok(line.length > 0, `the line starting ${start}`);
+    assert.ok(line.includes('devkit-core:commit-and-pr'), line);
+    assert.ok(line.includes(BLOCK_SENTENCE), line);
+  });
+}
+
+test('commit-attribution AC-1 T20 the request, the ship-change skill and the agent share one block format', () => {
+  const ship = readFileSync(join(REPO_ROOT, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const shipSection = section(ship, '## Attribution', '\n## Loop');
+  const agentMd = readFileSync(join(REPO_ROOT, 'plugins', 'core', 'agents', 'commit-and-pr.md'), 'utf8');
+  const receives = section(agentMd, '## Receives', '## Preconditions');
+  for (const part of [changeLoopModule.ATTRIBUTION_HEADER, 'Commit trailer:', 'PR footer:', 'Attribution (from the caller): none']) {
+    assert.ok(ASK().includes(part), `the request: ${part}`);
+    assert.ok(shipSection.includes(part), `the ship-change section: ${part}`);
+    assert.ok(receives.includes(part), `the agent's Receives: ${part}`);
+  }
 });

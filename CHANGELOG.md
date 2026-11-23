@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.0 — commit attribution
+
+- **devkit-core** 0.11.0: `commit-and-pr` takes an attribution block from the caller and writes exactly its
+  commit trailer and pull-request footer lines over the ones its own environment gives it; with `none` it writes
+  no attribution, and with no block it behaves as before.
+- **devkit-openspec** 0.23.0: every hand-off to `commit-and-pr`, in `/devkit change`, `/devkit roadmap` and
+  `/devkit project`, ends with a request that the session append its own attribution block; the `ship-change`
+  skill gains an Attribution section and its `commit`, `open-pr`/`push` and `open-archive-pr` rows name it.
+- Docs: `docs/openspec-flow.md` describes the Attribution paragraph. The CI snippet now pins `v0.23.0`, the
+  release's tag.
+
 ## 0.26.1 — test fixtures clean up after themselves
 
 - **devkit-openspec** 0.22.1: `test-tmp.mjs` makes every temporary folder of the hook tests and

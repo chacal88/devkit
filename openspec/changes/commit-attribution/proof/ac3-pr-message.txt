@@ -1,0 +1,6 @@
+docs(proof): add b.txt
+
+Add b.txt as proof of the attribution flow.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+

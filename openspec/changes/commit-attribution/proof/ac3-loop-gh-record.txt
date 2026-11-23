@@ -1,0 +1,19 @@
+ARGS: pr view --json url
+ARGS: pr view --json url,state
+ARGS: pr view attribution-proof --json url
+ARGS: pr view --json url
+ARGS: pr view attribution-proof --json url
+ARGS: pr create --title chore(attribution-proof): add b.txt and c.txt --body-file -
+BODY-STDIN-BEGIN
+## Summary
+- Adds b.txt and c.txt for change attribution-proof.
+
+## Linked artifacts
+- Change: attribution-proof
+
+## Test plan
+- [x] Reviews current at HEAD
+- [ ] Owner review
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+BODY-STDIN-END
