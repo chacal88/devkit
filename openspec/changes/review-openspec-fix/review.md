@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=5ed6b3bcc9d7f30c6cd54e089a2576482ff26850 -->
+<!-- devkit-stage review result=passed attempt=1 commit=c9bc7758c2ab24c2611819c577381741238edbd1 -->
 
 # Review: review-openspec-fix, round 1
 
@@ -42,6 +42,29 @@ None.
 
 ## Notes
 - Re-review after merge 5ed6b3b of origin/main (release files moved to 0.26.1); stale Commit: lines only, so this is round 1.
+
+## Next
+Ready to ship.
+
+# Review: review-openspec-fix, round 1
+
+Path: agents · range `5ed6b3bcc9d7f30c6cd54e089a2576482ff26850..c9bc7758c2ab24c2611819c577381741238edbd1` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | c9bc775 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | c9bc775 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Re-review after GitHub's update-branch merged main (c9bc775); stale Commit: lines only, so this is round 1.
 
 ## Next
 Ready to ship.

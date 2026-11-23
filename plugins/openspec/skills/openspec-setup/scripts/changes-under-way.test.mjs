@@ -3,9 +3,9 @@
 // The scratch project starts on the v0.13.0 schemas (a committed fixture: CI checks out without tags).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync, cpSync, rmSync, realpathSync } from 'node:fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync, cpSync, rmSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +41,7 @@ function scratch() {
   cpSync(fixtureSchemas, join(root, 'openspec', 'schemas'), { recursive: true });
   commitAll(root, 'schemas of 0.13.0');
   const worktree = (id, files) => {
-    const dir = join(mkdtempSync(join(tmpdir(), 'devkit-wt-')), id);
+    const dir = join(tmpFolder('devkit-wt-'), id);
     git(root, 'worktree', 'add', '-q', '-b', id, dir);
     put(dir, Object.fromEntries(Object.entries(files).map(([f, b]) => [`openspec/changes/${id}/${f}`, b])));
     commitAll(dir, `change ${id}`);
@@ -202,7 +202,7 @@ test('field-fixes 7 flow-check: readFlowFile reads a flow.json by path, readFlow
   const flow = flowCheck.readFlowFile(file);
   assert.equal(flow.version, 1);
   assert.deepEqual(flow, flowCheck.readFlow(gitRepo({ config: 'schema: devkit\n' }), 'devkit'));
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-flow-'));
+  const dir = tmpFolder('devkit-flow-');
   mkdirSync(join(dir, 'x'));
   writeFileSync(join(dir, 'x', 'flow.json'), '{"version": 1}');
   assert.throws(() => flowCheck.readFlowFile(join(dir, 'x', 'flow.json')), (e) => e instanceof flowCheck.FlowUsageError && e.message.includes('x/flow.json') && /malformed/.test(e.message));

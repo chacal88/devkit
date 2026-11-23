@@ -1,16 +1,26 @@
 # Changelog
 
-## 0.26.1 — a review fixed in the plan files
+## 0.26.2 — a review fixed in the plan files
 
-- **devkit-openspec** 0.22.1: a rejected verdict goes stale after any later commit outside the
+- **devkit-openspec** 0.22.2: a rejected verdict goes stale after any later commit outside the
   change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
   included, so a fix made in the plan files gets the next review round with no hand from the owner;
   a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
-  The CI snippet now pins `v0.22.1`, the release's tag.
-- **devkit-core** 0.10.1: the `review-change` skill's stale definition names the rule for a rejected
+  The CI snippet now pins `v0.22.2`, the release's tag.
+- **devkit-core** 0.10.2: the `review-change` skill's stale definition names the rule for a rejected
   verdict.
 - Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
   document.
+
+## 0.26.1 — test fixtures clean up after themselves
+
+- **devkit-openspec** 0.22.1: `test-tmp.mjs` makes every temporary folder of the hook tests and
+  removes it when its test ends, passed or failed, and sweeps the rest at the end of the run or on
+  `SIGINT` and `SIGTERM`; every hook and setup test file uses it. The CI snippet now pins `v0.22.1`.
+- **devkit-core** 0.10.1: the same helper, a byte-identical copy, for the `review-round` tests.
+- **devkit-compozy** 0.3.1: the same helper, a byte-identical copy, for the compozy tests.
+- CI: the hook tests run on an empty `TMPDIR` and a new step fails the job when anything is left in
+  it. `CONTRIBUTING.md` states the rule: a test makes its folders through `test-tmp.mjs`.
 
 ## 0.26.0 — the stage roles
 

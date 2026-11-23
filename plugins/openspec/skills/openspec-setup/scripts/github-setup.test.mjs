@@ -2,9 +2,9 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, writeFileSync, chmodSync, mkdtempSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { desiredRuleset, WORKFLOW_PATH, DEVKIT_REVIEWS_CHECK } from '../../../hooks/merge-setup.mjs';
@@ -72,7 +72,7 @@ function world({ settings = SETTINGS_OFF, runs = ['check'], tag = { stdout: { ob
   if (prChecks) gh.set('pr-checks', { stdout: prChecks.map((name) => ({ name })) });
   gh.set('pr-list', { stdout: prList });
   // a wrapper that keeps what is piped to `--input -`, then runs the fake gh
-  const wrap = mkdtempSync(join(tmpdir(), 'devkit-ghwrap-'));
+  const wrap = tmpFolder('devkit-ghwrap-');
   writeFileSync(join(wrap, 'gh'), `#!/bin/sh\ncase " $* " in *" --input - "*) cat > "$FAKE_GH_DIR/stdin.json";; esac\nexec "${join(gh.bin, 'gh')}" "$@"\n`);
   chmodSync(join(wrap, 'gh'), 0o755);
   const env = { ...gh.env, PATH: `${wrap}:${gh.env.PATH}` };

@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=5ed6b3bcc9d7f30c6cd54e089a2576482ff26850 -->
-Commit: 5ed6b3bcc9d7f30c6cd54e089a2576482ff26850
+<!-- devkit-stage evidence result=passed attempt=3 commit=c9bc7758c2ab24c2611819c577381741238edbd1 -->
+Commit: c9bc7758c2ab24c2611819c577381741238edbd1
 
 # Evidence
 
-Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean tree, re-run at the merge of origin/main (release 0.26.1, devkit-openspec 0.22.1, devkit-core 0.10.1); run with TMPDIR=/var/tmp.
+Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean tree, re-run at the update-branch merge of main (commit c9bc775: the stage-roles archive under openspec/ and a 6-line edit in `change-loop.test.mjs`; devkit-openspec 0.22.1); run with TMPDIR=/var/tmp.
 
 ## Verification
 

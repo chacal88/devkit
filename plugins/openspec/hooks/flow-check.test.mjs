@@ -2,10 +2,10 @@
 // flow-script-checker: the stage header, the stage declaration and the checker.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, utimesSync, chmodSync, symlinkSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, utimesSync, chmodSync, symlinkSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
@@ -42,7 +42,7 @@ test('flow-check header: a malformed line, another first line and no line', () =
 });
 
 function flowRoot(flow, schema = 'devkit') {
-  const root = mkdtempSync(join(tmpdir(), 'flow-check-'));
+  const root = tmpFolder('devkit-flow-check-');
   const dir = join(root, 'openspec', 'schemas', schema);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'schema.yaml'), `name: ${schema}\nversion: 1\nartifacts: []\n`);
@@ -125,7 +125,7 @@ const run = (cwd, cmd, ...args) => {
 let projectCache = null;
 function schemaProject() {
   if (projectCache) return projectCache;
-  const root = mkdtempSync(join(tmpdir(), 'devkit-flow-'));
+  const root = tmpFolder('devkit-flow-');
   run(root, 'git', 'init', '-q');
   run(root, 'openspec', 'init', '--tools', 'none', '--no-animation', '.');
   run(root, 'bash', INSTALL, '.');
@@ -135,6 +135,9 @@ function schemaProject() {
   projectCache = { root, x: status('x'), y: status('y') };
   return projectCache;
 }
+// test-fixture-cleanup: made at module level, so the sweep removes it and no test's end does.
+schemaProject();
+
 
 test('flow-check schema: AC-1 a new devkit change lists every stage in order', () => {
   const { x } = schemaProject();
@@ -266,7 +269,7 @@ function guardRun(mode, cwd, input = {}, env = {}) {
 }
 
 test('flow-check AC-2: the session hook names the checker and the roles', () => {
-  const root = mkdtempSync(join(tmpdir(), 'flow-session-'));
+  const root = tmpFolder('devkit-flow-session-');
   git(root, 'init', '-q', '-b', 'main');
   cpSync(PLUGIN_SCHEMAS, join(root, 'openspec', 'schemas'), { recursive: true });
   put(root, { 'openspec/config.yaml': 'schema: devkit\n', 'openspec/changes/feat/.openspec.yaml': 'schema: devkit\n' });
@@ -351,7 +354,7 @@ test('flow-check AC-6: deliver-check gives the same step with and without stage 
 });
 
 test('flow-check AC-6: the readiness gate reads Status under a header', () => {
-  const root = mkdtempSync(join(tmpdir(), 'flow-gate-'));
+  const root = tmpFolder('devkit-flow-gate-');
   git(root, 'init', '-q', '-b', 'main');
   cpSync(PLUGIN_SCHEMAS, join(root, 'openspec', 'schemas'), { recursive: true });
   const write = (status) => put(root, {
@@ -1147,7 +1150,7 @@ let sampleCache = null;
 // demonstration passed, the plan readiness at attempt 2, the code review failed at attempt 1.
 export function sampleChange() {
   if (sampleCache) return sampleCache;
-  const root = mkdtempSync(join(tmpdir(), 'flow-check-sample-'));
+  const root = tmpFolder('devkit-flow-check-sample-');
   git(root, 'init', '-q', '-b', 'main');
   run(root, 'openspec', 'init', '--tools', 'none', '--no-animation', '.');
   run(root, 'bash', INSTALL, '.');
@@ -1170,6 +1173,8 @@ export function sampleChange() {
   sampleCache = root;
   return root;
 }
+// test-fixture-cleanup: made at module level, so the sweep removes it and no test's end does.
+sampleChange();
 
 const FLOW_CHECK = join(HERE, 'flow-check.mjs');
 const runCli = (cwd, args, env = { ...process.env, ...SHIP_ENV }) => spawnSync(process.execPath, [FLOW_CHECK, ...args], { cwd, env, encoding: 'utf8' });
@@ -1224,7 +1229,7 @@ test('flow-check readout: both languages cover every reason code', () => {
 // ---- the openspec preflight
 
 function wrapperDir(script) {
-  const dir = mkdtempSync(join(tmpdir(), 'flow-check-wrap-'));
+  const dir = tmpFolder('devkit-flow-check-wrap-');
   writeFileSync(join(dir, 'openspec'), `#!/bin/sh\n${script}\n`);
   chmodSync(join(dir, 'openspec'), 0o755);
   return dir;
@@ -1232,7 +1237,7 @@ function wrapperDir(script) {
 const withPath = (dir, extra = {}) => ({ ...process.env, PATH: `${dir}:${process.env.PATH}`, ...SHIP_ENV, ...extra });
 
 test('flow-check readout: an archived change ends archived without asking OpenSpec for its status', () => {
-  const root = mkdtempSync(join(tmpdir(), 'flow-check-arch-'));
+  const root = tmpFolder('devkit-flow-check-arch-');
   git(root, 'init', '-q', '-b', 'main');
   run(root, 'openspec', 'init', '--tools', 'none', '--no-animation', '.');
   run(root, 'bash', INSTALL, '.');
@@ -1274,7 +1279,7 @@ test('flow-check readout: an OpenSpec answer without artifacts exits 3', () => {
 
 test('flow-check readout: no openspec command on PATH exits 3 and names the cause', () => {
   const root = liveChange();
-  const empty = mkdtempSync(join(tmpdir(), 'flow-check-nopath-'));
+  const empty = tmpFolder('devkit-flow-check-nopath-');
   const env = { ...process.env, PATH: empty, ...SHIP_ENV };
   const r = runCli(root, ['feat'], env);
   assert.equal(r.status, 3);
@@ -1326,7 +1331,7 @@ test('flow-check AC-9: it imports only node built-ins and the pack\'s hook modul
 
 test('flow-check AC-9: it runs with only node, git, openspec and a fake gh on PATH', () => {
   const root = sampleChange();
-  const bin = mkdtempSync(join(tmpdir(), 'flow-check-bin-'));
+  const bin = tmpFolder('devkit-flow-check-bin-');
   const which = (name) => run(root, 'sh', '-c', `command -v ${name}`).trim();
   symlinkSync(process.execPath, join(bin, 'node'));
   symlinkSync(which('git'), join(bin, 'git'));
@@ -1373,8 +1378,8 @@ test('flow-check AC-3: every writer of a stage file names the stage header', () 
 // A live change with a 2.x `openspec` on PATH that logs to `marker` and the project's own, labelled `pinned`.
 function pinWorld({ version = '1.16.0', pin = true } = {}) {
   const root = liveChange();
-  const marker = join(root, '..', `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
-  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'flow-check-pathcli-')), { version: '2.1.0', label: 'path', marker });
+  const marker = join(tmpFolder('devkit-flow-check-marker-'), `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+  const pathDir = openspecStub(tmpFolder('devkit-flow-check-pathcli-'), { version: '2.1.0', label: 'path', marker });
   if (pin) openspecStub(join(root, 'node_modules', '.bin'), { version, label: 'pinned', marker });
   const env = { ...process.env, PATH: `${pathDir}:${process.env.PATH}`, ...SHIP_ENV };
   return { root, marker, env };
@@ -1739,7 +1744,7 @@ test('stage-roles flow stale: a mock-up or a decisions file newer than the readi
 
 const reqText = (line) => `<!-- devkit-stage requirements result=passed attempt=1 commit=none -->\n# Requirements\n\n${line}\n`;
 const dirWith = (text) => {
-  const dir = mkdtempSync(join(tmpdir(), 'stage-roles-req-'));
+  const dir = tmpFolder('devkit-stage-roles-req-');
   if (text !== null) writeFileSync(join(dir, 'requirements.md'), text);
   return dir;
 };
@@ -1762,7 +1767,7 @@ test('stage-roles flow facts: only the classification line changes the flags', (
 });
 
 const configRoot = (body) => {
-  const root = mkdtempSync(join(tmpdir(), 'stage-roles-cfg-'));
+  const root = tmpFolder('devkit-stage-roles-cfg-');
   if (body !== null) { mkdirSync(join(root, 'openspec')); writeFileSync(join(root, 'openspec', 'config.yaml'), body); }
   return root;
 };
