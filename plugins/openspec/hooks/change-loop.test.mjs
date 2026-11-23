@@ -84,7 +84,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  base: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000,
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
@@ -559,7 +559,7 @@ test('change-loop decide: the loop\'s step agents match conduct-check\'s actorOf
   const stated = { retro: 'general-purpose' };
   let handedOff = 0;
   for (const step of ROW_STEPS) {
-    const a = build(rowOf(step, { phase: 1, number: 12, paths: [] }));
+    const a = build(rowOf(step, { phase: 1, number: 12, paths: [], branch: 'develop', base: 'main', list: '#12 to main' })); // branch, base and list: the owner ends of two-prs name them
     const checker = actorOf(step).agent;
     if (a.kind === 'agent') {
       handedOff += 1;
@@ -2537,15 +2537,15 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); gh-version-check moves it to 0.27.0 (release 0.31.0); 0.26.1 went to review-openspec-fix, 0.26.0 went to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.27\.0/, 'the CI snippet pins the current release (gh-version-check: 0.27.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); delivery-models moves it to 0.28.0 (release 0.32.0); 0.27.0 went to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.28\.0/, 'the CI snippet pins the current release (delivery-models: 0.28.0)');
+  assert.doesNotMatch(flow, /v0\.27\.0/, 'no pin left on the previous release (gh-version-check)');
   assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
   assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');
   assert.doesNotMatch(flow, /v0\.25\.0/, 'no pin left on the previous release (change-budget)');
   assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release (change-state)');
   assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release (commit-attribution)');
   assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release (test-fixture-cleanup)');
-
   assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
