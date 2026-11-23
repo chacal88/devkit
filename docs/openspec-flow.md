@@ -106,7 +106,7 @@ Line 1 of every stage file is a comment, so OpenSpec's strict validation and Git
 <!-- devkit-stage <stage> result=<passed|failed|not-applicable|pending> attempt=<n> commit=<sha|none> -->
 ```
 
-`<stage>` is the stage id of the schema; `pending` is what a template says (written, not judged yet); `attempt` is 1 on the first write and one more on each rewrite; `commit` is `git rev-parse HEAD` when the stage was produced. The reviewers' own files under `reviews/` keep `Verdict:` on line 1 and carry no header; `review.md` does. Each schema folder also holds `flow.json`, which declares the stages in order with their role, their file or source, and how many failed attempts they get.
+`<stage>` is the stage id of the schema; `pending` is what a template says (written, not judged yet); `attempt` is 1 on the first write and one more on each rewrite; `commit` is `git rev-parse HEAD` when the stage was produced. The reviewers' own files under `reviews/` keep `Verdict:` on line 1 and carry no header; `review.md` does. Each schema folder also holds `flow.json`, which declares the stages in order with their role, their file or source, and how many failed attempts they get, and `flows/<n>.json`, a copy of every released version of that declaration (`flows/<version>.json` holds the same bytes as `flow.json`).
 
 `flow-check` is a script that reads those headers, OpenSpec's own status, the task list and git, and says which stage passed and which comes next. It runs no model and no network call except `gh`:
 
@@ -114,7 +114,11 @@ Line 1 of every stage file is a comment, so OpenSpec's strict validation and Git
 node <devkit>/plugins/openspec/hooks/flow-check.mjs add-csv-export
 ```
 
-The output is a line per stage, then the next stage, who runs it and why, or one of four ends (archived, waiting for the owner, waiting on GitHub, blocked). `--json` prints the same facts (`version` 1), `--lang pt-BR|en` picks the language (default `pt-BR`), and `--after <progressKey>` stops a loop that changed nothing. Exit codes: `0` next stage, archived or previous script; `1` waiting; `2` blocked; `3` usage error or an OpenSpec other than 2.x. A change began under the previous script when the earliest stage file it has (the first stage of the script that has any file) carries no header: the readout says so and today's flow (`ship-change`, led by `deliver-check`) finishes it. One headed file added later, such as a `readiness.md` written by a current agent, does not change that. The checker runs the project's own OpenSpec CLI (see below). The tested OpenSpec version is 2.0.0. The checker counts the task list as OpenSpec does, less the lines inside fenced examples, which are not tasks.
+The output is a line per stage, then the next stage, who runs it and why, or one of four ends (archived, waiting for the owner, waiting on GitHub, blocked). `--json` prints the same facts (`version` 1, with a `flow` key: the version the change follows, the installed one and whether the change is pinned), `--lang pt-BR|en` picks the language (default `pt-BR`), and `--after <progressKey>` stops a loop that changed nothing. Exit codes: `0` next stage, archived or previous script; `1` waiting; `2` blocked; `3` usage error or an OpenSpec other than 2.x. A change began under the previous script when the earliest stage file it has (the first stage of the script that has any file) carries no header: the readout says so and today's flow (`ship-change`, led by `deliver-check`) finishes it. One headed file added later, such as a `readiness.md` written by a current agent, does not change that. The checker runs the project's own OpenSpec CLI (see below). The tested OpenSpec version is 2.0.0. The checker counts the task list as OpenSpec does, less the lines inside fenced examples, which are not tasks.
+
+**The flow a change follows.** A change opened from devkit-openspec 0.29.0 on records two keys in its `.openspec.yaml`, after OpenSpec's own lines: `x-devkit-version`, the pack version that opened it (information only), and `x-devkit-flow`, the version of its script's `flow.json` that the change follows. Only `x-devkit-flow` decides: every reader of the change's stages (the readout, the change, roadmap and project loops, the edit hook, the CI check, the conductor and the locks) reads `flows/<x-devkit-flow>.json` of the script folder. A change with no `x-devkit-flow` (opened before this release, or on a script with no `flow.json`) follows version 1, the declaration that shipped when the key did not exist; `flows/1.json` keeps that content, so replacing the schemas with a newer release does not change the stages such a change is asked. When the installed `flow.json` is newer than the one a change follows, the readout adds one line under its title (`Flow: this change follows version 1 of the devkit script; version 2 is installed. To move it: change-loop.mjs flow add-csv-export.`, or its `pt-BR` form), and `--json` says it with `"flow": { "version": 1, "installed": 2, "pinned": true }`. A recorded version that is not a whole number from 1, or whose `flows/<n>.json` is not installed, stops the checker with a usage error (exit 3) that names the value and the file.
+
+A change to a `flow.json` raises its `version`: the new bytes are copied to `flows/<n>.json` and their digest is recorded in `scripts/released-flows.json`. `scripts/check.py` refuses a `flow.json` that differs from `flows/<its version>.json`, a kept file whose digest is not recorded or does not match, and a digest with no kept file, so a released version cannot change under the changes that follow it (see CONTRIBUTING.md).
 
 ## Adopting it in a project
 
@@ -137,6 +141,8 @@ The `openspec-setup` skill does all of this; here is what it does, if you prefer
    ```
 
    Or, for every project on this machine, add `--user`: the same command with `--user` installs under `$XDG_DATA_HOME/openspec/schemas/` and leaves the project untouched.
+
+   A re-run replaces each schema folder with the release's, which holds every released `flows/<n>.json`, so a change opened before it keeps the flow it was opened with until you ask to move it (see [Moving to a newer flow](#the-change-coordinator-devkit-change)).
 
 3. Copy [`templates/config.yaml`](../plugins/openspec/skills/openspec-setup/templates/config.yaml) to `openspec/config.yaml` and fill in `context` with the real stack, test command and conventions.
 
@@ -229,6 +235,8 @@ A project that is not set up (no `openspec/`, or a schema other than `devkit` or
 **The two settings.** The language of the project's files lives in the `devkit:` block of `openspec/config.yaml` (`language`, default `en`; a language tag) and the driver in the same block (`driver`: `claude`, `compozy` or `script`; default `claude`). The person's language is the `language` option of the devkit-openspec plugin (`pt-BR` by default, or `en`): replies, the grill's questions and the stage readout use it, while every file of the change is written in the project's language. The script prints its replies from one message table in both languages, with no internal term.
 
 **Owner gates.** The session asks you only at the owner's gates: the grill's questions, the plan approval (`approval.md`, written only from your own message) and the answer to each retro proposal. Nothing else asks you: a change moves from `not started` to `archived` on its own, except for a pull request merge in `pr` mode and the decisions the checker lists as not askable.
+
+**Moving to a newer flow.** A change keeps the flow it was opened with until you ask for the move. When `/devkit change <id>` resumes a change whose script has a newer installed flow, the reply holds a second line saying so (and that the change moves only if you ask). When you ask, the session runs `node <devkit>/plugins/openspec/hooks/change-loop.mjs flow <id> --lang <l>`: it records the installed flow's version in the change's `x-devkit-flow` (and the pack version in `x-devkit-version`), leaves every other line alone and says which version the change followed and which it follows now. A change already on the installed flow is left as it is; a change on a flow newer than the installed one is refused (update devkit in the project first). No stage, proposal or task state refuses the move: your request is the gate, and the stages the new flow adds or removes show in the next readout. No other command writes the pin: `next`, `wait`, a setup re-run and a pack update leave it as it is. The one other writer is the `script` switch before the plan is written (`change-loop.mjs script`), which records the new script's installed flow.
 
 ### `conduct-check` (kept until round 24)
 
@@ -591,17 +599,19 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.22.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.22.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.29.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.29.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
       - run: node "$RUNNER_TEMP/deliver-check.mjs" --ci
 ```
 
+The readiness is asked of a change when the flow it follows declares it, read from the checkout's `openspec/schemas/<script>/`; the job downloads the same three files, because the flow files come from the checkout, not from the pin.
+
 The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.20.0` or later first, because older releases pass a slice with a note.
 
-Pin the commit sha of the release tag (`v0.22.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.22.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.29.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.29.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 

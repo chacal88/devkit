@@ -15,7 +15,7 @@ import { mergeSetup, readRepoSettings, makeGh, ghError, GH_TIMEOUT_MS, DEVKIT_RE
 export { makeGh };
 // The `Commit:` line reader moved to guard.mjs, which the slice contract reads it from; still importable from here.
 export { parseCommitLine };
-import { archiveBranchChange, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
+import { archiveBranchChange, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, changeDeclares, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -1293,7 +1293,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     conversationItem(fetched, gh),
     bodyItem(id, fetched, acceptance.details.ids),
   ];
-  const needsReadiness = schemaHasArtifact(root, schema, 'readiness');
+  const needsReadiness = changeDeclares(root, dir, 'readiness'); // the flow the change follows (guard.mjs#changeFlow)
   return {
     ...common,
     branchOk: selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch),
@@ -1651,7 +1651,7 @@ function runCi(opts, env, cwd) {
 // Today's single-change check, unchanged: { report, lines, failed, pass } for a change on a devkit script.
 function checkOne(root, id, facts) {
   const schema = changeSchema(root, id);
-  const needsReadiness = schemaHasArtifact(root, schema, 'readiness');
+  const needsReadiness = changeDeclares(root, changeDir(root, id), 'readiness'); // the flow the change follows; an unreadable pin fails the check
   const status = needsReadiness ? readValue(join(changeDir(root, id), 'readiness.md'), 'Status') : null;
   const readinessMet = !needsReadiness || status === 'APPROVED';
   const items = [tasksItem(root, id, facts), reviewsItem(root, id, facts), findingsItem(root, id, facts), acceptanceItem(root, id, facts)];

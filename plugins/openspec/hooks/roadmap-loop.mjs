@@ -31,8 +31,8 @@ import { dirname, join } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, isChangeId } from './guard.mjs';
-import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
+import { findRoot, readRoadmap, changeFlow, roadmapRunOf, isChangeId } from './guard.mjs';
+import { collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, stageIcon, sessionTitle,
@@ -503,10 +503,10 @@ export function updateRun(file, change, { sleep } = {}) {
 const SESSION_KEYS = ['session-start', 'session-refused'];
 
 // The title of `stage` in the language of the person, from the change's own script; the id when it cannot be read.
-function stageTitleOf(found, stage, lang) {
+export function stageTitleOf(found, stage, lang) {
   try {
     const dir = locateChange(found.root, found.id)?.dir ?? join(found.root, 'openspec', 'changes', found.id);
-    return readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((s) => s.id === stage)?.title[lang] ?? stage;
+    return changeFlow(found.root, dir).flow?.stages.find((s) => s.id === stage)?.title[lang] ?? stage;
   } catch { return stage; }
 }
 
@@ -632,7 +632,7 @@ function openOnRoadmap(start, env, gh) {
   return classifyLines(rounds, { archived, open, previous: new Set(), declared: {} }).filter((l) => l.cls === 'open').map((l) => l.id);
 }
 
-const isPreviousScript = (start, id, env) => {
+export const isPreviousScript = (start, id, env) => {
   const found = locate(start, id);
   const clean = cleanOf(env);
   const { facts, flow } = collectFlow(found.root, id, { env: clean, openspec: makeOpenspec(found.root, clean) });

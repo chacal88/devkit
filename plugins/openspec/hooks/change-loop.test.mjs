@@ -84,7 +84,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  base: 'main', state: 'github',
+  base: 'main', state: 'github', version: 1, installed: 2,
 };
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
@@ -2265,8 +2265,8 @@ test('change-loop skill: the frontmatter', () => {
 
 test('change-loop skill: every change-loop command and the readout carry the person\'s language', () => {
   const md = skillText();
-  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|wait|next|reply)\b/.test(l));
-  for (const sub of ['start', 'open', 'script', 'wait', 'next', 'reply']) {
+  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|flow|wait|next|reply)\b/.test(l));
+  for (const sub of ['start', 'open', 'script', 'flow', 'wait', 'next', 'reply']) {
     assert.ok(calls.some((l) => l.includes(`change-loop.mjs ${sub}`)), `the body runs ${sub}`);
   }
   for (const l of calls) assert.ok(l.includes(LANG_FLAG), `--lang on: ${l}`);
@@ -2477,8 +2477,9 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); stage-roles moves it to 0.22.0 (release 0.26.0).
-  assert.match(flow, /v0\.22\.0/, 'the CI snippet pins the current release (stage-roles: 0.22.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); change-version-pin moves it to 0.29.0 (release 0.33.0).
+  assert.match(flow, /v0\.29\.0/, 'the CI snippet pins the current release (change-version-pin: 0.29.0)');
+  assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');

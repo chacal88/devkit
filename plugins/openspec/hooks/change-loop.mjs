@@ -12,8 +12,9 @@
 // --why <code> --lang <l>` (creates the worktree, the change and its requirements file, D-4), `script <id> <s>
 // --why <code> --lang <l>` (the correction of the script, D-4), `wait --change <id> --lang <l> [--interval <s>]`
 // (waits on GitHub with no limit, D-7) and `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
-// lists to accepted, after the owner's current approval; stage-roles D-4). Only `open`, `script` and `accept-decisions` write;
-// `start` and `next` do not. `next` and `wait` print
+// lists to accepted, after the owner's current approval; stage-roles D-4) and `flow <id> --lang <l>` (moves the change to the
+// installed version of its script's flow, only when the owner asks; change-version-pin D-7). Only `open`, `script`,
+// `accept-decisions` and `flow` write; `start` and `next` do not. `next` and `wait` print
 // `devkit-end: <id> <state>` after the run line when the action is an end, and `reply` does so for the keys that end a run.
 //
 // It also holds the decisions of the three locks that `guard.mjs` calls as modes (D-8): `stopDecision` (the session does not
@@ -28,8 +29,8 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeSchemaAt, readValue, isDecisionRecord } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, readFlow, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, readValue, isDecisionRecord } from './guard.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, plainValue, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 
@@ -103,6 +104,9 @@ export const MESSAGES = {
     resumed: 'Continuing the change {id}: {where}.',
     'script-switched': 'The change {id} moves to the {script}, because {why}.',
     'script-locked': 'The plan of {id} is already written, so its script stays as it is.',
+    'flow-newer': 'It follows version {version} of its script\'s flow; version {installed} is installed, and it moves to it only if you ask me.',
+    'flow-moved': 'The change {id} now follows version {installed} of its script\'s flow; it followed version {version}.',
+    'flow-ahead': 'The change {id} follows version {version} of its script\'s flow, newer than the installed version {installed}: update devkit in this project before moving it.',
     'waiting-approval': 'The plan of {id} is written and reviewed. Read it and tell me whether you approve it; I go on as soon as you answer.',
     'waiting-approval-again': 'The plan of {id} changed after your approval, so it needs your approval again.',
     'waiting-mockup': 'The mock-up of {id} is drawn. Look at it and tell me whether you approve it or what to change; I go on as soon as you answer.',
@@ -284,6 +288,9 @@ export const MESSAGES = {
     resumed: 'Continuando a change {id}: {where}.',
     'script-switched': 'A change {id} passa para o {script}, porque {why}.',
     'script-locked': 'O plano de {id} já foi escrito, então o roteiro fica como está.',
+    'flow-newer': 'Ela segue a versão {version} do fluxo do roteiro; a versão {installed} está instalada, e só muda para ela se você me pedir.',
+    'flow-moved': 'A change {id} agora segue a versão {installed} do fluxo do roteiro; antes seguia a versão {version}.',
+    'flow-ahead': 'A change {id} segue a versão {version} do fluxo do roteiro, mais nova que a versão instalada {installed}: atualize o devkit neste projeto antes de mudá-la.',
     'waiting-approval': 'O plano de {id} está escrito e revisado. Leia e me diga se aprova; eu sigo assim que você responder.',
     'waiting-approval-again': 'O plano de {id} mudou depois da sua aprovação, então precisa ser aprovado de novo.',
     'waiting-mockup': 'O mock-up de {id} está desenhado. Veja e me diga se aprova ou o que mudar; eu sigo assim que você responder.',
@@ -1076,6 +1083,15 @@ export function projectGate(start, settings) {
 
 export const filesLanguageOf = (settings) => (settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language);
 
+// { version, installed } when the change follows an older flow than the one installed in `root`, else null; an error reads as null
+// (the resume reply stays as it was).
+function flowNotice(root, id) {
+  try {
+    const { version, installed } = changeFlow(root, locateChange(root, id)?.dir ?? join(root, 'openspec', 'changes', id));
+    return typeof version === 'number' && typeof installed === 'number' && installed > version ? { version, installed } : null;
+  } catch { return null; }
+}
+
 // What `/devkit change` does with the request: { version, mode, verb, text, change, unfinished, settings, reply }.
 // Read-only: it creates and runs nothing.
 export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, openspec, gh } = {}) {
@@ -1100,16 +1116,20 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
     try { where = whereOf(u, u.id, read); } catch (e) { if (!(e instanceof LoopUsageError)) throw e; }
     return { id: u.id, root: u.root, where };
   });
-  const resume = (id, where) => out('resume', { change: id, unfinished: list, reply: say('resumed', { id, where }) });
+  const resume = (id, where, root) => {
+    const newer = flowNotice(root, id);
+    const reply = say('resumed', { id, where });
+    return out('resume', { change: id, unfinished: list, reply: newer ? `${reply}\n${say('flow-newer', newer)}` : reply });
+  };
   if (/^\S+$/.test(text)) {
     const known = knownChange(start, text);
     const knownDir = known ? locateChange(known.root, text)?.dir : null;
     if (knownDir && isSliceDir(knownDir)) return out('is-slice', { change: text, reply: say('is-slice', { id: text }) });
-    if (known) return resume(text, list.find((u) => u.id === text)?.where ?? whereOf(known, text, read));
+    if (known) return resume(text, list.find((u) => u.id === text)?.where ?? whereOf(known, text, read), known.root);
   }
   const listed = list.map((u) => (u.where ? `${u.id} (${u.where})` : u.id)).join('; ');
   if (text === '') {
-    if (list.length === 1) return resume(list[0].id, list[0].where ?? whereOf({ root: list[0].root, branch: '' }, list[0].id, read));
+    if (list.length === 1) return resume(list[0].id, list[0].where ?? whereOf({ root: list[0].root, branch: '' }, list[0].id, read), list[0].root);
     if (list.length > 1) return out('choose', { unfinished: list, reply: say('choose', { n: list.length, list: listed }) });
     return out('nothing', { reply: say('nothing-to-resume') });
   }
@@ -1245,6 +1265,7 @@ function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env
   try {
     const created = (openspec ?? makeOpenspec(worktree, cleanOf(env)))(['new', 'change', id, '--schema', script]);
     if (created.status !== 0) throw new LoopUsageError(`openspec new change failed: ${(created.stderr || created.stdout).trim()}`);
+    recordPin(worktree, join(worktree, 'openspec', 'changes', id), script);
     prepare?.(join(worktree, 'openspec', 'changes', id), worktree);
   } catch (e) {
     // O5: leave nothing half made. Each step is tried on its own (a failed one does not skip the next) and none of their
@@ -1261,6 +1282,47 @@ function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env
     throw e;
   }
   return { worktree, base };
+}
+
+// ---------------------------------------------------------------- the pin (change-version-pin D-1)
+
+// The `version` of this pack's `plugin.json` (`<pluginDir>/.claude-plugin/plugin.json`), or null when the file is missing, is
+// not JSON or has no string `version`.
+export function packVersion(pluginDir = join(HOOKS_DIR, '..')) {
+  try {
+    const { version } = JSON.parse(readFileSync(join(pluginDir, '.claude-plugin', 'plugin.json'), 'utf8'));
+    return typeof version === 'string' ? version : null;
+  } catch { return null; }
+}
+
+const PIN_KEYS = [['devkit', 'x-devkit-version'], ['flow', 'x-devkit-flow']];
+
+// The only writer of the pin in a change's `.openspec.yaml`: for each key, a value replaces the first line of the key (later
+// lines of it are dropped) or is appended; null drops every line of the key. Every other line stays byte for byte.
+export function writePin(dir, pin) {
+  const file = join(dir, '.openspec.yaml');
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const lines = text === '' ? [] : text.split('\n');
+  let closed = lines.at(-1) === ''; // the text ended with a newline
+  if (closed) lines.pop();
+  for (const [field, key] of PIN_KEYS) {
+    const at = lines.flatMap((l, i) => (l.startsWith(`${key}:`) ? [i] : []));
+    if (pin[field] === null || pin[field] === undefined) {
+      for (const i of at.reverse()) lines.splice(i, 1);
+    } else if (at.length === 0) {
+      lines.push(`${key}: ${pin[field]}`);
+      closed = true;
+    } else {
+      lines[at[0]] = `${key}: ${pin[field]}`;
+      for (const i of at.slice(1).reverse()) lines.splice(i, 1);
+    }
+  }
+  writeFileSync(file, lines.length && closed ? `${lines.join('\n')}\n` : lines.join('\n'));
+}
+
+// Records the flow the installed `script` declares, and this pack's version, as the change's pin.
+function recordPin(root, dir, script) {
+  writePin(dir, { devkit: packVersion(), flow: readFlow(root, script)?.version ?? null });
 }
 
 // `script <id> <script> --why <code>`: the correction of the script until the proposal is written (C1 to C3).
@@ -1283,7 +1345,29 @@ export function switchScript(cwd, id, script, { why, lang = 'pt-BR' } = {}) {
   if (current === script) return { code: 0, body }; // C3
   if (why === undefined) throw new LoopUsageError('script needs --why to switch');
   writeFileSync(file, text.replace(/^schema:[ \t]*\S+/m, `schema: ${script}`)); // C1
+  recordPin(found.root, located.dir, script);
   return { code: 0, body: { ...body, script, reply: render(l, 'script-switched', { id, script, why }) } };
+}
+
+// `flow <id>`: moves a change to the installed version of its script's flow, only when it is asked (change-version-pin D-7).
+// { code, body }. It reads the pin and the installed flow itself, not `changeFlow`, so a change whose kept file is missing
+// can still be moved.
+export function moveFlow(cwd, id, { lang = 'pt-BR' } = {}) {
+  const l = normalizeLang(lang);
+  const start = findRoot(cwd);
+  if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
+  const found = locate(start, id);
+  const located = locateChange(found.root, id);
+  if (!located || located.archived) throw new LoopUsageError(`no active change named ${id}`);
+  const schema = changeSchemaAt(found.root, located.dir);
+  const installed = readFlow(found.root, schema)?.version;
+  if (installed === undefined) throw new LoopUsageError(`the ${schema} script has no installed flow.json`);
+  const version = readPin(located.dir).flow ?? 1;
+  const body = { version: 1, change: id, script: schema, flow: installed };
+  if (version === installed) return { code: 0, body };
+  if (version > installed) return { code: 2, body: { ...body, reply: render(l, 'flow-ahead', { id, version, installed }) } };
+  recordPin(found.root, located.dir, schema);
+  return { code: 0, body: { ...body, reply: render(l, 'flow-moved', { id, version, installed }) } };
 }
 
 // ---------------------------------------------------------------- wait (D-7)
@@ -1391,7 +1475,7 @@ export function subagentStopFor(input, change, { env = process.env } = {}) {
   if (!start) return allow('no-project', change);
   const found = locate(start, change);
   const clean = cleanOf(env);
-  const flow0 = readFlow(found.root, changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change)));
+  const flow0 = changeFlow(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change)).flow;
   if (!flow0 || !flow0.stages.some((s) => s.source === 'artifact' && s.role === role)) return allow('no-stage-file', change);
   const { facts, flow } = collectFlow(found.root, change, { env: clean, openspec: makeOpenspec(found.root, clean) });
   const report = computeFlow(facts, flow, {});
@@ -1443,8 +1527,7 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
   const start = findRoot(input.cwd ?? process.cwd());
   if (!start) return allow('no-project', change);
   const found = locate(start, change);
-  const schema = changeSchemaAt(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change));
-  const flow = readFlow(found.root, schema);
+  const { flow, schema } = changeFlow(found.root, locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change));
   if (!flow) return allow('no-script', change);
   const roles = scriptAgents(flow);
   const lead = `in a /devkit ${command} run this session hands work${command === 'change' ? '' : ` for ${change}`} only to the roles of the ${schema} script: ${roles.join(', ')}`;
@@ -1461,7 +1544,7 @@ export function handOffFor(input, change, { command = 'change' } = {}) {
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) '
-  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
+  + '| script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]';
 
 function parseArgs(argv, { values = [], multi = [] } = {}) {
   const opts = { positional: [], params: [] };
@@ -1527,6 +1610,13 @@ function runScript(args, { cwd }) {
   return { code, stdout: json(body), stderr: '' };
 }
 
+function runFlow(args, { cwd }) {
+  const opts = parseArgs(args, { values: ['--lang'] });
+  if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
+  const { code, body } = moveFlow(cwd, opts.positional[0], { lang: opts.lang });
+  return { code, stdout: json(body), stderr: '' };
+}
+
 function runAccept(args, { cwd }) {
   const opts = parseArgs(args, { values: ['--lang'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
@@ -1567,6 +1657,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec });
     if (sub === 'script') return runScript(rest, { cwd });
     if (sub === 'accept-decisions') return runAccept(rest, { cwd });
+    if (sub === 'flow') return runFlow(rest, { cwd });
     throw new LoopUsageError(USAGE);
   } catch (e) {
     return failure(argv, e);
