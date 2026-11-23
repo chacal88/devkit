@@ -1,4 +1,4 @@
-// Tests for release-rebase.mjs (conduct-rounds design D11). Imported by guard.test.mjs so that
+// Tests for release-merge.mjs (conduct-rounds design D11). Imported by guard.test.mjs so that
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,9 +7,9 @@ import { join, dirname } from 'node:path';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict } from './release-rebase.mjs';
+import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
 
-const script = join(dirname(fileURLToPath(import.meta.url)), 'release-rebase.mjs');
+const script = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
 const ENV = {
   ...process.env,
   GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid',
@@ -20,7 +20,7 @@ const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { enco
 
 // ---------------------------------------------------------------- pure functions (task 3.1)
 
-test('release-rebase: bumpKind names the first field that differs, none when equal, and rejects non-semver', () => {
+test('release-merge: bumpKind names the first field that differs, none when equal, and rejects non-semver', () => {
   assert.equal(bumpKind('0.6.0', '1.0.0'), 'major');
   assert.equal(bumpKind('0.6.0', '0.7.0'), 'minor');
   assert.equal(bumpKind('0.6.0', '0.6.1'), 'patch');
@@ -29,14 +29,14 @@ test('release-rebase: bumpKind names the first field that differs, none when equ
   assert.throws(() => bumpKind('0.6.0', 'v0.7.0'), { name: 'ReleaseError' });
 });
 
-test('release-rebase: applyBump resets the lower fields', () => {
+test('release-merge: applyBump resets the lower fields', () => {
   assert.equal(applyBump('0.7.3', 'minor'), '0.8.0');
   assert.equal(applyBump('0.7.3', 'patch'), '0.7.4');
   assert.equal(applyBump('0.7.3', 'major'), '1.0.0');
   assert.equal(applyBump('0.7.3', 'none'), '0.7.3');
 });
 
-test('release-rebase: resolveVersion applies the change bump over the base version', () => {
+test('release-merge: resolveVersion applies the change bump over the base version', () => {
   assert.equal(resolveVersion({ mergeBase: '0.6.0', change: '0.6.1', base: '0.7.0' }), '0.7.1');
   assert.equal(resolveVersion({ mergeBase: '0.6.0', change: '0.7.0', base: '0.7.0' }), '0.8.0');
   assert.equal(resolveVersion({ mergeBase: '0.6.0', change: '0.6.0', base: '0.7.0' }), '0.7.0');
@@ -63,7 +63,7 @@ const MARKET = `{
 }
 `;
 
-test('release-rebase: resolveManifest sets the named packs and metadata, keeping order and format', () => {
+test('release-merge: resolveManifest sets the named packs and metadata, keeping order and format', () => {
   const out = resolveManifest(MARKET, { packs: { a: '0.7.1' }, metadata: '0.7.1' });
   assert.equal(out, MARKET.replace('"version": "0.6.0"\n  },', '"version": "0.7.1"\n  },').replace('"pack a",\n      "version": "0.6.0"', '"pack a",\n      "version": "0.7.1"'));
   const plugin = '{\n  "name": "a",\n  "version": "0.6.0",\n  "description": "x"\n}\n';
@@ -71,7 +71,7 @@ test('release-rebase: resolveManifest sets the named packs and metadata, keeping
   assert.equal(resolveManifest(plugin, { packs: { b: '9.9.9' } }), plugin, 'another pack leaves it alone');
 });
 
-test('release-rebase: manifestEditsBeyondVersion is empty for a version edit and names a description edit', () => {
+test('release-merge: manifestEditsBeyondVersion is empty for a version edit and names a description edit', () => {
   const bumped = resolveManifest(MARKET, { packs: { a: '0.6.1' }, metadata: '0.6.1' });
   assert.deepEqual(manifestEditsBeyondVersion(MARKET, bumped), []);
   const edited = bumped.replace('"pack a"', '"pack a, better"');
@@ -81,7 +81,7 @@ test('release-rebase: manifestEditsBeyondVersion is empty for a version edit and
 const entry = (v, title, body = '- x') => `## ${v} — ${title}\n\n${body}\n\n`;
 const CL = (...entries) => `# Changelog\n\n${entries.join('')}`.replace(/\n+$/, '\n');
 
-test('release-rebase: resolveChangelog renumbers the change entry above the base newest and keeps every base entry', () => {
+test('release-merge: resolveChangelog renumbers the change entry above the base newest and keeps every base entry', () => {
   const mergeBase = CL(entry('0.6.0', 'first'));
   const change = CL(entry('0.6.1', 'mine', '- mine'), entry('0.6.0', 'first'));
   const base = CL(entry('0.7.0', 'theirs', '- theirs'), entry('0.6.0', 'first'));
@@ -89,7 +89,7 @@ test('release-rebase: resolveChangelog renumbers the change entry above the base
   assert.equal(out, CL(entry('0.7.1', 'mine', '- mine'), entry('0.7.0', 'theirs', '- theirs'), entry('0.6.0', 'first')));
 });
 
-test('release-rebase: resolveChangelog throws on zero or two new entries and on an edited older entry', () => {
+test('release-merge: resolveChangelog throws on zero or two new entries and on an edited older entry', () => {
   const mergeBase = CL(entry('0.6.0', 'first'));
   const base = CL(entry('0.7.0', 'theirs'), entry('0.6.0', 'first'));
   const none = mergeBase;
@@ -168,11 +168,13 @@ const run = (root, ...args) => {
 const read = (root, f) => readFileSync(join(root, f), 'utf8');
 const versionOf = (root, f) => JSON.parse(read(root, f)).version;
 const meta = (root) => JSON.parse(read(root, '.claude-plugin/marketplace.json')).metadata.version;
+// True when no merge is in progress (MERGE_HEAD does not resolve).
+const noMerge = (root) => { try { git(root, 'rev-parse', '-q', '--verify', 'MERGE_HEAD'); return false; } catch { return true; } };
 
 const A_MINOR = { packs: { a: '0.7.0' }, metadata: '0.7.0', packsAll: { a: '0.7.0', b: '0.5.0' }, title: 'theirs', body: '- theirs' };
 const B_PATCH = { packs: { a: '0.6.1' }, metadata: '0.6.1', packsAll: { a: '0.6.1', b: '0.5.0' }, title: 'mine', body: '- mine' };
 
-test('release-rebase: a minor bump on main and a patch on the branch resolve to one linear history, uncommitted', () => {
+test('release-merge: a minor bump on main and a patch on the branch resolve to a merge commit holding the renumbered release', () => {
   const { root, origin } = releaseRepo({ a: A_MINOR, b: B_PATCH });
   const before = git(origin, 'rev-parse', 'main');
   const oldHead = git(root, 'rev-parse', 'HEAD');
@@ -181,30 +183,29 @@ test('release-rebase: a minor bump on main and a patch on the branch resolve to 
   assert.equal(r.out.resolved, true);
   assert.equal(r.out.oldHead, oldHead);
   assert.equal(git(root, 'rev-parse', 'HEAD'), r.out.newHead);
-  git(root, 'merge-base', '--is-ancestor', 'origin/main', 'HEAD'); // linear on origin/main (throws otherwise)
-  assert.equal(git(root, 'rev-list', '--merges', '--count', 'origin/main..HEAD'), '0');
-  assert.equal(versionOf(root, 'plugins/a/.claude-plugin/plugin.json'), '0.7.1');
-  assert.equal(meta(root), '0.7.1');
-  const market = JSON.parse(read(root, '.claude-plugin/marketplace.json'));
+  assert.equal(git(root, 'rev-parse', 'HEAD^1'), oldHead);
+  assert.equal(git(root, 'rev-parse', 'HEAD^2'), git(root, 'rev-parse', 'origin/main'));
+  assert.equal(git(root, 'rev-list', '--merges', '--count', 'origin/main..HEAD'), '1');
+  assert.equal(JSON.parse(git(root, 'show', 'HEAD:plugins/a/.claude-plugin/plugin.json')).version, '0.7.1');
+  assert.equal(JSON.parse(git(root, 'show', 'HEAD:.claude-plugin/marketplace.json')).metadata.version, '0.7.1');
+  const market = JSON.parse(git(root, 'show', 'HEAD:.claude-plugin/marketplace.json'));
   assert.equal(market.plugins.find((p) => p.name === 'a').version, '0.7.1');
-  const cl = read(root, 'CHANGELOG.md');
+  const cl = git(root, 'show', 'HEAD:CHANGELOG.md');
   assert.ok(cl.indexOf('## 0.7.1 — mine') < cl.indexOf('## 0.7.0 — theirs') && cl.indexOf('## 0.7.0 — theirs') < cl.indexOf('## 0.6.0 — first'));
   assert.doesNotMatch(cl, /<<<<<<<|0\.6\.1/);
-  assert.match(git(root, 'status', '--porcelain'), /CHANGELOG\.md/, 'the edits stay uncommitted');
+  assert.equal(git(root, 'status', '--porcelain'), '', 'the merge is committed');
   assert.equal(git(origin, 'rev-parse', 'main'), before, 'never pushes');
 });
 
-test('release-rebase: the base side is kept during the replay and the final values come from oldHead', () => {
+test('release-merge: the base side is kept during the merge and the final values come from oldHead', () => {
   const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
   const r = run(root, '--base', 'main', '--json');
   assert.equal(r.code, 0, r.stderr);
-  // The commit the rebase made carries the base's (--ours) release files; the renumbering sits in the working tree.
-  assert.equal(JSON.parse(git(root, 'show', 'HEAD:plugins/a/.claude-plugin/plugin.json')).version, '0.7.0');
-  assert.doesNotMatch(git(root, 'show', 'HEAD:CHANGELOG.md'), /mine/);
-  assert.equal(versionOf(root, 'plugins/a/.claude-plugin/plugin.json'), '0.7.1');
+  assert.equal(JSON.parse(git(root, 'show', 'HEAD:plugins/a/.claude-plugin/plugin.json')).version, '0.7.1');
+  assert.match(git(root, 'show', 'HEAD:CHANGELOG.md'), /## 0\.7\.1 — mine/);
 });
 
-test('release-rebase: a branch that bumps another pack resolves only metadata.version and its own pack', () => {
+test('release-merge: a branch that bumps another pack resolves only metadata.version and its own pack', () => {
   const b = { packs: { b: '0.5.1' }, metadata: '0.6.1', packsAll: { a: '0.6.0', b: '0.5.1' }, title: 'mine', body: '- mine' };
   const { root } = releaseRepo({ a: A_MINOR, b });
   const r = run(root, '--base', 'main', '--json');
@@ -216,7 +217,7 @@ test('release-rebase: a branch that bumps another pack resolves only metadata.ve
   assert.deepEqual(market.plugins.map((p) => p.version), ['0.7.0', '0.5.1']);
 });
 
-test('release-rebase: only CHANGELOG and marketplace conflict, the clean-merged plugin.json is still resolved', () => {
+test('release-merge: only CHANGELOG and marketplace conflict, the clean-merged plugin.json is still resolved', () => {
   const a = { packs: { b: '0.6.0' }, metadata: '0.7.0', packsAll: { a: '0.6.0', b: '0.6.0' }, title: 'theirs', body: '- theirs' };
   const { root } = releaseRepo({ a, b: B_PATCH });
   const r = run(root, '--base', 'main', '--json');
@@ -224,10 +225,10 @@ test('release-rebase: only CHANGELOG and marketplace conflict, the clean-merged 
   assert.equal(versionOf(root, 'plugins/a/.claude-plugin/plugin.json'), '0.6.1');
   assert.equal(versionOf(root, 'plugins/b/.claude-plugin/plugin.json'), '0.6.0');
   assert.equal(meta(root), '0.7.1');
-  assert.equal(JSON.parse(git(root, 'show', 'HEAD:.claude-plugin/marketplace.json')).metadata.version, '0.7.0', 'the base side on the intermediate commit');
+  assert.equal(JSON.parse(git(root, 'show', 'HEAD:.claude-plugin/marketplace.json')).metadata.version, '0.7.1');
 });
 
-test('release-rebase: a conflict outside the release files aborts to oldHead with the conflicts listed', () => {
+test('release-merge: a conflict outside the release files aborts to oldHead with the conflicts listed', () => {
   const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, extraA: { 'README.md': 'theirs\n' }, extraB: { 'README.md': 'mine\n' } });
   const oldHead = git(root, 'rev-parse', 'HEAD');
   const r = run(root, '--base', 'main', '--json');
@@ -236,10 +237,10 @@ test('release-rebase: a conflict outside the release files aborts to oldHead wit
   assert.ok(r.out.conflicts.includes('README.md'));
   assert.equal(git(root, 'rev-parse', 'HEAD'), oldHead);
   assert.equal(git(root, 'status', '--porcelain'), '');
-  assert.equal(existsSync(join(root, '.git', 'rebase-merge')), false);
+  assert.ok(noMerge(root));
 });
 
-test('release-rebase: a manifest edited beyond its version aborts to oldHead', () => {
+test('release-merge: a manifest edited beyond its version aborts to oldHead', () => {
   const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, extraB: {} });
   // B also rewrites pack a's description inside the conflicting plugin.json.
   git(root, 'checkout', '-q', '-b', 'tmp');
@@ -252,9 +253,10 @@ test('release-rebase: a manifest edited beyond its version aborts to oldHead', (
   assert.match(JSON.stringify(r.out), /plugin\.json/);
   assert.equal(git(root, 'rev-parse', 'HEAD'), oldHead);
   assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.ok(noMerge(root));
 });
 
-test('release-rebase: an invalid JSON manifest on the branch restores to oldHead with exit 2', () => {
+test('release-merge: an invalid JSON manifest on the branch restores to oldHead with exit 2', () => {
   const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
   git(root, 'checkout', '-q', '-b', 'tmp');
   write(root, { 'plugins/a/.claude-plugin/plugin.json': '{ not json' });
@@ -265,10 +267,10 @@ test('release-rebase: an invalid JSON manifest on the branch restores to oldHead
   assert.equal(r.out.resolved, false);
   assert.equal(git(root, 'rev-parse', 'HEAD'), oldHead);
   assert.equal(git(root, 'status', '--porcelain'), '');
-  assert.equal(existsSync(join(root, '.git', 'rebase-merge')), false);
+  assert.ok(noMerge(root));
 });
 
-test('release-rebase: a docs/catalog.md conflict runs scripts/gen-catalog.py, and aborts without it', () => {
+test('release-merge: a docs/catalog.md conflict runs scripts/gen-catalog.py, and aborts without it', () => {
   const b = { ...B_PATCH, catalog: 'catalog mine\n' };
   const a = { ...A_MINOR, catalog: 'catalog theirs\n' };
   const withGen = releaseRepo({ a, b, gen: true });
@@ -284,20 +286,22 @@ test('release-rebase: a docs/catalog.md conflict runs scripts/gen-catalog.py, an
   assert.ok(r2.out.conflicts.includes('docs/catalog.md'));
   assert.equal(git(without.root, 'rev-parse', 'HEAD'), oldHead);
   assert.equal(git(without.root, 'status', '--porcelain'), '');
+  assert.ok(noMerge(without.root));
 });
 
-test('release-rebase: a rebase left in progress is aborted and redone', () => {
+test('release-merge: a merge left in progress is aborted and redone', () => {
   const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
   const oldHead = git(root, 'rev-parse', 'HEAD');
-  assert.throws(() => git(root, 'rebase', 'origin/main'), /conflict|CONFLICT/i);
-  assert.ok(existsSync(join(root, '.git', 'rebase-merge')));
+  assert.throws(() => git(root, 'merge', '--no-commit', 'origin/main')); // exit 1 on its conflict
+  assert.equal(noMerge(root), false);
   const r = run(root, '--base', 'main', '--json');
   assert.equal(r.code, 0, r.stderr + r.stdout);
-  assert.equal(r.out.oldHead, oldHead, 'the old head is the pre-rebase branch tip');
+  assert.equal(r.out.oldHead, oldHead, 'the old head is the pre-merge branch tip');
+  assert.equal(git(root, 'rev-parse', 'HEAD^2'), git(root, 'rev-parse', 'origin/main'));
   assert.equal(versionOf(root, 'plugins/a/.claude-plugin/plugin.json'), '0.7.1');
 });
 
-test('release-rebase: two new CHANGELOG entries abort to oldHead', () => {
+test('release-merge: two new CHANGELOG entries abort to oldHead', () => {
   const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
   const cl = read(root, 'CHANGELOG.md').replace('# Changelog\n\n', `# Changelog\n\n${entry('0.6.2', 'again')}`);
   write(root, { 'CHANGELOG.md': cl });
@@ -307,9 +311,10 @@ test('release-rebase: two new CHANGELOG entries abort to oldHead', () => {
   assert.match(r.out.error, /cannot place the CHANGELOG entry/);
   assert.equal(git(root, 'rev-parse', 'HEAD'), oldHead);
   assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.ok(noMerge(root));
 });
 
-test('release-rebase: a missing origin/<base> and an unknown option are setup errors (exit 3)', () => {
+test('release-merge: a missing origin/<base> and an unknown option are setup errors (exit 3)', () => {
   const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
   const missing = run(root, '--base', 'nope');
   assert.equal(missing.code, 3);
@@ -345,7 +350,7 @@ const pinSide = (metadata, version) => ({ packs: {}, metadata, packsAll: { a: '0
 const pinInitial = { ...pinPack('0.10.0'), [PIN_FILE]: pinDoc('0.10.0'), '.claude-plugin/marketplace.json': pinMarket('0.6.0', '0.10.0') };
 const pinsOf = (text) => [...text.matchAll(/v\d+\.\d+\.\d+/g)].map((m) => m[0]);
 
-test('release-rebase pin: setPins rewrites each of the four marker forms, both pins of one line, and keeps the period of a sentence end', () => {
+test('release-merge pin: setPins rewrites each of the four marker forms, both pins of one line, and keeps the period of a sentence end', () => {
   assert.equal(setPins('pinned to the commit of v0.10.3 (x)', '1.2.3'), 'pinned to the commit of v1.2.3 (x)');
   assert.equal(setPins('base=https://h/<commit sha of v0.10.3>/p', '1.2.3'), 'base=https://h/<commit sha of v1.2.3>/p');
   assert.equal(setPins('run gh api repos/o/r/git/ref/tags/v0.10.3 now', '1.2.3'), 'run gh api repos/o/r/git/ref/tags/v1.2.3 now');
@@ -354,12 +359,12 @@ test('release-rebase pin: setPins rewrites each of the four marker forms, both p
   assert.equal(setPins('see git/ref/tags/v0.10.3.', '0.11.0'), 'see git/ref/tags/v0.11.0.');
 });
 
-test('release-rebase pin: setPins replaces v1.2.34 whole and leaves a v1.2.3 on a line without a marker', () => {
+test('release-merge pin: setPins replaces v1.2.34 whole and leaves a v1.2.3 on a line without a marker', () => {
   assert.equal(setPins('pinned to the commit of v1.2.34', '2.0.0'), 'pinned to the commit of v2.0.0');
   assert.equal(setPins('mentions v1.2.3 only', '2.0.0'), 'mentions v1.2.3 only');
 });
 
-test('release-rebase pin: setPins keeps CRLF endings, leaves a marker line without a pin, and is idempotent', () => {
+test('release-merge pin: setPins keeps CRLF endings, leaves a marker line without a pin, and is idempotent', () => {
   const crlf = 'a\r\npinned to the commit of v0.1.0\r\nb\r\n';
   assert.equal(setPins(crlf, '0.2.0'), 'a\r\npinned to the commit of v0.2.0\r\nb\r\n');
   const literal = 'the markers are `git/ref/tags/v` and `<commit sha of v`';
@@ -368,7 +373,7 @@ test('release-rebase pin: setPins keeps CRLF endings, leaves a marker line witho
   assert.equal(setPins(once, '0.11.0'), once);
 });
 
-test('release-rebase pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder', () => {
+test('release-merge pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder', () => {
   const before = pinTmp();
   const base = pinDoc('0.10.0');
   const ours = pinDoc('0.11.0', { top: 'TOP A' });
@@ -381,7 +386,7 @@ test('release-rebase pin: mergePins keeps both edits with every pin masked, and 
   assert.deepEqual(pinTmp(), before);
 });
 
-test('release-rebase pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder', () => {
+test('release-merge pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder', () => {
   const before = pinTmp();
   const base = pinDoc('0.10.0');
   assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
@@ -392,14 +397,14 @@ test('release-rebase pin: mergePins is null when both sides edit one paragraph o
   assert.deepEqual(pinTmp(), before);
 });
 
-test('release-rebase pin: classifyConflict lets release files through without reading any stage', () => {
+test('release-merge pin: classifyConflict lets release files through without reading any stage', () => {
   let calls = 0;
   const stagesOf = () => { calls++; return null; };
   assert.deepEqual(classifyConflict(['CHANGELOG.md', '.claude-plugin/marketplace.json', 'docs/catalog.md'], stagesOf), { blocking: [], pinMerged: null });
   assert.equal(calls, 0);
 });
 
-test('release-rebase pin: classifyConflict resolves a pin-only docs/openspec-flow.md and blocks one beyond the pin, reading it once', () => {
+test('release-merge pin: classifyConflict resolves a pin-only docs/openspec-flow.md and blocks one beyond the pin, reading it once', () => {
   const asked = [];
   const base = pinDoc('0.10.0');
   const pinOnly = () => ({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) });
@@ -411,14 +416,14 @@ test('release-rebase pin: classifyConflict resolves a pin-only docs/openspec-flo
   assert.deepEqual(beyond, { blocking: [PIN_FILE], pinMerged: null });
 });
 
-test('release-rebase pin: classifyConflict always blocks README.md and keeps the order of the paths', () => {
+test('release-merge pin: classifyConflict always blocks README.md and keeps the order of the paths', () => {
   const base = pinDoc('0.10.0');
   const stagesOf = () => ({ base, ours: base, theirs: base });
   assert.deepEqual(classifyConflict(['README.md', 'CHANGELOG.md'], stagesOf), { blocking: ['README.md'], pinMerged: null });
   assert.deepEqual(classifyConflict(['README.md', PIN_FILE, 'src/x.js'], stagesOf).blocking, ['README.md', 'src/x.js']);
 });
 
-test('release-rebase pin: the real docs/openspec-flow.md: setPins changes exactly its CI pin lines', () => {
+test('release-merge pin: the real docs/openspec-flow.md: setPins changes exactly its CI pin lines', () => {
   const repo = join(here, '..', '..', '..');
   const doc = readFileSync(join(repo, PIN_FILE), 'utf8');
   const v = JSON.parse(readFileSync(join(repo, PIN_PACK), 'utf8')).version;
@@ -442,7 +447,7 @@ test('release-rebase pin: the real docs/openspec-flow.md: setPins changes exactl
 
 const sha = (root, rev = 'HEAD') => git(root, 'rev-parse', rev);
 
-test('release-rebase pin: both sides move the pin and add text apart, the rebase merges them and the worktree takes the resolved version (AC-4)', () => {
+test('release-merge pin: both sides move the pin and add text apart, the merge keeps both texts and commits the resolved version (AC-4)', () => {
   const a = pinSide('0.7.0', '0.11.0');
   const b = pinSide('0.6.1', '0.10.1');
   const { root } = releaseRepo({
@@ -459,14 +464,14 @@ test('release-rebase pin: both sides move the pin and add text apart, the rebase
   assert.deepEqual([...new Set(pinsOf(doc))], ['v0.11.1']);
   assert.ok(r.out.files.includes(PIN_FILE));
   assert.equal(r.out.versions.packs[PIN_PACK_NAME], '0.11.1');
-  assert.match(git(root, 'status', '--porcelain'), /docs\/openspec-flow\.md/);
   const head = git(root, 'show', `HEAD:${PIN_FILE}`);
   assert.match(head, /TOP A/);
   assert.match(head, /BOTTOM B/);
-  assert.deepEqual([...new Set(pinsOf(head))], ['v0.11.0']);
+  assert.deepEqual([...new Set(pinsOf(head))], ['v0.11.1']);
+  assert.equal(git(root, 'status', '--porcelain'), '');
 });
 
-test('release-rebase pin: both sides edit the same paragraph, the run aborts to the old head (AC-5)', () => {
+test('release-merge pin: both sides edit the same paragraph, the run aborts to the old head (AC-5)', () => {
   const { root } = releaseRepo({
     a: pinSide('0.7.0', '0.11.0'), b: pinSide('0.6.1', '0.10.1'), initial: pinInitial,
     extraA: { ...pinPack('0.11.0'), [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
@@ -479,10 +484,10 @@ test('release-rebase pin: both sides edit the same paragraph, the run aborts to 
   assert.ok(r.out.conflicts.includes(PIN_FILE));
   assert.equal(sha(root), oldHead);
   assert.equal(git(root, 'status', '--porcelain'), '');
-  assert.equal(existsSync(join(root, '.git', 'rebase-merge')), false);
+  assert.ok(noMerge(root));
 });
 
-test('release-rebase pin: a renumbered pack with no conflict in the doc keeps the change commit and rewrites the worktree (AC-6)', () => {
+test('release-merge pin: a renumbered pack with no conflict in the doc commits the resolved pins in the merge (AC-6)', () => {
   const { root } = releaseRepo({
     a: pinSide('0.7.0', '0.11.0'), b: pinSide('0.6.1', '0.10.1'), initial: pinInitial,
     extraA: pinPack('0.11.0'),
@@ -490,12 +495,12 @@ test('release-rebase pin: a renumbered pack with no conflict in the doc keeps th
   });
   const r = run(root, '--base', 'main', '--json');
   assert.equal(r.code, 0, r.stderr + r.stdout);
-  assert.deepEqual([...new Set(pinsOf(git(root, 'show', `HEAD:${PIN_FILE}`)))], ['v0.10.1']);
-  assert.deepEqual([...new Set(pinsOf(read(root, PIN_FILE)))], ['v0.11.1']);
+  assert.deepEqual([...new Set(pinsOf(git(root, 'show', 'HEAD^1:' + PIN_FILE)))], ['v0.10.1']);
+  assert.deepEqual([...new Set(pinsOf(git(root, 'show', `HEAD:${PIN_FILE}`)))], ['v0.11.1']);
   assert.ok(r.out.files.includes(PIN_FILE));
 });
 
-test('release-rebase pin: a change that did not bump devkit-openspec takes the base version for every pin (AC-6)', () => {
+test('release-merge pin: a change that did not bump devkit-openspec takes the base version for every pin (AC-6)', () => {
   const b = { ...B_PATCH, packsAll: { a: '0.6.1', b: '0.5.0', [PIN_PACK_NAME]: '0.10.0' } };
   const { root } = releaseRepo({ a: pinSide('0.7.0', '0.11.0'), b, initial: pinInitial, extraA: pinPack('0.11.0') });
   const r = run(root, '--base', 'main', '--json');
@@ -504,7 +509,7 @@ test('release-rebase pin: a change that did not bump devkit-openspec takes the b
   assert.ok(r.out.files.includes(PIN_FILE));
 });
 
-test('release-rebase pin: without a devkit-openspec pack a pin conflict stops with "cannot set the pin:", and no conflict leaves the file alone', () => {
+test('release-merge pin: without a devkit-openspec pack a pin conflict stops with "cannot set the pin:", and no conflict leaves the file alone', () => {
   const noPack = { [PIN_FILE]: pinDoc('0.10.0') };
   const conflicted = releaseRepo({
     a: A_MINOR, b: B_PATCH, initial: noPack,
@@ -517,6 +522,7 @@ test('release-rebase pin: without a devkit-openspec pack a pin conflict stops wi
   assert.match(r.out.error, /^cannot set the pin:/);
   assert.equal(sha(conflicted.root), oldHead);
   assert.equal(git(conflicted.root, 'status', '--porcelain'), '');
+  assert.ok(noMerge(conflicted.root));
 
   const calm = releaseRepo({ a: A_MINOR, b: B_PATCH, initial: noPack, extraB: { [PIN_FILE]: pinDoc('0.10.0', { bottom: 'BOTTOM B' }) } });
   const ok = run(calm.root, '--base', 'main', '--json');
@@ -525,13 +531,13 @@ test('release-rebase pin: without a devkit-openspec pack a pin conflict stops wi
   assert.equal(read(calm.root, PIN_FILE), pinDoc('0.10.0', { bottom: 'BOTTOM B' }));
 });
 
-test('release-rebase pin: two change commits that both touch the pin file are resolved at each stop', () => {
+test('release-merge pin: two change commits that both touch the pin file are resolved in the one merge', () => {
   const { root } = releaseRepo({
     a: pinSide('0.7.0', '0.11.0'), b: pinSide('0.6.1', '0.10.1'), initial: pinInitial,
     extraA: { ...pinPack('0.11.0'), [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
     extraB: { ...pinPack('0.10.1'), [PIN_FILE]: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) },
   });
-  // A second change commit: moves the pin again and edits a body line, so it conflicts with the replayed first one.
+  // A second change commit: moves the pin again and edits a body line.
   write(root, { [PIN_FILE]: pinDoc('0.10.2', { bottom: 'BOTTOM B' }).replace('body 2', 'body 2 edited C') });
   commit(root, 'second change commit');
   const r = run(root, '--base', 'main', '--json');
@@ -542,6 +548,116 @@ test('release-rebase pin: two change commits that both touch the pin file are re
   assert.ok(r.out.files.includes(PIN_FILE));
   const head = git(root, 'show', `HEAD:${PIN_FILE}`);
   assert.match(head, /body 2 edited C/);
-  assert.deepEqual([...new Set(pinsOf(head))], ['v0.11.0']);
-  assert.equal(git(root, 'rev-list', '--count', 'origin/main..HEAD'), '2');
+  assert.deepEqual([...new Set(pinsOf(head))], ['v0.11.1']);
+  assert.equal(git(root, 'rev-list', '--count', 'origin/main..HEAD'), '3');
+});
+
+// ---------------------------------------------------------------- release-merge-conflict: the merge commit
+
+const PIN_FIXTURE = {
+  a: pinSide('0.7.0', '0.11.0'),
+  b: pinSide('0.6.1', '0.10.1'),
+  initial: pinInitial,
+  extraA: { ...pinPack('0.11.0'), [PIN_FILE]: pinDoc('0.11.0', { top: 'TOP A' }) },
+  extraB: { ...pinPack('0.10.1'), [PIN_FILE]: pinDoc('0.10.1', { bottom: 'BOTTOM B' }) },
+};
+
+test('release-merge-conflict 1: a base that released after the branch forked is merged, renumbered and committed, and a plain push of the result is accepted', () => {
+  const { root, origin } = releaseRepo({ ...PIN_FIXTURE, gen: true });
+  git(root, 'push', '-q', 'origin', 'feature');
+  const oldHead = sha(root);
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(sha(root, 'HEAD^1'), oldHead);
+  assert.equal(sha(root, 'HEAD^2'), sha(root, 'origin/main'));
+  assert.equal(r.out.newHead, sha(root));
+  git(root, 'merge-base', '--is-ancestor', oldHead, 'HEAD');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  const at = (f) => git(root, 'show', `HEAD:${f}`);
+  assert.equal(JSON.parse(at(PIN_PACK)).version, '0.11.1');
+  const market = JSON.parse(at('.claude-plugin/marketplace.json'));
+  assert.equal(market.plugins.find((p) => p.name === PIN_PACK_NAME).version, '0.11.1');
+  assert.equal(market.metadata.version, '0.7.1');
+  const cl = at('CHANGELOG.md');
+  assert.ok(cl.indexOf('## 0.7.1 — at 0.10.1') < cl.indexOf('## 0.7.0 — at 0.11.0') && cl.indexOf('## 0.7.0 — at 0.11.0') < cl.indexOf('## 0.6.0 — first'));
+  assert.doesNotMatch(cl, /<<<<<<</);
+  const doc = at(PIN_FILE);
+  assert.ok(pinsIn(doc).length >= 3 && pinsIn(doc).every((p) => p === 'v0.11.1'));
+  assert.match(doc, /TOP A/);
+  assert.match(doc, /BOTTOM B/);
+  assert.equal(at('docs/catalog.md'), 'regenerated'); // git() trims the trailing newline
+  assert.equal(git(root, 'log', '-1', '--format=%s'), 'chore(release): merge origin/main and renumber the release above it');
+  assert.equal(git(origin, 'rev-parse', 'feature'), oldHead);
+  git(root, 'push', '-q', 'origin', 'feature');
+  assert.equal(git(origin, 'rev-parse', 'feature'), sha(root));
+});
+
+test('release-merge-conflict 2: an aborted merge leaves an untracked file and an unstaged openspec/ edit as they were', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, initial: { 'openspec/notes.md': 'n\n' }, extraA: { 'README.md': 'theirs\n' }, extraB: { 'README.md': 'mine\n' } });
+  const oldHead = sha(root);
+  write(root, { 'notes.txt': 'untracked\n', 'openspec/notes.md': 'n edited\n' });
+  const status = git(root, 'status', '--porcelain');
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.ok(r.out.conflicts.includes('README.md'));
+  assert.equal(sha(root), oldHead);
+  assert.ok(noMerge(root));
+  assert.equal(git(root, 'status', '--porcelain'), status);
+  assert.equal(read(root, 'notes.txt'), 'untracked\n');
+  assert.equal(read(root, 'openspec/notes.md'), 'n edited\n');
+});
+
+test('release-merge-conflict 3: an unstaged openspec/ edit stays out of the merge commit', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, initial: { 'openspec/notes.md': 'n\n' } });
+  write(root, { 'openspec/notes.md': 'n edited\n' });
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(git(root, 'show', 'HEAD:openspec/notes.md'), 'n');
+  assert.equal(read(root, 'openspec/notes.md'), 'n edited\n');
+  assert.match(git(root, 'status', '--porcelain'), /M openspec\/notes\.md$/m);
+  assert.equal(git(root, 'diff', '--cached', '--name-only'), '', 'nothing of it is staged');
+});
+
+test('release-merge-conflict 4: a tracked change outside openspec/ stops the run with exit 3 and touches nothing', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
+  const oldHead = sha(root);
+  write(root, { 'README.md': 'edited\n' });
+  const status = git(root, 'status', '--porcelain');
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /README\.md/);
+  assert.equal(sha(root), oldHead);
+  assert.ok(noMerge(root));
+  assert.equal(git(root, 'status', '--porcelain'), status);
+});
+
+test('release-merge-conflict 5: a rebase in progress stops the run with exit 3', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
+  assert.throws(() => git(root, 'rebase', 'origin/main'), /conflict|CONFLICT/i);
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 3);
+  assert.match(r.stderr, /a rebase is in progress/);
+  assert.ok(existsSync(join(root, '.git', 'rebase-merge')));
+});
+
+test('release-merge-conflict 6: a generator that fails after the files are rewritten aborts the merge and restores every file', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH, initial: { 'scripts/gen-catalog.py': 'import sys\nsys.exit(1)\n' } });
+  const oldHead = sha(root);
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.match(r.out.error, /gen-catalog\.py failed/);
+  assert.equal(sha(root), oldHead);
+  assert.ok(noMerge(root));
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('release-merge-conflict 7: a branch that already holds origin/<base> is left alone with exit 0', () => {
+  const { root } = releaseRepo({ a: A_MINOR, b: B_PATCH });
+  git(root, 'merge', '-q', '-s', 'ours', '--no-edit', 'origin/main');
+  const before = sha(root);
+  const r = run(root, '--base', 'main', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual(r.out.files, []);
+  assert.equal(r.out.newHead, before);
+  assert.equal(sha(root), before);
 });

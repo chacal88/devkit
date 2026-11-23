@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
 import { parseRoadmap } from './guard.mjs';
 import * as guardModule from './guard.mjs';
-import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, main as changeMain } from './change-loop.mjs';
+import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, GATE_OF_WHY, main as changeMain } from './change-loop.mjs';
 import { readCounter } from './change-loop.test.mjs';
 import { fakeCompozy } from './compozy-driver.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
@@ -556,7 +556,7 @@ test('roadmap-loop decide: after clears the stage in flight and passes its key, 
 
 // ---------------------------------------------------------------- replies (D-12)
 
-const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main' };
+const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main', installed: '2.46.0', minimum: '2.50.0', verb: 'change' };
 
 test('roadmap-loop replies: a blocked line renders every blocked reason in both languages', () => {
   for (const lang of ['en', 'pt-BR']) {
@@ -579,7 +579,8 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
   const expected = {
     'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
     'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
-    'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup',
+    'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
+    'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge',
   };
   const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github');
   assert.deepEqual([...waits].sort(), Object.keys(expected).sort(), 'every waiting- key of the table is covered');
@@ -1826,7 +1827,7 @@ test('roadmap-loop skill: every roadmap-loop command carries the person\'s langu
 test('roadmap-loop skill: the frontmatter and the start modes name the roadmap and the status', () => {
   const md = skillMd();
   const fm = md.split('---')[1];
-  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id>\] \| roadmap \[<n> \| stop\] \| status \| project \[<name>\]"$/m);
+  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| project \[<name>\]"$/m);
   const desc = /^description: (.*)$/m.exec(fm)[1];
   assert.match(desc, /\/devkit roadmap \[<n>\] runs the roadmap's ready changes, several at once, and \/devkit status shows where everything is/);
   assert.match(desc, /Use when the owner types \/devkit.*\/devkit roadmap.*\/devkit status/);
@@ -2311,7 +2312,7 @@ test('followups F-3 decide: with a session per change the coordinator hands no s
   assert.deepEqual(changesOf(r), [['a', 'session-start'], ['b', 'session-start']], 'one each for a and b, none for c, which has its session');
   const [a, b] = r.actions;
   assert.deepEqual([a.cwd, a.title, a.progressKey], ['/w/a', '📝 a', 'session-start']);
-  assert.deepEqual([b.cwd, b.title], ['/w/b', '❓ b']);
+  assert.deepEqual([b.cwd, b.title, b.input.title], ['/w/b', '🙋 ❓ b', '🙋 ❓ b']);
   assert.deepEqual(Object.keys(a.input).sort(), START_FIELDS, 'the eight fields of the start tool and no other');
   assert.deepEqual(a.input, {
     initiation: 'user_asked', context: 'fresh', title: '📝 a', name: loopModule.sessionName('a'), cwd: '/w/a', use_worktree: false,
@@ -2712,7 +2713,6 @@ test('followups ADR 0014: the documents follow', () => {
   }
 });
 
-
 // ---------------------------------------------------------------- the roadmap on CompozyOS (compozy-driver D-7)
 
 const COMPOZY_CONFIG = 'schema: devkit\ndevkit:\n  driver: compozy\n';
@@ -2939,4 +2939,98 @@ test('roadmap-loop compozy status: on the Claude driver the board is unchanged a
   assert.equal(r.code, 0);
   assert.doesNotMatch(r.stdout, /CompozyOS/);
   assert.deepEqual(k.calls(), []);
+});
+
+// ---------------------------------------------------------------- change-state: phase 2, the board and the start title (design D-5, D-6, D-9)
+
+// The board text as { id: [block, row text] }, block one of owner, running, blocked, queue, outside.
+const BLOCK_KEYS = { 'status-owner': 'owner', 'status-running': 'running', 'status-blocked': 'blocked', 'status-queue': 'queue', 'status-outside': 'outside' };
+const placedOn = (text, lang = 'en') => {
+  const headings = Object.fromEntries(Object.entries(BLOCK_KEYS).map(([key, block]) => [render(lang, key), block]));
+  const out = {};
+  let block = null;
+  for (const line of text.split('\n')) {
+    if (headings[line]) { block = headings[line]; continue; }
+    const m = /^ {2}(\S+?) +(.*)$/.exec(line);
+    if (m && block) out[m[1]] = [block, m[2]];
+  }
+  return out;
+};
+const boardRow = (facts, id = 'a', lang = 'en') => placedOn(boardOf({ ...facts, lang }), lang)[id];
+
+test('change-state AC-6 board: each state\'s row sits in its block', async (t) => {
+  const GH = (what) => ['running', render('en', 'running.github', { what })];
+  const declaredBlocked = { a: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } };
+  const cases = [
+    ['waiting for the owner', world({ lines: ['[ ] a'], actions: { a: ownerAct('a') } }), ['owner', render('en', 'gate.approval')]],
+    ['running', world({ lines: ['[ ] a'], actions: { a: agentAct('a') } }), ['running', 'Proposal']],
+    ['waiting on the checks', world({ lines: ['[ ] a'], actions: { a: githubAct('a', 'checks') } }), GH('checks')],
+    ['GitHub did not answer', world({ lines: ['[ ] a'], actions: { a: githubAct('a', 'silent') } }), ['running', 'waiting on GitHub (GitHub did not answer)']],
+    ['blocked', world({ lines: ['[ ] a'], actions: { a: blockedAct('a', 'tests-red', { phase: 2 }) } }), ['blocked', 'the tests of phase 2 failed']],
+    ['a declared blocked end with no folder', world({ lines: ['[ ] a'], declared: declaredBlocked }), ['blocked', 'it could not be opened (x)']],
+    ['a declared wait for the owner', world({ lines: ['[ ] a'], actions: { a: agentAct('a') }, declared: { a: { state: 'waiting-for-owner', why: 'waiting-pr-decision', params: {} } } }), ['owner', render('en', `gate.${GATE_OF_WHY['waiting-pr-decision']}`)]],
+    ['no session of its own', sessionWorld({ lines: ['[ ] a'], actions: { a: ownerAct('a') } }), ['running', 'no session of its own yet: it starts at your next message']],
+    ['a stage in flight', world({ lines: ['[ ] a'], inflight: { a: FLYING } }), ['running', 'proposal']],
+  ];
+  for (const [label, facts, row] of cases) await t.test(label, () => assert.deepEqual(boardRow(facts), row));
+  const archived = world({ lines: ['[ ] a', '[ ] b'], places: 2, actions: { a: archivedAct('a'), b: agentAct('b') } });
+  assert.equal(boardRow(archived, 'a'), undefined, 'the archived entry is in no block');
+  assert.deepEqual(boardRow(archived, 'b'), ['running', 'Proposal']);
+});
+
+test('change-state AC-6 board parity: every entry kind of entriesOf keeps its block and its words', async (t) => {
+  const phased = { ...agentAct('a'), detail: { phase: 2 } };
+  const started = { a: { at: AT } };
+  const OWN = { 'no session': 'no session of its own yet: it starts at your next message' };
+  const cases = [
+    // [label, facts, [block, text] in en, [block, text] in pt-BR]
+    ['agent', world({ lines: ['[ ] a'], actions: { a: agentAct('a') } }), ['running', 'Proposal'], ['running', 'Proposal']],
+    ['agent with a phase', world({ lines: ['[ ] a'], actions: { a: phased }, phaseTotals: { a: 3 } }), ['running', 'Proposal, phase 2 of 3'], ['running', 'Proposal, fase 2 de 3']],
+    ['session step', world({ lines: ['[ ] a'], actions: { a: sessionAct('a') } }), ['running', 'Code review'], ['running', 'Code review']],
+    ['wait', world({ lines: ['[ ] a'], actions: { a: githubAct('a', 'merge') } }), ['running', 'waiting on GitHub (the merge of the pull request)'], ['running', 'esperando o GitHub (o merge do pull request)']],
+    ['grill', world({ lines: ['[ ] a'], actions: { a: grillAct('a') } }), ['owner', 'your answers about its request'], ['owner', 'as suas respostas sobre o pedido']],
+    ['owner wait', world({ lines: ['[ ] a'], actions: { a: ownerAct('a') } }), ['owner', 'your approval of the plan'], ['owner', 'a sua aprovação do plano']],
+    ['blocked', world({ lines: ['[ ] a'], actions: { a: blockedAct('a', 'tests-red', { phase: 2 }) } }), ['blocked', 'the tests of phase 2 failed'], ['blocked', 'os testes da fase 2 falharam']],
+    ['stage in flight', world({ lines: ['[ ] a'], inflight: { a: FLYING } }), ['running', 'proposal'], ['running', 'proposal']],
+    ['wait in flight', world({ lines: ['[ ] a'], inflight: { a: { kind: 'wait', what: 'checks', at: AT } } }), ['running', 'waiting on GitHub (the checks of the pull request)'], ['running', 'esperando o GitHub (os checks do pull request)']],
+    ['declared blocked', world({ lines: ['[ ] a'], declared: { a: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } } }), ['blocked', 'it could not be opened (x)'], ['blocked', 'não foi possível abrir (x)']],
+    ['session mode, no session', sessionWorld({ lines: ['[ ] a'], actions: { a: agentAct('a') } }), ['running', OWN['no session']], ['running', 'ainda sem sessão própria: começa na sua próxima mensagem']],
+    ['session mode, own session at the approval', sessionWorld({ lines: ['[ ] a'], actions: { a: ownerAct('a') }, startedSessions: started }), ['owner', 'your approval of the plan'], ['owner', 'a sua aprovação do plano']],
+    ['session mode, own session blocked', sessionWorld({ lines: ['[ ] a'], actions: { a: blockedAct('a', 'tests-red', { phase: 2 }) }, startedSessions: started }), ['blocked', 'the tests of phase 2 failed'], ['blocked', 'os testes da fase 2 falharam']],
+    ['session mode, own session under way', sessionWorld({ lines: ['[ ] a'], actions: { a: agentAct('a') }, startedSessions: started }), ['running', 'Proposal'], ['running', 'Proposal']],
+    ['session mode, own session waiting on GitHub', sessionWorld({ lines: ['[ ] a'], actions: { a: githubAct('a', 'checks') }, startedSessions: started }), ['running', 'waiting on GitHub (the checks of the pull request)'], ['running', 'esperando o GitHub (os checks do pull request)']],
+    ['session mode, declared blocked', sessionWorld({ lines: ['[ ] a'], declared: { a: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } } }), ['blocked', 'it could not be opened (x)'], ['blocked', 'não foi possível abrir (x)']],
+  ];
+  for (const [label, facts, en, pt] of cases) {
+    await t.test(label, () => {
+      assert.deepEqual(boardRow(facts, 'a', 'en'), en, 'en');
+      assert.deepEqual(boardRow(facts, 'a', 'pt-BR'), pt, 'pt-BR');
+    });
+  }
+  await t.test('archived', () => assert.equal(boardRow(world({ lines: ['[ ] a'], actions: { a: archivedAct('a') } })), undefined));
+});
+
+test('change-state AC-6 status and state agree: each open roadmap change\'s block is its state\'s', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] b', '[ ] c', '[ ] d'));
+  for (const id of ['a', 'b', 'c', 'd']) addOpen(root, id);
+  putRun(root, {
+    places: 4,
+    inflight: { b: inFlight('proposal'), d: { kind: 'wait', what: 'merge', at: AT } },
+    declared: { c: { state: 'blocked', why: 'tests-red', params: { phase: 1 } } },
+  });
+  const board = placedOn(doStatus(root).stdout);
+  assert.deepEqual(Object.fromEntries(Object.entries(board).map(([id, [block]]) => [id, block])), { a: 'owner', b: 'running', c: 'blocked', d: 'running' });
+  const r = changeMain(['state', '--lang', 'en'], { cwd: root, env: cleanEnv, gh: OFFLINE });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const BLOCK_OF = { 'waiting-for-owner': 'owner', blocked: 'blocked', running: 'running', 'waiting-on-github': 'running' };
+  const states = Object.fromEntries(JSON.parse(r.stdout).changes.map((e) => [e.change, BLOCK_OF[e.state]]));
+  assert.deepEqual(states, Object.fromEntries(Object.entries(board).map(([id, [block]]) => [id, block])));
+});
+
+test('change-state AC-7 start: a change session starts with its state\'s title', () => {
+  const r = decideRoadmap(sessionWorld({
+    lines: ['[ ] a', '[ ] b', '[ ] c'], places: 3, actions: { a: agentAct('a'), b: grillAct('b'), c: ownerAct('c') },
+  }));
+  const titles = Object.fromEntries(r.actions.map((x) => [x.change, [x.title, x.input.title]]));
+  assert.deepEqual(titles, { a: ['📝 a', '📝 a'], b: ['🙋 ❓ b', '🙋 ❓ b'], c: ['🙋 📝 c', '🙋 📝 c'] });
 });

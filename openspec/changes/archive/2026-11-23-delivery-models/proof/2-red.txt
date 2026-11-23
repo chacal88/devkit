@@ -1,0 +1,1049 @@
+✔ delivery-models config: no devkit block gives no model and no problem (1.806792ms)
+✔ delivery-models config: trunk is a model with no names (0.078042ms)
+✔ delivery-models config: trunk-auto is a model with no names (0.056041ms)
+✔ delivery-models config: two-prs with both names is that model with both names (0.05ms)
+✔ delivery-models config: an unknown model is a problem naming it (0.052041ms)
+✔ delivery-models config: two-prs without base is a missing delivery-base (0.041125ms)
+✔ delivery-models config: two-prs without test_branch is a missing delivery-test-branch (0.037125ms)
+✔ delivery-models config: two-prs with the same name twice is an unknown delivery-test-branch (0.034084ms)
+✔ delivery-models config: names under trunk are ignored (0.04675ms)
+✔ delivery-models config: quoted values and trailing comments are read as the other settings are (0.077583ms)
+✔ delivery-models config: an empty value is unset (0.050833ms)
+✔ delivery-models config: nested keys never set driver or language (0.055958ms)
+✔ delivery-models config: readDeliverySettings reads the file and answers no model without one (0.424625ms)
+✔ delivery-models config: no model gives the ship entry of the schema, as shipConfig does (1.623083ms)
+✔ delivery-models config: trunk alone is pr (0.172083ms)
+✔ delivery-models config: trunk-auto alone is merge (0.177042ms)
+✔ delivery-models config: two-prs alone is pr, with the model and both names (0.156541ms)
+✔ delivery-models config: trunk with a ship entry of pr agrees (0.19775ms)
+✔ delivery-models config: trunk-auto with a ship entry of merge agrees (0.214375ms)
+✔ delivery-models config: trunk with a ship entry of merge disagrees (0.361458ms)
+✔ delivery-models config: trunk-auto with a ship entry of pr disagrees (0.197333ms)
+✔ delivery-models config: two-prs with any ship entry disagrees (0.482542ms)
+✔ delivery-models config: a ship entry of plan disagrees with trunk and trunk-auto (0.294458ms)
+✔ delivery-models config: a settings problem is a ShipConfigError (0.372709ms)
+✔ delivery-models config: merge_method is still validated and read (0.342125ms)
+✔ delivery-models open: a two-prs change starts from origin/<base> (1283.211875ms)
+✔ delivery-models open: a missing test branch on the remote creates nothing (426.348875ms)
+✔ delivery-models open: a base that is not the default branch creates nothing (450.756041ms)
+✔ delivery-models open: an id ending in the test branch name creates nothing (463.60675ms)
+✔ delivery-models open: an id ending in another word is fine in two-prs (1162.912417ms)
+✔ delivery-models open: a repository with no remote is not checked and starts from HEAD (1131.769709ms)
+✔ delivery-models open: a trunk project opens as today, with no test branch needed (1114.929459ms)
+✔ delivery-models open: a two-prs project without base or test_branch is refused as missing, in both ways in (444.744584ms)
+✔ delivery-models open: an unknown model or a test branch equal to the base is refused as unknown (472.161625ms)
+✔ delivery-models open: the new replies exist in both languages and name no internal word (0.096125ms)
+✖ delivery-models P7 T0: a base branch that is not the default branch blocks and names both (0.986042ms)
+✖ delivery-models P7 T0: an unreadable default branch blocks and says so (0.17875ms)
+✖ delivery-models P7 T2: no base pull request and no test-branch pull request opens both (0.2385ms)
+✖ delivery-models P7 T3: no base pull request while the test-branch one exists opens the base one only (0.093292ms)
+✖ delivery-models P7 T4: no test-branch pull request opens it from the task branch (0.094042ms)
+✖ delivery-models P7 T5: a test-branch pull request closed without merging blocks (0.074583ms)
+✖ delivery-models P7 T5: an unreadable test-branch pull request blocks (0.068458ms)
+✖ delivery-models P7 T13: a test-branch pull request body that lacks something is edited (0.092625ms)
+✖ delivery-models P7 T14: failing checks on the test-branch pull request are fixed (0.123ms)
+✖ delivery-models P7 T14: unreadable checks on the test-branch pull request block (0.075542ms)
+✖ delivery-models P7 T15: pending checks on the test-branch pull request wait (0.078334ms)
+✖ delivery-models P7 T16: a green test-branch pull request is the owner's to merge, first (0.059834ms)
+✖ delivery-models P7 T17: a base check that failed before the test-branch merge is run again (0.085208ms)
+✔ delivery-models P7 T17: a base check that failed after the test-branch merge is the existing blocked row (0.087791ms)
+✖ delivery-models P7 T18: with the test-branch pull request merged and everything met the base one is the owner's (0.057541ms)
+✔ delivery-models P7 T18: after the test-branch merge the base checks are still read (existing rows) (0.047917ms)
+✖ delivery-models P7: ready and the merge rows are never returned in two-prs (0.074166ms)
+✔ delivery-models P7: a project outside two-prs keeps its rows (ready, no two-prs step) (0.026833ms)
+✖ delivery-models fetchPr: with a base it lists by head and base and never asks pr view (849.946625ms)
+✖ delivery-models fetchPr: with a base only the pull requests to that base are read, an open newer one to another base is not taken (809.274041ms)
+✔ delivery-models AC-9 delivered: a merged test-branch pull request alone does not deliver the change (2174.245792ms)
+✖ delivery-models AC-9 delivered: the merged-list path drops a pull request to the test branch (922.691834ms)
+✖ delivery-models AC-2: both pull requests open together from the task branch and the state names both (1106.413834ms)
+✖ delivery-models AC-2: with only one of the two open, the missing one is opened next (1247.329916ms)
+✖ delivery-models AC-2: a body that misses the evidence is edited on the test-branch pull request too (1324.059583ms)
+✖ delivery-models AC-3: the owner merges the test-branch pull request first, then the base one; auto-merge is never enabled (1394.9975ms)
+✔ delivery-models AC-3: a base check that failed after the test-branch merge is not run again (1442.983375ms)
+✔ delivery-models AC-3: only run ids the failing check names are read, one gh run view each (1418.264709ms)
+✖ delivery-models AC-8: a fix on the task branch reaches both pull requests, without a support branch (2787.624833ms)
+✔ delivery-models AC-9 delivered: both merged with every task ticked is delivered and reads the archive (1542.317167ms)
+✖ delivery-models P7 T0: a base branch that is not GitHub's default stops the run and writes nothing (1078.415542ms)
+✖ delivery-models P7 T5: a closed test-branch pull request stops the run and writes nothing more (1291.227959ms)
+✖ delivery-models P7: a test-branch pull request from the task branch is found, an open one before a merged one (623.895083ms)
+✖ delivery-models P7: findTestPr answers none, and an error when GitHub cannot be read (476.319833ms)
+✖ delivery-models P12: readDelivery asks for the test-branch pull request, then for the owner's merges (928.622833ms)
+✖ delivery-models P12: a closed test-branch pull request ends blocked (1031.012458ms)
+✖ delivery-models P12: the three new codes read in both languages (0.1365ms)
+✖ delivery-models decide: the agent steps of the two-pull-request delivery go to their agents (0.371208ms)
+✖ delivery-models decide: the session steps of the two-pull-request delivery stay in the session (0.106917ms)
+✖ delivery-models decide: the owner's merges end waiting, each with its own reply (0.106958ms)
+✖ delivery-models decide: the owner ends read in both languages with their parameters (0.043958ms)
+✖ delivery-models decide: the brief of a support-branch hand-off names the support worktree, the others the task worktree (0.075917ms)
+✖ delivery-models decide: every new step has a row, so none stops the change as unknown (0.051667ms)
+✖ delivery-models conduct: actorOf and the final state name each new step (0.210459ms)
+ℹ tests 79
+ℹ suites 0
+ℹ pass 42
+ℹ fail 37
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29485.94275
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:461:1
+✖ delivery-models P7 T0: a base branch that is not the default branch blocks and names both (0.986042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'all eight items are met'
+  -   'blocked',
+  -   "the base branch main is not the repository's default branch develop"
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:463:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'all eight items are met' ],
+    expected: [ 'blocked', "the base branch main is not the repository's default branch develop" ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:466:1
+✖ delivery-models P7 T0: an unreadable default branch blocks and says so (0.17875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'all eight items are met'
+  -   'blocked',
+  -   'cannot read the default branch on GitHub: HTTP 502'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:468:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'all eight items are met' ],
+    expected: [ 'blocked', 'cannot read the default branch on GitHub: HTTP 502' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:471:1
+✖ delivery-models P7 T2: no base pull request and no test-branch pull request opens both (0.2385ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'open-pr',
+  +   undefined,
+  +   undefined,
+  +   undefined
+  -   'open-prs',
+  -   'feat',
+  -   'main',
+  -   'develop'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:473:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'open-pr', undefined, undefined, undefined ],
+    expected: [ 'open-prs', 'feat', 'main', 'develop' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:476:1
+✖ delivery-models P7 T3: no base pull request while the test-branch one exists opens the base one only (0.093292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'open-pr',
+  +   undefined
+  -   'main'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:478:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'open-pr', undefined ],
+    expected: [ 'open-pr', 'main' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:481:1
+✖ delivery-models P7 T4: no test-branch pull request opens it from the task branch (0.094042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined
+  -   'open-test-pr',
+  -   'feat',
+  -   'develop'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:483:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined ],
+    expected: [ 'open-test-pr', 'feat', 'develop' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:486:1
+✖ delivery-models P7 T5: a test-branch pull request closed without merging blocks (0.074583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'all eight items are met'
+  -   'blocked',
+  -   'pull request #13 to develop was closed without merging'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:488:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'all eight items are met' ],
+    expected: [ 'blocked', 'pull request #13 to develop was closed without merging' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:491:1
+✖ delivery-models P7 T5: an unreadable test-branch pull request blocks (0.068458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'all eight items are met'
+  -   'blocked',
+  -   'cannot read the pull requests to develop: HTTP 502'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:493:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'all eight items are met' ],
+    expected: [ 'blocked', 'cannot read the pull requests to develop: HTTP 502' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:496:1
+✖ delivery-models P7 T13: a test-branch pull request body that lacks something is edited (0.092625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined
+  -   'edit-pr-body',
+  -   13,
+  -   [
+  -     'AC-1'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:498:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined ],
+    expected: [ 'edit-pr-body', 13, [ 'AC-1' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:501:1
+✖ delivery-models P7 T14: failing checks on the test-branch pull request are fixed (0.123ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined
+  -   'fix-checks',
+  -   13,
+  -   [
+  -     {
+  -       link: 'https://ci/build',
+  -       name: 'build'
+  -     }
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:504:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined ],
+    expected: [ 'fix-checks', 13, [ [Object] ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:507:1
+✖ delivery-models P7 T14: unreadable checks on the test-branch pull request block (0.075542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'all eight items are met'
+  -   'blocked',
+  -   'item 6 blocked'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:509:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'all eight items are met' ],
+    expected: [ 'blocked', 'item 6 blocked' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:512:1
+✖ delivery-models P7 T15: pending checks on the test-branch pull request wait (0.078334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined
+  -   'wait-checks',
+  -   13,
+  -   [
+  -     'build'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:514:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined ],
+    expected: [ 'wait-checks', 13, [ 'build' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:517:1
+✖ delivery-models P7 T16: a green test-branch pull request is the owner's to merge, first (0.059834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined,
+  +   undefined,
+  +   undefined
+  -   'ready-test-branch',
+  -   13,
+  -   'develop',
+  -   'main',
+  -   12
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:519:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined, undefined, undefined ],
+    expected: [ 'ready-test-branch', 13, 'develop', 'main', 12 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:522:1
+✖ delivery-models P7 T17: a base check that failed before the test-branch merge is run again (0.085208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'blocked',
+  +   undefined,
+  +   undefined
+  -   'rerun-checks',
+  -   12,
+  -   [
+  -     '77'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:526:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'blocked', undefined, undefined ],
+    expected: [ 'rerun-checks', 12, [ '77' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:536:1
+✖ delivery-models P7 T18: with the test-branch pull request merged and everything met the base one is the owner's (0.057541ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined
+  -   'ready-base',
+  -   12,
+  -   'main'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:538:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined ],
+    expected: [ 'ready-base', 12, 'main' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:548:1
+✖ delivery-models P7: ready and the merge rows are never returned in two-prs (0.074166ms)
+  AssertionError [ERR_ASSERTION]: ready
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:553:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:565:1
+✖ delivery-models fetchPr: with a base it lists by head and base and never asks pr view (849.946625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  12 !== 11
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:570:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 12,
+    expected: 11,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:577:1
+✖ delivery-models fetchPr: with a base only the pull requests to that base are read, an open newer one to another base is not taken (809.274041ms)
+  AssertionError [ERR_ASSERTION]: the closed one to main, not the open one to develop
+  
+  12 !== 11
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:583:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 12,
+    expected: 11,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:599:1
+✖ delivery-models AC-9 delivered: the merged-list path drops a pull request to the test branch (922.691834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   undefined,
+  -   true,
+      false
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:606:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ undefined, false ],
+    expected: [ true, false ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:616:1
+✖ delivery-models AC-2: both pull requests open together from the task branch and the state names both (1106.413834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'open-pr',
+  +   undefined,
+  +   undefined,
+  +   undefined
+  -   'open-prs',
+  -   'feat',
+  -   'main',
+  -   'develop'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:619:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'open-pr', undefined, undefined, undefined ],
+    expected: [ 'open-prs', 'feat', 'main', 'develop' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:630:1
+✖ delivery-models AC-2: with only one of the two open, the missing one is opened next (1247.329916ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined
+  -   'open-test-pr',
+  -   'feat',
+  -   'develop'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:634:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined ],
+    expected: [ 'open-test-pr', 'feat', 'develop' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:641:1
+✖ delivery-models AC-2: a body that misses the evidence is edited on the test-branch pull request too (1324.059583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'edit-pr-body',
+  +   undefined
+  -   12
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:646:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'edit-pr-body', undefined ],
+    expected: [ 'edit-pr-body', 12 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:650:1
+✖ delivery-models AC-3: the owner merges the test-branch pull request first, then the base one; auto-merge is never enabled (1394.9975ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   undefined,
+  +   undefined,
+  +   undefined,
+  +   undefined
+  -   'ready-test-branch',
+  -   12,
+  -   'develop',
+  -   'main',
+  -   11
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:656:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', undefined, undefined, undefined, undefined ],
+    expected: [ 'ready-test-branch', 12, 'develop', 'main', 11 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:700:1
+✖ delivery-models AC-8: a fix on the task branch reaches both pull requests, without a support branch (2787.624833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'ready'
+  - 'ready-test-branch'
+          ^
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:712:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'ready',
+    expected: 'ready-test-branch',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:725:1
+✖ delivery-models P7 T0: a base branch that is not GitHub's default stops the run and writes nothing (1078.415542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'open-pr',
+  +   'no pull request yet'
+  -   'blocked',
+  -   "the base branch main is not the repository's default branch develop"
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:729:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'open-pr', 'no pull request yet' ],
+    expected: [ 'blocked', "the base branch main is not the repository's default branch develop" ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:733:1
+✖ delivery-models P7 T5: a closed test-branch pull request stops the run and writes nothing more (1291.227959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'all eight items are met'
+  -   'blocked',
+  -   'pull request #12 to develop was closed without merging'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:739:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'all eight items are met' ],
+    expected: [ 'blocked', 'pull request #12 to develop was closed without merging' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:743:1
+✖ delivery-models P7: a test-branch pull request from the task branch is found, an open one before a merged one (623.895083ms)
+  TypeError [Error]: deliver.findTestPr is not a function
+      at found (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:746:40)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:747:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:757:1
+✖ delivery-models P7: findTestPr answers none, and an error when GitHub cannot be read (476.319833ms)
+  TypeError [Error]: deliver.findTestPr is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:759:28)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:766:1
+✖ delivery-models P12: readDelivery asks for the test-branch pull request, then for the owner's merges (928.622833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   end: {
+  +     params: {
+  +       number: 11
+  +     },
+  +     reasonCode: 'owner-merges',
+  +     state: 'waiting-for-owner'
+  -   next: {
+  -     params: {},
+  -     reasonCode: 'no-test-pr',
+  -     stage: 'delivery'
+      }
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:771:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { end: { state: 'waiting-for-owner', reasonCode: 'owner-merges', params: [Object] } },
+    expected: { next: { stage: 'delivery', reasonCode: 'no-test-pr', params: {} } },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:786:1
+✖ delivery-models P12: a closed test-branch pull request ends blocked (1031.012458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      end: {
+        params: {
+  +       number: 11
+  -       number: 12
+        },
+  +     reasonCode: 'owner-merges',
+  +     state: 'waiting-for-owner'
+  -     reasonCode: 'pr-closed',
+  -     state: 'blocked'
+      }
+    }
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:793:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { end: { state: 'waiting-for-owner', reasonCode: 'owner-merges', params: [Object] } },
+    expected: { end: { state: 'blocked', reasonCode: 'pr-closed', params: [Object] } },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:796:1
+✖ delivery-models P12: the three new codes read in both languages (0.1365ms)
+  TypeError [Error]: (TEXT[lang] ?? TEXT.en)[code] is not a function
+      at reasonText (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/flow-check.mjs:377:97)
+      at file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:799:48
+      at Array.map (<anonymous>)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:799:34)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:826:1
+✖ delivery-models decide: the agent steps of the two-pull-request delivery go to their agents (0.371208ms)
+  AssertionError [ERR_ASSERTION]: open-prs
+  + actual - expected
+  
+    [
+  +   'end',
+  -   'agent',
+      'delivery',
+  +   undefined
+  -   'devkit-core:commit-and-pr'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:829:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'end', 'delivery', undefined ],
+    expected: [ 'agent', 'delivery', 'devkit-core:commit-and-pr' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:838:1
+✖ delivery-models decide: the session steps of the two-pull-request delivery stay in the session (0.106917ms)
+  AssertionError [ERR_ASSERTION]: checkout-support
+  + actual - expected
+  
+    [
+  +   'end',
+  -   'session',
+      'delivery',
+  +   undefined
+  -   'checkout-support'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:841:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'end', 'delivery', undefined ],
+    expected: [ 'session', 'delivery', 'checkout-support' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:847:1
+✖ delivery-models decide: the owner's merges end waiting, each with its own reply (0.106958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'end',
+  +   'blocked',
+  +   'unknown-step',
+  +   2
+  -   'waiting-for-owner',
+  -   'waiting-merge-test-branch',
+  -   1
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:849:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'end', 'blocked', 'unknown-step', 2 ],
+    expected: [ 'end', 'waiting-for-owner', 'waiting-merge-test-branch', 1 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:864:1
+✖ delivery-models decide: the owner ends read in both languages with their parameters (0.043958ms)
+  Error [LoopUsageError]: unknown reply key waiting-merge-test-branch
+      at render (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/change-loop.mjs:377:37)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:867:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:873:1
+✖ delivery-models decide: the brief of a support-branch hand-off names the support worktree, the others the task worktree (0.075917ms)
+  AssertionError [ERR_ASSERTION]: the roadmap lock reads the first words
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:877:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /^Change feat /,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:888:1
+✖ delivery-models decide: every new step has a row, so none stops the change as unknown (0.051667ms)
+  AssertionError [ERR_ASSERTION]: open-prs
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:891:36)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'unknown-step',
+    expected: 'unknown-step',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:894:1
+✖ delivery-models conduct: actorOf and the final state name each new step (0.210459ms)
+  AssertionError [ERR_ASSERTION]: open-prs
+  + actual - expected
+  
+    [
+  +   'stop',
+  +   undefined,
+  +   'blocked: S: unknown step open-prs'
+  -   'subagent',
+  -   'devkit-core:commit-and-pr',
+  -   'ready to run: open-prs'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/delivery-models/plugins/openspec/hooks/delivery-models.test.mjs:908:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stop', undefined, 'blocked: S: unknown step open-prs' ],
+    expected: [ 'subagent', 'devkit-core:commit-and-pr', 'ready to run: open-prs' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

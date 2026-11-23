@@ -14,9 +14,12 @@ import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHa
 import { readRepoSettings } from './merge-setup.mjs';
 import { readFlow, FlowUsageError } from './flow-check.mjs';
 import {
-  UsageError, gitFacts, makeGh, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
+  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
 } from './deliver-check.mjs';
-import { PIN_FILE, classifyConflict } from './release-rebase.mjs';
+import { PIN_FILE, classifyConflict } from './release-merge.mjs';
+
+// The worktree list lives in deliver-check.mjs (delivery-models D-11) and stays importable from here.
+export { listWorktrees };
 
 export const MAX_PARALLEL = 3;
 // Mtime tolerance when a file is "older than" another (design D6).
@@ -46,16 +49,19 @@ const COMMIT = 'devkit-core:commit-and-pr';
 const PLANNER = 'devkit-core:change-planner';
 const SUBAGENT = {
   implement: TDD, 'fix-review': TDD, 'fix-defect': TDD, 'fix-checks': TDD, 'apply-proposals': TDD, 'resolve-release-conflict': TDD,
-  commit: COMMIT, 'open-pr': COMMIT, push: COMMIT, 'open-archive-pr': COMMIT, 'push-rebased': COMMIT,
+  commit: COMMIT, 'open-pr': COMMIT, push: COMMIT, 'open-archive-pr': COMMIT,
+  'open-prs': COMMIT, 'open-test-pr': COMMIT, 'push-support': COMMIT, 'move-test-pr': COMMIT, 'open-test-archive-pr': COMMIT,
+  'resolve-support-conflict': TDD, 'fix-resolution': TDD,
   verify: 'devkit-core:pr-verifier',
   retro: 'general-purpose',
   plan: PLANNER, 'revise-plan': PLANNER,
   readiness: 'devkit-core:plan-readiness-reviewer',
   audit: 'devkit-core:plan-reality-auditor',
 };
-const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'answer', 'worktree', 'rebase'];
+const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'answer', 'worktree', 'rebase', 'rerun-checks',
+  'checkout-support', 'merge-into-support'];
 const ASKABLE = ['stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill', 'approve'];
-const OWNER = ['ready', 'archive-pr-ready', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
+const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
 const GITHUB = ['wait-checks', 'wait-merge'];
 const STOP = ['stop-plan-mode', 'stop-branch', 'stop-merge-setup', 'stop-archive', 'blocked', 'stop-not-approved'];
 
@@ -64,7 +70,7 @@ const STOP = ['stop-plan-mode', 'stop-branch', 'stop-merge-setup', 'stop-archive
 export function actorOf(step, host = 'cli') {
   if (step === 'implement' && host === 'app') return { actor: 'session', agent: TDD };
   if (SUBAGENT[step]) return { actor: 'subagent', agent: SUBAGENT[step] };
-  if (step === 'review') return { actor: 'review' };
+  if (step === 'review' || step === 'review-resolution') return { actor: 'review' };
   if (step === 'gate') return { actor: 'gate' };
   if (MAIN.includes(step)) return { actor: 'main' };
   if (ASKABLE.includes(step)) return { actor: 'owner', askable: true };
@@ -89,6 +95,9 @@ function stateOf(next, { summary = '' } = {}) {
     case 'owner':
       if (next.step === 'ready') return `waiting for the owner: merge PR #${next.number ?? ''}`.trim();
       if (next.step === 'archive-pr-ready') return `waiting for the owner: merge archive PR #${next.number ?? ''}`.trim();
+      if (next.step === 'archive-prs-ready') return `waiting for the owner: merge archive PRs ${next.list ?? ''}`.trim();
+      if (next.step === 'ready-test-branch') return `waiting for the owner: merge PR #${next.number ?? ''} to ${next.branch ?? ''}`.trim();
+      if (next.step === 'ready-base') return `waiting for the owner: merge PR #${next.number ?? ''} to ${next.base ?? ''}`.trim();
       if (next.step === 'stop-review-deadlock') return `waiting for the owner: review deadlock (${(next.reviewers || []).join(', ')})`;
       if (next.step === 'answer') return `waiting for the owner: PR decision ${next.url ?? ''}`.trim();
       return `waiting for the owner: ${OWNER_GATE[next.step] ?? next.step}`;
@@ -105,39 +114,6 @@ function stateOf(next, { summary = '' } = {}) {
 }
 
 // ---------------------------------------------------------------- worktrees (design D4)
-
-function rebaseBranch(path) {
-  try {
-    const gitDir = git(path, ['rev-parse', '--absolute-git-dir']).trim();
-    for (const d of ['rebase-merge', 'rebase-apply']) {
-      const f = join(gitDir, d, 'head-name');
-      if (existsSync(f)) return readFileSync(f, 'utf8').trim().replace(/^refs\/heads\//, '');
-    }
-  } catch { /* not a worktree */ }
-  return '';
-}
-
-// git worktree list --porcelain, minus prunable and bare entries: [{ path, branch, rebasing }].
-// A worktree stopped in the middle of a rebase is detached; its rebase says which branch it is.
-export function listWorktrees(root) {
-  let out;
-  try { out = git(root, ['worktree', 'list', '--porcelain']); } catch { return []; }
-  const entries = [];
-  for (const block of out.split(/\n\s*\n/)) {
-    const e = { path: '', branch: '', prunable: false, bare: false, rebasing: false };
-    for (const line of block.split('\n')) {
-      if (line.startsWith('worktree ')) e.path = line.slice('worktree '.length);
-      else if (line.startsWith('branch refs/heads/')) e.branch = line.slice('branch refs/heads/'.length);
-      else if (line === 'bare') e.bare = true;
-      else if (line.startsWith('prunable')) e.prunable = true;
-    }
-    if (!e.path || e.bare || e.prunable) continue;
-    const rebasing = rebaseBranch(e.path);
-    if (rebasing) { e.rebasing = true; if (!e.branch) e.branch = rebasing; }
-    entries.push({ path: e.path, branch: e.branch, rebasing: e.rebasing });
-  }
-  return entries;
-}
 
 // The entry holding change `id`: its own branch, or its archive branch (which wins: it is the later phase).
 function findWorktree(worktrees, id) {
@@ -355,7 +331,7 @@ function deliver(ctx, row) {
 
 // ---------------------------------------------------------------- the overrides (design D9)
 
-const RELEASE_REBASE = join(dirname(fileURLToPath(import.meta.url)), 'release-rebase.mjs');
+const RELEASE_MERGE = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
 
 // The PR this checkout's branch is open for: the change PR, or the archive PR after the merge.
 const openPrOf = (state) => {
@@ -363,20 +339,15 @@ const openPrOf = (state) => {
   return pr && pr.state === 'OPEN' ? pr : null;
 };
 
-// Override 2: a branch we rewrote. The PR head is not an ancestor of HEAD but the branch held it before our rebase.
-function rewrittenBranch(row, state) {
-  const pr = openPrOf(state);
-  if (!pr?.headRefOid) return null;
-  const root = row.worktree;
-  if (gitOk(root, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD'])) return null;
-  let reflog = [];
-  try { reflog = git(root, ['reflog', 'show', '--format=%H', `refs/heads/${state.branch}`]).split('\n').filter(Boolean); } catch { /* no reflog */ }
-  if (!reflog.includes(pr.headRefOid)) return null;
-  const branch = state.branch;
-  return step('push-rebased', `the branch was rewritten by a rebase; PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}`, {
-    number: pr.number, oldHead: pr.headRefOid, branch, paths: [...state.dirty],
-    command: ['git', 'push', `--force-with-lease=${branch}:${pr.headRefOid}`, 'origin', branch],
-  });
+// A release merge made in this checkout and not pushed yet: GitHub still reports the PR in conflict, but HEAD
+// already holds origin/<base> and is ahead of the PR head (release-merge-conflict D-2).
+function unpushedMerge(root, ref, pr) {
+  if (!pr?.headRefOid) return false;
+  let head;
+  try { head = git(root, ['rev-parse', 'HEAD']).trim(); } catch { return false; }
+  return pr.headRefOid !== head
+    && gitOk(root, ['merge-base', '--is-ancestor', ref, 'HEAD'])
+    && gitOk(root, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD']);
 }
 
 // The paths git merge-tree reports as conflicted between origin/<base> and HEAD: { paths } | { clean: true } | { error }.
@@ -390,7 +361,7 @@ function conflictedPaths(root, ref) {
   return { paths };
 }
 
-// The three versions of `path` the pin merge needs before any rebase: the merge base, origin/<base> and HEAD (null when absent).
+// The three versions of `path` the pin merge needs before the merge: the merge base, origin/<base> and HEAD (null when absent).
 function threeVersions(root, ref, path) {
   const mb = (() => { try { return git(root, ['merge-base', ref, 'HEAD']).trim(); } catch { return null; } })();
   const at = (rev) => { if (rev === null) return null; try { return git(root, ['show', `${rev}:${path}`]); } catch { return null; } };
@@ -403,6 +374,13 @@ function releaseConflict(ctx, row, state, report) {
   const onChange = n.step === 'blocked' && n.item === 5 && n.conflict === true;
   const onArchive = n.step === 'stop-archive' && n.archiveStep === 'archive-pr' && n.conflict === true;
   if (!onChange && !onArchive) return null;
+  const pr = openPrOf(state);
+  if (unpushedMerge(row.worktree, ctx.ref, pr)) {
+    const command = ['git', 'push', 'origin', state.branch];
+    return onChange
+      ? step('push', `the release merge is not pushed yet; PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}`, { number: pr.number, branch: state.branch, command })
+      : step('open-archive-pr', `the release merge is not pushed yet; archive PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}; push it`, { number: pr.number, branch: state.branch, command });
+  }
   const where = onChange ? 'item 5' : 'archive (archive-pr)';
   const stop = (message, extra = {}) => ({ ...step('blocked', message, extra), blockedState: `blocked: ${message}` });
   const found = conflictedPaths(row.worktree, ctx.ref);
@@ -410,25 +388,27 @@ function releaseConflict(ctx, row, state, report) {
     return stop(`${where} ${onChange ? '(cannot classify the conflict: git merge-tree --write-tree needs git 2.38)' : ': cannot classify the conflict: git merge-tree --write-tree needs git 2.38'}`);
   }
   if (found.clean) {
-    const pr = openPrOf(state);
+    if (pr?.headRefOid && !gitOk(row.worktree, ['merge-base', '--is-ancestor', pr.headRefOid, 'HEAD'])) {
+      const short = pr.headRefOid.slice(0, 7);
+      return stop(onChange ? `item 5 (PR #${pr.number} head ${short} is not in local history)` : `archive (archive-pr): PR #${pr.number} head ${short} is not in local history`);
+    }
     return state.ship === 'merge' && pr ? step('update-branch', `GitHub reports a conflict but ${ctx.ref} merges cleanly; update the branch`, { number: pr.number }) : null;
   }
   const others = classifyConflict(found.paths, (p) => threeVersions(row.worktree, ctx.ref, p)).blocking;
   if (others.length) return stop(onChange ? `item 5 (conflict in ${others.join(', ')})` : `archive (archive-pr): conflict in ${others.join(', ')}`);
-  const pr = openPrOf(state);
   return step('resolve-release-conflict', `the PR conflicts only in release files${found.paths.includes(PIN_FILE) ? ' and the CI pin' : ''}: ${found.paths.join(', ')}`, {
     number: pr?.number ?? null, paths: [...found.paths].sort(), base: ctx.base,
-    command: ['node', RELEASE_REBASE, '--base', ctx.base, '--json'],
+    command: ['node', RELEASE_MERGE, '--base', ctx.base, '--json'],
   });
 }
 
-// deliver-check's report as a conduct row, after the overrides that need git (D9): a rewritten branch first,
+// deliver-check's report as a conduct row, after the override that needs git (D9): the release-file conflict,
 // except that auto-merge is switched off before anything else.
 export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
   if (d.report.next.step === 'disable-auto-merge') return { ...plain, ...info };
-  const override = rewrittenBranch(row, d.state) ?? releaseConflict(ctx, row, d.state, d.report);
+  const override = releaseConflict(ctx, row, d.state, d.report);
   if (!override) return { ...plain, ...info };
   const next = { ...override, ...actorOf(override.step) };
   return { next, state: stateOf(next, { summary: d.report.summary }), ...info };

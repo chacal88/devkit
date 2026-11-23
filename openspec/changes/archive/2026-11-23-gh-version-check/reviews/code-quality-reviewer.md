@@ -1,0 +1,15 @@
+Verdict: approved
+Commit: efa4568aeaf63174d4c77d56972dafb7fc79390d
+
+## Quality review — gh-version-check, five merges of main and release renumbering to 0.27.0 (round 1 of 2)
+
+### Findings
+- [nit] plugins/openspec/hooks/deliver-check.mjs:1048-1061 — Earlier-round nit stands: the archive-PR path doubles the 'cannot read the checks:' prefix, which now shows on the old-gh message. This round's diff did not touch it.
+- [nit] plugins/openspec/hooks/deliver-check.mjs:946-949 — Earlier-round nit stands: archive facts flatten ghTooOld into an error string, so that path has no typed gh-too-old reason. The text still names both versions.
+- [praise] plugins/openspec/hooks/change-loop.mjs:762,988-995 — gh-too-old is a blocked end of kind 'end', so main's budget hold (agent and session only) cannot turn it into waiting-budget, and githubSilent keeps gh-error and checks-unreadable as a wait while gh-too-old stays a stop. The two features stay separate. Strings exist in both languages and the unknown-version fallback is rendered per language.
+- [praise] plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs:10,63 — The test uses main's shared tmpFolder helper, with a prefix that matches its devkit-...- rule. The one fixture folder is cleaned up by the helper, so no hand-rolled mkdtemp remains.
+- [praise] .claude-plugin/marketplace.json:9,23 — The renumbering is consistent. plugin.json and the marketplace entry are 0.27.0, marketplace metadata is 0.31.0, the CHANGELOG 0.31.0 section sits above main's 0.30.1 with the pin at v0.27.0, and docs/openspec-flow.md lines 603-613 pin v0.27.0.
+
+### Summary
+- 5 findings (0 blocking, 0 important, 2 nit) + 3 praise
+- Justification: I reviewed what this change contributes over main for the five merges, using `git diff b2b9d9e efa4568` for the code files and the merge diffs of 68be5be, 4a771f7, 748ebd2, a1cd6d3 and efa4568. In change-loop.mjs the gh-too-old message and the 'gh-version-unknown' key sit next to main's cannot-accept key, and BLOCKED_OF keeps all its entries. githubSilent and the budget hold (change-loop.mjs:765, 884-890) are untouched and do not conflict with the new blocked end. project-loop.mjs and flow-check.mjs add only their own gh-too-old branches, with the `checks.details.ghTooOld` read guarded. Earlier merges in this branch renumbered 0.24.0 to 0.26.0 and finally to 0.27.0; no stale pin to a previous release remains in the CHANGELOG head or in docs/openspec-flow.md, and the older CHANGELOG pins are historical. The previous verdict file was written at 492b586 (approved, two nits, two praise), had no blocking or important findings, and its two nits are re-listed as they stand. Test run with TMPDIR=/var/tmp: `node --test plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs` gave 446 tests, 446 pass, 0 fail (it also pulls in the deliver-check suite through the `fakeGh` import). The evidence.md change is uncommitted, and no finding rests on it. I did not run change-loop.test.mjs or project-loop.test.mjs on their own, scripts/check.py, `claude plugin validate .`, or the full guard suite.

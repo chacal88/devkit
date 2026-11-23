@@ -8,7 +8,7 @@ import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
 import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
 import { makeGh } from './merge-setup.mjs';
-import { pinDoc } from './release-rebase.test.mjs';
+import { pinDoc } from './release-merge.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
@@ -655,7 +655,7 @@ test('conduct: a change PR in conflict only in release files is resolve-release-
   assert.deepEqual(c.next.paths, ['.claude-plugin/marketplace.json', 'CHANGELOG.md']);
   assert.equal(c.next.base, 'main');
   assert.ok(c.next.command.includes('--base') && c.next.command.includes('main'));
-  assert.match(c.next.command[1], /release-rebase\.mjs$/);
+  assert.match(c.next.command[1], /release-merge\.mjs$/);
   assert.equal(c.deliver.next.step, 'blocked', 'deliver-check alone says blocked');
   assert.equal(c.deliver.next.conflict, true, 'deliver-check names the conflict in a field, not only in prose');
   assert.equal(headOf(b), c.deliver ? headOf(b) : '', 'nothing was touched');
@@ -690,66 +690,6 @@ test('conduct: git merge-tree exit 0 gives update-branch in merge mode (GitHub\'
   const c = byId(t.state(), 'b');
   assert.equal(c.deliver.next.step, 'blocked');
   assert.deepEqual([c.next.step, c.next.number, c.next.actor], ['update-branch', 12, 'main']);
-});
-
-// The state right after release-rebase: rebased onto origin/main, release files dirty, reviews at the old head,
-// the PR still at the old head.
-function rebasedChange({ config = CONFIG, dirty = true, commit = false } = {}) {
-  const t = roundRepo({
-    roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config,
-    files: { 'CHANGELOG.md': '# c\n', '.claude-plugin/marketplace.json': '{"v":1}\n', ...(config === CONFIG ? {} : MERGE_FILES) },
-  });
-  const b = t.addWt('b');
-  readyChange(b, 'b');
-  const oldHead = headOf(b);
-  t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves');
-  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
-  git(b, 'rebase', 'origin/main');
-  if (dirty) put(b, { 'CHANGELOG.md': '# c\nb entry\n', '.claude-plugin/marketplace.json': '{"v":2}\n' });
-  if (commit) commitAll(b, 'release files after the rebase');
-  return { t, b, oldHead };
-}
-
-test('conduct: right after release-rebase deliver-check says commit, conduct-check says push-rebased with oldHead, paths and a lease (override 2a)', () => {
-  const { t, b, oldHead } = rebasedChange();
-  const c = byId(t.state(), 'b');
-  assert.equal(c.deliver.next.step, 'commit', 'deliver-check alone: a plain push would be rejected');
-  assert.deepEqual(planStep(c), ['push-rebased', 'subagent']);
-  assert.equal(c.next.agent, CAP);
-  assert.equal(c.next.oldHead, oldHead);
-  assert.deepEqual([...c.next.paths].sort(), ['.claude-plugin/marketplace.json', 'CHANGELOG.md']);
-  assert.deepEqual(c.next.command, ['git', 'push', `--force-with-lease=b:${oldHead}`, 'origin', 'b']);
-  assert.ok(git(b, 'reflog', 'show', '--format=%H', 'refs/heads/b').split('\n').includes(oldHead));
-});
-
-test('conduct: killed after the commit and before the push is push-rebased with no paths (override 2b)', () => {
-  const { t, oldHead } = rebasedChange({ commit: true });
-  const c = byId(t.state(), 'b');
-  assert.deepEqual(planStep(c), ['push-rebased', 'subagent']);
-  assert.deepEqual(c.next.paths, []);
-  assert.equal(c.next.oldHead, oldHead);
-});
-
-test('conduct: after the force push both are stale: verify, then review (override 2c)', () => {
-  const { t, b } = rebasedChange({ commit: true });
-  openPr(t, b, 'b');
-  let c = byId(t.state(), 'b');
-  assert.deepEqual(planStep(c), ['verify', 'subagent']);
-  assert.equal(c.next.agent, 'devkit-core:pr-verifier');
-  const sha = headOf(b);
-  writeChange(b, 'b', { 'evidence.md': `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n` });
-  c = byId(t.state(), 'b');
-  assert.deepEqual(planStep(c), ['review', 'review']);
-  assert.deepEqual([...c.next.reviewers].sort(), ['code-quality-reviewer', 'test-coverage-reviewer']);
-});
-
-test('conduct: auto-merge still on gives disable-auto-merge first (override 2d)', () => {
-  const { t } = rebasedChange({ config: MERGE_CONFIG, commit: true });
-  presetMerge(t.ghAt(t.wtPath('b')));
-  const b = t.wtPath('b');
-  t.ghAt(b).set('pr-view', { stdout: prJson('b', { headRefOid: git(b, 'reflog', 'show', '--format=%H', 'refs/heads/b').split('\n').at(-3) ?? '', autoMergeRequest: { enabledAt: 'x' }, mergeable: 'CONFLICTING' }) });
-  const c = byId(t.state(), 'b');
-  assert.equal(c.next.step, 'disable-auto-merge');
 });
 
 test('conduct: a PR head that is not in the local reflog stays blocked, not in local history (override 2e)', () => {
@@ -822,42 +762,115 @@ test('conduct: an archive PR in conflict only in release files is resolve-releas
   assert.equal(c.state, 'blocked: archive (archive-pr): conflict in README.md');
 });
 
-function rebasedArchive({ config = CONFIG, commit = false } = {}) {
-  const r = archiveRepo({ config });
+// The state after the release merge, not pushed yet: the branch holds origin/main merged in and the CHANGELOG
+// resolved, and the PR still has the old head and still reads CONFLICTING (release-merge-conflict D-5).
+function mergedChange({ config = CONFIG } = {}) {
+  const t = roundRepo({
+    roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config,
+    files: { 'CHANGELOG.md': '# c\n', ...(config === CONFIG ? {} : MERGE_FILES) },
+  });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: { 'CHANGELOG.md': '# c\nb entry\n' } });
+  const oldHead = headOf(b);
+  t.commitOrigin({ 'CHANGELOG.md': '# c\norigin entry\n' }, 'origin edits the changelog');
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  try { git(b, 'merge', '-q', '--no-ff', '--no-commit', 'origin/main'); } catch { /* the conflict is the point */ }
+  put(b, { 'CHANGELOG.md': '# c\nb entry\norigin entry\n' });
+  git(b, 'add', '--', 'CHANGELOG.md');
+  git(b, 'commit', '-q', '--no-edit');
+  return { t, b, oldHead };
+}
+
+// Reviews and evidence at the merge head, committed, as `verify` and `review` leave them.
+function reviewedAt(b) {
+  writeReviews(b, 'b', headOf(b));
+  commitAll(b, 'reviews and evidence');
+}
+
+test('release-merge-conflict 8: after a release merge that is not pushed, verify and review run again, then push hands a plain git push', () => {
+  const { t, b } = mergedChange();
+  let c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['verify', 'subagent']);
+  reviewedAt(b);
+  c = byId(t.state(), 'b');
+  assert.equal(c.deliver.next.step, 'blocked');
+  assert.equal(c.deliver.next.conflict, true);
+  assert.deepEqual(planStep(c), ['push', 'subagent']);
+  assert.equal(c.next.agent, CAP);
+  assert.deepEqual(c.next.command, ['git', 'push', 'origin', 'b']);
+  assert.equal(c.next.number, 12);
+  assert.doesNotMatch(JSON.stringify(c.next), /--force/);
+});
+
+test('release-merge-conflict 9: a merge already pushed while GitHub still reports the conflict keeps update-branch in merge mode', () => {
+  const { t, b } = mergedChange({ config: MERGE_CONFIG });
+  presetMerge(t.ghAt(b));
+  reviewedAt(b);
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual([c.next.step, c.next.actor], ['update-branch', 'main']);
+});
+
+test('release-merge-conflict 10: a local commit ahead of the PR head without origin/<base> is not pushed by the override', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']) });
+  const b = t.addWt('b');
+  readyChange(b, 'b');
+  const oldHead = headOf(b);
+  t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves');
+  put(b, { 'openspec/changes/b/notes.md': 'n\n' });
+  commitAll(b, 'notes');
+  openPr(t, b, 'b', { headRefOid: oldHead, mergeable: 'CONFLICTING' });
+  const c = byId(t.state(), 'b');
+  assert.equal(c.next.step, 'blocked');
+  assert.match(c.state, /merge conflicts/);
+});
+
+test('release-merge-conflict 11: a PR head that is not in the local history is stopped, neither pushed nor updated, in pr and in merge mode', () => {
+  for (const config of [CONFIG, MERGE_CONFIG]) {
+    const { t, b } = mergedChange({ config });
+    if (config !== CONFIG) presetMerge(t.ghAt(b));
+    reviewedAt(b);
+    openPr(t, b, 'b', { headRefOid: 'f'.repeat(40), mergeable: 'CONFLICTING' });
+    const c = byId(t.state(), 'b');
+    assert.equal(c.next.step, 'blocked', config);
+    assert.equal(c.next.actor, 'stop', config);
+    assert.match(c.state, /not in local history/, config);
+  }
+});
+
+function mergedArchive({ config = CONFIG } = {}) {
+  const r = archiveRepo({ config, archiveFiles: { 'CHANGELOG.md': '# c\narchive edit\n' } });
   const oldHead = headOf(r.wt);
-  r.t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves');
-  git(r.wt, 'rebase', 'origin/main');
-  put(r.wt, { 'CHANGELOG.md': '# c\nb entry\n' });
-  if (commit) commitAll(r.wt, 'release files after the rebase');
+  r.t.commitOrigin({ 'CHANGELOG.md': '# c\norigin edit\n' }, 'origin edits the changelog');
+  try { git(r.wt, 'merge', '-q', '--no-ff', '--no-commit', 'origin/main'); } catch { /* the conflict is the point */ }
+  put(r.wt, { 'CHANGELOG.md': '# c\narchive edit\norigin edit\n' });
+  git(r.wt, 'add', '--', 'CHANGELOG.md');
+  git(r.wt, 'commit', '-q', '--no-edit');
   archiveGh(r.t, r.wt, 'b', [ARCHIVE_PR({ headRefOid: oldHead, mergeable: 'CONFLICTING' })]);
   return { ...r, oldHead };
 }
 
-test('conduct: the same push-rebased override holds on an archive PR (override 2f, P3c)', () => {
-  let r = rebasedArchive();
+test('release-merge-conflict 12: an archive PR after its release merge hands open-archive-pr with a plain push; a foreign head stays stopped', () => {
+  const r = mergedArchive();
   let c = byId(r.t.state(), 'b');
-  assert.deepEqual(planStep(c), ['push-rebased', 'subagent']);
-  assert.equal(c.next.oldHead, r.oldHead);
-  assert.deepEqual(c.next.paths, ['CHANGELOG.md']);
-  assert.deepEqual(c.next.command, ['git', 'push', `--force-with-lease=chore/archive-b:${r.oldHead}`, 'origin', 'chore/archive-b']);
+  assert.deepEqual(planStep(c), ['open-archive-pr', 'subagent']);
+  assert.deepEqual(c.next.command, ['git', 'push', 'origin', 'chore/archive-b']);
+  assert.doesNotMatch(JSON.stringify(c.next), /--force/);
 
-  r = rebasedArchive({ commit: true });
+  archiveGh(r.t, r.wt, 'b', [ARCHIVE_PR({ headRefOid: 'f'.repeat(40), mergeable: 'CONFLICTING' })]);
   c = byId(r.t.state(), 'b');
-  assert.deepEqual([c.next.step, c.next.paths], ['push-rebased', []]);
-
-  archiveGh(r.t, r.wt, 'b', [ARCHIVE_PR({ headRefOid: headOf(r.wt) })]);
-  c = byId(r.t.state(), 'b');
-  assert.notEqual(c.next.step, 'push-rebased', 'after the force push the PR head is HEAD');
-
-  archiveGh(r.t, r.wt, 'b', [ARCHIVE_PR({ headRefOid: 'f'.repeat(40) })]);
-  c = byId(r.t.state(), 'b');
-  assert.equal(c.next.step, 'stop-archive');
-  assert.match(c.state, /not in local history/);
+  assert.deepEqual([c.next.step, c.next.actor], ['blocked', 'stop']);
+  assert.match(c.state, /^blocked: archive \(archive-pr\): .*not in local history/);
 });
 
-test('conduct: auto-merge on an archive PR whose head we rewrote is disabled first (override 2f, P3a)', () => {
-  const r = rebasedArchive({ config: MERGE_CONFIG, commit: true });
-  archiveGh(r.t, r.wt, 'b', [ARCHIVE_PR({ headRefOid: r.oldHead, autoMergeRequest: { enabledAt: 'x' } })]);
+test('release-merge-conflict 13: auto-merge still on is switched off before the push, on a change PR and on an archive PR', () => {
+  const { t, b } = mergedChange({ config: MERGE_CONFIG });
+  presetMerge(t.ghAt(b));
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING', autoMergeRequest: { enabledAt: 'x' } });
+  assert.equal(byId(t.state(), 'b').next.step, 'disable-auto-merge');
+
+  const r = mergedArchive({ config: MERGE_CONFIG });
+  archiveGh(r.t, r.wt, 'b', [ARCHIVE_PR({ headRefOid: r.oldHead, mergeable: 'CONFLICTING', autoMergeRequest: { enabledAt: 'x' } })]);
   assert.equal(byId(r.t.state(), 'b').next.step, 'disable-auto-merge');
 });
 
