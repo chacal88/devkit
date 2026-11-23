@@ -1,16 +1,27 @@
 # Changelog
 
-## 0.27.1 — a review fixed in the plan files
+## 0.28.1 — a review fixed in the plan files
 
-- **devkit-openspec** 0.23.1: a rejected verdict goes stale after any later commit outside the
+- **devkit-openspec** 0.24.1: a rejected verdict goes stale after any later commit outside the
   change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
   included, so a fix made in the plan files gets the next review round with no hand from the owner;
   a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
-  The CI snippet now pins `v0.23.1`, the release's tag.
+  The CI snippet now pins `v0.24.1`, the release's tag.
 - **devkit-core** 0.11.1: the `review-change` skill's stale definition names the rule for a rejected
   verdict.
 - Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
   document.
+
+## 0.28.0 — one state per change
+
+- **devkit-openspec** 0.24.0: the change loop derives one state per change in one place, and a new
+  `change-loop.mjs state` command prints it (state, reason, stage and the session title) for one
+  change or every unfinished one. A GitHub that does not answer is a wait on GitHub, not a block,
+  and three failed reads in a row still end the wait blocked. A stopped change's session title
+  carries its state icon (🙋, ⏳ or ⛔) before the stage icon, and `/devkit status` places its rows
+  by the same state.
+- Docs: ADR 0017 (a change's state is derived in one place, amends 0014), Notes in ADR 0010 and
+  ADR 0014, the flow and design pages.
 
 ## 0.27.0 — commit attribution
 

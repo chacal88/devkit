@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=4 commit=95ac4013f8f007d6b10a01895106d831d6a86f39 -->
-Commit: 95ac4013f8f007d6b10a01895106d831d6a86f39
+<!-- devkit-stage evidence result=passed attempt=5 commit=a700544cc304b53c6781596a5c29769631bfc3d5 -->
+Commit: a700544cc304b53c6781596a5c29769631bfc3d5
 
 # Evidence
 
-Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean tree, re-run at commit 95ac401, which merged main (test-fixture-cleanup, #62) and moved this release to 0.26.2 (devkit-core 0.10.2, devkit-openspec 0.22.2, CI pin v0.22.2); run with TMPDIR=/var/tmp.
+Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean tree, re-run at commit a700544, which merged main (commit-attribution, #68) and moved this release to 0.27.1 (devkit-core 0.11.1, devkit-openspec 0.23.1, CI pin v0.23.1); run with TMPDIR=/var/tmp.
 
 ## Verification
 
@@ -11,9 +11,9 @@ Change: `review-openspec-fix`. Verified on branch `review-openspec-fix`, clean t
 
 | Gate | Command | Result |
 |---|---|---|
-| 1.4 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/flow-check.test.mjs` | pass: 677 tests, 677 pass, 0 fail (includes the deliver-check suite and tests 1 to 20) |
+| 1.4 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/flow-check.test.mjs` | pass: 688 tests, 688 pass, 0 fail (includes the deliver-check suite and tests 1 to 20) |
 | 1.4 | `python3 scripts/check.py` | pass: all checks passed |
-| 2.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1552 tests, 1552 pass, 0 fail |
+| 2.2 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1588 tests, 1588 pass, 0 fail |
 | 2.2 | `python3 scripts/check.py` | pass: all checks passed |
 | 2.2 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
 | 2.2 | `command claude plugin validate .` | pass: Validation passed |
@@ -32,7 +32,7 @@ Proof: scratch-repository tests `review-openspec-fix 1` to `20` in `plugins/open
 ### Task checks
 
 - `git grep -n "function reviewRecord\|function verdictAllowed\|const approved =" -- plugins ':!*.test.*'` prints three lines, all in `plugins/openspec/hooks/deliver-check.mjs`.
-- Against the merge base with `origin/main` (77b15b1, no fetch; the local `main` ref is older and would count the merged-in changes), `deliver-check.test.mjs` and `flow-check.test.mjs` each have 0 deleted lines (218 and 38 added). The CI pin reads `v0.22.2`.
-- `git grep -c "v0.21.1" -- docs/openspec-flow.md` prints nothing (the docs pin `v0.22.2`); versions in the tree: devkit-openspec 0.22.2, devkit-core 0.10.2, changelog section `## 0.26.2`.
+- Against the merge base with `origin/main` (ac40615, no fetch; the local `main` ref is older and would count the merged-in changes), `deliver-check.test.mjs` and `flow-check.test.mjs` each have 0 deleted lines (218 and 38 added). The CI pin reads `v0.23.1`.
+- `git grep -c "v0.21.1" -- docs/openspec-flow.md` prints nothing (the docs pin `v0.23.1`); `git grep -n "leaves reviews and evidence current" -- docs plugins` prints nothing; versions in the tree: marketplace 0.27.1, devkit-openspec 0.23.1, devkit-core 0.11.1, changelog section `## 0.27.1 — a review fixed in the plan files`.
 
 No UI, API or deploy surface is touched; no screenshots apply.
