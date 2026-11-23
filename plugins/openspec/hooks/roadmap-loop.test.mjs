@@ -2924,6 +2924,57 @@ test('remote AC-12 probe: state through the injected ssh returns the other clone
   assert.deepEqual(JSON.parse(j.stdout).changes.map((c) => c.id), ['xxx']);
 });
 
+// The probe run by itself, as ssh would run it: `installed` is the content of the other machine's installed_plugins.json (null: no
+// file); a pack is a folder whose roadmap-loop.mjs is `script`. Returns the exit status and the parsed stdout.
+function probeState({ installed, folder }) {
+  const home = mkdtempSync(join(tmpdir(), 'probe-home-'));
+  mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
+  if (installed !== null) writeFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), typeof installed === 'string' ? installed : JSON.stringify(installed));
+  const r = spawnSync(process.execPath, [join(HERE, 'machine-probe.mjs'), 'state', folder, 'en'], { encoding: 'utf8', env: { ...cleanEnv, HOME: home }, cwd: HERE });
+  return { status: r.status, out: JSON.parse(r.stdout) };
+}
+function fakePack(script) {
+  const dir = mkdtempSync(join(tmpdir(), 'probe-pack-'));
+  mkdirSync(join(dir, 'hooks'), { recursive: true });
+  writeFileSync(join(dir, 'hooks', 'roadmap-loop.mjs'), script);
+  return dir;
+}
+const sayPack = (name) => fakePack(`process.stdout.write(JSON.stringify({ version: 1, pack: ${JSON.stringify(name)} }) + '\\n');\n`);
+
+test('remote AC-12 probe: the installation is the project-scoped one at or above the folder, else the user-scoped one', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'probe-folder-'));
+  const user = sayPack('user');
+  const project = sayPack('project');
+  const elsewhere = sayPack('elsewhere');
+  const entry = (scope, installPath, projectPath) => ({ scope, installPath, version: '0.0.0', ...(projectPath ? { projectPath } : {}) });
+  const run = (list) => probeState({ installed: { version: 2, plugins: { 'devkit-openspec@devkit': list } }, folder });
+  const packOf = (list) => { const r = run(list); assert.equal(r.status, 0, JSON.stringify(r.out)); return r.out.pack; };
+  assert.equal(packOf([entry('user', user), entry('project', project, folder)]), 'project', 'project scope wins over user scope, whatever the order');
+  assert.equal(packOf([entry('project', project, folder), entry('user', user)]), 'project');
+  assert.equal(packOf([entry('user', user), entry('project', project, dirname(folder))]), 'project', 'a project path above the folder serves it');
+  assert.equal(packOf([entry('user', user), entry('project', project, `${dirname(folder)}/`)]), 'project', 'a trailing slash still matches');
+  assert.equal(packOf([entry('user', user), entry('project', elsewhere, `${folder}-other`)]), 'user', 'a sibling that shares the prefix does not serve it');
+  assert.equal(packOf([entry('user', user), entry('project', elsewhere, join(folder, 'deeper'))]), 'user', 'a project path below the folder does not serve it');
+});
+
+test('remote AC-12 probe: the probe itself answers with an error and exit 3 when the pack is missing, the file unreadable or the status fails', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'probe-folder-'));
+  const failing = fakePack("process.stderr.write('boom happened\\nsecond line\\n'); process.exit(1);\n");
+  const cases = [
+    ['not installed', { version: 2, plugins: { 'other@x': [{ scope: 'user', installPath: '/x' }] } }, /pack is not installed/],
+    ['no installPath', { version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user' }] } }, /pack is not installed/],
+    ['no file', null, /installed_plugins\.json cannot be read/],
+    ['not json', 'not json', /installed_plugins\.json cannot be read/],
+    ['status fails', { version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user', installPath: failing }] } }, /^status failed in .*: boom happened$/],
+  ];
+  for (const [name, installed, why] of cases) {
+    const r = probeState({ installed, folder });
+    assert.equal(r.status, 3, name);
+    assert.equal(r.out.version, 1, name);
+    assert.match(r.out.error, why, name);
+  }
+});
+
 // ================================================================ remote-worker, phase 4: placement, the session on another machine, the wake
 
 const claimOf = (machine, over = {}) => ({ id: 'x', machine, places: 2, placed: false, ...over });

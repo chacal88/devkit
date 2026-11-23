@@ -3022,6 +3022,33 @@ test('remote locks claims: the claims of a stale clone cost at most 8 gh calls, 
   assert.deepEqual(ids.slice(4).map((id) => result.claims.get(id).machine), [null, null], 'a branch the budget left unread reads as no claim');
 });
 
+test('remote locks claims: a listing with approval.md and a .openspec.yaml with places reads as placed with machine and places', () => {
+  const t = freshProject();
+  const clone = otherClone(t);
+  openOn(clone, 'p1', 'avel');
+  openOn(clone, 'p2', 'avel');
+  openOn(clone, 'p3', 'avel');
+  const yamls = {
+    p1: 'schema: devkit\nx-devkit-machine: avel\nx-devkit-places: 2\n',
+    p2: 'schema: devkit\nx-devkit-machine: avel\nx-devkit-places: run\n',
+    p3: 'schema: devkit\nx-devkit-machine: avel\n',
+  };
+  const listing = { p1: ['.openspec.yaml', 'approval.md'], p2: ['.openspec.yaml', 'approval.md'], p3: ['.openspec.yaml', 'requirements.md'] };
+  const gh = (args) => {
+    const route = args[1] ?? '';
+    const id = /changes\/(p\d)/.exec(route)?.[1];
+    if (!id) return { status: 1, stdout: '', stderr: 'not found' };
+    if (/\.openspec\.yaml/.test(route)) return { status: 0, stdout: JSON.stringify({ encoding: 'base64', content: Buffer.from(yamls[id]).toString('base64') }), stderr: '' };
+    return { status: 0, stdout: JSON.stringify(listing[id].map((name) => ({ name }))), stderr: '' };
+  };
+  const result = changeLoopModule.remoteClaims(t.main, { env: cleanEnv, gh });
+  assert.equal(result.readable, true);
+  const read = (id) => { const c = result.claims.get(id); return [c.machine, c.places, c.placed]; };
+  assert.deepEqual(read('p1'), ['avel', 2, true], 'an approval.md in the folder is a placed change, and a number of places is a number');
+  assert.deepEqual(read('p2'), ['avel', 'run', true], 'places run stays run');
+  assert.deepEqual(read('p3'), ['avel', null, false], 'no approval.md is unplaced, and no places key is null');
+});
+
 // ---------------------------------------------------------------- remote-worker: the place on the change's side (phase 2)
 
 const PLACE_CONFIG = 'schema: devkit\nship:\n  devkit: pr\n';
