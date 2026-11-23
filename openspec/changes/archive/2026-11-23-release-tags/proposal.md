@@ -3,7 +3,7 @@
 
 Change: `release-tags` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (sources: `requirements.md`, with the owner's four answers, and `decisions.md`, which proposes
-[ADR 0019](../../../docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)).
+[ADR 0019](../../../../docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)).
 
 ## Why
 

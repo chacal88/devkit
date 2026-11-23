@@ -133,3 +133,18 @@ Fourth merge (origin/main 5d85f35, PR 86 "the delivery loop tags the release it 
   change-loop.test.mjs 1054/1054; deliver-check.test.mjs 443/443; release-tags.test.mjs 828/828; conduct-check.test.mjs 579/579;
   flow-check.test.mjs 703/703 (all exit 0); claude plugin validate . exit 0 (same unknown `types` warning); openspec validate
   change-version-pin --strict exit 0. The whole guard.test.mjs was not run (ship-change runs it).
+
+## Fifth merge (origin/main 1cad7e2: PR 87, archive release-tags with its retro, devkit-openspec 0.30.1 / marketplace 0.34.1)
+- Conflicts, release files only: .claude-plugin/marketplace.json, plugins/openspec/.claude-plugin/plugin.json,
+  CHANGELOG.md, docs/openspec-flow.md. change-loop.mjs and change-loop.test.mjs auto-merged.
+- Resolution: this change keeps devkit-openspec 0.31.0 and marketplace 0.35.0 (0.31.0 and 0.35.0 are above main's 0.30.1 / 0.34.1;
+  no v0.31.* or v0.35.* tag exists). The other packs keep main's versions. CHANGELOG.md keeps both entries: `## 0.35.0 — change-version-pin`
+  first, then main's `## 0.34.1 — retro proposals of release-tags` and everything below it unchanged. docs/openspec-flow.md: the two
+  conflicting CI-pin places take v0.31.0 (this change's numbers; main's only difference in them was v0.30.1).
+- No stale 0.30.0 / v0.30.0 / v0.30.1 meaning this change's release remains in docs, skills, CONTRIBUTING.md or the pack README.
+- Pin edits survived: `git diff origin/main` of guard.mjs, change-loop.mjs, deliver-check.mjs, conduct-check.mjs, roadmap-loop.mjs and
+  flow-check.mjs shows only this change's pin edits; main's PR 87 edits to change-loop.mjs are intact (they do not appear in it).
+- Validation (GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main; a fresh empty TMPDIR per run, `ls -A` empty after each):
+  node --check change-loop.mjs exit 0; check.py exit 0; gen-catalog.py --check exit 0; change-loop.test.mjs targeted 81/81;
+  version-pin.test.mjs AC-1/6/7 29/29; claude plugin validate . exit 0 (same unknown `types` warning); openspec validate
+  change-version-pin --strict exit 0. The long suites and guard.test.mjs were not run (CI is the judge).

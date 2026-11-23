@@ -1248,6 +1248,7 @@ export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env
 // ---------------------------------------------------------------- the decision records (design stage-roles D-4)
 
 const STATUS_LINE = /^(\s*[-*]?\s*\**Status\**\s*:\s*\**\s*)(\S+)(.*)$/im;
+const BULLETED_STATUS = /^([ \t]*[-*][ \t]+)Status[ \t]*:[ \t]*$/i; // the bullet and its indent, when the status line is a plain bulleted `- Status:` one
 const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
 
 // One record `decisions.md` lists, read from `root`: { path, ok: true, rel, text, status, match } or { path, ok: false, why }.
@@ -1316,8 +1317,9 @@ export function acceptDecisions(cwd, id, { lang = 'pt-BR' } = {}) {
     const { match, text } = r;
     const cut = match[1].lastIndexOf('\n') + 1; // the pattern's leading `\s*` may span blank lines: the prefix is the status line's own
     const prefix = match[1].slice(cut);
+    const lead = BULLETED_STATUS.exec(prefix)?.[1] ?? prefix; // a bulleted `- Status:` line gets a bulleted `- Accepted by:` line, not a second Status label
     const eol = text.includes('\r\n') ? '\r\n' : '\n';
-    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${prefix}${by}${text.slice(match.index + match[0].length)}`;
+    const next = `${text.slice(0, match.index + cut)}${prefix}${acceptedLike(match[2])}${match[3]}${eol}${lead}${by}${text.slice(match.index + match[0].length)}`;
     writes.push([join(root, r.rel), next]);
   }
   for (const [file, body] of writes) writeFileSync(file, body);

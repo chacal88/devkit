@@ -3060,19 +3060,26 @@ test('stage-roles loop: accept-decisions sets every proposed record accepted wit
   assert.deepEqual(JSON.parse(r.stdout), { version: 1, change: 'feat', accepted: [`${ADR_FOLDER}/0001-a.md`, `${ADR_FOLDER}/0002-b.md`], already: [] });
   const by = 'Accepted by: the owner, on 2026-11-22, in the approval of the plan of change feat (openspec/changes/feat/approval.md)';
   assert.match(readFileSync(join(root, ADR_FOLDER, '0001-a.md'), 'utf8'), new RegExp(`\\nStatus: accepted\\nStatus: ${by.replace(/[()/.]/g, '\\$&')}\\n`));
-  assert.match(readFileSync(join(root, ADR_FOLDER, '0002-b.md'), 'utf8'), new RegExp(`\\n- Status: Accepted\\n- Status: ${by.replace(/[()/.]/g, '\\$&')}\\n`));
+  assert.match(readFileSync(join(root, ADR_FOLDER, '0002-b.md'), 'utf8'), new RegExp(`\\n- Status: Accepted\\n- ${by.replace(/[()/.]/g, '\\$&')}\\n`));
 });
 
 test('stage-roles loop: accept-decisions keeps the letter case and the prefix of the status line', () => {
   const root = adrChange({ records: {
     [`${ADR_FOLDER}/a.md`]: adrRecord('Status: PROPOSED'),
     [`${ADR_FOLDER}/b.md`]: adrRecord('  * **Status:** Proposed — pending'),
+    [`${ADR_FOLDER}/c.md`]: adrRecord('  - Status: PROPOSED'),
+    [`${ADR_FOLDER}/d.md`]: adrRecord('* Status: proposed'),
   } });
   assert.equal(accept(root).code, 0);
   const a = readFileSync(join(root, ADR_FOLDER, 'a.md'), 'utf8');
   assert.match(a, /\nStatus: ACCEPTED\nStatus: Accepted by: the owner, on 2026-11-22/);
   const b = readFileSync(join(root, ADR_FOLDER, 'b.md'), 'utf8');
   assert.match(b, /\n {2}\* \*\*Status:\*\* Accepted — pending\n {2}\* \*\*Status:\*\* Accepted by: the owner, on 2026-11-22/);
+  const c = readFileSync(join(root, ADR_FOLDER, 'c.md'), 'utf8');
+  assert.match(c, /\n {2}- Status: ACCEPTED\n {2}- Accepted by: the owner, on 2026-11-22/, 'a bulleted Status line gets a bulleted Accepted by line, not a second Status label');
+  assert.doesNotMatch(c, /Status: Accepted by/);
+  const d = readFileSync(join(root, ADR_FOLDER, 'd.md'), 'utf8');
+  assert.match(d, /\n\* Status: accepted\n\* Accepted by: the owner, on 2026-11-22/);
 });
 
 test('stage-roles loop: accept-decisions leaves an accepted record alone and lists it as already accepted', () => {
