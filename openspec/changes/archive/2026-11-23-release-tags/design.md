@@ -4,7 +4,7 @@
 Change: `release-tags` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a (sources:
 `requirements.md`, `proposal.md`, the spec deltas `specs/release-tags/spec.md` and
 `specs/change-coordination/spec.md`, and the proposed
-[ADR 0019](../../../docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md), listed in
+[ADR 0019](../../../../docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md), listed in
 `decisions.md`).
 
 ## Context
