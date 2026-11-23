@@ -173,7 +173,7 @@ every task with `git status --short`.
   `python3 scripts/gen-catalog.py`. Check:
   `node --test --test-name-pattern="release-ready|the pin in docs/openspec-flow.md|change-loop docs: the design records the answers" plugins/openspec/hooks/guard.test.mjs`
   passes, `python3 scripts/check.py` passes and `python3 scripts/gen-catalog.py --check` passes.
-- [ ] 3.5 Gate: `env GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate change-version-pin --strict` green, the whole suite run once as a background command; covers AC-7 and the documents of AC-6, and every test of every suite at once.
+- [x] 3.5 Gate: `env GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate change-version-pin --strict` green, the whole suite run once as a background command; covers AC-7 and the documents of AC-6, and every test of every suite at once.
 
 ## Workflow follow-up
 
