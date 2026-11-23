@@ -2,16 +2,16 @@
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too. HOME is a temp folder in every spawn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync, realpathSync, utimesSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, realpathSync, utimesSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PACKS } from './project-settings.mjs';
+import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, 'project-settings.mjs');
-const tmp = () => realpathSync(mkdtempSync(join(tmpdir(), 'pset-')));
+const tmp = () => realpathSync(tmpFolder('devkit-pset-'));
 
 const DEFAULT = {
   extraKnownMarketplaces: { devkit: { source: { source: 'github', repo: 'chacal88/devkit' } } },

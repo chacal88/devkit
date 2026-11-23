@@ -2,8 +2,8 @@
 // roadmap-coordinator: the roadmap loop, its commands and its locks (phase 1: the previous-script fixtures and the pure core; phase 2: the commands; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, readdirSync, utimesSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, utimesSync, realpathSync } from 'node:fs';
+import { tmpFolder } from './test-tmp.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -1195,7 +1195,7 @@ test('roadmap-loop reply: an end key records declared and prints the end line fi
 
 const GUARD = join(HERE, 'guard.mjs');
 const LK_SESSION = 'session-roadmap-0001';
-const lkSandbox = () => mkdtempSync(join(tmpdir(), 'roadmap-loop-lock-'));
+const lkSandbox = () => tmpFolder('devkit-roadmap-loop-lock-');
 
 // Transcript lines and hook inputs in the stored forms the probe of this change recorded (Claude Code 2.1.326, ids replaced).
 const LK_BASE = { parentUuid: null, isSidechain: false, userType: 'external', entrypoint: 'claude-desktop', cwd: '/scratch/project', sessionId: LK_SESSION, version: '2.1.326', gitBranch: 'main' };
@@ -1267,7 +1267,7 @@ function lkProject(lines, changes = {}, { config = 'schema: devkit\n' } = {}) {
 }
 const LK_ENV = { ...cleanEnv, CLAUDE_PLUGIN_OPTION_LANGUAGE: 'en' };
 const lkOpts = (over = {}) => ({ env: LK_ENV, gh: OFFLINE, load: () => 10, ...over });
-// Runs `work(tmp)` with a fresh temporary folder, where the refusal records are written (os.tmpdir() reads TMPDIR at each call).
+// Runs `work(tmp)` with a fresh temporary folder, where the refusal records are written (os.tmpdir reads TMPDIR at each call).
 function withTmp(work) {
   const saved = process.env.TMPDIR;
   const tmp = lkSandbox();
@@ -2722,7 +2722,7 @@ const placedOn = (text, lang = 'en') => {
 };
 const boardRow = (facts, id = 'a', lang = 'en') => placedOn(boardOf({ ...facts, lang }), lang)[id];
 
-test('change-state AC-6 board: each state\'s row sits in its block', (t) => {
+test('change-state AC-6 board: each state\'s row sits in its block', async (t) => {
   const GH = (what) => ['running', render('en', 'running.github', { what })];
   const declaredBlocked = { a: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } };
   const cases = [
@@ -2736,13 +2736,13 @@ test('change-state AC-6 board: each state\'s row sits in its block', (t) => {
     ['no session of its own', sessionWorld({ lines: ['[ ] a'], actions: { a: ownerAct('a') } }), ['running', 'no session of its own yet: it starts at your next message']],
     ['a stage in flight', world({ lines: ['[ ] a'], inflight: { a: FLYING } }), ['running', 'proposal']],
   ];
-  for (const [label, facts, row] of cases) t.test(label, () => assert.deepEqual(boardRow(facts), row));
+  for (const [label, facts, row] of cases) await t.test(label, () => assert.deepEqual(boardRow(facts), row));
   const archived = world({ lines: ['[ ] a', '[ ] b'], places: 2, actions: { a: archivedAct('a'), b: agentAct('b') } });
   assert.equal(boardRow(archived, 'a'), undefined, 'the archived entry is in no block');
   assert.deepEqual(boardRow(archived, 'b'), ['running', 'Proposal']);
 });
 
-test('change-state AC-6 board parity: every entry kind of entriesOf keeps its block and its words', (t) => {
+test('change-state AC-6 board parity: every entry kind of entriesOf keeps its block and its words', async (t) => {
   const phased = { ...agentAct('a'), detail: { phase: 2 } };
   const started = { a: { at: AT } };
   const OWN = { 'no session': 'no session of its own yet: it starts at your next message' };
@@ -2766,12 +2766,12 @@ test('change-state AC-6 board parity: every entry kind of entriesOf keeps its bl
     ['session mode, declared blocked', sessionWorld({ lines: ['[ ] a'], declared: { a: { state: 'blocked', why: 'cannot-open', params: { error: 'x' } } } }), ['blocked', 'it could not be opened (x)'], ['blocked', 'não foi possível abrir (x)']],
   ];
   for (const [label, facts, en, pt] of cases) {
-    t.test(label, () => {
+    await t.test(label, () => {
       assert.deepEqual(boardRow(facts, 'a', 'en'), en, 'en');
       assert.deepEqual(boardRow(facts, 'a', 'pt-BR'), pt, 'pt-BR');
     });
   }
-  t.test('archived', () => assert.equal(boardRow(world({ lines: ['[ ] a'], actions: { a: archivedAct('a') } })), undefined));
+  await t.test('archived', () => assert.equal(boardRow(world({ lines: ['[ ] a'], actions: { a: archivedAct('a') } })), undefined));
 });
 
 test('change-state AC-6 status and state agree: each open roadmap change\'s block is its state\'s', () => {

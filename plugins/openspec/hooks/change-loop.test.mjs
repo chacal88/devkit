@@ -2,10 +2,10 @@
 // change-coordinator: the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
+import { mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
 import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
@@ -40,7 +40,7 @@ const read = (f) => readFileSync(join(HERE, f), 'utf8');
 // ---------------------------------------------------------------- settings (D-9)
 
 function configRepo(text) {
-  const root = mkdtempSync(join(tmpdir(), 'change-loop-cfg-'));
+  const root = tmpFolder('devkit-change-loop-cfg-');
   mkdirSync(join(root, 'openspec'), { recursive: true });
   if (text !== null) writeFileSync(join(root, 'openspec', 'config.yaml'), text);
   return root;
@@ -138,7 +138,7 @@ test('change-loop replies: no internal term in either language', () => {
   // The usage error's reply (exit 3 of main on an unknown option, a missing change) is one more message of the table.
   for (const lang of ['en', 'pt-BR']) {
     for (const argv of [['next', '--lang', lang, '--bogus'], ['next', '--lang', lang], ['open', '--lang', lang, '--script', 'devkit'], ['reply', 'no-such-key', '--lang', lang], ['teleport', '--lang', lang]]) {
-      const r = main(argv, { cwd: tmpdir(), env: cleanEnv });
+      const r = main(argv, { cwd: tmpRoot(), env: cleanEnv });
       const { reply, error } = JSON.parse(r.stdout);
       assert.equal(r.code, 3, argv.join(' '));
       assert.equal(reply, MESSAGES[lang]['request-unreadable'], `${lang}: ${argv.join(' ')}`);
@@ -729,7 +729,7 @@ test('change-loop next: an unknown change, an unknown option and a missing chang
     assert.equal(body.reply, render('en', 'request-unreadable'), argv.join(' '));
     assert.doesNotMatch(body.reply, /change-loop|--|\?/, 'no script name, option or placeholder');
   }
-  assert.equal(main(['next', '--change', 'feat', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv }).code, 3, 'no openspec folder above');
+  assert.equal(main(['next', '--change', 'feat', '--lang', 'en'], { cwd: tmpRoot(), env: cleanEnv }).code, 3, 'no openspec folder above');
 });
 
 // ---- from the implementation on, over a real repository and a fake gh
@@ -877,7 +877,7 @@ test('change-loop start: S0 a usage error exits 3 and creates nothing', () => {
   assert.match(b.error, /unknown option --bogus/, 'the raw message stays in the error field');
   assert.equal(main(['start'], { cwd: root, env: cleanEnv, stdin: 'change x' }).code, 0, 'no --lang is not an error: the language is Brazilian Portuguese');
   // An unreadable openspec/config.yaml (a directory in its place) is a usage error even for a verb of a later round.
-  const broken = mkdtempSync(join(tmpdir(), 'change-loop-broken-'));
+  const broken = tmpFolder('devkit-change-loop-broken-');
   mkdirSync(join(broken, 'openspec', 'changes'), { recursive: true });
   mkdirSync(join(broken, 'openspec', 'config.yaml'));
   for (const text of ['change add x', 'roadmap']) assert.equal(startRun(broken, text).code, 3, text);
@@ -894,7 +894,7 @@ test('change-loop start: S1 a verb of a later round says its round and creates n
     assert.deepEqual([b.mode, b.verb, b.text, b.change], ['not-built', verb, 'now please', null], verb);
     assert.equal(b.reply, render('en', 'verb-not-built', { verb, round }));
   }
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   assert.equal(body(startRun(bare, 'help')).mode, 'not-built', 'the verb is read before the project is');
   assert.equal(snapshot(root), before);
 });
@@ -912,7 +912,7 @@ test('change-loop start: S2 no verb or an unknown verb names the commands that e
 });
 
 test('change-loop start: S3 a folder with no openspec, or another schema, is not set up', () => {
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   const other = gitRepo({ config: 'schema: spec-driven\n' });
   const none = gitRepo({ config: null });
   for (const cwd of [bare, other, none]) {
@@ -1127,13 +1127,13 @@ test('change-loop open: O3 refuses in a project not set up or with an unknown or
     assert.equal(body(r).reply, asked.reply, 'the reply is the one the typed command gives');
     assert.equal(snapshot(t.main), before, config);
   }
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   assert.equal(openRun(bare, 'new-thing').code, 3);
 });
 
 test('change-loop open: O4 starts from origin/<default> after a fetch', () => {
   const t = freshProject();
-  const other = mkdtempSync(join(tmpdir(), 'change-loop-other-'));
+  const other = tmpFolder('devkit-change-loop-other-');
   const clone = join(other, 'clone');
   git(other, 'clone', '-q', t.originDir, clone);
   put(clone, { 'NEWS.md': 'news\n' });
@@ -1533,7 +1533,7 @@ test('change-loop wait: the CLI polls through the fake gh and ends when the chec
 const GUARD = join(HERE, 'guard.mjs');
 const runOf = (input) => guardModule.runOf(input);
 const SESSION = 'session-0001';
-const sandbox = () => mkdtempSync(join(tmpdir(), 'change-loop-lock-'));
+const sandbox = () => tmpFolder('devkit-change-loop-lock-');
 
 // Transcript lines in the stored forms the probe of D-12a recorded (Claude Code 2.1.326, session ids replaced).
 const LINE_BASE = { parentUuid: null, isSidechain: false, userType: 'external', entrypoint: 'sdk-cli', cwd: '/scratch/project', sessionId: SESSION, version: '2.1.326', gitBranch: 'main' };
@@ -1903,7 +1903,7 @@ test('change-loop lock subagent-stop: U7 an error lets the stop through', () => 
 // change's files, committed there. Returns { main, wt }.
 function worktreeChange({ schema = 'devkit', have = ['requirements', 'decisions'] } = {}) {
   const main = gitRepo({ config: 'schema: devkit\n' });
-  const wt = join(mkdtempSync(join(tmpdir(), 'change-loop-wtlayout-')), 'feat');
+  const wt = join(tmpFolder('devkit-change-loop-wtlayout-'), 'feat');
   git(main, 'worktree', 'add', '-q', '-b', 'feat', wt);
   const c0 = git(wt, 'rev-parse', 'HEAD');
   put(wt, { 'openspec/changes/feat/.openspec.yaml': `schema: ${schema}\n`, ...Object.fromEntries(have.map((stage) => [`openspec/changes/feat/${PLAN_FILES[stage]}`, `${head(stage, c0)}# ${stage}\n`])) });
@@ -2503,8 +2503,8 @@ test('change-loop docs: the design records the answers', () => {
 
 function pinnedLoop(version) {
   const root = planChange({ have: ['requirements', 'decisions'] });
-  const marker = join(root, '..', `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
-  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'loop-pathcli-')), { version: '2.1.0', label: 'path', marker });
+  const marker = join(tmpFolder('devkit-change-loop-marker-'), `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+  const pathDir = openspecStub(tmpFolder('devkit-loop-pathcli-'), { version: '2.1.0', label: 'path', marker });
   openspecStub(join(root, 'node_modules', '.bin'), { version, label: 'pinned', marker });
   const env = { ...cleanEnv, PATH: `${pathDir}:${process.env.PATH}` };
   return { root, marker, env };
@@ -2663,7 +2663,7 @@ test('change-loop start: a request written to the pipe after a delay is still re
   assert.deepEqual(JSON.parse(late.stdout), JSON.parse(startRun(root, 'change add a thing').stdout), 'the same answer as for a request there from the start');
 });
 
-const lockDir = () => mkdtempSync(join(tmpdir(), 'devkit-lockfile-'));
+const lockDir = () => tmpFolder('devkit-lockfile-');
 
 test('change-loop withLockFile: holds the lock while the work runs, stores the holder text, removes the lock after', () => {
   const lock = join(lockDir(), 'x.lock');
@@ -3038,7 +3038,7 @@ test('stage-roles loop: accept-decisions refuses a path outside the repository, 
 });
 
 test('stage-roles loop: accept-decisions refuses a listed record that is a symlink to a file outside the repository, and leaves the target alone', () => {
-  const outside = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'adr-outside-'));
+  const outside = tmpFolder('devkit-adr-outside-');
   const target = join(outside, 'x.md');
   writeFileSync(target, adrRecord('Status: proposed'));
   const root = adrChange({ records: {}, listed: [`${ADR_FOLDER}/x.md`] });
@@ -3073,7 +3073,7 @@ test('stage-roles loop: accept-decisions with a good record and a bad one change
 });
 
 test('stage-roles loop: accept-decisions names itself in the usage line and needs a change id', () => {
-  const r = main(['accept-decisions', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv });
+  const r = main(['accept-decisions', '--lang', 'en'], { cwd: tmpFolder('devkit-loop-nocwd-'), env: cleanEnv });
   assert.equal(r.code, 3);
   assert.match(JSON.parse(r.stdout).error, /accept-decisions <id>/);
   assert.match(read('change-loop.mjs'), /accept-decisions <id> --lang/);
@@ -3408,13 +3408,13 @@ test('change-state AC-3 state: the grill waits for the owner with the reason gri
   assert.deepEqual([s.stage, s.stageIcon, s.stateIcon], ['requirements', '❓', '🙋']);
 });
 
-test('change-state AC-3 state: each end waiting for the owner keeps its why as the reason, with its gate phrase', (t) => {
+test('change-state AC-3 state: each end waiting for the owner keeps its why as the reason, with its gate phrase', async (t) => {
   const gates = {
     'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge', 'waiting-archive-merge': 'merge',
     'waiting-review-dispute': 'dispute', 'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-pr-decision': 'decision',
   };
   for (const [why, gate] of Object.entries(gates)) {
-    t.test(why, () => {
+    await t.test(why, () => {
       const s = stateOf(ownerEnd(why));
       assert.equal(s.state, 'waiting-for-owner');
       assert.deepEqual(s.reason, { code: why, text: MESSAGES.en[`gate.${gate}`] });
@@ -3428,7 +3428,7 @@ test('change-state AC-3 state: an unknown wait for the owner throws', () => {
   assert.throws(() => stateOf(ownerEnd('waiting-nothing-we-know')), LoopUsageError);
 });
 
-test('change-state AC-3 state: each wait on GitHub takes what it waits for as the reason', (t) => {
+test('change-state AC-3 state: each wait on GitHub takes what it waits for as the reason', async (t) => {
   const cases = {
     checks: [build(rowOf('wait-checks', { pending: ['build'] })), 'the checks of the pull request'],
     merge: [build(rowOf('wait-merge', { number: 12 })), 'the merge of the pull request'],
@@ -3436,7 +3436,7 @@ test('change-state AC-3 state: each wait on GitHub takes what it waits for as th
     silent: [silentEnd(), 'GitHub did not answer'],
   };
   for (const [what, [action, text]] of Object.entries(cases)) {
-    t.test(what, () => {
+    await t.test(what, () => {
       const s = stateOf(action);
       assert.equal(s.state, 'waiting-on-github');
       assert.deepEqual(s.reason, { code: what, text });
@@ -3445,7 +3445,7 @@ test('change-state AC-3 state: each wait on GitHub takes what it waits for as th
   }
 });
 
-test('change-state AC-3 state: each blocked reason decide gives is the reason, with its phrase and details', (t) => {
+test('change-state AC-3 state: each blocked reason decide gives is the reason, with its phrase and details', async (t) => {
   const notDelivered = run({
     facts: { after: 'proposal/proposal@000000000000' },
     rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } },
@@ -3466,7 +3466,7 @@ test('change-state AC-3 state: each blocked reason decide gives is the reason, w
     unreadable: run({ rep: buildRep(), facts: { row: { error: 'boom' } } }),
   };
   for (const [why, action] of Object.entries(cases)) {
-    t.test(why, () => {
+    await t.test(why, () => {
       assert.equal(action.end.why, why, 'the fixture is the end decide gives');
       const s = stateOf(action);
       assert.equal(s.state, 'blocked');
@@ -3497,10 +3497,10 @@ test('change-state AC-3 state: a stage role of the decisions stage has its icon'
   assert.equal(stateOf({ kind: 'agent', change: 'feat', stage: 'mockup' }).title, '📝 feat');
 });
 
-test('change-state AC-3 state: a blocked end the stage roles added keeps its why with a filled phrase in both languages', (t) => {
+test('change-state AC-3 state: a blocked end the stage roles added keeps its why with a filled phrase in both languages', async (t) => {
   const params = { error: 'boom', list: 'build', base: 'main', number: 7, stage: 'proposal' };
   for (const why of ['cannot-accept', 'checks-failing', 'merge-setup-missing', 'branch-conflict', 'archive-refused', 'undeclared-stage']) {
-    t.test(why, () => {
+    await t.test(why, () => {
       for (const lang of ['en', 'pt-BR']) {
         const s = changeState({ kind: 'end', change: 'feat', stage: 'delivery', end: { state: 'blocked', why }, params }, null, { lang });
         assert.equal(s.state, 'blocked');
@@ -3530,30 +3530,30 @@ test('change-state AC-3 state: the phrase is in the person\'s language and the c
   assert.equal(changeState(cases.owner, null, { lang: 'fr' }).reason.text, MESSAGES['pt-BR']['gate.approval'], 'an unknown language is pt-BR, as everywhere');
 });
 
-test('change-state AC-4 facts: runFactsOf reads each field of the run file', (t) => {
+test('change-state AC-4 facts: runFactsOf reads each field of the run file', async (t) => {
   const file = (over = {}) => ({ changeSessions: true, startedSessions: {}, inflight: {}, declared: {}, announced: {}, starting: [], ...over });
-  t.test('sessionMode needs the run\'s mode and the roadmap line', () => {
+  await t.test('sessionMode needs the run\'s mode and the roadmap line', () => {
     assert.equal(runFactsOf(file(), 'a', { onRoadmap: true }).sessionMode, true);
     assert.equal(runFactsOf(file(), 'a', { onRoadmap: false }).sessionMode, false, 'no roadmap line');
     assert.equal(runFactsOf(file({ changeSessions: false }), 'a', { onRoadmap: true }).sessionMode, false, 'no session per change');
   });
-  t.test('started is a record of the run file or the key session-start of this call', () => {
+  await t.test('started is a record of the run file or the key session-start of this call', () => {
     assert.equal(runFactsOf(file({ startedSessions: { a: { at: null } } }), 'a', {}).started, true);
     assert.equal(runFactsOf(file({ after: { a: 'session-start' } }), 'a', {}).started, true);
     assert.equal(runFactsOf(file({ startedSessions: { b: { at: null } }, after: { a: 'implementation/x@1', b: 'session-start' } }), 'a', {}).started, false);
   });
-  t.test('inflight is the stage under way, cleared by a key of `after`', () => {
+  await t.test('inflight is the stage under way, cleared by a key of `after`', () => {
     const under = { kind: 'agent', stage: 'design', agentType: 'x', at: 't' };
     assert.deepEqual(runFactsOf(file({ inflight: { a: under } }), 'a', {}).inflight, under);
     assert.equal(runFactsOf(file({ inflight: { a: under }, after: { a: 'design/design@1' } }), 'a', {}).inflight, null);
     assert.equal(runFactsOf(file({ inflight: { b: under } }), 'a', {}).inflight, null);
   });
-  t.test('declared is the end the session declared, or null', () => {
+  await t.test('declared is the end the session declared, or null', () => {
     const d = { state: 'blocked', why: 'pr-problem', params: {} };
     assert.deepEqual(runFactsOf(file({ declared: { a: d } }), 'a', {}).declared, d);
     assert.equal(runFactsOf(file({ declared: { b: d } }), 'a', {}).declared, null);
   });
-  t.test('waits is starting or an announced wait for a turn or a place, and nothing else', () => {
+  await t.test('waits is starting or an announced wait for a turn or a place, and nothing else', () => {
     assert.equal(runFactsOf(file({ starting: ['a'] }), 'a', {}).waits, true);
     assert.equal(runFactsOf(file({ announced: { a: 'waits-turn' } }), 'a', {}).waits, true);
     assert.equal(runFactsOf(file({ announced: { a: 'waits-refused' } }), 'a', {}).waits, true);
@@ -3562,13 +3562,13 @@ test('change-state AC-4 facts: runFactsOf reads each field of the run file', (t)
   });
 });
 
-test('change-state AC-4 state: S1 to S8 each give their state', (t) => {
+test('change-state AC-4 state: S1 to S8 each give their state', async (t) => {
   const F = (over = {}) => ({ sessionMode: false, started: false, inflight: null, declared: null, waits: false, ...over });
   const plan = planStage();
   const owner = approvalEnd();
   const standIn = { kind: 'none', change: 'x', stage: 'open', stageTitle: 'Open the change' };
   const reasonOf = (s) => (s.reason ? s.reason.code : null);
-  t.test('S1 a session per change and a declared end: the declared end', () => {
+  await t.test('S1 a session per change and a declared end: the declared end', () => {
     const blockedEnd = { state: 'blocked', why: 'ceiling', params: { stage: 'Plan readiness', attempt: 3 } };
     const s = stateOf(plan, F({ sessionMode: true, started: true, declared: blockedEnd, inflight: { kind: 'agent', stage: 'design' } }));
     assert.deepEqual([s.state, reasonOf(s), s.reason.text, s.stage], ['blocked', 'ceiling', 'the plan readiness failed 3 times, which is its limit', 'proposal']);
@@ -3578,47 +3578,47 @@ test('change-state AC-4 state: S1 to S8 each give their state', (t) => {
     assert.equal(named.reason.text, 'your merge of its pull request', 'the declared gate wins');
     assert.equal(waits.title, '🙋 x', 'the id of the options is the title\'s when there is no action');
   });
-  t.test('S2 a session of its own: the action says', () => {
+  await t.test('S2 a session of its own: the action says', () => {
     const running = stateOf(plan, F({ sessionMode: true, started: true }));
     assert.deepEqual([running.state, running.reason, running.stage], ['running', null, 'proposal']);
     assert.equal(stateOf(owner, F({ sessionMode: true, started: true })).state, 'waiting-for-owner');
     const none = stateOf(null, F({ sessionMode: true, started: true }), { id: 'x' });
     assert.deepEqual([none.state, none.reason, none.stage, none.title], ['running', null, null, null]);
   });
-  t.test('S3 a session per change and no session of its own yet: running, ready', () => {
+  await t.test('S3 a session per change and no session of its own yet: running, ready', () => {
     const s = stateOf(plan, F({ sessionMode: true }));
     assert.deepEqual([s.state, s.reason, s.stage, s.title], ['running', { code: 'ready', text: 'ready, waiting for someone to continue' }, 'proposal', '📝 feat']);
     assert.equal(stateOf(owner, F({ sessionMode: true })).reason.code, 'ready', 'whatever the action says');
   });
-  t.test('S4 a stage waiting on GitHub in flight: waiting on GitHub, what from the action, the run, then the merge', () => {
+  await t.test('S4 a stage waiting on GitHub in flight: waiting on GitHub, what from the action, the run, then the merge', () => {
     assert.deepEqual(stateOf(null, F({ inflight: { kind: 'wait', what: 'checks' } }), { id: 'x' }).reason, { code: 'checks', text: 'the checks of the pull request' });
     assert.equal(stateOf(silentEnd(), F({ inflight: { kind: 'agent', stage: 'delivery' } })).reason.code, 'silent', 'an action that waits on GitHub wins');
     assert.equal(stateOf(null, F({ inflight: { kind: 'wait' } }), { id: 'x' }).reason.code, 'merge');
     assert.equal(stateOf(plan, F({ inflight: { kind: 'wait', what: 'checks' } })).state, 'waiting-on-github', 'the in-flight wait wins over the action');
   });
-  t.test('S5 a stage in flight: running, the action\'s stage or the one in flight', () => {
+  await t.test('S5 a stage in flight: running, the action\'s stage or the one in flight', () => {
     const own = stateOf(plan, F({ inflight: { kind: 'agent', stage: 'design' } }));
     assert.deepEqual([own.state, own.reason, own.stage, own.stageTitle], ['running', null, 'proposal', plan.stageTitle]);
     const none = stateOf(null, F({ inflight: { kind: 'agent', stage: 'design' } }), { id: 'x' });
     assert.deepEqual([none.state, none.reason, none.stage, none.stageTitle, none.stageIcon], ['running', null, 'design', 'design', '📝']);
     assert.equal(stateOf(owner, F({ inflight: { kind: 'agent', stage: 'design' } })).state, 'running', 'in flight wins over a wait for the owner');
   });
-  t.test('S6 a declared end outside a session per change: the declared end', () => {
+  await t.test('S6 a declared end outside a session per change: the declared end', () => {
     const s = stateOf(plan, F({ declared: { state: 'blocked', why: 'pr-problem', params: {} } }));
     assert.deepEqual([s.state, reasonOf(s), s.stage], ['blocked', 'pr-problem', 'proposal']);
   });
-  t.test('S7 a start that waits for a place, a stand-in or no action: running, ready', () => {
+  await t.test('S7 a start that waits for a place, a stand-in or no action: running, ready', () => {
     assert.equal(reasonOf(stateOf(plan, F({ waits: true }))), 'ready');
     const stand = stateOf(standIn, F());
     assert.deepEqual([stand.state, reasonOf(stand), stand.stage, stand.stageIcon, stand.title], ['running', 'ready', 'open', '❓', '❓ x']);
     assert.equal(reasonOf(stateOf(null, F(), { id: 'x' })), 'ready');
   });
-  t.test('S8 otherwise: the action says', () => {
+  await t.test('S8 otherwise: the action says', () => {
     assert.equal(stateOf(owner, F()).state, 'waiting-for-owner');
     const s = stateOf(plan, F());
     assert.deepEqual([s.state, s.reason], ['running', null]);
   });
-  t.test('outside a roadmap run the state is the action\'s, with no ready', () => {
+  await t.test('outside a roadmap run the state is the action\'s, with no ready', () => {
     assert.deepEqual([stateOf(plan).state, stateOf(plan).reason], ['running', null]);
     assert.deepEqual([stateOf(null, null, { id: 'x' }).state, stateOf(null, null, { id: 'x' }).reason], ['running', null]);
   });
@@ -3651,7 +3651,7 @@ test('change-state AC-5 decide: a ceiling and a closed pull request still block'
   assert.deepEqual(shape(closed), ['end', 'blocked', 'pr-closed', 2]);
 });
 
-test('change-state AC-5 githubSilent: true only for the two GitHub ends of the stage checker', (t) => {
+test('change-state AC-5 githubSilent: true only for the two GitHub ends of the stage checker', async (t) => {
   const cases = [
     ['gh-error', endOf('blocked', 'delivery', 'gh-error', { error: 'x' }), true],
     ['checks-unreadable', endOf('blocked', 'delivery', 'checks-unreadable', { error: 'x' }), true],
@@ -3660,7 +3660,7 @@ test('change-state AC-5 githubSilent: true only for the two GitHub ends of the s
     ['a waiting end with the same code', endOf('waiting-on-github', 'delivery', 'gh-error', {}), false],
     ['null', null, false],
   ];
-  for (const [label, end, wanted] of cases) t.test(label, () => assert.equal(githubSilent(end), wanted));
+  for (const [label, end, wanted] of cases) await t.test(label, () => assert.equal(githubSilent(end), wanted));
 });
 
 test('change-state AC-5 where: whereOf says waiting on GitHub when GitHub did not answer', () => {
@@ -3738,7 +3738,7 @@ test('change-state AC-7 title: archived is 📦 and the id alone', () => {
   assert.deepEqual(STATE_ICON, { 'waiting-for-owner': '🙋', 'waiting-on-github': '⏳', blocked: '⛔', archived: '📦' });
 });
 
-test('change-state AC-7 title: every form of a 70-character id is cut to 59 code points', (t) => {
+test('change-state AC-7 title: every form of a 70-character id is cut to 59 code points', async (t) => {
   const ctx = { id: 'x'.repeat(70) };
   const forms = {
     running: [planStage({ ctx }), '📝 xxx'],
@@ -3748,7 +3748,7 @@ test('change-state AC-7 title: every form of a 70-character id is cut to 59 code
     archived: [run({ ctx, report: { ...reportOf(FLOWS.devkit, { end: endOf('archived', null, 'archived') }), stages: [] } }), '📦 xxx'],
   };
   for (const [label, [action, prefix]] of Object.entries(forms)) {
-    t.test(label, () => {
+    await t.test(label, () => {
       assert.equal(action.change, ctx.id);
       const title = stateOf(action).title;
       assert.ok(title.startsWith(prefix), `${label}: ${title}`);
@@ -3907,7 +3907,7 @@ const silentDelivery = () => {
   return d;
 };
 
-test('change-state AC-3 cli: next and state give the same state for the same files and GitHub answers', (t) => {
+test('change-state AC-3 cli: next and state give the same state for the same files and GitHub answers', async (t) => {
   const none = () => ({ status: 1, stdout: '', stderr: '' });
   const archived = gitRepo({ config: 'schema: devkit\n', changes: { 'archive/2026-11-19-feat': { '.openspec.yaml': 'schema: devkit\n' } } });
   const pending = deliveredChange();
@@ -3922,7 +3922,7 @@ test('change-state AC-3 cli: next and state give the same state for the same fil
     ['GitHub silent', silent.t.main, silent.env, {}, 'waiting-on-github'],
   ];
   for (const [label, root, env, opts, state] of cases) {
-    t.test(label, () => {
+    await t.test(label, () => {
       const fromNext = parsed(next(root, [], env, opts)).action;
       const entry = entryOf(stateCmd(root, ['--change', 'feat'], env, opts));
       assert.equal(entry.state, state);
@@ -3940,10 +3940,10 @@ test('change-state AC-5 delivery: with GitHub silent a change at its delivery pr
   assert.deepEqual([entry.state, entry.reason.code, entry.reason.text, entry.title], ['waiting-on-github', 'silent', 'GitHub did not answer', '⏳ 🚀 feat']);
 });
 
-test('change-state AC-5 plan: with GitHub silent the grill, a plan stage and the approval keep their state', (t) => {
+test('change-state AC-5 plan: with GitHub silent the grill, a plan stage and the approval keep their state', async (t) => {
   const cases = [['the grill', () => planChange({ have: [] })], ['a plan stage', () => planChange({ have: ['requirements'] })], ['the approval', approvedChange]];
   for (const [label, make] of cases) {
-    t.test(label, () => {
+    await t.test(label, () => {
       const root = make();
       const answering = { env: cleanEnv, gh: answeringGh };
       const silent = { env: cleanEnv, gh: noGh };
@@ -3959,14 +3959,14 @@ test('change-state AC-5 plan: with GitHub silent the grill, a plan stage and the
   }
 });
 
-test('change-state AC-5 build: with GitHub silent the implementation and the code review keep the loop\'s action', (t) => {
+test('change-state AC-5 build: with GitHub silent the implementation and the code review keep the loop\'s action', async (t) => {
   const breakGh = (d) => { for (const call of ['pr-view', 'pr-checks', 'api-graphql']) d.gh.set(call, { exit: 1, stderr: 'HTTP 502: bad gateway\n' }); };
   const cases = [
     ['the implementation', (d) => { put(d.wt, { 'openspec/changes/feat/tasks.md': '# Tasks\n\n## 1. First\n- [ ] 1.1 code\n' }); commitAll(d.wt, 'a task left'); }],
     ['the code review', (d) => { put(d.wt, { 'openspec/changes/feat/reviews/code-quality-reviewer.md': 'Verdict: rejected\nCommit: 0000000\n' }); commitAll(d.wt, 'a review stale'); }],
   ];
   for (const [label, change] of cases) {
-    t.test(label, () => {
+    await t.test(label, () => {
       const d = deliveredChange();
       change(d);
       breakGh(d);
