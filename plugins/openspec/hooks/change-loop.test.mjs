@@ -2537,9 +2537,11 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); the retro of change-budget moves it to 0.28.1 (release 0.32.1); 0.28.0 went to delivery-models, 0.27.0 went to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.28\.1/, 'the CI snippet pins the current release (retro of change-budget: 0.28.1)');
-  assert.doesNotMatch(flow, /v0\.28\.0/, 'no pin left on the previous release (delivery-models)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); change-state-retro-fixes moves it to 0.28.2 (release 0.32.2); 0.28.1 went to the retro of change-budget (release 0.32.1), 0.28.0 to delivery-models (release 0.32.0), 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.28\.2/, 'the CI snippet pins the current release (change-state-retro-fixes: 0.28.2)');
+  assert.doesNotMatch(flow, /v0\.28\.1/, 'no pin left on the previous release (retro of change-budget)');
+  assert.doesNotMatch(flow, /v0\.28\.0/, 'no pin left on the release before that (delivery-models)');
+  assert.doesNotMatch(flow, /v0\.27\.1/, 'no pin left on the release before that (earlier retro fixes)');
   assert.doesNotMatch(flow, /v0\.27\.0/, 'no pin left on the previous release (gh-version-check)');
   assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
   assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');
@@ -5058,7 +5060,11 @@ test('change-state ADR 0017: the documents follow', () => {
   assert.match(adr, /^- Status: accepted$/m);
   assert.match(adr, /^- Change: change-state$/m);
   assert.match(adr, /^- Amends: ADR 0014 \(0014-each-roadmap-change-runs-in-a-session-of-its-own\.md\), decision 3, the title of a change session$/m);
-  const approval = readRepo('openspec', 'changes', 'change-state', 'approval.md');
+  // The change folder moves to openspec/changes/archive/<date>-change-state/ when the change is archived.
+  const changesDir = join(REPO_ROOT, 'openspec', 'changes');
+  const archived = existsSync(join(changesDir, 'archive')) ? readdirSync(join(changesDir, 'archive')).filter((d) => /^\d{4}-\d{2}-\d{2}-change-state$/.test(d)).sort() : [];
+  const approvalPath = existsSync(join(changesDir, 'change-state', 'approval.md')) ? join(changesDir, 'change-state', 'approval.md') : join(changesDir, 'archive', archived[archived.length - 1] ?? '', 'approval.md');
+  const approval = readFileSync(approvalPath, 'utf8');
   const date = approval.match(/^- Date: (\d{4}-\d{2}-\d{2})$/m)?.[1];
   const words = approval.match(/^- Owner's words: "(.+)"$/m)?.[1].replaceAll('`', '');
   assert.ok(date && words, 'approval.md has its date and the owner\'s words');

@@ -45,6 +45,8 @@ An acceptance criterion states only what can be proven before the PR: `deliver-c
 
    A test fixture makes every temporary folder through its pack's `test-tmp.mjs` (`plugins/openspec/hooks/`, `plugins/core/skills/review-change/scripts/`, `plugins/compozy/skills/`; the three copies stay byte-identical), with a prefix that starts with `devkit-`. The helper removes each folder when its test ends, passed or failed, and sweeps the rest when the run ends or gets `SIGINT` or `SIGTERM`. A test reads the temporary root only through `tmpRoot()`. A fixture shared by several tests is made at module level, never lazily inside the first test that needs it: the helper removes a folder when the test that made it ends. `test-tmp.test.mjs` refuses a raw `mkdtempSync` or `tmpdir()` call in any `*.test.mjs` under `plugins/`.
 
+   Await every subtest (`await t.test(...)` in an `async` parent): an un-awaited subtest passes on a newer local Node and is cancelled on CI's. `scripts/check.py` fails on a `t.test(` line without `await` in any `plugins/**/*.test.mjs`, naming the file and line.
+
    ```bash
    "$HOME/Library/Application Support/Claude/claude-code/<version>/<hash>/claude.app/Contents/MacOS/claude" plugin validate .
    ```
