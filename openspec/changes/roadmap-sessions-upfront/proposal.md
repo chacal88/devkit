@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=5 commit=62cf500f32730e320a012a975b9814c0b6d5aa5d -->
+<!-- devkit-stage proposal result=passed attempt=6 commit=0b409a5e21c6b8328e104e659417ec1bf51f6a74 -->
 # Proposal
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
@@ -37,8 +37,10 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   session. The grill's ambiguous point is resolved as (a): the retro answers move too.
 - **A triage agent answers first.** A new read-only agent of devkit-core, `requirements-triage`,
   answers every grill question that the project's files settle, each answer with its source. This
-  happens in every grill, roadmap or lone. Only the questions nothing written settles reach the
-  owner. The loop asks the grill again while an answer by triage names no source.
+  happens in every grill, roadmap or lone, of a change that follows flow 2 or later of its script
+  (opened with this release, or moved with `change-loop.mjs flow <id>`); a change on flow 1 keeps its
+  grill with no triage until the owner moves it (design D-17). Only the questions nothing written
+  settles reach the owner. The loop asks the grill again while an answer by triage names no source.
 - **Places count only the stages that load the machine.** In a run with a session per change, at
   most `<n>` changes are in the implementation, its gates, evidence or review. A change waiting for
   a place, for the load or for its `after:` dependencies shows ⏳ in its session title and waits in
@@ -57,7 +59,8 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 - **The grill and the plan are pushed.** Once a change's grill is answered, and again once its plan
   is approved, its branch is pushed with those files.
 - **A periodic check, and a cleanup at the end.** `/devkit roadmap` creates one session cron in the
-  coordinating session, about every 30 minutes. Each firing has triage answer ahead, hands a freed
+  coordinating session, about every 30 minutes. Each firing has triage answer ahead (for a change
+  on flow 2 or later, D-17), hands a freed
   place to a waiting change, stops stale wait loops and archives the sessions of archived changes.
   It says something only when something changed. It never approves a plan, answers a retro or starts
   a stage. The run's end deletes the check, stops the run's wait loops and archives the sessions of
@@ -70,16 +73,21 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   The started form is read past the notes the app puts before it, found in a real started session's
   first message. The change session declares its end when the merge of the default branch conflicts.
   The new ADR is accepted with this plan, records its exception to ADR 0004 and its amendment of ADR
-  0010 decision 8 (the triage answers what the files settle in every grill), the implementer's
+  0010 decision 8 (the triage answers what the files settle in every grill of a change on flow 2
+  or later, D-17), the implementer's
   renumbering of an ADR and the home of the change session's loop.
 
 ## Acceptance criteria
+
+AC-5 and AC-14 carry the flow-2 clause since the owner's answer of 2026-11-23 (flow version 2,
+design D-17), which narrowed the grill's "every grill" of `requirements.md`; that file, the owner's
+record, keeps its words.
 
 - AC-1 `session-opens-running`: a change session the roadmap run starts runs its change's loop from its first turn, with no command typed by the owner in it.
 - AC-2 `other-starts-refused`: a devkit run started by the model in any other session, or by a prompt that is not the roadmap run's start of that change, is still refused.
 - AC-3 `every-pending-change-opens`: `/devkit roadmap` opens every pending change of the roadmap at its start, each in a session of its own, and the run's board lists them all.
 - AC-4 `grills-in-roadmap-session`: every opened change's grill is asked in the roadmap session, one question at a time, naming its change, and its answers land in that change's `requirements.md`.
-- AC-5 `triage-first`: in every grill, roadmap or lone `/devkit change`, the triage agent answers first each question the project's files settle; only crucial questions reach the owner, and each triage answer is recorded with its source and marked as answered by triage.
+- AC-5 `triage-first`: in every grill, roadmap or lone `/devkit change`, of a change that follows flow 2 or later of its script (a change on flow 1 keeps its grill with no triage until the owner moves it, D-17), the triage agent answers first each question the project's files settle; only crucial questions reach the owner, and each triage answer is recorded with its source and marked as answered by triage.
 - AC-6 `triage-never-approves`: the triage agent never writes a plan approval or a retro answer, and a question nothing written settles always reaches the owner.
 - AC-7 `approval-in-roadmap-session`: when a change's plan is ready, the roadmap session shows its summary and asks the owner; the owner's own typed answer there is recorded as that change's approval, and the change's session goes on from it.
 - AC-8 `plan-after-dependencies`: a change whose `after:` dependencies are not archived writes no plan; once they are, its plan is written against the code of that day.
@@ -88,7 +96,7 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 - AC-11 `drift-without-owner`: a sibling merged first that takes the change's ADR number or release versions is resolved without asking the owner; the owner is asked again only when a merged sibling changes what a requirement says.
 - AC-12 `branch-pushed-with-grill`: each opened change's branch is pushed with its `requirements.md` once its grill is answered, so another machine can take it.
 - AC-13 `run-check-scheduled`: when `/devkit roadmap` starts a run, a periodic check of that run exists in the coordinating session; when the run ends or is stopped, it no longer exists.
-- AC-14 `check-acts-not-approves`: a firing of the check answers what triage settles, gives a freed place to a waiting change, stops stale wait loops and archives the sessions of archived changes; it never writes a plan approval or a retro answer, and it says nothing to the owner when nothing changed.
+- AC-14 `check-acts-not-approves`: a firing of the check answers what triage settles for the grills of changes that follow flow 2 or later of their script (a change on flow 1 keeps its grill with no triage until the owner moves it, D-17), gives a freed place to a waiting change, stops stale wait loops and archives the sessions of archived changes; it never writes a plan approval or a retro answer, and it says nothing to the owner when nothing changed.
 - AC-15 `run-end-cleans-up`: after the run's last change is archived, no periodic check, no wait loop of the run and no open session of an archived change is left.
 - AC-16 `lone-change-schedules-nothing`: a lone `/devkit change` run creates no schedule.
 
@@ -119,7 +127,8 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 - `coordination-locks`: the entry of a started change session (the ticket); the stop of a change
   session waiting for a place; the triage hand-off of the coordinating session; the entry lock
   fails closed; the started form read past the host's leading notes.
-- `change-coordination`: the triage in every grill; an answer with no source returns the grill; a
+- `change-coordination`: the triage in every grill of a change on flow 2 or later (a change on
+  flow 1 keeps its grill until the owner moves it, D-17); an answer with no source returns the grill; a
   contradicted requirement reopens the grill; a lone change schedules nothing.
 - `change-delivery`: an ADR number taken on the default branch is renumbered without the owner.
 

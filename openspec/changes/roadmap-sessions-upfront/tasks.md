@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=6 commit=62cf500f32730e320a012a975b9814c0b6d5aa5d -->
+<!-- devkit-stage tasks result=passed attempt=7 commit=0b409a5e21c6b8328e104e659417ec1bf51f6a74 -->
 # Tasks
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · Base: `c561553`;
@@ -35,7 +35,7 @@ Test first in phases 1 to 5, in task 6.1 and in phases 7 and 8: the phase's test
 round 1 and its approval for phase 7, the commit that holds the plan revised for flow version 2 and
 its approval for phase 8; each red run saved under
 `openspec/changes/roadmap-sessions-upfront/proof/`), and an existing test is changed only where D-13
-names it (T-1 to T-21), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
+names it (T-1 to T-22), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
 
 | Id | Slug | Tasks |
 |---|---|---|
@@ -483,7 +483,7 @@ record's other keys (`type`, `isSidechain`, `promptSource`, `turnOrigin`, `entry
 Added on 2026-11-23 after the merge `62cf500` (change-version-pin): `python3 scripts/check.py` refuses
 the `flow.json` that phase 4 edited at version 1, and the owner chose to release version 2. Every new
 test here is written before the code it proves; an existing test changes only where D-13 names it
-(T-18 to T-21). No version number moves: devkit-openspec 0.32.0, devkit-core 0.14.0 and marketplace
+(T-18 to T-22). No version number moves: devkit-openspec 0.32.0, devkit-core 0.14.0 and marketplace
 0.36.0 are already this change's release in the tree.
 
 - [ ] 8.1 Write this phase's tests (design D-17 "The tests this asks"; specs `change-coordination`
@@ -526,10 +526,15 @@ test here is written before the code it proves; an existing test changes only wh
   `helpers`, the `helpers` of the `requirements` stage of the flow `decide` reads (`[]` when none);
   in `plugins/openspec/hooks/roadmap-loop.mjs`, `checkCmd`'s `triage` filter keeps only a grill
   action whose `helpers` include `requirements-triage`; in `plugins/core/skills/requirements-grill/SKILL.md`
-  step 2b and in the `grill` item of `plugins/openspec/skills/devkit/SKILL.md`, the sentence of D-17
-  item 2 (the triage only when the grill action's `helpers` names it; otherwise every question to the
-  owner, one at a time, as before); in `roadmap-loop.mjs`, `isRequirementsHelper` reads the installed
-  flow of the project's script when the brief's change has no folder (D-17, the RH6 correction).
+  step 2b and in the `grill` item of `plugins/openspec/skills/devkit/SKILL.md`, the sentences of D-17
+  item 2, each naming where it reads the permission: the `helpers` of the action `next` (or
+  `session-next`) printed in a lone change or a change session, the `helpers` of `ask.action` in the
+  coordinating session, and, for the check's `triage` action (which carries no `helpers`), the
+  action itself, since the check gives it only for a grill whose `helpers` name the triage; with no
+  permission every question goes to the owner, one at a time, as before; in `roadmap-loop.mjs`,
+  `isRequirementsHelper` reads the installed flow of the project's script when the brief's change has
+  no folder, null-safe as its current read (`readFlow(...)?.stages.find(...)?.helpers ?? []`, since
+  `readFlow` returns null for a script with no `flow.json`) (D-17, the RH6 correction).
   `handOffFor` does not change. Check: `upfront AC-4 lock agent: the triage for a change not open is
   refused not-open` passes unchanged once 8.2 is done; `upfront
   AC-5 triage: the grill of a change on flow 1 ...`, `upfront AC-5 lock agent: ...`, `upfront AC-5
@@ -537,22 +542,23 @@ test here is written before the code it proves; an existing test changes only wh
   change on flow 1 ...` and `upfront AC-14 check: a grill of a change on flow 1 ...` pass; `upfront
   AC-5 skill: the grill rule of config.yaml and of the four schema files ...` and every `upfront AC-6
   triage` test pass unchanged.
-- [ ] 8.4 The tests that expect flow version 1 to be the installed one (D-13 T-18 to T-21). Change
+- [ ] 8.4 The tests that expect flow version 1 to be the installed one (D-13 T-18 to T-22). Change
   T-18 (invariant: a change run may hand the triage to a change whose flow lists it; layer: the
   `agent` lock, H3; suite: change-loop), T-19 (invariant: the coordinating session may hand a helper
   of an open change's grill, marking nothing under way; layer: `roadmapAgentDecision` RH6; suite:
   roadmap-loop), T-20 (invariant: the check gives the triage of each grill not being asked that has
   no triage section; layer: `checkCmd`; suite: roadmap-loop) and T-21 (invariant: a change keeps the
   flow it opened with across an upgrade, and the repository check refuses a flow change that keeps
-  its version; layer: the fixtures of the version-pin suite; suite: version-pin) as D-13 says. Then
-  run `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs`
-  as a background command of the tool (13 to 21 minutes) and compare its failures with D-13's list:
-  a test failing only because it assumed flow version 1 is installed (an unpinned scratch change
-  that hands the triage, a readout or resume reply read as text that now holds the newer-flow line,
-  a raise to version 2 that version 2 already holds) is changed the same way, with a row added to
-  D-13 naming its invariant, layer and suite; any other failure is a defect of this change, not a
-  test to edit. Check: T-18 to T-21 and every `version-pin` test pass; the whole-suite run shows no
-  failure outside the tests this task changed.
+  its version; layer: the fixtures of the version-pin suite; suite: version-pin) and T-22
+  (invariant: the readout of the approved sample change reads as the owner approved it; layer: the
+  readout; suite: flow-check) as D-13 says. Check: T-18 to T-22 and every `version-pin` and
+  `flow-check` test pass, with
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" --test-name-pattern="^version-pin" --test-name-pattern="^flow-check" plugins/openspec/hooks/guard.test.mjs`.
+  The rule for a failure the whole-suite run of 8.6 finds beyond T-18 to T-22: a test failing only
+  because it assumed flow version 1 is installed (an unpinned scratch change that hands the triage, a
+  readout or resume reply read as text that now holds the newer-flow line, a raise to version 2 that
+  version 2 already holds) is changed the same way, with a row added to D-13 naming its invariant,
+  layer and suite; any other failure is a defect of this change, not a test to edit.
 - [ ] 8.5 Documents (D-14 "Flow version 2", D-17): the versions paragraph in `docs/openspec-flow.md`
   after "A change to a `flow.json` raises its `version`"; in `CHANGELOG.md`, the `## 0.36.0` entry's
   sentence on flow version 2 under **devkit-openspec** 0.32.0 and its "Projects" line; the Note of
@@ -560,7 +566,7 @@ test here is written before the code it proves; an existing test changes only wh
   `upfront AC-5 docs: ...` passes; `upfront ADR 0020: the documents follow`, `change-loop docs: the
   design records the answers` and every `change-budget AC-10` docs test pass unchanged;
   `python3 scripts/check.py` passes (links, language, changelog).
-- [ ] 8.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" --test-name-pattern="^version-pin" --test-name-pattern="^flow-check" --test-name-pattern="^change-loop" --test-name-pattern="^roadmap-loop" --test-name-pattern="^followups" --test-name-pattern="^change-state" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && openspec validate roadmap-sessions-upfront --strict` green; covers AC-5 (flow version 2, the triage of a change on flow 2 only), AC-4 (the coordinating session's triage by the change's flow) and AC-14 (the check's triage by the change's flow).
+- [ ] 8.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 45 minutes; it covers the documents 8.5 edits, read by suites outside phase 8's patterns), a failure handled by 8.4's rule; covers AC-5 (flow version 2, the triage of a change on flow 2 only), AC-4 (the coordinating session's triage by the change's flow) and AC-14 (the check's triage by the change's flow).
 
 ## Workflow follow-up
 
@@ -568,7 +574,10 @@ test here is written before the code it proves; an existing test changes only wh
   (the entry on a started session's first turn with `DEVKIT_HOOK_LOG` set, the session's first
   message with its `devkit-start:` line compared with `REAL_STARTED_2026_11_22` of task 7.1, the
   cron's life, the archive of an archived change's session, ⏳ in the sidebar, a change session
-  stopping at a `budget:` cap when one is set), as evidence of `roadmap-live-checks`. Until then the
+  stopping at a `budget:` cap when one is set, and the triage variants of D-17: a flow-2 change's
+  grill asked in the coordinating session and one in a lone `/devkit change`, both handing the
+  questions to the triage first, and a flow-1 change's grill, which asks the owner every question
+  and whose readout and resume reply show the newer-flow line), as evidence of `roadmap-live-checks`. Until then the
   `devkit-start:` line is proven only by the tests of synthetic messages: the evidence of this change
   says so in its AC-1 row.
 - Archive the change after its review and merge.
