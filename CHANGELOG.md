@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.27.0 — one state per change
+
+- **devkit-openspec** 0.23.0: the change loop derives one state per change in one place, and a new
+  `change-loop.mjs state` command prints it (state, reason, stage and the session title) for one
+  change or every unfinished one. A GitHub that does not answer is a wait on GitHub, not a block,
+  and three failed reads in a row still end the wait blocked. A stopped change's session title
+  carries its state icon (🙋, ⏳ or ⛔) before the stage icon, and `/devkit status` places its rows
+  by the same state.
+- Docs: ADR 0017 (a change's state is derived in one place, amends 0014), Notes in ADR 0010 and
+  ADR 0014, the flow and design pages.
+
 ## 0.26.0 — the stage roles
 
 - **devkit-core** 0.10.0: four stage roles, `screen-designer`, `adr-author`, `test-runner` and

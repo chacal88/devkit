@@ -36,9 +36,9 @@ store none (ADR 0010, decisions 3 and 6).
 - **The session title** is the stage icon and the id while the change runs (`🛠️ <id>`); the state
   icon, a space and the stage icon while it is stopped (`🙋 ❓ <id>`, `⏳ 🚀 <id>`, `⛔ 🛠️ <id>`);
   `📦 <id>` once archived; still cut to 59 code points. A change session starts with that title too.
-- **ADR 0016 (new, proposed)** records the one derivation, the GitHub rule and the title; it amends
+- **ADR 0017 (new, proposed)** records the one derivation, the GitHub rule and the title; it amends
   ADR 0014 decision 3.
-- Docs and release: devkit-openspec 0.22.0, marketplace 0.26.0.
+- Docs and release: devkit-openspec 0.23.0, marketplace 0.27.0.
 
 Non-goals: rewiring any panel (`coordination-panels`); a stored event log or state file (ADR 0010);
 a budget or a new end of the loop (`change-budget`); the transcript reading of `guard.mjs`'s locks,
@@ -84,13 +84,13 @@ pass; `openspec validate change-state --strict` passes.
   imports and re-exports the moved helpers.
 - Tests: `change-loop.test.mjs`, `roadmap-loop.test.mjs`; three existing tests change (`design.md`
   D-10), the rest of the suite runs unchanged.
-- Docs: ADR 0016 (new), Notes and header lines in ADR 0014 and ADR 0010, `openspec/config.yaml` (the
+- Docs: ADR 0017 (new), Notes and header lines in ADR 0014 and ADR 0010, `openspec/config.yaml` (the
   ADRs line), `docs/openspec-flow.md`, `docs/coordination-design.md`.
 - Release: `plugins/openspec/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
   `CHANGELOG.md`, `docs/catalog.md`.
 - Dependencies: `managed-agents-study` (archived, `c377948`). `coordination-panels` comes after and
   reads the command.
 - Decisions cited: ADR 0010 (decisions 3, 6 and 8), ADR 0011 (the run detection the locks keep), ADR
-  0013 (decision 4, the run file), ADR 0014 (decisions 1 to 3). Open decisions inherited: ADR 0016
+  0013 (decision 4, the run file), ADR 0014 (decisions 1 to 3). Open decisions inherited: ADR 0017
   (proposed here) needs the owner's acceptance with the plan; it changes `next`'s end when GitHub does
   not answer (`design.md` D-4).

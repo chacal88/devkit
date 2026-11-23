@@ -2474,8 +2474,9 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); stage-roles moves it to 0.22.0 (release 0.26.0).
-  assert.match(flow, /v0\.22\.0/, 'the CI snippet pins the current release (stage-roles: 0.22.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); change-state moves it to 0.23.0 (release 0.27.0).
+  assert.match(flow, /v0\.23\.0/, 'the CI snippet pins the current release (change-state: 0.23.0)');
+  assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
@@ -4007,4 +4008,38 @@ test('change-state AC-4 command: a change off the roadmap gets no ready reason i
   writeRunFile(root, { changeSessions: true });
   const e = entryOf(stateCmd(root, ['--change', 'feat']));
   assert.deepEqual([e.state, e.reason.code, e.title], ['waiting-for-owner', 'waiting-approval', '🙋 📝 feat']);
+});
+
+test('change-state ADR 0017: the documents follow', () => {
+  const name = '0017-a-change-state-is-derived-in-one-place.md';
+  const adr = readRepo('docs', 'adr', name);
+  assert.equal(adr.split('\n')[0], '# ADR 0017: A change\'s state is derived in one place, and a stopped change\'s session title shows it');
+  for (const h of ['## Context', '## Decision', '## Consequences', '### Review trigger', '## Alternatives considered']) {
+    assert.ok(adr.split('\n').includes(h), `ADR 0017 has ${h}`);
+  }
+  assert.match(adr, /^- Status: accepted$/m);
+  assert.match(adr, /^- Change: change-state$/m);
+  assert.match(adr, /^- Amends: ADR 0014 \(0014-each-roadmap-change-runs-in-a-session-of-its-own\.md\), decision 3, the title of a change session$/m);
+  const approval = readRepo('openspec', 'changes', 'change-state', 'approval.md');
+  const date = approval.match(/^- Date: (\d{4}-\d{2}-\d{2})$/m)?.[1];
+  const words = approval.match(/^- Owner's words: "(.+)"$/m)?.[1].replaceAll('`', '');
+  assert.ok(date && words, 'approval.md has its date and the owner\'s words');
+  assert.match(adr, new RegExp(`^- Accepted by: the owner, on ${date}, in the message that approved the plan of the change: \`${words}\`; recorded in \`openspec/changes/change-state/approval\\.md\`$`, 'm'));
+  for (const icon of ['🙋', '⏳', '⛔', '📦']) assert.ok(adr.includes(icon), `ADR 0017 names ${icon}`);
+  const link = `[ADR 0017](${name})`;
+  const adr14 = readRepo('docs', 'adr', '0014-each-roadmap-change-runs-in-a-session-of-its-own.md');
+  assert.ok(adr14.split('\n').slice(0, 8).includes(`- Amended by ADR 0017 (${name})`), 'ADR 0014 has the Amended by line in its header');
+  const adr10 = readRepo('docs', 'adr', '0010-openspec-as-the-harness.md');
+  for (const t of [adr14, adr10]) {
+    assert.match(t, /Note \(change-state, 2026-11-22\):/);
+    assert.ok(t.includes(link), 'the Note links ADR 0017');
+  }
+  const adrs = readRepo('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
+  assert.match(adrs, /0017 a change's state is derived in one place and a stopped change's title shows it, amends 0014/);
+  const flow = readRepo('docs', 'openspec-flow.md');
+  const a = flow.indexOf("**A change's state.**");
+  assert.ok(a > flow.indexOf('**Waiting on GitHub.**'), 'the paragraph follows "Waiting on GitHub"');
+  const part = flow.slice(a, flow.indexOf('\n\n', a)).replace(/\s+/g, ' ');
+  assert.ok(part.includes('ADR 0017'), 'the paragraph cites ADR 0017');
+  assert.doesNotMatch(flow, /\(ready, waits for a place\)/);
 });

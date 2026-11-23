@@ -11,6 +11,11 @@
 
 ## Context
 
+Note (change-state, 2026-11-22): the change loop derives one state per change, running or one of
+decision 3's four ends with its reason, read by the board, the session title and the panels and stored
+nowhere ([ADR 0017](0017-a-change-state-is-derived-in-one-place.md)); a GitHub that does not answer
+is a wait on GitHub. Decisions 1 to 8 are otherwise unchanged.
+
 Note (design-open-points, 2026-11-19): the owner answered points this ADR left open, and
 [docs/coordination-design.md](../coordination-design.md) records each answer with who decided it.
 The names are decided, by the assistant on the owner's delegation: `manager` is the roadmap

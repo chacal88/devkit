@@ -8,7 +8,7 @@ The implementer copies the rules, keys, texts and test names below and makes no 
 
 - D-1 the state and its contract, D-2 the run file's facts, D-3 the `state` command;
 - D-4 a GitHub that does not answer, D-5 the session title, D-6 the board;
-- D-7 the message table, D-8 ADR 0016 and the Notes, D-9 the new tests, D-10 the existing tests this
+- D-7 the message table, D-8 ADR 0017 and the Notes, D-9 the new tests, D-10 the existing tests this
   change touches, D-11 documents and release.
 
 ## Context
@@ -278,17 +278,17 @@ Two keys, in both languages, in `MESSAGES`:
 `what.silent` renders inside `waiting-github` and `running.github` through the `what.` family. Both
 pass `change-loop replies: no internal term in either language` unchanged.
 
-## D-8 ADR 0016 and the Notes
+## D-8 ADR 0017 and the Notes
 
 ADR 0010 decision 3 (four ends, each with its reason) and decision 6 (the state in the repository and
 GitHub) are kept. ADR 0014 decision 3 says a change session's title is the icon of its stage and the
 id; this change adds the state icon while the change is stopped, so it amends that decision. Task 3.1
-creates `docs/adr/0016-a-change-state-is-derived-in-one-place.md` with this text (status `accepted`
+creates `docs/adr/0017-a-change-state-is-derived-in-one-place.md` with this text (status `accepted`
 and the `Accepted by` line once the owner approves the plan; the next free number on `origin/main`
 at merge, as `CONTRIBUTING.md` step 5 says):
 
 ```
-# ADR 0016: A change's state is derived in one place, and a stopped change's session title shows it
+# ADR 0017: A change's state is derived in one place, and a stopped change's session title shows it
 
 - Status: accepted
 - Date: 2026-11-22
@@ -362,21 +362,21 @@ ADR 0014's header line after its `- Status:` line:
 
 ```
 ADR 0014, header line:
-- Amended by ADR 0016 (0016-a-change-state-is-derived-in-one-place.md)
+- Amended by ADR 0017 (0017-a-change-state-is-derived-in-one-place.md)
 
 ADR 0014, Note:
-Note (change-state, 2026-11-22): [ADR 0016](0016-a-change-state-is-derived-in-one-place.md) amends
+Note (change-state, 2026-11-22): [ADR 0017](0017-a-change-state-is-derived-in-one-place.md) amends
 decision 3: while the change is stopped, the title carries the state icon (🙋, ⏳ or ⛔) before the
 stage icon, and 📦 alone once archived. Decisions 1, 2 and 4 to 6 are unchanged.
 
 ADR 0010, Note:
 Note (change-state, 2026-11-22): the change loop derives one state per change, running or one of
 decision 3's four ends with its reason, read by the board, the session title and the panels and stored
-nowhere ([ADR 0016](0016-a-change-state-is-derived-in-one-place.md)); a GitHub that does not answer
+nowhere ([ADR 0017](0017-a-change-state-is-derived-in-one-place.md)); a GitHub that does not answer
 is a wait on GitHub. Decisions 1 to 8 are otherwise unchanged.
 
 openspec/config.yaml, the ADRs line, before its closing parenthesis:
-; 0016 a change's state is derived in one place and a stopped change's title shows it, amends 0014
+; 0017 a change's state is derived in one place and a stopped change's title shows it, amends 0014
 ```
 
 ## D-9 New tests (every AC)
@@ -435,7 +435,7 @@ In `plugins/openspec/hooks/change-loop.test.mjs`:
 | `change-state AC-4 command: a start that waits for a place is running, ready, at the opening` | S7 through the command, title `❓ x` | red |
 | `change-state AC-4 command: no run file gives the loop's plain state` | negative | red |
 | `change-state AC-4 command: a change off the roadmap gets no ready reason in a session-per-change run` | negative | red |
-| `change-state ADR 0016: the documents follow` | D-8: the ADR's headings, status, `Accepted by`, `Amends` line, the four state icons; ADR 0014's header line and Note; ADR 0010's Note; the `ADRs:` line; `docs/openspec-flow.md`'s paragraph `**A change's state.**` | red |
+| `change-state ADR 0017: the documents follow` | D-8: the ADR's headings, status, `Accepted by`, `Amends` line, the four state icons; ADR 0014's header line and Note; ADR 0010's Note; the `ADRs:` line; `docs/openspec-flow.md`'s paragraph `**A change's state.**` | red |
 
 In `plugins/openspec/hooks/roadmap-loop.test.mjs`:
 
@@ -475,8 +475,9 @@ Read and pass unchanged (the task that changes their code names them in its chec
 - `project-loop wait: it ends when the decision changes and holds no state` and `project-loop next:
   S25 … S26 …` (`project-loop.test.mjs`): `project-loop.mjs` is not changed and `waitLoop` still counts
   its blocked form.
-- `change-loop docs: the design records the answers` (`change-loop.test.mjs`), which pins `v0.21.1`
-  in `docs/openspec-flow.md`: the pin moves in the retro, after the tag.
+- `change-loop docs: the design records the answers` (`change-loop.test.mjs`), which pinned `v0.22.0`
+  in `docs/openspec-flow.md`: the pin moves in this release to `v0.23.0` (task 3.3) and the assertion moves with it
+  (`release-rebase pin: the real docs/openspec-flow.md …` ties the pin to the plugin version).
 
 The search behind this list (every suite under `plugins/openspec/hooks/`, `guard.test.mjs` included)
 looked for `sessionTitle`, `stageIcon`, `.icon`, `title:`, `boardOf`, `doStatus`, `running.`,
@@ -498,19 +499,20 @@ it, do not change it.
   - A new paragraph after "**Waiting on GitHub.**", starting `**A change's state.**`: the command
     line of D-3, the JSON of D-3 with its fields, the reason table of D-1, the order of D-2 in one
     sentence, that it writes nothing and prints no run marker, that `/devkit status` places its rows
-    by it and that the panels read it; cites ADR 0016.
+    by it and that the panels read it; cites ADR 0017.
   - "**A session per change.**" paragraph: the title forms of D-5.
   Do not write the words `(ready, waits for a place)` (a test refuses them).
 - `docs/coordination-design.md`: in the section that says the loop ends in one of four states, one
   sentence: the change loop's `state` command gives each change's state, read by `/devkit status`,
-  the session titles and the panels (ADR 0016).
-- ADR 0016, ADR 0014, ADR 0010, `openspec/config.yaml`: D-8.
-- Release: `plugins/openspec/.claude-plugin/plugin.json` 0.22.0; `.claude-plugin/marketplace.json`
-  devkit-openspec 0.22.0 and the marketplace 0.26.0; `CHANGELOG.md` `## 0.26.0 — one state per
+  the session titles and the panels (ADR 0017).
+- ADR 0017, ADR 0014, ADR 0010, `openspec/config.yaml`: D-8.
+- Release: `plugins/openspec/.claude-plugin/plugin.json` 0.23.0; `.claude-plugin/marketplace.json`
+  devkit-openspec 0.23.0 and the marketplace 0.27.0; `CHANGELOG.md` `## 0.27.0 — one state per
   change` with one devkit-openspec line (the `state` command, the GitHub wait, the title, the board)
-  and a Docs line (ADR 0016); then `python3 scripts/gen-catalog.py`. Take the next versions after
-  `main`'s if another change merges first. The CI pin in `docs/openspec-flow.md` stays `v0.21.1`
-  until the tag exists (Workflow follow-up).
+  and a Docs line (ADR 0017); then `python3 scripts/gen-catalog.py`. Take the next versions after
+  `main`'s if another change merges first. The CI pin lines in `docs/openspec-flow.md` move to
+  `v0.23.0` in this release, with `setPins` of `release-rebase.mjs` (the release tests tie the pin to
+  the plugin version) and the assertion of `change-loop docs: the design records the answers`.
 
 ## Proof map
 
@@ -533,10 +535,10 @@ seen in the next change a roadmap run starts (SKILL.md Loop 1a is unchanged and 
 |---|---|---|
 | `boardOf`'s rows change words for a case no test pins | LOW × MEDIUM | the parity test runs every entry kind through both placements with written-out strings; the existing board tests run unchanged |
 | A `gh` that is missing or not signed in waits three polls before it shows as blocked | MEDIUM × LOW | the blocked reply quotes gh's error; the wait's interval is the existing one |
-| The delivery checker's own GitHub failures (before the delivery stage, on the archive branch) still end blocked | MEDIUM × LOW | a Non-Goal, recorded in ADR 0016's consequences; `change-state AC-5 build` (`change-loop.test.mjs`) pins what the base gives; a later change can carry the failure's kind |
+| The delivery checker's own GitHub failures (before the delivery stage, on the archive branch) still end blocked | MEDIUM × LOW | a Non-Goal, recorded in ADR 0017's consequences; `change-state AC-5 build` (`change-loop.test.mjs`) pins what the base gives; a later change can carry the failure's kind |
 | Moving the run file's reader breaks an importer | LOW × MEDIUM | `roadmap-loop.mjs` re-exports the same names; the whole suite runs in the last gate |
 | `state` for all changes is slow (one `next` per change) | MEDIUM × LOW | the same reads `/devkit status` already makes; no extra gh call per change beyond `next`'s |
-| A parallel change takes ADR 0016 or version 0.22.0 first | MEDIUM × LOW | `CONTRIBUTING.md` step 5: take the next free number and version at merge, renumbering the references |
+| A parallel change takes ADR 0017 or version 0.23.0 first | MEDIUM × LOW | `CONTRIBUTING.md` step 5: take the next free number and version at merge, renumbering the references |
 | The state command prints a run marker and starts a run lock | LOW × HIGH | `change-state AC-1 command: the output holds no run marker` |
 
 ## Migration Plan
@@ -562,7 +564,7 @@ same file) → the board and the start title (`roadmap-loop.mjs`) → documents 
 
 **File structure.**
 
-- Create: `docs/adr/0016-a-change-state-is-derived-in-one-place.md`.
+- Create: `docs/adr/0017-a-change-state-is-derived-in-one-place.md`.
 - Modify: `plugins/openspec/hooks/change-loop.mjs`, `plugins/openspec/hooks/roadmap-loop.mjs`,
   `plugins/openspec/hooks/change-loop.test.mjs`, `plugins/openspec/hooks/roadmap-loop.test.mjs`,
   `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`,
@@ -582,7 +584,7 @@ same file) → the board and the start title (`roadmap-loop.mjs`) → documents 
 | Phase 2 tests (AC-1, AC-2, AC-4 command, AC-3 cli, AC-6, AC-7 start) | 2 | Testing | MEDIUM |
 | `stateEntries`, the `state` subcommand | 1 | Core | LOW |
 | `boardOf` by state, `sessionStartOf`, E-3 | 1 | Integration | MEDIUM |
-| ADR 0016, Notes, config line, ADR test | 0.5 | Documentation | LOW |
+| ADR 0017, Notes, config line, ADR test | 0.5 | Documentation | LOW |
 | `docs/openspec-flow.md`, `docs/coordination-design.md` | 0.5 | Documentation | LOW |
 | Release files, catalog, validation, whole suite | 0.5 | Integration | LOW |
 
@@ -606,7 +608,7 @@ same file) → the board and the start title (`roadmap-loop.mjs`) → documents 
 ADR 0010 (decision 3, the four ends with a reason; decision 6, the state in the repository and
 GitHub; decision 8, no session that remembers), ADR 0011 (the run detection the locks keep, untouched),
 ADR 0013 (decision 4, the run file's fields), ADR 0014 (decisions 1 and 2 kept; decision 3 amended by
-ADR 0016, proposed here). No open decision of the log is touched.
+ADR 0017, proposed here). No open decision of the log is touched.
 
 ## Open Questions
 

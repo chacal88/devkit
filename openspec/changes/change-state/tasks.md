@@ -6,7 +6,7 @@ Change: `change-state` · Date: 2026-11-22 · Owner: Kaue (chacal88)
 Work only in this change's worktree, on its branch. Every rule, key, text and test name is in
 `design.md`: D-1 the state and its contract, D-2 the run file's facts, D-3 the `state` command, D-4 a
 GitHub that does not answer, D-5 the session title, D-6 the board, D-7 the message table, D-8 ADR
-0016 and the Notes, D-9 the new tests, D-10 the existing tests this change touches, D-11 documents
+0017 and the Notes, D-9 the new tests, D-10 the existing tests this change touches, D-11 documents
 and release. The implementer copies them and makes no design choice.
 
 Every gate is one backticked command, run as written. The flow takes the first backticked text after
@@ -109,26 +109,29 @@ the tree; end every task with `git status --short`.
   status: …` and `roadmap-loop status: nothing written` pass unchanged.
 - [x] 2.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-state" --test-name-pattern="^change-loop" --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^project-loop" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-2, AC-3 (the command against `next`), AC-4 (the command), AC-5 (the command), AC-6 and AC-7 (the start title).
 
-## 3. ADR 0016, the documents, the release and the whole suite (every AC)
+## 3. ADR 0017, the documents, the release and the whole suite (every AC)
 
-- [ ] 3.1 Create `docs/adr/0016-a-change-state-is-derived-in-one-place.md` with the text of D-8,
+- [x] 3.1 Create `docs/adr/0017-a-change-state-is-derived-in-one-place.md` with the text of D-8,
   `Status: accepted` and the `Accepted by` line quoting the owner's words recorded in
   `openspec/changes/change-state/approval.md` (the next free ADR number on `origin/main`, renumbering
-  every reference, if another change took 0016). Add ADR 0014's header line and Note, ADR 0010's Note
-  and the `openspec/config.yaml` `ADRs:` entry, as D-8 gives them. Write `change-state ADR 0016: the
+  every reference, if another change took 0017). Add ADR 0014's header line and Note, ADR 0010's Note
+  and the `openspec/config.yaml` `ADRs:` entry, as D-8 gives them. Write `change-state ADR 0017: the
   documents follow` in `change-loop.test.mjs`. Check: that test passes, and so does `followups ADR
   0014: the documents follow`, unchanged.
-- [ ] 3.2 Update `docs/openspec-flow.md` (the loop paragraph, "Waiting on GitHub", the new
+- [x] 3.2 Update `docs/openspec-flow.md` (the loop paragraph, "Waiting on GitHub", the new
   paragraph `**A change's state.**`, the title forms in "A session per change") and
   `docs/coordination-design.md`, as D-11 says. Check: `python3 scripts/check.py` passes; `change-state
-  ADR 0016: the documents follow`, `followups ADR 0014: the documents follow` and `change-loop docs:
+  ADR 0017: the documents follow`, `followups ADR 0014: the documents follow` and `change-loop docs:
   the design records the answers` pass; the fields the new paragraph names are the keys `change-state
   AC-1 command: one change prints its state, reason, stage and title in the person's language`
   asserts, no more and no fewer.
-- [ ] 3.3 Release as D-11 says: `plugins/openspec/.claude-plugin/plugin.json` (0.22.0),
-  `.claude-plugin/marketplace.json` (devkit-openspec 0.22.0, marketplace 0.26.0), `CHANGELOG.md`
-  (`## 0.26.0 — one state per change`), then `python3 scripts/gen-catalog.py`. Check: `python3
-  scripts/gen-catalog.py --check` passes.
+- [x] 3.3 Release as D-11 says: `plugins/openspec/.claude-plugin/plugin.json` (0.23.0),
+  `.claude-plugin/marketplace.json` (devkit-openspec 0.23.0, marketplace 0.27.0), `CHANGELOG.md`
+  (`## 0.27.0 — one state per change`), the CI pin lines of `docs/openspec-flow.md` moved to
+  `v0.23.0` with `setPins` of `release-rebase.mjs` and the assertion of `change-loop docs: the design
+  records the answers` moved with them, then `python3 scripts/gen-catalog.py`. Check: `python3
+  scripts/gen-catalog.py --check` passes and `release-rebase pin: the real docs/openspec-flow.md …`
+  passes.
 - [ ] 3.4 Owner-run task, done by the session that conducts this change (never `tdd-implementer`),
   after task 3.3: run the marketplace validation with the desktop app's bundled Claude Code, as
   `CONTRIBUTING.md` says, into `${TMPDIR%/}/devkit-validate-change-state/phase-3.txt`. Check: the
@@ -138,9 +141,9 @@ the tree; end every task with `git status --short`.
 
 ## Workflow follow-up
 
-- After the merge, tag `v0.22.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
-- The retro moves the CI pin of `docs/openspec-flow.md` to `v0.22.0` and the assertion of
-  `change-loop docs: the design records the answers` with it.
+- After the merge, tag `v0.23.0` on the merge commit and push the tag (`CONTRIBUTING.md`).
+- The CI pin of `docs/openspec-flow.md` already moved to `v0.23.0` in this release (task 3.3), with
+  the assertion of `change-loop docs: the design records the answers`; the tag only has to exist.
 - Archive with the retro; the archive ticks the `change-state` line of `openspec/roadmap.md`.
 - The first roadmap run after the release shows a change session renamed to a state title
   (`🙋 …`, `⏳ …` or `⛔ …`); the retro of the change that run starts records it.
