@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.31.1 — change-state retro fixes
+
+- **devkit-openspec** 0.27.1: the `change-state ADR 0017: the documents follow` test finds
+  `approval.md` in the archived change folder once the change is archived, so the archive pull
+  request stays green. The repository check `scripts/check.py` now refuses an un-awaited
+  `t.test(` subtest in a hook test file, and CONTRIBUTING says to await every subtest. The CI
+  snippet now pins `v0.27.1`, the release's tag.
+
 ## 0.31.0 — gh version check
 
 - **devkit-openspec** 0.27.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
