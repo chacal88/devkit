@@ -67,3 +67,27 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: remote-worker, round 1
+
+Path: agents · range `7b9c499654e1b08818d7a4ff4a465fffb88e8d68..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | rejected | 0 | 1 | 1 | 0 | 0187ac5 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 0187ac5 |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- code-quality-reviewer — [important] CHANGELOG.md:15 — The 0.34.0 entry says 'ADR 0019 (proposed)', but 7b21aad set ADR 0019 to Status: accepted with the owner's acceptance. The shipped release note contradicts the same diff. Fix: write 'ADR 0019 (accepted)' or drop the status word.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path agents: this turn began with a background task notification, not the owner's typed message.
+- Range 7b9c499..HEAD holds two merges of origin/main; only the diff against origin/main is this change.
+
+## Next
+Fix the open findings, then run review-change again (round 2).

@@ -12,7 +12,7 @@
   implementation on (`change-loop.mjs place`); with none free it ends blocked (waiting for a place),
   and a freed place wakes one waiting change. `/devkit status` shows where each change is and reads
   "no answer" for a machine that does not answer (`status --json`, `machine-probe.mjs`).
-- Docs: ADR 0019 (proposed) amends ADR 0013, ADR 0014 and ADR 0017 (decision 4: the title of a change waiting for a place); the flow page, the coordination design and
+- Docs: ADR 0019 (accepted) amends ADR 0013, ADR 0014 and ADR 0017 (decision 4: the title of a change waiting for a place); the flow page, the coordination design and
   the pack README follow. The CI snippet now pins `v0.30.0`, the release's tag.
 
 ## 0.33.0 — release conflicts resolved by a merge

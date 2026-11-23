@@ -1,5 +1,5 @@
 // The run file's shape and its reading (design remote-worker D-9): one run's bookkeeping, kept in the repository's common
-// git directory. Moved here unchanged so `change-loop.mjs` (the place of a change) and `roadmap-loop.mjs` (the run) read it alike;
+// git directory. Moved here from `change-loop.mjs`, where they now also carry `placed`, so that `change-loop.mjs` (the place of a change) and `roadmap-loop.mjs` (the run) read it alike;
 // `roadmap-loop.mjs` re-exports `readRun` and `runFilePath`.
 
 import { readFileSync } from 'node:fs';
