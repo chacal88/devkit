@@ -1,0 +1,455 @@
+# Carry one OpenSpec change to archived with the devkit, run by CompozyOS.
+#
+# The devkit decides, this loop only runs. Every generation is one turn: `read` asks the devkit
+# checker what is next (`change-loop next --view compozy`), `confirm` has the checker agree with what was
+# read, and `by_kind` runs that one step: a role of the devkit (a seat that hands the work to the
+# Claude agent of the same name), the review loop, a phase gate, a command the checker built, or a
+# question to the owner. Nothing here knows a stage, a role or a rule: the checker's view names them,
+# and the devkit hooks hold the gates exactly as they do in Claude Code. A question to the owner is an
+# `ask` node: only a human answers it, and each answer is recorded by the checker's own record step
+# before the turn ends.
+#
+# Every devkit checker this file calls goes through .compozy/bin/devkit-kit, never through a path that
+# exists in only one repository, and every runtime value inside a command is passed through shellQuote.
+apiVersion: compozy.loop/v1
+kind: Loop
+meta:
+  name: devkit-change
+  description: Carry one OpenSpec change from its request to archived with the devkit, one turn at a time. The devkit checker names each step, CompozyOS runs it and asks you at the owner's gates.
+  catalog:
+    use_when: "A change should go through the devkit flow end to end on CompozyOS: the requirements, the plan and its approval, the build, the review, the pull request and the archive."
+    keywords: [devkit, openspec, change, delivery]
+    category: Engineering
+
+concurrency: allow
+
+inputs:
+  change_id:
+    type: string
+    required: true
+    description: The OpenSpec change id (kebab-case). The change lives in openspec/changes/<change_id>/, in a worktree and on a branch of the same name.
+  request:
+    type: string
+    default: ""
+    description: What the change must achieve, in the owner's words. Only a change that does not exist yet needs it; the run opens the change from it.
+  lang:
+    type: string
+    enum: [en, pt-BR]
+    default: pt-BR
+    description: The language the person is addressed in; the files of the change keep the language the project's settings name.
+
+contract:
+  goal: "Carry the OpenSpec change {{ .inputs.change_id }} to archived."
+  definition_of_done: >
+    The devkit checker reports the change {{ .inputs.change_id }} archived: its plan was approved by the
+    owner, its tasks are implemented and reviewed, its pull request merged, and its retro and archive done.
+  iteration_cap: 0
+  no_progress: { window: 0 }
+  stop_when: 'nodes.read.output.kind == "archived" && nodes.confirm.status == "succeeded"'
+
+graph:
+  nodes:
+    # Read: the checker's view of the change, as one JSON object. The coordinator runs the one command and returns
+    #    what it prints, unchanged.
+    - id: read
+      class: action
+      kind: run-agent
+      params:
+        agent: change-coordinator
+        prompt: |
+          Read only: run this one command and return the JSON object it prints as your result, unchanged. Hand nothing on and do nothing else.
+
+          .compozy/bin/devkit-kit change-loop next --view compozy --change {{ .inputs.change_id }} --lang {{ .inputs.lang }}
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [version, kind, change, root, stage, stage_title, agent, step, brief, progress_key, question, reply]
+          properties:
+            version: { type: number }
+            kind: { type: string, enum: [agent, coordinator, review, gate, command, open, grill, mockup, approval, retro-answers, owner, github, blocked, archived] }
+            change: { type: string }
+            root: { type: string }
+            stage: { type: string }
+            stage_title: { type: string }
+            agent: { type: string }
+            step: { type: string }
+            brief: { type: string }
+            progress_key: { type: string }
+            question: { type: string }
+            reply: { type: string }
+      retry:
+        max_attempts: 2
+      timeout: 15m
+
+    # Confirm: the checker recomputes the view and agrees only when every field is the one read. A view that moved
+    #    meanwhile starts the next turn, which reads again.
+    - id: confirm
+      class: control
+      kind: gate
+      criteria:
+        - id: view_confirmed
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop confirm --change {{ .inputs.change_id | shellQuote }} --lang {{ .inputs.lang | shellQuote }} --view {{ toJson .nodes.read.output | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    # By kind: one step per turn. The four role kinds run a role; archived, and anything the routes do not name, ends the turn.
+    - id: by_kind
+      class: control
+      kind: route
+      routes:
+        - when: 'nodes.read.output.kind in ["agent", "coordinator", "grill", "open"]'
+          to: run_role
+        - when: 'nodes.read.output.kind == "review"'
+          to: run_review
+        - when: 'nodes.read.output.kind == "gate"'
+          to: phase_gate
+        - when: 'nodes.read.output.kind == "command"'
+          to: run_step
+        - when: 'nodes.read.output.kind == "mockup"'
+          to: ask_mockup
+        - when: 'nodes.read.output.kind == "approval"'
+          to: ask_approval
+        - when: 'nodes.read.output.kind == "retro-answers"'
+          to: ask_retro
+        - when: 'nodes.read.output.kind == "owner"'
+          to: ask_owner
+        - when: 'nodes.read.output.kind == "blocked"'
+          to: ask_blocked
+        - when: 'nodes.read.output.kind == "github"'
+          to: wait_github
+      default: turn_end
+
+    # A role: the agent the view names, in the checkout the view names, with the brief the checker built. An
+    #    `open` turn with no request opens nothing and returns failure; the next turn's view then asks the owner.
+    - id: run_role
+      class: action
+      kind: run-agent
+      params:
+        agent: "{{ .nodes.read.output.agent }}"
+        environment:
+          mode: directory
+          directory: "{{ .nodes.read.output.root }}"
+        prompt: |
+          {{ .nodes.read.output.brief }}
+
+          Write to the person in {{ if eq .inputs.lang "en" }}English{{ else }}Brazilian Portuguese{{ end }}.
+          {{ if .inputs.request }}
+          The request the owner typed:
+
+          {{ .inputs.request }}
+          {{ end }}
+          Report how it went: outcome done or failure, a one-line summary, and, on a grill turn, the next question (an empty question when there is none).
+        output_schema:
+          type: object
+          additionalProperties: false
+          required: [outcome, question, summary]
+          properties:
+            outcome: { type: string, enum: [done, failure] }
+            question: { type: string }
+            summary: { type: string }
+      retry:
+        max_attempts: 1
+      timeout: 4h
+      on_error:
+        route: ask_blocked
+
+    - id: after_role
+      class: control
+      kind: route
+      routes:
+        - when: 'nodes.read.output.kind == "grill" && nodes.run_role.output.question != ""'
+          to: ask_grill
+      default: turn_end
+
+    # The grill: the owner answers in CompozyOS, and the answer is recorded before the turn ends.
+    - id: ask_grill
+      class: control
+      kind: ask
+      params:
+        prompt: "{{ .nodes.run_role.output.question }}"
+        expect:
+          type: object
+          additionalProperties: false
+          required: [answer]
+          properties:
+            answer: { type: string }
+
+    - id: record_grill
+      class: control
+      kind: gate
+      criteria:
+        - id: grill_recorded
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop record-answer --change {{ .inputs.change_id | shellQuote }} --gate grill --question {{ .nodes.run_role.output.question | shellQuote }} --answer {{ .nodes.ask_grill.output.answer | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    # The mock-up: the owner approves it or asks for changes; the checker's record step writes the answer into mockup.md.
+    - id: ask_mockup
+      class: control
+      kind: ask
+      params:
+        prompt: "{{ .nodes.read.output.question }}"
+        expect:
+          type: object
+          additionalProperties: false
+          required: [decision, words]
+          properties:
+            decision: { type: string, enum: [approve, changes] }
+            words: { type: string }
+
+    - id: record_mockup
+      class: control
+      kind: gate
+      criteria:
+        - id: mockup_recorded
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop record-mockup --change {{ .inputs.change_id | shellQuote }} --decision {{ .nodes.ask_mockup.output.decision | shellQuote }} --words {{ .nodes.ask_mockup.output.words | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    # The plan: approve it, or say what to change; the checker's record step writes approval.md, and no agent can.
+    - id: ask_approval
+      class: control
+      kind: ask
+      params:
+        prompt: |
+          {{ .nodes.read.output.question }}
+
+          Answer approve to approve the plan, or changes with what you want changed.
+        expect:
+          type: object
+          additionalProperties: false
+          required: [decision, words]
+          properties:
+            decision: { type: string, enum: [approve, changes] }
+            words: { type: string }
+
+    - id: approval_route
+      class: control
+      kind: route
+      routes:
+        - when: 'nodes.ask_approval.output.decision == "approve"'
+          to: record_approval
+      default: record_notes
+
+    - id: record_approval
+      class: control
+      kind: gate
+      criteria:
+        - id: approval_recorded
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop record-approval --change {{ .inputs.change_id | shellQuote }} --words {{ .nodes.ask_approval.output.words | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    - id: record_notes
+      class: control
+      kind: gate
+      criteria:
+        - id: notes_recorded
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop record-answer --change {{ .inputs.change_id | shellQuote }} --gate approval --answer {{ .nodes.ask_approval.output.words | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    # The retro: the owner answers each proposal; the next turn has the coordinator write the answers into retro.md.
+    - id: ask_retro
+      class: control
+      kind: ask
+      params:
+        prompt: "{{ .nodes.read.output.question }}"
+        expect:
+          type: object
+          additionalProperties: false
+          required: [answers]
+          properties:
+            answers: { type: string }
+
+    - id: record_retro
+      class: control
+      kind: gate
+      criteria:
+        - id: retro_recorded
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop record-answer --change {{ .inputs.change_id | shellQuote }} --gate retro --answer {{ .nodes.ask_retro.output.answers | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    # Something only the owner can do (merge a pull request, settle a dispute): do it, then answer; the next turn reads again.
+    - id: ask_owner
+      class: control
+      kind: ask
+      params:
+        prompt: |
+          {{ .nodes.read.output.question }}
+
+          Do what this asks, then answer here. A note is optional.
+        expect:
+          type: object
+          additionalProperties: false
+          required: [note]
+          properties:
+            note: { type: string }
+
+    # Blocked: say what stopped it, and let the owner retry the step or stop the run.
+    - id: ask_blocked
+      class: control
+      kind: ask
+      params:
+        prompt: |
+          {{ if .nodes.read.output.question }}{{ .nodes.read.output.question }}{{ else }}The step {{ .nodes.read.output.step }} of the change {{ .inputs.change_id }} did not finish. Open the run in CompozyOS to see why.{{ end }}
+
+          Answer retry to run the step again, or stop to end this run. A note is optional.
+        expect:
+          type: object
+          additionalProperties: false
+          required: [decision, note]
+          properties:
+            decision: { type: string, enum: [retry, stop] }
+            note: { type: string }
+
+    - id: blocked_route
+      class: control
+      kind: route
+      routes:
+        - when: 'nodes.ask_blocked.output.decision == "stop"'
+          to: stop_run
+      default: retry
+
+    # A gate that always fails, with `halt`: the run ends here, by the owner's word.
+    - id: stop_run
+      class: control
+      kind: gate
+      criteria:
+        - id: stop
+          type: command
+          check: "exit 1"
+          expect: exit_zero
+      on_result:
+        fail: halt
+
+    - id: retry
+      class: control
+      kind: gate
+      criteria:
+        - id: retry_cleared
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop compozy-retry --change {{ .inputs.change_id | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    # The review: the review loop runs the round and writes review.md; a child that fails asks the owner.
+    - id: run_review
+      class: action
+      kind: run-loop
+      params:
+        loop: devkit-review
+        await: true
+        inputs:
+          change_id: "{{ .inputs.change_id }}"
+          lang: "{{ .inputs.lang }}"
+          root: "{{ .nodes.read.output.root }}"
+      retry:
+        max_attempts: 1
+      timeout: 6h
+      on_error:
+        route: ask_blocked
+
+    # A phase gate: the checker runs the phase's command and ticks its task; a red gate asks the owner, with its question.
+    - id: phase_gate
+      class: control
+      kind: gate
+      criteria:
+        - id: phase_green
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop run-gate --change {{ .inputs.change_id | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      timeout: 3h
+      on_result:
+        pass: { route: turn_end }
+        fail: { route: ask_blocked }
+
+    # A command the checker built (switch-script, accept-decisions): the checker's own record step runs it. A refused
+    #     command is recorded there, and the next turn's view asks the owner with the command's own reply.
+    - id: run_step
+      class: control
+      kind: gate
+      criteria:
+        - id: step_ran
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop run-step --change {{ .inputs.change_id | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      timeout: 10m
+      on_result:
+        fail: next_generation
+
+    # A wait on GitHub (checks, a merge): five minutes, then the next turn reads again. Nothing polls in a shell.
+    - id: wait_github
+      class: control
+      kind: wait
+      params:
+        for: 5m
+
+    # The end of a turn: the target of the routes' defaults and of every step that is done.
+    - id: turn_end
+      class: action
+      kind: transform
+      params:
+        map:
+          done: { value: true }
+      produces:
+        done: boolean
+
+  edges:
+    - { from: read, to: confirm }
+    - { from: confirm, to: by_kind }
+    - { from: by_kind, to: run_role }
+    - { from: by_kind, to: run_review }
+    - { from: by_kind, to: phase_gate }
+    - { from: by_kind, to: run_step }
+    - { from: by_kind, to: ask_mockup }
+    - { from: by_kind, to: ask_approval }
+    - { from: by_kind, to: ask_retro }
+    - { from: by_kind, to: ask_owner }
+    - { from: by_kind, to: ask_blocked }
+    - { from: by_kind, to: wait_github }
+    - { from: by_kind, to: turn_end }
+    - { from: run_role, to: after_role }
+    - { from: run_role, to: ask_blocked }
+    - { from: after_role, to: ask_grill }
+    - { from: after_role, to: turn_end }
+    - { from: ask_grill, to: record_grill }
+    - { from: record_grill, to: turn_end }
+    - { from: ask_mockup, to: record_mockup }
+    - { from: record_mockup, to: turn_end }
+    - { from: ask_approval, to: approval_route }
+    - { from: approval_route, to: record_approval }
+    - { from: approval_route, to: record_notes }
+    - { from: record_approval, to: turn_end }
+    - { from: record_notes, to: turn_end }
+    - { from: ask_retro, to: record_retro }
+    - { from: record_retro, to: turn_end }
+    - { from: ask_owner, to: turn_end }
+    - { from: ask_blocked, to: blocked_route }
+    - { from: blocked_route, to: stop_run }
+    - { from: blocked_route, to: retry }
+    - { from: retry, to: turn_end }
+    - { from: run_review, to: turn_end }
+    - { from: run_review, to: ask_blocked }
+    - { from: phase_gate, to: ask_blocked }
+    - { from: phase_gate, to: turn_end }
+    - { from: run_step, to: turn_end }
+    - { from: wait_github, to: turn_end }
+
+start:
+  - kind: cli
+  - kind: uds

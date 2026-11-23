@@ -55,7 +55,7 @@ If something can't be discovered, that proof becomes "no proof: <reason>".
 
 Always:
 
-- Run the check command for the touched surfaces and keep its summary (pass/fail per gate). Each gate runs as its own command and its exit code decides; no `| tail`, `; echo $?` or `|| true` masking it.
+- Run the check command for the touched surfaces and keep its summary (pass/fail per gate). Each gate runs as its own command and its exit code decides; no `| tail`, `; echo $?` or `|| true` masking it. When the project's whole-suite command imports every test file a gate part names, one green whole-suite run in this verification may stand for those parts: say so in their rows.
 - For each acceptance criterion, find the proof that covers it. When the environment can't produce one (it won't start, a preview needs a login you may not use), write "no proof" and the reason. That alone is not a failure.
 
 Per kind of surface touched:

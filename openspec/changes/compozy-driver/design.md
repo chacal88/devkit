@@ -1076,3 +1076,90 @@ Found while writing the roadmap commands and the skill section; each is a point 
 4. D-2's test helper `fakeCompozy` reads the key `"<subcommand> <loop>"` (for example `loop runs devkit-roadmap`) before `"<subcommand>"` when the call has `--loop <name>`, so a test can list the runs of each loop apart.
 5. D-13, the heredoc of both `compozy-start` calls in the skill is the quoted `DEVKIT_ARGS` of `start`, with its terminator rule.
 
+## Main-merge amendments (after 72b51d3)
+
+`main` was merged into this branch at `72b51d3` (and `028d7ba` dropped the `push-rebased` step the merged
+release-merge change removed). It added the change state, the token budget, the Jira write-back, and the
+delivery models (two pull requests, the test-branch lock, the support branch). The decisions and
+acceptance criteria of this plan stay. The CompozyOS view follows what main added in four places
+(task 4.0, each with a test that failed first), and does not follow five features, listed as known limits.
+
+1. `buildView`, root and branch. A step whose detail names both `root` and `branch` (the support-branch
+   hand-offs: `resolve-support-conflict`, `fix-resolution`, `merge-into-support`) runs in that worktree,
+   as `decide`'s own brief already says for an `agent` action. The view's `root` field, and the root and
+   branch of the brief frame of every `coordinator`-built brief, come from the detail when it names both,
+   else from the action. A detail with only one of the two (`review-resolution` names `root` alone, the
+   task worktree) changes nothing, the same rule as `decide`'s brief.
+2. The dispatch sentence. `SHIP_ROW_STEPS` is no longer a hand-kept list: it is `AGENT_STEPS` (the steps
+   of `ROWS` that name a role, so of `ROW_STEPS`) without `resolve-release-conflict`, whose sentence is the
+   `devkit` skill's Loop bullet. The seven delivery steps main added (`open-prs`, `open-test-pr`,
+   `push-support`, `move-test-pr`, `open-test-archive-pr`, `resolve-support-conflict`, `fix-resolution`)
+   carry the `ship-change` row sentence. The test lists the hand-offs of `ROW_STEPS` and checks that each
+   has a `ship-change` table row.
+3. Session steps. `review-resolution` is kind `review` like `review` (the `devkit-review` loop runs the
+   round). `rerun-checks`, `checkout-support` and `merge-into-support` are `coordinator` steps, the
+   fall-through of every session step the checker did not build a command for; a test pins it.
+4. `compozy-start` and the refusals of `open`. The three refusals that depend on the settings and the
+   remote's refs alone (`base-not-default`, `test-branch-missing`, `name-test-suffix`) are one function,
+   `deliveryBase`, called by `openUnderLock` and by `compozy-start` (after row C7, for a change no
+   checkout holds, in a repository with an `origin`, after the same best-effort `git fetch origin
+   --prune` `open` makes, so a test branch pushed a minute ago is seen). It answers `code 3` with the
+   refusal's key as `mode` and its own reply, and starts no run. The helper could be called without
+   opening, so the late `open-failed` row of D-3 stays only as the net for what no earlier check can
+   know (a name taken meanwhile, a failed `change-loop open`).
+
+Known limits (each is main's feature that this change does not carry onto the CompozyOS path; each goes
+into ADR 0017's Consequences, task 6.1):
+
+5. The token budget. `nextAction` counts the session's spend only when the caller passes `budget: true`
+   (`plugins/openspec/hooks/change-loop.mjs:1131`), and only `next` does (`:2347`); `compozyState` calls
+   it without (`:2130`), so a run on CompozyOS never holds a hand-off at the cap.
+6. The Jira entry and write-back. `open --task` (`change-loop.mjs:2435`) and `write-back`
+   (`change-loop.mjs:2530`) are not reachable from `compozy-start` (`:2157`) or from the loops: a
+   CompozyOS change is opened from its request, never from a task, and no write-back question is asked.
+7. The `state` subcommand (`change-loop.mjs:2527`, `runState` at `:2351`) reports the Claude driver's
+   runs; it reads no CompozyOS run.
+8. `testBranchViolation` (`plugins/openspec/hooks/guard.mjs:582`, called at `:858`) judges a Bash command
+   by the session root the hook finds. This change adds nothing to it for a CompozyOS seat (no use of
+   `compozySession`, `guard.mjs:451`, in that rule) and does not prove that it applies there: the rule
+   "the task branch never receives the test branch" is held on that path by the briefs and the
+   checker's rows.
+9. The run markers. The typed-command lock reads `devkit-run:` and `devkit-end:` lines in the transcript
+   (`guard.mjs:628`); `compozy-start` prints none, so a Claude Code session that started a CompozyOS run
+   holds no run lock (as D-1 says), and the markers' end line is never written for a CompozyOS run.
+
+## Phase 4 amendments
+
+Found while writing the loops, the resolver and the installer; each is a point the design left to the implementer
+(the node forms are those of the "Syntax facts" of `proof/probes.md` and of the Loops guide embedded in the binary).
+
+1. Where the contract keys live. `iteration_cap`, `no_progress` and `stop_when` are keys of `contract:` (the guide's
+   `contract.stop_when`), next to `goal` and `definition_of_done`; `inputs`, `graph` and `start` are top level.
+2. D-5, `turn_end`. A `transform` takes `params.map`, whose values are mappings with `value` or `from`, never a bare
+   literal, and `produces` for the output's type, so the node is `class: action`, `kind: transform`, `params: { map:
+   { done: { value: true } } }`, `produces: { done: boolean }` (the guide's own example).
+3. D-5, the record gates (`record_grill`, `record_mockup`, `record_approval`, `record_notes`, `record_retro`) and
+   `retry` end with `on_result.fail: next_generation`: a record step refuses when the view moved (exit 3), and the next
+   turn reads the state again and asks the owner again if the answer is still due. `run_review` gets `retry: {
+   max_attempts: 1 }` (a `run-loop` needs an explicit retry) and `timeout: 6h`; `run_role` `timeout: 4h`, `read` `15m`.
+4. D-5, the unproven corner. The probes ran `on_result.pass.route` for gates, not `on_error.route` for an action: the
+   validator requires the error target to be a forward edge of the node (`error_route_backward`), and the guide says
+   only an explicit error route absorbs a failure, but not whether the edge to `ask_blocked` is skipped when `run_role`
+   or `run_review` succeeds. The loops are written as D-5 says. Task 5.2's run is the first to see it: an `ask_blocked`
+   request after a good `run_role` means the edge is followed on success, and the fix is a gate between the node and
+   `ask_blocked`, which names its pass route.
+5. D-6, `consolidate`. Its `outcome` enum holds `done` only, so a `check-file` mismatch (the coordinator returns `failure`)
+   fails the node with `invalid_output` before `review.md` is written, the review loop fails, and `run_review` routes to
+   `ask_blocked`: the design's "the child run fails", made by the schema. A lane's `failure` stays a normal output
+   (`readStage1` names a reviewer with no saved object as failed). `bench` asks `change-loop next` (read only) for the step,
+   so that a `review-resolution` view (follow-up 3 of the main merge) runs the skill's "Resolution calls" with the same loop.
+   The writers' fan-out has `max_parallel: 6` like the reviewers'.
+6. D-10, the installer. `--set` of an unknown token is a usage error that exits 2 (it exited 1 with a stack, because the
+   `UsageError` of `resolveInputs` was thrown outside `main`'s `try`); a recorded input with no placeholder is dropped and
+   printed `dropped __NAME__`, named once; a `kept` retired file keeps its recorded digest; the `--json` report adds
+   `dropped`. `__SCREEN_MAP__` and `__MOCKUP__` stay in `substitutions.json` for the `design:` block of `openspec/config.yaml`
+   (the `compozy-setup` skill's step 3), though no template carries them.
+7. Task order. The `compozy-kit` tests of task 4.5 run the installer, which reads the three loop templates of task 4.6; both
+   are checked together, the loop tests first.
+8. The merge made five generated agents stale (`code-quality-reviewer`, `commit-and-pr`, `pr-verifier`, `tdd-implementer`,
+   `test-coverage-reviewer`: their sources changed on main). `gen-agents.mjs` wrote them again, and `--check` is 0.

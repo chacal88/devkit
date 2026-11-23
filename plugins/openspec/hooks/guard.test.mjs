@@ -28,6 +28,11 @@ import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit p
 import '../skills/openspec-setup/scripts/ship-entry.test.mjs'; // project-phases: the ship entry of devkit-project
 import '../skills/openspec-setup/scripts/gh-version.test.mjs'; // gh-version-check: the setup's gh version line
 import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
+import '../../compozy/skills/compozy-setup/scripts/install-kit.test.mjs'; // compozy-driver: the installer, its retired files and its inputs
+import '../../compozy/skills/compozy-setup/scripts/devkit-kit.test.mjs'; // compozy-driver: the resolver and its six subcommands
+import '../../compozy/skills/compozy-setup/scripts/gen-agents.test.mjs'; // compozy-driver: the agents rendered from PACKS
+import '../../compozy/skills/compozy-setup/scripts/loop-templates.test.mjs'; // compozy-driver: the three loops of the kit
+import '../../compozy/skills/compozy-setup/scripts/adoption.test.mjs'; // compozy-driver: this repository's .compozy/ is the rendered kit
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');

@@ -6,9 +6,13 @@
 #
 #     .compozy/bin/devkit-kit deliver-check --ci
 #     .compozy/bin/devkit-kit conduct-check --change <id>
+#     .compozy/bin/devkit-kit change-loop next --view compozy --change <id>
+#     .compozy/bin/devkit-kit roadmap-loop compozy-tick --places <n>
+#     .compozy/bin/devkit-kit review-round stage1 --input <json file>
 #     .compozy/bin/devkit-kit screens-check --change <id>
 #
-# Resolution order for `deliver-check` and `conduct-check`:
+# Resolution order for `deliver-check`, `conduct-check`, `change-loop` and `roadmap-loop` (the
+# hooks of devkit-openspec):
 #   1. $DEVKIT_HOOKS       - a directory holding <subcommand>.mjs directly.
 #   2. a repository checkout - plugins/openspec/hooks/<subcommand>.mjs, found by walking up
 #                               from the caller's current directory.
@@ -17,6 +21,14 @@
 #      sibling; the one with the highest "version" wins, compared field by field as integers
 #      (never as a directory name, never by modification time); a tie is broken by the
 #      lexicographically last path.
+#
+# `review-round` ships with devkit-core (the review round's rules), so it resolves there, never in
+# devkit-openspec, and $DEVKIT_HOOKS does not apply to it (that variable names the devkit-openspec
+# hooks only). Its order is:
+#   1. a repository checkout - plugins/core/skills/review-change/scripts/review-round.mjs, found
+#                               the same way.
+#   2. an installed devkit-core - same highest-version / tie-break rule as above, matched on
+#      "devkit-core" and a skills/review-change/scripts/review-round.mjs sibling.
 #
 # `screens-check` resolves inside this pack (devkit-compozy), never in devkit-openspec, because
 # it ships with devkit-compozy, not with devkit-openspec: $DEVKIT_HOOKS does not apply to it
@@ -129,9 +141,9 @@ EOF
 
 subcmd="${1:-}"
 case "$subcmd" in
-  deliver-check | conduct-check | screens-check) ;;
+  deliver-check | conduct-check | screens-check | change-loop | roadmap-loop | review-round) ;;
   *)
-    echo "devkit-kit: unknown subcommand '${subcmd}' (expected deliver-check, conduct-check or screens-check)" >&2
+    echo "devkit-kit: unknown subcommand '${subcmd}' (expected deliver-check, conduct-check, screens-check, change-loop, roadmap-loop or review-round)" >&2
     exit 3
     ;;
 esac
@@ -139,7 +151,23 @@ shift
 
 script=""
 
-if [ "$subcmd" = "screens-check" ]; then
+if [ "$subcmd" = "review-round" ]; then
+  checkout_rel="plugins/core/skills/review-change/scripts/review-round.mjs"
+  installed_rel="skills/review-change/scripts/review-round.mjs"
+
+  if dir=$(find_repo_checkout "$checkout_rel"); then
+    script="$dir/$checkout_rel"
+  elif dir=$(find_installed devkit-core "$installed_rel"); then
+    script="$dir/$installed_rel"
+  else
+    cat >&2 <<MSG
+devkit-kit: no review-round found. Tried:
+  - repository checkout: $checkout_rel, walking up from $PWD
+  - installed devkit-core: under $(plugins_dir), with a $installed_rel sibling
+MSG
+    exit 3
+  fi
+elif [ "$subcmd" = "screens-check" ]; then
   checkout_rel="plugins/compozy/skills/screen-design/scripts/screens-check.mjs"
   installed_rel="skills/screen-design/scripts/screens-check.mjs"
 

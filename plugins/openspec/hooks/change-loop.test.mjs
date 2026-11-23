@@ -3502,8 +3502,8 @@ const READY_REPLIES = {
   'loop run': { stdout: { run: { run_id: 'looprun-1' }, web_url: 'http://localhost:2123/loop-runs/looprun-1' } },
 };
 // A project on the compozy driver, the fake `compozy` answering as a ready CompozyOS, and the daemon's socket listening.
-async function compozyProject(t, { replies = {}, daemon = true, config = COMPOZY_CONFIG, setup } = {}) {
-  const root = devkitRepo(config);
+async function compozyProject(t, { replies = {}, daemon = true, config = COMPOZY_CONFIG, setup, repo } = {}) {
+  const root = repo ?? devkitRepo(config);
   setup?.(root);
   const k = fakeCompozy({ ...READY_REPLIES, ...replies });
   if (daemon) await k.daemon(t);
@@ -3649,6 +3649,48 @@ test('change-loop compozy start: C8 a new change starts a run with its id, its r
   assert.equal(snapshot(p.root), before);
 });
 
+// A project on the compozy driver with a bare origin (the main checkout of `roundRepo`) and the delivery block of `delivery`.
+const TWO_PRS_BLOCK = 'devkit:\n  driver: compozy\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
+const twoPrsRepo = ({ testBranch = true, block = TWO_PRS_BLOCK } = {}) => {
+  const r = roundRepo({ roadmap: '# Roadmap\n', config: `schema: devkit\n${block}` });
+  if (testBranch) git(r.main, 'push', '-q', 'origin', 'HEAD:refs/heads/develop');
+  return r.main;
+};
+
+test('change-loop compozy start: the refusals open makes before it creates anything stop a new change before the run, with their own reply', async (t) => {
+  const cases = [
+    ['test-branch-missing', { testBranch: false }, 'add-export', { branch: 'develop' }],
+    ['base-not-default', { block: 'devkit:\n  driver: compozy\n  delivery:\n    model: two-prs\n    base: master\n    test_branch: develop\n' }, 'add-export', { base: 'master', default: 'main' }],
+    ['name-test-suffix', {}, 'add-export-develop', { id: 'add-export-develop', branch: 'develop' }],
+  ];
+  for (const [key, repoOptions, id, params] of cases) {
+    const p = await compozyProject(t, { repo: twoPrsRepo(repoOptions) });
+    const before = snapshot(p.root);
+    const r = cstart(p, id, 'add a thing');
+    assert.equal(r.code, 3, key);
+    assert.deepEqual(startShape(r), [1, key, id, null, null], key);
+    assert.equal(body(r).reply, render('en', key, params), key);
+    assert.equal(startedRuns(p.k).length, 0, `${key} started no run`);
+    assert.equal(snapshot(p.root), before, `${key} changed nothing`);
+  }
+});
+
+test('change-loop compozy start: a two-prs project that passes those checks starts, and a known change is never checked', async (t) => {
+  const p = await compozyProject(t, { repo: twoPrsRepo() });
+  const r = cstart(p, 'add-export', 'add a thing');
+  assert.deepEqual(startShape(r).slice(0, 3), [1, 'compozy-started', 'add-export']);
+  assert.equal(startedRuns(p.k).length, 1);
+  // A change some checkout already holds opens nothing in its run, so a missing test branch does not stop it, and neither does its name.
+  const known = await compozyProject(t, { repo: twoPrsRepo({ testBranch: false }), setup: (root) => addChange(root, 'feat-develop') });
+  const k = cstart(known, 'feat-develop');
+  assert.deepEqual(startShape(k).slice(0, 3), [1, 'compozy-started', 'feat-develop']);
+  // A project on the trunk model is not checked at all, and neither is one with no remote.
+  const trunk = await compozyProject(t, { repo: twoPrsRepo({ testBranch: false, block: 'devkit:\n  driver: compozy\n  delivery:\n    model: trunk\n' }) });
+  assert.equal(startShape(cstart(trunk, 'add-export-develop', 'add a thing'))[1], 'compozy-started');
+  const bare = await compozyProject(t);
+  assert.equal(startShape(cstart(bare, 'add-export-develop', 'add a thing'))[1], 'compozy-started');
+});
+
 test('change-loop compozy start: a reply with no url names the run, and a failed start is a usage error', async (t) => {
   const p = await compozyProject(t, { replies: { 'loop run': { stdout: { run: { run_id: 'looprun-3' } } } } });
   const r = cstart(p, 'new-thing', 'add a thing');
@@ -3736,6 +3778,67 @@ test('change-loop compozy view: the review step, the gate step and the session s
   assert.ok(ov.brief.includes(JSON.stringify(other.detail)));
   assert.ok(ov.brief.startsWith(`Change feat (devkit script), stage ${other.stage}: `), 'in the action\'s brief frame');
   assert.ok(ov.brief.includes('Work only in /w/feat on branch feat; every file path is absolute under it'));
+});
+
+// ---- 4.0: the view follows what main added at 72b51d3 (design.md, "Main-merge amendments (after 72b51d3)")
+
+const SUPPORT = { root: '/w/feat-develop', branch: 'feat-develop' };
+
+test('change-loop compozy view: a support-branch hand-off runs in the support worktree, a task one in the task worktree', () => {
+  const conflict = build(rowOf('resolve-support-conflict', { ...SUPPORT, paths: ['a.txt'] }));
+  const hv = cview(conflict);
+  assert.deepEqual([hv.kind, hv.agent, hv.root], ['agent', 'tdd-implementer', SUPPORT.root], 'the agent runs in the detail\'s worktree');
+  assert.ok(hv.brief.includes(`Work only in ${SUPPORT.root} on branch ${SUPPORT.branch};`), hv.brief);
+  const merge = build(rowOf('merge-into-support', { ...SUPPORT, from: 'feat' }));
+  const mv = cview(merge);
+  assert.deepEqual([mv.kind, mv.root], ['coordinator', SUPPORT.root], 'a coordinator step takes the detail\'s root too');
+  assert.ok(mv.brief.includes(`Work only in ${SUPPORT.root} on branch ${SUPPORT.branch};`), mv.brief);
+  assert.ok(!mv.brief.includes('Work only in /w/feat '), 'and names no other checkout');
+  // The negatives: no detail root, a detail with only one of the two, and an ordinary step all stay in the task worktree.
+  for (const [what, a] of [
+    ['no detail', build(rowOf('enable-auto-merge', { number: 12 }))],
+    ['root alone', build(rowOf('merge-into-support', { root: SUPPORT.root, from: 'feat' }))],
+    ['branch alone', build(rowOf('merge-into-support', { branch: SUPPORT.branch, from: 'feat' }))],
+  ]) {
+    const v = cview(a);
+    assert.equal(v.root, '/w/feat', what);
+    assert.ok(v.brief.includes('Work only in /w/feat on branch feat;'), `${what}: ${v.brief}`);
+  }
+});
+
+test('change-loop compozy view: every hand-off step of the delivery rows carries its dispatch sentence, from the table the loop itself reads', () => {
+  // A step whose end reply needs a parameter this row does not give is an end step, not a hand-off; nothing else is skipped.
+  const kindOfStep = (step) => { try { return build(rowOf(step, { phase: 2 })).kind; } catch (e) { if (e instanceof LoopUsageError) return 'end'; throw e; } };
+  const handOffs = ROW_STEPS.filter((step) => kindOfStep(step) === 'agent');
+  const expected = ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'resolve-release-conflict', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify',
+    'open-prs', 'open-test-pr', 'push-support', 'move-test-pr', 'open-test-archive-pr', 'resolve-support-conflict', 'fix-resolution'];
+  assert.deepEqual([...handOffs].sort(), [...expected].sort(), 'the table\'s hand-offs are the old ones and the seven new delivery steps');
+  for (const step of handOffs) {
+    const v = cview(build(rowOf(step, { phase: 2 })));
+    const bullet = `add the dispatch sentence of the \`devkit\` skill's Loop bullet \`${step}\``;
+    const row = `add the dispatch sentence of the \`ship-change\` row of step \`${step}\``;
+    assert.ok(step === 'resolve-release-conflict' ? v.brief.includes(bullet) : v.brief.includes(row), `${step}: ${v.brief}`);
+    assert.equal(v.brief.includes(bullet) && v.brief.includes(row), false, `${step} names one source only`);
+  }
+  // Every dispatch sentence names a row that exists: a `ship-change` table row for the step.
+  const rows = readFileSync(join(HERE, '..', 'skills', 'ship-change', 'SKILL.md'), 'utf8').split('\n').filter((l) => l.startsWith('| `'));
+  for (const step of handOffs.filter((s) => s !== 'resolve-release-conflict')) {
+    assert.ok(rows.some((l) => l.slice(0, l.indexOf('|', 2)).includes(`\`${step}\``)), `${step} has a ship-change row`);
+  }
+});
+
+test('change-loop compozy view: review-resolution is a review like review, and the other new session steps are coordinator steps', () => {
+  const resolution = build(rowOf('review-resolution', { root: '/w/feat', support: 'feat-develop', commit: 'abc1234', round: 1 }));
+  const rv = cview(resolution);
+  assert.deepEqual([rv.kind, rv.agent, rv.step, rv.brief], ['review', '', 'review-resolution', '']);
+  assert.equal(rv.question, render('en', 'blocked', { id: 'feat', why: 'role-failed', stage: resolution.stageTitle }));
+  for (const step of ['rerun-checks', 'checkout-support', 'merge-into-support']) {
+    const a = build(rowOf(step, { runs: [7], path: '/w/feat-develop', branch: 'feat-develop', root: '/w/feat-develop', from: 'feat' }));
+    const v = cview(a);
+    assert.deepEqual([v.kind, v.agent, v.step], ['coordinator', 'change-coordinator', step], step);
+    assert.ok(v.brief.includes(`carry out step ${step} as the \`ship-change\` row of that name says, with this \`next\` object: `), `${step}: ${v.brief}`);
+    assert.ok(v.brief.includes(JSON.stringify(a.detail)), step);
+  }
 });
 
 test('change-loop compozy view: switch-script and accept-decisions are commands no agent runs', () => {

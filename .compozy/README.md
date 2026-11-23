@@ -4,36 +4,41 @@ What CompozyOS reads to give this project an identity. It travels with the repos
 daemon adds `workspace.toml` (a stable id for this machine) on the first registration, which is
 git-ignored.
 
-## Roles (agents/)
+## Agents (agents/)
 
 The devkit is the engine: OpenSpec changes, hooks that keep product code closed until the plan is
 ready, reviewer agents and checkers. CompozyOS only sequences the stages, holds the human gates,
-runs sessions and shows the panel. Each agent here is a thin shell over devkit skills and agents;
-no rule is duplicated in these prompts.
+runs sessions and shows the panel. There is one agent here for every role the devkit names, twenty
+in all. Each is a seat: a CompozyOS session that hands its work, unchanged, to the Claude agent of
+the same name (`devkit-core:<role>` or `devkit-openspec:<role>`) and returns that agent's report in
+the shape the loop's node asks for, so the devkit hooks judge the work exactly as they do in
+Claude Code. They are generated from the Claude agent files by
+`node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` in the devkit repository, so a
+change goes into the Claude agent, never into a copy here.
 
-| Role | Does | Writes |
-| --- | --- | --- |
-| `tech-lead` | plans one change (proposal, design, tasks, spec deltas, readiness), declaring the screens it touches; on the `devkit` schema `devkit-core:adr-author` writes `decisions.md` first | `openspec/changes/<id>/`, and the project's ADR folder through that agent |
-| `dev` | implements phase by phase with TDD in the worktree `<id>` on branch `<id>`, waits on the pull request's checks and its merge, then drives the archive; before the first phase it has the implementer accept the listed ADRs and the mock-up | code and tests, `tasks.md` ticks, the archive steps |
-| `qa` | runs the unit and E2E tests through `devkit-core:test-runner` and `devkit-core:e2e-tester` when the project declares them, then the review bench and the pr-verifier | `reviews/`, `review.md`, `evidence.md`, `unit-tests.md`, `e2e-tests.md`, the E2E test files |
-| `design` | for a change with screens, has `devkit-core:screen-designer` draw each screen and write `mockup.md`, confirms or proposes the screen-map rows and a mockup version, then records the demo evidence | `openspec/changes/<id>/mock/`, `mockup.md`, the screen-map rows, `openspec/changes/<id>/evidence/` |
+The default agent is `change-coordinator`, the hands of the loops: it opens a change, runs one
+turn of the requirements grill, carries out the delivery and retro steps of the `ship-change`
+skill, and writes the steps of the review loop. The agents that do the stages are the ones the
+checker names each turn (`change-planner`, `tdd-implementer`, `commit-and-pr`, `pr-verifier`,
+`screen-designer`, `test-runner`, `e2e-tester`, the reviewers and the rest).
 
-## Loop (loops/openspec-change)
+## Loops (loops/)
 
-Twelve stages: `propose` -> plan gate -> `design` (skipped for a change that declares no screen)
--> `implement` (the operator approves the plan, and the design when it ran, in one review) ->
-`review` -> `verify` (focused check + `deliver-check --ci` inside the worktree) -> `demo` (skipped
-for a change with no screen, or when the project names no `demo_command`) -> `deliver` (the
-operator approves the push) -> the CI wait and its gate -> the merge wait and its gate ->
-`archive` (the devkit's `ship-change` archive steps) -> `cleanup` (the worktree is removed).
+| Loop | Does |
+| --- | --- |
+| `devkit-change` | carries one change from its request to archived. Every turn it asks the devkit checker what is next (`change-loop next`), has the checker confirm what it read, and runs that one step: a role, the review loop, a phase gate, a command, or a question to you. It ends when the checker says the change is archived. |
+| `devkit-review` | the review round of the `review-change` skill: the bench of reviewers in parallel, three verifiers for every finding that needs one, the writers of the verdict files, and the consolidated `review.md`. `devkit-change` starts it; it needs no input from you. |
+| `devkit-roadmap` | starts the changes of `openspec/roadmap.md` in roadmap order while there are free places and the machine is not loaded, and ends when every line is archived or nothing can start. |
 
-```
-compozy loop run --name openspec-change --workspace <name> \
-  --input change_id=<id> --input brief="<what the change must achieve>" \
-  --input schema=devkit-lite --no-prompt
-```
+You answer in CompozyOS, in the request the loop opens: the grill's questions, the approval of the
+plan, the approval of the mock-up, the answers to the retro's proposals, and a choice to retry or
+stop when a step is blocked. Nothing else asks for you, and no agent can answer for you.
 
-The operator starts every run; nothing starts a loop on its own. `compozy-setup` fills this
-project's four agent defaults, `verify_command`, optionally `demo_command` and `demo_url`, and the
-workspace timezone in `config.toml`; everything else in this file is the same for every project
-that adopts the kit.
+## How `/devkit` starts them
+
+On a project whose `openspec/config.yaml` says `driver: compozy` in its `devkit:` block,
+`/devkit change <request>` in Claude Code starts `devkit-change` for the change and replies with
+where to follow it; `/devkit roadmap <n>` starts `devkit-roadmap` for `n` places, and `/devkit
+roadmap stop` stops it. Nothing starts a loop on its own, and a loop never needs Claude Code to stay
+open. The checkers run through `.compozy/bin/devkit-kit`, which finds them in a repository checkout
+or in the installed devkit packs, so no loop names a path that exists in only one repository.

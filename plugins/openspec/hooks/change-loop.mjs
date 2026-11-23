@@ -1707,6 +1707,19 @@ export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.en
   return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }), lockSleep);
 }
 
+// The ref a new change `id` starts from in a repository with an `origin`: `origin/<default branch>`, and with the two-prs model
+// `origin/<delivery base>` once the model's refusals pass (each throws `refuse(key, params)`, nothing created). `open` and
+// `compozy-start` both call it, so the refusals known before anything is made are one rule.
+function deliveryBase(main, id, refuse) {
+  const delivery = readDevkitSettings(main).delivery;
+  if (delivery?.model !== 'two-prs') return `origin/${defaultBase(main)}`;
+  const { base: configured, testBranch } = delivery;
+  if (defaultBase(main) !== configured) throw refuse('base-not-default', { base: configured, default: defaultBase(main) });
+  if (!tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${testBranch}`])) throw refuse('test-branch-missing', { branch: testBranch });
+  if (id.endsWith(`-${testBranch}`)) throw refuse('name-test-suffix', { id, branch: testBranch });
+  return `origin/${configured}`;
+}
+
 // What `open` does while it holds the lock: the fetch, the id check, the worktree, the change and the script's first file.
 function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env }) {
   const hasOrigin = gitRun(main, ['remote']).split('\n').includes('origin');
@@ -1715,15 +1728,7 @@ function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env
 
   let base = 'HEAD';
   if (hasOrigin) {
-    base = `origin/${defaultBase(main)}`;
-    const delivery = readDevkitSettings(main).delivery;
-    if (delivery?.model === 'two-prs') {
-      const { base: configured, testBranch } = delivery;
-      if (defaultBase(main) !== configured) throw refuse('base-not-default', { base: configured, default: defaultBase(main) });
-      if (!tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${testBranch}`])) throw refuse('test-branch-missing', { branch: testBranch });
-      if (id.endsWith(`-${testBranch}`)) throw refuse('name-test-suffix', { id, branch: testBranch });
-      base = `origin/${configured}`;
-    }
+    base = deliveryBase(main, id, refuse);
     if (!tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/${base}`])) throw new LoopUsageError(`${base} does not exist: nothing to start the change from`);
   }
   const worktree = join(main, '.claude', 'worktrees', id);
@@ -1999,8 +2004,10 @@ export function applyAnswer(record, gate, { answer, question = '', at }) {
 
 // ---- the view (D-3)
 
-const SHIP_ROW_STEPS = ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify'];
+// The hand-off steps are the ones `ROWS` gives a role (`AGENT_STEPS`); each has a `ship-change` row for its dispatch sentence, except
+// the steps the `devkit` skill's Loop describes instead (`SKILL_LOOP_STEPS`).
 const SKILL_LOOP_STEPS = ['resolve-release-conflict'];
+const SHIP_ROW_STEPS = AGENT_STEPS.filter((step) => !SKILL_LOOP_STEPS.includes(step));
 const COMMAND_STEPS = ['switch-script', 'accept-decisions'];
 // The kinds whose progress key a confirmed view records as handed; any other kind clears it.
 export const HANDED_KINDS = ['agent', 'coordinator', 'review', 'gate', 'command', 'open'];
@@ -2015,16 +2022,20 @@ export function buildView(action, record, { lang = 'pt-BR', dir } = {}) {
   const say = (key, params = {}) => render(l, key, { id, ...params });
   const stage = action.stage ?? '';
   const end = action.kind === 'end' ? action.end : null;
+  // A step whose detail names a worktree and a branch (the support branch's) runs there, not in the task worktree, as `decide`'s brief says.
+  const there = action.detail?.root && action.detail?.branch;
+  const root = there ? action.detail.root : action.root;
+  const branch = there ? action.detail.branch : action.branch;
   const make = (over, uses = null) => ({
     view: {
-      version: 1, kind: '', change: id, root: action.root ?? '', stage, stage_title: action.stageTitle ?? '', agent: '', step: action.step ?? '',
+      version: 1, kind: '', change: id, root: root ?? '', stage, stage_title: action.stageTitle ?? '', agent: '', step: action.step ?? '',
       brief: '', progress_key: action.progressKey ?? (end ? `end/${end.state}/${end.why}/${stage}` : ''), question: '', reply: action.reply ?? '', ...over,
     },
     uses,
   });
   // The brief frame of `decide`: the change, the checkout, the files' language.
-  const frame = (forStage, what) => `Change ${id}${action.script ? ` (${action.script} script)` : ''}, stage ${forStage}: ${what}. Work only in ${action.root}`
-    + `${action.branch ? ` on branch ${action.branch}` : ''}; every file path is absolute under it; start every Bash command with cd ${action.root} && ; do not fetch. `
+  const frame = (forStage, what) => `Change ${id}${action.script ? ` (${action.script} script)` : ''}, stage ${forStage}: ${what}. Work only in ${root}`
+    + `${branch ? ` on branch ${branch}` : ''}; every file path is absolute under it; start every Bash command with cd ${root} && ; do not fetch. `
     + `Write the change's files in ${filesLanguageName(action.filesLanguage)}.`;
   const planDir = dir ?? join(action.root ?? '', 'openspec', 'changes', id);
   const coordinator = (brief, over = {}, uses = null) => make({ kind: 'coordinator', agent: 'change-coordinator', brief, ...over }, uses);
@@ -2051,7 +2062,7 @@ export function buildView(action, record, { lang = 'pt-BR', dir } = {}) {
     return make({ kind: 'agent', agent: String(action.agent).split(':').pop(), brief: `${action.brief}${dispatch}` });
   }
   if (action.kind === 'session') {
-    if (action.step === 'review') return make({ kind: 'review', question: say('blocked', { why: 'role-failed', stage: action.stageTitle ?? '' }) });
+    if (action.step === 'review' || action.step === 'review-resolution') return make({ kind: 'review', question: say('blocked', { why: 'role-failed', stage: action.stageTitle ?? '' }) });
     if (action.step === 'gate') return make({ kind: 'gate', question: say('blocked', { why: 'tests-red', phase: action.detail?.phase ?? '' }) });
     if (COMMAND_STEPS.includes(action.step)) return make({ kind: 'command' });
     return coordinator(frame(stage, `carry out step ${action.step} as the \`ship-change\` row of that name says, with this \`next\` object: ${JSON.stringify(action.detail ?? {})}`));
@@ -2165,6 +2176,14 @@ export function compozyStart(cwd, id, { request = '', lang = 'pt-BR', env = proc
   if (knownChange(start, id)) return begin(); // C5, an empty request
   if (words === '') throw new LoopUsageError('compozy-start needs the request on standard input for a new change'); // C6
   if (nameTaken(start, main, id)) return stop('name-taken', render(l, 'name-taken', { id })); // C7
+  // The refusals `open` makes from the delivery model are known now: the run would only fail late, with `open-failed`, after the owner waited.
+  if (gitRun(main, ['remote']).split('\n').includes('origin')) {
+    tryGit(main, ['fetch', 'origin', '--prune', '--quiet']); // as `open` does, so a test branch pushed a minute ago is seen; a failed fetch leaves the refs as they are
+    try { deliveryBase(main, id, (key, params = {}) => new LoopRefusal(key, render(l, key, params))); } catch (e) {
+      if (e instanceof LoopRefusal) return stop(e.message, e.reply);
+      throw e;
+    }
+  }
   return begin(); // C8
 }
 

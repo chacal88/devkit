@@ -149,6 +149,23 @@ task with `git status --short`.
 
 ## 4. The kit: agents, loops, resolver and installer (AC-2, AC-5, AC-7, AC-8, AC-9, AC-12)
 
+- [x] 4.0 Follow what `main` added at `72b51d3` in the CompozyOS view (the plan's decisions and
+  acceptance criteria stay), four fixes with a failing test first each, in
+  `plugins/openspec/hooks/change-loop.mjs` and its test file: (a) `buildView` takes the view's
+  `root`, and the root and branch of its brief frame, from the action's `detail.root` and
+  `detail.branch` when the detail names both (a support-branch hand-off runs in the support
+  worktree), else from the action; (b) the dispatch sentence of a hand-off step is derived from
+  `ROW_STEPS` (the delivery rows' table), not from a second hand-kept list, so the seven new
+  delivery steps (`open-prs`, `open-test-pr`, `push-support`, `move-test-pr`,
+  `open-test-archive-pr`, `resolve-support-conflict`, `fix-resolution`) carry it; (c)
+  `review-resolution` is kind `review` like `review`, and `rerun-checks`, `checkout-support` and
+  `merge-into-support` stay `coordinator` (a test pins it); (d) `compozy-start` calls the helper
+  `open` uses for the refusals known before a run starts (`test-branch-missing`,
+  `base-not-default`, `name-test-suffix`) and answers with the refusal's own reply. Check: the new
+  tests fail on the base and pass, and `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node
+  --test --test-name-pattern="^change-loop compozy" --test-name-pattern="^delivery-models open"
+  plugins/openspec/hooks/guard.test.mjs` is green; design.md, "Main-merge amendments (after 72b51d3)",
+  records the four fixes and the main features this view does not follow.
 - [x] 4.1 Write `plugins/openspec/agents/change-coordinator.md` as D-8 says (frontmatter `name`,
   `description`, `tools`, `model: sonnet`, `skills: requirements-grill, retro`; the body's steps,
   among them the mock-up facts of an approved mock-up, its Outcome line, and its Never list, which
@@ -178,7 +195,7 @@ task with `git status --short`.
   and `design/`, add the step "CompozyOS agents are up to date" to `.github/workflows/ci.yml` after
   the catalog step, and add its row to `CLAUDE.md`'s command table. Check: the tests of 4.2 pass and
   `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` exits 0.
-- [ ] 4.4 Write the failing tests of D-9 (`devkit-kit.test.mjs`, names `compozy-resolver ...`), D-10
+- [x] 4.4 Write the failing tests of D-9 (`devkit-kit.test.mjs`, names `compozy-resolver ...`), D-10
   (`install-kit.test.mjs`, names `compozy-kit ...`, the AC-8 case over a scratch copy of the old
   kit held as constants of the test with a manifest of their digests, one file hand-edited, as D-10
   says) and D-5 to D-7 (the new `loop-templates.test.mjs`, names `compozy-loops ...`, the `mockup`
@@ -191,19 +208,19 @@ task with `git status --short`.
   import lines of `install-kit.test.mjs`, `devkit-kit.test.mjs`, `gen-agents.test.mjs`,
   `loop-templates.test.mjs` and `adoption.test.mjs`. Check: the new and changed tests fail on the
   base; T-14 passes unchanged.
-- [ ] 4.5 Implement D-9 in `templates/bin/devkit-kit` and D-10 in `scripts/install-kit.mjs`,
+- [x] 4.5 Implement D-9 in `templates/bin/devkit-kit` and D-10 in `scripts/install-kit.mjs`,
   `templates/substitutions.json`, `templates/config.toml` and `templates/README.md`. Check: the
   `compozy-resolver` and `compozy-kit` tests pass.
-- [ ] 4.6 Write `templates/loops/devkit-change/loop.yaml` (the sixteen node groups of D-5, with
+- [x] 4.6 Write `templates/loops/devkit-change/loop.yaml` (the sixteen node groups of D-5, with
   `ask_mockup`, `record_mockup` and `run_step`), `templates/loops/devkit-review/loop.yaml` and
   `templates/loops/devkit-roadmap/loop.yaml` as D-5, D-6 and D-7 say, and delete
   `templates/loops/openspec-change/`. Check: the `compozy-loops` tests pass, and `compozy loop
   validate --file <each> -o json` reports `valid: true` for each of the three.
-- [ ] 4.7 Install the kit again over this repository: `node
+- [x] 4.7 Install the kit again over this repository: `node
   plugins/compozy/skills/compozy-setup/scripts/install-kit.mjs .` from the worktree root. Check: its
   output reports `remove` for the four old agents and `loops/openspec-change/loop.yaml`, `dropped`
   for the seven old inputs, `create` for the new files, and the adoption tests pass.
-- [ ] 4.8 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers AC-2, AC-5, AC-7, AC-8, AC-9 and AC-12 for the kit.
+- [x] 4.8 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers AC-2, AC-5, AC-7, AC-8, AC-9 and AC-12 for the kit.
 
 ## 5. The local proof (AC-1 to AC-5, AC-8, AC-9, AC-11; owner-run)
 

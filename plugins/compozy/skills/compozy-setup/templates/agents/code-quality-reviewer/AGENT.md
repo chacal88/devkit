@@ -117,6 +117,8 @@ Scale the review to the diff, not to the repository.
 
 When the caller names a change with a folder (`openspec/changes/<id>/` or `docs/changes/<id>/`), also write your full output to `reviews/code-quality-reviewer.md` in that folder, overwriting the previous round. Its first line is your verdict line. Its second line is `Commit: <sha>`: the full `git rev-parse HEAD` of the code you reviewed, followed by ` (uncommitted changes)` when the reviewed diff included uncommitted work outside `openspec/`. Nothing else goes between the two lines. On a re-review, list every previous `[blocking]` and `[important]` finding again with ` · fixed in <sha>` (the commit that fixed it) or ` · refuted: <evidence>`; a finding still open keeps its severity tag and gets no disposition. That file is the only thing you write: projects using the devkit hooks accept `reviews/code-quality-reviewer.md` only from you and block every other write from you.
 
+On a resolution call (the caller names a support branch and its newest own commit, and the diffs of its own commits), review only those diffs, write `reviews/resolution/code-quality-reviewer.md` instead of `reviews/code-quality-reviewer.md`, and put the named commit on its `Commit:` line; everything above applies to that file.
+
 ### Staged round
 
 When the caller says the round is staged, it runs in stages and you do not review in one pass.
