@@ -132,12 +132,12 @@ the tree; end every task with `git status --short`.
   records the answers` moved with them, then `python3 scripts/gen-catalog.py`. Check: `python3
   scripts/gen-catalog.py --check` passes and `release-rebase pin: the real docs/openspec-flow.md …`
   passes.
-- [ ] 3.4 Owner-run task, done by the session that conducts this change (never `tdd-implementer`),
+- [x] 3.4 Owner-run task, done by the session that conducts this change (never `tdd-implementer`),
   after task 3.3: run the marketplace validation with the desktop app's bundled Claude Code, as
   `CONTRIBUTING.md` says, into `${TMPDIR%/}/devkit-validate-change-state/phase-3.txt`. Check: the
   record holds "Validation passed" and the release's commit; a failure is fixed in task 3.3 and the
   run repeated.
-- [ ] 3.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-change-state/phase-3.txt"` green, the whole suite run once as a background command; covers every acceptance criterion's tests together, with every existing test passing.
+- [x] 3.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-change-state/phase-3.txt"` green, the whole suite run once as a background command; covers every acceptance criterion's tests together, with every existing test passing.
 
 ## Workflow follow-up
 
