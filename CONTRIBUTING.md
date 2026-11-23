@@ -57,6 +57,8 @@ An acceptance criterion states only what can be proven before the PR: `deliver-c
 
    A release that changes devkit-openspec's version is tagged `v<that version>` on its merge commit on `main`: a lightweight tag, pushed after the merge (`git tag v<x> <merge sha>`, then `git push origin v<x>`), because `openspec-setup` pins projects' CI and vendored schemas to that tag's commit (ADR 0002). A release that bumps only other packs gets no new tag: it has nothing new to pin, and `v<that version>` already names an earlier commit.
 
+   This repository sets `devkit.release_tag` to devkit-openspec's `plugin.json`, so after the merge `deliver-check` answers `tag-release` and the session pushes that tag itself, before the retro ([ADR 0019](docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)); the by-hand commands above are for a release made outside the loop.
+
 ## Changing the OpenSpec schemas
 
 Validate them against the current OpenSpec CLI:

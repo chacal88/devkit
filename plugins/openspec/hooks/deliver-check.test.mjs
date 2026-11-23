@@ -1762,10 +1762,11 @@ function presetSetup(gh, { repo = {}, rules = [{ type: 'required_status_checks',
   gh.set('api-GET-repos__owner___repo__rules_branches_main', { stdout: rules });
   gh.set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' });
 }
-// A devkit-lite change `feat` with ship: pr, on branch ship/feat, committed.
-function shipRepo({ ship = 'pr', method = '' } = {}) {
+// A devkit-lite change `feat` with ship: pr, on branch ship/feat, committed. `extra` is config text appended to
+// openspec/config.yaml before the first commit (release-tags: a `devkit:` block).
+function shipRepo({ ship = 'pr', method = '', extra = '' } = {}) {
   const root = gitRepo({
-    config: `schema: devkit-lite\nship:\n  devkit-lite: ${ship}\n${method ? `merge_method: ${method}\n` : ''}`,
+    config: `schema: devkit-lite\nship:\n  devkit-lite: ${ship}\n${method ? `merge_method: ${method}\n` : ''}${extra}`,
     changes: { feat: { '.openspec.yaml': 'schema: devkit-lite\n', 'proposal.md': proposalWith(['AC-1', 'AC-2']), 'tasks.md': TASKS } },
     files: { 'src/a.ts': 'a\n', ...(ship === 'merge' ? { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' } : {}) },
   });
@@ -3211,7 +3212,7 @@ test('format: ship-change names every next.step the checker can return', () => {
   const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
   const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'stop-plan-approval', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready',
     'stop-merge-setup', 'disable-auto-merge', 'update-branch', 'enable-auto-merge', 'wait-merge',
-    'retro', 'stop-retro-answers', 'archive', 'tick-roadmap', 'apply-proposals', 'open-archive-pr', 'archive-pr-ready', 'stop-archive', 'archived'];
+    'retro', 'stop-retro-answers', 'archive', 'tick-roadmap', 'apply-proposals', 'open-archive-pr', 'archive-pr-ready', 'stop-archive', 'archived', 'tag-release'];
   for (const s of steps) assert.ok(md.includes(`\`${s}\``), `names step ${s}`);
   assert.ok(!steps.includes('merged') && !/^\|[^|]*`merged`[^|]*\|/m.test(md), 'no `merged` row: it is a state now, not an end (D7)');
   // whatever nextStep can emit has a row in the table, so a new step cannot ship without the skill
@@ -3823,34 +3824,34 @@ test('AC-8 release-ready: every pack version matches its marketplace entry, the 
 // ================================================================ after the merge: the archive steps (archive-after-merge phase 2)
 
 const EVIDENCE_LINK = 'openspec/changes/feat/evidence.md';
-const mergedPr = (over = {}) => ({
+export const mergedPr = (over = {}) => ({
   number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefName: 'ship/feat', headRefOid: 'b'.repeat(40), baseRefName: 'main',
   mergeable: 'UNKNOWN', mergedAt: '2026-11-09T14:56:00Z', body: `feat\n${EVIDENCE_LINK}\n`, autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', ...over,
 });
-const archivePrJson = (over = {}) => ({
+export const archivePrJson = (over = {}) => ({
   number: 13, url: 'https://github.com/o/r/pull/13', state: 'OPEN', headRefOid: 'c'.repeat(40), baseRefName: 'main',
   mergeable: 'MERGEABLE', autoMergeRequest: null, mergeStateStatus: 'CLEAN', ...over,
 });
-const ARCHIVE_LISTING = 'api-GET-repos__owner___repo__contents_openspec_changes_archive_ref=main';
+export const ARCHIVE_LISTING = 'api-GET-repos__owner___repo__contents_openspec_changes_archive_ref=main';
 const ACTIVE_ON_MAIN = 'api-GET-repos__owner___repo__contents_openspec_changes_feat_ref=main';
-const ARCHIVE_PRS = 'pr-list-head-chore_archive-feat';
+export const ARCHIVE_PRS = 'pr-list-head-chore_archive-feat';
 const ARCHIVED_DIR = 'openspec/changes/archive/2026-11-09-feat';
 const NOT_FOUND = { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' };
 
 const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
 const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
   `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
-const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
+export const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
 const retroPath = (archived) => (archived ? `${ARCHIVED_DIR}/retro.md` : 'openspec/changes/feat/retro.md');
-const writeRetro = (t, md, archived = false) => put(t.root, { [retroPath(archived)]: md });
+export const writeRetro = (t, md, archived = false) => put(t.root, { [retroPath(archived)]: md });
 // What `openspec archive feat --yes` does to the working tree.
-const archiveFolder = (t) => renameSync(join(t.root, 'openspec/changes/feat'), join(t.root, ARCHIVED_DIR));
+export const archiveFolder = (t) => renameSync(join(t.root, 'openspec/changes/feat'), join(t.root, ARCHIVED_DIR));
 const ticked = '## Round 3\n- [x] feat\n';
 
 // A repository after the change PR was merged: the default branch holds the change
 // folder and the roadmap, origin/main is that commit, GitHub lists the merged PR.
-function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs = [], mergedPrs = [mergedPr()] } = {}) {
-  const t = shipRepo({ ship });
+export function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs = [], mergedPrs = [mergedPr()], extra = '' } = {}) {
+  const t = shipRepo({ ship, extra });
   git(t.root, 'switch', '-q', 'main');
   put(t.root, { 'openspec/roadmap.md': '## Round 3\n- [ ] feat\n', 'CONTRIBUTING.md': 'old\n' });
   commitAll(t.root, 'roadmap');

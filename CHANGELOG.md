@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.34.0 — release tags
+
+- **devkit-openspec** 0.30.0: a project that sets `devkit.release_tag` (a path from the repository
+  root to a JSON file with a top-level `version`) has the tag of each release pushed by the delivery
+  loop. After a merge that bumped the version, `deliver-check` answers the new `tag-release` step
+  (before the retro; for the archive PR, before `archived`), and `ship-change` creates the
+  lightweight tag `v<version>` on the merge commit and pushes it alone. A tag at another commit ends
+  the run `blocked` and is never moved; a read GitHub does not answer stops, never passes. Without
+  the key nothing changes. This repository sets it to devkit-openspec's `plugin.json`
+  ([ADR 0019](docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md)). The CI snippet now
+  pins `v0.30.0`, the release's tag.
+- Docs: CONTRIBUTING step 5 and the flow page describe the key, rows R1 to R3 and the step.
+
 ## 0.33.0 — release conflicts resolved by a merge
 
 - **devkit-openspec** 0.29.0: when a pull request conflicts with its base only in release files, the

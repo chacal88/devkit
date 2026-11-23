@@ -86,7 +86,7 @@ const SAMPLE = {
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
   branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
-  spent: 2100000, cap: 2000000,
+  spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
 // The one reply that names a file: the budget stop names the change's settings file, where the owner raises the cap.
@@ -4227,6 +4227,28 @@ test('change-budget AC-8 the settings reply names budget and the value in both l
   }
 });
 
+test('release-tags 1: /devkit change refuses a release_tag that is not a path to a JSON file', () => {
+  const accepted = 'a path from the repository root to a JSON file, such as package.json';
+  for (const value of ['/abs.json', '../x.json', 'x.yaml', '[a.json]', 'a b.json']) {
+    const config = `schema: devkit\ndevkit:\n  release_tag: ${value}\n`;
+    for (const [lang, name] of [['en', 'release file'], ['pt-BR', 'arquivo da versão']]) {
+      const root = devkitRepo(config);
+      const before = snapshot(root);
+      const b = body(startRun(root, 'change add an export', { lang }));
+      assert.equal(b.mode, 'setting-unknown', `${lang} ${value}`);
+      assert.equal(b.reply, render(lang, 'setting-unknown', { setting: 'release-tag', value, accepted }), `${lang} ${value}`);
+      assert.ok(b.reply.includes(name) && b.reply.includes(value), `${lang}: ${b.reply}`);
+      assert.equal(snapshot(root), before, `${lang} ${value}`);
+      const t = freshProject(config);
+      const beforeOpen = snapshot(t.main);
+      const r = openRun(t.main, 'new-thing', { lang });
+      assert.equal(r.code, 3, `${lang} ${value}`);
+      assert.equal(body(r).reply, b.reply, 'the reply is the one the typed command gives');
+      assert.equal(snapshot(t.main), beforeOpen, `${lang} ${value}`);
+    }
+  }
+});
+
 // ---- the decision (D-4)
 
 const AT_PLAN = () => ({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } } });
@@ -4487,6 +4509,7 @@ test('change-state AC-3 state: each blocked reason decide gives is the reason, w
     'wrong-branch': build(rowOf('stop-branch')),
     'merge-setup': build(rowOf('stop-merge-setup')),
     'archive-failed': build(rowOf('stop-archive')),
+    'tag-elsewhere': build(rowOf('stop-archive', { archiveStep: 'tag-release', tag: 'v1.3.0', at: 'd4e5f60abc', sha: 'a1b2c3dabc', number: 12 })),
     'plan-not-approved': build(rowOf('stop-not-approved')),
     'pr-problem': build(rowOf('blocked')),
     'unknown-step': run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'something-new') } }),
