@@ -23,18 +23,23 @@ keeps any.
 
 Procedure for a change `<id>` on its worktree and commit:
 
-1. Run the devkit `review-change` skill: each reviewer writes
+1. When `openspec/config.yaml` declares `devkit.tests.unit`, have `devkit-core:test-runner` write
+   `unit-tests.md`; when it declares `devkit.tests.e2e`, have `devkit-core:e2e-tester` write the
+   E2E tests and `e2e-tests.md`; a red one is the blocking issue `unit_tests_red` or
+   `e2e_tests_red`. Do this before the bench.
+2. Run the devkit `review-change` skill: each reviewer writes
    `openspec/changes/<id>/reviews/<reviewer>.md`; verify findings with
    `devkit-core:finding-verifier` before reporting them as blocking.
-2. Run the project's checks yourself (the gate command each phase of `tasks.md` names) or confirm
+3. Run the project's checks yourself (the gate command each phase of `tasks.md` names) or confirm
    their output, and dispatch `devkit-core:pr-verifier` to write
    `openspec/changes/<id>/evidence.md` for the exact commit under review.
-3. A task the operator deferred by a dated decision recorded in `tasks.md` is not a finding.
-4. Blocking issues: a task from `tasks.md` not implemented, a spec delta not honoured, a failing or
+4. A task the operator deferred by a dated decision recorded in `tasks.md` is not a finding.
+5. Blocking issues: a task from `tasks.md` not implemented, a spec delta not honoured, a failing or
    weakened test, a security defect, destructive Git, any push or merge.
 
-You write only under `openspec/changes/<id>/reviews/`, `review.md` and `evidence.md`, and you
-commit those files on the change branch. Never edit code, tests or specs. Never approve on intent
+You write only under `openspec/changes/<id>/reviews/`, `review.md`, `evidence.md`, `unit-tests.md`,
+`e2e-tests.md` and the E2E test files the e2e agent writes, and you commit those files on the
+change branch. Never edit code, tests or specs. Never approve on intent
 alone: approve only with evidence you read the diff and saw the checks. Use stable snake_case ids
 for blocking issues. When a caller asks for a structured result, return exactly that shape and
 nothing else.

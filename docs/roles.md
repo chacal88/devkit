@@ -50,19 +50,19 @@ In `docs/coordination-design.md` this role is the team's `tech-lead` for a new p
 
 ## screen-designer
 
-- Does: Draws the screen a change adds or changes, with real data, and records the mock-up the owner approved.
-- Delivers: `mockup.md`, or the same file saying why the change has no screen.
-- Never: Writes product code or decides the design the plan settles.
-- Stages: `mockup`.
-- Played today by: Nobody yet: no role of this name is shipped, so the checker reports the stage as not applying until a person writes `mockup.md` by hand.
+- Does: Draws the screen a change adds or changes, with real data, only when the grill flags `ui`, and redraws it from the owner's notes until the owner approves.
+- Delivers: `mock/<screen>.html` or `mock/<screen>.md` for each screen, and `mockup.md` listing them, with a stage header saying `pending`; the session records the owner's approval.
+- Never: Writes product code, keeps an image of a screen, sets its own stage to passed or decides the design the plan settles.
+- Stages: `mockup` (`devkit` only).
+- Played today by: The agent `devkit-core:screen-designer`.
 
 ## adr-author
 
-- Does: Records the decisions the change takes that deserve an architecture decision record, and drafts the record.
+- Does: Records the decisions the change takes that deserve an architecture decision record, and drafts each record with status proposed; the owner's plan approval accepts them.
 - Delivers: `decisions.md` and the ADR files it points to, or the same file saying that no decision needs one.
-- Never: Overrules an accepted ADR or writes product code.
-- Stages: `decisions`.
-- Played today by: Nobody yet: the stage does not apply until the role ships; a person may write `decisions.md` by hand.
+- Never: Overrules or edits an accepted ADR, sets a record accepted or writes product code.
+- Stages: `decisions` (`devkit` only).
+- Played today by: The agent `devkit-core:adr-author`.
 
 ## change-planner
 
@@ -90,24 +90,24 @@ In `docs/coordination-design.md` this role is the team's `tech-lead` for a new p
 
 ## test-runner
 
-- Does: Runs the unit tests and the coverage of the surfaces the change touched and records the result.
-- Delivers: `unit-tests.md`, with the commands and their results.
-- Never: Changes product code to make a test pass.
+- Does: Runs the whole unit suite and the coverage command the project declares and records the result, only when the project declares `devkit.tests.unit`.
+- Delivers: `unit-tests.md`, with each command, its exit code and its summary, and the coverage against the target.
+- Never: Changes a file but `unit-tests.md` or masks an exit code.
 - Stages: `unit-tests`.
-- Played today by: Nobody yet: until the role ships the stage does not apply and the gates of `tasks.md` carry the proof.
+- Played today by: The agent `devkit-core:test-runner`.
 
 ## e2e-tester
 
-- Does: Runs the end-to-end scenarios of the change against the running product and records the result.
-- Delivers: `e2e-tests.md`, with the scenarios and their results.
-- Never: Changes product code to make a scenario pass.
+- Does: Writes the E2E tests from the acceptance criteria, apart from the implementer, runs them and records the result, only when the project declares `devkit.tests.e2e`.
+- Delivers: The E2E test files and `e2e-tests.md`, with the scenarios and their results.
+- Never: Changes a product file, or reads the test files of the change's diff.
 - Stages: `e2e-tests`.
-- Played today by: Nobody yet: the stage does not apply until the role ships.
+- Played today by: The agent `devkit-core:e2e-tester`.
 
 ## pr-verifier
 
 - Does: Proves each acceptance criterion and each gate against the committed code, from the commands' own output.
-- Delivers: `evidence.md`, with the commit it verified on line 2 and a stage header on line 1.
+- Delivers: `evidence.md`, as text, with no image, with the commit it verified on line 2 and a stage header on line 1.
 - Never: Fixes a defect it finds or approves the change.
 - Stages: `evidence`.
 - Played today by: The agent `devkit-core:pr-verifier`.

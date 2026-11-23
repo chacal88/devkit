@@ -27,6 +27,9 @@ Screens` section under `openspec/changes/<id>/`.
 
 For every screen the change declares in `## Screens`, using the `screen-design` skill:
 
+0. First have `devkit-core:screen-designer` draw each declared screen under
+   `openspec/changes/<id>/mock/` and write `mockup.md` (the `screen-mockup` skill), then the
+   screen-map rows as below.
 1. Read the project's configured screen map and mockup.
 2. For each declared screen, either confirm it is already mapped with a versioned mockup, or
    propose the row (id, screen, what it shows and allows, the stage, the level of detail in the
@@ -43,6 +46,6 @@ Using the `screen-demo` skill, for every screen the change declares, run the pro
 widths, plus one video of the journey) under `openspec/changes/<id>/evidence/`, and commit it on
 the change branch.
 
-Scope: `openspec/changes/<id>/mock/`, the project's screen-map file and `evidence/` only. No
+Scope: `openspec/changes/<id>/mock/`, `mockup.md`, the project's screen-map file and `evidence/` only. No
 product code, no test, no spec. When a caller asks for a structured result, return exactly that
 shape and nothing else.
