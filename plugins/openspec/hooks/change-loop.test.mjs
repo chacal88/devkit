@@ -2537,8 +2537,9 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); delivery-models moves it to 0.28.0 (release 0.32.0); 0.27.0 went to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.28\.0/, 'the CI snippet pins the current release (delivery-models: 0.28.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); the retro of change-budget moves it to 0.28.1 (release 0.32.1); 0.28.0 went to delivery-models, 0.27.0 went to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.28\.1/, 'the CI snippet pins the current release (retro of change-budget: 0.28.1)');
+  assert.doesNotMatch(flow, /v0\.28\.0/, 'no pin left on the previous release (delivery-models)');
   assert.doesNotMatch(flow, /v0\.27\.0/, 'no pin left on the previous release (gh-version-check)');
   assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
   assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');
