@@ -17,7 +17,7 @@ import * as guardModule from './guard.mjs';
 import * as changeLoopModule from './change-loop.mjs';
 import {
   readDevkitSettings, normalizeLang, MESSAGES, render, decide, exitCodeOf, ROW_STEPS, main, HOOKS_DIR, LoopUsageError,
-  runCommand, waitLoop, PACKS, withLockFile, openChange,
+  runCommand, waitLoop, PACKS, withLockFile, openChange, nextAction,
 } from './change-loop.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -25,7 +25,7 @@ const SCHEMAS = join(HERE, '..', 'schemas');
 const LOOP = join(HERE, 'change-loop.mjs');
 
 // Every env a test of this file builds blanks the branch variables together (CONTRIBUTING.md, testing rules).
-const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
 const cleanEnv = { ...process.env, ...SET };
 
 const TDD = 'devkit-core:tdd-implementer';
@@ -84,8 +84,12 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  branch: 'develop', base: 'master', default: 'main', state: 'github',
+  branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  spent: 2100000, cap: 2000000,
+  file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
+// The one reply that names a file: the budget stop names the change's settings file, where the owner raises the cap.
+const NAMES_ITS_FILE = ['waiting-budget'];
 const STAGE_SAMPLE = { en: 'Code review', 'pt-BR': 'Revisão de código' };
 const tokensOf = (template) => [...new Set([...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))];
 const codes = (lang, prefix) => Object.keys(MESSAGES[lang]).filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length));
@@ -123,12 +127,12 @@ test('change-loop replies: no internal term in either language', () => {
   assert.ok(refusedIds.length > 20 && refusedIds.includes('code-quality-reviewer') && refusedIds.includes('stop-branch') && refusedIds.includes('no-progress'));
   assert.deepEqual(Object.keys(MESSAGES.en).sort(), Object.keys(MESSAGES['pt-BR']).sort(), 'the same keys in both languages');
   // Parameter texts the design table gives identically in both languages (a product name and a word that is the same).
-  const EXEMPT_EQUAL = ['driver.compozy', 'setting.driver', 'roadmap-stayed', 'need.owner', 'running.stage'];
+  const EXEMPT_EQUAL = ['driver.compozy', 'setting.driver', 'roadmap-stayed', 'need.owner', 'running.stage', 'setting.budget'];
   for (const lang of ['en', 'pt-BR']) {
     for (const { key, text } of renderings(lang)) {
       assert.ok(typeof text === 'string' && text.length > 0 && !/undefined|NaN|\[object|\{\w+\}/.test(text), `${lang} ${key}: ${text}`);
       assert.ok(!text.includes('`'), `${lang} ${key} has a backtick: ${text}`);
-      assert.ok(!/[\w.-]+\.(md|json|mjs|js|ts|ya?ml)\b/.test(text), `${lang} ${key} names a file: ${text}`);
+      if (!NAMES_ITS_FILE.includes(key)) assert.ok(!/[\w.-]+\.(md|json|mjs|js|ts|ya?ml)\b/.test(text), `${lang} ${key} names a file: ${text}`);
       assert.ok(!/\b[a-z][\w-]*=\S/i.test(text), `${lang} ${key} has a name=value shape: ${text}`);
       for (const name of [...refusedIds, ...refusedWords]) assert.ok(!wordRe(name).test(text), `${lang} ${key} holds ${name}: ${text}`);
       assert.ok(!/(^|\s)--[a-z]/i.test(text), `${lang} ${key} holds an option: ${text}`);
@@ -153,6 +157,22 @@ test('change-loop replies: no internal term in either language', () => {
   for (const key of Object.keys(MESSAGES.en)) {
     if (EXEMPT_EQUAL.includes(key)) continue;
     assert.notEqual(MESSAGES.en[key], MESSAGES['pt-BR'][key], `${key} is translated`);
+  }
+});
+
+test('jira-entry AC-3 the replies for no connector and an unreadable task name the key, ask for text and hold no internal term, in both languages', () => {
+  for (const key of ['task-no-connector', 'task-unreadable']) {
+    const said = {};
+    for (const lang of ['en', 'pt-BR']) {
+      const r = main(['reply', key, '--lang', lang, '--param', 'key=PROJ-482'], { env: cleanEnv });
+      assert.equal(r.code, 0, `${lang} ${key}: ${r.stderr}`);
+      assert.match(r.stdout, /PROJ-482/, `${lang} ${key} names the key`);
+      assert.match(r.stdout, /\/devkit change/, `${lang} ${key} asks for text`);
+      assert.doesNotMatch(r.stdout, /devkit-end:/, `${lang} ${key} ends no run`);
+      assert.doesNotMatch(r.stdout, /change-loop|\.mjs|connector tool|getJiraIssue/, `${lang} ${key} holds no internal term`);
+      said[lang] = r.stdout;
+    }
+    assert.notEqual(said.en, said['pt-BR'], `${key} is translated`);
   }
 });
 
@@ -316,6 +336,46 @@ test('change-loop decide: B0 the blocked ends of the stage checker win over the 
     assert.deepEqual(shape(a), ['end', 'blocked', why, 2], reason);
     if (why === 'pr-closed') assert.equal(a.reply, says('blocked', { why, number: 12 }));
   }
+});
+
+// ---- gh-version: a gh older than 2.50.0 ends with its own reason (AC-2, AC-5)
+
+const OLD_GH_END = (installed = '2.46.0', ctx) => run({ ctx, rep: { end: endOf('blocked', 'delivery', 'gh-too-old', { installed, minimum: '2.50.0' }) }, facts: { row: rowOf('implement', { phase: 1 }) } });
+
+test('gh-version 12: a blocked gh-too-old names both versions and the way out in either language (AC-2, AC-5)', () => {
+  const a = OLD_GH_END();
+  assert.deepEqual(shape(a), ['end', 'blocked', 'gh-too-old', 2]);
+  assert.deepEqual([a.params.installed, a.params.minimum, a.params.verb], ['2.46.0', '2.50.0', 'change']);
+  for (const [lang, update, unreadable] of [['en', 'update gh', /GitHub cannot be read/], ['pt-BR', 'atualize o gh', /não foi possível ler o GitHub/]]) {
+    const reply = OLD_GH_END('2.46.0', { lang }).reply;
+    for (const part of ['2.46.0', '2.50.0', update, '/devkit change feat']) assert.ok(reply.includes(part), `${lang}: ${reply}`);
+    assert.doesNotMatch(reply, unreadable);
+  }
+  const unknown = OLD_GH_END(null);
+  assert.ok(unknown.reply.includes('unknown version'), unknown.reply);
+  assert.ok(OLD_GH_END(null, { lang: 'pt-BR' }).reply.includes('versão desconhecida'));
+  for (const lang of ['en', 'pt-BR']) {
+    const line = render(lang, 'roadmap-blocked', a.params);
+    assert.ok(line.includes('2.46.0') && line.includes('2.50.0'), `${lang}: ${line}`);
+  }
+});
+
+test('gh-version 13: next over a delivered change with an old gh exits 2 with the own reason (AC-2)', () => {
+  const { t, gh, env } = deliveredChange();
+  gh.set('pr-checks', { exit: 1, stderr: 'unknown flag: --json\n\nUsage:  gh pr checks [<number> | <url> | <branch>] [flags]\n' });
+  gh.set('version', { stdout: 'gh version 2.46.0 (2024-03-18)\n' });
+  const r = next(t.main, [], env);
+  assert.equal(r.code, 2, r.stdout + r.stderr);
+  const { action } = parsed(r);
+  assert.equal(action.end.why, 'gh-too-old');
+  assert.equal(action.reply, render('en', 'blocked', { id: 'feat', why: 'gh-too-old', installed: '2.46.0', minimum: '2.50.0', verb: 'change' }));
+});
+
+test('gh-version 14: waitLoop ends at once on a gh-too-old poll', async () => {
+  const old = OLD_GH_END();
+  const r = await waited([WAIT, old]);
+  assert.deepEqual(r.action, old);
+  assert.equal(r.polls, 2);
 });
 
 // The current stage of a build-to-archive decision: the flow-check report only has to be in a build part.
@@ -751,14 +811,14 @@ const RELEASE = { 'CHANGELOG.md': '# c\n', '.claude-plugin/marketplace.json': '{
 // A `devkit-lite` change `feat` in a worktree (a bare origin, a clone), every stage up to the code review passed at the
 // code commit, the reviews and the evidence current, its pull request open with `checks`. `conflicts` are the files both
 // the branch and origin/main edit (the same shape as conflictRepo in conduct-check.test.mjs, which is private to that file).
-function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE' } = {}) {
+function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n' } = {}) {
   const t = roundRepo({ roadmap: '# Roadmap\n\n## Round 1: x\n- [ ] feat\n', config: PR_CONFIG, files: RELEASE });
   const wt = t.addWt('feat');
   const dir = (f) => `openspec/changes/feat/${f}`;
   const own = Object.fromEntries(conflicts.map((f) => [f, `feat edits ${f}\n`]));
   put(wt, {
     [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
-    [dir('proposal.md')]: PROPOSAL, [dir('requirements.md')]: '# Requirements\n', [dir('specs/s/spec.md')]: '# Spec\n',
+    [dir('proposal.md')]: PROPOSAL, [dir('requirements.md')]: requirements, [dir('specs/s/spec.md')]: '# Spec\n',
     [dir('tasks.md')]: '# Tasks\n\n## 1. First\n- [x] 1.1 code\n',
     'src/feat.ts': 'code\n', ...own,
   });
@@ -769,7 +829,7 @@ function deliveredChange({ checks = [check('build', 'pending')], conflicts = [],
     [dir('reviews/code-quality-reviewer.md')]: review, [dir('reviews/test-coverage-reviewer.md')]: review,
     [dir('evidence.md')]: withHead('evidence', `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n`),
     [dir('review.md')]: withHead('review', 'Consensus: PASS (round 1/2)\n\n# Review\n'),
-    [dir('proposal.md')]: withHead('proposal', PROPOSAL), [dir('requirements.md')]: withHead('requirements', '# Requirements\n'),
+    [dir('proposal.md')]: withHead('proposal', PROPOSAL), [dir('requirements.md')]: withHead('requirements', requirements),
     [dir('specs/s/spec.md')]: withHead('specs', '# Spec\n'), [dir('tasks.md')]: withHead('tasks', '# Tasks\n\n## 1. First\n- [x] 1.1 code\n'),
   });
   commitAll(wt, 'reviews, evidence and stage headers');
@@ -2477,11 +2537,15 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); delivery-models moves it to 0.25.0 (release 0.29.0).
-  assert.match(flow, /v0\.25\.0/, 'the CI snippet pins the current release (delivery-models: 0.25.0)');
-  assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); delivery-models moves it to 0.28.0 (release 0.32.0); 0.27.0 went to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.28\.0/, 'the CI snippet pins the current release (delivery-models: 0.28.0)');
+  assert.doesNotMatch(flow, /v0\.27\.0/, 'no pin left on the previous release (gh-version-check)');
+  assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
+  assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');
+  assert.doesNotMatch(flow, /v0\.25\.0/, 'no pin left on the previous release (change-budget)');
+  assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release (change-state)');
+  assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release (commit-attribution)');
+  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release (test-fixture-cleanup)');
   assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
   assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
@@ -3284,7 +3348,7 @@ test('followups AC-10 open lock: open on a held open lock fails with its own mes
 });
 
 test('followups AC-10 guard: an edit and a shell write in a change run read the transcript once', () => {
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   for (const [mode, input] of [
     ['edit', (t) => editInput(root, 'src/a.ts', t)],
     ['bash', (t) => bashInput(root, 'echo x > src/a.ts', t)],
@@ -3312,7 +3376,7 @@ test('followups F-4 guard: the task of a session started by another session make
   const run = runOf({ transcript_path: transcript });
   assert.equal(run?.change, 'feat');
   assert.equal(run?.command, 'change feat');
-  const root = planChange({ have: ['requirements'] });
+  const root = planChange({ have: ['requirements', 'decisions'] });
   const w = hook('edit', editInput(root, 'src/a.ts', transcript), { TMPDIR: sandbox() });
   assert.equal(w.code, 2, `a product edit is refused as in any change run: ${w.err}`);
   assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat')), assistantLine()]) }), null, 'no devkit-run line yet: no run');
@@ -3383,6 +3447,956 @@ test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 c
   assert.equal([...exact].length, 59);
   assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
   assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
+});
+
+// ================================================================ jira-entry: the entry (start and open)
+
+const TASK_LINK = 'https://acme.atlassian.net/browse/PROJ-482';
+const BOARD_LINK = 'https://acme.atlassian.net/jira/software/projects/PROJ/boards/1?selectedIssue=PROJ-482';
+const TASK_OF_482 = { key: 'PROJ-482', link: null, idPrefix: 'proj-482' };
+
+// A committed change `id` whose requirements record the Jira key on the first line of its request section.
+function addTaskChange(root, id, line = `Jira: PROJ-482 ${TASK_LINK}`) {
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  put(root, {
+    [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit\n',
+    [`openspec/changes/${id}/requirements.md`]: `${head('requirements', c0)}# Requirements\n\n## Request\n\n${line}\n\nTitle:\n\n> Login times out after 30 seconds\n\n## Assumptions\n\n- \n`,
+    [`openspec/changes/${id}/${PLAN_FILES.decisions}`]: `${head('decisions', c0)}# decisions\n`, // the stage-roles decisions stage comes before the proposal
+  });
+  commitAll(root, `change ${id}`);
+}
+
+test('jira-entry AC-1 start answers task for a key in a project with no unfinished change, and creates nothing', () => {
+  const root = devkitRepo();
+  const before = snapshot(root);
+  const b = body(startRun(root, 'change PROJ-482'));
+  assert.deepEqual([b.mode, b.verb, b.text, b.change, b.unfinished, b.reply, b.version], ['task', 'change', 'PROJ-482', null, [], null, 1]);
+  assert.deepEqual(b.task, TASK_OF_482);
+  assert.equal(snapshot(root), before);
+});
+
+test('jira-entry AC-2 start answers the same task for a browse link and a board link', () => {
+  const root = devkitRepo();
+  for (const link of [TASK_LINK, `${TASK_LINK}?atlOrigin=abc`, BOARD_LINK]) {
+    const b = body(startRun(root, `change ${link}`));
+    assert.equal(b.mode, 'task', link);
+    assert.deepEqual(b.task, { key: 'PROJ-482', link, idPrefix: 'proj-482' }, link);
+  }
+});
+
+test('jira-entry AC-5 start resumes the unfinished change that records the key, for the key and for its link', () => {
+  const t = freshProject();
+  addTaskChange(t.main, 'proj-482-login-timeout');
+  addChange(t.main, 'other');
+  for (const typed of ['PROJ-482', TASK_LINK, BOARD_LINK]) {
+    const b = body(startRun(t.main, `change ${typed}`));
+    assert.deepEqual([b.mode, b.change], ['resume', 'proj-482-login-timeout'], typed);
+    assert.equal(b.reply, render('en', 'resumed', { id: 'proj-482-login-timeout', where: whereNext('proposal') }), typed);
+  }
+});
+
+test('jira-entry AC-5 start asks about other unfinished changes before a task, and carries the task', () => {
+  const t = freshProject();
+  addChange(t.main, 'other');
+  const before = snapshot(t.main);
+  const b = body(startRun(t.main, 'change PROJ-482'));
+  assert.deepEqual([b.mode, b.change], ['ask-unfinished', null]);
+  assert.deepEqual(b.task, TASK_OF_482);
+  assert.deepEqual(b.unfinished.map((u) => u.id), ['other']);
+  assert.equal(b.reply, render('en', 'ask-unfinished', { list: `other (${whereNext('proposal')})` }));
+  assert.equal(snapshot(t.main), before);
+});
+
+test('jira-entry AC-5 a key whose only change is archived reads as a new task', () => {
+  const root = devkitRepo();
+  put(root, {
+    'openspec/changes/archive/2026-11-22-feat/.openspec.yaml': 'schema: devkit\n',
+    'openspec/changes/archive/2026-11-22-feat/requirements.md': `# Requirements\n\n## Request\n\nJira: PROJ-482 ${TASK_LINK}\n`,
+  });
+  const b = body(startRun(root, 'change PROJ-482'));
+  assert.deepEqual([b.mode, b.unfinished], ['task', []]);
+  assert.deepEqual(b.task, TASK_OF_482);
+});
+
+test('jira-entry AC-8 start answers free text, a lower-case key, a change id and no text as before, with task null', () => {
+  const root = devkitRepo();
+  for (const [text, mode] of [['add a csv export', 'new'], ['proj-482', 'new'], ['PROJ-482 and more words', 'new'], ['see https://example.com/x', 'new'], ['', 'nothing']]) {
+    const b = body(startRun(root, `change ${text}`.trim()));
+    assert.deepEqual([b.mode, b.task], [mode, null], text);
+  }
+  const t = freshProject();
+  addChange(t.main, 'feat');
+  const b = body(startRun(t.main, 'change feat'));
+  assert.deepEqual([b.mode, b.change, b.task], ['resume', 'feat', null]);
+  assert.equal(body(startRun(t.main, 'roadmap PROJ-482')).task, null, 'only the change verb reads a task');
+});
+
+const FAKE_TASK = {
+  key: 'PROJ-482', url: TASK_LINK, title: 'Login times out after 30 seconds',
+  description: 'Users see a blank page.\n\n## Not a heading\nJira: OTHER-1', acceptanceCriteria: 'Login answers within 5 seconds',
+};
+const taskOpen = (cwd, id, task = FAKE_TASK, { key = 'PROJ-482', raw } = {}) => main(
+  ['open', id, '--script', 'devkit', '--why', 'doubt', '--task', key, '--lang', 'en'], { cwd, env: cleanEnv, stdin: raw ?? JSON.stringify(task) });
+const requestSection = (t, id) => /## Request\n([\s\S]*?)\n## /.exec(readFileSync(join(wtOf(t, id), 'openspec', 'changes', id, 'requirements.md'), 'utf8'))[1];
+
+test('jira-entry AC-1 open --task writes the key line and the three quoted parts under Request, and nothing else of the task', () => {
+  const t = freshProject();
+  const noise = { comments: ['secret comment text'], subtasks: [{ key: 'PROJ-483', summary: 'secret subtask text' }], issuelinks: ['secret link text'] };
+  const r = taskOpen(t.main, 'proj-482-login-timeout', { ...FAKE_TASK, ...noise });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const [first, ...rest] = r.stdout.split('\n');
+  assert.equal(first, 'devkit-run: proj-482-login-timeout');
+  const b = JSON.parse(rest.join('\n'));
+  assert.deepEqual(b.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.equal(b.reply, render('en', 'opened-task', { key: 'PROJ-482', id: 'proj-482-login-timeout', script: 'devkit', other: 'devkit-lite', why: 'doubt' }));
+  assert.equal(requestSection(t, 'proj-482-login-timeout'), [
+    '', `Jira: PROJ-482 ${TASK_LINK}`, '', 'Title:', '', '> Login times out after 30 seconds', '', 'Description:', '',
+    '> Users see a blank page.', '>', '> ## Not a heading', '> Jira: OTHER-1', '', 'Acceptance criteria field:', '', '> Login answers within 5 seconds', '',
+  ].join('\n'));
+  const file = readFileSync(join(wtOf(t, 'proj-482-login-timeout'), 'openspec', 'changes', 'proj-482-login-timeout', 'requirements.md'), 'utf8');
+  assert.doesNotMatch(file, /secret/);
+  assert.equal(body(startRun(t.main, 'change PROJ-482')).mode, 'resume', 'the key now resumes the change');
+});
+
+test('jira-entry AC-1 open --task without an acceptance-criteria field writes the key line, the title and the description', () => {
+  const t = freshProject();
+  const { acceptanceCriteria: _dropped, ...noField } = FAKE_TASK;
+  assert.equal(taskOpen(t.main, 'proj-482-login', noField).code, 0);
+  const section = requestSection(t, 'proj-482-login');
+  assert.match(section, /^\nJira: PROJ-482 /);
+  assert.match(section, /Title:\n\n> Login times out/);
+  assert.match(section, /Description:\n\n> Users see/);
+  assert.doesNotMatch(section, /Acceptance criteria field/);
+});
+
+test('jira-entry AC-1 open --task refuses an id that does not start with the key, and creates nothing', () => {
+  const t = freshProject();
+  const before = snapshot(t.main);
+  for (const id of ['login-timeout', 'proj-48-login', 'proj-4820-login']) {
+    const r = taskOpen(t.main, id);
+    assert.equal(r.code, 3, id);
+    assert.match(body(r).error, /proj-482-/, id);
+    assert.equal(r.stdout.startsWith('devkit-run:'), false);
+    assert.equal(snapshot(t.main), before, id);
+  }
+});
+
+test('jira-entry AC-3 open --task refuses a task answer it cannot read, and creates nothing', () => {
+  const t = freshProject();
+  const before = snapshot(t.main);
+  const answers = {
+    empty: '', 'cut short': '{"key":"PROJ-482","title":"Log', 'another key': JSON.stringify({ ...FAKE_TASK, key: 'PROJ-1' }),
+    'no title': JSON.stringify({ ...FAKE_TASK, title: undefined }), 'not an object': '["PROJ-482"]',
+  };
+  for (const [label, raw] of Object.entries(answers)) {
+    const r = taskOpen(t.main, 'proj-482-login', FAKE_TASK, { raw });
+    assert.equal(r.code, 3, label);
+    assert.doesNotMatch(body(r).error, /unknown option/, label);
+    assert.match(body(r).error, /task|standard input/, label);
+    assert.equal(r.stdout.startsWith('devkit-run:'), false, label);
+    assert.equal(snapshot(t.main), before, label);
+  }
+  assert.match(body(taskOpen(t.main, 'proj-482-login', FAKE_TASK, { key: 'proj-482' })).error, /needs a Jira key/, 'a key that is not a key');
+  assert.equal(snapshot(t.main), before);
+});
+
+test('jira-entry AC-5 open --task refuses a second change for a key whose change is unfinished', () => {
+  const t = freshProject();
+  assert.equal(taskOpen(t.main, 'proj-482-login-timeout').code, 0);
+  const before = snapshot(t.main);
+  const r = taskOpen(t.main, 'proj-482-second-try');
+  assert.equal(r.code, 3);
+  assert.equal(body(r).reply, render('en', 'task-taken', { key: 'PROJ-482', id: 'proj-482-login-timeout' }));
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  assert.equal(snapshot(t.main), before);
+});
+
+test('jira-entry AC-8 open without --task writes the request byte for byte as before', () => {
+  const t = freshProject();
+  assert.equal(openRun(t.main, 'plain-request', { request: 'Add a CSV export\nwith two lines\n' }).code, 0);
+  assert.equal(requestSection(t, 'plain-request'), '\n> Add a CSV export\n> with two lines\n');
+  const b = JSON.parse(openRun(t.main, 'plain-two', { request: 'one' }).stdout.split('\n').slice(1).join('\n'));
+  assert.equal('task' in b, false);
+  assert.equal(b.reply, render('en', 'opened', { id: 'plain-two', script: 'devkit', other: 'devkit-lite', why: 'doubt' }));
+});
+
+// ================================================================ jira-entry: the write-back (next)
+
+const TASK_REQUIREMENTS = `# Requirements\n\n## Request\n\nJira: PROJ-482 ${TASK_LINK}\n\nTitle:\n\n> Login times out after 30 seconds\n\n## Assumptions\n\n- \n`;
+const recordFile = (t, id = 'feat') => join(t.main, '.git', 'devkit', 'write-back', `${id}.json`);
+const asked = (t, over = {}, id = 'feat') => {
+  mkdirSync(dirname(recordFile(t, id)), { recursive: true });
+  writeFileSync(recordFile(t, id), JSON.stringify({ version: 1, change: id, key: 'PROJ-482', number: 12, url: 'https://github.com/o/r/pull/12', askedAt: '2026-11-22T00:00:00Z', transitions: [], answer: null, ...over }));
+};
+
+test('jira-entry AC-4 next hands the grill of a task change with the task\'s key and link', () => {
+  const t = freshProject();
+  assert.equal(taskOpen(t.main, 'proj-482-login-timeout').code, 0);
+  const r = main(['next', '--change', 'proj-482-login-timeout', '--lang', 'en'], { cwd: t.main, env: cleanEnv });
+  const a = actionOf(r.stdout);
+  assert.deepEqual([a.kind, a.stage], ['grill', 'requirements']);
+  assert.deepEqual(a.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.equal('writeBack' in a, false);
+});
+
+test('jira-entry AC-6 next carries writeBack once the pull request exists, for a change that records a task', () => {
+  const { t, env } = deliveredChange({ requirements: TASK_REQUIREMENTS });
+  const a = parsed(next(t.main, [], env)).action;
+  assert.deepEqual(a.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.deepEqual(a.writeBack, { key: 'PROJ-482', link: TASK_LINK, number: 12, url: 'https://github.com/o/r/pull/12' });
+});
+
+test('jira-entry AC-6 next carries no writeBack after the question was asked, for a change with no task, for a corrupt record, and on the archive branch', () => {
+  const plain = deliveredChange();
+  const none = parsed(next(plain.t.main, [], plain.env)).action;
+  assert.equal('task' in none, false);
+  assert.equal('writeBack' in none, false);
+
+  const { t, wt, env } = deliveredChange({ requirements: TASK_REQUIREMENTS });
+  assert.ok(parsed(next(t.main, [], env)).action.writeBack, 'before the question');
+  asked(t);
+  assert.equal('writeBack' in parsed(next(t.main, [], env)).action, false, 'asked for this pull request');
+  asked(t, { number: 9 });
+  assert.ok(parsed(next(t.main, [], env)).action.writeBack, 'another pull request asks again');
+  writeFileSync(recordFile(t), '{ not json');
+  const corrupt = parsed(next(t.main, [], env)).action;
+  assert.deepEqual(corrupt.task, { key: 'PROJ-482', link: TASK_LINK });
+  assert.equal('writeBack' in corrupt, false, 'a damaged record asks nothing');
+  rmSync(recordFile(t));
+  git(wt, 'branch', '-m', 'chore/archive-feat');
+  assert.equal('writeBack' in parsed(next(t.main, [], env)).action, false, 'not on the archive branch');
+});
+
+test('jira-entry AC-6 next carries the task but no writeBack on a budget end held at the pull request', () => {
+  const { t, wt, env } = deliveredChange({ checks: [check('build', 'fail')], requirements: TASK_REQUIREMENTS });
+  const open = parsed(next(t.main, [], env)).action;
+  assert.notEqual(open.kind, 'end', 'under no cap the failing checks hand a step');
+  assert.ok(open.writeBack, 'the question is pending before the stop');
+  writeFileSync(join(wt, 'openspec', 'changes', 'feat', '.openspec.yaml'), 'schema: devkit-lite\ndevkit:\n  budget: 1000\n');
+  const capped = { ...budgetEnv(sandbox(), 'sess-budget', [typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: 5000 })]) };
+  const stopped = parsed(next(t.main, [], { ...env, CLAUDE_CONFIG_DIR: capped.CLAUDE_CONFIG_DIR, CLAUDE_CODE_SESSION_ID: capped.CLAUDE_CODE_SESSION_ID })).action;
+  assert.equal(stopped.end?.why, 'waiting-budget', 'the cap holds the step');
+  assert.deepEqual(stopped.task, { key: 'PROJ-482', link: TASK_LINK }, 'the task still attaches');
+  assert.equal('writeBack' in stopped, false, 'a budget-stopped end asks nothing');
+});
+
+test('jira-entry AC-6 a pending question changes no decision', async () => {
+  const withTask = deliveredChange({ requirements: TASK_REQUIREMENTS });
+  const without = deliveredChange();
+  const A = parsed(next(withTask.t.main, [], withTask.env)).action;
+  const B = parsed(next(without.t.main, [], without.env)).action;
+  assert.ok(A.writeBack, 'the question is pending');
+  for (const k of ['kind', 'end', 'step', 'agent', 'reply']) assert.deepEqual(A[k], B[k], k);
+  // The wait ends on the same decision and sleeps the same number of times: the pending question is not part of its key.
+  const waitOf = async (c) => {
+    let sleeps = 0;
+    const sleep = async () => { sleeps++; c.gh.set('pr-checks', { stdout: [check('build', 'pass')] }); };
+    const poll = async () => nextAction(c.t.main, 'feat', { env: c.env, lang: 'en', gh: c.t.ghFor(c.wt) });
+    const action = await waitLoop({ poll, sleep, interval: 5, id: 'feat', lang: 'en' });
+    return { sleeps, end: action.end, reply: action.reply };
+  };
+  assert.deepEqual(await waitOf(withTask), await waitOf(without));
+});
+
+// ---- write-back ask
+
+const PR_URL = 'https://github.com/o/r/pull/12';
+const TRANSITIONS = [{ id: '31', name: 'In Review' }, { id: '41', name: 'Done' }];
+const taskDelivery = () => deliveredChange({ requirements: TASK_REQUIREMENTS });
+const writeBack = (c, sub, args, { stdin = '', lang = 'en', id = 'feat' } = {}) => main(
+  ['write-back', sub, id, ...args, '--lang', lang], { cwd: c.t.main, env: c.env, gh: c.t.ghFor(c.wt), stdin });
+const askBack = (c, input = { number: 12, url: PR_URL, transitions: TRANSITIONS }, opts = {}) => writeBack(c, 'ask', [], { stdin: JSON.stringify(input), ...opts });
+const answerBack = (c, choice, opts = {}) => writeBack(c, 'answer', ['--choice', choice], opts);
+const archiveOnMain = (c, id = 'feat') => mkdirSync(join(c.t.main, 'openspec', 'changes', 'archive', `2026-11-22-${id}`), { recursive: true });
+
+test('jira-entry AC-6 write-back ask lists the transitions, only comment and no, records the question, and answers ask false the second time', () => {
+  const c = taskDelivery();
+  const r = askBack(c);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout.startsWith('{'), true, 'no devkit-run or devkit-end line');
+  const b = body(r);
+  const labels = ['move it to "In Review"', 'move it to "Done"', 'only comment', 'no'];
+  assert.deepEqual([b.version, b.change, b.key, b.ask], [1, 'feat', 'PROJ-482', true]);
+  assert.deepEqual(b.choices, [
+    { choice: 'transition:31', label: labels[0] }, { choice: 'transition:41', label: labels[1] },
+    { choice: 'comment', label: labels[2] }, { choice: 'no', label: labels[3] },
+  ]);
+  assert.equal(b.question, render('en', 'write-back-ask', { id: 'feat', key: 'PROJ-482', number: 12, choices: labels.join('; ') }));
+  const record = JSON.parse(readFileSync(recordFile(c.t), 'utf8'));
+  assert.deepEqual([record.version, record.change, record.key, record.number, record.url, record.transitions, record.answer], [1, 'feat', 'PROJ-482', 12, PR_URL, TRANSITIONS, null]);
+  assert.deepEqual(body(askBack(c)), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'asked' });
+  assert.equal('writeBack' in parsed(next(c.t.main, [], c.env)).action, false, 'next asks nothing once asked');
+  assert.match(body(askBack(taskDelivery(), undefined, { lang: 'pt-BR' })).question, /Devo escrever o link/, 'the question is in the person\'s language');
+});
+
+test('jira-entry AC-6 write-back ask with no transitions offers only comment and no', () => {
+  const c = taskDelivery();
+  for (const input of [{ number: 12, url: PR_URL, transitions: [] }, { number: 12, url: PR_URL }]) {
+    rmSync(recordFile(c.t), { force: true });
+    assert.deepEqual(body(askBack(c, input)).choices.map((x) => x.choice), ['comment', 'no']);
+  }
+});
+
+test('jira-entry AC-6 write-back ask refuses a change with no task and malformed input with exit 3', () => {
+  const plain = deliveredChange();
+  assert.equal(askBack(plain).code, 3, 'no task');
+  assert.match(body(askBack(plain)).error, /records no Jira task/);
+  assert.equal(existsSync(recordFile(plain.t)), false);
+  const c = taskDelivery();
+  for (const raw of ['', '{ cut', '[]', JSON.stringify({ number: 0, url: PR_URL }), JSON.stringify({ number: 12, url: 'ftp://x' }), JSON.stringify({ number: 12, url: PR_URL, transitions: [{ id: '1' }] })]) {
+    const r = writeBack(c, 'ask', [], { stdin: raw });
+    assert.equal(r.code, 3, raw);
+    assert.equal(body(r).version, 1);
+    assert.equal(r.stdout.startsWith('devkit-'), false);
+  }
+  assert.equal(existsSync(recordFile(c.t)), false, 'nothing recorded');
+  assert.equal(askBack(c, undefined, { id: 'nope' }).code, 3, 'an unknown change');
+  assert.match(body(askBack(c, undefined, { id: 'nope' })).error, /no change nope/);
+});
+
+test('jira-entry AC-6 write-back ask on an archived change asks nothing', () => {
+  const c = taskDelivery();
+  archiveOnMain(c);
+  assert.deepEqual(body(askBack(c)), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'archived' });
+  assert.equal(existsSync(recordFile(c.t)), false);
+  const d = taskDelivery();
+  git(d.wt, 'branch', '-m', 'chore/archive-feat');
+  assert.equal(body(askBack(d)).why, 'archived', 'on the archive branch');
+});
+
+// ---- write-back answer
+
+const answerOf = (c) => JSON.parse(readFileSync(recordFile(c.t), 'utf8')).answer;
+const COMMENT_EN = `devkit opened the pull request ${PR_URL} for this task (change feat).`;
+
+test('jira-entry AC-7 write-back answer with a transition gives one comment and that transition', () => {
+  const c = taskDelivery();
+  askBack(c);
+  const r = answerBack(c, 'transition:31');
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout.startsWith('{'), true);
+  assert.deepEqual(body(r), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: true, comment: COMMENT_EN, transition: { id: '31', name: 'In Review' },
+    reply: render('en', 'write-back-moved', { key: 'PROJ-482', number: 12, name: 'In Review' }),
+  });
+  assert.deepEqual([answerOf(c).choice, answerOf(c).written], ['transition:31', true]);
+  assert.match(answerOf(c).at, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('jira-entry AC-7 write-back answer only comment gives the comment and no transition', () => {
+  const c = taskDelivery();
+  askBack(c);
+  assert.deepEqual(body(answerBack(c, 'comment')), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: true, comment: COMMENT_EN, transition: null,
+    reply: render('en', 'write-back-commented', { key: 'PROJ-482', number: 12 }),
+  });
+  assert.equal(answerOf(c).written, true);
+});
+
+test('jira-entry AC-7 write-back answer no, a second answer, and an answer before the question write nothing', () => {
+  const c = taskDelivery();
+  const none = (why) => ({ version: 1, change: 'feat', key: 'PROJ-482', write: false, why, reply: render('en', 'write-back-none', { key: 'PROJ-482' }) });
+  assert.deepEqual(body(answerBack(c, 'comment')), none('not-asked'));
+  assert.equal(existsSync(recordFile(c.t)), false, 'an answer before the question records nothing');
+  askBack(c);
+  assert.deepEqual(body(answerBack(c, 'no')), none('no'));
+  assert.deepEqual([answerOf(c).choice, answerOf(c).written], ['no', false]);
+  assert.deepEqual(body(answerBack(c, 'comment')), none('answered'));
+  assert.equal(answerOf(c).choice, 'no', 'the first answer stands');
+  writeFileSync(recordFile(c.t), '{ not json');
+  assert.deepEqual(body(answerBack(c, 'comment')), none('not-asked'), 'a damaged record writes nothing');
+  asked(c.t, { key: 'OTHER-9' });
+  assert.deepEqual(body(answerBack(c, 'comment')), none('not-asked'), 'a record of another key');
+});
+
+test('jira-entry AC-7 write-back answer after the archive writes nothing', () => {
+  const c = taskDelivery();
+  askBack(c);
+  archiveOnMain(c);
+  assert.deepEqual(body(answerBack(c, 'comment')), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: false, why: 'archived', reply: render('en', 'write-back-late', { id: 'feat', key: 'PROJ-482' }),
+  });
+  assert.deepEqual([answerOf(c).choice, answerOf(c).written], ['comment', false]);
+});
+
+test('jira-entry AC-7 write-back answer with a transition not offered writes nothing and lists the choices again', () => {
+  const c = taskDelivery();
+  askBack(c);
+  const r = answerBack(c, 'transition:99');
+  assert.equal(r.code, 0);
+  const labels = 'move it to "In Review"; move it to "Done"; only comment; no';
+  assert.deepEqual(body(r), {
+    version: 1, change: 'feat', key: 'PROJ-482', write: false, why: 'unknown-choice', reply: render('en', 'write-back-unknown', { key: 'PROJ-482', choices: labels }),
+  });
+  assert.equal(answerOf(c), null, 'nothing recorded');
+  assert.equal(body(answerBack(c, 'transition:41')).write, true, 'a valid answer can follow');
+  const bad = answerBack(taskDelivery(), 'maybe');
+  assert.equal(bad.code, 3, 'a choice outside the form is a usage error');
+});
+
+test('jira-entry AC-7 the comment names the link and the change in the files language', () => {
+  const en = taskDelivery();
+  askBack(en);
+  assert.equal(body(answerBack(en, 'comment')).comment, COMMENT_EN);
+  const pt = taskDelivery();
+  const config = join(pt.wt, 'openspec', 'config.yaml');
+  writeFileSync(config, `${readFileSync(config, 'utf8')}devkit:\n  language: pt-BR\n`);
+  askBack(pt);
+  const b = body(answerBack(pt, 'comment', { lang: 'en' }));
+  assert.equal(b.comment, `o devkit abriu o pull request ${PR_URL} para esta tarefa (change feat).`);
+  assert.match(b.reply, /I wrote the link/, 'the reply stays in the person\'s language');
+});
+
+// ---- jira-entry 4.1: the skill's side of the Jira entry (D-3, D-5, D-7)
+
+test("jira-entry AC-1 skill: the task mode, the connector's read, open --task and the two replies that open nothing", () => {
+  const md = skillText();
+  assert.ok(md.includes('`task`'), 'the task mode of start');
+  const start = section(md, '## Start', '## A new change');
+  assert.match(start, /- `task`: .*### A Jira task/, 'the task mode points at the subsection');
+  assert.match(start, /`ask-unfinished`[^\n]*"start the new request"[^\n]*`task` is not null[^\n]*### A Jira task/, 'ask-unfinished sends a task to the subsection');
+  const jira = section(md, '### A Jira task', '## Loop');
+  assert.match(jira, /ToolSearch/);
+  assert.match(jira, /jira issue/);
+  for (const tool of ['getJiraIssue', 'getTransitionsForJiraIssue', 'addCommentToJiraIssue', 'transitionJiraIssue', 'getAccessibleAtlassianResources']) {
+    assert.ok(jira.includes(tool), `names ${tool}`);
+  }
+  assert.match(jira, /change-loop\.mjs reply task-no-connector --param key=<KEY> --lang \$\{user_config\.language\}/);
+  assert.match(jira, /change-loop\.mjs reply task-unreadable --param key=<KEY> --lang \$\{user_config\.language\}/);
+  for (const field of ['`key`', '`url`', '`title`', '`description`', '`acceptanceCriteria`']) assert.ok(jira.includes(field), `the JSON holds ${field}`);
+  assert.match(jira, /Nothing else of the task goes in/);
+  assert.match(jira, /task\.idPrefix/);
+  assert.match(jira, /change-loop\.mjs open <id> --script <s> --why <code> --task <KEY> --lang \$\{user_config\.language\}/);
+  assert.match(jira, /<<'DEVKIT_ARGS'/);
+  assert.match(jira, /`name-taken`/);
+  assert.match(jira, /`task-taken`/);
+  const calls = md.split('\n').filter((l) => /change-loop\.mjs (open|reply|write-back)\b/.test(l) && l.includes('<KEY>'));
+  for (const l of calls) assert.ok(l.includes(LANG_FLAG), `--lang on: ${l}`);
+});
+
+test('jira-entry AC-4 skill: the grill of a task leaves the request section as it is', () => {
+  const grill = skillText().split('\n').find((l) => l.startsWith('- `grill`'));
+  assert.ok(grill, 'a grill item');
+  assert.match(grill, /carries `task`/);
+  assert.match(grill, /paragraph on a request copied from a task/);
+  assert.match(grill, /leave `## Request`[^.]*exactly as it is/);
+});
+
+test('jira-entry AC-6 skill: the write-back question is asked once, in plain text, never with AskUserQuestion, and holds nothing', () => {
+  const md = skillText();
+  const wb = section(md, '### Writing back to the task', '## Owner gates');
+  assert.match(wb, /carries `writeBack`/);
+  assert.match(wb, /change-loop\.mjs write-back ask <id> --lang \$\{user_config\.language\}/);
+  assert.match(wb, /<<'DEVKIT_ARGS'/);
+  assert.match(wb, /"transitions"/);
+  assert.match(wb, /plain text, never with AskUserQuestion/);
+  assert.match(wb, /hold the turn/);
+  assert.match(wb, /`ask: true`/);
+  assert.match(md.slice(md.indexOf('## Owner gates')), /write-back question is not a gate and blocks nothing/);
+});
+
+test("jira-entry AC-7 skill: Jira is written only through write-back answer on the owner's own message, and a failed write is said and not retried", () => {
+  const md = skillText();
+  const wb = section(md, '### Writing back to the task', '## Owner gates');
+  assert.match(wb, /Only the owner's own typed message answers/);
+  assert.match(wb, /change-loop\.mjs write-back answer <id> --choice <choice> --lang \$\{user_config\.language\}/);
+  assert.match(wb, /`write: true`/);
+  assert.match(wb, /`write: false`/);
+  assert.match(wb, /reply write-back-failed --param key=<KEY> --param error="<message>"/);
+  assert.match(wb, /not retried/);
+  const never = md.slice(md.indexOf('## Never'));
+  assert.match(never, /Write to Jira except from `write-back answer` on the owner's own message/);
+  assert.match(never, /Ask the write-back question with AskUserQuestion/);
+  assert.match(never, /Copy a comment, subtask, linked task or attachment of a task into the change/);
+  assert.match(never, /Keep a Jira token or a Jira setting in the project/);
+});
+
+test('jira-entry AC-4 grill skill: a request copied from a task is asked only what it leaves open', () => {
+  const md = readRepo('plugins', 'core', 'skills', 'requirements-grill', 'SKILL.md');
+  const step3 = section(md, '### 3. Grill on the four axes', '### 4. ');
+  const para = step3.split('\n').find((l) => l.startsWith('**A request copied from a task.**'));
+  assert.ok(para, 'the paragraph ends step 3');
+  assert.match(para, /`Jira: <KEY>`/);
+  assert.match(para, /\(answered by the task\)/);
+  assert.match(para, /one question that confirms/);
+  assert.match(para, /never edit the request section/);
+});
+
+test('jira-entry docs: the flow document, the design document and ADR 0010 record the Jira entry', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  assert.ok(flow.split('\n').some((l) => l.startsWith('- `/devkit change <Jira key or link>`:')), 'the forms list has the Jira form');
+  const para = flow.split('\n').find((l) => l.startsWith('**A Jira task.**'));
+  assert.ok(para, 'the paragraph A Jira task');
+  assert.match(para, /Atlassian connector/);
+  assert.match(para, /makes no call and keeps no token/);
+  assert.match(para, /`requirements\.md`/);
+  assert.match(para, /resum/);
+  assert.match(para, /git common directory/);
+  assert.match(flow, /`project` is built and only `help` is not/);
+  assert.doesNotMatch(flow, /`project` and `help` are (still )?not built/);
+
+  const design = readRepo('docs', 'coordination-design.md');
+  const part = (from, to) => { const a = design.indexOf(from); assert.ok(a >= 0, from); const b = design.indexOf(to, a + from.length); return design.slice(a, b < 0 ? design.length : b); };
+  assert.match(design, /\| `\/devkit change PROJ-482` \| one task, read from Jira by its key or link \| 20 \(built\) \|/);
+  assert.match(part('## 1. ', '## 2. '), /Built by `jira-entry` on 2026-11-22: /);
+  assert.match(part('## 8. ', '## 9. '), /Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it\./);
+  assert.doesNotMatch(design, /source: jira/);
+  assert.match(part('## 13. ', '## 14. '), /Jira can be read on each platform \(the follow-up `jira-entry-live`, round 20b\)\./);
+
+  const adr = readRepo('docs', 'adr', '0010-openspec-as-the-harness.md');
+  const ctx = adr.slice(adr.indexOf('## Context'), adr.indexOf('ADR 0001 let devkit coordinate'));
+  assert.match(ctx, /Note \(jira-entry, 2026-11-22\): round 20 adds no task-source setting/);
+  assert.ok(ctx.indexOf('Note (project-phases') < ctx.indexOf('Note (jira-entry'), 'after the project-phases Note');
+  assert.match(adr, /^- Status: accepted$/m, 'its status does not change');
+});
+
+test('jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry', () => {
+  const text = readRepo('openspec', 'roadmap.md');
+  const lines = text.split('\n');
+  const at = lines.findIndex((l) => l.startsWith('## Round 20b: live proof of the Jira entry'));
+  assert.ok(at > lines.findIndex((l) => l.startsWith('## Round 20: the Jira entry')), 'the block follows round 20');
+  const line = lines.find((l) => l.startsWith('- [ ] jira-entry-live (after: jira-entry)'));
+  assert.ok(line, 'the unticked live-proof line');
+  assert.match(line, /disposable test task the owner names/);
+  const rounds = guardModule.readRoadmap(REPO_ROOT);
+  const round = rounds.find((r) => r.title.startsWith('Round 20b'));
+  assert.ok(round, 'readRoadmap reads the round');
+  assert.deepEqual(round.items.map((i) => ({ id: i.id, done: i.done, after: i.after })), [{ id: 'jira-entry-live', done: false, after: ['jira-entry'] }]);
+});
+
+// ---------------------------------------------------------------- the token budget (change-budget)
+
+// A model message line with a usage object; `sidechain` marks a subagent's own line.
+const usageLine = ({ id = null, input = 0, output = 0, cacheWrite = 0, cacheRead = 0, at = '2026-11-20T10:00:00.000Z', sidechain = false } = {}) => stored({
+  type: 'assistant',
+  timestamp: at,
+  isSidechain: sidechain,
+  message: { role: 'assistant', ...(id ? { id } : {}), content: [{ type: 'text', text: 'working' }], usage: { input_tokens: input, output_tokens: output, cache_creation_input_tokens: cacheWrite, cache_read_input_tokens: cacheRead } },
+});
+const at = (minute) => `2026-11-20T10:${String(minute).padStart(2, '0')}:00.000Z`;
+// The env of a test that reads a transcript: a config folder with `projects/p/<id>.jsonl` written.
+const budgetEnv = (dir, id, lines = [assistantLine()]) => {
+  mkdirSync(join(dir, 'projects', 'p'), { recursive: true });
+  writeFileSync(join(dir, 'projects', 'p', `${id}.jsonl`), `${lines.join('\n')}\n`);
+  return { ...cleanEnv, CLAUDE_CONFIG_DIR: dir, CLAUDE_CODE_SESSION_ID: id };
+};
+// A session transcript with `lines`, and subagent files `{ name: lines }` beside it.
+const spendTranscript = (lines, subagents = {}) => {
+  const file = transcriptOf(lines);
+  const folder = join(dirname(file), SESSION, 'subagents');
+  if (Object.keys(subagents).length) mkdirSync(folder, { recursive: true });
+  for (const [name, content] of Object.entries(subagents)) writeFileSync(join(folder, name), `${content.join('\n')}\n`);
+  return file;
+};
+const spent = (file, change = 'feat') => guardModule.spentOf(file, change);
+
+test('change-budget AC-9 sessionTranscript finds the session file under CLAUDE_CONFIG_DIR', () => {
+  const dir = sandbox();
+  const env = budgetEnv(dir, 'sess-1');
+  assert.equal(guardModule.sessionTranscript(env), join(dir, 'projects', 'p', 'sess-1.jsonl'));
+});
+
+test('change-budget AC-9 sessionTranscript falls back to HOME/.claude', () => {
+  const home = sandbox();
+  const env = { ...budgetEnv(join(home, '.claude'), 'sess-2'), CLAUDE_CONFIG_DIR: '', HOME: home };
+  assert.equal(guardModule.sessionTranscript(env), join(home, '.claude', 'projects', 'p', 'sess-2.jsonl'));
+});
+
+test('change-budget AC-9 sessionTranscript is null with no id, an unsafe id, no file or no projects folder', () => {
+  const dir = sandbox();
+  const env = budgetEnv(dir, 'sess-3');
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: '' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: undefined }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: '../sess-3' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: 'a/b' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CODE_SESSION_ID: 'other' }), null);
+  assert.equal(guardModule.sessionTranscript({ ...env, CLAUDE_CONFIG_DIR: sandbox() }), null);
+});
+
+test('change-budget AC-7 the fixture of the spec counts exactly 7525', () => {
+  const model = (id) => usageLine({ id, input: 10, output: 200, cacheWrite: 3000, cacheRead: 50000, at: at(5) });
+  const file = spendTranscript(
+    [typedLine('change feat'), skillBodyLine('change feat'), runLine('feat'), model('m1'), model('m2')],
+    { 'agent-a.jsonl': [usageLine({ id: 's1', input: 5, output: 100, cacheWrite: 1000, at: at(6), sidechain: true })] },
+  );
+  const r = spent(file);
+  assert.equal(r.spent, 7525);
+  assert.equal(typeof r.since, 'string');
+});
+
+test('change-budget AC-7 lines before the first run line do not count and the first run line wins', () => {
+  const file = spendTranscript([
+    typedLine('change feat'), usageLine({ id: 'old', input: 1000 }), toolResultLine(`devkit-run: feat\n{}`),
+    usageLine({ id: 'a', input: 10, at: at(1) }), toolResultLine(`devkit-run: feat\n{}`), usageLine({ id: 'b', input: 20, at: at(2) }),
+  ]);
+  assert.equal(spent(file).spent, 30);
+});
+
+test('change-budget AC-7 another change run line starts no count', () => {
+  const file = spendTranscript([typedLine('change other'), runLine('other'), usageLine({ id: 'a', input: 10 })]);
+  assert.deepEqual(spent(file), { spent: 0, since: null });
+});
+
+test('change-budget AC-7 a message on several lines counts once and a line with no id counts each time', () => {
+  const file = spendTranscript([
+    typedLine('change feat'), runLine('feat'),
+    usageLine({ id: 'm', input: 10 }), usageLine({ id: 'm', input: 10 }), usageLine({ id: 'm', input: 10 }),
+    usageLine({ input: 7 }), usageLine({ input: 7 }),
+  ]);
+  assert.equal(spent(file).spent, 24);
+});
+
+test('change-budget AC-7 a subagent started before the run line does not count', () => {
+  // the run line carries the stored default timestamp (10:00); the subagent starts at 09:59 and records a message at 10:20
+  const file = spendTranscript(
+    [typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: 1, at: at(10) })],
+    {
+      'agent-early.jsonl': [usageLine({ id: 'e', input: 500, at: '2026-11-20T09:59:00.000Z', sidechain: true }), usageLine({ id: 'e2', input: 500, at: at(20), sidechain: true })],
+      'agent-late.jsonl': [usageLine({ id: 'l', input: 70, at: at(15), sidechain: true })],
+    },
+  );
+  assert.equal(spent(file).spent, 71);
+});
+
+test('change-budget AC-7 a subagent file with no timestamp does not count', () => {
+  const noStamp = JSON.stringify({ type: 'assistant', isSidechain: true, message: { id: 'n', usage: { input_tokens: 900 } } });
+  const file = spendTranscript([typedLine('change feat'), runLine('feat')], { 'agent-none.jsonl': [noStamp] });
+  assert.equal(spent(file).spent, 0);
+});
+
+test('change-budget AC-7 a sidechain model line of the session transcript counts', () => {
+  const file = spendTranscript([typedLine('change feat'), runLine('feat'), usageLine({ id: 's', input: 40, sidechain: true })]);
+  assert.equal(spent(file).spent, 40);
+});
+
+test('change-budget AC-7 a missing or non-number usage field counts 0', () => {
+  const odd = stored({ type: 'assistant', message: { id: 'odd', usage: { input_tokens: 'x', output_tokens: -4, cache_creation_input_tokens: null } } });
+  const half = stored({ type: 'assistant', message: { id: 'half', usage: { output_tokens: 6 } } });
+  const file = spendTranscript([typedLine('change feat'), runLine('feat'), odd, half]);
+  assert.equal(spent(file).spent, 6);
+});
+
+test('change-budget AC-9 an unreadable session transcript gives null, an unreadable subagent adds nothing', () => {
+  assert.equal(spent(join(sandbox(), 'missing.jsonl')), null);
+  const file = spendTranscript([typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: 3 })]);
+  const folder = join(dirname(file), SESSION, 'subagents');
+  mkdirSync(join(folder, 'agent-dir.jsonl'), { recursive: true });
+  assert.equal(spent(file).spent, 3);
+});
+
+test('change-budget AC-4 the scan without the option returns the same events as before (kept)', () => {
+  const file = transcriptOf([typedLine('change feat'), usageLine({ id: 'a', input: 5 }), runLine('feat')]);
+  const events = guardModule.transcriptEvents({ transcript_path: file });
+  assert.equal(events.length, 2);
+  for (const event of events) {
+    assert.equal('at' in event, false);
+    assert.equal('start' in event, false);
+    assert.equal('usage' in event, false);
+  }
+});
+
+// ---- the setting (D-1)
+
+const CHANGE_FILE = (dir) => join(dir, '.openspec.yaml');
+// A project root holding `config` as its openspec/config.yaml, and a change folder (outside it) holding `change` as its .openspec.yaml.
+const budgetFiles = (config, change = null) => {
+  const root = configRepo(config);
+  const dir = tmpFolder('devkit-change-budget-dir-');
+  if (change !== null) writeFileSync(CHANGE_FILE(dir), change);
+  return { root, dir };
+};
+const capOf = (config, change = null, lang = 'en') => {
+  const { root, dir } = budgetFiles(config, change);
+  return changeLoopModule.budgetOf(root, dir, lang);
+};
+const block = (...lines) => `schema: devkit\ndevkit:\n${lines.map((l) => `  ${l}\n`).join('')}`;
+
+test('change-budget AC-5 the project budget applies when the change sets none', () => {
+  const { root, dir } = budgetFiles(block('budget: 2000000'), 'schema: devkit\n');
+  assert.deepEqual(changeLoopModule.budgetOf(root, dir, 'en'), { cap: 2000000, from: 'project', file: CHANGE_FILE(dir) });
+  assert.deepEqual(readDevkitSettings(root), { driver: 'claude', language: 'en', unknown: [] }, 'the settings keep their shape');
+  const noFile = budgetFiles(block('budget: 2000000'));
+  assert.equal(changeLoopModule.budgetOf(noFile.root, noFile.dir, 'en').cap, 2000000, 'a change with no .openspec.yaml at all');
+});
+
+test('change-budget AC-5 the change block wins for that change only', () => {
+  const project = block('budget: 2000000');
+  const a = budgetFiles(project, block('budget: 500000'));
+  const b = budgetFiles(project, 'schema: devkit\n');
+  const capA = changeLoopModule.budgetOf(a.root, a.dir, 'en');
+  assert.deepEqual([capA.cap, capA.from, capA.file], [500000, 'change', CHANGE_FILE(a.dir)]);
+  assert.deepEqual([changeLoopModule.budgetOf(b.root, b.dir, 'en').cap, changeLoopModule.budgetOf(b.root, b.dir, 'en').from], [2000000, 'project']);
+});
+
+test('change-budget AC-4 no key, or an empty value, in either file is no cap', () => {
+  assert.equal(capOf('schema: devkit\n'), null);
+  assert.equal(capOf('schema: devkit\n', 'schema: devkit\n'), null);
+  assert.equal(capOf(block('budget:'), block('budget:')), null);
+  assert.equal(capOf(block('budget:   # none'), null), null);
+  assert.equal(capOf(block('budget: ""'), null), null);
+  assert.equal(capOf(block('driver: claude'), block('language: en')), null);
+});
+
+test('change-budget AC-4 an empty value in the change falls through to the project value', () => {
+  const cap = capOf(block('budget: 300'), block('budget:'));
+  assert.deepEqual([cap.cap, cap.from], [300, 'project']);
+});
+
+test('change-budget AC-5 a top-level budget of .openspec.yaml is not read', () => {
+  assert.equal(capOf('schema: devkit\n', 'schema: devkit\nbudget: 100\n'), null);
+  assert.equal(capOf(block('budget: 700'), 'schema: devkit\nbudget: 100\n').cap, 700);
+  assert.equal(capOf('schema: devkit\nbudget: 100\n', null), null, 'nor one of openspec/config.yaml');
+});
+
+test('change-budget AC-5 a quoted value, a comment and an unclosed quote read the number', () => {
+  for (const line of ['budget: "2000000"  # two million', 'budget: 2000000   # two million', "budget: '2000000'", 'budget: "2000000', 'budget: 007']) {
+    const cap = capOf(block(line));
+    assert.equal(cap.cap, line.endsWith('007') ? 7 : 2000000, line);
+  }
+});
+
+test('change-budget AC-4 other keys of the change block are not read (kept)', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/changes/feat/.openspec.yaml': block('driver: robot', 'language: "not a tag"') });
+  commitAll(root, 'odd keys');
+  const r = next(root);
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(parsed(r).action.agent, PLANNER);
+});
+
+test('change-budget AC-8 budgetValue refuses everything but a whole number above zero', () => {
+  const fn = changeLoopModule.budgetValue;
+  for (const bad of ['abc', '0', '-5', '1.5', '2e6', '2_000_000', '9007199254740993', ' 5x']) assert.deepEqual(fn(bad), { invalid: bad }, bad);
+  assert.equal(fn(undefined), null);
+  assert.equal(fn(''), null);
+  assert.deepEqual(fn('2000000'), { cap: 2000000 });
+  assert.deepEqual(fn('007'), { cap: 7 });
+});
+
+test('change-budget AC-8 an invalid project budget makes start answer setting-unknown and open create nothing', () => {
+  for (const value of ['abc', '0', '-5', '1.5', '2e6', '2_000_000']) {
+    const config = `schema: devkit\ndevkit:\n  budget: ${value}\n`;
+    const root = devkitRepo(config);
+    const before = snapshot(root);
+    const b = body(startRun(root, 'change add an export'));
+    assert.equal(b.mode, 'setting-unknown', value);
+    assert.equal(b.reply, render('en', 'setting-unknown', { setting: 'budget', value, accepted: '1, 2, 3, …' }), value);
+    assert.equal(snapshot(root), before, value);
+    const t = freshProject(config);
+    const beforeOpen = snapshot(t.main);
+    const r = openRun(t.main, 'new-thing');
+    assert.equal(r.code, 3, value);
+    assert.equal(body(r).reply, b.reply, 'the reply is the one the typed command gives');
+    assert.equal(snapshot(t.main), beforeOpen, value);
+  }
+});
+
+test('change-budget AC-8 an invalid change budget makes next exit 3 with the settings reply and no hand-off', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/changes/feat/.openspec.yaml': block('budget: 0') });
+  commitAll(root, 'zero budget');
+  const r = next(root);
+  assert.equal(r.code, 3, r.stderr);
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  const out = body(r);
+  assert.equal(out.reply, render('en', 'setting-unknown', { setting: 'budget', value: '0', accepted: '1, 2, 3, …' }));
+  assert.equal('kind' in out, false, 'no hand-off');
+});
+
+test('change-budget AC-8 an invalid project budget makes next exit 3 even under a valid change value', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/config.yaml': block('budget: abc'), 'openspec/changes/feat/.openspec.yaml': block('budget: 500') });
+  commitAll(root, 'bad project budget');
+  const r = next(root);
+  assert.equal(r.code, 3, r.stderr);
+  assert.equal(body(r).reply, render('en', 'setting-unknown', { setting: 'budget', value: 'abc', accepted: '1, 2, 3, …' }));
+});
+
+test('change-budget AC-8 the settings reply names budget and the value in both languages', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const reply = render(lang, 'setting-unknown', { setting: 'budget', value: '2e6', accepted: '1, 2, 3, …' });
+    assert.ok(reply.includes('budget') && reply.includes('2e6') && reply.includes('1, 2, 3'), `${lang}: ${reply}`);
+    assert.throws(() => capOf(block('budget: 2e6'), null, lang), (e) => e.name === 'LoopRefusal' && e.reply === reply, lang);
+  }
+});
+
+// ---- the decision (D-4)
+
+const AT_PLAN = () => ({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } } });
+const BUDGET_FILE = '/w/feat/openspec/changes/feat/.openspec.yaml';
+const withBudget = (spent, cap = 2000000) => ({ budget: { cap, file: BUDGET_FILE, spent } });
+
+test('change-budget AC-1 at the cap an agent hand-off becomes the budget end', () => {
+  const held = run(AT_PLAN());
+  assert.equal(held.kind, 'agent');
+  const a = run({ ...AT_PLAN(), facts: withBudget(2000000) });
+  assert.deepEqual(shape(a), ['end', 'waiting-for-owner', 'waiting-budget', 1]);
+  assert.deepEqual(a.params, { id: 'feat', spent: 2000000, cap: 2000000, file: BUDGET_FILE });
+  assert.deepEqual(a.detail.held, { kind: 'agent', stage: 'proposal', step: null, agent: PLANNER });
+  assert.equal(a.stage, 'proposal');
+  assert.equal(a.reply, says('waiting-budget', { spent: 2000000, cap: 2000000, file: BUDGET_FILE }));
+});
+
+test('change-budget AC-1 above the cap a session step becomes the budget end', () => {
+  const lite = FLOWS['devkit-lite'];
+  const rep = { schema: 'devkit-lite', next: nextOf(lite, 'proposal', 'no-file') };
+  const over = { flow: lite, ctx: { script: 'devkit-lite' }, report: reportOf(lite, rep), facts: { flags: ['ui'], ...withBudget(2100000) } };
+  const a = run(over);
+  assert.deepEqual(shape(a), ['end', 'waiting-for-owner', 'waiting-budget', 1]);
+  assert.deepEqual([a.detail.held.kind, a.detail.held.step], ['session', 'switch-script']);
+  assert.equal(a.params.spent, 2100000);
+});
+
+test('change-budget AC-3 under the cap the action is the one given with no budget (kept)', () => {
+  const plain = run(AT_PLAN());
+  assert.deepEqual(run({ ...AT_PLAN(), facts: withBudget(1999999) }), plain);
+  assert.deepEqual(run({ ...AT_PLAN(), facts: { budget: null } }), plain);
+});
+
+test('change-budget AC-9 a spend of null holds nothing (kept)', () => {
+  assert.deepEqual(run({ ...AT_PLAN(), facts: withBudget(null) }), run(AT_PLAN()));
+});
+
+test('change-budget AC-1 the grill and the ends are not held (kept)', () => {
+  const over = withBudget(9000000);
+  const grill = run({ rep: { next: nextOf(FLOWS.devkit, 'requirements', 'no-file') }, facts: over });
+  assert.equal(grill.kind, 'grill');
+  const approval = run({ rep: { end: endOf('waiting-for-owner', 'approval', 'owner-pending') }, facts: over });
+  assert.equal(approval.end.state, 'waiting-for-owner');
+  assert.notEqual(approval.end.why, 'waiting-budget');
+  const blockedEnd = run({ rep: { next: nextOf(FLOWS.devkit, 'open', 'no-file', { file: '.openspec.yaml' }), stages: { open: { state: 'pending', reasonCode: 'no-file' } } }, facts: over });
+  assert.equal(blockedEnd.end.why, 'not-opened');
+  const archived = run({ rep: { end: endOf('archived', null, 'archived') }, facts: over });
+  assert.equal(archived.end.state, 'archived');
+});
+
+test('change-budget AC-1 a no-progress end wins over the budget (kept)', () => {
+  const stuck = run({ ...AT_PLAN(), facts: { after: 'proposal/proposal@abc123', ...withBudget(9000000) } });
+  assert.deepEqual([stuck.end.state, stuck.end.why], ['blocked', 'no-progress']);
+});
+
+// ---- next (D-4, D-5)
+
+// A `feat` change at its plan stage with a cap, and a session transcript of `spent` tokens after its run line.
+function cappedRun({ cap, spent, project = null, lines = null } = {}) {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  const files = { 'openspec/changes/feat/.openspec.yaml': cap === null ? 'schema: devkit\n' : block(`budget: ${cap}`) };
+  if (project !== null) files['openspec/config.yaml'] = block(`budget: ${project}`);
+  put(root, files);
+  commitAll(root, 'budget');
+  const env = budgetEnv(sandbox(), 'sess-budget', lines ?? [typedLine('change feat'), runLine('feat'), usageLine({ id: 'a', input: spent })]);
+  return { root, env, file: join(root, 'openspec', 'changes', 'feat', '.openspec.yaml') };
+}
+
+test('change-budget AC-1 next at the cap prints the run line and the end line and exits 1', () => {
+  const t = cappedRun({ cap: 1000, spent: 1000 });
+  const r = next(t.root, [], t.env);
+  assert.equal(r.code, 1, r.stderr);
+  const lines = r.stdout.split('\n');
+  assert.deepEqual(lines.slice(0, 2), ['devkit-run: feat', 'devkit-end: feat waiting-for-owner']);
+  const action = actionOf(r.stdout);
+  assert.deepEqual([action.end.state, action.end.why, action.stage], ['waiting-for-owner', 'waiting-budget', 'proposal']);
+  assert.deepEqual([action.params.spent, action.params.cap, action.params.file], [1000, 1000, t.file]);
+});
+
+test('change-budget AC-2 the reply says the spend, the cap, the file, budget and /devkit change in both languages', () => {
+  const t = cappedRun({ cap: 1000, spent: 1200 });
+  for (const lang of ['en', 'pt-BR']) {
+    const r = main(['next', '--change', 'feat', '--lang', lang], { cwd: t.root, env: t.env });
+    const { reply } = actionOf(r.stdout);
+    assert.equal(reply, render(lang, 'waiting-budget', { id: 'feat', spent: 1200, cap: 1000, file: actionOf(r.stdout).params.file }), lang);
+    for (const part of ['feat', '1200', '1000', actionOf(r.stdout).params.file, 'budget', '/devkit change']) assert.ok(reply.includes(part), `${lang} names ${part}: ${reply}`);
+  }
+  assert.ok(actionOf(next(t.root, [], t.env).stdout).params.file.endsWith('/openspec/changes/feat/.openspec.yaml'));
+  assert.match(MESSAGES['pt-BR']['waiting-budget'], /orçamento/);
+});
+
+test('change-budget AC-6 a raised cap in the change file gives back the held hand-off', () => {
+  const t = cappedRun({ cap: 1000, spent: 1500 });
+  const held = actionOf(next(t.root, [], t.env).stdout).detail.held;
+  put(t.root, { 'openspec/changes/feat/.openspec.yaml': block('budget: 5000') });
+  const r = next(t.root, [], t.env);
+  assert.equal(r.code, 0, r.stderr);
+  const action = actionOf(r.stdout);
+  assert.deepEqual([action.kind, action.agent, action.stage], [held.kind, held.agent, held.stage]);
+});
+
+test('change-budget AC-6 an unchanged cap stops again', () => {
+  const t = cappedRun({ cap: 1000, spent: 1500 });
+  for (let i = 0; i < 2; i += 1) {
+    const r = next(t.root, [], t.env);
+    assert.deepEqual([r.code, actionOf(r.stdout).end.why], [1, 'waiting-budget']);
+  }
+});
+
+test('change-budget AC-4 with no budget next prints the same output with and without a session transcript, and reads none (kept)', () => {
+  const t = cappedRun({ cap: null, spent: 5000000 });
+  const spy = readCounter();
+  const transcript = join(t.env.CLAUDE_CONFIG_DIR, 'projects', 'p', 'sess-budget.jsonl');
+  const run = (env) => spawnSync(process.execPath, [LOOP, 'next', '--change', 'feat', '--lang', 'en'], { cwd: t.root, env, encoding: 'utf8' });
+  const withTranscript = run({ ...t.env, ...spy.env(transcript) });
+  const without = run(cleanEnv);
+  assert.equal(withTranscript.status, 0, withTranscript.stderr);
+  assert.equal(withTranscript.stdout, without.stdout);
+  assert.equal(spy.reads(), 0, 'the transcript was not read');
+});
+
+test('change-budget AC-9 with a cap and no session id, or a folder for the transcript, next hands the stage (kept)', () => {
+  const t = cappedRun({ cap: 1, spent: 999 });
+  const noId = next(t.root, [], { ...t.env, CLAUDE_CODE_SESSION_ID: '' });
+  assert.deepEqual([noId.code, actionOf(noId.stdout).kind], [0, 'agent']);
+  const dir = sandbox();
+  const env = budgetEnv(dir, 'sess-dir');
+  rmSync(join(dir, 'projects', 'p', 'sess-dir.jsonl'));
+  mkdirSync(join(dir, 'projects', 'p', 'sess-dir.jsonl'));
+  const asDir = next(t.root, [], env);
+  assert.deepEqual([asDir.code, actionOf(asDir.stdout).kind], [0, 'agent']);
+});
+
+test('change-budget AC-5 next on two changes uses each one cap', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  put(root, { 'openspec/config.yaml': block('budget: 2000000'), 'openspec/changes/feat/.openspec.yaml': block('budget: 500'), 'openspec/changes/other/.openspec.yaml': 'schema: devkit\n', 'openspec/changes/other/requirements.md': '# requirements\n' });
+  commitAll(root, 'two changes');
+  const env = budgetEnv(sandbox(), 'sess-two', [typedLine('change feat'), runLine('feat'), runLine('other'), usageLine({ id: 'a', input: 1000 })]);
+  const feat = main(['next', '--change', 'feat', '--lang', 'en'], { cwd: root, env });
+  assert.equal(actionOf(feat.stdout).end?.why, 'waiting-budget', 'feat has the cap of 500');
+  const other = main(['next', '--change', 'other', '--lang', 'en'], { cwd: root, env });
+  assert.notEqual(actionOf(other.stdout).end?.why, 'waiting-budget', 'other keeps the project cap of 2000000');
+});
+
+test('change-budget AC-1 nextAction without the option applies no cap (kept)', () => {
+  const t = cappedRun({ cap: 1, spent: 999 });
+  const action = changeLoopModule.nextAction(t.root, 'feat', { env: t.env, lang: 'en' });
+  assert.equal(action.kind, 'agent');
+});
+
+test('change-budget AC-1 the stop hook lets the turn end at the first attempt on the budget output', () => {
+  const t = cappedRun({ cap: 1000, spent: 1000 });
+  const r = next(t.root, [], t.env);
+  assert.equal(r.code, 1, r.stderr);
+  const transcript = transcriptOf([typedLine('change feat'), toolResultLine(r.stdout)]);
+  const stop = hook('stop', stopInput(t.root, transcript), { TMPDIR: sandbox() });
+  assert.equal(stop.code, 0, stop.err);
+});
+
+// ---- the docs (D-10)
+
+test('change-budget AC-10 docs/openspec-flow.md describes the budget', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  const at = flow.indexOf('**The token budget.**');
+  assert.ok(at >= 0, 'the paragraph exists');
+  const part = flow.slice(at, flow.indexOf('\n\n', flow.indexOf('\n\n', at) + 2));
+  const whole = flow.slice(at, at + 4000);
+  assert.match(part, /`budget:`/);
+  assert.match(whole, /devkit:` block of `openspec\/config\.yaml`/);
+  assert.match(whole, /\.openspec\.yaml/);
+  assert.match(whole, /input_tokens/);
+  assert.match(whole, /output_tokens/);
+  assert.match(whole, /cache_creation_input_tokens/);
+  assert.match(whole, /cache_read_input_tokens/);
+  assert.match(whole, /waiting for the owner|waits for the owner/);
+  assert.match(whole, /`\/devkit change` again/);
+  assert.match(flow, /\*\*The settings\.\*\*/);
 });
 
 // ---------------------------------------------------------------- change-state: phase 1, the state, the GitHub rule and the title (design D-1, D-2, D-4, D-5)
@@ -3496,6 +4510,19 @@ test('change-state AC-3 state: the drawn mock-up waits for the owner with its ga
   assert.equal(changeLoopModule.gateOf(a), 'mockup');
   const facts = { sessionMode: true, started: true, inflight: null, declared: { state: 'waiting-for-owner', why: 'waiting-mockup', params: {} }, waits: false };
   assert.deepEqual(stateOf(a, facts).reason, { code: 'waiting-mockup', text: 'your approval of the mock-up' });
+});
+
+test('change-budget AC-1 state: the budget end waits for the owner with its gate phrase, as an end and as a declared wait', () => {
+  const a = run({ ...AT_PLAN(), facts: withBudget(2000000) });
+  assert.equal(a.end.why, 'waiting-budget', 'the fixture is the end decide gives');
+  const s = stateOf(a);
+  assert.equal(s.state, 'waiting-for-owner');
+  assert.deepEqual(s.reason, { code: 'waiting-budget', text: 'a higher token budget' });
+  assert.equal(s.stateIcon, '🙋');
+  assert.equal(changeLoopModule.gateOf(a), 'budget');
+  const facts = { sessionMode: true, started: true, inflight: null, declared: { state: 'waiting-for-owner', why: 'waiting-budget', params: {} }, waits: false };
+  assert.deepEqual(stateOf(a, facts).reason, { code: 'waiting-budget', text: 'a higher token budget' });
+  assert.equal(stateOf(a, facts, { lang: 'pt-BR' }).reason.text, 'um orçamento de tokens maior');
 });
 
 test('change-state AC-3 state: a stage role of the decisions stage has its icon', () => {

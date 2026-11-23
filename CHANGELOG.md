@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.29.0 — delivery models per project
+## 0.32.0 — delivery models per project
 
-- **devkit-openspec** 0.25.0: a project chooses its delivery model in `devkit.delivery.model` of
+- **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
   `openspec/config.yaml`: `two-prs`, `trunk` or `trunk-auto` ([ADR 0018](docs/adr/0018-the-delivery-model-is-chosen-per-project.md)).
   In `two-prs` both pull requests open together from the task branch and the owner merges both; the
   test branch never enters the task branch (a hook refuses the command, and `devkit-reviews` fails a
@@ -10,12 +10,60 @@
   not merged); a conflict is solved on the support branch `<id>-<test branch>`, reviewed on its own
   before it is pushed; the change is archived through two archive pull requests. A project on `two-prs`
   adds `pull-requests: read` and `GH_TOKEN` to its `devkit-reviews` workflow (the template has both).
-  The CI snippet now pins `v0.25.0`, the release's tag.
-- **devkit-core** 0.12.0: `review-change` reviews a support branch's resolution on its own, the
+  The CI snippet now pins `v0.28.0`, the release's tag.
+- **devkit-core** 0.13.0: `review-change` reviews a support branch's resolution on its own, the
   `code-quality-reviewer` and `test-coverage-reviewer` read it, and `commit-and-pr` gains the two-PR
   call and the test-branch archive call.
 - Docs: ADR 0018, with Notes in ADRs 0002, 0003, 0010 and 0012; the coordination design records the
   conflict answer and the built lock; `docs/openspec-flow.md` gains "Delivery models".
+
+## 0.31.0 — gh version check
+
+- **devkit-openspec** 0.27.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
+  first with `gh pr checks --json`) with its own blocked reason that gives the installed version
+  and asks for an update, instead of "GitHub cannot be read"; `openspec-setup` step 1 checks `gh`
+  once and warns without stopping the setup. The CI snippet now pins `v0.27.0`, the release's tag.
+
+## 0.30.1 — a review fixed in the plan files
+
+- **devkit-openspec** 0.26.1: a rejected verdict goes stale after any later commit outside the
+  change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
+  included, so a fix made in the plan files gets the next review round with no hand from the owner;
+  a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
+  The CI snippet now pins `v0.26.1`, the release's tag.
+- **devkit-core** 0.12.1: the `review-change` skill's stale definition names the rule for a rejected
+  verdict.
+- Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
+  document.
+
+## 0.30.0 — the Jira entry
+
+- **devkit-openspec** 0.26.0: `/devkit change <Jira key or link>` opens the change from that task.
+  The session reads it through its own Atlassian connector; `change-loop.mjs` makes no call and
+  keeps no token. `start` answers the `task` mode, `open --task <KEY>` writes a `Jira: <KEY> <link>`
+  line and the quoted title, description and acceptance-criteria field under `## Request`, and the
+  key resumes its unfinished change (a second change for it is refused). When the pull request
+  opens, `next` carries `writeBack` and `write-back ask|answer` asks the developer once whether to
+  comment the link and move the task; Jira is written only on that yes, and the question is
+  recorded in the git common directory. New module `jira-task.mjs`.
+- **devkit-core** 0.12.0: the `requirements-grill` skill asks only what a request copied from a
+  task leaves open, recording the rest as assumptions answered by the task.
+- Docs: the flow document, the design document and ADR 0010 (a dated Note: no task-source
+  setting) record the entry; the roadmap gains round 20b (`jira-entry-live`).
+- CI: the snippet now pins `v0.26.0`, the release's tag.
+
+## 0.29.0 — the change budget
+
+- **devkit-openspec** 0.25.0: a `/devkit change` run stops at a token budget. `budget:` in the
+  `devkit:` block of `openspec/config.yaml`, or in a `devkit:` block of a change's own
+  `.openspec.yaml` (which wins), is a whole number of tokens; the loop counts the session's
+  spend from its transcripts and, between hand-offs, turns the next hand-off into an end waiting
+  for the owner (`waiting-budget`) that names the spend, the cap and the file to raise. With no
+  cap, no session id or an unreadable transcript, nothing is counted and nothing stops. An invalid
+  value is refused with the settings reply. The roadmap loop maps the new end to a gate. The CI
+  snippet now pins `v0.25.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` gains "The token budget" and a troubleshooting row;
+  `docs/coordination-design.md` records the setting's name as final.
 
 ## 0.28.0 — one state per change
 

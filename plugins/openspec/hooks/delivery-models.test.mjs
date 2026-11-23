@@ -96,6 +96,11 @@ test('delivery-models config: nested keys never set driver or language', () => {
   assert.equal(parseDevkitBlock('devkit:\n  delivery:\n    driver: robot\n').driver, undefined);
 });
 
+test('delivery-models config: the block keeps the budget at its own level, never one nested under delivery', () => {
+  assert.equal(parseDevkitBlock('devkit:\n  budget: 500000\n  delivery:\n    model: trunk\n').budget, '500000');
+  assert.equal(parseDevkitBlock('devkit:\n  delivery:\n    budget: 7\n').budget, undefined);
+});
+
 test('delivery-models config: readDeliverySettings reads the file and answers no model without one', () => {
   assert.equal(readDeliverySettings(configRepo(TWO_PRS)).model, 'two-prs');
   assert.deepEqual(readDeliverySettings(configRepo(null)), { model: null, base: null, testBranch: null, problems: [] });

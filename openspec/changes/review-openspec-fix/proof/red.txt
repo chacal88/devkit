@@ -1,0 +1,315 @@
+✖ review-openspec-fix 1: a rejected verdict is stale after a commit that touches only openspec/ outside the change's review record (201.791673ms)
+✔ review-openspec-fix 2: a commit of the change's reviews/ folder only leaves a rejected verdict current (146.270498ms)
+✔ review-openspec-fix 3: a commit of review.md only leaves a rejected verdict current (132.737954ms)
+✔ review-openspec-fix 4: a commit of evidence.md only leaves a rejected verdict current (156.599008ms)
+✖ review-openspec-fix 5: a commit of the record together with another openspec/ file makes a rejected verdict stale and names that file (173.232739ms)
+✖ review-openspec-fix 6: paths that only look like the change's review record make a rejected verdict stale (176.892699ms)
+✖ review-openspec-fix 7: a test-spared reviewer's rejected verdict is stale after a commit of test files only, and its approved peers stay current (212.255398ms)
+✖ review-openspec-fix 8: a verdict file with no Verdict line is stale after an openspec/-only commit (142.710973ms)
+✖ review-openspec-fix 9: a rejecting reviewer outside the six is stale after an openspec/-only commit (172.373162ms)
+✔ review-openspec-fix 10: approved and declined verdicts stay current after an openspec/-only commit outside the record (165.98507ms)
+✔ review-openspec-fix 11: a test-spared reviewer's approved verdict stays current after a commit of test files only (212.342126ms)
+✔ review-openspec-fix 12: a plan fix written and not committed leaves a rejected verdict current (110.64835ms)
+✖ review-openspec-fix 13: a merge of main that brings only openspec/ makes a rejected verdict stale and names the merge (271.619576ms)
+✖ review-openspec-fix 14: a rejected round fixed by an openspec/-only commit gets review at round 2 naming only the rejecting reviewer (3147.873572ms)
+✔ review-openspec-fix 15: committing a rejecting round's record alone, twice, keeps fix-review (3364.559425ms)
+✔ review-openspec-fix 16: a round-2 rejection committed with its record stops on stop-review-deadlock (2580.219752ms)
+✖ review-openspec-fix 17: after the round-2 stop, an openspec/-only commit opens a review at round 1, as a product commit does (2849.079216ms)
+✖ review-openspec-fix 18: the devkit-reviews check fails a rejected review after an openspec/-only fix and names it stale (985.872331ms)
+✖ review-openspec-fix 19: the stage readout offers the review again after a failed review is fixed by an openspec/-only commit (387.793105ms)
+✔ review-openspec-fix 20: the stage readout keeps the fix after a commit of the rejecting round's record only (412.970057ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 9
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16292.942335
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5252:1
+✖ review-openspec-fix 1: a rejected verdict is stale after a commit that touches only openspec/ outside the change's review record (201.791673ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'code-quality-reviewer'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5257:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'code-quality-reviewer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5288:1
+✖ review-openspec-fix 5: a commit of the record together with another openspec/ file makes a rejected verdict stale and names that file (173.232739ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'code-quality-reviewer'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5293:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'code-quality-reviewer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5297:1
+✖ review-openspec-fix 6: paths that only look like the change's review record make a rejected verdict stale (176.892699ms)
+  AssertionError [ERR_ASSERTION]: openspec/changes/other/reviews/code-quality-reviewer.md
+  + actual - expected
+  
+  + []
+  - [
+  -   'code-quality-reviewer'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5308:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'code-quality-reviewer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5313:1
+✖ review-openspec-fix 7: a test-spared reviewer's rejected verdict is stale after a commit of test files only, and its approved peers stay current (212.255398ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'code-quality-reviewer',
+  -   'spec-reviewer',
+      'test-coverage-reviewer'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5320:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'code-quality-reviewer', 'test-coverage-reviewer' ],
+    expected: [ 'code-quality-reviewer', 'spec-reviewer', 'test-coverage-reviewer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5323:1
+✖ review-openspec-fix 8: a verdict file with no Verdict line is stale after an openspec/-only commit (142.710973ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'code-quality-reviewer'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5330:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'code-quality-reviewer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5334:1
+✖ review-openspec-fix 9: a rejecting reviewer outside the six is stale after an openspec/-only commit (172.373162ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'perf-reviewer'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5337:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'perf-reviewer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5361:1
+✖ review-openspec-fix 13: a merge of main that brings only openspec/ makes a rejected verdict stale and names the merge (271.619576ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'code-quality-reviewer'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5373:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'code-quality-reviewer' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5385:1
+✖ review-openspec-fix 14: a rejected round fixed by an openspec/-only commit gets review at round 2 naming only the rejecting reviewer (3147.873572ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'fix-review',
+  +   undefined,
+  -   'review',
+  -   2,
+      [
+        'code-quality-reviewer'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5395:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'fix-review', undefined, [ 'code-quality-reviewer' ] ],
+    expected: [ 'review', 2, [ 'code-quality-reviewer' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5423:1
+✖ review-openspec-fix 17: after the round-2 stop, an openspec/-only commit opens a review at round 1, as a product commit does (2849.079216ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'stop-review-deadlock',
+  +   undefined,
+  -   'review',
+  -   1,
+      [
+        'code-quality-reviewer'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5430:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stop-review-deadlock', undefined, [ 'code-quality-reviewer' ] ],
+    expected: [ 'review', 1, [ 'code-quality-reviewer' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5433:1
+✖ review-openspec-fix 18: the devkit-reviews check fails a rejected review after an openspec/-only fix and names it stale (985.872331ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /stale test-coverage-reviewer \(/. Input:
+  
+  'devkit-reviews: feat (schema devkit-lite, head 25558d4)\n' +
+    '  1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md\n' +
+    '  2 open     reviews at head: not approved: test-coverage-reviewer (rejected)\n' +
+    '  3 met      findings disposed: 0 fixed, 0 refuted\n' +
+    '  4 met      acceptance criteria proven: 1 criteria proven\n' +
+    'fail: item 2\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/deliver-check.test.mjs:5447:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit-reviews: feat (schema devkit-lite, head 25558d4)\n  1 met      tasks and gates: all tasks ticked; 1 gate command green in evidence.md\n  2 open     reviews at head: not approved: test-coverage-reviewer (rejected)\n  3 met      findings disposed: 0 fixed, 0 refuted\n  4 met      acceptance criteria proven: 1 criteria proven\nfail: item 2\n',
+    expected: /stale test-coverage-reviewer \(/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1545:1
+✖ review-openspec-fix 19: the stage readout offers the review again after a failed review is fixed by an openspec/-only commit (387.793105ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'implementation'
+  - 'review'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/review-openspec-fix/plugins/openspec/hooks/flow-check.test.mjs:1553:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at node:internal/test_runner/test:1305:31
+      at node:internal/process/task_queues:158:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:226:14)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:155:8) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'implementation',
+    expected: 'review',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

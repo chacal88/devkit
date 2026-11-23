@@ -16,6 +16,7 @@ ship:
 merge_method: squash
 
 # The settings of /devkit change: the language of the project's files, and who runs a change (claude | compozy | script).
+# An optional token budget (budget: a whole number) stops a run between hand-offs; a change's own .openspec.yaml can override it. None is set here.
 devkit:
   language: en
   driver: claude

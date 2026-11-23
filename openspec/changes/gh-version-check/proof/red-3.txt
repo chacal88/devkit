@@ -1,0 +1,137 @@
+✖ gh-version 12: a blocked gh-too-old names both versions and the way out in either language (AC-2, AC-5) (11.218329ms)
+✖ gh-version 13: next over a delivered change with an old gh exits 2 with the own reason (AC-2) (2020.88928ms)
+✔ gh-version 14: waitLoop ends at once on a gh-too-old poll (0.818213ms)
+✖ gh-version 10: an old gh ends blocked gh-too-old and the readout names both versions (AC-4) (337.484703ms)
+✖ gh-version 11: an unreadable gh version reads as unknown in both languages (AC-5) (282.860036ms)
+✖ gh-version 15: an old gh ends the slice blocked with its own reason and merges nothing (AC-3) (2863.553014ms)
+✔ gh-version 16: another failure of the checks still ends github-unreadable (AC-6) (2759.130959ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5765.456631
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:328:1
+✖ gh-version 12: a blocked gh-too-old names both versions and the way out in either language (AC-2, AC-5) (11.218329ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'end',
+      'blocked',
+  +   'role-failed',
+  -   'gh-too-old',
+      2
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/change-loop.test.mjs:330:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'end', 'blocked', 'role-failed', 2 ],
+    expected: [ 'end', 'blocked', 'gh-too-old', 2 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:346:1
+✖ gh-version 13: next over a delivered change with an old gh exits 2 with the own reason (AC-2) (2020.88928ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'github-unreadable'
+  - 'gh-too-old'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/change-loop.test.mjs:353:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'github-unreadable',
+    expected: 'gh-too-old',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:874:1
+✖ gh-version 10: an old gh ends blocked gh-too-old and the readout names both versions (AC-4) (337.484703ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      end: 'blocked',
+  +   reasonCode: 'checks-unreadable'
+  -   reasonCode: 'gh-too-old'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/flow-check.test.mjs:876:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { end: 'blocked', reasonCode: 'checks-unreadable' },
+    expected: { end: 'blocked', reasonCode: 'gh-too-old' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:886:1
+✖ gh-version 11: an unreadable gh version reads as unknown in both languages (AC-5) (282.860036ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      end: 'blocked',
+  +   reasonCode: 'checks-unreadable'
+  -   reasonCode: 'gh-too-old'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/flow-check.test.mjs:888:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { end: 'blocked', reasonCode: 'checks-unreadable' },
+    expected: { end: 'blocked', reasonCode: 'gh-too-old' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/project-loop.test.mjs:1143:1
+✖ gh-version 15: an old gh ends the slice blocked with its own reason and merges nothing (AC-3) (2863.553014ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'github-unreadable'
+  - 'gh-too-old'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/gh-version-check/plugins/openspec/hooks/project-loop.test.mjs:1149:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'github-unreadable',
+    expected: 'gh-too-old',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

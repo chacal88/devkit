@@ -2,6 +2,8 @@
 // No dependencies. Holds the constants the workflow files and the checker share,
 // and the read-only preflight of the repository settings (`mergeSetup`).
 // `gh` is a function running `gh <args>`: { status, stderr, stdout, missing }.
+// Also holds the oldest `gh` the pr and merge ship modes can use (`GH_MIN_VERSION`) and how to
+// read the installed one (`parseGhVersion`, `versionOlder`, `ghVersion`).
 
 import { execFileSync, spawnSync } from 'node:child_process';
 
@@ -48,6 +50,34 @@ export const ghError = (r) => {
   if (r.overflowed) return 'gh output too large to read (ENOBUFS)';
   return r.stderr.trim().split('\n')[0] || `gh exited ${r.status}`;
 };
+// The first `gh` with `gh pr checks --json` (cli/cli v2.50.0), confirmed in task 1.1.
+export const GH_MIN_VERSION = '2.50.0';
+
+const firstLineOf = (text) => String(text ?? '').split('\n', 1)[0].replace(/\r$/, '').trim();
+
+// 'x.y.z' from the first line of `gh --version`, or null.
+export function parseGhVersion(text) {
+  const m = /^gh version (\d+)\.(\d+)\.(\d+)(?!\d)/.exec(firstLineOf(text));
+  return m ? `${m[1]}.${m[2]}.${m[3]}` : null;
+}
+
+// True when version `a` is older than `b` (both 'x.y.z'), compared as numbers.
+export function versionOlder(a, b) {
+  const x = a.split('.').map(Number);
+  const y = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i];
+  return false;
+}
+
+// The installed gh: { installed, missing, why }; one `gh --version` call.
+export function ghVersion(gh) {
+  const r = gh(['--version']);
+  if (r.missing) return { installed: null, missing: true, why: ghError(r) };
+  if (r.status !== 0 || r.timedOut || r.overflowed) return { installed: null, missing: false, why: ghError(r) };
+  const installed = parseGhVersion(r.stdout);
+  if (installed) return { installed, missing: false, why: null };
+  return { installed: null, missing: false, why: `gh --version printed ${firstLineOf(r.stdout) || 'nothing'}` };
+}
 const unreadable = (why) => `cannot read the repository settings: ${why}`;
 
 function readJson(gh, route) {

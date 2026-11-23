@@ -9,6 +9,7 @@ Leaves the project ready for `openspec new change <name>` to run the devkit flow
 
 Paths below are relative to this skill's directory:
 - `scripts/project-settings.mjs` writes the project's `.claude/settings.json` (step 2).
+- `scripts/gh-version.mjs` checks the installed `gh` against the version the `pr` and `merge` ship modes need (step 1).
 - `scripts/install-schemas.sh` installs the schemas.
 - `scripts/changes-under-way.mjs` lists the changes under way and what the schema upgrade changes for each (step 4).
 - `scripts/ship-entry.mjs` adds the `devkit-project` entry to the `ship:` block of `openspec/config.yaml` (step 5).
@@ -17,10 +18,11 @@ Paths below are relative to this skill's directory:
 
 ## Steps
 
-1. **Check the CLI.** The packs start the project's own OpenSpec: the one installed in the project (`node_modules/.bin/openspec` of the checkout, or of the main checkout when this is a worktree) wins over the one on `PATH`. Run that one with `--version`.
+1. **Check the CLI.** The packs start the project's own OpenSpec: the one installed in the project (`node_modules/.bin/openspec` of the checkout, or of the main checkout when this is a worktree) wins over the one on `PATH`. Run that one with `--version`, and check `gh` (last bullet).
    - A project that declares `@fission-ai/openspec` in its `package.json` and has it not installed: say so, name the file and the range, tell the user to run the project's install (`npm install` or its package manager), and stop. Never fall back to the one on `PATH`: a project that pins its CLI may forbid the global one.
    - A pinned CLI that is not 2.x: say so and tell the user to move the project's pin to 2.x (`npm i -D @fission-ai/openspec@2`); stop.
    - No pin: `openspec --version` on `PATH`. If missing, tell the user to install it (`npm i -g @fission-ai/openspec@2`, a 2.x release: the flow checker refuses another major) and stop. If the installed major is not 2, say so and ask whether to install a 2.x release.
+   - Whatever the OpenSpec check found, run `node <skill-dir>/scripts/gh-version.mjs` once and show its line. A `warning` line never stops the setup: the `plan` ship mode needs no `gh`. Tell the user that the `pr` and `merge` ship modes read a pull request's checks with `gh` 2.50.0 or newer, and to install or update `gh` before choosing them.
 
 2. **Opt the project in.** Run `node <skill-dir>/scripts/project-settings.mjs <project-root>`. It adds the `devkit` marketplace and enables `devkit-core` and `devkit-openspec` in `<project-root>/.claude/settings.json`, keeping every other key; it never touches `settings.local.json` or `~/.claude`. Show its lines and `git diff -- .claude/settings.json`, and tell the user the packs load in this project after a restart of Claude Code (or `/plugin` to accept the project's plugins). Other packs only on request: add `--packs <pack,...>`; the project flow (`/devkit project`) needs `--packs devkit-core,devkit-openspec,devkit-design`, so add `devkit-design` when the owner wants it.
 

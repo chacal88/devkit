@@ -9,7 +9,7 @@ import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
-import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, TEXT, reasonText } from './flow-check.mjs';
+import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
 import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
@@ -875,6 +875,34 @@ for (const [row, opts, want] of DELIVERY_ROWS) {
   });
 }
 
+// ---- gh-version: a gh older than 2.50.0 ends with its own reason (AC-4, AC-5)
+
+const OLD_GH_FILL = (version) => (set, head) => {
+  set('pr-view', { stdout: prView(head) });
+  set('pr-checks', { exit: 1, stderr: 'unknown flag: --json\n\nUsage:  gh pr checks [<number> | <url> | <branch>] [flags]\n' });
+  if (version) set('version', version);
+};
+
+test('gh-version 10: an old gh ends blocked gh-too-old and the readout names both versions (AC-4)', () => {
+  const { report, root } = deliveryReport({ fill: OLD_GH_FILL({ stdout: 'gh version 2.46.0 (2024-03-18)\n' }) });
+  assert.deepEqual(outcome(report), { end: 'blocked', reasonCode: 'gh-too-old' });
+  assert.deepEqual(report.end.params, { installed: '2.46.0', minimum: '2.50.0' });
+  const flow = readFlow(root, 'devkit');
+  for (const lang of ['en', 'pt-BR']) {
+    const text = renderText(report, flow, lang);
+    assert.ok(text.includes('2.46.0') && text.includes('2.50.0'), `${lang}: ${text}`);
+    assert.ok(!text.includes('the checks cannot be read') && !text.includes('não foi possível ler os checks:'), `${lang}: ${text}`);
+  }
+});
+
+test('gh-version 11: an unreadable gh version reads as unknown in both languages (AC-5)', () => {
+  const { report } = deliveryReport({ fill: OLD_GH_FILL({ exit: 1, stderr: 'boom\n' }) });
+  assert.deepEqual(outcome(report), { end: 'blocked', reasonCode: 'gh-too-old' });
+  assert.equal(report.end.params.installed, null);
+  assert.ok(reasonText('en', 'gh-too-old', report.end.params, {}).includes('unknown version'));
+  assert.ok(reasonText('pt-BR', 'gh-too-old', report.end.params, {}).includes('versão desconhecida'));
+});
+
 test('flow-check delivery: after a squash merge the walk resumes at the retro', () => {
   const root = liveChange({ ship: 'merge', skip: ['retro'] });
   for (const f of ['evidence.md', 'review.md']) {
@@ -1213,7 +1241,7 @@ test('flow-check readout: both languages cover every reason code', () => {
     'past-point': { after: 'proposal' }, 'flag-absent': { flag: 'ui' }, 'setting-absent': { setting: 'tests.unit' }, 'changes-asked': { attempt: 2 },
     'owner-changes': { stage: 'mockup', attempt: 2 }, archive: {}, archived: {}, 'previous-script': {}, 'schema-without-declaration': {},
     'undeclared-stage': { stage: 'retro', why: 'every stage passed' },
-    'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' },
+    'ship-plan': {}, 'gh-error': { error: 'gh exited 1' }, 'no-pr': {}, 'not-pushed': { number: 12 }, 'checks-unreadable': { error: 'HTTP 502' }, 'gh-too-old': { installed: '2.46.0', minimum: '2.50.0' },
     'check-failing': { checks: 'build (https://ci/build)' }, 'checks-pending': { checks: 'e2e' }, 'owner-merges': { number: 12 },
     'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },
     'no-test-pr': {}, 'owner-merges-test-branch': { number: 13, branch: 'develop', base: 'main' }, 'owner-merges-base': { number: 12, base: 'main' },
@@ -1934,4 +1962,42 @@ test('review-writer-prompt AC-8 after the merge the review stage is read from it
   const env = { ...gh.env, ...SHIP_ENV };
   const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
   assert.equal(stageOf(computeFlow(facts, flow, {}), 'review').state, 'passed');
+});
+
+// ---- review-openspec-fix: the stage readout after a rejected review (spec verdict-files)
+
+// A failed review stage whose code-quality-reviewer rejected at A (record committed): the fix is offered.
+function rejectedStage() {
+  const root = liveChange({ review: 'failed' });
+  const A = git(root, 'rev-parse', 'HEAD');
+  put(root, {
+    'openspec/changes/feat/reviews/code-quality-reviewer.md': `Verdict: REJECTED\nCommit: ${A}\n\n# Review\n`,
+    'openspec/changes/feat/reviews/test-coverage-reviewer.md': reviewFile(A),
+  });
+  commitAll(root, 'review round');
+  const control = liveReport(root).next;
+  assert.deepEqual([control.stage, control.reasonCode], ['implementation', 'fix-after-failure'], 'control');
+  return root;
+}
+
+test('review-openspec-fix 19: the stage readout offers the review again after a failed review is fixed by an openspec/-only commit', () => {
+  const root = rejectedStage();
+  const design = join(root, 'openspec', 'changes', 'feat', 'design.md');
+  writeFileSync(design, `${readFileSync(design, 'utf8')}fixed\n`);
+  commitAll(root, 'plan fix');
+  assert.equal(git(root, 'diff', '--name-only', 'HEAD^', 'HEAD'), 'openspec/changes/feat/design.md');
+  const r = liveReport(root);
+  assert.equal(stageOf(r, 'review').state, 'failed');
+  assert.equal(r.next.stage, 'review');
+  assert.equal(r.next.reasonCode, 'rerun-after-fix');
+});
+
+test('review-openspec-fix 20: the stage readout keeps the fix after a commit of the rejecting round\'s record only', () => {
+  const root = rejectedStage();
+  const file = join(root, 'openspec', 'changes', 'feat', 'reviews', 'code-quality-reviewer.md');
+  writeFileSync(file, `${readFileSync(file, 'utf8')}- [nit] noted\n`);
+  commitAll(root, 'record again');
+  const r = liveReport(root);
+  assert.equal(r.next.stage, 'implementation');
+  assert.equal(r.next.reasonCode, 'fix-after-failure');
 });
