@@ -15,7 +15,7 @@ import { mergeSetup, readRepoSettings, makeGh, ghError, ghVersion, GH_MIN_VERSIO
 export { makeGh };
 // The `Commit:` line reader moved to guard.mjs, which the slice contract reads it from; still importable from here.
 export { parseCommitLine };
-import { archiveBranchChange, mainCheckout, parseDevkitBlock, deliverySettings, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
+import { archiveBranchChange, mainCheckout, parseDevkitBlock, deliverySettings, releaseTagSetting, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, schemaHasArtifact, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -157,6 +157,16 @@ export function deliveryConfig(root, schema) {
   const agrees = entry === undefined || (model !== 'two-prs' && entry === ship);
   if (!agrees) throw new ShipConfigError(`ship.${schema}: "${entry}" disagrees with devkit.delivery.model ${model}; remove the ship entry or set it to ${model === 'two-prs' ? 'nothing' : ship}`);
   return { model, ship, mergeMethod, base, testBranch };
+}
+
+// The JSON file the release is read from (`devkit.release_tag`, release-tags D-1), or null when the project names none. A value that
+// is not a path from the repository root to a JSON file is a ShipConfigError. Read only after the merge, so a bad value never
+// changes a run before it (`/devkit change` already refused it at its start).
+function releaseTagOf(root) {
+  const file = join(root, CONFIG);
+  const { file: path, problem } = releaseTagSetting(parseDevkitBlock(existsSync(file) ? readFileSync(file, 'utf8') : ''));
+  if (problem) throw new ShipConfigError(`devkit.release_tag: "${problem.value}" is not a path from the repository root to a .json file`);
+  return path;
 }
 
 // ---------------------------------------------------------------- git facts and staleness
@@ -1149,14 +1159,22 @@ function readContents(gh, path, base) {
   try { return { json: JSON.parse(r.stdout) }; } catch { return { error: `${path} returned unreadable JSON` }; }
 }
 
-// The archive PR of the head branch (`chore/archive-<id>`, or the test branch's own): the OPEN one, else the newest MERGED,
-// else the newest CLOSED.
-function archivePrFacts(gh, root, id, base, facts, branch = `chore/archive-${id}`) {
+// The pull requests of an archive head branch (`gh pr list`): { list } | { error }.
+function archivePrList(gh, branch) {
   const l = gh(['pr', 'list', '--head', branch, '--state', 'all', '--limit', '10', '--json', 'number,url,state,headRefOid,mergeable,autoMergeRequest,mergeStateStatus']);
   if (l.status !== 0) return { error: ghError(l) };
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
   if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
+  return { list };
+}
+
+// The archive PR of the head branch (`chore/archive-<id>`, or the test branch's own): the OPEN one, else the newest MERGED,
+// else the newest CLOSED.
+function archivePrFacts(gh, root, id, base, facts, branch = `chore/archive-${id}`) {
+  const read = archivePrList(gh, branch);
+  if (read.error) return { error: read.error };
+  const { list } = read;
   const pr = ['OPEN', 'MERGED', 'CLOSED'].map((st) => list.find((p) => p.state === st)).find(Boolean);
   if (!pr) return { pr: null };
   const out = {
@@ -1170,6 +1188,87 @@ function archivePrFacts(gh, root, id, base, facts, branch = `chore/archive-${id}
     out.checks = { failing: c.details.failing, pending: c.details.pending, error: c.status === 'blocked' ? c.reason : null };
   }
   return { pr: out };
+}
+
+// One `gh api` read of a GitHub route, as JSON: { json } | { notFound: true, error } on HTTP 404 (not a missing or timed-out `gh`)
+// | { error }.
+function ghJson(gh, route) {
+  const r = gh(['api', `repos/{owner}/{repo}/${route}`]);
+  if (r.status !== 0) return { error: ghError(r), ...(!r.missing && !r.timedOut && /HTTP 404\b/.test(r.stderr) ? { notFound: true } : {}) };
+  try { return { json: JSON.parse(r.stdout) }; } catch { return { error: `${route.split('/')[0]} returned unreadable JSON` }; }
+}
+
+const isSha = (v) => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v);
+
+// A version `v<version>` can name as a tag and carry in a URL path segment (release-tags D-2).
+const tagVersion = (v) => typeof v === 'string' && /^[0-9A-Za-z][0-9A-Za-z._+-]*$/.test(v) && !v.includes('..') && !/\.(lock)?$/.test(v);
+
+// The top-level string `version` of a contents answer (base64 JSON), or null.
+function fileVersion(json) {
+  if (!json || Array.isArray(json) || typeof json.content !== 'string') return null;
+  try {
+    const version = JSON.parse(Buffer.from(json.content, 'base64').toString('utf8'))?.version;
+    return typeof version === 'string' ? version : null;
+  } catch { return null; }
+}
+
+// What the release of pull request `number` (merged to `base`) needs, read from GitHub (release-tags D-2); one of
+// { state: 'none', why: 'not-merged' | 'other-base' | 'no-file' | 'unchanged' },
+// { state: 'done', tag, sha, number, merged }, { state: 'missing', tag, sha, number, merged, version, file, base },
+// { state: 'elsewhere', tag, sha, at, number, merged } or { state: 'unreadable', number, reason }.
+// `merged` is 'change' or 'archive'. Six calls at most, each stopping as soon as the answer is known; a failure is never a pass.
+function releaseTagFacts(gh, { file, number, base, merged }) {
+  const unreadable = (reason) => ({ state: 'unreadable', number, reason });
+  const failed = (why) => unreadable(`cannot read the release of PR #${number} on GitHub: ${why}`);
+  const none = (why) => ({ state: 'none', why });
+
+  const pull = ghJson(gh, `pulls/${number}`);
+  if (!pull.json) return failed(pull.error);
+  if (pull.json.merged !== true) return none('not-merged');
+  if (pull.json.base?.ref !== base) return none('other-base');
+  const sha = pull.json.merge_commit_sha;
+  if (!isSha(sha)) return failed('the answer has no merge commit');
+
+  const atMerge = readContents(gh, file, sha);
+  if (atMerge.notFound) return none('no-file');
+  if (atMerge.error) return failed(atMerge.error);
+  const version = fileVersion(atMerge.json);
+  if (!tagVersion(version)) return unreadable(`${file} at ${sha.slice(0, 7)} has no top-level "version" a tag can carry`);
+
+  const commit = ghJson(gh, `git/commits/${sha}`);
+  if (!commit.json) return failed(commit.error);
+  const { parents } = commit.json;
+  if (!Array.isArray(parents)) return failed('the merge commit answer has no parent list');
+  if (parents.length > 0) {
+    if (!isSha(parents[0]?.sha)) return failed('the merge commit has no readable first parent');
+    const atParent = readContents(gh, file, parents[0].sha);
+    if (atParent.error) return failed(atParent.error);
+    if (atParent.json && fileVersion(atParent.json) === version) return none('unchanged');
+  }
+
+  const tag = `v${version}`;
+  const wanted = `refs/tags/${tag}`;
+  const missing = { state: 'missing', tag, sha, number, merged, version, file, base };
+  const ref = ghJson(gh, `git/ref/tags/${tag}`);
+  if (ref.notFound) return missing;
+  if (!ref.json) return failed(ref.error);
+  let entry = ref.json;
+  if (Array.isArray(ref.json)) {
+    entry = ref.json.find((e) => e?.ref === wanted);
+    if (!entry) return missing;
+  }
+  if (entry?.ref !== wanted) return failed(`the answer for ${tag} names another ref`);
+  const target = entry.object;
+  if (!isSha(target?.sha)) return failed(`the answer for ${tag} has no object sha`);
+  let at = target.sha;
+  if (target.type === 'tag') {
+    const annotated = ghJson(gh, `git/tags/${target.sha}`);
+    if (!annotated.json) return failed(annotated.error);
+    const pointed = annotated.json.object;
+    if (pointed?.type !== 'commit' || !isSha(pointed.sha)) return failed(`the annotated tag ${tag} does not point at a commit`);
+    at = pointed.sha;
+  } else if (target.type !== 'commit') return failed(`${tag} is neither a commit nor an annotated tag`);
+  return at === sha ? { state: 'done', tag, sha, number, merged } : { state: 'elsewhere', tag, sha, at, number, merged };
 }
 
 // Where change `id` stands on `ref` on GitHub: { error } | { state: 'archived', folder } | { state: 'active' | 'absent' }.
@@ -1216,7 +1315,15 @@ function testArchiveFacts(gh, root, id, testBranch, facts, base) {
   };
 }
 
-function archiveBaseFacts(gh, root, id, { located, repo, facts, changePr, branch, env }) {
+// The release facts of the archive's merged pull request, once the change is archived on the default branch: null without a merged one.
+function archiveReleaseFacts(gh, { file, branch, base }) {
+  const prs = archivePrList(gh, branch);
+  if (prs.error) return { state: 'unreadable', number: null, reason: `cannot read the archive PR on GitHub: ${prs.error}` };
+  const pr = prs.list.find((p) => p.state === 'MERGED');
+  return pr ? releaseTagFacts(gh, { file, number: pr.number, base, merged: 'archive' }) : null;
+}
+
+function archiveBaseFacts(gh, root, id, { located, repo, facts, changePr, branch, env, releaseFile = null }) {
   const archiveBranch = `chore/archive-${id}`;
   const stop = (archiveStep, reason) => ({ stop: { archiveStep, reason } });
   const base = repo?.settings?.default_branch;
@@ -1233,12 +1340,17 @@ function archiveBaseFacts(gh, root, id, { located, repo, facts, changePr, branch
     waitingFor: null,
   };
   if (!base) return { ...common, base: null, onDefault: null, ...stop('read-default-branch', `cannot read the default branch on GitHub: ${repo?.error ?? 'the answer has no default branch'}`) };
-  const here = { ...common, base };
+  // The release facts (release-tags D-3): only with `devkit.release_tag`, so a project without it reads nothing more.
+  const release = releaseFile ? { change: changePr ? releaseTagFacts(gh, { file: releaseFile, number: changePr.number, base, merged: 'change' }) : null } : null;
+  const here = { ...common, base, ...(release ? { release } : {}) };
   const unreadable = (e) => ({ ...here, onDefault: null, ...stop('read-default-branch', `cannot read ${base} on GitHub: ${e}`) });
 
   const on = changeOn(gh, id, base);
   if (on.error) return unreadable(on.error);
-  if (on.state === 'archived') return { ...here, onDefault: 'archived', folder: on.folder };
+  if (on.state === 'archived') {
+    if (release) release.archive = archiveReleaseFacts(gh, { file: releaseFile, branch: archiveBranch, base });
+    return { ...here, onDefault: 'archived', folder: on.folder };
+  }
   const onDefault = on.state;
 
   const prs = archivePrFacts(gh, root, id, base, facts);
@@ -1288,6 +1400,17 @@ function archiveNext(state) {
     const open = [[a.pr, a.base], [a.testPr, a.testBranch]].filter(([p]) => p?.state === 'OPEN');
     return step('archive-prs-ready', `archive pull requests ${open.map(([p, to]) => `#${p.number} to ${to}`).join(', ')} are open; merge them, then run again`, { list: open.map(([p, to]) => `#${p.number} to ${to}`).join(', ') });
   };
+  // R1 to R3 (release-tags D-4): the release a merge made, the change's before the archive's, ahead of every other row.
+  const release = [a.release?.change, a.release?.archive].find((r) => r && r.state !== 'none' && r.state !== 'done');
+  if (release?.state === 'unreadable') return stopArchive('tag-release', release.reason, { number: release.number });
+  if (release?.state === 'elsewhere') {
+    const { tag, at, sha, number } = release;
+    return stopArchive('tag-release', `tag ${tag} on origin is at ${at.slice(0, 7)}, not at ${sha.slice(0, 7)}, the merge commit of PR #${number}; the loop never moves a tag`, { tag, at, sha, number });
+  }
+  if (release?.state === 'missing') {
+    const { tag, sha, number, merged, version, file, base } = release;
+    return step('tag-release', `PR #${number} merged version ${version} of ${file} at ${sha.slice(0, 7)}, and origin has no tag ${tag}`, { tag, sha, number, merged, version, file, base });
+  }
   if (a.onDefault === 'archived' && (!two || a.onTest === 'archived')) return step('archived', `${a.folder} is on ${a.base}`, { folder: a.folder });
   if (two?.testLocal) {
     const t = two.testPr;
@@ -1641,7 +1764,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
       reviews: [],
       pr: prFacts(fetched),
       ...(two ? { twoPrs: twoPrsOf([], null) } : {}),
-      archive: archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env, testBranch: two ? testBranch : null }),
+      archive: archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env, testBranch: two ? testBranch : null, releaseFile: releaseTagOf(root) }),
       items: [
         checked(1, 'tasks', { unticked: [], missingGates: [], evidence: 'current' }),
         checked(2, 'reviews', { stale: [], rejected: [], missing: [] }),
@@ -1796,6 +1919,7 @@ function describeNext(n) {
     retro: n.number ? `PR #${n.number}` : '',
     'open-archive-pr': n.branch,
     'open-test-archive-pr': n.branch,
+    'tag-release': `${n.tag} at ${String(n.sha).slice(0, 7)} (PR #${n.number})`,
   }[n.step];
   return detail ? `${n.step} ${detail}` : n.step === 'ready' ? 'ready' : `${n.step}: ${n.reason}`;
 }

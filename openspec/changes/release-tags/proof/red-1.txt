@@ -1,0 +1,182 @@
+✖ release-tags 1: /devkit change refuses a release_tag that is not a path to a JSON file (116.24124ms)
+✖ release-tags 1: a plain, a quoted and a commented release_tag read as the path (3.091998ms)
+✖ release-tags 1: no release_tag, or an empty one, is unset (0.658689ms)
+✖ release-tags 1: a release_tag nested under delivery is ignored (neg) (0.405302ms)
+✖ release-tags 1: a release_tag followed by indented lines is unset and its nested lines are skipped (0.629552ms)
+✖ release-tags 1: an unterminated quote keeps the text after the quote (0.503027ms)
+✖ release-tags 1: a path from the repository root to a JSON file is the file (0.362327ms)
+✖ release-tags 1: every form that is not such a path is a problem (0.44533ms)
+✖ release-tags 1: a valid release_tag sets releaseTag in the settings (2.64323ms)
+✔ release-tags 1: no release_tag keeps the three-key settings exactly (1.77471ms)
+✖ release-tags 1: an invalid release_tag adds the release-tag unknown entry, after the other settings (1.115539ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 1
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 295.924935
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:4230:1
+✖ release-tags 1: /devkit change refuses a release_tag that is not a path to a JSON file (116.24124ms)
+  AssertionError [ERR_ASSERTION]: en /abs.json
+  + actual - expected
+  
+  + 'new'
+  - 'setting-unknown'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/change-loop.test.mjs:4238:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'new',
+    expected: 'setting-unknown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:28:1
+✖ release-tags 1: a plain, a quoted and a commented release_tag read as the path (3.091998ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'package.json'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:29:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'package.json',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:36:1
+✖ release-tags 1: no release_tag, or an empty one, is unset (0.658689ms)
+  TypeError [Error]: guard.releaseTagSetting is not a function
+      at settingOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:16:35)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:40:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-tags.test.mjs:46:1
+✖ release-tags 1: a release_tag nested under delivery is ignored (neg) (0.405302ms)
+  TypeError [Error]: guard.releaseTagSetting is not a function
+      at settingOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:16:35)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:49:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-tags.test.mjs:52:1
+✖ release-tags 1: a release_tag followed by indented lines is unset and its nested lines are skipped (0.629552ms)
+  AssertionError [ERR_ASSERTION]: the block names the key, unset
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:55:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:59:1
+✖ release-tags 1: an unterminated quote keeps the text after the quote (0.503027ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'package.json'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:60:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'package.json',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:64:1
+✖ release-tags 1: a path from the repository root to a JSON file is the file (0.362327ms)
+  TypeError [Error]: guard.releaseTagSetting is not a function
+      at settingOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:16:35)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:66:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-tags.test.mjs:70:1
+✖ release-tags 1: every form that is not such a path is a problem (0.44533ms)
+  TypeError [Error]: guard.releaseTagSetting is not a function
+      at settingOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:16:35)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:73:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-tags.test.mjs:80:1
+✖ release-tags 1: a valid release_tag sets releaseTag in the settings (2.64323ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      driver: 'claude',
+      language: 'en',
+  -   releaseTag: 'plugins/openspec/.claude-plugin/plugin.json',
+      unknown: []
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:81:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { driver: 'claude', language: 'en', unknown: [] },
+    expected: { driver: 'claude', language: 'en', unknown: [], releaseTag: 'plugins/openspec/.claude-plugin/plugin.json' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:91:1
+✖ release-tags 1: an invalid release_tag adds the release-tag unknown entry, after the other settings (1.115539ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   {
+  -     accepted: 'a path from the repository root to a JSON file, such as package.json',
+  -     setting: 'release-tag',
+  -     value: 'x.yaml'
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:93:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ { setting: 'release-tag', value: 'x.yaml', accepted: 'a path from the repository root to a JSON file, such as package.json' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
