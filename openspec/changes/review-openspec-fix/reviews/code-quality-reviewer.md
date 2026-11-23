@@ -1,14 +1,14 @@
 Verdict: approved
-Commit: c9bc7758c2ab24c2611819c577381741238edbd1
+Commit: 95ac4013f8f007d6b10a01895106d831d6a86f39
 
-## Quality review: review-openspec-fix, merge c9bc775 (round 1 re-review)
+## Quality review: review-openspec-fix, merge 95ac401 (round 1 re-review)
 
 ### Findings
-- [praise] plugins/openspec/hooks/deliver-check.mjs:160-175 — verdictAllowed is one small function over an unchanged staleness(); byte-identical across the merge.
 - [nit] openspec/changes/review-openspec-fix/evidence.md:3 — Says 'clean tree' while evidence.md itself is modified; harmless but imprecise.
 - [nit] openspec/changes/review-openspec-fix/tasks.md:1.2 — Check says 0 deleted lines in the test files, but the CI pin edit deletes 1; tighten the wording.
-- [praise] plugins/openspec/hooks/change-loop.test.mjs:2481-2482 — CI pin assertion for v0.22.1 plus doesNotMatch for v0.22.0 is intact after the merge and consistent with docs/openspec-flow.md.
+- [praise] plugins/openspec/hooks/deliver-check.mjs:160-175 — verdictAllowed is one small function over an unchanged staleness(); untouched by the merge.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs:2480-2481 — CI pin assertion moved to v0.22.2 with an invariant comment recording who took 0.22.0 and 0.22.1; consistent with docs/openspec-flow.md.
 
 ### Summary
-- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise, all carried over from the previous round.
-- Justification: the merge of main (c9bc775) added only the stage-roles archive and spec updates plus a 6-line archived-approval fallback in change-loop.test.mjs near line 3207. That fallback is unrelated to this change's assertions. The CI pin assertion (v0.22.1, no v0.22.0) and the docs/openspec-flow.md pin are intact. deliver-check.mjs and guard.test.mjs are unchanged since 5ed6b3b. A scoped run of 4 tests (stage-roles ADR 0016, release-rebase pin, two conduct pin tests) passed 4/4; the full hook suite was not re-run.
+- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise.
+- Justification: reviewed the 95ac401 merge resolution only (git diff 95ac401^1 95ac401 and origin/main..HEAD). Versions agree across the three plugin.json files and marketplace.json (0.26.2, core 0.10.2, openspec 0.22.2, compozy 0.3.1); CHANGELOG 0.26.2 sits above main's untouched 0.26.1; the v0.22.2 pin is in all four doc marker forms and in the test assertion. A scoped run of the pin, release-ready and release-rebase pin tests passed; the full hook suite was not re-run.
