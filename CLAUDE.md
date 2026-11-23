@@ -43,6 +43,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 - Commits: conventional (`<type>(<scope>): <description>`), as `docs/conventions.md` states.
 - Before changing a test, name its invariant, the layer that owns it and the suite it lives in.
 - When the installed devkit-openspec cannot read `main`'s `flow.json` (`unknown key ...`), drive the change with the worktree's own `plugins/openspec/hooks/change-loop.mjs` until the plugin is updated.
+- When a change alters what an agent writes, its real-run proof covers every case the plan declares (each input variant, and the conducting session's own part), not one case plus prose tests.
 
 ## Gates
 

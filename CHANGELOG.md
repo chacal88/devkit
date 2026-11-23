@@ -19,6 +19,28 @@
 - Docs: ADR 0019, with Notes in ADRs 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
   coordination design, the roles and the READMEs describe the new run.
 
+## 0.32.3 — retro proposals of delivery-models
+
+- **devkit-core** 0.13.1: `tdd-implementer` runs a long suite in the background and never waits with a
+  polling loop; `pr-verifier` may let one green whole-suite run stand for the gate parts it imports.
+- Project config: plans name an ADR number or version by rule, not by value.
+
+## 0.32.2 — change-state retro fixes
+
+- **devkit-openspec** 0.28.2: the `change-state ADR 0017: the documents follow` test finds
+  `approval.md` in the archived change folder once the change is archived, so the archive pull
+  request stays green. The repository check `scripts/check.py` now refuses an un-awaited
+  `t.test(` subtest in a hook test file, and CONTRIBUTING says to await every subtest. The CI
+  snippet now pins `v0.28.2`, the release's tag.
+
+## 0.32.1 — retro of change-budget
+
+- **devkit-openspec** 0.28.1: the `ship-change` `review` row commits every modified or untracked
+  file under the change folder before a review round, so the verdicts are not recorded against
+  uncommitted changes.
+- Docs: `CONTRIBUTING.md` says to fetch `main` again right before each push of the delivery and
+  before `enable-auto-merge`, since a sibling that merged in between took the release number.
+
 ## 0.32.0 — delivery models per project
 
 - **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
