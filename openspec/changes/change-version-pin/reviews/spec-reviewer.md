@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: c1dc4033d78fb79eafea79ef073afec7949d36f2
+Commit: 043b8e02184136a0b8de618114b3c2c0d53a5bda
 
 ## Spec review — change-version-pin
 
@@ -24,9 +24,9 @@ In-scope specs: openspec/changes/change-version-pin/specs/change-coordination/sp
 | reviews-check: The check asks for readiness by the flow the change follows | covered |
 
 ### Verification at this stage
-Targeted run with the CI branch variables and a real TMPDIR: node --test plugins/openspec/hooks/version-pin.test.mjs, 645 of 645 pass; python3 scripts/check.py passes; openspec validate change-version-pin --strict is valid; python3 scripts/gen-catalog.py --check printed nothing (its exit code was not captured). The whole guard suite was not re-run, as instructed; its result is taken from evidence.md.
+Scoped re-review of c1dc403..043b8e0. The commits since are the evidence rewrite, the review files, and the merge of origin/main aa7329a (archive of release-merge-conflict). git diff c1dc403..HEAD over plugins, scripts and .claude-plugin is empty. The only non-openspec file that moved is docs/openspec-flow.md (one sentence, a post-merge procedure, not a requirement of this change). The four spec deltas are all ADDED Requirements; none of their titles exists in the merged canonical change-coordination spec, so the merge creates no conflict or duplicate. openspec validate change-version-pin --strict is valid; python3 scripts/check.py passes. The targeted run of plugins/openspec/hooks/version-pin.test.mjs with GITHUB_HEAD_REF=change-version-pin, GITHUB_BASE_REF=main and a real TMPDIR finished: 645 of 645 pass, 0 fail. The whole guard suite was not re-run, as instructed.
 
-Scope check: every change in the diff derives from a requirement or from a reader that design.md D-4 and the proposal's Impact section name (loop, conductor, roadmap titles, project loop, docs, version bump, CHANGELOG). The JSON readout always carries a flow object (version, installed, pinned); the spec requires both versions only when the installed flow is newer, and the extra field is harmless, so it is not flagged.
+Scope check: nothing in the delta since c1dc403 adds behavior; no scope creep and no gap.
 
 ### Summary
 - 0 findings (0 scope creep, 0 gaps). Spec review: pass. Full coverage; no scope creep.
