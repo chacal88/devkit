@@ -99,7 +99,11 @@ be judged by its own files as before. The stage checker SHALL report the same.
 
 #### Scenario: The base brings only openspec files
 - **WHEN** a branch has a product commit before the commit its reviews and `evidence.md` record, and a merge of the base after the record brings only files under `openspec/`
-- **THEN** the delivery checker reads the reviews and the evidence as current, and the stage checker reports the evidence and review stages passed
+- **THEN** the delivery checker reads the approved or declined reviews and the evidence as current, and the stage checker reports the evidence and review stages passed
+
+#### Scenario: A rejected review when the base brings only openspec files
+- **WHEN** the same merge comes after a review that rejects at the recorded commit
+- **THEN** the rejected review is stale and the reason names the merge commit and the first file it brought, as the rule for a rejected verdict says (`verdict-files`)
 
 #### Scenario: The base brings a product file
 - **WHEN** the same merge brings a file outside `openspec/` from the base
@@ -171,3 +175,29 @@ uses.
 #### Scenario: The next step after an unclosed fence
 - **WHEN** the change's plan is approved or a task is ticked, and the `tasks.md` of the scenario above is its tasks file
 - **THEN** the next step of `deliver-check.mjs <id>` is `implement`, and its reason names `1.2`
+
+### Requirement: The delivery checker names a gh too old to read the checks
+When `gh pr checks` fails because the installed `gh` does not know its `--json` or `--required`
+option, the delivery checker SHALL read `gh --version` once and report the checks item blocked,
+naming the installed version, or saying it is unknown, and 2.50.0, the first `gh` that reads the
+checks as JSON. It SHALL call `gh --version` in no other case.
+
+#### Scenario: A gh older than 2.50.0
+- **WHEN** `gh pr checks <n> --required --json name,state,bucket,link` exits 1 with `unknown flag: --json` and `gh --version` prints `gh version 2.46.0 (2024-03-18)`
+- **THEN** the checks item is blocked, its reason names `2.46.0` and `2.50.0` and says to update `gh`, and its details carry the installed version `2.46.0` and the minimum `2.50.0`
+
+#### Scenario: A gh that does not know the required option
+- **WHEN** the same call exits 1 with `unknown flag: --required`
+- **THEN** the checks item is blocked with the same old-`gh` reason
+
+#### Scenario: The version cannot be read
+- **WHEN** the call fails with `unknown flag: --json` and `gh --version` fails, prints nothing, or prints a first line that is not `gh version <major>.<minor>.<patch>`
+- **THEN** the checks item is blocked with the old-`gh` reason, the installed version given as unknown and the minimum as `2.50.0`
+
+#### Scenario: Other failures keep their reason
+- **WHEN** `gh pr checks` fails with an HTTP or authentication error, times out, is not installed, or exits 0 with output that is not a JSON list
+- **THEN** the checks item is blocked with the same reason as before this change, its details name no `gh` version, and `gh --version` is not called
+
+#### Scenario: Checks read normally
+- **WHEN** `gh pr checks` answers a JSON list of checks
+- **THEN** `gh --version` is not called
