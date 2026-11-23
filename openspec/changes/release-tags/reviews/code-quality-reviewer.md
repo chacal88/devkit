@@ -1,17 +1,25 @@
 Verdict: approved
-Commit: 0bf76b45f9360e60d58bae1d927a5475b914dc2b
+Commit: 896c29dfc34f7b02d88462ec71029eaf984a11e2
 
-## Quality review — release-tags (round 1)
+## Quality review — release-tags (round 2)
 
 ### Findings
-- [nit] docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md:3-4 — The ADR header has two Status lines ('Status: accepted' and 'Status: Accepted by: ...'); ADR 0018 uses 'Status: accepted' plus a separate 'Accepted by:' line. Align to avoid a parser reading the wrong one.
-- [nit] plugins/openspec/skills/ship-change/SKILL.md:76 — The local-tag guard compares `git rev-parse -q --verify refs/tags/<tag>` to the sha; an annotated local tag resolves to the tag object, not the commit, so it would stop as 'another commit' even when it points at the merge. Conservative and safe, but `refs/tags/<tag>^{commit}` would be exact.
-- [nit] plugins/openspec/hooks/deliver-check.mjs:1318-1325 — On an archived change, every later run repeats up to 6 gh reads for the change's PR plus a PR list and up to 6 reads for the archive PR. This only happens with release_tag set, and once per run. If it gets hot, cache `done` per run.
-- [nit] openspec/changes/release-tags/tasks.md:124 — The Workflow follow-up still names v0.29.0, while the release settled on 0.30.0 and the pin tests use v0.30.0. It hedges with 'or the version 4.4 settled', but a stale number in a delivered task file invites a wrong by-hand tag.
-- [praise] plugins/openspec/hooks/deliver-check.mjs:1203-1272 — releaseTagFacts fails closed. The stop is distinct for a 404 on the tag (step to run) versus a timeout or unreadable answer (stop), and it handles lightweight, annotated and array answers. The tag version is validated before it reaches a URL, and every call stops at the first decisive answer.
-- [praise] plugins/openspec/hooks/guard.mjs:128-142 — isJsonPath is a segment whitelist that rejects '.', '..', an absolute path, a query string and anything not ending in .json, and a single releaseTagSetting is shared by the loop's start refusal and the checker.
-- [praise] plugins/openspec/hooks/release-tags.test.mjs — Red-before-green proofs are saved per phase. Tests assert the exact gh calls (including 'no key means today's calls'), reach new functions through namespace imports, and cover the CLI exit codes and both languages.
+- [nit] docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md:3-4 — Previous: the ADR header had two Status lines; ADR 0018 uses Status plus a separate Accepted by line. · fixed in 6e33ca70798db42ce91d0694024aa688d2adf10c
+- [nit] plugins/openspec/skills/ship-change/SKILL.md:76 — Previous: the local-tag guard compares refs/tags/<tag> to the sha; an annotated local tag would stop as 'another commit'. Safe but not exact; refs/tags/<tag>^{commit} would be exact. Unchanged.
+- [nit] plugins/openspec/hooks/deliver-check.mjs:1318-1325 — Previous: on an archived change each run repeats up to 6 gh reads for the change PR plus a PR list and up to 6 for the archive PR, only with release_tag set. Cache per run if it gets hot. Unchanged.
+- [nit] openspec/changes/release-tags/tasks.md:124 — Previous: the Workflow follow-up named v0.29.0 while the release is 0.30.0. · fixed in 6e33ca70798db42ce91d0694024aa688d2adf10c
+- [praise] plugins/openspec/hooks/deliver-check.mjs:1203-1272 — Previous praise: releaseTagFacts fails closed, validates the tag version before any URL and separates 404 from unreadable.
+- [praise] plugins/openspec/hooks/guard.mjs:128-142 — Previous praise: isJsonPath segment whitelist and a single releaseTagSetting shared by the start refusal and the checker.
+- [praise] plugins/openspec/hooks/release-tags.test.mjs:415-470 — The two-prs tests reuse the delivery-models simulator and record every release route read through a wrapper, so 'the test-branch pull request is never read' is asserted from the call log, not inferred.
+- [nit] plugins/openspec/hooks/release-tags.test.mjs:19-21 — Importing delivery-models.test.mjs (and deliver-check.test.mjs) runs those suites inside release-tags.test.mjs, so the whole file exceeded 500 s under load here and in evidence.md. The 45-test name-pattern selection is fast. Optional: move the shared helpers to a non-test module.
+- [praise] openspec/changes/release-tags/evidence.md (Live GitHub reads) — Real-output acceptance: route-by-route live reads on PRs #72 and #73 with a real 404 and the real releaseTagFacts through the real gh, plus an explicit list of what is not proven live (annotated tag route, elsewhere state).
+
+### Previous findings
+See the findings list: F1 and F4 fixed in 6e33ca7; F2 and F3 still open as nits.
+
+### Round 1 findings of other reviewers, checked in my remit
+ADR 0019 now records the archive-branch limit; the two-prs tests assert the test-branch PRs are never read; the ship-change row test asserts the local-tag guard and the refused-push clause; evidence.md records the live GitHub reads and says what is not proven live.
 
 ### Summary
-- 7 findings (0 blocking, 0 important, 4 nit) + 3 praise.
-- Justification: the diff matches the proposal, tasks and accepted ADR 0019. Ownership follows existing code; without the key the code adds no gh calls. The path whitelist and the tag-version validation close the URL-injection risk, and the fact reader fails closed. The release-tags suite alone passes (43 of 43); the reviewer checked the real GitHub response shapes for an existing and a missing tag. The full guard suite was not re-run: evidence.md shows it green (2110) on the same code. tag-release has not run end to end against real GitHub because the step exists only once this version is installed.
+- 9 findings (0 blocking, 0 important, 2 nit open, 2 nit fixed) + 3 praise (one new).
+- Justification: only my previous findings and the lines changed since 0bf76b4 were checked. The only product-adjacent changes are tests, ADR wording and task text; no product code changed. The 45-test name-pattern selection of release-tags.test.mjs passed; the whole-file run hit the reviewer's timeout under load. No blocking or important issue found; verdict approved.
