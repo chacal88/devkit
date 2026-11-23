@@ -6,7 +6,7 @@
   at its start and starts each change's session with a one-use ticket, so the session runs its loop
   from its first turn with no typed command: the new `devkit-session` skill is the entry, and a hook
   on the Skill tool (`guard.mjs skill`) lets it run only on the run's unclaimed ticket
-  ([ADR 0019](docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md)). The grills, plan
+  ([ADR 0020](docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md)). The grills, plan
   approvals and retro answers of every change are asked in the coordinating session; places count
   only the implementation, test, evidence and review stages; a change waits for a place, the load or
   its dependencies in its own session (title `⏳ <id>`) and merges the default branch before it plans;
@@ -17,7 +17,7 @@
   The CI snippet now pins `v0.31.0`, the release's tag.
 - **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
   files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
-- Docs: ADR 0019, with Notes in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
+- Docs: ADR 0020, with Notes in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
   coordination design, the roles and the READMEs describe the new run.
 
 ## 0.34.1 — retro proposals of release-tags

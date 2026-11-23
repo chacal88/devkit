@@ -1,7 +1,7 @@
 # ADR 0017: A change's state is derived in one place, and a stopped change's session title shows it
 
 - Status: accepted
-- Amended by ADR 0019 (0019-a-roadmap-run-opens-every-change-at-its-start.md)
+- Amended by ADR 0020 (0020-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-22
 - Change: change-state
 - Amends: ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decision 3, the title of a change session
@@ -9,7 +9,7 @@
 
 ## Context
 
-Note (roadmap-sessions-upfront, 2026-11-23): [ADR 0019](0019-a-roadmap-run-opens-every-change-at-its-start.md) amends decision 4 for a change session
+Note (roadmap-sessions-upfront, 2026-11-23): [ADR 0020](0020-a-roadmap-run-opens-every-change-at-its-start.md) amends decision 4 for a change session
 of a roadmap run: while it waits for a place, the load or its dependencies, its title is ⏳ and the
 id, the stage icon replaced, and its state is `running` with the reason of that wait, derived as
 decision 1 says. A wait on GitHub keeps ⏳ beside the stage icon. Decisions 1 to 3 are unchanged.

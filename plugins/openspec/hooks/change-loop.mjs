@@ -694,7 +694,7 @@ export function readRun(file) {
   return run;
 }
 
-// The fields of a run that opens every change at its start (D-1, D-9, ADR 0019 decision 6), each dropped when it has the wrong type:
+// The fields of a run that opens every change at its start (D-1, D-9, ADR 0020 decision 6), each dropped when it has the wrong type:
 // tickets { <id>: { ticket, at, claimedBy } }, placed { <id>: { at } }, queued { <id>: { at, why } }, anyway [<id>], waits { <id>: [{ pid, kind, at,
 // session }] }, cron (whether the host offers a session cron) and check (null, { id, at } or { refused: true, at }). An entry that is not whole is dropped.
 function readUpfront(parsed, run) {

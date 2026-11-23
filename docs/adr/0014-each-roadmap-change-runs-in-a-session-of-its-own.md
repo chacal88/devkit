@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0017 (0017-a-change-state-is-derived-in-one-place.md)
-- Amended by ADR 0019 (0019-a-roadmap-run-opens-every-change-at-its-start.md)
+- Amended by ADR 0020 (0020-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator-followups
 - Supersedes: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 1 where
@@ -13,7 +13,7 @@
 
 ## Context
 
-Note (roadmap-sessions-upfront, 2026-11-22): [ADR 0019](0019-a-roadmap-run-opens-every-change-at-its-start.md) amends decisions 1 to 4. Every pending
+Note (roadmap-sessions-upfront, 2026-11-22): [ADR 0020](0020-a-roadmap-run-opens-every-change-at-its-start.md) amends decisions 1 to 4. Every pending
 change opens at the run's start and its session runs with no typed command, on the run's ticket; the
 grill, the plan approval and the retro answers are asked in the coordinating session; a change
 session waits for a place in itself, so a freed place needs no start; a roadmap run keeps one periodic

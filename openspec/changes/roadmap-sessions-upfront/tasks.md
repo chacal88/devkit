@@ -15,7 +15,7 @@ plan changes, D-14 documents and release, D-15 proof, D-16 the fixes of review r
 Every gate is one backticked command, run as written; each `&&` part runs on its own, no part holds a
 `|`, and every gate exits 0 when its phase is done. Every new test is named `upfront <AC-n> <area>:
 ...` (the one test of task 6.1, which no criterion of this change names, `upfront budget <area>: ...`;
-the documents test of task 7.1, `upfront ADR 0019: ...`)
+the documents test of task 7.1, `upfront ADR 0020: ...`)
 and lives in `plugins/openspec/hooks/roadmap-loop.test.mjs`, except where a task names
 `change-loop.test.mjs`, `conduct-check.test.mjs` or `guard.test.mjs`; all run through
 `plugins/openspec/hooks/guard.test.mjs`, which imports them. Every env a new test builds blanks
@@ -331,13 +331,13 @@ names it (T-1 to T-17), the task saying its invariant, layer and suite. Leave no
   `session-next` beside `next` (no behaviour changes). Check: the same command passes, and every
   `change-budget` test and the `upfront AC-9 session-next` and `upfront AC-9 session-wait` tests pass
   unchanged.
-- [x] 6.2 Write the ADR of D-12 at `docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md`
+- [x] 6.2 Write the ADR of D-12 at `docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md`
   (0018 is delivery-models'; take the next free number on `origin/main` if a sibling took 0019, and
   rename the file and every reference), the header lines and Notes of D-12 in ADRs 0006, 0010 (its
   header line after the `- Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)`
   line, its Note beside the delivery-models one), 0011, 0013, 0014 and 0017 (ADR 0012 gets nothing:
-  this change does not amend it), the ADRs line of `openspec/config.yaml` (the 0019 entry after the
-  0018 one, its amends list `0006, 0010, 0011, 0013, 0014 and 0017`), and the renaming to "ADR 0019"
+  this change does not amend it), the ADRs line of `openspec/config.yaml` (the 0020 entry after the
+  0018 one, its amends list `0006, 0010, 0011, 0013, 0014 and 0017`), and the renaming to "ADR 0020"
   of the references D-12 lists that phases 1 to 5 wrote as "ADR 0017" meaning this change (no
   behaviour changes): `plugins/openspec/hooks/change-loop.mjs:688`,
   `plugins/openspec/hooks/roadmap-loop.mjs:25`, `:183` ("(ADR 0014, ADR 0017)"), `:487`,
@@ -349,7 +349,7 @@ names it (T-1 to T-17), the task saying its invariant, layer and suite. Leave no
   delivery-models' ADR 0018). Check: `python3 scripts/check.py` passes (links and language);
   `grep -n "ADR 0017" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md`
   prints nothing (the comment in `change-loop.test.mjs` renamed too; that file's change-state test
-  keeps its own ADR 0017); `grep -n "ADR 0019" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/change-loop.test.mjs`
+  keeps its own ADR 0017); `grep -n "ADR 0020" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/change-loop.test.mjs`
   prints the six renamed lines (three in `roadmap-loop.mjs`, one in each other file);
   `grep -n "ADR 0018" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md`
   prints nothing; and `change-state ADR 0017: the documents follow`, `followups ADR 0014: the
@@ -407,7 +407,7 @@ record's other keys (`type`, `isSidechain`, `promptSource`, `turnOrigin`, `entry
   - `upfront AC-9 session-next: the place is decided again on the run file as read under its lock, so of two sessions only one takes the last place` (number 1, `a` at its implementation, the run file's lock file created by the test before `sessionNext(..., { write: true, lockSleep })`; the injected `lockSleep`, on its first call, writes `placed.b` into the run file and deletes the lock file: `a`'s action is `held` with why `place`, `queued.a` is recorded and `placed` is `{ b }`) (finding 7; passes on the base);
   - `upfront AC-1 entry: the real first message of a started session is read through its host note, background, Task line and task, refused for its hand-written task, and with the run's task put in refused for want of a start line and claimed with one` (the constant `REAL_STARTED_2026_11_22` of the paragraph above; `startedTaskOf` gives the task lines from `You hold the already-open devkit change` to the closing notes paragraph; `entryDecision` over a transcript whose first line is that record: `not-started`; the same envelope with the task replaced by `/devkit-openspec:devkit change a`: `no-ticket`; with the line `devkit-start: a <ticket>` added below it and the ticket recorded: `claimed`) (finding 8);
   - `upfront AC-8 skill: after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run` (the Loop item 3 of `devkit-session/SKILL.md` names `change-loop.mjs reply blocked --param id=<id> --param why=base-conflict --param error=`; and in a scratch project with change `a`, `change-loop.mjs reply blocked --param id=a --param why=base-conflict --param error=x --lang en` prints `devkit-end: a blocked` and the text of `blocked-why.base-conflict`) (finding 9);
-  - `upfront ADR 0019: the documents follow` (ADR 0019 holds `- Status: accepted`, an `- Accepted by: the owner, on ` line naming `openspec/changes/roadmap-sessions-upfront/approval.md`, an Amends line naming ADR 0004 and ADR 0010's decision 8, the words `renumber` and `follow-up` in its Decision; ADR 0004 holds `- Amended by ADR 0019 (` in its first eight lines and a Note starting `Note (roadmap-sessions-upfront`; ADR 0010's roadmap-sessions-upfront Note names decision 8 and `a lone /devkit change`; the ADRs line of `openspec/config.yaml` reads `amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017`; the `## 0.34.0` entry of `CHANGELOG.md` names `session-next`, `session-wait`, `merge-base`, `push` and `check` as subcommands and does not call `schedule-check` or `delete-check` one) (findings 10 to 13, spec nit F4).
+  - `upfront ADR 0020: the documents follow` (ADR 0020 holds `- Status: accepted`, an `- Accepted by: the owner, on ` line naming `openspec/changes/roadmap-sessions-upfront/approval.md`, an Amends line naming ADR 0004 and ADR 0010's decision 8, the words `renumber` and `follow-up` in its Decision; ADR 0004 holds `- Amended by ADR 0020 (` in its first eight lines and a Note starting `Note (roadmap-sessions-upfront`; ADR 0010's roadmap-sessions-upfront Note names decision 8 and `a lone /devkit change`; the ADRs line of `openspec/config.yaml` reads `amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017`; the `## 0.34.0` entry of `CHANGELOG.md` names `session-next`, `session-wait`, `merge-base`, `push` and `check` as subcommands and does not call `schedule-check` or `delete-check` one) (findings 10 to 13, spec nit F4).
 
   In `change-loop.test.mjs`: `upfront AC-6 triage: triageSection and hasTriageSection read the one section, a fenced or suffixed heading being none` (finding 5); `upfront AC-1 guard: a started task after a note of the host makes a change run` (finding 8, the `typedOf` path).
   In `guard.test.mjs`: `upfront AC-2 guard: namesEntrySkill reads the entry skill's name from any string field and nothing else` (one assertion each: the bare name, the plugin-scoped name, another field, a value that is not a string, `devkit-session-x`, `my-devkit-session`) (finding 2); `upfront AC-1 guard: startedTaskOf skips the host's leading notes and nothing else` (one assertion each: one note, two notes, blank lines after a note, an unclosed note gives null, a line `hello` before the form gives null, a note after the form's first line is no leading note) (finding 8).
@@ -458,18 +458,18 @@ record's other keys (`type`, `isSidechain`, `promptSource`, `turnOrigin`, `entry
   `roadmap-loop.mjs` runs git through `gitIn`, its local helper removed (no behaviour changes). Check:
   `upfront AC-8 skill: ...` passes, `upfront AC-8 merge-base: ...` and `upfront AC-1 skill: ...` pass
   unchanged, and `python3 scripts/check.py` passes.
-- [x] 7.9 The ADRs and the changelog (D-12, D-16): in `docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md`,
+- [x] 7.9 The ADRs and the changelog (D-12, D-16): in `docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md`,
   the status `accepted`, the `- Accepted by:` line with the date and the owner's words read from
   this change's `approval.md` (written by the owner for this revised plan: its header says
   `attempt=3` and its `Date` and `Readiness` lines match this plan's `readiness.md`; if it is still the
   attempt 2 file, stop and report), the Amends line, decisions 1 and 3, decisions 7 and 8 and the Consequences as D-12
   quotes them; in `docs/adr/0004-devkit-per-project.md` the header line and the Note of D-12; in
   `docs/adr/0010-openspec-as-the-harness.md` the last sentence of the roadmap-sessions-upfront Note
-  as D-12 says; the ADRs line of `openspec/config.yaml` (its 0019 amends list); in `CHANGELOG.md`,
+  as D-12 says; the ADRs line of `openspec/config.yaml` (its 0020 amends list); in `CHANGELOG.md`,
   the `## 0.34.0` entry's subcommand sentence names `session-next`, `session-wait`, `merge-base`,
   `push` and `check`, and the cleanup sentence names `schedule-check` and `delete-check` as actions of
   a decision. If `origin/main` took the number 0019 since, renumber it: the next free number on `origin/main` at the last merge before review, as task 6.2 says. Check: `upfront
-  ADR 0019: the documents follow` passes; `followups ADR 0014: the documents follow`, `change-state
+  ADR 0020: the documents follow` passes; `followups ADR 0014: the documents follow`, `change-state
   ADR 0017: the documents follow` and `delivery-models docs: the documents follow` and the `guard.test.mjs` test "ADR 0004 exists with its sections" pass unchanged;
   `python3 scripts/check.py` passes.
 - [x] 7.10 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers the fixes of D-16 and every criterion as D-15 maps them.

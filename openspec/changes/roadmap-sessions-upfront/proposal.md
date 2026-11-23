@@ -145,7 +145,7 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   (new), `plugins/core/agents/change-planner.md`.
 - Schemas (both copies: `plugins/openspec/schemas/` and `openspec/schemas/`): the requirements helper
   and the grill rule; `openspec/config.yaml` (the grill rule and the ADRs line).
-- Docs: the new ADR (0019), Notes and header lines in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017,
+- Docs: the new ADR (0020), Notes and header lines in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017,
   `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/roles.md`, `README.md`,
   `plugins/core/README.md`, `plugins/openspec/README.md`.
 - Tests: `roadmap-loop.test.mjs`, `change-loop.test.mjs`, `conduct-check.test.mjs`, `guard.test.mjs`;

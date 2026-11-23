@@ -1,4 +1,4 @@
-# ADR 0019: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
+# ADR 0020: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
 
 - Status: accepted
 - Date: 2026-11-22

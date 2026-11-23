@@ -2210,7 +2210,7 @@ test('followups AC-8 next: start anyway starts what is held now, and a change re
   assert.ok(!events(first.stdout).some((l) => l.includes('machine is loaded')), 'no line about the hold');
   // Invariant: a --start-anyway on a run without a session per change keeps no permission in the run file. Layer: the roadmap-loop start-anyway. Suite: roadmap-loop.
   const UPFRONT = ['tickets', 'placed', 'queued', 'anyway', 'waits', 'cron', 'check']; // the fields of roadmap-sessions-upfront, written empty by every run
-  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt' && !UPFRONT.includes(k)).sort(), before, 'the run file gains no field but the time of its write and the empty fields of ADR 0019');
+  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt' && !UPFRONT.includes(k)).sort(), before, 'the run file gains no field but the time of its write and the empty fields of ADR 0020');
   assert.deepEqual(stateOf(root).anyway, [], 'nothing keeps the permission');
   // Later in the same run: a and b are open, c is ready, a place is free, the load is still high, and the call has no flag.
   addOpen(root, 'a');
@@ -4502,13 +4502,13 @@ test('upfront AC-8 skill: after a merge-base exit 3 the change session declares 
   assert.ok(r.stdout.includes(render('en', 'blocked-why.base-conflict', { error: 'x' })), r.stdout);
 });
 
-// Invariant (AC-1, AC-2, review round 1): ADR 0019 is accepted by the owner's words in approval.md with its amendments of ADR 0004 and ADR 0010's decision 8,
+// Invariant (AC-1, AC-2, review round 1): ADR 0020 is accepted by the owner's words in approval.md with its amendments of ADR 0004 and ADR 0010's decision 8,
 // its Notes and the config line follow, and the changelog calls the new subcommands by name and the two actions actions. Layer: the documents. Suite: roadmap-loop.
-test('upfront ADR 0019: the documents follow', () => {
+test('upfront ADR 0020: the documents follow', () => {
   const REPO = join(HERE, '..', '..', '..');
   const read = (...p) => readFileSync(join(REPO, ...p), 'utf8');
   const flat = (text) => text.replace(/\s+/g, ' ');
-  const name = '0019-a-roadmap-run-opens-every-change-at-its-start.md';
+  const name = '0020-a-roadmap-run-opens-every-change-at-its-start.md';
   const adr = read('docs', 'adr', name);
   assert.match(adr, /^- Status: accepted$/m);
   const changes = join(REPO, 'openspec', 'changes');
@@ -4525,12 +4525,12 @@ test('upfront ADR 0019: the documents follow', () => {
   assert.match(amends, /ADR 0010 \(0010-openspec-as-the-harness\.md\)[^;]*decision 8/, 'and ADR 0010\'s decision 8');
   const decision = flat(sectionOf(adr, '## Decision', '## Consequences'));
   for (const word of ['renumber', 'follow-up']) assert.ok(decision.includes(word), `the Decision says ${word}`);
-  const link = `[ADR 0019](${name})`;
+  const link = `[ADR 0020](${name})`;
   const adr4 = read('docs', 'adr', '0004-devkit-per-project.md');
-  assert.ok(adr4.split('\n').slice(0, 8).includes(`- Amended by ADR 0019 (${name})`), 'ADR 0004 has the Amended by line in its header');
+  assert.ok(adr4.split('\n').slice(0, 8).includes(`- Amended by ADR 0020 (${name})`), 'ADR 0004 has the Amended by line in its header');
   const note4 = flat(adr4.slice(adr4.indexOf('Note (roadmap-sessions-upfront')));
   assert.ok(adr4.includes('Note (roadmap-sessions-upfront'), 'ADR 0004 has the Note');
-  assert.ok(note4.split(' Note (')[0].includes(link), 'the Note links ADR 0019');
+  assert.ok(note4.split(' Note (')[0].includes(link), 'the Note links ADR 0020');
   const adr10 = read('docs', 'adr', '0010-openspec-as-the-harness.md');
   const note10 = flat(adr10.slice(adr10.indexOf('Note (roadmap-sessions-upfront'))).split(' Note (')[0];
   assert.ok(adr10.includes('Note (roadmap-sessions-upfront'), 'ADR 0010 has the Note');
@@ -4538,7 +4538,8 @@ test('upfront ADR 0019: the documents follow', () => {
   const adrs = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
   assert.ok(adrs.includes('amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017'), 'the ADRs line names the amended ADRs');
   const log = read('CHANGELOG.md');
-  const entry = flat(log.slice(log.indexOf('## 0.34.0'), log.indexOf('\n## 0.33.0')));
+  const entryStart = log.indexOf('## 0.35.0');
+  const entry = flat(log.slice(entryStart, log.indexOf('\n## ', entryStart + 1)));
   const subcommands = /New subcommands:([^.]*)\./.exec(entry)?.[1] ?? '';
   for (const sub of ['session-next', 'session-wait', 'merge-base', 'push', 'check']) assert.ok(subcommands.includes(`\`${sub}\``), `the entry names ${sub} a subcommand`);
   for (const action of ['schedule-check', 'delete-check']) {
