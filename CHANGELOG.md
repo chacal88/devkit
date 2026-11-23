@@ -11,12 +11,13 @@
   only the implementation, test, evidence and review stages; a change waits for a place, the load or
   its dependencies in its own session (title `⏳ <id>`) and merges the default branch before it plans;
   the run holds one periodic check while it lasts and cleans up its waits, cron and finished sessions
-  at its end. New subcommands: `session-next`, `session-wait`, `merge-base`, `push`, `schedule-check`
-  and `delete-check`. A change session's `session-next` now honours the token budget as `next` does.
+  at its end (`schedule-check` and `delete-check` are actions of a decision). New subcommands:
+  `session-next`, `session-wait`, `merge-base`, `push` and `check`. A change session's `session-next`
+  now honours the token budget as `next` does.
   The CI snippet now pins `v0.30.0`, the release's tag.
 - **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
   files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
-- Docs: ADR 0019, with Notes in ADRs 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
+- Docs: ADR 0019, with Notes in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
   coordination design, the roles and the READMEs describe the new run.
 
 ## 0.33.0 — release conflicts resolved by a merge

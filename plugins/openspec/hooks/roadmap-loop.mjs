@@ -37,17 +37,17 @@ import { dirname, join, relative } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE } from './guard.mjs';
+import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill } from './guard.mjs';
 import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
   HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
-  loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision,
+  loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection,
 } from './change-loop.mjs';
 
 // The run file's reader and the gate of an owner wait live in change-loop.mjs (change-state D-2); the callers of this module keep importing them from here.
-export { runFilePath, readRun, gateOf };
+export { runFilePath, readRun, gateOf, ENTRY_SKILL };
 
 // ---------------------------------------------------------------- the setting, the load and the word (D-6, D-3)
 
@@ -896,15 +896,16 @@ export function filesPushed(root, branch, paths) {
 const readOr = (file) => { try { return readFileSync(file, 'utf8'); } catch { return ''; } };
 
 // What of change `id` is not on origin yet in its checkout `root`: `plan` once its approval passed, else `grill` once its requirements did; null when both are
-// pushed, the branch is the default branch (nothing the run pushes goes there) or the checkout has none.
+// pushed, the branch is the default branch (nothing the run pushes goes there) or the checkout has none. `approval.md` on origin is the record of the plan push
+// (D-5): only the coordinating session writes it and the push carries it with the plan files, so a later edit of a plan file (the implementer's tick of
+// `tasks.md`) asks no second push, and an approval written again, which origin does not hold, asks one.
 function unpushedOf(root, id) {
   const dir = root ? locateChange(root, id)?.dir : null;
   const branch = dir ? tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) : '';
   if (!dir || !branch || branch === defaultBase(root)) return null;
   const inRoot = (file) => relative(root, join(dir, file));
   const passed = (file) => parseStageHeader(readOr(join(dir, file)))?.result === 'passed';
-  const plan = PLAN_FILES.filter((file) => existsSync(join(dir, file))).map(inRoot);
-  if (passed('approval.md') && !filesPushed(root, branch, plan)) return 'plan';
+  if (passed('approval.md') && !filesPushed(root, branch, [inRoot('approval.md')])) return 'plan';
   if (passed('requirements.md') && !filesPushed(root, branch, [inRoot('requirements.md')])) return 'grill';
   return null;
 }
@@ -928,14 +929,39 @@ export function staleWaits(waits, { open, archived }) {
   return stale;
 }
 
-// Stops the processes of `entries` with SIGTERM (never this one); a process already gone counts as stopped. Returns how many were signalled.
+// The command line of a wait loop the skills start (`roadmap-loop.mjs wait` or `session-wait`), as `ps` prints it.
+const WAIT_COMMAND = /roadmap-loop\.mjs\s+(?:session-)?wait(?:\s|$)/;
+
+// True when `pid` is a process whose command line is a wait loop of the run (D-9 step 1): after a reboot or a long run the system may hand a recorded number
+// to an unrelated process, which must never be signalled. Any error of `ps` (no such process, no `ps` on the system) gives false.
+export function isWaitProcess(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    return WAIT_COMMAND.test(execFileSync('ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] }));
+  } catch { return false; }
+}
+
+// A recorded wait whose process lives and is still a wait loop (`watchAlive` keeps the load watch's own reading).
+export const waitAlive = (w) => watchAlive(w) && isWaitProcess(w.pid);
+
+// Stops the processes of `entries` that are still wait loops with SIGTERM (never this one); a process that is none is spared, one already gone counts as
+// stopped. Returns how many were signalled. A caller drops from its record every entry it passed, signalled or spared.
 export function killWaits(entries) {
   let stopped = 0;
   for (const w of entries) {
-    if (w.pid === process.pid) continue;
+    if (w.pid === process.pid || !isWaitProcess(w.pid)) continue;
     try { process.kill(w.pid, 'SIGTERM'); stopped += 1; } catch { /* already gone */ }
   }
   return stopped;
+}
+
+// A change no longer open holds no place (D-7): in a run with a session per change, deletes the `placed` and `queued` entries of every id that is not in
+// `openIds`. Its session is gone, so it never reaches the branch of `sessionDecide` that releases the place. `anyway` is not pruned: it gives no place by itself
+// and a claim uses it up. A run without a session per change keeps its records as they are. Changes `run` in place.
+export function pruneRecords(run, openIds) {
+  if (!run.changeSessions) return;
+  const open = new Set(openIds);
+  for (const key of ['placed', 'queued']) for (const id of Object.keys(run[key])) if (!open.has(id)) delete run[key][id];
 }
 
 const sameWait = (a, b) => a.pid === b.pid && a.kind === b.kind && a.at === b.at;
@@ -959,8 +985,7 @@ export function withTicket(action, ticket) {
   return { ...action, input: { ...action.input, prompt: `${action.input.prompt}\ndevkit-start: ${action.change} ${ticket}` } };
 }
 
-// The skill a started session runs first, and the first non-blank line of its task.
-export const ENTRY_SKILL = 'devkit-session';
+// The first non-blank line of the task of a started session. The skill it runs first, `ENTRY_SKILL`, lives in guard.mjs beside the test of a call's input.
 const TASK_OF = /^\s*\/(?:[\w-]+:)?devkit[ \t]+change[ \t]+([A-Za-z0-9][\w.-]*)[ \t]*\r?$/;
 const TYPING = (id) => `the owner can run this change by typing /devkit change ${id} in this session`;
 
@@ -992,8 +1017,7 @@ export function entryDecision(input, { env = process.env } = {}) {
     return { decision: 'refuse', why, change: id, reason: `${said}; ${TYPING(id ?? '<id>')}` };
   };
   try {
-    const named = Object.values(input?.tool_input ?? {}).some((v) => typeof v === 'string' && (v === ENTRY_SKILL || v.endsWith(`:${ENTRY_SKILL}`)));
-    if (!named) return allow('not-entry');
+    if (!namesEntrySkill(input?.tool_input)) return allow('not-entry');
     const first = firstMessageOf(input);
     const task = first === null ? null : startedTaskOf(first);
     const command = task?.find((line) => line.trim() !== '');
@@ -1097,6 +1121,7 @@ function decide(start, facts, ctx) {
     for (const id of decision.state.sessionsStarted) run.startedSessions[id] = { at: new Date().toISOString() };
     const stays = new Set([...decision.state.openLines, ...decision.state.archivedLines]);
     for (const key of ['startedSessions', 'tickets']) for (const id of Object.keys(run[key])) if (!stays.has(id)) delete run[key][id];
+    pruneRecords(run, decision.state.openLines); // a change that left the roadmap, was ticked, archived or moved to the previous script holds no place (D-7)
     // The session of an archived change was archived: its entries leave the record (D-9).
     for (const [id, key] of Object.entries(facts.after ?? {})) if (key === 'session-archived') { delete run.startedSessions[id]; delete run.tickets[id]; }
     tidyWaits(run, decision, facts);
@@ -1313,7 +1338,7 @@ function mergeBaseCmd(args, ctx) {
   const id = changeIdOf('--change', opts.value['--change']);
   const lang = normalizeLang(opts.value['--lang']);
   const root = locate(rootOf(ctx.cwd), id).root;
-  const git = (...gitArgs) => execFileSync('git', ['-C', root, ...gitArgs], { encoding: 'utf8', env: ctx.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const git = (...gitArgs) => gitIn(root, gitArgs, ctx.env);
   const base = defaultBase(root);
   git('fetch', 'origin', '--quiet');
   try {
@@ -1392,8 +1417,9 @@ function checkCmd(args, ctx) {
   let stopped = 0;
   const given = [];
   updateRun(file, (current) => {
-    // The waits whose process is gone, then the stale ones, leave the record; a place freed goes to the first change that queued for it (D-9 steps 1 and 2).
-    const alive = Object.fromEntries(Object.entries(current.waits).map(([id, list]) => [id, list.filter((w) => watchAlive(w))]).filter(([, list]) => list.length));
+    pruneRecords(current, openIds); // before a place is handed: the place of a change no longer open is free already (D-7)
+    // The waits whose process is gone or is no wait loop, then the stale ones, leave the record; a place freed goes to the first change that queued for it (D-9 steps 1 and 2).
+    const alive = Object.fromEntries(Object.entries(current.waits).map(([id, list]) => [id, list.filter((w) => waitAlive(w))]).filter(([, list]) => list.length));
     const stale = staleWaits(alive, { open: openIds, archived: archivedIds });
     stopped = killWaits(stale);
     current.waits = withoutWaits(alive, stale);
@@ -1411,7 +1437,7 @@ function checkCmd(args, ctx) {
   const decision = decide(start, facts, ctx);
   const asked = decision.ask?.change;
   const triage = facts.hasRoadmap === false ? [] : Object.entries(facts.actions)
-    .filter(([id, action]) => action?.kind === 'grill' && id !== asked && !/^### Answered by triage\b/m.test(readOr(join(locateChange(action.root, id)?.dir ?? action.root, 'requirements.md'))))
+    .filter(([id, action]) => action?.kind === 'grill' && id !== asked && !hasTriageSection(readOr(join(locateChange(action.root, id)?.dir ?? action.root, 'requirements.md'))))
     .map(([id, action]) => ({ change: id, kind: 'triage', root: action.root, progressKey: 'triage' }));
   const own = [...(stopped > 0 ? [say('roadmap-check-stopped-waits', { n: stopped })] : []), ...given.map((id) => say('roadmap-check-idle', { id }))];
   const shown = { ...decision, lines: [...own, ...decision.lines], actions: [...decision.actions, ...triage] };

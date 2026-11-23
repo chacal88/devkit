@@ -958,12 +958,6 @@ export function exitCodeOf(action) {
   return 1;
 }
 
-// facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
-// approval (deliver-check's approvalState), tests (flow-check's readTestSettings), decisions (`decisionRecords`'s result),
-// hasProposal, flags (the grill's classification), archiving, row
-// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read), budget ({ cap, file, spent } with `spent`
-// null when it could not be read; null or absent when no cap applies) }.
-// Returns the action of the design's JSON; pure.
 // ---------------------------------------------------------------- the triage's source check (roadmap-sessions-upfront D-4)
 
 const TRIAGE_HEADING = /^### Answered by triage[ \t]*$/;
@@ -971,12 +965,12 @@ const SECTION_END = /^#{1,3}[ \t]/;
 const FENCE = /^(`{3,}|~{3,})/;
 const ITEM = /^(?:[-*+]|\d+[.)])[ \t]+(.*)$/;
 
-// The items under the heading `### Answered by triage` of a requirements file that name no `(source: `, each as its text with
-// the marker removed and its indented lines joined by a space. The section runs to the next heading of level 1 to 3 or to the end
-// of the file; a line inside a fenced block (three or more backticks or tildes) is no heading and no item, an unclosed fence
-// running to the end; an item continues over its indented lines up to a blank or an unindented one. No heading or an empty section
-// gives [] (precedent: `classificationFlags` reads the grill's classification line the same way).
-export function triageUnsourced(text) {
+// The one reader of the section `### Answered by triage` of a requirements file (D-4, review round 1 architecture F2): null when no line outside a fenced
+// block is that heading (a heading with words after it, or at another level or indentation, is none), else the section's items, each as its text with the
+// marker removed and its indented lines joined by a space; an empty section gives []. The section runs to the next heading of level 1 to 3 or to the end of
+// the file; a line inside a fenced block (three or more backticks or tildes) is no heading and no item, an unclosed fence running to the end; an item
+// continues over its indented lines up to a blank or an unindented one (precedent: `classificationFlags` reads the grill's classification line the same way).
+export function triageSection(text) {
   const items = [];
   let inSection = false;
   let fence = null;
@@ -1000,7 +994,15 @@ export function triageUnsourced(text) {
     close();
   }
   close();
-  return items.filter((i) => !i.includes('(source: '));
+  return inSection ? items : null;
+}
+
+// True when the text holds the triage section (`triageSection` is not null): the loop and the periodic check ask the same reader.
+export const hasTriageSection = (text) => triageSection(text) !== null;
+
+// The items of the triage section that name no `(source: `; [] when there is no section or it is empty.
+export function triageUnsourced(text) {
+  return (triageSection(text) ?? []).filter((i) => !i.includes('(source: '));
 }
 
 // `triageUnsourced` over the change's requirements.md; [] when there is none or it cannot be read.
@@ -1008,6 +1010,12 @@ function triageUnsourcedOf(dir) {
   try { return triageUnsourced(readFileSync(join(dir, 'requirements.md'), 'utf8')); } catch { return []; }
 }
 
+// facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
+// approval (deliver-check's approvalState), tests (flow-check's readTestSettings), decisions (`decisionRecords`'s result),
+// hasProposal, flags (the grill's classification), archiving, row
+// (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read), budget ({ cap, file, spent } with `spent`
+// null when it could not be read; null or absent when no cap applies) }.
+// Returns the action of the design's JSON; pure.
 export function decide(facts) {
   const { ctx, flow, report } = facts;
   const lang = normalizeLang(ctx.lang);

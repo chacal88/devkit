@@ -1,10 +1,15 @@
 # ADR 0019: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-22
 - Change: roadmap-sessions-upfront
-- Amends: ADR 0006 (0006-phases-as-child-sessions.md), decision 3, for a roadmap run only; ADR 0010
-  (0010-openspec-as-the-harness.md), decision 2, where the host can start sessions; ADR 0011
+- Accepted by: the owner, on 2026-11-23, in the message that approved the plan of the change: `aprovo`; recorded in `openspec/changes/roadmap-sessions-upfront/approval.md`
+- Amends: ADR 0004 (0004-devkit-per-project.md), its decision that the hooks block nothing outside
+  a devkit project, for the entry skill of a change session only; ADR 0006
+  (0006-phases-as-child-sessions.md), decision 3, for a roadmap run only; ADR 0010
+  (0010-openspec-as-the-harness.md), decision 2, where the host can start sessions, and decision 8's
+  sentence "the owner's gates (grill answers, plan approval, retro answers) stay the owner's", for
+  the grill answers the project's files settle; ADR 0011
   (0011-the-change-coordinator-is-the-owners-session.md), decision 2; ADR 0013
   (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 4; ADR 0014
   (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decisions 1 to 4; ADR 0017
@@ -35,7 +40,10 @@ title of its own.
    only when the session's first message is the host's started form carrying a ticket the run
    recorded for that change and no other session claimed; the first session claims it. Any other
    call is refused, and the hook refuses when it cannot read, because its refusal still leaves the
-   owner's typed command. The devkit skill stays owner-only.
+   owner's typed command. The devkit skill stays owner-only. The hook acts whatever the project's
+   opt-in, an exception to ADR 0004: it refuses only a call of the entry skill, which exists only for
+   a roadmap run and finds no ticket outside one, and lets every other skill through without reading
+   anything else, so a project that did not choose devkit meets no gate it would notice.
 2. Where the host can start sessions, the first decision on the owner's typed turn opens every
    unticked, unarchived roadmap line and starts its session. The run's number counts only the changes
    whose current stage is the implementation, a test stage, the evidence or the review. A change
@@ -45,7 +53,13 @@ title of its own.
 3. The coordinating session asks the grill, the plan approval and the retro answers of every change
    session, one change at a time, and writes each answer into that change's files; the change
    session goes on when its wait sees the file change. Every other owner gate stays in the change
-   session. The coordinating session hands no stage; it may hand the grill's triage agent.
+   session. The coordinating session hands no stage; it may hand the grill's triage agent. In every
+   grill, a lone `/devkit change` as much as a roadmap run, a read-only triage agent answers first the
+   questions the project's files settle, each answer with its source, and the rule of
+   `openspec/config.yaml` and of the schemas says so. This amends the sentence of ADR 0010 decision 8
+   that the grill answers stay the owner's for those answers only: the owner still answers every
+   question nothing written settles, every question that changes what is delivered, and every plan
+   approval and retro answer.
 4. While a roadmap run lasts, the coordinating session holds one session cron, about every 30
    minutes. A firing has the triage answer ahead, hands a freed place to the first waiting change,
    stops the run's stale wait loops, archives the sessions of archived changes, and speaks only when
@@ -66,6 +80,14 @@ title of its own.
    changes waiting for one (`queued`), the start-anyway of the moment (`anyway`), the wait loops
    under way (`waits`), whether the host offers a session cron (`cron`) and the periodic check
    (`check`).
+7. A change whose ADR number the default branch gave another record since the change began has
+   it renumbered by the implementer, as a delivery step, without asking the owner: the next free
+   number, and every reference to it.
+8. The change session's own loop (its next step, its wait, its place, its merge of the default
+   branch, its push and its stop) lives in the roadmap coordinator's script beside the run's
+   bookkeeping it reads, and the change loop never imports that script. If that script keeps
+   growing, splitting the change session's loop into a module of its own is a follow-up, not a new
+   decision.
 
 ## Consequences
 
@@ -80,6 +102,11 @@ title of its own.
   stale). A schedule exists again, for a roadmap run (Mitigated: one per run, deleted at its end,
   and it starts nothing the owner must allow). Reading every open change's action makes a
   coordinating decision slower with many changes (Accepted; the Stop hook does not read them).
+  The entry's hook runs in projects that did not opt in (Mitigated: it decides only for the entry skill,
+  with no import for any other). The triage answers part of a grill (Mitigated: each answer names its
+  source, an answer with none sends the change back to its grill, and a question no file settles
+  reaches the owner). A process that took a recorded wait's number is never signalled (Mitigated: the
+  run checks the process's command line first).
 
 ### Review trigger
 

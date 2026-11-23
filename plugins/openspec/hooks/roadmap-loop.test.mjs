@@ -2,7 +2,7 @@
 // roadmap-coordinator: the roadmap loop, its commands and its locks (phase 1: the previous-script fixtures and the pure core; phase 2: the commands; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, utimesSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, utimesSync, realpathSync, rmSync } from 'node:fs';
 import { tmpFolder } from './test-tmp.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
@@ -3728,7 +3728,11 @@ test('upfront AC-13 messages: the check\'s messages exist in both languages and 
 
 // ---- the check: waits, places, actions (design D-9)
 
-const sleeper = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'ignore' });
+// Invariant (D-13 T-17): a stale or doomed wait loop is stopped, a kept one keeps running, and a change's live wait counts as watching. Layer: check and
+// decide. Suite: roadmap-loop. A wait loop is a process whose command line is the run's `roadmap-loop.mjs session-wait` or `wait` (D-9 step 1), so the
+// sleeper spawns one; a `stranger()` is a plain process that no wait loop is.
+const sleeper = (kind = 'session') => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)', join(HOOKS_DIR, 'roadmap-loop.mjs'), kind === 'github' ? 'wait' : 'session-wait'], { stdio: 'ignore' });
+const stranger = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'ignore' });
 const alive = (child) => child.exitCode === null && child.signalCode === null;
 const exited = (child) => new Promise((resolve) => { if (!alive(child)) return resolve(); const timer = setTimeout(resolve, 5000); return child.once('exit', () => { clearTimeout(timer); resolve(); }); });
 const reap = (...children) => { for (const c of children) if (alive(c)) c.kill('SIGKILL'); };
@@ -4196,4 +4200,349 @@ test('upfront AC-10 command: the state command, session-next and the board agree
   for (const key of ['state', 'reason', 'stage', 'stageTitle', 'phase', 'stageIcon', 'stateIcon', 'title']) assert.deepEqual(afterNext.state[key], afterEntry[key], `after: ${key}`);
   const board = doStatus(root).stdout;
   assert.ok(board.split('\n').some((r) => r.startsWith('  b') && r.endsWith(afterEntry.reason.text)), board);
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 7: the fixes of review round 1 (design D-16)
+
+// A process that is still running a second after a decision that may have signalled it; false as soon as it exits.
+const stillAlive = (child) => new Promise((resolve) => {
+  if (!alive(child)) return resolve(false);
+  const timer = setTimeout(() => resolve(alive(child)), 1000);
+  return child.once('exit', () => { clearTimeout(timer); resolve(false); });
+});
+
+// Invariant (AC-12, finding 1): approval.md on origin is the record that the plan was pushed, so a tick of tasks.md asks no second push and an approval
+// written again does. Layer: next command and push command. Suite: roadmap-loop.
+test('upfront AC-12 next: ticks of tasks.md after the plan was pushed ask no second plan push, and an approval written again does', () => {
+  const { root, origin } = upPushed();
+  const approval = (attempt) => `<!-- devkit-stage approval result=passed attempt=${attempt} commit=none -->\n# Plan approval: a\n\n- Status: APPROVED\n`;
+  const send = (what) => cmd(root, ['push', '--change', 'a', '--what', what, '--lang', 'en'], PUSH_OPTS);
+  assert.equal(send('grill').code, 0);
+  put(root, { 'openspec/changes/a/approval.md': approval(1) });
+  const first = send('plan');
+  assert.equal(first.code, 0, first.stdout + first.stderr);
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)), [], 'the plan and its approval are on origin');
+  // The implementer ticks a box of tasks.md: left in the tree, then committed and not pushed. Neither asks a second push of the plan.
+  const tasks = 'openspec/changes/a/tasks.md';
+  put(root, { [tasks]: readFileSync(join(root, tasks), 'utf8').replace('- [ ] 1.1 a', '- [x] 1.1 a') });
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)), [], 'a tick left in the tree');
+  commitAll(root, 'tick 1.1');
+  assert.notEqual(git(root, 'rev-parse', 'HEAD'), git(origin, 'rev-parse', 'a'), 'the tick is committed and origin does not hold it');
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)), [], 'a tick committed and not pushed');
+  // The owner approves the revised plan again: the new approval.md is not on origin, so the plan is pushed once more, with the tick.
+  put(root, { 'openspec/changes/a/approval.md': approval(2) });
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)).map((a) => [a.change, a.what]), [['a', 'plan']]);
+  const again = send('plan');
+  assert.equal(again.code, 0, again.stdout + again.stderr);
+  assert.match(git(origin, 'show', 'a:openspec/changes/a/approval.md'), /attempt=2/, 'origin holds the new approval');
+  assert.match(git(origin, 'show', 'a:openspec/changes/a/tasks.md'), /- \[x\] 1\.1 a/, 'with the plan files');
+  assert.deepEqual(pushesOf(doNext(root, ['--turn', 'typed'], PUSH_OPTS)), []);
+});
+
+// Invariant (AC-2, finding 2): a module that cannot load never refuses another skill, and the entry fails closed. Layer: the guard process in `skill`
+// mode. Suite: roadmap-loop.
+test('upfront AC-2 guard: guard.mjs skill lets another skill through without loading roadmap-loop.mjs, and refuses devkit-session when it cannot load', () => {
+  const folder = tmpFolder('devkit-upfront-skill-');
+  writeFileSync(join(folder, 'guard.mjs'), readFileSync(GUARD));
+  writeFileSync(join(folder, 'roadmap-loop.mjs'), 'throw new Error(\'this module cannot load\');\n');
+  const log = join(folder, 'hooks.jsonl');
+  const call = (skill) => spawnSync(process.execPath, [join(folder, 'guard.mjs'), 'skill'], {
+    input: JSON.stringify({ session_id: UP_SESSION, cwd: folder, tool_name: 'Skill', tool_input: { skill } }), encoding: 'utf8', env: { ...process.env, ...SET, DEVKIT_HOOK_LOG: log },
+  });
+  const other = call('review-change');
+  assert.equal(other.status, 0, other.stderr);
+  const scoped = call('devkit-openspec:devkit-session');
+  assert.equal(scoped.status, 2, scoped.stdout);
+  assert.match(scoped.stderr, /\/devkit change <id>/, 'the reason names the owner\'s own command');
+  assert.equal(call('devkit-session').status, 2, 'the bare name too');
+  const records = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual(records.map((r) => [r.mode, r.decision, r.why]), [['skill', 'allow', 'not-entry'], ['skill', 'refuse', 'unreadable'], ['skill', 'refuse', 'unreadable']]);
+});
+
+// Invariant (AC-14, finding 3): only a process started as the run's wait loop is signalled. Layer: isWaitProcess. Suite: roadmap-loop.
+test('upfront AC-14 isWaitProcess: only a process started as roadmap-loop.mjs wait or session-wait is a wait loop', () => {
+  const loop = join(HOOKS_DIR, 'roadmap-loop.mjs');
+  const started = (...args) => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)', ...args], { stdio: 'ignore' });
+  const children = { session: started(loop, 'session-wait'), github: started(loop, 'wait'), plain: started(), check: started(loop, 'check'), other: started(join(HOOKS_DIR, 'other.mjs'), 'wait'), longer: started(loop, 'waiting') };
+  try {
+    assert.equal(loopModule.isWaitProcess(children.session.pid), true, 'a session-wait child');
+    assert.equal(loopModule.isWaitProcess(children.github.pid), true, 'a wait child');
+    assert.equal(loopModule.isWaitProcess(children.plain.pid), false, 'a plain child');
+    assert.equal(loopModule.isWaitProcess(children.check.pid), false, 'a child started as roadmap-loop.mjs check');
+    assert.equal(loopModule.isWaitProcess(children.other.pid), false, 'a child started as other.mjs wait');
+    assert.equal(loopModule.isWaitProcess(children.longer.pid), false, 'a child whose word only begins with wait');
+  } finally { reap(...Object.values(children)); }
+  assert.equal(loopModule.isWaitProcess(deadPid()), false, 'a dead pid');
+  for (const pid of [0, -1, 1.5, '123', NaN, null, undefined]) assert.equal(loopModule.isWaitProcess(pid), false, `${String(pid)} is no pid`);
+  const dead = deadPid();
+  assert.equal(loopModule.waitAlive({ pid: dead, kind: 'session', at: AT }), false, 'waitAlive: a dead pid');
+  assert.equal(loopModule.waitAlive({ pid: process.pid, kind: 'session', at: AT }), false, 'waitAlive: a live process that is no wait loop');
+});
+
+// Invariant (AC-14, finding 3): the check signals only a process that is still a wait loop, and forgets every stale entry. Layer: check. Suite: roadmap-loop.
+test('upfront AC-14 check: a live process that is not a wait loop, recorded as a stale wait, is spared and forgotten', async () => {
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  const [lent, newer] = [stranger(), sleeper()];
+  try {
+    putRun(root, { changeSessions: true, places: 1, ...startedIn('a'), waits: { a: [waitOf(lent), waitOf(newer, 'session', AT2)] } });
+    const r = doCheck(root);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.equal(await stillAlive(lent), true, 'a process that took the number is not signalled');
+    assert.deepEqual(stateOf(root).waits.a.map((w) => w.pid), [newer.pid], 'and the record forgets it');
+    assert.equal(alive(newer), true, 'the newest wait loop keeps running');
+    assert.ok(!events(r.stdout).some((l) => /wait loops? of the run/.test(l)), `no wait loop was stopped: ${events(r.stdout).join('|')}`);
+  } finally { reap(lent, newer); }
+});
+
+// Invariant (AC-15, finding 3): the end of the run signals no process that is not a wait loop, and the record forgets what it was asked to stop.
+// Layer: decide. Suite: roadmap-loop.
+test('upfront AC-15 decide: the end done spares a recorded pid that is not a wait loop and forgets it', async () => {
+  const root = projectWith(roadmapText('[ ] z'));
+  archiveOn(root, 'z');
+  const lent = stranger();
+  try {
+    putRun(root, { changeSessions: true, places: 1, turn: 'typed', ...startedIn('z'), waits: { z: [waitOf(lent)] } });
+    const r = doNext(root, ['--turn', 'typed']);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.equal(jsonOf(r.stdout).end.why, 'done');
+    assert.equal(await stillAlive(lent), true, 'the process that took the number keeps running');
+    assert.deepEqual(stateOf(root).waits, {}, 'and the run records no wait loop');
+  } finally { reap(lent); }
+});
+
+// Invariant (AC-9, finding 4): a change no longer open holds no place and no queue entry. Layer: check. Suite: roadmap-loop.
+test('upfront AC-9 check: a change that left the roadmap or was archived frees its place and its queue entry, and the change queued behind it takes the place', () => {
+  const held = { changeSessions: true, places: 1, ...startedIn('b'), placed: { gone: { at: AT } }, queued: { b: { at: AT2, why: 'place' } } };
+  const left = projectWith(roadmapText('[ ] b'));
+  addOpen(left, 'b');
+  putRun(left, held);
+  const r = doCheck(left);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual([Object.keys(stateOf(left).placed), stateOf(left).queued], [['b'], {}], 'gone has no line: b takes the place');
+  const archived = projectWith(roadmapText('[ ] gone', '[ ] b'));
+  addOpen(archived, 'b');
+  archiveOn(archived, 'gone');
+  putRun(archived, held);
+  const a = doCheck(archived);
+  assert.equal(a.code, 0, a.stdout + a.stderr);
+  assert.deepEqual([Object.keys(stateOf(archived).placed), stateOf(archived).queued], [['b'], {}], 'gone is archived: b takes the place');
+  const open = projectWith(roadmapText('[ ] gone', '[ ] b'));
+  addOpen(open, 'gone');
+  addOpen(open, 'b');
+  putRun(open, { ...held, ...startedIn('b', 'gone') });
+  doCheck(open);
+  assert.deepEqual([Object.keys(stateOf(open).placed), Object.keys(stateOf(open).queued)], [['gone'], ['b']], 'a change still open keeps its place');
+});
+
+// Invariant (AC-9, finding 4): the coordinating decision prunes the records of lines no longer open in a run with a session per change, and only there.
+// Layer: next command. Suite: roadmap-loop.
+test('upfront AC-9 next: a coordinating decision prunes the places and queue entries of lines no longer open, and a run without a session per change keeps them', () => {
+  const records = () => ({ placed: { a: { at: AT }, gone: { at: AT }, z: { at: AT } }, queued: { gone: { at: AT2, why: 'place' }, z: { at: AT2, why: 'load' } }, anyway: ['gone'] });
+  const root = projectWith(roadmapText('[ ] a', '[ ] z'));
+  addOpen(root, 'a');
+  archiveOn(root, 'z');
+  putRun(root, { changeSessions: true, places: 3, turn: 'typed', ...startedIn('a'), ...records() });
+  const r = doNext(root, ['--turn', 'typed']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual([Object.keys(stateOf(root).placed), stateOf(root).queued], [['a'], {}], 'only the open line keeps its record');
+  assert.deepEqual(stateOf(root).anyway, ['gone'], 'anyway is no record of a place: it is not pruned');
+  const plain = projectWith(roadmapText('[ ] a', '[ ] z'));
+  addOpen(plain, 'a');
+  archiveOn(plain, 'z');
+  putRun(plain, { places: 3, turn: 'typed', ...records() });
+  const p = doNext(plain, ['--turn', 'typed']);
+  assert.equal(p.code, 0, p.stdout + p.stderr);
+  assert.deepEqual([Object.keys(stateOf(plain).placed).sort(), Object.keys(stateOf(plain).queued).sort()], [['a', 'gone', 'z'], ['gone', 'z']], 'a run with no session per change keeps them');
+});
+
+// Invariant (AC-14, finding 5): the check has the triage answer a grill whose requirements hold no triage section by the loop's own reader. Layer: check.
+// Suite: roadmap-loop.
+test('upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] c', '[ ] d', '[ ] e'));
+  for (const id of ['a', 'c', 'd', 'e']) addOpen(root, id);
+  const answer = '1. [scope] q → a (source: `x.md`)';
+  const header = '<!-- devkit-stage requirements result=failed attempt=1 commit=none -->'; // a grill under way on the current script: no previous-script change, no passed stage
+  put(root, {
+    'openspec/changes/c/requirements.md': `${header}\n# Requirements\n\n\`\`\`md\n### Answered by triage\n\n${answer}\n\`\`\`\n`,
+    'openspec/changes/d/requirements.md': `${header}\n# Requirements\n\n### Answered by triage (draft)\n\n${answer}\n`,
+    'openspec/changes/e/requirements.md': `${header}\n# Requirements\n\n### Answered by triage\n\n${answer}\n`,
+  });
+  putRun(root, { changeSessions: true, places: 4, turn: 'typed', ...startedIn('a', 'c', 'd', 'e') });
+  const r = doCheck(root);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const j = jsonOf(r.stdout);
+  assert.equal(j.ask.change, 'a', 'a is the grill being asked');
+  assert.deepEqual(events(r.stdout).filter((l) => l.includes('waits for your answers')).length, 4, 'a, c, d and e are all grills, none of the previous script');
+  assert.deepEqual(j.actions.filter((a) => a.kind === 'triage').map((a) => a.change), ['c', 'd'], 'a fenced heading and a heading with words after it are no section; e has its triage');
+});
+
+// Invariant (AC-9, finding 6): the stop of a change session reaches changeSessionStopDecision through the real hook. Layer: the guard process in `stop`
+// mode. Suite: roadmap-loop. (It pins phase 2's behaviour: it passes on the code it was written against.)
+test('upfront AC-9 lock stop: guard.mjs stop lets a claimed change session held for a place stop with a held log line, and refuses a session that did not claim the ticket', () => {
+  const log = join(lkSandbox(), 'hooks.jsonl');
+  const env = { TMPDIR: lkSandbox(), DEVKIT_HOOK_LOG: log, CLAUDE_PLUGIN_OPTION_LANGUAGE: 'en' };
+  const held = upChange({ run: { tickets: upTickets('a', { claimedBy: LK_SESSION }), placed: { b: { at: AT } } } });
+  approve(held);
+  const before = readFileSync(runFileOf(held), 'utf8');
+  const stop = lkHook('stop', upStopInput(held), env);
+  assert.equal(stop.code, 0, stop.err);
+  assert.equal(readFileSync(runFileOf(held), 'utf8'), before, 'the stop writes nothing');
+  const other = upChange({ run: { tickets: upTickets('a', { claimedBy: 'S-other' }), placed: { b: { at: AT } } } });
+  approve(other);
+  const refused = lkHook('stop', upStopInput(other), { ...env, TMPDIR: lkSandbox() });
+  assert.equal(refused.code, 2, refused.out);
+  assert.match(refused.err, /implementation/i, 'the reason names the stage that is ready');
+  const records = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual(records.map((x) => [x.mode, x.decision, x.why, x.change]), [['stop', 'allow', 'held', 'a'], ['stop', 'refuse', 'stage-ready', 'a']]);
+});
+
+// Invariant (AC-9, finding 7): of two sessions that reach the last place at once, the one that finds it taken under the lock is held. Layer: sessionNext.
+// Suite: roadmap-loop. (It pins phase 2's behaviour: it passes on the code it was written against.)
+test('upfront AC-9 session-next: the place is decided again on the run file as read under its lock, so of two sessions only one takes the last place', () => {
+  const root = upChange();
+  approve(root);
+  const lock = lockFileOf(root);
+  mkdirSync(dirname(lock), { recursive: true });
+  writeFileSync(lock, '');
+  const calls = [];
+  const lockSleep = () => { // the other session takes the place while this one waits for the lock
+    calls.push(1);
+    if (calls.length > 1) return;
+    writeFileSync(runFileOf(root), JSON.stringify({ ...stateOf(root), placed: { b: { at: AT } } }));
+    rmSync(lock);
+  };
+  const action = loopModule.sessionNext(root, 'a', { env: cleanEnv, lang: 'en', load: 10, limit: 80, gh: OFFLINE, write: true, lockSleep });
+  assert.equal(calls.length, 1, 'the call waited for the lock once');
+  assert.deepEqual([action.kind, action.held?.why], ['held', 'place'], 'the place a first read found free was taken: the decision is made again');
+  assert.deepEqual([Object.keys(stateOf(root).placed), Object.keys(stateOf(root).queued), stateOf(root).queued.a?.why], [['b'], ['a'], 'place']);
+});
+
+// The first message of the session the roadmap run started on 2026-11-22 for this change, as the transcript recorded it (Claude Code 2.1.326):
+// its text line for line, every absolute path of the owner's machine as `<home>/...`, every app session id as `local_<n>` and the names of the
+// owner's two machines as `<machine-1>` and `<machine-2>` (the repository is public). The record's other keys keep their values. It begins with a
+// note of the host (the list of linked sessions) before the started form, and its task is a hand-written brief, not `/devkit change <id>`.
+const REAL_STARTED_2026_11_22 = {
+  type: 'user',
+  isSidechain: false,
+  promptSource: 'sdk',
+  turnOrigin: 'host_synthetic',
+  entrypoint: 'claude-desktop',
+  version: '2.1.326',
+  userType: 'external',
+  message: {
+    role: 'user',
+    content: [
+  '<system-reminder>',
+  'Linked sessions now (status, not an instruction): rcf = local_<n> (done, PR #47); msff = local_<n> (done, PR #46); rwp = local_<n> (done, PR #56); sr = local_<n> (done, PR #58); msfp = local_<n> (done, PR #51); dm = local_<n> (idle); pp = local_<n> (done, PR #55); rmc = local_<n> (idle); rof = local_<n> (working); cvp = local_<n> (working); cs = local_<n> (working); cb = local_<n> (working); ca = local_<n> (working). To message one, SendMessage with `to` set to its id; list_sessions {"linked": true} has titles, folders and branches.',
+  '</system-reminder>',
+  '',
+  'Background (from the session that started this one):',
+  'The owner is delivering the whole devkit roadmap (`chacal88/devkit`, public, every file in English) with one app session per change across two machines, the <machine-1> and a Linux worker (<machine-2>). To go faster, every ready change was opened at once: all grills and plans run now with the owner, and a coordinating session lets at most two changes per machine implement at the same time.',
+  '',
+  'Task:',
+  'You hold the already-open devkit change `roadmap-sessions-upfront` (devkit script; its `requirements.md` holds the request, round 18d of `openspec/roadmap.md`, added by PR 60). The coordinating roadmap session on <machine-1> opened it and started you. This very run (every change opened at once, a coordinating session holding the places by message) is the manual version of what this change builds: use what the owner sees in it as grill input.',
+  '',
+  'First message to the owner, in Brazilian Portuguese: one line on who started you and why (the owner asked to open every ready change at once), then ask them to type `/devkit-openspec:devkit change roadmap-sessions-upfront` here. The devkit skill only runs when the owner types it; do not run its flow by hand.',
+  '',
+  'Once the owner has typed it, follow the skill one stage at a time. Rules:',
+  '- Grill with the owner one question at a time. The owner follows from the phone, so end every message that waits on them with the question and its options in plain text. Plan approval and retro answers come only from the owner\'s own message.',
+  '- Rename this session\'s title by stage: ❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery, 📦 archive, ⏳ waiting for a place.',
+  '- **Place limit:** after the owner approves the plan, do NOT start the implementation. Set the title to ⏳ and end the turn, saying in one line that the change waits for a free place. The coordinating session sends a message here when a place frees; only then implement. The grill and the plan never wait.',
+  '- Never use a trailing `&`; start long runs (the guard suite takes about 13 minutes) with the Bash tool\'s background option. Never leave a wait loop running after its turn: stop your own background loops before you end a stage.',
+  '- Many sibling changes touch the same hooks and release files. Version and ADR-number collisions are resolved at your release step, against `origin/main` of that day. Auto-merge as the flow says.',
+  '- Write only in this worktree.',
+  '',
+  'Shared notes folder for this group of sessions (outside the repo; read siblings\' notes there, leave hand-over notes or large findings there instead of pasting them into messages): <home>/Library/Application Support/Claude/side-session-notes/local_<n>'
+    ].join('\n'),
+  },
+};
+
+// Invariant (AC-1, AC-2, finding 8): the entry reads the real first message of a started session through its host note, refuses its hand-written task, and
+// claims it once the run's task and start line stand in its envelope. Layer: startedTaskOf and entryDecision. Suite: roadmap-loop.
+test('upfront AC-1 entry: the real first message of a started session is read through its host note, background, Task line and task, refused for its hand-written task, and with the run\'s task put in refused for want of a start line and claimed with one', () => {
+  const content = REAL_STARTED_2026_11_22.message.content;
+  assert.ok(content.startsWith('<system-reminder>\n'), 'the message begins with a note of the host');
+  const task = guardModule.startedTaskOf(content);
+  assert.ok(task, 'the started form is read after the host note');
+  assert.equal(task[0].startsWith('You hold the already-open devkit change'), true, 'the task is the hand-written brief');
+  assert.equal(task.join('\n'), content.slice(content.indexOf('You hold the already-open devkit change')), 'from the brief to the closing notes paragraph');
+  assert.ok(task.at(-1).startsWith('Shared notes folder'), 'the closing notes paragraph ends it');
+  const record = (text) => JSON.stringify({ ...REAL_STARTED_2026_11_22, message: { ...REAL_STARTED_2026_11_22.message, content: text } });
+  const real = upEntry({ lines: [record(content), lkAssistant()] });
+  const refused = entryOf(real);
+  assert.deepEqual(labelOf(refused), ['refuse', 'not-started'], 'a hand-written brief is no /devkit change task');
+  assert.equal(stateOf(real.root).tickets.a.claimedBy, null, 'nothing was claimed');
+  // The run's own start in the same envelope: its task and, below it, its start line.
+  const head = content.slice(0, content.indexOf('You hold the already-open devkit change'));
+  const closing = content.slice(content.indexOf('Shared notes folder'));
+  const envelope = (...taskLines) => `${head}${taskLines.map((l) => `${l}\n`).join('')}\n${closing}`;
+  const noStart = upEntry({ lines: [record(envelope('/devkit-openspec:devkit change a')), lkAssistant()] });
+  assert.deepEqual(labelOf(entryOf(noStart)), ['refuse', 'no-ticket'], 'the run\'s task with no start line');
+  const started = upEntry({ lines: [record(envelope('/devkit-openspec:devkit change a', `devkit-start: a ${UP_TICKET}`)), lkAssistant()] });
+  const claimed = entryOf(started);
+  assert.deepEqual([claimed.decision, claimed.why, claimed.change], ['allow', 'claimed', 'a']);
+  assert.equal(stateOf(started.root).tickets.a.claimedBy, UP_SESSION, 'the first session claims the ticket');
+});
+
+// Invariant (AC-8, finding 9): after a merge of the default branch that conflicts, the change session declares the end blocked, so no later session-next
+// hands the merge again. Layer: the skill's text and the loop's reply command. Suite: roadmap-loop.
+test('upfront AC-8 skill: after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run', () => {
+  const item = sectionOf(sessionSkillMd(), '## Loop', '## Never').split('\n').find((l) => l.startsWith('3. '));
+  assert.ok(item, 'Loop item 3');
+  assert.ok(item.includes('exits 3'), 'it says when');
+  assert.ok(item.includes('change-loop.mjs reply blocked --param id=<id> --param why=base-conflict --param error='), 'it names the declaration');
+  assert.ok(item.includes('--lang ${user_config.language}'), 'in the person\'s language');
+  assert.match(item, /shows its reply and ends the run/);
+  const root = projectWith(roadmapText('[ ] a'));
+  addOpen(root, 'a');
+  const r = changeMain(['reply', 'blocked', '--param', 'id=a', '--param', 'why=base-conflict', '--param', 'error=x', '--lang', 'en'], { cwd: root, env: cleanEnv, gh: OFFLINE });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout.split('\n')[0], 'devkit-end: a blocked');
+  assert.ok(r.stdout.includes(render('en', 'blocked-why.base-conflict', { error: 'x' })), r.stdout);
+});
+
+// Invariant (AC-1, AC-2, review round 1): ADR 0019 is accepted by the owner's words in approval.md with its amendments of ADR 0004 and ADR 0010's decision 8,
+// its Notes and the config line follow, and the changelog calls the new subcommands by name and the two actions actions. Layer: the documents. Suite: roadmap-loop.
+test('upfront ADR 0019: the documents follow', () => {
+  const REPO = join(HERE, '..', '..', '..');
+  const read = (...p) => readFileSync(join(REPO, ...p), 'utf8');
+  const flat = (text) => text.replace(/\s+/g, ' ');
+  const name = '0019-a-roadmap-run-opens-every-change-at-its-start.md';
+  const adr = read('docs', 'adr', name);
+  assert.match(adr, /^- Status: accepted$/m);
+  const changes = join(REPO, 'openspec', 'changes');
+  const archived = existsSync(join(changes, 'archive')) ? readdirSync(join(changes, 'archive')).filter((d) => /^\d{4}-\d{2}-\d{2}-roadmap-sessions-upfront$/.test(d)).sort() : [];
+  const approvalPath = existsSync(join(changes, 'roadmap-sessions-upfront', 'approval.md')) ? join(changes, 'roadmap-sessions-upfront', 'approval.md') : join(changes, 'archive', archived.at(-1) ?? '', 'approval.md');
+  const approval = readFileSync(approvalPath, 'utf8');
+  const date = approval.match(/^- Date: (\d{4}-\d{2}-\d{2})$/m)?.[1];
+  const words = approval.match(/^- Owner's words: "(.+)"$/m)?.[1].replaceAll('`', '');
+  assert.ok(date && words, 'approval.md has its date and the owner\'s words');
+  const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(adr, new RegExp(`^- Accepted by: the owner, on ${date}, in the message that approved the plan of the change: \`${escaped(words)}\`; recorded in \`openspec/changes/roadmap-sessions-upfront/approval\\.md\`$`, 'm'));
+  const amends = flat(adr.slice(adr.indexOf('- Amends:'), adr.indexOf('\n\n', adr.indexOf('- Amends:'))));
+  assert.match(amends, /ADR 0004 \(0004-devkit-per-project\.md\)/, 'it amends ADR 0004');
+  assert.match(amends, /ADR 0010 \(0010-openspec-as-the-harness\.md\)[^;]*decision 8/, 'and ADR 0010\'s decision 8');
+  const decision = flat(sectionOf(adr, '## Decision', '## Consequences'));
+  for (const word of ['renumber', 'follow-up']) assert.ok(decision.includes(word), `the Decision says ${word}`);
+  const link = `[ADR 0019](${name})`;
+  const adr4 = read('docs', 'adr', '0004-devkit-per-project.md');
+  assert.ok(adr4.split('\n').slice(0, 8).includes(`- Amended by ADR 0019 (${name})`), 'ADR 0004 has the Amended by line in its header');
+  const note4 = flat(adr4.slice(adr4.indexOf('Note (roadmap-sessions-upfront')));
+  assert.ok(adr4.includes('Note (roadmap-sessions-upfront'), 'ADR 0004 has the Note');
+  assert.ok(note4.split(' Note (')[0].includes(link), 'the Note links ADR 0019');
+  const adr10 = read('docs', 'adr', '0010-openspec-as-the-harness.md');
+  const note10 = flat(adr10.slice(adr10.indexOf('Note (roadmap-sessions-upfront'))).split(' Note (')[0];
+  assert.ok(adr10.includes('Note (roadmap-sessions-upfront'), 'ADR 0010 has the Note');
+  assert.ok(/decision 8/i.test(note10) && note10.replaceAll('`', '').includes('a lone /devkit change'), 'ADR 0010\'s Note names decision 8 and the lone change');
+  const adrs = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
+  assert.ok(adrs.includes('amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017'), 'the ADRs line names the amended ADRs');
+  const log = read('CHANGELOG.md');
+  const entry = flat(log.slice(log.indexOf('## 0.34.0'), log.indexOf('\n## 0.33.0')));
+  const subcommands = /New subcommands:([^.]*)\./.exec(entry)?.[1] ?? '';
+  for (const sub of ['session-next', 'session-wait', 'merge-base', 'push', 'check']) assert.ok(subcommands.includes(`\`${sub}\``), `the entry names ${sub} a subcommand`);
+  for (const action of ['schedule-check', 'delete-check']) {
+    assert.ok(!subcommands.includes(action), `${action} is no subcommand`);
+    assert.ok(entry.includes(`\`${action}\``), `the entry still names ${action}`);
+  }
 });

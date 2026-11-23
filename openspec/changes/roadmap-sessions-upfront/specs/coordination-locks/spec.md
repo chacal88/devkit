@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=1 commit=c56155334749cdc46bad077ba8f53c4bbec5d140 -->
+<!-- devkit-stage specs result=passed attempt=2 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -13,6 +13,10 @@ refused, saying the owner can type `/devkit change <id>`.
 #### Scenario: The run's own start of the change
 - **WHEN** a session's first message is the started form with the task `/devkit-openspec:devkit change a` and the line `devkit-start: a <ticket>`, the run records that ticket for `a` unclaimed, and the session calls the change-session skill
 - **THEN** the call is allowed, and the run records the ticket as claimed by that session
+
+#### Scenario: The run's own start after a note of the host
+- **WHEN** the same first message begins with a note of the host (a `<system-reminder>` block) before the started form
+- **THEN** the call is allowed as in the scenario before, and a first message in that form whose task is a hand-written brief, not `/devkit change a`, is refused
 
 #### Scenario: The same session again
 - **WHEN** the session that claimed `a`'s ticket calls the change-session skill again
@@ -53,7 +57,8 @@ A session SHALL be in a run of a change when the newest slash command typed in i
 (bare or plugin-scoped) and a line `devkit-run: <id>` printed by the loop follows it; the change of
 the run SHALL be the newest such id. The task another session started this session with, in the
 host's form of a started session, SHALL count as a command typed in it, whatever lines follow its
-first line. The run's last recorded action SHALL be an end while the newest `devkit-run:` or
+first line and whatever notes of the host come before that form. The run's last recorded action SHALL
+be an end while the newest `devkit-run:` or
 `devkit-end:` line after that command is an end line. Nothing else SHALL be remembered.
 
 #### Scenario: No run
@@ -87,6 +92,14 @@ first line. The run's last recorded action SHALL be an end while the newest `dev
 #### Scenario: A started task with a start line
 - **WHEN** the task is `/devkit-openspec:devkit change a` followed by the line `devkit-start: a <ticket>`, and a `devkit-run: a` line follows the message
 - **THEN** the session is in a run of `a`
+
+#### Scenario: A started task after a note of the host
+- **WHEN** the session's first message begins with a note of the host (a `<system-reminder>` block), then the started form with the task `/devkit-openspec:devkit change a`, and a `devkit-run: a` line follows the message
+- **THEN** the session is in a run of `a`
+
+#### Scenario: Words before the started form
+- **WHEN** the session's first message begins with any other line before the started form
+- **THEN** that message is not read as the started form
 
 #### Scenario: A command named inside a message
 - **WHEN** a message the owner typed holds `/devkit change a` on a line other than its first, and is not the host's form of a started session

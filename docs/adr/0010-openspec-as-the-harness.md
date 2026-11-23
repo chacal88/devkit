@@ -61,8 +61,12 @@ to 8 are otherwise unchanged.
 Note (roadmap-sessions-upfront, 2026-11-22): where the host can start sessions, a roadmap run opens every
 pending change at its start, and its number counts only the changes in the implementation, its
 tests, evidence or review; a plan waits for its dependencies ([ADR 0019](0019-a-roadmap-run-opens-every-change-at-its-start.md)). Decision 2
-holds unchanged where the host cannot start sessions. This change leaves the other decisions as
-they are.
+holds unchanged where the host cannot start sessions. Decision 8's sentence that the owner's gates
+(grill answers, plan approval, retro answers) stay the owner's is amended for the grill answers the
+project's files settle: in every grill, a lone `/devkit change` as much as a roadmap run, the
+requirements-triage agent answers those first, each with its source, and the owner answers every
+question nothing written settles and every approval and retro answer. This change leaves the other
+decisions as they are.
 
 Note (project-phases, 2026-11-22): the project entry and the `devkit-project` schema are built;
 [ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md) answers decision 8's open point

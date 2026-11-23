@@ -746,8 +746,28 @@ function marksOf(event, markers) {
 }
 
 // The first line of the first message of a session another session started, in the desktop app's form: this line, a background
-// paragraph, a line `Task:` and the task (roadmap-coordinator-followups D-4, ADR 0014).
+// paragraph, a line `Task:` and the task (roadmap-coordinator-followups D-4, ADR 0014). The app may put notes of its own before it, each a
+// `<system-reminder>` block (its list of linked sessions: roadmap-sessions-upfront D-1, review round 1 test-coverage F4); `startedTaskOf` skips them.
 export const STARTED_BY_SESSION = 'Background (from the session that started this one):';
+
+const NOTE_OPEN = '<system-reminder>';
+const NOTE_CLOSE = '</system-reminder>';
+
+// `lines` without the host's notes that lead the message: while the first non-blank line, trimmed, is `<system-reminder>`, the lines up to and including the
+// next line that, trimmed, is `</system-reminder>` are dropped, then the blank lines after them. null when a note is never closed; the lines as they are
+// when none leads.
+function withoutLeadingNotes(lines) {
+  let rest = lines;
+  let dropped = false;
+  for (;;) {
+    const first = rest.findIndex((line) => line.trim() !== '');
+    if (first < 0 || rest[first].trim() !== NOTE_OPEN) return dropped ? rest.slice(Math.max(first, 0)) : rest;
+    const close = rest.findIndex((line, at) => at > first && line.trim() === NOTE_CLOSE);
+    if (close < 0) return null;
+    rest = rest.slice(close + 1);
+    dropped = true;
+  }
+}
 
 // A slash command on one line: { name, args } when the line starts with `/`, else null.
 function commandOfLine(line) {
@@ -755,11 +775,11 @@ function commandOfLine(line) {
   return found ? { name: found[1], args: (found[2] ?? '').trim() } : null;
 }
 
-// The lines after the `Task:` line of a message in the started form (`STARTED_BY_SESSION` first line), else null: the one reader of that form
-// (roadmap-sessions-upfront D-1). A session's task may be followed by lines of its own, such as the run's `devkit-start:` line.
+// The lines after the `Task:` line of a message in the started form (`STARTED_BY_SESSION` first line, after the host's leading notes), else null: the one
+// reader of that form (roadmap-sessions-upfront D-1). A session's task may be followed by lines of its own, such as the run's `devkit-start:` line.
 export function startedTaskOf(content) {
-  const lines = String(content).split('\n');
-  if (lines[0].trim() !== STARTED_BY_SESSION) return null;
+  const lines = withoutLeadingNotes(String(content).split('\n'));
+  if (lines === null || lines[0]?.trim() !== STARTED_BY_SESSION) return null;
   const task = lines.findIndex((line) => line.trim() === 'Task:');
   return task < 0 ? null : lines.slice(task + 1);
 }
@@ -782,8 +802,8 @@ export function firstMessageOf(input) {
   return null;
 }
 
-// The slash command typed in a `user` line of the transcript: { name, args } from the `<command-name>` tag, else from a first line
-// that starts with `/`, else, in the form of a session another session started, from the first non-blank line after `Task:`;
+// The slash command typed in a `user` line of the transcript: { name, args } from the `<command-name>` tag, else, in the form of a session another session
+// started (after the host's leading notes), from the first non-blank line after `Task:`, else from the message's first line, which must start with `/`;
 // null when the line is no typed command. A command on a later line of any other message is no command.
 function typedOf(content) {
   const tag = /<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/.exec(content);
@@ -791,10 +811,9 @@ function typedOf(content) {
     const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(content)?.[1] ?? '';
     return { name: tag[1], args: args.trim() };
   }
-  const lines = content.split('\n');
-  if (lines[0].trim() !== STARTED_BY_SESSION) return commandOfLine(lines[0]);
-  const first = startedTaskOf(content)?.find((line) => line.trim() !== '');
-  return first === undefined ? null : commandOfLine(first);
+  const task = startedTaskOf(content);
+  const line = task === null ? content.split('\n')[0] : task.find((l) => l.trim() !== '');
+  return line === undefined ? null : commandOfLine(line);
 }
 
 // The text of a tool result block (a string, or a list of text blocks).
@@ -944,15 +963,26 @@ function logDecision(mode, input, d) {
   } catch { /* a log that cannot be written never blocks anything */ }
 }
 
+// The entry skill of a change session a roadmap run started (roadmap-sessions-upfront D-1), and whether the input of a Skill call names it: some string value
+// of `tool_input` is that name or ends in `:devkit-session`. The host's field name for the skill is not documented, so any string field counts.
+export const ENTRY_SKILL = 'devkit-session';
+export function namesEntrySkill(toolInput) {
+  return Object.values(toolInput ?? {}).some((v) => typeof v === 'string' && (v === ENTRY_SKILL || v.endsWith(`:${ENTRY_SKILL}`)));
+}
+
 // `skill`: PreToolUse on the Skill tool. The entry skill of a change session a roadmap run started runs only on the run's ticket
-// (`entryDecision` of roadmap-loop.mjs); every other skill is let through. Unlike the locks it fails closed: an error refuses, because the
-// owner's typed `/devkit change` still runs the change. It does not depend on the project's opt-in.
+// (`entryDecision` of roadmap-loop.mjs); every other skill is let through. The raw input is tested first, with no import, so a roadmap-loop.mjs that cannot
+// load never refuses another skill (review round 1, code-quality F2); a call of the entry skill fails closed on any error, the import included: the owner's
+// typed `/devkit change` still runs the change. It does not depend on the project's opt-in.
 async function skillEntry(input) {
   let d;
-  try {
-    const loop = await import('./roadmap-loop.mjs');
-    d = loop.entryDecision(input, { env: process.env });
-  } catch { d = { decision: 'refuse', why: 'unreadable', reason: 'the entry could not be checked; the owner can run this change by typing /devkit change <id> in this session' }; }
+  if (!namesEntrySkill(input?.tool_input)) d = { decision: 'allow', why: 'not-entry' };
+  else {
+    try {
+      const loop = await import('./roadmap-loop.mjs');
+      d = loop.entryDecision(input, { env: process.env });
+    } catch { d = { decision: 'refuse', why: 'unreadable', reason: 'the entry could not be checked; the owner can run this change by typing /devkit change <id> in this session' }; }
+  }
   logDecision('skill', input, d);
   if (d.decision === 'refuse') block(d.reason);
 }

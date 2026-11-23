@@ -1,19 +1,21 @@
-<!-- devkit-stage tasks result=passed attempt=4 commit=a9ecdc134bf863f7071711d63c0f9eebee020c05 -->
+<!-- devkit-stage tasks result=passed attempt=5 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
 # Tasks
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · Base: `c561553`;
 phase 5 added on 2026-11-23 over the merge `b216a46` (change-state, ADR 0017, commit-attribution);
-phase 6 revised on 2026-11-23 over the merge `a9ecdc1` (change-budget, delivery-models with ADR 0018)
+phase 6 revised on 2026-11-23 over the merge `a9ecdc1` (change-budget, delivery-models with ADR 0018);
+phase 7 added on 2026-11-23 after review round 1 at `123a7ba` (design D-16)
 
 Work only in this change's worktree, on its branch. Every rule, name, text and label is in
 `design.md`: D-1 the entry, D-2 the opening, D-3 the gates, D-4 the triage, D-5 the push, D-6 the
 change session's loop, D-7 places, D-8 the plan after dependencies, D-9 the periodic check and the
 cleanup, D-10 drift, D-11 the held state, the board and messages, D-12 the ADR, D-13 the tests this
-plan changes, D-14 documents and release, D-15 proof. The implementer copies them and makes no design choice.
+plan changes, D-14 documents and release, D-15 proof, D-16 the fixes of review round 1. The implementer copies them and makes no design choice.
 
 Every gate is one backticked command, run as written; each `&&` part runs on its own, no part holds a
 `|`, and every gate exits 0 when its phase is done. Every new test is named `upfront <AC-n> <area>:
-...` (the one test of task 6.1, which no criterion of this change names, `upfront budget <area>: ...`)
+...` (the one test of task 6.1, which no criterion of this change names, `upfront budget <area>: ...`;
+the documents test of task 7.1, `upfront ADR 0019: ...`)
 and lives in `plugins/openspec/hooks/roadmap-loop.test.mjs`, except where a task names
 `change-loop.test.mjs`, `conduct-check.test.mjs` or `guard.test.mjs`; all run through
 `plugins/openspec/hooks/guard.test.mjs`, which imports them. Every env a new test builds blanks
@@ -25,29 +27,30 @@ creates a cron: the host calls are proved by the exact `input` the decisions giv
 text, and live in the next real run (D-15). One test per condition and per label of every new guard
 and decision, negatives included.
 
-Test first in phases 1 to 5 and in task 6.1: the phase's test task comes before its code tasks (task
+Test first in phases 1 to 5, in task 6.1 and in phase 7: the phase's test task comes before its code tasks (task
 6.1 writes its test before its code), its new tests fail on the base (`c561553` for phases 1 to 4,
-`b216a46` for phase 5, `a9ecdc1` for task 6.1; each red run saved under
+`b216a46` for phase 5, `a9ecdc1` for task 6.1, the commit that holds this revised plan and its
+approval for phase 7; each red run saved under
 `openspec/changes/roadmap-sessions-upfront/proof/`), and an existing test is changed only where D-13
-names it (T-1 to T-16), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
+names it (T-1 to T-17), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
 
 | Id | Slug | Tasks |
 |---|---|---|
-| AC-1 | `session-opens-running` | 1.1, 1.3, 1.4, 1.5, 2.1, 2.3 |
-| AC-2 | `other-starts-refused` | 1.1, 1.3, 1.4 |
+| AC-1 | `session-opens-running` | 1.1, 1.3, 1.4, 1.5, 2.1, 2.3, 7.1, 7.7 |
+| AC-2 | `other-starts-refused` | 1.1, 1.3, 1.4, 7.1, 7.3, 7.7 |
 | AC-3 | `every-pending-change-opens` | 3.1, 3.2, 3.4, 5.1, 5.3 |
 | AC-4 | `grills-in-roadmap-session` | 3.1, 3.2, 3.6 |
-| AC-5 | `triage-first` | 4.1, 4.2, 4.3, 4.4 |
+| AC-5 | `triage-first` | 4.1, 4.2, 4.3, 4.4, 7.9 |
 | AC-6 | `triage-never-approves` | 4.1, 4.2, 4.3 |
 | AC-7 | `approval-in-roadmap-session` | 2.1, 2.3, 3.1, 3.2, 3.6 |
-| AC-8 | `plan-after-dependencies` | 2.1, 2.3, 2.5 |
-| AC-9 | `places-load-only` | 2.1, 2.3, 2.4, 3.5, 5.1, 5.2 |
+| AC-8 | `plan-after-dependencies` | 2.1, 2.3, 2.5, 7.1, 7.8 |
+| AC-9 | `places-load-only` | 2.1, 2.3, 2.4, 3.5, 5.1, 5.2, 7.1, 7.5 |
 | AC-10 | `waiting-icon` | 2.1, 2.2, 2.3, 5.1, 5.2, 5.3 |
-| AC-11 | `drift-without-owner` | 4.1, 4.5 |
-| AC-12 | `branch-pushed-with-grill` | 3.1, 3.3 |
+| AC-11 | `drift-without-owner` | 4.1, 4.5, 7.9 |
+| AC-12 | `branch-pushed-with-grill` | 3.1, 3.3, 7.1, 7.2 |
 | AC-13 | `run-check-scheduled` | 3.1, 3.5, 3.6 |
-| AC-14 | `check-acts-not-approves` | 3.1, 3.5, 3.6 |
-| AC-15 | `run-end-cleans-up` | 3.1, 3.5, 3.6 |
+| AC-14 | `check-acts-not-approves` | 3.1, 3.5, 3.6, 7.1, 7.4, 7.6 |
+| AC-15 | `run-end-cleans-up` | 3.1, 3.5, 3.6, 7.1, 7.4 |
 | AC-16 | `lone-change-schedules-nothing` | 3.1, 3.6 |
 
 ## 1. The entry of a started change session (AC-1, AC-2)
@@ -368,10 +371,116 @@ names it (T-1 to T-16), the task saying its invariant, layer and suite. Leave no
   validate .` reports no error.
 - [x] 6.5 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers AC-1 to AC-16 as D-15 maps them, and the budget row of D-15.
 
+## 7. The fixes of review round 1 (AC-1, AC-2, AC-8, AC-9, AC-12, AC-14, AC-15; design D-16)
+
+Every new test here is written before the code it proves. The real message of task 7.1 is copied
+from the first `user` line of the transcript of the session the roadmap run started on 2026-11-22
+for this change (`34a54b1d-b62f-4fae-8caa-03f47e1a3cb8.jsonl` in the Claude Code project folder of this
+worktree under `~/.claude/projects/`, on the owner's machine; the transcript stays outside the
+repository): its text kept line for line, with every
+absolute path of that machine replaced by `<home>/...`, every app session id by `local_<n>`, and the
+names of the owner's two machines by `<machine-1>` and `<machine-2>` (the repository is public); the
+record's other keys (`type`, `isSidechain`, `promptSource`, `turnOrigin`, `entrypoint`, `version`,
+`userType`) kept with their values.
+
+- [x] 7.1 Write this phase's tests (design D-1, D-4, D-5, D-6, D-7, D-9, D-12, D-16; specs
+  `roadmap-coordination` "A place is held only by a change that loads the machine" (scenario "A
+  change that leaves the roadmap"), "The grill and the plan are pushed with the change's branch"
+  ("Tasks ticked after the plan was pushed", "A plan approved again"), "A firing of the check acts
+  and reports only what changed" ("Wait loops stopped", "A recorded wait loop that is no longer
+  one", "A place given to a session that is not watching", "An archive not done yet", "A triage
+  heading that is no section"), "The end of a run cleans up after itself" ("A process that took a
+  wait loop's number"); `coordination-locks` "A change session started by a roadmap run runs only on
+  the run's ticket" ("The run's own start after a note of the host", "Another skill"), "A run is
+  known from the session's own record" ("A started task after a note of the host", "Words before
+  the started form"), "The coordinator does not end its turn while a stage is ready" ("A change
+  session waiting for a place", "A change session with its place")). In `roadmap-loop.test.mjs`:
+  - `upfront AC-12 next: ticks of tasks.md after the plan was pushed ask no second plan push, and an approval written again does` (`upPushed`; the grill and the plan pushed with the `push` subcommand; a box of `tasks.md` ticked and left uncommitted, then committed and not pushed: no `push` action in either; then `approval.md` written again with attempt 2: one `push` action with `what` `plan`) (finding 1);
+  - `upfront AC-2 guard: guard.mjs skill lets another skill through without loading roadmap-loop.mjs, and refuses devkit-session when it cannot load` (a temporary folder holding a copy of `plugins/openspec/hooks/guard.mjs` and a `roadmap-loop.mjs` whose first line throws; a real `node <folder>/guard.mjs skill` process: `review-change` exits 0 and logs `not-entry`, `devkit-openspec:devkit-session` exits 2 with the reason naming `/devkit change <id>` and logs `unreadable`, under `DEVKIT_HOOK_LOG`) (finding 2);
+  - `upfront AC-14 isWaitProcess: only a process started as roadmap-loop.mjs wait or session-wait is a wait loop` (one assertion each: a `session-wait` child and a `wait` child are; a plain child, a child started as `roadmap-loop.mjs check`, a child started as `other.mjs wait`, a dead pid and a pid that is not a positive whole number are not) (finding 3);
+  - `upfront AC-14 check: a live process that is not a wait loop, recorded as a stale wait, is spared and forgotten` (a `stranger()` child recorded as the older of two waits of one kind of an open change: alive after `check`, gone from `waits`, and no `roadmap-check-stopped-waits` line) (finding 3);
+  - `upfront AC-15 decide: the end done spares a recorded pid that is not a wait loop and forgets it` (a `stranger()` child recorded as a wait of an archived line at the end `done`: alive after the decision, `waits` empty) (finding 3);
+  - `upfront AC-9 check: a change that left the roadmap or was archived frees its place and its queue entry, and the change queued behind it takes the place` (number 1; `placed.gone` with no line for `gone`, `queued.b` with why `place`: after `check`, `placed` is `{ b }`; the same with `gone` archived) (finding 4);
+  - `upfront AC-9 next: a coordinating decision prunes the places and queue entries of lines no longer open, and a run without a session per change keeps them` (finding 4);
+  - `upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not` (finding 5);
+  - `upfront AC-9 lock stop: guard.mjs stop lets a claimed change session held for a place stop with a held log line, and refuses a session that did not claim the ticket` (a real `guard.mjs stop` process through `lkHook('stop', ...)` with `upStopInput`'s transcript, next to the `lkHook('stop')` tests near line 1771; a run file with `a`'s ticket claimed by the session and `placed.b` at number 1, `a` at its implementation: exit 0 and a `held` line under `DEVKIT_HOOK_LOG`; `a`'s ticket claimed by another session: exit 2 naming the implementation) (finding 6; pins the phase 2 behaviour, so it passes on the base);
+  - `upfront AC-9 session-next: the place is decided again on the run file as read under its lock, so of two sessions only one takes the last place` (number 1, `a` at its implementation, the run file's lock file created by the test before `sessionNext(..., { write: true, lockSleep })`; the injected `lockSleep`, on its first call, writes `placed.b` into the run file and deletes the lock file: `a`'s action is `held` with why `place`, `queued.a` is recorded and `placed` is `{ b }`) (finding 7; passes on the base);
+  - `upfront AC-1 entry: the real first message of a started session is read through its host note, background, Task line and task, refused for its hand-written task, and with the run's task put in refused for want of a start line and claimed with one` (the constant `REAL_STARTED_2026_11_22` of the paragraph above; `startedTaskOf` gives the task lines from `You hold the already-open devkit change` to the closing notes paragraph; `entryDecision` over a transcript whose first line is that record: `not-started`; the same envelope with the task replaced by `/devkit-openspec:devkit change a`: `no-ticket`; with the line `devkit-start: a <ticket>` added below it and the ticket recorded: `claimed`) (finding 8);
+  - `upfront AC-8 skill: after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run` (the Loop item 3 of `devkit-session/SKILL.md` names `change-loop.mjs reply blocked --param id=<id> --param why=base-conflict --param error=`; and in a scratch project with change `a`, `change-loop.mjs reply blocked --param id=a --param why=base-conflict --param error=x --lang en` prints `devkit-end: a blocked` and the text of `blocked-why.base-conflict`) (finding 9);
+  - `upfront ADR 0019: the documents follow` (ADR 0019 holds `- Status: accepted`, an `- Accepted by: the owner, on ` line naming `openspec/changes/roadmap-sessions-upfront/approval.md`, an Amends line naming ADR 0004 and ADR 0010's decision 8, the words `renumber` and `follow-up` in its Decision; ADR 0004 holds `- Amended by ADR 0019 (` in its first eight lines and a Note starting `Note (roadmap-sessions-upfront`; ADR 0010's roadmap-sessions-upfront Note names decision 8 and `a lone /devkit change`; the ADRs line of `openspec/config.yaml` reads `amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017`; the `## 0.34.0` entry of `CHANGELOG.md` names `session-next`, `session-wait`, `merge-base`, `push` and `check` as subcommands and does not call `schedule-check` or `delete-check` one) (findings 10 to 13, spec nit F4).
+
+  In `change-loop.test.mjs`: `upfront AC-6 triage: triageSection and hasTriageSection read the one section, a fenced or suffixed heading being none` (finding 5); `upfront AC-1 guard: a started task after a note of the host makes a change run` (finding 8, the `typedOf` path).
+  In `guard.test.mjs`: `upfront AC-2 guard: namesEntrySkill reads the entry skill's name from any string field and nothing else` (one assertion each: the bare name, the plugin-scoped name, another field, a value that is not a string, `devkit-session-x`, `my-devkit-session`) (finding 2); `upfront AC-1 guard: startedTaskOf skips the host's leading notes and nothing else` (one assertion each: one note, two notes, blank lines after a note, an unclosed note gives null, a line `hello` before the form gives null, a note after the form's first line is no leading note) (finding 8).
+  Change T-17 of D-13 (invariant: a stale or doomed wait loop is stopped, a kept one keeps running, and a change's live wait counts as watching; layer: check and decide; suite: roadmap-loop): `sleeper(kind)` spawns a child whose command line is a wait loop's, `stranger()` keeps the plain child; no assertion of its five tests changes.
+  Run the new tests and T-17 on the unchanged code with
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" plugins/openspec/hooks/guard.test.mjs`
+  and save the output to `openspec/changes/roadmap-sessions-upfront/proof/red-7.txt`, listing at its
+  top the tests that pass there (expected: the `guard.mjs stop` test and the `lockSleep` test, which
+  pin phase 2's behaviour, and the five tests of T-17, which pass with the new helper). Check: every
+  other new test fails there, and no test outside T-17 was edited (`git diff` of the three test files
+  shows only added tests and the `sleeper` and `stranger` helpers).
+- [x] 7.2 The plan push recorded by `approval.md` on `origin` (D-5): in `plugins/openspec/hooks/roadmap-loop.mjs`,
+  `unpushedOf` gives `plan` only while `filesPushed(root, branch, [approval.md])` is false; the
+  `push --what plan` subcommand still commits all `PLAN_FILES`. Check: the new `upfront AC-12` test
+  and both existing `upfront AC-12` tests pass.
+- [x] 7.3 The `skill` mode tests the raw input first (D-1): `ENTRY_SKILL` and `namesEntrySkill` in
+  `plugins/openspec/hooks/guard.mjs` (exported); `skillEntry` logs `not-entry` and returns before the
+  import when `namesEntrySkill` is false, and fails closed on any error, the import included, when it
+  is true; `roadmap-loop.mjs` imports both, re-exports `ENTRY_SKILL`, and `entryDecision`'s
+  `not-entry` calls `namesEntrySkill`; the header comment of `skillEntry` says why. Check: the two new
+  tests of finding 2 pass, and `upfront AC-2 guard: guard.mjs skill ...` and `upfront AC-2 entry:
+  another skill is let through` pass unchanged.
+- [x] 7.4 The identity of a recorded wait (D-9 step 1): `isWaitProcess` and `waitAlive` in
+  `roadmap-loop.mjs` (exported); `killWaits` signals only an entry `isWaitProcess` accepts and
+  returns that count; `checkCmd` keeps the entries `waitAlive` accepts; every caller drops the
+  entries it was given; `watchAlive` unchanged. Check: the three new tests of finding 3 and the five
+  tests of T-17 pass; every `upfront AC-14 staleWaits` test and `roadmap-loop hold: ...` pass
+  unchanged.
+- [x] 7.5 The records of a change no longer open (D-7): `pruneRecords(run, openIds)` in
+  `roadmap-loop.mjs`, called in `decide()` beside the pruning of `startedSessions` and `tickets` and
+  at the top of `checkCmd`'s locked update. Check: the two new tests of finding 4 pass;
+  `roadmap-loop run: U4 ...`, `upfront AC-9 next: start anyway ...` and every `upfront AC-14 check`
+  test pass unchanged.
+- [x] 7.6 One reader of the triage section (D-4): in `plugins/openspec/hooks/change-loop.mjs`,
+  `triageSection` and `hasTriageSection` exported, `triageUnsourced` built on `triageSection`, and the
+  triage block moved above the header comment of `decide` (no behaviour changes); in `roadmap-loop.mjs`,
+  `checkCmd` asks `hasTriageSection` in place of its regular expression. Check: the two new tests of
+  finding 5 pass and every `upfront AC-6 triage` test passes unchanged.
+- [x] 7.7 The host's leading notes (D-1): `startedTaskOf` in `plugins/openspec/hooks/guard.mjs` skips
+  the leading `<system-reminder>` notes and the blank lines after them; `typedOf` reads a message
+  `startedTaskOf` accepts from its first non-blank task line and any other from its first line; the
+  comments on `STARTED_BY_SESSION` and `startedTaskOf` name the note. Check: the three new tests of
+  finding 8 pass; `upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first message's
+  started form`, `followups F-4 guard: the task of a session started by another session makes a
+  change run` and every `upfront AC-1 entry` and `upfront AC-2 entry` test pass unchanged.
+- [x] 7.8 The declared end after a conflicting merge (D-6): Loop item 3 of
+  `plugins/openspec/skills/devkit-session/SKILL.md` gains the sentence of D-6; `mergeBaseCmd` in
+  `roadmap-loop.mjs` runs git through `gitIn`, its local helper removed (no behaviour changes). Check:
+  `upfront AC-8 skill: ...` passes, `upfront AC-8 merge-base: ...` and `upfront AC-1 skill: ...` pass
+  unchanged, and `python3 scripts/check.py` passes.
+- [x] 7.9 The ADRs and the changelog (D-12, D-16): in `docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md`,
+  the status `accepted`, the `- Accepted by:` line with the date and the owner's words read from
+  this change's `approval.md` (written by the owner for this revised plan: its header says
+  `attempt=3` and its `Date` and `Readiness` lines match this plan's `readiness.md`; if it is still the
+  attempt 2 file, stop and report), the Amends line, decisions 1 and 3, decisions 7 and 8 and the Consequences as D-12
+  quotes them; in `docs/adr/0004-devkit-per-project.md` the header line and the Note of D-12; in
+  `docs/adr/0010-openspec-as-the-harness.md` the last sentence of the roadmap-sessions-upfront Note
+  as D-12 says; the ADRs line of `openspec/config.yaml` (its 0019 amends list); in `CHANGELOG.md`,
+  the `## 0.34.0` entry's subcommand sentence names `session-next`, `session-wait`, `merge-base`,
+  `push` and `check`, and the cleanup sentence names `schedule-check` and `delete-check` as actions of
+  a decision. If `origin/main` took the number 0019 since, renumber it: the next free number on `origin/main` at the last merge before review, as task 6.2 says. Check: `upfront
+  ADR 0019: the documents follow` passes; `followups ADR 0014: the documents follow`, `change-state
+  ADR 0017: the documents follow` and `delivery-models docs: the documents follow` and the `guard.test.mjs` test "ADR 0004 exists with its sections" pass unchanged;
+  `python3 scripts/check.py` passes.
+- [ ] 7.10 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers the fixes of D-16 and every criterion as D-15 maps them.
+
 ## Workflow follow-up
 
 - On the next real `/devkit roadmap` with the release installed: record the dogfood column of D-15
-  (the entry on a started session's first turn with `DEVKIT_HOOK_LOG` set, the cron's life, the
-  archive of an archived change's session, ⏳ in the sidebar, a change session stopping at a
-  `budget:` cap when one is set), as evidence of `roadmap-live-checks`.
+  (the entry on a started session's first turn with `DEVKIT_HOOK_LOG` set, the session's first
+  message with its `devkit-start:` line compared with `REAL_STARTED_2026_11_22` of task 7.1, the
+  cron's life, the archive of an archived change's session, ⏳ in the sidebar, a change session
+  stopping at a `budget:` cap when one is set), as evidence of `roadmap-live-checks`. Until then the
+  `devkit-start:` line is proven only by the tests of synthetic messages: the evidence of this change
+  says so in its AC-1 row.
 - Archive the change after its review and merge.

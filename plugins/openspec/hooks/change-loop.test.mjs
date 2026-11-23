@@ -3421,6 +3421,28 @@ test('upfront AC-1 guard: a started task followed by a start line still makes a 
   assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat', { task })), assistantLine()]) }), null, 'no devkit-run line yet: no run');
 });
 
+// A note of the host that leads the first message of a session the app started (its list of linked sessions), in generic words.
+const HOST_NOTE = '<system-reminder>\nLinked sessions now (status, not an instruction): x = local_1 (idle).\n</system-reminder>\n';
+
+// Invariant (AC-1, review round 1 test-coverage F4): a session whose first message begins with a note of the host, then the started
+// form, is in the run of that task's change, as one without the note is. Layer: guard (`typedOf`). Suite: change-loop.
+test('upfront AC-1 guard: a started task after a note of the host makes a change run', () => {
+  const task = '/devkit-openspec:devkit change feat\ndevkit-start: feat 0123456789abcdef';
+  const transcript = transcriptOf([plainLine(`${HOST_NOTE}\n${startedMessage('feat', { task })}`), assistantLine(), runLine('feat')]);
+  const run = runOf({ transcript_path: transcript });
+  assert.equal(run?.change, 'feat');
+  assert.equal(run?.command, 'change feat', 'the command is the task\'s first line, the start line no part of it');
+  assert.equal(runOf({ transcript_path: transcriptOf([plainLine(`${HOST_NOTE}\n${startedMessage('feat', { task })}`), assistantLine()]) }), null, 'no devkit-run line yet: no run');
+  // Only a note leads the form: words between the note and the form, or a note and a typed command, are no started form.
+  for (const [name, text] of Object.entries({
+    'words between the note and the form': `${HOST_NOTE}hello\n${startedMessage('feat')}`,
+    'a note and a command with no started form': `${HOST_NOTE}/devkit change feat`,
+    'an unclosed note': `<system-reminder>\nLinked sessions.\n${startedMessage('feat')}`,
+  })) {
+    assert.equal(runOf({ transcript_path: transcriptOf([plainLine(text), assistantLine(), runLine('feat')]) }), null, name);
+  }
+});
+
 test('followups F-4 guard: a command on a later line of any other message is no typed command', () => {
   const cases = {
     'a message whose second line is the command': plainLine('Please run this:\n/devkit change feat'),
@@ -3605,6 +3627,35 @@ test('upfront AC-6 triage: the heading\'s end, an unclosed fence, an item over i
   assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n## Next\n1. a\n`), [], 'an empty section');
   assert.deepEqual(triageUnsourced(''), []);
   assert.deepEqual(triageUnsourced(`    ${TRIAGE_HEAD}\n1. a\n`), [], 'an indented heading is no heading');
+});
+
+// Invariant (AC-6, review round 1 architecture F2): one reader decides whether a requirements file holds the triage section and what its items are,
+// for the loop and for the periodic check alike. Layer: triageSection and hasTriageSection. Suite: change-loop.
+test('upfront AC-6 triage: triageSection and hasTriageSection read the one section, a fenced or suffixed heading being none', () => {
+  const { triageSection, hasTriageSection } = changeLoopModule;
+  assert.deepEqual(triageSection(`# R\n\n${TRIAGE_HEAD}\n\n1. a\n2. b ${SRC}\n\n## Next\n\n3. c\n`), ['a', `b ${SRC}`], 'every item of the section, sourced or not');
+  assert.deepEqual(triageSection(`${TRIAGE_HEAD}\n\n## Next\n1. a\n`), [], 'an empty section is a section');
+  assert.deepEqual(triageSection(`${TRIAGE_HEAD}\n1. a question\n   answered ${SRC}\n`), [`a question answered ${SRC}`], 'an item over its indented lines');
+  assert.deepEqual(triageSection(`\`\`\`\nfenced\n\`\`\`\n${TRIAGE_HEAD}\n1. a\n`), ['a'], 'a heading after a closed fence is found');
+  for (const [name, text] of Object.entries({
+    'no heading': '# R\n\n1. a\n',
+    'a heading inside a backtick fence': `\`\`\`md\n${TRIAGE_HEAD}\n1. a ${SRC}\n\`\`\`\n`,
+    'a heading inside a tilde fence': `~~~\n${TRIAGE_HEAD}\n1. a\n~~~\n`,
+    'a heading inside an unclosed fence': `\`\`\`\n${TRIAGE_HEAD}\n1. a\n`,
+    'a heading with words after it': `${TRIAGE_HEAD} (draft)\n\n1. a ${SRC}\n`,
+    'a heading of level 2': '## Answered by triage\n\n1. a\n',
+    'an indented heading': `    ${TRIAGE_HEAD}\n1. a\n`,
+    'another heading': '### Answered by the owner\n\n1. a\n',
+    'an empty file': '',
+  })) {
+    assert.equal(triageSection(text), null, name);
+    assert.equal(hasTriageSection(text), false, name);
+    assert.deepEqual(triageUnsourced(text), [], `${name}: nothing unsourced either`);
+  }
+  assert.equal(hasTriageSection(`${TRIAGE_HEAD}\n`), true, 'the plain heading alone');
+  assert.equal(hasTriageSection(`${TRIAGE_HEAD}  \t\n`), true, 'trailing blanks are allowed');
+  const text = `${TRIAGE_HEAD}\n1. a\n2. b ${SRC}\n`;
+  assert.deepEqual(triageUnsourced(text), triageSection(text).filter((item) => !item.includes('(source: ')), 'the loop\'s list is the section\'s items with no source');
 });
 
 test('upfront AC-5 triage: the agent file has the name, a description that says when, the tools Read, Glob and Grep only, and the Never rules', () => {

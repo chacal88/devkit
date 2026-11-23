@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=2 commit=b216a4692ea9f1764d1e2e614a2905d646643651 -->
+<!-- devkit-stage specs result=passed attempt=3 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -25,7 +25,8 @@ The board SHALL list every one of them.
 In a run with a session per change, a change SHALL hold a place only while its current stage is the
 implementation, a unit or E2E test stage, the evidence or the review, whatever its state there. At
 most the run's number SHALL hold a place at once; the grill and the plan SHALL need none. A change
-that needs a place and finds none, or finds the machine loaded, SHALL wait in its own session.
+that needs a place and finds none, or finds the machine loaded, SHALL wait in its own session. A
+change no longer open SHALL hold no place.
 
 #### Scenario: Two changes reach the implementation with one place
 - **WHEN** the number is 1 and changes `a` then `b` reach their implementation
@@ -46,6 +47,10 @@ that needs a place and finds none, or finds the machine loaded, SHALL wait in it
 #### Scenario: A blocked change in its implementation
 - **WHEN** `a` holds the place and its gate runs red
 - **THEN** `a` keeps the place
+
+#### Scenario: A change that leaves the roadmap
+- **WHEN** the number is 1, `a` holds the place, `b` waits for one, and `a`'s line is removed from the roadmap or `a` is archived while its session is gone
+- **THEN** `a` holds no place and is no longer counted ahead of anyone, and `b` takes the place at the check's next firing
 
 ### Requirement: A change's plan waits for its dependencies and starts from the code of that day
 In a run with a session per change, no plan file of a change SHALL be written while a change its
@@ -69,7 +74,7 @@ code of that day.
 In a run with a session per change, once a change's grill has passed, and again once its plan
 approval is recorded, the coordinating session SHALL commit those files on the change's branch and
 push the branch to `origin`. A push that fails SHALL be said in one line and tried again at a later
-decision, not in the same one.
+decision, not in the same one. A plan SHALL be pushed once per recorded approval.
 
 #### Scenario: A grill answered
 - **WHEN** the owner answered the last question of `a`'s grill in the coordinating session
@@ -82,6 +87,14 @@ decision, not in the same one.
 #### Scenario: A push that fails
 - **WHEN** the push of `a`'s branch fails
 - **THEN** one line says so with the reason, the decision that follows the push asks for no other push of `a`, and a later decision asks for it again
+
+#### Scenario: Tasks ticked after the plan was pushed
+- **WHEN** `a`'s plan and approval are on `origin` and `a`'s session ticks tasks in its `tasks.md`
+- **THEN** no decision asks for another push of `a`'s plan
+
+#### Scenario: A plan approved again
+- **WHEN** `a`'s plan was pushed, then revised, and the owner approves it again in the coordinating session
+- **THEN** `a`'s branch on `origin` holds the new approval with the plan files
 
 ### Requirement: A roadmap run keeps one periodic check while it lasts
 When the host offers a session cron, the run's first decision SHALL ask for one periodic check of the
@@ -109,7 +122,8 @@ SHALL ask for its own check.
 Each firing SHALL have the triage answer ahead the grills not being asked, hand a freed place to the
 first change waiting for one, stop the run's stale wait loops, and archive the session of each
 archived change. It SHALL show the owner one message only when something changed or needs them. It
-SHALL NOT write an approval or a retro answer, hand a stage or start a session.
+SHALL NOT write an approval or a retro answer, hand a stage or start a session. Only a process
+still a wait loop of the run SHALL be stopped.
 
 #### Scenario: A freed place
 - **WHEN** the check fires, a place is free and `b` waits for one
@@ -118,6 +132,26 @@ SHALL NOT write an approval or a retro answer, hand a stage or start a session.
 #### Scenario: A stale wait loop
 - **WHEN** a wait loop of the run belongs to an archived change, or an older wait loop of the same change and kind is still running beside a newer one
 - **THEN** that wait loop is stopped and the newest one keeps running
+
+#### Scenario: Wait loops stopped
+- **WHEN** the check stops two stale wait loops of the run
+- **THEN** one line says that 2 wait loops were stopped because their changes no longer need them
+
+#### Scenario: A recorded wait loop that is no longer one
+- **WHEN** a stale wait loop is recorded under a process number that now belongs to a process that is not a wait loop of the run
+- **THEN** that process is not stopped, and the run no longer records it
+
+#### Scenario: A place given to a session that is not watching
+- **WHEN** the check gives `b` a place and no wait loop of `b`'s session is running
+- **THEN** one line asks the owner to type any message in `b`'s session
+
+#### Scenario: An archive not done yet
+- **WHEN** archiving the session of archived change `c` is refused, waits for the owner's approval, or meets a session still working
+- **THEN** one line says it is tried again later, once for that state, and the next firing or the run's end tries again
+
+#### Scenario: A triage heading that is no section
+- **WHEN** the check fires, `b`'s grill is not the one being asked, and `b`'s requirements hold the triage's heading only inside a fenced block or with words after it
+- **THEN** the check has the triage answer `b`'s questions
 
 #### Scenario: Nothing changed
 - **WHEN** the check fires and nothing changed since the last decision
@@ -135,7 +169,8 @@ SHALL NOT write an approval or a retro answer, hand a stage or start a session.
 When a run ends with every line archived, the coordinating session SHALL delete the periodic check,
 stop every wait loop of the run still running, stop its own background tasks of the run, and archive
 the session of every archived change. A stopped run SHALL delete the check and do the same for the
-archived changes only.
+archived changes only. Only a process that is still a wait loop of the run SHALL be stopped; the
+record SHALL forget every wait loop it was asked to stop.
 
 #### Scenario: The last change archived
 - **WHEN** the last change of the roadmap is archived
@@ -144,6 +179,10 @@ archived changes only.
 #### Scenario: A stop while two changes go on
 - **WHEN** the owner types `/devkit roadmap stop` while `a` and `b` go on in their sessions and `c` is archived
 - **THEN** the check is deleted, `c`'s session is archived, and `a`'s and `b`'s sessions and wait loops keep running
+
+#### Scenario: A process that took a wait loop's number
+- **WHEN** the last change is archived and a wait loop of the run is recorded under a process number that now belongs to a process that is not a wait loop
+- **THEN** that process keeps running, and the run records no wait loop
 
 ### Requirement: The board shows what each change session waits for
 In a run with a session per change, `/devkit status` SHALL show a change waiting in its own session

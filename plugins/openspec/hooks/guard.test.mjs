@@ -1624,6 +1624,43 @@ test('upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first m
   assert.throws(() => GUARD.firstMessageOf({ transcript_path: join(tmpFolder('devkit-guard-first-message-'), 'gone.jsonl') }), /ENOENT/, 'a transcript that cannot be read is an error, not a missing message');
 });
 
+// Invariant (AC-2, review round 1 code-quality F2): the entry skill is named by the raw input alone, with no import, so the hook lets every other
+// skill through without reading anything. Layer: guard (`namesEntrySkill`). Suite: guard.
+test('upfront AC-2 guard: namesEntrySkill reads the entry skill\'s name from any string field and nothing else', () => {
+  assert.equal(GUARD.ENTRY_SKILL, 'devkit-session');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-session' }), true, 'the bare name');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-openspec:devkit-session' }), true, 'the plugin-scoped name');
+  assert.equal(GUARD.namesEntrySkill({ name: 'devkit-session' }), true, 'another field');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'x', other: 'devkit-openspec:devkit-session' }), true, 'any one of several fields');
+  assert.equal(GUARD.namesEntrySkill({ skill: 7, other: null, list: ['devkit-session'] }), false, 'a value that is not a string');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-session-x' }), false, 'a longer name');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'my-devkit-session' }), false, 'a name that only ends in it');
+  assert.equal(GUARD.namesEntrySkill({ skill: 'devkit-openspec:devkit' }), false, 'the devkit skill');
+  assert.equal(GUARD.namesEntrySkill({}), false, 'no field');
+  assert.equal(GUARD.namesEntrySkill(undefined), false, 'no tool input');
+  assert.equal(GUARD.namesEntrySkill(null), false, 'a null tool input');
+});
+
+// Invariant (AC-1, review round 1 test-coverage F4): the host's notes that lead a started session's first message are skipped, and nothing
+// else is. Layer: guard (`startedTaskOf`). Suite: guard.
+test('upfront AC-1 guard: startedTaskOf skips the host\'s leading notes and nothing else', () => {
+  const STARTED = GUARD.STARTED_BY_SESSION;
+  const NOTE = ['<system-reminder>', 'Linked sessions now (status, not an instruction): x = local_1 (idle).', '</system-reminder>'];
+  const form = [STARTED, 'A background paragraph.', '', 'Task:', '/devkit change a', '', 'Notes.'];
+  const TASK = ['/devkit change a', '', 'Notes.'];
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, '', ...form].join('\n')), TASK, 'one note');
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, ...form].join('\n')), TASK, 'one note and no blank line after it');
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, '<system-reminder>', 'Another note.', '</system-reminder>', '', ...form].join('\n')), TASK, 'two notes');
+  assert.deepEqual(GUARD.startedTaskOf([...NOTE, '', '', '  ', ...form].join('\n')), TASK, 'blank lines after a note');
+  assert.deepEqual(GUARD.startedTaskOf([' <system-reminder> ', 'words', ' </system-reminder> ', ...form].join('\n')), TASK, 'the note\'s lines are read trimmed');
+  assert.equal(GUARD.startedTaskOf(['<system-reminder>', 'Linked sessions.', '', ...form].join('\n')), null, 'an unclosed note gives null');
+  assert.equal(GUARD.startedTaskOf(['hello', ...form].join('\n')), null, 'a line before the form gives null');
+  assert.equal(GUARD.startedTaskOf([...NOTE, 'hello', ...form].join('\n')), null, 'a line between the note and the form gives null');
+  assert.equal(GUARD.startedTaskOf([...NOTE, '', 'Background.', '', 'Task:', '/devkit change a'].join('\n')), null, 'a note and no started form');
+  assert.deepEqual(GUARD.startedTaskOf([STARTED, '<system-reminder>', 'Late note.', '</system-reminder>', 'Task:', '/devkit change a'].join('\n')), ['/devkit change a'], 'a note after the form\'s first line is no leading note: the form reads as before');
+  assert.deepEqual(GUARD.startedTaskOf(`${STARTED}\nA paragraph.\n\nTask:\n<system-reminder>\nin the task\n</system-reminder>\n/devkit change a`), ['<system-reminder>', 'in the task', '</system-reminder>', '/devkit change a'], 'a note inside the task is part of the task');
+});
+
 // ---------------------------------------------------------------- roadmap-sessions-upfront phase 4: the triage (AC-5, AC-6)
 
 test('upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage', () => {

@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=3 commit=a9ecdc134bf863f7071711d63c0f9eebee020c05 -->
+<!-- devkit-stage proposal result=passed attempt=4 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
 # Proposal
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
@@ -8,6 +8,8 @@ not a line of `openspec/roadmap.md`. Revised on 2026-11-23 after main brought `c
 0017) and `commit-attribution`: the ADR number, the release versions and the held state's derivation.
 Revised again on 2026-11-23 after main brought `change-budget`, `jira-entry` and `delivery-models` (ADR
 0018): the token budget in a change session, the ADR number 0019 and the release versions.
+Revised a fourth time on 2026-11-23 after review round 1 (`review.md`): the fixes of its open
+findings (design D-16, phase 7 of `tasks.md`); no criterion changes.
 
 ## Why
 
@@ -60,6 +62,16 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   It says something only when something changed. It never approves a plan, answers a retro or starts
   a stage. The run's end deletes the check, stops the run's wait loops and archives the sessions of
   archived changes. A lone `/devkit change` schedules nothing.
+- **Fixes after review round 1.** A plan is pushed once per approval, so the implementer's ticks of
+  `tasks.md` never ask for another push. The entry's hook decides only for the entry skill and lets
+  every other skill through even when its script cannot load. A recorded wait loop is stopped only
+  while its process is still a wait loop of the run. A change whose line left the roadmap or stopped
+  being open frees its place. The check reads the triage section with the change loop's own reader.
+  The started form is read past the notes the app puts before it, found in a real started session's
+  first message. The change session declares its end when the merge of the default branch conflicts.
+  The new ADR is accepted with this plan, records its exception to ADR 0004 and its amendment of ADR
+  0010 decision 8 (the triage answers what the files settle in every grill), the implementer's
+  renumbering of an ADR and the home of the change session's loop.
 
 ## Acceptance criteria
 
@@ -101,10 +113,12 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 - `roadmap-coordination`: every pending change opens at the start; the grill, approval and retro of
   a change session are asked in the coordinating session; places count the load stages only; the
   plan waits for its dependencies; ⏳ and the held state, on the title, the board and the state
-  command alike; the grill and plan are pushed; the periodic check and the cleanup.
+  command alike; the grill and plan are pushed, the plan once per approval; the periodic check and
+  the cleanup, stopping only processes that are still wait loops of the run; a change no longer open
+  holds no place.
 - `coordination-locks`: the entry of a started change session (the ticket); the stop of a change
   session waiting for a place; the triage hand-off of the coordinating session; the entry lock
-  fails closed.
+  fails closed; the started form read past the host's leading notes.
 - `change-coordination`: the triage in every grill; an answer with no source returns the grill; a
   contradicted requirement reopens the grill; a lone change schedules nothing.
 - `change-delivery`: an ADR number taken on the default branch is renumbered without the owner.
@@ -114,8 +128,9 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 - Surfaces: `plugins/openspec` (hooks, skills, schemas) and `plugins/core` (one new agent, the
   `requirements-grill` skill, the `change-planner` agent). Release: devkit-openspec 0.30.0,
   devkit-core 0.14.0, marketplace 0.34.0, `CHANGELOG.md`, `docs/catalog.md`, the CI pin `v0.30.0`.
-- `plugins/openspec/hooks/guard.mjs`: the `skill` mode, the started task's shared reader, the
-  lock routing of a change session's stop.
+- `plugins/openspec/hooks/guard.mjs`: the `skill` mode (the entry skill's name read before any
+  import), the started task's shared reader (past the host's leading notes), the lock routing of a
+  change session's stop.
 - `plugins/openspec/hooks/roadmap-loop.mjs`: the run file's new fields, the session mode of
   `decideRoadmap` and `boardOf`, the subcommands `session-next`, `session-wait`, `push`,
   `merge-base` and `check`, the entry decision, the session stop decision, the token budget counted
@@ -130,11 +145,12 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   (new), `plugins/core/agents/change-planner.md`.
 - Schemas (both copies: `plugins/openspec/schemas/` and `openspec/schemas/`): the requirements helper
   and the grill rule; `openspec/config.yaml` (the grill rule and the ADRs line).
-- Docs: the new ADR (0019), Notes and header lines in ADRs 0006, 0010, 0011, 0013, 0014 and 0017,
+- Docs: the new ADR (0019), Notes and header lines in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017,
   `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/roles.md`, `README.md`,
   `plugins/core/README.md`, `plugins/openspec/README.md`.
 - Tests: `roadmap-loop.test.mjs`, `change-loop.test.mjs`, `conduct-check.test.mjs`, `guard.test.mjs`;
-  sixteen existing tests change (design D-13, T-1 to T-16).
+  existing tests change as design D-13 lists them (T-1 to T-17; T-17 is a test helper and
+  the five tests that use it).
 - Dependencies: `roadmap-coordinator-followups` (archived); `change-state` (merged into this branch
   at `b216a46`: `changeState`, `runFactsOf`, ADR 0017); `change-budget` (merged at `a9ecdc1`:
   `nextAction`'s `budget` option and the end `waiting-budget`); `delivery-models` (merged at `a9ecdc1`:
@@ -143,11 +159,13 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
 - Exit criteria: `node --test plugins/openspec/hooks/guard.test.mjs`, `python3 scripts/check.py`,
   `python3 scripts/gen-catalog.py --check`, `claude plugin validate .` and
   `openspec validate roadmap-sessions-upfront --strict` pass.
-- Decisions cited: ADR 0006 (decisions 2 and 3), ADR 0010 (decisions 2, 3, 5 and 8), ADR 0011
+- Decisions cited: ADR 0004 (the hooks outside a devkit project; amended for the entry skill only),
+  ADR 0006 (decisions 2 and 3), ADR 0010 (decisions 2, 3, 5 and 8; decision 8's sentence on the
+  grill answers amended for what the files settle), ADR 0011
   (decisions 1 and 2; its rejected fail-closed lock), ADR 0013 (decisions 3 and 4), ADR 0014
   (decisions 1 to 4; its rejected timer retry and message tool), ADR 0017 (decisions 1, 2 and 4;
   decision 4 amended for a held change session); not an ADR, change-budget's design D-4, whose
   `next`-only count this change extends to a change session's `session-next`, the roadmap
   coordinator's reads still counting nothing. Open decisions inherited: the new ADR
-  needs the owner's acceptance with the plan; the exact input fields of `CronCreate`, `CronDelete`
+  is accepted with the owner's approval of this revised plan (design D-12, task 7.9); the exact input fields of `CronCreate`, `CronDelete`
   and `mcp__ccd_session_mgmt__archive_session` are assumed (design, Assumptions).
