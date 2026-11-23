@@ -19,6 +19,7 @@ You ship work that was already written, reviewed and validated. Your job is to c
 - Optionally, a **commit-only** call: commit and push, open no PR. The caller says so, and says the commit comes before review.
 - Optionally, a statement that the reviews are current at HEAD, from a coordinating skill that checked them.
 - Optionally, an **archive call** (from `ship-change` at `open-archive-pr`): the change id, the archive folder (`openspec/changes/archive/<date>-<id>/`) and the change PR number. It ships the archive of a change that already merged: the moved folder, the retro, the roadmap tick and the files of the proposals the owner approved, on branch `chore/archive-<id>`.
+- Optionally, an **attribution block** from the caller, as the last lines of the prompt: the line `Attribution (from the caller):` followed by `Commit trailer: <line>` and `PR footer: <line>` lines, or the one line `Attribution (from the caller): none`. See Attribution.
 
 ## Preconditions (check without mutating)
 
@@ -34,17 +35,27 @@ You ship work that was already written, reviewed and validated. Your job is to c
 3. **Commit** with a conventional message (see the commit-message-guidelines skill), passed through a HEREDOC so newlines and quotes survive:
    - Title `type(scope): description`, under 70 characters. `type` from the diff (feat, fix, refactor, docs, test, chore); `scope` from the change id or the area.
    - Body: the *why*, and the artifacts touched.
-   - Add the attribution/co-author lines the environment or the user requires; add none of your own.
+   - End the message with the attribution lines that Attribution below gives; add none of your own.
 4. **Push**: `git push -u origin <branch>` on first push, plain `git push` afterwards. `--force-with-lease` only if the caller says the branch was rewritten; never a force push to the default branch. On a commit-only call, stop here: report `PR: none (commit only)`.
 5. **Open the PR** with `gh pr create --body-file - <<'EOF'` (the body as a heredoc on stdin; never `--body -`, which `gh` takes as the literal body `-`). If the branch already has an open PR (`gh pr view --json url,state`), don't create another: the push already updated it, so stop at its URL.
    - Summary (1–3 bullets).
    - Linked artifacts: the change plan, ADRs touched, specs changed.
    - Test plan: checked items for what was verified, unchecked for what the human still does.
    - "Closes change `<id>`" when it closes one. Then the body also names the change id, lists each acceptance criterion id with its text (from `proposal.md`), and links the change's `evidence.md` (`openspec/changes/<id>/evidence.md`).
-   - The attribution footer the environment or the user requires.
+   - The attribution footer that Attribution below gives.
    In an archive call the title is `chore(openspec): archive <id> with its retro`, with ` (<version>)` appended when the commit bumps versions (the marketplace version). The body names the change and the change PR, links `openspec/changes/archive/<date>-<id>/retro.md` from the repository root, and lists the proposals approved and rejected. There is no "Closes change" block and no acceptance criterion list.
    If the repo has a PR template (`.github/pull_request_template.md`), follow it.
 6. **Stop at the PR URL.** Don't poll CI, don't merge, don't open follow-ups.
+
+## Attribution
+
+The caller's attribution block wins over the lines your own environment gives you: the caller is the session that did the work, and its lines name it, while your environment's lines name your own model.
+
+- **The block gives lines.** End the commit message with exactly the text after each `Commit trailer:` line, in order, and the PR body with exactly the text after each `PR footer:` line, in order. Add no other `Co-Authored-By` line, attribution trailer or footer, whatever your environment asks. A block with no `Commit trailer:` line means no trailer; one with no `PR footer:` line means no footer.
+- **The block says `none`.** Write no `Co-Authored-By` line, no attribution trailer and no footer.
+- **No block** (an older caller). Add the attribution lines the environment or the user requires; add none of your own.
+
+Copy each line byte for byte, emoji and brackets included, inside the quoted HEREDOC. A commit-only call uses only the `Commit trailer:` lines.
 
 ## Escalate (stop and surface the error)
 
@@ -72,4 +83,4 @@ No narration.
 - Use interactive flags (`-i`).
 - Commit `.env` files, credentials or secrets.
 - Delete branches; cleanup happens after merge.
-- Hardcode an attribution or co-author line.
+- Hardcode an attribution or co-author line, or add one the caller's attribution block does not give.
