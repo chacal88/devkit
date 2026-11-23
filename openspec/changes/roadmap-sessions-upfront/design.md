@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=5 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
+<!-- devkit-stage design result=passed attempt=6 commit=62cf500f32730e320a012a975b9814c0b6d5aa5d -->
 # Design
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
@@ -10,7 +10,12 @@ token budget in `session-next` (D-6 step 1, task 6.1), this change's ADR number 
 release versions (D-14); revised a fourth time on 2026-11-23 after review round 1 at `123a7ba`
 (`review.md`): the fixes of its twelve open important findings and of five nits, listed in D-16 and
 built by phase 7 of `tasks.md`, with the sections they change (D-1, D-4, D-5, D-6, D-7, D-9, D-12,
-D-13, D-15, the risks and the estimate) rewritten in place.
+D-13, D-15, the risks and the estimate) rewritten in place; revised a fifth time on 2026-11-23
+after the merge `62cf500` brought `change-version-pin` (devkit-openspec 0.31.0), whose repository
+check refuses a released flow edited in place: the triage helper ships as flow version 2 of the
+`devkit` and `devkit-lite` scripts, the owner's answer of 2026-11-23 (D-17, phase 8 of `tasks.md`),
+with D-4, D-9 step 3, D-13, D-14, D-15, the risks, the implementation plan and the dependencies
+changed to say so.
 
 ## Context
 
@@ -64,7 +69,8 @@ cleanup path shared by the check and the run's end.
 
 **Non-Goals:**
 
-- No change to how the owner's typed `/devkit change` runs a lone change, beyond the triage (D-4),
+- No change to how the owner's typed `/devkit change` runs a lone change, beyond the triage (D-4;
+  for a change on flow version 2, D-17),
   the source check (D-4) and the renumbering step (D-10).
 - No lock refuses a load-stage hand-off without a place; the place rule is enforced by the loop and
   the stop lock (D-7). Recorded as a risk.
@@ -222,14 +228,21 @@ edit any file, answer from its own judgement, write or suggest a plan approval o
 With no write tool and no Bash it cannot write a file; `approval.md` refuses any subagent anyway
 (`guard.mjs#writeViolation`).
 
-**Where it runs.** `requirements-triage` joins the `helpers` of the `requirements` stage in the four
-flow files (`plugins/openspec/schemas/devkit/flow.json`, `.../devkit-lite/flow.json`, and the copies
-under `openspec/schemas/`), and `PACKS` in `change-loop.mjs` gains `'requirements-triage':
-'devkit-core'`, so the change-run hand-off lock (`handOffFor`) allows it. In a roadmap run with a
+**Where it runs.** `requirements-triage` joins the `helpers` of the `requirements` stage of the
+`devkit` and `devkit-lite` flows as their version 2, released by D-17: `flow.json` says `"version":
+2` and is copied to `flows/2.json` in the four flow folders (`plugins/openspec/schemas/devkit/`,
+`.../devkit-lite/`, and the copies under `openspec/schemas/`), its digest recorded in
+`scripts/released-flows.json`; `flows/1.json` keeps the released version 1, without the helper.
+(Phase 4 first wrote the helper into `flow.json` at version 1, before main's `change-version-pin`
+made a released flow immutable; phase 8 raises the version.) `PACKS` in `change-loop.mjs` gains
+`'requirements-triage': 'devkit-core'`, so the change-run hand-off lock (`handOffFor`) allows it for
+a change whose flow lists it. In a roadmap run with a
 session per change, RH6 of `roadmapAgentDecision` gains one exception, label `grill-helper`: a
 hand-off whose brief (`BRIEF_OF`) names a change open on the roadmap and whose `subagent_type` is a
-helper of that change's `requirements` stage, with no prefix or the pack's, is allowed and marks
-nothing in flight. With no brief: `own-sessions`, as today; a change not open: `not-open`.
+helper of that change's `requirements` stage, in the flow that change follows (`changeFlow`, its
+pin), with no prefix or the pack's, is allowed and marks
+nothing in flight. With no brief: `own-sessions`, as today; a change not open: `not-open`. A change
+on flow 1 gets no triage at all (D-17).
 
 **The skill.** `plugins/core/skills/requirements-grill/SKILL.md` gains step "2b. Triage first":
 draft the questions of the four axes; hand them to `devkit-core:requirements-triage` with a prompt
@@ -237,7 +250,10 @@ whose first line is `Change <id> (<script> script), stage requirements: triage o
 each `answered` under `### Answered by triage` as `<n>. [<axis>] <question> → <answer> (source:
 \`<path>[:<line>]\`)`; ask the owner, one at a time, only the `owner` ones and those the triage
 answered with no source. The Output block gains `**Answered by triage:**`. The Never list keeps
-"answer a question yourself": the triage answers are the agent's, each with a written source.
+"answer a question yourself": the triage answers are the agent's, each with a written source. Since
+D-17, step 2b runs only when the loop's `grill` action names `requirements-triage` in its `helpers`
+(a change on flow 2); for a change on flow 1 the grill skips it and asks the owner every question,
+as before this change.
 
 **The source check.** `change-loop.mjs#triageUnsourced(text)` (exported, pure): the numbered or
 bulleted items under the heading `### Answered by triage` that hold no `(source: `. The section runs
@@ -509,7 +525,8 @@ under the run file's lock:
    not watching: type any message in it.").
 3. **The decision.** `decideRoadmap` on the facts with `turn: 'event'`, so no session starts; plus
    `triage` actions: `{ change, kind: 'triage', root, progressKey: 'triage' }` for each change whose
-   action is the grill, that is not `ask.change`, and whose `requirements.md` has no triage section by
+   action is the grill, whose grill action names `requirements-triage` in its `helpers` (a change on
+   flow 2, D-17), that is not `ask.change`, and whose `requirements.md` has no triage section by
    `change-loop.mjs#hasTriageSection` (D-4, the loop's own reader: a heading inside a fenced block or
    with words after it is no section).
 
@@ -910,12 +927,25 @@ layer and the suite.
 | T-16 | `upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again` (`roadmap-loop.test.mjs`, written in phase 2) | the owner gate's expected title is `🙋 📝 a` instead of `📝 a`, its message "an owner gate keeps its stage icon, beside 🙋"; the place, load and after cases (`⏳`, `⏳ a`) and the claimed case are unchanged | a change held for a place, the load or a dependency is titled ⏳ and its id, and a claimed one gets its own action back · sessionDecide · roadmap-loop |
 | T-17 | the test helper `sleeper()` of `roadmap-loop.test.mjs` (near line 3731) and the five tests that record its children as waits: `upfront AC-14 check: a stale wait is killed and the newest of each kind kept`, `upfront AC-14 check: a freed place goes to the first queued change, and one with no live wait gets its idle line`, `upfront AC-14 decide: an archived line with a recorded session kills its recorded waits, then gives archive-session with its reason until session-archived is reported`, `upfront AC-15 decide: the end done gives delete-check, archive-session per kept session and stop-own-tasks, and decide kills every recorded wait` and `upfront AC-15 decide: a stop kills only stale waits and keeps the sessions of changes that go on` (written in phase 3) | `sleeper(kind = 'session')` spawns `process.execPath` with the arguments `-e`, `setTimeout(() => {}, 120000)`, `<HOOKS_DIR>/roadmap-loop.mjs` and `session-wait` (or `wait` for `kind` `github`), so its command line is a wait loop's (D-9 step 1); a new helper `stranger()` keeps today's plain child for the new test of a spared pid; no assertion of the five tests changes | a stale or doomed wait loop is stopped, a kept one keeps running, and a change's live wait counts as watching · check and decide · roadmap-loop |
 
+| T-18 | `upfront AC-5 triage: a change run may hand devkit-core:requirements-triage` (`change-loop.test.mjs`) | its two scratch changes (`liteChange()`, `approvedChange()`) record `x-devkit-flow: 2` in their `.openspec.yaml`, as an open with this release does; with no pin they follow flow 1, which does not list the triage (D-17) | a change run may hand the triage to a change whose flow lists it, with no prefix or devkit-core's · the `agent` lock, H3 · change-loop |
+| T-19 | `upfront AC-4 lock agent: the coordinating session may hand requirements-triage with a brief naming an open change, and marks nothing under way` (`roadmap-loop.test.mjs`) | change `a` of its `lkProject` records `x-devkit-flow: 2` | the coordinating session may hand a helper of an open change's grill, marking nothing under way · `roadmapAgentDecision` RH6 · roadmap-loop |
+| T-20 | `upfront AC-14 check: its actions are only triage, archive-session, push and delete-check, and it starts no session on its event turn` and `upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not` (`roadmap-loop.test.mjs`) | the changes they expect a `triage` for (`b`; `c` and `d`) record `x-devkit-flow: 2`; the others keep their files | the check gives the triage of each grill not being asked that has no triage section · `checkCmd` · roadmap-loop |
+| T-21 | the fixtures of `version-pin.test.mjs`: `treeFlow`, `scratch`, `openProject`, `makePackV2` and `checkScratch` | each stands for a project installed at release 1, as the suite was written: `treeFlow(schema)` reads `flows/1.json`; `scratch`, the origin of `openProject` and the pack copy of `makePackV2` give `devkit` and `devkit-lite` the bytes of `flows/1.json` as `flow.json` and no `flows/2.json` before the synthetic version 2 of `flowV2()` is written; `checkScratch` does the same and drops the `"2"` digests of both scripts, except in `version-pin AC-7 check: the tree's flows pass`, which keeps reading the tree as it is; no assertion changes | a change keeps the flow it opened with across an upgrade, and the repository check refuses a flow change that keeps its version · the version-pin fixtures · version-pin |
+
 Added during phase 1 by the coordinator (2026-11-22): T-10 and T-11 were found red by phase 1's gate
 and were missing from this table; both follow from decisions already approved (D-6, D-12 decision 6)
 and change no requirement, criterion or scenario. T-12 to T-14 were added the same way during phase 3
 (2026-11-23); they follow from D-2 and D-3. T-15 and T-16 come with the plan revision of 2026-11-23
 (D-11's one derivation, ADR 0017 decision 4). T-17 comes with the revision after review round 1
-(D-9's identity check of a recorded pid).
+(D-9's identity check of a recorded pid). T-18 to T-21 come with the revision for flow version 2
+(D-17): a scratch change with no pin now follows flow 1 under an installed flow 2, and the
+version-pin suite's fixtures read the tree's `flow.json` as version 1. Found by the planner's probe
+of 2026-11-23 (a scratch clone of `62cf500` with version 2 released as task 8.2 says; the
+`^version-pin`, `^upfront AC-4` and `^upfront AC-5` tests: 9 of 75 failed, T-18, T-19, the six
+version-pin tests T-21 covers, and `upfront AC-4 lock agent: the triage for a change not open is
+refused not-open`, which D-17's RH6 correction fixes in the code, not the test) and by reading each
+test that expects a `triage` action of the check (T-20, red only once task 8.3 filters it); task 8.4
+runs the whole suite again on the tree.
 
 **The search for phase 7** (2026-11-23, at `123a7ba`), over every suite under `plugins/openspec/hooks/`
 and `plugins/openspec/skills/*/scripts/`, for the rules phase 7 replaces: the plan push (`unpushed`,
@@ -996,7 +1026,21 @@ change, not a test to edit.
   answers`, near line 2567: `v0.30.0` matched, `v0.29.0` joining the pins that must be gone, its
   Invariant comment naming this change's move; invariant: the CI snippet pins the current release;
   layer: docs; suite: change-loop). A sibling merged first moves these numbers; the release step
-  renumbers.
+  renumbers. The merges of main since moved them: the tree at `62cf500` holds devkit-openspec 0.32.0,
+  devkit-core 0.14.0, marketplace 0.36.0 and the entry `## 0.36.0`, and these are the numbers phase 8
+  writes into (D-17).
+- Flow version 2 (D-17, phase 8): in `docs/openspec-flow.md`, after the paragraph that starts "A
+  change to a `flow.json` raises its `version`", one paragraph that names the released flow versions:
+  `devkit` and `devkit-lite` at version 2 from devkit-openspec 0.32.0 on (version 2 adds the
+  `requirements-triage` helper to the grill; a change on version 1 keeps its grill with no triage until
+  it is moved with `change-loop.mjs flow <id>`), `devkit-project` at version 1. The `## 0.36.0` entry
+  of `CHANGELOG.md` gains one sentence on flow version 2 and a "Projects" line: re-run
+  `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill.
+  `docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md` gains, after its Decision list,
+  a paragraph in the form of ADR 0010's Notes, starting `Note (roadmap-sessions-upfront, 2026-11-23):`:
+  decision 3's triage in every grill holds for a change that follows flow version 2 or later of its
+  script; a change on flow 1 (opened before devkit-openspec 0.32.0, or with no recorded flow) keeps
+  its grill with no triage until the owner moves it (D-17). Its status and decisions stay.
 
 ## D-15 Proof: what this change proves and what the next real run proves
 
@@ -1006,7 +1050,7 @@ change, not a test to edit.
 | AC-2 | `entryDecision` labels `not-entry`, `not-started`, `no-ticket`, `ticket-unknown`, `ticket-claimed`, `unreadable`; the guard's exit 2 through a real `guard.mjs skill` process; the devkit skill's frontmatter; since review round 1, the real first message refused (`not-started`: its task is a hand-written brief) and its envelope with the run's task and no start line refused (`no-ticket`); a `guard.mjs skill` process whose `roadmap-loop.mjs` cannot load lets another skill through and refuses `devkit-session` | the host refuses a model call of the devkit skill (today's behaviour) |
 | AC-3 | `decideRoadmap` opens every pending line at load 95 with number 1; `run` through `main` creates no hold; the board lists all, its held rows placed by the state's reason (phase 5) | ten sessions start in one typed turn |
 | AC-4 | session-mode queue and `ask` in roadmap order; the skill text naming the change's absolute `requirements.md` | the owner answers every grill in the coordinating session |
-| AC-5 | agent file and `helpers` and `PACKS`; RH6 `grill-helper`; the grill skill's step 2b; `triageUnsourced` | the triage answers the questions the files settle |
+| AC-5 | agent file and `helpers` and `PACKS`; RH6 `grill-helper`; the grill skill's step 2b; `triageUnsourced`; since D-17 (phase 8), flow version 2 of `devkit` and `devkit-lite` in both copies with `flows/1.json` unchanged and both digests recorded, the open recording `x-devkit-flow: 2`, and a change on flow 1 whose grill names no triage helper, whose triage hand-off is refused (change run and coordinating session) and for which the check gives no triage | the triage answers the questions the files settle in a change opened with the release; a change opened before shows the newer-flow line and keeps its grill |
 | AC-6 | the agent's tools (no write, no Bash); `approval.md` refused for `devkit-core:requirements-triage` (`guard.test.mjs`); `triageUnsourced` → grill | a question nothing settles reaches the owner |
 | AC-7 | the approval and retro asks in session mode; `session-next` holds `owner` and goes on when `approval.md` is written (scratch repository) | the change session wakes from its wait after the approval |
 | AC-8 | `after` hold; `merge-base` step and subcommand on a scratch repository with an origin, conflict included; since review round 1, the skill's declared end after an exit 3 of `merge-base` and the `devkit-end: <id> blocked` line that end prints | a dependent change plans after its dependency's archive |
@@ -1056,6 +1100,136 @@ shared reader is a refactor with no finding of a wrong answer); test-coverage's 
 assertion that accepts two outcomes, and the ticket recheck under the lock with no test of a change
 between the two reads), which no verifier raised to important.
 
+## D-17 The triage ships as flow version 2 (AC-5; phase 8)
+
+**The problem.** The merge `62cf500` brought `change-version-pin` (archived
+`openspec/changes/archive/2026-11-23-change-version-pin/`, devkit-openspec 0.31.0). Its design D-2
+keeps every released flow version as `flows/<n>.json`, and its D-8 adds
+`scripts/check.py#check_flow_versions`: each schema's `flow.json` must equal `flows/<its
+version>.json`, each `flows/<n>.json` must match its digest in `scripts/released-flows.json`, and a
+flow change raises its version. Phase 4 (task 4.2) added `requirements-triage` to the `helpers` of the
+`requirements` stage in the four `flow.json` files with `"version": 1` kept, so `python3
+scripts/check.py` prints exactly two errors:
+`plugins/openspec/schemas/devkit/flow.json: differs from flows/1.json, the released content of
+version 1; a flow change raises its version`, and the same for `devkit-lite` (the check reads only
+`plugins/openspec/schemas/`; the copies under `openspec/schemas/` are held to them by the
+byte-identical test of `flow-check.test.mjs`).
+
+**The choice.** Release version 2 of the `devkit` and `devkit-lite` flows: the owner's answer of
+2026-11-23 ("1", flow version 2). Concretely, in each of the four folders
+(`plugins/openspec/schemas/devkit/`, `plugins/openspec/schemas/devkit-lite/`,
+`openspec/schemas/devkit/`, `openspec/schemas/devkit-lite/`):
+
+- `flow.json`: its second line becomes `  "version": 2,`; every other byte stays as phase 4 left it
+  (the requirements helpers `["codebase-researcher", "requirements-triage"]`).
+- `flows/2.json` (new): the same bytes as that `flow.json`.
+- `flows/1.json`: untouched, byte for byte the released version 1 (`helpers:
+  ["codebase-researcher"]`), whose digest `scripts/released-flows.json` already records.
+
+`scripts/released-flows.json` gains `"2"` under `devkit` and under `devkit-lite`: `sha256:` and the
+hex SHA-256 of the bytes of `plugins/openspec/schemas/<script>/flows/2.json`, the function
+`check.py#flow_digest` computes (`hashlib.sha256(data).hexdigest()`; `shasum -a 256` gives the same
+hex, as CONTRIBUTING.md says). The planner's probe of 2026-11-23 (the tree at `62cf500` with only the
+version line raised, in a scratch copy) gave `sha256:6577dd5362bce5f505e33b7cc795b18f7ca81d6eb179b16ec343658fe8057776`
+for `devkit` and `sha256:7eb245e30d26345c89703a25064cec6ede5f531b0caa617255f67eefc6a605ed` for
+`devkit-lite`, and `check.py` then printed `all checks passed`; the implementer computes the digests
+from the files it writes, never copies these. Only the `schema.yaml` instruction text of the
+requirements stage changed besides; it is not versioned (change-version-pin D-4 B2: the OpenSpec CLI
+reads the installed `schema.yaml` for every change).
+
+**`devkit-project` does not move.** Its `flow.json` has no `requirements` stage and this change edits
+none of its files, so `check.py` passes on it as it is. A flow version is per script:
+`released-flows.json` keys the digests by script, the pin is read against the change's own script
+folder (change-version-pin D-1, D-3: `flows/<x-devkit-flow>.json` of the script), and a slice records
+its own script's installed version (D-6 there). Raising it would release a second version with the
+same stages and show every slice under way the newer-flow line for nothing. A slice opened with this
+release records `x-devkit-flow: 1`, as before.
+
+**Who gets the triage.** A `devkit` or `devkit-lite` change opened with this release installed
+records `x-devkit-flow: 2` (`change-loop.mjs#recordPin` reads the installed version, change-version-pin
+D-6), and so does a `script` switch before the proposal (D-7 there). A change with `x-devkit-flow: 1`,
+or with no `x-devkit-flow` (opened before devkit-openspec 0.31.0, or by hand), follows version 1
+(change-version-pin D-3 step 4: `pin.flow ?? 1`, read from `flows/1.json`), whose requirements stage
+lists only `codebase-researcher`. Such a change does not get the triage in its grill; only a change on
+flow 2 does. The owner moves a change on flow 1 with `change-loop.mjs flow <id>` (change-version-pin
+D-7), on request only; its readout and resume reply say a newer flow is installed (D-5 there).
+
+**What the locks and the grill do for a change on flow 1** (read at `62cf500`):
+
+- The change-run hand-off lock (`change-loop.mjs#handOffFor`, H3) builds the allowed roles with
+  `scriptAgents(changeFlow(...).flow)`, the flow the change follows: `devkit-core:requirements-triage`
+  is not among them, so the hand-off is refused with the label `not-a-role` and a reason listing the
+  script's roles. Outside a `/devkit` run no lock applies (`no-run`), as for every agent.
+- The coordinating session of a run with a session per change (RH6, `roadmap-loop.mjs#roadmapAgentDecision`)
+  allows the triage only when `isRequirementsHelper` finds it among the `helpers` of the
+  `requirements` stage of `changeFlow(...).flow`: for a change on flow 1 it does not, so the hand-off
+  is refused `own-sessions`. A run whose changes run in the coordinating session goes through RH3,
+  `handOffFor`: `not-a-role`. One correction there: a brief naming a change with no folder (`zzz`,
+  not open) has no pin either, so `changeFlow` reads it as flow 1 and the triage would be refused
+  `own-sessions` before the open check could say `not-open` and name the open changes (the probe
+  found `upfront AC-4 lock agent: the triage for a change not open is refused not-open` failing). So
+  `isRequirementsHelper`, when `locateChange` finds no folder for the change, reads the helpers of the
+  installed flow of the project's script (`readFlow(found.root, changeSchemaAt(found.root, dir))`,
+  the flow an open would record); a change with a folder keeps reading its own flow.
+- So that the grill never meets these refusals, the triage is not offered for such a change, in three
+  places that read one fact, the `helpers` of the change's own requirements stage:
+  1. `change-loop.mjs#decide`, `planPart`: both `grill` actions (the requirements stage next or
+     waiting for the owner, and the grill sent back by `unsourced`) gain `helpers`, the `helpers` of
+     the `requirements` stage of the flow passed to `decide` (the change's own flow, through
+     `collectFlow` → `changeFlow`), `[]` when it lists none. No other action kind changes.
+  2. The skills: the `grill` item of `plugins/openspec/skills/devkit/SKILL.md` and step 2b of
+     `plugins/core/skills/requirements-grill/SKILL.md` hand the drafted questions to
+     `devkit-core:requirements-triage` only when the grill action's `helpers` names it; otherwise
+     step 2b is skipped and the owner is asked every question, one at a time, as before this change.
+     A grill run by hand with no loop action keeps step 2b (no lock applies there and no flow is
+     read; accepted). The `triage` item of the devkit skill's Roadmap part is unchanged.
+  3. The periodic check (D-9 step 3) gives `triage` only for a grill action whose `helpers` names
+     `requirements-triage`.
+- The source check (`triageUnsourced`, D-4) is unchanged: a requirements file with no triage section
+  gives `[]`; a section written by hand keeps its check.
+- The requirements instruction of the installed `schema.yaml` names the triage for every change
+  (above): a flow-1 grill reads it, and its rule "Never answer a question yourself" holds, so every
+  question reaches the owner. The owner's grill on flow 1 is the grill as it was before this change.
+
+**This change's own folder.** `openspec/changes/roadmap-sessions-upfront/.openspec.yaml` holds
+`schema: devkit` and `created: 2026-11-22`, no pin: it follows flow 1. Its grill passed long ago;
+flows 1 and 2 have the same stages, files, roles, ceilings and `appliesWhen`/`notAfter`, so its
+evidence, review and archive read the same, and its CI check (`deliver-check.mjs --ci`) reads
+`flows/1.json` with the same readiness. Its readout and resume reply gain the newer-flow line once
+the tree ships version 2; it is not moved (a move is the owner's request, and nothing in it needs
+flow 2).
+
+**The tests this asks** (phase 8; the invariant, layer and suite of each changed test in D-13 T-18 to
+T-21). New, test first, in `change-loop.test.mjs` unless named:
+
+- `upfront AC-5 flow: version 2 of devkit and devkit-lite names requirements-triage among the grill's helpers in both copies, and flows/2.json is flow.json`;
+- `upfront AC-5 flow: flows/1.json of devkit and devkit-lite is released version 1, without requirements-triage, and devkit-project stays at version 1` (the digest of each `flows/1.json` equals its `"1"` entry; the requirements helpers of version 1 are `["codebase-researcher"]`; `devkit-project`'s `flow.json` says version 1 and it has no `flows/2.json`);
+- `upfront AC-5 flow: released-flows.json records the digest of flows/2.json of devkit and devkit-lite` (the same `sha256:` function as `check.py`);
+- `upfront AC-5 open: a devkit and a devkit-lite change opened on the tree's schemas record x-devkit-flow 2, and a project slice 1` (in `version-pin.test.mjs`, over a project with the tree's schemas);
+- `upfront AC-5 triage: the grill of a change on flow 1 names no triage helper and that of a change on flow 2 names it` (`nextAction` over a scratch project with the tree's schemas: one change with no pin, one with `x-devkit-flow: 1`, one with `x-devkit-flow: 2`, and the flow-1 change once `change-loop.mjs flow <id>` moved it; also the grill sent back by `unsourced`);
+- `upfront AC-5 lock agent: a change run on flow 1 refuses devkit-core:requirements-triage as not-a-role, and one on flow 2 allows it`;
+- `upfront AC-4 lock agent: the coordinating session's triage for a change on flow 1 is refused own-sessions` (`roadmap-loop.test.mjs`);
+- `upfront AC-14 check: a grill of a change on flow 1 gives no triage action, and one on flow 2 does` (`roadmap-loop.test.mjs`);
+- `upfront AC-5 skill: the grill skill and the devkit skill hand the triage only when the grill action's helpers name it`;
+- `upfront AC-5 docs: the flow doc names the released flow versions, the 0.36.0 entry names flow version 2, and ADR 0020's Note names flow 1` (`guard.test.mjs`).
+
+**Spec deltas.** `change-coordination`: "Every grill asks the triage agent first" holds for a grill
+whose flow lists the triage, and the new requirement "The triage ships as flow version 2" (scenarios
+"A change opened on flow 2", "A project slice", "A change on flow 1 keeps its flow's grill", "A
+change moved to flow 2"); `coordination-locks`: "In a roadmap run a hand-off names its change" reads
+the helpers of the flow the change follows, scenario "The triage for a change on an older flow";
+`roadmap-coordination`: "A firing of the check acts and reports only what changed" gives the triage
+only to a grill whose flow lists it, scenario "A grill on an older flow". No criterion of
+`proposal.md` and no line of `requirements.md` changes: AC-5's "every grill" is read for the
+changes opened with the release, as the owner's answer of 2026-11-23 chose.
+
+**Rejected.** Keeping version 1 edited in place: `check.py` refuses it, and every change under way
+would get the helper with no recorded move, the silent flow change change-version-pin exists to
+prevent. Granting the triage by a constant outside the flow (a role list in the lock): a second
+source of a stage's helpers beside `flow.json`, which the hand-off lock and RH6 read today. Moving
+`devkit-project` too: no content change (above). Moving every change under way to flow 2 by a
+migration: the move is the owner's request only (change-version-pin D-7).
+
 ## Risks / Trade-offs
 
 | Id | Risk | P × I | Mitigation |
@@ -1077,6 +1251,8 @@ between the two reads), which no verifier raised to important.
 | R-13 | The held ⏳ and the GitHub ⏳ read alike in the sidebar | LOW × LOW | a held title has no stage icon (`⏳ <id>`), a GitHub wait keeps it (`⏳ 🚀 <id>`); the state command and the board name the reason |
 | R-14 | The board and the periodic check read with the budget off (change-budget D-4), so a change session stopped at its budget looks running there | MEDIUM × LOW | the change session itself prints the budget end, its title shows the owner's wait (🙋) and its reply names the file and the key to raise; no AC claims the board shows it; the owner goes on by raising the cap and typing in that session |
 | R-17 | The roadmap coordinator's script keeps growing with the change session's loop | MEDIUM × LOW | ADR 0020 decision 8 records the home and names a split into a module of its own as a follow-up; the change loop never imports the roadmap script |
+| R-18 | Flow version 2 makes every unpinned test change of the suites follow flow 1 under an installed flow 2: a test that hands the triage for such a change, or reads a readout or resume reply as text, meets the refusal or the newer-flow line | HIGH × MEDIUM | D-13 T-18 to T-21 name the tests found by the planner's probe (the whole suite run on a scratch copy with version 2 released); task 8.1 re-runs that search on the tree, and any other test found failing is fixed only where it assumed flow version 1 is the installed one, its invariant, layer and suite named |
+| R-19 | Projects under way see the newer-flow line on every change after the update, and their grills get no triage until moved | HIGH × LOW | the line is change-version-pin's own notice (its D-5); the `CHANGELOG.md` "Projects" line and the flow doc say how to move a change; nothing is moved without the owner |
 
 ## Migration Plan
 
@@ -1096,17 +1272,20 @@ grill skill, the planner agent. No worker or frontend.
 **Order.** Run file fields and the shared readers → the entry → the change session's loop and places
 → the coordinating session (opening, gates, push, board) → triage and drift → the check and cleanup →
 the held state through `changeState` → the token budget in `session-next` → documents and release →
-the fixes of review round 1.
+the fixes of review round 1 → flow version 2.
 Phases in `tasks.md`: 1 entry, 2 change session, 3 coordinating session and check, 4 triage and drift,
 5 the held state through `changeState` (after the merge `b216a46`), 6 the token budget in
 `session-next` (after the merge `a9ecdc1`), ADRs, documents, release, full suite, 7 the fixes of
-review round 1 (D-16; after `123a7ba`), its own full suite.
+review round 1 (D-16; after `123a7ba`), its own full suite, 8 flow version 2 (D-17; after the merge
+`62cf500`), its focused gate.
 
 **Files.**
 
 - Create: `plugins/openspec/skills/devkit-session/SKILL.md`, `plugins/core/agents/requirements-triage.md`,
   `docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md`,
-  `openspec/changes/roadmap-sessions-upfront/proof/red-1.txt` to `red-7.txt`.
+  `openspec/changes/roadmap-sessions-upfront/proof/red-1.txt` to `red-8.txt`; in phase 8,
+  `plugins/openspec/schemas/devkit/flows/2.json`, `plugins/openspec/schemas/devkit-lite/flows/2.json`,
+  `openspec/schemas/devkit/flows/2.json`, `openspec/schemas/devkit-lite/flows/2.json`.
 - Modify: `plugins/openspec/hooks/guard.mjs`, `roadmap-loop.mjs`, `change-loop.mjs`,
   `conduct-check.mjs`, `hooks.json`, `roadmap-loop.test.mjs`, `change-loop.test.mjs`,
   `conduct-check.test.mjs`, `guard.test.mjs`; `plugins/openspec/skills/devkit/SKILL.md`;
@@ -1115,11 +1294,18 @@ review round 1 (D-16; after `123a7ba`), its own full suite.
   `plugins/core/agents/change-planner.md`; `openspec/config.yaml`; ADRs 0004 (phase 7), 0006, 0010, 0011, 0013, 0014, 0017, and 0020 again in phase 7;
   `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/roles.md`, `docs/getting-started.md`,
   `docs/catalog.md`, `README.md`, `plugins/core/README.md`, `plugins/openspec/README.md`,
-  `CHANGELOG.md`, both `plugin.json`, `.claude-plugin/marketplace.json`.
+  `CHANGELOG.md`, both `plugin.json`, `.claude-plugin/marketplace.json`. In phase 8 (D-17): the four
+  `flow.json` again (the version line), `scripts/released-flows.json`, `plugins/openspec/hooks/change-loop.mjs`
+  (the grill actions' `helpers`), `plugins/openspec/hooks/roadmap-loop.mjs` (the check's triage
+  filter), `plugins/openspec/skills/devkit/SKILL.md`, `plugins/core/skills/requirements-grill/SKILL.md`,
+  `plugins/openspec/hooks/version-pin.test.mjs` (its fixtures, T-21), `change-loop.test.mjs`,
+  `roadmap-loop.test.mjs`, `guard.test.mjs`, `docs/openspec-flow.md`, `CHANGELOG.md` (the `## 0.36.0`
+  entry), `docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md` (a Note). No version number
+  moves: devkit-openspec 0.32.0 and marketplace 0.36.0 are this change's release already.
 - Delete: none.
 
-**Estimate.** Optimistic 48 h · likely 67 h · pessimistic 97 h (phases 1 to 6: 40 · 55 · 79; phase
-7: 8 · 12 · 18).
+**Estimate.** Optimistic 52 h · likely 73 h · pessimistic 106 h (phases 1 to 6: 40 · 55 · 79; phase
+7: 8 · 12 · 18; phase 8: 4 · 6 · 9).
 
 | Deliverable | Hours | Type | Risk |
 |---|---|---|---|
@@ -1150,6 +1336,11 @@ review round 1 (D-16; after `123a7ba`), its own full suite.
 | The skill's declared end after `merge-base` exit 3, `gitIn` in `mergeBaseCmd` (D-6) | 0.5 | Core | LOW |
 | ADR 0020 accepted and completed, ADR 0004 and 0010 Notes, config line, CHANGELOG (D-12) | 1 | Documentation | LOW |
 | Phase 7 gate and the full suite | 1 | Testing | LOW |
+| Phase 8 tests and the red record (ten new tests; T-18 to T-21) | 2 | Testing | MEDIUM |
+| Flow version 2 in the four folders, `flows/2.json`, the digests (D-17) | 0.5 | Migration | LOW |
+| The grill actions' `helpers`, the check's triage filter, the two skills' condition (D-17) | 1.5 | Core | MEDIUM |
+| The flow doc's versions paragraph, the `## 0.36.0` sentence and Projects line, ADR 0020's Note (D-14, D-17) | 0.5 | Documentation | LOW |
+| Phase 8 gate | 1.5 | Testing | MEDIUM |
 
 ## Assumptions
 
@@ -1185,6 +1376,10 @@ review round 1 (D-16; after `123a7ba`), its own full suite.
   `waiting-budget` and its gate `budget` in `GATE_OF_WHY` (D-6 step 1).
 - `delivery-models` (merged at `a9ecdc1`): ADR 0018 and its header lines in ADR 0010 and ADR 0012,
   beside which D-12 writes this change's (ADR 0010 only).
+- `change-version-pin` (archived 2026-11-23, merged into this branch at `62cf500`; devkit-openspec
+  0.31.0): the pin `x-devkit-flow`, `changeFlow`, `flows/<n>.json`, `scripts/released-flows.json` and
+  `check.py#check_flow_versions`, the newer-flow line and the `flow` move (its design D-1 to D-8), on
+  which D-17 releases flow version 2.
 - Relies on, not delivered here: `release-merge-conflict` (round 17e) for release files in conflict;
   `fresh-base-check` (round 17h) for an up-to-date `origin/<base>` in `adrClash`.
 
@@ -1200,7 +1395,11 @@ of this revised plan, task 7.9). ADR 0016 (stage-roles) amended
 decisions of ADR 0010 and ADR 0011, and ADR 0018 (delivery-models) decisions of ADR 0010 and ADR 0012,
 that this change does not touch. Not an ADR: change-budget's design D-4 (only `next` counts the
 budget; the roadmap coordinator's reads do not), which D-6 step 1 extends to `session-next`, a change
-run's own loop, leaving the coordinator's reads as they are.
+run's own loop, leaving the coordinator's reads as they are. Not an ADR either: change-version-pin's
+design D-2 (every released flow version kept), D-3 (a change with no pin follows version 1), D-6 and
+D-7 (the open and the `flow` move record the installed version) and D-8 (a flow change raises its
+version), which D-17 follows to release flow version 2; ADR 0020 decision 3 (the triage in every
+grill) gets a Note for a change on flow 1, its decision unchanged.
 
 ## Open Questions
 

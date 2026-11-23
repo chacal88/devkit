@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=2 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
+<!-- devkit-stage specs result=passed attempt=3 commit=62cf500f32730e320a012a975b9814c0b6d5aa5d -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -171,7 +171,8 @@ a prompt that starts with the loop's brief naming an open change of the roadmap,
 or helper of that change's script under the rules of a change run. Any other hand-off SHALL be refused
 with the reason. An allowed hand-off SHALL mark that change's stage as under way. In a roadmap run
 whose changes each have a session of their own, the coordinating session SHALL hand only a helper of
-the grill, with the brief naming an open change of the roadmap, marking nothing under way; every
+the grill of the flow that change follows, with the brief naming an open change of the roadmap,
+marking nothing under way; every
 other hand-off SHALL be refused, saying that each change's stages are handed in its own session.
 
 #### Scenario: A stage of an open change
@@ -209,6 +210,10 @@ other hand-off SHALL be refused, saying that each change's stages are handed in 
 #### Scenario: The triage with no brief, or for a change not open
 - **WHEN** in that run the coordinating session hands `devkit-core:requirements-triage` a prompt that names no change, or names a change that is not open on the roadmap
 - **THEN** the hand-off is refused
+
+#### Scenario: The triage for a change on an older flow
+- **WHEN** in that run the coordinating session hands `devkit-core:requirements-triage` the brief of open change `a`, whose `.openspec.yaml` records no flow version or version 1, with flow 2 installed
+- **THEN** the hand-off is refused, saying that `a`'s stages are handed in its own session, because the flow `a` follows does not list the triage among its grill's helpers
 
 ### Requirement: A lock never traps
 Every lock of this capability SHALL allow the action when it cannot read the session's record, the

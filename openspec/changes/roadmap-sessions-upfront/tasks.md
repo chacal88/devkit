@@ -1,23 +1,25 @@
-<!-- devkit-stage tasks result=passed attempt=5 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
+<!-- devkit-stage tasks result=passed attempt=6 commit=62cf500f32730e320a012a975b9814c0b6d5aa5d -->
 # Tasks
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · Base: `c561553`;
 phase 5 added on 2026-11-23 over the merge `b216a46` (change-state, ADR 0017, commit-attribution);
 phase 6 revised on 2026-11-23 over the merge `a9ecdc1` (change-budget, delivery-models with ADR 0018);
-phase 7 added on 2026-11-23 after review round 1 at `123a7ba` (design D-16)
+phase 7 added on 2026-11-23 after review round 1 at `123a7ba` (design D-16); phase 8 added on
+2026-11-23 after the merge `62cf500` (change-version-pin): flow version 2 (design D-17)
 
 Work only in this change's worktree, on its branch. Every rule, name, text and label is in
 `design.md`: D-1 the entry, D-2 the opening, D-3 the gates, D-4 the triage, D-5 the push, D-6 the
 change session's loop, D-7 places, D-8 the plan after dependencies, D-9 the periodic check and the
 cleanup, D-10 drift, D-11 the held state, the board and messages, D-12 the ADR, D-13 the tests this
-plan changes, D-14 documents and release, D-15 proof, D-16 the fixes of review round 1. The implementer copies them and makes no design choice.
+plan changes, D-14 documents and release, D-15 proof, D-16 the fixes of review round 1, D-17 flow
+version 2. The implementer copies them and makes no design choice.
 
 Every gate is one backticked command, run as written; each `&&` part runs on its own, no part holds a
 `|`, and every gate exits 0 when its phase is done. Every new test is named `upfront <AC-n> <area>:
 ...` (the one test of task 6.1, which no criterion of this change names, `upfront budget <area>: ...`;
 the documents test of task 7.1, `upfront ADR 0020: ...`)
 and lives in `plugins/openspec/hooks/roadmap-loop.test.mjs`, except where a task names
-`change-loop.test.mjs`, `conduct-check.test.mjs` or `guard.test.mjs`; all run through
+`change-loop.test.mjs`, `conduct-check.test.mjs`, `guard.test.mjs` or (task 8.1) `version-pin.test.mjs`; all run through
 `plugins/openspec/hooks/guard.test.mjs`, which imports them. Every env a new test builds blanks
 `DEVKIT_BYPASS`, `DEVKIT_BRANCH`, `DEVKIT_CHANGE`, `GITHUB_HEAD_REF`, `GITHUB_BASE_REF` and
 `GITHUB_EVENT_PATH` through the file's shared constant (`SET` in `roadmap-loop.test.mjs`). Every gate
@@ -27,20 +29,21 @@ creates a cron: the host calls are proved by the exact `input` the decisions giv
 text, and live in the next real run (D-15). One test per condition and per label of every new guard
 and decision, negatives included.
 
-Test first in phases 1 to 5, in task 6.1 and in phase 7: the phase's test task comes before its code tasks (task
+Test first in phases 1 to 5, in task 6.1 and in phases 7 and 8: the phase's test task comes before its code tasks (task
 6.1 writes its test before its code), its new tests fail on the base (`c561553` for phases 1 to 4,
-`b216a46` for phase 5, `a9ecdc1` for task 6.1, the commit that holds this revised plan and its
-approval for phase 7; each red run saved under
+`b216a46` for phase 5, `a9ecdc1` for task 6.1, the commit that holds the plan revised after review
+round 1 and its approval for phase 7, the commit that holds the plan revised for flow version 2 and
+its approval for phase 8; each red run saved under
 `openspec/changes/roadmap-sessions-upfront/proof/`), and an existing test is changed only where D-13
-names it (T-1 to T-17), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
+names it (T-1 to T-21), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
 
 | Id | Slug | Tasks |
 |---|---|---|
 | AC-1 | `session-opens-running` | 1.1, 1.3, 1.4, 1.5, 2.1, 2.3, 7.1, 7.7 |
 | AC-2 | `other-starts-refused` | 1.1, 1.3, 1.4, 7.1, 7.3, 7.7 |
 | AC-3 | `every-pending-change-opens` | 3.1, 3.2, 3.4, 5.1, 5.3 |
-| AC-4 | `grills-in-roadmap-session` | 3.1, 3.2, 3.6 |
-| AC-5 | `triage-first` | 4.1, 4.2, 4.3, 4.4, 7.9 |
+| AC-4 | `grills-in-roadmap-session` | 3.1, 3.2, 3.6, 8.1, 8.3 |
+| AC-5 | `triage-first` | 4.1, 4.2, 4.3, 4.4, 7.9, 8.1, 8.2, 8.3, 8.4, 8.5 |
 | AC-6 | `triage-never-approves` | 4.1, 4.2, 4.3 |
 | AC-7 | `approval-in-roadmap-session` | 2.1, 2.3, 3.1, 3.2, 3.6 |
 | AC-8 | `plan-after-dependencies` | 2.1, 2.3, 2.5, 7.1, 7.8 |
@@ -49,7 +52,7 @@ names it (T-1 to T-17), the task saying its invariant, layer and suite. Leave no
 | AC-11 | `drift-without-owner` | 4.1, 4.5, 7.9 |
 | AC-12 | `branch-pushed-with-grill` | 3.1, 3.3, 7.1, 7.2 |
 | AC-13 | `run-check-scheduled` | 3.1, 3.5, 3.6 |
-| AC-14 | `check-acts-not-approves` | 3.1, 3.5, 3.6, 7.1, 7.4, 7.6 |
+| AC-14 | `check-acts-not-approves` | 3.1, 3.5, 3.6, 7.1, 7.4, 7.6, 8.1, 8.3, 8.4 |
 | AC-15 | `run-end-cleans-up` | 3.1, 3.5, 3.6, 7.1, 7.4 |
 | AC-16 | `lone-change-schedules-nothing` | 3.1, 3.6 |
 
@@ -244,7 +247,8 @@ names it (T-1 to T-17), the task saying its invariant, layer and suite. Leave no
   new agent type). Check: every other new test fails there.
 - [x] 4.2 Write `plugins/core/agents/requirements-triage.md` (D-4); add it to the `requirements` helpers
   of `plugins/openspec/schemas/devkit/flow.json`, `plugins/openspec/schemas/devkit-lite/flow.json`,
-  `openspec/schemas/devkit/flow.json` and `openspec/schemas/devkit-lite/flow.json`; `PACKS` in
+  `openspec/schemas/devkit/flow.json` and `openspec/schemas/devkit-lite/flow.json` (written at
+  version 1, before change-version-pin merged; task 8.2 releases it as version 2, D-17); `PACKS` in
   `change-loop.mjs`; the `requirements-triage` section of `docs/roles.md`. Check: the `upfront AC-5
   triage` tests and `change-loop lock agent: the accepted packs are the ones docs/roles.md names` pass.
 - [x] 4.3 `triageUnsourced` and its use in `nextAction` and `decide`'s `planPart` (D-4); RH6's
@@ -473,6 +477,90 @@ record's other keys (`type`, `isSidechain`, `promptSource`, `turnOrigin`, `entry
   ADR 0017: the documents follow` and `delivery-models docs: the documents follow` and the `guard.test.mjs` test "ADR 0004 exists with its sections" pass unchanged;
   `python3 scripts/check.py` passes.
 - [x] 7.10 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers the fixes of D-16 and every criterion as D-15 maps them.
+
+## 8. Flow version 2 of devkit and devkit-lite (AC-4, AC-5, AC-14; design D-17)
+
+Added on 2026-11-23 after the merge `62cf500` (change-version-pin): `python3 scripts/check.py` refuses
+the `flow.json` that phase 4 edited at version 1, and the owner chose to release version 2. Every new
+test here is written before the code it proves; an existing test changes only where D-13 names it
+(T-18 to T-21). No version number moves: devkit-openspec 0.32.0, devkit-core 0.14.0 and marketplace
+0.36.0 are already this change's release in the tree.
+
+- [ ] 8.1 Write this phase's tests (design D-17 "The tests this asks"; specs `change-coordination`
+  "Every grill asks the triage agent first" and "The triage ships as flow version 2" (scenarios "A
+  change opened on flow 2", "A project slice", "A change on flow 1 keeps its flow's grill", "A change
+  moved to flow 2"), `coordination-locks` "In a roadmap run a
+  hand-off names its change" ("The triage for a change on an older flow"), `roadmap-coordination` "A
+  firing of the check acts and reports only what changed" ("A grill on an older flow")). In
+  `change-loop.test.mjs`:
+  - `upfront AC-5 flow: version 2 of devkit and devkit-lite names requirements-triage among the grill's helpers in both copies, and flows/2.json is flow.json`;
+  - `upfront AC-5 flow: flows/1.json of devkit and devkit-lite is released version 1, without requirements-triage, and devkit-project stays at version 1`;
+  - `upfront AC-5 flow: released-flows.json records the digest of flows/2.json of devkit and devkit-lite` (`sha256:` and the hex SHA-256 of the file's bytes, as `check.py#flow_digest`);
+  - `upfront AC-5 triage: the grill of a change on flow 1 names no triage helper and that of a change on flow 2 names it` (no pin, `x-devkit-flow: 1`, `x-devkit-flow: 2`, and the flow-1 change after `change-loop.mjs flow <id>` moved it; the grill of the next stage and the grill sent back by `unsourced`; the `helpers` key only on `grill` actions);
+  - `upfront AC-5 lock agent: a change run on flow 1 refuses devkit-core:requirements-triage as not-a-role, and one on flow 2 allows it` (a real `guard.mjs agent` process, as `upfront AC-5 triage: a change run may hand ...` runs it);
+  - `upfront AC-5 skill: the grill skill and the devkit skill hand the triage only when the grill action's helpers name it` (step 2b of `plugins/core/skills/requirements-grill/SKILL.md` and the `grill` item of `plugins/openspec/skills/devkit/SKILL.md` name `helpers` and say the owner is asked every question otherwise).
+
+  In `version-pin.test.mjs`: `upfront AC-5 open: a devkit and a devkit-lite change opened on the tree's schemas record x-devkit-flow 2, and a project slice 1` (a project with the tree's schemas, not the fixtures of T-21).
+  In `roadmap-loop.test.mjs`: `upfront AC-4 lock agent: the coordinating session's triage for a change on flow 1 is refused own-sessions`; `upfront AC-14 check: a grill of a change on flow 1 gives no triage action, and one on flow 2 does`.
+  In `guard.test.mjs`: `upfront AC-5 docs: the flow doc names the released flow versions, the 0.36.0 entry names flow version 2, and ADR 0020's Note names flow 1`.
+  Run them on the unchanged code with
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront AC-5 flow" --test-name-pattern="^upfront AC-5 triage: the grill of a change on flow" --test-name-pattern="^upfront AC-5 lock agent" --test-name-pattern="^upfront AC-5 skill: the grill skill and" --test-name-pattern="^upfront AC-5 open" --test-name-pattern="^upfront AC-5 docs" --test-name-pattern="^upfront AC-4 lock agent: the coordinating session's triage for a change on flow 1" --test-name-pattern="^upfront AC-14 check: a grill of a change on flow 1" plugins/openspec/hooks/guard.test.mjs`
+  and save the output to `openspec/changes/roadmap-sessions-upfront/proof/red-8.txt`, listing at its
+  top the tests that pass there (expected: `upfront AC-5 flow: flows/1.json of devkit and devkit-lite
+  is released version 1 ...`, which pins what change-version-pin released). Check: every other new
+  test fails there.
+- [ ] 8.2 Release flow version 2 (D-17 "The choice"): in `plugins/openspec/schemas/devkit/flow.json`,
+  `plugins/openspec/schemas/devkit-lite/flow.json`, `openspec/schemas/devkit/flow.json` and
+  `openspec/schemas/devkit-lite/flow.json` the second line becomes `  "version": 2,` and nothing else
+  changes; copy each to `flows/2.json` in its folder (the same bytes); leave every `flows/1.json` and
+  the `devkit-project` folders untouched; add `"2"` under `devkit` and under `devkit-lite` in
+  `scripts/released-flows.json`, each `sha256:` and the hex printed by
+  `python3 -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" plugins/openspec/schemas/<script>/flows/2.json`
+  (the function of `check.py#flow_digest`). Check: `python3 scripts/check.py` prints `all checks
+  passed`; `git diff --exit-code -- plugins/openspec/schemas/devkit/flows/1.json plugins/openspec/schemas/devkit-lite/flows/1.json openspec/schemas/devkit/flows/1.json openspec/schemas/devkit-lite/flows/1.json plugins/openspec/schemas/devkit-project openspec/schemas/devkit-project`
+  exits 0; the three `upfront AC-5 flow` tests, `upfront AC-5 open: ...`, `version-pin AC-7 schema:
+  every kept flow is valid and named by its version`, `version-pin AC-7 check: the tree's flows pass`
+  and `flow-check schema: the openspec/schemas copies are byte-identical` pass.
+- [ ] 8.3 The triage only for a change on flow 2 (D-17 "What the locks and the grill do"): in
+  `plugins/openspec/hooks/change-loop.mjs`, `decide`'s `planPart` gives both `grill` actions
+  `helpers`, the `helpers` of the `requirements` stage of the flow `decide` reads (`[]` when none);
+  in `plugins/openspec/hooks/roadmap-loop.mjs`, `checkCmd`'s `triage` filter keeps only a grill
+  action whose `helpers` include `requirements-triage`; in `plugins/core/skills/requirements-grill/SKILL.md`
+  step 2b and in the `grill` item of `plugins/openspec/skills/devkit/SKILL.md`, the sentence of D-17
+  item 2 (the triage only when the grill action's `helpers` names it; otherwise every question to the
+  owner, one at a time, as before); in `roadmap-loop.mjs`, `isRequirementsHelper` reads the installed
+  flow of the project's script when the brief's change has no folder (D-17, the RH6 correction).
+  `handOffFor` does not change. Check: `upfront AC-4 lock agent: the triage for a change not open is
+  refused not-open` passes unchanged once 8.2 is done; `upfront
+  AC-5 triage: the grill of a change on flow 1 ...`, `upfront AC-5 lock agent: ...`, `upfront AC-5
+  skill: the grill skill and ...`, `upfront AC-4 lock agent: the coordinating session's triage for a
+  change on flow 1 ...` and `upfront AC-14 check: a grill of a change on flow 1 ...` pass; `upfront
+  AC-5 skill: the grill rule of config.yaml and of the four schema files ...` and every `upfront AC-6
+  triage` test pass unchanged.
+- [ ] 8.4 The tests that expect flow version 1 to be the installed one (D-13 T-18 to T-21). Change
+  T-18 (invariant: a change run may hand the triage to a change whose flow lists it; layer: the
+  `agent` lock, H3; suite: change-loop), T-19 (invariant: the coordinating session may hand a helper
+  of an open change's grill, marking nothing under way; layer: `roadmapAgentDecision` RH6; suite:
+  roadmap-loop), T-20 (invariant: the check gives the triage of each grill not being asked that has
+  no triage section; layer: `checkCmd`; suite: roadmap-loop) and T-21 (invariant: a change keeps the
+  flow it opened with across an upgrade, and the repository check refuses a flow change that keeps
+  its version; layer: the fixtures of the version-pin suite; suite: version-pin) as D-13 says. Then
+  run `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs`
+  as a background command of the tool (13 to 21 minutes) and compare its failures with D-13's list:
+  a test failing only because it assumed flow version 1 is installed (an unpinned scratch change
+  that hands the triage, a readout or resume reply read as text that now holds the newer-flow line,
+  a raise to version 2 that version 2 already holds) is changed the same way, with a row added to
+  D-13 naming its invariant, layer and suite; any other failure is a defect of this change, not a
+  test to edit. Check: T-18 to T-21 and every `version-pin` test pass; the whole-suite run shows no
+  failure outside the tests this task changed.
+- [ ] 8.5 Documents (D-14 "Flow version 2", D-17): the versions paragraph in `docs/openspec-flow.md`
+  after "A change to a `flow.json` raises its `version`"; in `CHANGELOG.md`, the `## 0.36.0` entry's
+  sentence on flow version 2 under **devkit-openspec** 0.32.0 and its "Projects" line; the Note of
+  `docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md` after its Decision list. Check:
+  `upfront AC-5 docs: ...` passes; `upfront ADR 0020: the documents follow`, `change-loop docs: the
+  design records the answers` and every `change-budget AC-10` docs test pass unchanged;
+  `python3 scripts/check.py` passes (links, language, changelog).
+- [ ] 8.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" --test-name-pattern="^version-pin" --test-name-pattern="^flow-check" --test-name-pattern="^change-loop" --test-name-pattern="^roadmap-loop" --test-name-pattern="^followups" --test-name-pattern="^change-state" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && openspec validate roadmap-sessions-upfront --strict` green; covers AC-5 (flow version 2, the triage of a change on flow 2 only), AC-4 (the coordinating session's triage by the change's flow) and AC-14 (the check's triage by the change's flow).
 
 ## Workflow follow-up
 

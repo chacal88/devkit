@@ -1,4 +1,4 @@
-<!-- devkit-stage proposal result=passed attempt=4 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
+<!-- devkit-stage proposal result=passed attempt=5 commit=62cf500f32730e320a012a975b9814c0b6d5aa5d -->
 # Proposal
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
@@ -145,6 +145,7 @@ The owner asked to fix all three (questions 1, 4 and 5 of the grill).
   (new), `plugins/core/agents/change-planner.md`.
 - Schemas (both copies: `plugins/openspec/schemas/` and `openspec/schemas/`): the requirements helper
   and the grill rule; `openspec/config.yaml` (the grill rule and the ADRs line).
+- Flow version 2 (the owner's answer of 2026-11-23, design D-17): the triage helper ships as version 2 of the `devkit` and `devkit-lite` flows (`flows/2.json` and its digest; `flows/1.json` unchanged; `devkit-project` stays at 1), so a change opened before this release, with no recorded flow or with version 1, keeps flow 1 and its grill with no triage until the owner moves it.
 - Docs: the new ADR (0020), Notes and header lines in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017,
   `docs/openspec-flow.md`, `docs/coordination-design.md`, `docs/roles.md`, `README.md`,
   `plugins/core/README.md`, `plugins/openspec/README.md`.

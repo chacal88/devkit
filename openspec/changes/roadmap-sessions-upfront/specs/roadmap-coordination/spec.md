@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=3 commit=123a7ba4a7084ed466075cfbb23bdb9b82fdbbd0 -->
+<!-- devkit-stage specs result=passed attempt=4 commit=62cf500f32730e320a012a975b9814c0b6d5aa5d -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -119,11 +119,11 @@ SHALL ask for its own check.
 - **THEN** the turn is not one the owner typed and does not end the run
 
 ### Requirement: A firing of the check acts and reports only what changed
-Each firing SHALL have the triage answer ahead the grills not being asked, hand a freed place to the
-first change waiting for one, stop the run's stale wait loops, and archive the session of each
-archived change. It SHALL show the owner one message only when something changed or needs them. It
-SHALL NOT write an approval or a retro answer, hand a stage or start a session. Only a process
-still a wait loop of the run SHALL be stopped.
+Each firing SHALL have the triage answer ahead the grills not being asked whose flow lists it, hand
+a freed place to the first change waiting for one, stop the run's stale wait loops, and archive the
+session of each archived change. It SHALL show the owner one message only when something changed or
+needs them. It SHALL NOT write an approval or a retro answer, hand a stage or start a session. Only
+a process still a wait loop of the run SHALL be stopped.
 
 #### Scenario: A freed place
 - **WHEN** the check fires, a place is free and `b` waits for one
@@ -152,6 +152,10 @@ still a wait loop of the run SHALL be stopped.
 #### Scenario: A triage heading that is no section
 - **WHEN** the check fires, `b`'s grill is not the one being asked, and `b`'s requirements hold the triage's heading only inside a fenced block or with words after it
 - **THEN** the check has the triage answer `b`'s questions
+
+#### Scenario: A grill on an older flow
+- **WHEN** the check fires, `b`'s grill is not the one being asked, and `b` follows flow 1 of its script (no recorded flow, or version 1) with flow 2 installed
+- **THEN** the check gives no triage for `b`, and `b`'s questions wait for the owner in its grill
 
 #### Scenario: Nothing changed
 - **WHEN** the check fires and nothing changed since the last decision
