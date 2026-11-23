@@ -1,17 +1,28 @@
 # Changelog
 
-## 0.28.0 — the change budget
+## 0.29.0 — the change budget
 
-- **devkit-openspec** 0.24.0: a `/devkit change` run stops at a token budget. `budget:` in the
+- **devkit-openspec** 0.25.0: a `/devkit change` run stops at a token budget. `budget:` in the
   `devkit:` block of `openspec/config.yaml`, or in a `devkit:` block of a change's own
   `.openspec.yaml` (which wins), is a whole number of tokens; the loop counts the session's
   spend from its transcripts and, between hand-offs, turns the next hand-off into an end waiting
   for the owner (`waiting-budget`) that names the spend, the cap and the file to raise. With no
   cap, no session id or an unreadable transcript, nothing is counted and nothing stops. An invalid
   value is refused with the settings reply. The roadmap loop maps the new end to a gate. The CI
-  snippet now pins `v0.24.0`, the release's tag.
+  snippet now pins `v0.25.0`, the release's tag.
 - Docs: `docs/openspec-flow.md` gains "The token budget" and a troubleshooting row;
   `docs/coordination-design.md` records the setting's name as final.
+
+## 0.28.0 — one state per change
+
+- **devkit-openspec** 0.24.0: the change loop derives one state per change in one place, and a new
+  `change-loop.mjs state` command prints it (state, reason, stage and the session title) for one
+  change or every unfinished one. A GitHub that does not answer is a wait on GitHub, not a block,
+  and three failed reads in a row still end the wait blocked. A stopped change's session title
+  carries its state icon (🙋, ⏳ or ⛔) before the stage icon, and `/devkit status` places its rows
+  by the same state.
+- Docs: ADR 0017 (a change's state is derived in one place, amends 0014), Notes in ADR 0010 and
+  ADR 0014, the flow and design pages.
 
 ## 0.27.0 — commit attribution
 
