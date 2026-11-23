@@ -1,12 +1,24 @@
 # Changelog
 
+## 0.30.0 — gh version check
 
-## 0.29.0 — gh version check
-
-- **devkit-openspec** 0.25.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
+- **devkit-openspec** 0.26.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
   first with `gh pr checks --json`) with its own blocked reason that gives the installed version
   and asks for an update, instead of "GitHub cannot be read"; `openspec-setup` step 1 checks `gh`
-  once and warns without stopping the setup. The CI snippet now pins `v0.25.0`, the release's tag.
+  once and warns without stopping the setup. The CI snippet now pins `v0.26.0`, the release's tag.
+
+## 0.29.0 — the change budget
+
+- **devkit-openspec** 0.25.0: a `/devkit change` run stops at a token budget. `budget:` in the
+  `devkit:` block of `openspec/config.yaml`, or in a `devkit:` block of a change's own
+  `.openspec.yaml` (which wins), is a whole number of tokens; the loop counts the session's
+  spend from its transcripts and, between hand-offs, turns the next hand-off into an end waiting
+  for the owner (`waiting-budget`) that names the spend, the cap and the file to raise. With no
+  cap, no session id or an unreadable transcript, nothing is counted and nothing stops. An invalid
+  value is refused with the settings reply. The roadmap loop maps the new end to a gate. The CI
+  snippet now pins `v0.25.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` gains "The token budget" and a troubleshooting row;
+  `docs/coordination-design.md` records the setting's name as final.
 
 ## 0.28.0 — one state per change
 

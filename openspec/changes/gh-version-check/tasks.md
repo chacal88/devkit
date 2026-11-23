@@ -209,7 +209,7 @@ Existing tests changed, each additive:
   the `ship-entry.test.mjs` line. Invariant: one command runs every hook and setup suite. Suite:
   `guard.test.mjs`.
 - `change-loop.test.mjs`, the docs test ("the design records the answers"): the pin assertion
-  becomes `/v0\.24\.0/` with the message `(gh-version-check: 0.25.0)`, plus a `doesNotMatch` for
+  becomes `/v0\.24\.0/` with the message `(gh-version-check: 0.26.0)`, plus a `doesNotMatch` for
   `/v0\.21\.1/` (task 5.1). Invariant: the CI snippet pins the current release.
 
 ## 1. The minimum version (owner-run)
@@ -292,13 +292,13 @@ itself, then runs the loop's `next`, which hands it the gate.
 ## 5. Release and the whole suite (AC-1 to AC-7)
 
 - [x] 5.1 Release. Take the next versions after `origin/main`'s (`CONTRIBUTING.md`, step 5); on
-  today's `main` they are devkit-openspec 0.25.0 and marketplace 0.29.0, and the rest of this task
+  today's `main` they are devkit-openspec 0.26.0 and marketplace 0.30.0, and the rest of this task
   names them. Bump devkit-openspec in `plugins/openspec/.claude-plugin/plugin.json` and
   `.claude-plugin/marketplace.json`, and the marketplace version. Add the `CHANGELOG.md` section
-  `## 0.29.0 — gh version check`: devkit-openspec 0.25.0, `deliver-check` and the loops name a `gh`
+  `## 0.30.0 — gh version check`: devkit-openspec 0.26.0, `deliver-check` and the loops name a `gh`
   older than 2.50.0 with its own blocked reason, `openspec-setup` step 1 checks `gh` once, the CI
-  snippet now pins `v0.25.0`. Turn every `v0.21.1` of `docs/openspec-flow.md` (three lines) into
-  `v0.25.0`, and change the pin assertion of the change-loop docs test as H-7 says. Check:
+  snippet now pins `v0.26.0`. Turn every `v0.21.1` of `docs/openspec-flow.md` (three lines) into
+  `v0.26.0`, and change the pin assertion of the change-loop docs test as H-7 says. Check:
   `python3 scripts/gen-catalog.py --check` passes; `grep -c "v0.21.1" docs/openspec-flow.md` prints
   0; and the change-loop docs test and the two `deliver-check.test.mjs` pin tests ("the pin in
   docs/openspec-flow.md is the commit sha of v + the devkit-openspec version, …" and "AC-8
@@ -310,7 +310,7 @@ itself, then runs the loop's `next`, which hands it the gate.
 
 ## Workflow follow-up
 
-- After the merge, tag `v0.25.0` (or the version task 5.1 took) on the merge commit and push the
+- After the merge, tag `v0.26.0` (or the version task 5.1 took) on the merge commit and push the
   tag (`CONTRIBUTING.md`, step 5).
 - Archive with the retro; the archive ticks the `gh-version-check` line of round 27 in
   `openspec/roadmap.md`.
