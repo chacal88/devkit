@@ -27,7 +27,7 @@ import { shipConfig, locateChange, fetchPr, checksItem } from './deliver-check.m
 import { mergeSetup, makeGh } from './merge-setup.mjs';
 import {
   LoopUsageError, LoopRefusal, render, normalizeLang, projectGate, readDevkitSettings, locate, cleanOf, checkoutsOf, activeIds, isSliceDir,
-  knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
+  COMMIT_AGENT, withAttribution, knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
 } from './change-loop.mjs';
 
 export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -37,7 +37,7 @@ const SCRIPT = 'devkit-project';
 const PHASES = ['business', 'domain-model', 'architecture', 'implementation-plan'];
 const SETTLED_STAGES = [...PHASES, 'roadmap'];
 const DOC = { business: '1-business-vision.md', 'domain-model': '2-domain-model.md', architecture: '3-architecture.md', 'implementation-plan': '4-implementation-plan.md' };
-const AGENT = { 'commit-and-pr': 'devkit-core:commit-and-pr', 'adr-reviewer': 'devkit-core:adr-reviewer' };
+const AGENT = { 'commit-and-pr': COMMIT_AGENT, 'adr-reviewer': 'devkit-core:adr-reviewer' };
 const INTERVIEW = ['no-file', 'no-header', 'bad-header', 'header-other-stage'];
 const REVIEW_REASONS = ['no-file', 'stale-code', 'stale-plan', 'rerun-after-fix'];
 const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'undeclared-stage': 'undeclared-stage' };
@@ -128,7 +128,7 @@ export function decideSlice(facts) {
   // K1: the loop does not repeat an action that made no progress.
   const guard = (action) => (facts.after && facts.after === action.progressKey ? blocked('no-progress', { stage: titleOf(action.stage) }, action.stage) : action);
   const agent = (stage, role, step, what, extra = '') => guard({
-    ...base, kind: 'agent', ...stageFields(stage), agent: AGENT[role], step, brief: brief(stage, what) + extra, progressKey: key(stage, step),
+    ...base, kind: 'agent', ...stageFields(stage), agent: AGENT[role], step, brief: withAttribution(AGENT[role], brief(stage, what) + extra), progressKey: key(stage, step),
   });
   const sessionAction = (stage, step, detail) => guard({ ...base, kind: 'session', ...stageFields(stage), step, detail, progressKey: key(stage, step) });
   const commitAgent = (stage, what) => agent(stage, 'commit-and-pr', 'commit', what, COMMIT_RULE);
