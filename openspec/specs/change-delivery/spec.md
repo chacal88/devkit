@@ -99,7 +99,11 @@ be judged by its own files as before. The stage checker SHALL report the same.
 
 #### Scenario: The base brings only openspec files
 - **WHEN** a branch has a product commit before the commit its reviews and `evidence.md` record, and a merge of the base after the record brings only files under `openspec/`
-- **THEN** the delivery checker reads the reviews and the evidence as current, and the stage checker reports the evidence and review stages passed
+- **THEN** the delivery checker reads the approved or declined reviews and the evidence as current, and the stage checker reports the evidence and review stages passed
+
+#### Scenario: A rejected review when the base brings only openspec files
+- **WHEN** the same merge comes after a review that rejects at the recorded commit
+- **THEN** the rejected review is stale and the reason names the merge commit and the first file it brought, as the rule for a rejected verdict says (`verdict-files`)
 
 #### Scenario: The base brings a product file
 - **WHEN** the same merge brings a file outside `openspec/` from the base
