@@ -55,6 +55,7 @@ OpenSpec: validate first with `openspec validate <id> --type change --strict --n
 - Don't assume behavior that isn't written. Missing is missing; don't invent details.
 - Every conclusion cites an artifact or is labeled a hypothesis. Generic feedback is invalid.
 - Prefer repository constraints and specs over personal preference.
+- A revision that follows a merge of `main` re-reads the project's rules (`openspec/config.yaml`) before it is reviewed: a rule added since the approval applies to the revised plan, for example a task naming "the next free number" and not a literal ADR number or version, and a check line carries only a count or an anchor that someone ran at the commit it names.
 - Support docs are evidence, but any behavior needed to implement must be in specs or tasks.
 
 ## Process
