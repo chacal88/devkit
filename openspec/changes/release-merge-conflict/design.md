@@ -569,3 +569,13 @@ the override. A session gets the new step when it updates devkit-openspec
 rebased, with its PR head only in the reflog, is `blocked: item 5 (… not in local history)` after the
 update. The owner pushes it once by hand, with the lease the old step named. Rollback: revert the
 change's pull request. The rebase tool and override 2 come back together.
+
+## Plan revisions
+
+- 2026-11-23: after main was merged in, the spec delta's MODIFIED requirement "From the
+  implementation on, the step inside the stage goes to its role" took verbatim the sentence and the
+  three scenarios main had added to it ("The unit tests are next", "The E2E tests are next", "A red
+  test stage goes back to the implementer"), with no behaviour change in this change. The release
+  moved to devkit-openspec 0.28.0 and marketplace 0.32.0 because sibling changes released first
+  ([proof/renumber-0.23.0.txt](proof/renumber-0.23.0.txt)); the release numbers named elsewhere in
+  this plan are left as approved.

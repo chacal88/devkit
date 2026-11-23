@@ -7,7 +7,8 @@
 From the implementation to the archive, the loop SHALL take the stage from the stage checker and the
 step inside it from the delivery checker, with the override the retired `/conduct` applied and `/devkit change` keeps (a release-file
 conflict), and hand each step to the role declared for its stage; the stage
-checker's blocked ends SHALL win.
+checker's blocked ends SHALL win. The unit tests and the E2E tests, which the delivery checker does
+not know, SHALL be taken from the stage checker alone.
 
 #### Scenario: Implementation and fixes
 - **WHEN** the delivery checker's step is `implement`, `fix-review`, `fix-defect`, `fix-checks` or `apply-proposals`
@@ -80,6 +81,18 @@ checker's blocked ends SHALL win.
 #### Scenario: The delivery checker cannot read the change
 - **WHEN** the delivery checker fails with a usage or settings error
 - **THEN** the run ends blocked, saying the change cannot be read, and the command exits 3
+
+#### Scenario: The unit tests are next
+- **WHEN** the stage checker's next stage is the unit tests, missing, stale or offered again after a fix
+- **THEN** the next action hands the stage to `devkit-core:test-runner`, its detail carrying the declared unit command, coverage command and coverage target, whatever step the delivery checker would give
+
+#### Scenario: The E2E tests are next
+- **WHEN** the stage checker's next stage is the E2E tests
+- **THEN** the next action hands the stage to `devkit-core:e2e-tester`, its detail carrying the declared E2E command
+
+#### Scenario: A red test stage goes back to the implementer
+- **WHEN** the stage checker's next stage is the implementation because the unit tests or the E2E tests failed below their ceiling and nothing changed since
+- **THEN** the next action hands the step `fix-tests` to the implementer's agent, its detail naming the failed stage and its file
 
 ## ADDED Requirements
 
