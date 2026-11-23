@@ -2,10 +2,10 @@
 // change-coordinator: the loop, its commands and its locks (phase 1: settings, replies and the decision; phase 2: start, open, script, wait; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
+import { mkdirSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
 import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
@@ -41,7 +41,7 @@ const read = (f) => readFileSync(join(HERE, f), 'utf8');
 // ---------------------------------------------------------------- settings (D-9)
 
 function configRepo(text) {
-  const root = mkdtempSync(join(tmpdir(), 'change-loop-cfg-'));
+  const root = tmpFolder('devkit-change-loop-cfg-');
   mkdirSync(join(root, 'openspec'), { recursive: true });
   if (text !== null) writeFileSync(join(root, 'openspec', 'config.yaml'), text);
   return root;
@@ -139,7 +139,7 @@ test('change-loop replies: no internal term in either language', () => {
   // The usage error's reply (exit 3 of main on an unknown option, a missing change) is one more message of the table.
   for (const lang of ['en', 'pt-BR']) {
     for (const argv of [['next', '--lang', lang, '--bogus'], ['next', '--lang', lang], ['open', '--lang', lang, '--script', 'devkit'], ['reply', 'no-such-key', '--lang', lang], ['teleport', '--lang', lang]]) {
-      const r = main(argv, { cwd: tmpdir(), env: cleanEnv });
+      const r = main(argv, { cwd: tmpRoot(), env: cleanEnv });
       const { reply, error } = JSON.parse(r.stdout);
       assert.equal(r.code, 3, argv.join(' '));
       assert.equal(reply, MESSAGES[lang]['request-unreadable'], `${lang}: ${argv.join(' ')}`);
@@ -735,7 +735,7 @@ test('change-loop next: an unknown change, an unknown option and a missing chang
     assert.equal(body.reply, render('en', 'request-unreadable'), argv.join(' '));
     assert.doesNotMatch(body.reply, /change-loop|--|\?/, 'no script name, option or placeholder');
   }
-  assert.equal(main(['next', '--change', 'feat', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv }).code, 3, 'no openspec folder above');
+  assert.equal(main(['next', '--change', 'feat', '--lang', 'en'], { cwd: tmpRoot(), env: cleanEnv }).code, 3, 'no openspec folder above');
 });
 
 // ---- from the implementation on, over a real repository and a fake gh
@@ -883,7 +883,7 @@ test('change-loop start: S0 a usage error exits 3 and creates nothing', () => {
   assert.match(b.error, /unknown option --bogus/, 'the raw message stays in the error field');
   assert.equal(main(['start'], { cwd: root, env: cleanEnv, stdin: 'change x' }).code, 0, 'no --lang is not an error: the language is Brazilian Portuguese');
   // An unreadable openspec/config.yaml (a directory in its place) is a usage error even for a verb of a later round.
-  const broken = mkdtempSync(join(tmpdir(), 'change-loop-broken-'));
+  const broken = tmpFolder('devkit-change-loop-broken-');
   mkdirSync(join(broken, 'openspec', 'changes'), { recursive: true });
   mkdirSync(join(broken, 'openspec', 'config.yaml'));
   for (const text of ['change add x', 'roadmap']) assert.equal(startRun(broken, text).code, 3, text);
@@ -900,7 +900,7 @@ test('change-loop start: S1 a verb of a later round says its round and creates n
     assert.deepEqual([b.mode, b.verb, b.text, b.change], ['not-built', verb, 'now please', null], verb);
     assert.equal(b.reply, render('en', 'verb-not-built', { verb, round }));
   }
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   assert.equal(body(startRun(bare, 'help')).mode, 'not-built', 'the verb is read before the project is');
   assert.equal(snapshot(root), before);
 });
@@ -918,7 +918,7 @@ test('change-loop start: S2 no verb or an unknown verb names the commands that e
 });
 
 test('change-loop start: S3 a folder with no openspec, or another schema, is not set up', () => {
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   const other = gitRepo({ config: 'schema: spec-driven\n' });
   const none = gitRepo({ config: null });
   for (const cwd of [bare, other, none]) {
@@ -1133,13 +1133,13 @@ test('change-loop open: O3 refuses in a project not set up or with an unknown or
     assert.equal(body(r).reply, asked.reply, 'the reply is the one the typed command gives');
     assert.equal(snapshot(t.main), before, config);
   }
-  const bare = mkdtempSync(join(tmpdir(), 'change-loop-bare-'));
+  const bare = tmpFolder('devkit-change-loop-bare-');
   assert.equal(openRun(bare, 'new-thing').code, 3);
 });
 
 test('change-loop open: O4 starts from origin/<default> after a fetch', () => {
   const t = freshProject();
-  const other = mkdtempSync(join(tmpdir(), 'change-loop-other-'));
+  const other = tmpFolder('devkit-change-loop-other-');
   const clone = join(other, 'clone');
   git(other, 'clone', '-q', t.originDir, clone);
   put(clone, { 'NEWS.md': 'news\n' });
@@ -1539,7 +1539,7 @@ test('change-loop wait: the CLI polls through the fake gh and ends when the chec
 const GUARD = join(HERE, 'guard.mjs');
 const runOf = (input) => guardModule.runOf(input);
 const SESSION = 'session-0001';
-const sandbox = () => mkdtempSync(join(tmpdir(), 'change-loop-lock-'));
+const sandbox = () => tmpFolder('devkit-change-loop-lock-');
 
 // Transcript lines in the stored forms the probe of D-12a recorded (Claude Code 2.1.326, session ids replaced).
 const LINE_BASE = { parentUuid: null, isSidechain: false, userType: 'external', entrypoint: 'sdk-cli', cwd: '/scratch/project', sessionId: SESSION, version: '2.1.326', gitBranch: 'main' };
@@ -1909,7 +1909,7 @@ test('change-loop lock subagent-stop: U7 an error lets the stop through', () => 
 // change's files, committed there. Returns { main, wt }.
 function worktreeChange({ schema = 'devkit', have = ['requirements', 'decisions'] } = {}) {
   const main = gitRepo({ config: 'schema: devkit\n' });
-  const wt = join(mkdtempSync(join(tmpdir(), 'change-loop-wtlayout-')), 'feat');
+  const wt = join(tmpFolder('devkit-change-loop-wtlayout-'), 'feat');
   git(main, 'worktree', 'add', '-q', '-b', 'feat', wt);
   const c0 = git(wt, 'rev-parse', 'HEAD');
   put(wt, { 'openspec/changes/feat/.openspec.yaml': `schema: ${schema}\n`, ...Object.fromEntries(have.map((stage) => [`openspec/changes/feat/${PLAN_FILES[stage]}`, `${head(stage, c0)}# ${stage}\n`])) });
@@ -2520,8 +2520,8 @@ test('change-loop docs: the design records the answers', () => {
 
 function pinnedLoop(version) {
   const root = planChange({ have: ['requirements', 'decisions'] });
-  const marker = join(root, '..', `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
-  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'loop-pathcli-')), { version: '2.1.0', label: 'path', marker });
+  const marker = join(tmpFolder('devkit-change-loop-marker-'), `seen-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+  const pathDir = openspecStub(tmpFolder('devkit-loop-pathcli-'), { version: '2.1.0', label: 'path', marker });
   openspecStub(join(root, 'node_modules', '.bin'), { version, label: 'pinned', marker });
   const env = { ...cleanEnv, PATH: `${pathDir}:${process.env.PATH}` };
   return { root, marker, env };
@@ -2680,7 +2680,7 @@ test('change-loop start: a request written to the pipe after a delay is still re
   assert.deepEqual(JSON.parse(late.stdout), JSON.parse(startRun(root, 'change add a thing').stdout), 'the same answer as for a request there from the start');
 });
 
-const lockDir = () => mkdtempSync(join(tmpdir(), 'devkit-lockfile-'));
+const lockDir = () => tmpFolder('devkit-lockfile-');
 
 test('change-loop withLockFile: holds the lock while the work runs, stores the holder text, removes the lock after', () => {
   const lock = join(lockDir(), 'x.lock');
@@ -3055,7 +3055,7 @@ test('stage-roles loop: accept-decisions refuses a path outside the repository, 
 });
 
 test('stage-roles loop: accept-decisions refuses a listed record that is a symlink to a file outside the repository, and leaves the target alone', () => {
-  const outside = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'adr-outside-'));
+  const outside = tmpFolder('devkit-adr-outside-');
   const target = join(outside, 'x.md');
   writeFileSync(target, adrRecord('Status: proposed'));
   const root = adrChange({ records: {}, listed: [`${ADR_FOLDER}/x.md`] });
@@ -3090,7 +3090,7 @@ test('stage-roles loop: accept-decisions with a good record and a bad one change
 });
 
 test('stage-roles loop: accept-decisions names itself in the usage line and needs a change id', () => {
-  const r = main(['accept-decisions', '--lang', 'en'], { cwd: tmpdir(), env: cleanEnv });
+  const r = main(['accept-decisions', '--lang', 'en'], { cwd: tmpFolder('devkit-loop-nocwd-'), env: cleanEnv });
   assert.equal(r.code, 3);
   assert.match(JSON.parse(r.stdout).error, /accept-decisions <id>/);
   assert.match(read('change-loop.mjs'), /accept-decisions <id> --lang/);

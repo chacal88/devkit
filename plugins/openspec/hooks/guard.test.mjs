@@ -1,9 +1,9 @@
 // node --test plugins/openspec/hooks/guard.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
+import { mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
@@ -17,6 +17,7 @@ import './release-merge.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
 import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
+import './test-tmp.test.mjs'; // test-fixture-cleanup: the temporary-folder helper
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
 import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
 import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way
@@ -29,7 +30,7 @@ const guard = join(here, 'guard.mjs');
 const schemas = join(here, '..', 'schemas');
 
 function repo({ changes = {}, branch = 'main', roadmap, archived = [] } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'devkit-guard-'));
+  const root = tmpFolder('devkit-guard-');
   execFileSync('git', ['init', '-q', '-b', branch, root]);
   mkdirSync(join(root, 'openspec', 'changes', 'archive'), { recursive: true });
   cpSync(schemas, join(root, 'openspec', 'schemas'), { recursive: true });
@@ -265,7 +266,7 @@ test('ci mode runs the devkit-reviews check: current reviews and evidence pass, 
 });
 
 test('ci mode: a repository without openspec/ passes with a note, so the devkit-reviews job never breaks a repo that has not adopted OpenSpec (R-3)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-plain-'));
+  const dir = tmpFolder('devkit-plain-');
   gitIn(dir, 'init', '-q', '-b', 'main');
   for (const script of [guard, join(dirname(guard), 'deliver-check.mjs')]) {
     const r = spawnSync('node', [script, ...(script === guard ? ['ci'] : ['--ci'])], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...clean } });
@@ -277,12 +278,12 @@ test('ci mode: a repository without openspec/ passes with a note, so the devkit-
 test('ci mode: guard.mjs alone fails closed naming deliver-check.mjs; a symlinked guard.mjs works (design D3)', () => {
   const root = ciRepo();
   proveHead(root);
-  const lone = join(mkdtempSync(join(tmpdir(), 'devkit-lone-')), 'guard.mjs');
+  const lone = join(tmpFolder('devkit-lone-'), 'guard.mjs');
   cpSync(guard, lone);
   const r = spawnSync('node', [lone, 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean } });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /devkit ci: guard\.mjs ci needs deliver-check\.mjs and merge-setup\.mjs in the same folder \(download all three; see docs\/openspec-flow\.md#ci\)/);
-  const link = join(mkdtempSync(join(tmpdir(), 'devkit-cilink-')), 'guard.mjs');
+  const link = join(tmpFolder('devkit-cilink-'), 'guard.mjs');
   symlinkSync(guard, link);
   const ok = spawnSync('node', [link, 'ci'], { cwd: root, encoding: 'utf8', env: { ...process.env, ...clean } });
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
@@ -398,7 +399,7 @@ test('an unreadable roadmap prints nothing and keeps the change report', () => {
 
 test('guard run through a symlinked path still gates code (exit 2)', () => {
   const root = repo({ changes: { feat: { ...approved } } });
-  const link = join(mkdtempSync(join(tmpdir(), 'devkit-link-')), 'guard.mjs');
+  const link = join(tmpFolder('devkit-link-'), 'guard.mjs');
   symlinkSync(guard, link);
   const input = { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'src/a.ts') } };
   const r = spawnSync('node', [link, 'edit'], { cwd: root, input: JSON.stringify(input), encoding: 'utf8', env: { ...process.env, ...clean } });
@@ -407,7 +408,7 @@ test('guard run through a symlinked path still gates code (exit 2)', () => {
 });
 
 test('importing guard.mjs runs no mode: no exit, no output, even with DEVKIT_BYPASS=1 and argv ci', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'devkit-import-'));
+  const dir = tmpFolder('devkit-import-');
   const script = join(dir, 'importer.mjs');
   writeFileSync(script, "await import(process.env.GUARD_URL);\nconsole.log('alive');\n");
   const r = spawnSync('node', [script, 'ci'], { cwd: dir, encoding: 'utf8',
@@ -492,7 +493,7 @@ test('ADR 0003 exists with Status: accepted, ADR 0002 points to it and has no "u
 
 // A project whose openspec/config.yaml says `configText` (null: no config.yaml).
 function project({ config, changes = {}, roadmap, base } = {}) {
-  const root = base || mkdtempSync(join(tmpdir(), 'devkit-optin-'));
+  const root = base || tmpFolder('devkit-optin-');
   mkdirSync(join(root, 'openspec', 'changes', 'archive'), { recursive: true });
   if (config !== null && config !== undefined) writeFileSync(join(root, 'openspec', 'config.yaml'), config);
   for (const [name, files] of Object.entries(changes)) {
@@ -514,7 +515,7 @@ const silent = (r, what) => {
   assert.equal(r.out, '', `${what}: no stdout`);
   assert.equal(r.err, '', `${what}: no stderr`);
 };
-const noGitHere = () => mkdtempSync(join(tmpdir(), 'devkit-nogit-'));
+const noGitHere = () => tmpFolder('devkit-nogit-');
 const hookCases = (root) => {
   const out = [];
   for (const c of ['git push --force', 'git push -f origin x', 'git reset --hard HEAD~1', 'git add -A', 'gh pr merge 3 --admin', 'gh pr create --title t --body b']) {
@@ -656,7 +657,7 @@ test('this repository opts in through .claude/settings.json (2.5, ADR 0004)', ()
 const checkPy = join(here, '..', '..', '..', 'scripts', 'check.py');
 
 function lintRoot(files) {
-  const root = mkdtempSync(join(tmpdir(), 'devkit-lint-'));
+  const root = tmpFolder('devkit-lint-');
   for (const [f, body] of Object.entries(files)) {
     mkdirSync(dirname(join(root, f)), { recursive: true });
     writeFileSync(join(root, f), body);
@@ -802,7 +803,7 @@ test('migration doc: every fenced bash block parses, and the jq filters work on 
   }
 
   // Fixtures live in a temp HOME; `claude plugin list --json` is replaced by a file, every other `claude` is a failing stub.
-  const home = mkdtempSync(join(tmpdir(), 'devkit-migrate-home-'));
+  const home = tmpFolder('devkit-migrate-home-');
   const bin = join(home, 'bin');
   mkdirSync(bin);
   writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "claude must not run" >&2\nexit 99\n', { mode: 0o755 });
@@ -948,7 +949,7 @@ test('worktree: an Edit of a file in a worktree is gated by the worktree change,
   assert.match(r.err, /Status: NEEDS-REVISION/);
   assert.equal(editAt(main, join(main, 'src', 'a.ts')).code, 0, 'a file in the main checkout, no open change: not gated');
   assert.equal(editAt(main, join(wt, 'openspec/changes/feat/tasks.md')).code, 0, 'planning files stay open');
-  assert.equal(editAt(main, join(tmpdir(), 'devkit-elsewhere', 'a.ts')).code, 0, 'a file in no OpenSpec tree');
+  assert.equal(editAt(main, join(tmpRoot(), 'devkit-elsewhere', 'a.ts')).code, 0, 'a file in no OpenSpec tree');
 });
 
 test('worktree: a shell write through cd <wt> is gated by the worktree change (D5)', () => {
@@ -1234,7 +1235,7 @@ const pinnedBin = (root) => join(root, 'node_modules', '.bin', 'openspec');
 function cliWorld(version = '2.0.0') {
   const root = repo({ changes: { x: lite } });
   const marker = join(root, 'seen.log');
-  const pathDir = openspecStub(mkdtempSync(join(tmpdir(), 'cli-path-')), { version: '2.1.0', label: 'path', marker });
+  const pathDir = openspecStub(tmpFolder('devkit-cli-path-'), { version: '2.1.0', label: 'path', marker });
   const env = { PATH: `${pathDir}:${process.env.PATH}` };
   const pin = (v = version) => openspecStub(join(root, 'node_modules', '.bin'), { version: v, label: 'pinned', marker });
   return { root, marker, env, pin };
@@ -1248,7 +1249,7 @@ test('field-fixes 6 cli: a checkout\'s node_modules/.bin/openspec wins over the 
 
 test('field-fixes 6 cli: a worktree with none finds the main checkout\'s', () => {
   const main = gitRepo();
-  const wt = join(mkdtempSync(join(tmpdir(), 'cli-wt-')), 'wt');
+  const wt = join(tmpFolder('devkit-cli-wt-'), 'wt');
   gitIn(main, 'worktree', 'add', '-q', '-b', 'wt', wt);
   assert.equal(GUARD.openspecCli(wt).pinned, false, 'no pin anywhere: PATH');
   openspecStub(join(main, 'node_modules', '.bin'), { version: '2.0.0', label: 'pinned', marker: join(main, 'seen.log') });
