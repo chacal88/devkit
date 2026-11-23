@@ -1,11 +1,14 @@
 # ADR 0019: A change can run on another machine, claimed on GitHub when it opens
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-22
 - Change: remote-worker
 - Amends: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), the hold of a start by
   this machine's load and decision 4; ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md),
-  decision 1, the change's worktree on this machine
+  decision 1, the change's worktree on this machine; ADR 0017
+  (0017-a-change-state-is-derived-in-one-place.md), decision 4, the title of a change waiting for a
+  place
+- Accepted by: the owner, on 2026-11-23, in the message that approved the revised plan of the change, which includes the amendment of ADR 0017 decision 4: `Aprovo`; recorded in `openspec/changes/remote-worker/approval.md`
 
 ## Context
 
@@ -38,15 +41,20 @@ the run's number. Nothing is shared between machines but the repository on GitHu
    nested under it, under ADR 0014's turn rules.
 5. With the setting set, a change takes a place only from its implementation on, by pushing its
    approved plan. The change script counts the places from GitHub under a lock of the clone. With
-   none free, the change ends blocked, waiting for a place (⏳, the waiting state icon of ADR 0017, here waiting for a place). When a place frees, the coordinating
+   none free, the change ends blocked, waiting for a place (⏳, decision 8). When a place frees, the coordinating
    session sends one message to one waiting change, which checks again. Nothing polls and nothing
    is scheduled (ADR 0006 decision 3).
 6. The run's bookkeeping also holds which changes it opened for another machine (`placed`); ADR 0013
    decision 4 names it.
 7. No hook reaches another machine. A stage on another machine is held by that machine's own hooks
    (the same pack, installed there) and by the pull request's checks (ADR 0010 decision 5).
-8. ADR 0010 decisions 1 to 8 (the loop's four ends included: waiting for a place is a blocked end
-   with its reason), ADR 0011, and the rest of ADR 0013 and ADR 0014 are unchanged.
+8. ADR 0017 decision 4, amended: a change waiting for a place is the one blocked end whose session
+   title is `⏳ <id>`, ADR 0017's waiting icon with no ⛔ and no stage icon. A place wait is not a
+   fault but a wait for a resource, which frees on its own when another change of the machine is
+   archived, so it takes the waiting icon, not the blocked one. Its state stays `blocked` with the
+   reason `no-place`; every other blocked end keeps ADR 0017's form.
+9. ADR 0010 decisions 1 to 8 (the loop's four ends included: waiting for a place is a blocked end
+   with its reason), ADR 0011, and the rest of ADR 0013, ADR 0014 and ADR 0017 are unchanged.
 
 ## Consequences
 

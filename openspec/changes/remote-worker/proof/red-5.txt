@@ -1,0 +1,40 @@
+✖ delivery-models open: a two-prs change starts from origin/<base> (1091.899467ms)
+✔ delivery-models open: a missing test branch on the remote creates nothing (126.784914ms)
+✔ delivery-models open: a base that is not the default branch creates nothing (144.688116ms)
+✔ delivery-models open: an id ending in the test branch name creates nothing (154.136831ms)
+✔ delivery-models open: an id ending in another word is fine in two-prs (1114.998591ms)
+✔ delivery-models open: a repository with no remote is not checked and starts from HEAD (930.821451ms)
+✔ delivery-models open: a trunk project opens as today, with no test branch needed (1018.923223ms)
+✔ delivery-models open: a two-prs project without base or test_branch is refused as missing, in both ways in (189.039346ms)
+✔ delivery-models open: an unknown model or a test branch equal to the base is refused as unknown (157.377433ms)
+✔ delivery-models open: the new replies exist in both languages and name no internal word (0.516644ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18486.451636
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-models.test.mjs:185:1
+✖ delivery-models open: a two-prs change starts from origin/<base> (1091.899467ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'a8f0145fad8c56fafbdd54d610acea2b839fe09b'
+  - '60716385f1a4fc34461fa638dcef9362384b0e06'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/remote-worker/plugins/openspec/hooks/delivery-models.test.mjs:191:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'a8f0145fad8c56fafbdd54d610acea2b839fe09b',
+    expected: '60716385f1a4fc34461fa638dcef9362384b0e06',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

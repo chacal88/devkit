@@ -222,11 +222,11 @@ what the tests cover in its place.
   and `.claude-plugin/marketplace.json`, marketplace `0.34.0`, the `CHANGELOG.md` entry
   `## 0.34.0 — remote worker`, and `python3 scripts/gen-catalog.py` for `docs/catalog.md`. Check:
   `python3 scripts/gen-catalog.py --check` exits 0.
-- [ ] 5.5 Run `claude plugin validate .` at the merged commit (the manifests at `0.30.0` and
+- [x] 5.5 Run `claude plugin validate .` at the merged commit (the manifests at `0.30.0` and
   `0.34.0`) and save its output to `${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt`,
   replacing the file of the run before the merge. Check: the file holds `Validation passed` and is
   newer than the merge commit `ccb3dfb`.
-- [ ] 5.6 `openspec validate remote-worker --strict`, at the merged commit with the
+- [x] 5.6 `openspec validate remote-worker --strict`, at the merged commit with the
   `roadmap-coordination` delta of this revision (its MODIFIED requirement "A change session shows
   the stage its change is in" carries main's 9 scenarios and "Waiting for a place"). Check: it
   prints that the change is valid.
@@ -261,7 +261,7 @@ what the tests cover in its place.
   plugins/openspec/hooks/roadmap-loop.test.mjs` (against the merged `main`), no existing test
   changes except T-1, T-2, T-6 to T-9 and T-11 to T-13. The import lines, the new `remote` tests and their helpers are additions. End with
   `git status --short`.
-- [ ] 5.8 Change T-14 of D-14 exactly as D-14 gives it, and nothing else in
+- [x] 5.8 Change T-14 of D-14 exactly as D-14 gives it, and nothing else in
   `plugins/openspec/hooks/delivery-models.test.mjs`. The invariant stays as D-14 states it.
   - T-14, `delivery-models open: a two-prs change starts from origin/<base>`. Invariant: a two-prs
     change branches from the remote's base tip, not from the local default branch. Layer: the
@@ -277,7 +277,7 @@ what the tests cover in its place.
   exits 0 with 10 tests and 10 passing, run as a background command (18 s on `ccb3dfb` with
   `TMPDIR=/var/tmp`). In `git diff 212d007 -- plugins/openspec/hooks/delivery-models.test.mjs`, only
   T-14's last assertion changes. End with `git status --short`.
-- [ ] 5.9 The amendment of ADR 0017 (D-13, plan revision of 2026-11-23), in the files task 5.1
+- [x] 5.9 The amendment of ADR 0017 (D-13, plan revision of 2026-11-23), in the files task 5.1
   wrote: in `docs/adr/0019-a-change-can-run-on-another-machine.md`, the `Amends:` line, decision 5's
   `(⏳, decision 8)`, the new decision 8 and the list of decision 9, each exactly as D-13 gives
   them, its `Status:` left as it is (D-13: the session that records the approval sets it); in
@@ -291,7 +291,7 @@ what the tests cover in its place.
   ccb3dfb -- docs/adr/0017-a-change-state-is-derived-in-one-place.md` shows only added lines; and
   `git grep -n "Amends: ADR 0014" docs/adr/0017-a-change-state-is-derived-in-one-place.md` still
   finds the original `Amends:` line. End with `git status --short`.
-- [ ] 5.10 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt"` green, the whole suite run once as a background command at the merged commit; covers every acceptance criterion's tests together, with every existing test passing, the tests `main` added since `c561553` included.
+- [x] 5.10 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt"` green, the whole suite run once as a background command at the merged commit; covers every acceptance criterion's tests together, with every existing test passing, the tests `main` added since `c561553` included.
 
 ## Workflow follow-up
 

@@ -1,12 +1,17 @@
 # ADR 0017: A change's state is derived in one place, and a stopped change's session title shows it
 
 - Status: accepted
+- Amended by ADR 0019 (0019-a-change-can-run-on-another-machine.md)
 - Date: 2026-11-22
 - Change: change-state
 - Amends: ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decision 3, the title of a change session
 - Accepted by: the owner, on 2026-11-22, in the message that approved the plan of the change: `Aprovo`; recorded in `openspec/changes/change-state/approval.md`
 
 ## Context
+
+Note (remote-worker, 2026-11-23): a change waiting for a free place on its machine is the one
+blocked end titled `⏳ <id>`, with no ⛔ ([ADR 0019](0019-a-change-can-run-on-another-machine.md)).
+Decisions 1 to 4 are otherwise unchanged.
 
 ADR 0010 decision 3 gives the loop four ends, each with its reason, and decision 6 keeps the state in
 the repository and GitHub. Each surface still read it its own way: `/devkit status` worked each row
