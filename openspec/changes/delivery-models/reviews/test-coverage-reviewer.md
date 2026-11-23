@@ -1,24 +1,26 @@
 Verdict: approved
-Commit: 26e00b19de03124db593d628a40c3383400db2c6
+Commit: 64ed99fa03ddad4e40b2e6680588e424e61ee715
 
-## Coverage analysis — delivery-models (origin/main...HEAD)
+## Coverage analysis — delivery-models (origin/main...HEAD), round 2
 
 ### Findings
-- [nit] plugins/openspec/hooks/guard.mjs:541 testBranchViolation, plugins/openspec/hooks/delivery-models.test.mjs:1085-1105 — The test-branch lock covers only merge, rebase and pull. Tests pin refused and allowed forms for those three. `git cherry-pick develop..`, `git merge FETCH_HEAD` after a fetch, and `git merge -- develop` are not tested as refused or as deliberately allowed. The base pull request check (testBranchCommit, tested at lines 1200 and 1286) is the backstop. Pin one deliberately-allowed form so the boundary is documented.
-- [nit] plugins/openspec/hooks/delivery-models.test.mjs:2065 — The 'documents follow' test is a prose-pinned regex over ADR, design and flow text. It is implementation-coupled, so a legitimate rewording of a doc line turns it red. It is also the only test mapped to AC-1 docs and AC-10 in ac-map.md. Its invariant is stated in a comment, which helps, but keep the pins to structural markers (headings, table rows, step names) and drop the long literal sentences.
-- [praise] plugins/openspec/hooks/delivery-models.test.mjs — Each seam is exercised through its real wire, with a fake GitHub backed by a real bare origin and real worktrees. This covers the hook lock (refused and allowed through the CLI), the CI check (--ci with env), the resolution-review hold, the archive to both branches, the workflow template (GH_TOKEN and pull-requests: read), and verdictDir for the review writer. Negative tests accompany the positives.
+- [nit] plugins/openspec/hooks/guard.mjs:541 testBranchViolation; plugins/openspec/hooks/delivery-models.test.mjs:1085-1105 — Test-branch lock tests cover merge, rebase and pull only; cherry-pick, merge FETCH_HEAD and merge -- develop are neither pinned refused nor pinned deliberately allowed (the base-PR check is the backstop).
+- [nit] plugins/openspec/hooks/delivery-models.test.mjs:2065 — The 'documents follow' test pins long prose sentences (implementation-coupled); keep pins to structural markers.
+- [praise] plugins/openspec/hooks/delivery-models.test.mjs (P7 T5, around line 505) — The closed-test-PR fix is pinned at the seam by three tests, one per pre-empted row, shown red before the fix in proof/fix-red.txt.
+- [praise] plugins/openspec/hooks/delivery-models.test.mjs — Seams run through real wires (fake gh over a real bare origin, real worktrees, hook CLI, --ci with env); negatives accompany positives.
 
-In-scope surfaces: plugins/openspec/hooks (guard, deliver-check, change-loop, conduct-check, flow-check), plugins/core review-round workflow, the devkit-reviews.yml template and the docs.
+In-scope surfaces: plugins/openspec/hooks (guard, deliver-check, change-loop, conduct-check, flow-check), plugins/core review-round workflow, devkit-reviews.yml template, docs.
 Blocking gaps (8-10 without a plan): 0
 Seams checked (mutation runs: 0):
-- Test-branch lock in the hook -> caught by `delivery-models P3` refused/allowed table, including a bare pull with upstream, `-C`, `cd &&`, the support branch, the test branch itself and the bypass env var, and by `AC-5: the hook refuses...`.
-- Task branch holding a test-branch commit (state and --ci) -> caught by `P4 testBranchCommit` (merge, rebase, squash, neg) and `P7 T1`.
-- Base pull request waits for the test-branch pull request -> caught by `AC-4`.
-- Conflict on the support branch, with resolution review before push -> caught by `AC-6`, `AC-7`, `P7 T8` and `P6` (rejected verdict, undisposed finding, clean merges).
-- Resolution verdict path `reviews/resolution/<name>.md` -> caught by `guard.test` P11 classify tests (positive, neg, wrong reviewer, main session) and the review-round P15 verdictDir tests.
-- Archive to both branches -> caught by `AC-9 archive/delivered` and `P10`.
-- Settings parsing and the ship-config agreement -> caught by `delivery-models config:` (about 20 tests, including negatives).
-- CI workflow template -> caught by `P5 workflow`.
-- Opening from origin/<base> and its refusals -> caught by `delivery-models open:` tests.
+- Closed test-branch PR blocks before open/push/edit rows -> caught by the three P7 T5 tests (red before the fix per proof/fix-red.txt) and the 'stops the run and writes nothing more' test.
+- Test-branch lock in the hook -> caught by P3 refused/allowed table and AC-5.
+- Task branch holding a test-branch commit -> caught by P4 testBranchCommit and P7 T1.
+- Base PR waits for the test-branch PR -> caught by AC-4.
+- Conflict on the support branch with resolution review -> caught by AC-6, AC-7, P7 T8, P6.
+- Resolution verdict path -> caught by guard.test P11 classify tests and review-round P15 verdictDir tests.
+- Archive to both branches -> caught by AC-9 and P10.
+- Release pin 0.25.0 in the CI snippet -> caught by change-loop.test pin with a negative for 0.24.0.
 
-Well covered: every behavior in ac-map.md has a named test, and the ones I opened assert on observable output, not on mocks. The fake gh is stateful and reads heads from a real origin, so it is not a canned response. No test-that-tests-the-mock or impossible fixture found.
+### Well covered
+- Merge-conflict resolutions with main only add expected fields to existing assertions; no assertion was weakened.
+- The tmpFolder move does not alter any assertion.
