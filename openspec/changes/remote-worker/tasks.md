@@ -268,7 +268,7 @@ what the tests cover in its place.
   `SAMPLE`, T-1's `rev-parse HEAD` assertion, the import line, `BLOCKED_PARAMS`, the `waits` filter,
   the `userConfig` assertion, `putRun` and the T-11 to T-13 lines). The import lines, the new `remote` tests and their helpers are additions. End with
   `git status --short`.
-- [ ] 5.8 Change T-14 of D-14 exactly as D-14 gives it, and nothing else in
+- [x] 5.8 Change T-14 of D-14 exactly as D-14 gives it, and nothing else in
   `plugins/openspec/hooks/delivery-models.test.mjs`; then, after the merge of `origin/main` at
   `37a7063`, the order of D-1 step 4 in `plugins/openspec/hooks/change-loop.mjs` and T-19 of D-14.
   The invariants stay as D-14 states them. T-14 is done (merge commit `ccb3dfb`); the rest comes
