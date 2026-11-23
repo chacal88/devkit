@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=2 commit=c56155334749cdc46bad077ba8f53c4bbec5d140 -->
+<!-- devkit-stage specs result=passed attempt=3 commit=ccb3dfbe2170e76a9b17224e8dcc98db8ca8ee74 -->
 # Spec Delta
 
 ## MODIFIED Requirements
@@ -92,10 +92,11 @@ is still open; only a run asked to start fresh forgets the change sessions.
 - **THEN** `a` is not opened again, and on that typed turn `a` gets its session on `avel`
 
 ### Requirement: A change session shows the stage its change is in
-A session a roadmap run started for a change SHALL be titled with the icon of the stage the change is
-in now, followed by the change id: ❓ for the requirements, 📝 for the plan, 🛠️ for the code, 🔍 for
-the review, 🚀 for the delivery and 📦 for the archive, and ⏳ while it waits for a place on its
-machine. When the change moves to a stage of another icon, the session SHALL rename itself before it
+A change session SHALL be titled with its change's stage icon (❓ requirements, 📝 plan, 🛠️ code, 🔍
+review, 🚀 delivery, 📦 archive) and the change id while the change runs; while it is stopped, with
+the state icon (🙋 waiting for the owner, ⏳ waiting on GitHub, ⛔ blocked), a space, then that
+title; `📦 <id>` once archived; `⏳ <id>`, with no other icon, while it waits for a free place on its
+machine; cut to 59 code points. When the title changes, the session SHALL rename itself before it
 goes on.
 
 #### Scenario: The icon of each stage
@@ -104,7 +105,7 @@ goes on.
 
 #### Scenario: A new stage
 - **WHEN** the change session's change goes from its plan approval to its implementation
-- **THEN** the session's title goes from `📝 <id>` to `🛠️ <id>`
+- **THEN** the session's title goes from `🙋 📝 <id>` to `🛠️ <id>`
 
 #### Scenario: A stage of the same icon
 - **WHEN** the change goes from its proposal to its design
@@ -112,11 +113,31 @@ goes on.
 
 #### Scenario: The first title
 - **WHEN** the coordinating session starts the session of a change that is at its grill
-- **THEN** the session starts titled `❓ <id>`
+- **THEN** the session starts titled `🙋 ❓ <id>`
+
+#### Scenario: A change under way
+- **WHEN** the change's implementation is handed to its agent
+- **THEN** the title is `🛠️ <id>`, with no state icon
+
+#### Scenario: Waiting on GitHub
+- **WHEN** the change waits on its pull request's checks, or GitHub did not answer
+- **THEN** the title is `⏳ 🚀 <id>`
+
+#### Scenario: Blocked
+- **WHEN** the change stops blocked in its implementation, or blocked with no stage, as a change begun under the previous script
+- **THEN** the title is `⛔ 🛠️ <id>`, or `⛔ <id>`
+
+#### Scenario: Archived
+- **WHEN** the change is archived
+- **THEN** the title is `📦 <id>`, with no second icon
+
+#### Scenario: A long id
+- **WHEN** the change id has 70 characters, in any of the forms above
+- **THEN** the title is cut to its first 59 code points
 
 #### Scenario: Waiting for a place
 - **WHEN** the change's plan is approved and its machine has no free place
-- **THEN** the session's title goes from `📝 <id>` to `⏳ <id>`, and to `🛠️ <id>` once it takes a place
+- **THEN** the session's title goes from `🙋 📝 <id>` to `⏳ <id>`, with no state icon, and to `🛠️ <id>` once it takes a place
 
 ### Requirement: The status command shows the whole picture
 `/devkit status` SHALL change nothing and print a count line, a load line only while starts are held,

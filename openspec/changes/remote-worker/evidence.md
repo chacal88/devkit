@@ -1,33 +1,45 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=7b9c499654e1b08818d7a4ff4a465fffb88e8d68 -->
-Commit: 7b9c499654e1b08818d7a4ff4a465fffb88e8d68
+<!-- devkit-stage evidence result=failed attempt=3 commit=ccb3dfbe2170e76a9b17224e8dcc98db8ca8ee74 -->
+Commit: ccb3dfbe2170e76a9b17224e8dcc98db8ca8ee74
 
 # Evidence
 
-Change: `remote-worker` · Verified again (attempt 2) 2026-11-23 on branch `remote-worker` at the commit above (the
-working tree differed from it only in files under `openspec/`). Every command ran with
+Change: `remote-worker` · Verified again (attempt 3) 2026-11-23 on branch `remote-worker` at the commit above, the merge of
+`origin/main` (212d007) that renumbered the release (devkit-openspec 0.29.0, marketplace 0.33.0, ADR
+`docs/adr/0019-a-change-can-run-on-another-machine.md`, which `tasks.md` still calls ADR 0016 and
+v0.22.0/0.26.0). The working tree was clean. Every command ran with
 `TMPDIR=/var/tmp`, from the worktree, each as its own command with its exit code deciding.
 
 ## Verification
 
 ### Gates
 
-The `python3 scripts/check.py` part is the same command in gates 1.4, 2.4, 3.6, 4.6 and 5.8; it
-exited 0 ("all checks passed") once after all gates, on the same tree (each part ran as its own command; the phase gates were not each followed by it in this attempt).
+Each part ran as its own command with its exit code deciding, from the worktree, with `TMPDIR=/var/tmp`
+(the `env GITHUB_HEAD_REF=... GITHUB_BASE_REF=...` prefix is in the command). Counts are from the
+`ℹ tests/pass/fail` lines of this attempt's runs.
 
 | Gate | Command | Result |
 |---|---|---|
 | 1.4 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^remote" --test-name-pattern="^change-loop open" --test-name-pattern="^project-loop start: open" --test-name-pattern="^followups AC-3 run file" plugins/openspec/hooks/guard.test.mjs` | pass: 55 tests, 55 passed, 0 failed |
-| 1.4 | `python3 scripts/check.py` | pass: all checks passed |
 | 2.4 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^remote" --test-name-pattern="^change-loop open" --test-name-pattern="^change-loop decide" --test-name-pattern="^change-loop next" --test-name-pattern="^change-loop lock stop" --test-name-pattern="^change-loop withLockFile" --test-name-pattern="^roadmap-loop run" --test-name-pattern="^followups AC-3 run file" --test-name-pattern="^followups AC-5 run file" plugins/openspec/hooks/guard.test.mjs` | pass: 127 tests, 127 passed, 0 failed |
-| 2.4 | `python3 scripts/check.py` | pass: all checks passed |
 | 3.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^remote" --test-name-pattern="^roadmap-loop lines" --test-name-pattern="^roadmap-loop status" --test-name-pattern="^roadmap-loop setting" --test-name-pattern="^roadmap-loop decide" --test-name-pattern="^followups AC-1 status" --test-name-pattern="^followups AC-15 status" --test-name-pattern="^followups AC-3 run file" plugins/openspec/hooks/guard.test.mjs` | pass: 99 tests, 99 passed, 0 failed |
-| 3.6 | `python3 scripts/check.py` | pass: all checks passed |
-| 4.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^remote" --test-name-pattern="^roadmap-loop decide" --test-name-pattern="^roadmap-loop next" --test-name-pattern="^roadmap-loop run" --test-name-pattern="^roadmap-loop lock stop" --test-name-pattern="^followups AC-7" --test-name-pattern="^followups AC-13" --test-name-pattern="^followups AC-15" --test-name-pattern="^followups F-3" --test-name-pattern="^followups AC-3 run file" --test-name-pattern="^followups ADR 0014" plugins/openspec/hooks/guard.test.mjs` | pass: 119 tests, 119 passed, 0 failed |
-| 4.6 | `python3 scripts/check.py` | pass: all checks passed |
-| 5.8 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: whole suite, 1428 tests, 1428 passed, 0 failed, 0 skipped |
-| 5.8 | `python3 scripts/check.py` | pass: all checks passed |
-| 5.8 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, all checks passed |
-| 5.8 | `grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt"` | pass: exit 0 (file from task 5.5, not re-run here) |
+| 4.6 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^remote" --test-name-pattern="^roadmap-loop decide" --test-name-pattern="^roadmap-loop next" --test-name-pattern="^roadmap-loop run" --test-name-pattern="^roadmap-loop lock stop" --test-name-pattern="^followups AC-7" --test-name-pattern="^followups AC-13" --test-name-pattern="^followups AC-15" --test-name-pattern="^followups F-3" --test-name-pattern="^followups AC-3 run file" --test-name-pattern="^followups ADR 0014" plugins/openspec/hooks/guard.test.mjs` | pass: 119 tests, 119 passed, 0 failed (all 41 `remote ...` tests passed) |
+| 5.8 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | fail: whole suite, 2097 tests, 2096 passed, 1 failed (D-1: `delivery-models open: a two-prs change starts from origin/<base>`), 0 skipped |
+| 5.8 | `python3 scripts/check.py` | pass: exit 0, all checks passed |
+| 5.8 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
+| 5.8 | `grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt"` | fail: the file in that folder is the pre-merge one (written 2026-11-22, not rewritten: this role writes only evidence.md). A fresh `claude plugin validate .` at this commit exited 0 and printed "Validation passed" (checked in a scratch file, so 0.29.0 / 0.33.0 manifests validate) |
+
+Other checks named by `tasks.md` task 5.6, run at this commit: `openspec validate remote-worker --strict` fails (D-2).
+
+## Defects
+
+**D-1. A two-prs change no longer starts from `origin/<base>` (the merged `delivery-models` test fails).**
+- What: `delivery-models open: a two-prs change starts from origin/<base>` (`plugins/openspec/hooks/delivery-models.test.mjs`, line 191) asserts that the new worktree's HEAD equals `origin/main`. It gets another commit: `actual 8180619c...`, `expected d32d7cd0...`. The cause is the claim commit this change adds: with an `origin` and a claim, `claimOnOrigin` (`plugins/openspec/hooks/change-loop.mjs`, `openUnderLock`) commits `requirements.md` and `.openspec.yaml` on top of the base, so HEAD moves past `origin/<base>`.
+- Reproduce: `cd` to the worktree, then `TMPDIR=/var/tmp env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^delivery-models open: a two-prs change starts" plugins/openspec/hooks/guard.test.mjs`. It failed twice in a row (not a flake) and failed in the whole suite.
+- Why it was not caught: the test came from main's change `delivery-models` (#73), merged after the plan; `design.md` D-14 lists no such test. Whether the right fix is the test (D-14 states the invariant as "starts from the base") or the open is a design choice for implementation and the plan owner.
+
+**D-2. `openspec validate remote-worker --strict` fails after the merge.**
+- What: `roadmap-coordination/spec.md` of this change MODIFIES "A change session shows the stage its change is in" with 5 scenarios, while the current spec on main has 9. Omitted: "A change under way", "Waiting on GitHub", "Blocked", "Archived", "A long id". It adds "Waiting for a place". Archive would drop the omitted ones.
+- Reproduce: `cd` to the worktree, then `openspec validate remote-worker --strict` (exit 1).
 
 ### Acceptance criteria
 
@@ -58,4 +70,4 @@ the decision returns.
 machine could take does not refuse the stop` and `remote locks claims: the claims of a stale clone
 cost at most 8 gh calls, and none for the default branch` passed, as did `remote locks claims: a listing with approval.md and a .openspec.yaml with places reads as placed with machine and places` (added by 7b9c499; it backs the placed reading behind AC-10 and AC-12).
 
-No defect found.
+Defects D-1 and D-2 above are open.
