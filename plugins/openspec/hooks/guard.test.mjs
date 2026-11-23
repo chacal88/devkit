@@ -15,6 +15,7 @@ import './conduct-check.test.mjs'; // conduct-rounds: the round computation
 import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
 import './release-rebase.test.mjs'; // conduct-rounds: release-file conflicts
 import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
+import './jira-task.test.mjs'; // jira-entry: the Jira key, the task and the write-back
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
 import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
 import './test-tmp.test.mjs'; // test-fixture-cleanup: the temporary-folder helper

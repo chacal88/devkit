@@ -38,9 +38,9 @@ outage that does not exist, while the fix is to update `gh`. Nothing in `openspe
   installed. Step 1 of `openspec-setup` runs it next to `openspec --version`; the setup always goes
   on (the `plan` ship mode needs no `gh`).
 - **Docs and release.** Item 6 of the delivery contract in `docs/openspec-flow.md` names the old
-  `gh`; a devkit-openspec minor release (0.22.0 to 0.26.0, marketplace 0.26.0 to 0.30.0, resolved
+  `gh`; a devkit-openspec minor release (0.22.0 to 0.27.0, marketplace 0.26.0 to 0.31.0, resolved
   against `origin/main` at the release step), its `CHANGELOG.md` section and the CI pin moved to
-  `v0.26.0`.
+  `v0.27.0`.
 
 Choices this plan makes on top of `requirements.md`, for the owner to see:
 
@@ -86,7 +86,7 @@ None.
 
 ## Impact
 
-- devkit-openspec (0.22.0 to 0.26.0): `hooks/merge-setup.mjs`, `hooks/deliver-check.mjs`
+- devkit-openspec (0.22.0 to 0.27.0): `hooks/merge-setup.mjs`, `hooks/deliver-check.mjs`
   (`readChecks`, `checksItem`), `hooks/flow-check.mjs`, `hooks/change-loop.mjs`,
   `hooks/project-loop.mjs`; new `skills/openspec-setup/scripts/gh-version.mjs` and its test;
   `skills/openspec-setup/SKILL.md` (step 1 and the script list); tests in `merge-setup.test.mjs`,
