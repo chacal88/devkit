@@ -8,7 +8,10 @@
 // becomes `templates/agents/<role>/AGENT.md`, a seat that hands its work, unchanged, to that Claude
 // agent. `--check` writes nothing and exits 1 naming each agent that differs, is missing or is extra;
 // else 0. Exit 2 when a source cannot be read (no opening or closing `---` line, empty, no `name` or
-// `description`), naming the file and writing nothing. Exports `renderAgent` and `expectedAgents`.
+// `description`, a description that is a block scalar), naming the file and writing nothing. The
+// generated `description` is the source's, shortened to the 280 characters CompozyOS accepts (a longer
+// one makes `compozy agent list` refuse the agent); the instructions body is the source text, unchanged.
+// Exports `renderAgent`, `shortenDescription` and `expectedAgents`.
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,6 +20,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(here, '..', '..', '..', '..', '..');
 const AGENTS_AT = ['plugins', 'compozy', 'skills', 'compozy-setup', 'templates', 'agents'];
 const CHANGE_LOOP_AT = ['plugins', 'openspec', 'hooks', 'change-loop.mjs'];
+// CompozyOS (0.6.2) refuses an agent whose description holds more than this many characters.
+export const DESCRIPTION_LIMIT = 280;
 const SELF = 'plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs';
 const CHECKING_ROLES = new Set(['code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
   'spec-reviewer', 'adr-reviewer', 'finding-verifier', 'plan-reality-auditor', 'plan-readiness-reviewer', 'openspec-validator']);
@@ -51,7 +56,47 @@ export const SEAT = [
 
 export const seatFor = (role, pack) => SEAT.replace('__AGENT__', `${pack}:${role}`);
 
-// Splits a Claude agent file into its frontmatter lines and its body.
+// The value of a `description:` frontmatter line, read as the YAML scalar it is on one line (plain, 'single' or "double" quoted).
+function descriptionValue(file, line) {
+  const raw = line.slice('description:'.length).trim();
+  if (raw.startsWith('"')) {
+    try { return JSON.parse(raw); } catch { throw new AgentSourceError(file, 'the description is a quoted string that cannot be read'); }
+  }
+  if (raw.startsWith("'")) {
+    if (raw.length < 2 || !raw.endsWith("'")) throw new AgentSourceError(file, 'the description is a quoted string that cannot be read');
+    return raw.slice(1, -1).replace(/''/g, "'");
+  }
+  if (/^[|>]/.test(raw)) throw new AgentSourceError(file, 'the description is a block scalar: write it on one line');
+  return raw;
+}
+
+// A text of at most `limit` characters (code points, not bytes) that starts like `text`: the whole text when it fits, else the
+// longest run of whole sentences (a sentence ends at `. `) that fits, else the words that fit with a final `…`.
+export function shortenDescription(text, limit = DESCRIPTION_LIMIT) {
+  const all = Array.from(text.trim());
+  if (all.length <= limit) return text.trim();
+  const full = all.join('');
+  let kept = '';
+  for (const m of full.matchAll(/\.(?=\s)/g)) {
+    const prefix = full.slice(0, m.index + 1);
+    if (Array.from(prefix).length > limit) break;
+    kept = prefix;
+  }
+  if (kept) return kept;
+  const head = all.slice(0, limit - 1);
+  let cut = head;
+  if (!/\s/.test(all[limit - 1])) {
+    let i = head.length - 1;
+    while (i > 0 && !/\s/.test(head[i])) i -= 1;
+    if (i > 0) cut = head.slice(0, i);
+  }
+  return `${cut.join('').trimEnd()}\u2026`;
+}
+
+// A frontmatter scalar: plain, or double-quoted (JSON is valid YAML) when a plain one could be misread.
+const yamlScalar = (text) => (/[:#]|^[\s\-?,[\]{}&*!|>'"%@`]/.test(text) ? JSON.stringify(text) : text);
+
+// Splits a Claude agent file into its frontmatter description and its body.
 function parseSource(file, text) {
   if (!text.trim()) throw new AgentSourceError(file, 'the file is empty');
   const lines = text.split('\n');
@@ -64,7 +109,7 @@ function parseSource(file, text) {
   const description = key('description');
   if (!name) throw new AgentSourceError(file, 'the frontmatter has no name');
   if (!description) throw new AgentSourceError(file, 'the frontmatter has no description');
-  return { description, body: lines.slice(close + 1).join('\n').replace(/^\n+/, '') };
+  return { description: descriptionValue(file, description), body: lines.slice(close + 1).join('\n').replace(/^\n+/, '') };
 }
 
 const displayName = (role) => role.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
@@ -78,7 +123,7 @@ export function renderAgent(role, pack, sourceText, file = `${role}.md`) {
     '---',
     `name: ${role}`,
     `display_name: ${displayName(role)}`,
-    description,
+    `description: ${yamlScalar(shortenDescription(description))}`,
     'provider: claude',
     'permissions: approve-all',
     'category_path: [Project, Devkit]',
@@ -90,7 +135,7 @@ export function renderAgent(role, pack, sourceText, file = `${role}.md`) {
     '  background: none',
     '---',
     '',
-    `<!-- Generated by ${SELF} from plugins/${sourceFolder(pack)}/agents/${role}.md: do not edit it, edit the source and run the generator. -->`,
+    `<!-- Generated by ${SELF} from plugins/${sourceFolder(pack)}/agents/${role}.md: do not edit it, edit the source and run the generator. The description is shortened to CompozyOS's ${DESCRIPTION_LIMIT}-character limit. -->`,
     '',
     seatFor(role, pack),
     '',

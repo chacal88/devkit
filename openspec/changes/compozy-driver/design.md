@@ -1163,3 +1163,14 @@ Found while writing the loops, the resolver and the installer; each is a point t
    are checked together, the loop tests first.
 8. The merge made five generated agents stale (`code-quality-reviewer`, `commit-and-pr`, `pr-verifier`, `tdd-implementer`,
    `test-coverage-reviewer`: their sources changed on main). `gen-agents.mjs` wrote them again, and `--check` is 0.
+9. D-8, the description limit (found by the live proof, tasks 5.1 and 5.3, CompozyOS 0.6.2). `compozy agent list` refused 19 of
+   the 20 generated agents with `frontmatter.invalid: descriptions can have up to 280 characters`: the Claude sources'
+   descriptions hold 274 to 508 characters and `gen-agents.mjs` copied the line verbatim, so an agent was "not available in
+   workspace" and the loop's first node (`read`, agent `change-coordinator`) could not bind. The generated `description` is now
+   the source's, read as the YAML scalar it is and reduced to at most 280 characters (code points): whole sentences from the
+   start while they fit (a sentence ends at `. ` or at the end), else the words that fit with a final `…`; one of 280 or fewer
+   stays whole, and the value is written quoted when it holds `:` or `#` or starts with a special character. The body stays the
+   exact source text (A-4) and the header comment says the description is shortened. `--check` is red when a source
+   description changes in the part that is kept, not when only the dropped tail changes (the generated agent would not
+   differ). A test pins the limit on every generated file (task 4.9; task 4.10 is its gate), because the plan knew the
+   daemon's frontmatter keys but not this validation.

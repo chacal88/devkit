@@ -221,10 +221,32 @@ task with `git status --short`.
   output reports `remove` for the four old agents and `loops/openspec-change/loop.yaml`, `dropped`
   for the seven old inputs, `create` for the new files, and the adoption tests pass.
 - [x] 4.8 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers AC-2, AC-5, AC-7, AC-8, AC-9 and AC-12 for the kit.
+- [x] 4.9 Defect found by the live proof (tasks 5.1 and 5.3, CompozyOS 0.6.2): `compozy agent list`
+  reports `frontmatter.invalid: descriptions can have up to 280 characters` for 19 of the 20
+  generated agents (the Claude sources' descriptions hold 274 to 508 characters and the generator
+  copied them verbatim), so an agent is "not available in workspace" and the loop's first node
+  (`read`, agent `change-coordinator`) fails to bind. Fix with a failing test first each, in
+  `scripts/gen-agents.mjs` and `gen-agents.test.mjs` (names `compozy-agents ...`): the generated
+  `description` is the source description (read as the YAML scalar it is, plain or quoted) reduced
+  to at most 280 characters (code points): a longer one keeps whole sentences from the start while
+  they fit (a sentence ends at `. ` or at the end), and when not even the first fits, it is cut at
+  the last word boundary that leaves room for one final `…`; a description of 280 characters or
+  fewer stays whole; the instructions body stays the exact source text (A-4); the header comment
+  says the description is shortened to CompozyOS's 280-character limit; the value is quoted when it
+  holds `:` or `#` or starts with a special character. Tests: 100 characters whole, exactly 280
+  whole, 281 in two sentences keeps the first, one 400-character sentence cut at a word boundary
+  with `…` and at most 280, a source with `—` and backticks, `--check` red when a generated
+  description is the full long one and when the first words of a source description change (green
+  again after generating), and every `templates/agents/*/AGENT.md` of this repository has a
+  description of at most 280 characters. Then run the generator, install the kit again over this
+  repository (`node plugins/compozy/skills/compozy-setup/scripts/install-kit.mjs .`) and check with
+  the live CLI that `compozy agent list --workspace devkit -o json` shows no `diagnostics` for the
+  twenty kit agents; design.md, "Phase 4 amendments", records the defect.
+- [x] 4.10 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers AC-7 and the CompozyOS 280-character rule for the kit (the `^compozy-` pattern includes `^compozy-agents`).
 
 ## 5. The local proof (AC-1 to AC-5, AC-8, AC-9, AC-11; owner-run)
 
-- [ ] 5.1 Owner-run task: set up the scratch project `devkit-proof` of D-18 outside this repository
+- [x] 5.1 Owner-run task: set up the scratch project `devkit-proof` of D-18 outside this repository
   (git repository with no remote, `openspec-setup` on the `devkit` script, `devkit.driver:
   compozy`), install the branch's packs at project scope from the temporary `devkit-proof`
   marketplace with the desktop app's bundled Claude Code, run `compozy-setup` there and register
@@ -237,14 +259,14 @@ task with `git status --short`.
   when the proof change lists a record, the per-generation table of `read` and
   `run_role` agents, the review child run's lanes, verifiers and verdict, the seeded second round
   when the first raised no blocking finding). Check: the file exists and holds each of those parts.
-- [ ] 5.3 Owner-run task: the AC-9 roadmap check of D-18; write
+- [x] 5.3 Owner-run task: the AC-9 roadmap check of D-18; write
   `openspec/changes/compozy-driver/proof/roadmap.md`. Check: it shows two change runs started for
   `/devkit roadmap 2` and the held line under `load_limit` 1.
 - [ ] 5.4 Owner-run task: the AC-11 checks of D-18 (no `compozy` on `PATH`, the daemon stopped by the
   owner and started again, `/devkit project billing`); write
   `openspec/changes/compozy-driver/proof/not-running.md`. Check: three replies, each with
   `git status` unchanged.
-- [ ] 5.5 Owner-run task: inside `devkit-proof`, build the scratch copy of the real old kit of D-18
+- [x] 5.5 Owner-run task: inside `devkit-proof`, build the scratch copy of the real old kit of D-18
   from this repository's `.compozy/` at `77b15b1` (`git show 77b15b1:.compozy/<path>` for the four
   shells, `loops/openspec-change/loop.yaml`, `config.toml`, `README.md`, `bin/devkit-kit` and
   `kit-manifest.json`), hand-edit one shell, run the installer over it and write its output to
