@@ -1,17 +1,17 @@
 Verdict: approved
-Commit: afdf4ec67167819eb94db6cc9ad7ce70a84caf0a
+Commit: 3f5ecc28238314977c149b30d3b894d8740b92fe
 
-## Coverage analysis — release-merge-conflict (origin/main...HEAD)
+## Coverage analysis — release-merge-conflict (re-review, afdf4ec..HEAD)
 
 ### Findings
 - [praise] plugins/openspec/hooks/conduct-check.mjs:364 / conduct-check.test.mjs release-merge-conflict 8-11 — The unpushedMerge predicate has one test per condition (head equal, base not ancestor, PR head not ancestor), including the no-force assertion on the push command.
 - [praise] plugins/openspec/hooks/release-merge.test.mjs:565-654 — End-to-end git fixtures cover the resolve and abort paths: tree restored to oldHead, untracked and unstaged files preserved, generator failure rolled back, exit codes 2 and 3.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs:2448-2508 — The conflict resolution drops the hardcoded v0.22.0 pin assertions in favour of the manifest-reading pinsIn check, so the renumber to 0.23.0 stays covered and a stale pin in the flow doc would still go red.
 
-In-scope surfaces: plugins/openspec hooks (release-merge, conduct-check, change-loop, guard aggregator); docs and manifests are not test-relevant.
+In-scope surfaces: plugins/openspec hooks (release-merge, conduct-check, change-loop); docs, manifests and changelog are not test-relevant beyond the pin check.
 Blocking gaps (8-10 without a plan): 0
-Seams checked: unpushedMerge callsite -> caught by conduct-check tests 8-11; push-rebased row removal -> caught by the rewritten conduct-check and change-loop tests (a stale reference not confirmed); release-merge rename import in conduct-check -> caught by the pin classifyConflict tests; guard.test.mjs aggregator import of release-merge.test.mjs -> present, a wrong path fails on a missing module; resolve/abort flow -> caught by release-merge tests 177-654 (mutation runs: 0)
+Seams checked: renumber 0.22.0 to 0.23.0 -> caught by the manifest-reading pin test in change-loop.test.mjs (pinsIn, line 2448) and the pins-count assertion (line 2508); CHANGELOG, SKILL.md and change-loop.test.mjs conflict resolutions -> checked against both parents, correct; push-rebased references -> none left in hooks or skills (mutation runs: 0)
 
 ### Well covered
-- Unpushed release merge: plain push, no --force, one test per predicate condition.
-- Release-file renumbering and pins: the unit tests plus the real docs/openspec-flow.md pin lines.
-- Abort and restore: tree back at oldHead, untracked and unstaged files kept, generator failure rolled back, setup errors exit 3.
+- Pin versus manifest consistency: tests read the manifest version, so a renumber needs no test edit.
+- Unpushed release merge and resolve/abort flow: unchanged in this range, covered as in the previous round.
