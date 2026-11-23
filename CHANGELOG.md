@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.33.0 — remote worker
+## 0.34.0 — remote worker
 
-- **devkit-openspec** 0.29.0: a change can run on another machine. Opening a change in a repository
+- **devkit-openspec** 0.30.0: a change can run on another machine. Opening a change in a repository
   with an `origin` commits its folder with the request and the machine's name and pushes its branch
   at once, so no machine opens an id that is open on another one (`claimed`); of two machines opening
   one id at the same moment, one wins. The new per-person `machines` setting lists the other machines
@@ -12,8 +12,20 @@
   implementation on (`change-loop.mjs place`); with none free it ends blocked (waiting for a place),
   and a freed place wakes one waiting change. `/devkit status` shows where each change is and reads
   "no answer" for a machine that does not answer (`status --json`, `machine-probe.mjs`).
-- Docs: ADR 0019 (proposed) amends ADR 0013 and ADR 0014; the flow page, the coordination design and
-  the pack README follow. The CI snippet now pins `v0.22.0`, the release's tag.
+- Docs: ADR 0019 (proposed) amends ADR 0013, ADR 0014 and ADR 0017 (decision 4: the title of a change waiting for a place); the flow page, the coordination design and
+  the pack README follow. The CI snippet now pins `v0.30.0`, the release's tag.
+
+## 0.33.0 — release conflicts resolved by a merge
+
+- **devkit-openspec** 0.29.0: when a pull request conflicts with its base only in release files, the
+  release-conflict step merges `origin/<base>` into the branch with `hooks/release-merge.mjs` (was
+  `release-rebase.mjs`, which rebased), renumbers the release above the base's and commits the
+  merge, never pushing. After the evidence and the review run again, the loop hands a plain
+  `git push`. The `push-rebased` step and its force-with-lease push are gone. The CI-pin assertion
+  of the hook tests reads the version from the manifest. The CI snippet now pins `v0.29.0`, the
+  release's tag.
+- Docs: the flow document, the `devkit` skill, the pack's README and CONTRIBUTING follow, and the
+  roadmap gains a line for the live check.
 
 ## 0.32.3 — retro proposals of delivery-models
 
