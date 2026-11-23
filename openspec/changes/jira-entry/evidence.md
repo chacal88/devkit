@@ -1,9 +1,9 @@
-<!-- devkit-stage evidence result=passed attempt=2 commit=35de9fd22c28633575f49df4a636cf4fb98053c5 -->
-Commit: 35de9fd22c28633575f49df4a636cf4fb98053c5
+<!-- devkit-stage evidence result=passed attempt=3 commit=e0846e6baa16e1a045c58283fe6ed6defb0522a2 -->
+Commit: e0846e6baa16e1a045c58283fe6ed6defb0522a2
 
 # Evidence
 
-Change: `jira-entry` · re-verified at HEAD 35de9fd (after two merges of main and the renumbering to 0.28.0) on branch `jira-entry` with `TMPDIR=/var/tmp`. Every Jira task and connector answer in the tests is a fake JSON object; no real Jira was called (AC-9).
+Change: `jira-entry` · re-verified at HEAD e0846e6 (after three merges of main and the renumbering to marketplace 0.29.0, devkit-core 0.12.0, devkit-openspec 0.25.0) on branch `jira-entry` with `TMPDIR=/var/tmp`. Every Jira task and connector answer in the tests is a fake JSON object; no real Jira was called (AC-9).
 
 ## Verification
 
@@ -13,8 +13,8 @@ Change: `jira-entry` · re-verified at HEAD 35de9fd (after two merges of main an
 |---|---|---|
 | 1.3 | `env TMPDIR=/var/tmp node --test plugins/openspec/hooks/jira-task.test.mjs` | pass: 18 tests, 18 pass, 0 fail |
 | 1.3 | `python3 scripts/check.py` | pass: all checks passed |
-| 2.4, 3.4 | `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/jira-task.test.mjs` | pass: 877 tests, 877 pass, 0 fail |
-| 4.6 | `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1620 tests, 1620 pass, 0 fail (about 27 minutes) |
+| 2.4, 3.4 | `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/jira-task.test.mjs` | pass: 991 tests, 991 pass, 0 fail |
+| 4.6 | `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: 1764 tests, 1764 pass, 0 fail (about 32 minutes) |
 | 4.6 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 |
 | 4.6 | `command claude plugin validate .` | pass: validation passed |
 | 4.6 | `openspec validate jira-entry --strict` | pass: change is valid |
