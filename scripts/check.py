@@ -119,6 +119,19 @@ def check_changelog():
         problems.append(f'CHANGELOG.md: no "## {version}" entry for marketplace version {version}')
 
 
+UNAWAITED_SUBTEST = re.compile(r"^\s*t\.test\(")
+
+
+def check_awaited_subtests():
+    # An un-awaited `t.test(...)` passes on a newer local Node and is cancelled on CI's.
+    for f in sorted(ROOT.glob("plugins/**/*.test.mjs")):
+        if SKIP_DIRS.intersection(f.relative_to(ROOT).parts):
+            continue
+        for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            if UNAWAITED_SUBTEST.match(line):
+                problems.append(f"{f.relative_to(ROOT)}:{n}: subtest `t.test(` is not awaited; write `await t.test(` in an async parent")
+
+
 PANEL_GRAMMAR = ("plugins", "panel", "hooks", "grammar.ts")
 OPENSPEC_HOOKS = ("plugins", "openspec", "hooks")
 
@@ -174,6 +187,7 @@ def main():
     check_install_scope()
     check_changelog()
     check_panel_parity()
+    check_awaited_subtests()
     print("\n".join(problems) or "all checks passed")
     sys.exit(1 if problems else 0)
 

@@ -5064,7 +5064,11 @@ test('change-state ADR 0017: the documents follow', () => {
   assert.match(adr, /^- Status: accepted$/m);
   assert.match(adr, /^- Change: change-state$/m);
   assert.match(adr, /^- Amends: ADR 0014 \(0014-each-roadmap-change-runs-in-a-session-of-its-own\.md\), decision 3, the title of a change session$/m);
-  const approval = readRepo('openspec', 'changes', 'change-state', 'approval.md');
+  // The change folder moves to openspec/changes/archive/<date>-change-state/ when the change is archived.
+  const changesDir = join(REPO_ROOT, 'openspec', 'changes');
+  const archived = existsSync(join(changesDir, 'archive')) ? readdirSync(join(changesDir, 'archive')).filter((d) => /^\d{4}-\d{2}-\d{2}-change-state$/.test(d)).sort() : [];
+  const approvalPath = existsSync(join(changesDir, 'change-state', 'approval.md')) ? join(changesDir, 'change-state', 'approval.md') : join(changesDir, 'archive', archived[archived.length - 1] ?? '', 'approval.md');
+  const approval = readFileSync(approvalPath, 'utf8');
   const date = approval.match(/^- Date: (\d{4}-\d{2}-\d{2})$/m)?.[1];
   const words = approval.match(/^- Owner's words: "(.+)"$/m)?.[1].replaceAll('`', '');
   assert.ok(date && words, 'approval.md has its date and the owner\'s words');
