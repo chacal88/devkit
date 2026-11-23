@@ -263,6 +263,20 @@ task with `git status --short`.
   the current gate key and nothing changed is `blocked` with `no-progress`, and `confirm` still refuses
   a view that differs. design.md, "Phase 4 amendments", records the defect.
 - [x] 4.12 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop compozy" --test-name-pattern="^compozy-driver" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers the record steps under a handed key (AC-2, AC-3, AC-11, AC-12).
+- [x] 4.13 Defect found by the live proof (task 5.3, CompozyOS 0.6.2): `ask_blocked` of the `devkit-change` loop had four
+  predecessors (`by_kind`, `run_role` and `run_review` through `on_error.route`, `phase_gate` through
+  `on_result.fail`), and CompozyOS opens the human request of an `ask` with several predecessors as soon as `read`
+  succeeds, even when the node is not taken, so every phase gate stalled on a spurious "tests failed" question.
+  Fix with a failing test first, in `plugins/compozy/skills/compozy-setup/scripts/loop-templates.test.mjs` (names
+  `compozy-loops ...`) and the template `templates/loops/devkit-change/loop.yaml`: one `ask` per source, so that every
+  `ask` has exactly one predecessor: `ask_blocked` (from `by_kind`), `ask_role_red` (`run_role`'s `on_error`),
+  `ask_review_red` (`run_review`'s `on_error`) and `ask_gate_red` (`phase_gate`'s `on_result.fail`), with the same prompt
+  and `expect`, each with its own route node, `stop` gate (halts the run) and `retry` gate (`compozy-retry`); `phase_gate`
+  keeps its pass route to `turn_end`. Tests: a structural test that every `ask` of every shipped loop has exactly one
+  predecessor, and its negative (a shared ask fails it); the four asks, their one predecessor, their route and error
+  wiring; `stop` and `retry` per ask. Reinstall the kit over `.compozy/` (`install-kit.mjs .`); `compozy loop validate
+  --file` says valid for the template and the installed copy. design.md, "Phase 4 amendments", records the defect.
+- [x] 4.14 Gate: `python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^compozy-" --test-name-pattern="^AC-8 portable-hooks" --test-name-pattern="^AC-9 repo-adopts" --test-name-pattern="^field-fixes 8 kit" --test-name-pattern="^change-loop skills" --test-name-pattern="^change-loop compozy" --test-name-pattern="^compozy-driver" --test-name-pattern="^change-loop lock agent" plugins/openspec/hooks/guard.test.mjs` green; covers the loops' ask nodes (AC-2, AC-4, AC-9).
 
 ## 5. The local proof (AC-1 to AC-5, AC-8, AC-9, AC-11; owner-run)
 

@@ -1188,3 +1188,23 @@ Found while writing the loops, the resolver and the installer; each is a point t
     task 4.12 is its gate). The approval, mock-up, grill and retro steps were not hit: those views are ends that wait for
     the owner, which K1 and K2 never wrap, and `confirm` clears the handed key for them; their tests keep the fixture so that it
     stays so.
+11. D-5, `ask_blocked` (found by the live proof, task 5.3, CompozyOS 0.6.2). `ask_blocked` had four predecessors: `by_kind`
+    (the `blocked` kind), `run_role` and `run_review` through `on_error.route`, and `phase_gate` through `on_result.fail`.
+    CompozyOS opened the human request of an `ask` with several predecessors as soon as `read` succeeded in a gate turn, though
+    `by_kind` had routed to `phase_gate` and the gate passed: the node read `not_taken` but a pending request ("A request is
+    waiting") existed and the generation waited on it, so the run stayed `running`, `turn_end` never ran and every phase gate
+    stalled until the owner answered a spurious "tests failed" question. Probes on cheap nodes (no agents), each a workspace loop
+    of the scratch project: an `ask` reached only from a gate's `on_result.fail.route` opens nothing when the gate passes
+    (`probe-ask1`, and `ask_red` of `probe-ask7`); an `ask` reached from both a route node's `blocked` branch and a gate's fail
+    route, the real shape, opens a pending request eagerly (`probe-ask3`); removing either predecessor makes it go away
+    (`probe-ask4`, `probe-ask5`); one `transform` funnel in front of the shared ask does not help (`probe-ask6`); one `ask` per
+    source works (`probe-ask7`). The rule: every `ask` node has exactly one predecessor. D-5's single `ask_blocked` is replaced by
+    one ask per source: `ask_blocked` (from `by_kind` only), `ask_role_red` (`run_role`'s `on_error`), `ask_review_red`
+    (`run_review`'s `on_error`) and `ask_gate_red` (`phase_gate`'s `on_result.fail`), with the same prompt and the same `expect`
+    (retry or stop, and a note). Each ask has its own route node (`blocked_route`, `role_red_route`, `review_red_route`,
+    `gate_red_route`) and its own `stop` gate (`stop_blocked`, `stop_role`, `stop_review`, `stop_gate`: `exit 1` with `on_result.fail:
+    halt`) and `retry` gate (`retry_blocked`, `retry_role`, `retry_review`, `retry_gate`: `compozy-retry`), because no shape that
+    shares the downstream gates was run live; `phase_gate` keeps `on_result.pass: { route: turn_end }`. Every other ask already had
+    one predecessor. A structural test of `loop-templates.test.mjs` pins the rule for every ask of every shipped loop (task 4.13;
+    task 4.14 is its gate). The unproven corner of item 4 is not touched: `run_role` and `run_review` still reach their ask only
+    through `on_error.route`, now each its own.

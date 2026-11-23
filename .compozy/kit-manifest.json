@@ -30,7 +30,7 @@
     "agents/test-runner/AGENT.md": "sha256:989cc1e77c9b8eee1af9f869aec83bed26ff95e4aad9f160801ea895ab90ceb6",
     "bin/devkit-kit": "sha256:ddeaaccab9b989f408ed2a9004b9d6b637c14ee43a0fe1ef6c359805f8a945de",
     "config.toml": "sha256:de248695964f249ac1dd65562a8938380f58417e9c9c02c1679f0845d65a0ae7",
-    "loops/devkit-change/loop.yaml": "sha256:d7acfb466fa64dd2db87f73dc09a46aeb432ad2fa05f867886770c617545a90b",
+    "loops/devkit-change/loop.yaml": "sha256:3cad042dcfafde528b3406abd1f368465596720bd7a92f8e54606894e56ff77f",
     "loops/devkit-review/loop.yaml": "sha256:d0f569e4fa32133133e638be440dd6163b8cdb30eefda0d517d67b9edb2ee6ed",
     "loops/devkit-roadmap/loop.yaml": "sha256:d00fdb5002cf410ae55cce09d45130a7451b9226ecc02b2af1cf182937d15d96"
   }

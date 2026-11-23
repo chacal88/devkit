@@ -153,7 +153,7 @@ graph:
         max_attempts: 1
       timeout: 4h
       on_error:
-        route: ask_blocked
+        route: ask_role_red
 
     - id: after_role
       class: control
@@ -299,7 +299,10 @@ graph:
           properties:
             note: { type: string }
 
-    # Blocked: say what stopped it, and let the owner retry the step or stop the run.
+    # Blocked: say what stopped it, and let the owner retry the step or stop the run. CompozyOS 0.6.2 opens the request of an `ask`
+    #    with more than one predecessor as soon as `read` succeeds, even when the node is not taken (probes `probe-ask1` to
+    #    `probe-ask7`), so every source of a blocked step has its own ask, its own route and its own stop and retry gates: this one
+    #    is reached from `by_kind` only, and the three below from `run_role`'s error, `run_review`'s error and a failed `phase_gate`.
     - id: ask_blocked
       class: control
       kind: ask
@@ -321,11 +324,11 @@ graph:
       kind: route
       routes:
         - when: 'nodes.ask_blocked.output.decision == "stop"'
-          to: stop_run
-      default: retry
+          to: stop_blocked
+      default: retry_blocked
 
     # A gate that always fails, with `halt`: the run ends here, by the owner's word.
-    - id: stop_run
+    - id: stop_blocked
       class: control
       kind: gate
       criteria:
@@ -336,7 +339,55 @@ graph:
       on_result:
         fail: halt
 
-    - id: retry
+    - id: retry_blocked
+      class: control
+      kind: gate
+      criteria:
+        - id: retry_cleared
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop compozy-retry --change {{ .inputs.change_id | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
+
+    # The role errored: the same question, reached from run_role only.
+    - id: ask_role_red
+      class: control
+      kind: ask
+      params:
+        prompt: |
+          {{ if .nodes.read.output.question }}{{ .nodes.read.output.question }}{{ else }}The step {{ .nodes.read.output.step }} of the change {{ .inputs.change_id }} did not finish. Open the run in CompozyOS to see why.{{ end }}
+
+          Answer retry to run the step again, or stop to end this run. A note is optional.
+        expect:
+          type: object
+          additionalProperties: false
+          required: [decision, note]
+          properties:
+            decision: { type: string, enum: [retry, stop] }
+            note: { type: string }
+
+    - id: role_red_route
+      class: control
+      kind: route
+      routes:
+        - when: 'nodes.ask_role_red.output.decision == "stop"'
+          to: stop_role
+      default: retry_role
+
+    # A gate that always fails, with `halt`: the run ends here, by the owner's word.
+    - id: stop_role
+      class: control
+      kind: gate
+      criteria:
+        - id: stop
+          type: command
+          check: "exit 1"
+          expect: exit_zero
+      on_result:
+        fail: halt
+
+    - id: retry_role
       class: control
       kind: gate
       criteria:
@@ -362,7 +413,55 @@ graph:
         max_attempts: 1
       timeout: 6h
       on_error:
-        route: ask_blocked
+        route: ask_review_red
+
+    # The review loop errored: the same question, reached from run_review only.
+    - id: ask_review_red
+      class: control
+      kind: ask
+      params:
+        prompt: |
+          {{ if .nodes.read.output.question }}{{ .nodes.read.output.question }}{{ else }}The step {{ .nodes.read.output.step }} of the change {{ .inputs.change_id }} did not finish. Open the run in CompozyOS to see why.{{ end }}
+
+          Answer retry to run the step again, or stop to end this run. A note is optional.
+        expect:
+          type: object
+          additionalProperties: false
+          required: [decision, note]
+          properties:
+            decision: { type: string, enum: [retry, stop] }
+            note: { type: string }
+
+    - id: review_red_route
+      class: control
+      kind: route
+      routes:
+        - when: 'nodes.ask_review_red.output.decision == "stop"'
+          to: stop_review
+      default: retry_review
+
+    # A gate that always fails, with `halt`: the run ends here, by the owner's word.
+    - id: stop_review
+      class: control
+      kind: gate
+      criteria:
+        - id: stop
+          type: command
+          check: "exit 1"
+          expect: exit_zero
+      on_result:
+        fail: halt
+
+    - id: retry_review
+      class: control
+      kind: gate
+      criteria:
+        - id: retry_cleared
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop compozy-retry --change {{ .inputs.change_id | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
 
     # A phase gate: the checker runs the phase's command and ticks its task; a red gate asks the owner, with its question.
     - id: phase_gate
@@ -376,7 +475,55 @@ graph:
       timeout: 3h
       on_result:
         pass: { route: turn_end }
-        fail: { route: ask_blocked }
+        fail: { route: ask_gate_red }
+
+    # The phase gate is red: the same question, reached from phase_gate only.
+    - id: ask_gate_red
+      class: control
+      kind: ask
+      params:
+        prompt: |
+          {{ if .nodes.read.output.question }}{{ .nodes.read.output.question }}{{ else }}The step {{ .nodes.read.output.step }} of the change {{ .inputs.change_id }} did not finish. Open the run in CompozyOS to see why.{{ end }}
+
+          Answer retry to run the step again, or stop to end this run. A note is optional.
+        expect:
+          type: object
+          additionalProperties: false
+          required: [decision, note]
+          properties:
+            decision: { type: string, enum: [retry, stop] }
+            note: { type: string }
+
+    - id: gate_red_route
+      class: control
+      kind: route
+      routes:
+        - when: 'nodes.ask_gate_red.output.decision == "stop"'
+          to: stop_gate
+      default: retry_gate
+
+    # A gate that always fails, with `halt`: the run ends here, by the owner's word.
+    - id: stop_gate
+      class: control
+      kind: gate
+      criteria:
+        - id: stop
+          type: command
+          check: "exit 1"
+          expect: exit_zero
+      on_result:
+        fail: halt
+
+    - id: retry_gate
+      class: control
+      kind: gate
+      criteria:
+        - id: retry_cleared
+          type: command
+          check: ".compozy/bin/devkit-kit change-loop compozy-retry --change {{ .inputs.change_id | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: next_generation
 
     # A command the checker built (switch-script, accept-decisions): the checker's own record step runs it. A refused
     #     command is recorded there, and the next turn's view asks the owner with the command's own reply.
@@ -424,7 +571,7 @@ graph:
     - { from: by_kind, to: wait_github }
     - { from: by_kind, to: turn_end }
     - { from: run_role, to: after_role }
-    - { from: run_role, to: ask_blocked }
+    - { from: run_role, to: ask_role_red }
     - { from: after_role, to: ask_grill }
     - { from: after_role, to: turn_end }
     - { from: ask_grill, to: record_grill }
@@ -440,13 +587,25 @@ graph:
     - { from: record_retro, to: turn_end }
     - { from: ask_owner, to: turn_end }
     - { from: ask_blocked, to: blocked_route }
-    - { from: blocked_route, to: stop_run }
-    - { from: blocked_route, to: retry }
-    - { from: retry, to: turn_end }
+    - { from: blocked_route, to: stop_blocked }
+    - { from: blocked_route, to: retry_blocked }
+    - { from: retry_blocked, to: turn_end }
+    - { from: ask_role_red, to: role_red_route }
+    - { from: role_red_route, to: stop_role }
+    - { from: role_red_route, to: retry_role }
+    - { from: retry_role, to: turn_end }
     - { from: run_review, to: turn_end }
-    - { from: run_review, to: ask_blocked }
-    - { from: phase_gate, to: ask_blocked }
+    - { from: run_review, to: ask_review_red }
+    - { from: ask_review_red, to: review_red_route }
+    - { from: review_red_route, to: stop_review }
+    - { from: review_red_route, to: retry_review }
+    - { from: retry_review, to: turn_end }
+    - { from: phase_gate, to: ask_gate_red }
     - { from: phase_gate, to: turn_end }
+    - { from: ask_gate_red, to: gate_red_route }
+    - { from: gate_red_route, to: stop_gate }
+    - { from: gate_red_route, to: retry_gate }
+    - { from: retry_gate, to: turn_end }
     - { from: run_step, to: turn_end }
     - { from: wait_github, to: turn_end }
 

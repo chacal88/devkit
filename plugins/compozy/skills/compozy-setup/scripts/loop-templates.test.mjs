@@ -25,21 +25,26 @@ const KINDS = ['agent', 'coordinator', 'review', 'gate', 'command', 'open', 'gri
 const SHAPE = {
   'devkit-change': {
     ids: ['read', 'confirm', 'by_kind', 'run_role', 'after_role', 'ask_grill', 'record_grill', 'ask_mockup', 'record_mockup', 'ask_approval', 'approval_route',
-      'record_approval', 'record_notes', 'ask_retro', 'record_retro', 'ask_owner', 'ask_blocked', 'blocked_route', 'stop_run', 'retry', 'run_review', 'phase_gate',
+      'record_approval', 'record_notes', 'ask_retro', 'record_retro', 'ask_owner',
+      'ask_blocked', 'blocked_route', 'stop_blocked', 'retry_blocked', 'ask_role_red', 'role_red_route', 'stop_role', 'retry_role',
+      'run_review', 'ask_review_red', 'review_red_route', 'stop_review', 'retry_review', 'phase_gate', 'ask_gate_red', 'gate_red_route', 'stop_gate', 'retry_gate',
       'run_step', 'wait_github', 'turn_end'],
     edges: [
       ['read', 'confirm'], ['confirm', 'by_kind'],
       ['by_kind', 'run_role'], ['by_kind', 'run_review'], ['by_kind', 'phase_gate'], ['by_kind', 'run_step'], ['by_kind', 'ask_mockup'], ['by_kind', 'ask_approval'],
       ['by_kind', 'ask_retro'], ['by_kind', 'ask_owner'], ['by_kind', 'ask_blocked'], ['by_kind', 'wait_github'], ['by_kind', 'turn_end'],
-      ['run_role', 'after_role'], ['run_role', 'ask_blocked'], ['after_role', 'ask_grill'], ['after_role', 'turn_end'],
+      ['run_role', 'after_role'], ['run_role', 'ask_role_red'], ['after_role', 'ask_grill'], ['after_role', 'turn_end'],
       ['ask_grill', 'record_grill'], ['record_grill', 'turn_end'],
       ['ask_mockup', 'record_mockup'], ['record_mockup', 'turn_end'],
       ['ask_approval', 'approval_route'], ['approval_route', 'record_approval'], ['approval_route', 'record_notes'], ['record_approval', 'turn_end'], ['record_notes', 'turn_end'],
       ['ask_retro', 'record_retro'], ['record_retro', 'turn_end'],
       ['ask_owner', 'turn_end'],
-      ['ask_blocked', 'blocked_route'], ['blocked_route', 'stop_run'], ['blocked_route', 'retry'], ['retry', 'turn_end'],
-      ['run_review', 'turn_end'], ['run_review', 'ask_blocked'],
-      ['phase_gate', 'ask_blocked'], ['phase_gate', 'turn_end'],
+      ['ask_blocked', 'blocked_route'], ['blocked_route', 'stop_blocked'], ['blocked_route', 'retry_blocked'], ['retry_blocked', 'turn_end'],
+      ['ask_role_red', 'role_red_route'], ['role_red_route', 'stop_role'], ['role_red_route', 'retry_role'], ['retry_role', 'turn_end'],
+      ['run_review', 'turn_end'], ['run_review', 'ask_review_red'],
+      ['ask_review_red', 'review_red_route'], ['review_red_route', 'stop_review'], ['review_red_route', 'retry_review'], ['retry_review', 'turn_end'],
+      ['phase_gate', 'ask_gate_red'], ['phase_gate', 'turn_end'],
+      ['ask_gate_red', 'gate_red_route'], ['gate_red_route', 'stop_gate'], ['gate_red_route', 'retry_gate'], ['retry_gate', 'turn_end'],
       ['run_step', 'turn_end'], ['wait_github', 'turn_end'],
     ],
   },
@@ -57,6 +62,15 @@ const SHAPE = {
   },
 };
 const NAMES = Object.keys(SHAPE);
+
+// The four owner questions about a step that did not finish, one `ask` node per source (design "Phase 4 amendments"): each has its own
+// route node, its own `stop` gate (ends the run) and its own `retry` gate (`compozy-retry`).
+const BLOCKED = {
+  ask_blocked: { route: 'blocked_route', stop: 'stop_blocked', retry: 'retry_blocked', source: 'by_kind' },
+  ask_role_red: { route: 'role_red_route', stop: 'stop_role', retry: 'retry_role', source: 'run_role' },
+  ask_review_red: { route: 'review_red_route', stop: 'stop_review', retry: 'retry_review', source: 'run_review' },
+  ask_gate_red: { route: 'gate_red_route', stop: 'stop_gate', retry: 'retry_gate', source: 'phase_gate' },
+};
 
 // ---------------------------------------------------------------- the parser: the templates' own indentation
 
@@ -102,6 +116,28 @@ function routesOf(b) {
   return { list, default: field(b, 'default') };
 }
 
+// The predecessors of every node: the declared edges plus every target a route node, an `on_result` or an `on_error` names.
+function predecessorsOf(text) {
+  const into = new Map(nodeIds(text).map((id) => [id, new Set()]));
+  const add = (from, to) => into.get(to)?.add(from);
+  for (const [from, to] of edgesOf(text)) add(from, to);
+  for (const id of nodeIds(text)) {
+    const b = block(text, id);
+    for (const r of routesOf(b).list) add(id, r.to);
+    if (kindOf(b) === 'route' && field(b, 'default')) add(id, field(b, 'default'));
+    for (const value of Object.values(onResult(b))) if (routeOf(value)) add(id, routeOf(value));
+    if (onErrorRoute(b)) add(id, onErrorRoute(b));
+  }
+  return into;
+}
+// Invariant: a CompozyOS `ask` node with more than one predecessor opens its human request as soon as `read` succeeds, even when the
+// node reads `not_taken` (found live on CompozyOS 0.6.2, probes `probe-ask1` to `probe-ask7`). Layer: the shipped loop templates.
+// Suite: this file. The asks with other than one predecessor, as { id: [predecessors] }.
+function sharedAsks(text) {
+  const into = predecessorsOf(text);
+  return Object.fromEntries(idsOfKind(text, 'ask').filter((id) => into.get(id).size !== 1).map((id) => [id, [...into.get(id)].sort()]));
+}
+
 // ---------------------------------------------------------------- the three files
 
 test('compozy-loops files: the kit ships exactly the three loops, and the old one is gone', () => {
@@ -141,7 +177,7 @@ for (const name of NAMES) {
 // ---------------------------------------------------------------- the gates and their commands (D-5 and D-7)
 
 test('compozy-loops gates: every criterion is a command that calls the kit, but the two that end a run', () => {
-  const OWN = { stop_run: 'exit 1', ended: 'true' };
+  const OWN = { stop_blocked: 'exit 1', stop_role: 'exit 1', stop_review: 'exit 1', stop_gate: 'exit 1', ended: 'true' };
   for (const name of NAMES) {
     const text = textOf(name);
     for (const id of idsOfKind(text, 'gate')) {
@@ -156,7 +192,7 @@ test('compozy-loops gates: every criterion is a command that calls the kit, but 
       }
     }
   }
-  assert.deepEqual(NAMES.flatMap((name) => idsOfKind(textOf(name), 'gate').filter((id) => id in OWN)).sort(), ['ended', 'stop_run']);
+  assert.deepEqual(NAMES.flatMap((name) => idsOfKind(textOf(name), 'gate').filter((id) => id in OWN)).sort(), ['ended', 'stop_blocked', 'stop_gate', 'stop_review', 'stop_role']);
 });
 
 test('compozy-loops gates: every runtime value inside a check ends with | shellQuote, and no check sleeps, watches or polls', () => {
@@ -261,7 +297,7 @@ test('compozy-loops devkit-change: run_role runs the agent the view names, in th
   assert.match(schema, /outcome: \{ type: string, enum: \[done, failure\] \}/);
   assert.match(schema, /required: \[outcome, question, summary\]/);
   assert.match(b, /^ {6}retry:\n {8}max_attempts: 1$/m);
-  assert.equal(onErrorRoute(b), 'ask_blocked');
+  assert.equal(onErrorRoute(b), 'ask_role_red');
   const after = routesOf(block(change(), 'after_role'));
   assert.deepEqual(after.list, [{ when: 'nodes.read.output.kind == "grill" && nodes.run_role.output.question != ""', to: 'ask_grill' }]);
   assert.equal(after.default, 'turn_end');
@@ -279,7 +315,7 @@ test('compozy-loops devkit-change: the loop names no agent of the old kit', () =
 test('compozy-loops devkit-change: every ask has a prompt and an expect under params, a human answers it, and the answers are recorded', () => {
   const text = change();
   const asks = idsOfKind(text, 'ask');
-  assert.deepEqual(asks, ['ask_grill', 'ask_mockup', 'ask_approval', 'ask_retro', 'ask_owner', 'ask_blocked']);
+  assert.deepEqual(asks, ['ask_grill', 'ask_mockup', 'ask_approval', 'ask_retro', 'ask_owner', 'ask_blocked', 'ask_role_red', 'ask_review_red', 'ask_gate_red']);
   for (const id of asks) {
     const b = block(text, id);
     assert.match(b, /^ {6}params:\n/m, `${id} has params`);
@@ -297,8 +333,11 @@ test('compozy-loops devkit-change: every ask has a prompt and an expect under pa
   }
   assert.match(expects('ask_retro'), /answers: \{ type: string \}/);
   assert.match(expects('ask_owner'), /note: \{ type: string \}/);
-  assert.match(expects('ask_blocked'), /decision: \{ type: string, enum: \[retry, stop\] \}/);
-  assert.match(expects('ask_blocked'), /note: \{ type: string \}/);
+  for (const id of Object.keys(BLOCKED)) {
+    assert.match(expects(id), /decision: \{ type: string, enum: \[retry, stop\] \}/, id);
+    assert.match(expects(id), /note: \{ type: string \}/, id);
+    assert.equal(block(text, id).slice(block(text, id).indexOf('      params:')), block(text, 'ask_blocked').slice(block(text, 'ask_blocked').indexOf('      params:')), `${id}: the prompt and the answer are the ones of ask_blocked`);
+  }
   assert.match(block(text, 'ask_mockup'), /prompt: "\{\{ \.nodes\.read\.output\.question \}\}"/);
   assert.match(block(text, 'ask_grill'), /prompt: "\{\{ \.nodes\.run_role\.output\.question \}\}"/);
 });
@@ -323,9 +362,9 @@ test('compozy-loops devkit-change: each answer goes through its record step, wit
 
 test('compozy-loops devkit-change: the errors of run_role and run_review and the failed result of phase_gate ask the owner, and a failed run_step goes to the next turn', () => {
   const text = change();
-  assert.equal(onErrorRoute(block(text, 'run_role')), 'ask_blocked');
+  assert.equal(onErrorRoute(block(text, 'run_role')), 'ask_role_red');
   const review = block(text, 'run_review');
-  assert.equal(onErrorRoute(review), 'ask_blocked');
+  assert.equal(onErrorRoute(review), 'ask_review_red');
   assert.equal(kindOf(review), 'run-loop');
   assert.match(review, /^ {8}loop: devkit-review$/m);
   assert.match(review, /^ {8}await: true$/m, 'the form the probes ran');
@@ -333,7 +372,7 @@ test('compozy-loops devkit-change: the errors of run_role and run_review and the
   assert.match(review, /^ {8}inputs:\n {10}change_id: "\{\{ \.inputs\.change_id \}\}"\n {10}lang: "\{\{ \.inputs\.lang \}\}"\n {10}root: "\{\{ \.nodes\.read\.output\.root \}\}"$/m);
   assert.match(review, /^ {6}retry:\n {8}max_attempts: 1$/m, 'a run-loop needs an explicit retry');
   const gate = block(text, 'phase_gate');
-  assert.deepEqual(onResult(gate), { pass: '{ route: turn_end }', fail: '{ route: ask_blocked }' });
+  assert.deepEqual(onResult(gate), { pass: '{ route: turn_end }', fail: '{ route: ask_gate_red }' });
   assert.equal(field(gate, 'timeout'), '3h');
   assert.equal(checksOf(gate)[0], `${KIT} change-loop run-gate --change {{ .inputs.change_id | shellQuote }} --lang {{ .inputs.lang | shellQuote }}`);
   const step = block(text, 'run_step');
@@ -342,19 +381,53 @@ test('compozy-loops devkit-change: the errors of run_role and run_review and the
   assert.equal(checksOf(step)[0], `${KIT} change-loop run-step --change {{ .inputs.change_id | shellQuote }} --lang {{ .inputs.lang | shellQuote }}`);
 });
 
-test('compozy-loops devkit-change: blocked_route sends stop to stop_run, which fails and halts, and retry to the compozy-retry gate', () => {
+for (const [id, own] of Object.entries(BLOCKED)) {
+  test(`compozy-loops devkit-change: ${own.route} sends the stop of ${id} to ${own.stop}, which fails and halts, and the retry to ${own.retry}, the compozy-retry gate`, () => {
+    const text = change();
+    const route = routesOf(block(text, own.route));
+    assert.deepEqual(route.list, [{ when: `nodes.${id}.output.decision == "stop"`, to: own.stop }]);
+    assert.equal(route.default, own.retry);
+    assert.equal(kindOf(block(text, own.route)), 'route');
+    const stop = block(text, own.stop);
+    assert.deepEqual(checksOf(stop), ['exit 1']);
+    assert.equal(onResult(stop).fail, 'halt');
+    const retry = block(text, own.retry);
+    assert.equal(checksOf(retry)[0], `${KIT} change-loop compozy-retry --change {{ .inputs.change_id | shellQuote }}`);
+    assert.equal(onResult(retry).fail, 'next_generation');
+    const edges = edgesOf(text);
+    assert.deepEqual(edges.filter(([from]) => from === id), [[id, own.route]], `${id} leads to its own route only`);
+    assert.deepEqual(edges.filter(([from]) => from === own.stop), [], `${own.stop} ends the run`);
+    assert.deepEqual(edges.filter(([from]) => from === own.retry), [[own.retry, 'turn_end']], `${own.retry} ends the turn`);
+    assert.deepEqual(edges.filter(([, to]) => [own.stop, own.retry].includes(to)).map(([from]) => from), [own.route, own.route], 'only its own route reaches them');
+  });
+
+  test(`compozy-loops devkit-change: ${id} has ${own.source} as its one predecessor`, () => {
+    assert.deepEqual([...predecessorsOf(change()).get(id)], [own.source]);
+  });
+}
+
+// Pins the CompozyOS 0.6.2 rule found live (see sharedAsks): every ask of every shipped loop has exactly one predecessor.
+test('compozy-loops asks: every ask node of every shipped loop has exactly one predecessor', () => {
+  let seen = 0;
+  for (const name of NAMES) {
+    seen += idsOfKind(textOf(name), 'ask').length;
+    assert.deepEqual(sharedAsks(textOf(name)), {}, `${name}: no ask is reached from two nodes`);
+  }
+  assert.equal(seen, 9, 'the nine asks of devkit-change are all looked at');
+});
+
+test('compozy-loops asks: a loop that gives an ask a second predecessor fails the structural check', () => {
   const text = change();
-  const route = routesOf(block(text, 'blocked_route'));
-  assert.deepEqual(route.list, [{ when: 'nodes.ask_blocked.output.decision == "stop"', to: 'stop_run' }]);
-  assert.equal(route.default, 'retry');
-  const stop = block(text, 'stop_run');
-  assert.deepEqual(checksOf(stop), ['exit 1']);
-  assert.equal(onResult(stop).fail, 'halt');
-  const retry = block(text, 'retry');
-  assert.equal(checksOf(retry)[0], `${KIT} change-loop compozy-retry --change {{ .inputs.change_id | shellQuote }}`);
-  const ask = block(text, 'ask_blocked');
-  assert.match(ask, /retry/);
-  assert.match(ask, /stop/);
+  assert.deepEqual(sharedAsks(text), {});
+  const shared = text.replace('  edges:\n', '  edges:\n    - { from: confirm, to: ask_gate_red }\n');
+  assert.notEqual(shared, text);
+  assert.deepEqual(sharedAsks(shared), { ask_gate_red: ['confirm', 'phase_gate'] });
+  const viaRoute = text.replace("      default: turn_end\n\n    # A role", "      default: ask_blocked\n\n    # A role");
+  assert.notEqual(viaRoute, text);
+  assert.deepEqual(Object.keys(sharedAsks(viaRoute)), [], 'by_kind stays the one predecessor of ask_blocked when its default names it too');
+  const twoAsksOneSource = text.replace('        - when: \'nodes.read.output.kind == "github"\'\n          to: wait_github', '        - when: \'nodes.read.output.kind == "github"\'\n          to: ask_gate_red');
+  assert.notEqual(twoAsksOneSource, text);
+  assert.deepEqual(sharedAsks(twoAsksOneSource), { ask_gate_red: ['by_kind', 'phase_gate'] });
 });
 
 test('compozy-loops devkit-change: the wait on GitHub is a wait node, and the end of a turn is a transform', () => {
