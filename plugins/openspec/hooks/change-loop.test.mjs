@@ -85,7 +85,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  base: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000,
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
@@ -562,7 +562,7 @@ test('change-loop decide: the loop\'s step agents match conduct-check\'s actorOf
   const stated = { retro: 'general-purpose' };
   let handedOff = 0;
   for (const step of ROW_STEPS) {
-    const a = build(rowOf(step, { phase: 1, number: 12, paths: [] }));
+    const a = build(rowOf(step, { phase: 1, number: 12, paths: [], branch: 'develop', base: 'main', list: '#12 to main' })); // branch, base and list: the owner ends of two-prs name them
     const checker = actorOf(step).agent;
     if (a.kind === 'agent') {
       handedOff += 1;

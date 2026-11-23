@@ -1,16 +1,33 @@
 # Changelog
 
-## 0.32.0 — release conflicts resolved by a merge
+## 0.33.0 — release conflicts resolved by a merge
 
-- **devkit-openspec** 0.28.0: when a pull request conflicts with its base only in release files, the
+- **devkit-openspec** 0.29.0: when a pull request conflicts with its base only in release files, the
   release-conflict step merges `origin/<base>` into the branch with `hooks/release-merge.mjs` (was
   `release-rebase.mjs`, which rebased), renumbers the release above the base's and commits the
   merge, never pushing. After the evidence and the review run again, the loop hands a plain
   `git push`. The `push-rebased` step and its force-with-lease push are gone. The CI-pin assertion
-  of the hook tests reads the version from the manifest. The CI snippet now pins `v0.28.0`, the
+  of the hook tests reads the version from the manifest. The CI snippet now pins `v0.29.0`, the
   release's tag.
 - Docs: the flow document, the `devkit` skill, the pack's README and CONTRIBUTING follow, and the
   roadmap gains a line for the live check.
+
+## 0.32.0 — delivery models per project
+
+- **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
+  `openspec/config.yaml`: `two-prs`, `trunk` or `trunk-auto` ([ADR 0018](docs/adr/0018-the-delivery-model-is-chosen-per-project.md)).
+  In `two-prs` both pull requests open together from the task branch and the owner merges both; the
+  test branch never enters the task branch (a hook refuses the command, and `devkit-reviews` fails a
+  pull request to the base branch that holds a test-branch commit or whose test-branch pull request is
+  not merged); a conflict is solved on the support branch `<id>-<test branch>`, reviewed on its own
+  before it is pushed; the change is archived through two archive pull requests. A project on `two-prs`
+  adds `pull-requests: read` and `GH_TOKEN` to its `devkit-reviews` workflow (the template has both).
+  The CI snippet now pins `v0.28.0`, the release's tag.
+- **devkit-core** 0.13.0: `review-change` reviews a support branch's resolution on its own, the
+  `code-quality-reviewer` and `test-coverage-reviewer` read it, and `commit-and-pr` gains the two-PR
+  call and the test-branch archive call.
+- Docs: ADR 0018, with Notes in ADRs 0002, 0003, 0010 and 0012; the coordination design records the
+  conflict answer and the built lock; `docs/openspec-flow.md` gains "Delivery models".
 
 ## 0.31.0 — gh version check
 
