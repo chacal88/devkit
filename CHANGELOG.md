@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.32.1 — retro of change-budget
+
+- **devkit-openspec** 0.28.1: the `ship-change` `review` row commits every modified or untracked
+  file under the change folder before a review round, so the verdicts are not recorded against
+  uncommitted changes.
+- Docs: `CONTRIBUTING.md` says to fetch `main` again right before each push of the delivery and
+  before `enable-auto-merge`, since a sibling that merged in between took the release number.
+
 ## 0.32.0 — delivery models per project
 
 - **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of
