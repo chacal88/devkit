@@ -110,7 +110,7 @@ every task with `git status --short`.
 
 ## 3. Release and the whole suite (AC-1 to AC-10)
 
-- [ ] 3.1 Release as D-10 says: devkit-openspec 0.22.0 in `plugins/openspec/.claude-plugin/plugin.json`
+- [x] 3.1 Release as D-10 says: devkit-openspec 0.22.0 in `plugins/openspec/.claude-plugin/plugin.json`
   and `.claude-plugin/marketplace.json`, marketplace 0.26.0, a `CHANGELOG.md` section (or the next
   numbers after `main`'s, `CONTRIBUTING.md`); the three `v0.21.1` pins of `docs/openspec-flow.md`
   become `v0.22.0`. Make the third D-8 change, in "change-loop docs: the design records the answers",

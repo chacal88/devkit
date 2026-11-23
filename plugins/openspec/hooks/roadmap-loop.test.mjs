@@ -578,7 +578,7 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
   const expected = {
     'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
     'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
-    'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-budget': 'budget',
+    'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
   };
   const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github');
   assert.deepEqual([...waits].sort(), Object.keys(expected).sort(), 'every waiting- key of the table is covered');
@@ -1244,7 +1244,9 @@ const PLANNER_TYPE = 'devkit-core:change-planner';
 const READINESS_TYPE = 'devkit-core:plan-readiness-reviewer';
 const flying = (agentType = PLANNER_TYPE, stage = 'proposal') => ({ kind: 'agent', stage, agentType, at: '2026-11-21T10:00:00.000Z' });
 
-const LK_PLAN = { requirements: 'requirements.md', proposal: 'proposal.md', specs: 'specs/s/spec.md', design: 'design.md', tasks: 'tasks.md', readiness: 'readiness.md' };
+// Invariant (T-9, roadmap lock, roadmap-loop.test.mjs): a fixture change opened at the grill stands right before its proposal,
+// so the planner is its next role.
+const LK_PLAN = { requirements: 'requirements.md', decisions: 'decisions.md', proposal: 'proposal.md', specs: 'specs/s/spec.md', design: 'design.md', tasks: 'tasks.md', readiness: 'readiness.md' };
 const UP_TO_TASKS = ['requirements', 'proposal', 'specs', 'design', 'tasks'];
 const UP_TO_READINESS = [...UP_TO_TASKS, 'readiness'];
 // A project whose roadmap holds `lines`, with the open changes of `changes` ({ id: { have, script } }) committed in its main checkout.
@@ -1252,7 +1254,7 @@ function lkProject(lines, changes = {}, { config = 'schema: devkit\n' } = {}) {
   const root = projectWith(lines === null ? null : roadmapText(...lines), { config });
   const c0 = git(root, 'rev-parse', 'HEAD');
   const files = {};
-  for (const [id, { have = ['requirements'], script = 'devkit' } = {}] of Object.entries(changes)) {
+  for (const [id, { have = ['requirements', 'decisions'], script = 'devkit' } = {}] of Object.entries(changes)) {
     files[`openspec/changes/${id}/.openspec.yaml`] = `schema: ${script}\n`;
     for (const stage of have) {
       const body = stage === 'readiness' ? '# Readiness\n\n- Status: APPROVED\n' : stage === 'tasks' ? '# Tasks\n\n- [ ] 1.1 a\n' : `# ${stage}\n`;
@@ -1940,6 +1942,12 @@ test('roadmap-loop run: a word written to the pipe after a delay is still read',
     setTimeout(() => child.stdin.end('many'), 400);
   });
   assert.deepEqual([late.code, late.stdout], [0, `${render('en', 'roadmap-invalid', { word: 'many' })}\n`]);
+});
+
+test('stage-roles loop: gateOf names the mock-up approval as its own gate, said in both languages', () => {
+  const act = endAct('x', 'waiting-for-owner', 'waiting-mockup', {}, { stage: 'mockup', stageTitle: 'Screen mock-up' });
+  assert.equal(gateOf(act), 'mockup');
+  for (const lang of ['en', 'pt-BR']) assert.ok(MESSAGES[lang]['gate.mockup'], `${lang} has gate.mockup`);
 });
 
 // ================================================================ roadmap-coordinator-followups: phase 1 (the run file and its locks)

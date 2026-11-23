@@ -19,6 +19,17 @@ schema: devkit-lite
 #   devkit-project: merge
 # merge_method: squash   # squash | merge | rebase
 
+# The settings of /devkit change; a test stage whose command is absent does not run.
+# devkit:
+#   language: en                       # the language of the project's files
+#   driver: claude                     # who runs the change
+#   tests:
+#     unit: "npm test"                 # the whole unit suite
+#     coverage:
+#       command: "npm run coverage"    # prints the total coverage
+#       target: 80                     # whole number, percent; absent: coverage is recorded, never fails
+#     e2e: "npm run e2e"               # absent: the E2E stage does not run
+
 # Shown to the agent in every artifact and in apply. Fill in for this project.
 context: |
   Stack: <languages, frameworks, database>
