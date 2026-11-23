@@ -1,11 +1,11 @@
-<!-- devkit-stage evidence result=passed attempt=1 commit=1afa58451b719ba32b81abb1e7705e3b12e6968f -->
-Commit: 1afa58451b719ba32b81abb1e7705e3b12e6968f
+<!-- devkit-stage evidence result=passed attempt=2 commit=36ce94cd8a3e41341cee8ca6b60e15d9895f27e0 -->
+Commit: 36ce94cd8a3e41341cee8ca6b60e15d9895f27e0
 
 # Evidence: roadmap-sessions-upfront
 
 ## Verification
 
-Verified at the commit above (`git rev-parse HEAD`), the merge of `origin/main` 78b6cd7 into the branch; `git status --short` was empty before and after, so nothing uncommitted was in the verified code. Every number below was counted by this verifier at this commit, except the whole-suite row, which is a stated fact (see the note under the gates). Scratch work lives outside the tree, in the session scratchpad; nothing was left in the worktree.
+Verified at the commit above (`git rev-parse HEAD`), the merge of `origin/main` 19c0196 (with the archive commit aa7329a) into the branch; `git status --short` was empty before and after, so nothing uncommitted was in the verified code. This is attempt 2: attempt 1 verified 1afa584 (the merge of 78b6cd7), and the evidence commit e225c44 followed it. Since e225c44 the only file changed outside `openspec/` is `docs/openspec-flow.md` (one paragraph of main's roadmap-stage-models docs, counted with `git diff --name-only e225c44 HEAD`); no product `.mjs`, no test file and no plugin file changed. Every number below was counted by this verifier at this commit, except the whole-suite row, which is a stated fact (see the note under the gates). The scratch-project real runs in the AC table were made at 1afa584 and are kept: the scripts they ran are unchanged at this commit. Scratch work lives outside the tree, in the session scratchpad; nothing was left in the worktree.
 
 Two things the human should weigh before the AC table:
 
@@ -14,7 +14,7 @@ Two things the human should weigh before the AC table:
 
 ### Gates
 
-Gates 1.6, 2.6 and 3.7 are the same command in `tasks.md`; it ran once and its result is repeated on each row. The filtered gates ran with `GITHUB_HEAD_REF=probe-branch` and `GITHUB_BASE_REF=main` as written, each as its own command, its exit code read from the command itself (default `TMPDIR`).
+Gates 1.6, 2.6 and 3.7 are the same command in `tasks.md`; it ran once at this commit and its result is repeated on each row. The filtered gates ran with `GITHUB_HEAD_REF=probe-branch` and `GITHUB_BASE_REF=main` as written, each as its own command, its exit code read from the command itself (default `TMPDIR`).
 
 | Gate | Command | Result |
 |---|---|---|
@@ -28,18 +28,20 @@ Gates 1.6, 2.6 and 3.7 are the same command in `tasks.md`; it ran once and its r
 | 4.6 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
 | 5.4 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" --test-name-pattern="^conduct" --test-name-pattern="^flow-check" --test-name-pattern="^change-state" --test-name-pattern="^commit-attribution" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0; 782 tests, 782 pass, 0 fail, 0 cancelled, 0 skipped (103 of them are the `upfront` tests, all pass) |
 | 5.4 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
-| 6.5 | `node --test plugins/openspec/hooks/guard.test.mjs` | pass: stated fact, not re-run by this verifier (about 37 minutes). The implementing session ran `env TMPDIR=/private/tmp/claude-501/devkit-tmp-rsu node --test plugins/openspec/hooks/guard.test.mjs` at HEAD 1afa584 less a plan-text edit (the last product-code state is the merge of 78b6cd7, validated before its commit): 2168 tests, 2168 pass, 0 fail. Under the default macOS `TMPDIR` the one test named above fails; it passes under a real-path `TMPDIR` |
+| 6.5 | `node --test plugins/openspec/hooks/guard.test.mjs` | pass: stated fact, not re-run by this verifier at this commit (about 37 minutes). At 1afa584 `env TMPDIR=/private/tmp/claude-501/devkit-tmp-rsu node --test plugins/openspec/hooks/guard.test.mjs` ran 2168 tests, 2168 pass, 0 fail (the caller's statement, from the implementing session). The merge since then touched no code or test file (`git diff --name-only e225c44 HEAD` outside `openspec/` is `docs/openspec-flow.md` only), and the doc tests that read that file were re-run here (the two rows below). Under the default macOS `TMPDIR` the one test named above fails; it passes under a real-path `TMPDIR` |
 | 6.5 | `python3 scripts/check.py` | pass: exit 0, "all checks passed" |
 | 6.5 | `python3 scripts/gen-catalog.py --check` | pass: exit 0, no output (catalog up to date) |
 | 6.5 | `openspec validate roadmap-sessions-upfront --strict` | pass: exit 0, "Change 'roadmap-sessions-upfront' is valid" |
+| after the merge | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main TMPDIR=/private/tmp/claude-501/devkit-tmp-rsu node --test --test-name-pattern="docs" --test-name-pattern="documents follow" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0; 32 tests, 32 pass, 0 fail, 0 cancelled, 0 skipped (includes `change-loop docs: the design records the answers`, `roadmap-loop docs: the documents follow`, `change-state ADR 0017: the documents follow`, `followups ADR 0014: the documents follow`, `delivery-models docs: the documents follow`, `project-loop docs: the documents follow`, and the review-round text test that reads `docs/openspec-flow.md`) |
+| after the merge | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0; 103 tests, 103 pass, 0 fail, 0 cancelled, 0 skipped (the AC rows' `upfront` tests, once more as one run) |
 
-Also run, not named by a gate task of `tasks.md` as one of its parts (task 6.4's check): `claude plugin validate .` (binary `/Users/kauesantos/.nvm/versions/node/v22.22.0/bin/claude`) exit 0, "Validation passed with warnings": one warning, `plugins[5] plugin.json -> types: Unknown field 'types'`, in a plugin this change does not touch.
+Also run at this commit, not named by a gate task of `tasks.md` as one of its parts (task 6.4's check): `claude plugin validate .` (binary `/Users/kauesantos/.nvm/versions/node/v22.22.0/bin/claude`) exit 0, "Validation passed with warnings": one warning, `plugins[5] plugin.json -> types: Unknown field 'types'`, in a plugin this change does not touch.
 
 Red runs (task test-first records): `proof/red-1.txt` to `proof/red-6.txt` exist; the totals counted from their own summary lines are red-1 14 tests (1 passes on the base, as its top line says; a second run of the changed T-9 test fails), red-2 25 tests, 0 pass, 25 fail; red-3 30 tests, 1 pass (the AC-16 test, as its top line says), 29 fail; red-4 19 tests, 6 pass (named at the top), 13 fail; red-5 12 tests, 4 pass (named at the top), 8 fail; red-6 1 test, 0 pass, 1 fail. Red-5's top line says "8 of the 11 new tests" while its summary counts 12 tests (the twelfth is the phase-2 test it names as not new); the numbers agree once that test is counted.
 
 ### Acceptance criteria
 
-"Proven here" is what the named `upfront ...` tests in `plugins/openspec/hooks/*.test.mjs` (all passed in gate 5.4's run, the per-AC pass counts counted from its output) and the real runs below prove. "Dogfood" is the D-15 column that only the next real `/devkit roadmap` can prove; it is open and not claimed. The real runs used a scratch git project outside the tree (schemas copied from `plugins/openspec/schemas`, a roadmap of `aa`, `bb`, `cc (after: aa)` and a ticked `dd`) and the real scripts `roadmap-loop.mjs`, `change-loop.mjs` and `guard.mjs` as separate processes with `DEVKIT_BYPASS`, `DEVKIT_BRANCH`, `DEVKIT_CHANGE`, `GITHUB_HEAD_REF`, `GITHUB_BASE_REF` and `GITHUB_EVENT_PATH` blank.
+"Proven here" is what the named `upfront ...` tests in `plugins/openspec/hooks/*.test.mjs` (all passed in the `^upfront` run above, the per-AC pass counts counted from its output at this commit, 103 tests, the same counts as attempt 1) and the real runs below prove. "Dogfood" is the D-15 column that only the next real `/devkit roadmap` can prove; it is open and not claimed. The real runs used a scratch git project outside the tree (schemas copied from `plugins/openspec/schemas`, a roadmap of `aa`, `bb`, `cc (after: aa)` and a ticked `dd`) and the real scripts `roadmap-loop.mjs`, `change-loop.mjs` and `guard.mjs` as separate processes with `DEVKIT_BYPASS`, `DEVKIT_BRANCH`, `DEVKIT_CHANGE`, `GITHUB_HEAD_REF`, `GITHUB_BASE_REF` and `GITHUB_EVENT_PATH` blank.
 
 | Id | Criterion | Proof | Result |
 |---|---|---|---|
