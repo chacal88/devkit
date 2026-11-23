@@ -144,6 +144,10 @@ A finding still open keeps its severity tag and has no disposition, and keeps th
 
 When the caller names reviewers (and a round), summon exactly those, in parallel, each with its previous verdict file and the range `<its Commit>..HEAD` so it re-checks only its previous findings and what changed since. Skip the matrix; the caller already chose the bench. The structural check still runs. Write the stated round into `review.md`; without a stated round, the first review of a change is round 1 and a re-review after a round-1 FAIL is round 2.
 
+### Resolution calls
+
+A project that delivers with two pull requests (`devkit.delivery.model: two-prs`) resolves a conflict with the test branch on a support branch, and the resolution is reviewed on its own before that branch is pushed. The caller names the change, the support branch, the newest own commit of that branch and the commands that print each own commit's diff. An own commit is a merge whose result differs from Git's automatic merge (the resolution) or a commit that is not a merge (a fix): what the test branch brought in is never reviewed here. The bench is the two required reviewers, `code-quality-reviewer` and `test-coverage-reviewer`, and the finding verifiers; the structural check and the matrix are skipped. Set `verdictDir: "reviews/resolution"` in `args`, so each reviewer writes `openspec/changes/<id>/reviews/resolution/<reviewer>.md`, its second line `Commit: <the newest own commit>`, and append the round's section to `openspec/changes/<id>/resolution.md` instead of `review.md`, with its own `Consensus: PASS | FAIL (round N/2)` line, so the last line of `review.md` stays the code review's. Rounds and dispositions follow the rules above: no convergence after round 2 goes to the owner.
+
 ## Output
 
 In the conversation:
