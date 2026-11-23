@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.31.1 — retro of change-budget
+
+- **devkit-openspec** 0.27.1: the `ship-change` `review` row commits every modified or untracked
+  file under the change folder before a review round, so the verdicts are not recorded against
+  uncommitted changes.
+- Docs: `CONTRIBUTING.md` says to fetch `main` again right before each push of the delivery and
+  before `enable-auto-merge`, since a sibling that merged in between took the release number.
+
 ## 0.31.0 — gh version check
 
 - **devkit-openspec** 0.27.0: `deliver-check` and the loops name a `gh` older than 2.50.0 (the
