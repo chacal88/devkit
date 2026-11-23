@@ -472,7 +472,7 @@ record's other keys (`type`, `isSidechain`, `promptSource`, `turnOrigin`, `entry
   ADR 0019: the documents follow` passes; `followups ADR 0014: the documents follow`, `change-state
   ADR 0017: the documents follow` and `delivery-models docs: the documents follow` and the `guard.test.mjs` test "ADR 0004 exists with its sections" pass unchanged;
   `python3 scripts/check.py` passes.
-- [ ] 7.10 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers the fixes of D-16 and every criterion as D-15 maps them.
+- [x] 7.10 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers the fixes of D-16 and every criterion as D-15 maps them.
 
 ## Workflow follow-up
 
