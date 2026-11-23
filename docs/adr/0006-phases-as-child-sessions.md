@@ -2,10 +2,15 @@
 
 - Status: accepted
 - Amended by ADR 0007 (0007-one-change-on-request.md) (superseded by ADR 0010)
+- Amended by ADR 0019 (0019-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-10
 - Change: conduct-sessions
 
 ## Context
+
+Note (roadmap-sessions-upfront, 2026-11-22): a roadmap run keeps one session cron while it lasts and
+deletes it at its end ([ADR 0019](0019-a-roadmap-run-opens-every-change-at-its-start.md)); decision 3 still holds for one change. Decisions 1, 2
+and 4 are unchanged.
 
 Note (change-coordinator, 2026-11-20): `/conduct` was retired in round 15; one change now runs with `/devkit change` (ADR 0010); the child-session code stays in `conduct-check.mjs` until round 24.
 

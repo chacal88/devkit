@@ -1,10 +1,13 @@
-<!-- devkit-stage design result=passed attempt=3 commit=b216a4692ea9f1764d1e2e614a2905d646643651 -->
+<!-- devkit-stage design result=passed attempt=4 commit=a9ecdc134bf863f7071711d63c0f9eebee020c05 -->
 # Design
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · PRD / tech spec:
 n/a (sources: `requirements.md`, `proposal.md`, the specs of this change). Base: `c561553`; revised
 on 2026-11-23 after main moved (merge `b216a46`: change-state, ADR 0017, commit-attribution), with the
-held state of D-11 and phase 5 of `tasks.md`.
+held state of D-11 and phase 5 of `tasks.md`; revised again on 2026-11-23 after the merge `a9ecdc1`
+(change-budget, jira-entry, delivery-models with ADR 0018, gh-version-check, review-openspec-fix): the
+token budget in `session-next` (D-6 step 1, task 6.1), this change's ADR number 0019 (D-12) and the
+release versions (D-14).
 
 ## Context
 
@@ -42,6 +45,13 @@ See `proposal.md` (Why). The facts this design builds on, read at the base:
   read the held state a second way: `sessionDecide` titles a held change `sessionTitle(WAIT_ICON, id)`
   itself, and `stateRow` builds the `queue.held-*` rows from the board's `queued` and `waitsFor`
   directly. D-11 moves both readings into `changeState`.
+- Since the merge `a9ecdc1`, change-budget counts a token budget only when `nextAction` is called with
+  `budget: true` (default false), which only `change-loop.mjs next` does (`runNext`); at the cap a
+  hand-off or a session step becomes the end `waiting-for-owner` with the why `waiting-budget`, which
+  `GATE_OF_WHY` maps to the gate `budget`. change-budget's design D-4 keeps the locks, `wait` and the
+  roadmap coordinator's reads budget-free. `sessionNext` calls `nextAction` with no budget, so a roadmap
+  change session would never stop at its cap: D-6 step 1 restores it. ADR 0018 is delivery-models'
+  (`docs/adr/0018-the-delivery-model-is-chosen-per-project.md`); it amends ADR 0010 and ADR 0012.
 
 ## Goals / Non-Goals
 
@@ -251,7 +261,15 @@ then `devkit-end: <id> <state>` when the action is an end of the change loop, th
 as `change-loop.mjs next` does (same `loopOutput` shape), so the change-run locks read it. It calls
 `sessionNext(cwd, id, { write: true, ... })`:
 
-1. `action = nextAction(...)` with `after`.
+1. `action = nextAction(...)` with `after`, and with `budget: true` when the caller is `session-next`:
+   `sessionNext` gains the option `budget` (default false), which `session-next` sets and `session-wait`'s
+   poll and the stop lock's read-only call (`changeSessionStopDecision`) leave off; the coordinating
+   session's reads never count (change-budget D-4). At the cap the action is the end
+   `waiting-for-owner` with the why `waiting-budget`; its gate (`GATE_OF_WHY`) is `budget`, not in
+   `ROADMAP_GATES`, so it stays in the change session: `sessionDecide` passes it through (of the
+   branches below only **release** can match it, and only when its stage is outside the load stages),
+   so a change stopped at its budget in a load stage keeps its place (as D-7 says for an owner gate
+   there), and `session-next` prints it with its `devkit-end:` line, as `next` does.
 2. Not a session-mode change (the run file has `changeSessions` false or no claimed ticket for `id`):
    the action, unchanged.
 3. `sessionDecide(facts)` (pure), first match wins:
@@ -338,7 +356,7 @@ session.
 **The started session's brief.** `sessionBackground` is rewritten: "This session runs the devkit
 change `<id>` for a `/devkit roadmap` run. The owner typed that command in the session `<coordinator>`,
 which started this one: in the desktop app every change of a roadmap run has a session of its own
-(ADR 0014, ADR 0018). Start at once, with no message from the owner: call the Skill tool with
+(ADR 0014, ADR 0019). Start at once, with no message from the owner: call the Skill tool with
 `devkit-openspec:devkit-session`; the devkit skill itself runs only from the owner's typed command.
 Work only in `<root>`, the change's worktree, on branch `<branch>`. The grill, the plan approval and
 the retro answers are asked in the session that started this one. Before your first question to the
@@ -424,7 +442,7 @@ The check writes no `approval.md`, no retro answer, hands no stage and starts no
 kinds are only `triage`, `archive-session`, `push` and `delete-check` (`check: its actions` test).
 
 **Archiving sessions.** The owner agreed on 2026-11-22 (grill question 5) that a roadmap run archives
-the sessions of its archived changes; ADR 0018 records that standing agreement, which is what the
+the sessions of its archived changes; ADR 0019 records that standing agreement, which is what the
 tool's rule (archive only with the owner's explicit agreement) rests on. The app may still ask the
 owner to approve each call, except in auto or bypass permission mode, and it does not archive a
 session that is still working (mid-turn, or with live background work).
@@ -555,14 +573,14 @@ were stopped: their changes no longer need them."), `roadmap-check-session-archi
 {id} was archived."), `roadmap-check-archive-later` (D-9), `queue.held-place`, `queue.held-load`, `queue.held-after`. The existing test
 `change-loop messages` family checks both languages hold the same keys.
 
-## D-12 The ADR (proposed as ADR 0018)
+## D-12 The ADR (proposed as ADR 0019)
 
-The ADR takes the next free number on `origin/main` when the change merges main; 0016 (stage-roles)
-and 0017 (change-state) are taken, and a sibling may take 0018 first (ADR number at merge). Written by
-task 6.1 into `docs/adr/0018-a-roadmap-run-opens-every-change-at-its-start.md` (the path follows the
-number):
+The ADR takes the next free number on `origin/main` when the change merges main; 0016 (stage-roles),
+0017 (change-state) and 0018 (delivery-models) are taken, and a sibling may take 0019 first (ADR number
+at merge). Written by task 6.2 into `docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md`
+(the path follows the number):
 
-> # ADR 0018: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
+> # ADR 0019: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts
 >
 > - Status: proposed
 > - Date: 2026-11-22
@@ -671,32 +689,33 @@ start the app refuses); the check retries no start. ADR 0006 decision 3 and ADR 
 is scheduled") are amended for a roadmap run only; `/devkit change` stays unscheduled. ADR 0014
 rejected "A change session messages the coordinating session"; nothing here sends a message.
 
-**Notes and header lines** (task 6.1; `<file>` is the ADR's file name, and a link quoted in backticks is written in the ADR as a plain Markdown link):
+**Notes and header lines** (task 6.2; `<file>` is the ADR's file name, and a link quoted in backticks is written in the ADR as a plain Markdown link):
 
-- ADR 0006: header `- Amended by ADR 0018 (<file>)`; Note at the top of Context: "Note
+- ADR 0006: header `- Amended by ADR 0019 (<file>)`; Note at the top of Context: "Note
   (roadmap-sessions-upfront, 2026-11-22): a roadmap run keeps one session cron while it lasts and
-  deletes it at its end (`[ADR 0018](<file>)`); decision 3 still holds for one change. Decisions 1, 2
+  deletes it at its end (`[ADR 0019](<file>)`); decision 3 still holds for one change. Decisions 1, 2
   and 4 are unchanged."
-- ADR 0010: header line; Note after the roadmap-coordinator-followups Note: "Note
+- ADR 0010: header line, after the `- Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)`
+  line delivery-models wrote; Note after the roadmap-coordinator-followups Note: "Note
   (roadmap-sessions-upfront, 2026-11-22): where the host can start sessions, a roadmap run opens every
   pending change at its start, and its number counts only the changes in the implementation, its
-  tests, evidence or review; a plan waits for its dependencies (`[ADR 0018](<file>)`). Decision 2
+  tests, evidence or review; a plan waits for its dependencies (`[ADR 0019](<file>)`). Decision 2
   holds unchanged where the host cannot start sessions. This change leaves the other decisions as
   they are."
 - ADR 0011: header line; Note: "Note (roadmap-sessions-upfront, 2026-11-22): a change session a roadmap
   run starts also runs with no typed command, through an entry the guard lets through only with the
-  run's ticket (`[ADR 0018](<file>)`); the run is still detected from its task and the loop's line.
+  run's ticket (`[ADR 0019](<file>)`); the run is still detected from its task and the loop's line.
   The approval of such a change is written by the coordinating session, from the owner's own typed
   message. This change leaves the other decisions as they are."
 - ADR 0013: header line; decision 4's list gains the bullet "the start tickets (`tickets`), the places
   held (`placed`), the changes waiting for one (`queued`), the start-anyway of the moment (`anyway`),
   the wait loops under way (`waits`), whether the host offers a session cron (`cron`) and the periodic
-  check (`check`), as ADR 0018 decides;" before the last bullet (phases 1 to 4 wrote it citing ADR
-  0017, the number change-state took: task 6.1 corrects it); Note: "Note (roadmap-sessions-upfront,
-  2026-11-22): decision 4 names the fields ADR 0018 adds. Decisions 1 to 3 and 5 are otherwise
+  check (`check`), as ADR 0019 decides;" before the last bullet (phases 1 to 4 wrote it citing ADR
+  0017, the number change-state took: task 6.2 corrects it); Note: "Note (roadmap-sessions-upfront,
+  2026-11-22): decision 4 names the fields ADR 0019 adds. Decisions 1 to 3 and 5 are otherwise
   unchanged."
 - ADR 0014: header line, after the `- Amended by ADR 0017 (...)` line; Note: "Note
-  (roadmap-sessions-upfront, 2026-11-22): `[ADR 0018](<file>)` amends decisions 1 to 4. Every pending
+  (roadmap-sessions-upfront, 2026-11-22): `[ADR 0019](<file>)` amends decisions 1 to 4. Every pending
   change opens at the run's start and its session runs with no typed command, on the run's ticket; the
   grill, the plan approval and the retro answers are asked in the coordinating session; a change
   session waits for a place in itself, so a freed place needs no start; a roadmap run keeps one periodic
@@ -704,23 +723,26 @@ rejected "A change session messages the coordinating session"; nothing here send
   amended again: while a change session waits for a place, the load or its dependencies, its title is
   ⏳ and the id. A start still happens only on a turn the owner typed. Decisions 5 and 6 are otherwise
   unchanged."
-- ADR 0017: header `- Amended by ADR 0018 (<file>)`; Note at the top of Context: "Note
-  (roadmap-sessions-upfront, 2026-11-23): `[ADR 0018](<file>)` amends decision 4 for a change session
+- ADR 0017: header `- Amended by ADR 0019 (<file>)`; Note at the top of Context: "Note
+  (roadmap-sessions-upfront, 2026-11-23): `[ADR 0019](<file>)` amends decision 4 for a change session
   of a roadmap run: while it waits for a place, the load or its dependencies, its title is ⏳ and the
   id, the stage icon replaced, and its state is `running` with the reason of that wait, derived as
   decision 1 says. A wait on GitHub keeps ⏳ beside the stage icon. Decisions 1 to 3 are unchanged."
-- `openspec/config.yaml` context, the ADRs list: its entries for 0016 and 0017 stay as they are, and
-  after 0017 it gains "0018 a roadmap run opens every change at its start, runs change sessions on the
+- ADR 0012: nothing. delivery-models' ADR 0018 amends it; this change does not.
+- `openspec/config.yaml` context, the ADRs list: its entries for 0016, 0017 and 0018 stay as they are,
+  and after 0018 it gains "0019 a roadmap run opens every change at its start, runs change sessions on the
   run's ticket and keeps one periodic check, amends 0006, 0010, 0011, 0013, 0014 and 0017".
-- References to this ADR that phases 1 to 4 wrote as "ADR 0017" (the number change-state took), each
-  renamed to "ADR 0018" by task 6.1, with no behaviour change: `docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md`
-  (decision 4's bullet), `plugins/openspec/hooks/roadmap-loop.mjs` (the header comment on `tickets`
-  to `unpushed`, the `sessionBackground` text "(ADR 0014, ADR 0017)", the comment above the archive of
-  a change's session), `plugins/openspec/hooks/change-loop.mjs` (the comment above the run file's new
-  fields), `plugins/openspec/hooks/change-loop.test.mjs` (the comment on the periodic check in the
-  skill test) and `plugins/openspec/hooks/roadmap-loop.test.mjs` (the assertion message "the empty
-  fields of ADR 0017"). Found with `grep -rn "ADR 0017"` over the files this branch changed; the
-  references of change-state's own tests and documents stay.
+- References to this ADR that phases 1 to 5 wrote as "ADR 0017" (the number change-state took), each
+  renamed to "ADR 0019" by task 6.2, with no behaviour change: `docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md`
+  (decision 4's bullet, line 74), `plugins/openspec/hooks/roadmap-loop.mjs` (the header comment on
+  `tickets` to `unpushed`, line 25; the `sessionBackground` text "(ADR 0014, ADR 0017)", line 183; the
+  comment above the archive of a change's session, line 487), `plugins/openspec/hooks/change-loop.mjs`
+  (the comment above the run file's new fields, line 688), `plugins/openspec/hooks/change-loop.test.mjs`
+  (the comment on the periodic check in the skill test, line 2446) and
+  `plugins/openspec/hooks/roadmap-loop.test.mjs` (the assertion message "the empty fields of ADR 0017",
+  line 2213, which names this change's run-file fields beside the `UPFRONT` list). Lines as of
+  `a9ecdc1`; found with `grep -rn "ADR 0017"` over the files this branch changed. The references of
+  change-state's own tests and documents stay, and no reference to ADR 0018 (delivery-models) changes.
 
 ## D-13 Existing tests this change touches
 
@@ -747,7 +769,7 @@ layer and the suite.
 | T-8 | `change-loop skill: the sections of D-3 to D-9 and the modes of start` (`change-loop.test.mjs`) | `doesNotMatch(md, /conduct-check\|CronCreate\|wake_when_done/)` applies to the text before `## Roadmap`; `## Roadmap` must name `CronCreate` and `wake_when_done` nowhere | the change part names no retired machinery and no schedule · skill text · change-loop |
 | T-9 | `roadmap-loop run: U4 the same session keeps what is under way and changes the number; another session or --fresh starts from empty` (`roadmap-loop.test.mjs`) | another session keeps `tickets`, `placed`, `queued` and `waits` beside `startedSessions` and resets `check`; `--fresh` empties them | a new coordinating session keeps only what outlives the session that started it · run command · roadmap-loop |
 | T-10 | `followups AC-8 next: start anyway starts what is held now ...` (`roadmap-loop.test.mjs`) | asserts that `anyway` stays `[]` on a run without a session per change, instead of banning the field and the word from the run file (D-6 keeps a start-anyway of the moment in `anyway`) | a `--start-anyway` on a run without a session per change keeps no permission in the run file · start anyway · roadmap-loop |
-| T-11 | `followups AC-3 run file: every field the run file holds is named in ADR 0013 decision 4 ...` (`roadmap-loop.test.mjs`) | unchanged; ADR 0013 decision 4's new bullet (D-12) is written in phase 1 instead of task 6.1, so the test stays green from phase 1 on | every field of the run file is named in ADR 0013 decision 4 · run file · roadmap-loop |
+| T-11 | `followups AC-3 run file: every field the run file holds is named in ADR 0013 decision 4 ...` (`roadmap-loop.test.mjs`) | unchanged; ADR 0013 decision 4's new bullet (D-12) is written in phase 1 instead of task 6.2, so the test stays green from phase 1 on | every field of the run file is named in ADR 0013 decision 4 · run file · roadmap-loop |
 | T-12 | `followups AC-13 next: a reported session start is recorded once, said once and never started again, and a change no longer open leaves the record` (`roadmap-loop.test.mjs`) | expects the line `roadmap-session-opened` (D-2) and the `roadmap-gate` line of `a`'s grill (D-3) instead of `roadmap-session-started` with its count | a reported session start is recorded once, said once and never started again · next command · roadmap-loop |
 | T-13 | `followups AC-13 run: a run from another session keeps the started change sessions and gives them no second session, and --fresh forgets them` (`roadmap-loop.test.mjs`) | expects `announced` to be `{ a: 'gate:grill' }`, the run's own announcement of `a`'s grill gate (D-3), instead of `{}` | a new coordinating session keeps only what outlives it and starts the rest empty · run command · roadmap-loop |
 | T-14 | `upfront AC-1 ticket: decide gives each session start a fresh ticket ...` (`roadmap-loop.test.mjs`, written in phase 1) | its third step expects no `session-start` for a claimed ticket and the stored ticket unchanged, since a claimed ticket counts as `own` (D-2) | a claimed ticket is never replaced · next command · roadmap-loop |
@@ -776,19 +798,24 @@ AC-4 facts: runFactsOf reads each field of the run file`, `change-state AC-6 boa
 sits in its block`, `change-state AC-6 board parity: every entry kind of entriesOf keeps its block and
 its words`, `change-state AC-6 status and state agree: ...`, `change-state AC-7 start: ...` and
 `change-state ADR 0017: the documents follow` (it still finds the `- Amended by ADR 0017` line within
-ADR 0014's first eight lines, the ADR 0018 line going after it); every `commit-attribution` test;
+ADR 0014's first eight lines, the ADR 0019 line going after it); every `commit-attribution` test;
 `upfront AC-3 status: the board lists every opened change, with held-place, held-load and held-after
 rows`; the `upfront AC-8 session-next`, `upfront AC-9 place` and `upfront AC-9 session-next` tests;
 `upfront AC-7 session-next: the held approval goes on once approval.md is written`; `upfront AC-9
-waitLoop: ...`; `followups ADR 0014: the documents follow`. Any other test found failing is a defect
-of this change, not a test to edit.
+waitLoop: ...`; `followups ADR 0014: the documents follow`. For phase 6 (`a9ecdc1` on): every
+`change-budget` test, among them `change-budget AC-1 nextAction without the option applies no cap
+(kept)` (`sessionNext`'s `budget` stays off by default); `delivery-models docs: the documents follow`
+(the ADR 0018 header lines and Notes of ADR 0010 and ADR 0012, and the config line's 0018 entry, stay
+as they are). Any other test found failing is a defect of this change, not a test to edit.
 
 ## D-14 Documents and release
 
 - `docs/openspec-flow.md`: the roadmap part (opening at the start, the entry, the gates in the
   coordinating session, places, ⏳ and the held state's reasons beside the paragraph "A change's
   state.", the plan after dependencies, the push, the periodic check and the cleanup), the locks paragraph (the entry, the change session's stop), the grill (triage), the
-  delivery rows (`renumber-adr`); the CI pin to the new devkit-openspec tag.
+  delivery rows (`renumber-adr`); in the paragraph "The token budget.", the cap is checked in `next`
+  and in a roadmap change session's `session-next` (D-6 step 1); the CI pin to the new
+  devkit-openspec tag.
 - `docs/coordination-design.md`: the roadmap coordinator's section and the locks table.
 - `docs/roles.md`: a `requirements-triage` helper section (Does, Delivers, Never, Stages:
   `requirements` as helper, Played today by: the devkit-core agent `requirements-triage`); the
@@ -796,13 +823,16 @@ of this change, not a test to edit.
 - `README.md`, `plugins/core/README.md` (the new agent), `plugins/openspec/README.md` (the new skill,
   the `skill` hook mode, the new subcommands), `docs/getting-started.md` where it lists agents.
 - `docs/catalog.md` regenerated (`python3 scripts/gen-catalog.py`).
-- Release (the next free minors over main at `b216a46`): devkit-openspec 0.24.0 → 0.25.0 and
-  devkit-core 0.11.0 → 0.12.0 in each `plugin.json` and in `.claude-plugin/marketplace.json`,
-  marketplace 0.28.0 → 0.29.0, a `CHANGELOG.md` entry `## 0.29.0`, the CI pin `v0.25.0` in
-  `docs/openspec-flow.md` (the snippet's comment, its sha placeholder and the "Pin the commit sha"
-  paragraph) and its assertion in `plugins/openspec/hooks/change-loop.test.mjs` (`v0.25.0` matched,
-  `v0.24.0` added to the pins that must be gone). A sibling merged first moves these numbers; the
-  release step renumbers.
+- Release (the next free minors over main at `a9ecdc1`): devkit-openspec 0.28.0 → 0.29.0 and
+  devkit-core 0.13.0 → 0.14.0 in each `plugin.json` and in `.claude-plugin/marketplace.json`,
+  marketplace 0.32.0 → 0.33.0, a `CHANGELOG.md` entry `## 0.33.0`, the CI pin `v0.29.0` in
+  `docs/openspec-flow.md` (lines 638 and 639, the snippet's comment and its sha placeholder, and line
+  650, the "Pin the commit sha" paragraph) and its assertion in
+  `plugins/openspec/hooks/change-loop.test.mjs` (the test `change-loop docs: the design records the
+  answers`, near line 2543: `v0.29.0` matched, `v0.28.0` joining the pins that must be gone, its
+  Invariant comment naming this change's move; invariant: the CI snippet pins the current release;
+  layer: docs; suite: change-loop). A sibling merged first moves these numbers; the release step
+  renumbers.
 
 ## D-15 Proof: what this change proves and what the next real run proves
 
@@ -824,13 +854,14 @@ of this change, not a test to edit.
 | AC-14 | `check`: stale waits killed (real child processes), a place claimed, only `triage`, `archive-session`, `push`, `delete-check` kinds, no line when nothing changed | a firing speaks only when something changed |
 | AC-15 | end `done`: `delete-check`, `archive-session` per kept session (with its `reason`), `stop-own-tasks`, every recorded wait killed (real children) before the archives; `session-archive-later` keeps the entry and asks no second archive in the same decision | nothing of the run is left |
 | AC-16 | no change-loop action kind schedules; the devkit skill's change part names no `CronCreate` (T-8) | a lone change creates no cron |
+| change-budget (no AC of this change) | `upfront budget session-next: at the cap a change session's session-next prints the budget end and keeps its place` (task 6.1): the end and its `devkit-end:` line, the place kept, and no budget on `session-wait`'s poll or the stop lock's read | a change session with a `budget:` cap stops at it in its own session |
 
 ## Risks / Trade-offs
 
 | Id | Risk | P × I | Mitigation |
 |---|---|---|---|
 | R-1 | The host's Skill tool does not reach a PreToolUse hook, or names the skill in another field | MEDIUM × HIGH | The entry fails closed and the owner types `/devkit change <id>` (today's behaviour); the skill is found in any string field; the first dogfood records the hook log (`DEVKIT_HOOK_LOG`) |
-| R-2 | The host changes the started form, or drops lines below the task | LOW × HIGH | `startedTaskOf` is the one reader; the entry refuses (fallback typed command); review trigger in ADR 0018 |
+| R-2 | The host changes the started form, or drops lines below the task | LOW × HIGH | `startedTaskOf` is the one reader; the entry refuses (fallback typed command); review trigger in ADR 0019 |
 | R-3 | A coordinating `next` reading 20 actions is slow | MEDIUM × MEDIUM | the Stop hook passes `readOwn: false`; measured in the dogfood; the cost is per decision, not per poll |
 | R-4 | A change session hands a load stage while held | LOW × MEDIUM | the skill follows `session-next`; the stop is allowed only while held, so the session ends its turn; no lock (Non-Goals) |
 | R-5 | Two sessions write the same worktree's index (push while the change session hands the implementer) | LOW × LOW | the push commits by path and fails with exit 3 on an index lock; the next decision retries |
@@ -839,17 +870,18 @@ of this change, not a test to edit.
 | R-11 | An archive is refused, waits for the owner's approval, or meets a session still working | MEDIUM × LOW | the change's waits are killed first; `session-archive-later` keeps the entry and says so once; the next firing or the run's end tries again; one left at the end is said and left to the owner |
 | R-8 | A killed wait was not stale | LOW × MEDIUM | only waits of changes no longer open or archived, and older duplicates of the same kind, are stale; the newest wait of an open change is never killed before the end |
 | R-9 | Siblings in flight edit `roadmap-loop.mjs` and `change-loop.mjs` | MEDIUM × MEDIUM | merge main before the last verification and review; conflicts resolved by the implementer |
-| R-10 | Size: about 54 hours across two packs | MEDIUM × MEDIUM | six phases with filtered gates; the full suite once, in phase 6 |
+| R-10 | Size: about 55 hours across two packs | MEDIUM × MEDIUM | six phases with filtered gates; the full suite once, in phase 6 |
 | R-12 | change-state and this change both modify the requirement "A change session shows the stage its change is in" of `roadmap-coordination`; the one archived later overwrites the other's text | MEDIUM × MEDIUM | this change's delta holds change-state's whole text and scenarios plus the held clause, so either order of archive leaves both rules; the archive's `openspec validate --strict` reads the result |
 | R-13 | The held ⏳ and the GitHub ⏳ read alike in the sidebar | LOW × LOW | a held title has no stage icon (`⏳ <id>`), a GitHub wait keeps it (`⏳ 🚀 <id>`); the state command and the board name the reason |
+| R-14 | The board and the periodic check read with the budget off (change-budget D-4), so a change session stopped at its budget looks running there | MEDIUM × LOW | the change session itself prints the budget end, its title shows the owner's wait (🙋) and its reply names the file and the key to raise; no AC claims the board shows it; the owner goes on by raising the cap and typing in that session |
 
 ## Migration Plan
 
 No data migration. `readRun` drops unknown types and fills the new fields empty, so a run file of
-0.24 reads as a run with no tickets, places or check. A run in progress across the update: its
+0.28 reads as a run with no tickets, places or check. A run in progress across the update: its
 change sessions started with the old prompt have no ticket and run as today (typed command); the next
 `/devkit roadmap` in that session gives new sessions tickets. Rollback: revert the release; the new run
-file fields are ignored by 0.24's `readRun`; a leftover session cron dies with its session; delete it
+file fields are ignored by 0.28's `readRun`; a leftover session cron dies with its session; delete it
 with `CronDelete` if the session lives on.
 
 ## Implementation plan
@@ -860,15 +892,16 @@ grill skill, the planner agent. No worker or frontend.
 
 **Order.** Run file fields and the shared readers → the entry → the change session's loop and places
 → the coordinating session (opening, gates, push, board) → triage and drift → the check and cleanup →
-the held state through `changeState` → documents and release. Phases in `tasks.md`: 1 entry, 2 change
-session, 3 coordinating session and check, 4 triage and drift, 5 the held state through
-`changeState` (after the merge `b216a46`), 6 ADRs, documents, release, full suite.
+the held state through `changeState` → the token budget in `session-next` → documents and release.
+Phases in `tasks.md`: 1 entry, 2 change session, 3 coordinating session and check, 4 triage and drift,
+5 the held state through `changeState` (after the merge `b216a46`), 6 the token budget in
+`session-next` (after the merge `a9ecdc1`), ADRs, documents, release, full suite.
 
 **Files.**
 
 - Create: `plugins/openspec/skills/devkit-session/SKILL.md`, `plugins/core/agents/requirements-triage.md`,
-  `docs/adr/0018-a-roadmap-run-opens-every-change-at-its-start.md`,
-  `openspec/changes/roadmap-sessions-upfront/proof/red-1.txt` to `red-5.txt`.
+  `docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md`,
+  `openspec/changes/roadmap-sessions-upfront/proof/red-1.txt` to `red-6.txt`.
 - Modify: `plugins/openspec/hooks/guard.mjs`, `roadmap-loop.mjs`, `change-loop.mjs`,
   `conduct-check.mjs`, `hooks.json`, `roadmap-loop.test.mjs`, `change-loop.test.mjs`,
   `conduct-check.test.mjs`, `guard.test.mjs`; `plugins/openspec/skills/devkit/SKILL.md`;
@@ -880,7 +913,7 @@ session, 3 coordinating session and check, 4 triage and drift, 5 the held state 
   `CHANGELOG.md`, both `plugin.json`, `.claude-plugin/marketplace.json`.
 - Delete: none.
 
-**Estimate.** Optimistic 39 h · likely 54 h · pessimistic 78 h.
+**Estimate.** Optimistic 40 h · likely 55 h · pessimistic 79 h.
 
 | Deliverable | Hours | Type | Risk |
 |---|---|---|---|
@@ -898,7 +931,8 @@ session, 3 coordinating session and check, 4 triage and drift, 5 the held state 
 | `adrClash` and `renumber-adr`, planner reopen rule | 3 | Core | LOW |
 | Tests T-1 to T-14 and the red records | 3 | Testing | LOW |
 | The held state through `changeState` (`runFactsOf`, `HELD_TEXT`, S9, the held title, `stateRow`, `stateEntries`, the moved plan-stage reader), its tests and T-15, T-16 | 4 | Core | MEDIUM |
-| ADR 0018, Notes, documents | 4 | Documentation | LOW |
+| The token budget in `session-next` (test first, red record) | 1 | Core | LOW |
+| ADR 0019, Notes, documents | 4 | Documentation | LOW |
 | Release files, catalog, full suite | 2 | Documentation | LOW |
 
 ## Assumptions
@@ -928,6 +962,10 @@ session, 3 coordinating session and check, 4 triage and drift, 5 the held state 
   the stage icons, the run file's locked writes.
 - `merge-staleness-first-parent` (archived): a merge of main that brings only `openspec/` files keeps
   evidence and reviews current, so the `merge-base` step before the plan stales nothing.
+- `change-budget` (merged into this branch at `a9ecdc1`): `nextAction`'s `budget` option, the end
+  `waiting-budget` and its gate `budget` in `GATE_OF_WHY` (D-6 step 1).
+- `delivery-models` (merged at `a9ecdc1`): ADR 0018 and its header lines in ADR 0010 and ADR 0012,
+  beside which D-12 writes this change's (ADR 0010 only).
 - Relies on, not delivered here: `release-merge-conflict` (round 17e) for release files in conflict;
   `fresh-base-check` (round 17h) for an up-to-date `origin/<base>` in `adrClash`.
 
@@ -936,8 +974,11 @@ session, 3 coordinating session and check, 4 triage and drift, 5 the held state 
 ADR 0006 (decisions 2 and 3), ADR 0010 (decisions 2, 3, 5 and 8), ADR 0011 (decisions 1 and 2, its
 Negative consequences and its rejected fail-closed lock), ADR 0013 (decisions 3 and 4), ADR 0014
 (decisions 1 to 6, its rejected timer retry and message), ADR 0017 (decisions 1, 2 and 4; decision 4
-amended here for a held change session), ADR 0018 (proposed here). ADR 0016 (stage-roles) amended
-decisions of ADR 0010 and ADR 0011 that this change does not touch.
+amended here for a held change session), ADR 0019 (proposed here). ADR 0016 (stage-roles) amended
+decisions of ADR 0010 and ADR 0011, and ADR 0018 (delivery-models) decisions of ADR 0010 and ADR 0012,
+that this change does not touch. Not an ADR: change-budget's design D-4 (only `next` counts the
+budget; the roadmap coordinator's reads do not), which D-6 step 1 extends to `session-next`, a change
+run's own loop, leaving the coordinator's reads as they are.
 
 ## Open Questions
 

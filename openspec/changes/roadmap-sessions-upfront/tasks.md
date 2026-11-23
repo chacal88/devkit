@@ -1,8 +1,9 @@
-<!-- devkit-stage tasks result=passed attempt=3 commit=b216a4692ea9f1764d1e2e614a2905d646643651 -->
+<!-- devkit-stage tasks result=passed attempt=4 commit=a9ecdc134bf863f7071711d63c0f9eebee020c05 -->
 # Tasks
 
 Change: `roadmap-sessions-upfront` · Date: 2026-11-22 · Owner: Kaue (chacal88) · Base: `c561553`;
-phase 5 added on 2026-11-23 over the merge `b216a46` (change-state, ADR 0017, commit-attribution)
+phase 5 added on 2026-11-23 over the merge `b216a46` (change-state, ADR 0017, commit-attribution);
+phase 6 revised on 2026-11-23 over the merge `a9ecdc1` (change-budget, delivery-models with ADR 0018)
 
 Work only in this change's worktree, on its branch. Every rule, name, text and label is in
 `design.md`: D-1 the entry, D-2 the opening, D-3 the gates, D-4 the triage, D-5 the push, D-6 the
@@ -12,7 +13,8 @@ plan changes, D-14 documents and release, D-15 proof. The implementer copies the
 
 Every gate is one backticked command, run as written; each `&&` part runs on its own, no part holds a
 `|`, and every gate exits 0 when its phase is done. Every new test is named `upfront <AC-n> <area>:
-...` and lives in `plugins/openspec/hooks/roadmap-loop.test.mjs`, except where a task names
+...` (the one test of task 6.1, which no criterion of this change names, `upfront budget <area>: ...`)
+and lives in `plugins/openspec/hooks/roadmap-loop.test.mjs`, except where a task names
 `change-loop.test.mjs`, `conduct-check.test.mjs` or `guard.test.mjs`; all run through
 `plugins/openspec/hooks/guard.test.mjs`, which imports them. Every env a new test builds blanks
 `DEVKIT_BYPASS`, `DEVKIT_BRANCH`, `DEVKIT_CHANGE`, `GITHUB_HEAD_REF`, `GITHUB_BASE_REF` and
@@ -23,8 +25,9 @@ creates a cron: the host calls are proved by the exact `input` the decisions giv
 text, and live in the next real run (D-15). One test per condition and per label of every new guard
 and decision, negatives included.
 
-Test first in phases 1 to 5: the phase's test task comes before its code tasks, its new tests fail on
-the base (`c561553` for phases 1 to 4, `b216a46` for phase 5; each red run saved under
+Test first in phases 1 to 5 and in task 6.1: the phase's test task comes before its code tasks (task
+6.1 writes its test before its code), its new tests fail on the base (`c561553` for phases 1 to 4,
+`b216a46` for phase 5, `a9ecdc1` for task 6.1; each red run saved under
 `openspec/changes/roadmap-sessions-upfront/proof/`), and an existing test is changed only where D-13
 names it (T-1 to T-16), the task saying its invariant, layer and suite. Leave no backup or scratch file in the tree; end every task with `git status --short`.
 
@@ -300,33 +303,75 @@ names it (T-1 to T-16), the task saying its invariant, layer and suite. Leave no
   session-next` and `upfront AC-9` tests pass unchanged.
 - [x] 5.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" --test-name-pattern="^followups" --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" --test-name-pattern="^conduct" --test-name-pattern="^flow-check" --test-name-pattern="^change-state" --test-name-pattern="^commit-attribution" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-3 (the board's held rows), AC-9 (the queue's reasons) and AC-10.
 
-## 6. The ADRs, the documents, the release and the whole suite (every AC)
+## 6. The token budget in a change session, the ADR, the documents, the release and the whole suite (every AC)
 
-- [ ] 6.1 Write the ADR of D-12 at `docs/adr/0018-a-roadmap-run-opens-every-change-at-its-start.md`
-  (take the next free number on `origin/main` if a sibling took 0018, and rename the file and every
-  reference), the header lines and Notes of D-12 in ADRs 0006, 0010, 0011, 0013, 0014 and 0017, the
-  ADRs line of `openspec/config.yaml`, and the renaming to "ADR 0018" of the references D-12 lists
-  that phases 1 to 4 wrote as "ADR 0017" (no behaviour changes). Check: `python3 scripts/check.py`
-  passes (links and language), `grep -n "ADR 0017" plugins/openspec/hooks/roadmap-loop.mjs
-  plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs
-  docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md` prints nothing (the comment in
-  `change-loop.test.mjs` renamed too; that file's change-state test keeps its own ADR 0017), and `change-state ADR 0017: the documents follow` and `followups ADR 0014:
-  the documents follow` pass unchanged.
-- [ ] 6.2 Update the documents of D-14: `docs/openspec-flow.md`, `docs/coordination-design.md`,
-  `docs/roles.md` (the "Played today by" lines), `docs/getting-started.md`, `README.md`,
-  `plugins/core/README.md`, `plugins/openspec/README.md`. Check: `README and the pack README describe
-  how one change runs, with no cron` passes unchanged and `python3 scripts/check.py` passes.
-- [ ] 6.3 Release (D-14): devkit-openspec 0.25.0 and devkit-core 0.12.0 in both `plugin.json` and
-  `.claude-plugin/marketplace.json`, marketplace 0.29.0, the `CHANGELOG.md` entry `## 0.29.0`, the CI
-  pin `v0.25.0` in `docs/openspec-flow.md` and its assertion in
-  `plugins/openspec/hooks/change-loop.test.mjs`; regenerate `docs/catalog.md` with
-  `python3 scripts/gen-catalog.py`. Check: `python3 scripts/gen-catalog.py --check` passes and
-  `claude plugin validate .` reports no error.
-- [ ] 6.4 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers AC-1 to AC-16 as D-15 maps them.
+- [x] 6.1 The token budget in a change session, test first (design D-6 step 1; change-budget's
+  scenario "The roadmap coordinator's own reading" kept: the coordinating session's reads count no
+  budget). In `plugins/openspec/hooks/roadmap-loop.test.mjs` write
+  `upfront budget session-next: at the cap a change session's session-next prints the budget end and keeps its place`
+  (scratch repository; a run with a session per change, `a`'s ticket claimed, `placed.a` recorded, `a`
+  at an implementation hand-off; `budget: 1000` in the `devkit:` block of `a`'s `.openspec.yaml`; a
+  session transcript under `CLAUDE_CONFIG_DIR` for `CLAUDE_CODE_SESSION_ID` whose spend after `a`'s run
+  line is above the cap, built as `budgetEnv` of `change-loop.test.mjs` builds it). It asserts:
+  `roadmap-loop.mjs session-next --change a` prints `devkit-run: a`, then `devkit-end: a
+  waiting-for-owner`, then the end with the why `waiting-budget`, and exits 1 as `next` does at the cap;
+  the run file still records `placed.a` and no `queued.a`; negatives: the same facts through
+  `sessionNext` without `budget` (the poll of `session-wait` and the stop lock's read) give the
+  implementer hand-off, and `session-next` with the spend below the cap gives the hand-off. Run it on
+  the unchanged code with
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront budget" plugins/openspec/hooks/guard.test.mjs`
+  and save the output to `openspec/changes/roadmap-sessions-upfront/proof/red-6.txt`. Check: the test
+  fails there. Then in `plugins/openspec/hooks/roadmap-loop.mjs`: `sessionNext` gains the option
+  `budget` (default false), passed to `nextAction`; `sessionNextCmd` passes `budget: true`;
+  `session-wait`'s poll and `changeSessionStopDecision` pass none; in
+  `plugins/openspec/hooks/change-loop.mjs` the comment above `nextAction`'s budget read names
+  `session-next` beside `next` (no behaviour changes). Check: the same command passes, and every
+  `change-budget` test and the `upfront AC-9 session-next` and `upfront AC-9 session-wait` tests pass
+  unchanged.
+- [x] 6.2 Write the ADR of D-12 at `docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md`
+  (0018 is delivery-models'; take the next free number on `origin/main` if a sibling took 0019, and
+  rename the file and every reference), the header lines and Notes of D-12 in ADRs 0006, 0010 (its
+  header line after the `- Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)`
+  line, its Note beside the delivery-models one), 0011, 0013, 0014 and 0017 (ADR 0012 gets nothing:
+  this change does not amend it), the ADRs line of `openspec/config.yaml` (the 0019 entry after the
+  0018 one, its amends list `0006, 0010, 0011, 0013, 0014 and 0017`), and the renaming to "ADR 0019"
+  of the references D-12 lists that phases 1 to 5 wrote as "ADR 0017" meaning this change (no
+  behaviour changes): `plugins/openspec/hooks/change-loop.mjs:688`,
+  `plugins/openspec/hooks/roadmap-loop.mjs:25`, `:183` ("(ADR 0014, ADR 0017)"), `:487`,
+  `plugins/openspec/hooks/change-loop.test.mjs:2446` (the comment),
+  `plugins/openspec/hooks/roadmap-loop.test.mjs:2213` (the assertion message "the empty fields of ADR
+  0017", which names this change's run-file fields) and
+  `docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md:74` (lines as of `a9ecdc1`; read each
+  line before renaming it, and leave every reference meaning change-state's ADR 0017 or
+  delivery-models' ADR 0018). Check: `python3 scripts/check.py` passes (links and language);
+  `grep -n "ADR 0017" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md`
+  prints nothing (the comment in `change-loop.test.mjs` renamed too; that file's change-state test
+  keeps its own ADR 0017); `grep -n "ADR 0019" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/change-loop.test.mjs`
+  prints the six renamed lines (three in `roadmap-loop.mjs`, one in each other file);
+  `grep -n "ADR 0018" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs docs/adr/0013-the-roadmap-coordinator-is-the-owners-session.md`
+  prints nothing; and `change-state ADR 0017: the documents follow`, `followups ADR 0014: the
+  documents follow` and `delivery-models docs: the documents follow` pass unchanged.
+- [x] 6.3 Update the documents of D-14: `docs/openspec-flow.md` (with the budget paragraph's
+  `session-next`), `docs/coordination-design.md`, `docs/roles.md` (the "Played today by" lines),
+  `docs/getting-started.md`, `README.md`, `plugins/core/README.md`, `plugins/openspec/README.md`.
+  Check: `README and the pack README describe how one change runs, with no cron` and `change-budget
+  AC-10 docs/openspec-flow.md describes the budget` pass unchanged and `python3 scripts/check.py`
+  passes.
+- [x] 6.4 Release (D-14): devkit-openspec 0.28.0 → 0.29.0 and devkit-core 0.13.0 → 0.14.0 in both
+  `plugin.json` and `.claude-plugin/marketplace.json`, marketplace 0.32.0 → 0.33.0, the `CHANGELOG.md`
+  entry `## 0.33.0`, the CI pin `v0.29.0` in `docs/openspec-flow.md` (lines 638, 639 and 650) and its
+  assertion in `plugins/openspec/hooks/change-loop.test.mjs` (`change-loop docs: the design records the
+  answers`, near line 2543: `v0.29.0` matched, `v0.28.0` joining the pins that must be gone; invariant:
+  the CI snippet pins the current release; layer: docs; suite: change-loop); regenerate
+  `docs/catalog.md` with `python3 scripts/gen-catalog.py`. Check: `python3 scripts/gen-catalog.py
+  --check` passes, `change-loop docs: the design records the answers` passes, and `claude plugin
+  validate .` reports no error.
+- [x] 6.5 Gate: `node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 21 minutes); covers AC-1 to AC-16 as D-15 maps them, and the budget row of D-15.
 
 ## Workflow follow-up
 
 - On the next real `/devkit roadmap` with the release installed: record the dogfood column of D-15
   (the entry on a started session's first turn with `DEVKIT_HOOK_LOG` set, the cron's life, the
-  archive of an archived change's session, ⏳ in the sidebar), as evidence of `roadmap-live-checks`.
+  archive of an archived change's session, ⏳ in the sidebar, a change session stopping at a
+  `budget:` cap when one is set), as evidence of `roadmap-live-checks`.
 - Archive the change after its review and merge.

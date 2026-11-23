@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.33.0 — every change of a roadmap run opens at its start
+
+- **devkit-openspec** 0.29.0: a `/devkit roadmap` run on the desktop app opens every pending change
+  at its start and starts each change's session with a one-use ticket, so the session runs its loop
+  from its first turn with no typed command: the new `devkit-session` skill is the entry, and a hook
+  on the Skill tool (`guard.mjs skill`) lets it run only on the run's unclaimed ticket
+  ([ADR 0019](docs/adr/0019-a-roadmap-run-opens-every-change-at-its-start.md)). The grills, plan
+  approvals and retro answers of every change are asked in the coordinating session; places count
+  only the implementation, test, evidence and review stages; a change waits for a place, the load or
+  its dependencies in its own session (title `⏳ <id>`) and merges the default branch before it plans;
+  the run holds one periodic check while it lasts and cleans up its waits, cron and finished sessions
+  at its end. New subcommands: `session-next`, `session-wait`, `merge-base`, `push`, `schedule-check`
+  and `delete-check`. A change session's `session-next` now honours the token budget as `next` does.
+  The CI snippet now pins `v0.29.0`, the release's tag.
+- **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
+  files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
+- Docs: ADR 0019, with Notes in ADRs 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
+  coordination design, the roles and the READMEs describe the new run.
+
 ## 0.32.0 — delivery models per project
 
 - **devkit-openspec** 0.28.0: a project chooses its delivery model in `devkit.delivery.model` of

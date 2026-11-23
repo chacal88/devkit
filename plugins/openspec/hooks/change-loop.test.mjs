@@ -2443,7 +2443,7 @@ test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () 
   }
   assert.match(md, /AskUserQuestion/);
   // Invariant: the change part of the skill names no retired machinery and no schedule. Layer: skill text. Suite: change-loop.
-  // The session-start tool is named by the Roadmap section now (ADR 0014), and so is the roadmap run's one periodic check (ADR 0017); ADR 0006's wake-up stays retired.
+  // The session-start tool is named by the Roadmap section now (ADR 0014), and so is the roadmap run's one periodic check (ADR 0019); ADR 0006's wake-up stays retired.
   const roadmapAt = md.indexOf('## Roadmap');
   assert.doesNotMatch(md.slice(0, roadmapAt), /conduct-check|CronCreate|wake_when_done/);
   assert.doesNotMatch(md.slice(roadmapAt), /conduct-check|wake_when_done/);
@@ -2540,8 +2540,9 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); delivery-models moves it to 0.28.0 (release 0.32.0); 0.27.0 went to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.28\.0/, 'the CI snippet pins the current release (delivery-models: 0.28.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); roadmap-sessions-upfront moves it to 0.29.0 (release 0.33.0); 0.28.0 went to delivery-models; 0.27.0 went to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.29\.0/, 'the CI snippet pins the current release (roadmap-sessions-upfront: 0.29.0)');
+  assert.doesNotMatch(flow, /v0\.28\.0/, 'no pin left on the previous release (delivery-models)');
   assert.doesNotMatch(flow, /v0\.27\.0/, 'no pin left on the previous release (gh-version-check)');
   assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
   assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');

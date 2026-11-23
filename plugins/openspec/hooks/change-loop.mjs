@@ -685,7 +685,7 @@ export function readRun(file) {
   return run;
 }
 
-// The fields of a run that opens every change at its start (D-1, D-9, ADR 0017 decision 6), each dropped when it has the wrong type:
+// The fields of a run that opens every change at its start (D-1, D-9, ADR 0019 decision 6), each dropped when it has the wrong type:
 // tickets { <id>: { ticket, at, claimedBy } }, placed { <id>: { at } }, queued { <id>: { at, why } }, anyway [<id>], waits { <id>: [{ pid, kind, at,
 // session }] }, cron (whether the host offers a session cron) and check (null, { id, at } or { refused: true, at }). An entry that is not whole is dropped.
 function readUpfront(parsed, run) {
@@ -1264,7 +1264,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   const settings = readDevkitSettings(found.root);
   const filesLanguage = settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language;
   const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
-  // The token budget is read only when the caller asks (`next`): the locks, `wait` and the roadmap never count (change-budget D-4).
+  // The token budget is read only when the caller asks (`next`, and `session-next` of a change session): the locks, `wait` and the roadmap never count (change-budget D-4).
   let budgetFact = null;
   if (budget) {
     const cap = budgetOf(found.root, dir, normalizeLang(lang));

@@ -22,7 +22,7 @@
 //   announced  - { <id>: <event key> }, starting - [ids], held, asking - the run's bookkeeping,
 //   after      - { <id>: <progress key> } the stages that just came back (their `actions` were read with that key), and the
 //                `session-start` and `session-refused` keys of a change session the host started or refused,
-//   tickets, placed, queued, waits, cron, check, waitsFor, unpushed - a run that opens every change at its start (ADR 0017): the start tickets, the places held, the
+//   tickets, placed, queued, waits, cron, check, waitsFor, unpushed - a run that opens every change at its start (ADR 0019): the start tickets, the places held, the
 //                changes waiting for one, the wait loops, whether the host offers a session cron, the periodic check ({ id } or { refused }), { <id>: the dependency a
 //                plan waits for } and { <id>: 'grill' | 'plan' } what is not on origin yet,
 //   changeSessions, startedSessions, coordinator, turn - a run with a session per change (ADR 0014): whether each change runs in a session
@@ -180,7 +180,7 @@ export function sessionName(id) {
 // archives the change (design roadmap-sessions-upfront D-6).
 export function sessionBackground({ id, root, branch, coordinator, lang }) {
   return `This session runs the devkit change \`${id}\` for a \`/devkit roadmap\` run. The owner typed that command in the session \`${coordinator ?? 'unknown'}\`, `
-    + 'which started this one: in the desktop app every change of a roadmap run has a session of its own (ADR 0014, ADR 0017). '
+    + 'which started this one: in the desktop app every change of a roadmap run has a session of its own (ADR 0014, ADR 0019). '
     + 'Start at once, with no message from the owner: call the Skill tool with `devkit-openspec:devkit-session`; the devkit skill itself runs only from the owner\'s typed command. '
     + `Work only in \`${root}\`, the change's worktree, on branch \`${branch}\`. `
     + 'The grill, the plan approval and the retro answers are asked in the session that started this one. '
@@ -484,7 +484,7 @@ export function updateRun(file, change, { sleep } = {}) {
 // ---------------------------------------------------------------- the facts of a run (D-4, D-7)
 
 // The `--after` keys of a step the session carried out that is no stage: a change session the host started or refused (ADR 0014), the push of a grill or a
-// plan, and the archive of a change's session or its refusal (ADR 0017): no stage came back.
+// plan, and the archive of a change's session or its refusal (ADR 0019): no stage came back.
 const SESSION_KEYS = ['session-start', 'session-refused', 'push', 'session-archived', 'session-archive-later'];
 
 // The title of `stage` in the language of the person, from the change's own script; the id when it cannot be read.
@@ -833,10 +833,11 @@ function sessionFacts(start, id, action, { env, openspec, gh }) {
 
 // The next action of change `id` for its own session (D-6): the change loop's action, then the places and the holds of `sessionDecide`. A change that is
 // not in a run with a session per change, or whose ticket no session claimed, gets the change loop's action unchanged. With `write` the places are
-// recorded (decided again on the run file as read under its lock); without it nothing is written.
-export function sessionNext(cwd, id, { env = process.env, lang = 'pt-BR', after = null, load = 0, limit = DEFAULT_LIMIT, openspec, gh, write = false, lockSleep, now = new Date().toISOString() } = {}) {
+// recorded (decided again on the run file as read under its lock); without it nothing is written. With `budget` (only `session-next`) the token
+// budget is read as `next` reads it; the poll of `session-wait` and the stop lock never count it (change-budget D-4).
+export function sessionNext(cwd, id, { env = process.env, lang = 'pt-BR', after = null, load = 0, limit = DEFAULT_LIMIT, openspec, gh, write = false, budget = false, lockSleep, now = new Date().toISOString() } = {}) {
   const l = normalizeLang(lang);
-  const action = nextAction(cwd, id, { env, lang: l, after, openspec, gh });
+  const action = nextAction(cwd, id, { env, lang: l, after, openspec, gh, budget });
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const file = runFilePath(start);
@@ -1301,7 +1302,7 @@ function sessionNextCmd(args, ctx) {
   if (!opts.value['--change'] || opts.positional.length) throw new LoopUsageError(USAGE);
   const id = changeIdOf('--change', opts.value['--change']);
   const { lang, limit, load } = settingsOf(ctx, opts);
-  const action = sessionNext(ctx.cwd, id, { env: ctx.env, lang, after: opts.value['--after'] ?? null, load, limit, openspec: ctx.openspec, gh: ctx.gh, write: true, lockSleep: ctx.lockSleep });
+  const action = sessionNext(ctx.cwd, id, { env: ctx.env, lang, after: opts.value['--after'] ?? null, load, limit, openspec: ctx.openspec, gh: ctx.gh, write: true, budget: true, lockSleep: ctx.lockSleep });
   return { code: exitCodeOf(action), stdout: loopOutput(id, action), stderr: '' };
 }
 

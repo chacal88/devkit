@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md)
+- Amended by ADR 0019 (0019-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), the bullet of decision 8 that answers ADR 0005's "One subagent per whole change"; ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md), decisions 1 and 2, which name only /devkit change
@@ -15,6 +16,9 @@ only. [ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md) super
 there and takes up the option "App child sessions, one per change" this ADR rejected. Decision 1
 still holds where the host cannot start sessions. Decision 4 now names each field of the run file.
 Decisions 2, 3 and 5 are otherwise unchanged.
+
+Note (roadmap-sessions-upfront, 2026-11-22): decision 4 names the fields [ADR 0019](0019-a-roadmap-run-opens-every-change-at-its-start.md) adds.
+Decisions 1 to 3 and 5 are otherwise unchanged.
 
 ADR 0010 decision 2 asks for a roadmap coordinator that starts every change whose after:
 dependencies are archived, several at once up to a number the owner sets per run. Its decision 8
@@ -71,7 +75,7 @@ background, to be settled by a probe before anything is built on it.
      started (`startedSessions`) and what started the last turn (`turn`), as ADR 0014 decides;
    - the start tickets (`tickets`), the places held (`placed`), the changes waiting for one
      (`queued`), the start-anyway of the moment (`anyway`), the wait loops under way (`waits`),
-     whether the host offers a session cron (`cron`) and the periodic check (`check`), as ADR 0017
+     whether the host offers a session cron (`cron`) and the periodic check (`check`), as ADR 0019
      decides;
    - the form of the file and its last write (`version`, `updatedAt`).
 

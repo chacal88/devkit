@@ -6,6 +6,7 @@
 - Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
 - Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
+- Amended by ADR 0019 (0019-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -56,6 +57,12 @@ waits for the owner's next message with a line, never a subagent in its place. T
 the session to start the changes the load holds at that moment anyway, and the hold applies again
 to every later start; that permission is the owner's own message and is kept nowhere. Decisions 1
 to 8 are otherwise unchanged.
+
+Note (roadmap-sessions-upfront, 2026-11-22): where the host can start sessions, a roadmap run opens every
+pending change at its start, and its number counts only the changes in the implementation, its
+tests, evidence or review; a plan waits for its dependencies ([ADR 0019](0019-a-roadmap-run-opens-every-change-at-its-start.md)). Decision 2
+holds unchanged where the host cannot start sessions. This change leaves the other decisions as
+they are.
 
 Note (project-phases, 2026-11-22): the project entry and the `devkit-project` schema are built;
 [ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md) answers decision 8's open point

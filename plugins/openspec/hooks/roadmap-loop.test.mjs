@@ -2210,7 +2210,7 @@ test('followups AC-8 next: start anyway starts what is held now, and a change re
   assert.ok(!events(first.stdout).some((l) => l.includes('machine is loaded')), 'no line about the hold');
   // Invariant: a --start-anyway on a run without a session per change keeps no permission in the run file. Layer: the roadmap-loop start-anyway. Suite: roadmap-loop.
   const UPFRONT = ['tickets', 'placed', 'queued', 'anyway', 'waits', 'cron', 'check']; // the fields of roadmap-sessions-upfront, written empty by every run
-  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt' && !UPFRONT.includes(k)).sort(), before, 'the run file gains no field but the time of its write and the empty fields of ADR 0017');
+  assert.deepEqual(Object.keys(stateOf(root)).filter((k) => k !== 'updatedAt' && !UPFRONT.includes(k)).sort(), before, 'the run file gains no field but the time of its write and the empty fields of ADR 0019');
   assert.deepEqual(stateOf(root).anyway, [], 'nothing keeps the permission');
   // Later in the same run: a and b are open, c is ready, a place is free, the load is still high, and the call has no flag.
   addOpen(root, 'a');
@@ -3288,6 +3288,38 @@ test('upfront AC-9 session-next: no free place or a loaded machine holds the cha
   assert.deepEqual(loaded.queued, { a: { at: AT, why: 'load' } });
   const anyway = sd(implAct('a'), { load: 91, limit: 80, anyway: ['a'], queued: { a: { at: AT, why: 'load' } } });
   assert.deepEqual([anyway.action.kind, anyway.anyway, anyway.queued], ['agent', [], {}]);
+});
+
+// A session transcript the budget reads (change-budget): the run line of `a`, then one assistant turn that spent `input` tokens.
+function upBudgetEnv(input) {
+  const base = tmpFolder('devkit-upfront-budget-');
+  const line = (extra) => JSON.stringify({ parentUuid: null, isSidechain: false, userType: 'external', sessionId: 'sess-up-budget', uuid: 'uuid-0001', timestamp: '2026-11-20T10:00:00.000Z', ...extra });
+  const text = 'devkit-run: a\n{"version":1}';
+  const lines = [
+    line({ type: 'user', message: { role: 'user', content: [{ tool_use_id: 'toolu-0001', type: 'tool_result', content: text, is_error: false }] }, toolUseResult: { stdout: text, stderr: '', interrupted: false, isImage: false, noOutputExpected: false } }),
+    line({ type: 'assistant', timestamp: '2026-11-20T10:01:00.000Z', message: { role: 'assistant', id: 'msg-1', content: [{ type: 'text', text: 'working' }], usage: { input_tokens: input, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }),
+  ];
+  mkdirSync(join(base, 'projects', 'p'), { recursive: true });
+  writeFileSync(join(base, 'projects', 'p', 'sess-up-budget.jsonl'), `${lines.join('\n')}\n`);
+  return { ...cleanEnv, CLAUDE_CONFIG_DIR: base, CLAUDE_CODE_SESSION_ID: 'sess-up-budget' };
+}
+
+test('upfront budget session-next: at the cap a change session\'s session-next prints the budget end and keeps its place', () => {
+  const root = upChange({ run: { placed: { a: { at: AT } } }, files: { 'openspec/changes/a/.openspec.yaml': 'schema: devkit\ndevkit:\n  budget: 1000\n' } });
+  approve(root);
+  const env = upBudgetEnv(5000);
+  const r = doSessionNext(root, [], { env });
+  assert.equal(r.code, 1, r.stdout);
+  const lines = r.stdout.split('\n');
+  assert.deepEqual(lines.slice(0, 2), ['devkit-run: a', 'devkit-end: a waiting-for-owner']);
+  assert.equal(jsonOf(r.stdout).end.why, 'waiting-budget');
+  assert.deepEqual([stateOf(root).placed, stateOf(root).queued?.a], [{ a: { at: AT } }, undefined], 'the place is kept and nothing is queued');
+  for (const poll of [loopModule.sessionNext(root, 'a', { env, lang: 'en', gh: OFFLINE }), loopModule.sessionNext(root, 'a', { env, lang: 'en', gh: OFFLINE, write: true })]) {
+    assert.equal(poll.kind, 'agent', 'the poll of session-wait and the stop lock read no budget');
+  }
+  const under = doSessionNext(root, [], { env: upBudgetEnv(10) });
+  assert.equal(under.code, 0, under.stdout);
+  assert.equal(jsonOf(under.stdout).kind, 'agent', 'below the cap the hand-off goes on');
 });
 
 test('upfront AC-9 session-next: a change outside a session-mode run gets the change loop\'s action unchanged', () => {
