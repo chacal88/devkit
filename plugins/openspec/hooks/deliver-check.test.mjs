@@ -5447,3 +5447,70 @@ test('review-openspec-fix 18: the devkit-reviews check fails a rejected review a
     assert.match(r.out, /stale test-coverage-reviewer \(/);
   }
 });
+
+// ================================================================ commit-attribution (D-7, T26 to T36)
+
+const attributionOfAgent = () => {
+  const md = coreAgent('commit-and-pr');
+  const a = md.indexOf('## Attribution');
+  const b = md.indexOf('## Escalate');
+  return a >= 0 && b > a ? md.slice(a, b) : '';
+};
+const methodOfAgent = () => {
+  const md = coreAgent('commit-and-pr');
+  return md.slice(md.indexOf('## Method'), md.indexOf('## Attribution'));
+};
+
+test('commit-attribution AC-2 T26 the agent\'s Receives names the attribution block', () => {
+  const md = coreAgent('commit-and-pr');
+  const receives = md.slice(md.indexOf('## Receives'), md.indexOf('## Preconditions'));
+  for (const part of ['Attribution (from the caller):', 'Commit trailer:', 'PR footer:', 'Attribution (from the caller): none']) assert.ok(receives.includes(part), part);
+});
+
+test('commit-attribution AC-2 T27 with lines given the agent writes exactly those and no other', () => {
+  const s = attributionOfAgent();
+  assert.ok(s.includes('exactly the text after each `Commit trailer:` line'), s);
+  assert.ok(s.includes('Add no other `Co-Authored-By` line, attribution trailer or footer'), s);
+});
+
+test('commit-attribution AC-2 T28 with none the agent writes no attribution line', () => {
+  assert.ok(attributionOfAgent().includes('Write no `Co-Authored-By` line, no attribution trailer and no footer'));
+});
+
+test('commit-attribution AC-2 T29 with no block the agent keeps its earlier rule', () => {
+  const s = attributionOfAgent();
+  const bullet = s.split('\n').find((l) => l.startsWith('- **No block**')) ?? '';
+  assert.ok(bullet.includes('the environment or the user requires'), bullet);
+});
+
+test('commit-attribution AC-2 T30 the caller\'s block wins over the agent\'s environment', () => {
+  assert.ok(attributionOfAgent().includes('wins over the lines your own environment gives you'));
+});
+
+test('commit-attribution AC-2 T31 Method steps 3 and 5 point to Attribution and drop the environment rule', () => {
+  const m = methodOfAgent();
+  assert.equal(m.split('Attribution below').length - 1, 2, m);
+  assert.ok(!m.includes('the environment or the user requires'), m);
+});
+
+test('commit-attribution AC-2 T32 Never forbids a line the block does not give', () => {
+  const md = coreAgent('commit-and-pr');
+  assert.ok(md.slice(md.indexOf('## Never')).includes("add one the caller's attribution block does not give"));
+});
+
+for (const [n, step] of [[33, 'commit'], [34, 'open-pr'], [35, 'open-archive-pr']]) {
+  test(`commit-attribution AC-1 T${n} the ship-change ${step} row ends the prompt with the attribution block`, () => {
+    assert.ok(skillRow(shipSkill(), step).includes('End the prompt with the attribution block (Attribution, above).'));
+  });
+}
+
+test('commit-attribution AC-1 T36 the ship-change Attribution section holds the block and names no model', () => {
+  const md = shipSkill();
+  const a = md.indexOf('## Attribution');
+  const b = md.indexOf('\n## Loop');
+  const s = a >= 0 && b > a ? md.slice(a, b) : '';
+  for (const part of ['Attribution (from the caller):', 'Commit trailer: <one line this session ends its commit messages with>', 'PR footer: <one line this session ends its pull-request descriptions with>',
+    "The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.",
+    'Attribution (from the caller): none', 'verbatim', "never take the agent's"]) assert.ok(s.includes(part), part);
+  assert.doesNotMatch(s, /Opus|Sonnet|Haiku|noreply/);
+});

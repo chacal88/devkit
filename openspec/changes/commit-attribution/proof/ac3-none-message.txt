@@ -1,0 +1,4 @@
+docs(proof): add b.txt
+
+Add b.txt as proof file for the attribution-proof change.
+

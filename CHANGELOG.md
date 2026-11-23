@@ -1,16 +1,27 @@
 # Changelog
 
-## 0.26.2 — a review fixed in the plan files
+## 0.27.1 — a review fixed in the plan files
 
-- **devkit-openspec** 0.22.2: a rejected verdict goes stale after any later commit outside the
+- **devkit-openspec** 0.23.1: a rejected verdict goes stale after any later commit outside the
   change's own review record (`reviews/`, `review.md`, `evidence.md`), `openspec/` and test files
   included, so a fix made in the plan files gets the next review round with no hand from the owner;
   a commit of the record alone keeps `fix-review`; approved and declined verdicts keep their rule.
-  The CI snippet now pins `v0.22.2`, the release's tag.
-- **devkit-core** 0.10.2: the `review-change` skill's stale definition names the rule for a rejected
+  The CI snippet now pins `v0.23.1`, the release's tag.
+- **devkit-core** 0.11.1: the `review-change` skill's stale definition names the rule for a rejected
   verdict.
 - Docs: the staleness rule, the order of the delivery steps and the `update-branch` row of the flow
   document.
+
+## 0.27.0 — commit attribution
+
+- **devkit-core** 0.11.0: `commit-and-pr` takes an attribution block from the caller and writes exactly its
+  commit trailer and pull-request footer lines over the ones its own environment gives it; with `none` it writes
+  no attribution, and with no block it behaves as before.
+- **devkit-openspec** 0.23.0: every hand-off to `commit-and-pr`, in `/devkit change`, `/devkit roadmap` and
+  `/devkit project`, ends with a request that the session append its own attribution block; the `ship-change`
+  skill gains an Attribution section and its `commit`, `open-pr`/`push` and `open-archive-pr` rows name it.
+- Docs: `docs/openspec-flow.md` describes the Attribution paragraph. The CI snippet now pins `v0.23.0`, the
+  release's tag.
 
 ## 0.26.1 — test fixtures clean up after themselves
 
