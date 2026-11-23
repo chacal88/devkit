@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=7017229d317b12833ae8c72914f86ac3c1bf77ba -->
+<!-- devkit-stage review result=passed attempt=1 commit=897c7ee0d075ee4ae85e44bb12fa9ad33971416e -->
 # Review: change-budget, round 1
 
 Path: agents · range `08eea2b20af537d2fd074d2d6e65bed39d597c78..676960b3668023bc75ead62761d187d64fe8a8ad` · structural: PASS
@@ -64,6 +64,29 @@ None.
 
 ## Notes
 - Stale-only re-review after f5075ff merged origin/main a second time (release-file conflicts and the budget test helper moved to the shared tmpFolder).
+
+## Next
+Ready to ship.
+
+# Review: change-budget, round 1
+
+Path: agents · range `ac40615c8415d467f101f498ba68ab049abc3a6c..897c7ee0d075ee4ae85e44bb12fa9ad33971416e` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 897c7ee |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 897c7ee |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Stale-only re-review after 0907857 merged origin/main a third time (commit-attribution took 0.23.0/0.27.0; this change renumbered to 0.24.0/0.28.0 and its hold now wraps main withAttribution).
 
 ## Next
 Ready to ship.

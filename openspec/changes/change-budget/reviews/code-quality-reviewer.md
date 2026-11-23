@@ -1,16 +1,16 @@
 Verdict: approved
-Commit: 7017229d317b12833ae8c72914f86ac3c1bf77ba
+Commit: 897c7ee0d075ee4ae85e44bb12fa9ad33971416e
 
-## Quality review — change-budget (round 1 of 2)
+## Quality review — change-budget (round 1 of 2, second merge with main)
 
 ### Findings
 - [nit] plugins/openspec/hooks/guard.mjs spentOf — Keeping the first usage line per message id may undercount streamed output tokens; keep the max or document the rule.
 - [nit] plugins/openspec/hooks/change-loop.mjs budgetOf / waiting-budget — With a project-level cap the reply points to the change's .openspec.yaml, whose devkit block may not exist; say it is created if missing.
-- [praise] plugins/openspec/hooks/change-loop.mjs hold/budgetOf — One hold wrapper at the single action-building point, validated cap, fail-open transcript lookup.
-- [praise] plugins/openspec/hooks/change-loop.test.mjs:3523 — budgetFiles now uses the shared tmpFolder helper, so budget fixtures are cleaned up like the rest of the file.
+- [praise] plugins/openspec/hooks/change-loop.mjs agent/sessionAction — The merge composes main's withAttribution with hold(guard(...)) at the single action-building point; hold stays after guard so no-progress ends keep priority.
+- [praise] CHANGELOG.md, plugin.json, marketplace.json, docs/openspec-flow.md — The renumbering to 0.24.0 / 0.28.0 is consistent in every pin and the test still rejects the previous release's pin.
 
-## Quality review — change-budget (round 1 of 2)
+## Quality review — change-budget (round 1 of 2, second merge with main)
 
 ### Summary
-- 3 findings (0 blocking, 0 important, 2 nit) + 2 praise
-- Justification: the range since a5f11db holds the merge with main (f5075ff) and the evidence commit (7017229). The release files are consistent (marketplace 0.27.0, devkit-openspec 0.23.0, CHANGELOG entry, flow-doc pin v0.23.0 in all three places, no v0.22.1 left). The budget test helper uses the shared tmpFolder. The 41 change-budget tests pass with TMPDIR=/var/tmp; the full suite was not run (1573/1573 reported). Code in guard.mjs and change-loop.mjs is unchanged in this change's own lines since the last approval, so the two earlier nits stand and do not block.
+- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise
+- Justification: reviewed the net diff over main (ac40615..HEAD) for the lines this change owns after the second merge. Release files agree (marketplace 0.28.0, devkit-openspec 0.24.0, CHANGELOG 0.28.0 above 0.27.0, flow-doc pin v0.24.0 in all three places, test rejects v0.23.0). change-loop.mjs keeps withAttribution inside hold(guard(...)) for both agent and sessionAction. Pattern run budget|v0.24|pin|attribution in change-loop.test.mjs: 97/97 pass with TMPDIR=/var/tmp; scripts/check.py passes. The full suite was not run (1609/1609 reported at 0907857). The two earlier nits are unchanged and do not block.
