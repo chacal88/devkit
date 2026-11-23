@@ -1,17 +1,19 @@
 Verdict: approved
-Commit: c8a9f5cdd08fb476adf59effe66147de5704349f
+Commit: 9a76a1f2241bd3d67af5fbd143b68ead5070eb7e
 
-## Coverage analysis — change-state re-review (8120c98..c8a9f5c)
+## Coverage analysis — change-state re-review (c8a9f5c..9a76a1f)
 
 ### Findings
-- [nit] plugins/openspec/hooks/change-loop.mjs:612 declaredEnd — The throw for a declared owner wait that names no gate has no test; add one beside the AC-3 declared-wait test in change-loop.test.mjs.
+- [nit] plugins/openspec/hooks/change-loop.mjs:612 declaredEnd — The throw for a declared owner wait that names no gate still has no test; add one beside the AC-3 declared-wait test in change-loop.test.mjs.
 - [nit] plugins/openspec/hooks/roadmap-loop.test.mjs:922 — The moved readRun parsing is exercised only by a concurrency test; this is inherited debt for the backlog.
-- [praise] plugins/openspec/hooks/change-loop.test.mjs AC-1..AC-7 — Every seam the diff introduced has a named test that would go red if it broke; the subtests are now awaited, so a failing subtest is no longer cancelled unseen.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs AC-1..AC-7 — Every seam the diff introduced has a named test that would go red if it broke, and the subtests are awaited.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs:2484-2487 — The release pin test expects v0.24.0 and refuses v0.23.0, v0.22.1 and v0.22.0, so a stale pin in the flow doc goes red.
 
-In-scope surfaces: change-loop.mjs, roadmap-loop.mjs and their tests.
+In-scope surfaces: change-loop.mjs, roadmap-loop.mjs, their tests, and the release pin in docs/openspec-flow.md.
 Blocking gaps (8-10 without a plan): 0
-Seams checked (mutation runs: 0): unchanged from the previous round. In the range, the only edits this change made to its tests are `await t.test(...)` on each subtest (the AC-3, AC-4 and S1-S8 groups) and the shared tmp helper. Production code in change-loop.mjs and roadmap-loop.mjs has no change of this change's in the range. Awaiting the subtests makes a failing subtest fail its parent, so the assertions are as strong as before or stronger. The tmp helper swap changes fixture folders only. The merge conflict resolution in change-loop.test.mjs kept the stage-roles archive path lookup, which is main's edit.
+Seams checked (mutation runs: 0): the seams are unchanged from the previous round. The merge of main's commit-attribution (#68) and this change's release renumbering to 0.24.0 / 0.28.0 add no production seam of this change. The only new assertions are the pin ones, which are covered by F4.
 
 ### Well covered
-- Awaited subtests: a failure inside S1-S8, runFactsOf and the AC-3 reason groups now reaches the parent test.
-- The state command contract, the title forms, state and next agreeing, and a silent GitHub keeping its state, as in the previous round.
+- Release pin: a stale pin in docs/openspec-flow.md fails the 'change-loop docs: the design records the answers' test.
+- Awaited subtests: a failure inside S1-S8 and the AC-3 groups reaches the parent test.
+- Suite result given by the caller (1712 pass at c6e5c1b, CI check passed) was not re-run.
