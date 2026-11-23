@@ -1114,13 +1114,15 @@ export function decide(facts) {
     const n = report.next;
     const e = report.end;
     if (n?.stage === 'open') return blocked('not-opened', {}, 'open');
+    // The grill names the helpers of the requirements stage of the flow the change follows: the triage is offered only to a change whose flow lists it (design D-17).
+    const helpers = stageById('requirements')?.helpers ?? [];
     if (n?.stage === 'requirements' || (e?.state === 'waiting-for-owner' && e.stage === 'requirements')) {
-      return { ...base, kind: 'grill', ...stageFields('requirements'), progressKey: key('requirements') };
+      return { ...base, kind: 'grill', ...stageFields('requirements'), helpers, progressKey: key('requirements') };
     }
     // A triage answer with no source goes back to the grill, which asks the owner that question (design D-4).
     const unsourced = facts.unsourced ?? [];
     if (unsourced.length && report.stages.find((x) => x.id === 'requirements')?.state === 'passed') {
-      return { ...base, kind: 'grill', ...stageFields('requirements'), progressKey: key('requirements'), detail: { unsourced } };
+      return { ...base, kind: 'grill', ...stageFields('requirements'), helpers, progressKey: key('requirements'), detail: { unsourced } };
     }
     if (n) {
       const s = stageById(n.stage);

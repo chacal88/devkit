@@ -486,7 +486,7 @@ test here is written before the code it proves; an existing test changes only wh
 (T-18 to T-22). No version number moves: devkit-openspec 0.32.0, devkit-core 0.14.0 and marketplace
 0.36.0 are already this change's release in the tree.
 
-- [ ] 8.1 Write this phase's tests (design D-17 "The tests this asks"; specs `change-coordination`
+- [x] 8.1 Write this phase's tests (design D-17 "The tests this asks"; specs `change-coordination`
   "Every grill asks the triage agent first" and "The triage ships as flow version 2" (scenarios "A
   change opened on flow 2", "A project slice", "A change on flow 1 keeps its flow's grill", "A change
   moved to flow 2"), `coordination-locks` "In a roadmap run a
@@ -509,7 +509,7 @@ test here is written before the code it proves; an existing test changes only wh
   top the tests that pass there (expected: `upfront AC-5 flow: flows/1.json of devkit and devkit-lite
   is released version 1 ...`, which pins what change-version-pin released). Check: every other new
   test fails there.
-- [ ] 8.2 Release flow version 2 (D-17 "The choice"): in `plugins/openspec/schemas/devkit/flow.json`,
+- [x] 8.2 Release flow version 2 (D-17 "The choice"): in `plugins/openspec/schemas/devkit/flow.json`,
   `plugins/openspec/schemas/devkit-lite/flow.json`, `openspec/schemas/devkit/flow.json` and
   `openspec/schemas/devkit-lite/flow.json` the second line becomes `  "version": 2,` and nothing else
   changes; copy each to `flows/2.json` in its folder (the same bytes); leave every `flows/1.json` and
@@ -521,7 +521,7 @@ test here is written before the code it proves; an existing test changes only wh
   exits 0; the three `upfront AC-5 flow` tests, `upfront AC-5 open: ...`, `version-pin AC-7 schema:
   every kept flow is valid and named by its version`, `version-pin AC-7 check: the tree's flows pass`
   and `flow-check schema: the openspec/schemas copies are byte-identical` pass.
-- [ ] 8.3 The triage only for a change on flow 2 (D-17 "What the locks and the grill do"): in
+- [x] 8.3 The triage only for a change on flow 2 (D-17 "What the locks and the grill do"): in
   `plugins/openspec/hooks/change-loop.mjs`, `decide`'s `planPart` gives both `grill` actions
   `helpers`, the `helpers` of the `requirements` stage of the flow `decide` reads (`[]` when none);
   in `plugins/openspec/hooks/roadmap-loop.mjs`, `checkCmd`'s `triage` filter keeps only a grill
@@ -542,7 +542,7 @@ test here is written before the code it proves; an existing test changes only wh
   change on flow 1 ...` and `upfront AC-14 check: a grill of a change on flow 1 ...` pass; `upfront
   AC-5 skill: the grill rule of config.yaml and of the four schema files ...` and every `upfront AC-6
   triage` test pass unchanged.
-- [ ] 8.4 The tests that expect flow version 1 to be the installed one (D-13 T-18 to T-22). Change
+- [x] 8.4 The tests that expect flow version 1 to be the installed one (D-13 T-18 to T-22). Change
   T-18 (invariant: a change run may hand the triage to a change whose flow lists it; layer: the
   `agent` lock, H3; suite: change-loop), T-19 (invariant: the coordinating session may hand a helper
   of an open change's grill, marking nothing under way; layer: `roadmapAgentDecision` RH6; suite:
@@ -559,7 +559,7 @@ test here is written before the code it proves; an existing test changes only wh
   readout or resume reply read as text that now holds the newer-flow line, a raise to version 2 that
   version 2 already holds) is changed the same way, with a row added to D-13 naming its invariant,
   layer and suite; any other failure is a defect of this change, not a test to edit.
-- [ ] 8.5 Documents (D-14 "Flow version 2", D-17): the versions paragraph in `docs/openspec-flow.md`
+- [x] 8.5 Documents (D-14 "Flow version 2", D-17): the versions paragraph in `docs/openspec-flow.md`
   after "A change to a `flow.json` raises its `version`"; in `CHANGELOG.md`, the `## 0.36.0` entry's
   sentence on flow version 2 under **devkit-openspec** 0.32.0 and its "Projects" line; the Note of
   `docs/adr/0020-a-roadmap-run-opens-every-change-at-its-start.md` after its Decision list. Check:

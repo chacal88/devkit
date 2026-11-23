@@ -120,6 +120,8 @@ The output is a line per stage, then the next stage, who runs it and why, or one
 
 A change to a `flow.json` raises its `version`: the new bytes are copied to `flows/<n>.json` and their digest is recorded in `scripts/released-flows.json`. `scripts/check.py` refuses a `flow.json` that differs from `flows/<its version>.json`, a kept file whose digest is not recorded or does not match, and a digest with no kept file, so a released version cannot change under the changes that follow it (see CONTRIBUTING.md).
 
+**Released flow versions.** `devkit` and `devkit-lite` are at version 2 from devkit-openspec 0.32.0 on: version 2 adds the `requirements-triage` helper to the grill (the `helpers` of the `requirements` stage), and every other stage is as in version 1. A change opened from that release on records `x-devkit-flow: 2` and has the triage answer first the grill questions the project's files settle; a change on version 1 keeps its grill with no triage until it is moved with `change-loop.mjs flow <id>`, which is run on the owner's request only (a change on version 1 is one opened before that release, or with no recorded flow), and the `helpers` of the loop's grill action tell the skills which of the two it is. `devkit-project` stays at version 1: its stages did not change.
+
 ## Adopting it in a project
 
 The `openspec-setup` skill does all of this; here is what it does, if you prefer by hand.

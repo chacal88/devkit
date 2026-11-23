@@ -38,6 +38,8 @@ If the project declares none of this, use the ADRs that exist and the code itsel
 
 ### 2b. Triage first
 
+Run this step only when the loop's grill action offers the triage: its `helpers` include `requirements-triage`, which holds for a change that follows flow version 2 or later of its script. Read the permission where the action is given: the `helpers` of the action that `next` (or `session-next`) printed, in a lone `/devkit change` or a change session; the `helpers` of `ask.action`, in the coordinating session; and, for the check's `triage` action, which carries no `helpers`, the action itself, since the check gives it only for a grill whose `helpers` name the triage. With no permission, skip this step: every question goes to the owner, one at a time, as step 3 says. A grill run by hand with no loop action keeps this step.
+
 Draft the questions of the four axes, then hand them all to the `devkit-core:requirements-triage` agent in one prompt whose first line is `Change <id> (<script> script), stage requirements: triage of the grill`, followed by the request and the drafted questions, each with its axis. The agent reads the project's files and returns, per question, `answered` with the file that settles it or `owner` with why nothing written does.
 
 - Record each `answered` in `requirements.md` under `### Answered by triage`, one item per question: `<n>. [<axis>] <question> → <answer> (source: \`<path>[:<line>]\`)`.

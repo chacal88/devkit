@@ -37,7 +37,7 @@ import { dirname, join, relative } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-import { findRoot, readRoadmap, changeFlow, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill } from './guard.mjs';
+import { findRoot, readRoadmap, changeFlow, changeSchemaAt, readFlow, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill } from './guard.mjs';
 import { collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
@@ -656,8 +656,11 @@ function isRequirementsHelper(start, change, type) {
   const role = colon === -1 ? type : type.slice(colon + 1);
   if (colon !== -1 && PACKS[role] !== type.slice(0, colon)) return false;
   const found = locate(start, change);
-  const dir = locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change);
-  return (changeFlow(found.root, dir).flow?.stages.find((x) => x.id === 'requirements')?.helpers ?? []).includes(role);
+  const own = locateChange(found.root, change)?.dir;
+  // A change with no folder has no pin: it is no change of a flow, so the installed flow of the project's script answers (the flow an open would record), and the
+  // caller can still say the change is not open (design D-17).
+  const flow = own ? changeFlow(found.root, own).flow : readFlow(found.root, changeSchemaAt(found.root, join(found.root, 'openspec', 'changes', change)));
+  return (flow?.stages.find((x) => x.id === 'requirements')?.helpers ?? []).includes(role);
 }
 
 // `guard.mjs agent` (RH0 to RH6).
@@ -1437,7 +1440,7 @@ function checkCmd(args, ctx) {
   const decision = decide(start, facts, ctx);
   const asked = decision.ask?.change;
   const triage = facts.hasRoadmap === false ? [] : Object.entries(facts.actions)
-    .filter(([id, action]) => action?.kind === 'grill' && id !== asked && !hasTriageSection(readOr(join(locateChange(action.root, id)?.dir ?? action.root, 'requirements.md'))))
+    .filter(([id, action]) => action?.kind === 'grill' && action.helpers?.includes('requirements-triage') && id !== asked && !hasTriageSection(readOr(join(locateChange(action.root, id)?.dir ?? action.root, 'requirements.md'))))
     .map(([id, action]) => ({ change: id, kind: 'triage', root: action.root, progressKey: 'triage' }));
   const own = [...(stopped > 0 ? [say('roadmap-check-stopped-waits', { n: stopped })] : []), ...given.map((id) => say('roadmap-check-idle', { id }))];
   const shown = { ...decision, lines: [...own, ...decision.lines], actions: [...decision.actions, ...triage] };

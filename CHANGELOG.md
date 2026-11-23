@@ -13,12 +13,16 @@
   the run holds one periodic check while it lasts and cleans up its waits, cron and finished sessions
   at its end (`schedule-check` and `delete-check` are actions of a decision). New subcommands:
   `session-next`, `session-wait`, `merge-base`, `push` and `check`. A change session's `session-next`
-  now honours the token budget as `next` does.
+  now honours the token budget as `next` does. The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill: a change opened from this
+  release records `x-devkit-flow: 2` and has the triage; a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`;
+  the `devkit-project` flow stays at version 1.
   The CI snippet now pins `v0.32.0`, the release's tag.
 - **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
   files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
 - Docs: ADR 0020, with Notes in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
   coordination design, the roles and the READMEs describe the new run.
+- Projects: re-run `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill
+  with no triage until they are moved.
 
 ## 0.35.1 — retro proposals of change-version-pin
 

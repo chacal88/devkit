@@ -777,7 +777,10 @@ const putRun = (cwd, patch) => {
 };
 // The event lines a command shows: the ones it printed itself, then the `lines` of its decision.
 const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsWith('▸ ')), ...jsonOf(stdout).lines];
-const addOpen = (root, id) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit\n' }); commitAll(root, `open ${id}`); };
+// `flow` is the version the change records as `x-devkit-flow`; null records none (a change opened before devkit-openspec 0.31.0).
+const pinLine = (flow) => (flow === null ? '' : `x-devkit-flow: ${flow}\n`);
+const addOpen = (root, id, flow = null) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pinLine(flow)}` }); commitAll(root, `open ${id}`); };
+const pinFlow = (root, id, flow) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pinLine(flow)}` }); commitAll(root, `${id} follows flow ${flow}`); };
 // The mark of a watch of the load that runs: this process (design roadmap-coordinator-followups D-7).
 const WATCH = { pid: process.pid, at: '2026-11-21T10:00:00.000Z' };
 const inFlight = (stage = 'proposal') => ({ kind: 'agent', stage, agentType: 'change-planner', at: '2026-11-21T10:00:00.000Z' });
@@ -3805,9 +3808,10 @@ test('upfront AC-14 check: a freed place goes to the first queued change, and on
   } finally { reap(watcher); }
 });
 
+// (T-20, D-13: the change the check gives a triage for, `b`, records flow 2; the others keep their files.)
 test('upfront AC-14 check: its actions are only triage, archive-session, push and delete-check, and it starts no session on its event turn', () => {
   const root = projectWith(roadmapText('[ ] a', '[ ] b', '[ ] e', '[ ] c', '[ ] d'));
-  for (const id of ['a', 'b', 'e']) addOpen(root, id);
+  for (const id of ['a', 'b', 'e']) addOpen(root, id, id === 'b' ? 2 : null);
   put(root, { 'openspec/changes/e/requirements.md': '# Requirements\n\n### Answered by triage\n\n1. [scope] q → a (source: `x.md`)\n' });
   archiveOn(root, 'd');
   putRun(root, { changeSessions: true, places: 3, turn: 'typed', ...startedIn('a', 'b', 'e', 'd') });
@@ -3998,8 +4002,10 @@ const TRIAGE_TYPE = 'devkit-core:requirements-triage';
 
 // Invariant (AC-4, roadmapAgentDecision, roadmap-loop): in a run with a session per change the coordinating session hands the triage
 // of an open change's grill and nothing else, and the hand-off marks nothing under way.
+// (T-19, D-13: change `a` records flow 2, as an open with this release does; with no pin it follows flow 1, which does not list the triage, D-17.)
 test('upfront AC-4 lock agent: the coordinating session may hand requirements-triage with a brief naming an open change, and marks nothing under way', () => {
   const root = lkProject(['[ ] a'], { a: {} });
+  pinFlow(root, 'a', 2);
   putRun(root, { places: 1, changeSessions: true });
   const transcript = lkRun(1);
   const brief = 'Change a (devkit script), stage requirements: triage of the grill. Work only in /somewhere on branch a.';
@@ -4072,6 +4078,30 @@ test('upfront AC-4 lock agent: the triage for a change not open is refused not-o
   assert.deepEqual([d.decision, d.why, d.change], ['refuse', 'not-open', 'zzz']);
   assert.match(d.reason, /zzz is not one; the open changes are: a/);
   assert.deepEqual(stateOf(root).inflight, {});
+});
+
+// Invariant (AC-4, D-17): the coordinating session's hand-off of the triage follows the flow the change follows: a change on flow 1 (no pin, or
+// `x-devkit-flow: 1`) has no triage among its grill's helpers, so the hand-off is refused own-sessions as any other, while the grill's other
+// helper stays allowed; a change on flow 2 is allowed. Layer: `roadmapAgentDecision` RH6. Suite: roadmap-loop.
+test('upfront AC-4 lock agent: the coordinating session\'s triage for a change on flow 1 is refused own-sessions', () => {
+  const brief = 'Change a (devkit script), stage requirements: triage of the grill. Work only in /somewhere on branch a.';
+  for (const pin of [null, 1]) {
+    const root = lkProject(['[ ] a'], { a: {} });
+    pinFlow(root, 'a', pin);
+    putRun(root, { places: 1, changeSessions: true });
+    const transcript = lkRun(1);
+    for (const type of [TRIAGE_TYPE, 'requirements-triage']) {
+      const d = agentOf(lkAgentInput(root, transcript, type, brief));
+      assert.deepEqual([d.decision, d.why, d.change], ['refuse', 'own-sessions', 'a'], `${type} on flow ${pin ?? 'none'}`);
+    }
+    assert.deepEqual(stateOf(root).inflight, {}, 'nothing is marked under way');
+    assert.equal(agentOf(lkAgentInput(root, transcript, 'devkit-core:codebase-researcher', brief)).why, 'grill-helper', 'the other helper of the flow-1 grill stays allowed');
+  }
+  const root = lkProject(['[ ] a'], { a: {} });
+  pinFlow(root, 'a', 2);
+  putRun(root, { places: 1, changeSessions: true });
+  const d = agentOf(lkAgentInput(root, lkRun(1), TRIAGE_TYPE, brief));
+  assert.deepEqual([d.decision, d.why, d.change], ['allow', 'grill-helper', 'a'], 'a change on flow 2');
 });
 
 // ---------------------------------------------------------------- change-state: phase 2, the board and the start title (design D-5, D-6, D-9)
@@ -4397,9 +4427,10 @@ test('upfront AC-9 next: a coordinating decision prunes the places and queue ent
 
 // Invariant (AC-14, finding 5): the check has the triage answer a grill whose requirements hold no triage section by the loop's own reader. Layer: check.
 // Suite: roadmap-loop.
+// (T-20, D-13: the changes the check gives a triage for, `c` and `d`, record flow 2; the others keep their files.)
 test('upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not', () => {
   const root = projectWith(roadmapText('[ ] a', '[ ] c', '[ ] d', '[ ] e'));
-  for (const id of ['a', 'c', 'd', 'e']) addOpen(root, id);
+  for (const id of ['a', 'c', 'd', 'e']) addOpen(root, id, id === 'c' || id === 'd' ? 2 : null);
   const answer = '1. [scope] q → a (source: `x.md`)';
   const header = '<!-- devkit-stage requirements result=failed attempt=1 commit=none -->'; // a grill under way on the current script: no previous-script change, no passed stage
   put(root, {
@@ -4414,6 +4445,25 @@ test('upfront AC-14 check: a triage heading inside a fence or with words after i
   assert.equal(j.ask.change, 'a', 'a is the grill being asked');
   assert.deepEqual(events(r.stdout).filter((l) => l.includes('waits for your answers')).length, 4, 'a, c, d and e are all grills, none of the previous script');
   assert.deepEqual(j.actions.filter((a) => a.kind === 'triage').map((a) => a.change), ['c', 'd'], 'a fenced heading and a heading with words after it are no section; e has its triage');
+});
+
+// Invariant (AC-14, D-17): the check gives the triage only for a grill whose flow lists it: a change on flow 1 (no pin, or `x-devkit-flow: 1`) gets none, a
+// change on flow 2 gets one when its requirements hold no triage section. Layer: check. Suite: roadmap-loop.
+test('upfront AC-14 check: a grill of a change on flow 1 gives no triage action, and one on flow 2 does', () => {
+  const root = projectWith(roadmapText('[ ] a', '[ ] b', '[ ] c', '[ ] d'));
+  const header = '<!-- devkit-stage requirements result=failed attempt=1 commit=none -->'; // a grill under way on the current script
+  for (const [id, flow] of [['a', 2], ['b', null], ['c', 1], ['d', 2]]) {
+    addOpen(root, id, flow);
+    put(root, { [`openspec/changes/${id}/requirements.md`]: `${header}\n# Requirements\n` });
+  }
+  commitAll(root, 'the grills');
+  putRun(root, { changeSessions: true, places: 4, turn: 'typed', ...startedIn('a', 'b', 'c', 'd') });
+  const r = doCheck(root);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const j = jsonOf(r.stdout);
+  assert.equal(j.ask.change, 'a', 'a is the grill being asked');
+  assert.equal(events(r.stdout).filter((l) => l.includes('waits for your answers')).length, 4, 'all four are grills');
+  assert.deepEqual(j.actions.filter((a) => a.kind === 'triage').map((a) => a.change), ['d'], 'b has no pin and c is on flow 1: no triage; d is on flow 2');
 });
 
 // Invariant (AC-9, finding 6): the stop of a change session reaches changeSessionStopDecision through the real hook. Layer: the guard process in `stop`

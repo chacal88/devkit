@@ -933,6 +933,11 @@ layer and the suite.
 | T-21 | the fixtures of `version-pin.test.mjs`: `treeFlow`, `scratch`, `openProject`, `makePackV2` and `checkScratch` | each stands for a project installed at release 1, as the suite was written: `treeFlow(schema)` reads `flows/1.json`; `scratch`, the origin of `openProject` and the pack copy of `makePackV2` give `devkit` and `devkit-lite` the bytes of `flows/1.json` as `flow.json` and no `flows/2.json` before the synthetic version 2 of `flowV2()` is written; `checkScratch` does the same and drops the `"2"` digests of both scripts, except in `version-pin AC-7 check: the tree's flows pass`, which keeps reading the tree as it is; no assertion changes | a change keeps the flow it opened with across an upgrade, and the repository check refuses a flow change that keeps its version · the version-pin fixtures · version-pin |
 | T-22 | `flow-check readout: the sample change prints the approved text` (`flow-check.test.mjs`, near line 1210) | the sample change `add-csv-export` of `sampleChange()` records `x-devkit-flow: 2` in its `.openspec.yaml`, as a change opened with this release does; with no pin it follows flow 1 under an installed flow 2 and its readout gains the newer-flow line (`Fluxo: esta change segue a versão 1 do roteiro devkit; a versão 2 está instalada ...`, found by readiness attempt 4's probe); `SAMPLE_PT` and `SAMPLE_EN` stay byte for byte | the readout of the approved sample change reads as the owner approved it · the readout · flow-check |
 
+| T-23 | `change-loop start: S6 one token naming a change resumes it and says where it stopped`, `change-loop start: S6 a change that lives only in a worktree resumes there` and `change-loop start: S7 no text and one unfinished change resumes it` (`change-loop.test.mjs`) | their changes (`addChange` gains a `flow` option) and the archived `old` of the first record `x-devkit-flow: 2`, as an open with this release does; with no pin they follow flow 1 under the installed flow 2 and the resume reply gains the newer-flow line (`It follows version 1 of its script's flow; version 2 is installed ...`); the expected replies stay | the resume reply names the change and says where it stopped, and nothing else · `startMode` (the resume) · change-loop |
+| T-24 | `field-fixes 1 archived: resuming an archived change by its id still ends archived` (`change-loop.test.mjs`) | the change `foo` and its archived folder (`archivedFolder` gains a `flow` argument) record `x-devkit-flow: 2`; the expected reply stays | resuming an archived change by its id ends archived · `startMode` (the resume) · change-loop |
+| T-25 | `jira-entry AC-5 start resumes the unfinished change that records the key, for the key and for its link` (`change-loop.test.mjs`) | the change of `addTaskChange` (gains a `flow` option) records `x-devkit-flow: 2`; the expected reply stays | a Jira key or its link resumes the unfinished change that records it and says where it stopped · `startMode` · change-loop |
+| T-26 | `field-fixes 7 flow-check: readFlowFile reads a flow.json by path, readFlow still reads it by schema, and a malformed one names the path` (`changes-under-way.test.mjs`) | `flow.version` is compared with the version the file declares (read from the file) instead of the literal 1; the other assertions are unchanged | readFlowFile reads a flow.json by path as the file declares it, readFlow reads the same flow by schema, and a malformed file names its path · flow-check's readers · changes-under-way |
+
 Added during phase 1 by the coordinator (2026-11-22): T-10 and T-11 were found red by phase 1's gate
 and were missing from this table; both follow from decisions already approved (D-6, D-12 decision 6)
 and change no requirement, criterion or scenario. T-12 to T-14 were added the same way during phase 3
@@ -946,7 +951,11 @@ of 2026-11-23 (a scratch clone of `62cf500` with version 2 released as task 8.2 
 version-pin tests T-21 covers, and `upfront AC-4 lock agent: the triage for a change not open is
 refused not-open`, which D-17's RH6 correction fixes in the code, not the test) and by reading each
 test that expects a `triage` action of the check (T-20, red only once task 8.3 filters it); task 8.6
-runs the whole suite again on the tree.
+runs the whole suite again on the tree. That run (2026-11-23, 2311 tests) found six more tests that
+failed only because they assumed flow version 1 is the installed one, the cases task 8.4's rule
+names: three resume replies of `change-loop start`, one resume of an archived change and one of a
+Jira key (a reply read as text that now holds the newer-flow line: T-23 to T-25) and one test that
+expected the literal version 1 from the installed `flow.json` (T-26); each is changed as the rule says and has its row above.
 
 **The search for phase 7** (2026-11-23, at `123a7ba`), over every suite under `plugins/openspec/hooks/`
 and `plugins/openspec/skills/*/scripts/`, for the rules phase 7 replaces: the plan push (`unpushed`,

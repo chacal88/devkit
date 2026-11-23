@@ -89,6 +89,13 @@ title of its own.
    growing, splitting the change session's loop into a module of its own is a follow-up, not a new
    decision.
 
+Note (roadmap-sessions-upfront, 2026-11-23): decision 3's triage in every grill holds for a change that
+follows flow version 2 or later of its script. The `devkit` and `devkit-lite` flows are released as
+version 2, which lists `requirements-triage` among the helpers of the grill; a change on flow 1 (opened
+before devkit-openspec 0.32.0, or with no recorded flow) keeps its grill with no triage until the owner
+moves it with `change-loop.mjs flow <id>`, because a released flow version never changes under the
+changes that follow it. The status and the decisions above stay.
+
 ## Consequences
 
 - Positive: a run needs one typed command; every grill is answered up front in one session, the
