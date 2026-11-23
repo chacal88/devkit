@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=ac5797c159ed846fa1865b193d6db014624842ee -->
+<!-- devkit-stage review result=passed attempt=1 commit=86361456ab393882cecf4a1a721905b050f4e253 -->
 
 # Review: commit-attribution, round 1
 
@@ -63,6 +63,29 @@ None.
 
 ## Notes
 - A re-check only because code-quality-reviewer recorded its round-1 verdict with uncommitted changes (evidence.md untracked at the time); the range adds only openspec/ files.
+
+## Next
+Ready to ship.
+
+# Review: commit-attribution, round 1
+
+Path: agents · range `ac5797c159ed846fa1865b193d6db014624842ee..86361456ab393882cecf4a1a721905b050f4e253` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 8636145 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 8636145 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Re-review because the branch took two merges of origin/main (11989f7: the stage-roles release 0.26.0; 39fc410: the test-fixture release 0.26.1); the conflicts were in release files, the CI pin, change-loop.mjs, change-loop.test.mjs and both skills. Whole suite at 39fc410: 1568 pass.
 
 ## Next
 Ready to ship.
