@@ -91,3 +91,27 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: remote-worker, round 2
+
+Path: agents · range `0187ac5c256f95f11156fa0df78a14c03c9d1801..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 69cd61c |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 69cd61c |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path agents: this turn began with a background task notification, not the owner's typed message.
+- Scoped re-review of commit 8344801 only (a CHANGELOG word and a comment).
+
+## Next
+Ready to ship.
