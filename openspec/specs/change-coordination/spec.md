@@ -302,8 +302,12 @@ a wait, 2 for blocked and 3 for an error.
 - **WHEN** the delivery checker's step is `wait-checks` or `wait-merge`
 - **THEN** the run ends waiting on GitHub with a reply naming the checks, the merge or the archive's merge, and the exit code is 1
 
+#### Scenario: GitHub does not answer
+- **WHEN** the stage checker cannot read the change's pull request or its checks because a `gh` call fails
+- **THEN** the run ends waiting on GitHub with a reply saying GitHub did not answer, the action keeps GitHub's error for the wait, and the exit code is 1
+
 #### Scenario: A ceiling or a closed pull request
-- **WHEN** the stage checker ends blocked because a stage reached its ceiling, the pull request was closed, or GitHub cannot be read
+- **WHEN** the stage checker ends blocked because a stage reached its ceiling or the pull request was closed
 - **THEN** the run ends blocked with that reason in plain words, and the exit code is 2
 
 #### Scenario: A change begun under the previous script
@@ -372,7 +376,7 @@ changes; the reply SHALL say the session is waiting and that calling the command
 - **THEN** its reply says the session keeps waiting with no time limit and that calling `/devkit change` again is safe
 
 #### Scenario: GitHub has not answered
-- **WHEN** the decision is still the same wait at every poll
+- **WHEN** the decision is still the same wait on the checks or the merge at every poll
 - **THEN** the wait keeps polling, whatever the number of polls
 
 #### Scenario: The checks pass in merge mode
@@ -404,8 +408,12 @@ changes; the reply SHALL say the session is waiting and that calling the command
 - **THEN** the wait ends with the answer step as the next action
 
 #### Scenario: GitHub cannot be read
-- **WHEN** GitHub cannot be read at three polls in a row
+- **WHEN** GitHub cannot be read at three polls in a row, each poll failing or giving the wait that says GitHub did not answer
 - **THEN** the wait ends and the run ends blocked, quoting the error
+
+#### Scenario: A wait that began with GitHub silent
+- **WHEN** the run ended waiting because GitHub did not answer, and at a later poll GitHub answers with the checks still pending
+- **THEN** the wait ends with the wait on the checks, and the session starts a new wait for it
 
 ### Requirement: Replies use no internal term
 Every reply of the command SHALL come from one message table with the same keys in English and in
