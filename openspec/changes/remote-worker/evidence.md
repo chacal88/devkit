@@ -1,14 +1,29 @@
-<!-- devkit-stage evidence result=passed attempt=4 commit=7b21aad5bcd8605c22de17b12338bbcc999802b4 -->
-Commit: 7b21aad5bcd8605c22de17b12338bbcc999802b4
+<!-- devkit-stage evidence result=passed attempt=5 commit=8344801e559626ca9cc30c660bd67cdca4cbb5db -->
+Commit: 8344801e559626ca9cc30c660bd67cdca4cbb5db
 
 # Evidence
 
-Change: `remote-worker` · Verified again (attempt 4) 2026-11-23 on branch `remote-worker` at the commit above. The
-working tree was clean (`git status --short` printed nothing). Attempt 4 runs past the stage ceiling of 3 by the
-owner's authorization in their own message of the same day. HEAD is two merges of `origin/main` plus the plan revisions.
-The release is devkit-openspec 0.30.0 and marketplace 0.34.0 (read from the manifests at this commit), and the ADR is
+Change: `remote-worker` · Verified again (attempt 5) 2026-11-23 on branch `remote-worker` at the commit above. The
+working tree was clean (`git status --short` printed nothing). Attempt 5 runs past the stage ceiling of 3 by the owner's
+authorization, as attempt 4 did. HEAD is 8344801, two commits after attempt 4's 7b21aad: `0187ac5` (evidence and review files
+under `openspec/changes/remote-worker/`) and `8344801` (a one-word `CHANGELOG.md` fix and a comment-only edit of the header
+of `plugins/openspec/hooks/run-file.mjs`). The release is devkit-openspec 0.30.0 and marketplace 0.34.0, and the ADR is
 `docs/adr/0019-a-change-can-run-on-another-machine.md`. Every command ran from the worktree with `TMPDIR=/var/tmp`, each
 as its own command with its exit code deciding. No fetch, push or commit was made by this run.
+
+### What changed since attempt 4's commit
+
+`git diff 7b21aad HEAD -- plugins docs scripts openspec/config.yaml CHANGELOG.md .claude-plugin` prints two hunks and
+`git diff --stat` for the same paths says `2 files changed, 2 insertions(+), 2 deletions(-)`:
+
+- `CHANGELOG.md` line 15: `ADR 0019 (proposed)` becomes `ADR 0019 (accepted)`.
+- `plugins/openspec/hooks/run-file.mjs` line 2: the second line of the header comment (a line starting with `//`) is reworded
+  to "Moved here from `change-loop.mjs`, where they now also carry `placed`, so that ...".
+
+No code line changed: filtering that diff for added or removed lines that do not start with `//` leaves 0 lines for
+`plugins`, and the only other changed line is the one changelog word. No test reads this repository's `CHANGELOG.md` or
+`run-file.mjs` header text (the `CHANGELOG.md` strings in the test files are fixture repositories). So the whole-suite
+run of gate 5.10 at 7b21aad stands as the proof for the gate, as the owner's instruction allows, and was not re-run.
 
 Attempt 3 recorded two defects. Both are fixed at this commit:
 
@@ -23,8 +38,8 @@ Attempt 3 recorded two defects. Both are fixed at this commit:
 
 ### Gates
 
-Counts are the `ℹ tests/pass/fail/skipped` lines of this attempt's own runs, except gate 5.10's `node --test` row (see
-its row). The `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main` prefix is part of each command.
+Counts are the `ℹ tests/pass/fail/skipped` lines of this attempt's own runs at HEAD, except gate 5.10's `node --test` row (see
+its row). Rows 1.4 to 4.6 and 5.8 to 5.9 were re-run at HEAD in this attempt and gave the same counts as attempt 4. The `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main` prefix is part of each command.
 
 | Gate | Command | Result |
 |---|---|---|
@@ -38,10 +53,10 @@ its row). The `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main` prefix is 
 | 4.6 | `python3 scripts/check.py` | pass: exit 0, all checks passed |
 | 5.8 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^delivery-models open" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 10 tests, 10 passed, 0 failed (includes `delivery-models open: a two-prs change starts from origin/<base>`, D-1 fixed, T-14) |
 | 5.9 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-state ADR 0017" --test-name-pattern="^followups ADR 0014" --test-name-pattern="^followups AC-3 run file" plugins/openspec/hooks/guard.test.mjs` | pass: exit 0, 3 tests, 3 passed, 0 failed (includes `change-state ADR 0017: the documents follow`, T-15) |
-| 5.10 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: the whole suite, 2106 tests, 2106 passed, 0 failed, 0 cancelled, 0 skipped, 1722 s (28.7 min), not re-run here. Proof: `/var/tmp/devkit-validate-remote-worker/gate-5.10.txt` (written 2026-11-23 12:28:15, run started about 11:59:30 with `TMPDIR=/var/tmp`). I tied it to this HEAD by file times: the last write of every code, ADR and config file that the commit 7b21aad holds (`delivery-models.test.mjs` 11:57:43, ADR 0017 and `openspec/config.yaml` 11:58:12, ADR 0019 11:59:08) is before the run started; the rest of the commit is change documents under `openspec/changes/remote-worker/` and `git diff --stat de34e56 HEAD -- plugins scripts docs openspec/config.yaml` lists only those four files. The file has no `✖` line and its `✔` lines include all 41 `remote ...` tests |
+| 5.10 | `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs` | pass: the whole suite, 2106 tests, 2106 passed, 0 failed, 0 cancelled, 0 skipped, 1722 s (28.7 min), run at 7b21aad and not re-run here. Proof: `/var/tmp/devkit-validate-remote-worker/gate-5.10.txt` (`ℹ tests 2106`, `ℹ pass 2106`, `ℹ fail 0`, `ℹ cancelled 0`, no `✖` line, its `✔` lines include all 41 `remote ...` tests; written 2026-11-23 12:28:15, run started about 11:59:30 with `TMPDIR=/var/tmp`). It holds for HEAD because the diff above, 7b21aad to HEAD over `plugins docs scripts openspec/config.yaml CHANGELOG.md .claude-plugin`, is a comment in `run-file.mjs` and one word of `CHANGELOG.md`, with no code line |
 | 5.10 | `python3 scripts/check.py` | pass: exit 0, all checks passed (run at this commit) |
 | 5.10 | `python3 scripts/gen-catalog.py --check` | pass: exit 0 (run at this commit) |
-| 5.10 | `grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt"` | pass: exit 0. The file was written 11:57:12 on 2026-11-23, after the manifests of the second merge (11:29:44). I also ran a fresh `claude plugin validate .` at this commit: exit 0, `Validation passed` (devkit-openspec 0.30.0, marketplace 0.34.0 validate) |
+| 5.10 | `grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-remote-worker/phase-5.txt"` | pass: exit 0 (re-run here with `TMPDIR=/var/tmp`). The file was written 11:57:12 on 2026-11-23, after the manifests of the second merge (11:29:44); no manifest changed since (the diff above has no `.claude-plugin` line). I also ran a fresh `claude plugin validate .` at this commit: exit 0, `Validation passed` |
 
 Other checks, run at this commit, each exit 0: `openspec validate remote-worker --strict` (`Change 'remote-worker' is valid`;
 this is D-2 fixed), `python3 scripts/check.py`, `python3 scripts/gen-catalog.py --check`, `claude plugin validate .`.
