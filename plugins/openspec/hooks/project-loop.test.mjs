@@ -1855,3 +1855,51 @@ test('project-loop docs: the documents follow', () => {
   const entry = between(read('CHANGELOG.md'), '## 0.24.0', '\n## 0.23.1');
   assert.match(entry.replace(/\s+/g, ' '), /moves its CI pin to `v0\.20\.0` before it sets `ship: devkit-project: merge`/, 'the entry says to move the CI pin first');
 });
+
+// ================================================================ commit-attribution (D-7, T21 to T25)
+
+test('commit-attribution AC-1 T21 the S8 commit before the review ends with the attribution request after the commit rule', () => {
+  const t = loopProject();
+  const wt = readySlice(t);
+  put(wt, { 'docs/design/billing/2-domain-model.md': 'new\n' });
+  const a = act(t.main, 'billing');
+  assert.equal(a.step, 'commit');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+  assert.ok(a.brief.slice(0, -CL.ATTRIBUTION_ASK.length).endsWith('never on the default branch.'), a.brief);
+});
+
+test('commit-attribution AC-1 T22 the S13 commit in plan ship mode ends with the attribution request', () => {
+  const t = loopProject({ ship: 'plan' });
+  archivedSlice(t);
+  const a = act(t.main, 'billing');
+  assert.equal(a.step, 'commit');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T23 the S16 open-pr ends with the attribution request', () => {
+  const t = loopProject();
+  archivedSlice(t, 'billing', { commit: true });
+  const a = act(t.main, 'billing', { gh: scriptedGh() });
+  assert.equal(a.step, 'open-pr');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T24 the S17 push ends with the attribution request', () => {
+  const t = loopProject();
+  const { gh } = openPr(t, {}, { over: { headRefOid: '0'.repeat(40) } });
+  const a = act(t.main, 'billing', { gh });
+  assert.equal(a.step, 'push');
+  assert.ok(CL.ATTRIBUTION_ASK?.length > 0, 'the request is exported');
+  assert.ok(a.brief.endsWith(CL.ATTRIBUTION_ASK), a.brief);
+});
+
+test('commit-attribution AC-1 T25 the S10 ADR reviewer hand-off does not carry the attribution request', () => {
+  const t = loopProject();
+  readySlice(t);
+  const a = act(t.main, 'billing');
+  assert.equal(a.agent, 'devkit-core:adr-reviewer');
+  assert.ok(!a.brief.includes(CL.ATTRIBUTION_ASK ?? '\u0000'), a.brief);
+});

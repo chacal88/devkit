@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.27.0 — the Jira entry
+## 0.28.0 — the Jira entry
 
-- **devkit-openspec** 0.23.0: `/devkit change <Jira key or link>` opens the change from that task.
+- **devkit-openspec** 0.24.0: `/devkit change <Jira key or link>` opens the change from that task.
   The session reads it through its own Atlassian connector; `change-loop.mjs` makes no call and
   keeps no token. `start` answers the `task` mode, `open --task <KEY>` writes a `Jira: <KEY> <link>`
   line and the quoted title, description and acceptance-criteria field under `## Request`, and the
@@ -10,11 +10,22 @@
   opens, `next` carries `writeBack` and `write-back ask|answer` asks the developer once whether to
   comment the link and move the task; Jira is written only on that yes, and the question is
   recorded in the git common directory. New module `jira-task.mjs`.
-- **devkit-core** 0.11.0: the `requirements-grill` skill asks only what a request copied from a
+- **devkit-core** 0.12.0: the `requirements-grill` skill asks only what a request copied from a
   task leaves open, recording the rest as assumptions answered by the task.
 - Docs: the flow document, the design document and ADR 0010 (a dated Note: no task-source
   setting) record the entry; the roadmap gains round 20b (`jira-entry-live`).
-- CI: the snippet now pins `v0.23.0`, the release's tag.
+- CI: the snippet now pins `v0.24.0`, the release's tag.
+
+## 0.27.0 — commit attribution
+
+- **devkit-core** 0.11.0: `commit-and-pr` takes an attribution block from the caller and writes exactly its
+  commit trailer and pull-request footer lines over the ones its own environment gives it; with `none` it writes
+  no attribution, and with no block it behaves as before.
+- **devkit-openspec** 0.23.0: every hand-off to `commit-and-pr`, in `/devkit change`, `/devkit roadmap` and
+  `/devkit project`, ends with a request that the session append its own attribution block; the `ship-change`
+  skill gains an Attribution section and its `commit`, `open-pr`/`push` and `open-archive-pr` rows name it.
+- Docs: `docs/openspec-flow.md` describes the Attribution paragraph. The CI snippet now pins `v0.23.0`, the
+  release's tag.
 
 ## 0.26.1 — test fixtures clean up after themselves
 

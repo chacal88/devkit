@@ -540,12 +540,20 @@ export function sessionTitle(icon, id) {
 
 // ---------------------------------------------------------------- the decision (D-5), pure
 
+// commit-attribution D-1: the loop cannot read the session's attribution lines (the host gives them to the session),
+// so every hand-off to the commit agent ends with this request and the session appends its own lines (the ship-change
+// skill's Attribution section). Keyed on the agent the action names, so any step handed to that agent carries it.
+export const COMMIT_AGENT = 'devkit-core:commit-and-pr';
+export const ATTRIBUTION_HEADER = 'Attribution (from the caller):';
+export const ATTRIBUTION_ASK = ' Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.';
+export const withAttribution = (agent, text) => (agent === COMMIT_AGENT ? `${text}${ATTRIBUTION_ASK}` : text);
+
 const AGENT = {
   'change-planner': 'devkit-core:change-planner',
   'plan-readiness-reviewer': 'devkit-core:plan-readiness-reviewer',
   'tdd-implementer': 'devkit-core:tdd-implementer',
   'pr-verifier': 'devkit-core:pr-verifier',
-  'commit-and-pr': 'devkit-core:commit-and-pr',
+  'commit-and-pr': COMMIT_AGENT,
   'screen-designer': 'devkit-core:screen-designer',
   'adr-author': 'devkit-core:adr-author',
   'test-runner': 'devkit-core:test-runner',
@@ -676,10 +684,13 @@ export function decide(facts) {
   };
   // The agent of a delivery hand-off is the checker's row's (`conduct-check`'s actorOf owns the fact); the role's map only
   // when the row names none, and for the plan stages, which have no row.
-  const agent = (stage, role, step, what, detail, named) => guard({
-    ...base, kind: 'agent', ...stageFields(stage), agent: named ?? AGENT[role], ...(step ? { step } : {}), ...(detail ? { detail } : {}),
-    brief: brief(stage, what), progressKey: key(stage, step),
-  });
+  const agent = (stage, role, step, what, detail, named) => {
+    const id = named ?? AGENT[role];
+    return guard({
+      ...base, kind: 'agent', ...stageFields(stage), agent: id, ...(step ? { step } : {}), ...(detail ? { detail } : {}),
+      brief: withAttribution(id, brief(stage, what)), progressKey: key(stage, step),
+    });
+  };
   const sessionAction = (stage, step, detail, extra = {}) => guard({
     ...base, kind: 'session', ...stageFields(stage), step, ...(detail ? { detail } : {}), ...extra, progressKey: key(stage, step),
   });
