@@ -867,6 +867,12 @@ test('review-writer-prompt AC-3 the stage-1 prompt asks for git rev-parse HEAD, 
   assert.ok(p.indexOf('write no file') < p.indexOf('Run git rev-parse HEAD') && p.indexOf('sections holds neither') < p.indexOf('End your reply'));
 });
 
+test('review round: the stage-1 prompt tells the reviewer to run tests in the foreground and leave no background command', () => {
+  const p = reviewerPrompt(baseArgs(), bench(cq)[0]);
+  assert.match(p, /write no file: a later stage writes your verdict file\. Run every test in the foreground and give your answer when it ends: start no background command and leave none running\./);
+  assert.ok(p.indexOf('Run every test in the foreground') < p.indexOf('Run git rev-parse HEAD'));
+});
+
 test('review-writer-prompt AC-3 the stage-1 prompt does not carry args.head', () => {
   const head = 'c0ffee'.repeat(6) + 'abcd';
   assert.equal(head.length, 40);

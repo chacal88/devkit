@@ -1,0 +1,337 @@
+✖ version-pin AC-1 open: a devkit and a devkit-lite change record the pack and flow versions (1188.062917ms)
+✖ version-pin AC-1 open: a project slice records the devkit-project flow (1147.262209ms)
+✖ version-pin AC-1 open: a script with no installed flow.json gets no flow line (1240.405292ms)
+✖ version-pin AC-1 open: a malformed installed flow.json opens nothing (1207.23425ms)
+✖ version-pin AC-1 packVersion: a plugin.json with a version, and none (0.454875ms)
+✖ version-pin AC-1 writePin: append, replace, drop, collapse, keep (0.563708ms)
+✔ version-pin AC-1 skill: the roadmap opens with the same open command (0.178208ms)
+✖ version-pin AC-3 open: a change opened after the upgrade records flow 2 (1194.141917ms)
+✖ version-pin AC-5 resume: a newer installed flow adds one line in en and pt-BR (1820.229333ms)
+✔ version-pin AC-5 resume: an equal installed flow adds no line (3420.234792ms)
+✖ version-pin AC-6 flow: moves an older change and records the versions (26.883125ms)
+✖ version-pin AC-6 flow: an equal change is left as it is (21.768334ms)
+✖ version-pin AC-6 flow: a change newer than the installed flow is refused (21.794625ms)
+✖ version-pin AC-6 flow: no active change, an archived change, no installed flow and a malformed pin are usage errors (18.523166ms)
+✔ version-pin AC-6 flow: next, wait, another open, a setup re-run and a pack update leave the pin (9188.285291ms)
+✖ version-pin AC-6 script: a switch records the new script's installed flow (293.648292ms)
+✖ version-pin AC-6 script: a switch to a script with no installed flow drops the flow line (238.434167ms)
+✖ version-pin AC-6 skill: the flow command runs only on the owner's request (0.111958ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 3
+ℹ fail 15
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 21102.627125
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/version-pin.test.mjs:529:1
+✖ version-pin AC-1 open: a devkit and a devkit-lite change record the pack and flow versions (1188.062917ms)
+  AssertionError [ERR_ASSERTION]: devkit: "schema: devkit\ncreated: 2026-11-23\n"
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:536:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:542:1
+✖ version-pin AC-1 open: a project slice records the devkit-project flow (1147.262209ms)
+  AssertionError [ERR_ASSERTION]: schema: devkit-project
+  created: 2026-11-23
+  skip_specs: true
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:547:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:551:1
+✖ version-pin AC-1 open: a script with no installed flow.json gets no flow line (1240.405292ms)
+  AssertionError [ERR_ASSERTION]: schema: devkit-lite
+  created: 2026-11-23
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:556:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:560:1
+✖ version-pin AC-1 open: a malformed installed flow.json opens nothing (1207.23425ms)
+  AssertionError [ERR_ASSERTION]: devkit-run: full-one
+  {
+    "version": 1,
+    "change": "full-one",
+    "script": "devkit",
+    "worktree": "/private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/devkit-deliver-9X7tDR/.claude/worktrees/full-one",
+    "branch": "full-one",
+    "base": "origin/main",
+    "reply": "I opened the change full-one on the full script, because it is not clearly small, and the full script is the safe choice. Next come a few questions about your request; to use the short script instead, say so before the plan is written."
+  }
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:564:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:571:1
+✖ version-pin AC-1 packVersion: a plugin.json with a version, and none (0.454875ms)
+  TypeError [Error]: CL.packVersion is not a function
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:574:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/version-pin.test.mjs:587:1
+✖ version-pin AC-1 writePin: append, replace, drop, collapse, keep (0.563708ms)
+  TypeError [Error]: CL.writePin is not a function
+      at write (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:589:91)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:591:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/version-pin.test.mjs:607:1
+✖ version-pin AC-3 open: a change opened after the upgrade records flow 2 (1194.141917ms)
+  AssertionError [ERR_ASSERTION]: schema: devkit
+  created: 2026-11-23
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:611:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:618:1
+✖ version-pin AC-5 resume: a newer installed flow adds one line in en and pt-BR (1820.229333ms)
+  AssertionError [ERR_ASSERTION]: en: Continuing the change feat: next is the plan readiness.
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:626:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:647:1
+✖ version-pin AC-6 flow: moves an older change and records the versions (26.883125ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:651:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:659:1
+✖ version-pin AC-6 flow: an equal change is left as it is (21.768334ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:663:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:668:1
+✖ version-pin AC-6 flow: a change newer than the installed flow is refused (21.794625ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:672:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:677:1
+✖ version-pin AC-6 flow: no active change, an archived change, no installed flow and a malformed pin are usage errors (18.523166ms)
+  AssertionError [ERR_ASSERTION]: ghost: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> --lang <l> (the request on standard input) | script <id> <devkit|devkit-lite> --why <code> --lang <l> | accept-decisions <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>]
+      at refused (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:683:12)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:686:3)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:733:1
+✖ version-pin AC-6 script: a switch records the new script's installed flow (293.648292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+    'schema: devkit\n' +
+      'created: 2026-11-22\n' +
+  +   'x-devkit-version: 0.23.0\n' +
+  +   'x-devkit-flow: 1\n'
+  -   'x-devkit-version: 0.22.0\n' +
+  -   'x-devkit-flow: 2\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:737:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'schema: devkit\ncreated: 2026-11-22\nx-devkit-version: 0.23.0\nx-devkit-flow: 1\n',
+    expected: 'schema: devkit\ncreated: 2026-11-22\nx-devkit-version: 0.22.0\nx-devkit-flow: 2\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:742:1
+✖ version-pin AC-6 script: a switch to a script with no installed flow drops the flow line (238.434167ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /x-devkit-flow/. Input:
+  
+  'schema: devkit\n' +
+    'created: 2026-11-22\n' +
+    'x-devkit-version: 0.23.0\n' +
+    'x-devkit-flow: 1\n'
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:747:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'schema: devkit\ncreated: 2026-11-22\nx-devkit-version: 0.23.0\nx-devkit-flow: 1\n',
+    expected: /x-devkit-flow/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/version-pin.test.mjs:751:1
+✖ version-pin AC-6 skill: the flow command runs only on the owner's request (0.111958ms)
+  AssertionError [ERR_ASSERTION]: a "When the owner asks" sentence runs change-loop.mjs flow <id> --lang
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/change-version-pin/plugins/openspec/hooks/version-pin.test.mjs:753:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,150 @@
+change-version-pin: merge of origin/main (212d007) into the branch (802571f)
+
+Version numbers
+- origin/main held devkit-openspec 0.28.2 and marketplace 0.32.3 (CHANGELOG top entry 0.32.3; tags up to v0.28.2).
+  Neither 0.29.0 (devkit-openspec) nor 0.33.0 (marketplace) is used by a main tag, a main CHANGELOG entry or a
+  plugin.json / marketplace.json on main (the CHANGELOG heading "0.29.0 - the change budget" is a marketplace
+  number of an older release, not a devkit-openspec one). Final: devkit-openspec 0.29.0, marketplace 0.33.0.
+- Places that name the release follow it: plugins/openspec/.claude-plugin/plugin.json, .claude-plugin/marketplace.json
+  (metadata 0.33.0, devkit-openspec 0.29.0), CHANGELOG.md, the CI snippet pin v0.29.0 in docs/openspec-flow.md (three
+  places), "0.29.0 or later" in docs/openspec-flow.md and plugins/openspec/skills/openspec-setup/SKILL.md, and the docs
+  test in change-loop.test.mjs.
+
+Conflicted files and how each was resolved (never one side wholesale)
+- .claude-plugin/marketplace.json: both hunks took this change's numbers (0.33.0, 0.29.0); main's other entries
+  (devkit-core 0.13.1, etc.) came in through the auto-merge.
+- plugins/openspec/.claude-plugin/plugin.json: version 0.29.0 (this change's).
+- CHANGELOG.md: this change's 0.33.0 entry kept on top, main's whole history (0.32.3 and below) kept under it.
+- docs/openspec-flow.md: two hunks, the CI snippet pin and the "Pin the commit sha" paragraph: v0.29.0 (main only
+  moved the number from v0.28.2; nothing else of main's was in the hunks).
+- plugins/openspec/hooks/change-loop.mjs: five hunks.
+  1. header comment: main's write-back text plus this change's `flow <id>` command; "Only open, script, accept-decisions,
+     flow and write-back write".
+  2. imports from guard.mjs: main's (sessionTranscript, spentOf, isChangeId, readRoadmap, parseDevkitBlock,
+     deliverySettings, ...) plus this change's (changeFlow, readFlow, readPin); from flow-check.mjs: main's list
+     (readFlow now comes from guard.mjs); the `plainValue` import was dropped because main moved the settings parser to
+     guard.mjs#parseDevkitBlock and nothing in the file uses plainValue any more.
+  3. startMode: this change's flowNotice() kept, main's doc comment (with `task`) kept.
+  4. the `resume` closure: this change's version (takes `root`, appends the flow-newer line) followed by main's
+     `listed`, `askFirst` and the `task` branch; the new call of `resume` for a task's own change in main's code now
+     passes `own.root`, so the newer-flow line also shows when a Jira task resumes a change.
+  5. USAGE string: main's `--task`, `write-back`, `state` forms plus this change's `flow <id> --lang <l>`.
+- plugins/openspec/hooks/change-loop.test.mjs: SAMPLE gets this change's `version: 1` beside main's keys; the shared key
+  `installed` is main's string '2.46.0' (it renders in 'flow-newer' too; the table test only checks that every placeholder
+  is filled and no internal term shows). The docs invariant: v0.29.0 asserted, v0.28.2 added to the list of pins that must be
+  gone, main's older doesNotMatch lines kept.
+- plugins/openspec/hooks/deliver-check.mjs: main's import list with `schemaHasArtifact` replaced by `changeDeclares`
+  (the two readiness readers use it, D-4 A16 and A17).
+- plugins/openspec/hooks/flow-check.mjs: this change's guard.mjs import (FlowUsageError, readFlow, readFlowFile,
+  FLOW_LANGS, changeFlow; `schemaFile` dropped, its only use was the moved readFlow) and main's deliver-check import
+  (deliveryConfig, findTestPr).
+- plugins/openspec/hooks/guard.test.mjs: both imports kept (version-pin.test.mjs and test-tmp.test.mjs).
+- plugins/openspec/skills/devkit/SKILL.md: main's Jira "A Jira task" section and its resume/choose rows kept; this
+  change's resume sentence ("may hold a second line, about a newer flow") and its `flow` paragraph kept.
+- scripts/check.py: both calls in main(): check_awaited_subtests() then check_flow_versions().
+
+Auto-merged files checked (no marker, read for semantics): guard.mjs, conduct-check.mjs, roadmap-loop.mjs,
+project-loop.mjs, flow-check.test.mjs, README, openspec-setup SKILL.md, CONTRIBUTING.md. `git diff origin/main` of every
+product file holds only this change's pin edits. main did not edit any flow.json since cc4d863, so flows/1.json and
+scripts/released-flows.json (digests) stay as they were.
+
+Fix of this change's own test for main's feature (test-fixture-cleanup)
+- Invariant: a test makes its temporary folders through test-tmp.mjs, and a fixture shared by several tests is made at
+  module level, never lazily inside the first test that needs it (CONTRIBUTING; test-tmp.test.mjs refuses a raw
+  mkdtempSync / tmpdir() in a *.test.mjs). Layer: the test fixtures; suite: guard.test.mjs (imports version-pin.test.mjs).
+- version-pin.test.mjs broke after the merge: its cached scratch projects were made lazily in the first test, and
+  gitRepo() (main's deliver-check.test.mjs) now removes the folder when that test ends, so the next test found
+  ENOENT. Fix in version-pin.test.mjs only: every mkdtempSync(join(tmpdir(), ...)) became tmpFolder('devkit-version-pin-...'),
+  the ten shared scratch projects (SHARED) and the 9.9.9 pack copy are made once at module level. No assertion changed.
+- Added one test, "version-pin AC-1 writePin: the change budget block and the pin live in one .openspec.yaml": main's
+  change-budget reads `budget:` from the `devkit:` block of the same .openspec.yaml the pin writer edits. It passed at
+  once (no product code changed): it pins the interaction so a later edit of either parser shows.
+
+New readers of a change's flow or schema found on main (search: readFlow(, schemaHasArtifact(, readFlowFile(, flow.json,
+changeSchemaAt, collectFlow, .stages, schema.yaml, .openspec.yaml, and the state-per-change, session-title, budget and
+Jira code)
+- plugins/openspec/hooks/change-loop.mjs:1467 (stateEntries -> openTitle): readFlow(start, 'devkit') titles the `open`
+  stage of a change that a run file names but whose folder does not exist yet. Not routed: there is no change folder, so
+  no pin; same class as D-4 B6 and B7 (the open's own read of the installed flow). A change with a folder goes through
+  nextAction -> collectFlow -> changeFlow (A1, A5). Question for the owner: none; add this row to table B of design.md
+  when the design is next revised (B16).
+- plugins/openspec/hooks/change-loop.mjs budgetOf (line 109) and the `state` command (stateEntries): read the
+  `devkit:` block of .openspec.yaml and call nextAction; no flow read of their own.
+- No other new reader: schemaHasArtifact has no caller left outside guard.mjs (changeDeclares, changeDeclaresOrInstalled);
+  readFlow is called by the pin code, moveFlow, openTitle, project-loop notOpened (B7); every other path goes
+  through collectFlow or changeFlow. Routed by this merge: none (no reader needed a new route, so no new per-reader
+  test beyond the budget interaction test above).
+
+Validation (GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main on node runs)
+- node --check on every changed .mjs: ok.
+- python3 scripts/check.py: all checks passed (exit 0). python3 scripts/gen-catalog.py --check: exit 0 (no description changed).
+- node --test --test-name-pattern="^version-pin" plugins/openspec/hooks/version-pin.test.mjs: 65 tests, 65 pass, exit 0
+  (before the budget test was added; the new test passes alone too).
+- node --test plugins/openspec/hooks/test-tmp.test.mjs: 10 pass.
+- claude plugin validate .: passed (exit 0); one warning about an unknown `types` field of plugins[5], not touched here.
+- node --test plugins/openspec/hooks/change-loop.test.mjs (whole file, background): 1043 tests, 1042 pass, 1 fail, exit 1.
+  The one failure is "change-budget AC-1 next at the cap prints the run line and the end line and exits 1": it expects
+  the temporary folder as /var/folders/... and gets /private/var/folders/... (macOS symlink of the temporary root).
+  It fails the same way on a pristine `git archive origin/main` tree on this machine (same assertion, same paths), so
+  neither the merge nor the pin causes it; it is a main test that assumes a Linux temporary root. Not changed here.
+- node --test plugins/openspec/hooks/flow-check.test.mjs (whole file, background): 696 tests, 696 pass, exit 0.
+- The whole guard.test.mjs suite was not run (ship-change runs it).
+
+Second merge (origin/main 78b6cd7, PR 65 "resolve release-file conflicts by a merge")
+- Main took devkit-openspec 0.29.0 and marketplace 0.33.0, so this change's release moved to devkit-openspec 0.30.0
+  and marketplace 0.34.0 (tags v0.30.0 and v0.34.0 do not exist; main's manifests name 0.29.0 and 0.33.0).
+- CHANGELOG.md: this change's entry became `## 0.34.0 — change-version-pin` above main's `## 0.33.0 — release conflicts
+  resolved by a merge`; both texts kept, this entry's 0.29.0 and v0.29.0 renamed to 0.30.0 and v0.30.0.
+- plugins/openspec/hooks/change-loop.test.mjs: the only conflict was the block of per-release pin assertions of the
+  docs test. Main's PR 65 removed that block on purpose (the assertion now reads the version from the manifest:
+  `pinMismatches(flow, version)` must be empty, so every CI pin names the manifest's release). Taken main's side; this
+  change's own `v0\.29\.0` match and its doesNotMatch lines are not re-added. Invariant kept by main's assertion: the
+  CI snippet pins the current release (docs test of change-loop.test.mjs, layer: docs/flow document).
+- Numbers moved to 0.30.0: plugins/openspec/.claude-plugin/plugin.json, .claude-plugin/marketplace.json (marketplace
+  0.34.0 and the devkit-openspec entry), docs/openspec-flow.md (CI snippet pin and the Pin paragraph, and "opened from
+  devkit-openspec 0.30.0 on"), plugins/openspec/skills/openspec-setup/SKILL.md. The pack README and the devkit skill name
+  no release. version-pin.test.mjs uses '0.29.0' only as a fixture value of a pin it writes, not as the release.
+- conduct-check.mjs auto-merged: `git diff origin/main` shows only this change's pin edits (changeFlow in planArtifactsOf,
+  changeDeclaresOrInstalled for needsReadiness and needsRequirements, the imports).
+
+Fourth merge (origin/main 5d85f35, PR 86 "the delivery loop tags the release it merged")
+- Main took devkit-openspec 0.30.0 and marketplace 0.34.0 (ADR 0019, `devkit.release_tag`, the `tag-release` step, rows R1 to R3,
+  release-tags.test.mjs), so this change's release moved to devkit-openspec 0.31.0 and marketplace 0.35.0. Free: origin/main's
+  manifests name 0.30.0 and 0.34.0, the newest local tag is v0.28.2, and CHANGELOG.md has no devkit-openspec 0.31.0 and no 0.35.0
+  (its `## 0.31.0` heading is an older marketplace number).
+- Conflicts, each resolved keeping both sides:
+  - CHANGELOG.md: `## 0.35.0 — change-version-pin` above main's `## 0.34.0 — release tags`; this entry's 0.30.0 and v0.30.0 renamed
+    to 0.31.0 and v0.31.0; main's entry untouched (its own `v0.30.0` pin stays: it names main's release).
+  - deliver-check.mjs: the guard.mjs import line takes main's `releaseTagSetting` and this change's `changeDeclares` in place of
+    `schemaHasArtifact` (the two readiness reads, collectState and checkOne, stay routed through changeDeclares).
+  - change-loop.mjs: the guard.mjs import takes `releaseTagSetting` with this change's `changeFlow`, `readFlow`, `readPin`; the flow-check
+    import drops `readFlow` (it is imported from guard.mjs, where this change moved it; flow-check.mjs still re-exports it).
+  - change-loop.test.mjs: the SAMPLE of the reply tokens keeps `version: 1` (this change) and `tag`, `at`, `sha` (main).
+- Numbers moved to 0.31.0 / 0.35.0: plugins/openspec/.claude-plugin/plugin.json, .claude-plugin/marketplace.json (metadata 0.35.0 and
+  the devkit-openspec entry 0.31.0), docs/openspec-flow.md (the three CI-pin places v0.30.0 -> v0.31.0, and "opened from devkit-openspec
+  0.31.0 on"), plugins/openspec/skills/openspec-setup/SKILL.md. The CI-pin assertion of change-loop.test.mjs derives the pin from
+  the manifest and passes. No other mention of 0.30.0 or 0.34.0 outside CHANGELOG.md's main entry and its `## 0.30.0` history.
+- New readers of a change's flow or schema in PR 86: none. The tag-release step in deliver-check.mjs reads the release file and the
+  merge commit, not a flow; the only deliver-check flow reads are the two readiness reads above. guard.mjs and conduct-check.mjs
+  auto-merged: `git diff origin/main` shows this change's pin edits plus nothing of main's removed; conduct-check.mjs also lists
+  `tag-release` in MAIN (main's). roadmap-loop.mjs and flow-check.mjs differ from origin/main only by this change's pin edits.
+- Validation (GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main; a fresh empty TMPDIR per run, `ls -A` empty after each):
+  node --check on the 10 changed .mjs ok; check.py exit 0; gen-catalog.py --check exit 0; version-pin.test.mjs 645/645;
+  change-loop.test.mjs 1054/1054; deliver-check.test.mjs 443/443; release-tags.test.mjs 828/828; conduct-check.test.mjs 579/579;
+  flow-check.test.mjs 703/703 (all exit 0); claude plugin validate . exit 0 (same unknown `types` warning); openspec validate
+  change-version-pin --strict exit 0. The whole guard.test.mjs was not run (ship-change runs it).
+
+## Fifth merge (origin/main 1cad7e2: PR 87, archive release-tags with its retro, devkit-openspec 0.30.1 / marketplace 0.34.1)
+- Conflicts, release files only: .claude-plugin/marketplace.json, plugins/openspec/.claude-plugin/plugin.json,
+  CHANGELOG.md, docs/openspec-flow.md. change-loop.mjs and change-loop.test.mjs auto-merged.
+- Resolution: this change keeps devkit-openspec 0.31.0 and marketplace 0.35.0 (0.31.0 and 0.35.0 are above main's 0.30.1 / 0.34.1;
+  no v0.31.* or v0.35.* tag exists). The other packs keep main's versions. CHANGELOG.md keeps both entries: `## 0.35.0 — change-version-pin`
+  first, then main's `## 0.34.1 — retro proposals of release-tags` and everything below it unchanged. docs/openspec-flow.md: the two
+  conflicting CI-pin places take v0.31.0 (this change's numbers; main's only difference in them was v0.30.1).
+- No stale 0.30.0 / v0.30.0 / v0.30.1 meaning this change's release remains in docs, skills, CONTRIBUTING.md or the pack README.
+- Pin edits survived: `git diff origin/main` of guard.mjs, change-loop.mjs, deliver-check.mjs, conduct-check.mjs, roadmap-loop.mjs and
+  flow-check.mjs shows only this change's pin edits; main's PR 87 edits to change-loop.mjs are intact (they do not appear in it).
+- Validation (GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main; a fresh empty TMPDIR per run, `ls -A` empty after each):
+  node --check change-loop.mjs exit 0; check.py exit 0; gen-catalog.py --check exit 0; change-loop.test.mjs targeted 81/81;
+  version-pin.test.mjs AC-1/6/7 29/29; claude plugin validate . exit 0 (same unknown `types` warning); openspec validate
+  change-version-pin --strict exit 0. The long suites and guard.test.mjs were not run (CI is the judge).

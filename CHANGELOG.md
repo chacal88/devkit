@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.35.0 — every change of a roadmap run opens at its start
+## 0.36.0 — every change of a roadmap run opens at its start
 
-- **devkit-openspec** 0.31.0: a `/devkit roadmap` run on the desktop app opens every pending change
+- **devkit-openspec** 0.32.0: a `/devkit roadmap` run on the desktop app opens every pending change
   at its start and starts each change's session with a one-use ticket, so the session runs its loop
   from its first turn with no typed command: the new `devkit-session` skill is the entry, and a hook
   on the Skill tool (`guard.mjs skill`) lets it run only on the run's unclaimed ticket
@@ -14,11 +14,37 @@
   at its end (`schedule-check` and `delete-check` are actions of a decision). New subcommands:
   `session-next`, `session-wait`, `merge-base`, `push` and `check`. A change session's `session-next`
   now honours the token budget as `next` does.
-  The CI snippet now pins `v0.31.0`, the release's tag.
+  The CI snippet now pins `v0.32.0`, the release's tag.
 - **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
   files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
 - Docs: ADR 0020, with Notes in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
   coordination design, the roles and the READMEs describe the new run.
+
+## 0.35.1 — retro proposals of change-version-pin
+
+- **devkit-core** 0.13.2: the stage-1 reviewer prompt of `review-change` now also says: run every
+  test in the foreground and give your answer when it ends; start no background command and leave
+  none running. A reviewer that started its own background wait loop delayed a round by hours; a
+  test in `review-round.test.mjs` pins the sentence.
+- Docs: CONTRIBUTING says how CI judges a test (an empty `TMPDIR` that must stay empty) and what a
+  test that calls code in its own process has to do; the flow page says what a merge of the base
+  costs a change in delivery and who holds the other merges off.
+
+## 0.35.0 — change-version-pin
+
+- **devkit-openspec** 0.31.0: a change follows the flow it was opened with. `change-loop.mjs open`
+  records `x-devkit-version` and `x-devkit-flow` in the change's `.openspec.yaml`; every reader of
+  the change's stages (the readout, the change, roadmap and project loops, the edit hook, the CI
+  check, the conductor and the locks) reads `flows/<n>.json` of that version, and a change with no
+  record follows version 1. Each schema folder keeps every released `flows/<n>.json`. When a newer
+  flow is installed, the readout and the `resume` reply say so in one line, and the change moves
+  only on the owner's request, with the new `change-loop.mjs flow <id>`; the `script` switch
+  records the new script's flow. `scripts/check.py` refuses a `flow.json` changed with its version
+  kept, against `scripts/released-flows.json`. The CI snippet now pins `v0.31.0`, the release's tag.
+- Docs: `docs/openspec-flow.md` ("The flow a change follows", "Moving to a newer flow"),
+  CONTRIBUTING.md (a flow change raises its version), the pack README and the setup skill.
+- Projects: move the pinned `devkit-reviews` workflow to the commit of `v0.31.0` to honour the
+  recorded flows in CI; re-run `openspec-setup` to get `flows/`.
 
 ## 0.34.1 — retro proposals of release-tags
 

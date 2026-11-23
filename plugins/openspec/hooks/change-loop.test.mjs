@@ -85,7 +85,7 @@ const SAMPLE = {
   id: 'add-csv-export', n: 2, list: 'add-csv-export', verb: 'roadmap', round: 18, value: 'fr', accepted: 'claude, compozy, script',
   number: 12, url: 'https://github.com/o/r/pull/12', error: 'timeout', attempt: 3, phase: 2, where: 'the next step', stage: 'Code review',
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
-  branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
+  version: 1, branch: 'develop', base: 'master', default: 'main', state: 'github', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
@@ -2329,8 +2329,8 @@ test('change-loop skill: the frontmatter', () => {
 
 test('change-loop skill: every change-loop command and the readout carry the person\'s language', () => {
   const md = skillText();
-  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|wait|next|reply)\b/.test(l));
-  for (const sub of ['start', 'open', 'script', 'wait', 'next', 'reply']) {
+  const calls = md.split('\n').filter((l) => /change-loop\.mjs (start|open|script|flow|wait|next|reply)\b/.test(l));
+  for (const sub of ['start', 'open', 'script', 'flow', 'wait', 'next', 'reply']) {
     assert.ok(calls.some((l) => l.includes(`change-loop.mjs ${sub}`)), `the body runs ${sub}`);
   }
   for (const l of calls) assert.ok(l.includes(LANG_FLAG), `--lang on: ${l}`);
@@ -2564,8 +2564,9 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); roadmap-sessions-upfront moves it to 0.31.0 (release 0.35.0); 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.31\.0/, 'the CI snippet pins the current release (roadmap-sessions-upfront: 0.31.0)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); roadmap-sessions-upfront moves it to 0.32.0 (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.32\.0/, 'the CI snippet pins the current release (roadmap-sessions-upfront: 0.32.0)');
+  assert.doesNotMatch(flow, /v0\.31\.0/, 'no pin left on main\'s release before it (change-version-pin)');
   assert.doesNotMatch(flow, /v0\.30\.1/, 'no pin left on main\'s release before it (retro of release-tags)');
   assert.doesNotMatch(flow, /v0\.30\.0/, 'no pin left on the release before that (release-tags)');
   assert.doesNotMatch(flow, /v0\.29\.0/, 'no pin left on main\'s release before it (release-merge-conflict)');

@@ -10,9 +10,9 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHasArtifact } from './guard.mjs';
+import { changeSchemaAt, changeFlow, changeDeclaresOrInstalled, findRoot, parseRoadmap, readValue, schemaFile } from './guard.mjs';
 import { readRepoSettings } from './merge-setup.mjs';
-import { readFlow, FlowUsageError } from './flow-check.mjs';
+import { FlowUsageError } from './flow-check.mjs';
 import {
   UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
 } from './deliver-check.mjs';
@@ -156,7 +156,7 @@ export function proposeSchema(text, notes) {
 // files, except requirements and readiness.
 export function planArtifactsOf(root, schema, dir) {
   let flow = null;
-  try { flow = schema ? readFlow(root, schema) : null; } catch (e) { if (!(e instanceof FlowUsageError)) throw e; }
+  try { flow = schema && dir ? changeFlow(root, dir).flow : null; } catch (e) { if (!(e instanceof FlowUsageError)) throw e; }
   if (flow) {
     const fileOf = (id) => flow.stages.find((x) => x.id === id)?.file;
     const files = flow.stages
@@ -194,8 +194,8 @@ function planFacts(ctx, item, entry) {
   const planned = artifacts.map((a) => mtime(join(dir, a))).filter((m) => m !== null);
   const newestPlan = planned.length ? Math.max(...planned) : null;
   const readinessFile = join(dir, 'readiness.md');
-  const needsReadiness = Boolean(located) && schemaHasArtifact(root, schema, 'readiness');
-  const needsRequirements = Boolean(located) && schemaHasArtifact(root, schema, 'requirements');
+  const needsReadiness = Boolean(located) && changeDeclaresOrInstalled(root, dir, 'readiness');
+  const needsRequirements = Boolean(located) && changeDeclaresOrInstalled(root, dir, 'requirements');
   const readinessAt = mtime(readinessFile);
   const proposal = proposeSchema(item.text, item.notes);
   const auditFile = join(dir, 'audit.md');

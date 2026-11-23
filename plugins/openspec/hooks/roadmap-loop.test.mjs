@@ -4015,6 +4015,45 @@ test('upfront AC-4 lock agent: the coordinating session may hand requirements-tr
   assert.equal(agentOf(lkAgentInput(root, transcript, TRIAGE_TYPE, brief)).why, 'script-role', 'without the mode the hand-off goes through RH3 and is marked as before');
 });
 
+// Invariant (change-version-pin D-3 x AC-4, roadmapAgentDecision, roadmap-loop): the helpers of the requirements stage are those of the flow
+// the change follows (its pin), not of the flow installed after it opened.
+test('upfront AC-4 lock agent: a helper of the requirements stage is read from the flow the change is pinned to', () => {
+  const root = lkProject(['[ ] a'], { a: {} });
+  const folder = join(root, 'openspec', 'schemas', 'devkit');
+  const kept = JSON.parse(readFileSync(join(folder, 'flow.json'), 'utf8'));
+  assert.deepEqual(kept.stages.find((s) => s.id === 'requirements').helpers, ['codebase-researcher', 'requirements-triage'], 'the fixture flow names both helpers');
+  const newer = { ...kept, version: kept.version + 1, stages: kept.stages.map((s) => (s.id === 'requirements' ? { ...s, helpers: ['requirements-triage'] } : s)) };
+  put(root, {
+    'openspec/schemas/devkit/flow.json': JSON.stringify(newer),
+    [`openspec/schemas/devkit/flows/${kept.version}.json`]: JSON.stringify(kept),
+    [`openspec/schemas/devkit/flows/${newer.version}.json`]: JSON.stringify(newer),
+    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${kept.version}\n`,
+  });
+  commitAll(root, 'a newer flow is installed, a follows the one it opened with');
+  putRun(root, { places: 1, changeSessions: true });
+  const brief = 'Change a (devkit script), stage requirements: triage of the grill. Work only in /somewhere on branch a.';
+  const d = agentOf(lkAgentInput(root, lkRun(1), 'devkit-core:codebase-researcher', brief));
+  assert.deepEqual([d.decision, d.why, d.change], ['allow', 'grill-helper', 'a'], 'the pinned flow names the researcher, the installed one no longer does');
+});
+
+// Invariant (change-version-pin D-3 x design D-5, partOfStage, change-loop): the part a stage belongs to is the one of the flow the change
+// follows, so a newer installed flow that moves the stage does not move it for a change that opened before.
+test('upfront partOfStage: the part of a stage is read from the flow the change is pinned to', () => {
+  const root = lkProject(['[ ] a'], { a: {} });
+  const folder = join(root, 'openspec', 'schemas', 'devkit');
+  const kept = JSON.parse(readFileSync(join(folder, 'flow.json'), 'utf8'));
+  assert.equal(kept.stages.find((s) => s.id === 'design').part, 'plan', 'the fixture flow puts design in the plan part');
+  const newer = { ...kept, version: kept.version + 1, stages: kept.stages.map((s) => (s.id === 'design' ? { ...s, part: 'build' } : s)) };
+  put(root, {
+    'openspec/schemas/devkit/flow.json': JSON.stringify(newer),
+    [`openspec/schemas/devkit/flows/${kept.version}.json`]: JSON.stringify(kept),
+    [`openspec/schemas/devkit/flows/${newer.version}.json`]: JSON.stringify(newer),
+    'openspec/changes/a/.openspec.yaml': `schema: devkit\nx-devkit-flow: ${kept.version}\n`,
+  });
+  commitAll(root, 'a newer flow is installed, a follows the one it opened with');
+  assert.equal(changeLoopModule.partOfStage({ root }, 'a', 'design'), 'plan', 'a follows the flow it opened with');
+});
+
 test('upfront AC-4 lock agent: the triage with no brief is refused own-sessions', () => {
   const root = lkProject(['[ ] a'], { a: {} });
   putRun(root, { places: 1, changeSessions: true });
@@ -4538,7 +4577,7 @@ test('upfront ADR 0020: the documents follow', () => {
   const adrs = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
   assert.ok(adrs.includes('amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017'), 'the ADRs line names the amended ADRs');
   const log = read('CHANGELOG.md');
-  const entryStart = log.indexOf('## 0.35.0');
+  const entryStart = log.indexOf('## 0.36.0');
   const entry = flat(log.slice(entryStart, log.indexOf('\n## ', entryStart + 1)));
   const subcommands = /New subcommands:([^.]*)\./.exec(entry)?.[1] ?? '';
   for (const sub of ['session-next', 'session-wait', 'merge-base', 'push', 'check']) assert.ok(subcommands.includes(`\`${sub}\``), `the entry names ${sub} a subcommand`);

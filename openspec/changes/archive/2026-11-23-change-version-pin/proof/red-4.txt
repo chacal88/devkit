@@ -1,0 +1,12 @@
+Red proof 4: the test 'version-pin AC-2 locks: a version-1 readiness reviewer delivers before it stops' leaks a record into the temporary root.
+
+Command, with a fresh empty TMPDIR:
+  T=$(mktemp -d)   # realpath: /private/var/folders/b1/774bgwmx7_dbxb8139455dkw0000gn/T/tmp.eiM5Eyszzr
+  env TMPDIR=$T GITHUB_HEAD_REF=change-version-pin GITHUB_BASE_REF=main node --test --test-name-pattern="^version-pin AC-2 locks" plugins/openspec/hooks/version-pin.test.mjs
+
+Result: 2 tests, 2 pass (the leak does not fail a test; CI's step 'Hook tests left nothing in TMPDIR' fails on it).
+
+ls -A $T:
+devkit-stop
+
+Cause: CL.subagentStopFor refuses and refuseOnce (change-loop.mjs, recordFile) writes <os.tmpdir()>/devkit-stop/<session_id>-<agent_id>.json; the call runs in the test process, so the env option does not move os.tmpdir().

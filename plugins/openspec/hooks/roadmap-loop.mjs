@@ -37,8 +37,8 @@ import { dirname, join, relative } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill } from './guard.mjs';
-import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
+import { findRoot, readRoadmap, changeFlow, roadmapRunOf, runOf, isChangeId, firstMessageOf, startedTaskOf, parseStageHeader, START_LINE, ENTRY_SKILL, namesEntrySkill } from './guard.mjs';
+import { collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
@@ -488,10 +488,10 @@ export function updateRun(file, change, { sleep } = {}) {
 const SESSION_KEYS = ['session-start', 'session-refused', 'push', 'session-archived', 'session-archive-later'];
 
 // The title of `stage` in the language of the person, from the change's own script; the id when it cannot be read.
-function stageTitleOf(found, stage, lang) {
+export function stageTitleOf(found, stage, lang) {
   try {
     const dir = locateChange(found.root, found.id)?.dir ?? join(found.root, 'openspec', 'changes', found.id);
-    return readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((s) => s.id === stage)?.title[lang] ?? stage;
+    return changeFlow(found.root, dir).flow?.stages.find((s) => s.id === stage)?.title[lang] ?? stage;
   } catch { return stage; }
 }
 
@@ -639,7 +639,7 @@ function openOnRoadmap(start, env, gh) {
   return classifyLines(rounds, { archived, open, previous: new Set(), declared: {} }).filter((l) => l.cls === 'open').map((l) => l.id);
 }
 
-const isPreviousScript = (start, id, env) => {
+export const isPreviousScript = (start, id, env) => {
   const found = locate(start, id);
   const clean = cleanOf(env);
   const { facts, flow } = collectFlow(found.root, id, { env: clean, openspec: makeOpenspec(found.root, clean) });
@@ -649,7 +649,7 @@ const isPreviousScript = (start, id, env) => {
 const refusal = (why, change, reason) => ({ decision: 'refuse', why, change, reason });
 
 // Whether `type` (a role, with no prefix or the prefix of the pack that ships its agent) is a helper of the `requirements` stage of the
-// script of `change`; false with no change or a script that cannot be read.
+// flow `change` follows (its pin); false with no change or a role it does not name.
 function isRequirementsHelper(start, change, type) {
   if (!change || typeof type !== 'string') return false;
   const colon = type.indexOf(':');
@@ -657,7 +657,7 @@ function isRequirementsHelper(start, change, type) {
   if (colon !== -1 && PACKS[role] !== type.slice(0, colon)) return false;
   const found = locate(start, change);
   const dir = locateChange(found.root, change)?.dir ?? join(found.root, 'openspec', 'changes', change);
-  return (readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((x) => x.id === 'requirements')?.helpers ?? []).includes(role);
+  return (changeFlow(found.root, dir).flow?.stages.find((x) => x.id === 'requirements')?.helpers ?? []).includes(role);
 }
 
 // `guard.mjs agent` (RH0 to RH6).
