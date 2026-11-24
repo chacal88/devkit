@@ -348,8 +348,12 @@ hold it.
 - **WHEN** the loop is called with the previous action's progress key and ends the run blocked for no progress or for a stage that was not delivered
 - **THEN** its output holds `devkit-end: <id> blocked` after its `devkit-run: <id>` line
 
+#### Scenario: A failed stage agent
+- **WHEN** a stage agent returned `Outcome: failure` without writing its stage file and the loop is called with its action's progress key
+- **THEN** the loop gives the retry of that stage or ends the run blocked itself, with `devkit-end: <id> blocked` after its `devkit-run: <id>` line, and the session declares no end for it
+
 #### Scenario: An end the session declares
-- **WHEN** the session renders the blocked reply for a failed stage agent or a red gate, or the reply for a pull-request decision left to the owner, naming the change
+- **WHEN** the session renders the blocked reply for a red gate, or the reply for a pull-request decision left to the owner, naming the change
 - **THEN** the output's first line is `devkit-end: <id> blocked` (or `devkit-end: <id> waiting-for-owner`), the reply follows on its own lines, and the session shows only the reply
 
 #### Scenario: An action that is not an end
