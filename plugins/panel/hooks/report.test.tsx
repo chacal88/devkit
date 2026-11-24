@@ -699,7 +699,7 @@ test('AC-17 sections-say-what-they-are: every button label and step name is at m
 /** Every step `conduct-check`'s `actorOf` names (plugins/openspec/hooks/conduct-check.mjs), plus the two steps that end a row. */
 const ACTOR_STEPS = [
   'implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'resolve-release-conflict', 'commit', 'open-pr', 'push', 'open-archive-pr',
-  'push-rebased', 'verify', 'retro', 'plan', 'revise-plan', 'readiness', 'audit', 'review', 'gate', 'edit-pr-body', 'enable-auto-merge', 'disable-auto-merge',
+  'verify', 'retro', 'plan', 'revise-plan', 'readiness', 'audit', 'review', 'gate', 'edit-pr-body', 'enable-auto-merge', 'disable-auto-merge',
   'update-branch', 'archive', 'tick-roadmap', 'answer', 'worktree', 'rebase', 'stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill',
   'approve', 'ready', 'archive-pr-ready', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable', 'wait-checks', 'wait-merge',
   'stop-plan-mode', 'stop-branch', 'stop-merge-setup', 'stop-archive', 'blocked', 'stop-not-approved', 'archived', 'wait-dependencies',

@@ -15,7 +15,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { RELEASE_FILE } from './deliver-check.mjs';
+import { RELEASE_FILE, pinsIn, setPins } from './deliver-check.mjs';
+export { pinsIn, setPins }; // the pin definition lives in deliver-check.mjs (ADR 0027)
 
 export class ReleaseError extends Error {
   constructor(message) { super(message); this.name = 'ReleaseError'; }
@@ -128,19 +129,6 @@ export const PIN_FILE = 'docs/openspec-flow.md';
 export const PIN_PACK = 'plugins/openspec/.claude-plugin/plugin.json';
 export const PIN_PACK_NAME = 'devkit-openspec';
 const MASK = '0.0.0';
-// A pin line names a marker; a pin is a vX.Y.Z on such a line. A marker line may hold no pin.
-const PIN_MARKER = /pinned to the commit of v|<commit sha of v|git\/ref\/tags\/v|\(`v\d+\.\d+\.\d+` above\)/;
-const PIN_TOKEN = /(?<![A-Za-z0-9])v\d+\.\d+\.\d+(?!\d)/g;
-
-// Every pin (`v<x.y.z>`) on every pin line of `text`, in order; [] for a text with no pin line.
-export function pinsIn(text) {
-  return text.split('\n').flatMap((line) => (PIN_MARKER.test(line) ? line.match(PIN_TOKEN) ?? [] : []));
-}
-
-// Every pin on every pin line becomes v<version>; every other byte stays. Masking is setPins(text, '0.0.0').
-export function setPins(text, version) {
-  return text.split('\n').map((line) => (PIN_MARKER.test(line) ? line.replace(PIN_TOKEN, `v${version}`) : line)).join('\n');
-}
 
 // The three sides merged with their pins masked: the merged text (pins at v0.0.0), or null when the
 // merge conflicts, errors, or a side is missing. The temporary folder is always removed.
