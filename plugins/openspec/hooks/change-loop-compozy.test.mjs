@@ -22,7 +22,7 @@ import {
 import {
   HERE, LOOP, TDD, PLANNER, read, configRepo, shape, says, build, next, parsed, check, deliveredChange, startRun, body, snapshot, addChange,
   devkitRepo, freshProject, WAIT, runOf, plainLine, skillBodyLine, runTranscript, hook, subInput, PLAN_UP_TO_TASKS, editInput, bashInput, liteChange,
-  approvedChange, agentInput, REPO_ROOT, readRepo, SKILL_FILE, skillText, LANG_FLAG, section, IDENT,
+  approvedChange, agentInput, REPO_ROOT, readRepo, SKILL_FILE, skillText, LANG_FLAG, section, IDENT, pmvFacts,
 } from './change-loop-fixtures.mjs';
 
 // The same git identity the whole file had when it was one file (see IDENT in change-loop-fixtures.mjs).
@@ -1652,6 +1652,14 @@ test('change-loop compozy view: take-place is a command no agent runs, with the 
   const v = cview(a);
   assert.deepEqual([v.kind, v.agent, v.brief, v.question, v.step, v.progress_key], ['command', '', '', '', 'take-place', a.progressKey]);
   assert.deepEqual(a.detail.command.slice(2), ['place', 'feat', '--lang', 'en'], 'the command the run-step runs is the checker\'s');
+});
+
+test('change-loop compozy view: merge-check is a command no agent runs, with the loop\'s own argv', () => {
+  const a = build(rowOf('verify'), pmvFacts());
+  assert.equal(a.step, 'merge-check');
+  const v = cview(a);
+  assert.deepEqual([v.kind, v.agent, v.brief, v.question, v.step, v.progress_key], ['command', '', '', '', 'merge-check', a.progressKey]);
+  assert.deepEqual(a.detail.command.slice(2), ['merge-check', 'feat', '--lang', 'en'], 'the command the run-step runs is the loop\'s');
 });
 
 test('change-loop compozy view: a session step outside the command list is still a coordinator step', () => {

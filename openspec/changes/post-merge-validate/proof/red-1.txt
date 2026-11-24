@@ -1,0 +1,161 @@
+✖ post-merge-validate 1: baseMergeOf gives the newest merge on the branch that origin/<base> does not hold, else null (13.82679ms)
+✖ post-merge-validate 1: baseMergeOf sees a merge made in another clone and brought by git pull --ff-only (0.872394ms)
+✖ post-merge-validate 1: mergeCheckFile is in the git common directory and readMergeCheck takes only a whole record of the change (0.874888ms)
+✖ post-merge-validate 1: the command on a valid change after a merge answers green, records it and changes no file (344.723648ms)
+✖ post-merge-validate 1: a merge that brings a scenario the delta drops is red, counted by merge, and green once the delta carries it (325.650236ms)
+✖ post-merge-validate 1: a check that cannot run is cannot-run with its cause, never green, and keeps the count of reds (306.376362ms)
+✖ post-merge-validate 1: the command with no merge says none and writes nothing; an unknown change or a missing id exits 3 (208.129776ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 0
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1553.38116
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5716:1
+✖ post-merge-validate 1: baseMergeOf gives the newest merge on the branch that origin/<base> does not hold, else null (13.82679ms)
+  AssertionError [ERR_ASSERTION]: change-loop.mjs exports baseMergeOf
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at pmvExport (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5666:10)
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5717:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5736:1
+✖ post-merge-validate 1: baseMergeOf sees a merge made in another clone and brought by git pull --ff-only (0.872394ms)
+  AssertionError [ERR_ASSERTION]: change-loop.mjs exports baseMergeOf
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at pmvExport (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5666:10)
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5737:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5750:1
+✖ post-merge-validate 1: mergeCheckFile is in the git common directory and readMergeCheck takes only a whole record of the change (0.874888ms)
+  AssertionError [ERR_ASSERTION]: change-loop.mjs exports mergeCheckFile
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at pmvExport (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5666:10)
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5751:26)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5773:1
+✖ post-merge-validate 1: the command on a valid change after a merge answers green, records it and changes no file (344.723648ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) | write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) | write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5779:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5788:1
+✖ post-merge-validate 1: a merge that brings a scenario the delta drops is red, counted by merge, and green once the delta carries it (325.650236ms)
+  AssertionError [ERR_ASSERTION]: the fixture validates after a merge that changes nothing of the spec
+  + actual - expected
+  
+  + undefined
+  - 'green'
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5791:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'green',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5820:1
+✖ post-merge-validate 1: a check that cannot run is cannot-run with its cause, never green, and keeps the count of reds (306.376362ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) | write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) | write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>
+  
+  
+  3 !== 0
+  
+      at cannot (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5825:12)
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5835:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5854:1
+✖ post-merge-validate 1: the command with no merge says none and writes nothing; an unknown change or a missing id exits 3 (208.129776ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) | write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  change-loop: usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... | start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) | write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l>
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5857:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

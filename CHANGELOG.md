@@ -1,15 +1,34 @@
 # Changelog
 
-## 0.46.0 — an owner's forced merge leads the change to the archive
+## 0.48.0 — an owner's forced merge leads the change to the archive
 
-- **devkit-openspec** 0.41.0: the delivery checker recognises a change's own pull request that was merged while a
+- **devkit-openspec** 0.43.0: the delivery checker recognises a change's own pull request that was merged while a
   required check was not green and a task stayed unticked as the owner's forced merge, by the pull request number or by
   its merge commit, and names the items it left open (the unticked tasks and the checks that were not green). The loop
   no longer answers `implement` for such a change: it leads it to the retro and then to the archive. `retro.md`
   records the open items; nothing is ticked.
 - Docs: [ADR 0028](docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md) (accepted) amends ADR 0003,
   with a Note in it; `docs/openspec-flow.md` and the ADR list of `openspec/config.yaml` follow. The CI snippet now pins
-  `v0.41.0`, the release's tag.
+  `v0.43.0`, the release's tag.
+
+## 0.47.0 — the change folder is committed before the review round
+
+- **devkit-openspec** 0.41.0: `deliver-check` hands the `commit` step before a review round while anything under the
+  change folder is uncommitted, the `ship-change` rows `commit` and `review` say so, and the CI snippet now pins
+  `v0.41.0`.
+
+## 0.46.0 — post-merge validate
+
+- **devkit-openspec** 0.41.0: after a merge of the base the delivery loop checks the plan before it hands the evidence. A new
+  `merge-check` session step runs `change-loop.mjs merge-check <id>`, which runs `openspec validate <id> --type change --strict` and records
+  the answer in `<git common dir>/devkit/merge-check/<id>.json`; a red check goes to `devkit-core:change-planner` as a merge
+  defect (its brief quotes validate's errors) and spends no stage attempt, a green one lets the loop go on, and three reds in
+  a row on the same merge, or a check that could not run (CLI missing, timed out, refused by the pin), end the run `blocked`
+  with the new reasons `merge-defect` and `merge-check-failed`. No merge, no check. The roadmap line `evidence-attempts-by-failure`
+  keeps the counting of attempts by real failures.
+- Docs: the `devkit` skill, `docs/openspec-flow.md` ("The loop", the merge paragraph and two Troubleshooting rows) and the
+  README of the pack describe the step; a Note on ADR 0017 (status proposed, accepted with the plan) names the merge-check record
+  as one more input of its decision 1; the CI snippet now pins `v0.41.0`, the release's tag.
 
 ## 0.45.0 — the archive check lets the release pin lines pass unnamed
 
