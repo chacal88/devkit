@@ -5925,3 +5925,23 @@ test('fresh-base-check 17: a change before its delivery fetches nothing', () => 
   assert.notEqual(building.code, 3, building.stderr);
   assert.equal(shim.fetches().length, 1, 'self-check: a change in its delivery part does fetch');
 });
+
+test('fresh-base-check 11: the docs and the skills state the rule of the fetch', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  const texts = [
+    'Before it asks the delivery checker, `next` fetches the default branch from `origin` into `origin/<base>` (`git fetch --no-tags --quiet --no-write-fetch-head origin +refs/heads/<base>:refs/remotes/origin/<base>`, at most 15 seconds, once per call), so the release-conflict, staleness and archive steps are judged from the base as the remote has it; the fetch writes that one ref. A fetch that fails stops nothing: the action is decided from the local copy, records `baseFetch: { ok: false, base, error }`, and its reply ends with one line saying so. A successful one records `baseFetch: { ok: true, base }`. `state` and the locks never fetch.',
+    'each poll fetches the base first, as `next` does, and a failed fetch alone is no new decision;',
+    'and never fetches: the loops of `/devkit change` and `/devkit roadmap` fetch the base before they ask it, and a run by hand needs `git fetch origin --prune --quiet` first',
+    'and `deliver-check` never fetches (the loop of `/devkit change` fetches `origin/<base>` before it asks, but the archive state is still read from GitHub)',
+    '`run`, `next` and `wait` fetch the base once per call (and at each poll of a wait) before they decide a change in delivery, as the change loop\'s `next` does; `status`, `status --json`, `draft` and the locks never fetch.',
+  ];
+  for (const text of texts) assert.ok(flow.includes(text), `docs/openspec-flow.md: ${text.slice(0, 60)}`);
+  assert.doesNotMatch(flow, /never fetches \(run/);
+  const ship = readRepo('plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md');
+  const row = ship.split('\n').find((l) => l.startsWith('| `update-branch`'));
+  assert.ok(row?.includes('`deliver-check` never fetches; under `/devkit change` the loop fetched `origin/<base>` just before it handed this step.'), 'the update-branch row');
+  assert.match(row, /gh pr update-branch <next\.number>/);
+  const skill = readFileSync(SKILL_FILE, 'utf8');
+  const loop = skill.slice(skill.indexOf('\n## Loop\n'), skill.indexOf('\n## Owner gates\n'));
+  assert.ok(loop.includes('An action whose `baseFetch.ok` is false ends its `reply` with one line saying the step was decided from this machine\'s copy of the base: keep that line for the message that ends the turn, whatever the action\'s kind.'), 'the Loop section');
+});

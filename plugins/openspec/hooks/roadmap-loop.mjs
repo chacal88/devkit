@@ -35,7 +35,7 @@ import { findRoot, readRoadmap, changeFlow, roadmapRunOf, isChangeId } from './g
 import { collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
-  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf,
+  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, baseFetches, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf,
   HOOKS_DIR, locate, cleanOf, runFilePath, readRun, emptyRun, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, remoteClaims, thisMachine, MACHINE_NAME,
 } from './change-loop.mjs';
 
@@ -613,9 +613,10 @@ export function stageTitleOf(found, stage, lang) {
 // Every fact `decideRoadmap` and `boardOf` need, read from the roadmap, the checkouts, the run file and the load. `after` is
 // { <id>: <progress key> }; `wheres` is `new` (the open changes never announced), `open` (every open change) or `board` (the
 // unfinished changes that are not on the roadmap); `readFlying` also reads the action of a change in flight (the board shows it).
+// `fetchBase` is a `baseFetches()` record: given, each change's action fetches the base before it judges (once per record); `status` and the locks leave it out.
 export function collectRoadmap(cwd, {
   env = process.env, lang = 'pt-BR', load = 0, limit = DEFAULT_LIMIT, openspec, gh, after = {}, wheres = 'new', readFlying = false, turn,
-  machines = [], machinesText = '', probe = true, ssh, claimsGh,
+  machines = [], machinesText = '', probe = true, ssh, claimsGh, fetchBase = false,
 } = {}) {
   const l = normalizeLang(lang);
   const start = findRoot(cwd);
@@ -658,7 +659,7 @@ export function collectRoadmap(cwd, {
       if ((run.startedSessions[line.id] || after[line.id] === 'session-start') && !readFlying && machines.length === 0) continue;
     } else if (run.inflight[line.id] && !(line.id in after) && !readFlying) continue;
     const progress = SESSION_KEYS.includes(after[line.id]) ? null : (after[line.id] ?? null); // the session keys are no progress key of a stage
-    const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh });
+    const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh, fetchBase });
     if (isPrevious(action)) previous.add(line.id); else actions[line.id] = action;
   }
   const lines = classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere });
@@ -925,7 +926,7 @@ function runCmd(args, ctx) {
     run.declared = {};
     return run;
   }, { sleep: ctx.lockSleep });
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed', machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh }); // `run` is a message the owner typed
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed', machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, fetchBase: baseFetches() }); // `run` is a message the owner typed
   const decision = decide(start, facts, ctx);
   const say = (key, params) => render(lang, key, params);
   let preface = '';
@@ -954,7 +955,7 @@ function nextCmd(args, ctx) {
   const start = rootOf(ctx.cwd);
   if (!hasRoadmapFile(start)) return plain(render(lang, 'roadmap-none'));
   const stopping = readRun(runFilePath(start)).stopping;
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn, machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh });
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn, machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, fetchBase: baseFetches() });
   facts.startAnyway = Boolean(opts.flag['--start-anyway']);
   const decision = decide(start, facts, ctx);
   return { code: 0, stdout: `${decisionText(decision)}${decisionJson(decision)}`, stderr: '' };
@@ -1065,7 +1066,7 @@ async function waitCmd(args, ctx) {
   const file = runFilePath(start);
   updateRun(file, (run) => { run.inflight[id] = { kind: 'wait', stage: 'delivery', agentType: null, at: new Date().toISOString() }; return run; }, { sleep: ctx.lockSleep });
   try {
-    const poll = async () => nextAction(start, id, { env: ctx.env, lang, openspec: ctx.openspec, gh: ctx.gh });
+    const poll = async () => nextAction(start, id, { env: ctx.env, lang, openspec: ctx.openspec, gh: ctx.gh, fetchBase: baseFetches() });
     const action = await waitLoop({ poll, sleep: ctx.sleep ?? realSleep, interval, id, lang });
     return { code: 0, stdout: json(action), stderr: '' };
   } finally {

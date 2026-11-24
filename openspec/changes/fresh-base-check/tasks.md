@@ -80,7 +80,7 @@ the tree, and end every task with `git status --short`.
 
 ## 2. The roadmap fetches too, and the docs state the rule (AC-2, AC-6, AC-7)
 
-- [ ] 2.1 In `plugins/openspec/hooks/change-loop.test.mjs`, add test `fresh-base-check 11` (D-8).
+- [x] 2.1 In `plugins/openspec/hooks/change-loop.test.mjs`, add test `fresh-base-check 11` (D-8).
   In `plugins/openspec/hooks/roadmap-loop.test.mjs`, import `gitShim`, `deliveredChange` and
   `implementingChange` from `./change-loop.test.mjs`, and add `baseFetches` to the existing named
   import from `./change-loop.mjs` (allowed here only because 1.2 has landed; D-8, import form). Add
@@ -91,7 +91,7 @@ the tree, and end every task with `git status --short`.
   the eighteen names; 11, 12, 13, 15 and 18 fail, 14 passes, and 1 to 10, 16 and 17 pass. If test 12's change is not
   read as `implementation` without `gh` (D-8 assumptions), settle the fixture here, in `design.md`,
   before 2.2.
-- [ ] 2.2 In `plugins/openspec/hooks/roadmap-loop.mjs`, import `baseFetches`, add the
+- [x] 2.2 In `plugins/openspec/hooks/roadmap-loop.mjs`, import `baseFetches`, add the
   `fetchBase = false` option to `collectRoadmap` and hand it to its `nextAction` call. Pass
   `fetchBase: baseFetches()` from `runCmd` and `nextCmd`, and a new `baseFetches()` in each call of
   `waitCmd`'s `poll` (D-3). Leave `statusCmd`, `statusJson`, `draftCmd` and `roadmapStopDecision`
@@ -99,7 +99,7 @@ the tree, and end every task with `git status --short`.
   15 and 18 pass, and the code lines (not comment lines) that
   `git grep -n "fetchBase" -- plugins/openspec/hooks/roadmap-loop.mjs` prints are in
   `collectRoadmap`, `runCmd`, `nextCmd` and `waitCmd` only.
-- [ ] 2.3 Edit `docs/openspec-flow.md` (the five texts of D-7, and not the CI pins),
+- [x] 2.3 Edit `docs/openspec-flow.md` (the five texts of D-7, and not the CI pins),
   `plugins/openspec/skills/ship-change/SKILL.md` (the `update-branch` row) and
   `plugins/openspec/skills/devkit/SKILL.md` (the `## Loop` paragraph), word for word as D-7 says.
   Check: test 11 passes; `python3 scripts/check.py` passes (language and links);
