@@ -13,7 +13,7 @@
 // standard input is the Jira task the session read, as JSON, and the request section records its key), `script <id> <s>
 // --why <code> --lang <l>` (the correction of the script, D-4), `wait --change <id> --lang <l> [--interval <s>]`
 // (waits on GitHub with no limit, D-7), `accept-decisions <id> --lang <l>` (sets the proposed decision records the change
-// lists to accepted, after the owner's current approval; stage-roles D-4), `merge-check <id> --lang <l>` (runs `openspec validate <id> --strict`
+// lists to accepted, after the owner's current approval; stage-roles D-4), `merge-check <id> --lang <l>` (runs `openspec validate <id> --type change --strict`
 // once for the merge of the base the branch holds and records the result; post-merge-validate D-3), `flow <id> --lang <l>` (moves the change to the
 // installed version of its script's flow, only when the owner asks; change-version-pin D-7), `write-back ask <id> --lang <l>`
 // (the pull request and the task's transitions as JSON on standard input: whether to ask about writing the link on the Jira
@@ -1370,9 +1370,9 @@ export function decide(facts) {
         }
         if (rec?.result === 'red' && rec.fingerprint === facts.fingerprint) {
           if (rec.reds >= ceiling) return blocked('merge-defect', { sha: rec.merge.slice(0, 7), attempt: rec.reds }, 'evidence');
-          const what = `merge defect: the merge of origin/${mc.base} at ${rec.merge.slice(0, 7)} left \`openspec validate ${ctx.id} --strict\` failing (red check ${rec.reds} of ${ceiling}). Its errors:\n${rec.errors}\n`
+          const what = `merge defect: the merge of origin/${mc.base} at ${rec.merge.slice(0, 7)} left \`openspec validate ${ctx.id} --type change --strict\` failing (red check ${rec.reds} of ${ceiling}). Its errors:\n${rec.errors}\n`
             + `Fix only what the errors name, in this change's plan files under openspec/changes/${ctx.id}/ (proposal.md, design.md, tasks.md, specs/): where the base changed a requirement that a delta modifies, copy the base's requirement text and every one of its scenarios into the delta verbatim, then apply the change's own edits to it again. `
-            + `Leave every stage header line and every task checkbox exactly as they are, change no file outside openspec/changes/${ctx.id}/, and finish when \`openspec validate ${ctx.id} --strict\` passes`;
+            + `Leave every stage header line and every task checkbox exactly as they are, change no file outside openspec/changes/${ctx.id}/, and finish when \`openspec validate ${ctx.id} --type change --strict\` passes`;
           return agent('specs', 'change-planner', 'merge-defect', what, { base: mc.base, merge: mc.merge, reds: rec.reds, ceiling, errors: rec.errors });
         }
         return sessionAction('evidence', 'merge-check', { command: ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'merge-check', ctx.id, '--lang', lang], merge: mc.merge, base: mc.base });

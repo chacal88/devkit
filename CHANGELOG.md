@@ -3,7 +3,7 @@
 ## 0.44.0 — post-merge validate
 
 - **devkit-openspec** 0.40.0: after a merge of the base the delivery loop checks the plan before it hands the evidence. A new
-  `merge-check` session step runs `change-loop.mjs merge-check <id>`, which runs `openspec validate <id> --strict` and records
+  `merge-check` session step runs `change-loop.mjs merge-check <id>`, which runs `openspec validate <id> --type change --strict` and records
   the answer in `<git common dir>/devkit/merge-check/<id>.json`; a red check goes to `devkit-core:change-planner` as a merge
   defect (its brief quotes validate's errors) and spends no stage attempt, a green one lets the loop go on, and three reds in
   a row on the same merge, or a check that could not run (CLI missing, timed out, refused by the pin), end the run `blocked`

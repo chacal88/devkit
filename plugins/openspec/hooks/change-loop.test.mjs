@@ -2039,7 +2039,7 @@ test('change-loop lock: bypass and a project not opted in refuse nothing', () =>
 
 // ---------------------------------------------------------------- post-merge-validate, phase 1 (D-1 to D-3)
 
-// Invariant: after a merge of the base the loop checks the plan with `openspec validate <id> --strict`; the pieces are the sha of
+// Invariant: after a merge of the base the loop checks the plan with `openspec validate <id> --type change --strict`; the pieces are the sha of
 // the merge (baseMergeOf), the record of the check (readMergeCheck) and the command that writes it (merge-check). Layer: the loop's
 // own commands. Suite: this file. Every merge is made in a temporary repository; none reads this repository's history.
 
@@ -2329,7 +2329,7 @@ test('post-merge-validate 2: a green record of the merge gives the action withou
 test('post-merge-validate 2: a red record of the same files goes to the planner as a merge defect; other files offer the check again', () => {
   const a = build(rowOf('verify'), pmvFacts(pmvRec()));
   assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', PLANNER, 'merge-defect', 'specs', 'change-planner', 0]);
-  for (const part of ['merge defect', 'origin/main', PMV_SHA7, PMV_ERRORS, 'Leave every stage header line', 'openspec validate feat --strict', 'red check 1 of 3']) {
+  for (const part of ['merge defect', 'origin/main', PMV_SHA7, PMV_ERRORS, 'Leave every stage header line', 'openspec validate feat --type change --strict', 'red check 1 of 3']) {
     assert.ok(a.brief.includes(part), `the brief holds: ${part}`);
   }
   assert.deepEqual([a.detail.base, a.detail.merge, a.detail.reds, a.detail.ceiling, a.detail.errors], ['main', PMV_SHA, 1, 3, PMV_ERRORS]);
@@ -2416,6 +2416,7 @@ test('post-merge-validate 2: next end to end offers the check, hands the red to 
   const handed = parsed(second).action;
   assert.deepEqual([handed.kind, handed.agent, handed.step, handed.stage], ['agent', PLANNER, 'merge-defect', 'specs']);
   assert.ok(handed.brief.includes('merge defect') && handed.brief.includes('Second added on main'), handed.brief);
+  assert.equal(handed.brief.split('openspec validate feat --type change --strict').length - 1, 2, `the brief names the check with --type change both times: ${handed.brief}`);
 
   // The planner's fix: the delta carries both scenarios, committed on the branch.
   const header = readFileSync(join(d.wt, 'openspec/changes/feat/specs/s/spec.md'), 'utf8').split('\n')[0];
@@ -2505,7 +2506,7 @@ test('post-merge-validate 3: the flow document names the merge-check step, its t
   assert.ok(flow.includes('`/devkit change` ends blocked: the plan fails its check after the merge of the base N times in a row'), 'the merge-defect row');
   assert.ok(flow.includes('`/devkit change` ends blocked: the check of the plan after the merge of the base could not run'), 'the cannot-run row');
   assert.ok(!flow.includes('before the evidence, run `openspec validate <id> --strict`;'), 'the by-hand sentence is gone');
-  assert.ok(flow.includes('the loop runs `openspec validate <id> --strict` before the evidence'), 'the rewritten sentence');
+  assert.ok(flow.includes('the loop runs `openspec validate <id> --type change --strict` before the evidence'), 'the rewritten sentence');
   const readme = readRepo('plugins', 'openspec', 'README.md').split('\n').find((l) => l.startsWith('| [`hooks/change-loop.mjs`]')) ?? '';
   assert.match(readme, /`merge-check`/);
   assert.match(readme, /with `merge-check`, its record in the git common directory/);
@@ -2514,6 +2515,7 @@ test('post-merge-validate 3: the flow document names the merge-check step, its t
 test('post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked', () => {
   const line = readRepo('openspec', 'roadmap.md').split('\n').find((l) => /^- \[[ x]\] post-merge-validate/.test(l)) ?? '';
   assert.match(line, /^- \[ \] post-merge-validate/);
+  assert.match(line, /runs `openspec validate <id> --type change --strict` before the evidence/);
   assert.match(line, /sends a failure to the planner as a merge defect/);
   assert.match(line, /evidence-attempts-by-failure/);
 });

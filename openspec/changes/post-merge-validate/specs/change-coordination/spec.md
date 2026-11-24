@@ -6,10 +6,9 @@
 ### Requirement: A merge of the base is checked before the evidence
 On a flow with an evidence stage, while the branch's newest merge not on `origin/<base>` has no
 green check, the loop SHALL give the evidence stage's session step `merge-check`, running `openspec
-validate <id> --strict` and recording the result for that merge, before any step that verifies,
-reviews, pushes or waits on the pull request; "From the implementation on, the step inside the stage
-goes to its role" and the waiting and owner-gate ones apply once that merge is green or there is no
-merge.
+validate <id> --type change --strict` and recording the result for that merge, before any step that
+verifies, reviews, pushes or waits on the pull request; the hand-off of those steps to their roles,
+the waits and the owner gates apply once that merge is green or there is no merge.
 
 #### Scenario: A merge with no check yet
 - **WHEN** the branch's newest merge commit not on `origin/<base>` has no recorded check and the delivery checker's step is `verify`
@@ -45,7 +44,7 @@ for that merge, and the loop SHALL then give the step it would have given withou
 SHALL not give `merge-check` again until a newer merge commit is on the branch.
 
 #### Scenario: Green, then the evidence
-- **WHEN** the session runs the `merge-check` step's command and `openspec validate <id> --strict` passes
+- **WHEN** the session runs the `merge-check` step's command and `openspec validate <id> --type change --strict` passes
 - **THEN** the command records green for that merge, and the next call of `next` hands `verify` to the verifier's agent
 
 #### Scenario: The same merge is not checked twice
@@ -67,7 +66,7 @@ merge defect, quotes the errors and asks for a fix of the plan files only, leavi
 header and task checkbox as it is. No stage header SHALL change because of the check or the hand-off.
 
 #### Scenario: Red, then the planner
-- **WHEN** the session runs the `merge-check` step's command and `openspec validate <id> --strict` reports the change invalid
+- **WHEN** the session runs the `merge-check` step's command and `openspec validate <id> --type change --strict` reports the change invalid
 - **THEN** the next call of `next` gives an action of kind `agent` for `devkit-core:change-planner`, step `merge-defect`, whose brief holds the words `merge defect` and validate's error messages, and the `attempt=` of every stage header in the change folder is what it was before the command ran
 
 #### Scenario: A dropped scenario of the base

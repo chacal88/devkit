@@ -21,7 +21,7 @@ not cause it.
   branch holds a merge of the base that no green check follows, the loop gives a new session step,
   `merge-check`, ahead of the evidence and of every later delivery step that pushes or waits on the
   change's pull request. The step's command, `change-loop.mjs merge-check <id>`, runs
-  `openspec validate <id> --strict` in the change's root and records the result for that merge in the
+  `openspec validate <id> --type change --strict` in the change's root and records the result for that merge in the
   git common directory (never in the worktree, never in a commit).
 - A green check lets the loop give the step it would have given without it, and the same merge is not
   checked again.

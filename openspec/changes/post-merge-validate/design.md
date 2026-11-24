@@ -20,7 +20,7 @@ See `proposal.md` (Why). The code, read at `02208a3` (devkit-openspec 0.32.0, ma
 | `flow-check.mjs` `artifactState` (line 412) | A plan stage is stale by `staleAfter` (file times) only while no task is ticked (`started`) and not after the merge; the evidence and the review are `codeBound` (stale by their header's commit) |
 | `plugins/openspec/hooks/deliver-check.mjs` `staleness` (line 289) | A commit since the recorded one that touches only `openspec/` keeps a verdict current; a merge counts what it brought in (its first-parent diff) |
 | `deliver-check.mjs` `nextStep` (line 1510) | `verify` comes before `review`, `push`, `update-branch` and the GitHub waits; `stop-plan-approval` is skipped once `started`; `approvalState` (line 1496) hashes `readiness.md` only |
-| `openspec validate <id> --strict --json` (CLI 2.0.0) | Valid: exit 0, `items[0].valid: true`. Invalid: exit 1, `items[0].valid: false`, `issues[]` of `{ level, path, message }`; a MODIFIED block that omits a scenario of the current spec gives `MODIFIED "<requirement>" omits scenario(s) the current spec still has: "<scenario>"` (probed in a scratch project on 2026-11-23). An unknown change: exit 1 with `{ status: [{ severity, code: "unknown_item", message }] }`, no `items` |
+| `openspec validate <id> --type change --strict --json` (CLI 2.0.0) | Valid: exit 0, `items[0].valid: true`. Invalid: exit 1, `items[0].valid: false`, `issues[]` of `{ level, path, message }`; a MODIFIED block that omits a scenario of the current spec gives `MODIFIED "<requirement>" omits scenario(s) the current spec still has: "<scenario>"` (probed in a scratch project on 2026-11-23). An unknown change: exit 1 with `{ status: [{ severity, code: "unknown_item", message }] }`, no `items` |
 | `plugins/openspec/skills/devkit/SKILL.md` Loop, `session` item (line 91) | Says how the session runs each loop-own session step (`take-place`: run `detail.command`, then `next`, whatever its exit code) |
 | `docs/openspec-flow.md` line 316 | The by-hand rule this change automates: "After every merge of the base, before the evidence, run `openspec validate <id> --strict`; copy any scenario main added ..." |
 
@@ -106,9 +106,11 @@ gains it: "only its record in the git common directory"). Steps:
 2. `base = defaultBase(root)`, `merge = baseMergeOf(root, 'origin/' + base)`. No merge: print
    `{ version: 1, change, base, merge: null, result: "none" }`, write nothing, exit 0.
 3. `fp = fingerprint(root, <git rev-parse HEAD>)`, before the CLI runs.
-4. `r = (openspec ?? makeOpenspec(root, cleanOf(env)))(['validate', id, '--strict', '--json'])`, where
-   `openspec` is the runner `main` already accepts and passes on (the pattern of `nextAction`,
+4. `r = (openspec ?? makeOpenspec(root, cleanOf(env)))(['validate', id, '--type', 'change', '--strict', '--json'])`,
+   where `openspec` is the runner `main` already accepts and passes on (the pattern of `nextAction`,
    `change-loop.mjs:1160`), so a test can hand it a timeout or a pin refusal without waiting 60 s.
+   `--type change` is there because a change that shares its id with a canonical spec makes the bare
+   `openspec validate <id> --strict` answer `ambiguous_item` (the review of round 1 reproduced it).
 5. Classify:
    - `r.refused` → cannot-run, `error = r.refused`; `r.missing` → cannot-run, `error = "the openspec CLI is not installed or not on PATH"` (the sentence `openspecJson` already uses); `r.timedOut` → cannot-run, `error = "openspec validate timed out"`.
    - `stdout` parses as JSON and has an `items` entry whose `id` is the change: `valid === true` and `status === 0` → green; `valid === false` → red, `errors` = one line per issue, `- <level> <path>: <message>`, joined by `\n` and cut to 4000 characters (with `…` at the cut).
@@ -168,9 +170,9 @@ stage). Its brief (the `what` that `brief()` wraps; `<reds>` and `<ceiling>` are
 the first 7 characters):
 
 ```text
-merge defect: the merge of origin/<base> at <sha7> left `openspec validate <id> --strict` failing (red check <reds> of <ceiling>). Its errors:
+merge defect: the merge of origin/<base> at <sha7> left `openspec validate <id> --type change --strict` failing (red check <reds> of <ceiling>). Its errors:
 <errors>
-Fix only what the errors name, in this change's plan files under openspec/changes/<id>/ (proposal.md, design.md, tasks.md, specs/): where the base changed a requirement that a delta modifies, copy the base's requirement text and every one of its scenarios into the delta verbatim, then apply the change's own edits to it again. Leave every stage header line and every task checkbox exactly as they are, change no file outside openspec/changes/<id>/, and finish when `openspec validate <id> --strict` passes
+Fix only what the errors name, in this change's plan files under openspec/changes/<id>/ (proposal.md, design.md, tasks.md, specs/): where the base changed a requirement that a delta modifies, copy the base's requirement text and every one of its scenarios into the delta verbatim, then apply the change's own edits to it again. Leave every stage header line and every task checkbox exactly as they are, change no file outside openspec/changes/<id>/, and finish when `openspec validate <id> --type change --strict` passes
 ```
 
 No stage header is read or written by any of this; the stage checker's `attempt=` and `ceiling` are
@@ -223,14 +225,14 @@ and an ordinary design edit get the same answer.
 - `docs/openspec-flow.md`:
   - "**The loop.**" paragraph (line 230), after the sentence on `accept-decisions`: "After a merge of
     the base, from the implementation on, the loop has the session run `merge-check`, which runs
-    `openspec validate <id> --strict` once per merge before the evidence and before any push or wait
+    `openspec validate <id> --type change --strict` once per merge before the evidence and before any push or wait
     on the pull request; a failure goes to the planner as a merge defect, spends no stage attempt, and
     three in a row on the same merge end the run blocked; a check that cannot run ends it blocked too.
     The result is recorded in `<git common dir>/devkit/merge-check/<id>.json`."
   - Line 316: replace "After every merge of the base, before the evidence, run
     `openspec validate <id> --strict`; copy any scenario main added to a requirement the change
     modifies into the delta verbatim; and search" with "After every merge of the base the loop runs
-    `openspec validate <id> --strict` before the evidence (the `merge-check` step of "The loop"
+    `openspec validate <id> --type change --strict` before the evidence (the `merge-check` step of "The loop"
     above), and the planner copies any scenario main added to a requirement the change modifies into
     the delta verbatim; the session still searches". The rest of the paragraph is unchanged.
   - Troubleshooting: two rows, after the `blocked: item 5` row: "`/devkit change` ends blocked: the
@@ -243,8 +245,8 @@ and an ordinary design edit get the same answer.
   `merge-check`, and "It writes nothing but ..." gains ", with `merge-check`, its record in the git
   common directory".
 - `openspec/roadmap.md` line 74 becomes: "- [ ] post-merge-validate — after a merge from the base,
-  the delivery loop runs `openspec validate <id> --strict` before the evidence and sends a failure to
-  the planner as a merge defect (stage-roles retro, item 3); counting an evidence attempt that a base
+  the delivery loop runs `openspec validate <id> --type change --strict` before the evidence and sends a
+  failure to the planner as a merge defect (stage-roles retro, item 3); counting an evidence attempt that a base
   merge made stale or red moved to `evidence-attempts-by-failure`".
 
 Grep made for the texts this change edits: no test asserts the line-316 sentence, the README row's
@@ -366,7 +368,7 @@ silent deviation.
 The answer: the owner chose, on 2026-11-23 (answer A), that the record stays in
 `<git common dir>/devkit/merge-check/<id>.json`. The adr-author drafted a Note on ADR 0017 (Context,
 `Note (post-merge-validate, 2026-11-23, status: proposed; ...)`) naming the record as one more input
-of decision 1: a fact (what `openspec validate <id> --strict` answered for one merge), not stored
+of decision 1: a fact (what `openspec validate <id> --type change --strict` answered for one merge), not stored
 state. `decisions.md` lists that Note with ADR 0017 among the checked records, and the owner's
 approval of this plan accepts it, as it accepts every record `decisions.md` lists
 (`docs/openspec-flow.md`, the `decisions.md` row).
@@ -430,7 +432,7 @@ endpoint, frontend or worker surface.
 
 ## Assumptions
 
-- `openspec validate <id> --strict --json` answers as probed with CLI 2.0.0 (Context table); the
+- `openspec validate <id> --type change --strict --json` answers as probed with CLI 2.0.0 (Context table); the
   dropped-scenario error names the requirement in quotes. If not, T-4 fails in phase 1 and the plan
   is revised before phase 2.
 - GitHub's "update branch" merge has the branch head as first parent (the shape `release-merge.mjs`
