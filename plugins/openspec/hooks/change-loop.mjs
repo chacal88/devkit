@@ -41,8 +41,9 @@ import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings, appliedStages } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
+import { OFFLINE_GH } from './merge-setup.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
 import { readiness, liveRuns, startRun, CHANGE_LOOP } from './compozy-driver.mjs';
@@ -475,6 +476,11 @@ export const MESSAGES = {
     'state.github': 'waits on GitHub',
     'state.owner': 'waits for you',
     'state.blocked': 'is blocked',
+    // The status line's own words (run-status-bar D-8): the progress, the coordinator's counts and the word for a blocked count of one.
+    'bar.progress': '{n} of {total}',
+    'bar.counts': '{all} in play · {running} working · 🙋 {waiting} waiting on the owner · ⛔ {blocked} {blockedWord}',
+    'bar.blocked-one': 'blocked',
+    'bar.blocked-other': 'blocked',
     'where.slice-pr': 'its pull request #{number} {state}',
     'where.slice-archived': 'its pull request comes next',
     'why.no-verdict-file': 'its verdict file is missing',
@@ -764,6 +770,10 @@ export const MESSAGES = {
     'state.github': 'espera o GitHub',
     'state.owner': 'espera você',
     'state.blocked': 'está travado',
+    'bar.progress': '{n} de {total}',
+    'bar.counts': '{all} em jogo · {running} em andamento · 🙋 {waiting} aguardando o dono · ⛔ {blocked} {blockedWord}',
+    'bar.blocked-one': 'bloqueada',
+    'bar.blocked-other': 'bloqueadas',
     'where.slice-pr': 'o pull request #{number} dela {state}',
     'where.slice-archived': 'o pull request dela vem a seguir',
     'why.no-verdict-file': 'o arquivo do veredito não existe',
@@ -1168,7 +1178,8 @@ function triageUnsourcedOf(dir) {
 // taken, held }, null when the change records no places), budget ({ cap, file, spent } with `spent`
 // null when it could not be read; null or absent when no cap applies), models (the model of each stage, `modelsOf`'s result: every
 // action at a stage with a row carries its `model`; absent, none does), handOffs (the session's stage subagents of the current run,
-// `handOffsOf`'s result: a hand-off whose newest run failed is handed once more a model up; null or absent when none was read) }.
+// `handOffsOf`'s result: a hand-off whose newest run failed is handed once more a model up; null or absent when none was read),
+// offline (true when gh is OFFLINE_GH: an unreadable merge setup reads as GitHub silent) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
   const { ctx, flow, report } = facts;
@@ -1187,6 +1198,8 @@ export function decide(facts) {
   });
   const blocked = (why, params = {}, stageId = null, detail) => finish('blocked', why, 'blocked', { why, ...params }, stageId, detail);
   const waiting = (state, key, stageId, params = {}, detail) => finish(state, key, key, params, stageId, detail);
+  // GitHub did not answer: a wait on GitHub, never a stop (`what` silent).
+  const silent = (stageId, error) => waiting('waiting-on-github', 'waiting-github', stageId, { what: 'silent' }, { error: error ?? '' });
 
   const key = (stage, step) => `${stage}/${step ?? stage}@${facts.fingerprint}`;
   // A hand-off whose detail names a worktree and a branch (the support branch's) works there, not in the task worktree.
@@ -1340,7 +1353,7 @@ export function decide(facts) {
 
   // P9 and B0: a blocked end of the stage checker, in plain words.
   function blockedEnd(e) {
-    if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
+    if (githubSilent(e)) return silent(e.stage, e.params?.error);
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
     const params = { stage: titleOf(stageId), attempt: e.params?.attempt, failures: e.params?.failures, error: e.params?.error ?? '', number: e.params?.number };
@@ -1394,7 +1407,8 @@ export function decide(facts) {
     }
     switch (spec.end) {
       case 'github': return waiting('waiting-on-github', 'waiting-github', currentId, { what: step === 'wait-checks' ? 'checks' : TRAIN_WAITS.includes(step) ? 'train' : facts.archiving ? 'archive-merge' : 'merge' });
-      case 'blocked': return blocked(BLOCKED_STEP[step], {}, currentId);
+      // With GitHub offline (`state --offline`) the merge setup could not be read: GitHub silent, as every other offline read (run-status-bar D-4).
+      case 'blocked': return step === 'stop-merge-setup' && facts.offline ? silent(currentId, row.next.reason) : blocked(BLOCKED_STEP[step], {}, currentId);
       case 'archived': return finish('archived', 'archived', 'archived', {}, currentId);
       default: break;
     }
@@ -1510,7 +1524,7 @@ export function isPlanStage(start, id, action) {
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
 // `fetchBase` is a `baseFetches()` record: given, the base is fetched (once per record) before the delivery checkers read it, and
 // the action carries `baseFetch`; absent (`state`, the locks), nothing is fetched.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, fetchBase = false, strictModels = false, retry = false, handOffs } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, fetchBase = false, strictModels = false, retry = false, handOffs, stages = false } = {}) {
   const clean = cleanOf(env);
   let baseFetch = null;
   const start = findRoot(cwd);
@@ -1578,6 +1592,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     unsourced: triageUnsourcedOf(dir),
     archiving,
     row,
+    offline: gh === OFFLINE_GH,
     mergeCheck,
     place,
     budget: budgetFact,
@@ -1595,6 +1610,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   action.icon = stageIcon(action);
   action.state = changeState(action, null, { lang });
   if (action.state.title !== null) action.sessionTitle = action.state.title;
+  // The ids of the stages that apply, for the state command only (run-status-bar D-4): `next` never asks, so its action keeps its shape.
+  if (stages) action.stages = appliedStages(facts, flow);
   // The Jira task the change records, and the write-back question the developer is still owed (jira-entry D-6).
   const task = recordedTask(readRequirements({ root: found.root, id }));
   if (task) {
@@ -2012,14 +2029,14 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
     const unplaced = unplacedAction(start, cid);
     if (unplaced && (days ??= archivedDates(start, { env, gh })).has(cid) && !createdAfter(unplaced.root, cid, days.get(cid))) action = archivedStandIn(cid);
     else if (unplaced) action = unplaced;
-    else if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
+    else if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh, stages: true });
     else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) action = archivedStandIn(cid);
     else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
     else throw new LoopUsageError(`no change named ${cid}`);
     const line = changeSessions && roadmapIds.has(cid) ? (readRoadmap(mainRoot(start)) ?? []).flatMap((round) => round.items).find((item) => item.id === cid) : null;
     const dependency = line && line.after.length > 0 && isPlanStage(start, cid, action) ? line.after.find((d) => !(archived ??= archivedOnDefault(start, { env, gh })).has(d)) ?? null : null;
     const facts = runFactsOf(dependency ? { ...run, waitsFor: { [cid]: dependency } } : run, cid, { onRoadmap: roadmapIds.has(cid) });
-    return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch };
+    return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch, stages: action.stages ?? null };
   });
 }
 
@@ -3112,7 +3129,7 @@ export function compozyRetry(cwd, id) {
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... [--stdin <name>] '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) '
-  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | merge-check <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l> '
+  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | merge-check <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] [--offline] --lang <l> '
   + '| next --change <id> --lang <l> --view compozy | compozy-start <id> --lang <l> (the request on standard input) | confirm --change <id> --lang <l> --view <json> '
   + '| record-approval --change <id> --words <text> --lang <l> | record-mockup --change <id> --decision <approve|changes> --words <text> --lang <l> '
   + '| record-answer --change <id> --gate <grill|approval|retro> --answer <text> [--question <text>] --lang <l> | run-gate --change <id> --lang <l> '
@@ -3155,9 +3172,10 @@ function runNext(args, { env, cwd, openspec, gh }) {
 }
 
 function runState(args, { env, cwd, openspec, gh }) {
-  const opts = parseArgs(args, { values: ['--change', '--lang'] });
+  const opts = parseArgs(args, { values: ['--change', '--lang'], flags: ['--offline'] });
   if (opts.positional.length) throw new LoopUsageError(USAGE);
-  const changes = stateEntries(cwd, { id: opts.change ?? null, lang: opts.lang, env, openspec, gh });
+  // `--offline`: GitHub reads as not answering for the whole read, so no call is made (run-status-bar D-4).
+  const changes = stateEntries(cwd, { id: opts.change ?? null, lang: opts.lang, env, openspec, gh: opts.offline ? OFFLINE_GH : gh });
   return { code: 0, stdout: json({ version: 1, changes }), stderr: '' };
 }
 
@@ -3391,9 +3409,10 @@ export async function runCommand(argv, opts = {}) {
 }
 
 // The request on standard input, for `start` and `open` (empty when there is none to read).
-// A pipe that is still empty makes the read fail with EAGAIN: wait a little and read again, up to STDIN_WAIT.ms in all.
+// A pipe that is still empty makes the read fail with EAGAIN: wait a little and read again, up to `waitMs` in all (STDIN_WAIT.ms unless
+// the caller gives one: the status line gives 1 second, run-status-bar D-2).
 const STDIN_WAIT = { stepMs: 20, ms: 10_000 };
-export function readStdin() {
+export function readStdin(waitMs = STDIN_WAIT.ms) {
   if (process.stdin.isTTY) return '';
   const chunks = [];
   const buf = Buffer.alloc(65_536);
@@ -3404,7 +3423,7 @@ export function readStdin() {
       n = readSync(0, buf, 0, buf.length, null);
     } catch (e) {
       if (e?.code !== 'EAGAIN') return '';
-      if (waited >= STDIN_WAIT.ms) break;
+      if (waited >= waitMs) break;
       sleepSync(STDIN_WAIT.stepMs);
       waited += STDIN_WAIT.stepMs;
       continue;

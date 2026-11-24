@@ -79,6 +79,7 @@ const SAMPLE = {
   branch: 'develop', base: 'master', default: 'main', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
   spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d', models: 'opus 3210, sonnet 1105', tokens: 4315, from: 'haiku', to: 'sonnet',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
+  total: 15, all: 6, running: 3, waiting: 2, blocked: 1, blockedWord: 'blocked',
 };
 // The one reply that names a file: the budget stop names the change's settings file, where the owner raises the cap.
 const NAMES_ITS_FILE = ['waiting-budget'];
@@ -485,6 +486,22 @@ test('change-loop decide: B14 the stops of the delivery checker end blocked with
     assert.deepEqual(shape(a), ['end', 'blocked', why, 2], step);
     assert.equal(a.reply, says('blocked', { why }));
   }
+});
+
+// Invariant (run-status-bar D-4, the offline read of the merge setup): with GitHub offline only the merge-setup stop reads as GitHub
+// silent, carrying the checker's reason; every other stop of the delivery checker still ends blocked with its own reason.
+test('change-loop decide: B14b offline, only the merge-setup stop reads as GitHub silent; the other stops stay blocked', () => {
+  const rows = [['stop-branch', 'wrong-branch'], ['stop-archive', 'archive-failed'], ['stop-not-approved', 'plan-not-approved'], ['blocked', 'pr-problem']];
+  for (const [step, why] of rows) {
+    const a = build(rowOf(step), { offline: true });
+    assert.deepEqual(shape(a), ['end', 'blocked', why, 2], step);
+    assert.equal(a.reply, says('blocked', { why }), step);
+  }
+  const reason = 'gh api repos/o/r: HTTP 403';
+  const setup = build(rowOf('stop-merge-setup', { reason }), { offline: true });
+  assert.deepEqual(shape(setup), ['end', 'waiting-on-github', 'waiting-github', 1]);
+  assert.equal(setup.params.what, 'silent');
+  assert.equal(setup.detail.error, reason);
 });
 
 test('change-loop decide: B15 an archived change at the delivery checker ends archived', () => {
