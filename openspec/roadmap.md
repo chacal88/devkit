@@ -75,7 +75,7 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 
 ## Round 17i: the release merge, live
 - [ ] release-merge-live-check (after: release-merge-conflict) — with devkit-openspec 0.22.0 or later installed, the next change whose pull request falls behind another change's release has its release conflict resolved by the loop alone: the loop hands resolve-release-conflict, the merge commit and a plain push land, and no step ends blocked with a pull-request problem; the result is recorded in that change's retro (release-merge-conflict, AC-8)
-- [ ] release-merge-leftovers — `openspec/specs/commit-attribution/spec.md` drops the scenario that hands `push-rebased` and its mention in the devkit skill's rows, the panel's step vocabulary (`plugins/panel/hooks/steps.ts`, `plugins/panel/hooks/i18n.ts`) drops the label, and a conduct-check test runs the release-merge override under a two-PR delivery-model config (release-merge-conflict retro, items 1)
+- [x] release-merge-leftovers — `openspec/specs/commit-attribution/spec.md` drops the scenario that hands `push-rebased` and its mention in the devkit skill's rows, the panel's step vocabulary (`plugins/panel/hooks/steps.ts`, `plugins/panel/hooks/i18n.ts`) drops the label, and a conduct-check test runs the release-merge override under a two-PR delivery-model config (release-merge-conflict retro, items 1)
 - [ ] evidence-attempts-by-failure — the stage checker counts a stage's attempts by failed takes, not by takes retaken after a merge of main made the evidence stale, so a merge-heavy delivery does not reach the ceiling of three without three real failures (release-merge-conflict retro, item 2)
 
 ## Round 25: review round tooling
