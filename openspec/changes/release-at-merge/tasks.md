@@ -263,7 +263,7 @@ seeded files it names and the outputs to `proof/agents-run.md` under `## S-<n> `
 
 ## 8. Bootstrap and the whole suite
 
-- [ ] 8.1 After the last merge of `origin/main` before review, run this worktree's
+- [x] 8.1 After the last merge of `origin/main` before review, run this worktree's
   `node plugins/openspec/hooks/release-merge.mjs --assign --base main --json` (D-17): it assigns the
   next free number on origin/main at the last merge before review to `ADR [release-at-merge]` and the
   next versions to the packs `release.md` lists. Save the command and its JSON to
