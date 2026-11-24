@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.52.1 — forced-merge-path retro
+
+- **devkit-core** 0.16.3: the review-change skill says how a further round the owner approves after a round-2
+  deadlock runs (as round 1 of a new cycle, noted as the owner's round); the pr-verifier runs each gate part whole,
+  as the one command `tasks.md` writes, since subsets of its test files or test names give no row for it.
+- **devkit-openspec** 0.47.1: the ship-change skill no longer promises `blocked: item 5` for a merge conflict in a
+  project with a delivery train (the train joins and renumbers; the session merges the base only when `next` asks);
+  the `delivery-train P9 N2` test reads the push command per argument, so a temporary folder named with "force" no
+  longer turns it red. The CI snippet now pins `v0.47.1`, the release's tag.
+
 ## 0.52.0 — an owner's forced merge leads the change to the archive
 
 - **devkit-openspec** 0.46.0: the delivery checker recognises a change's own pull request that was merged while a
