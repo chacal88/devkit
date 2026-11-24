@@ -76,7 +76,7 @@ the tree, and end every task with `git status --short`.
 - [x] 1.4 In `plugins/openspec/hooks/deliver-check.mjs`, change line 3 to the comment of D-6 and
   nothing else. Check: test 9 passes, and `git diff --stat -- plugins/openspec/hooks/deliver-check.mjs`
   shows one line changed.
-- [ ] 1.5 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^fresh-base-check " --test-name-pattern="^change-loop" plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-2 (change loop), AC-3, AC-4, AC-5 and the one-fetch rule.
+- [x] 1.5 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^fresh-base-check " --test-name-pattern="^change-loop" plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-2 (change loop), AC-3, AC-4, AC-5 and the one-fetch rule.
 
 ## 2. The roadmap fetches too, and the docs state the rule (AC-2, AC-6, AC-7)
 
