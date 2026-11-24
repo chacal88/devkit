@@ -191,3 +191,24 @@ export const section = (md, from, to) => {
 
 // The claim commits, so the tests carry an identity of their own, as deliver-check.test.mjs does for its helpers.
 export const IDENT = { GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid', GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid' };
+
+// ---- a change archived on the default branch (field-fixes 1; state-skips-unlocated): what the field-fixes tests and the state tests both use
+
+// A gh that lists `names` as the archived folders of the default branch, or fails (`fail`), and nothing else.
+export const archiveGh = (names, { fail = false } = {}) => (args) => (
+  !fail && args[0] === 'api' && /contents\/openspec\/changes\/archive\?ref=/.test(args[1])
+    ? { status: 0, stdout: JSON.stringify(names.map((name) => ({ name }))), stderr: '', missing: false, timedOut: false }
+    : { status: 1, stdout: '', stderr: 'gh: not reachable', missing: false, timedOut: false });
+export const archivedFolder = (date, id, flow = null) => ({ [`openspec/changes/archive/${date}-${id}/.openspec.yaml`]: `schema: devkit\n${flow === null ? '' : `x-devkit-flow: ${flow}\n`}` });
+
+// The default branch on origin gains the archived folder of `id` while the main checkout stays where it was.
+export function archiveOnOrigin(t, id) {
+  const pusher = t.addWt('pusher');
+  put(pusher, archivedFolder('2026-11-20', id));
+  commitAll(pusher, `archive ${id}`);
+  git(pusher, 'push', '-q', 'origin', 'HEAD:main');
+  git(t.main, 'fetch', '-q', 'origin');
+}
+
+// An active folder whose `.openspec.yaml` records the day it was created, as `openspec new change` writes it.
+export const withCreated = (wt, id, created) => put(wt, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\ncreated: ${created}\n` });

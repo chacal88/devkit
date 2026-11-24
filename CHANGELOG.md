@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.48.1 — the state command and the board list a change they cannot place
+
+- **devkit-openspec** 0.42.1: `change-loop.mjs state` (with or without `--change`), `/devkit status` and the roadmap
+  decision no longer exit 3 on a change whose active folder is only in a checkout the main checkout does not read
+  (a worktree on a branch that is neither `<id>` nor `chore/archive-<id>`): it is listed `blocked` with the reason
+  `wrong-branch`, under Blocked on the board, with the checkout that holds it; when that folder is the stale copy of a
+  change archived on the default branch it is listed `archived`; an id nothing knows still exits 3. `locate` reads a
+  change in the worktree on `chore/archive-<id>`, else the worktree on branch `<id>`, else the checkout it is called
+  from when that checkout holds the change's active folder and the main checkout holds none, else the main checkout.
+  The CI snippet now pins `v0.42.1`, the release's tag.
+
 ## 0.48.0 — a project slice is claimed when it opens
 
 - **devkit-openspec** 0.43.0: with an origin remote, `/devkit project <slice>` now claims the slice
