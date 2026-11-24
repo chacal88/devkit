@@ -284,7 +284,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
 
 ## 6. Documents, records and release (AC-2)
 
-- [ ] 6.1 Write N-10 in `plugins/openspec/hooks/guard.test.mjs` with the skips of D-9 (history,
+- [x] 6.1 Write N-10 in `plugins/openspec/hooks/guard.test.mjs` with the skips of D-9 (history,
   the train records `openspec/trains/` included, the old-setup and `c561553` fixture folders, and the canonical requirement blocks this change's
   delta MODIFIES), its
   needles built by concatenation, and rewrite T-6's quoted literal the same way (D-9, D-13; N-8
@@ -295,7 +295,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   MODIFIES, and
   `grep -rlE "openspec-setup|compozy-setup" openspec/changes/project-setup/specs/` prints nothing
   (the ADDED blocks are not skipped after the archive, D-9 point 3).
-- [ ] 6.2 Rewrite the prose that names the old skills (D-11): `README.md`, `CONTRIBUTING.md`,
+- [x] 6.2 Rewrite the prose that names the old skills (D-11): `README.md`, `CONTRIBUTING.md`,
   `plugins/openspec/README.md`, `plugins/compozy/README.md`, `docs/getting-started.md`,
   `docs/openspec-flow.md`, `docs/compozy-kit.md`, `docs/conventions.md`, `.compozy/README.md`
   (through the template and the installer, task 2.6's command), and the descriptions in
@@ -304,17 +304,17 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   `suite-speed AC-7` and `suite-speed AC-8`). Run `python3 scripts/gen-catalog.py`. Check:
   `python3 scripts/check.py` and `python3 scripts/gen-catalog.py --check` exit 0, and the `docs sweep`
   and `suite-speed AC-7` tests pass in gate 6.10.
-- [ ] 6.3 Edit the Purpose of `openspec/specs/project-setup/spec.md` and
+- [x] 6.3 Edit the Purpose of `openspec/specs/project-setup/spec.md` and
   `openspec/specs/compozy-kit-setup/spec.md` to name `/devkit setup` and the kit installer (D-11).
   Their requirement bodies are not edited: the archive applies the delta to them, and N-10 skips
   exactly the blocks the delta MODIFIES (D-9, point 3). Check: N-10's failure names neither
   Purpose.
-- [ ] 6.4 Answer the open point of `docs/coordination-design.md` (D-11). Add the ADR line to
+- [x] 6.4 Answer the open point of `docs/coordination-design.md` (D-11). Add the ADR line to
   `context` in `openspec/config.yaml` with the number the record's file name carries; the renumber
   step of the last merge before review (task 6.7) moves it with every other reference.
   Check: the Open points list of `docs/coordination-design.md` holds no "Project setup" bullet, and
   the `change-loop docs: the design records the answers` test passes in gate 6.10.
-- [ ] 6.5 The `compozy-kit-setup` delta beside the canonical spec (D-12, step 4). The archive of
+- [x] 6.5 The `compozy-kit-setup` delta beside the canonical spec (D-12, step 4). The archive of
   `compozy-driver` is on the base, and the delta already MODIFIES the six canonical requirements that
   name `compozy-setup`, each copied whole with the installer named. On the branch as it is, and again
   after every later merge of `origin/main`, compare each of those six blocks with the canonical one
@@ -324,7 +324,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   `openspec validate project-setup --type change --strict` exits 0,
   `grep -c "^### Requirement:" openspec/changes/project-setup/specs/compozy-kit-setup/spec.md` prints
   7 (six MODIFIED, one ADDED), and N-10 passes in gate 6.10.
-- [ ] 6.6 The `change-coordination` delta beside the canonical spec (D-12, step 7). The archive of
+- [x] 6.6 The `change-coordination` delta beside the canonical spec (D-12, step 7). The archive of
   `delivery-train` is on the base. On the branch as it is, and again after every later merge of
   `origin/main`, compare the requirements "The devkit command reads its verb" and "The command runs
   only in a project set up for devkit" of `openspec/specs/change-coordination/spec.md` with the
@@ -336,7 +336,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   other change. Check: `openspec validate project-setup --type change --strict` exits 0,
   `grep -c "#### Scenario: The train verb" openspec/changes/project-setup/specs/change-coordination/spec.md`
   prints 2, and every `#### Scenario:` line of the two canonical requirements is in the delta.
-- [ ] 6.7 Only after `approval.md` holds the owner's approval of this plan: add the header line and
+- [x] 6.7 Only after `approval.md` holds the owner's approval of this plan: add the header line and
   the dated Note of D-11 to `docs/adr/0004-devkit-per-project.md`. The record is the file
   `docs/adr/<n>-one-setup-verb-replaces-the-two-setup-skills.md`: its number `<n>` is the next free
   number on origin/main at the last merge before review, and its file name carries it today. Refer to
@@ -352,7 +352,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   other than `docs/adr/0004-devkit-per-project.md`, and
   `set -- docs/adr/*-one-setup-verb-replaces-the-two-setup-skills.md && test $# -eq 1 && n=${1#docs/adr/} && n=${n%%-*} && grep -q "^# ADR $n: " "$1" && grep -q "^- Number: $n," "$1" && grep -q "^- Status: accepted$" "$1" && grep -q "^- Amended by ADR $n ($n-one-setup-verb-replaces-the-two-setup-skills.md)$" docs/adr/0004-devkit-per-project.md && test "$(grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md)" = 1`
   exits 0 (it takes `<n>` from the record's file name, so it holds after a renumber).
-- [ ] 6.8 Bump devkit-openspec, devkit-compozy and the marketplace, each to the next free minor
+- [x] 6.8 Bump devkit-openspec, devkit-compozy and the marketplace, each to the next free minor
   version on `origin/main` at the last merge before review. Use `plugins/openspec/.claude-plugin/plugin.json`,
   `plugins/compozy/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`. Move every CI
   pin of `docs/openspec-flow.md` to `v<the new devkit-openspec version>` and edit no test: the test
@@ -364,10 +364,10 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   `change-loop docs: the design records the answers` passes in gate 6.10, and
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/compozy/kit/scripts/adoption.test.mjs`
   exits 0.
-- [ ] 6.9 Set the stage headers of `proposal.md`, `design.md`, the three spec files and `tasks.md`
+- [x] 6.9 Set the stage headers of `proposal.md`, `design.md`, the three spec files and `tasks.md`
   to the commit of this phase only if a phase changed them, as the stage rule says. Check:
   `openspec validate project-setup --type change --strict` exits 0.
-- [ ] 6.10 Gate: `python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate . && openspec validate project-setup --type change --strict && env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup AC-2" --test-name-pattern="^docs sweep" --test-name-pattern="^change-loop docs" --test-name-pattern="^suite-speed AC-7" --test-name-pattern="^suite-speed AC-8" --test-name-pattern="^upfront AC-5 docs" plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/test-suite.test.mjs` green; covers AC-2 (no document names the old skills; the checks pass).
+- [x] 6.10 Gate: `python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate . && openspec validate project-setup --type change --strict && env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup AC-2" --test-name-pattern="^docs sweep" --test-name-pattern="^change-loop docs" --test-name-pattern="^suite-speed AC-7" --test-name-pattern="^suite-speed AC-8" --test-name-pattern="^upfront AC-5 docs" plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/test-suite.test.mjs` green; covers AC-2 (no document names the old skills; the checks pass).
 
 ## 7. The real run and the touched-file suite (AC-10, every AC)
 

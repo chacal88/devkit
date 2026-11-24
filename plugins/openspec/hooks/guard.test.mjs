@@ -1766,7 +1766,8 @@ test('upfront AC-5 docs: the flow doc names the released flow versions, the 0.37
   const openspec = entry.slice(entry.indexOf('**devkit-openspec** 0.33.0'), entry.indexOf('- **devkit-core**'));
   assert.ok(openspec.includes('The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill'), 'the devkit-openspec bullet names flow version 2');
   assert.ok(openspec.includes('a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`'), 'and what a change under way keeps');
-  assert.ok(entry.includes('- Projects: re-run `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
+  // The past entry's literal is split so that no source line names the removed skill (project-setup D-9); the string is the same.
+  assert.ok(entry.includes('- Projects: re-run `' + 'openspec' + '-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill'), 'the Projects line');
   // ADR 0021: the Note after the Decision list
   const adr = read('docs', 'adr', '0021-a-roadmap-run-opens-every-change-at-its-start.md');
   const noteAt = adr.indexOf('Note (roadmap-sessions-upfront, 2026-11-23):');
@@ -1908,4 +1909,55 @@ test('setup AC-4 skill: step 5 writes schema, context, rules and operations only
   assert.match(step, /the `devkit:` block, the `ship:` map and `merge_method` only through `setup-block\.mjs apply`/);
   assert.match(step, /`kept`/);
   for (const old of [/set `schema: devkit-lite` as the default/, /merge in only the missing/, /Fill `context` from the repo/]) assert.doesNotMatch(step, old);
+});
+
+// Invariant: outside the history (records, past changelog entries, change folders, train records), the two fixture folders that
+// hold a past commit's bytes and the canonical requirement blocks this change's delta MODIFIES, no file of the working tree
+// names a removed setup skill, and neither skill folder exists. Layer: the repository's files (working tree, never git history).
+// Suite: guard. The names are built by concatenation so that this file names neither (project-setup D-9, N-10).
+test('setup AC-2 tree: no file outside the history names the removed setup skills, and neither skill folder exists', () => {
+  const root = join(here, '..', '..', '..');
+  const removed = ['openspec' + '-setup', 'compozy' + '-setup'];
+  assert.equal(existsSync(join(root, 'plugins', 'openspec', 'skills', removed[0])), false, 'the OpenSpec setup skill folder is gone');
+  assert.equal(existsSync(join(root, 'plugins', 'compozy', 'skills', removed[1])), false, 'the kit setup skill folder is gone');
+  // D-9 point 1, history; point 2, the two fixture folders that hold a past commit's bytes.
+  const skipped = [/^\.git\//, /(^|\/)node_modules\//, /^docs\/adr\//, /^openspec\/changes\//, /^openspec\/trains\//, /^CHANGELOG\.md$/,
+    /^plugins\/openspec\/skills\/devkit\/scripts\/fixtures\/old-setup\//, /^plugins\/openspec\/hooks\/fixtures\/c561553\//];
+  // D-9 point 3: the delta's MODIFIED headers, read from the change folder or, once archived, from its archive folder.
+  const changes = join(root, 'openspec', 'changes');
+  const archive = join(changes, 'archive');
+  const archived = existsSync(archive) ? readdirSync(archive).filter((d) => d.endsWith('-project-setup')) : [];
+  const deltaDir = existsSync(join(changes, 'project-setup')) ? join(changes, 'project-setup') : archived.length ? join(archive, archived[0]) : null;
+  const modified = (capability) => {
+    const file = deltaDir && join(deltaDir, 'specs', capability, 'spec.md');
+    if (!file || !existsSync(file)) return new Set();
+    const text = readFileSync(file, 'utf8');
+    const at = text.indexOf('## MODIFIED Requirements');
+    if (at === -1) return new Set();
+    const next = text.indexOf('\n## ', at + 1);
+    const section = text.slice(at, next === -1 ? undefined : next);
+    return new Set([...section.matchAll(/^### Requirement: (.+)$/gm)].map((m) => m[1].trim()));
+  };
+  const blocks = new Map(['project-setup', 'compozy-kit-setup'].map((c) => [`openspec/specs/${c}/spec.md`, modified(c)]));
+  const listed = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  assert.equal(listed.status, 0, listed.stderr);
+  const stray = [];
+  for (const f of listed.stdout.split('\0').filter(Boolean)) {
+    if (skipped.some((r) => r.test(f)) || !existsSync(join(root, f))) continue;
+    let text;
+    try { text = readFileSync(join(root, f), 'utf8'); } catch { continue; } // a folder (a nested repository) is not a file
+    if (text.includes('\0')) continue;
+    const headers = blocks.get(f);
+    let inSkipped = false;
+    text.split('\n').forEach((line, i) => {
+      if (headers) {
+        const req = /^### Requirement: (.+)$/.exec(line);
+        if (req) inSkipped = headers.has(req[1].trim());
+        else if (/^## /.test(line)) inSkipped = false;
+        if (inSkipped) return;
+      }
+      if (removed.some((name) => line.includes(name))) stray.push(`${f}:${i + 1}: ${line.trim().slice(0, 120)}`);
+    });
+  }
+  assert.deepEqual(stray, [], 'no file outside the history names a removed setup skill');
 });
