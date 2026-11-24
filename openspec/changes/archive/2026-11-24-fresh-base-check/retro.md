@@ -12,6 +12,8 @@
 | 3 | `nextAction` declares `const baseBranch` twice (the inner one shadows the outer and costs a second git call); three reviewers flagged it | bug-class | doc-update | project |
 | 4 | The guard refuses the conducting session's edits to release files and tests while it resolves a merge of the base | process-friction | memory-only | user |
 
+Note added at the archive: applying proposal 1 first missed two generated copies of the agent's text: `gen-agents.mjs --check` caught the CompozyOS template, and the archive PR's CI (`adoption.test.mjs`, AC-9 repo-adopts) caught this repository's adopted copy under `.compozy/agents/`. A proposal that touches an agent's text regenerates its template (`gen-agents.mjs`) and the adopted copy, and names every generated path; `release-at-merge` hit the same class the same day. Each path was added to proposal 1 with the owner's answer.
+
 ## Proposed updates
 
 ### `plugins/core/agents/pr-verifier.md`, `plugins/compozy/skills/compozy-setup/templates/agents/pr-verifier/AGENT.md`, `.compozy/agents/pr-verifier/AGENT.md` (process-friction)
