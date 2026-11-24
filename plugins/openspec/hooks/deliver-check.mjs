@@ -278,11 +278,49 @@ function dirtyPaths(root) {
 }
 
 // What every staleness check shares: the head sha (null before the first
-// commit) and the uncommitted paths that count.
-export function gitFacts(root) {
+// commit), the uncommitted paths that count and the base branch whose merges
+// the own-files rule may exempt (null: no merge is exempted, stale-only-on-own-files D-4).
+export function gitFacts(root, { base = null } = {}) {
   let head = null;
   try { head = git(root, ['rev-parse', 'HEAD']).trim(); } catch { /* no commit yet */ }
-  return { head, dirty: dirtyPaths(root) };
+  return { head, dirty: dirtyPaths(root), base };
+}
+
+// The remote-tracking tip of `base`, or null when this checkout has none (the checkers never fetch).
+const baseTip = (root, base) => {
+  try { return git(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${base}^{commit}`]).trim() || null; } catch { return null; }
+};
+
+// The branch whose merges the own-files rule may exempt, or null (stale-only-on-own-files D-1); first match wins:
+// the pull request's base in CI, the configured base (`two-prs`), the branch origin/HEAD points at, then main or master.
+export function stalenessBase(root, env = process.env, configuredBase = null) {
+  if (env.GITHUB_BASE_REF) return env.GITHUB_BASE_REF;
+  if (configuredBase) return configuredBase;
+  try {
+    const named = git(root, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD']).trim().replace(/^origin\//, '');
+    if (named) return named;
+  } catch { /* a clone without origin/HEAD */ }
+  return ['main', 'master'].find((name) => baseTip(root, name)) ?? null;
+}
+
+// The change's own files (stale-only-on-own-files D-2): { base, tip, isOwn(path) }, or null when the rule cannot
+// tell (no base, no origin/<base>, no head, the head already in the base, no merge base). Own are the paths that
+// differ between the merge base and the head, both sides of a move included, less the release files, and
+// everything under the change's folder. Memoized per change on `facts`.
+export function ownFiles(root, id, facts) {
+  const cache = (facts.ownCache ??= new Map());
+  if (cache.has(id)) return cache.get(id);
+  let own = null;
+  const tip = facts.base && facts.head ? baseTip(root, facts.base) : null;
+  if (tip && !gitOk(root, ['merge-base', '--is-ancestor', facts.head, tip])) {
+    try {
+      const paths = new Set(git(root, ['diff', '--name-only', '-z', '--no-renames', `${tip}...${facts.head}`]).split('\0').filter((p) => p && !RELEASE_FILE.test(p)));
+      const folder = `openspec/changes/${id}/`;
+      own = { base: facts.base, tip, isOwn: (p) => paths.has(p) || p.startsWith(folder) };
+    } catch { /* unrelated histories: no merge base */ }
+  }
+  cache.set(id, own);
+  return own;
 }
 
 // The paths commit `c` counts as touching: a merge (more than one parent) against its first
@@ -294,13 +332,29 @@ function touchedPaths(root, c, parents) {
   return git(root, args).split('\0').filter(Boolean);
 }
 
+// The two commit sets the own-files walk reads for one recorded sha (stale-only-on-own-files D-3), memoized on
+// `facts`: `line`, the commits on the branch's own first-parent line, and `offBase`, the commits of the range that
+// `origin/<base>` does not contain.
+function ownWalk(root, facts, full, tip) {
+  const cache = (facts.walkCache ??= new Map());
+  if (!cache.has(full)) {
+    const set = (args) => new Set(git(root, args).split('\n').filter(Boolean));
+    cache.set(full, {
+      line: set(['rev-list', '--first-parent', `${full}..${facts.head}`]),
+      offBase: set(['rev-list', `${full}..${facts.head}`, `^${tip}`]),
+    });
+  }
+  return cache.get(full);
+}
+
 // Why a recorded Commit is not current at HEAD, or null when it is: it
 // resolves, is an ancestor of HEAD, every commit since touches only
 // openspec/ (or, with `allowed`, only paths it accepts), it is not marked
 // uncommitted, and the working tree has no change outside openspec/ and .claude/.
 // A merge commit counts what it brought into the branch (its first-parent diff);
-// every commit in the range is still checked.
-export function staleness(root, recorded, facts = gitFacts(root), { allowed = isOpenspec } = {}) {
+// every commit in the range is still checked. With `own` (ownFiles), a merge of the base and
+// the base commits it brings in count only the change's own files; every other commit is judged as before.
+export function staleness(root, recorded, facts = gitFacts(root), { allowed = isOpenspec, own = null } = {}) {
   if (!recorded) return 'no Commit: line';
   const short = recorded.sha.slice(0, 7);
   if (recorded.uncommitted) return `${short} was recorded with uncommitted changes`;
@@ -310,9 +364,13 @@ export function staleness(root, recorded, facts = gitFacts(root), { allowed = is
   try { full = git(root, ['rev-parse', '--verify', '--quiet', `${recorded.sha}^{commit}`]).trim(); } catch { full = ''; }
   if (!full) return `${short} does not resolve to a commit`;
   if (!gitOk(root, ['merge-base', '--is-ancestor', full, facts.head])) return `${short} is not an ancestor of HEAD`;
+  const walk = own ? ownWalk(root, facts, full, own.tip) : null;
+  const inBase = (sha) => gitOk(root, ['merge-base', '--is-ancestor', sha, own.tip]);
   for (const line of git(root, ['rev-list', '--parents', `${full}..${facts.head}`]).split('\n').filter(Boolean)) {
     const [c, ...parents] = line.split(' ');
-    const product = touchedPaths(root, c, parents).find((f) => !allowed(f));
+    const fromBase = walk && ((!walk.line.has(c) && !walk.offBase.has(c))
+      || (walk.line.has(c) && parents.length > 1 && !inBase(parents[0]) && parents.slice(1).every(inBase)));
+    const product = touchedPaths(root, c, parents).find((f) => !allowed(f) && (!fromBase || own.isOwn(f)));
     if (product) return `${short} is behind ${c.slice(0, 7)}, which touches ${product}`;
   }
   return null;
@@ -359,7 +417,7 @@ export function readReviews(root, id, facts = gitFacts(root)) {
   const dir = join(changeDir(root, id), 'reviews');
   return verdictFiles(dir).map(({ name, verdict, commit }) => {
     const open = approved(verdict) && undisposedIn(root, join(dir, `${name}.md`), facts.head).length > 0;
-    return { name, verdict, why: staleness(root, commit, facts, { allowed: verdictAllowed(id, name, verdict, open) }) };
+    return { name, verdict, why: staleness(root, commit, facts, { allowed: verdictAllowed(id, name, verdict, open), own: approved(verdict) && !open ? ownFiles(root, id, facts) : null }) };
   });
 }
 
@@ -461,7 +519,7 @@ export function tasksItem(root, id, facts = gitFacts(root), { trainParts = [] } 
   const evFile = join(dir, 'evidence.md');
   const text = existsSync(evFile) ? readFileSync(evFile, 'utf8') : null;
   let evidence = 'missing';
-  const staleWhy = text === null ? null : staleness(root, parseCommitLine(text), facts);
+  const staleWhy = text === null ? null : staleness(root, parseCommitLine(text), facts, { own: ownFiles(root, id, facts) });
   if (text !== null) evidence = staleWhy ? 'stale' : 'current';
   const passing = text === null ? [] : tableRows(text).filter((cells) => /^pass/i.test(cells.at(-1) || ''));
   const withoutRow = commands.filter((c) => !passing.some((cells) => cells.some((cell) => cell.includes(`\`${c}\``))));
@@ -565,7 +623,7 @@ export function acceptanceItem(root, id, facts = gitFacts(root)) {
   }
   const evFile = join(dir, 'evidence.md');
   const text = existsSync(evFile) ? readFileSync(evFile, 'utf8') : null;
-  const why = text === null ? null : staleness(root, parseCommitLine(text), facts);
+  const why = text === null ? null : staleness(root, parseCommitLine(text), facts, { own: ownFiles(root, id, facts) });
   const evidence = text === null ? 'missing' : why ? 'stale' : 'current';
   const rows = text === null ? [] : tableRows(text);
   const resultsFor = (ac) => rows.filter((cells) => cells.some((c) => new RegExp(`\\b${ac}(?!\\d)`).test(c)))
@@ -1901,11 +1959,11 @@ export function readReviewMd(file) {
 // Everything nextStep and the report need: the eight items and the facts
 // behind the step choice. Reads files, git and (through gh) GitHub; writes nothing.
 export function collectState(root, id, { env = process.env, gh = makeGh(root, env), prNumber = null } = {}) {
-  const facts = gitFacts(root);
   const located = locateChange(root, id) ?? { dir: changeDir(root, id), archived: false };
   const dir = located.dir;
   const schema = schemaOf(root, located);
   const { ship, mergeMethod, model, base: configuredBase, testBranch, train: trainSuite } = deliveryConfig(root, schema);
+  const facts = gitFacts(root, { base: stalenessBase(root, env, configuredBase) });
   const two = model === 'two-prs';
   // The delivery train (delivery-train D-2): on for a change of a devkit script in a project that sets `devkit.delivery.train`.
   const trainOn = trainSuite !== null && isDevkitScript(schema);
@@ -2479,7 +2537,9 @@ function judgeBoarded(root, entry, base, parts) {
     if (!existsSync(join(wt, 'openspec', 'changes', entry.id))) return { problems: [`openspec/changes/${entry.id}/ does not exist at that head`] };
     const schema = changeSchema(wt, entry.id);
     if (!isDevkitScript(schema)) return { problems: [`${entry.id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')})`] };
-    const one = checkOne(wt, entry.id, gitFacts(wt), null, { trainParts: parts });
+    // The base is the train pull request's, with an empty env so the process's own GITHUB_BASE_REF does not change the answer:
+    // the boarded change gets the own-files rule its own pull request's check applies (stale-only-on-own-files, ADR 0025).
+    const one = checkOne(wt, entry.id, gitFacts(wt, { base: stalenessBase(wt, {}, base) }), null, { trainParts: parts });
     const open = [...(one.report.readiness.met ? [] : [`readiness: Status ${one.report.readiness.status || 'missing'}`]), ...one.report.items.filter((i) => i.status !== 'met').map((i) => `${LABELS[i.id - 1]}: ${i.reason}`)];
     return { problems: open, report: one.report };
   });
@@ -2552,7 +2612,7 @@ function runCi(opts, env, cwd) {
     return finish(0, { version: 1, mode: 'ci', change: null, pass: true, note }, `devkit-reviews: ${note}\n`);
   }
   if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
-  const facts = gitFacts(root);
+  const facts = gitFacts(root, { base: stalenessBase(root, env, null) });
   ciPreflight(root, env, facts.head);
   const parts = ciTrainParts(root, env);
   const trainBranch = TRAIN_BRANCH.exec(currentBranch(root, env));
