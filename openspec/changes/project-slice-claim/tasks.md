@@ -77,7 +77,7 @@ file in the tree; end every task with `git status --short`.
 
 ## 2. The ADRs, the documents and the release
 
-- [ ] 2.1 The ADR lines and Notes of design D-8, where `<N>` is the slice-claim ADR's number: the
+- [x] 2.1 The ADR lines and Notes of design D-8, where `<N>` is the slice-claim ADR's number: the
   next free number on `origin/main` at the last merge before review (0022 at `bbb831f`, the number
   `decisions.md` and design D-8 use; when it moved, every reference here moves with it). In
   `docs/adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md` the `- Amended by ADR
@@ -87,7 +87,7 @@ file in the tree; end every task with `git status --short`.
   before `## Consequences`; in `openspec/config.yaml` the `ADRs:` line's `<N>` entry. Check: `project-loop docs: the documents follow`
   (`project-loop.test.mjs`) and `upfront D-18 docs: ADR 0021 names ADR 0020 ...`
   (`roadmap-loop.test.mjs`), which read these headers and the 0021 Note, pass unchanged at 2.5.
-- [ ] 2.2 The documents of design D-9: `docs/openspec-flow.md` (the sentence on the claim in the
+- [x] 2.2 The documents of design D-9: `docs/openspec-flow.md` (the sentence on the claim in the
   first paragraph of `## Defining a project: /devkit project`, and the corrected last sentence of
   `**The slice contract.**`; no other file repeats the corrected sentence, per D-9's grep),
   `docs/coordination-design.md` (the sentence in section 7's `**What exists ...**` paragraph) and
@@ -96,14 +96,14 @@ file in the tree; end every task with `git status --short`.
   asserts either today (`bbb831f`); a test found there is updated as D-6 would, or stops for a plan
   revision. Check: `python3 scripts/check.py` passes (links, language); `project-loop docs: the
   documents follow` passes unchanged at 2.5.
-- [ ] 2.3 The release of design D-9: devkit-openspec and the marketplace each take the next free minor
+- [x] 2.3 The release of design D-9: devkit-openspec and the marketplace each take the next free minor
   version on `origin/main` at the last merge before review, in
   `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` (the pack's entry
   and `metadata.version`); `CHANGELOG.md` gains the entry D-9 describes; `docs/catalog.md` is
   regenerated with `python3 scripts/gen-catalog.py`. Check: `python3 scripts/gen-catalog.py --check`
   and `claude plugin validate .` pass.
-- [ ] 2.4 Validate the change: `openspec validate project-slice-claim --strict` passes.
-- [ ] 2.5 Gate (focused): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^project-loop docs" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^slice-claim" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate project-slice-claim --strict`
+- [x] 2.4 Validate the change: `openspec validate project-slice-claim --strict` passes.
+- [x] 2.5 Gate (focused): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^project-loop docs" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^slice-claim" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate project-slice-claim --strict`
   green, a background command; covers the documents of 2.1 and 2.2 and the release of 2.3.
 - [ ] 2.6 Gate (whole suite): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs`
   green, run as a background command of the tool (13 to 21 minutes); every existing test outside D-6

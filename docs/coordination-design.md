@@ -271,7 +271,9 @@ opens the slice as an OpenSpec change in its own worktree, and the script `proje
 next. The phases are conversations with the owner, so they run in the owner's session. Each slice's
 documents live in `docs/design/<slice>/`, its ADRs in `docs/adr/`, and it reaches the default branch in one
 pull request that the ADR reviewer clears
-([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)).
+([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). Since
+`project-slice-claim`, a slice's open claims it on origin as a change's open does
+([ADR 0022](adr/0022-a-project-slice-is-claimed-on-github-when-it-opens.md)).
 
 **Decided by `project-phases` on 2026-11-21 (the grill's nine answers).**
 
