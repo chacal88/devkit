@@ -160,6 +160,8 @@ node <skill-dir>/../../hooks/change-loop.mjs wait --change <id> --lang ${user_co
 
 The wait has no time limit of its own and exits as soon as GitHub's answer changes the decision; its end starts the next turn, which then runs `next` and goes on. Calling `/devkit change` again at any time is safe: it re-reads everything and starts a new wait if GitHub still waits.
 
+When the host's own instructions to this session say it has a pull-request monitor that wakes the session, and tell it not to poll the checks, start no wait: say `reply`, add one sentence saying that the host's pull-request monitor holds the wait and that no wait was started, and end the turn. The turn the host's event or the owner's next message starts runs `next` and goes on.
+
 ## Train
 
 `/devkit train` departs the boarded changes and archives of a project with a delivery train, together, on one train. The script `<skill-dir>/../../hooks/train-loop.mjs` decides and this text carries it out; the session keeps no state, and every call carries `--lang ${user_config.language}`. A project with no `devkit.delivery.train` gets a blocked end saying so, and nothing is created.

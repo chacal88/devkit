@@ -337,7 +337,7 @@ every task with `git status --short`.
   does "project-settings: PACKS equals the plugin names in marketplace.json" (D-15):
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^project-settings: PACKS equals" plugins/openspec/skills/openspec-setup/scripts/project-settings.test.mjs`
   passes.
-- [ ] 4.5 D-10 in `plugins/openspec/skills/devkit/SKILL.md` (`## Waiting on GitHub`, the paragraph that starts no wait
+- [x] 4.5 D-10 in `plugins/openspec/skills/devkit/SKILL.md` (`## Waiting on GitHub`, the paragraph that starts no wait
   and says so) and `plugins/openspec/skills/devkit-session/SKILL.md` (item 3). Check: T82 and "change-loop skill: the
   wait is started in the background on a GitHub wait" (`change-loop-compozy.test.mjs`) pass, and "upfront AC-8 skill:
   after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run"
