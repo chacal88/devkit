@@ -1,14 +1,49 @@
 # Changelog
 
-## 0.43.1 — a stage's ceiling counts failures in a row
+## 0.45.1 — a stage's ceiling counts failures in a row
 
-- **devkit-openspec** 0.39.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
+- **devkit-openspec** 0.40.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
   the stage's ceiling. They are counted from the stage file's history in git since the file last carried `passed`;
   `attempt` is unchanged, there is no new header field and the flow version does not change. A stage that passed between
   failures starts again from zero. The readout and the replies of `change-loop` and `project-loop` say "failures in a row"
   (`failures` joins the reason params). It also delivers the roadmap line `evidence-attempts-by-failure` (fused).
 - **Docs**: `docs/openspec-flow.md`, `plugins/openspec/README.md` and `docs/coordination-design.md` describe the count;
-  the CI snippet pins `v0.39.1`.
+  the CI snippet pins `v0.40.1`.
+
+## 0.45.0 — the archive check lets the release pin lines pass unnamed
+
+- **devkit-openspec** 0.40.0: the archive's file check no longer asks a retro proposal to name
+  `docs/openspec-flow.md` when only its CI pin lines moved: the file passes when its text with every
+  CI pin masked equals its text at the merge base masked the same way
+  ([ADR 0027](docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md), as amended
+  by [ADR 0030](docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md)).
+  Any other edit of the file, or the file missing or unreadable on either side, still stops the
+  archive on `apply-proposals` and fails `devkit-reviews --ci`, which applies the same rule from the
+  same place (`unnamedFiles`). The file does not join the release list, so a merge conflict in it is
+  classified as before. The CI pin test (`change-loop docs: the design records the answers`) now
+  derives the pin from `plugins/openspec/.claude-plugin/plugin.json` and holds no release number, so
+  no release edits it and the delivery train can join several changes that release; a change to that
+  test in an archive needs a named proposal, as any test file does. The pin definition
+  (`PIN_MARKER`, `PIN_TOKEN`, `pinsIn`, `setPins`) now lives in `deliver-check.mjs`, and
+  `release-merge.mjs` re-exports it, so the downloaded CI files stay three.
+  The CI snippet now pins `v0.40.0`, the release's tag.
+- Docs: ADR 0027 and ADR 0030, the Notes in ADR 0003 and ADR 0027, and the flow doc's file check (P13) and Classification bullet.
+
+## 0.44.0 — release-merge leftovers
+
+- **devkit-openspec** 0.39.2: a conduct-check test runs the release-merge override under the two-PR delivery model, with
+  the base and the test branch apart; the CI snippet now pins `v0.39.2`, the release's tag.
+- **devkit-panel** 0.3.1: the step table and the label table drop `push-rebased`, which no checker has returned since
+  devkit-openspec 0.29.0.
+- **Spec** (`commit-attribution`): drops the scenario and the mention of `push-rebased`.
+
+## 0.43.1 — a change's own pull request may edit another change's archive
+
+- **devkit-openspec** 0.39.1: `deliver-check` counts a merged pull request as the change's own when it
+  also edits another change's archived files; only a file in the change's own archive folder
+  (`openspec/changes/archive/<date>-<id>/`) refuses it, so `/devkit change` finds such a pull request
+  after its merge instead of asking to open it again. The CI snippet now pins `v0.39.1`, the
+  release's tag.
 
 ## 0.43.0 — a merge of the base stales only the change's own files
 

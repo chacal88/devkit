@@ -130,7 +130,7 @@ const STEP_OF: Record<StepKey, readonly string[]> = {
   implementation: ['wait-dependencies', 'rebase', 'audit', 'stop-audit-unverifiable', 'implement', 'gate', 'commit'],
   review: ['review', 'fix-review', 'stop-review-deadlock'],
   proofs: ['verify', 'fix-defect'],
-  pr: ['open-pr', 'push', 'push-rebased', 'update-branch', 'edit-pr-body', 'answer', 'resolve-release-conflict', 'wait-checks', 'fix-checks'],
+  pr: ['open-pr', 'push', 'update-branch', 'edit-pr-body', 'answer', 'resolve-release-conflict', 'wait-checks', 'fix-checks'],
   merge: ['ready', 'enable-auto-merge', 'disable-auto-merge', 'wait-merge'],
   retro: ['retro', 'stop-retro-answers', 'apply-proposals', 'open-archive-pr', 'tick-roadmap', 'stop-archive'],
 }
