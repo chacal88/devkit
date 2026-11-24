@@ -51,11 +51,10 @@ backup or scratch file in the tree, and end every task with `git status --short`
   `guard.test.mjs` imports, `plugins/compozy/skills/compozy-setup/` (scripts, templates,
   `SKILL.md`), `.github/workflows/ci.yml`, `CLAUDE.md`, `docs/compozy-kit.md`, and the grep of D-13.
   First check the sibling's record and versions against `cb39d27`: its ADR
-  `docs/adr/0022-compozy-runs-the-short-loop.md`, devkit-openspec 0.34.0, marketplace 0.38.0. After
-  task 1.1 two records numbered 0022 exist, the sibling's and this change's
-  `docs/adr/0022-one-setup-verb-replaces-the-two-setup-skills.md`, until task 6.6 gives this
-  change's record the next free number with every link; until then every reference to this
-  change's record names its file. A number or version that moved is drift. A line number that moved is drift: fix it in `design.md` and `tasks.md` without asking. A text
+  `docs/adr/0024-compozy-runs-the-short-loop.md` (0022 on its branch), devkit-openspec 0.34.0, marketplace 0.38.0. This change's record
+  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md` carries its final number 0025
+  unless a later merge of `main` takes it; task 6.6 checks it again against `origin/main` and moves
+  every link if it changed. Every reference to this change's record names its file. A number or version that moved is drift. A line number that moved is drift: fix it in `design.md` and `tasks.md` without asking. A text
   that no longer holds the old name or path, or a new file that names one, is added to the task that
   owns its kind (D-8 messages to 3.4, paths to 2.x, docs to 6.x). Check: one commit
   `docs(openspec): re-read of project-setup after the compozy-driver merge` that holds only those
@@ -245,9 +244,9 @@ backup or scratch file in the tree, and end every task with `git status --short`
   and N-10 passes.
 - [ ] 6.6 Only after `approval.md` holds the owner's approval of this plan: add the header line and
   the dated Note of D-11 to `docs/adr/0004-devkit-per-project.md`. Set the record of
-  `decisions.md` to `accepted`, quoting `approval.md`. Its number is the next free number on
-  `origin/main` at the last merge before review, and every link to it moves with it (the loop's
-  renumber step does this at that merge). Check: `grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md`
+  `decisions.md` to `accepted`, quoting `approval.md`. Its number 0025 is checked against
+  `origin/main` at the last merge before review: if a later merge took it, the record takes the next
+  free number and every link to it moves with it (the loop's renumber step does this at that merge). Check: `grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md`
   prints 1 and the record's `Status:` line reads `accepted`.
 - [ ] 6.7 Bump devkit-openspec, devkit-compozy and the marketplace, each to the next free minor
   version on `origin/main` at the last merge before review. Use `plugins/openspec/.claude-plugin/plugin.json`,

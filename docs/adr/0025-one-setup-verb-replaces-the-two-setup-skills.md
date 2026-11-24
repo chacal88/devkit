@@ -1,11 +1,12 @@
-# ADR 0022: One setup verb, `/devkit setup`, replaces the two setup skills
+# ADR 0025: One setup verb, `/devkit setup`, replaces the two setup skills
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-24, in the approval of the plan of change project-setup (openspec/changes/project-setup/approval.md)
 - Date: 2026-11-23
 - Change: project-setup
-- Number: provisional. The record takes the next free number on `origin/main` at the change's last
-  merge of `main` before its review round (the change `compozy-driver` brings its own record first).
+- Number: 0025, the next free number on `origin/main` after the records 0022 to 0024. It stays final
+  unless a later merge of `main` before the review round takes it; then the record moves to the next
+  free number.
 - Amends: ADR 0004 (0004-devkit-per-project.md), the sentence of its Decision "The docs and
   `openspec-setup` teach only the per-project install" and the mitigation of its Consequences
   "`openspec-setup` writes the settings": both now name `/devkit setup`. ADR 0009

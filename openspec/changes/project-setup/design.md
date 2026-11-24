@@ -3,7 +3,7 @@
 
 Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (motivation: `proposal.md`; requirements: `requirements.md`; decision record:
-`docs/adr/0022-one-setup-verb-replaces-the-two-setup-skills.md`, provisional number). Base:
+`docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`). Base:
 `origin/main` at `c1ac8c4`, read on 2026-11-23, and the local branch `compozy-driver` at `cb39d27`
 (not fetched; first read at `9c95942`, re-read at `cb39d27` after the readiness review).
 
@@ -27,9 +27,9 @@ Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / t
   `/compozy-setup`, and imports five `compozy-setup` test files into `guard.test.mjs`. CI gains
   `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`, and `CLAUDE.md` names
   it. At `cb39d27` ("renumber compozy-driver above main") its ADR is
-  `docs/adr/0022-compozy-runs-the-short-loop.md`, devkit-openspec is 0.34.0 and the marketplace
-  0.38.0. This change's record also carries the provisional number 0022, so after the merge of task
-  1.1 two records numbered 0022 exist until task 6.6 gives this change's record the next free number.
+  `docs/adr/0022-compozy-runs-the-short-loop.md` (now `docs/adr/0024-compozy-runs-the-short-loop.md`
+  on `main`), devkit-openspec is 0.34.0 and the marketplace 0.38.0. This change's record carries the
+  number 0025, so no two records share a number; task 6.6 checks it against `origin/main`.
 - devkit-compozy also ships the skills `screen-design` and `screen-demo`. They stay (round 24 removes
   them, `docs/coordination-design.md`).
 - The project's config is read with one-level parsers that this change reuses and does not change:
@@ -45,7 +45,7 @@ Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / t
 - Decisions this design follows: ADR 0004 (per-project opt-in; amended), ADR 0009 (CompozyOS as a
   second driver; its Decision kept), ADR 0010 decision 1 (what lives under the project's `openspec/`),
   ADR 0018 (delivery model; and its rejected fourth downloaded checker file), ADR 0002 (merge mode
-  by opt-in), ADR 0019 (the release tag), the proposed ADR 0022.
+  by opt-in), ADR 0019 (the release tag), the proposed ADR 0025.
 
 ## Goals / Non-Goals
 
@@ -62,7 +62,7 @@ Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / t
 - Recording the plugin version in a new key, or copying a checker.
 - Registering a CompozyOS workspace or starting a run. `/devkit change` on the `compozy` driver
   already says what is missing (compozy-driver).
-- An alias for the old skill names (ADR 0022, alternative 2, rejected).
+- An alias for the old skill names (ADR 0025, alternative 2, rejected).
 
 ## Decisions
 
@@ -238,7 +238,7 @@ matched. The reply then says to update devkit-compozy.
 
 Rejected: calling the resolver `bin/devkit-kit` (it lives in the kit and exists only after an
 install); reading `installed_plugins.json` (a host file whose shape is not ours); moving the
-installer into devkit-openspec (ADR 0022, alternative 4, rejected).
+installer into devkit-openspec (ADR 0025, alternative 4, rejected).
 
 ### D-5 What the step records and names (AC-5)
 
@@ -248,7 +248,7 @@ installer into devkit-openspec (ADR 0022, alternative 4, rejected).
   <v>"). In `merge` mode the GitHub step's `workflow` item writes the pin to the commit of
   `v<pluginVersion>` (unchanged `github-setup.mjs`). When `ciPin` differs from `v<pluginVersion>`,
   the report says so and that the `workflow` item moves it. The pin a project records stays the CI
-  pin (requirements, assumption 2; ADR 0022 decision 3). No new key.
+  pin (requirements, assumption 2; ADR 0025 decision 3). No new key.
 - The packs: before the opt-in, the step runs
   `node <skill-dir>/scripts/project-settings.mjs <root> --packs <list> --dry-run --json`. It names
   each item whose action is not `ok` by its pack. The list is `devkit-core,devkit-openspec`, plus
@@ -370,7 +370,7 @@ a comment, stay (T-5).
 ### D-9 What "named nowhere" covers (AC-2)
 
 Decision records (`docs/adr/`), past `CHANGELOG.md` entries and change folders (`openspec/changes/`,
-the archive included) keep their text: they are history. ADR 0022 says so of ADR 0019's Context.
+the archive included) keep their text: they are history. ADR 0025 says so of ADR 0019's Context.
 The new `CHANGELOG.md` entry names the removed skills to say they are removed. ADR 0004 keeps its
 Decision text and gets a Note (D-11). Everything else is checked by one test, N-10. It walks the
 repository's working tree, never git history (config rule "Test history"), and fails on any line
@@ -457,8 +457,9 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
 
 ### D-11 Documents and the records
 
-- ADR 0022 is the adr-author's record. The implementation renumbers it to the next free number on
-  `origin/main` at the last merge before review (the loop's `renumber-adr` step), moving every link.
+- ADR 0025 is the adr-author's record. Its number is final unless a later merge of `main` takes it;
+  then the implementation renumbers it to the next free number on `origin/main` at the last merge
+  before review (the loop's `renumber-adr` step), moving every link.
   It sets the status to `accepted` with the plan approval's words, as earlier changes did.
 - ADR 0004, after plan approval, by the implementation: a header line
   `- Amended by ADR <n> (<file>)` under the existing one, and a dated Note at the top of its Context:
@@ -493,7 +494,7 @@ is written against that branch, read locally with no fetch.
 
 1. Before the first task, the implementation fetches, merges `origin/main` into `project-setup`
    and re-reads every file this design names from `compozy-driver`. The first re-read checks the
-   sibling's ADR number and versions against `cb39d27` (`0022-compozy-runs-the-short-loop.md`,
+   sibling's ADR number and versions against `cb39d27` (`0024-compozy-runs-the-short-loop.md` on `main`,
    devkit-openspec 0.34.0, marketplace 0.38.0) and fixes this plan where they moved. Gate 1.4 checks that
    `DRIVER_ROUND` holds no `compozy`, that `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs`
    exists, and that the merge is in the branch. If `compozy` is still not built on `main`, the
@@ -652,7 +653,7 @@ installed again after the devkit-compozy bump, so its manifest records the new p
   every merge of `main` is followed by the re-read, and the line numbers here are hints; the tests
   are the contract.
 - [The kit installer is not found on an owner's machine (devkit-compozy not installed, or 0.4.0)] →
-  the reply names the pack and the locations (K-3, K-4); the kit is opt-in (ADR 0022, Consequences).
+  the reply names the pack and the locations (K-3, K-4); the kit is opt-in (ADR 0025, Consequences).
 - [A re-run asks the optional keys the owner left unset again (coverage, E2E, delivery, kit)] →
   accepted: nothing records a "no", and the old skill asked them again too. A no writes nothing, so
   the file stays byte-identical (AC-4).
@@ -660,7 +661,7 @@ installed again after the devkit-compozy bump, so its manifest records the new p
   nothing written (B-12); the owner edits by hand.
 - [A typed `/devkit setup` in a roadmap session ends the run's hold] → that is the existing rule for
   any typed command but `/devkit status`, pinned by N-7; `/devkit roadmap` resumes.
-- [Owners who learned `/openspec-setup`] → every message names `/devkit setup`; ADR 0022 accepts it.
+- [Owners who learned `/openspec-setup`] → every message names `/devkit setup`; ADR 0025 accepts it.
 
 ## Migration Plan
 
@@ -715,13 +716,13 @@ merge, or the real runs needing host workarounds).
 | The host's `-p` mode cannot run a typed skill with answers by `--resume` | LOW | MEDIUM | D-14: an interactive session run instead, recorded the same way |
 | The suite's long run on a full machine | MEDIUM | LOW | the whole suite runs only in gates 2.9 and 7.8, as a background command of the tool |
 | A re-run edits `openspec/config.yaml` outside the block | LOW | HIGH | `fill` (D-3) decides it in a script, B-15 tests it, N-17 pins step 5's sentence, R-2 compares the bytes |
-| Two records numbered 0022 from task 1.1 to task 6.6 | HIGH | LOW | every link to this change's record names its file, not only its number; task 6.6 renumbers it with every link (D-11) |
+| A later merge of `main` takes the number 0025 of this change's record | LOW | LOW | every link to this change's record names its file, not only its number; task 6.6 checks the number against `origin/main` and renumbers it with every link (D-11) |
 
 Assumptions (where the plan breaks if reality differs):
 
 - `compozy-driver` lands as on its branch at `cb39d27`: `DRIVER_ROUND = { script: 22 }`, the kit
   under `skills/compozy-setup/` with `gen-agents.mjs`, its record
-  `0022-compozy-runs-the-short-loop.md` (requirements, assumption 4; gate 1.4; task 1.2).
+  `0022-compozy-runs-the-short-loop.md` (now `0024-compozy-runs-the-short-loop.md` on `main`) (requirements, assumption 4; gate 1.4; task 1.2).
 - `--plugin-dir` places packs as siblings named by folder (`plugins/openspec`, `plugins/compozy`),
   as earlier live checks used it (`openspec/changes/archive/2026-11-22-project-phases/tasks.md`,
   task 5.2).
