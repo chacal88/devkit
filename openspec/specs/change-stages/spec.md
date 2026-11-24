@@ -96,15 +96,20 @@ delivery, GitHub; it SHALL read no other sentence of a stage file.
 ### Requirement: A failed stage offers its fix, then itself
 A failed stage below its attempt ceiling SHALL offer its declared fix stage (`onFail`, or itself
 when it declares none) while nothing changed since the failure, and SHALL offer itself again once
-the fix changed its inputs, until its attempt ceiling is reached.
+the fix changed its inputs, until its attempt ceiling is reached. The reason SHALL name the
+attempt, the failures in a row and the ceiling.
 
 #### Scenario: A failed stage offers its fix stage first
 - **WHEN** the code review's header says `result=failed attempt=1`, its ceiling is 2, its declared fix stage is the implementation, and no product commit came after its header commit
-- **THEN** the next stage is the implementation, with the reason that the review failed at attempt 1 of 2 and the fix comes first
+- **THEN** the next stage is the implementation, with the reason that the review failed at attempt 1, one failure in a row of a ceiling of 2, and the fix comes first
 
 #### Scenario: After the fix the failed stage runs again
 - **WHEN** the same failed review's header commit is behind a later commit that changes product code
 - **THEN** the review is still reported failed and the next stage is the review itself, with the reason that the work changed since the failure
+
+#### Scenario: A failure after passed takes is offered its fix
+- **WHEN** the evidence's header says `result=failed attempt=3`, its ceiling is 3, and its file was committed with `result=passed` at attempts 1 and 2
+- **THEN** the next stage is the evidence's fix stage, with the reason that the evidence failed at attempt 3, one failure in a row of a ceiling of 3, and the run is not blocked
 
 ### Requirement: No stage after the implementation while a task is pending
 The checker SHALL offer no stage after the implementation while `tasks.md` has an unticked task.
@@ -169,13 +174,18 @@ changes `tasks.md`), nor in the walk after a merged pull request.
 - **THEN** the plan readiness is reported stale, naming the mock-up, and it is the next stage
 
 ### Requirement: Attempt ceilings and no progress stop the run
-A failed stage whose header attempt reaches its declared ceiling SHALL end the run as blocked with
-that reason. Given the previous run's progress key, the checker SHALL end the run as blocked when the
-same stage comes back and nothing in the working tree or history changed.
+A failed stage whose failures in a row reach its declared ceiling SHALL end the run as blocked with
+that reason, naming the attempt, the failures in a row and the ceiling. Given the previous run's
+progress key, the checker SHALL end the run as blocked when the same stage comes back and nothing
+in the working tree or history changed.
 
 #### Scenario: The ceiling is reached
-- **WHEN** the review's header says `result=failed attempt=2` and its ceiling is 2
-- **THEN** the run ends blocked, naming the review and its ceiling
+- **WHEN** the review's header says `result=failed attempt=2`, its file was committed with `result=failed` at attempt 1, and its ceiling is 2
+- **THEN** the run ends blocked, naming the review, its two failures in a row and its ceiling
+
+#### Scenario: Three failures in a row block a stage with a ceiling of three
+- **WHEN** the evidence's header says `result=failed attempt=3`, its file was committed with `result=failed` at attempts 1 and 2, and its ceiling is 3
+- **THEN** the run ends blocked with `ceiling-reached`, as before this rule
 
 #### Scenario: The same stage comes back with nothing changed
 - **WHEN** the checker is run with `--after` set to the progress key it printed last and nothing changed
@@ -613,3 +623,96 @@ its kept file and digest.
 #### Scenario: A released version edited
 - **WHEN** `flows/1.json` is edited
 - **THEN** `python3 scripts/check.py` exits 1 and names `flows/1.json` and its recorded digest
+
+### Requirement: A flow newer than the reader is refused clearly
+The flow reader SHALL compare a flow file's `version` with the newest version it reads for that
+script before any other check, and SHALL refuse a newer file with one message naming both versions
+and the update to make, never calling it malformed. A top-level `readerRelease` in the file SHALL
+add that release to the message.
+
+#### Scenario: A newer flow with no release field
+- **WHEN** the reader reads a `devkit` `flow.json` whose `version` is one above the newest it reads, with no `readerRelease`, and whose stages hold a key the reader does not know
+- **THEN** it fails with a message that names that version and the newest version it reads, says to update devkit-openspec and restart the session, and holds neither `malformed` nor `unknown key`
+
+#### Scenario: A newer flow that names its release
+- **WHEN** that newer file carries `"readerRelease": "9.1.0"`
+- **THEN** the message also names `devkit-openspec 9.1.0 or later`
+
+#### Scenario: A release field that is not a release number
+- **WHEN** the newer file's `readerRelease` is `soon` or `9`
+- **THEN** the message is the one with no release field
+
+#### Scenario: A script the reader does not know
+- **WHEN** the reader reads a valid `flow.json` whose `script` is a project's own script, at any version
+- **THEN** it reads the file as before this change
+
+#### Scenario: An unknown stage key at a known version
+- **WHEN** the reader reads a `devkit` `flow.json` at a version it knows whose stage `mockup` has a key `colour`
+- **THEN** it fails with `flow.json of devkit is malformed: stage mockup has an unknown key colour`
+
+#### Scenario: A release field that cannot be read at a known version
+- **WHEN** the reader reads a `devkit` `flow.json` at a version it knows whose `readerRelease` is `soon`, or `1.2`
+- **THEN** it fails with `flow.json of devkit is malformed: readerRelease "<value>" is not a release number such as 1.2.3`
+
+#### Scenario: A release field at a known version
+- **WHEN** the reader reads a valid `devkit` `flow.json` at a version it knows whose `readerRelease` is `1.2.3`
+- **THEN** it reads the file
+
+### Requirement: The reader's newest versions match the shipped flows
+The newest version the reader knows for each shipped script SHALL equal the `version` of that
+script's shipped `flow.json`, and this release SHALL leave every shipped `flow.json` byte-identical
+to its released `flows/<version>.json`.
+
+#### Scenario: The reader and the shipped versions agree
+- **WHEN** the reader's newest version for `devkit`, `devkit-lite` and `devkit-project` is compared with the `version` of each shipped `flow.json`, in both schema copies
+- **THEN** they are equal, and a test fails naming the script when they are not
+
+#### Scenario: The shipped flows stay as released
+- **WHEN** the `flow.json` of `devkit` and of `devkit-lite`, in both schema copies, is compared with its `flows/2.json`
+- **THEN** both are version 2 and byte-identical
+
+### Requirement: A failed stage counts its failures in a row from its file's history
+For a failed stage with a numeric ceiling, the checker SHALL count the failures in a row as the
+distinct failed headers of the stage, the current one included, that its file carried (line 1) in
+the commits since it last carried a passed header, newest first, without subtracting attempt
+numbers. With no passed header visible, the count SHALL be at least `attempt`.
+
+#### Scenario: A pass between failures resets the count
+- **WHEN** the evidence's file was committed with `result=failed` at attempt 1 and `result=passed` at attempt 2, and its header now says `result=failed attempt=3`
+- **THEN** the evidence counts one failure in a row
+
+#### Scenario: A header carried by several commits counts once
+- **WHEN** the evidence's file was committed with `result=passed attempt=1`, then with `result=failed attempt=2`, then again with the same failed header and a changed body
+- **THEN** the evidence counts one failure in a row
+
+#### Scenario: A passed stage counts no failure
+- **WHEN** the evidence's file was committed with `result=failed` at attempts 1 and 2 and its header now says `result=passed attempt=3`
+- **THEN** the evidence is reported passed, and a later `result=failed attempt=4` counts one failure in a row
+
+#### Scenario: Takes retaken after merges of main do not count
+- **WHEN** the evidence's file was committed with `result=passed` at attempts 1, 2 and 3, a merge of main came after each, and its header now says `result=failed attempt=4` with a ceiling of 3
+- **THEN** the evidence counts one failure in a row and the run is not blocked
+
+#### Scenario: A restarted round does not reset the count
+- **WHEN** the review's file was committed with `result=passed attempt=1`, then `result=failed attempt=1`, then `result=failed attempt=2`, newest last, and its ceiling is 2
+- **THEN** the review counts two failures in a row and the run ends blocked with `ceiling-reached`
+
+#### Scenario: A take never committed is not counted
+- **WHEN** the evidence's file was committed with `result=passed attempt=1`, a `result=failed attempt=2` was written and overwritten without a commit, and the file was then committed with `result=failed attempt=3`
+- **THEN** the evidence counts one failure in a row
+
+#### Scenario: A passed header whose recorded commit is not in history still counts
+- **WHEN** the evidence's file was committed with `result=passed attempt=2 commit=<a sha that is not in the history>`, and its header now says `result=failed attempt=3`
+- **THEN** the evidence counts one failure in a row
+
+#### Scenario: History that shows no pass keeps the attempt as the count
+- **WHEN** the failed stage's file was never committed, or the checkout is a depth-1 clone whose only commit holds the current header
+- **THEN** the count is the header's `attempt`, and the stage is blocked exactly when `attempt` reaches its ceiling
+
+#### Scenario: A partial history counts what it shows
+- **WHEN** the checkout is a shallow clone that still holds the commit where the evidence's file said `result=passed attempt=2`, and its header now says `result=failed attempt=3`
+- **THEN** the evidence counts one failure in a row
+
+#### Scenario: The readout says the failures in a row
+- **WHEN** the checker prints a failed stage, a fix offered after a failure, or a blocked end at the ceiling, in English or in pt-BR
+- **THEN** the stage's line and the reason say the attempt and the failures in a row against the ceiling, in the chosen language

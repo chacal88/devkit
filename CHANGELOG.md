@@ -1,11 +1,15 @@
 # Changelog
 
-## 0.50.1 — fresh-base-check retro
+## 0.50.2 — fresh-base-check retro
 
-- **devkit-core** 0.16.1: the pr-verifier reads a suite summary by each file's status; a `LEFT` file
+- **devkit-core** 0.16.2: the pr-verifier reads a suite summary by each file's status; a `LEFT` file
   fails the run even with 0 failing tests, and a run that exits non-zero is never recorded as a pass.
 - **devkit-openspec** 0.45.1: `nextAction` no longer reads the default branch twice. The CI snippet
   now pins `v0.45.1`, the release's tag.
+
+## 0.50.1 — the grill and the readiness review refuse a criterion only the archive can prove
+
+- **devkit-core** 0.16.1: `requirements-grill` never writes an acceptance criterion that only the archive or a later step can prove, and `plan-readiness-review` flags one as a Mandatory finding; the work goes in the plan's `## Workflow follow-up` (stage-ceiling-consecutive retro, proposal 1). Skill text only.
 
 ## 0.50.0 — the loop fetches the base before it judges
 
