@@ -109,3 +109,32 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: state-skips-unlocated, round 1
+
+Path: agents · range `c663f21..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | faddf80 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | faddf80 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | faddf80 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | faddf80 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Scoped call because the branch merged origin/main (train 4: devkit-openspec 0.40.0, the pin test reads plugin.json, the archive check of PR 107) and the flow marked evidence and reviews stale; each reviewer re-checked its previous findings and cb79a38..HEAD. The product and test files of this change are unchanged since cb79a38.
+- The release of this change is devkit-openspec 0.40.1 / marketplace 0.45.1; the ADR 0017 Note and the docs sentence are intact after the merge.
+- The test-coverage nit about the release-pin test is cleared as a fact of main (commit 0e76c41, ADR 0030), not by this change.
+- The whole suite is proven by the delivery train, not run here.
+- The writers read their stage-3 prompts from files in the scratch folder, with the text the script gave.
+
+## Next
+Ready to ship.
