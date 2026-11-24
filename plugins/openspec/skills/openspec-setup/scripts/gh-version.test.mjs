@@ -1,5 +1,5 @@
-// Tests for gh-version.mjs (gh-version-check, H-6). Imported by hooks/guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for gh-version.mjs (gh-version-check, H-6). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

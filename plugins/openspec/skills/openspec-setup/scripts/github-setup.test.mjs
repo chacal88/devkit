@@ -1,5 +1,5 @@
-// Tests for github-setup.mjs (auto-merge, design D8). Imported by hooks/guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for github-setup.mjs (auto-merge, design D8). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/github-setup.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, writeFileSync, chmodSync } from 'node:fs';

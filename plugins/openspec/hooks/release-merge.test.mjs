@@ -1,5 +1,5 @@
-// Tests for release-merge.mjs (conduct-rounds design D11). Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for release-merge.mjs (conduct-rounds design D11). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/release-merge.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, chmodSync } from 'node:fs';

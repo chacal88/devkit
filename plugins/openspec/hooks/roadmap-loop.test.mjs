@@ -1,4 +1,4 @@
-// node --test --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/guard.test.mjs
+// node scripts/test-suite.mjs --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/roadmap-loop.test.mjs
 // roadmap-coordinator: the roadmap loop, its commands and its locks (phase 1: the previous-script fixtures and the pure core; phase 2: the commands; phase 3: the locks).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

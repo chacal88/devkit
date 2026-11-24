@@ -70,7 +70,7 @@ Reviewers and the verifier can write nothing else. Planning artifacts (`requirem
 
 - **Active change**: `$DEVKIT_CHANGE`; else the change whose name the git branch ends with (or contains); else the only open change. With several open changes and no match, code edits are blocked until the branch names one. With no open change, nothing is gated. In a linked worktree (`.claude/worktrees/<id>`) the root is the one of the edited file or of the command's own `cd`, so the worktree's branch and change select the gate whatever folder the session started in; the opt-in check applies to that root's own `openspec/config.yaml`.
 - **Bypass**: start Claude Code with `DEVKIT_BYPASS=1`. A `DEVKIT_BYPASS=1` prefix inside a command does not reach the hook.
-- **Tests**: `node --test plugins/openspec/hooks/guard.test.mjs`.
+- **Tests**: `node scripts/test-suite.mjs`, from the repository root (every test file in a process of its own).
 
 Hooks veto; they can't make a step happen. The flow's guarantee is that code doesn't start before an approved plan and a PR doesn't open without an approved review and evidence. For a guarantee that doesn't depend on the agent at all, run the same checks in CI ([docs/openspec-flow.md](../../docs/openspec-flow.md#ci)).
 

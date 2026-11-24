@@ -1,7 +1,7 @@
 # ADR 0022: The devkit test suite runs by file in parallel, from one script, each file in its own temporary folder
 
 - Status: accepted
-- Accepted by: the owner, on 2026-11-23, in the approval of the plan of change suite-speed (openspec/changes/suite-speed/approval.md)
+- Accepted by: the owner, on 2026-11-23, in the message that approved the plan of the change: `Aprovo o plano`; recorded in `openspec/changes/suite-speed/approval.md`
 - Date: 2026-11-23
 - Change: suite-speed
 

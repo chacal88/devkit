@@ -1,6 +1,6 @@
 // node --test --test-name-pattern="^version-pin" plugins/openspec/hooks/version-pin.test.mjs
-// change-version-pin: the flow a change opened with. Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// change-version-pin: the flow a change opened with. Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/version-pin.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, cpSync, rmSync, copyFileSync } from 'node:fs';

@@ -109,7 +109,7 @@ and end every task with `git status --short`.
 
 ## 3. CI, the skip check and the texts (AC-1, AC-5b, AC-5c, AC-7)
 
-- [ ] 3.1 Rewrite `test-fixture-cleanup AC-5 the hook tests run on an empty TMPDIR and a step fails
+- [x] 3.1 Rewrite `test-fixture-cleanup AC-5 the hook tests run on an empty TMPDIR and a step fails
   when it is not empty after` in `plugins/openspec/hooks/test-tmp.test.mjs` (lines 179 to 192) as
   D-8 says, name kept; see it fail on today's `ci.yml`; then make `.github/workflows/ci.yml` one
   `Test suite` step (D-8), the step whose job AC-5b times. Commit: invariant, layer and suite of D-8.
@@ -118,12 +118,12 @@ and end every task with `git status --short`.
   and the steps "Catalog is up to date", "Names, descriptions, links, language", "Install OpenSpec
   (the hook tests and the schema step need it)" and "Schemas validate against the OpenSpec CLI"
   unchanged.
-- [ ] 3.2 Add T-11 to `plugins/openspec/hooks/test-suite.test.mjs` and see it fail; then add
+- [x] 3.2 Add T-11 to `plugins/openspec/hooks/test-suite.test.mjs` and see it fail; then add
   `check_no_skipped_tests()` to `scripts/check.py` (D-7) and its line in the module docstring.
   Check: `python3 scripts/check.py` prints `all checks passed`, and
   `node scripts/test-suite.mjs --test-name-pattern="^suite-speed AC-5c " plugins/openspec/hooks/test-suite.test.mjs`
   passes.
-- [ ] 3.3 Add T-14 to `plugins/openspec/hooks/test-suite.test.mjs` with the two expressions
+- [x] 3.3 Add T-14 to `plugins/openspec/hooks/test-suite.test.mjs` with the two expressions
   `OLD_COMMAND` and `OLD_HEADER` and the four exemptions of D-12 (joined from pieces), and see it
   fail at this point (the texts below still match); then change the texts of D-9: `CLAUDE.md:32`
   (the command, with no minutes figure until 4.3), `CONTRIBUTING.md` lines 38 to 42, 46 and 90,
@@ -136,7 +136,7 @@ and end every task with `git status --short`.
   passes,
   `node scripts/test-suite.mjs --test-name-pattern="^upfront ADR 0021: the documents follow$" plugins/openspec/hooks/roadmap-loop.test.mjs`
   passes, and `python3 scripts/check.py` passes.
-- [ ] 3.4 Mark ADR 0022 accepted (D-9: `- Status: accepted` and the `- Accepted by:` line, the date
+- [x] 3.4 Mark ADR 0022 accepted (D-9: `- Status: accepted` and the `- Accepted by:` line, the date
   and the owner's words read from `openspec/changes/suite-speed/approval.md`). Its number is the
   next free number on `origin/main` at the last merge before review: task 5.1 re-checks it and
   renumbers if a sibling change took 0022 first; until then the file keeps 0022. Check:

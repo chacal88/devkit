@@ -1,5 +1,5 @@
-// Tests for deliver-check.mjs. Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs both files.
+// Tests for deliver-check.mjs. Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, cpSync, rmSync as fsRm, chmodSync, readFileSync, symlinkSync, existsSync, readdirSync, renameSync } from 'node:fs';

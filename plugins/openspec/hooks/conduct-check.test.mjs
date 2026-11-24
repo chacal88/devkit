@@ -1,5 +1,5 @@
-// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/conduct-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
