@@ -83,23 +83,23 @@ and end every task with `git status --short`.
 
 ## 2. The suite script (AC-1, AC-3, AC-4, AC-6)
 
-- [ ] 2.1 Write `plugins/openspec/hooks/test-suite.test.mjs` with T-1 to T-10 and T-16 of D-12 and its probe
+- [x] 2.1 Write `plugins/openspec/hooks/test-suite.test.mjs` with T-1 to T-10 and T-16 of D-12 and its probe
   harness (a copy of the script in a `tmpFolder('devkit-suite-tree-')`, spawned with
   `process.execPath`; probe text built by joining pieces). This is the red half. Check:
   `node --test plugins/openspec/hooks/test-suite.test.mjs` fails because `scripts/test-suite.mjs`
   does not exist. The new tests make no subtests (`t.test`), so D-10's `suite-speed ` filter removes
   all of them.
-- [ ] 2.2 Write `scripts/test-suite.mjs` as D-1, D-2, D-3 and D-6 say (file list, arguments, the
+- [x] 2.2 Write `scripts/test-suite.mjs` as D-1, D-2, D-3 and D-6 say (file list, arguments, the
   per-file `TMPDIR` under the real run root, the leftover check, the pool, the output and summary,
   the exit codes, the signals (T-16), `NODE_TEST_CONTEXT` removed from the children's env, the import
   check). Check:
   `node --test --test-skip-pattern="^suite-speed AC-3 no test file under plugins imports" plugins/openspec/hooks/test-suite.test.mjs`
   passes (T-6 waits for 2.3).
-- [ ] 2.3 Remove the 20 side-effect imports of `plugins/openspec/hooks/guard.test.mjs` (D-4) and
+- [x] 2.3 Remove the 20 side-effect imports of `plugins/openspec/hooks/guard.test.mjs` (D-4) and
   rewrite its line 1 comment (D-9). Commit: invariant "guard.test.mjs holds only the guard's own
   tests", layer the suite's file list, suite `guard.test.mjs`. Check:
   `node --test plugins/openspec/hooks/test-suite.test.mjs` passes, T-6 included.
-- [ ] 2.4 Prove AC-4 with a symlinked `TMPDIR` (D-11): `mkdir /var/tmp/devkit-suite-speed-link-target`,
+- [x] 2.4 Prove AC-4 with a symlinked `TMPDIR` (D-11): `mkdir /var/tmp/devkit-suite-speed-link-target`,
   `ln -s /var/tmp/devkit-suite-speed-link-target /var/tmp/devkit-suite-speed-link`, then
   `env TMPDIR=/var/tmp/devkit-suite-speed-link node scripts/test-suite.mjs --test-name-pattern="^change-budget " plugins/openspec/hooks/change-loop.test.mjs`;
   keep its output in `/var/tmp/devkit-suite-speed-proof/symlink.log` for the evidence, then remove
