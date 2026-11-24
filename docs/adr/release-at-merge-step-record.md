@@ -1,6 +1,7 @@
 # ADR [release-at-merge-step-record]: The release step's commits record the lines they wrote, so a branch merged by hand is numbered again instead of refused
 
-- Status: proposed
+- Status: accepted
+- Accepted by: the owner, on 2026-11-24, in the approval of the plan of change release-at-merge (openspec/changes/release-at-merge/approval.md)
 - Date: 2026-11-24
 - Change: release-at-merge
 - Amends: ADR [release-at-merge] (release-at-merge.md), decision 6 ("The delivery's state is derived, with no marker commit: … anything else is refused as 'release lines edited by hand'"): the state stays a comparison of the trees, and a value the step's own recorded commit wrote is told apart from a hand edit
