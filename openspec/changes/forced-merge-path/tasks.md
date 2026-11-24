@@ -48,7 +48,7 @@ End every task with `git status --short` and leave no scratch file in the tree.
 - [x] 3.3 Release: merge `origin/main`, then set devkit-openspec's version in `plugins/openspec/.claude-plugin/plugin.json` and its `.claude-plugin/marketplace.json` entry, and the marketplace version, each to the next free version after `origin/main`'s at the last merge before review; move the CI pin lines of `docs/openspec-flow.md` to that devkit-openspec version; add the CHANGELOG entry (forced merge path, ADR 0028). Check: the pin tests of `deliver-check.test.mjs` and `change-loop.test.mjs` pass and `command claude plugin validate .` exits 0.
 - [x] 3.4 Run `python3 scripts/gen-catalog.py --check`. Check: exit 0 (no description changed).
 - [x] 3.5 Run `openspec validate forced-merge-path --strict` and `python3 scripts/check.py` once every document is written. Check: both exit 0 (AC-7).
-- [ ] 3.6 Gate: `env TMPDIR=/private/tmp/devkit-fmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate forced-merge-path --strict` green (the whole suite as a background command); covers AC-1 to AC-7 and every other suite at once.
+- [x] 3.6 Gate: `env TMPDIR=/private/tmp/devkit-fmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate forced-merge-path --strict` green (the whole suite as a background command); covers AC-1 to AC-7 and every other suite at once.
 
 ## Workflow follow-up
 
