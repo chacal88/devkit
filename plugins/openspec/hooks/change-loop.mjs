@@ -1004,17 +1004,22 @@ export const ATTRIBUTION_HEADER = 'Attribution (from the caller):';
 export const ATTRIBUTION_ASK = ' Attribution: the session handing this off appends below this brief, verbatim, the lines it ends its own commit messages and pull-request descriptions with, as the block `Attribution (from the caller):` with one `Commit trailer: <line>` per commit line and one `PR footer: <line>` per pull-request line, or the line `Attribution (from the caller): none` when it ends them with none.';
 export const withAttribution = (agent, text) => (agent === COMMIT_AGENT ? `${text}${ATTRIBUTION_ASK}` : text);
 
-const AGENT = {
-  'change-planner': 'devkit-core:change-planner',
-  'plan-readiness-reviewer': 'devkit-core:plan-readiness-reviewer',
-  'tdd-implementer': 'devkit-core:tdd-implementer',
-  'pr-verifier': 'devkit-core:pr-verifier',
-  'commit-and-pr': COMMIT_AGENT,
-  'screen-designer': 'devkit-core:screen-designer',
-  'adr-author': 'devkit-core:adr-author',
-  'test-runner': 'devkit-core:test-runner',
-  'e2e-tester': 'devkit-core:e2e-tester',
+// The devkit pack that ships the agent of each role and helper that has one (`<pack>:<role>`), as docs/roles.md names
+// them in its "Played today by" lines; a test holds the two together. A role with no agent (`shipped: false`) has none.
+export const PACKS = {
+  ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
+    'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
+    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester', 'requirements-triage'].map((r) => [r, 'devkit-core'])),
+  'openspec-validator': 'devkit-openspec',
+  'change-coordinator': 'devkit-openspec',
 };
+
+// The agent of a role, `<pack>:<role>` with the pack PACKS names, or undefined for a role with no agent (coordinator-loop-fixes D-9).
+export const agentOf = (role) => (PACKS[role] ? `${PACKS[role]}:${role}` : undefined);
+// The roles the loop hands to an agent itself when the stage names none, and their agents, built from PACKS (a test ties
+// COMMIT_AGENT, a literal above, to agentOf('commit-and-pr')).
+export const AGENT_ROLES = ['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'];
+export const AGENT = Object.freeze(Object.fromEntries(AGENT_ROLES.map((r) => [r, agentOf(r)])));
 const BUILD_PARTS = ['build', 'after', 'delivery', 'close'];
 const TEST_STAGES = ['unit-tests', 'e2e-tests'];
 const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix', 'plan-revised'];
@@ -2770,16 +2775,6 @@ const NOT_AGENTS = ['owner', 'change-coordinator', 'project-coordinator', 'revie
 export function scriptAgents(flow) {
   return [...new Set(flow.stages.flatMap((s) => [s.role, ...(s.helpers ?? [])]))].filter((r) => !NOT_AGENTS.includes(r));
 }
-
-// The devkit pack that ships the agent of each role and helper that has one (`<pack>:<role>`), as docs/roles.md names
-// them in its "Played today by" lines; a test holds the two together. A role with no agent (`shipped: false`) has none.
-export const PACKS = {
-  ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
-    'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
-    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester', 'requirements-triage'].map((r) => [r, 'devkit-core'])),
-  'openspec-validator': 'devkit-openspec',
-  'change-coordinator': 'devkit-openspec',
-};
 
 // `guard.mjs agent` (H1 to H5): in a run the session hands work only to the roles of the change's script, named with no
 // prefix or with the prefix of the pack that ships that role's agent; no agent type is a general-purpose agent: refused.

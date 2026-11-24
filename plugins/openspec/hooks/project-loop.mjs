@@ -27,7 +27,7 @@ import { shipConfig, locateChange, fetchPr, checksItem } from './deliver-check.m
 import { mergeSetup, makeGh } from './merge-setup.mjs';
 import {
   LoopUsageError, LoopRefusal, render, normalizeLang, projectGate, readDevkitSettings, locate, cleanOf, checkoutsOf, activeIds, isSliceDir,
-  COMMIT_AGENT, withAttribution, knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
+  COMMIT_AGENT, agentOf, withAttribution, knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
   thisMachine, parseClaim,
 } from './change-loop.mjs';
 
@@ -38,7 +38,7 @@ const SCRIPT = 'devkit-project';
 const PHASES = ['business', 'domain-model', 'architecture', 'implementation-plan'];
 const SETTLED_STAGES = [...PHASES, 'roadmap'];
 const DOC = { business: '1-business-vision.md', 'domain-model': '2-domain-model.md', architecture: '3-architecture.md', 'implementation-plan': '4-implementation-plan.md' };
-const AGENT = { 'commit-and-pr': COMMIT_AGENT, 'adr-reviewer': 'devkit-core:adr-reviewer' };
+const AGENT = { 'commit-and-pr': COMMIT_AGENT, 'adr-reviewer': agentOf('adr-reviewer') };
 const INTERVIEW = ['no-file', 'no-header', 'bad-header', 'header-other-stage'];
 const REVIEW_REASONS = ['no-file', 'stale-code', 'stale-plan', 'rerun-after-fix'];
 const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-too-old': 'gh-too-old', 'undeclared-stage': 'undeclared-stage' };

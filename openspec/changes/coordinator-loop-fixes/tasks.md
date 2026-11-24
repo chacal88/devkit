@@ -329,7 +329,7 @@ every task with `git status --short`.
   prints 0; `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` exits 0; and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/compozy/skills/compozy-setup/scripts/gen-agents.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs`
   passes.
-- [ ] 4.4 D-9 in `plugins/openspec/hooks/change-loop.mjs` (`PACKS` moved, `agentOf`, the exported `AGENT` and
+- [x] 4.4 D-9 in `plugins/openspec/hooks/change-loop.mjs` (`PACKS` moved, `agentOf`, the exported `AGENT` and
   `AGENT_ROLES`) and `project-loop.mjs` (`AGENT`). Check: T75 to T77 pass, and "stage-roles loop: the loop's own
   hand-offs of the test stages carry a role the packs know" (`change-loop-compozy.test.mjs`), "change-loop lock
   agent: the accepted packs are the ones docs/roles.md names" (`change-loop.test.mjs`) and every `project-loop`
