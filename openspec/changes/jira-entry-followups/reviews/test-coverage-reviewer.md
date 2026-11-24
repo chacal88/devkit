@@ -1,22 +1,19 @@
 Verdict: approved
-Commit: b85c7d92fa2ecdf02d90770276f474a3bca23e48
+Commit: b6a054de1cd2fe55dc3f21ee96e5341a555f74e4
 
-## Coverage analysis — jira-entry-followups (scoped re-check after merge of main, 0f40530..b85c7d9)
+## Coverage analysis: merge resolution 3883289 (re-check of jira-entry-followups, round 1)
 
 ### Findings
-- [important] plugins/openspec/hooks/deliver-check.mjs:420 — [5] own-files exemption for an approved verdict with an undisposed finding was pinned by no behavioural test (previous F1). · fixed in 3f6f865c10032ae83d78e8cc78eac51eb78d720f
-- [nit] plugins/openspec/hooks/change-loop-remote.test.mjs:631 — [4] AC-9 test uses a fixed 1500 ms sleep before releasing the lock; unchanged since the last round.
-- [nit] plugins/openspec/hooks/version-pin.test.mjs — [3] newer-flow refusal is not tested for devkit-project at flow version 2; unchanged.
-- [nit] openspec/changes/jira-entry-followups/evidence.md — [4] mutation runs for tasks 2.3 and 4.4 and the AC-9 red-before run are still not recorded; unchanged.
-- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs — [3] the approved-verdict plan-commit test asserts step and reviewers but not the round; unchanged.
-- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs, plugins/core/skills/review-change/scripts/review-round.test.mjs — [3] docs tests pin long verbatim prose and break on a harmless rewording; unchanged.
-- [praise] plugins/openspec/hooks/deliver-check.test.mjs (AC-4 own-files) — Two stale cases and two current controls, and a merge-of-base case in the same fixture, so removing `&& !open` turns the suite red; re-run now, 4 of 4 pass.
+- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs:2241-2290 — No test sets planDirty and folderDirty together on a rejected state; the plan-fix commit (paths: planDirty) taking precedence over the folder commit (paths: []) is unpinned.
+- [praise] plugins/openspec/hooks/deliver-check-archive.test.mjs:2277-2286 — The folder commit before review is pinned against verify, fix-defect, fix-review and the deadlock stop, and against review-record-only changes.
 
-In-scope surfaces: release metadata (devkit-openspec 0.41.0, devkit-core 0.16.0, marketplace 0.46.0), the CI pin in docs/openspec-flow.md, the pin test in change-loop-compozy.test.mjs, the verdict-files spec delta, evidence.md.
+In-scope surfaces: plugins/openspec/hooks (deliver-check), plugins/openspec/skills/ship-change, docs/openspec-flow.md, release metadata.
 Blocking gaps (8-10 without a plan): 0
-Seams checked (mutation runs: 0):
-- Own-files exemption for an approved verdict with an undisposed finding -> caught by the four `jira-entry-followups AC-4 own-files` tests, re-run filtered on the merged tree, 4 pass.
-- CI pin and release version, spelled in three places: plugin.json, marketplace.json and docs/openspec-flow.md (v0.41.0 at lines 733, 734 and 747). They agree. The pin test takes main's form, which reads the version from plugin.json with no literal, so the pin stays protected and cannot go stale on its own.
-- Spec delta: it now carries main's rejected-verdict sentence and scenario for the base merge, plus one sentence and scenario for an approved verdict with an undisposed finding. The second behaviour is the one the four own-files tests pin, so the spec and the tests agree.
+Seams checked (mutation runs: 0): collectState keeps planDirty and folderDirty -> caught by the collectState tests in deliver-check-archive.test.mjs:2300 and 2370, and by the AC-3 tests; nextStep plan-fix commit before fix-review -> caught by deliver-check.test.mjs:1267; nextStep folder commit before review -> caught by deliver-check-archive.test.mjs:2241-2290; ship-change commit row text -> caught by deliver-check-cli.test.mjs:701; release and CI pin -> version-pin tests.
 
-The merge resolution adds no production code and no test of its own beyond what main brought. The suite result (2994 green on cd2ea37, nine whole files and a five-file run of 533 tests green on the merged tree) comes from the caller. The delivery train re-proves the whole suite at departure.
+Filtered run: deliver-check-archive.test.mjs with --test-name-pattern='folderDirty|commit before|AC-3', 18 of 18 pass. The previous verdict (approved at b85c7d9) had no open blocking or important findings, so none carry forward.
+
+### Well covered
+- Commit before review on a dirty change folder, with empty paths and the precedence over verify, fix-defect and fix-review: deliver-check-archive.test.mjs:2241-2290.
+- A fix that is not yet committed goes to commit before fix-review, and the round-2 stop keeps its place: deliver-check.test.mjs:1267-1277.
+- Text pin of the ship-change commit row: deliver-check-cli.test.mjs:701.

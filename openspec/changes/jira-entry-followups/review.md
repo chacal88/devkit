@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=b85c7d92fa2ecdf02d90770276f474a3bca23e48 -->
+<!-- devkit-stage review result=passed attempt=1 commit=b6a054de1cd2fe55dc3f21ee96e5341a555f74e4 -->
 # Review: jira-entry-followups, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -67,6 +67,30 @@ None.
 ## Notes
 - A re-check after a merge of main (68353a5) and evidence attempt 3: the verdicts went stale only because their Commit lines did; it consumes no round budget.
 - Scope: the change's resolution of the merge (release above main's, main's form of the pin test, the CI pin at v0.41.0, the verdict-files delta carrying main's sentence and scenario on the base merge); nothing main brought was reviewed.
+
+## Next
+Ready to ship.
+
+# Review: jira-entry-followups, round 1
+
+Path: agents · range `b85c7d92fa2ecdf02d90770276f474a3bca23e48..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | b6a054d |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | b6a054d |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- A re-check after a merge of main (3883289, train 6: loop-place-and-evidence, post-merge-validate) and evidence attempt 4: the verdicts went stale only because their Commit lines did; it consumes no round budget.
+- Scope: the change's resolution of that merge (both commit steps kept in nextStep, the ship-change rows, main's text pin of the commit row moved to the new sentence, the release above main's and the CI pin at v0.43.0); nothing main brought was reviewed. Runs kept small at --concurrency=2 while the owner used the machine.
 
 ## Next
 Ready to ship.
