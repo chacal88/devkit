@@ -105,7 +105,7 @@ file in the tree; end every task with `git status --short`.
 - [x] 2.4 Validate the change: `openspec validate project-slice-claim --strict` passes.
 - [x] 2.5 Gate (focused): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^project-loop docs" --test-name-pattern="^upfront D-18 docs" --test-name-pattern="^slice-claim" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate project-slice-claim --strict`
   green, a background command; covers the documents of 2.1 and 2.2 and the release of 2.3.
-- [ ] 2.6 Gate (whole suite): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs`
+- [x] 2.6 Gate (whole suite): `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs`
   green, run as a background command of the tool (13 to 21 minutes); every existing test outside D-6
   passes unchanged, which proves AC-8's delivery and AC-1's open across every slice test; a failure
   outside D-6 stops the work for a plan revision.
