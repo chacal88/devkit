@@ -1,9 +1,11 @@
-<!-- devkit-stage design result=passed attempt=4 commit=fd29ac6c22ab2b8c385200a8f357d6d7796fd281 -->
+<!-- devkit-stage design result=passed attempt=5 commit=6e683aa3e98ecc40a3cdece58e1394082910e54e -->
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
-Decision: the change's ADR, `docs/adr/<next free number at merge>-the-loop-declares-the-decisions-outside-the-stage-gates.md`
-(accepted at the plan approval; `decisions.md` points to it).
+Decisions: the change's ADR, `docs/adr/<next free number at merge>-the-loop-declares-the-decisions-outside-the-stage-gates.md`
+(accepted at the first plan approval), and the change's settings ADR,
+`docs/adr/<next free number at merge>-a-changes-own-settings-live-in-an-x-devkit-block.md` (D-22; proposed, accepted at the
+owner's next approval, D-7); `decisions.md` points to both.
 
 ## How this plan names things
 
@@ -14,11 +16,13 @@ plan holds no fact that a merge can change:
   The implementer finds it with `grep -n "<name>"`, and re-reads it before editing it (D-17).
 - No plugin or marketplace version is written as a literal, and no sentence says what a version is
   "today": the release is "the next free version at merge", by the rule of D-18.
-- The change's ADR is the file `docs/adr/<next free number at merge>-the-loop-declares-the-decisions-outside-the-stage-gates.md`.
-  Its number was the next free one when this plan was written; a sibling that merges first takes it, and the loop's
-  `renumber-adr` step then renames the file and every reference with it. This plan says "the change's ADR"
-  and its decision numbers, never the number, except in `decisions.md`, where the loop's `accept-decisions`
-  needs the real path.
+- The change has two ADRs, the ones `decisions.md` lists. "The change's ADR" is the file
+  `docs/adr/<next free number at merge>-the-loop-declares-the-decisions-outside-the-stage-gates.md` (D-1 to D-7);
+  "the change's settings ADR" is the file `docs/adr/<next free number at merge>-a-changes-own-settings-live-in-an-x-devkit-block.md`
+  (D-22, amending ADR 0023 decision 1); "the change's ADRs" are both. Each number was the next free one when its
+  record was drafted; a sibling that merges first takes it, and the loop's `renumber-adr` step then renames the file
+  and every reference with it. This plan says these names and their decision numbers, never a number, except in
+  `decisions.md`, where the loop's `accept-decisions` needs the real paths.
 - Other ADRs are cited by their number: they are merged and do not move.
 
 ## Context
@@ -592,7 +596,7 @@ today and does not change:
 - **A merge-defect fix is a plan edit** (decided here; `post-merge-validate`, merged at d917ae0). After a
   merge of the base, a red `merge-check` hands `devkit-core:change-planner` the step `merge-defect`, which
   edits the plan files (a spec delta, mostly) after the implementation started (Context). It gets no
-  exception: ADR 0032 decision 7 names every edit of a plan file after the start and its review trigger is
+  exception: the change's ADR decision 7 names every edit of a plan file after the start and its review trigger is
   "a plan edited after the start goes to delivery without a new approval", and `post-merge-validate`'s own
   requirement "A merge-defect fix follows the rule of every plan edit" says "the loop SHALL add no exception
   to the plan gate for it". So with an approval that records a `- Plan:` digest, the fix changes the digest
@@ -609,7 +613,7 @@ today and does not change:
   Rejected: exempt the fix by recording the digest a green check validated after a red one (the record lives in
   the git common directory, per machine, so an approval would read differently on another machine; any plan
   edit made before the check would be laundered with it; and it is the exception the sibling's requirement
-  and ADR 0032 refuse).
+  and the change's ADR refuse).
   The sibling's requirement is still in its own delta (not archived on c09860c). Its scenario says neither edit
   "asks for a new review or a new approval", which stays true for an approval with no `- Plan:` line and not
   for one with it. When that requirement is in `openspec/specs/change-coordination/spec.md` at the merge that
@@ -618,7 +622,10 @@ today and does not change:
   "the stage checker gives the same states for readiness and approval in both cases: with an approval that
   records no plan digest neither asks again, and with one both make the readiness stale and ask the owner
   again"; when it is not there, the task changes nothing and the conducting session tells that change's
-  session the scenario to update at its archive (D-17).
+  session the scenario to update at its archive (D-17). That sibling may archive after phase 3 and before this
+  change's last merge, so task 6.1 runs 3.6a's `grep -c` on the main spec again after its merge: when it prints 1
+  while this change's `change-coordination` delta holds no copy of the requirement, 6.1 stops and reports it, and
+  the copy is added by a plan revision (the rule above: a plan edit after the start) before the evidence.
 - **The CompozyOS driver writes the same line** (decided here; AC-8 holds for both drivers). The driver is
   a second writer of `approval.md`: `approvalText` and `recordApproval` (the `record-approval` step) write
   the form of the `stop-plan-approval` row, so they follow it when the row changes. `approvalText` gains
@@ -637,6 +644,13 @@ today and does not change:
   `record-approval` as before). The test that pins the text, `change-loop compozy record-approval:
   it writes approval.md in the form of the ship-change row, and approvalState reads it back as ok`, is
   updated to expect the line (D-15), and T115 and T116 are new.
+- **This plan's own approval and its records.** The revision that adds the change's settings ADR (D-22, asked
+  for by the readiness review of attempt 5) changes the readiness hash, so the owner approves the plan again
+  before `implement` (the approval of this change records no `- Plan:` line, so nothing above applies to it).
+  After that approval the loop's `accept-decisions` rewrites only the records still `proposed`
+  (`change-loop.mjs` `acceptDecisions` keeps the records whose status is `proposed`): the change's settings ADR
+  gets its `Accepted by:` line then, and the change's ADR, accepted at the first approval, keeps the line it has,
+  as written. No task rewrites either line.
 
 ## D-8 The verifier's proof folder (AC-12)
 
@@ -735,13 +749,15 @@ and its output files, and writes no sentence when that line is missing or does n
   rounds, one more for each the owner authorizes (the change's ADR)".
 - Both schemas' review gate sentence "Gate: the reviewers reach consensus; two rounds at most."
   becomes "... two rounds at most, one more for each round the owner authorizes." (both copies).
-- `openspec/config.yaml` `context:` ADR list gains "<the ADR's number> the loop declares every decision
-  outside the stage gates, and a revised plan goes back to its gates".
-- Every mention of the change's ADR in a file this change edits follows the number the ADR has at the
-  last merge of `origin/main` (the ADR may be renumbered; the loop's `renumber-adr` step carries the
-  references, and `decisions.md` points to the file).
-- `docs/openspec-flow.md`, `openspec/config.yaml`, `docs/coordination-design.md` and ADR 0023 for a
-  change's own settings block: D-22; `openspec/config.yaml`'s rule on the live roadmap: D-23.
+- `openspec/config.yaml` `context:` ADR list gains one entry for each of the change's ADRs, in the order of
+  their numbers, both in task 4.6: "<the change's ADR's number> the loop declares every decision outside the
+  stage gates, and a revised plan goes back to its gates" and "<the change's settings ADR's number> a change's
+  own settings live in an x-devkit: block of its .openspec.yaml, amends 0023".
+- Every mention of the change's ADRs in a file this change edits follows the number each ADR has at the
+  last merge of `origin/main` (either may be renumbered; the loop's `renumber-adr` step renames every file of
+  the branch whose number the base took and carries the references, and `decisions.md` points to the files).
+- `docs/openspec-flow.md`, `openspec/config.yaml`'s settings comments, `docs/coordination-design.md` and ADR
+  0023's Note for a change's own settings block: D-22; `openspec/config.yaml`'s rule on the live roadmap: D-23.
 - `docs/compozy-kit.md`, the paragraph "The CompozyOS driver does not carry every feature of the Claude
   driver": one sentence naming what this change does not carry there (the declared pause and decision,
   the fix after a red gate and the owner-authorized review round: a CompozyOS run asks the owner at a red
@@ -865,8 +881,9 @@ block written in a change's `.openspec.yaml`, `budget`, `models:`, `parseDevkitB
 "1 or 2", `stop-review-deadlock`, `ceiling`, `ceiling-reached`, `tests-red`, the started exemption,
 `stale-plan`, `END_OF_KEY`, `GATE_OF_WHY`, "only writes its own", "only file you write", `ATTRIBUTION_ASK ?? `,
 `Attribution below`, `approvalState`, `approvalText`, `record-approval`, `resolve-release-conflict`,
-"conflict in", `blocked: item 5`, `stop-archive`, the names of the two agent files this change edits and
-`SKILL_LOOP_STEPS`. `scripts/check.py` has no tests of its own; `gen-agents.mjs --check` is a CI step.
+"conflict in", `blocked: item 5`, `stop-archive`, the names of the two agent files this change edits,
+`SKILL_LOOP_STEPS`, and the callers of the functions this change rewrites (`'reply'` given to either loop's
+`main`, `--stdin`, `findChangePr`, `PACKS`, `shipConfig`). `scripts/check.py` has no tests of its own; `gen-agents.mjs --check` is a CI step.
 Tests are named here by their title and the file that holds them on c09860c, never by their line, so the
 list holds when the base moves; a later split moves a test to `<name>-<part>.test.mjs` with its title
 unchanged, and the implementer finds it with `grep -ln "<title>" plugins/*/hooks/*.test.mjs
@@ -878,6 +895,10 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `roadmap-loop replies: every owner wait has a gate` (roadmap-loop.test.mjs) | the exact set of `waiting-` keys and gates | updated: gains `waiting-pause: pause`, `waiting-owner-decision: decision` | 1.1, 1.4 |
 | `change-loop skill: an end the session declares goes through reply, and the marker lines are never shown (F1)` (change-loop-compozy.test.mjs) | the sentence "An end the session declares itself (a red gate, a pull-request decision left to the owner) goes through `reply`", the two keys `reply blocked --param id=<id> --param why=tests-red` and `reply waiting-pr-decision --param id=<id>`, and no `why=role-failed` in the Loop | updated: the regex follows the new sentence (four reply keys, `declare`); the two keys and the `role-failed` negative stay as they are (the `tests-red` key is the exit-3 fallback, and no Loop item this change adds declares `role-failed`, D-5) | 1.1, 1.5 |
 | `change-loop replies: no internal term in either language` (change-loop.test.mjs, where `SAMPLE` lives) | every key renders from `SAMPLE` with no placeholder left | updated: `SAMPLE` gains `decision: 'the dependency upgrade'` (D-1, the parameter name); the test body is unchanged | 1.1, 1.2 |
+| `change-loop reply: renders a key in both languages and an unknown key exits 3` and `change-loop reply: the keys that end the run print the end line first, every other key the reply alone` (change-loop.test.mjs) | rule: the reply's end line (`runReply` prints `devkit-end: <id> <state>` first for a key that ends the run, the reply alone for any other key, exit 3 for an unknown key) | kept: `declaredStep` prints the same line for every `reply` row of `DECLARED`, and a key outside the table renders as today (D-1) | 1.2 |
+| the five `jira-entry-followups AC-8` tests of `reply --stdin` and of `reply` without it (change-loop-remote-state.test.mjs), among them `jira-entry-followups AC-8 reply --stdin refuses an empty input, a duplicate name, a bad name and no name` and `jira-entry-followups AC-8 reply without --stdin reads no standard input` | rule: `--stdin <name>` (`runReply` reads one parameter from standard input, byte for byte but one final line break, refuses a bad or a missing name, and reads nothing without the option) | kept: `runReply` keeps its arguments and `declaredStep` keeps every option it has, `--stdin <name>` among them (D-1) | 1.2 |
+| `upfront AC-8 skill: after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run` (roadmap-loop-upfront.test.mjs) | rule: the reply's end line for `reply blocked ... why=base-conflict` (`devkit-end: <id> blocked` first), and the sentence of item 3 of the `devkit-session` skill's `## Loop` that names it | kept: the `blocked` row prints the same line (D-1); D-10 adds a clause to that item and keeps the sentence the test matches | 1.2, 4.5 |
+| `roadmap-loop reply: an end key records declared and prints the end line first; the draft-declined key prints the reply alone` (roadmap-loop.test.mjs) and `followups AC-4 reply: an end declared for an id that is not a change id exits 3 and records nothing` (roadmap-loop-followups.test.mjs) | rule: the reply's end line and record (`roadmap-loop.mjs reply` prints the end line first and records `run.declared[id]` for a key that ends the run, records nothing for a bad id, exit 3) | kept: `replyCmd` reads its end and gate from `DECLARED` with the same record for `blocked` and `waiting-pr-decision` (the `gate: 'decision'` it writes today is that row's gate, D-1) | 1.4 |
 | `sanitize drops heredoc bodies and quoted text` and every `bash(...)` heredoc test (guard.test.mjs) | heredoc bodies and quoted text are not commands | kept: `sanitize`'s output is unchanged after `withoutHeredocs` is split out | 1.3 |
 | `approval.md: only the main session writes it, by Write and by shell redirect (D7)`, `approval.md: main-session only even with several active changes or in another change folder (D7)` and `upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage` (guard.test.mjs), which match `approval\.md is written only by the main session, from the owner's own message; not by` | the approval file's writer and message | kept: the message gains the path before `approval.md` and keeps the rest | 1.3 |
 | `change-loop skill: the release-conflict sentence` (change-loop-compozy.test.mjs) | "`Outcome: failure` goes back to `next`, as for any agent" | kept: AC-3 is dropped, so the `resolve-release-conflict` and `renumber-adr` items are not edited, and the new `resolve-base-conflict` item uses the same sentence | 1.5, 2.4 |
@@ -898,9 +919,10 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `parseTasks: only a description that starts with Gate: is a gate ...` (deliver-check.test.mjs) and `review-writer-prompt AC-9 parseTasks ...` (deliver-check-archive.test.mjs) | the fields they map | kept: the new field is not mapped | 3.2 |
 | `evidence.md is written only by pr-verifier` (guard.test.mjs) | evidence's writer | kept | 4.3 |
 | `change-loop skill: the wait is started in the background on a GitHub wait` (change-loop-compozy.test.mjs) | the background wait | kept: the first paragraph is unchanged | 4.5 |
+| `project-settings: PACKS equals the plugin names in marketplace.json` (plugins/openspec/skills/openspec-setup/scripts/project-settings.test.mjs) | rule: `PACKS` names the marketplace's plugins | kept: D-9 moves `PACKS` above `AGENT` and changes no entry | 4.4 |
 | `commit-attribution AC-1 T25 ...` (project-loop.test.mjs) | the negative with `?? '\u0000'` | updated (D-13) | 5.2 |
 | `commit-attribution AC-2 T31 ...` (deliver-check-archive.test.mjs) | the count of `Attribution below` | updated (D-13) | 5.3 |
-| roadmap tests with `tests-red` (roadmap-loop.test.mjs, roadmap-loop-followups.test.mjs, roadmap-loop-upfront.test.mjs, change-loop-remote-state.test.mjs; `grep -ln "tests-red" plugins/openspec/hooks/*.test.mjs`) | a declared blocked end of a red gate | kept: `roadmap-loop.mjs reply blocked` still records it; no phase edits roadmap code or a `tests-red` text, so they run on the delivery train's whole suite | the train |
+| roadmap tests with `tests-red` (roadmap-loop.test.mjs, roadmap-loop-followups.test.mjs, roadmap-loop-upfront.test.mjs, change-loop-remote-state.test.mjs; `grep -ln "tests-red" plugins/openspec/hooks/*.test.mjs`) | a declared blocked end of a red gate | kept: `roadmap-loop.mjs reply blocked` still records it; the reply tests of the rows above run in phase 1, which edits `replyCmd`; no phase edits a `tests-red` text or other roadmap code, so the others run on the delivery train's whole suite | the train |
 | `flow-check stages: a failed stage past its ceiling ends blocked` (flow-check.test.mjs) | `review` failed at attempt 2 ends blocked `ceiling-reached` `{ stage: 'review', attempt: 2, failures: 2, ceiling: 2 }`; at attempt 1 no end | kept: its synthetic facts carry no `authorizedReviewRounds`, so `ceilingOf` gives 2, and `failures` is the sibling's count, unchanged (D-4) | 2.3 |
 | `flow-check stages: a failed header does not pass its stage` (`{ attempt: 1, failures: 1, ceiling: 2 }`) and `flow-check stages: a failed stage offers its fix, then itself after the fix` (`{ failed: 'review', attempt: 1, failures: 1, ceiling: 2 }`) (flow-check.test.mjs) | the review's ceiling in the reason's parameters | kept: no record, ceiling 2 | 2.3 |
 | every `stage-ceiling-consecutive` test (flow-check.test.mjs: `AC-1` to `AC-7`, `failuresInARow ...`, `the history is read only ...`, `the readout says ...`; change-loop.test.mjs, change-loop-compozy.test.mjs and project-loop.test.mjs: the `AC-6` loop and reply tests) | the failures in a row, read from git, are the left side of the ceiling comparison, and the replies and briefs say them | kept: D-4 changes only the right side, and only for the `review` stage of role `review-bench` with a record; none of these fixtures writes `declared.json` | 2.3 |
@@ -923,14 +945,16 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `AC-9 repo-adopts: the ${role} agent is the shipped template, byte for byte` for `tdd-implementer` and `pr-verifier` (one test per role), and `AC-9 repo-adopts: the manifest records this repository's three inputs and a digest for every kit file, and none for a retired one` (adoption.test.mjs) | this repository's `.compozy/` equals the rendered templates, and the manifest names every kit file | kept: they go red until `.compozy/` is installed again from the regenerated templates (D-19) | 3.3, 4.3, 6.2 |
 | `field-fixes 4 delivered: isArchiveHead is true for every change's archive head and for nothing else`, `field-fixes 4 delivered: isOwnPr needs a file of the change folder, no file of its own archive folder and no archive head`, `field-fixes 4 own archive 4: an archive head is refused whatever its files` and the other `field-fixes 4` tests of `findChangePr` (deliver-check-archive.test.mjs) | every `chore/archive-` and `archive-` head is an archive head; such a head is never a change's own pull request | kept: `isArchiveHead` is unchanged and every head these tests give differs from the id they test (D-20) | 3.7 |
 | `delivery-train P3 isOwnPr: a train/<n> head is never a change's own pull request, whatever files it changes` (delivery-train-after.test.mjs) | a train head is never own | kept: the `TRAIN_BRANCH` line of `isOwnPr` is not edited | 3.7 |
+| the `delivery-train P3 delivered` tests (delivery-train-after.test.mjs), among them `delivery-train P3 delivered: looked up from the default branch, the train's merged pull request is not the change's own` | rule: `findChangePr`'s merged-list search finds the change's own merged pull request and never a train's | kept: the merged-list filter changes only for a head equal to the change's own id (`foreignArchiveHead`, D-20), and no head these tests give equals it | 3.7 |
 | `flow-check delivery: after a squash merge the walk resumes at the retro`, `flow-check stages: after a merged pull request a newer plan file does not make a stage stale`, `field-fixes 4 delivered: a merged pull request with tasks left is not delivered; ...` and `field-fixes 4 delivered: a pull request that only links the evidence does not switch to the walk after the merge` (flow-check.test.mjs) | the walk after the merge off the own branch, and no switch for a change not delivered | kept: `offOwnBranch` still switches; the new arm needs the head in the base and a delivered change (D-21) | 3.8 |
 | the `own-files` tests (deliver-check.test.mjs, flow-check.test.mjs, delivery-train-after.test.mjs; `grep -ln "own-files" plugins/openspec/hooks/*.test.mjs`) | ADR 0025's rule, `ownFiles` null when the head is in the base | kept: `ownFiles` reads `headInBase` with the same result (T126) | 3.8 |
 | the `change-budget` tests (change-loop-remote-state.test.mjs), `jira-entry AC-6 next carries the task but no writeBack on a budget end held at the pull request` (change-loop-remote.test.mjs), `upfront budget session-next: ...` (roadmap-loop-followups.test.mjs), the `stage-models` tests that write a change's table (stage-models.test.mjs) and `version-pin AC-1 writePin: the change budget block and the pin live in one .openspec.yaml` (version-pin.test.mjs) | a change's `budget` and `models:` in a `devkit:` block of its `.openspec.yaml` | kept: a file with no `x-devkit:` block is still read from its `devkit:` block (D-22) | 5.5 |
 | `change-budget AC-10 docs/openspec-flow.md describes the budget` (change-loop-remote-state.test.mjs), `stage-models AC-1 the flow document says what the model of each stage is: ...`, `stage-models AC-2 the settings comment names the optional models table and the ADRs line names 0023` and `stage-models AC-2 the coordination design names devkit.models as final, decided by stage-models` (stage-models.test.mjs) | the words of the two paragraphs, the config comment and the coordination design | kept: D-22 keeps every word they match (`budget:`, `.openspec.yaml`, `models:`, the project's `devkit:` block, "final") | 5.6 |
+| `change-loop settings: shipConfig of deliver-check gives the same with and without the block` (change-loop.test.mjs) | rule: `parseDevkitBlock` of `openspec/config.yaml` read with and without a `devkit:` block | kept: its second argument defaults to `devkit` (D-22) | 5.5 |
 | `delivery-train config: deliverySettings keeps its shape with a train set` (delivery-train.test.mjs), `release-tags 1: a release_tag followed by indented lines is unset ...` (release-tags.test.mjs), `delivery-models config: ...` (delivery-models.test.mjs) and the `parseDevkitBlock` tests of guard.test.mjs | `parseDevkitBlock` of `openspec/config.yaml` | kept: its second argument defaults to `devkit`, so every caller reads as today (D-22) | 5.5 |
-| `post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked` (change-loop.test.mjs), if still present on the base when phase 5 runs (that change's own archive, due in the next train, may fix it first) | invariant: the roadmap line of `post-merge-validate` names the merge check and its sibling; layer: the roadmap document, read as text; suite: change-loop.test.mjs | updated (D-23): its title ends "whatever its tick" in place of "and stays unticked", it finds the line by `/^- \[[ xX]\] post-merge-validate/`, asserts no tick, and runs its text assertions on the live roadmap and on a copy with that line ticked | 5.8 |
+| `post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked` (change-loop.test.mjs), if still present on the base when phase 5 runs (that change's own archive, due in the next train, may fix it first) | invariant: the roadmap line of `post-merge-validate` names the merge check and its sibling; layer: the roadmap document, read as text; suite: change-loop.test.mjs | updated (D-23): its title ends "whatever its tick" in place of "and stays unticked", it finds the line by `/^- \[[ xX]\] post-merge-validate/`, makes no assertion on the tick, and runs its text assertions on the live roadmap and on a copy with that line ticked | 5.8 |
 | `jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry` (change-loop-remote-state.test.mjs) | invariant: Round 20b, after Round 20, holds the `jira-entry-live` line after `jira-entry`; layer: the roadmap document, read by `parseRoadmap` (`guard.mjs`); suite: change-loop-remote-state.test.mjs | updated (D-23): it finds the line by `/^- \[[ xX]\] jira-entry-live \(after: jira-entry\)/` and asserts `{ id, after }` of `parseRoadmap`, never `done`, on the live roadmap and on a copy with that line ticked | 5.8 |
-| `stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes` (change-loop-compozy.test.mjs) | invariant: the stage-roles line keeps its text without the carried items, which the coordinator-loop-fixes line holds; layer: the roadmap document, read by `parseRoadmap`; suite: change-loop-compozy.test.mjs | updated (D-23): it already holds the old line as a constant and asserts no tick; it runs its assertions on the live roadmap and on a copy with the `stage-roles` and `coordinator-loop-fixes` lines ticked, so this change's own archive leaves it green | 5.8 |
+| `stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to coordinator-loop-fixes` (change-loop-compozy.test.mjs) | invariant: the stage-roles line keeps its text without the carried items, which the coordinator-loop-fixes line holds; layer: the roadmap document, read by `parseRoadmap`; suite: change-loop-compozy.test.mjs | updated (D-23): it already holds the old line as a constant and makes no assertion on the tick; it runs its assertions on the live roadmap and on a copy with the `stage-roles` and `coordinator-loop-fixes` lines ticked, so this change's own archive leaves it green | 5.8 |
 | `compozy-driver`, `loop-templates`, `devkit-kit`, `install-kit`, `release-tags`, `release-merge`, `merge-setup`, `jira-task`, `change-loop-remote` and `test-suite` suites (but the tests named above) | the driver's calls, the three loops, the resolver, the installer, the tag step, the release merge, the merge setup, the Jira task, the remote runs and the suite script | kept: searched for the texts this change replaces, none found; they run on the delivery train's whole suite | the train |
 
 ## D-16 New tests
@@ -1096,7 +1120,7 @@ and a file whose summary time passes about 300 s is split by CONTRIBUTING's rule
 | T136 | 19 | the fenced example that follows `**A change's own settings.**` in `docs/openspec-flow.md`, written byte for byte as the `.openspec.yaml` of change `feat` in a fixture project (an `openspec/config.yaml` naming `devkit-lite`, a `proposal.md` and one ADDED delta): the real `openspec validate feat --type change --strict` exits 0; `modelsOf(root, dir, { strict: true })` gives `review: 'opus'` and the default of every other stage; `budgetOf(root, dir, 'en')` gives `{ cap: 2000000, from: 'change' }`; the same lines under `devkit:` in place of `x-devkit:` make the CLI exit 1 (the reason of the rule) and are still read by `budgetOf` | loop and CLI | change-loop-declared.test.mjs |
 | T137 | 19 | `budget: 0` in the `x-devkit:` block of a change's `.openspec.yaml` makes `next` exit 3 with the `setting-unknown` reply naming `budget` and `0`; `design: gpt` in its `models:` the same naming `design: gpt`; the `waiting-budget` reply names the `x-devkit` block and the file in both languages; `writePin` on a file holding an `x-devkit:` block keeps the block's lines byte for byte and `readPin` reads the pin | loop | change-loop-declared.test.mjs |
 | T138 | 19 | the spend block of `flow-check` (the stage-models AC-12 fixture, with the project's `budget: 2000000`): with the change's `x-devkit:` `budget: 500000` its total line names the cap 500000; with only a `devkit:` block of `budget: 500000` in the change, the same | stage checker | stage-models.test.mjs |
-| T139 | 19 | the "token budget" and "model of each stage" paragraphs of `docs/openspec-flow.md` name the `x-devkit:` block of a change's own `.openspec.yaml` and no longer the words "a `devkit:` block of a change's own"; the paragraph `**A change's own settings.**` follows "The model of each stage", names `openspec validate <id> --type change --strict` and the fallback; the comment lines of `openspec/config.yaml` and the two settings sentences of `docs/coordination-design.md` name `x-devkit:`; ADR 0023 has the `Note (coordinator-loop-fixes, <date>)` naming `x-devkit:` after the stage-models Note, and its `## Decision` section equals the text held in the test | doc | change-loop-declared.test.mjs |
+| T139 | 19 | the "token budget" and "model of each stage" paragraphs of `docs/openspec-flow.md` name the `x-devkit:` block of a change's own `.openspec.yaml` and no longer the words "a `devkit:` block of a change's own"; the paragraph `**A change's own settings.**` follows "The model of each stage", names `openspec validate <id> --type change --strict` and the fallback; the comment lines of `openspec/config.yaml` and the two settings sentences of `docs/coordination-design.md` name `x-devkit:`; ADR 0023 has the `Note (coordinator-loop-fixes, <date>)` naming `x-devkit:` and the change's settings ADR (by the number the file has then, as `decisions.md` names it) after the stage-models Note, and its `## Decision` section equals the text held in the test | doc | change-loop-declared.test.mjs |
 | T140 | 20 | the `context:` of `openspec/config.yaml` holds the `Live roadmap:` rule on the line right after `Test history:`, naming the tick, the done state and the fixture or constant | doc | change-loop-declared.test.mjs |
 | T141 | 7 | `collectState` on a git fixture whose change folder holds an uncommitted `declared.json` and nothing else uncommitted: `planDirty` is empty and `folderDirty` lists the record; with an uncommitted `design.md` as well, `planDirty` lists `design.md` only | checker | deliver-check.test.mjs |
 
@@ -1355,10 +1379,14 @@ with x- ... to keep tool-specific metadata"). A change that follows the document
 loop's `merge-check`, its gates and the `check` red. The `budget:` key documented beside `models:` has the same
 defect, so both move.
 
-**Decision: the change's settings live in an `x-devkit:` block of its `.openspec.yaml`.** Checked at this
-revision on a scratch copy of this change with the CLI 2.0.0: the same lines under `x-devkit:` validate (exit
-0) where under `devkit:` they exit 1. The block keeps the shape and the keys of the project's `devkit:` block,
-so the owner writes the same lines under another name and the loop reads them with the same parser.
+**Decision: the change's settings live in an `x-devkit:` block of its `.openspec.yaml`** (the change's settings
+ADR, decisions 1 to 5; it amends ADR 0023 decision 1, the place of a change's own override, as the readiness review
+of attempt 5 asked by the rule of `rules.design`). Checked at this revision on a scratch copy of this change with
+the CLI 2.0.0: the same lines under `x-devkit:` validate (exit 0) where under `devkit:` they exit 1. The block
+keeps the shape and the keys of the project's `devkit:` block, so the owner writes the same lines under another
+name and the loop reads them with the same parser. The bullets below build the record's decisions: one block
+per file (decision 2), the `devkit:` fallback (decision 3), the project's block unchanged (decision 4), the flat
+`x-devkit-*` keys and ADR 0023's Note (decision 5).
 
 - `guard.mjs`: `parseDevkitBlock(text, key = 'devkit')`: the block opens on a line `<key>:` (today's opening
   regex with the key in place of `devkit`); every caller of today passes no key and reads as before. A new
@@ -1398,16 +1426,20 @@ so the owner writes the same lines under another name and the loop reads them wi
   "(its `x-devkit:` block)".
 - ADR 0023: a dated Note after its stage-models Note: "Note (coordinator-loop-fixes, <date of the edit>):
   decision 1's override in a change's `.openspec.yaml` is written in an `x-devkit:` block, not a `devkit:`
-  block, because `openspec validate <id> --type change --strict` refuses any top-level key it does not know
-  and accepts one that starts with `x-`; the `budget` key of the same file moves with it, and a `devkit:`
-  block written there before is still read when the file has no `x-devkit:` block. Decision 1 is otherwise
-  unchanged." Its `## Decision` section is not touched. This is the way ADR 0011 gets its Note (D-12): the
-  decision (a change's own file overrides single stages) stands, and the Note records where OpenSpec lets the
-  file hold it. The owner's AC-19 chose between moving the place and dropping the offer; this plan moves it.
+  block, as ADR <its number> decides, because `openspec validate <id> --type change --strict` refuses any
+  top-level key it does not know and accepts one that starts with `x-`; the `budget` key of the same file moves
+  with it, and a `devkit:` block written there before is still read when the file has no `x-devkit:` block.
+  Decision 1 is otherwise unchanged." (The change's settings ADR, written as a relative link to its file, as the
+  other Notes link theirs; the link and the number are the ones the file has at the last merge, as for ADR
+  0011's Note, D-12.) Its `## Decision` section is not touched (the settings ADR's decision 5). The record is
+  the decision; the Note points to it, as ADR 0011's Note points to the change's ADR. The owner's AC-19 chose
+  between moving the place and dropping the offer; this plan moves it.
 - Spec deltas: `stage-models` modifies "A project and a change can set a stage's model"; `change-coordination`
   modifies "A run can carry a token budget" and "The budget stop says how to go on".
 - Unchanged (AC-16): a change with no block, or with a `devkit:` block and no `x-devkit:` one, reads as
   today; `openspec/config.yaml` reads as today; nothing writes either block.
+
+The change's settings ADR weighs the same four alternatives in its own table:
 
 | Alternative | Why not |
 |---|---|
@@ -1437,7 +1469,7 @@ history" of `openspec/config.yaml` keeps tests off git history and says nothing 
     task 5.8 then records "already fixed on the base" and changes nothing.
   - `jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry` (`change-loop-remote-state.test.mjs`).
   - `stage-roles docs: the roadmap line of stage-roles keeps its text, ...` (`change-loop-compozy.test.mjs`): it
-    asserts no tick today; it gains the ticked copy, so this change's own archive, which ticks its line, leaves
+    makes no assertion on the tick today; it gains the ticked copy, so this change's own archive, which ticks its line, leaves
     it green.
 - Before the edit, task 5.8 searches the suite for any other test that reads the live roadmap
   (`readRepo('openspec', 'roadmap.md')`, `readRoadmap(REPO_ROOT)`) and asserts `- [ ]` or `done`; the search at
@@ -1457,13 +1489,17 @@ does not parse; the config rule reaches every planner and reviewer through `cont
   on the change's own files: D-17), ADR 0026 (the suite runs by file: D-15 to D-17 and the gates), and
   ADR 0027 and ADR 0030 (only the flow page's pin lines pass the archive check unnamed, and the pin test
   reads the manifest: D-18), and, since the base moved to c09860c, ADR 0023 again (decision 1, the place of a
-  change's own override: D-22 adds a dated Note, its Decision untouched). No decision of theirs is reversed.
+  change's own override, which the change's settings ADR amends: D-22). No decision of theirs is reversed.
+- The change's settings ADR (proposed; `decisions.md` lists it beside the change's ADR) is the decision behind
+  D-22: the readiness review of attempt 5 found that moving the place of ADR 0023 decision 1's override changes
+  that decision's text, which `rules.design` of `openspec/config.yaml` records as a new ADR, and the owner chose
+  a record of its own; the ADR author drafted it. Its Amends line names ADR 0023 decision 1, and ADR 0023 gets a
+  dated Note pointing to it (D-22), its `## Decision` section untouched. It is accepted by `accept-decisions`
+  after the owner's next approval of this plan (D-7, "This plan's own approval and its records").
 - Not recorded as an ADR, per `decisions.md`: the verifier's `proof/` folder, the host-monitor wait,
-  the shared agent map, the language check, the nits and the two `devkit-lite` decisions. The two items added
-  since (D-22, D-23) are not in `decisions.md`, which is the ADR author's: D-22 is recorded as a dated Note on
-  ADR 0023 (the place OpenSpec lets a change's file hold the override ADR 0023 decision 1 gives it), and D-23 is
-  a rule of this repository's tests in `openspec/config.yaml`; if the readiness review or the owner wants a
-  record for D-22, it is an ADR author's run before the approval, not a draft of this plan.
+  the shared agent map, the language check, the nits and the two `devkit-lite` decisions. D-23 is not in
+  `decisions.md` either: it is a rule of this repository's tests in `openspec/config.yaml`, as "Test history"
+  is, and changes no ADR.
 - Rejected alternatives that an ADR already rejected are not used: no fifth end state (the change's ADR), no
   unbounded fix loop (the change's ADR, ADR 0010 decision 3's ceilings), no authorization from any message
   (ADR 0011, ADR 0021), no lifting of the edit lock for a conductor task (ADR 0010 decision 8, ADR 0011
@@ -1517,8 +1553,8 @@ does not parse; the config rule reaches every planner and reviewer through `cont
 | The stage walk's ceiling and the delivery checker's limit drift apart, so an authorization lifts one and not the other | LOW × HIGH | One count (`authorizedRounds`) read by both checkers; `ceilingOf` the one function of every ceiling (D-4); T105 to T111 and T132 walk both through `nextAction` and the failures in a row; T113 pins the shipped flows' `review` ceiling to `REVIEW_ROUNDS` |
 | An authorized round stops on a `commit` of `declared.json` before its fix | LOW × LOW | `planDirty` leaves the record out (D-1, T141); `folderDirty` commits it with the evidence before the round |
 | `stage-ceiling-consecutive` (merged at c09860c) and this change modify the same `change-stages` requirement, and the second archive drops the first one's scenarios | MEDIUM × MEDIUM | D-17: this change's delta holds the sibling's text and scenarios with its own; `openspec validate --strict` refuses a MODIFIED requirement that omits a scenario of the main spec, so the second archive's `merge-check` goes red and its planner copies the text (`merge-defect`) |
-| A merge-defect fix after a sibling's archive asks the owner again, a stop the run did not have before | MEDIUM × LOW | Accepted (D-7, ADR 0032 decision 7, `post-merge-validate`'s own requirement): only for an approval that records a `- Plan:` digest; this change's own approval records none |
-| `post-merge-validate`'s requirement "A merge-defect fix follows the rule of every plan edit" archives after this change with a scenario that no longer holds for an approval with a digest | MEDIUM × LOW | Task 3.6a modifies it when it is on main at phase 3; otherwise the conducting session tells that change's session the scenario to update at its archive (D-7) |
+| A merge-defect fix after a sibling's archive asks the owner again, a stop the run did not have before | MEDIUM × LOW | Accepted (D-7, the change's ADR decision 7, `post-merge-validate`'s own requirement): only for an approval that records a `- Plan:` digest; this change's own approval records none |
+| `post-merge-validate`'s requirement "A merge-defect fix follows the rule of every plan edit" archives after this change with a scenario that no longer holds for an approval with a digest | MEDIUM × LOW | Task 3.6a modifies it when it is on main at phase 3; task 6.1 looks again after the last merge and reports a requirement that reached the main spec since, for a plan revision; otherwise the conducting session tells that change's session the scenario to update at its archive (D-7) |
 | A project's change keeps its settings in a `devkit:` block and does not see that strict validation refuses it | MEDIUM × LOW | The block is still read (D-22), the flow document says to rename it, and the CLI's own warning names the key and the `x-` prefix |
 | `post-merge-validate`'s archive lands with its roadmap test before phase 5, already changed | MEDIUM × LOW | Task 5.8 fixes that test only if it is still present on the base, and records it otherwise (D-23) |
 | A real run that calls `declare` is given to a subagent and refused, or a run's loop output lands in the conducting session's transcript and moves its stop lock to the scratch change | MEDIUM × MEDIUM | D-14's four rules: a direct `declare` is the conducting session's (6.3), a nested one is the nested main session's with the prompt in a file, fixtures by a script that never writes `declared.json`, and the conducting session's loop output only in files checked with `grep -c` |
@@ -1608,8 +1644,9 @@ D-17's and D-22's reasoning, and T136 then fails); the loop that drives this cha
 (the worktree's own `change-loop.mjs` has it since the merge of c09860c); a `--test-name-pattern` that
 matches no test of a file leaves that file passing with no test run (Node's runner).
 
-**Dependencies:** the change's ADR, accepted at the plan approval (`accept-decisions`); no sibling change
-is required first.
+**Dependencies:** the change's ADR, accepted at the first plan approval (`accept-decisions`); the change's
+settings ADR, accepted by `accept-decisions` after the owner's next approval (D-7); no sibling change is
+required first.
 
 ## Open Questions
 
