@@ -165,7 +165,7 @@ changes. Every earlier release moved these lines the same way.
 - [x] 2.2 Check that nothing outside the plan changed. Check:
   `git diff --stat $(git merge-base origin/main HEAD) -- plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/flow-check.mjs plugins/openspec/hooks/guard.mjs plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/project-loop.mjs plugins/openspec/schemas openspec/schemas openspec/specs plugins/panel`
   prints nothing.
-- [ ] 2.3 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="field-fixes 4" --test-name-pattern="findChangePr" --test-name-pattern="the pin in docs/openspec-flow.md" --test-name-pattern="AC-8 release-ready" --test-name-pattern="change-loop docs: the design records the answers" plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green; covers AC-1 to AC-6 on the released tree.
+- [x] 2.3 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="field-fixes 4" --test-name-pattern="findChangePr" --test-name-pattern="the pin in docs/openspec-flow.md" --test-name-pattern="AC-8 release-ready" --test-name-pattern="change-loop docs: the design records the answers" plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green; covers AC-1 to AC-6 on the released tree.
 
 ## Workflow follow-up
 
