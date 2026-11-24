@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=d0a2b37eb677790cbbb1422d2ecf4b5143da5d89 -->
+<!-- devkit-stage review result=passed attempt=1 commit=470a8ca1785f800a8d4ee4d5858be00edc9e6d61 -->
 # Review: forced-merge-path, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -49,6 +49,32 @@ None.
 
 ## Notes
 None.
+
+## Next
+Ready to ship.
+
+# Review: forced-merge-path, round 1
+
+Path: agents · range `d0a2b37eb677790cbbb1422d2ecf4b5143da5d89..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 470a8ca |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 470a8ca |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 470a8ca |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 470a8ca |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 470a8ca |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Stale-only re-review after two merges of main (train 4 and train 6) and the evidence attempts 3-4; it consumes no round. The code-quality-reviewer's first stage-1 answer was refused (notRead was not empty) and the reviewer was run again once.
 
 ## Next
 Ready to ship.
