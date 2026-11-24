@@ -1,0 +1,644 @@
+✔ delivery-train config: no key and an empty value are no train and no problem (13.402176ms)
+✔ delivery-train config: a value with trunk or trunk-auto is the whole-suite command (1.032693ms)
+✔ delivery-train config: a value with two-prs is a train-model problem naming the model (0.642444ms)
+✔ delivery-train config: a value with no model, or an unknown one, is a train-model problem with no model (0.557162ms)
+✔ delivery-train config: an unclosed double or single quote is refused, never read as the rest of the line (0.697254ms)
+✔ delivery-train config: a quoted command keeps its && and #, an unquoted one ends at a # comment (0.611757ms)
+✔ delivery-train config: a train key nested under another key is not the setting (0.312588ms)
+✔ delivery-train config: readTrainSetting reads the file, and no file is no train (1.776919ms)
+✔ delivery-train config: deliverySettings keeps its shape with a train set (0.604947ms)
+✔ delivery-train config: deliveryConfig adds the suite, null without the key (3.187677ms)
+✔ delivery-train config: deliveryConfig refuses the three train problems with their messages (3.159376ms)
+✔ delivery-train config: a refused train setting stops change, roadmap, status and project in both languages (11.038863ms)
+✔ delivery-train config: an unknown driver is reported before a refused train (1.173046ms)
+✔ delivery-train config: a valid train does not stop the verbs (1.124855ms)
+✔ delivery-train config: readDevkitSettings holds the train only when the key is set (2.68108ms)
+✔ delivery-train join: a spawned release-merge makes its temporary folders in a folder of its own, never the shared one (0.374574ms)
+✔ delivery-train join: a change with no release file merges into the train as one commit with the train message (246.384282ms)
+✔ delivery-train join: two identical minor bumps become 0.8.0 above 0.7.0, with the CHANGELOG in order (319.887433ms)
+✔ delivery-train join: a patch of the change above a minor of the train is renumbered above it (361.802547ms)
+✔ delivery-train join: a product conflict exits 2 with the path and leaves the train as it was (227.28508ms)
+✔ delivery-train join: the CI pin of both sides is merged and set to the renumbered devkit-openspec version (361.798836ms)
+✔ delivery-train join: a revision already in the train is nothing to do (369.431806ms)
+✔ delivery-train join: a missing revision, both modes together and a lone --roadmap-ticks are setup errors (371.078388ms)
+✔ delivery-train roadmap: two neighbouring ticks of the change are written onto the base (0.689412ms)
+✔ delivery-train roadmap: a tick of a line the base already ticked changes nothing (0.200734ms)
+✔ delivery-train roadmap: a reworded, added, removed, unticked or unknown line throws (0.9275ms)
+✔ delivery-train roadmap: a missing final newline is kept as the base has it (0.31472ms)
+✔ delivery-train roadmap: classifyConflict resolves a tick conflict only with the resolver, and returns roadmapMerged (0.686019ms)
+✔ delivery-train roadmap: --merge resolves a tick conflict by rule and a reworded line is blocking (480.521156ms)
+✔ delivery-train roadmap: --base resolves a tick conflict only under --roadmap-ticks, and exits 2 without it (481.244219ms)
+✔ delivery-train roadmap: --base keeps its resolved JSON keys as they are (243.126588ms)
+✔ delivery-train config: both languages carry the same train keys (0.302051ms)
+✔ delivery-train record: a full record parses into its facts, its tables and the failure of a red change (2.996456ms)
+✔ delivery-train record: a record with no left entries has an empty left list (0.473957ms)
+✔ delivery-train record: an empty file, a missing header and a wrong header are errors (0.382472ms)
+✔ delivery-train record: a fence that opens and never closes is an error (0.278479ms)
+✔ delivery-train record: no Boarded table, or an empty one, is an error (0.335976ms)
+✔ delivery-train record: a bad head, kind, order or why is an error naming it (0.739991ms)
+✔ delivery-train P3 T9: a change with all its items met boards, in trunk-auto and in trunk (1516.548467ms)
+✔ delivery-train P3 T1: auto-merge found on a change of a train project is disabled first, in trunk-auto and in trunk (2649.647075ms)
+✔ delivery-train P3 T1: auto-merge on disables even before the contract is met (1041.545435ms)
+✔ delivery-train P3 T9: a change of a train project is never told to enable auto-merge, update its branch or wait for a merge (4366.074698ms)
+✔ delivery-train P3 T4: a change with no pull request opens one, as before the train (609.597296ms)
+✔ delivery-train P3 T5: pending checks board (784.062589ms)
+✔ delivery-train P3 T5: a failing check does not board, and the next step fixes it (857.272703ms)
+✔ delivery-train P3 T5: a pull request behind the base boards, and one in conflict with it boards too (1842.839718ms)
+✔ delivery-train P3 T5: in trunk a conflict boards too and a project without the train still stops on it (1145.519575ms)
+✔ delivery-train P3 T6: local commits not pushed, and uncommitted files of the change folder, push (1402.040431ms)
+✔ delivery-train P3 T6: a closed pull request is blocked, as before the train (767.575816ms)
+✔ delivery-train P3 T7: an incomplete body, a failing check and a conversation to answer come before boarding (1255.86321ms)
+✔ delivery-train P3 T9: a push after boarding unboards, and the next step records the evidence again (1245.904912ms)
+✔ delivery-train P3 T2: a change left by an open train waits on GitHub naming that pull request (907.01684ms)
+✔ delivery-train P3 T3: a change left by a train that merged or closed goes back to the implementer with the record's facts (2022.444099ms)
+✔ delivery-train P3 T3: a red leaver carries the failure to the implementer (1020.773561ms)
+✔ delivery-train P3 T8: a change on an open train ends on GitHub naming the train's pull request (926.961213ms)
+✔ delivery-train P3 T9: a train that left the change at an older head does not apply, and it boards again (937.571184ms)
+✔ delivery-train P3 T9: a closed train that carried the change is not under way, so the change boards again (981.773792ms)
+✔ delivery-train P3 T2: GitHub silent on a train record is a blocked read, never a boarding (878.046212ms)
+✔ delivery-train P3 fields: with the key a trunk project asks the merge fields and can see auto-merge on; without it, today's (1145.08943ms)
+✔ delivery-train P3 fields: trunk-auto asks the merge fields with and without the key (1469.406521ms)
+✔ delivery-train P3 fields: a trunk project without the key makes exactly the gh calls it made before the train (553.025952ms)
+✔ delivery-train P4 trainFacts: on an open train, carried by a merged one, left on an open one and left on a closed one (2207.746966ms)
+✔ delivery-train P4 trainFacts: a record at another head, another kind or another change lists nobody (634.285327ms)
+✔ delivery-train P4 trainFacts: the newest train wins, only train heads are read and only five of them (1597.412614ms)
+✔ delivery-train P4 trainFacts: a pull request that is not a train, and no pull request head, make no train reads (297.667912ms)
+✔ delivery-train P4 trainFacts: GitHub silent is an error, and a train with no record or a bad one lists nobody (788.417936ms)
+✔ delivery-train AC-2: a change approved at its head is boarded behind main, with pending checks, and waits for the owner (773.516628ms)
+✔ delivery-train AC-3: a sibling's merge into main leaves the boarded change's evidence, reviews and action as they were (1563.153716ms)
+✔ delivery-train AC-5: the tasks item skips the parts of the train and says how many the train proves (137.658085ms)
+✔ delivery-train AC-5: a part the train does not run still needs its row, and a train row ending in train: is no pass (163.478229ms)
+✔ delivery-train AC-5: collectState passes the train parts to the tasks item, and a project without the key does not (1543.199307ms)
+✔ delivery-train P3 A5: an open archive pull request that passes its checks boards, in trunk-auto and in trunk (1.385164ms)
+✔ delivery-train P3 A5: pending checks board an archive, and a failing check does not (0.560715ms)
+✔ delivery-train P3 A4: an archive on an open train ends on GitHub naming it (0.455032ms)
+✔ delivery-train P3 A1: an archive left while its train is open waits on GitHub and is never boarded (0.299232ms)
+✔ delivery-train P3 A2: an archive left on a red train stops for the owner naming the train and the failure (0.330425ms)
+✔ delivery-train P3 A3: an archive left for a conflict on a train that ended rejoins with the paths (0.26657ms)
+✔ delivery-train P3 A rows: a conflicting or behind archive pull request boards, and is never told to update its branch (0.331123ms)
+✔ delivery-train P3 A rows: auto-merge on an archive pull request is disabled, and the archive boards after it (0.313417ms)
+✔ delivery-train P3 A rows: the retro answers and the file check still hold an archive back, and an unpushed one is pushed first (0.327971ms)
+✔ delivery-train P3b: a clean merge with the base gives rejoin-archive with the roadmap-ticks command (195.016328ms)
+✔ delivery-train P3b: release files and a roadmap tick in the way give the same step (198.481689ms)
+✔ delivery-train P3b: a canonical spec edited on both sides stops for the owner with the path, and nothing is merged (207.157988ms)
+✔ delivery-train P3b: a merge made here and not pushed yet is pushed, never with force, and not merged again (201.819328ms)
+✔ delivery-train P3b: a change row, and any other step of an archive, is left alone (192.044307ms)
+✔ delivery-train P3b: the actors of the six new steps (0.374878ms)
+✔ delivery-train AC-9: two archives at the archive step both go on in a train project, and one waits for the other without the key (5240.543012ms)
+✔ delivery-train AC-1: without the key the delivery rows give the JSON and the exit code they gave, whatever the model and the ship map (9471.114677ms)
+✔ delivery-train loop: a boarded change ends waiting for the owner with the waiting-train reply, in both languages (2.836625ms)
+✔ delivery-train loop: a change on a train, or left by an open one, ends waiting on GitHub for the train (0.789231ms)
+✔ delivery-train loop: a change that left a train goes to the implementer with the base and the record's facts (1.301908ms)
+✔ delivery-train loop: an archive that rejoins is a session step of the delivery stage (0.583857ms)
+✔ delivery-train P13: a checkout on train/<n> holding a change folder never reports that change, and its own worktree still does (601.51111ms)
+✔ delivery-train depart fixture: a proven change and a ready archive both board where the departure will judge them (2216.553619ms)
+✖ delivery-train record: the record the departure writes parses back to what was written, with a fence of four backticks in a failure (0.888526ms)
+✖ delivery-train P8 bisect: the culprit last of three is found with one probe, in the order the design gives (0.364971ms)
+✖ delivery-train P8 bisect: the culprit in the middle of four is found with two probes and its smallest red prefix is the failure (0.378794ms)
+✖ delivery-train P8 bisect: the culprit first is the one prefix of one change, and a single change needs no probe (0.3685ms)
+✖ delivery-train AC-4: one departure cuts train/<n>, joins in order, renumbers on the train only, opens one pull request; a second request starts none (858.921471ms)
+✖ delivery-train AC-4: the boarding order is the time of the newest review commit, ties by pull request number, an archive by its head (933.639817ms)
+✖ delivery-train P9 boarded set: a change that is not boarded, a train head and a branch of two change names are left out (625.706012ms)
+✖ delivery-train P9 boarded set: a branch whose name holds two active change ids and equals neither is skipped and listed; the id equal to the last segment wins (583.688357ms)
+✖ delivery-train AC-5: the suite runs once at the train's head, into the record committed on the train branch (421.143354ms)
+✖ delivery-train AC-7: two changes that pass alone and fail together: the later leaves with the failure, the rest departs after one more run (443.91099ms)
+✖ delivery-train P8: a culprit first with a green base leaves red and the others depart (403.432586ms)
+✖ delivery-train P8: a culprit first with a red base blocks, nobody leaves and nothing is created (391.27281ms)
+✖ delivery-train P8: a train that empties leaves every change with its failure and creates nothing (454.008726ms)
+✖ delivery-train AC-8: a release-only conflict is resolved by rule; a product conflict takes the change off with its path (600.931113ms)
+✖ delivery-train AC-8: a conflict between two boarded changes names the one that came later, and the train still runs the suite once (517.254489ms)
+✖ delivery-train AC-4: nothing boarded creates nothing; a project without the key is blocked; a closed train is not under way (130.198641ms)
+✖ delivery-train P9 depart: the train after a merged one takes the next number, counting branches and records (289.466285ms)
+✖ delivery-train P9 depart: a lock younger than six hours stops the departure and names the file; one older is taken over and released (241.38907ms)
+✖ delivery-train P9 depart: GitHub silent fails the departure with the error, and the lock is released (276.453523ms)
+✖ delivery-train P9 N0: a project with no train, or a refused one, ends blocked with the setting's reply, in both languages (116.369434ms)
+✖ delivery-train P9 N1: a departure under way ends waiting for the owner with the lock file, a lock older than six hours is not under way (285.90593ms)
+✖ delivery-train P9 N2: a train branch with its record that is not on origin is pushed from its worktree (324.41616ms)
+✖ delivery-train P9 N2: a local train that moved ahead of its open pull request is pushed too (424.476062ms)
+✖ delivery-train P9 N3: a train on origin with no pull request opens one from the branch with the record as its body (450.152384ms)
+✖ delivery-train P9 N3: a train on origin with no checkout to read the record from ends blocked (381.358487ms)
+✖ delivery-train P9 N4: an open train behind the base is brought up to date by the departure, run in the background (367.82495ms)
+✖ delivery-train P9 N5: a failing check of the open train ends blocked naming the check and its link (395.57359ms)
+✖ delivery-train P9 N6: a record that did not pass, is not current at the head or cannot be read ends blocked naming it (433.292444ms)
+✖ delivery-train P9 N7: a project whose repository does not allow merge commits ends blocked naming the setup, only in trunk-auto (374.703388ms)
+✖ delivery-train P9 N8: trunk-auto with auto-merge off enables it with --merge, pinned to the train head (405.12205ms)
+✖ delivery-train P9 N9: trunk-auto with auto-merge on waits on GitHub for the merge (416.469586ms)
+✖ delivery-train P9 N10 and N11: trunk waits on GitHub while checks run, then for the owner, and never enables auto-merge (387.609521ms)
+✖ delivery-train P9 N12: a merged train with a boarded pull request still open at the listed head closes it with the comment (755.590038ms)
+✖ delivery-train P9 N12: a pull request that moved after the record is not the boarded one and is left alone (469.791535ms)
+✖ delivery-train P9 N13: a merged train's worktree is removed, then its local branch deleted, and nothing else (563.423956ms)
+✖ delivery-train P9 N14: with nothing boarded the run ends waiting for the owner and creates nothing (107.082294ms)
+✖ delivery-train P9 N15: boarded changes and archives give the departure as a session step, run in the background (669.429638ms)
+✖ delivery-train P9 N15: a closed train is not under way, so its boarded changes depart again (449.22062ms)
+✖ delivery-train P9 next: the same session step twice in a row ends blocked, and a different one goes on (244.328543ms)
+✖ delivery-train P9 depart --update: the base merged into the train, the suite once more, the record rewritten, one commit; then the push (308.214151ms)
+✖ delivery-train P9 depart --update: a suite that fails after the base merged is recorded as failed and ends blocked naming the base (263.921858ms)
+✖ delivery-train P9 depart --update: with no open train there is nothing to update (259.570914ms)
+✖ delivery-train P9 main: next prints the action as JSON with its exit code, and an unknown subcommand is a usage error (271.556875ms)
+✖ delivery-train P9 main: depart prints its result and the exit code of the departure (293.832227ms)
+✖ delivery-train P9 wait: polls next and prints the action once it differs from the first (411.268623ms)
+✖ delivery-train P12: a typed /devkit train keeps a roadmap run and a typed /devkit change after it still ends it (3.254209ms)
+✖ delivery-train P13: /devkit train starts the verb, with text after it is refused, and a refused train setting stops it (1.952601ms)
+✖ delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both languages (0.68297ms)
+✖ delivery-train loop: the new train replies exist in both languages, each with its own text (0.510347ms)
+ℹ tests 143
+ℹ suites 0
+ℹ pass 94
+ℹ fail 49
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79719.704515
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1449:1
+✖ delivery-train record: the record the departure writes parses back to what was written, with a fence of four backticks in a failure (0.888526ms)
+  TypeError [Error]: train.writeTrainRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1458:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1470:1
+✖ delivery-train P8 bisect: the culprit last of three is found with one probe, in the order the design gives (0.364971ms)
+  TypeError [Error]: train.findCulprit is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1472:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1477:1
+✖ delivery-train P8 bisect: the culprit in the middle of four is found with two probes and its smallest red prefix is the failure (0.378794ms)
+  TypeError [Error]: train.findCulprit is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1479:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1484:1
+✖ delivery-train P8 bisect: the culprit first is the one prefix of one change, and a single change needs no probe (0.3685ms)
+  TypeError [Error]: train.findCulprit is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1486:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1505:1
+✖ delivery-train AC-4: one departure cuts train/<n>, joins in order, renumbers on the train only, opens one pull request; a second request starts none (858.921471ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1515:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1559:1
+✖ delivery-train AC-4: the boarding order is the time of the newest review commit, ties by pull request number, an archive by its head (933.639817ms)
+  TypeError [Error]: train.boardedSet is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1565:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1573:1
+✖ delivery-train P9 boarded set: a change that is not boarded, a train head and a branch of two change names are left out (625.706012ms)
+  TypeError [Error]: train.boardedSet is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1582:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1587:1
+✖ delivery-train P9 boarded set: a branch whose name holds two active change ids and equals neither is skipped and listed; the id equal to the last segment wins (583.688357ms)
+  TypeError [Error]: train.boardedSet is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1593:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1605:1
+✖ delivery-train AC-5: the suite runs once at the train's head, into the record committed on the train branch (421.143354ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1611:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1632:1
+✖ delivery-train AC-7: two changes that pass alone and fail together: the later leaves with the failure, the rest departs after one more run (443.91099ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1636:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1653:1
+✖ delivery-train P8: a culprit first with a green base leaves red and the others depart (403.432586ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1657:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1664:1
+✖ delivery-train P8: a culprit first with a red base blocks, nobody leaves and nothing is created (391.27281ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1668:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1677:1
+✖ delivery-train P8: a train that empties leaves every change with its failure and creates nothing (454.008726ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1681:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1691:1
+✖ delivery-train AC-8: a release-only conflict is resolved by rule; a product conflict takes the change off with its path (600.931113ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1696:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1709:1
+✖ delivery-train AC-8: a conflict between two boarded changes names the one that came later, and the train still runs the suite once (517.254489ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1714:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1719:1
+✖ delivery-train AC-4: nothing boarded creates nothing; a project without the key is blocked; a closed train is not under way (130.198641ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1721:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1730:1
+✖ delivery-train P9 depart: the train after a merged one takes the next number, counting branches and records (289.466285ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1735:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1751:1
+✖ delivery-train P9 depart: a lock younger than six hours stops the departure and names the file; one older is taken over and released (241.38907ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1755:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1766:1
+✖ delivery-train P9 depart: GitHub silent fails the departure with the error, and the lock is released (276.453523ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /502/. Input:
+  
+  'TypeError: train.depart is not a function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1770:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: train.depart is not a function
+        at file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1770:29
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1770:10)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: /502/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1799:1
+✖ delivery-train P9 N0: a project with no train, or a refused one, ends blocked with the setting's reply, in both languages (116.369434ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1801:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1814:1
+✖ delivery-train P9 N1: a departure under way ends waiting for the owner with the lock file, a lock older than six hours is not under way (285.90593ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1818:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1826:1
+✖ delivery-train P9 N2: a train branch with its record that is not on origin is pushed from its worktree (324.41616ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1830:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1838:1
+✖ delivery-train P9 N2: a local train that moved ahead of its open pull request is pushed too (424.476062ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1842:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1849:1
+✖ delivery-train P9 N3: a train on origin with no pull request opens one from the branch with the record as its body (450.152384ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1855:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1860:1
+✖ delivery-train P9 N3: a train on origin with no checkout to read the record from ends blocked (381.358487ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1866:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1871:1
+✖ delivery-train P9 N4: an open train behind the base is brought up to date by the departure, run in the background (367.82495ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1876:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1883:1
+✖ delivery-train P9 N5: a failing check of the open train ends blocked naming the check and its link (395.57359ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1888:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1895:1
+✖ delivery-train P9 N6: a record that did not pass, is not current at the head or cannot be read ends blocked naming it (433.292444ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1899:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1927:1
+✖ delivery-train P9 N7: a project whose repository does not allow merge commits ends blocked naming the setup, only in trunk-auto (374.703388ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1936:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1946:1
+✖ delivery-train P9 N8: trunk-auto with auto-merge off enables it with --merge, pinned to the train head (405.12205ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1950:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1958:1
+✖ delivery-train P9 N9: trunk-auto with auto-merge on waits on GitHub for the merge (416.469586ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1963:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1969:1
+✖ delivery-train P9 N10 and N11: trunk waits on GitHub while checks run, then for the owner, and never enables auto-merge (387.609521ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1974:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1984:1
+✖ delivery-train P9 N12: a merged train with a boarded pull request still open at the listed head closes it with the comment (755.590038ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1991:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2001:1
+✖ delivery-train P9 N12: a pull request that moved after the record is not the boarded one and is left alone (469.791535ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2005:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2008:1
+✖ delivery-train P9 N13: a merged train's worktree is removed, then its local branch deleted, and nothing else (563.423956ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2016:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2027:1
+✖ delivery-train P9 N14: with nothing boarded the run ends waiting for the owner and creates nothing (107.082294ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2029:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2036:1
+✖ delivery-train P9 N15: boarded changes and archives give the departure as a session step, run in the background (669.429638ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2040:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2049:1
+✖ delivery-train P9 N15: a closed train is not under way, so its boarded changes depart again (449.22062ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2053:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2058:1
+✖ delivery-train P9 next: the same session step twice in a row ends blocked, and a different one goes on (244.328543ms)
+  TypeError [Error]: train.next is not a function
+      at nextIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1401:40)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2061:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2071:1
+✖ delivery-train P9 depart --update: the base merged into the train, the suite once more, the record rewritten, one commit; then the push (308.214151ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2075:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2102:1
+✖ delivery-train P9 depart --update: a suite that fails after the base merged is recorded as failed and ends blocked naming the base (263.921858ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2105:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2120:1
+✖ delivery-train P9 depart --update: with no open train there is nothing to update (259.570914ms)
+  TypeError [Error]: train.depart is not a function
+      at departIn (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1400:42)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2123:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2130:1
+✖ delivery-train P9 main: next prints the action as JSON with its exit code, and an unknown subcommand is a usage error (271.556875ms)
+  TypeError [Error]: train.main is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2133:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2147:1
+✖ delivery-train P9 main: depart prints its result and the exit code of the departure (293.832227ms)
+  TypeError [Error]: train.main is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2150:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2160:1
+✖ delivery-train P9 wait: polls next and prints the action once it differs from the first (411.268623ms)
+  TypeError [Error]: train.runCommand is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2167:25)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2187:1
+✖ delivery-train P12: a typed /devkit train keeps a roadmap run and a typed /devkit change after it still ends it (3.254209ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'roadmap 2'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2189:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'roadmap 2',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2197:1
+✖ delivery-train P13: /devkit train starts the verb, with text after it is refused, and a refused train setting stops it (1.952601ms)
+  AssertionError [ERR_ASSERTION]: en
+  + actual - expected
+  
+    [
+      0,
+  +   'unknown-verb',
+      'train',
+  +   'So far /devkit change, /devkit roadmap, /devkit status and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, or /devkit project and a name to plan a new project or slice.'
+  -   'train',
+  -   undefined
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2201:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 0, 'unknown-verb', 'train', 'So far /devkit change, /devkit roadmap, /devkit status and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, or /devkit project and a name to plan a new project or slice.' ],
+    expected: [ 0, 'train', 'train', undefined ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2214:1
+✖ delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both languages (0.68297ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project and \/devkit train exist/. Input:
+  
+  'So far /devkit change, /devkit roadmap, /devkit status and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, or /devkit project and a name to plan a new project or slice.'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2215:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'So far /devkit change, /devkit roadmap, /devkit status and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, or /devkit project and a name to plan a new project or slice.',
+    expected: /So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project and \/devkit train exist/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2223:1
+✖ delivery-train loop: the new train replies exist in both languages, each with its own text (0.510347ms)
+  AssertionError [ERR_ASSERTION]: train-off
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2225:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+exit 1

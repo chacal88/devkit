@@ -1,5 +1,5 @@
 // Tests for changes-under-way.mjs and the schema upgrade over changes under way (field-fixes 7, design D-7).
-// Imported by hooks/guard.test.mjs so that `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs`.
 // The scratch project starts on the v0.13.0 schemas (a committed fixture: CI checks out without tags).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +9,7 @@ import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { gitRepo, put, commitAll, git, fakeGh } from '../../../hooks/deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh } from '../../../hooks/test-fixtures.mjs';
 import * as flowCheck from '../../../hooks/flow-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));

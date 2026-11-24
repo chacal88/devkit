@@ -1,6 +1,6 @@
 // node --test plugins/openspec/hooks/jira-task.test.mjs
 // jira-entry: the pure tests of `jira-task.mjs` (design D-1) and the no-network source check (AC-9).
-// Imported by guard.test.mjs, so the whole suite runs this file too. Every Jira answer here is a fake object.
+// Run by `node scripts/test-suite.mjs`, in a process of its own. Every Jira answer here is a fake object.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

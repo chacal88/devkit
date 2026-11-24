@@ -1,0 +1,23 @@
+Change proof-fix (devkit-lite script)
+
+ 1  Open the change         passed
+ 2  Requirements (grill)    passed
+ 3  Proposal                passed
+ 4  Specs                   passed
+ 5  Tasks                   passed
+ 6  Implementation          passed: 1 of 1 tasks done
+ 7  Unit tests              failed at attempt 1 of 3
+ 8  E2E tests               does not apply: openspec/config.yaml declares no devkit.tests.e2e
+ 9  Demonstration           blocked: waits for stage 7
+10  Code review             blocked: waits for stage 9
+11  Delivery                blocked: waits for stage 10
+12  Retro and archive       blocked: waits for stage 11
+
+Next stage: 6 Implementation
+Who runs it: tdd-implementer
+Why: the unit tests failed at attempt 1 of 3 and the code has not changed since; the fix comes before another review.
+
+Spend of proof-fix, in tokens:
+Stage Unit tests: haiku 41811, sonnet 1947
+Stage Implementation: sonnet 23605
+Total: 67363 tokens; no budget is set

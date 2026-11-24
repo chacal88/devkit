@@ -1,5 +1,5 @@
-// Tests for install-schemas.sh (devkit per project, design D5). Imported by hooks/guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for install-schemas.sh (devkit per project, design D5). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/install-schemas.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, existsSync, readdirSync, realpathSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';

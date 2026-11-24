@@ -8,8 +8,7 @@ import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
-import { git, put, commitAll } from './deliver-check.test.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
+import { git, put, commitAll, SET, TWO_PRS, BODY, REVIEWS, prove, scenario, ARCHIVED_FEAT, TEST_ARCHIVE, archiving, roundRepo } from './test-fixtures.mjs';
 import * as guard from './guard.mjs';
 import * as deliver from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
@@ -17,11 +16,7 @@ import { main, render, readDevkitSettings, MESSAGES, decide, exitCodeOf, unfinis
 import { deliveryStep, actorOf } from './conduct-check.mjs';
 import { collectFlow, reasonText } from './flow-check.mjs';
 
-// The env fixture of this suite: the variables a CI run sets for a pull request are blanked together.
-const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
 const cleanEnv = { ...process.env, ...SET };
-
-export const TWO_PRS = 'devkit:\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
 
 function configRepo(text) {
   const root = tmpFolder('devkit-delivery-models-cfg-');
@@ -274,160 +269,9 @@ test('delivery-models open: the new replies exist in both languages and name no 
   }
 });
 
-// ---------------------------------------------------------------- simGitHub (D-11): a second fake gh with state across calls
-//
-// The fake keeps its pull requests in a JSON file and reads heads live from the bare origin, so a push moves a pull request
-// as it does on GitHub. It answers the calls deliver-check makes (`pr list` with --head, --base and --state, `pr checks`,
-// `api graphql`, the repository, the contents and the files of a pull request, `run view`) and the writes the agents make
-// (`pr create`, `pr close`, `run rerun`). A merge is the test's hook (`__merge`): a merge commit or a squash made in the origin.
-
-const SIM_GH = String.raw`#!/usr/bin/env node
-const fs = require('node:fs');
-const cp = require('node:child_process');
-const dir = process.env.SIM_GH_DIR;
-const origin = process.env.SIM_GH_ORIGIN;
-const args = process.argv.slice(2);
-const stateFile = dir + '/state.json';
-const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-const save = () => fs.writeFileSync(stateFile, JSON.stringify(state));
-if (!args[0].startsWith('__')) fs.appendFileSync(dir + '/calls.log', JSON.stringify(args) + '\n');
-const ident = { GIT_AUTHOR_NAME: 'sim', GIT_AUTHOR_EMAIL: 'sim@devkit.invalid', GIT_COMMITTER_NAME: 'sim', GIT_COMMITTER_EMAIL: 'sim@devkit.invalid', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' };
-const git = (...a) => cp.spawnSync('git', ['--git-dir', origin, ...a], { encoding: 'utf8', env: { ...process.env, ...ident } });
-const tip = (b) => { const r = git('rev-parse', '--verify', '-q', 'refs/heads/' + b); return r.status === 0 ? r.stdout.trim() : null; };
-const out = (v) => { process.stdout.write(typeof v === 'string' ? v : JSON.stringify(v)); process.exit(0); };
-const fail = (m, code) => { process.stderr.write(m + '\n'); process.exit(code || 1); };
-const opt = (n) => { const i = args.indexOf(n); return i < 0 ? null : args[i + 1]; };
-const mergeable = (p) => { const b = tip(p.base); const h = tip(p.head); if (!b || !h) return 'UNKNOWN'; return git('merge-tree', '--write-tree', b, h).status === 0 ? 'MERGEABLE' : 'CONFLICTING'; };
-const view = (p) => ({ number: p.number, url: p.url, state: p.state, headRefOid: p.state === 'MERGED' ? p.mergedHead : tip(p.head), baseRefName: p.base, headRefName: p.head, mergeable: p.state === 'OPEN' ? mergeable(p) : 'UNKNOWN', body: p.body || '', mergedAt: p.mergedAt || null, autoMergeRequest: null, mergeStateStatus: 'CLEAN' });
-const filesOf = (p) => (p.state === 'MERGED' ? p.files : git('diff', '--name-only', tip(p.base) + '...' + tip(p.head)).stdout.split('\n').filter(Boolean));
-const prOf = (n) => { const p = state.prs.find((x) => x.number === Number(n)); if (!p) fail('no pull request #' + n); return p; };
-
-if (args[0] === '__merge') {
-  const p = prOf(args[1]);
-  if (p.state !== 'OPEN') fail('not open');
-  const b = tip(p.base); const h = tip(p.head);
-  const m = git('merge-tree', '--write-tree', b, h);
-  if (m.status !== 0) fail('conflict');
-  const parents = (args[2] || 'merge') === 'squash' ? ['-p', b] : ['-p', b, '-p', h];
-  const c = git('commit-tree', m.stdout.split('\n')[0], ...parents, '-m', 'Merge pull request #' + p.number).stdout.trim();
-  const files = filesOf(p);
-  git('update-ref', 'refs/heads/' + p.base, c);
-  Object.assign(p, { state: 'MERGED', mergedHead: h, mergedAt: new Date().toISOString(), files });
-  save();
-  out(c);
-}
-const [a, b] = args;
-if (a === 'pr' && b === 'list') {
-  const head = opt('--head'); const base = opt('--base'); const st = opt('--state') || 'open';
-  out(state.prs.filter((p) => (!head || p.head === head) && (!base || p.base === base) && (st === 'all' || p.state === st.toUpperCase()))
-    .sort((x, y) => y.number - x.number).slice(0, Number(opt('--limit') || 30)).map(view));
-}
-if (a === 'pr' && b === 'view') fail('no pull requests found for branch "x"');
-if (a === 'pr' && b === 'create') {
-  const p = { number: ++state.next, base: opt('--base'), head: opt('--head'), title: opt('--title'), body: opt('--body') || '', state: 'OPEN' };
-  p.url = 'https://github.com/o/r/pull/' + p.number;
-  state.prs.push(p);
-  save();
-  out(p.url + '\n');
-}
-if (a === 'pr' && b === 'close') { prOf(args[2]).state = 'CLOSED'; save(); out(''); }
-if (a === 'pr' && b === 'checks') out(state.checks[args[2]] || []);
-if (a === 'run' && b === 'view') { const r = state.runs[args[2]]; if (!r) fail('no run ' + args[2]); out({ startedAt: r.startedAt }); }
-if (a === 'run' && b === 'rerun') out('');
-if (a === 'api') {
-  const route = args[1];
-  if (route === 'graphql') out({ data: { viewer: { login: 'owner' }, repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { nodes: [] }, reviews: { nodes: [] } } } } });
-  if (route === 'repos/{owner}/{repo}') out({ default_branch: state.defaultBranch, allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true });
-  const files = /^repos\/\{owner\}\/\{repo\}\/pulls\/(\d+)\/files$/.exec(route);
-  if (files) out(filesOf(prOf(files[1])).join('\n') + '\n');
-  const contents = /^repos\/\{owner\}\/\{repo\}\/contents\/(.*)\?ref=(.*)$/.exec(route);
-  if (contents) {
-    const spec = 'refs/heads/' + decodeURIComponent(contents[2]) + ':' + contents[1];
-    const kind = git('cat-file', '-t', spec);
-    if (kind.status !== 0) fail('gh: Not Found (HTTP 404)');
-    if (kind.stdout.trim() === 'tree') out(git('ls-tree', '--name-only', spec).stdout.split('\n').filter(Boolean).map((name) => ({ name })));
-    out({ name: contents[1].split('/').pop(), encoding: 'base64', content: Buffer.from(git('show', spec).stdout).toString('base64') });
-  }
-}
-fail('simGitHub: unhandled ' + args.join(' '), 99);
-`;
-
-function simGitHub({ origin, defaultBranch = 'main' }) {
-  const dir = tmpFolder('devkit-delivery-models-gh-');
-  const bin = join(dir, 'bin');
-  mkdirSync(bin);
-  writeFileSync(join(bin, 'gh'), SIM_GH);
-  chmodSync(join(bin, 'gh'), 0o755);
-  const file = join(dir, 'state.json');
-  writeFileSync(file, JSON.stringify({ next: 10, prs: [], checks: {}, runs: {}, defaultBranch }));
-  const env = { PATH: `${bin}:${process.env.PATH}`, SIM_GH_DIR: dir, SIM_GH_ORIGIN: origin };
-  const read = () => JSON.parse(readFileSync(file, 'utf8'));
-  const edit = (f) => { const s = read(); f(s); writeFileSync(file, JSON.stringify(s)); };
-  const call = (...args) => {
-    const r = spawnSync(join(bin, 'gh'), args, { env: { ...process.env, ...env }, encoding: 'utf8' });
-    if (r.status !== 0) throw new Error(`simGitHub ${args.join(' ')}: ${r.stderr}`);
-    return r.stdout.trim();
-  };
-  const calls = () => (existsSync(join(dir, 'calls.log')) ? readFileSync(join(dir, 'calls.log'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
-  return {
-    env, dir, calls,
-    writes: () => calls().filter((c) => (c[0] === 'pr' && ['create', 'close', 'merge', 'reopen', 'edit'].includes(c[1])) || (c[0] === 'run' && c[1] === 'rerun')),
-    prs: () => read().prs,
-    pr: (n) => read().prs.find((p) => p.number === n),
-    gh: (cwd) => makeGh(cwd, { ...process.env, ...env }),
-    create: ({ base, head, body = '' }) => Number(call('pr', 'create', '--base', base, '--head', head, '--title', `${head} to ${base}`, '--body', body).split('/').pop()),
-    close: (n) => call('pr', 'close', String(n)),
-    merge: (n, method = 'merge') => call('__merge', String(n), method),
-    setChecks: (n, list) => edit((s) => { s.checks[n] = list; }),
-    setRun: (id, run) => edit((s) => { s.runs[id] = run; }),
-    setDefaultBranch: (name) => edit((s) => { s.defaultBranch = name; }),
-  };
-}
-
 // ---------------------------------------------------------------- the scenario fixture: origin with main and develop, the main checkout, the task worktree
 
-const BODY = 'feat\n- AC-1\nopenspec/changes/feat/evidence.md\n';
 const CHECK = (name, bucket, link = `https://github.com/o/r/actions/runs/77/job/1`) => ({ name, state: bucket.toUpperCase(), bucket, link });
-const REVIEWS = ['code-quality-reviewer', 'test-coverage-reviewer'];
-
-// Evidence and both reviews at the worktree's head: items 1 to 4 are met while only openspec/ files change after it.
-function prove(wt) {
-  const sha = git(wt, 'rev-parse', 'HEAD');
-  put(wt, {
-    'openspec/changes/feat/evidence.md': `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n`,
-    ...Object.fromEntries(REVIEWS.map((r) => [`openspec/changes/feat/reviews/${r}.md`, `Verdict: approved\nCommit: ${sha}\n\n# Review\n`])),
-  });
-  return commitAll(wt, 'evidence and reviews');
-}
-
-export function scenario({ config = `schema: devkit-lite\n${TWO_PRS}` } = {}) {
-  const t = roundRepo({ roadmap: '# Roadmap\n', config });
-  git(t.main, 'push', '-q', 'origin', 'HEAD:refs/heads/develop');
-  const wt = t.addWt('feat');
-  put(wt, {
-    'openspec/changes/feat/.openspec.yaml': 'schema: devkit-lite\n',
-    'openspec/changes/feat/proposal.md': '<!-- devkit-stage proposal result=passed attempt=1 commit=none -->\n# Proposal\n\n## Acceptance criteria\n\n- AC-1: something\n',
-    'openspec/changes/feat/tasks.md': '# Tasks\n\n## 1. Phase\n\n- [x] 1.1 code\n',
-    'src/a.ts': 'a\n',
-  });
-  commitAll(wt, 'code');
-  prove(wt);
-  git(wt, 'push', '-q', 'origin', 'feat');
-  const sim = simGitHub({ origin: t.originDir });
-  const env = { ...process.env, ...sim.env, ...SET };
-  const s = {
-    ...t, wt, sim, env,
-    state: (root = wt) => deliver.collectState(root, 'feat', { env }),
-    next: (root = wt) => deliver.nextStep(s.state(root)),
-    report: () => deliver.buildReport(s.state(), env),
-    // What the commit-and-pr agent does for open-prs: both pull requests from the task branch.
-    openBoth: () => ({ base: sim.create({ base: 'main', head: 'feat', body: BODY }), test: sim.create({ base: 'develop', head: 'feat', body: BODY }) }),
-    // A fix on the task branch, committed with its evidence and reviews.
-    fix: (text = 'fixed\n') => { put(wt, { 'src/a.ts': text }); commitAll(wt, 'fix'); return { fix: git(wt, 'rev-parse', 'HEAD'), proof: prove(wt) }; },
-    ancestorOf: (sha, head) => spawnSync('git', ['--git-dir', t.originDir, 'merge-base', '--is-ancestor', sha, head]).status === 0,
-  };
-  return s;
-}
 
 // ---------------------------------------------------------------- P7 nextStep in two-prs (pure): one test per row of D-4's table
 
@@ -1859,37 +1703,6 @@ test('delivery-models P6: with the base branch not the default branch the test-b
 });
 
 // ---------------------------------------------------------------- phase 5: the archive to both branches (AC-9; P9, P10, P13)
-
-const ARCHIVED_FEAT = 'openspec/changes/archive/2026-11-09-feat';
-const RETRO = '# Retro: feat\n\n## Proposed updates\n\nNone.\n';
-const TEST_ARCHIVE = 'chore/archive-feat-develop';
-
-// Both change pull requests merged, then the archive of `feat` committed on its own branch in the task worktree, pushed, with its
-// pull request to main open. `testArchive` does what the commit-and-pr agent does for open-test-archive-pr.
-export function archiving(options) {
-  const s = scenario(options);
-  const { base, test } = s.openBoth();
-  s.sim.merge(test);
-  s.sim.merge(base);
-  git(s.wt, 'fetch', '-q', 'origin');
-  git(s.wt, 'switch', '-q', '-c', 'chore/archive-feat', 'origin/main');
-  put(s.wt, { 'openspec/changes/feat/retro.md': RETRO });
-  mkdirSync(join(s.wt, 'openspec', 'changes', 'archive'), { recursive: true });
-  renameSync(join(s.wt, 'openspec', 'changes', 'feat'), join(s.wt, ARCHIVED_FEAT));
-  commitAll(s.wt, 'archive feat');
-  s.commits = git(s.wt, 'rev-list', '--reverse', 'origin/main..HEAD').split('\n');
-  git(s.wt, 'push', '-q', 'origin', 'chore/archive-feat');
-  s.basePr = s.sim.create({ base: 'main', head: 'chore/archive-feat', body: 'archive' });
-  s.testWt = join(s.main, '.claude', 'worktrees', 'archive-feat-develop');
-  // The worktree of the test archive branch, from origin/develop; the cherry-pick may be left conflicted.
-  s.cutTest = ({ pick = true } = {}) => {
-    git(s.main, 'worktree', 'add', '-q', '-b', TEST_ARCHIVE, s.testWt, 'origin/develop');
-    if (!pick) return null;
-    return spawnSync('git', ['-C', s.testWt, '-c', 'user.name=t', '-c', 'user.email=t@t.invalid', 'cherry-pick', ...s.commits], { encoding: 'utf8' });
-  };
-  s.testPr = () => { git(s.testWt, 'push', '-q', 'origin', TEST_ARCHIVE); return s.sim.create({ base: 'develop', head: TEST_ARCHIVE, body: 'archive' }); };
-  return s;
-}
 
 const noWrites = (s, before) => assert.equal(s.sim.writes().length, before, 'no create, close, merge or reopen is recorded');
 
