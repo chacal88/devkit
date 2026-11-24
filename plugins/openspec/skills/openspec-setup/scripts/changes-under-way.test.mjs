@@ -9,7 +9,7 @@ import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { gitRepo, put, commitAll, git, fakeGh } from '../../../hooks/deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh } from '../../../hooks/test-fixtures.mjs';
 import * as flowCheck from '../../../hooks/flow-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));

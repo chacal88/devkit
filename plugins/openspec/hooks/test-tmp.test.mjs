@@ -131,14 +131,14 @@ test('test-fixture-cleanup AC-4 a copy with one byte changed is named', () => {
   assert.deepEqual(differingCopies([HELPER_COPIES[0], changed]), [changed]);
 });
 
-// `<path relative to root>:<line>` of every raw temporary-folder call in a *.test.mjs under <root>/plugins.
+// `<path relative to root>:<line>` of every raw temporary-folder call in a *.test.mjs or a test-fixtures.mjs under <root>/plugins.
 const RAW_TEMP_CALL = /\bmkdtempSync\s*\(|\btmpdir\s*\(/;
 function rawTempCalls(root) {
   const found = [];
   const files = readdirSync(join(root, 'plugins'), { recursive: true });
   for (const file of files) {
     const parts = String(file).split(/[\\/]/);
-    if (parts.includes('node_modules') || !String(file).endsWith('.test.mjs')) continue;
+    if (parts.includes('node_modules') || !(String(file).endsWith('.test.mjs') || parts.at(-1) === 'test-fixtures.mjs')) continue;
     const lines = readFileSync(join(root, 'plugins', String(file)), 'utf8').split('\n');
     lines.forEach((line, at) => {
       if (RAW_TEMP_CALL.test(line)) found.push(`${join('plugins', String(file))}:${at + 1}`);
@@ -157,6 +157,18 @@ test('test-fixture-cleanup AC-3 a raw mkdtemp or tmpdir call in a test file is f
     'const c = tmpFolder(\'devkit-ok-\');',
   ].join('\n'));
   assert.deepEqual(rawTempCalls(root), ['plugins/x/fake.test.mjs:2', 'plugins/x/fake.test.mjs:3']);
+});
+
+test('suite-speed AC-3 the raw-temp scan reads test-fixtures.mjs', () => {
+  const root = tmpFolder('devkit-tmp-raw-fixtures-');
+  mkdirSync(join(root, 'plugins', 'x'), { recursive: true });
+  writeFileSync(join(root, 'plugins', 'x', 'test-fixtures.mjs'), [
+    "import { tmpFolder } from './test-tmp.mjs';",
+    'const a = ' + 'mkdtemp' + "Sync('x');",
+    'const c = tmpFolder(\'devkit-ok-\');',
+  ].join('\n'));
+  writeFileSync(join(root, 'plugins', 'x', 'notes.mjs'), 'const b = os.' + 'tmp' + 'dir();\n');
+  assert.deepEqual(rawTempCalls(root), ['plugins/x/test-fixtures.mjs:2']);
 });
 
 test('test-fixture-cleanup AC-3 no test file under plugins makes a temporary folder or reads the root by hand', () => {

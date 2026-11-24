@@ -9,7 +9,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
 import * as GUARD from './guard.mjs';
-import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
+import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
+import './deliver-check.test.mjs'; // suite-speed: until the script runs the suite
 import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
 import './conduct-check.test.mjs'; // conduct-rounds: the round computation
 import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
@@ -1217,7 +1218,7 @@ function testFilesUnder(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     if (e.name === 'node_modules') return [];
     const p = join(dir, e.name);
-    return e.isDirectory() ? testFilesUnder(p) : e.name.endsWith('.test.mjs') ? [p] : [];
+    return e.isDirectory() ? testFilesUnder(p) : e.name.endsWith('.test.mjs') || e.name === 'test-fixtures.mjs' ? [p] : [];
   });
 }
 
@@ -1231,6 +1232,17 @@ test('no test env blanks DEVKIT_BRANCH without also blanking GITHUB_HEAD_REF', (
   const plugins = join(here, '..', '..');
   const offenders = testFilesUnder(plugins).flatMap((f) => branchBlankedAlone(readFileSync(f, 'utf8')).map((n) => `${f.slice(plugins.length + 1)}:${n}`));
   assert.deepEqual(offenders, [], 'blank GITHUB_HEAD_REF next to DEVKIT_BRANCH (CONTRIBUTING.md, testing rules)');
+});
+
+test('suite-speed AC-3 the branch-blank scan reads test-fixtures.mjs', () => {
+  const root = tmpFolder('devkit-branch-scan-');
+  mkdirSync(join(root, 'x'), { recursive: true });
+  const fixtures = join(root, 'x', 'test-fixtures.mjs');
+  writeFileSync(fixtures, ['export const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
+  writeFileSync(join(root, 'x', 'notes.mjs'), ['const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
+  const found = testFilesUnder(root);
+  assert.deepEqual(found, [fixtures], 'the fixtures module is scanned, another .mjs file is not');
+  assert.deepEqual(branchBlankedAlone(readFileSync(fixtures, 'utf8')), [1], 'its offending line is found');
 });
 
 // ---------------------------------------------------------------- field-fixes 6: the project's OpenSpec CLI (D-1)

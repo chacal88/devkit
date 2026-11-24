@@ -7,14 +7,12 @@ import { tmpFolder } from './test-tmp.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, roundRepo, readCounter } from './test-fixtures.mjs';
 import { parseRoadmap } from './guard.mjs';
 import * as guardModule from './guard.mjs';
 import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, GATE_OF_WHY, main as changeMain, openChange, thisMachine } from './change-loop.mjs';
 import * as changeLoopModule from './change-loop.mjs';
 import { approvalState } from './deliver-check.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
-import { readCounter } from './change-loop.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
 import { limitOf, readLoad, parseWord, gateOf, isPrevious, classifyLines, decideRoadmap, boardOf, draftText } from './roadmap-loop.mjs';
@@ -34,7 +32,7 @@ const FLOWS = Object.fromEntries(['devkit', 'devkit-lite'].map((s) => [s, JSON.p
 // `flow-check.mjs#isPreviousScript` recognises, Q1, Q2 and `other-work` are current. "Headerless" is a file whose first
 // line is `# <Title>`; "headed" one whose first line is a well-formed stage header of its own stage with result=passed.
 // Built from the rule only: no checkout's state is read and no id of another project is used.
-export function previousForms(root) {
+function previousForms(root) {
   const c0 = git(root, 'rev-parse', 'HEAD');
   const headed = (stage, title) => `<!-- devkit-stage ${stage} result=passed attempt=1 commit=${c0} -->\n# ${title}\n`;
   const bare = (title) => `# ${title}\n`;

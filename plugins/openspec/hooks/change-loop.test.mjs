@@ -9,8 +9,7 @@ import { hostname } from 'node:os';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
-import { gitRepo, put, commitAll, git, openspecStub } from './deliver-check.test.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
+import { gitRepo, put, commitAll, git, openspecStub, sandbox, readCounter, roundRepo } from './test-fixtures.mjs';
 import { shipConfig, collectState, buildReport, approvalState } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
 import { pinsIn } from './release-merge.mjs';
@@ -1609,7 +1608,6 @@ test('change-loop wait: the CLI polls through the fake gh and ends when the chec
 const GUARD = join(HERE, 'guard.mjs');
 const runOf = (input) => guardModule.runOf(input);
 const SESSION = 'session-0001';
-const sandbox = () => tmpFolder('devkit-change-loop-lock-');
 
 // Transcript lines in the stored forms the probe of D-12a recorded (Claude Code 2.1.326, session ids replaced).
 const LINE_BASE = { parentUuid: null, isSidechain: false, userType: 'external', entrypoint: 'sdk-cli', cwd: '/scratch/project', sessionId: SESSION, version: '2.1.326', gitBranch: 'main' };
@@ -1759,24 +1757,6 @@ test('change-loop lock stop: T1 no run in the session lets the stop through', ()
   }
   assert.equal(existsSync(join(tmp, 'devkit-stop')), false, 'nothing recorded');
 });
-
-// A preload that appends one line to COUNT_FILE for every readFileSync of the file named by WATCH_FILE.
-export const readCounter = () => {
-  const dir = sandbox();
-  const preload = join(dir, 'count-reads.mjs');
-  writeFileSync(preload, [
-    "import fs, { appendFileSync } from 'node:fs';",
-    "import { syncBuiltinESMExports } from 'node:module';",
-    'const real = fs.readFileSync;',
-    'fs.readFileSync = (file, ...rest) => { if (String(file) === process.env.WATCH_FILE) appendFileSync(process.env.COUNT_FILE, "read\\n"); return real(file, ...rest); };',
-    'syncBuiltinESMExports();',
-  ].join('\n'));
-  const count = join(dir, 'reads.log');
-  return {
-    env: (watch) => ({ NODE_OPTIONS: `--import=${preload}`, WATCH_FILE: watch, COUNT_FILE: count }),
-    reads: () => (existsSync(count) ? readFileSync(count, 'utf8').split('\n').filter(Boolean).length : 0),
-  };
-};
 
 test('change-loop lock: a hook call in a change run reads the transcript once on every lock, and decides as before', () => {
   const root = planChange({ have: ['requirements', 'decisions'] });

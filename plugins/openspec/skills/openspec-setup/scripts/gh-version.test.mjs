@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { fakeGh } from '../../../hooks/deliver-check.test.mjs';
+import { fakeGh } from '../../../hooks/test-fixtures.mjs';
 import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));

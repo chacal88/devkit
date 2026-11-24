@@ -14,60 +14,9 @@ import * as DC from './deliver-check.mjs';
 import { pendingTasks } from './flow-check.mjs';
 import { createHash } from 'node:crypto';
 import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
+import { GIT_ENV, git, gitRepo, put, commitAll, proposalWith, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, tasksText, check, presetSetup, shipRepo, cli, runCli, mergedPr, archivePrJson, ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS, ARCHIVED_DIR, NOT_FOUND, retroMd, retroPath, writeRetro, pm } from './test-fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const schemas = join(here, '..', 'schemas');
-
-// Commits must not depend on a global git identity.
-const GIT_ENV = {
-  ...process.env,
-  GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid',
-  GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid',
-  GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
-};
-
-export function git(root, ...args) {
-  return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', env: GIT_ENV, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-}
-
-// A repo with openspec/, the schemas, an optional config and change files,
-// and (unless commit is false) one initial commit. Returns the root.
-export function gitRepo({ config = 'schema: devkit-lite\n', changes = {}, files = {}, branch = 'main', commit = true } = {}) {
-  const root = tmpFolder('devkit-deliver-');
-  git(root, 'init', '-q', '-b', branch);
-  mkdirSync(join(root, 'openspec', 'changes', 'archive'), { recursive: true });
-  cpSync(schemas, join(root, 'openspec', 'schemas'), { recursive: true });
-  if (config !== null) writeFileSync(join(root, 'openspec', 'config.yaml'), config);
-  for (const [name, fs] of Object.entries(changes)) put(root, Object.fromEntries(Object.entries(fs).map(([f, b]) => [`openspec/changes/${name}/${f}`, b])));
-  put(root, files);
-  if (commit) commitAll(root, 'initial');
-  return root;
-}
-
-// Write files (path relative to root -> content) without committing.
-export function put(root, files) {
-  for (const [f, body] of Object.entries(files)) {
-    mkdirSync(dirname(join(root, f)), { recursive: true });
-    writeFileSync(join(root, f), body);
-  }
-}
-
-// An `openspec` stand-in in `dir`: `--version` answers `version`; any other call is logged as "<label> <args>" in
-// `marker`, then answers one error status. It lets a test prove which CLI a pack started (field-fixes 6).
-export function openspecStub(dir, { version, label, marker }) {
-  mkdirSync(dir, { recursive: true });
-  const file = join(dir, 'openspec');
-  writeFileSync(file, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo ${version}; exit 0; fi\necho "${label} $*" >> "${marker}"\necho '{"status":[{"severity":"error","message":"stub"}]}'\nexit 1\n`);
-  chmodSync(file, 0o755);
-  return dir;
-}
-
-// Stage everything and commit; returns the new full sha.
-export function commitAll(root, message) {
-  git(root, 'add', '-A');
-  git(root, 'commit', '-q', '--allow-empty', '-m', message);
-  return git(root, 'rev-parse', 'HEAD');
-}
 
 test('test helpers: commits work without a global git identity and return the head sha', () => {
   const root = gitRepo({ changes: { feat: { 'tasks.md': '- [ ] 1.1 a\n' } } });
@@ -678,7 +627,6 @@ test('item 3: no reviews, or reviews without findings, are met', () => {
 
 // ---------------------------------------------------------------- item 4: acceptance criteria proven (D4)
 
-const proposalWith = (ids, extra = '') => `# Proposal\n\n## Why\n\nSee AC-99 elsewhere.\n\n## Acceptance criteria\n\n${ids.map((i) => `- ${i}: something`).join('\n')}\n\n## Impact\n\nMentions AC-98.\n${extra}`;
 const acRow = (id, result) => `| ${id} | proof | ${result} |\n`;
 const acEvidence = (sha, rows) => `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n${rows}`;
 const changeFiles = (files) => Object.fromEntries(Object.entries(files).map(([f, b]) => [`openspec/changes/feat/${f}`, b]));
@@ -772,94 +720,6 @@ test('item 4: no AC ids anywhere is blocked', () => {
 });
 
 // ---------------------------------------------------------------- fake gh (D9)
-
-const FAKE_GH = `#!/usr/bin/env node
-const fs = require('fs');
-const path = require('path');
-const dir = process.env.FAKE_GH_DIR;
-const args = process.argv.slice(2);
-const apiKey = () => {
-  if (args[1] === 'graphql') return 'api-graphql';
-  const x = args.indexOf('-X');
-  const method = x >= 0 ? args[x + 1] : 'GET';
-  const route = args.slice(1).find((a, i, all) => !a.startsWith('-') && all[i - 1] !== '-X' && all[i - 1] !== '-F' && all[i - 1] !== '-f' && all[i - 1] !== '--jq' && all[i - 1] !== '--input');
-  return 'api-' + method + '-' + String(route).replace(/[\\/{}?]/g, '_');
-};
-const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
-// pr list: the most specific fixture wins (--head, then --state), then plain pr-list.
-const keys = args[0] === 'api' ? [apiKey()] : args[0] === 'pr' && args[1] === 'list'
-  ? [...(opt('--head') ? ['pr-list-head-' + opt('--head').replace(/[\\/{}?]/g, '_')] : []), ...(opt('--state') ? ['pr-list-state-' + opt('--state')] : []), 'pr-list']
-  : args[0] === '--version' ? ['version']
-  : [args[0] + '-' + args[1] + (args.includes('--watch') ? '-watch' : '')];
-// A view of a PR by number may have its own fixture (pr-view-<n>.json), ahead of the plain pr-view ones.
-const own = args[0] === 'pr' && args[1] === 'view' && /^[0-9]+$/.test(args[2] || '') ? path.join(dir, 'pr-view-' + args[2] + '.json') : null;
-const key = keys[0];
-fs.appendFileSync(path.join(dir, 'calls.log'), JSON.stringify(args) + '\\n');
-// A body read of a merged PR in the list is answered from it, and is not counted as a plain pr-view call.
-const fields = (opt('--json') || '').split(',');
-const merged = path.join(dir, 'pr-list-state-merged.json');
-const project = (o) => Object.fromEntries(fields.filter((f) => f in o).map((f) => [f, o[f]]));
-if (own && !fs.existsSync(own) && fs.existsSync(merged) && opt('--json') === 'body') {
-  const hit = (JSON.parse(fs.readFileSync(merged, 'utf8')).stdout || []).find((p) => String(p.number) === args[2]);
-  if (hit) { process.stdout.write(JSON.stringify(project(hit))); process.exit(0); }
-}
-const counter = path.join(dir, key + '.count');
-const n = (fs.existsSync(counter) ? Number(fs.readFileSync(counter, 'utf8')) : 0) + 1;
-fs.writeFileSync(counter, String(n));
-const file = [own, ...keys.flatMap((k) => [k + '.' + n + '.json', k + '.json']).map((f) => path.join(dir, f))].filter(Boolean).find((f) => fs.existsSync(f));
-// Like gh, answer only the JSON fields asked for: a merged-PR list carries a body only on request.
-if (args[0] === 'pr' && args[1] === 'list' && opt('--state') === 'merged' && file === merged) {
-  const fx = JSON.parse(fs.readFileSync(file, 'utf8'));
-  if (Array.isArray(fx.stdout)) { process.stdout.write(JSON.stringify(fx.stdout.map(project))); process.exit(fx.exit === undefined ? 0 : fx.exit); }
-}
-if (!file) {
-  process.stderr.write('fake gh: no fixture for "' + key + '" (call ' + n + '): ' + args.join(' ') + '\\n');
-  process.exit(99);
-}
-const fx = JSON.parse(fs.readFileSync(file, 'utf8'));
-const finish = () => {
-  if (fx.stdout !== undefined) process.stdout.write(typeof fx.stdout === 'string' ? fx.stdout : JSON.stringify(fx.stdout));
-  if (fx.stderr) process.stderr.write(fx.stderr);
-  process.exit(fx.exit === undefined ? 0 : fx.exit);
-};
-if (fx.sleep) setTimeout(finish, fx.sleep); else finish();
-`;
-
-// A gh on PATH answering from JSON fixtures: set('pr-view', { stdout, stderr, exit, sleep }, n?)
-// writes pr-view.json (every call) or pr-view.<n>.json (that call only).
-export function fakeGh() {
-  const base = tmpFolder('devkit-gh-');
-  const bin = join(base, 'bin');
-  const dir = join(base, 'fixtures');
-  mkdirSync(bin);
-  mkdirSync(dir);
-  writeFileSync(join(bin, 'gh'), FAKE_GH);
-  chmodSync(join(bin, 'gh'), 0o755);
-  return {
-    bin,
-    dir,
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_GH_DIR: dir },
-    set(key, fixture, n) { writeFileSync(join(dir, n ? `${key}.${n}.json` : `${key}.json`), JSON.stringify(fixture)); },
-    // The files pull request <n> changed, and the tasks.md of <id> on the default branch (field-fixes 4).
-    prFiles(n, files) { this.set(PR_FILES_KEY(n), filesFixture(files)); },
-    tasksOnDefault(id, text, base = 'main') { this.set(TASKS_ON_KEY(id, base), tasksFixture(text)); },
-    // Start counting calls to `key` from 1 again (per-call fixtures).
-    resetCount(key) { fsRm(join(dir, `${key}.count`), { force: true }); },
-    calls() {
-      const f = join(dir, 'calls.log');
-      return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
-    },
-  };
-}
-
-// The fixture keys of the two GitHub reads the delivery makes (field-fixes 4): the files a pull request changed
-// and the tasks.md of a change on the default branch. An unset key fails loudly, as every fake gh key does.
-export const PR_FILES_KEY = (n) => `api-GET-repos__owner___repo__pulls_${n}_files`;
-export const TASKS_ON_KEY = (id, base = 'main') => `api-GET-repos__owner___repo__contents_openspec_changes_${id}_tasks.md_ref=${base}`;
-export const filesFixture = (files) => ({ stdout: files.map((f) => `${f}\n`).join('') });
-export const tasksFixture = (text) => ({ stdout: { name: 'tasks.md', encoding: 'base64', content: Buffer.from(text).toString('base64') } });
-// A tasks.md with the given ticked and unticked task ids, one task per line under phase headings.
-export const tasksText = ({ ticked = [], unticked = [] } = {}) => `# Tasks\n\n${[...ticked.map((id) => `- [x] ${id} done`), ...unticked.map((id) => `- [ ] ${id} left`)].join('\n')}\n`;
 
 const callGh = (gh, ...args) => spawnSync('gh', args, { env: gh.env, encoding: 'utf8' });
 
@@ -1052,7 +912,6 @@ test('item 5: uncommitted files in the change folder are open even when the head
 
 // ---------------------------------------------------------------- item 6: required checks (D4)
 
-const check = (name, bucket, link = `https://ci/${name}`) => ({ name, state: bucket.toUpperCase(), bucket, link });
 const pr6 = (t) => checksItem(fetchPr(t.run), t.run);
 const argsOf = (t, cmd) => t.gh.calls().filter((c) => c[0] === 'pr' && c[1] === cmd);
 
@@ -1739,45 +1598,12 @@ test('summarize: ready only at 8/8, else the lowest blocked item, else the lowes
 
 // ---------------------------------------------------------------- resume and walkthrough (AC-2, AC-5)
 
-const TASKS = `# Tasks
-
-## 1. First
-- [ ] 1.1 code one
-- [ ] 1.2 Gate: \`node -e 0\` green
-
-## 2. Second
-- [ ] 2.1 code two
-- [ ] 2.2 code three
-- [ ] 2.3 Gate: \`node -v && node -e 0\` green
-`;
 const tick = (root, ...ids) => {
   const f = join(root, 'openspec/changes/feat/tasks.md');
   let text = readFileSync(f, 'utf8');
   for (const id of ids) text = text.replace(`- [ ] ${id} `, `- [x] ${id} `);
   writeFileSync(f, text);
 };
-// The fake gh answers of a repository ready for merge mode (auto-merge allowed, devkit-reviews required).
-function presetSetup(gh, { repo = {}, rules = [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }] } = {}) {
-  gh.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main', allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true, ...repo } });
-  gh.set('api-GET-repos__owner___repo__rules_branches_main', { stdout: rules });
-  gh.set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' });
-}
-// A devkit-lite change `feat` with ship: pr, on branch ship/feat, committed. `extra` is config text appended to
-// openspec/config.yaml before the first commit (release-tags: a `devkit:` block).
-function shipRepo({ ship = 'pr', method = '', extra = '' } = {}) {
-  const root = gitRepo({
-    config: `schema: devkit-lite\nship:\n  devkit-lite: ${ship}\n${method ? `merge_method: ${method}\n` : ''}${extra}`,
-    changes: { feat: { '.openspec.yaml': 'schema: devkit-lite\n', 'proposal.md': proposalWith(['AC-1', 'AC-2']), 'tasks.md': TASKS } },
-    files: { 'src/a.ts': 'a\n', ...(ship === 'merge' ? { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' } : {}) },
-  });
-  git(root, 'switch', '-q', '-c', 'ship/feat');
-  const gh = fakeGh();
-  if (ship === 'merge') presetSetup(gh);
-  if (ship !== 'plan') gh.set('pr-list', { stdout: [] });
-  gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "ship/feat"\n' });
-  const env = { ...gh.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
-  return { root, gh, env, next: () => nextStep(collectState(root, 'feat', { env })) };
-}
 // A schema `devkit` change `feat` (readiness artifact declared), ship: pr, on
 // branch ship/feat, committed. Readiness and the branch are the variables.
 function devkitRepo({ readiness = null, branch = 'ship/feat', others = [], ship = 'pr' } = {}) {
@@ -2731,12 +2557,6 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
 });
 
 // ---------------------------------------------------------------- CLI (D4, AC-6, AC-10)
-
-const cli = join(here, 'deliver-check.mjs');
-function runCli(t, args, { env = {}, cwd = t.root } = {}) {
-  const r = spawnSync('node', [cli, ...args], { cwd, encoding: 'utf8', env: { ...t.env, DEVKIT_HOST: 'cli', CLAUDE_CODE_ENTRYPOINT: '', ...env } });
-  return { code: r.status, out: r.stdout, err: r.stderr };
-}
 
 test('CLI: eight item lines, the N/8 summary and next', () => {
   const t = shipRepo();
@@ -3823,57 +3643,12 @@ test('AC-8 release-ready: every pack version matches its marketplace entry, the 
 
 // ================================================================ after the merge: the archive steps (archive-after-merge phase 2)
 
-const EVIDENCE_LINK = 'openspec/changes/feat/evidence.md';
-export const mergedPr = (over = {}) => ({
-  number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefName: 'ship/feat', headRefOid: 'b'.repeat(40), baseRefName: 'main',
-  mergeable: 'UNKNOWN', mergedAt: '2026-11-09T14:56:00Z', body: `feat\n${EVIDENCE_LINK}\n`, autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', ...over,
-});
-export const archivePrJson = (over = {}) => ({
-  number: 13, url: 'https://github.com/o/r/pull/13', state: 'OPEN', headRefOid: 'c'.repeat(40), baseRefName: 'main',
-  mergeable: 'MERGEABLE', autoMergeRequest: null, mergeStateStatus: 'CLEAN', ...over,
-});
-export const ARCHIVE_LISTING = 'api-GET-repos__owner___repo__contents_openspec_changes_archive_ref=main';
-const ACTIVE_ON_MAIN = 'api-GET-repos__owner___repo__contents_openspec_changes_feat_ref=main';
-export const ARCHIVE_PRS = 'pr-list-head-chore_archive-feat';
-const ARCHIVED_DIR = 'openspec/changes/archive/2026-11-09-feat';
-const NOT_FOUND = { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' };
-
 const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
 const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
   `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
-export const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
-const retroPath = (archived) => (archived ? `${ARCHIVED_DIR}/retro.md` : 'openspec/changes/feat/retro.md');
-export const writeRetro = (t, md, archived = false) => put(t.root, { [retroPath(archived)]: md });
 // What `openspec archive feat --yes` does to the working tree.
-export const archiveFolder = (t) => renameSync(join(t.root, 'openspec/changes/feat'), join(t.root, ARCHIVED_DIR));
+const archiveFolder = (t) => renameSync(join(t.root, 'openspec/changes/feat'), join(t.root, ARCHIVED_DIR));
 const ticked = '## Round 3\n- [x] feat\n';
-
-// A repository after the change PR was merged: the default branch holds the change
-// folder and the roadmap, origin/main is that commit, GitHub lists the merged PR.
-export function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs = [], mergedPrs = [mergedPr()], extra = '' } = {}) {
-  const t = shipRepo({ ship, extra });
-  git(t.root, 'switch', '-q', 'main');
-  put(t.root, { 'openspec/roadmap.md': '## Round 3\n- [ ] feat\n', 'CONTRIBUTING.md': 'old\n' });
-  commitAll(t.root, 'roadmap');
-  git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
-  if (branch !== 'main') {
-    const exists = spawnSync('git', ['-C', t.root, 'rev-parse', '--verify', '-q', `refs/heads/${branch}`]).status === 0;
-    git(t.root, 'switch', '-q', ...(exists ? [] : ['-c']), branch);
-  }
-  presetSetup(t.gh);
-  // Each merged PR changed the change's folder and every task is ticked on main (field-fixes D-4).
-  for (const p of mergedPrs) t.gh.prFiles(p.number, ['openspec/changes/feat/tasks.md', 'src/a.ts']);
-  t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1', '1.2'] }));
-  t.gh.set('pr-list-state-merged', { stdout: mergedPrs });
-  t.gh.set(ARCHIVE_LISTING, { stdout: onDefault === 'archived' ? [{ name: '2026-11-09-feat' }, { name: '2026-10-01-other' }] : [{ name: '2026-10-01-other' }] });
-  t.gh.set(ACTIVE_ON_MAIN, onDefault === 'absent' ? NOT_FOUND : { stdout: { name: 'feat' } });
-  t.gh.set(ARCHIVE_PRS, { stdout: archivePrs });
-  t.gh.set('pr-checks', { stdout: [check('check', 'pass'), check('devkit-reviews', 'pass')] });
-  t.state = (over = {}) => collectState(t.root, 'feat', { env: { ...t.env, ...over } });
-  t.next = (over = {}) => nextStep(t.state(over));
-  t.json = (args = []) => JSON.parse(runCli(t, ['feat', '--json', ...args]).out);
-  return t;
-}
 
 // The archive branch with the folder moved. `files` are committed on it (or left dirty).
 function onArchiveBranch({ ship = 'merge', proposals = [proposal(['CONTRIBUTING.md'], { answer: 'approved', applied: true })], files = { 'CONTRIBUTING.md': 'new\n' }, commit = true, archivePrs = [], onDefault = 'active' } = {}) {

@@ -8,6 +8,7 @@ import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
+import { pinDoc } from './test-fixtures.mjs';
 
 const script = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
 const ENV = {
@@ -327,23 +328,6 @@ test('release-merge: a missing origin/<base> and an unknown option are setup err
 const here = dirname(fileURLToPath(import.meta.url));
 const pinTmp = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
-// A doc shaped like docs/openspec-flow.md around its CI pin: a top slot, a body, the `## CI` block with
-// the three pin lines of the real file, and a bottom slot. Each slot is 3+ unchanged lines from the pin lines.
-export function pinDoc(version, { top = null, bottom = null } = {}) {
-  const v = `v${version}`;
-  return [
-    '# Flow', '', ...(top === null ? [] : [top, '']),
-    'intro 1', 'intro 2', 'intro 3', 'intro 4', '',
-    '## Body', 'body 1', 'body 2', 'body 3', 'body 4', '',
-    '## CI', '',
-    `          # pinned to the commit of ${v} (a tag can move; a commit cannot)`,
-    `          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of ${v}>/plugins/openspec/hooks`,
-    '', 'ci 1', 'ci 2', 'ci 3', '',
-    `Pin the commit sha of the release tag (\`${v}\` above), not the tag; by hand, run \`gh api repos/chacal88/devkit/git/ref/tags/${v}\`. Bump it on purpose.`,
-    '', 'ci 4', 'ci 5', 'ci 6', '',
-    '## Notes', 'note 1', 'note 2', 'note 3', 'note 4', ...(bottom === null ? [] : ['', bottom]), '',
-  ].join('\n');
-}
 const pinPack = (version) => ({ [PIN_PACK]: json({ name: PIN_PACK_NAME, version, description: 'pack devkit-openspec' }) });
 const pinMarket = (metadata, version) => marketplace(metadata, { a: '0.6.0', b: '0.5.0', [PIN_PACK_NAME]: version });
 const pinSide = (metadata, version) => ({ packs: {}, metadata, packsAll: { a: '0.6.0', b: '0.5.0', [PIN_PACK_NAME]: version }, title: `at ${version}`, body: `- at ${version}` });

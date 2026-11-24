@@ -8,7 +8,7 @@ import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { desiredRuleset, WORKFLOW_PATH, DEVKIT_REVIEWS_CHECK } from '../../../hooks/merge-setup.mjs';
-import { fakeGh, gitRepo, put } from '../../../hooks/deliver-check.test.mjs';
+import { fakeGh, gitRepo, put } from '../../../hooks/test-fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, 'github-setup.mjs');
