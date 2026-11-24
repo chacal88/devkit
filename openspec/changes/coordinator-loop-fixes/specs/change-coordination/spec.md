@@ -255,6 +255,15 @@ place to raise the cap, and that typing `/devkit change` again goes on.
 - **WHEN** the same stop happens and the person's language is `pt-BR`
 - **THEN** the reply says the same in Brazilian Portuguese
 
+### Requirement: A merge-defect fix follows the rule of every plan edit
+The planner's fix of a merge defect SHALL leave `readiness.md`, `approval.md` and the plan stages in
+the state the flow gives any other edit of the plan files once the implementation has started; the
+loop SHALL add no exception to the plan gate for it.
+
+#### Scenario: The same answer as an ordinary plan edit
+- **WHEN** a change with a ticked task, an approved readiness and a current owner approval has its spec delta edited as a merge-defect fix, and the same change has its design edited instead
+- **THEN** the stage checker gives the same states for readiness and approval in both cases: with an approval that records no plan digest neither asks again, and with one both make the readiness stale and ask the owner again
+
 ## ADDED Requirements
 
 ### Requirement: The session declares a pause or a decision outside the gates

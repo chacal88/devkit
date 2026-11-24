@@ -262,7 +262,7 @@ every task with `git status --short`.
   Check: T61 passes, and the tests that read the row pass by name:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^ship-change SKILL.md pins the stop-plan-approval row" --test-name-pattern="^stage-roles gates" --test-name-pattern="^format: ship-change" --test-name-pattern="^flow-check AC-2" --test-name-pattern="^flow-check AC-3" --test-name-pattern="^flow-check AC-6" --test-name-pattern="^change-loop compozy record-approval" --test-name-pattern="^change-loop decide: B12" --test-name-pattern="^conduct: deliveryStep" --test-name-pattern="^field-fixes 7" --test-name-pattern="^stop-plan-approval" plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs`
   passes.
-- [ ] 3.6a D-7, `post-merge-validate`'s requirement on a merge-defect fix, only when the merge of 3.0 brought it to the
+- [x] 3.6a D-7, `post-merge-validate`'s requirement on a merge-defect fix, only when the merge of 3.0 brought it to the
   main spec: when `grep -c "^### Requirement: A merge-defect fix follows the rule of every plan edit" openspec/specs/change-coordination/spec.md`
   prints 1, add under `## MODIFIED Requirements` of `openspec/changes/coordinator-loop-fixes/specs/change-coordination/spec.md`
   a copy of that requirement, its text and every scenario verbatim, with the one change D-7 gives (the scenario's
