@@ -1,27 +1,22 @@
 Verdict: approved
-Commit: 7e305e2e4151ffd509180328b4a05b3f339cb2ae
+Commit: 63c5eac8f72e8319b9056b1c9ca52715cfaf775c
 
 ## Spec review — state-skips-unlocated
 
 ### Findings
-- [nit] openspec/changes/state-skips-unlocated/requirements.md:18 and AC-5 — requirements.md says the caller's checkout wins 'when it holds the change's folder'. The approved spec delta ('The checkout a change is read in') and the code narrow this to the active folder with no folder of the change in the main checkout. requirements.md was not updated to match; the spec resolves the wording silently.
-- [nit] specs/change-state/spec.md, requirement 'The archive is checked before a change is listed unplaced' — This requirement and its two scenarios are implemented and tested ('unlocated 1: ... reads archived'). requirements.md has no acceptance criterion (AC-1 to AC-7) for the archived stale-copy behaviour, so it cannot be traced to the owner-confirmed requirements.
-- [nit] proposal.md, section Impact (Tests) — It says the new tests go in change-loop.test.mjs and roadmap-loop.test.mjs and that no existing test changes. The tests are in change-loop-remote-state.test.mjs and roadmap-loop-upfront.test.mjs, and change-loop-compozy.test.mjs changed (the CI pin assertion, and helpers moved to the fixtures file). tasks.md records the move; the proposal text is stale.
+- [nit] openspec/changes/state-skips-unlocated/design.md D-7; proposal.md Impact; tasks.md 1.1, 2.1, 3.1 — Plan metadata still names change-loop.test.mjs and roadmap-loop.test.mjs as the files holding the new tests; they now live in change-loop-remote-state.test.mjs and roadmap-loop-upfront.test.mjs (only task 3.5 says so). Test names are unchanged and no requirement is affected.
 
-In-scope specs: openspec/changes/state-skips-unlocated/specs/change-state/spec.md and specs/roadmap-coordination/spec.md (deltas). Baselines: openspec/specs/change-state/spec.md, openspec/specs/roadmap-coordination/spec.md and openspec/specs/change-coordination/spec.md (archived-id scenarios the change reuses). ADR 0017 and ADR 0010 are cited by the change; neither is contradicted. `decisions.md` records no new ADR, and `wrong-branch` already exists in both languages in the message table.
+In-scope specs: openspec/changes/state-skips-unlocated/specs/change-state/spec.md, openspec/changes/state-skips-unlocated/specs/roadmap-coordination/spec.md, with the canonical baselines openspec/specs/change-state/spec.md, openspec/specs/roadmap-coordination/spec.md and openspec/specs/coordination-locks/spec.md; ADR 0017 (decisions 1, 2) and ADR 0010 (decision 3) are respected.
 
 ### Coverage
 | Requirement | Status |
-|---|---|
-| change-state: A change the loop cannot place is listed blocked (list, pt-BR, --change, run file first, unknown id exits 3, placeable change unchanged) | covered |
-| change-state: The archive is checked before a change is listed unplaced (archived stale copy; new change reusing the id) | covered |
-| change-state: The checkout a change is read in (caller's worktree, archive worktree wins, own worktree wins, main or own worktree unchanged, main holds a folder, caller holds only an archived folder) | covered |
-| roadmap-coordination: A roadmap line the loop cannot place is shown blocked (board en, board pt-BR, board and state agree, roadmap decision says it once, roadmap stop lock) | covered |
+|-------------|--------|
+| change-state: A change the loop cannot place is listed blocked (6 scenarios) | covered |
+| change-state: The archive is checked before a change is listed unplaced (2 scenarios) | covered |
+| change-state: The checkout a change is read in (6 scenarios) | covered |
+| roadmap-coordination: A roadmap line the loop cannot place is shown blocked (5 scenarios) | covered |
 
-Every scenario maps to a test named 'unlocated 1', 'unlocated 2' or 'unlocated 3'. The helper `unplacedAction` is used on both surfaces: `stateEntries` in change-loop.mjs and `collectRoadmap` in roadmap-loop.mjs. The `locate` order matches the delta. The docs (`docs/openspec-flow.md` state paragraph and the three CI pins), `CHANGELOG.md` 0.43.1 and the release files (devkit-openspec 0.39.1, marketplace 0.43.1) agree with each other. AC-4 (unknown id exits 3) is kept. I found no behaviour in the diff that no requirement asks for.
-
-I ran the 'unlocated' tests in change-loop-remote-state.test.mjs and roadmap-loop-upfront.test.mjs, filtered (39 of 39 pass). I did not run the whole suite.
+Every scenario maps to a test: unlocated 1: tests 1.1 to 1.19 in change-loop-remote-state.test.mjs and unlocated 2: tests 2.1 to 2.8 in roadmap-loop-upfront.test.mjs. The docs follow (unlocated 3: and the release pin). No scope creep: the reused wrong-branch code adds no new message, and the archived check, the locate step and the collectRoadmap helper call each derive from a spec requirement. Filtered run of the unlocated tests at this head: 39 of 39 pass; the whole suite was not run, as instructed.
 
 ### Summary
-- 3 findings (all nit; 0 scope creep, 0 gaps).
-- Spec review: pass. Full coverage; no scope creep.
+- 1 finding (0 scope creep, 0 gaps)

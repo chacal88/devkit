@@ -1,24 +1,17 @@
 Verdict: approved
-Commit: 7e305e2e4151ffd509180328b4a05b3f339cb2ae
+Commit: 63c5eac8f72e8319b9056b1c9ca52715cfaf775c
 
 ## Quality review — state-skips-unlocated (round 1)
 
 ### Findings
-- [praise] plugins/openspec/hooks/change-loop.mjs:1796 and plugins/openspec/hooks/roadmap-loop.mjs:807 — One exported helper, unplacedAction, builds the blocked stand-in. The state command and collectRoadmap both call it, so the board and the command agree by construction (ADR 0017 decision 1). It reuses the existing wrong-branch reason, which already has en and pt-BR texts, instead of adding a second table.
-- [praise] plugins/openspec/hooks/change-loop-remote-state.test.mjs:1432-1458 — locate has one test per guard of the new step (main holds the folder active, main holds it archived, the caller holds only an archived copy, the caller holds no folder, caller in main, caller in the change's own worktree). A negative case is not skipped. The run-file-first, archived-stale-copy and reused-id cases are also covered.
-- [praise] plugins/openspec/hooks/change-loop-fixtures.mjs — archiveGh, archivedFolder, archiveOnOrigin and withCreated moved out of change-loop-compozy.test.mjs into the shared fixtures module. Both suites import them, so no helper is copied.
-- [nit] plugins/openspec/hooks/change-loop.mjs:1843-1854 — stateEntries now reads the archived ids twice when an id is unplaced and others are not placed: once through the lazy `days` (archivedDates) and once through `archived` (archivedOnDefault, which wraps archivedDates). Each read can call the gh API. Deriving `archived` from `new Set(days.keys())` would give one read. unplacedAction also runs locate and knownChange (extra git spawns) for every id, placed ones included.
-- [nit] plugins/openspec/hooks/change-loop.mjs:1406-1414 — The caller step of locate applies to any non-main checkout that holds the active folder while main holds none. That includes a delivery-train checkout (train/<n>), which unfinished() explicitly says is never a change's place. No test pins a train/<n> caller. The train code calls locate from ctx.root, so there is no known impact. A one-line test or comment would record the intent.
-- [nit] plugins/openspec/hooks/roadmap-loop.mjs:807 — For an unplaced line collectRoadmap ignores the `progress` (after) key and goes straight to the stand-in. This is consistent with the run file winning first and with the design, but the behaviour has no test and no comment.
+- [praise] plugins/openspec/hooks/change-loop.mjs:1788 — One shared unplacedAction helper feeds both the state command and collectRoadmap, so board and state agree by construction (ADR 0017).
+- [praise] plugins/openspec/hooks/change-loop-remote-state.test.mjs:1397 — Each locate guard has its own negative test; run-file precedence and the archived-with-stale-copy and id-reuse cases are pinned; phrases come from render().
+- [nit] plugins/openspec/hooks/change-loop.mjs:1843 — stateEntries keeps two caches (days via archivedDates, archived via archivedOnDefault) that can read GitHub/git twice in one command; derive archived from days.
+- [nit] plugins/openspec/hooks/change-loop.mjs:1796 — unplacedAction's holder comes from knownChange/checkoutsOf, which does not skip train/<n> checkouts as unfinished does; a train-only folder could read wrong-branch with the train as root (was exit 3 before, untested).
+- [nit] openspec/changes/state-skips-unlocated/requirements.md:18 — requirements.md words the new locate step without design D-5's narrowing (active folder, main holds none); spec, docs, tests and evidence state the narrower rule, requirements was not revised.
+- [nit] plugins/openspec/hooks/change-loop.mjs:1411 — locate now calls realpathSync(start) on every fall-through path; a nonexistent start would throw where it used to fall back (no such caller found).
 
 ### Summary
-- 6 findings (0 blocking, 0 important, 3 nit) + 3 praise
-- Justification: I read the whole product diff (`locate`, `unplacedAction`, `stateEntries`, `collectRoadmap`), the moved fixtures, the new tests, the docs paragraph, the CHANGELOG and the release pins. Each acceptance criterion maps to a test and to the recorded real run in `evidence.md` and `proof/real-run.txt`.
-  - **State and board:** the state command and the board both list an unplaced change as blocked with `wrong-branch` in en and pt-BR, and they agree on every open line.
-  - **`--change` and unknown ids:** `state --change x` returns the same entry as the list, and `state --change nope` still exits 3.
-  - **`locate`:** AC-5 is covered, including the negative cases.
-  - **Scope and rationale:** the diff stays within the declared scope, and design, proposal and diff do not contradict each other.
-  - **Existing tests and docs:** no existing test was edited, the only change to one being the release-pin assertion moving from 0.39.0 to 0.39.1. `docs/openspec-flow.md` and the `change-state` spec delta name the new reason and the new locate order.
-  - **Release:** 0.39.1 and 0.43.1 are consistent across `plugin.json`, `marketplace.json`, the CHANGELOG and the CI pins.
-  - **Known gaps:** the whole-suite result at this head belongs to the delivery train, and `evidence.md` says so. The pr-verifier ran at this head and its filtered and per-file runs were green. I re-ran the `unlocated` tests: 39 of 39 passed.
-  - **Open points:** no blocking or important issue. The three nits are optional.
+
+- 6 findings (0 blocking, 0 important, 4 nit) + 2 praise.
+- Justification: read the product diff (change-loop.mjs, roadmap-loop.mjs), the new tests (remote-state, roadmap-loop-upfront, fixtures, compozy pin), docs and release files, and the plan (requirements, design D-1..D-8, tasks, specs, evidence, proof/real-run.txt). Task items match the code and proof; the real run shows exit 3 before and exit 0 after for state and the board in en and pt-BR, nope still exits 3, next from x's worktree exits 0. No ADR is contradicted (wrong-branch is reused, no new code). Perf is one git worktree list plus a few existsSync per open line. Filtered run of the 'unlocated' tests at 63c5eac: 39 of 39 pass (the two moved suites). The whole suite and check.py are the train's to prove. No open blocking or important finding, so the verdict stands at approved.
