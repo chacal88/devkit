@@ -329,7 +329,7 @@ ls-files` check needs (readiness attempt 5, O4).
   docs/adr/release-at-merge.md` prints 1, `git diff --numstat <9.1's merge commit> HEAD --
   docs/adr/release-at-merge.md` reports one line added and none removed, and `python3
   scripts/check.py` passes.
-- [ ] 9.2 Write the D-26 tests of D-18 and D-19 (adr-reviewer F1, spec-reviewer F1, code-quality F2
+- [x] 9.2 Write the D-26 tests of D-18 and D-19 (adr-reviewer F1, spec-reviewer F1, code-quality F2
   and nit F4): in `plugins/openspec/hooks/release-note.test.mjs` the source-file citation, the
   source comment and Python file, the citation scope, the pathspec agreement, the anchored rewrite
   and mask tests, and the change of the existing "release-note AC-5 rewrite: ADR [<slug>] becomes ADR
@@ -341,14 +341,14 @@ ls-files` check needs (readiness attempt 5, O4).
   both tokens" (a guard; D-20, "The `Amended by` line"). Run them;
   append the run to `proof/red-9.txt`. Done when each exists by its D-26 name, the red ones fail and
   the guard passes there.
-- [ ] 9.3 Apply D-18 and D-19 (adr-reviewer F1, spec-reviewer F1, code-quality F2 and nit F4): in
+- [x] 9.3 Apply D-18 and D-19 (adr-reviewer F1, spec-reviewer F1, code-quality F2 and nit F4): in
   `plugins/openspec/hooks/deliver-check.mjs` `CITATION_PATHSPEC`, `holdsCitations`, the export `adrFileRe`, `maskRelease` (ADR part only in a file that holds
   citations, the file form anchored); in `plugins/openspec/hooks/release-merge.mjs`
   `rewriteCitations(text, slug, number, path)`, its callers and `unassign` with the real path; in
   `docs/openspec-flow.md` the `--assign` paragraph's citation sentences (D-13); the comments of the
   defect-4 tests D-18 names. Done when the 9.2 tests pass, every other `release-note AC-5` and `AC-7`
   test stays green, and T-5, T-14 and T-31 stay green.
-- [ ] 9.4 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs && python3 scripts/check.py` green; covers AC-5 and AC-7 for the citations.
+- [x] 9.4 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs && python3 scripts/check.py` green; covers AC-5 and AC-7 for the citations.
 - [ ] 9.5 Write the D-26 tests of D-20 (code-quality F1), the reviewer's reproduction first: in
   `plugins/openspec/hooks/release-merge.test.mjs` "release-note AC-4 assign: an assigned branch
   merged by hand after a code conflict with a base that released the same pack and ADR number is

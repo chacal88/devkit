@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, maskRelease, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, holdsCitations } from './deliver-check.mjs';
+import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, adrFileRe, maskCitations } from './deliver-check.mjs';
 // The pin definition (ADR 0027) and the helpers every consumer CI needs live in deliver-check.mjs, which it downloads alone (release-at-merge D-3a);
 // each name stays importable from here as the same object.
 export { pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, PIN_FILE, PIN_PACK, PIN_PACK_NAME };
@@ -283,11 +283,11 @@ const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const CHANGELOG = 'CHANGELOG.md';
 const CATALOG = 'docs/catalog.md';
 
-// The two citation forms of the ADR `slug` once it is numbered `number` (D-4): `ADR [<slug>]` becomes `ADR <number>`, and `<slug>.md`
-// not preceded or followed by a letter, a digit, `_` or `-` becomes `<number>-<slug>.md`.
-export function rewriteCitations(text, slug, number) {
+// The two citation forms of the ADR `slug` once it is numbered `number`, in the text of the file `path` (D-4, D-19): `ADR [<slug>]` becomes
+// `ADR <number>`, and `<slug>.md` becomes `<number>-<slug>.md` only where it names a file of an ADR folder (adrFileRe).
+export function rewriteCitations(text, slug, number, path = '') {
   return text.split(`ADR [${slug}]`).join(`ADR ${number}`)
-    .replace(new RegExp(`(?<![A-Za-z0-9_-])${escapeRe(slug)}\\.md(?![A-Za-z0-9_-])`, 'g'), `${number}-${slug}.md`);
+    .replace(adrFileRe(slug, path), (_, dir = '') => `${dir}${number}-${slug}.md`);
 }
 
 const NOTE_PATH = new RegExp(`^openspec/changes/([^/]+)/${escapeRe(RELEASE_NOTE)}$`);
@@ -361,9 +361,9 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
       const numbered = reader.dir(side, a.folder).filter((n) => new RegExp(`^\\d{4}-${escapeRe(a.slug)}\\.md$`).test(n));
       return numbered.length === 1 ? [{ ...a, number: numbered[0].slice(0, 4), path: `${a.folder}/${numbered[0]}` }] : [];
     });
-    // D-5's mask on a path that is neither a manifest nor the pin file: the side's ADR numbers back to their citations, nothing else, and only
-    // in a file that holds citations (holdsCitations): the step never numbered a source file's literal, so the join does not give it back.
-    const unassign = (path, text) => (holdsCitations(path) ? maskRelease(text, '', { adrs: own, file: null }) : text);
+    // The ADR part of D-5's mask on the real path (D-18): the side's ADR numbers back to their citations, nothing else, and only in a file
+    // that holds citations: the step never numbered a test literal or a binary file, so it does not give one back.
+    const unassign = (path, text) => maskCitations(text, path, own);
     const masked = new Map();
     const blocking = [];
     if (needsMerge) {
@@ -450,7 +450,7 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
     for (const a of computed.adrs) {
       touched.push(a.from, a.to);
       gitOut(root, ['mv', a.from, a.to]);
-      writeStaged(root, touched, a.to, rewriteCitations(readFileSync(join(root, a.to), 'utf8'), a.slug, a.number));
+      writeStaged(root, touched, a.to, rewriteCitations(readFileSync(join(root, a.to), 'utf8'), a.slug, a.number, a.to));
     }
     // The citations, in every tracked file that holds citations (CITATION_PATHSPEC): the change's own ADRs and those it cites that the target
     // numbered.
@@ -468,7 +468,7 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
       for (const path of (hits.stdout ?? '').split('\0').filter(Boolean)) {
         const text = readFileSync(join(root, path), 'utf8');
         let out = text;
-        for (const [slug, number] of numbers) out = rewriteCitations(out, slug, number);
+        for (const [slug, number] of numbers) out = rewriteCitations(out, slug, number, path);
         if (out === text) continue;
         writeStaged(root, touched, path, out);
         if (!renamed.has(path)) citations.push(path);

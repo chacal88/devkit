@@ -904,6 +904,29 @@ test('release-note AC-4 assign: a citation of an ADR the base has not numbered e
   asItWas(root, oldHead);
 });
 
+// Review round 1 (D-19; D-20, "The `Amended by` line"): the first record's header names the second record of the same change in both
+// citation forms; the bare `(feat-store.md)` stands in a file of an ADR folder, so it is rewritten with the record's number.
+test('release-note AC-5 assign: the first record\'s Amended by header line naming the second record of the same change takes the second\'s number in both tokens', () => {
+  const { root } = notedMain();
+  write(root, { 'docs/adr/0026-base.md': '# ADR 0026: base\n' });
+  commit(root, 'the base numbers up to 0026');
+  git(root, 'push', '-q', 'origin', 'main');
+  notedChange(root, 'feat', {
+    adr: false,
+    files: {
+      'openspec/changes/feat/decisions.md': '# Decisions\n\n- ADR: `docs/adr/feat.md`\n- ADR: `docs/adr/feat-store.md`\n',
+      'docs/adr/feat.md': '# ADR [feat]: the rule\n\n- Status: proposed\n- Change: `feat`\n- Amended by ADR [feat-store] (feat-store.md)\n',
+      'docs/adr/feat-store.md': '# ADR [feat-store]: the store\n\n- Status: proposed\n- Change: `feat`\n',
+    },
+  });
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual(r.out.adrs, [{ from: 'docs/adr/feat.md', to: 'docs/adr/0027-feat.md' }, { from: 'docs/adr/feat-store.md', to: 'docs/adr/0028-feat-store.md' }]);
+  assert.equal(read(root, 'docs/adr/0027-feat.md').split('\n').filter((l) => l.startsWith('- ')).pop(), '- Amended by ADR 0028 (0028-feat-store.md)');
+  const left = spawnSync('git', ['-C', root, 'grep', '-n', '-F', '-e', 'ADR [feat-store]', '-e', '(feat-store.md)', '-e', '0027-feat-store.md', '--', '.', ':(exclude)openspec/changes'], { encoding: 'utf8' });
+  assert.equal(left.status, 1, left.stdout);
+});
+
 test('release-note AC-4 assign: a malformed note exits 2 with the reader\'s message', () => {
   const { root } = notedRepo({ note: `packs:\n- ${PIN_PACK_NAME}: big\n` });
   const oldHead = sha(root);

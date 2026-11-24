@@ -15,7 +15,7 @@ import * as C from './conduct-check.mjs';
 import { git, put, commitAll, shipRepo, GIT_ENV } from './test-fixtures.mjs';
 import { tmpFolder } from './test-tmp.mjs';
 import {
-  REL_FILE, REL_CONFIG, NOTE_TEXT, ASSIGNED_CHANGELOG, CHANGELOG0, releaseLayout, noteRepo, stepCommit, baseReleases, noteShip, tickAll, driveToReady,
+  REL_FILE, REL_CONFIG, NOTE_TEXT, ASSIGNED_CHANGELOG, CHANGELOG0, START_ADR, releaseLayout, noteRepo, stepCommit, baseReleases, noteShip, tickAll, driveToReady,
 } from './deliver-check-fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -365,8 +365,38 @@ const CONSUMER = 'schema: devkit-lite\ndevkit:\n  release_tag: package.json\n';
 const CONSUMER_NOTE = note('packs: []', 'release: minor', '', '## t', '', 'body');
 
 test('release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token', () => {
-  const text = 'ADR [feat] and docs/adr/feat.md, (feat.md), adr/feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n';
-  assert.equal(R.rewriteCitations(text, 'feat', '0002'), 'ADR 0002 and docs/adr/0002-feat.md, (0002-feat.md), adr/0002-feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n');
+  const not = 'Not ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n';
+  const text = `ADR [feat] and docs/adr/feat.md, (feat.md), adr/feat.md.\n${not}`;
+  assert.equal(R.rewriteCitations(text, 'feat', '0002', 'docs/adr/0001-start.md'), `ADR 0002 and docs/adr/0002-feat.md, (0002-feat.md), adr/0002-feat.md.\n${not}`, 'in a file of an ADR folder the bare form names a record');
+  assert.equal(R.rewriteCitations(text, 'feat', '0002', 'docs/x.md'), `ADR 0002 and docs/adr/0002-feat.md, (feat.md), adr/0002-feat.md.\n${not}`, 'elsewhere only a form whose folder part is an ADR folder');
+});
+
+// Review round 1 (code-quality F2, D-19): the file form names a record only where its folder part is an ADR folder, or with no folder
+// part inside an ADR folder; a document elsewhere that shares the slug's name keeps every link to it.
+test('release-note AC-5 rewrite: a change named like another document leaves its links alone', () => {
+  const root = noteRepo({
+    adr: false,
+    extra: {
+      'openspec/changes/feat/decisions.md': '# Decisions\n\n- ADR: `docs/adr/roles.md`\n',
+      'docs/adr/roles.md': '# ADR [roles]: the roles\n\n- Status: proposed\n- Change: `feat`\n',
+      'docs/roles.md': '# Roles\n',
+      'docs/x.md': 'See [the roles](docs/roles.md), [the rule](adr/roles.md) and ADR [roles].\n',
+      'docs/adr/0001-start.md': `${START_ADR}\nSee (roles.md).\n`,
+    },
+  });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'docs/x.md'), 'See [the roles](docs/roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n');
+  assert.equal(readIn(root, 'docs/adr/0001-start.md'), `${START_ADR}\nSee (0002-roles.md).\n`);
+  assert.equal(readIn(root, 'docs/roles.md'), '# Roles\n');
+});
+
+test('release-note AC-5 mask: a link to another document renamed by hand is not masked', () => {
+  const map = { adrs: [{ number: '0002', slug: 'roles' }], file: null };
+  assert.equal(D.maskRelease('See [the roles](docs/0002-roles.md).\n', 'docs/x.md', map), 'See [the roles](docs/0002-roles.md).\n');
+  assert.equal(D.maskRelease('See (0002-roles.md).\n', 'docs/x.md', map), 'See (0002-roles.md).\n', 'a bare form outside an ADR folder');
+  assert.equal(D.maskRelease('See [the rule](adr/0002-roles.md).\n', 'docs/x.md', map), 'See [the rule](adr/roles.md).\n', 'a form whose folder part is an ADR folder is masked');
+  assert.equal(D.maskRelease('See (0002-roles.md).\n', 'docs/adr/0001-start.md', map), 'See (roles.md).\n', 'a bare form inside an ADR folder is masked');
 });
 
 test('release-note AC-5 rewrite: the step numbers the ADR, its title and both citation forms, and writes what the release lines of stepCommit hold', () => {
@@ -438,8 +468,9 @@ test('release-note AC-7 citation: once the cited ADR landed on the base, the ste
 });
 
 // Found by the dogfood (task 8.1): the change's own tests write `ADR [x]` fixtures as string literals, and the step refused them as
-// unlanded citations. A citation is read only in a Markdown or YAML file (and the note's changelog title and body); a source file never
-// holds one, so the scan, the "still cited" check and the rewrite all leave it alone.
+// unlanded citations. A citation is read in every tracked text file outside openspec/changes/ but test files and fixtures (and in the note's
+// changelog title and body, D-18); a test file or a fixture never holds one, so the scan, the "still cited" check and the rewrite all leave
+// it alone.
 const FIXTURE_SRC = "const a = 'Amends ADR [other].';\nconst b = 'ADR [feat] in docs/adr/feat.md';\n";
 
 test('release-note AC-7 citation: an ADR [x] literal in a changed .mjs file is neither cited nor rewritten', () => {
@@ -478,6 +509,62 @@ for (const path of ['config/x.yaml', 'config/x.yml']) {
     assert.ok(r.out.citations.includes(path));
   });
 }
+
+// Review round 1 (adr-reviewer F1, spec-reviewer F1, D-18): a citation lives in every tracked text file outside openspec/changes/ but
+// test files and fixtures (`*.test.*`, `*-fixtures.*`, a file under a folder named test or tests); a binary file holds none.
+test('release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed', () => {
+  const blob = Buffer.concat([Buffer.from('Amends ADR [third].'), Buffer.from([0, 1, 2, 255])]);
+  const root = noteRepo({ extra: { 'plugins/openspec/hooks/x.mjs': '// amends ADR [other]\n', 'assets/blob.bin': blob } });
+  const refused = assignIn(root);
+  assert.equal(refused.code, 2, refused.text);
+  assert.match(refused.out.error, /^ADR \[other\] is cited but has not landed on main; it lands with its own change/);
+  assert.doesNotMatch(refused.out.error, /third/, 'a binary file holds no citation');
+  baseReleases(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'plugins/openspec/hooks/x.mjs'), '// amends ADR 0002\n');
+  assert.ok(r.out.citations.includes('plugins/openspec/hooks/x.mjs'));
+  assert.deepEqual(readFileSync(join(root, 'assets/blob.bin')), blob);
+});
+
+test('release-note AC-5 rewrite: a source comment and a Python file are numbered with the record', () => {
+  const sources = { 'plugins/a/hooks/x.mjs': '// the rule: ADR [feat] (docs/adr/feat.md)\n', 'scripts/x.py': '# ADR [feat], see docs/adr/feat.md\n' };
+  const root = noteRepo({ extra: sources });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'plugins/a/hooks/x.mjs'), '// the rule: ADR 0002 (docs/adr/0002-feat.md)\n');
+  assert.equal(readIn(root, 'scripts/x.py'), '# ADR 0002, see docs/adr/0002-feat.md\n');
+  assert.deepEqual(r.out.citations, ['docs/x.md', 'plugins/a/hooks/x.mjs', 'scripts/x.py']);
+  assert.deepEqual([stateOf(root).kind, stateOf(root).paths], ['assigned', []]);
+});
+
+test('release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited', () => {
+  const text = 'Amends ADR [other]. ADR [feat] in docs/adr/feat.md\n';
+  const offenders = [];
+  for (const path of ['plugins/a/hooks/x.test.mjs', 'plugins/a/hooks/x-fixtures.mjs', 'test/a.md', 'tests/b.yaml']) {
+    const root = noteRepo({ extra: { [path]: text } });
+    const r = assignIn(root);
+    const state = stateOf(root);
+    if (r.code !== 0 || readIn(root, path) !== text || r.out.citations.includes(path) || state.kind !== 'assigned' || state.paths.length) offenders.push(path);
+  }
+  assert.deepEqual(offenders, []);
+});
+
+test('release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files', () => {
+  const paths = [
+    'x.test.mjs', 'plugins/a/hooks/x.test.mjs', 'x-fixtures.mjs', 'plugins/a/hooks/x-fixtures.mjs', 'test/a.md', 'tests/b.yaml', 'plugins/a/test/c.md',
+    'docs/x.md', 'plugins/a/hooks/x.mjs', 'scripts/x.py', 'openspec/config.yaml', 'openspec/changes/f/design.md',
+  ];
+  const root = tmpFolder('devkit-release-note-scope-');
+  git(root, 'init', '-q', '-b', 'main');
+  put(root, Object.fromEntries(paths.map((p) => [p, 'ADR [x]\n'])));
+  commitAll(root, 'every kind of file');
+  const r = spawnSync('git', ['-C', root, 'grep', '-I', '-l', '-F', '-e', 'ADR [x]', '--', ...D.CITATION_PATHSPEC], { encoding: 'utf8' });
+  const grepped = r.stdout.split('\n').filter(Boolean).sort();
+  const expected = ['docs/x.md', 'openspec/config.yaml', 'plugins/a/hooks/x.mjs', 'scripts/x.py'];
+  assert.deepEqual(grepped, expected, r.stderr);
+  assert.deepEqual(paths.filter(D.holdsCitations).sort(), expected);
+});
 
 // Found by the real-run proof (task 6.2, P-1): the step rewrites the citations in every tracked text outside openspec/changes/, CHANGELOG.md
 // included, so a changelog body that cites an ADR is written numbered and the state must read it so.

@@ -1,0 +1,352 @@
+Task 9.2: the D-26 tests of D-18 and D-19, run on the code as phase 9 finds it (the red ones fail; the guard passes)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-5 rewrite: (ADR \[|a change named|a source comment)|AC-5 mask: a link|AC-7 citation: a citation in a changed source|AC-5 citation scope|AC-4 staleness: a test literal|AC-7 join: a source file|AC-5 assign: the first record)' plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/release-merge.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-4 staleness: a test literal renumbered by hand stales the evidence (856.004824ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1036.094064
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2894:1
+✖ release-note AC-4 staleness: a test literal renumbered by hand stales the evidence (856.004824ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'current' !== 'stale'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2901:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'current',
+    expected: 'stale',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 1.1s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✖ release-note AC-7 join: a source file's citation of a head numbered before the train is given back and renumbered (842.341302ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1047.331028
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:515:1
+✖ release-note AC-7 join: a source file's citation of a head numbered before the train is given back and renumbered (842.341302ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '// the rule of ADR 0001 (docs/adr/0001-beta.md)\n'
+  - '// the rule of ADR 0002 (docs/adr/0002-beta.md)\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/delivery-train.test.mjs:532:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// the rule of ADR 0001 (docs/adr/0001-beta.md)\n',
+    expected: '// the rule of ADR 0002 (docs/adr/0002-beta.md)\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/delivery-train.test.mjs: FAIL 1.1s
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-5 assign: the first record's Amended by header line naming the second record of the same change takes the second's number in both tokens (496.155721ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 657.985611
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 0.7s
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (6.906022ms)
+✖ release-note AC-5 rewrite: a change named like another document leaves its links alone (568.718496ms)
+✖ release-note AC-5 mask: a link to another document renamed by hand is not masked (1.125453ms)
+✖ release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed (472.207124ms)
+✖ release-note AC-5 rewrite: a source comment and a Python file are numbered with the record (489.248316ms)
+✖ release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited (2024.079158ms)
+✖ release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files (31.947999ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 0
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3770.525417
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:367:1
+✖ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (6.906022ms)
+  AssertionError [ERR_ASSERTION]: elsewhere only a form whose folder part is an ADR folder
+  + actual - expected
+  
+  + 'ADR 0002 and docs/adr/0002-feat.md, (0002-feat.md), adr/0002-feat.md.\n' +
+  - 'ADR 0002 and docs/adr/0002-feat.md, (feat.md), adr/0002-feat.md.\n' +
+      'Not ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:371:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'ADR 0002 and docs/adr/0002-feat.md, (0002-feat.md), adr/0002-feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n',
+    expected: 'ADR 0002 and docs/adr/0002-feat.md, (feat.md), adr/0002-feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:376:1
+✖ release-note AC-5 rewrite: a change named like another document leaves its links alone (568.718496ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'See [the roles](docs/0002-roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n'
+  - 'See [the roles](docs/roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:389:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'See [the roles](docs/0002-roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n',
+    expected: 'See [the roles](docs/roles.md), [the rule](adr/0002-roles.md) and ADR 0002.\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:394:1
+✖ release-note AC-5 mask: a link to another document renamed by hand is not masked (1.125453ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'See [the roles](docs/roles.md).\n'
+  - 'See [the roles](docs/0002-roles.md).\n'
+                          ^
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:396:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'See [the roles](docs/roles.md).\n',
+    expected: 'See [the roles](docs/0002-roles.md).\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:514:1
+✖ release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed (472.207124ms)
+  AssertionError [ERR_ASSERTION]: {
+    "resolved": true,
+    "oldHead": "079cc45cdb364280b2ed8531aa872c4cc85cce81",
+    "newHead": "8ab44e8d3ddfe99da55dfbab66341dd1edd1f660",
+    "versions": {
+      "packs": {
+        "devkit-openspec": "1.1.0",
+        "devkit-core": "1.0.1"
+      },
+      "metadata": "1.1.0"
+    },
+    "files": [
+      "plugins/core/.claude-plugin/plugin.json",
+      "plugins/openspec/.claude-plugin/plugin.json",
+      ".claude-plugin/marketplace.json",
+      "CHANGELOG.md",
+      "docs/openspec-flow.md"
+    ],
+    "change": "feat",
+    "adrs": [
+      {
+        "from": "docs/adr/feat.md",
+        "to": "docs/adr/0002-feat.md"
+      }
+    ],
+    "citations": [
+      "docs/x.md"
+    ],
+    "mode": "assign"
+  }
+  
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:518:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:529:1
+✖ release-note AC-5 rewrite: a source comment and a Python file are numbered with the record (489.248316ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '// the rule: ADR [feat] (docs/adr/feat.md)\n'
+  - '// the rule: ADR 0002 (docs/adr/0002-feat.md)\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:534:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// the rule: ADR [feat] (docs/adr/feat.md)\n',
+    expected: '// the rule: ADR 0002 (docs/adr/0002-feat.md)\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:540:1
+✖ release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited (2024.079158ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'test/a.md',
+  +   'tests/b.yaml'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:549:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'test/a.md', 'tests/b.yaml' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:552:1
+✖ release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files (31.947999ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'docs/x.md',
+      'openspec/config.yaml',
+  +   'plugins/a/test/c.md',
+  +   'test/a.md',
+  +   'tests/b.yaml'
+  -   'plugins/a/hooks/x.mjs',
+  -   'scripts/x.py'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:564:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'docs/x.md', 'openspec/config.yaml', 'plugins/a/test/c.md', 'test/a.md', 'tests/b.yaml' ],
+    expected: [ 'docs/x.md', 'openspec/config.yaml', 'plugins/a/hooks/x.mjs', 'scripts/x.py' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 3.8s
+FAIL 1.1s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 1.1s plugins/openspec/hooks/delivery-train.test.mjs
+pass 0.7s plugins/openspec/hooks/release-merge.test.mjs
+FAIL 3.8s plugins/openspec/hooks/release-note.test.mjs
+suite: 4 files, 10 tests, 1 pass, 9 fail, 3.8s, concurrency 3
+exit: 1
+
+Task 9.2, reading of the run: nine red tests fail for the missing behaviour (each failure above names it), and the guard "release-note AC-5 assign: the first record's Amended by header line ..." passes. "release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited", which D-26 lists as a guard, passes on its test-file and fixture parts (plugins/a/hooks/x.test.mjs, plugins/a/hooks/x-fixtures.mjs are not offenders) and fails on its test-folder part only (test/a.md, tests/b.yaml): the code as phase 9 finds it reads every Markdown and YAML file, and the folder exclusion is new with D-18 (F-9). It is red on that part, and turns green with 9.3.
+
+Task 9.3: the same tests after D-18 and D-19 are applied (deliver-check.mjs, release-merge.mjs, the flow page's --assign bullet, the comments of the defect-4 tests)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-5 rewrite: (ADR \[|a change named|a source comment)|AC-5 mask: a link|AC-7 citation: a citation in a changed source|AC-5 citation scope|AC-4 staleness: a test literal|AC-7 join: a source file|AC-5 assign: the first record)' plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/release-merge.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/delivery-train.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-4 staleness: a test literal renumbered by hand stales the evidence (1190.728412ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1496.517507
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 1.6s
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/delivery-train.test.mjs
+✔ release-note AC-7 join: a source file's citation of a head numbered before the train is given back and renumbered (1326.01844ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1584.447558
+=== plugins/openspec/hooks/delivery-train.test.mjs: pass 1.7s
+=== plugins/openspec/hooks/release-merge.test.mjs
+✔ release-note AC-5 assign: the first record's Amended by header line naming the second record of the same change takes the second's number in both tokens (685.81946ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 909.965887
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 1.0s
+=== plugins/openspec/hooks/release-note.test.mjs
+✔ release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token (6.045561ms)
+✔ release-note AC-5 rewrite: a change named like another document leaves its links alone (849.0853ms)
+✔ release-note AC-5 mask: a link to another document renamed by hand is not masked (4.979903ms)
+✔ release-note AC-7 citation: a citation in a changed source file is refused while unlanded and rewritten once landed (1229.141205ms)
+✔ release-note AC-5 rewrite: a source comment and a Python file are numbered with the record (1133.667746ms)
+✔ release-note AC-5 citation scope: a test file, a fixture and the files of a test folder are never cited, rewritten or counted as still cited (3260.434766ms)
+✔ release-note AC-5 citation scope: holdsCitations and CITATION_PATHSPEC name the same files (44.294584ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6780.66115
+=== plugins/openspec/hooks/release-note.test.mjs: pass 6.9s
+pass 1.6s plugins/openspec/hooks/deliver-check.test.mjs
+pass 1.7s plugins/openspec/hooks/delivery-train.test.mjs
+pass 1.0s plugins/openspec/hooks/release-merge.test.mjs
+pass 6.9s plugins/openspec/hooks/release-note.test.mjs
+suite: 4 files, 10 tests, 10 pass, 0 fail, 6.9s, concurrency 3
+exit: 0
+

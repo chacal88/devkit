@@ -2889,6 +2889,19 @@ test('release-note AC-5 staleness: a citation changed to another ADR\'s number s
   assert.match(tasksItem(root, 'feat', relFacts(root)).reason, /touches docs\/x\.md/);
 });
 
+// Review round 1 (code-quality nit F4, D-18): a test file holds test data, not citations, so the ADR part of the release mask leaves it
+// alone and a literal renumbered by hand is a plain edit.
+test('release-note AC-4 staleness: a test literal renumbered by hand stales the evidence', () => {
+  const root = provedNote({ extra: { 'plugins/a/hooks/x.test.mjs': "const p = 'docs/adr/feat.md';\n" } });
+  stepCommit(root);
+  assert.equal(recordsOf(root).tasks, 'current', 'the step\'s own commit is a release edit');
+  put(root, { 'plugins/a/hooks/x.test.mjs': "const p = 'docs/adr/0002-feat.md';\n" });
+  const literal = commitAll(root, 'renumber a test literal by hand');
+  const item = tasksItem(root, 'feat', relFacts(root));
+  assert.equal(item.details.evidence, 'stale');
+  assert.match(item.reason, new RegExp(`${literal.slice(0, 7)}, which touches plugins/a/hooks/x\\.test\\.mjs`));
+});
+
 test('release-note AC-4 staleness: a rejected review stays stale across the step\'s commit, an approved one does not', () => {
   const root = provedNote();
   const R = git(root, 'rev-parse', 'HEAD');

@@ -27,12 +27,19 @@ const CONFIG = 'openspec/config.yaml';
 // and change-loop.mjs, release-at-merge D-2).
 export const ADR_DIRS = ['docs/adr', 'docs/decisions'];
 export const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
-// The files that hold an ADR citation (`ADR [<slug>]`, `<slug>.md` and their numbered forms): the tracked Markdown and YAML files outside
-// openspec/changes/. A source or test file never holds one, so its literals are not cited, not "still cited" and never rewritten; the scan
-// (citationsOf), the "still cited" check (citedAt) and the rewrite of the step and the join all read this one rule.
-const CITATION_EXTENSIONS = ['md', 'yaml', 'yml'];
-export const CITATION_PATHSPEC = [...CITATION_EXTENSIONS.map((ext) => `*.${ext}`), ':(exclude)openspec/changes'];
-export const holdsCitations = (path) => !path.startsWith('openspec/changes/') && CITATION_EXTENSIONS.some((ext) => path.endsWith(`.${ext}`));
+// The files that hold an ADR citation (`ADR [<slug>]`, `<slug>.md` and their numbered forms; release-at-merge D-18): every tracked text file
+// outside openspec/changes/ but test files and fixtures (a name matching `*.test.*` or `*-fixtures.*`, a file under a folder named test or
+// tests), whose literals are test data and name no record. CITATION_PATHSPEC is read with `git grep -I`, which skips binary files; a caller
+// that reads a file's text through holdsCitations skips a text holding a NUL byte the same way. The scan (citationsOf), the "still cited"
+// check (citedAt), the rewrite of the step and the join, their give-back and the ADR part of maskRelease all read this one rule.
+export const CITATION_PATHSPEC = ['.', ':(exclude)openspec/changes', ':(exclude,glob)**/*.test.*', ':(exclude,glob)**/*-fixtures.*', ':(exclude,glob)**/test/**', ':(exclude,glob)**/tests/**'];
+export function holdsCitations(path) {
+  if (path.startsWith('openspec/changes/')) return false;
+  const folders = path.split('/');
+  const name = folders.pop();
+  return !name.includes('.test.') && !name.includes('-fixtures.') && !folders.some((f) => f === 'test' || f === 'tests');
+}
+const holdsCitationText = (path, text) => holdsCitations(path) && !text.includes('\0');
 
 export class ShipConfigError extends Error {
   constructor(message) {
@@ -1933,20 +1940,39 @@ function numberedAdrs(reader, rev) {
   }));
 }
 
+// The file form of a citation of the record named `name` (D-19): the global RegExp of `<name>.md` as a whole token (not preceded or followed
+// by a letter, a digit, `_` or `-`) whose folder part ends in the last part of an ADR_DIRS folder (`adr/`, `decisions/`: `docs/adr/feat.md`,
+// `../adr/feat.md`, `adr/feat.md`), or, in a file `path` of an ADR_DIRS folder, with no folder part (`(feat.md)`). Group 1 is that last
+// folder part, empty with none, so a rewrite keeps it. A document elsewhere that shares the name is not matched.
+const ADR_FOLDER_NAMES = ADR_DIRS.map((d) => d.slice(d.lastIndexOf('/') + 1));
+export function adrFileRe(name, path = '') {
+  const folder = `(?<![A-Za-z0-9_-])((?:${ADR_FOLDER_NAMES.map(esc).join('|')})/)`;
+  const inAdrFolder = path.includes('/') && ADR_DIRS.includes(path.slice(0, path.lastIndexOf('/')));
+  return new RegExp(`${inAdrFolder ? `(?:${folder}|(?<![A-Za-z0-9_/-]))` : folder}${esc(name)}\\.md(?![A-Za-z0-9_-])`, 'g');
+}
+
+// The ADR part of maskRelease (D-5, D-18, D-19), on its own for the give-back of the step and the join: in a text of a file that holds
+// citations (holdsCitations, no NUL byte), `ADR <NNNN>` back to `ADR [<slug>]` and, where adrFileRe matches, `<NNNN>-<slug>.md` back to
+// `<slug>.md`, for each numbered record { number, slug } of `adrs`. Any other text is returned as it is.
+export function maskCitations(text, path, adrs) {
+  if (!holdsCitationText(path, text)) return text;
+  let out = text;
+  for (const { number, slug } of adrs) {
+    out = out.replace(new RegExp(`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`, 'g'), `ADR [${slug}]`);
+    out = out.replace(adrFileRe(`${number}-${slug}`, path), (_, dir = '') => `${dir}${slug}.md`);
+  }
+  return out;
+}
+
 // The text with the edits a delivery writes taken out (D-5), the same way on both sides of a comparison: manifests and the release file
-// without their version fields; the flow page with its CI pins at 0.0.0 (the mask of pinLinesOnly); in any text, `ADR <NNNN>` back to
-// `ADR [<slug>]` and `<NNNN>-<slug>.md` back to `<slug>.md` for each numbered record in `map.adrs`. `map` is { adrs, file }, `file` the
-// release file the project names.
+// without their version fields; the flow page with its CI pins at 0.0.0 (the mask of pinLinesOnly); and maskCitations for each numbered
+// record in `map.adrs`. `map` is { adrs, file }, `file` the release file the project names.
 export function maskRelease(text, path, map = { adrs: [], file: null }) {
   let out = text;
   if ((RELEASE_FILE.test(path) && path.endsWith('.json')) || path === map.file) {
     try { out = JSON.stringify(withoutVersions(JSON.parse(text))); } catch { /* not JSON: compared as it is */ }
   } else if (path === PIN_FILE) out = setPins(out, '0.0.0');
-  for (const { number, slug } of map.adrs) {
-    out = out.replace(new RegExp(`(?<![A-Za-z0-9])ADR ${number}(?![0-9])`, 'g'), `ADR [${slug}]`);
-    out = out.replace(new RegExp(`(?<![A-Za-z0-9_-])${number}-${esc(slug)}\\.md(?![A-Za-z0-9_-])`, 'g'), `${slug}.md`);
-  }
-  return out;
+  return maskCitations(out, path, map.adrs);
 }
 
 // true when `path` differs between revisions `before` and `after` only in release lines (D-5): CHANGELOG.md and docs/catalog.md; a path whose
@@ -2022,13 +2048,13 @@ function adrValue(root, reader, head, adr) {
   return `other:${unnumbered ? adr.from : ''}${numbered.join(',')}`;
 }
 
-// The `ADR [<x>]` citations of the branch's changed files that hold citations (holdsCitations) and of the note's changelog title and body
-// (the step writes them into CHANGELOG.md) for a slug `x` that is not `own`: { cited, unlanded }; a citation is unlanded when no
-// `<dir>/<NNNN>-<x>.md` is on `tip`.
+// The `ADR [<x>]` citations of the branch's changed files that hold citations (holdsCitations, a binary text skipped) and of the note's
+// changelog title and body (the step writes them into CHANGELOG.md) for a slug `x` that is not `own`: { cited, unlanded }; a citation is
+// unlanded when no `<dir>/<NNNN>-<x>.md` is on `tip`.
 function citationsOf(root, reader, { mergeBase, head, tip, own, noteText = '' }) {
   const changed = spawnSync('git', ['-C', root, 'diff', '--name-only', '-z', '--no-renames', mergeBase, head], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout.split('\0').filter((p) => p && holdsCitations(p));
   const cited = [];
-  const texts = [...changed.map((path) => reader.file(head, path) ?? ''), noteText];
+  const texts = [...changed.map((path) => reader.file(head, path) ?? '').filter((text) => !text.includes('\0')), noteText];
   for (const text of texts) for (const m of text.matchAll(/ADR \[([A-Za-z0-9][A-Za-z0-9._-]*)\]/g)) if (!own.has(m[1]) && !cited.includes(m[1])) cited.push(m[1]);
   const landed = (slug) => ADR_DIRS.some((dir) => reader.dir(tip, dir).some((n) => new RegExp(`^\\d{4}-${esc(slug)}\\.md$`).test(n)));
   return { cited, unlanded: cited.filter((slug) => !landed(slug)) };
