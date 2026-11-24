@@ -15,7 +15,7 @@ Every gate is one backticked command, run as written; each `&&` part runs on its
 background command of the tool, never with a shell `&`. Test first: each phase's test task comes
 before its code tasks and its new tests fail on the phase's base (the check says how; a test file that
 imports an export or a module not written yet fails as a whole at load, before any of its tests runs). An existing
-test changes only where D-11 names it: E-1 (in 1.2), E-4 (in 1.6) and E-3 (in 3.1, with the bump); any other existing
+test changes only where D-11 names it: E-1 (in 1.2), E-4 (in 1.6), E-5 (in 2.3) and E-3 (in 3.1, with the bump); any other existing
 test that fails is a stop: report it and change nothing. The two release-pin tests of
 `deliver-check-cli.test.mjs` (D-13) and the real-doc pin test of `release-merge.test.mjs` do not change:
 3.1 moves the doc's pins with the version, so they keep passing. End every task with `git status --short` and leave no scratch file in the tree.
@@ -73,28 +73,37 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
 
 ## 2. The status line command (AC-1 to AC-7)
 
-- [ ] 2.1 Write B-1 to B-46 in the new `plugins/openspec/hooks/status-line.test.mjs` (D-11): one test
+- [x] 2.1 Write B-1 to B-46 in the new `plugins/openspec/hooks/status-line.test.mjs` (D-11): one test
   or awaited `t.test` per guard and label, negatives included; B-42 to B-44 take each expected line
   verbatim from `openspec/changes/run-status-bar/mock/` as constants in the test file (a test reads no
   git history). Check: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/status-line.test.mjs`
   fails at load, its error naming the missing module `status-line.mjs`, not a syntax or fixture error.
-- [ ] 2.2 Write `plugins/openspec/hooks/status-line.mjs`: the input (D-2) read through `readStdin(1000)`,
+- [x] 2.2 Write `plugins/openspec/hooks/status-line.mjs`: the input (D-2) read through `readStdin(1000)`,
   with the optional wait parameter added to `readStdin` in `plugins/openspec/hooks/change-loop.mjs`
   (default unchanged), the choice of line and its calls (D-3), the exported `main` with its injection
   points and the `state` call with its bound and the child kill (D-9), read-only (D-10), the empty line
   on every failure. The file already exports `lineOfChange`, `countsLine` and `columns` with the
   signatures of D-11, so the test file loads; until 2.3 writes them they return `''`, `''` and the code
   point count. Check: B-1 to B-6, B-8, B-11 to B-19, B-36, B-39 to B-41 and B-44 to B-46 pass.
-- [ ] 2.3 Add the drawing: `lineOfChange` with the strip and progress (D-5), `columns` and the cut rule
+- [x] 2.3 Add the drawing: `lineOfChange` with the strip and progress (D-5), `columns` and the cut rule
   (D-6), `countsLine` (D-7), and the four `bar.*` keys in both languages of `MESSAGES` in
-  `plugins/openspec/hooks/change-loop.mjs` (D-8). Check: B-7, B-9, B-10, B-20 to B-35, B-37, B-38,
-  B-42 and B-43 pass (B-7, B-9 and B-10 print the counts line and the change's line, drawn here).
-- [ ] 2.4 Add the paragraph "**The status line.**" to `docs/openspec-flow.md` after the state paragraph
+  `plugins/openspec/hooks/change-loop.mjs` (D-8). In the same task edit E-5 (D-11), the fourth allowed
+  edit beside E-1, E-3 and E-4: add `total: 15, all: 6, running: 3, waiting: 2, blocked: 1,
+  blockedWord: 'blocked'` to the `SAMPLE` constant of `plugins/openspec/hooks/change-loop.test.mjs`, and
+  change no other line of the file (invariant: every reply key renders in both languages with its
+  sample parameters and no internal term shows; layer: the change loop's replies; suite: change-loop).
+  Check: B-7, B-9, B-10, B-20 to B-35, B-37, B-38,
+  B-42 and B-43 pass (B-7, B-9 and B-10 print the counts line and the change's line, drawn here), and
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern="^change-loop replies: " plugins/openspec/hooks/change-loop.test.mjs`
+  passes (`change-loop replies: no internal term in either language` among them).
+- [x] 2.4 Add the paragraph "**The status line.**" to `docs/openspec-flow.md` after the state paragraph
   and the `hooks/status-line.mjs` row to "What's inside" of `plugins/openspec/README.md` (D-1, D-13),
   each with the settings entry of D-1 copied exactly. Check: `python3 scripts/check.py` exits 0 and the
   entry in both files is the same text as in `design.md` D-1.
-- [ ] 2.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/status-line.test.mjs plugins/openspec/hooks/change-state-stages.test.mjs plugins/openspec/hooks/flow-check.test.mjs && python3 scripts/check.py`
-  green (AC-1 to AC-7).
+- [x] 2.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/status-line.test.mjs plugins/openspec/hooks/change-state-stages.test.mjs plugins/openspec/hooks/flow-check.test.mjs && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern="^change-loop replies: " plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py`
+  green (AC-1 to AC-7). The second part runs the reply tests of
+  `plugins/openspec/hooks/change-loop.test.mjs` (E-5 among them) on their own, since a name pattern
+  would filter the first part's files too.
 
 ## 3. Release and validation
 
@@ -133,7 +142,8 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
   `git worktree list` captured before and after (AC-5). Standard input is the JSON D-2 names. Check:
   each run exits 0 and prints the line D-12 expects; the before and after captures are equal.
 - [ ] 3.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check`
-  green, run as a background command of the tool (AC-1 to AC-7).
+  green, run as a background command of the tool (AC-1 to AC-7). The whole suite takes every test
+  file, `plugins/openspec/hooks/change-loop.test.mjs` (E-5) among them.
 
 ## Workflow follow-up
 
