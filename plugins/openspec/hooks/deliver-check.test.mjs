@@ -12,13 +12,14 @@ import {
   waitingFor, summarize, collectState, buildReport, locateChange, schemaOf, approvalState, RELEASE_FILE, ciMain,
 } from './deliver-check.mjs';
 import * as DC from './deliver-check.mjs';
-import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
+import { findingLine, consolidate, outcomeOf, validateStage1, treeState } from '../../core/skills/review-change/scripts/review-round.mjs';
 import { git, gitRepo, put, commitAll, proposalWith, fakeGh, tasksText, check, presetSetup, shipRepo, runCli } from './test-fixtures.mjs';
 import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, gateRow, ev, acRow, changeFiles, callGh, PR_FIELDS,
   prJson, OLD_FLAG, versionsOf, conversation, tick, devkitRepo, readinessHash, approvalMd, planRepo, reviewAt, fullEvidence, PR_BODY, driveToReady,
   readyRepo, committedChange, itemsOf, bothEvidenceCurrent, MERGE_FIELDS, noMergeCall, mergeReady, presetArchiveReads,
-  ciGate, changeFilesOf, CI_ENV, OWN_REVIEWERS, ownLines, ownReviews, ownEvidence, ownUnrelated, ownFilesRepo, ownBrings,
+  state, open, blocked, rejectedState, BOTH,
+  ciGate, changeFilesOf, CI_ENV, OWN_REVIEWERS, ownLines, ownReviews, ownEvidence, ownUnrelated, ownMergeMain, ownFilesRepo, ownBrings,
 } from './deliver-check-fixtures.mjs';
 
 test('test helpers: commits work without a global git identity and return the head sha', () => {
@@ -1203,34 +1204,6 @@ test('item 8: no PR is open and a gh error is blocked', () => {
 
 // ---------------------------------------------------------------- nextStep and summary (D4)
 
-const BASE_DETAILS = {
-  1: { unticked: [], missingGates: [], evidence: 'current' },
-  2: { stale: [], rejected: [], missing: [] },
-  3: { fixed: 0, refuted: 0, undisposed: [] },
-  4: { ids: ['AC-1'], proven: ['AC-1'], missing: [], defects: [], noProof: [], evidence: 'current' },
-  5: { pr: { number: 12, url: 'u' }, ahead: false, uncommitted: [] },
-  6: { required: true, failing: [], pending: [] },
-  7: { threads: [], comments: [], changesRequested: [], waiting: [] },
-  8: { missing: [] },
-};
-// A state where all eight items are met; `over.items[n]` = { status, details } merges into item n.
-function state(over = {}) {
-  const items = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-    id: n, name: `item${n}`, status: 'met', reason: `item ${n} reason`,
-    ...over.items?.[n], details: { ...BASE_DETAILS[n], ...over.items?.[n]?.details },
-  }));
-  const { items: _ignored, ...rest } = over;
-  return {
-    id: 'feat', schema: 'devkit-lite', ship: 'pr', branchOk: true, needsReadiness: false, readiness: null,
-    phases: [{ n: 1, title: 'One', open: [], gate: { id: '1.2', done: true, command: 'npm test' } }],
-    dirty: [], reviewMd: null,
-    reviews: [{ name: 'code-quality-reviewer', verdict: 'APPROVED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
-    pr: { number: 12, url: 'u' },
-    ...rest, items,
-  };
-}
-const open = (details = {}) => ({ status: 'open', details });
-const blocked = (details = {}) => ({ status: 'blocked', details });
 
 test('nextStep: all eight met is ready (row 21)', () => {
   assert.equal(nextStep(state()).step, 'ready');
@@ -1284,18 +1257,24 @@ test('nextStep row 6: uncommitted changes outside openspec/ are committed first'
   assert.equal(n.step, 'commit');
 });
 
-const rejectedState = (over = {}) => state({
-  reviewMd: { consensus: 'FAIL', round: 1 },
-  reviews: [{ name: 'code-quality-reviewer', verdict: 'REJECTED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
-  items: { 2: open({ rejected: ['code-quality-reviewer'] }), 3: open({ undisposed: [{ reviewer: 'code-quality-reviewer', excerpt: '[blocking] x' }] }) },
-  ...over,
-});
 
 test('nextStep row 8: a rejected review at a current commit goes to fix-review with its findings', () => {
   const n = nextStep(rejectedState());
   assert.equal(n.step, 'fix-review');
   assert.deepEqual(n.reviewers, ['code-quality-reviewer']);
   assert.deepEqual(n.findings, [{ reviewer: 'code-quality-reviewer', excerpt: '[blocking] x' }]);
+});
+
+test('jira-entry-followups AC-3 nextStep: planDirty with a fix gives commit, without a fix or without planDirty it does not', () => {
+  const planDirty = ['openspec/changes/feat/design.md'];
+  const withFix = nextStep(rejectedState({ planDirty }));
+  assert.equal(withFix.step, 'commit');
+  assert.deepEqual(withFix.paths, planDirty);
+  assert.match(withFix.reason, /the fix for code-quality-reviewer is not committed: openspec\/changes\/feat\/design\.md/);
+  assert.equal(nextStep(state({ planDirty })).step, 'ready', 'nothing to fix: planDirty is no step of its own');
+  assert.equal(nextStep(rejectedState({ planDirty: [] })).step, 'fix-review', 'an empty planDirty');
+  assert.equal(nextStep(rejectedState()).step, 'fix-review', 'a state with no planDirty key');
+  assert.equal(nextStep(rejectedState({ planDirty, reviewMd: { consensus: 'FAIL', round: 2 } })).step, 'stop-review-deadlock', 'the round-2 stop keeps its place');
 });
 
 test('nextStep row 7: FAIL (round 2/2) with a current rejected review stops (AC-4)', () => {
@@ -1438,7 +1417,6 @@ test('nextStep row 11 before row 10: a defect row on stale evidence is verified 
   assert.equal(nextStep(state({ items: { 4: open({ defects: ['AC-1'], evidence: 'stale' }) } })).step, 'verify');
 });
 
-const BOTH = ['code-quality-reviewer', 'test-coverage-reviewer'];
 const noReviews = (kind) => (kind === 'stale'
   ? { reviews: BOTH.map((name) => ({ name, verdict: 'APPROVED', current: false })), 2: open({ stale: BOTH }) }
   : { reviews: [], 2: open({ missing: BOTH }) });
@@ -1724,6 +1702,7 @@ test('resume: code committed with one review current runs only the other reviewe
   commitAll(t.root, 'all code');
   reviewAt(t.root, ['code-quality-reviewer']);
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   let n = t.next();
   assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['test-coverage-reviewer'], 1]);
 
@@ -1735,6 +1714,7 @@ test('resume: code committed with one review current runs only the other reviewe
   commitAll(t.root, 'fix after review');
   reviewAt(t.root, ['code-quality-reviewer']);
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', ['test-coverage-reviewer']]);
 });
@@ -1750,7 +1730,7 @@ test('resume: reviews and evidence current and no PR opens the PR (AC-5)', () =>
 });
 
 test('walkthrough: a devkit-lite change goes from no ticked task to ready without a stop step (AC-2)', () => {
-  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'ready']);
+  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'commit', 'review', 'open-pr', 'ready']);
 });
 
 test('resume: a round-2 deadlock on disk stops while current and re-reviews as round 1 after the owner\'s product commit (AC-4, AC-5)', () => {
@@ -1765,6 +1745,7 @@ test('resume: a round-2 deadlock on disk stops while current and re-reviews as r
   commitAll(t.root, 'owner fix');
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.round], ['review', 1]);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
@@ -1779,6 +1760,7 @@ test('AC-3 fix-restales-both (a): after a rejected review and its fix commit, ve
   productCommit(t);
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   const n = t.next();
   assert.deepEqual([n.step, n.round, n.reviewers], ['review', 2, ['code-quality-reviewer', 'test-coverage-reviewer']]);
 });
@@ -1790,6 +1772,7 @@ test('AC-3 fix-restales-both (b): after a fail row and its fix commit, verify co
   productCommit(t);
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   assert.deepEqual([t.next().step], ['review']);
 });
 
@@ -1801,6 +1784,7 @@ test('AC-3 fix-restales-both (c): after a failing check and its fix commit, veri
   let n = t.next();
   assert.equal(n.step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', ['code-quality-reviewer', 'test-coverage-reviewer']]);
   reviewAt(t.root, n.reviewers);
@@ -2232,6 +2216,91 @@ test('merge mode: auto-merge already on with an unresolved thread or a failing c
 });
 function on0() { return { autoMergeRequest: { enabledAt: '2026-11-09T00:00:00Z' } }; }
 
+// ---------------------------------------------------------------- jira-entry-followups: the round marks the Commit line from git (AC-1, AC-2)
+
+const ROUND_CLI = join(here, '..', '..', 'core', 'skills', 'review-change', 'scripts', 'review-round.mjs');
+const treeFiles = () => ({
+  changes: { feat: { 'tasks.md': '- [x] 1.1 a\n', 'evidence.md': 'e\n', 'design.md': 'd\n' } },
+  files: { 'src/a.ts': 'a\n', 'src/b.ts': 'b\n', 'src/old.ts': 'o\n', '.claude/settings.json': '{}\n' },
+});
+const treeRepoOf = () => gitRepo(treeFiles());
+
+test('jira-entry-followups AC-1 the round\'s tree rule is the delivery check\'s', () => {
+  const trees = {
+    clean: [() => {}, []],
+    'only openspec files': [(r) => put(r, { 'openspec/changes/feat/evidence.md': 'e2\n', 'openspec/changes/feat/design.md': 'd2\n', 'openspec/changes/feat/notes.md': 'new\n' }), []],
+    'every path that counts': [(r) => {
+      put(r, { 'src/a.ts': 'a2\n', 'src/b.ts': 'b2\n', 'src/new.ts': 'n\n', '.claude/settings.json': '{"x":1}\n', 'openspec/changes/feat/evidence.md': 'e2\n' });
+      git(r, 'add', 'src/b.ts');
+      git(r, 'mv', 'src/old.ts', 'openspec/moved.md');
+    }, ['.claude/settings.json', 'src/a.ts', 'src/b.ts', 'src/new.ts', 'src/old.ts']],
+    'an untracked path under .claude/ alone': [(r) => put(r, { '.claude/worktrees/x/a.txt': 'x\n' }), []],
+  };
+  for (const [label, [edit, expected]] of Object.entries(trees)) {
+    const root = treeRepoOf();
+    edit(root);
+    const round = treeState(root);
+    const check = gitFacts(root);
+    assert.deepEqual(round.dirty, check.dirty, label);
+    assert.equal(round.head, check.head, label);
+    assert.deepEqual([...round.dirty].sort(), expected, `${label}: not a vacuous match`);
+  }
+});
+
+// The session's part and the agents path of one round, as the review skill says: tree, then outcomes, then each
+// verdict file written as its writer prompt says. Returns what the checks below read.
+function agentsRound(root) {
+  const dir = tmpFolder('devkit-deliver-round-');
+  let n = 0;
+  const run = (sub, input, expected = 0) => {
+    const file = join(dir, `in-${n += 1}.json`);
+    writeFileSync(file, JSON.stringify(input));
+    const r = spawnSync(process.execPath, [ROUND_CLI, sub, '--input', file], { encoding: 'utf8' });
+    assert.equal(r.status, expected, `${sub}: ${r.stderr}`);
+    return r.stdout ? JSON.parse(r.stdout) : null;
+  };
+  const { head: sha, dirty } = run('tree', { root });
+  const bench = ['code-quality-reviewer', 'test-coverage-reviewer'].map((reviewer) => ({ reviewer, previous: null, range: null }));
+  const args = { change: 'feat', changeDir: 'openspec/changes/feat', round: 1, path: 'agents', range: 'main..HEAD', structural: 'PASS', preamble: '', bench, head: sha, dirty };
+  const stage1 = Object.fromEntries(bench.map(({ reviewer }) => [reviewer, { declined: false, commit: sha, heading: `## ${reviewer} - feat`, read: ['src/a.ts'], notRead: [], findings: [], sections: 'Looks right.' }]));
+  const { outcomes, jobs } = run('outcomes', { args, stage1, votes: {} });
+  const line2 = jobs.map((j) => /^line 2: (.*)$/m.exec(j.prompt)[1]);
+  const checked = jobs.map((job, i) => {
+    const o = outcomes[i];
+    const verdict = /^line 1: exactly (Verdict: \w+)/m.exec(job.prompt)[1];
+    const path = /^Write your verdict file (\S+), overwriting/m.exec(job.prompt)[1];
+    put(root, { [path]: `${verdict}\n${line2[i]}\n\n${o.heading}\n\n### Findings\n${o.lines.join('\n')}\n\n${o.sections}\n` });
+    return run('check-file', { file: join(root, path), outcome: o });
+  });
+  return { sha, dirty, line2, checked };
+}
+
+test('jira-entry-followups AC-1 a round with only openspec files uncommitted writes plain Commit lines that deliver-check reads as current', () => {
+  const root = treeRepoOf();
+  put(root, { 'openspec/changes/feat/evidence.md': 'e2\n', 'openspec/changes/feat/design.md': 'd2\n' });
+  const round = agentsRound(root);
+  assert.deepEqual(round.dirty, []);
+  assert.deepEqual(round.line2, [`Commit: ${round.sha}`, `Commit: ${round.sha}`]);
+  assert.deepEqual(round.checked, [{ ok: true }, { ok: true }], 'check-file passes on the files as the prompt says');
+  const it = reviewsItem(root, 'feat');
+  assert.equal(it.status, 'met', it.reason);
+  assert.deepEqual(it.details, { stale: [], rejected: [], missing: [] });
+});
+
+test('jira-entry-followups AC-2 a round with a product file uncommitted writes the marker and deliver-check lists it stale', () => {
+  const root = treeRepoOf();
+  put(root, { 'src/a.ts': 'wip\n', 'openspec/changes/feat/evidence.md': 'e2\n' });
+  const round = agentsRound(root);
+  assert.deepEqual(round.dirty, ['src/a.ts']);
+  assert.deepEqual(round.line2, [`Commit: ${round.sha} (uncommitted changes)`, `Commit: ${round.sha} (uncommitted changes)`]);
+  assert.deepEqual(round.checked, [{ ok: true }, { ok: true }], 'check-file expects that line');
+  const it = reviewsItem(root, 'feat');
+  assert.equal(it.status, 'open');
+  assert.deepEqual(it.details.stale, ['code-quality-reviewer', 'test-coverage-reviewer']);
+  assert.match(it.reason, new RegExp(`stale code-quality-reviewer \\(${round.sha.slice(0, 7)} was recorded with uncommitted changes\\)`));
+});
+
+
 // ---------------------------------------------------------------- own-files (stale-only-on-own-files D-8)
 // A merge of the base stales the evidence and the approved or declined reviews only when it brings one of the
 // change's own files. The tests reach the new exports through the DC namespace so a missing one fails its own test.
@@ -2354,6 +2423,26 @@ test('own-files AC-6 rule: a rejected verdict is stale after an exempt merge; th
   assert.match(whys['security-reviewer'], /^[0-9a-f]{7} is behind [0-9a-f]{7}, which touches /);
   assert.deepEqual(Object.fromEntries(Object.entries(whys).filter(([n]) => n !== 'security-reviewer')), Object.fromEntries(OWN_REVIEWERS.filter((n) => n !== 'security-reviewer').map((n) => [n, null])));
 });
+
+// jira-entry-followups AC-4: an approved verdict that still lists an undisposed finding follows the rejected verdict's
+// rule, so the own-files exemption of a merge of the base does not apply to it (deliver-check.mjs, readReviews: `own`).
+for (const [label, line, stale] of [
+  ['an undisposed [important] finding', '- [important] x\n', true],
+  ['an undisposed [blocking] finding', '- [blocking] x\n', true],
+  ['a refuted finding', '- [important] x · refuted: the test shows it\n', false],
+  ['a nit only', '- [nit] x\n', false],
+]) {
+  test(`jira-entry-followups AC-4 own-files: an approved verdict with ${label} is ${stale ? 'stale' : 'current'} after an exempt merge`, () => {
+    const { root, R } = ownFilesRepo({ merge: null });
+    put(root, { 'openspec/changes/feat/reviews/code-quality-reviewer.md': `${review('approved', R)}${line}` });
+    commitAll(root, 'finding in the record');
+    ownMergeMain(root);
+    const whys = reviewWhys(root, ownFacts(root));
+    if (stale) assert.match(whys['code-quality-reviewer'], /^[0-9a-f]{7} is behind [0-9a-f]{7}, which touches /);
+    else assert.equal(whys['code-quality-reviewer'], null);
+    for (const n of OWN_REVIEWERS.filter((x) => x !== 'code-quality-reviewer')) assert.equal(whys[n], null, `${n} (no finding) stays current`);
+  });
+}
 
 test('own-files AC-6 rule: a test-only commit after an exempt merge keeps the four test-spared reviewers current', () => {
   const { root, R } = ownFilesRepo();
