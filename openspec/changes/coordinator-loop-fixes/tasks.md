@@ -116,7 +116,7 @@ every task with `git status --short`.
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^roadmap-loop repl" --test-name-pattern="^followups AC-4 reply" plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs`
   passes; and `grep -c "END_OF_KEY" plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/change-loop.mjs`
   prints 0 for both files.
-- [ ] 1.5 D-1's skill text in `plugins/openspec/skills/devkit/SKILL.md`: the Loop item for a pause or a decision
+- [x] 1.5 D-1's skill text in `plugins/openspec/skills/devkit/SKILL.md`: the Loop item for a pause or a decision
   outside the gates, the paragraph on the ends the session declares, and item 3 of `### Every change in this
   session`. The `resolve-release-conflict` and `renumber-adr` items are not edited (AC-3 is dropped). Check: T12, the
   updated F1 test and "change-loop skill: the release-conflict sentence" (`change-loop-compozy.test.mjs`) pass.
