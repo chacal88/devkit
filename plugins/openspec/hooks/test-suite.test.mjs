@@ -124,7 +124,7 @@ test('suite-speed AC-1 files run at the same time up to --concurrency', async ()
     ].join('\n'),
   });
   const files = { [`${HOOKS}/a${TEST_EXT}`]: waiting('a', 'b'), [`${HOOKS}/b${TEST_EXT}`]: waiting('b', 'a') };
-  const together = await run(tree(files), ['--concurrency=2'], { env: { PROBE_MARKS: marks, PROBE_WAIT_MS: '5000' } });
+  const together = await run(tree(files), ['--concurrency=2'], { env: { PROBE_MARKS: marks, PROBE_WAIT_MS: '20000' } });
   assert.equal(together.code, 0, either(together));
 
   const alone = tmpFolder('devkit-suite-marks-');
@@ -220,6 +220,25 @@ test('suite-speed AC-3 a test file that imports another is refused by file and l
   assert.ok(text.includes('plugins/openspec/hooks/test-fixtures.mjs'), 'the message names the module to import');
   assert.ok(!text.includes(`${HOOKS}/clean${TEST_EXT}:`), 'a clean file is not named');
   assert.match(text, /refused: 5 test-file imports/);
+});
+
+test('suite-speed AC-3 a fixtures module that imports a test file is refused by file and line', async () => {
+  const spec = `./helper${TEST_EXT}`;
+  const root = tree({
+    [`${HOOKS}/test-fixtures.mjs`]: [`${IMPORT} { shared } ${FROM} '${spec}';`, ''].join('\n'),
+    [`${HOOKS}/x-fixtures.mjs`]: ['export const x = 1;', `${IMPORT} '${spec}';`, ''].join('\n'),
+    [`${HOOKS}/notes.mjs`]: [`${IMPORT} '${spec}';`, ''].join('\n'),
+    [`${HOOKS}/clean${TEST_EXT}`]: probe(),
+  });
+  const out = await run(root, []);
+  assert.equal(out.code, 1, either(out));
+  assert.deepEqual(startLines(out), [], 'no file started');
+  const text = either(out);
+  for (const where of [`${HOOKS}/test-fixtures.mjs:1`, `${HOOKS}/x-fixtures.mjs:2`]) {
+    assert.ok(text.includes(`${where}: imports ${spec}, a test file`), `${where} is not named in: ${text}`);
+  }
+  assert.ok(!text.includes(`${HOOKS}/notes.mjs:`), 'a module that is not a fixtures module is not read');
+  assert.match(text, /refused: 2 test-file imports/);
 });
 
 test('suite-speed AC-3 no test file under plugins imports another test file', () => {

@@ -1239,7 +1239,7 @@ function testFilesUnder(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     if (e.name === 'node_modules') return [];
     const p = join(dir, e.name);
-    return e.isDirectory() ? testFilesUnder(p) : e.name.endsWith('.test.mjs') || e.name === 'test-fixtures.mjs' ? [p] : [];
+    return e.isDirectory() ? testFilesUnder(p) : e.name.endsWith('.test.mjs') || e.name.endsWith('-fixtures.mjs') ? [p] : [];
   });
 }
 
@@ -1255,15 +1255,18 @@ test('no test env blanks DEVKIT_BRANCH without also blanking GITHUB_HEAD_REF', (
   assert.deepEqual(offenders, [], 'blank GITHUB_HEAD_REF next to DEVKIT_BRANCH (CONTRIBUTING.md, testing rules)');
 });
 
-test('suite-speed AC-3 the branch-blank scan reads test-fixtures.mjs', () => {
+test('suite-speed AC-3 the branch-blank scan reads test-fixtures.mjs and every *-fixtures.mjs', () => {
   const root = tmpFolder('devkit-branch-scan-');
   mkdirSync(join(root, 'x'), { recursive: true });
   const fixtures = join(root, 'x', 'test-fixtures.mjs');
+  const split = join(root, 'x', 'x-fixtures.mjs');
   writeFileSync(fixtures, ['export const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
+  writeFileSync(split, ['export const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
   writeFileSync(join(root, 'x', 'notes.mjs'), ['const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
-  const found = testFilesUnder(root);
-  assert.deepEqual(found, [fixtures], 'the fixtures module is scanned, another .mjs file is not');
+  const found = testFilesUnder(root).sort();
+  assert.deepEqual(found, [fixtures, split].sort(), 'both fixtures modules are scanned, another .mjs file is not');
   assert.deepEqual(branchBlankedAlone(readFileSync(fixtures, 'utf8')), [1], 'its offending line is found');
+  assert.deepEqual(branchBlankedAlone(readFileSync(split, 'utf8')), [1], 'the offending line of the split module is found');
 });
 
 // ---------------------------------------------------------------- field-fixes 6: the project's OpenSpec CLI (D-1)

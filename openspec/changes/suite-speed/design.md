@@ -76,8 +76,9 @@ the script inside a synthetic tree runs that tree (the tests of D-12 rely on it)
 is the entry file (`process.argv[1]` resolves to its own path).
 
 **Files.** `suiteFiles(root)` lists, recursively, every file whose name ends `.test.mjs` under
-`<root>/plugins/openspec/hooks`, `<root>/plugins/openspec/skills/openspec-setup/scripts` and
-`<root>/plugins/core/skills/review-change/scripts`, skipping any `node_modules` segment, as paths
+`<root>/plugins/openspec/hooks`, `<root>/plugins/openspec/skills/openspec-setup/scripts`,
+`<root>/plugins/core/skills/review-change/scripts` and `<root>/plugins/compozy/skills/compozy-setup/scripts`
+(the fourth folder came with the base merge, see Revisions), skipping any `node_modules` segment, as paths
 relative to the root with `/`, sorted. A folder that does not exist adds nothing. No other folder is
 read (ADR 0026 decision 6: the compozy and panel tests stay out).
 
@@ -443,8 +444,8 @@ probe's own output stays in the probe test's captured stdout and never reaches t
 
 | Id | Test (file) | Invariant | Layer | AC |
 |---|---|---|---|---|
-| T-1 | `suite-speed AC-1 the script runs the test files of the three folders and no other` (test-suite) | files of `hooks/`, `openspec-setup/scripts/`, `review-change/scripts/` run; a failing `plugins/compozy/.../c.test.mjs` and a `plugins/openspec/hooks/notes.mjs` do not | the script's file list | AC-1 |
-| T-2 | `suite-speed AC-1 the repository's suite holds every file the old command ran` (test-suite) | `suiteFiles(REPO_ROOT)` includes the 21 paths of "Context" | the script's file list | AC-1 |
+| T-1 | `suite-speed AC-1 the script runs the test files of the four folders and no other` (test-suite) | files of `hooks/`, `openspec-setup/scripts/`, `review-change/scripts/`, `compozy-setup/scripts/` run; a failing `plugins/compozy/.../c.test.mjs` and a `plugins/openspec/hooks/notes.mjs` do not | the script's file list | AC-1 |
+| T-2 | `suite-speed AC-1 the repository's suite holds every file the old command ran` (test-suite) | `suiteFiles(REPO_ROOT)` includes the 29 paths the old command ran at the stack head `38953b6` (Revisions) | the script's file list | AC-1 |
 | T-3 | `suite-speed AC-1 files run at the same time up to --concurrency` (test-suite) | two probes each wait (up to 5 s) for the other's marker in a shared folder passed by env: exit 0 at `--concurrency=2`; at `--concurrency=1` with a 1.5 s wait, exit 1 | the script's pool | AC-1 |
 | T-4 | `suite-speed AC-1 a bad argument exits 2 and runs nothing` (test-suite) | unknown option, `--concurrency=0`, `--concurrency=x`, a path outside the suite: exit 2, no `start` line | the script's arguments | AC-1 |
 | T-5 | `suite-speed AC-3 a test file that imports another is refused by file and line before any file runs` (test-suite) | a `from` line, a side-effect import, the last line of a multi-line import and a dynamic import are each named `<file>:<line>` with `test-fixtures.mjs` in the message; exit 1; no `start` line | the import check | AC-3 |
@@ -698,6 +699,12 @@ None.
     to `test-fixtures.mjs` with their closures, as D-4 says; the `SET`/`cleanEnv` pair that `change-loop.test.mjs` and
     `roadmap-loop.test.mjs` each held (the same text) is one pair there, `SET_LOOP` and `cleanEnvLoop`, imported `as SET` and
     `as cleanEnv`; `simGitHub` is the stack's version (it has `pr comment`, `pr merge`, `setPr` and `setAutoMerge`).
+- **Review fix, folders and counts (2026-11-24).** D-1 (Files), T-1 and T-2 now say what the implementation and the tests
+  do: four folders and 29 files the old command ran (not three and 21); "Context" and the Goals keep the counts read at `720d91d`
+  as the plan's record. The same review widened the scans: the branch-blank scan (`guard.test.mjs`), the raw-temp scan
+  (`test-tmp.test.mjs`) and the import check (`testImports`) read `test-fixtures.mjs` and every `*-fixtures.mjs`, so the five
+  modules of the 4.2 splits are held to the rules of D-4 as well (T-12 and T-13 gain an `x-fixtures.mjs` line; T-5 gains a
+  fixtures module that imports a test file).
 - **The ADR's number (task 5.1).** The stack took 0022, 0023 and 0024, and a sibling change (`stale-only-on-own-files`) takes 0025
   right before this one, so the ADR is `0026` and every text of this change names it.
 - **D-11, task 4.2 reopened (2026-11-24).** The measure on the merged branch (`cbd47bc` plus the 5.3 tick; idle 8-core

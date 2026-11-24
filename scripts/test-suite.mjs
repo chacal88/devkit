@@ -3,8 +3,8 @@
 // [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]` (ADR 0026).
 //
 // Runs every `*.test.mjs` of the suite's four folders, each file in a process of its own (`node --test <file>`),
-// several at once, each with its own empty real-path TMPDIR under one run root. Refuses a test file that imports
-// another test file, fails a file that leaves anything in its TMPDIR, and exits 1 when any file fails.
+// several at once, each with its own empty real-path TMPDIR under one run root. Refuses a test file or a fixtures
+// module that imports a test file, fails a file that leaves anything in its TMPDIR, and exits 1 when any file fails.
 // Exit codes: 0 green; 1 a failed file, a leftover, a refused import or no test file; 2 a usage error;
 // 130 after SIGINT; 143 after SIGTERM.
 import { spawn } from 'node:child_process';
@@ -24,6 +24,7 @@ const SUITE_FOLDERS = [
   'plugins/compozy/skills/compozy-setup/scripts',
 ];
 const TEST_FILE = /\.test\.mjs$/;
+const FIXTURES_FILE = /(?:^|-)fixtures\.mjs$/; // test-fixtures.mjs and every <name>-fixtures.mjs
 const IMPORTED_TEST_FILE = /(?:\bfrom\s*|^\s*import\s*|\bimport\s*\(\s*)['"]([^'"]*\.test\.mjs)['"]/;
 const FIXTURES = 'plugins/openspec/hooks/test-fixtures.mjs';
 const USAGE = 'usage: node scripts/test-suite.mjs [--concurrency=<n>] [--reporter=<name>] [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]';
@@ -62,10 +63,10 @@ export function suiteFiles(root = ROOT) {
   return SUITE_FOLDERS.flatMap((folder) => walk(root, join(root, folder), (name) => TEST_FILE.test(name))).sort();
 }
 
-// `{ file, line, spec }` of every line of a *.test.mjs under <root>/plugins that imports a *.test.mjs, sorted.
+// `{ file, line, spec }` of every line of a *.test.mjs or a fixtures module under <root>/plugins that imports a *.test.mjs, sorted.
 export function testImports(root = ROOT) {
   const found = [];
-  for (const file of walk(root, join(root, 'plugins'), (name) => TEST_FILE.test(name))) {
+  for (const file of walk(root, join(root, 'plugins'), (name) => TEST_FILE.test(name) || FIXTURES_FILE.test(name))) {
     let text;
     try {
       text = readFileSync(join(root, file), 'utf8');
