@@ -1,4 +1,4 @@
-# ADR 0021: A merge of the base stales the evidence and reviews only when it brings the change's own files
+# ADR 0022: A merge of the base stales the evidence and reviews only when it brings the change's own files
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-23, in the approval of the plan of change stale-only-on-own-files (openspec/changes/stale-only-on-own-files/approval.md)

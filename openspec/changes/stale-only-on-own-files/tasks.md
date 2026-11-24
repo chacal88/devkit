@@ -80,30 +80,30 @@ where D-7 names it. Leave no backup or scratch file in the tree; end every task 
 
 ## 3. Documents, decisions, release and proof (AC-9, AC-10)
 
-- [ ] 3.1 Update `docs/openspec-flow.md` at the six places of D-6, `CONTRIBUTING.md` at its two, and
+- [x] 3.1 Update `docs/openspec-flow.md` at the six places of D-6, `CONTRIBUTING.md` at its two, and
   `plugins/core/skills/review-change/SKILL.md` at its one. Done when `python3 scripts/check.py`
   passes and none of those files still says that any merge of the base outside `openspec/` stales
   the evidence and the reviews.
-- [ ] 3.2 Write `own-files AC-9 docs` in `plugins/openspec/hooks/deliver-check.test.mjs` (D-8). Done when
+- [x] 3.2 Write `own-files AC-9 docs` in `plugins/openspec/hooks/deliver-check.test.mjs` (D-8). Done when
   it passes on the 3.1 text.
-- [ ] 3.3 Add the "Amended by ADR 0021" line and the dated Note to
-  `docs/adr/0002-merge-without-the-owner-opt-in.md`, and append ADR 0021 to the `ADRs:` line of
+- [x] 3.3 Add the "Amended by ADR 0022" line and the dated Note to
+  `docs/adr/0002-merge-without-the-owner-opt-in.md`, and append ADR 0022 to the `ADRs:` line of
   `openspec/config.yaml` (D-6). If `origin/main` took 0021 by the last merge before review, take the
   next free number on `origin/main` and renumber the ADR file and every reference this change made
   (CONTRIBUTING step 5). Done when the ADR tests that read the `ADRs:` line stay green at gate 3.8.
-- [ ] 3.4 After the owner approves the plan, set `- Status: accepted` and the `- Accepted by:` line in
-  ADR 0021, as ADR 0020 does, citing `openspec/changes/stale-only-on-own-files/approval.md`. Done when
+- [x] 3.4 After the owner approves the plan, set `- Status: accepted` and the `- Accepted by:` line in
+  ADR 0022, as ADR 0020 does, citing `openspec/changes/stale-only-on-own-files/approval.md`. Done when
   the header holds both lines.
-- [ ] 3.5 Release: bump devkit-openspec and devkit-core to the next free minor version on `origin/main`
+- [x] 3.5 Release: bump devkit-openspec and devkit-core to the next free minor version on `origin/main`
   at the last merge before review, in each `plugin.json` and in `.claude-plugin/marketplace.json`
   (and the marketplace version), add the `CHANGELOG.md` entry, move every CI pin of
   `docs/openspec-flow.md` to the new devkit-openspec version, and run `python3 scripts/gen-catalog.py`.
   Done when `python3 scripts/gen-catalog.py --check` passes and the pin tests stay green at gate 3.8.
-- [ ] 3.6 Real-run proof P-1 to P-7 of D-8 with the CLIs on a scratch repository with a bare `origin`,
+- [x] 3.6 Real-run proof P-1 to P-7 of D-8 with the CLIs on a scratch repository with a bare `origin`,
   written to `openspec/changes/stale-only-on-own-files/proof/real-run.md`, one section per case with
   its commands and outputs; the scratch folder removed afterwards. Done when every case shows the
   outcome its AC states (AC-1 to AC-5, AC-7, AC-8).
-- [ ] 3.7 Run `claude plugin validate .` and save its output to
+- [x] 3.7 Run `claude plugin validate .` and save its output to
   `${TMPDIR%/}/devkit-validate-stale-only-on-own-files/phase-3.txt`. Done when the file holds
   `Validation passed`.
 - [ ] 3.8 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate stale-only-on-own-files --strict && grep -q "Validation passed" "${TMPDIR%/}/devkit-validate-stale-only-on-own-files/phase-3.txt"` green, the whole suite once as a background command at the final commit (after the last merge of `origin/main`, with the tests `main` added since `5d255b1` run by name first, CONTRIBUTING); covers every acceptance criterion's tests together and AC-9.

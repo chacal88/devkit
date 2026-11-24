@@ -2,7 +2,7 @@
 # Design
 
 Change: `stale-only-on-own-files` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(sources: `proposal.md`, `requirements.md`, `decisions.md`, ADR 0021). Plan base: `5d255b1`.
+(sources: `proposal.md`, `requirements.md`, `decisions.md`, ADR 0022). Plan base: `5d255b1`.
 
 ## Context
 
@@ -35,8 +35,8 @@ See `proposal.md` (Why). The current state the approach builds on:
 
 **Goals:**
 - One rule, in `staleness`, that exempts a merge of the base and the base commits it brings in
-  unless they touch the change's own files (ADR 0021 decisions 1, 2, 5).
-- Fail safe by construction: every case the rule cannot classify is judged as today (ADR 0021
+  unless they touch the change's own files (ADR 0022 decisions 1, 2, 5).
+- Fail safe by construction: every case the rule cannot classify is judged as today (ADR 0022
   decision 4, AC-7).
 - No call site that does not know the change and its base gets the exemption: `gitFacts(root)` with
   no base keeps today's verdict, so every existing direct test of `staleness` is unchanged.
@@ -82,7 +82,7 @@ New export `ownFiles(root, id, facts)` returns `null` or `{ base, tip, isOwn(pat
 This is Q1 as written: the net diff, so a file the branch changed and restored is not own (spec
 scenario "A file the branch changed then restored"). Alternatives rejected: the union of every path
 the branch's commits touched (no requirement asks for it; Q1 fixed the net diff); a dependency
-closure (rejected in Q1, ADR 0021 alternatives).
+closure (rejected in Q1, ADR 0022 alternatives).
 
 ### D-3 The staleness walk with the exemption
 
@@ -139,7 +139,7 @@ merge, so nothing would be saved (`change-delivery` scenario "A product commit t
 ### D-5 A rejected verdict gets no exemption
 
 A verdict that is neither approved nor declined keeps `reviewRecord(id)` as its allowance and gets
-`own: null`: any merge of the base stales it, as today (AC-6; `verdict-files` delta). ADR 0021
+`own: null`: any merge of the base stales it, as today (AC-6; `verdict-files` delta). ADR 0022
 decision 3 keeps the per-reviewer allowances "unchanged"; the rejected rule exists so a fix gets the
 next round, and a rejected review runs again anyway, so the exemption would save nothing it was
 asked to save. Known limitation kept from today: a base merge during `fix-review` re-runs the
@@ -153,8 +153,8 @@ names every file that repeats it):
 
 | File | Where | Change |
 |---|---|---|
-| `docs/openspec-flow.md` | "The `Commit:` staleness rule" paragraph | Add the own-files rule: the own files (Q1), release files never own, the merge of the base and the base commits it brings in exempt unless they touch one, rejected verdicts excluded, fails safe (no `origin/<base>`, an unfetched base, the head in the base), the base named by D-1, and the pull request's required `check` CI as the backstop for a base change the change depends on (ADR 0021 decision 6, AC-9) |
-| `docs/openspec-flow.md` | "The merge is committed, never pushed." | The renumbered release files are never own files: the release merge stales the records only when it brings an own file; ADR 0021 narrows ADR 0002's cost |
+| `docs/openspec-flow.md` | "The `Commit:` staleness rule" paragraph | Add the own-files rule: the own files (Q1), release files never own, the merge of the base and the base commits it brings in exempt unless they touch one, rejected verdicts excluded, fails safe (no `origin/<base>`, an unfetched base, the head in the base), the base named by D-1, and the pull request's required `check` CI as the backstop for a base change the change depends on (ADR 0022 decision 6, AC-9) |
+| `docs/openspec-flow.md` | "The merge is committed, never pushed." | The renumbered release files are never own files: the release merge stales the records only when it brings an own file; ADR 0022 narrows ADR 0002's cost |
 | `docs/openspec-flow.md` | paragraph after "Release-file conflict" ("While a change is in delivery, every merge of the base that touches a file outside `openspec/`...") | "...every merge of the base that brings one of its own files..." |
 | `docs/openspec-flow.md` | "Order of the delivery steps." | "only a later commit outside `openspec/` stales both" gains "(a merge of the base only when it brings one of the change's own files)" |
 | `docs/openspec-flow.md` | `update-branch` row of the `ship-change` table | The update stales the older records only when it brings an own file |
@@ -162,9 +162,9 @@ names every file that repeats it):
 | `CONTRIBUTING.md` | line 17 ("every sibling merged meanwhile costs one more merge, evidence run and review") and step 5 ("costs one suite and one re-review") | The cost holds only when the sibling brought one of the change's own files |
 | `plugins/openspec/skills/devkit/SKILL.md` | `resolve-release-conflict` bullet | "then the loop hands `verify` and `review` for what the merge made stale, and a plain `push`..." (test T-3) |
 | `plugins/core/skills/review-change/SKILL.md` | "Stale means..." bullet | Add: a merge of the base that brings none of the change's own files leaves an approved or declined review current |
-| `docs/adr/0002-merge-without-the-owner-opt-in.md` | header and Context | `- Amended by ADR 0021 (0021-a-base-merge-stales-only-on-the-changes-own-files.md)` and a dated Note: the accepted cost narrows to a base update that brings the change's own files |
-| `docs/adr/0021-...md` | header | `Status: accepted` and the `Accepted by:` line after the owner approves the plan, as ADR 0020 does |
-| `openspec/config.yaml` | `ADRs:` line | Append `0021 a merge of the base stales the evidence and reviews only when it brings the change's own files, amends 0002` |
+| `docs/adr/0002-merge-without-the-owner-opt-in.md` | header and Context | `- Amended by ADR 0022 (0022-a-base-merge-stales-only-on-the-changes-own-files.md)` and a dated Note: the accepted cost narrows to a base update that brings the change's own files |
+| `docs/adr/0022-...md` | header | `Status: accepted` and the `Accepted by:` line after the owner approves the plan, as ADR 0020 does |
+| `openspec/config.yaml` | `ADRs:` line | Append `0022 a merge of the base stales the evidence and reviews only when it brings the change's own files, amends 0002` |
 
 ### D-7 Existing tests this change touches
 
@@ -231,10 +231,10 @@ at the end.
 
 ## Risks / Trade-offs
 
-- [R-1 The base changes code the change depends on without touching its files] (ADR 0021 Negative)
+- [R-1 The base changes code the change depends on without touching its files] (ADR 0022 Negative)
   → the pull request's required `check` CI runs the suite on the merged ref; `docs/openspec-flow.md`
   says so (AC-9). Probability MEDIUM × impact MEDIUM.
-- [R-2 A reviewer's view of shared code is outdated] → same backstop; accepted in ADR 0021. LOW ×
+- [R-2 A reviewer's view of shared code is outdated] → same backstop; accepted in ADR 0022. LOW ×
   MEDIUM.
 - [R-3 A wrong base name (an `origin/HEAD` that points elsewhere)] → a tip that does not contain the
   merged commits gives no exemption (D-3), so the error is on the strict side. LOW × LOW.
@@ -272,7 +272,7 @@ expectations (phase 2), the documents, the ADRs, the release and the real-run pr
   `plugins/openspec/hooks/conduct-check.test.mjs`, `plugins/openspec/hooks/change-loop.test.mjs`,
   `plugins/openspec/skills/devkit/SKILL.md`, `plugins/core/skills/review-change/SKILL.md`,
   `docs/openspec-flow.md`, `CONTRIBUTING.md`, `docs/adr/0002-merge-without-the-owner-opt-in.md`,
-  `docs/adr/0021-a-base-merge-stales-only-on-the-changes-own-files.md`, `openspec/config.yaml`,
+  `docs/adr/0022-a-base-merge-stales-only-on-the-changes-own-files.md`, `openspec/config.yaml`,
   `plugins/openspec/.claude-plugin/plugin.json`, `plugins/core/.claude-plugin/plugin.json`,
   `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/catalog.md` (only if the generator
   changes it).
@@ -288,7 +288,7 @@ merge of `main` with one re-run of the whole suite, per the owner's note on the 
 | `own-files` tests in `deliver-check.test.mjs` with `ownRepo()` | 3 | Testing | MEDIUM |
 | `flow-check` wiring and its two tests | 1 | Integration | LOW |
 | T-3, T-4 rewrites | 1 | Testing | LOW |
-| Documents, skills, ADR 0002 and 0021, `config.yaml` (D-6) and the AC-9 test | 2 | Documentation | LOW |
+| Documents, skills, ADR 0002 and 0022, `config.yaml` (D-6) and the AC-9 test | 2 | Documentation | LOW |
 | Release (versions, changelog, CI pin, catalog) | 1 | Migration | MEDIUM |
 | Real-run proof P-1 to P-7 | 1.5 | Testing | LOW |
 | Whole-suite gate and validation | 0.5 | Testing | LOW |
@@ -302,12 +302,12 @@ merge of `main` with one re-run of the whole suite, per the owner's note on the 
 - A-3: no existing test outside D-7 asserts a stale verdict after a merge of a real `origin/<base>`
   that brings only files the branch did not change (grep of the `*.test.mjs` files at `5d255b1`).
 
-**Dependencies.** ADR 0021 (`decisions.md`), proposed with this change; no other change. The CI pin
+**Dependencies.** ADR 0022 (`decisions.md`), proposed with this change; no other change. The CI pin
 moves to the tag this release creates (CONTRIBUTING step 5, the tag rule).
 
 ## Decisions cited
 
-- ADR 0021 (`docs/adr/0021-a-base-merge-stales-only-on-the-changes-own-files.md`, via
+- ADR 0022 (`docs/adr/0022-a-base-merge-stales-only-on-the-changes-own-files.md`, via
   `decisions.md`): the rule, its fail-safe and the backstop.
 - ADR 0002: its accepted cost "Strict up-to-date re-runs stale reviews" narrows; its Decision is
   unchanged.

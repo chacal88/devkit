@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
+- Amended by ADR 0022 (0022-a-base-merge-stales-only-on-the-changes-own-files.md)
 - Date: 2026-11-08
 - Change: auto-merge
 
@@ -10,6 +11,8 @@
 Note (coordinator-field-fixes, 2026-11-20): ADR 0012 limits what devkit-reviews judges to changes on a devkit script, judges each delivered change of a pull request that touches several, and passes other changes with a note; for every change it judges it still recomputes reviews, findings, gates and acceptance proof at the PR head. The Decision is otherwise unchanged.
 
 Note (delivery-models, 2026-11-22): ADR 0018 amends the sentence of the Decision that names `ship: <schema>: merge` as the opt-in: a project may also choose `trunk-auto` in `devkit.delivery.model`, which is this merge mode under a second spelling with all of the conditions below, and every `ship:` entry must then agree with it. The Decision is otherwise unchanged.
+
+Note (stale-only-on-own-files, 2026-11-23): ADR 0022 narrows the accepted cost "Strict up-to-date re-runs stale reviews after each base update": a merge of the base stales the evidence and the approved or declined reviews only when it brings one of the change's own files, and the pull request's required `devkit-reviews` and `check` runs on the merged ref remain the backstop for the rest. The Decision is otherwise unchanged.
 
 This ADR builds on ADR 0001 and leaves its gates unchanged. Since ADR 0001, `ship-change` takes an approved change to a PR that `deliver-check` reports
 as ready (8/8), and the owner merges it. Owners of some repositories want that merge to happen

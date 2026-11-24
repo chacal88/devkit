@@ -2,7 +2,7 @@
 # Proposal
 
 Change: `stale-only-on-own-files` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(sources: `requirements.md`, `decisions.md`, ADR 0021, ADR 0002, the `Commit:` staleness rule of
+(sources: `requirements.md`, `decisions.md`, ADR 0022, ADR 0002, the `Commit:` staleness rule of
 `docs/openspec-flow.md`). Roadmap: Round 25d of `openspec/roadmap.md`, line `stale-only-on-own-files`
 (change-state retro, learning 3).
 
@@ -12,7 +12,7 @@ Every merge of `main` into a change's branch that brings a file outside `openspe
 change's `evidence.md` and every review stale, even when it touches none of the change's files. On
 2026-11-23 several changes ran in parallel and each merge of `main` made every other one redo its
 suite (13 to 45 minutes) and its review bench. The owner asked that a busy `main` no longer cost
-that, and ADR 0021 records the rule.
+that, and ADR 0022 records the rule.
 
 ## What Changes
 
@@ -35,7 +35,7 @@ that, and ADR 0021 records the rule.
   which do not, and that the pull request's required `check` CI is the backstop. Every sentence that
   says any base merge outside `openspec/` stales the records is corrected (the flow doc,
   `CONTRIBUTING.md`, the `devkit` skill and the `review-change` skill). ADR 0002 gets its
-  "Amended by ADR 0021" line; `openspec/config.yaml` lists ADR 0021.
+  "Amended by ADR 0022" line; `openspec/config.yaml` lists ADR 0022.
 - **Release.** devkit-openspec and devkit-core minor bumps, the marketplace and `CHANGELOG.md`, the CI
   pin of `docs/openspec-flow.md` and the release tag.
 
@@ -86,7 +86,7 @@ release-file list, narrowing stale reviewers by area (requirements, "Out of scop
 - **devkit-core (skill):** `plugins/core/skills/review-change/SKILL.md`, the stale definition.
 - **Docs and decisions:** `docs/openspec-flow.md`, `CONTRIBUTING.md`,
   `docs/adr/0002-merge-without-the-owner-opt-in.md`,
-  `docs/adr/0021-a-base-merge-stales-only-on-the-changes-own-files.md` (status),
+  `docs/adr/0022-a-base-merge-stales-only-on-the-changes-own-files.md` (status),
   `openspec/config.yaml` (ADR list).
 - **Release:** `plugins/openspec/.claude-plugin/plugin.json`, `plugins/core/.claude-plugin/plugin.json`,
   `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/catalog.md` if the generator changes it,
@@ -95,7 +95,7 @@ release-file list, narrowing stale reviewers by area (requirements, "Out of scop
   tag. Its `actions/checkout` already needs `fetch-depth: 0`, which brings `origin/<base>`.
 - **Dependencies:** none. Inherited open decisions: none (the "Open points" of
   `docs/coordination-design.md` hold nothing on staleness).
-- **Decisions cited:** ADR 0021 (this rule; `decisions.md`), ADR 0002 (its accepted cost narrows),
+- **Decisions cited:** ADR 0022 (this rule; `decisions.md`), ADR 0002 (its accepted cost narrows),
   ADR 0012 (the check judges devkit-script changes), ADR 0018 (the configured base of `two-prs`).
 
 **Exit criteria:** `openspec validate stale-only-on-own-files --strict`; the hook suite

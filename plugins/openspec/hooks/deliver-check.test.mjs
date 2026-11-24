@@ -5883,3 +5883,33 @@ test('own-files AC-8 ci: the check passes after an unrelated merge and fails nam
     assert.match(r.stdout, new RegExp(`${s7(bad.R)} is behind ${s7(bad.merged)}, which touches src/a\\.ts`), entry);
   }
 });
+
+test('own-files AC-9 docs: the flow doc states the rule, the fail-safe cases and the check backstop', () => {
+  const flow = textOf('docs', 'openspec-flow.md');
+  const at = flow.indexOf('**The own-files rule.**');
+  assert.ok(at >= 0, 'the flow doc has the own-files paragraph');
+  const para = flow.slice(at, flow.indexOf('\n\n', at));
+  for (const [what, pattern] of [
+    ['the own files are the net diff against the base', /own files/],
+    ['a release file is never own', /release files/],
+    ['the merge and the base commits it brings are exempt', /base commits/],
+    ['the base is named', /`origin\/<base>`/],
+    ['a rejected review keeps the strict rule', /rejected review/],
+    ['no origin ref fails safe', /no `origin\/<base>`/],
+    ['an unfetched base fails safe', /not fetched|unfetched/],
+    ['a merge of another branch fails safe', /another branch/],
+    ['a head inside the base fails safe', /head (is )?(already )?(in|inside) the base/],
+    ['the check is the backstop', /backstop/],
+    ['the check runs on the merged ref', /`check`/],
+    ['the decision is cited', /ADR 0022/],
+  ]) assert.match(para, pattern, what);
+  const everyMerge = /every merge of the base that touches a file outside `openspec\/` makes its evidence and all its reviews stale/;
+  for (const file of [['docs', 'openspec-flow.md'], ['CONTRIBUTING.md'], ['plugins', 'core', 'skills', 'review-change', 'SKILL.md']]) {
+    assert.doesNotMatch(textOf(...file), everyMerge, file.join('/'));
+  }
+  assert.match(textOf('docs', 'openspec-flow.md'), /every merge of the base that brings one of its own files/, 'the release paragraph');
+  assert.match(textOf('CONTRIBUTING.md'), /own files/, 'CONTRIBUTING names the own files');
+  assert.match(textOf('plugins', 'core', 'skills', 'review-change', 'SKILL.md'), /brings none of the change's own files/, 'the review skill');
+  const ci = textOf('docs', 'openspec-flow.md');
+  assert.match(ci.slice(ci.indexOf('\n## CI')), /`GITHUB_BASE_REF`[^\n]*own files|own files[^\n]*`GITHUB_BASE_REF`/, 'the CI section');
+});
