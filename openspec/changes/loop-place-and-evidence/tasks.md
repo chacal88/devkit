@@ -121,7 +121,7 @@ scratch file in the tree, and end every task with `git status --short`.
 - [x] 3.2 Check that nothing outside the plan changed. Check:
   `git diff --stat $(git merge-base origin/main HEAD) -- plugins/openspec/hooks/change-loop.mjs plugins/openspec/hooks/roadmap-loop.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/conduct-check.mjs plugins/openspec/hooks/flow-check.mjs plugins/openspec/hooks/guard.mjs plugins/openspec/schemas openspec/schemas plugins/core plugins/panel plugins/openspec/skills/devkit`
   prints nothing (AC-7: the place wait and the held session keep their code and tests).
-- [ ] 3.3 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate loop-place-and-evidence --strict`
+- [x] 3.3 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate loop-place-and-evidence --strict`
   green (the guard suite as a background command); covers AC-1 to AC-7 together with every other
   suite.
 
