@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, DEVKIT_SCHEMAS, openspecCli, openspecRefusal, STAGE_HEADER, parseStageHeader, FlowUsageError, readFlow, readFlowFile, FLOW_LANGS, changeFlow, changeSchemaAt, parseDevkitBlock, budgetValue, spendOf, spendSources, spendLines } from './guard.mjs';
-import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, authorizedRounds } from './deliver-check.mjs';
+import { gitFacts, staleness, ownFiles, stalenessBase, fencedLines, readReviews, locateChange, schemaOf, deliveryConfig, ShipConfigError, deliveryOf, findTestPr, checksItem, waitingFor, currentBranch, defaultBranches, archiveHeads, trainFacts, isDevkitScript, authorizedRounds, approvalState, planRevision } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 // The flow file reader and its error live in guard.mjs (the CI job downloads that file, not this one); one reader, re-exported.
@@ -309,6 +309,8 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   Object.assign(facts, { files, opened: existsSync(join(located.dir, '.openspec.yaml')), skipped: [], tasks: null, dirty: [], head: null,
     flags: classificationFlags(located.dir), authorizedReviewRounds: authorizedRounds(located.dir, 'review'), settings: readTestSettings(root).paths,
     flowVersion: { version: followed.version, installed: followed.installed, pinned: followed.pinned } });
+  // The owner's approval and the plan it records, for a flow that declares the approval (D-7).
+  if (flow.stages.some((s) => s.id === 'approval')) Object.assign(facts, { approvalOk: approvalState(located.dir).ok, planRevision: planRevision(located.dir) });
   if (isPreviousScript(files, flow)) return { facts, flow };
   let config;
   try { config = deliveryConfig(root, schema); } catch (e) {
@@ -375,6 +377,7 @@ export const TEXT = {
     'header-failed': (p) => `failed at attempt ${p.attempt}; failures in a row: ${p.failures} of ${p.ceiling}`,
     'stale-code': (p) => `the code changed since it ran (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} changed after it`,
+    'plan-revised': () => 'the plan changed after the owner approved it',
     'stale-reviewers': (p) => `the reviews of ${p.names.join(', ')} are stale`,
     'tasks-pending': (p) => `${p.count} task${p.count === 1 ? '' : 's'} pending (${p.ids.join(', ')})`,
     uncommitted: (p) => `code changed and is not committed (${p.paths.join(', ')})`,
@@ -432,6 +435,7 @@ export const TEXT = {
     'header-failed': (p) => `falhou na tentativa ${p.attempt}; falhas seguidas: ${p.failures} de ${p.ceiling}`,
     'stale-code': (p) => `o código mudou desde que ela rodou (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} mudou depois dela`,
+    'plan-revised': () => 'o plano mudou depois que o dono o aprovou',
     'stale-reviewers': (p) => `as revisões de ${p.names.join(', ')} estão desatualizadas`,
     'tasks-pending': (p) => `${p.count} ${p.count === 1 ? 'tarefa pendente' : 'tarefas pendentes'} (${p.ids.join(', ')})`,
     uncommitted: (p) => `há código alterado e não commitado (${p.paths.join(', ')})`,
@@ -551,6 +555,11 @@ function artifactState(stage, files, facts, flow, started) {
       const other = maxMtime(facts.files[a] ?? []);
       if (mine !== null && other !== null && other - mine > FRESH_MS) { stale = { code: 'stale-plan', params: { by: a } }; break; }
     }
+  }
+  // Once the work has started, a plan file edited after the owner approved the plan (the approval records its digest) makes
+  // the readiness stale (coordinator-loop-fixes D-7); a tick or a later stage file is no plan edit.
+  if (!stale && started && !facts.postMerge && stage.id === 'readiness' && facts.approvalOk && facts.planRevision?.changed) {
+    stale = { code: 'plan-revised', params: {} };
   }
   const ceiling = ceilingOf(stage, flow, facts);
   if (result === 'failed' && stage.ceiling === 'owner') return out('failed', 'changes-asked', { attempt: h.attempt }, info);

@@ -246,7 +246,7 @@ every task with `git status --short`.
   task keeps running without approval.md (the started exemption)", "stop-plan-approval: APPROVED readiness with no
   approval.md waits for the owner, naming the readiness hash (AC-5)" and "approvalState: no file, a current file and
   a stale file" (`deliver-check.test.mjs`) still pass.
-- [ ] 3.5 D-7 in `plugins/openspec/hooks/flow-check.mjs` (`collectFlow`'s facts, `artifactState`, `TEXT`
+- [x] 3.5 D-7 in `plugins/openspec/hooks/flow-check.mjs` (`collectFlow`'s facts, `artifactState`, `TEXT`
   `plan-revised` in both languages) and `change-loop.mjs` (`PLAN_REASONS`, the stale list, `nextAction`'s `plan`,
   the three approval waits' `detail.plan`, and, for the CompozyOS driver, `approvalText`'s `plan` field and
   `recordApproval` passing `planDigest(dir)`). Check: T57 to T60, T93, T115, T116, T133 and T134 and the updated record-approval

@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings, appliedStages } from './flow-check.mjs';
-import { collectState, buildReport, locateChange, approvalState, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS } from './deliver-check.mjs';
+import { collectState, buildReport, locateChange, approvalState, planDigest, planRevision, makeGh, readDeclared, authorizedRounds, REVIEW_ROUNDS } from './deliver-check.mjs';
 import { OFFLINE_GH } from './merge-setup.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
@@ -1015,7 +1015,7 @@ const AGENT = {
 };
 const BUILD_PARTS = ['build', 'after', 'delivery', 'close'];
 const TEST_STAGES = ['unit-tests', 'e2e-tests'];
-const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix'];
+const PLAN_REASONS = ['no-file', 'no-header', 'bad-header', 'header-other-stage', 'not-judged', 'stale-plan', 'rerun-after-fix', 'plan-revised'];
 const NOT_DELIVERED = ['no-file', 'not-judged', 'no-header', 'bad-header', 'header-other-stage'];
 const SWITCH_FLAGS = ['architecture', 'contract', 'ui'];
 const BLOCKED_OF = { 'ceiling-reached': 'ceiling', 'no-progress': 'no-progress', 'gh-too-old': 'gh-too-old', 'pr-closed': 'pr-closed' };
@@ -1328,7 +1328,7 @@ export function decide(facts) {
         return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} (failures in a row: ${failures} of ${ceiling}): revise the plan from its findings`);
       }
       if (PLAN_REASONS.includes(n.reasonCode) && s && AGENT[s.role]) {
-        const stale = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode);
+        const stale = ['stale-plan', 'rerun-after-fix', 'plan-revised'].includes(n.reasonCode);
         const what = stale ? `${n.stage} is out of date: bring it up to date`
           : s.role === 'plan-readiness-reviewer' ? 'review the plan'
             : s.role === 'change-planner' ? `write the plan files the script still lacks, from ${n.stage} on, each from \`openspec instructions <artifact> --change ${ctx.id}\``
@@ -1337,8 +1337,8 @@ export function decide(facts) {
       }
       return blocked('unknown-step', {}, n.stage);
     }
-    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
-    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, { readiness: facts.approval?.readiness ?? null });
+    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'owner-pending') return waiting('waiting-for-owner', 'waiting-approval', 'approval', {}, { readiness: facts.approval?.readiness ?? null, plan: facts.plan?.plan ?? null });
+    if (e.state === 'waiting-for-owner' && e.stage === 'approval' && e.reasonCode === 'approval-stale') return waiting('waiting-for-owner', 'waiting-approval-again', 'approval', {}, { readiness: facts.approval?.readiness ?? null, plan: facts.plan?.plan ?? null });
     if (e.state === 'waiting-for-owner' && e.stage === 'mockup' && e.reasonCode === 'owner-pending') {
       return waiting('waiting-for-owner', 'waiting-mockup', 'mockup', {}, { file: `openspec/changes/${ctx.id}/mockup.md`, folder: `openspec/changes/${ctx.id}/mock/` });
     }
@@ -1440,7 +1440,7 @@ export function decide(facts) {
     }
     if (step === 'stop-plan-approval') {
       const again = facts.approval?.status === 'APPROVED' && Boolean(facts.approval.recorded);
-      return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, { readiness: facts.approval?.readiness ?? row.next.readiness ?? null });
+      return waiting('waiting-for-owner', again ? 'waiting-approval-again' : 'waiting-approval', currentId, {}, { readiness: facts.approval?.readiness ?? row.next.readiness ?? null, plan: facts.plan?.plan ?? row.next.plan ?? null });
     }
     const number = row.next.number ?? row.delivered?.next?.number;
     const named = Object.fromEntries(['branch', 'base', 'list'].filter((k) => row.next[k] !== undefined).map((k) => [k, row.next[k]]));
@@ -1621,6 +1621,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     after,
     fingerprint: facts.fingerprint ?? fingerprint(found.root, facts.head ?? null),
     approval: approvalState(dir),
+    plan: planRevision(dir),
     tests: readTestSettings(found.root),
     decisions: decisionRecords(found.root, dir),
     hasProposal: existsSync(join(dir, 'proposal.md')),
@@ -3052,9 +3053,10 @@ const refusal = (what) => new LoopUsageError(`${what}: nothing was written or ru
 const changeFolder = (action, id) => locateChange(action.root, id)?.dir ?? join(action.root, 'openspec', 'changes', id);
 const headOf = (root) => tryGit(root, ['rev-parse', 'HEAD']) || 'none';
 
-// The text of approval.md in the form of the `stop-plan-approval` row of `ship-change`.
-export function approvalText({ id, attempt, commit, readiness: hash, date, words }) {
-  return `<!-- devkit-stage approval result=passed attempt=${attempt} commit=${commit} -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hash}\n- Date: ${date}\n- Owner's words: "\`${words}\`"\n`;
+// The text of approval.md in the form of the `stop-plan-approval` row of `ship-change`; the `- Plan:` line only with a `plan` (D-7).
+export function approvalText({ id, attempt, commit, readiness: hash, plan = null, date, words }) {
+  const planLine = plan ? `- Plan: ${plan}\n` : '';
+  return `<!-- devkit-stage approval result=passed attempt=${attempt} commit=${commit} -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hash}\n${planLine}- Date: ${date}\n- Owner's words: "\`${words}\`"\n`;
 }
 
 // The text of mockup.md after the owner's answer, in the form of the `stop-mockup-approval` row: `approve` or `changes`.
@@ -3081,7 +3083,7 @@ export function recordApproval(cwd, id, { words, lang, env, openspec, gh } = {})
   const file = join(dir, 'approval.md');
   const earlier = existsSync(file) ? parseStageHeader(readFileSync(file, 'utf8')) : null;
   const attempt = earlier && !earlier.malformed ? earlier.attempt + 1 : 1;
-  writeFileSync(file, approvalText({ id, attempt, commit: headOf(st.action.root), readiness: hash, date: today(), words: wordsOf(words) }));
+  writeFileSync(file, approvalText({ id, attempt, commit: headOf(st.action.root), readiness: hash, plan: planDigest(dir), date: today(), words: wordsOf(words) }));
   return { version: 1, change: id, recorded: 'approval', attempt };
 }
 
