@@ -1,24 +1,25 @@
 Verdict: approved
-Commit: a46bf795f7bb603ae110183d20a8cd1f5630596a
+Commit: 9ad0f6fa551bb7269b21fd0240956c91e0bb15cc
 
-## ADR review — run-status-bar (round 3, re-check after the merge of origin/main d917ae0)
+## ADR review — run-status-bar (round 2 of 2, re-review of a46bf79..HEAD)
 
 ### Findings
 
-ADRs reviewed: ADR 0030 (`docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md`), ADR 0022 (`docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md`), with ADR 0017 (`docs/adr/0017-a-change-state-is-derived-in-one-place.md`), ADR 0023 (`docs/adr/0023-the-model-is-chosen-by-stage.md`) and ADR 0026 (`docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`) carried from round 2. The rest of `docs/adr/` was scanned by title through the ADR line of `openspec/config.yaml`, and none touches the lines in scope.
+ADRs reviewed: ADR 0017 (`docs/adr/0017-a-change-state-is-derived-in-one-place.md`) and ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`). ADR 0022 (`docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md`), ADR 0026 (`docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`) and ADR 0030 (`docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md`) are carried from round 1. The rest of `docs/adr/` was checked by title, and no other ADR covers the lines in scope.
 
-Re-review scope: my round 2 findings (none), how merge `aa8a685` of `origin/main` `d917ae0` was resolved in the files both parents touched, and the change folder edits `83650a5` and `a46bf79` (plus `009b455`, the round 2 record). Main's own commits are out of scope.
+Re-review scope: my previous verdict at `a46bf79` had no findings, so there is nothing to carry forward. This round covers the range `a46bf79..HEAD`: `deb9835` (the review re-check record), `accaace` (the fix for code-quality F10), `3198a03` (the tasks preamble) and `9ad0f6f` (evidence).
 
-ADR review: pass. 5 ADRs reviewed: ADR 0017, ADR 0022, ADR 0023, ADR 0026, ADR 0030.
+ADR review: pass. 2 ADRs reviewed in this round (ADR 0017, ADR 0002), 3 carried from round 1 (ADR 0022, ADR 0026, ADR 0030).
 
-- Release files (`.claude-plugin/marketplace.json`, `plugins/openspec/.claude-plugin/plugin.json`, `CHANGELOG.md`): devkit-openspec 0.43.0 and marketplace 0.48.0, one above main's 0.42.0 / 0.47.0. The entry is headed `## 0.48.0`, and main's 0.45.0 to 0.47.0 entries stay below it.
-- `docs/openspec-flow.md`: the four CI pin spots (comment, URL, the `(`v...` above)` sentence, the `gh api` tag command) all name `v0.43.0` and follow the manifest, which is the only pin rule left after ADR 0030 decision 1.
-- `plugins/openspec/hooks/change-loop-compozy.test.mjs`: byte-identical to main's `d917ae0` (`git diff aa8a685^2 aa8a685` is empty). The literal pin, its comment and its `doesNotMatch` history are gone, and the release edits no test line (ADR 0030 decision 1). The approved plan's E-3 edit is correctly dropped.
-- `plugins/openspec/hooks/change-loop.mjs`: the one conflicted hunk (`USAGE`) keeps main's `merge-check <id>` and this change's `state [--change <id>] [--offline]`. The branch's own hunks in `plugins/openspec/README.md`, `change-loop.test.mjs`, `change-loop-remote-state.test.mjs` and `flow-check.test.mjs` match exactly what it brought before the merge.
-- `openspec/changes/run-status-bar/design.md` and `tasks.md` (`83650a5`, `a46bf79`): E-3 is marked superseded by ADR 0030, and the allowed edits of existing tests drop to E-1, E-4 and E-5. `archive-release-pin` (ADR 0030) is now a dependency. Gate 3.4's suite part changes to `node scripts/test-suite.mjs`, which equals the train's whole-suite command in `openspec/config.yaml` (ADR 0022) and the flow page's "Gate parts proven by the train" rule. `evidence.md` says openly that nobody ran the whole suite at this head and that the train proves it. None of this contradicts an ADR.
+- `plugins/openspec/hooks/change-loop.mjs:1195-1196, 1345, 1402-1403, 1550` (`accaace`): the state is still worked out on each read by `decide()`, the code that picks the loop's next action, and is stored nowhere (ADR 0017 decision 1). The new `offline` input comes only from `nextAction` (`gh === OFFLINE_GH`). Its one effect is that the `stop-merge-setup` step ends as a wait on GitHub (`silent`) instead of blocked when GitHub was never asked (ADR 0017 decision 3: a GitHub that does not answer is a wait, not a stop). `blockedEnd` and the new branch use the same `silent()` helper, so there is still one way to describe a silent GitHub.
+- The online path is unchanged: a merge setup that cannot be read still blocks the change (`merge-setup`), and S-9b checks this as its guard. So the merge setup of ADR 0002 is not weakened where a change could actually ship. `--offline` is a read-only state read for the status bar and drives no step.
+- `plugins/openspec/hooks/merge-setup.mjs:46-48`: a comment only.
+- `plugins/openspec/hooks/change-state-stages.test.mjs:156-173` (S-9b): one test checks both conditions, online blocked and offline silent with no gh call. Run here with the required environment variables and `--concurrency=2`, scoped to `AC-3 offline`: 1/1 pass.
+- `openspec/changes/run-status-bar/tasks.md:13-15` (`3198a03`): the preamble now says the suite part of gate 3.4 is the delivery train's own command, which matches ADR 0022.
+- `evidence.md`, `review.md` and `reviews/*.md`: records of the verifier and the review bench. They contradict no ADR.
 - Every commit in the range has a conventional message.
 
-No open decision is touched (the project keeps no open-decisions log), and the change adds no ADR. No tests were run in this round: the conducting session reports the seven touched test files green at the merge head (935/935), and the commits after the merge touch only `openspec/changes/run-status-bar/`.
+No open decision is touched (the project keeps no open-decisions log), and the change adds no ADR.
 
 ### Summary
 - 0 findings (0 blocking, 0 important, 0 nit)

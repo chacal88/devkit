@@ -1,16 +1,29 @@
 Verdict: approved
-Commit: a46bf795f7bb603ae110183d20a8cd1f5630596a
+Commit: 9ad0f6fa551bb7269b21fd0240956c91e0bb15cc
 
-## Architecture review — run-status-bar (round 3 re-check, 3a53ac9..a46bf79)
+## Architecture review — run-status-bar (round 2 re-check, a46bf79..9ad0f6f)
 
 ### Findings
-- [praise] plugins/openspec/hooks/flow-check.mjs:433 — The not-applicable rules were cut from artifactState into one notApplicableOf, used by the walk and by appliedStages, and OFFLINE_GH was moved to merge-setup.mjs rather than copied: single owner, one shared helper (round 2 finding, unchanged by this range).
+- [praise] plugins/openspec/hooks/flow-check.mjs:433 — The not-applicable rules were cut from artifactState into one notApplicableOf, which the walk and appliedStages both use, and OFFLINE_GH moved to merge-setup.mjs instead of being copied: one owner, one shared helper (round 2 finding; this range does not change it).
+- [praise] plugins/openspec/hooks/change-loop.mjs:1196 — The GitHub-silent ending is cut into one local helper, silent(stageId, error). blockedEnd (line 1348) and the offline stop-merge-setup branch (line 1403) both call it, so the expression is not copied, and the new branch keeps the same detail shape ({ error }).
 
-Analyzed (re-check made because the verdict went stale, scoped to 3a53ac9..a46bf79: the resolution of the six files that conflicted in the merge aa8a685, compared with both parents 009b455 and d917ae0 through `git show --remerge-diff`, and the change folder edits in 83650a5 and a46bf79; main's own commits not reviewed).
+Analyzed (re-check of the changes since a46bf79: accaace, the fix for code-quality F10; 3198a03, the tasks.md preamble; 9ad0f6f and deb9835, the change folder's evidence and review files).
 
-- Owners: no new module, home or sharing mechanism enters in this range; the round-2 owners (status-line.mjs as a read-only leaf reading state only through `change-loop.mjs state`, notApplicableOf in flow-check.mjs, OFFLINE_GH in merge-setup.mjs) are untouched by the merge resolution.
-- Merge resolution: `.claude-plugin/marketplace.json` (marketplace 0.48.0, devkit-openspec 0.43.0) and `plugins/openspec/.claude-plugin/plugin.json` (0.43.0) take the next numbers after main's 0.47.0 / 0.42.0 and agree with each other; `CHANGELOG.md` puts this change's entry, renumbered to `## 0.48.0` and naming 0.43.0 and the v0.43.0 pin, above main's 0.47.0 with main's entries intact; `docs/openspec-flow.md` moves all three CI pin lines (comment, URL, `(v... above)` sentence with the `git/ref/tags` command) to v0.43.0 and no other line; `plugins/openspec/hooks/change-loop.mjs` keeps both sides in the USAGE line (main's `merge-check <id>` and this change's `state [--change <id>] [--offline]`), with no code conflict; `plugins/openspec/hooks/change-loop-compozy.test.mjs` is main's file byte for byte (`git diff --quiet d917ae0 HEAD` exits 0). That last resolution follows ADR 0030 Decision 1, which removed the literal pin line, its comment and the doesNotMatch history and leaves `pinMismatches(flow, version)` against the manifest as the pin invariant, so dropping this change's E-3 edit is the correct resolution, not lost coverage.
-- Contract consumers: the release pin contract is now read only from `plugin.json` by `change-loop-compozy.test.mjs`, the two tests of `deliver-check-cli.test.mjs` and the real-doc test of `release-merge.test.mjs`; the doc follows the manifest, so all of them stay consistent. The `state` contract (`stages`, `--offline`) did not change in this range.
-- Change folder: design.md (context paragraph, D-11 E-3 marked superseded with the approved text kept, the allowed-edits list reduced to E-1, E-4, E-5, D-13 release numbers, file table, risk row, dependency on archive-release-pin) and tasks.md (preamble, 1.6, 2.3, 3.1 with a `git diff --quiet` check that the compozy test stays main's, 3.4's suite part now the train's text, pointing at the existing "Gate parts proven by the train" paragraph of docs/openspec-flow.md) describe the merged tree accurately; evidence.md records the same facts. Scope and behaviour are unchanged, and no structural decision appears that would owe an ADR; the plan follows ADR 0030 rather than re-litigating it.
-- Deletion tests: no new module in this range.
-- Test run: `TMPDIR=/private/tmp/devkit-run-status-bar GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/change-loop-compozy.test.mjs` at a46bf79: 1 file, 198 tests, 198 pass, 0 fail (the file whose pin invariant ADR 0030 replaced).
+- **Owners.** No new module, home or sharing mechanism is added.
+  - `merge-setup.mjs` still owns `OFFLINE_GH`. Its only change is a comment that names how the loop recognises it.
+  - `decide` in `change-loop.mjs` still owns how a delivery row becomes an end state. The offline rule sits on the existing `case 'blocked'` branch rather than in a new function or in `deliver-check.mjs`.
+  - `deliver-check.mjs` (line 1697) still emits `stop-merge-setup` fail-closed. The rule that the merge setup fails closed is therefore unchanged at its owner, and offline mode only changes how `decide` reads that result.
+- **Seams.**
+  - `nextAction` (line 1550) works out offline mode from the identity of the `gh` it gets: `gh === OFFLINE_GH`.
+  - `OFFLINE_GH` reaches `nextAction` only through `runState`. `state --offline` passes it into `stateEntries` (line 3102), and `stateEntries` (line 1964) passes it to `nextAction`.
+  - `roadmap-loop.mjs` also uses `OFFLINE_GH`, at line 894 as `claimsGh` and at line 939 as the default `gh` of `roadmapAgentDecision`. Neither reaches `nextAction`: `roadmapAgentDecision` gives its `gh` only to `unfinished` and `archivedOnDefault`. So no roadmap decision changes behaviour.
+  - Because the stub carries the mode, any later caller that hands `nextAction` the offline stub gets the same reading without passing a separate flag. Design D-4 chose this ("`gh` is the offline stub for the whole read"), so it is not re-litigated here.
+- **Contract consumers.**
+  - `decide(facts)` gains the optional fact `offline`. Callers that omit it, including direct test callers of `decide`, see `undefined` and keep the online `blocked/merge-setup` path.
+  - The `state` output keeps its shape. Offline, a merge-mode change at the review reads `waiting-on-github` / `silent` instead of `blocked` / `merge-setup`.
+  - Design D-4 (lines 179-181) promises that state, "a stage that needs it reads `waiting-on-github` / `silent`". The status line (`status-line.mjs:193`, the only caller of `--offline`) already counts that state as in play only.
+  - Online callers (`next`, the roadmap loops, `stateEntries` without `--offline`) keep the stop. S-9b asserts both sides and asserts that no `gh` call is made offline.
+- **tasks.md (3198a03).** The change is only prose in the preamble, with no structural effect.
+- **Deletion tests.** `silent` is a local closure that two call sites share. Inlining it would bring back two copies of the same five-argument `waiting(...)` call, so it passes as a cut. No new module is added.
+- **ADR.** No structural decision in this range needs one.
+- **Test run.** At HEAD, `TMPDIR=/private/tmp/devkit-run-status-bar GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/change-state-stages.test.mjs`: 1 file, 22 tests, 22 pass, 0 fail. That count includes the new S-9b test `run-status-bar AC-3 offline: at the code review of a merge-mode change --offline reads waiting-on-github, silent; online a failed setup read stays blocked`.

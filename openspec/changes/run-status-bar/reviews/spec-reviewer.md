@@ -1,13 +1,14 @@
 Verdict: approved
-Commit: a46bf795f7bb603ae110183d20a8cd1f5630596a
+Commit: 9ad0f6fa551bb7269b21fd0240956c91e0bb15cc
 
 ## Spec review — run-status-bar
 
 ### Findings
-- [nit] openspec/changes/run-status-bar/specs/status-line/spec.md:89-91 (requirement "The line is at most 100 columns", scenario "The reason is dropped"); plugins/openspec/hooks/status-line.mjs:93-99 — The spec says the reason is cut "to its first word" and ends in an ellipsis, but the code never tries `<word>…` for a one-word reason and drops it at once; the spec does not say which is meant (open since round 1, unchanged since 3a53ac9; flagged, not interpreted).
-- [nit] openspec/changes/run-status-bar/tasks.md:13-14 against tasks.md:153-158 (gate 3.4) — The preamble still says "Every gate runs with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set", but the amended gate 3.4 is now `node scripts/test-suite.mjs && ...` with no CI branch variables (the train's text), so the plan's verification metadata contradicts itself; the preamble needs the same exception the 3.4 amendment records.
+- [nit] openspec/changes/run-status-bar/specs/status-line/spec.md:89-91; plugins/openspec/hooks/status-line.mjs:93-99 — Requirement "The line is at most 100 columns", scenario "The reason is dropped": the spec says the reason is cut "to its first word" and ends in an ellipsis, but the code drops a one-word reason at once without trying `<word>…`. The spec does not say which is meant (open since round 1; status-line.mjs unchanged in a46bf79..HEAD; flagged, not interpreted).
+- [nit] openspec/changes/run-status-bar/tasks.md:13-15 against tasks.md gate 3.4 — The preamble said every gate runs with GITHUB_HEAD_REF and GITHUB_BASE_REF set, while the amended gate 3.4 runs the train's text with no CI branch variables. · fixed in 3198a0303ca618e8645e4135503c32f34e4099c0
+- [nit] openspec/changes/run-status-bar/design.md D-11 test table (S-1..S-11, around line 330) and D-4; tasks.md — The design's test list (D-11, S-1 to S-11) and the tasks do not record S-9b or the offline merge-setup route added in accaace (`offline: gh === OFFLINE_GH`, stop-merge-setup read as silent). Only evidence.md and review.md describe it, so the plan's verification metadata no longer lists every test that proves "The state is read without GitHub on request".
 
-In-scope specs: `openspec/changes/run-status-bar/specs/status-line/spec.md`, `openspec/changes/run-status-bar/specs/change-state/spec.md`; baseline `openspec/specs/change-state/spec.md`.
+In-scope specs: `openspec/changes/run-status-bar/specs/status-line/spec.md`, `openspec/changes/run-status-bar/specs/change-state/spec.md`; baseline `openspec/specs/change-state/spec.md` (requirement "A GitHub that does not answer reads as a wait on GitHub").
 
 ### Coverage
 | Requirement | Status |
@@ -22,23 +23,14 @@ In-scope specs: `openspec/changes/run-status-bar/specs/status-line/spec.md`, `op
 | change-state: The state is read without GitHub on request | covered |
 
 ### Notes
-- Scope of this re-check: only what the branch brings since my approved verdict at `3a53ac9`. That is the resolution of merge `aa8a685` (origin/main `d917ae0`) in its six conflicted files, compared with both parents `009b455` and `d917ae0`, plus the change folder edits in `83650a5` and `a46bf79` (`design.md`, `tasks.md`, `evidence.md`). It does not cover main's own commits.
-- Spec deltas: `git diff --stat 3a53ac9 HEAD` shows no change to `specs/`, `proposal.md`, `requirements.md` or `openspec/specs/change-state/spec.md`. The merge changed only main's `openspec/specs/commit-attribution/spec.md`, which is out of this change's scope. The coverage above stands as in round 2.
-- Merge resolution, file by file:
-  - `plugin.json`: the resolution takes the next number above main, devkit-openspec 0.43.0 (main 0.42.0, branch 0.40.0).
-  - `marketplace.json`: the devkit-openspec entry is 0.43.0 and the marketplace metadata is 0.48.0 (main 0.47.0).
-  - `CHANGELOG.md`: this change's entry is renumbered `## 0.48.0` / `devkit-openspec 0.43.0` with the pin sentence at `v0.43.0`, it sits above main's 0.47.0, 0.46.0 and 0.45.0 entries, and its text is otherwise unchanged.
-  - `docs/openspec-flow.md`: all four CI pin occurrences (comment, URL, `(v... above)`, `git/ref/tags/v...`) read `v0.43.0`.
-  - `change-loop.mjs`: the `USAGE` line keeps main's `merge-check <id>` and this change's `state [--change <id>] [--offline]`; nothing else conflicted.
-  - `change-loop-compozy.test.mjs`: equals main's file byte for byte (`git diff d917ae0 aa8a685` is empty), so E-3 is dropped. The test now derives the pin from `plugin.json` through `pinMismatches` (ADR 0030), and the doc follows the manifest.
-  - None of these edits adds or removes behaviour, so there is no scope creep and no gap.
-- Change folder edits:
-  - `design.md`: adds a context paragraph, marks E-3 superseded by ADR 0030, and moves the D-13 release target to 0.43.0/0.48.0. The design says scope and behaviour do not change, and the diff confirms it.
-  - `tasks.md`: notes E-3 as superseded and updates the 3.1 numbers and check. The 3.1 check now includes `git diff --quiet d917ae0 HEAD -- change-loop-compozy.test.mjs`. Gate 3.4's suite part is amended to the train's text (docs/openspec-flow.md "Gate parts proven by the train", which is on main).
-  - `evidence.md`: re-records the AC proofs at `83650a5`, and every AC still maps to the spec scenarios. None of these edits adds or removes a requirement.
-- The gate 3.4 amendment changes a verification step of the approved plan after approval. That is a process matter for the other reviewers and the owner, not a spec gap, and the evidence names it in "Notes for the owner". Its only spec-side trace is the preamble inconsistency in F2.
-- No ADR contradiction: ADR 0030 (accepted on main) is what makes E-3 obsolete, and the change follows it rather than bypassing it. No two specs disagree, and no open decision is at play.
-- Tests: I ran none this round. The caller reports that the seven touched files passed at the merge head (935/935), and so did gates 1.7 and 2.5 (693/693, 341/341, 4/4). The merge resolution touches no code path the spec scenarios govern (version strings and one usage line only).
+- This round reviews only `a46bf79..9ad0f6f` (the re-review rule). The commits are `deb9835` (review record), `accaace` (the fix for code-quality F10), `3198a03` (the tasks preamble) and `9ad0f6f` (evidence). No file under `specs/`, `proposal.md`, `requirements.md` or `openspec/specs/` changed in this range.
+- **The F10 fix closes a gap against the spec delta and adds no scope.** Requirement "The state is read without GitHub on request" says that with `--offline` GitHub reads as not answering, so the state follows the baseline "A GitHub that does not answer reads as a wait on GitHub": a stage that needs GitHub reads `waiting-on-github` with the reason `silent`. In merge mode the code review stage needs GitHub to read the merge setup. Before accaace, `--offline` read `blocked`, `merge-setup` there; now `decide` sends `stop-merge-setup` to the shared `silent()` helper only when `facts.offline` is set. Design D-4 already claimed this ("a stage that needs it reads `waiting-on-github` / `silent`"). Online the stop stays `blocked`, `merge-setup`, which keeps "Without `--offline` nothing changes".
+- **The new route is confined to `state --offline`.** `facts.offline` is true only when `nextAction` gets the `OFFLINE_GH` stub. In non-test code that happens only through `runState` with `--offline` (change-loop.mjs:3102). The other users of `OFFLINE_GH` (`roadmapAgentDecision` through `openOnRoadmap`/`unfinished`, and `roadmapStopDecision` as `claimsGh`) never reach `decide`, so `next` and the guard hooks behave as before.
+- **The refactor of `blockedEnd` changes no behaviour.** It is the same `waiting(...)` call, now through `silent()`.
+- **Tests: I ran one test command.** It ran the offline tests of `plugins/openspec/hooks/change-state-stages.test.mjs`, selected with `--test-name-pattern="run-status-bar AC-(3|5) offline"`, with TMPDIR and the CI branch variables set and `--concurrency=2`: 11 of 11 passed, S-9b among them. For the four touched test files and `change-loop.test.mjs` I rely on the caller's runs and the evidence (515/515 and 182/182).
+- **Evidence.** AC-3 now records real runs F1 to F7 on the S-9b fixture. Online the change is blocked/merge-setup with 5 `gh` calls. Offline it reads waiting-on-github/silent with 0 calls. The coordinator bar counts it in play and not as blocked. On the code before the fix (`83650a5`) F6 and F7 reproduce the defect.
+- **Outside this change.** Online, a `gh` that fails on every call still makes the merge-setup step block rather than read as silent. That predates this change and is not in its delta, so I do not raise it as a finding.
+- **ADRs and decisions.** No ADR or open decision is touched in this range, and no two specs disagree.
 
 ### Summary
-- 2 findings (0 scope creep, 0 gaps): 2 nits, one carried open from round 1 (F1) and one new in the change folder edits (F2). Nothing blocking or important.
+- 3 findings (0 scope creep, 0 gaps), all nits: F1 carried open from round 1; F2 fixed in 3198a03; F3 new (the design's test list and the tasks do not record S-9b). Nothing blocking or important.

@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=a46bf795f7bb603ae110183d20a8cd1f5630596a -->
+<!-- devkit-stage review result=failed attempt=2 commit=9ad0f6fa551bb7269b21fd0240956c91e0bb15cc -->
 # Review: run-status-bar, round 1
 
 Path: agents · range `8085104..HEAD` · structural: PASS
@@ -81,3 +81,29 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: run-status-bar, round 2
+
+Path: agents · range `a46bf79..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 9ad0f6f |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 9ad0f6f |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 9ad0f6f |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 9ad0f6f |
+| test-coverage-reviewer | rejected | 0 | 1 | 1 | 0 | 9ad0f6f |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- test-coverage-reviewer — [important] plugins/openspec/hooks/change-loop.mjs:1403 (`step === 'stop-merge-setup' && facts.offline`) — [5] Only the offline half of the new guard has a negative test (S-9b online); without the step conjunct, --offline turns stop-branch, stop-not-approved, stop-archive and pr-problem into waiting-on-github/silent (a wrong-branch change leaves the coordinator's ⛔ count) and no test fails. - write in: change-loop.test.mjs next to B14 (:478), the same rows run through build(rowOf(step), { offline: true }), each still ['end','blocked',why,2]
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 of the cycle opened by the stale re-check after the merge of main d917ae0: code-quality F10 is fixed in accaace; test-coverage F11 (important, new): the step conjunct of the offline merge-setup guard has no negative test. No convergence after round 2: the owner decides whether a further round runs.
+
+## Next
+Consensus deadlock after round 2: the owner decides.
