@@ -43,3 +43,26 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: release-merge-leftovers, round 1
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | rejected | 0 | 1 | 1 | 0 | 0f2c5fa |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 0f2c5fa |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- code-quality-reviewer — [important] openspec/changes/release-merge-leftovers/proposal.md:33-36,87-89,126-132; tasks.md:201-207 — Proposal and ticked task 2.1 still say TWO_PRS moves into conduct-check.test.mjs, is re-exported by delivery-models.test.mjs, and that delivery-models.test.mjs and change-loop.test.mjs change. The diff touches neither file: TWO_PRS is imported from test-fixtures.mjs, and the CI-pin assertion is in change-loop-compozy.test.mjs. Only a note inside tasks.md records the supersession. Task 2.1 is [x] with a Check line that the code contradicts.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path: agents (the turn was not owner-typed). F1 of code-quality (the plan text still describes the superseded TWO_PRS move) was verified by three finding-verifiers, none refuted it; it is a documentation fix in the change folder, made before round 2.
+
+## Next
+Fix the open findings, then run review-change again (round 2).
