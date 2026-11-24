@@ -228,7 +228,7 @@ every task with `git status --short`.
   description that starts with Gate: is a gate; a mid-sentence `Gate:` is not" (`deliver-check.test.mjs`) and
   "review-writer-prompt AC-9 parseTasks counts the task and the gate after an unclosed fence"
   (`deliver-check-archive.test.mjs`) still pass.
-- [ ] 3.3 D-6's texts: `plugins/core/agents/tdd-implementer.md`, the `conductor-task` and `implement` rows of
+- [x] 3.3 D-6's texts: `plugins/core/agents/tdd-implementer.md`, the `conductor-task` and `implement` rows of
   `plugins/openspec/skills/ship-change/SKILL.md`, the `session` item of `plugins/openspec/skills/devkit/SKILL.md`, and
   the tasks instruction of `plugins/openspec/schemas/devkit/schema.yaml`, `plugins/openspec/schemas/devkit-lite/schema.yaml`,
   `openspec/schemas/devkit/schema.yaml` and `openspec/schemas/devkit-lite/schema.yaml`, each pair byte-identical.

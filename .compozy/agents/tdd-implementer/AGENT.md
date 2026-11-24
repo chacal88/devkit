@@ -64,7 +64,7 @@ Plans go stale. Before writing a line:
 
 ## Per task: red → green → refactor
 
-Work through the phase's tasks in `tasks.md` order. Iron law: **no product code without a test that failed first** (see the test-driven-development skill).
+Work through the phase's tasks in `tasks.md` order. A task whose description starts with `Conductor:` is the conducting session's: never do it or tick it; stop before the first open one, report the phase as stopped there, and return `success` for the tasks before it. Iron law: **no product code without a test that failed first** (see the test-driven-development skill).
 
 - **Red** — one behavior per test, a name that states the behavior, real code (mocks only when unavoidable). Run it and watch it fail, for the right reason (missing behavior, not a typo or import error). A test that passes at once is testing something that already exists: fix the test.
 - **Green** — the minimum code to pass. No speculative features, no "improving" neighboring code. Run it: this test passes, the others still pass, output is clean.

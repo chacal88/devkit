@@ -313,6 +313,9 @@ artifacts:
       devkit: each "## N." group is one phase that a tdd-implementer agent
       can run on its own. End each group with a gate task, e.g.
       `- [ ] N.9 Gate: <test command> green; reference the AC ids covered`.
+      A task only the conducting session can do (a run in the host, a host
+      setting, a real session) starts its description with `Conductor:`; the
+      loop never hands it to the implementer.
       Every acceptance criterion id from requirements.md is covered by at
       least one task.
 
