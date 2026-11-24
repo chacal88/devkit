@@ -22,3 +22,29 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: stale-only-on-own-files, round 2
+
+Path: agents · range `de79c5649f8ea75b4e5a7bd1ce9d3aa8e4f0d7e1..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 962e43e |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 962e43e |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 re-reviewed only the round-1 findings and the lines changed since (range de79c56..HEAD); all fixed in 962e43e
+- One nit stays open and does not block: the move-under-openspec and root-commit scenarios are tested only without a base (ownFiles own test covers both sides of a move)
+- The whole suite runs once more at the final commit; its log goes to the evidence
+
+## Next
+Ready to ship.
+
