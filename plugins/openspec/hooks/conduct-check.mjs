@@ -61,7 +61,7 @@ const SUBAGENT = {
   audit: 'devkit-core:plan-reality-auditor',
 };
 const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'tag-release', 'answer', 'worktree', 'rebase', 'rerun-checks',
-  'checkout-support', 'merge-into-support', 'close-boarded-pr', 'rejoin-archive'];
+  'checkout-support', 'merge-into-support', 'close-boarded-pr', 'rejoin-archive', 'conductor-task'];
 const ASKABLE = ['stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill', 'approve'];
 const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'boarded', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
 const GITHUB = ['wait-checks', 'wait-merge', 'on-train', 'wait-train'];

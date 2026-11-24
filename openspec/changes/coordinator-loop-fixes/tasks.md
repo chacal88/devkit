@@ -223,7 +223,7 @@ every task with `git status --short`.
   exits 1 with no import error, and each test fails on its own assertion except the negatives T51, T53, T58, T59,
   T66, T93, T94, T121, T126, T128 and T129 and the negative halves of T119, T120, T122 and T123, which may already pass; the updated record-approval test fails on its new expectation
   (`env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^change-loop compozy record-approval" plugins/openspec/hooks/change-loop-compozy.test.mjs`).
-- [ ] 3.2 D-6 in `plugins/openspec/hooks/deliver-check.mjs` (`parseTasks`, `readPhases`, `nextStep`'s phase loop),
+- [x] 3.2 D-6 in `plugins/openspec/hooks/deliver-check.mjs` (`parseTasks`, `readPhases`, `nextStep`'s phase loop),
   `change-loop.mjs` (`ROWS`) and `conduct-check.mjs` (`MAIN`). Check: T62 to T68 pass, and "parseTasks: only a
   description that starts with Gate: is a gate; a mid-sentence `Gate:` is not" (`deliver-check.test.mjs`) and
   "review-writer-prompt AC-9 parseTasks counts the task and the gate after an unclosed fence"

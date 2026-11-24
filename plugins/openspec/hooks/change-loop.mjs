@@ -1080,6 +1080,7 @@ const ROWS = {
   'merge-into-support': session('delivery'),
   'review-resolution': session('review'),
   gate: session('implementation'),
+  'conductor-task': session('implementation'),
   'edit-pr-body': session('delivery'),
   'enable-auto-merge': session('delivery'),
   'disable-auto-merge': session('delivery'),

@@ -470,8 +470,9 @@ export function fencedLines(text) {
   }
 }
 
-// The checkbox lines of tasks.md outside fenced blocks: { phase, id, done, isGate, command }. A gate
+// The checkbox lines of tasks.md outside fenced blocks: { phase, id, done, isGate, command, isConductor }. A gate
 // task's description (the text after its id) starts with "Gate:"; its command is the first backticked text after it.
+// A task whose description starts with "Conductor:" is the conducting session's (coordinator-loop-fixes D-6).
 export function parseTasks(text) {
   const tasks = [];
   let phase = 1;
@@ -484,22 +485,26 @@ export function parseTasks(text) {
     if (!m) continue;
     const description = m[3];
     const isGate = description.startsWith('Gate:');
-    tasks.push({ phase, id: m[2], done: m[1] !== ' ', isGate, command: isGate ? (description.match(/^Gate:[^`]*`([^`]+)`/)?.[1] ?? null) : null });
+    tasks.push({ phase, id: m[2], done: m[1] !== ' ', isGate, command: isGate ? (description.match(/^Gate:[^`]*`([^`]+)`/)?.[1] ?? null) : null, isConductor: description.startsWith('Conductor:') });
   }
   return tasks;
 }
 
-// Phases for the JSON report and nextStep: [{ n, title, open, gate }].
+// Phases for the JSON report and nextStep: [{ n, title, open, conductor, gate }]; `conductor` lists the open tasks the
+// conducting session does (D-6), [] when none.
 export function readPhases(file) {
   if (!existsSync(file)) return [];
   const text = readFileSync(file, 'utf8');
   const titles = new Map([...text.matchAll(/^##\s+(\d+)\.\s*(.*)$/gm)].map((m) => [Number(m[1]), m[2].trim()]));
   const phases = new Map();
   for (const t of parseTasks(text)) {
-    if (!phases.has(t.phase)) phases.set(t.phase, { n: t.phase, title: titles.get(t.phase) || '', open: [], gate: null });
+    if (!phases.has(t.phase)) phases.set(t.phase, { n: t.phase, title: titles.get(t.phase) || '', open: [], conductor: [], gate: null });
     const p = phases.get(t.phase);
     if (t.isGate) p.gate ??= { id: t.id, done: t.done, command: t.command };
-    else if (!t.done) p.open.push(t.id);
+    else if (!t.done) {
+      p.open.push(t.id);
+      if (t.isConductor) p.conductor.push(t.id);
+    }
   }
   return [...phases.values()].sort((a, b) => a.n - b.n);
 }
@@ -1883,7 +1888,18 @@ export function nextStep(state) {
     return step('stop-merge-setup', `merge mode needs the repository prepared: ${state.setup.missing.join('; ')}`, { missing: state.setup.missing });
   }
   for (const p of state.phases) {
-    if (p.open.length) return step('implement', `phase ${p.n} has unticked tasks: ${p.open.join(', ')}`, { phase: p.n });
+    if (p.open.length) {
+      // D-6: the tasks the conducting session does are never handed to the implementer; it stops before the first one.
+      const conductor = p.conductor ?? [];
+      const leading = [];
+      for (const id of p.open) {
+        if (!conductor.includes(id)) break;
+        leading.push(id);
+      }
+      if (leading.length) return step('conductor-task', `phase ${p.n} has tasks the conducting session does: ${leading.join(', ')}`, { phase: p.n, tasks: leading });
+      const stopAt = p.open.find((id) => conductor.includes(id));
+      return step('implement', `phase ${p.n} has unticked tasks: ${p.open.join(', ')}`, { phase: p.n, ...(stopAt ? { stopAt } : {}) });
+    }
     if (p.gate && !p.gate.done) {
       return step('gate', `phase ${p.n} is implemented; run its gate ${p.gate.id}`, { phase: p.n, task: p.gate.id, command: p.gate.command });
     }
