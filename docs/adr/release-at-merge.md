@@ -1,4 +1,4 @@
-# ADR 0031: A change carries a release note and an unnumbered ADR, and the delivery numbers both once, at the merge
+# ADR [release-at-merge]: A change carries a release note and an unnumbered ADR, and the delivery numbers both once, at the merge
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-24, in the approval of the plan of change release-at-merge (openspec/changes/release-at-merge/approval.md)
