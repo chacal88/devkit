@@ -121,28 +121,28 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 
 ## 3. The step and the join (release-merge, the train)
 
-- [ ] 3.1 Write the D-15 tests of this phase: in `plugins/openspec/hooks/release-merge.test.mjs` the
+- [x] 3.1 Write the D-15 tests of this phase: in `plugins/openspec/hooks/release-merge.test.mjs` the
   `--assign` tests (AC-4 and each refusal); in `release-note.test.mjs` the AC-5 rewrite tests, the
   AC-7 tests, the AC-8 tests and the AC-9 "no `docs/adr`" test; in
   `plugins/openspec/hooks/delivery-train.test.mjs` the noted joins (AC-3, AC-7, AC-10); in
   `plugins/openspec/hooks/delivery-train-after.test.mjs` the `trainCheck` and departure tests (AC-3,
   AC-5). Run them and save the failing run as `proof/red-3.txt`. Done when each exists by its D-15
   name and fails there.
-- [ ] 3.2 In `plugins/openspec/hooks/release-merge.mjs` add the D-4 citation rewrite and the D-6
+- [x] 3.2 In `plugins/openspec/hooks/release-merge.mjs` add the D-4 citation rewrite and the D-6
   numbering core and `--assign` mode (step 2: the `RELEASE_FILE` paths keep the target's side,
   `PIN_FILE` takes the masked three-way merge), with the grown usage line (T-11 stays green). Done
   when the `--assign`, AC-5, AC-7 and AC-8 tests pass and every T-11 test is green.
-- [ ] 3.3 In the same file add the noted path of `--merge` (D-7), and in
+- [x] 3.3 In the same file add the noted path of `--merge` (D-7), and in
   `plugins/openspec/hooks/deliver-check.mjs` extend `trainCheck`'s `allowed` (D-5), keeping its
   message's substring. Done when the AC-3, AC-7 and AC-10 join tests and the `trainCheck` tests pass
   and T-10 stays green.
-- [ ] 3.4 In `docs/openspec-flow.md` write the D-13 parts of this phase: `--assign` and the noted join
+- [x] 3.4 In `docs/openspec-flow.md` write the D-13 parts of this phase: `--assign` and the noted join
   in "Release-file conflicts: `release-merge.mjs`", "The delivery train", and the CI section's train
   sentence with the substring `delivery-train-after.test.mjs` "delivery-train docs: the documents
   follow" asserts (T-9), keeping the strings `change-loop-compozy.test.mjs` "release-merge-conflict 16"
   asserts (T-5), and leaving the CI pin lines and the "Classification." bullet as they are (T-6,
   T-41). Done when T-5, T-6, T-9 and T-41 stay green.
-- [ ] 3.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs && python3 scripts/check.py` green; covers AC-3, AC-4, AC-5, AC-7, AC-8, AC-9 and AC-10 at the step and the join.
+- [x] 3.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs && python3 scripts/check.py` green; covers AC-3, AC-4, AC-5, AC-7, AC-8, AC-9 and AC-10 at the step and the join.
 
 ## 4. The loop and the conductor
 

@@ -4,14 +4,15 @@
 // `node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as D from './deliver-check.mjs';
 import * as R from './release-merge.mjs';
 import * as C from './conduct-check.mjs';
-import { git, put, commitAll, shipRepo } from './test-fixtures.mjs';
+import { git, put, commitAll, shipRepo, GIT_ENV } from './test-fixtures.mjs';
 import {
   REL_FILE, REL_CONFIG, NOTE_TEXT, ASSIGNED_CHANGELOG, CHANGELOG0, releaseLayout, noteRepo, stepCommit, baseReleases, noteShip, tickAll, driveToReady,
 } from './deliver-check-fixtures.mjs';
@@ -343,6 +344,129 @@ test('release-note AC-11 no release: a pack file changed with no note and no bum
   commitAll(passes.root, 'a pack file');
   tickAll(passes);
   assert.doesNotMatch(nextOf(passes).reason ?? '', /^no release:/);
+});
+
+// ---------------------------------------------------------------- AC-5, AC-7, AC-8, AC-9: what the step writes (D-4, D-6)
+
+const stepScript = join(here, 'release-merge.mjs');
+// The delivery step as the session runs it, in the change's worktree.
+const assignIn = (root) => {
+  const r = spawnSync(process.execPath, [stepScript, '--assign', '--base', 'main', '--json'], { cwd: root, encoding: 'utf8', env: { ...GIT_ENV, ...BLANK } });
+  let out = null;
+  try { out = JSON.parse(r.stdout); } catch { /* human output */ }
+  return { code: r.status, out, text: r.stderr + r.stdout };
+};
+const headOf = (root) => git(root, 'rev-parse', 'HEAD');
+const readIn = (root, path) => readFileSync(join(root, path), 'utf8');
+const changedSince = (root, rev, ...paths) => git(root, 'diff', '--name-only', rev, 'HEAD', '--', ...paths).split('\n').filter(Boolean).sort();
+const pkgJson = (v) => `${JSON.stringify({ name: 'app', version: v }, null, 2)}\n`;
+const CONSUMER = 'schema: devkit-lite\ndevkit:\n  release_tag: package.json\n';
+const CONSUMER_NOTE = note('packs: []', 'release: minor', '', '## t', '', 'body');
+
+test('release-note AC-5 rewrite: ADR [<slug>] becomes ADR <NNNN> and <slug>.md becomes <NNNN>-<slug>.md, each only as a whole token', () => {
+  const text = 'ADR [feat] and docs/adr/feat.md, (feat.md), adr/feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n';
+  assert.equal(R.rewriteCitations(text, 'feat', '0002'), 'ADR 0002 and docs/adr/0002-feat.md, (0002-feat.md), adr/0002-feat.md.\nNot ADR [feat-store], feat-store.md, myfeat.md, pre-feat.md, x_feat.md, feat.mdx or 0002-feat.md.\n');
+});
+
+test('release-note AC-5 rewrite: the step numbers the ADR, its title and both citation forms, and writes what the release lines of stepCommit hold', () => {
+  const root = noteRepo({ extra: { 'docs/z.md': 'Read [the rule](adr/feat.md) and ADR [feat].\n' } });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'docs/z.md'), 'Read [the rule](adr/0002-feat.md) and ADR 0002.\n');
+  assert.deepEqual(r.out.citations, ['docs/x.md', 'docs/z.md']);
+  git(root, 'switch', '-q', '-c', 'by-hand', oldHead);
+  put(root, { 'docs/z.md': 'Read [the rule](adr/0002-feat.md) and ADR 0002.\n' });
+  stepCommit(root);
+  assert.equal(git(root, 'diff', '--name-only', 'by-hand', 'feat'), '', 'the step wrote exactly the lines written out by hand');
+});
+
+test('release-note AC-5 rewrite: no file under openspec/changes/ changes, in the change\'s folder, another change\'s or the archive', () => {
+  const inChanges = {
+    'openspec/changes/feat/design.md': 'See ADR [feat] in docs/adr/feat.md.\n',
+    'openspec/changes/other/notes.md': 'Builds on ADR [feat].\n',
+    'openspec/changes/archive/2026-01-01-old/notes.md': 'feat.md\n',
+  };
+  const root = noteRepo({ extra: inChanges });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.deepEqual(changedSince(root, oldHead, 'openspec'), []);
+  for (const [path, text] of Object.entries(inChanges)) assert.equal(readIn(root, path), text, path);
+  assert.equal(readIn(root, 'docs/x.md'), 'See ADR 0002 for the rule.\n', 'outside openspec/changes/ the citation is rewritten');
+});
+
+test('release-note AC-5 rewrite: a binary file that holds the citation bytes is skipped', () => {
+  const blob = Buffer.concat([Buffer.from('ADR [feat] docs/adr/feat.md'), Buffer.from([0, 1, 2, 255])]);
+  const root = noteRepo({ extra: { 'assets/blob.bin': blob } });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.deepEqual(readFileSync(join(root, 'assets/blob.bin')), blob);
+  assert.ok(!r.out.citations.includes('assets/blob.bin'));
+});
+
+test('release-note AC-5 mask: the step\'s rewrite masks back to the unnumbered text, and another number does not', () => {
+  const text = 'See ADR [feat] in docs/adr/feat.md.\n';
+  const map = { adrs: [{ number: '0002', slug: 'feat' }], file: null };
+  const numbered = R.rewriteCitations(text, 'feat', '0002');
+  assert.equal(numbered, 'See ADR 0002 in docs/adr/0002-feat.md.\n');
+  assert.equal(D.maskRelease(numbered, 'docs/x.md', map), text);
+  assert.equal(D.maskRelease(text, 'docs/x.md', map), text, 'an unnumbered text masks to itself');
+  assert.notEqual(D.maskRelease(R.rewriteCitations(text, 'feat', '0003'), 'docs/x.md', map), text);
+});
+
+test('release-note AC-7 citation: a citation of another change\'s ADR that has not landed is refused naming the slug, and nothing changes', () => {
+  const root = noteRepo({ extra: { 'docs/y.md': 'Amends ADR [other].\n' } });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 2, r.text);
+  assert.match(r.out.error, /^ADR \[other\] is cited but has not landed on main; it lands with its own change/);
+  assert.equal(headOf(root), oldHead);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.equal(readIn(root, 'docs/y.md'), 'Amends ADR [other].\n');
+});
+
+test('release-note AC-7 citation: once the cited ADR landed on the base, the step rewrites the citation to its number', () => {
+  const root = noteRepo({ extra: { 'docs/y.md': 'Amends ADR [other] (docs/adr/other.md).\n' } });
+  baseReleases(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'docs/y.md'), 'Amends ADR 0002 (docs/adr/0002-other.md).\n');
+  assert.equal(readIn(root, 'docs/adr/0003-feat.md').split('\n')[0], '# ADR 0003: the rule');
+  assert.ok(r.out.citations.includes('docs/y.md'));
+});
+
+test('release-note AC-8 consumer: the release file gets the note\'s bump and CHANGELOG.md the entry above its newest', () => {
+  const root = noteRepo({ config: CONSUMER, files: { 'package.json': pkgJson('1.4.0'), 'CHANGELOG.md': '# Changelog\n\n## 1.4.0 — old\n\n- x\n' }, adr: false, note: CONSUMER_NOTE });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'package.json'), pkgJson('1.5.0'));
+  assert.equal(readIn(root, 'CHANGELOG.md'), '# Changelog\n\n## 1.5.0 — t\n\nbody\n\n## 1.4.0 — old\n\n- x\n');
+  assert.deepEqual(changedSince(root, oldHead), ['CHANGELOG.md', 'package.json']);
+  assert.equal(stateOf(root).kind, 'assigned');
+});
+
+test('release-note AC-8 consumer: with no CHANGELOG.md only the release file changes and no file is created', () => {
+  const root = noteRepo({ config: CONSUMER, files: { 'package.json': pkgJson('1.4.0') }, adr: false, note: CONSUMER_NOTE });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'package.json'), pkgJson('1.5.0'));
+  assert.deepEqual(changedSince(root, oldHead), ['package.json']);
+  assert.ok(!existsSync(join(root, 'CHANGELOG.md')));
+  assert.ok(!existsSync(join(root, 'docs')));
+});
+
+test('release-note AC-9 no docs/adr: a project with no ADR folder gets its release lines and no docs/adr', () => {
+  const { ['docs/adr/0001-start.md']: _start, ...layout } = releaseLayout();
+  const root = noteRepo({ files: layout, adr: false });
+  const oldHead = headOf(root);
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.ok(!existsSync(join(root, 'docs', 'adr')));
+  assert.deepEqual(r.out.adrs, []);
+  assert.deepEqual(changedSince(root, oldHead), ['.claude-plugin/marketplace.json', 'CHANGELOG.md', 'docs/openspec-flow.md', 'plugins/core/.claude-plugin/plugin.json', REL_FILE].sort());
 });
 
 // ---------------------------------------------------------------- AC-9: the module boundary (D-3a)

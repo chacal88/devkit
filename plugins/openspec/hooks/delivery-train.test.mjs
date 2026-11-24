@@ -359,6 +359,134 @@ test('delivery-train join: a missing revision, both modes together and a lone --
   assert.equal(run(root, '--merge').code, 3);
 });
 
+// ---------------------------------------------------------------- release-at-merge: the join of a noted head (D-7)
+// A boarded head that carries openspec/changes/<id>/release.md is numbered from its note above the train's tip; a head with none
+// joins as before (AC-10).
+
+const releaseConfig = (file) => `schema: devkit-lite\ndevkit:\n  release_tag: ${file}\n`;
+const noteOf = (id, pack = 'a', kind = 'minor') => `packs:\n- ${pack}: ${kind}\n\n## ${id}\n\n- **${pack}**: ${id}\n`;
+// A change's ADR named without a number, listed in its decisions.md, cited in its design and in docs/<id>.md.
+const unnumberedAdr = (id) => ({
+  [`openspec/changes/${id}/decisions.md`]: `# Decisions\n\n- ADR: \`docs/adr/${id}.md\`\n`,
+  [`openspec/changes/${id}/design.md`]: `See ADR [${id}].\n`,
+  [`docs/adr/${id}.md`]: `# ADR [${id}]: ${id}\n`,
+  [`docs/${id}.md`]: `See ADR [${id}] (adr/${id}.md).\n`,
+});
+// main holding the release lines of packs a and b, `config` and `initial`; each of `changes` a branch cut from main with its files;
+// then train/4 cut from main, checked out. Returns the root and the head of each change.
+function notedJoinRepo(changes, { initial = {}, config = releaseConfig('plugins/a/.claude-plugin/plugin.json') } = {}) {
+  const root = tmpFolder('devkit-train-noted-');
+  git(root, 'init', '-q', '-b', 'main');
+  write(root, { 'openspec/config.yaml': config, ...RELEASE_BASE, 'README.md': 'readme\n', ...initial });
+  commit(root, 'initial');
+  const heads = {};
+  for (const [id, files] of Object.entries(changes)) {
+    git(root, 'checkout', '-q', '-b', id, 'main');
+    write(root, { [`openspec/changes/${id}/proposal.md`]: '# Proposal\n', ...files });
+    heads[id] = commit(root, `change ${id}`);
+  }
+  git(root, 'checkout', '-q', '-b', 'train/4', 'main');
+  return { root, heads };
+}
+const joinMessage = (rev) => `chore(train): join ${rev.slice(0, 7)} and renumber its release above the train`;
+const headsKept = (root, heads) => { for (const [id, h] of Object.entries(heads)) assert.equal(git(root, 'rev-parse', id), h, `${id}'s branch is unchanged`); };
+
+test('release-note AC-3 join: two noted heads bumping the same pack join with no conflict, the first boarded takes the next version and the second the one after', () => {
+  const op = release.PIN_PACK_NAME;
+  const initial = {
+    [release.PIN_PACK]: pluginJson(op, '0.29.0'),
+    '.claude-plugin/marketplace.json': marketplace('0.29.0', { a: '0.6.0', b: '0.5.0', [op]: '0.29.0' }),
+    'CHANGELOG.md': CL(entry('0.29.0', 'first')),
+    [release.PIN_FILE]: pinDoc('0.29.0'),
+    'docs/catalog.md': 'catalog\n',
+    'scripts/gen-catalog.py': "from pathlib import Path\nimport json\nv = json.loads(Path('.claude-plugin/marketplace.json').read_text())['metadata']['version']\nPath('docs/catalog.md').write_text(f'catalog {v}\\n')\n",
+  };
+  const { root, heads } = notedJoinRepo({ alpha: { 'openspec/changes/alpha/release.md': noteOf('alpha', op) }, beta: { 'openspec/changes/beta/release.md': noteOf('beta', op) } }, { initial, config: releaseConfig(release.PIN_PACK) });
+  const first = run(root, '--merge', heads.alpha, '--json');
+  assert.equal(first.code, 0, first.stderr + first.stdout);
+  assert.equal(versionOf(root, release.PIN_PACK), '0.30.0');
+  const second = run(root, '--merge', heads.beta, '--json');
+  assert.equal(second.code, 0, second.stderr + second.stdout);
+  assert.equal(second.out.mode, 'merge');
+  assert.deepEqual(second.out.conflicts, [], 'neither head touched a release line, so nothing conflicted');
+  assert.equal(git(root, 'log', '-1', '--format=%s'), joinMessage(heads.beta));
+  assert.equal(git(root, 'rev-parse', 'HEAD^2'), heads.beta);
+  assert.equal(versionOf(root, release.PIN_PACK), '0.31.0');
+  assert.equal(metaOf(root), '0.31.0');
+  assert.deepEqual(JSON.parse(read(root, '.claude-plugin/marketplace.json')).plugins.map((p) => [p.name, p.version]), [['a', '0.6.0'], ['b', '0.5.0'], [op, '0.31.0']]);
+  assert.equal(read(root, 'CHANGELOG.md'), `# Changelog\n\n## 0.31.0 — beta\n\n- **${op}** 0.31.0: beta\n\n## 0.30.0 — alpha\n\n- **${op}** 0.30.0: alpha\n\n## 0.29.0 — first\n\n- x\n`);
+  assert.deepEqual([...new Set(read(root, release.PIN_FILE).match(/v\d+\.\d+\.\d+/g))], ['v0.31.0']);
+  assert.equal(read(root, 'docs/catalog.md'), 'catalog 0.31.0\n');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  headsKept(root, heads);
+});
+
+test('release-note AC-3 join: two unnumbered ADRs take the next numbers on the train in boarding order, their citations follow and the change folders do not change', () => {
+  const { root, heads } = notedJoinRepo({
+    alpha: { 'openspec/changes/alpha/release.md': 'packs: []\n', ...unnumberedAdr('alpha') },
+    beta: { 'openspec/changes/beta/release.md': 'packs: []\n', ...unnumberedAdr('beta') },
+  }, { initial: { 'docs/adr/0026-base.md': '# ADR 0026: base\n' } });
+  const tip = git(root, 'rev-parse', 'HEAD');
+  for (const id of ['alpha', 'beta']) {
+    const r = run(root, '--merge', heads[id], '--json');
+    assert.equal(r.code, 0, r.stderr + r.stdout);
+  }
+  assert.equal(read(root, 'docs/adr/0027-alpha.md'), '# ADR 0027: alpha\n');
+  assert.equal(read(root, 'docs/adr/0028-beta.md'), '# ADR 0028: beta\n');
+  assert.ok(!existsSync(join(root, 'docs/adr/alpha.md')) && !existsSync(join(root, 'docs/adr/beta.md')));
+  assert.equal(read(root, 'docs/alpha.md'), 'See ADR 0027 (adr/0027-alpha.md).\n');
+  assert.equal(read(root, 'docs/beta.md'), 'See ADR 0028 (adr/0028-beta.md).\n');
+  assert.equal(read(root, 'openspec/changes/alpha/design.md'), 'See ADR [alpha].\n');
+  for (const id of ['alpha', 'beta']) {
+    assert.equal(git(root, 'diff', '--name-only', heads[id], 'HEAD', '--', `openspec/changes/${id}`), '', `openspec/changes/${id}/ is as the change wrote it`);
+  }
+  assert.equal(git(root, 'diff', '--name-only', tip, 'HEAD', '--', 'docs/adr/0026-base.md', 'README.md'), '');
+  headsKept(root, heads);
+});
+
+test('release-note AC-10 join: a noted head and an old-rule head on one train, in both orders, are numbered from the note and by the kind of the old one\'s bump', () => {
+  const changes = { alpha: { 'openspec/changes/alpha/release.md': noteOf('alpha') }, beta: bumpFiles('0.6.1', 'beta') };
+  const noted = notedJoinRepo(changes);
+  for (const id of ['alpha', 'beta']) assert.equal(run(noted.root, '--merge', noted.heads[id], '--json').code, 0, id);
+  assert.equal(versionOf(noted.root, 'plugins/a/.claude-plugin/plugin.json'), '0.7.1', 'the old head\'s patch above the note\'s minor');
+  assert.equal(metaOf(noted.root), '0.7.1');
+  const cl = read(noted.root, 'CHANGELOG.md');
+  assert.ok(cl.indexOf('## 0.7.1 — beta') >= 0 && cl.indexOf('## 0.7.1 — beta') < cl.indexOf('## 0.7.0 — alpha') && cl.indexOf('## 0.7.0 — alpha') < cl.indexOf('## 0.6.0 — first'), cl);
+  assert.equal(git(noted.root, 'log', '-1', '--format=%s'), joinMessage(noted.heads.beta));
+
+  const old = notedJoinRepo(changes);
+  for (const id of ['beta', 'alpha']) assert.equal(run(old.root, '--merge', old.heads[id], '--json').code, 0, id);
+  assert.equal(versionOf(old.root, 'plugins/a/.claude-plugin/plugin.json'), '0.7.0', 'the note\'s minor above the old head\'s patch');
+  assert.equal(metaOf(old.root), '0.7.0');
+  const cl2 = read(old.root, 'CHANGELOG.md');
+  assert.ok(cl2.indexOf('## 0.7.0 — alpha') >= 0 && cl2.indexOf('## 0.7.0 — alpha') < cl2.indexOf('## 0.6.1 — beta') && cl2.indexOf('## 0.6.1 — beta') < cl2.indexOf('## 0.6.0 — first'), cl2);
+  assert.match(cl2, /- \*\*a\*\* 0\.7\.0: alpha/);
+  assert.equal(git(old.root, 'status', '--porcelain'), '');
+});
+
+test('release-note AC-7 join: a citation of an ADR neither the base nor an earlier join numbered exits 2 naming the slug and leaves the train as it was', () => {
+  const { root, heads } = notedJoinRepo({ beta: { 'openspec/changes/beta/release.md': noteOf('beta'), 'docs/beta.md': 'Amends ADR [gamma].\n' } });
+  const tip = git(root, 'rev-parse', 'HEAD');
+  const r = run(root, '--merge', heads.beta, '--json');
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.equal(r.out.resolved, false);
+  assert.equal(r.out.mode, 'merge');
+  assert.match(r.out.error, /ADR \[gamma\] is cited but has not landed/);
+  assert.deepEqual(r.out.conflicts, [], 'no path: the train takes the error as the reason the change left');
+  assert.equal(git(root, 'rev-parse', 'HEAD'), tip);
+  assert.ok(noMerge(root));
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('release-note AC-7 join: a citation of an ADR an earlier join of the train numbered is rewritten to that number', () => {
+  const { root, heads } = notedJoinRepo({
+    alpha: { 'openspec/changes/alpha/release.md': 'packs: []\n', ...unnumberedAdr('alpha') },
+    beta: { 'openspec/changes/beta/release.md': 'packs: []\n', 'docs/beta.md': 'Amends ADR [alpha].\n' },
+  });
+  for (const id of ['alpha', 'beta']) assert.equal(run(root, '--merge', heads[id], '--json').code, 0, id);
+  assert.equal(read(root, 'docs/beta.md'), 'Amends ADR 0001.\n');
+});
+
 // ---------------------------------------------------------------- the roadmap tick (P7)
 
 test('delivery-train roadmap: two neighbouring ticks of the change are written onto the base', () => {

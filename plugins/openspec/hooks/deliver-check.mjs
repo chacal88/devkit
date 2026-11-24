@@ -1804,6 +1804,12 @@ const packRelease = (reader, rev, setting) => {
   try { const v = JSON.parse(text ?? 'null')?.version; return typeof v === 'string' ? v : null; } catch { return null; }
 };
 
+// The text of a JSON release file with its top-level `version` set, in the file's indent and final newline (D-3).
+export function withReleaseVersion(text, version) {
+  const indent = /^\{\n( +)"/.exec(text)?.[1].length ?? 2;
+  return JSON.stringify({ ...JSON.parse(text), version }, null, indent) + (text.endsWith('\n') ? '\n' : '');
+}
+
 // The files the delivery step writes on `base` for `note` (D-3): { files: { path: text }, versions: { packs, metadata?, release? }, adrs }.
 // `setting` is the file `devkit.release_tag` names; `adrs` are the unnumbered paths of decisions.md, in listed order. A note the
 // project cannot release is a ReleaseError whose message starts `release.md:`.
@@ -1832,8 +1838,7 @@ export function computeRelease(reader, base, note, setting, adrs = []) {
   const releaseNow = packRelease(reader, base, setting && !manifest ? setting : null);
   if (note.release && releaseText !== null && releaseNow !== null) {
     versions.release = bump('release', releaseNow, note.release);
-    const indent = /^\{\n( +)"/.exec(releaseText)?.[1].length ?? 2;
-    files[setting] = JSON.stringify({ ...JSON.parse(releaseText), version: versions.release }, null, indent) + (releaseText.endsWith('\n') ? '\n' : '');
+    files[setting] = withReleaseVersion(releaseText, versions.release);
   }
   for (const { path, name } of packs) {
     if (name in versions.packs) files[path] = resolveManifest(reader.file(base, path), { packs: { [name]: versions.packs[name] } });
@@ -2006,28 +2011,37 @@ export function releaseState(root, id, facts) {
   const rf = releaseFacts(root, id, facts);
   if (!rf.noted) return null;
   const base = facts.base ?? 'main';
-  const fail = (why, error) => ({ kind: 'error', why, error, paths: [], current: false, base, citations: { cited: [], unlanded: [] }, adrs: [] });
-  if (rf.note.error) return fail('note', rf.note.error);
+  if (rf.note.error) return releaseFailure(base, 'note', rf.note.error);
   const tip = facts.base ? baseTip(root, facts.base) : null;
-  if (!tip) return fail('base', `cannot compute the release: origin/${base} is missing; git fetch origin ${base}`);
-  if (!facts.head) return fail('base', 'cannot compute the release: no commit at HEAD yet');
+  if (!tip) return releaseFailure(base, 'base', `cannot compute the release: origin/${base} is missing; git fetch origin ${base}`);
+  if (!facts.head) return releaseFailure(base, 'base', 'cannot compute the release: no commit at HEAD yet');
+  return releaseStateAt(root, { head: facts.head, tip, base, note: rf.note, file: rf.file, adrs: changeAdrs(root, null, id) });
+}
+
+const releaseFailure = (base, why, error) => ({ kind: 'error', why, error, paths: [], current: false, base, citations: { cited: [], unlanded: [] }, adrs: [] });
+
+// The same state for any revision `head` against any revision `tip` it is numbered above (D-3; the step and the join judge their side with
+// it, D-6, D-7): `note` is what parseReleaseNote read, `file` the release file the project names, `adrs` the unnumbered records the change's
+// decisions.md lists, `base` the name the messages give the tip.
+export function releaseStateAt(root, { head: headRev, tip, base, note, file, adrs }) {
+  const fail = (why, error) => releaseFailure(base, why, error);
   let mergeBase;
-  try { mergeBase = git(root, ['merge-base', facts.head, tip]).trim(); } catch { return fail('base', `cannot compute the release: HEAD and origin/${base} have no merge base`); }
+  try { mergeBase = git(root, ['merge-base', headRev, tip]).trim(); } catch { return fail('base', `cannot compute the release: HEAD and origin/${base} have no merge base`); }
   const reader = repoReader(root);
   let computed;
-  try { computed = computeRelease(reader, mergeBase, rf.note, rf.file, changeAdrs(root, null, id)); } catch (e) {
+  try { computed = computeRelease(reader, mergeBase, note, file, adrs); } catch (e) {
     if (e instanceof ReleaseError) return fail('release', e.message);
     throw e;
   }
   const packPaths = packsAt(reader, mergeBase).map((p) => p.path);
   const atMergeBase = (path) => reader.file(mergeBase, path);
-  const head = linesOf((path) => reader.file(facts.head, path), packPaths, rf.file);
-  const before = linesOf(atMergeBase, packPaths, rf.file);
-  const after = linesOf((path) => computed.files[path] ?? atMergeBase(path), packPaths, rf.file);
+  const head = linesOf((path) => reader.file(headRev, path), packPaths, file);
+  const before = linesOf(atMergeBase, packPaths, file);
+  const after = linesOf((path) => computed.files[path] ?? atMergeBase(path), packPaths, file);
   for (const adr of computed.adrs) {
     before.set(adr.from, 'unnumbered');
     after.set(adr.from, `numbered:${adr.to}`);
-    head.set(adr.from, adrValue(root, reader, facts.head, adr));
+    head.set(adr.from, adrValue(root, reader, headRev, adr));
   }
   const keys = [...new Set([...head.keys(), ...before.keys(), ...after.keys()])].sort();
   const eq = (a, b, k) => (a.get(k) ?? null) === (b.get(k) ?? null);
@@ -2040,8 +2054,8 @@ export function releaseState(root, id, facts) {
   else if (asAfter) kind = 'assigned';
   else if (asBefore) kind = 'unassigned';
   else { kind = 'hand'; paths = keys.filter((k) => eq(head, before, k) && !eq(head, after, k)); }
-  const current = kind === 'assigned' && gitOk(root, ['merge-base', '--is-ancestor', tip, facts.head]);
-  const citations = citationsOf(root, reader, { mergeBase, head: facts.head, tip, own: new Set(computed.adrs.map((a) => a.slug)) });
+  const current = kind === 'assigned' && gitOk(root, ['merge-base', '--is-ancestor', tip, headRev]);
+  const citations = citationsOf(root, reader, { mergeBase, head: headRev, tip, own: new Set(computed.adrs.map((a) => a.slug)) });
   return { kind, paths, current, base, citations, adrs: computed.adrs };
 }
 
@@ -3091,14 +3105,20 @@ function trainCheck(root, n, env, facts, parts) {
     }
     const known = record.boarded.filter((b) => gitOk(root, ['rev-parse', '--verify', '--quiet', `${b.head}^{commit}`]));
     const allowed = (p) => RELEASE_FILE.test(p) || p === TRAIN_PIN_FILE || p === 'openspec/roadmap.md' || p === file;
+    // The numbering of a noted change's ADR and its citations, and the release file's version (release-at-merge D-5): an edit
+    // releaseOnlyEdit accepts between Git's own merge (or the parent) and the commit.
+    let releaseFile = null;
+    try { releaseFile = releaseTagOf(root); } catch (e) { if (!(e instanceof ShipConfigError)) throw e; }
+    const ctx = releaseContext(root, releaseFile);
     for (const line of git(root, ['rev-list', '--parents', 'HEAD', `^${ref}`, ...known.map((b) => `^${b.head}`)]).split('\n').filter(Boolean)) {
       const [c, ...parents] = line.split(' ');
       let paths;
+      let before = parents[0];
       if (parents.length > 1) {
-        const tree = autoMergeTree(root, parents[0], parents[1]);
-        paths = git(root, ['diff', '--name-only', '-z', tree ?? parents[0], c]).split('\0').filter(Boolean);
+        before = autoMergeTree(root, parents[0], parents[1]) ?? parents[0];
+        paths = git(root, ['diff', '--name-only', '-z', '--no-renames', before, c]).split('\0').filter(Boolean);
       } else paths = touchedPaths(root, c, parents);
-      const outside = paths.filter((x) => !allowed(x));
+      const outside = paths.filter((x) => !allowed(x) && !releaseOnlyEdit(root, before, c, x, ctx));
       if (outside.length) problems.push(`${c.slice(0, 7)} (${git(root, ['log', '-1', '--format=%s', c]).trim()}) changes ${outside.join(', ')}: the train's own commits change only release files, the CI pin, openspec/roadmap.md and ${file}`);
     }
     for (const b of record.boarded) {
