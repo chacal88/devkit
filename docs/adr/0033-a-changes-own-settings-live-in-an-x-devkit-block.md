@@ -1,6 +1,7 @@
 # ADR 0033: A change's own settings live in an `x-devkit:` block of its `.openspec.yaml`
 
-- Status: proposed
+- Status: accepted
+- Accepted by: the owner, on 2026-11-24, in the approval of the plan of change coordinator-loop-fixes (openspec/changes/coordinator-loop-fixes/approval.md)
 - Date: 2026-11-24
 - Change: coordinator-loop-fixes
 - Number: the next free number across the remote branches when drafted; it may be renumbered when the
