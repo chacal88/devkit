@@ -15,10 +15,13 @@ Every gate is one backticked command, run as written; each `&&` part runs on its
 background command of the tool, never with a shell `&`. Test first: each phase's test task comes
 before its code tasks and its new tests fail on the phase's base (the check says how; a test file that
 imports an export or a module not written yet fails as a whole at load, before any of its tests runs). An existing
-test changes only where D-11 names it: E-1 (in 1.2), E-4 (in 1.6), E-5 (in 2.3) and E-3 (in 3.1, with the bump); any other existing
+test changes only where D-11 names it: E-1 (in 1.2), E-4 (in 1.6) and E-5 (in 2.3). E-3 (in 3.1, with
+the bump, in the approved plan) is superseded by ADR 0030 at the merge of `origin/main` `d917ae0`: no
+release edits `change-loop-compozy.test.mjs` any more. Any other existing
 test that fails is a stop: report it and change nothing. The two release-pin tests of
-`deliver-check-cli.test.mjs` (D-13) and the real-doc pin test of `release-merge.test.mjs` do not change:
-3.1 moves the doc's pins with the version, so they keep passing. End every task with `git status --short` and leave no scratch file in the tree.
+`deliver-check-cli.test.mjs` (D-13), the real-doc pin test of `release-merge.test.mjs` and, since ADR
+0030, `change-loop docs: the design records the answers` of `change-loop-compozy.test.mjs` do not change:
+they read the version from `plugin.json`, and 3.1 moves the doc's pins with the version, so they keep passing. End every task with `git status --short` and leave no scratch file in the tree.
 
 | Id | Slug | Tasks |
 |---|---|---|
@@ -62,7 +65,8 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
 - [x] 1.6 Update the "A change's state" paragraph of `docs/openspec-flow.md` (D-13): `[--offline]` in
   the command and `stages` in the list of fields, the paragraph still after "**Waiting on GitHub.**" and
   still citing ADR 0017 (E-2, in `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, asserts
-  both). In the same task edit E-4 (D-11), the third allowed edit beside E-1 and E-3: add `'stages'`
+  both). In the same task edit E-4 (D-11), the third allowed edit beside E-1 and E-3 (E-3 since superseded by ADR 0030 at the merge
+  of `d917ae0`): add `'stages'`
   to the `NEXT_ONLY` list of the helper `lessIdentity` in
   `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, and change no other line of the file
   (invariant: `state` and `next` agree on a change's identity apart from the next-only fields; layer:
@@ -88,7 +92,7 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
 - [x] 2.3 Add the drawing: `lineOfChange` with the strip and progress (D-5), `columns` and the cut rule
   (D-6), `countsLine` (D-7), and the four `bar.*` keys in both languages of `MESSAGES` in
   `plugins/openspec/hooks/change-loop.mjs` (D-8). In the same task edit E-5 (D-11), the fourth allowed
-  edit beside E-1, E-3 and E-4: add `total: 15, all: 6, running: 3, waiting: 2, blocked: 1,
+  edit beside E-1, E-3 and E-4 (E-3 since superseded by ADR 0030 at the merge of `d917ae0`): add `total: 15, all: 6, running: 3, waiting: 2, blocked: 1,
   blockedWord: 'blocked'` to the `SAMPLE` constant of `plugins/openspec/hooks/change-loop.test.mjs`, and
   change no other line of the file (invariant: every reply key renders in both languages with its
   sample parameters and no internal term shows; layer: the change loop's replies; suite: change-loop).
@@ -109,26 +113,31 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
 
 - [x] 3.1 Bump devkit-openspec's `version` in `plugins/openspec/.claude-plugin/plugin.json` and in
   `.claude-plugin/marketplace.json` to the next minor after `origin/main`'s at the last merge before
-  review, and the marketplace's own version to the next after `origin/main`'s at that merge; in the same
+  review, and the marketplace's own version to the next after `origin/main`'s at that merge (at the merge
+  of `d917ae0`: devkit-openspec 0.42.0 to 0.43.0, marketplace 0.47.0 to 0.48.0); in the same
   task add the `CHANGELOG.md` entry headed `## <that marketplace version>` (the status line command, the
   settings entry, the `stages` field and `--offline` of `state`, the offline stub's one place), since
   `check_changelog` of `scripts/check.py` refuses a marketplace version with no such heading; and move
   every release pin of `docs/openspec-flow.md` to the new devkit-openspec version: the
   `<commit sha of v...>` URL line, the `pinned to the commit of v...` comment, the `` (`v...` above) ``
   sentence and the `git/ref/tags/v...` command, the set `PIN_MARKER` of
-  `plugins/openspec/hooks/release-merge.mjs` names (D-13). In the same task edit E-3 (D-11), the second
-  exception beside E-1: in the test `change-loop docs: the design records the answers` of
-  `plugins/openspec/hooks/change-loop-compozy.test.mjs`, the `assert.match(flow, /v0\.39\.0/, ...)` line
-  (line 360 on `origin/main` at `3af3655`) and its message name the new devkit-openspec version, one
-  `assert.doesNotMatch` line for `v0.39.0` goes right after it, and the comment line above it gains this
-  change's release, exactly as D-11 E-3 says (invariant: the CI snippet pins the current release and no
-  earlier one; layer: the documents; suite: the change loop's). The tests that read the version from
+  `plugins/openspec/hooks/release-merge.mjs` names (D-13). The approved plan's E-3 edit in this task
+  (the literal `assert.match(flow, /v0\.39\.0/, ...)` line of `change-loop docs: the design records the
+  answers` in `plugins/openspec/hooks/change-loop-compozy.test.mjs` moved to the new version, with one
+  `assert.doesNotMatch` line and the comment's release history) is superseded by ADR 0030 at the merge
+  of `origin/main` `d917ae0`: `main`'s test reads the version from `plugin.json` only, its literal pin
+  line and `doesNotMatch` history are gone, and the merge kept `main`'s file unchanged, so this task
+  does not edit that file (D-11 E-3). The tests that read the version from
   the manifest, `the pin in docs/openspec-flow.md is the commit sha of v + ...` and
-  `AC-8 release-ready: ...` in `plugins/openspec/hooks/deliver-check-cli.test.mjs` and
+  `AC-8 release-ready: ...` in `plugins/openspec/hooks/deliver-check-cli.test.mjs`,
   `release-merge pin: the real docs/openspec-flow.md: ...` in
-  `plugins/openspec/hooks/release-merge.test.mjs`, are not edited. If a later merge of `origin/main`
-  renumbers the release, the version, the doc's pins and E-3 move together. Check: `python3 scripts/check.py`
-  exits 0, the two devkit-openspec versions are equal, and
+  `plugins/openspec/hooks/release-merge.test.mjs` and `change-loop docs: the design records the answers`
+  in `plugins/openspec/hooks/change-loop-compozy.test.mjs`, are not edited. If a later merge of `origin/main`
+  renumbers the release, the versions, the `CHANGELOG.md` heading and the doc's pins move together.
+  Check: `python3 scripts/check.py`
+  exits 0, the two devkit-openspec versions are equal,
+  `git diff --quiet d917ae0 HEAD -- plugins/openspec/hooks/change-loop-compozy.test.mjs` exits 0 (after
+  a later merge, with that merge's `origin/main` commit in place of `d917ae0`), and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/release-merge.test.mjs`
   passes, those four tests included.
 - [x] 3.2 Check the generated catalog and the marketplace. Check: `python3 scripts/gen-catalog.py --check`

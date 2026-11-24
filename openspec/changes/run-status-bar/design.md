@@ -18,6 +18,14 @@ step of the base, from `298c3f3` (the base of the earlier readiness attempts) to
 and `run-file.mjs` as they were, and moves devkit-openspec to 0.39.0 (marketplace 0.43.0) with the doc's
 release pins. Every path and test file below is `origin/main`'s; task 1.1 merges it first.
 
+The branch has since merged `origin/main` up to `d917ae0`, which carries ADR 0030 (change
+`archive-release-pin`): the test `change-loop docs: the design records the answers` of
+`plugins/openspec/hooks/change-loop-compozy.test.mjs` reads the release from `plugin.json` only, its
+literal pin line and its `assert.doesNotMatch` history are gone, and no release edits that file any more.
+So E-3 (D-11) is superseded at that merge (the merge kept `main`'s file unchanged), and the release
+target is devkit-openspec 0.43.0 and marketplace 0.48.0, the next after `main`'s 0.42.0 and 0.47.0 (D-13).
+Scope and behaviour do not change.
+
 What exists:
 
 - `node plugins/openspec/hooks/change-loop.mjs state [--change <id>] --lang <l>` (`runState`,
@@ -387,16 +395,19 @@ usage line and the offline stub):
 |---|---|---|---|
 | E-1 | `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, `change-state AC-1 command: one change prints its state, reason, stage and title in the person's language` | it compares the whole standard output of `state --change feat` as a string | the expected entry gains `stages` with the fixture's list at its end; invariant (the exact contract of one entry), layer (the `state` command), suite (the change loop's) unchanged |
 | E-2 | same file, `change-state ADR 0017: the documents follow` | reads the "A change's state" paragraph of `docs/openspec-flow.md` | nothing: the edit keeps the paragraph after "Waiting on GitHub" and citing ADR 0017 |
-| E-3 | `plugins/openspec/hooks/change-loop-compozy.test.mjs`, `change-loop docs: the design records the answers` (line 325 on `origin/main` at `3af3655`) | line 360 asserts `assert.match(flow, /v0\.39\.0/, 'the CI snippet pins the current release (stale-only-on-own-files: 0.39.0)')` on `docs/openspec-flow.md`, and line 361 `assert.doesNotMatch(flow, /v0\.38\.0/, ...)` for the release before it; after the bump of D-13 the doc holds no `v0.39.0` (its only three occurrences, lines 733, 734 and 747, are the pins the bump moves), so line 360 fails | done in the same task as the bump (3.1), as every earlier release did with its own: the regex and the message of line 360 name the new devkit-openspec version (`run-status-bar: <new>`); one `assert.doesNotMatch` line for `v0.39.0` (`'no pin left on the release before it (stale-only-on-own-files)'`) goes right after it, and no other line of the test changes; the comment of line 359 gains this change's release in front of the list (`run-status-bar moves it to <new> (release <marketplace>), above stale-only-on-own-files' 0.39.0 (release 0.43.0), which moved it above ...`). Invariant (the CI snippet pins the current release, and no earlier one), layer (the documents), suite (the change loop's) unchanged |
+| E-3 (superseded) | `plugins/openspec/hooks/change-loop-compozy.test.mjs`, `change-loop docs: the design records the answers` (line 325 on `origin/main` at `3af3655`) | superseded by ADR 0030 at the merge of `origin/main` `d917ae0`: `main`'s test now reads the release from `plugin.json` through `pinMismatches(flow, version)` only, its literal pin line, its comment and its `assert.doesNotMatch` history are gone, and the merge kept `main`'s file unchanged; this change does not edit the file, and the test keeps passing as the doc's pins follow the manifest. The approved plan read, at `3af3655`: line 360 asserts `assert.match(flow, /v0\.39\.0/, 'the CI snippet pins the current release (stale-only-on-own-files: 0.39.0)')` on `docs/openspec-flow.md`, and line 361 `assert.doesNotMatch(flow, /v0\.38\.0/, ...)` for the release before it; after the bump of D-13 the doc holds no `v0.39.0` (its only three occurrences, lines 733, 734 and 747, are the pins the bump moves), so line 360 fails | done in the same task as the bump (3.1), as every earlier release did with its own: the regex and the message of line 360 name the new devkit-openspec version (`run-status-bar: <new>`); one `assert.doesNotMatch` line for `v0.39.0` (`'no pin left on the release before it (stale-only-on-own-files)'`) goes right after it, and no other line of the test changes; the comment of line 359 gains this change's release in front of the list (`run-status-bar moves it to <new> (release <marketplace>), above stale-only-on-own-files' 0.39.0 (release 0.43.0), which moved it above ...`). Invariant (the CI snippet pins the current release, and no earlier one), layer (the documents), suite (the change loop's) unchanged |
 | E-4 | `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, the helper `lessIdentity` (its constant `NEXT_ONLY = ['change', 'script', 'root', 'branch']`, line 1269), used by `change-state AC-3 cli: next and state give the same state for the same files and GitHub answers` (line 1296), `change-state AC-5 plan: with GitHub silent the grill, a plan stage and the approval keep their state` (line 1324) and `change-state AC-5 build: with GitHub silent the implementation and the code review keep the loop's action` (line 1342) | the helper strips the fields only `state` carries from a `state` entry and compares the rest with `next`'s `action.state` through `assert.deepEqual`; the new `stages` field of the entry (D-4) is a field `next` does not carry (S-6), so the three tests fail; found by the phase 1 gate (1.7), not by the plan's search | `'stages'` is added to `NEXT_ONLY`, and no other line of the file changes. Invariant (`state` and `next` agree on a change's identity apart from the next-only fields), layer (the change loop's state), suite (change-loop-remote-state) unchanged |
 | E-5 | `plugins/openspec/hooks/change-loop.test.mjs`, the constant `SAMPLE` (line 70), used through `renderings` by `change-loop replies: no internal term in either language` (line 109) | the test renders every key of `MESSAGES` in both languages with `SAMPLE`'s parameters; the `bar.*` keys of D-8 (`bar.progress`, `bar.counts`) need `total`, `all`, `running`, `waiting`, `blocked` and `blockedWord`, which `SAMPLE` lacks, so `render` throws `reply bar.progress needs the parameter total`; found by the phase 2 work, not by the plan's search | `total: 15, all: 6, running: 3, waiting: 2, blocked: 1, blockedWord: 'blocked'` are added to `SAMPLE`, and no other line of the file changes. Invariant (every reply key renders in both languages with its sample parameters and no internal term shows), layer (the change loop's replies), suite (change-loop) unchanged |
 
-E-4 is the third allowed edit of an existing test, beside E-1 and E-3, and E-5 the fourth, beside E-1,
-E-3 and E-4; no other existing test changes.
+The allowed edits of existing tests are E-1, E-4 and E-5. In the approved plan E-3 was the second, E-4
+the third (beside E-1 and E-3) and E-5 the fourth (beside E-1, E-3 and E-4); E-3 is superseded by ADR
+0030 at the merge of `d917ae0`, so the delivered branch edits E-1, E-4 and E-5 only. No other existing
+test changes.
 
 Searched with `git grep` on `origin/main` at `3af3655` for a test that pins a release version of a
 document (`v0\.`, `0.39.0`, `0.43.0`, `PIN_MARKER`, `commit sha of v` in every `*.test.mjs`, the
-fixtures and `scripts/`): E-3 is the only test holding the current version as a literal. The others
+fixtures and `scripts/`): E-3 was the only test holding the current version as a literal; since ADR
+0030, at `d917ae0`, no test does. The others
 that read the doc's pins follow the manifest's version and are not edited: the two tests of
 `plugins/openspec/hooks/deliver-check-cli.test.mjs` named in D-13, and `release-merge pin: the real
 docs/openspec-flow.md: setPins changes exactly its CI pin lines` of
@@ -444,12 +455,14 @@ the release is installed.
   bump (`scripts/check.py` refuses a marketplace version with no `## <version>` heading). devkit-openspec's
   `plugin.json` and `marketplace.json` take the next minor version after `origin/main`'s at the last merge
   before review, and the marketplace's own version the next after its own; the loop pushes the tag after
-  the merge (ADR 0019).
+  the merge (ADR 0019). At the last merge, `d917ae0` (devkit-openspec 0.42.0, marketplace 0.47.0), that
+  is devkit-openspec 0.43.0 and marketplace 0.48.0, with the entry headed `## 0.48.0`.
 - The same bump moves every release pin of `docs/openspec-flow.md` to the new devkit-openspec version:
   the `<commit sha of v...>` URL line, the `pinned to the commit of v...` comment, the
   `` (`v...` above) `` sentence and the `gh api repos/chacal88/devkit/git/ref/tags/v...` command, the
   set `PIN_MARKER` of `plugins/openspec/hooks/release-merge.mjs` names (`v0.39.0` on `origin/main` at
-  `3af3655`, the plan's base, lines 733, 734 and 747). Two existing tests of
+  `3af3655`, the plan's base, lines 733, 734 and 747; `v0.42.0` at `d917ae0`, the same lines, which the
+  branch moves to `v0.43.0`). Two existing tests of
   `plugins/openspec/hooks/deliver-check-cli.test.mjs` read `plugin.json`'s version and refuse a doc that
   names another: `the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version,
   with the tag in a comment, never the tag in the URL (R-10, security)` and `AC-8 release-ready: every
@@ -458,9 +471,12 @@ the release is installed.
   docs/openspec-flow.md: setPins changes exactly its CI pin lines` of `release-merge.test.mjs`, which
   reads the version the same way; the doc follows the version, as the previous release did with its own
   bump.
-- The same bump edits E-3 (D-11), the one test that holds the current release as a literal, in the same
-  step. When a sibling's merge renumbers the release before review, the version, the doc's pins and E-3
-  move together to the new number, as `suite-speed` did when it renumbered above `compozy-driver`.
+- Superseded by ADR 0030 at the merge of `d917ae0`: the approved plan had the same bump edit E-3 (D-11),
+  then the one test that held the current release as a literal, in the same step. Since that merge no
+  test holds it (`change-loop docs: the design records the answers` reads `plugin.json`, like the three
+  tests above), so the bump edits no test file. When a sibling's merge renumbers the release before
+  review, the versions, the `CHANGELOG.md` heading and the doc's pins move together to the new number,
+  as `suite-speed` did when it renumbered above `compozy-driver`.
 - At archive, the archive step rewords this change's line of `openspec/roadmap.md` when it ticks it:
   the line still names the budget share the owner dropped (requirements, question 3). This change does
   not edit the roadmap.
@@ -482,7 +498,7 @@ Release: `plugin.json`, `marketplace.json`, `CHANGELOG.md`. No frontend, no work
 | Modify | `plugins/openspec/hooks/flow-check.mjs`, `plugins/openspec/hooks/flow-check.test.mjs` |
 | Modify | `plugins/openspec/hooks/change-loop.mjs` |
 | Modify | `plugins/openspec/hooks/merge-setup.mjs`, `plugins/openspec/hooks/roadmap-loop.mjs` |
-| Modify | `plugins/openspec/hooks/change-loop-remote-state.test.mjs` (E-1, E-4), `plugins/openspec/hooks/change-loop-compozy.test.mjs` (E-3), `plugins/openspec/hooks/change-loop.test.mjs` (E-5) |
+| Modify | `plugins/openspec/hooks/change-loop-remote-state.test.mjs` (E-1, E-4), `plugins/openspec/hooks/change-loop.test.mjs` (E-5); `plugins/openspec/hooks/change-loop-compozy.test.mjs` (E-3) is no longer modified, superseded by ADR 0030 at the merge of `d917ae0` |
 | Modify | `docs/openspec-flow.md` (the state paragraph, the status line paragraph, the release pins), `plugins/openspec/README.md`, `CHANGELOG.md` |
 | Modify | `plugins/openspec/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` |
 | Delete | none |
@@ -500,7 +516,7 @@ asks; a merge of `main` between phases costs a rerun).
 | Line drawing, cut rule, counts, words, E-5 | 2 | Core | LOW |
 | B-1 to B-46 | 4 | Testing | MEDIUM |
 | Docs and README | 1 | Documentation | LOW |
-| Release and full gates | 1 | Integration | LOW |
+| Release (0.43.0 / 0.48.0, `CHANGELOG.md`, the doc's pins; E-3 superseded by ADR 0030) and full gates | 1 | Integration | LOW |
 
 **Risks.**
 
@@ -511,7 +527,7 @@ asks; a merge of `main` between phases costs a rerun).
 | `CLAUDE_SESSION_ID` in the skill and `session_id` on the bar's input differ in some host | LOW × MEDIUM | both are Claude Code's session id; the dogfood row of AC-3 checks it; on a mismatch the line is empty, never wrong |
 | `■ ◆ □` are East Asian ambiguous width: a CJK terminal draws them two columns wide | LOW × LOW | the approved glyphs stay; the count follows the mock-up; noted in the docs paragraph |
 | The newest installed copy differs from the project's pinned plugin | LOW × LOW | old flows stay readable (spec `change-stages`); the bar only reads |
-| A sibling merges into `main` and renumbers the release | MEDIUM × LOW | version taken from `origin/main` at the last merge before review (CONTRIBUTING step 5) |
+| A sibling merges into `main` and renumbers the release | MEDIUM × LOW | version taken from `origin/main` at the last merge before review (CONTRIBUTING step 5); since ADR 0030 no test file moves with it |
 
 **Assumptions.** Claude Code passes `session_id`, `cwd` and `workspace.current_dir` and runs the command
 in a shell (its own status line instructions in the 2.1.69 binary); `--session ${CLAUDE_SESSION_ID}` is
@@ -519,7 +535,8 @@ what the run file holds (`plugins/openspec/skills/devkit/SKILL.md`); `git` and `
 line's `PATH` (the plugin's hooks already need both).
 
 **Dependencies.** `change-state` (archived) for the command; `suite-speed` (merged, ADR 0026) for the test
-command and fixture layout; `state-skips-unlocated` (open) only for the dogfood of AC-3 in this repository.
+command and fixture layout; `archive-release-pin` (merged at `d917ae0`, ADR 0030), which removed the
+literal pin of E-3; `state-skips-unlocated` (open) only for the dogfood of AC-3 in this repository.
 
 ## Risks / Trade-offs
 
