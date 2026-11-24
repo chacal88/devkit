@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.37.0 — every change of a roadmap run opens at its start
+
+- **devkit-openspec** 0.33.0: a `/devkit roadmap` run on the desktop app opens every pending change
+  at its start and starts each change's session with a one-use ticket, so the session runs its loop
+  from its first turn with no typed command: the new `devkit-session` skill is the entry, and a hook
+  on the Skill tool (`guard.mjs skill`) lets it run only on the run's unclaimed ticket
+  ([ADR 0021](docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md)). The grills, plan
+  approvals and retro answers of every change are asked in the coordinating session; places count
+  only the implementation, test, evidence and review stages; a change waits for a place, the load or
+  its dependencies in its own session (title `⏳ <id>`) and merges the default branch before it plans;
+  the run holds one periodic check while it lasts and cleans up its waits, cron and finished sessions
+  at its end (`schedule-check` and `delete-check` are actions of a decision). New subcommands:
+  `session-next`, `session-wait`, `merge-base`, `push` and `check`. A change session's `session-next`
+  now honours the token budget as `next` does. The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill: a change opened from this
+  release records `x-devkit-flow: 2` and has the triage; a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`;
+  the `devkit-project` flow stays at version 1. With the machines setting set, a change session of this
+  machine on the run's ticket takes its place from the run's own count: its plan on `origin` is no place
+  taken, and the board's row of this machine counts those places and the places of this machine's changes
+  counted from `origin`, which a run with both kinds at once can take above the run's number.
+  The CI snippet now pins `v0.33.0`, the release's tag.
+- **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
+  files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
+- Docs: ADR 0021, with Notes in ADRs 0004, 0006, 0010, 0011, 0013, 0014 and 0017; the flow doc, the
+  coordination design, the roles and the READMEs describe the new run.
+- Projects: re-run `openspec-setup` to install `flows/2.json`; changes under way keep flow 1 and their grill
+  with no triage until they are moved.
+
 ## 0.36.1 — retro proposals of remote-worker
 
 - **devkit-core** 0.13.3: `plan-readiness-review` has a new core rule: a plan revision that follows a

@@ -36,6 +36,16 @@ Read, to the depth the request needs:
 
 If the project declares none of this, use the ADRs that exist and the code itself. When useful, the codebase-researcher agent can gather facts first.
 
+### 2b. Triage first
+
+Run this step only when the loop's grill action offers the triage: its `helpers` include `requirements-triage`, which holds for a change that follows flow version 2 or later of its script. Read the permission where the action is given: the `helpers` of the action that `next` (or `session-next`) printed, in a lone `/devkit change` or a change session; the `helpers` of `ask.action`, in the coordinating session; and, for the check's `triage` action, which carries no `helpers`, the action itself, since the check gives it only for a grill whose `helpers` name the triage. With no permission, skip this step: every question goes to the owner, one at a time, as step 3 says. A grill run by hand with no loop action keeps this step.
+
+Draft the questions of the four axes, then hand them all to the `devkit-core:requirements-triage` agent in one prompt whose first line is `Change <id> (<script> script), stage requirements: triage of the grill`, followed by the request and the drafted questions, each with its axis. The agent reads the project's files and returns, per question, `answered` with the file that settles it or `owner` with why nothing written does.
+
+- Record each `answered` in `requirements.md` under `### Answered by triage`, one item per question: `<n>. [<axis>] <question> → <answer> (source: \`<path>[:<line>]\`)`.
+- Ask the owner, one at a time, only the `owner` questions and those the agent answered with no source: an answer with no source is not an answer, and the loop sends a change whose triage section holds one back to its grill.
+- A question that changes what is delivered is the owner's whenever the agent is not certain; the triage never approves a plan and never answers a retro proposal.
+
 ### 3. Grill on the four axes
 
 Ask with **AskUserQuestion**, **one line of reasoning at a time**: follow the thread the previous answer opens, not a fixed questionnaire. Every question derives from the ammunition; a question in a vacuum is not actionable, don't ask it.
@@ -80,6 +90,9 @@ Classification: domain=<..> type=<..> flags=[..] (<confirmed | strict-assumed>)
 **Acceptance criteria (observable effect of done):**
 - AC-<n> `<kebab-id>` — <criterion>
 
+**Answered by triage:**
+1. [scope | end effect | edges | project rules] <question> → <answer> (source: `<path>[:<line>]`)
+
 **Questions asked:**
 1. [scope | end effect | edges | project rules] <question> → <answer, summarized>
 
@@ -97,11 +110,12 @@ If there is an escalation, don't proceed to planning on your own: present it and
 
 - Implement, write the spec, or edit any file. This skill only extracts requirements.
 - Fire generic questions, or a batch of questions at once.
+- Answer a question yourself: the triage's answers are the agent's, each with a written source, and the owner can correct them.
 - Grant an exception to an ADR or inviolable rule yourself.
 - Ask again after the owner opted out.
 - Write an acceptance criterion with no observable effect (`success: true`).
 
 ## Related
 
-- Agents: `codebase-researcher` (facts before grilling), `change-planner` (consumes assumptions and criteria).
+- Agents: `requirements-triage` (answers what the files settle, with sources), `codebase-researcher` (facts before grilling), `change-planner` (consumes assumptions and criteria).
 - Skills: `plan-readiness-review` (gates the plan that follows), `review-change` (uses the flags to pick reviewers).

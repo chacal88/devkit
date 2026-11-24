@@ -1,0 +1,599 @@
+Task 7.1: the tests of phase 7 and T-17 run on the unchanged code (HEAD 123a7ba, no product file edited).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront" plugins/openspec/hooks/guard.test.mjs
+
+New tests and T-17 tests that pass here (7):
+  - upfront AC-9 lock stop: guard.mjs stop lets a claimed change session held for a place stop ...   (pins phase 2's behaviour)
+  - upfront AC-9 session-next: the place is decided again on the run file as read under its lock ...   (pins phase 2's behaviour)
+  - the five tests of T-17, which pass with the helper sleeper() spawning a wait loop's command line:
+    upfront AC-14 check: a stale wait is killed and the newest of each kind kept
+    upfront AC-14 check: a freed place goes to the first queued change, and one with no live wait gets its idle line
+    upfront AC-14 decide: an archived line with a recorded session kills its recorded waits, then gives archive-session ...
+    upfront AC-15 decide: the end done gives delete-check, archive-session per kept session and stop-own-tasks, and decide kills every recorded wait
+    upfront AC-15 decide: a stop kills only stale waits and keeps the sessions of changes that go on
+
+New tests that fail here (15, each for the missing behaviour; none for a typo or an import error):
+  roadmap-loop.test.mjs (11): AC-12 next: ticks of tasks.md ...; AC-2 guard: guard.mjs skill lets another skill through ...; AC-14 isWaitProcess ...;
+    AC-14 check: a live process that is not a wait loop ...; AC-15 decide: the end done spares a recorded pid ...; AC-9 check: a change that left the roadmap ...;
+    AC-9 next: a coordinating decision prunes ...; AC-14 check: a triage heading inside a fence ...; AC-1 entry: the real first message ...;
+    AC-8 skill: after a merge-base exit 3 ...; ADR 0019: the documents follow
+  change-loop.test.mjs (2): AC-6 triage: triageSection and hasTriageSection ...; AC-1 guard: a started task after a note of the host ...
+  guard.test.mjs (2): AC-2 guard: namesEntrySkill ...; AC-1 guard: startedTaskOf skips the host's leading notes ...
+
+Paths of this machine are written <worktree>, <home> and <tmp> in the output below.
+
+Correction to one entry of the run below: the fixture of `upfront AC-14 check: a triage heading inside a fence or with words after it ...` first held
+headerless requirements files, which the loop reads as a change of the previous script (no grill), so its failure in the run below is not for the right reason.
+The fixture now gives each requirements file a header with result=failed (a grill under way on the current script) and the test asserts that a, c, d and e are
+all grills. Re-run against the old regular expression of `checkCmd` (restored for that run only, then replaced by `hasTriageSection`), it fails for the right
+reason, the heading of c (in a fence) and of d (with words after it) being read as a triage section:
+
+  env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern='^upfront AC-14 check: a triage' plugins/openspec/hooks/guard.test.mjs
+  ✖ upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not (12156.892875ms)
+  ℹ tests 1
+  ℹ pass 0
+  ℹ fail 1
+  ✖ failing tests:
+  ✖ upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not (12156.892875ms)
+    AssertionError [ERR_ASSERTION]: a fenced heading and a heading with words after it are no section; e has its triage
+    + actual - expected
+    + []
+    - [
+    -   'c',
+    -   'd'
+    - ]
+      actual: [],
+      expected: [ 'c', 'd' ],
+--------------------------------------------------------------------------------
+✔ upfront AC-11 adr: a number the base gave another file is renumbered to the next free one (3231.161084ms)
+✔ upfront AC-11 adr: the folder docs/decisions is read like docs/adr (2913.403958ms)
+✔ upfront AC-11 adr: no clash gives no step (3579.498541ms)
+✔ upfront AC-11 adr: the same file on both gives no step (3753.634584ms)
+✔ upfront AC-11 adr: two clashes take the next two numbers in order (5877.571375ms)
+✔ upfront AC-11 adr: an unresolvable base gives no step (1276.714542ms)
+✔ upfront AC-1 guard: a started task followed by a start line still makes a change run (3.787542ms)
+✖ upfront AC-1 guard: a started task after a note of the host makes a change run (1.441334ms)
+✔ upfront AC-9 waitLoop: a given predicate keeps waiting while it holds and failWhy names the end (0.6035ms)
+✔ upfront AC-16 next: no action of a change run asks for a schedule (1.029708ms)
+✔ upfront AC-6 triage: an answer under the triage heading with no source sends the change back to its grill naming it (4377.5535ms)
+✔ upfront AC-6 triage: decide gives the grill only in the plan part, only when the requirements stage passed and only for a non-empty list (0.617625ms)
+✔ upfront AC-6 triage: the heading's end, an unclosed fence, an item over indented lines, no heading and an empty section (1.572958ms)
+✖ upfront AC-6 triage: triageSection and hasTriageSection read the one section, a fenced or suffixed heading being none (2.249667ms)
+✔ upfront AC-5 triage: the agent file has the name, a description that says when, the tools Read, Glob and Grep only, and the Never rules (2.752333ms)
+✔ upfront AC-5 triage: requirements-triage is a helper of the requirements stage of both scripts, in both schema copies, and PACKS ships it in devkit-core (4.728125ms)
+✔ upfront AC-5 triage: a change run may hand devkit-core:requirements-triage (1636.413ms)
+✔ upfront AC-11 next: a requirements file set back to pending after the proposal gives the grill (2328.848917ms)
+✔ upfront AC-11 delivery: renumber-adr is a hand-off of the implementer, with the files in its detail (0.21075ms)
+✔ upfront AC-10 facts: runFactsOf reads the change's queue entry, its place and its waitsFor, and no other change's (0.332416ms)
+✔ upfront AC-10 state: a running change queued for a place reads held-place with its board words and the title ⏳ <id> (0.19175ms)
+✔ upfront AC-10 state: a running change queued by the load reads held-load (0.157834ms)
+✔ upfront AC-10 state: a plan stage whose dependency is not archived reads held-after naming it (0.2125ms)
+✔ upfront AC-10 state: a change that holds a place, or has no queue entry and no waitsFor, gets no held reason (0.585125ms)
+✔ upfront AC-10 state: a change waiting for the owner, blocked or waiting on GitHub keeps its state and title over a queue entry or a waitsFor (0.712375ms)
+✔ upfront AC-10 state: outside a run with a session per change a queue entry or a waitsFor gives no held reason (0.319208ms)
+✔ upfront AC-10 state: a held title of a 70-character id is cut to 59 code points (0.983667ms)
+✔ upfront AC-1 entry: the run's own start of the change is claimed by the first session (346.874917ms)
+✔ upfront AC-1 entry: the session that claimed the ticket is let through again (304.030958ms)
+✔ upfront AC-2 entry: another skill is let through (267.917042ms)
+✔ upfront AC-2 entry: a session whose first message is typed is refused (2067.686583ms)
+✔ upfront AC-2 entry: a started session with no start line for its change is refused (1113.09925ms)
+✔ upfront AC-2 entry: a ticket the run does not record is refused (917.795708ms)
+✔ upfront AC-2 entry: a ticket another session claimed is refused (798.173542ms)
+✔ upfront AC-2 entry: an unreadable transcript or run file is refused (896.480125ms)
+✔ upfront AC-2 guard: guard.mjs skill exits 2 on a refusal, 0 on a claim, 0 under DEVKIT_BYPASS=1, and logs one line under DEVKIT_HOOK_LOG (876.7135ms)
+✔ upfront AC-1 ticket: decide gives each session start a fresh ticket recorded before it prints, keeps a claimed one, and withTicket adds the start line (14537.076541ms)
+✔ upfront AC-1 run file: readRun reads tickets, placed, queued, anyway, waits, cron and check, and drops a field of the wrong type (779.272084ms)
+✔ upfront AC-1 run file: decide keeps the tickets and started sessions of an archived line, and drops those of a line that left the roadmap (4918.205583ms)
+✔ upfront AC-1 skill: devkit-session is model-invocable, names its change from the start line, and keeps the title rule and the archive line (1.58575ms)
+✔ upfront AC-7 session-next: the grill, the plan approval and the retro answers are held for the coordinating session with their stage icon (0.610541ms)
+✔ upfront AC-7 session-next: every other gate stays in the change session (0.179708ms)
+✔ upfront AC-7 session-next: the held approval goes on once approval.md is written (4794.798291ms)
+✔ upfront AC-8 session-next: a plan stage waits for an unarchived dependency with ⏳ (1.494541ms)
+✔ upfront AC-8 session-next: the roadmap of the main checkout says which dependency is still unarchived (3036.233959ms)
+✔ upfront AC-8 session-next: once the dependency is archived and not merged, the step merges the default branch (10446.198125ms)
+✔ upfront AC-8 merge-base: merges origin's default branch, and on a conflict aborts and exits 3 with base-conflict (3284.393875ms)
+✔ upfront AC-9 place: a free place is claimed (0.585208ms)
+✔ upfront AC-9 place: no free place queues the change with why place (1.045667ms)
+✔ upfront AC-9 place: a loaded machine queues it with why load (1.614375ms)
+✔ upfront AC-9 place: start anyway claims despite the load once (0.391125ms)
+✔ upfront AC-9 place: an earlier queued change goes first (0.407292ms)
+✔ upfront AC-9 session-next: an implementation step claims a place and the delivery releases it (0.619542ms)
+✔ upfront AC-9 session-next: a blocked change in its implementation keeps its place (0.295291ms)
+✔ upfront AC-9 session-next: the archived end releases the place (0.258416ms)
+✔ upfront AC-9 session-next: no free place or a loaded machine holds the change with why place or load (0.582791ms)
+✔ upfront budget session-next: at the cap a change session's session-next prints the budget end and keeps its place (9994.991375ms)
+✔ upfront AC-9 session-next: a change outside a session-mode run gets the change loop's action unchanged (11722.649416ms)
+✔ upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again (0.336541ms)
+✔ upfront AC-1 session-next: prints devkit-run first, so runOf reads a change run (4830.060792ms)
+✔ upfront AC-9 session-wait: exits with the new action when a place frees, records and clears its wait (8785.194291ms)
+✔ upfront AC-9 lock stop: a claimed change session held for a place may stop (4465.913583ms)
+✔ upfront AC-9 lock stop: with its place and a stage ready the stop is refused once (8513.277958ms)
+✔ upfront AC-9 lock stop: a session that did not claim the ticket is judged as any change run (4538.986833ms)
+✔ upfront AC-9 messages: the held and base-conflict messages exist in both languages and name no stage or step (0.281ms)
+✔ upfront AC-3 decide: every pending line opens on a typed turn whatever the number, the load and the dependencies, each with its session (0.535667ms)
+✔ upfront AC-3 decide: on a turn nobody typed a pending line not open waits for the owner's next message with its line (0.322542ms)
+✔ upfront AC-3 decide: the line of a session just started names no count of places (0.215291ms)
+✔ upfront AC-3 status: the board lists every opened change, with held-place, held-load and held-after rows (0.564625ms)
+✔ upfront AC-4 decide: the grills of change sessions are asked in roadmap order, one change at a time, with their gate line (0.412417ms)
+✔ upfront AC-7 decide: a plan approval and the retro answers of a change session are asked here, and a merge left to the owner is not (0.262042ms)
+✔ upfront AC-12 next: a passed grill not on origin gives a push, the push commits and pushes requirements.md, and a plan approved gives the push of the plan files (10690.080875ms)
+✔ upfront AC-12 next: after --after <id>=push the same decision asks no push, and a failed push exits 3 with its reply (7246.127708ms)
+✔ upfront AC-13 decide: with cron and no check the decision asks for one, on any turn, and none while stopping or after a refusal (0.586209ms)
+✔ upfront AC-13 decide: the check's cron expression avoids minutes 00 and 30, recurring is true and no durable field is passed (0.185ms)
+✔ upfront AC-13 decide: every end and a stop give delete-check when a check is recorded (0.289708ms)
+✔ upfront AC-13 next: --check-id records the check, --check-refused records the refusal with its line, --check-deleted clears it, also for a job already gone (2283.810416ms)
+✔ upfront AC-13 next: --check-gone clears a recorded check and the same decision asks for a new one, but not after a refusal (1048.472416ms)
+✔ upfront AC-13 run: --cron is recorded and asks for the check, and a run from another session asks for its own (1918.318333ms)
+✔ upfront AC-13 guard: the check's prompt reads as no typed command and the roadmap run goes on (0.831042ms)
+✔ upfront AC-13 messages: the check's messages exist in both languages and name no mechanism (0.1665ms)
+✔ upfront AC-14 staleWaits: a wait of a change that is not open is stale (0.107834ms)
+✔ upfront AC-14 staleWaits: a wait of an archived change is stale, though its line is open (0.103333ms)
+✔ upfront AC-14 staleWaits: of one kind of one change every wait older than the newest is stale, and another kind is not a duplicate (0.124291ms)
+✔ upfront AC-14 check: a stale wait is killed and the newest of each kind kept (6296.062166ms)
+✔ upfront AC-14 check: a freed place goes to the first queued change, and one with no live wait gets its idle line (18816.780333ms)
+✔ upfront AC-14 check: its actions are only triage, archive-session, push and delete-check, and it starts no session on its event turn (7037.636917ms)
+✔ upfront AC-14 check: nothing changed prints no line and no end reply (5307.645083ms)
+✔ upfront AC-14 decide: an archived line with a recorded session kills its recorded waits, then gives archive-session with its reason until session-archived is reported (1341.224666ms)
+✔ upfront AC-14 next: --after <id>=session-archive-later keeps the entry, asks no second archive in that decision, says the line once, and a later decision asks again (708.566333ms)
+✔ upfront AC-15 decide: the end done gives delete-check, archive-session per kept session and stop-own-tasks, and decide kills every recorded wait (2714.849791ms)
+✔ upfront AC-15 decide: a stop kills only stale waits and keeps the sessions of changes that go on (3606.274667ms)
+✔ upfront AC-15 lock stop: a cleanup action left refuses the end of the turn once (758.059833ms)
+✔ upfront AC-9 next: start anyway records the changes queued by the load now, and a change queued later is held again (2196.831875ms)
+✔ upfront AC-13 skill: the periodic check names CronCreate, CronList, CronDelete, archive_session and TaskStop, re-creates a missing check, and approves nothing (2.154709ms)
+✔ upfront AC-16 skill: no section before the Roadmap names a scheduling tool (1.26025ms)
+✔ upfront AC-4 lock agent: the coordinating session may hand requirements-triage with a brief naming an open change, and marks nothing under way (14183.153375ms)
+✔ upfront AC-4 lock agent: the triage with no brief is refused own-sessions (360.588459ms)
+✔ upfront AC-4 lock agent: the triage for a change not open is refused not-open (617.996167ms)
+✔ upfront AC-10 session-next: every held action carries the state changeState derives, and its title and icon come from it (0.413166ms)
+✔ upfront AC-10 status: a held row is placed by the state's reason, in the queue with its words (0.3645ms)
+✔ upfront AC-10 command: the state command, session-next and the board agree on a change held for a place and one held for a dependency (14071.052042ms)
+✖ upfront AC-12 next: ticks of tasks.md after the plan was pushed ask no second plan push, and an approval written again does (7268.224958ms)
+✖ upfront AC-2 guard: guard.mjs skill lets another skill through without loading roadmap-loop.mjs, and refuses devkit-session when it cannot load (29.931166ms)
+✖ upfront AC-14 isWaitProcess: only a process started as roadmap-loop.mjs wait or session-wait is a wait loop (6.209542ms)
+✖ upfront AC-14 check: a live process that is not a wait loop, recorded as a stale wait, is spared and forgotten (3748.51025ms)
+✖ upfront AC-15 decide: the end done spares a recorded pid that is not a wait loop and forgets it (596.739416ms)
+✖ upfront AC-9 check: a change that left the roadmap or was archived frees its place and its queue entry, and the change queued behind it takes the place (3440.65375ms)
+✖ upfront AC-9 next: a coordinating decision prunes the places and queue entries of lines no longer open, and a run without a session per change keeps them (4329.998458ms)
+✖ upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not (4970.843166ms)
+✔ upfront AC-9 lock stop: guard.mjs stop lets a claimed change session held for a place stop with a held log line, and refuses a session that did not claim the ticket (4505.369ms)
+✔ upfront AC-9 session-next: the place is decided again on the run file as read under its lock, so of two sessions only one takes the last place (2054.421375ms)
+✖ upfront AC-1 entry: the real first message of a started session is read through its host note, background, Task line and task, refused for its hand-written task, and with the run's task put in refused for want of a start line and claimed with one (0.249584ms)
+✖ upfront AC-8 skill: after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run (1.293167ms)
+✖ upfront ADR 0019: the documents follow (1.584875ms)
+✔ upfront AC-2 guard: startedTaskOf and firstMessageOf read only the first message's started form (2.473208ms)
+✖ upfront AC-2 guard: namesEntrySkill reads the entry skill's name from any string field and nothing else (0.1965ms)
+✖ upfront AC-1 guard: startedTaskOf skips the host's leading notes and nothing else (0.172542ms)
+✔ upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage (179.134167ms)
+✔ upfront AC-5 skill: the grill rule of config.yaml and of the four schema files names the triage and forbids answering yourself (3.739417ms)
+ℹ tests 120
+ℹ suites 0
+ℹ pass 105
+ℹ fail 15
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 280347.442917
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3429:1
+✖ upfront AC-1 guard: a started task after a note of the host makes a change run (1.441334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'feat'
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:3433:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'feat',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3634:1
+✖ upfront AC-6 triage: triageSection and hasTriageSection read the one section, a fenced or suffixed heading being none (2.249667ms)
+  TypeError [Error]: triageSection is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/change-loop.test.mjs:3636:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4216:1
+✖ upfront AC-12 next: ticks of tasks.md after the plan was pushed ask no second plan push, and an approval written again does (7268.224958ms)
+  AssertionError [ERR_ASSERTION]: a tick left in the tree
+  + actual - expected
+  
+  + [
+  +   {
+  +     change: 'a',
+  +     command: [
+  +       'node',
+  +       '<worktree>/plugins/openspec/hooks/roadmap-loop.mjs',
+  +       'push',
+  +       '--change',
+  +       'a',
+  +       '--what',
+  +       'plan',
+  +       '--lang',
+  +       'en'
+  +     ],
+  +     kind: 'push',
+  +     progressKey: 'push',
+  +     what: 'plan'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4228:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { change: 'a', kind: 'push', what: 'plan', command: [Array], progressKey: 'push' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4244:1
+✖ upfront AC-2 guard: guard.mjs skill lets another skill through without loading roadmap-loop.mjs, and refuses devkit-session when it cannot load (29.931166ms)
+  AssertionError [ERR_ASSERTION]: devkit guard: the entry could not be checked; the owner can run this change by typing /devkit change <id> in this session
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4253:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4263:1
+✖ upfront AC-14 isWaitProcess: only a process started as roadmap-loop.mjs wait or session-wait is a wait loop (6.209542ms)
+  TypeError [Error]: loopModule.isWaitProcess is not a function
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4268:29)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4283:1
+✖ upfront AC-14 check: a live process that is not a wait loop, recorded as a stale wait, is spared and forgotten (3748.51025ms)
+  AssertionError [ERR_ASSERTION]: a process that took the number is not signalled
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4291:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4300:1
+✖ upfront AC-15 decide: the end done spares a recorded pid that is not a wait loop and forgets it (596.739416ms)
+  AssertionError [ERR_ASSERTION]: the process that took the number keeps running
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4309:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4315:1
+✖ upfront AC-9 check: a change that left the roadmap or was archived frees its place and its queue entry, and the change queued behind it takes the place (3440.65375ms)
+  AssertionError [ERR_ASSERTION]: gone has no line: b takes the place
+  + actual - expected
+  
+    [
+      [
+  +     'gone'
+  -     'b'
+      ],
+  +   {
+  +     b: {
+  +       at: '2026-11-21T11:00:00.000Z',
+  +       why: 'place'
+  +     }
+  +   }
+  -   {}
+    ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4322:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'gone' ], { b: [Object] } ],
+    expected: [ [ 'b' ], {} ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4340:1
+✖ upfront AC-9 next: a coordinating decision prunes the places and queue entries of lines no longer open, and a run without a session per change keeps them (4329.998458ms)
+  AssertionError [ERR_ASSERTION]: only the open line keeps its record
+  + actual - expected
+  
+    [
+      [
+        'a',
+  +     'gone',
+  +     'z'
+      ],
+  +   {
+  +     gone: {
+  +       at: '2026-11-21T11:00:00.000Z',
+  +       why: 'place'
+  +     },
+  +     z: {
+  +       at: '2026-11-21T11:00:00.000Z',
+  +       why: 'load'
+  +     }
+  +   }
+  -   {}
+    ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4348:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'a', 'gone', 'z' ], { gone: [Object], z: [Object] } ],
+    expected: [ [ 'a' ], {} ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4361:1
+✖ upfront AC-14 check: a triage heading inside a fence or with words after it gives the triage action, and a plain heading does not (4970.843166ms)
+  AssertionError [ERR_ASSERTION]: a fenced heading and a heading with words after it are no section; e has its triage
+  + actual - expected
+  
+  + []
+  - [
+  -   'c',
+  -   'd'
+  - ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4375:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'c', 'd' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4461:1
+✖ upfront AC-1 entry: the real first message of a started session is read through its host note, background, Task line and task, refused for its hand-written task, and with the run's task put in refused for want of a start line and claimed with one (0.249584ms)
+  AssertionError [ERR_ASSERTION]: the started form is read after the host note
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4465:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4488:1
+✖ upfront AC-8 skill: after a merge-base exit 3 the change session declares the end blocked with base-conflict and ends the run (1.293167ms)
+  AssertionError [ERR_ASSERTION]: it says when
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4491:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:4505:1
+✖ upfront ADR 0019: the documents follow (1.584875ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^- Status: accepted$/m. Input:
+  
+  "# ADR 0019: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts\n" +
+    '\n' +
+    '- Status: proposed\n' +
+    '- Date: 2026-11-22\n' +
+    '- Change: roadmap-sessions-upfront\n' +
+    '- Amends: ADR 0006 (0006-phases-as-child-sessions.md), decision 3, for a roadmap run only; ADR 0010\n' +
+    '  (0010-openspec-as-the-harness.md), decision 2, where the host can start sessions; ADR 0011\n' +
+    '  (0011-the-change-coordinator-is-the-owners-session.md), decision 2; ADR 0013\n' +
+    '  (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 4; ADR 0014\n' +
+    '  (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decisions 1 to 4; ADR 0017\n' +
+    '  (0017-a-change-state-is-derived-in-one-place.md), decision 4, the title of a held change session\n' +
+    '\n' +
+    '## Context\n' +
+    '\n' +
+    'On 2026-11-22 every ready change of a run was opened by hand, each in a session of its own. A\n' +
+    'session the coordinating session started could not run the devkit skill until the owner typed\n' +
+    '`/devkit change <id>` in it: the skill declares `disable-model-invocation: true`, and a message from\n' +
+    'another session is no go-ahead. Ten changes would mean ten typed commands. ADR 0014 decision 1 put\n' +
+    "each change's owner questions in its own session, and ADR 0010 decision 2 starts a change only when\n" +
+    'its dependencies are archived and a place is free, so grills came one at a time. The same run left\n' +
+    'about 30 stale wait loops that kept the app from archiving finished sessions. The owner decided in\n' +
+    'the grill of `roadmap-sessions-upfront`: a change session must start running with no typed command;\n' +
+    'every pending change opens at the start; the grills, plan approvals and retro answers are asked in\n' +
+    'the coordinating session, a triage agent answering what the files settle; places count only the\n' +
+    'stages that load the machine; and the run keeps temporary schedules that it cleans up at its end.\n' +
+    "ADR 0017 has since derived each change's state in one place and titled a stopped change session\n" +
+    'with its state icon beside its stage icon; a change session that waits in itself needs a state and a\n' +
+    'title of its own.\n' +
+    '\n' +
+    '## Decision\n' +
+    '\n' +
+    '1. A roadmap run that starts a change session writes a one-use ticket for that change into its own\n' +
+    "   bookkeeping and into the session's task, below `/devkit change <id>`. A model-invocable entry\n" +
+    "   skill runs the change's loop from the session's first turn. A hook on the Skill tool lets it run\n" +
+    "   only when the session's first message is the host's started form carrying a ticket the run\n" +
+    '   recorded for that change and no other session claimed; the first session claims it. Any other\n' +
+    '   call is refused, and the hook refuses when it cannot read, because its refusal still leaves the\n' +
+    "   owner's typed command. The devkit skill stays owner-only.\n" +
+    "2. Where the host can start sessions, the first decision on the owner's typed turn opens every\n" +
+    "   unticked, unarchived roadmap line and starts its session. The run's number counts only the changes\n" +
+    '   whose current stage is the implementation, a test stage, the evidence or the review. A change\n' +
+    '   waits for a place, for the load or for its dependencies in its own session, through a background\n' +
+    '   wait of that session. No plan file is written before its `after:` dependencies are archived; the\n' +
+    '   change then merges the default branch before its plan.\n' +
+    '3. The coordinating session asks the grill, the plan approval and the retro answers of every change\n' +
+    "   session, one change at a time, and writes each answer into that change's files; the change\n" +
+    '   session goes on when its wait sees the file change. Every other owner gate stays in the change\n' +
+    "   session. The coordinating session hands no stage; it may hand the grill's triage agent.\n" +
+    '4. While a roadmap run lasts, the coordinating session holds one session cron, about every 30\n' +
+    '   minutes. A firing has the triage answer ahead, hands a freed place to the first waiting change,\n' +
+    "   stops the run's stale wait loops, archives the sessions of archived changes, and speaks only when\n" +
+    '   something changed. It never writes a plan approval or a retro answer, hands a stage or starts a\n' +
+    "   session. The host expires a recurring session cron after 7 days, so the run reads the session's\n" +
+    '   cron list on every typed turn and every firing and creates the check again when it is gone. The\n' +
+    "   run's end deletes the cron (a cron already gone is no error), stops the run's wait loops and\n" +
+    '   archives the sessions of archived changes. The owner agreed on 2026-11-22 (grill question 5)\n' +
+    '   that the run archives the sessions of its archived changes: that standing agreement is what each\n' +
+    '   archive call rests on; the app may still ask per call, and a refused or pending archive is tried\n' +
+    '   again later. A lone `/devkit change` schedules nothing.\n' +
+    "5. While a change session waits for a place, the load or its dependencies, its change's state is\n" +
+    '   `running` with the reason of that wait, derived where ADR 0017 derives every state, and its title\n' +
+    "   is ⏳ and the change id, the stage icon replaced; once it goes on, the title is its stage's again.\n" +
+    '   This amends ADR 0017 decision 4 for a held change session only: a wait on GitHub keeps ⏳ beside\n' +
+    "   the stage icon, and the owner's gates keep 🙋 beside it.\n" +
+    "6. The run's bookkeeping also holds the start tickets (`tickets`), the places held (`placed`), the\n" +
+    '   changes waiting for one (`queued`), the start-anyway of the moment (`anyway`), the wait loops\n' +
+    '   under way (`waits`), whether the host offers a session cron (`cron`) and the periodic check\n' +
+    '   (`check`).\n' +
+    '\n' +
+    '## Consequences\n' +
+    '\n' +
+    '- Positive: a run needs one typed command; every grill is answered up front in one session, the\n' +
+    '  triage taking the questions the files settle; the machine runs at most the number of building\n' +
+    '  changes while plans go on; nothing the run started outlives it.\n' +
+    '- Negative: a model-invocable skill exists for the change loop (Mitigated: the hook refuses it\n' +
+    "  without the run's unclaimed ticket, and fails closed). The entry depends on the host's started\n" +
+    '  form and on the Skill tool reaching a PreToolUse hook, neither documented (Accepted: a wrong\n' +
+    '  reading refuses, and the owner types `/devkit change <id>`). Each change session polls its files\n' +
+    '  once a minute while it waits (Accepted: a sleeping process per session, recorded and stopped when\n' +
+    '  stale). A schedule exists again, for a roadmap run (Mitigated: one per run, deleted at its end,\n' +
+    "  and it starts nothing the owner must allow). Reading every open change's action makes a\n" +
+    '  coordinating decision slower with many changes (Accepted; the Stop hook does not read them).\n' +
+    '\n' +
+    '### Review trigger\n' +
+    '\n' +
+    'The host documents a way to start a session already running a skill, or a message between sessions\n' +
+    "that counts as the owner's; the Skill tool stops reaching PreToolUse hooks; the started form\n" +
+    'changes; a firing of the check is found writing an approval or a retro answer, or starting a stage;\n' +
+    "a run leaves a cron, a wait loop or an archived change's session behind.\n" +
+    '\n' +
+    '## Alternatives considered\n' +
+    '\n' +
+    '| Option | Pros | Cons | Cost to undo |\n' +
+    '|---|---|---|---|\n' +
+    '| Drop `disable-model-invocation` from the devkit skill | One skill | Any session could start a run on its own, which AC-2 forbids | low |\n' +
+    '| The grills in the coordinating session and the change session opened only after them | No entry needed for the grill | Still a typed command per session for the plan and the code | low |\n' +
+    "| A message from the coordinating session as the go-ahead | No hook | ADR 0011: only the owner's own message is a go-ahead; no message tool is in use (ADR 0014 rejected it) | low |\n" +
+    '| Places counted over open changes, as before | No new field | Grills and plans wait for building changes; the owner asked otherwise | low |\n' +
+    "| A timer that retries a refused session start (ADR 0014 rejected it) | Starts without the owner | The app refuses a start on a turn nobody typed; the periodic check starts nothing and leaves a refused start to the owner's next message | low |\n" +
+    '| A hook that refuses an implementer hand-off without a place | A hard lock | More hook code over the run file in a 10-second hook; the loop and the stop lock already hold the rule | low |\n' +
+    '| A cron per change session | Each session wakes itself | Many schedules to clean up; the background wait already wakes it | medium |\n'
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:4511:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "# ADR 0019: A roadmap run opens every change at its start, runs each change session on the run's ticket, and keeps one periodic check while it lasts\n\n- Status: proposed\n- Date: 2026-11-22\n- Change: roadmap-sessions-upfront\n- Amends: ADR 0006 (0006-phases-as-child-sessions.md), decision 3, for a roadmap run only; ADR 0010\n  (0010-openspec-as-the-harness.md), decision 2, where the host can start sessions; ADR 0011\n  (0011-the-change-coordinator-is-the-owners-session.md), decision 2; ADR 0013\n  (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 4; ADR 0014\n  (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decisions 1 to 4; ADR 0017\n  (0017-a-change-state-is-derived-in-one-place.md), decision 4, the title of a held change session\n\n## Context\n\nOn 2026-11-22 every ready change of a run was opened by hand, each in a session of its own. A\nsession the coordinating session started could not run the devkit skill until the owner typed\n`/devkit change <id>` in it: the skill declares `disable-model-invocation: true`, and a message from\nanother session is no go-ahead. Ten changes would mean ten typed commands. ADR 0014 decision 1 put\neach change's owner questions in its own session, and ADR 0010 decision 2 starts a change only when\nits dependencies are archived and a place is free, so grills came one at a time. The same run left\nabout 30 stale wait loops that kept the app from archiving finished sessions. The owner decided in\nthe grill of `roadmap-sessions-upfront`: a change session must start running with no typed command;\nevery pending change opens at the start; the grills, plan approvals and retro answers are asked in\nthe coordinating session, a triage agent answering what the files settle; places count only the\nstages that load the machine; and the run keeps temporary schedules that it cleans up at its end.\nADR 0017 has since derived each change's state in one place and titled a stopped change session\nwith its state icon beside its stage icon; a change session that waits in itself needs a state and a\ntitle of its own.\n\n## Decision\n\n1. A roadmap run that starts a change session writes a one-use ticket for that change into its own\n   bookkeeping and into the session's task, below `/devkit change <id>`. A model-invocable entry\n   skill runs the change's loop from the session's first turn. A hook on the Skill tool lets it run\n   only when the session's first message is the host's started form carrying a ticket the run\n   recorded for that change and no other session claimed; the first session claims it. Any other\n   call is refused, and the hook refuses when it cannot read, because its refusal still leaves the\n   owner's typed command. The devkit skill stays owner-only.\n2. Where the host can start sessions, the first decision on the owner's typed turn opens every\n   unticked, unarchived roadmap line and starts its session. The run's number counts only the changes\n   whose current stage is the implementation, a test stage, the evidence or the review. A change\n   waits for a place, for the load or for its dependencies in its own session, through a background\n   wait of that session. No plan file is written before its `after:` dependencies are archived; the\n   change then merges the default branch before its plan.\n3. The coordinating session asks the grill, the plan approval and the retro answers of every change\n   session, one change at a time, and writes each answer into that change's files; the change\n   session goes on when its wait sees the file change. Every other owner gate stays in the change\n   session. The coordinating session hands no stage; it may hand the grill's triage agent.\n4. While a roadmap run lasts, the coordinating session holds one session cron, about every 30\n   minutes. A firing has the triage answer ahead, hands a freed place to the first waiting change,\n   stops the run's stale wait loops, archives the sessions of archived changes, and speaks only when\n   something changed. It never writes a plan approval or a retro answer, hands a stage or starts a\n   session. The host expires a recurring session cron after 7 days, so the run reads the session's\n   cron list on every typed turn and every firing and creates the check again when it is gone. The\n   run's end deletes the cron (a cron already gone is no error), stops the run's wait loops and\n   archives the sessions of archived changes. The owner agreed on 2026-11-22 (grill question 5)\n   that the run archives the sessions of its archived changes: that standing agreement is what each\n   archive call rests on; the app may still ask per call, and a refused or pending archive is tried\n   again later. A lone `/devkit change` schedules nothing.\n5. While a change session waits for a place, the load or its dependencies, its change's state is\n   `running` with the reason of that wait, derived where ADR 0017 derives every state, and its title\n   is ⏳ and the change id, the stage icon replaced; once it goes on, the title is its stage's again.\n   This amends ADR 0017 decision 4 for a held change session only: a wait on GitHub keeps ⏳ beside\n   the stage icon, and the owner's gates keep 🙋 beside it.\n6. The run's bookkeeping also holds the start tickets (`tickets`), the places held (`placed`), the\n   changes waiting for one (`queued`), the start-anyway of the moment (`anyway`), the wait loops\n   under way (`waits`), whether the host offers a session cron (`cron`) and the periodic check\n   (`check`).\n\n## Consequences\n\n- Positive: a run needs one typed command; every grill is answered up front in one session, the\n  triage taking the questions the files settle; the machine runs at most the number of building\n  changes while plans go on; nothing the run started outlives it.\n- Negative: a model-invocable skill exists for the change loop (Mitigated: the hook refuses it\n  without the run's unclaimed ticket, and fails closed). The entry depends on the host's started\n  form and on the Skill tool reaching a PreToolUse hook, neither documented (Accepted: a wrong\n  reading refuses, and the owner types `/devkit change <id>`). Each change session polls its files\n  once a minute while it waits (Accepted: a sleeping process per session, recorded and stopped when\n  stale). A schedule exists again, for a roadmap run (Mitigated: one per run, deleted at its end,\n  and it starts nothing the owner must allow). Reading every open change's action makes a\n  coordinating decision slower with many changes (Accepted; the Stop hook does not read them).\n\n### Review trigger\n\nThe host documents a way to start a session already running a skill, or a message between sessions\nthat counts as the owner's; the Skill tool stops reaching PreToolUse hooks; the started form\nchanges; a firing of the check is found writing an approval or a retro answer, or starting a stage;\na run leaves a cron, a wait loop or an archived change's session behind.\n\n## Alternatives considered\n\n| Option | Pros | Cons | Cost to undo |\n|---|---|---|---|\n| Drop `disable-model-invocation` from the devkit skill | One skill | Any session could start a run on its own, which AC-2 forbids | low |\n| The grills in the coordinating session and the change session opened only after them | No entry needed for the grill | Still a typed command per session for the plan and the code | low |\n| A message from the coordinating session as the go-ahead | No hook | ADR 0011: only the owner's own message is a go-ahead; no message tool is in use (ADR 0014 rejected it) | low |\n| Places counted over open changes, as before | No new field | Grills and plans wait for building changes; the owner asked otherwise | low |\n| A timer that retries a refused session start (ADR 0014 rejected it) | Starts without the owner | The app refuses a start on a turn nobody typed; the periodic check starts nothing and leaves a refused start to the owner's next message | low |\n| A hook that refuses an implementer hand-off without a place | A hard lock | More hook code over the run file in a 10-second hook; the loop and the stop lock already hold the rule | low |\n| A cron per change session | Each session wakes itself | Many schedules to clean up; the background wait already wakes it | medium |\n",
+    expected: /^- Status: accepted$/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1629:1
+✖ upfront AC-2 guard: namesEntrySkill reads the entry skill's name from any string field and nothing else (0.1965ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'devkit-session'
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/guard.test.mjs:1630:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'devkit-session',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1646:1
+✖ upfront AC-1 guard: startedTaskOf skips the host's leading notes and nothing else (0.172542ms)
+  AssertionError [ERR_ASSERTION]: one note
+  + actual - expected
+  
+  + null
+  - [
+  -   '/devkit change a',
+  -   '',
+  -   'Notes.'
+  - ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/guard.test.mjs:1651:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: [ '/devkit change a', '', 'Notes.' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+exit 1

@@ -1,0 +1,40 @@
+Phase 3 tests on the unchanged code (base 77b15b1 plus phases 1 and 2): every new test fails but the AC-16 one, which pins behaviour the base has.
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront AC-(3 |4 |7 decide|9 next: start|12 |13 |14 |15 |16 )" plugins/openspec/hooks/guard.test.mjs
+
+✔ upfront AC-16 next: no action of a change run asks for a schedule (3.819333ms)
+✖ upfront AC-3 decide: every pending line opens on a typed turn whatever the number, the load and the dependencies, each with its session (2.046708ms)
+✖ upfront AC-3 decide: on a turn nobody typed a pending line not open waits for the owner's next message with its line (0.409167ms)
+✖ upfront AC-3 decide: the line of a session just started names no count of places (0.2405ms)
+✖ upfront AC-3 status: the board lists every opened change, with held-place, held-load and held-after rows (0.454834ms)
+✖ upfront AC-4 decide: the grills of change sessions are asked in roadmap order, one change at a time, with their gate line (0.158583ms)
+✖ upfront AC-7 decide: a plan approval and the retro answers of a change session are asked here, and a merge left to the owner is not (0.1725ms)
+✖ upfront AC-12 next: a passed grill not on origin gives a push, the push commits and pushes requirements.md, and a plan approved gives the push of the plan files (3436.105208ms)
+✖ upfront AC-12 next: after --after <id>=push the same decision asks no push, and a failed push exits 3 with its reply (3270.71625ms)
+✖ upfront AC-13 decide: with cron and no check the decision asks for one, on any turn, and none while stopping or after a refusal (1.053959ms)
+✖ upfront AC-13 decide: the check's cron expression avoids minutes 00 and 30, recurring is true and no durable field is passed (0.935875ms)
+✖ upfront AC-13 decide: every end and a stop give delete-check when a check is recorded (1.458958ms)
+✖ upfront AC-13 next: --check-id records the check, --check-refused records the refusal with its line, --check-deleted clears it, also for a job already gone (442.628875ms)
+✖ upfront AC-13 next: --check-gone clears a recorded check and the same decision asks for a new one, but not after a refusal (409.91475ms)
+✖ upfront AC-13 run: --cron is recorded and asks for the check, and a run from another session asks for its own (358.505541ms)
+✖ upfront AC-13 guard: the check's prompt reads as no typed command and the roadmap run goes on (0.148166ms)
+✖ upfront AC-13 messages: the check's messages exist in both languages and name no mechanism (0.145167ms)
+✖ upfront AC-14 staleWaits: a wait of a change that is not open is stale (0.100834ms)
+✖ upfront AC-14 staleWaits: a wait of an archived change is stale, though its line is open (0.078375ms)
+✖ upfront AC-14 staleWaits: of one kind of one change every wait older than the newest is stale, and another kind is not a duplicate (0.088916ms)
+✖ upfront AC-14 check: a stale wait is killed and the newest of each kind kept (374.689333ms)
+✖ upfront AC-14 check: a freed place goes to the first queued change, and one with no live wait gets its idle line (310.866542ms)
+✖ upfront AC-14 check: its actions are only triage, archive-session, push and delete-check, and it starts no session on its event turn (378.289167ms)
+✖ upfront AC-14 check: nothing changed prints no line and no end reply (195.435125ms)
+✖ upfront AC-14 decide: an archived line with a recorded session kills its recorded waits, then gives archive-session with its reason until session-archived is reported (120193.878375ms)
+✖ upfront AC-14 next: --after <id>=session-archive-later keeps the entry, asks no second archive in that decision, says the line once, and a later decision asks again (427.780125ms)
+✖ upfront AC-15 decide: the end done gives delete-check, archive-session per kept session and stop-own-tasks, and decide kills every recorded wait (421.45375ms)
+✖ upfront AC-15 decide: a stop kills only stale waits and keeps the sessions of changes that go on (1940.178833ms)
+✖ upfront AC-15 lock stop: a cleanup action left refuses the end of the turn once (525.926292ms)
+✖ upfront AC-9 next: start anyway records the changes queued by the load now, and a change queued later is held again (361.104167ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 1
+ℹ fail 29
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
