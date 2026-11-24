@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=66b8cf79fcc597edd6900787d0a57489a0818632 -->
+<!-- devkit-stage review result=passed attempt=2 commit=0f405308ee31bfc6658bdea1bfce31c9b8666e55 -->
 # Review: jira-entry-followups, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -22,3 +22,27 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: jira-entry-followups, round 2
+
+Path: agents · range `66b8cf79fcc597edd6900787d0a57489a0818632..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 0f40530 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 0f40530 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 re-checked only the previous findings and 66b8cf7..HEAD: the one important finding of round 1 (F1, the missing test for the own-files exemption of an approved verdict with an open finding) is fixed in 3f6f865.
+- Reviewers ran on the agents path with the caller's suite result (whole suite green on cd2ea37; deliver-check.test.mjs whole green on the new head) and re-ran nothing beyond filtered tests.
+
+## Next
+Ready to ship.
