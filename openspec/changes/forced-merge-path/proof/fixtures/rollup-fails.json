@@ -1,0 +1,16 @@
+{
+  "case": "rollup-fails",
+  "about": "The rollup read fails (gh error): blocked from main and from the change's branch, never stop-branch or implement, and no retro run.",
+  "rollup": {
+    "error": "HTTP 502: Bad Gateway"
+  },
+  "gates": {
+    "evidence": "missing",
+    "reviews": {}
+  },
+  "expect": {
+    "all": {
+      "after": "blocked"
+    }
+  }
+}

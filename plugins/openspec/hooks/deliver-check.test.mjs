@@ -4767,6 +4767,17 @@ test('format: ship-change archive rows name the commands and the owner-answer ru
   assert.match(skillRow(md, 'archived'), /archived/);
 });
 
+test('forced-merge-path 2: D2 the ship-change retro row names next.forced, Went wrong, items and the files\' language', () => {
+  const row = skillRow(shipSkill(), 'retro');
+  assert.match(row, /next\.forced/);
+  assert.match(row, /Went wrong/);
+  assert.match(row, /next\.forced\.items/);
+  assert.match(row, /files' language/);
+  assert.match(row, /filesLanguage/);
+  assert.match(row, /Merged by the owner with <count> items open:/);
+  assert.match(row, /tick no task and change no file but `retro\.md`/);
+});
+
 test('format: ship-change reused merge rows say next.number is the archive PR after the merge, and the enable command stays verbatim (3.1, AC-5)', () => {
   const md = shipSkill();
   assert.ok(md.includes('gh pr merge <next.number> --auto --<next.method> --match-head-commit <next.head>'));

@@ -1,0 +1,25 @@
+{
+  "case": "pt-br",
+  "about": "D-7: the PR 88 shape in a scratch clone whose devkit: block sets language: pt-BR; the retro opens its Went wrong item in that language and keeps the item texts as given.",
+  "language": "pt-BR",
+  "rollup": [
+    "check",
+    {
+      "name": "devkit-reviews",
+      "conclusion": "FAILURE"
+    }
+  ],
+  "gates": {
+    "evidence": "missing",
+    "reviews": {
+      "code-quality-reviewer": "REJECTED",
+      "test-coverage-reviewer": "APPROVED"
+    }
+  },
+  "expect": {
+    "all": {
+      "after": "retro",
+      "loop": "retro"
+    }
+  }
+}
