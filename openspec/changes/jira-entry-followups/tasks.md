@@ -221,7 +221,7 @@ scratch file in the tree, and end every task with `git status --short`.
   2578) moved to it in the same task. Run `python3 scripts/gen-catalog.py`. Check:
   `python3 scripts/gen-catalog.py --check` and `python3 scripts/check.py` pass, and
   `grep -c "v0.33.0" docs/openspec-flow.md` prints 0.
-- [ ] 5.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate jira-entry-followups --strict` green (the guard suite as a background command); covers AC-1 to AC-11 and every other suite at once.
+- [x] 5.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate jira-entry-followups --strict` green (the guard suite as a background command); covers AC-1 to AC-11 and every other suite at once.
 
 ## Workflow follow-up
 
