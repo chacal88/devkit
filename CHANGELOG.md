@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.38.0 — the loop fetches the base before it judges
+
+- **devkit-openspec** 0.34.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its
+  remote-tracking ref (`origin/<base>`, nothing else) before they judge a delivery, once per command
+  call and at each poll of a wait, so a stale local copy of the base no longer decides whether a
+  change is merged. When the fetch fails or times out, the reply says the step was decided from this
+  machine's copy. The checkers (`conduct-check`, `deliver-check`) stay offline. The skills and the
+  flow page state the rule. The CI snippet now pins `v0.34.0`, the release's tag.
+
 ## 0.36.1 — retro proposals of remote-worker
 
 - **devkit-core** 0.13.3: `plan-readiness-review` has a new core rule: a plan revision that follows a

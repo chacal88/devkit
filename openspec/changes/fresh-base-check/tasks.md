@@ -110,7 +110,7 @@ the tree, and end every task with `git status --short`.
 
 ## 3. Release and the whole suite (AC-1 to AC-7)
 
-- [ ] 3.1 Release as D-10 says. Bump devkit-openspec, minor, to the next free number on
+- [x] 3.1 Release as D-10 says. Bump devkit-openspec, minor, to the next free number on
   `origin/main` at the last merge before review, in `plugins/openspec/.claude-plugin/plugin.json`
   and `.claude-plugin/marketplace.json`. Bump the marketplace `metadata.version`, minor, the same
   way. Add the `CHANGELOG.md` section of D-10. Move every CI pin of `docs/openspec-flow.md` (the
