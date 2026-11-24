@@ -101,6 +101,13 @@ async function until(check, ms = 10_000) {
   }
 }
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+// A killed process stays visible to `process.kill(pid, 0)` until it is reaped, and on a loaded machine that takes longer than any fixed
+// wait: poll each pid for its death (ESRCH) up to a generous deadline, then report which are still alive (all false: all are gone).
+async function stillAlive(pids, ms = 10_000) {
+  const end = Date.now() + ms;
+  while (pids.some(alive) && Date.now() < end) await sleep(50);
+  return pids.map(alive);
+}
 
 // The checkout, its worktrees and the runs of the bar.
 const real = realpathSync;
@@ -421,7 +428,7 @@ test('run-status-bar AC-5 failure: a state that passes the bound is killed, the 
       assert.deepEqual([r.stdout, r.code], ['', 0]);
       const pid = stub.pid();
       assert.ok(pid, 'the fixture script ran');
-      assert.equal(alive(pid), false, 'its process is gone');
+      assert.deepEqual(await stillAlive([pid]), [false], 'its process is gone');
     });
   }
 });
@@ -439,7 +446,7 @@ test('run-status-bar AC-5 failure: an abort of the signal ends the state process
       abort.abort();
       const r = await pending;
       assert.deepEqual([r.stdout, r.code], ['', 0]);
-      assert.equal(alive(pid), false, 'the child is gone when main returns');
+      assert.deepEqual(await stillAlive([pid]), [false], 'the child is gone when main returns');
       assert.ok(Date.now() - started < 10_000, 'the abort ended it, not the bound');
     });
   }
@@ -464,7 +471,7 @@ test('run-status-bar AC-5 failure: the bound and an abort also end the processes
       const [pid, grandchild] = await until(() => stub.pid() && stub.grandchildPid() && [stub.pid(), stub.grandchildPid()]);
       const r = await pending;
       assert.deepEqual([r.stdout, r.code], ['', 0]);
-      assert.deepEqual([alive(pid), alive(grandchild)], [false, false], 'the state process and the one it started are gone');
+      assert.deepEqual(await stillAlive([pid, grandchild]), [false, false], 'the state process and the one it started are gone');
     });
     await t.test(`${label}, at an abort`, async () => {
       const view = make();
@@ -475,7 +482,7 @@ test('run-status-bar AC-5 failure: the bound and an abort also end the processes
       abort.abort();
       const r = await pending;
       assert.deepEqual([r.stdout, r.code], ['', 0]);
-      assert.deepEqual([alive(pid), alive(grandchild)], [false, false], 'the state process and the one it started are gone');
+      assert.deepEqual(await stillAlive([pid, grandchild]), [false, false], 'the state process and the one it started are gone');
     });
   }
 });
@@ -508,7 +515,7 @@ test('run-status-bar AC-5 failure: SIGTERM, SIGINT and SIGHUP end the real bar a
         const ended = await closed;
         assert.deepEqual([ended.code, ended.by, out], [0, null, ''], 'the bar exits 0 and prints nothing');
         assert.ok(Date.now() - started < 10_000, 'the signal ended it, not the bound');
-        assert.equal(alive(pid), false, 'the openspec of the state call is gone when the bar has exited');
+        assert.deepEqual(await stillAlive([pid]), [false], 'the openspec of the state call is gone when the bar has exited');
       } finally {
         // a failing run must not leave the shim, or the `state` waiting on it, behind
         if (pid !== null && alive(pid)) { try { process.kill(pid, 'SIGKILL'); } catch { /* gone already */ } }
@@ -921,5 +928,6 @@ test('run-status-bar AC-1 input: a standard input left open is read as no fields
   clearTimeout(guard);
   const took = Date.now() - started;
   assert.deepEqual([out, err, code], ['', '', 0]);
-  assert.ok(took < 5000, `ended in ${took} ms`);
+  // 8 s: far from the 1 s wait yet under the 10 s default (and the 9 s guard) this test is there to catch, with room for a loaded machine
+  assert.ok(took < 8000, `ended in ${took} ms`);
 });
