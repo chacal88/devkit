@@ -19,7 +19,7 @@
 //    approve it:
 //      readiness.md              plan-readiness-reviewer
 //      reviews/<reviewer>.md     that reviewer
-//      evidence.md               pr-verifier
+//      evidence.md, proof/       pr-verifier (proof/: the output of the runs it records, coordinator-loop-fixes D-8)
 //      approval.md               the main session (any change's folder)
 //      declared.json             the main session (any change's folder), through change-loop.mjs declare
 //      product code              tdd-implementer (devkit schema, once approved)
@@ -637,6 +637,13 @@ export function classify(root, change, file) {
   return { kind: 'planning' };
 }
 
+// True when `file` is under the change's proof/ folder, where pr-verifier writes the output of the runs it records (coordinator-loop-fixes D-8).
+export function inProofFolder(root, change, file) {
+  if (!change) return false;
+  const rel = relative(join(root, 'openspec', 'changes', change, 'proof'), isAbsolute(file) ? file : resolve(root, file));
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
 // A decision record: a Markdown file in a folder named adr, adrs or decisions, in any letter case (design stage-roles D-6).
 export function isDecisionRecord(rel) {
   const parts = rel.split(/[\\/]/);
@@ -672,7 +679,11 @@ function writeViolation(root, ch, actor, file) {
     return actor === c.owner ? null
       : `${relative(root, resolve(root, file))} is written only by the ${c.owner} agent, not by ${who}. Dispatch it with the Agent tool (subagent_type devkit-core:${c.owner}).`;
   }
-  if (REVIEWERS.includes(actor) || actor === 'plan-readiness-reviewer' || actor === 'pr-verifier') {
+  if (actor === 'pr-verifier' && inProofFolder(root, ch.name, file)) return null;
+  if (actor === 'pr-verifier') {
+    return `pr-verifier writes only evidence.md and the output of the runs it records under openspec/changes/${ch.name}/proof/, not ${relative(root, resolve(root, file))}.`;
+  }
+  if (REVIEWERS.includes(actor) || actor === 'plan-readiness-reviewer') {
     return `${who} only writes its own verdict file, not ${relative(root, resolve(root, file))}.`;
   }
   if (c.kind !== 'code') return null;

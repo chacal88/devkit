@@ -319,7 +319,7 @@ every task with `git status --short`.
   copied from the file at this commit. Check: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-12 " --test-name-pattern="^coordinator-loop-fixes AC-4 " --test-name-pattern="^coordinator-loop-fixes AC-11 " --test-name-pattern="^coordinator-loop-fixes AC-5 " --test-name-pattern="^coordinator-loop-fixes AC-15 " --test-name-pattern="^coordinator-loop-fixes AC-6 " --test-name-pattern="^coordinator-loop-fixes AC-16 " plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop-declared.test.mjs`
   exits 1 with no import error; T73, T76's negative, T79 to T81 and T84 pin what holds today and may pass
   already (D-11).
-- [ ] 4.3 D-8 in `plugins/openspec/hooks/guard.mjs` (`inProofFolder`, `writeViolation`, the header comment) and
+- [x] 4.3 D-8 in `plugins/openspec/hooks/guard.mjs` (`inProofFolder`, `writeViolation`, the header comment) and
   `plugins/core/agents/pr-verifier.md` (the new sentence holds neither "screenshot" nor `gh pr comment`, and the `Never`
   line is kept). Then regenerate the kit (D-19) by the two commands of 3.3: `gen-agents.mjs`, then `install-kit.mjs .` in the
   worktree root. Check: T70 to T74 pass, and "evidence.md is written only by pr-verifier" (`guard.test.mjs`), "stage-roles

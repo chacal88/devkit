@@ -21,7 +21,7 @@
     "agents/openspec-validator/AGENT.md": "sha256:503a7e1deb7be57d40af2902b8f238bbcc8ffe0f2c6042de5ba45b32e57f4e37",
     "agents/plan-readiness-reviewer/AGENT.md": "sha256:38c195a04303a58a731cc0d29b4993044904a75b53f2e20645f21cd677eb5732",
     "agents/plan-reality-auditor/AGENT.md": "sha256:c6f11484cbb1e2414911860d418e189f51261fa92107c3380b22f4fdb03a7326",
-    "agents/pr-verifier/AGENT.md": "sha256:4d7c42ec02804e3d14631fe69aa34cc6a841b0502a4852ac67fd6428bd31274a",
+    "agents/pr-verifier/AGENT.md": "sha256:b144ad36b41ad9be79774ccd481f84a6a4fd750c21ddab8907a6c2b7a99a667d",
     "agents/requirements-triage/AGENT.md": "sha256:ff5dbc4e8c17369c35a5677ed3c759f1222a1edb072ad003fde7197c8b0a9651",
     "agents/screen-designer/AGENT.md": "sha256:872870b4edb69de42deee5bd19ddcb5e00de2afdb1a0ba67b43c4f521417c714",
     "agents/security-reviewer/AGENT.md": "sha256:4a458b35242041e7c436f33d8c592f22168afffd1d8f04ddf36febafb22bdce5",

@@ -68,7 +68,7 @@ Per kind of surface touched:
 
 ## Delivers
 
-You can run on the branch before the PR exists (some workflows require evidence.md before `gh pr create`). Create `evidence.md` if it doesn't exist. In projects using the devkit hooks, you are its only writer, and it is the only file you write.
+You can run on the branch before the PR exists (some workflows require evidence.md before `gh pr create`). Create `evidence.md` if it doesn't exist. In projects using the devkit hooks, you are its only writer; besides it you write only the output of the runs you record, under the change's `proof/` folder, and you name each such file in its row.
 
 
 1. **`evidence.md`** in the change folder (`openspec/changes/<id>/` or `docs/changes/<id>/`), inside its existing sections (create a `## Verification` section if none fits). In this shape:
