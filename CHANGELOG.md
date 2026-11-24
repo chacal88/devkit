@@ -1,8 +1,17 @@
 # Changelog
 
-## 0.49.3 — the grill and the readiness review refuse a criterion only the archive can prove
+## 0.50.1 — the grill and the readiness review refuse a criterion only the archive can prove
 
 - **devkit-core** 0.16.1: `requirements-grill` never writes an acceptance criterion that only the archive or a later step can prove, and `plan-readiness-review` flags one as a Mandatory finding; the work goes in the plan's `## Workflow follow-up` (stage-ceiling-consecutive retro, proposal 1). Skill text only.
+
+## 0.50.0 — the loop fetches the base before it judges
+
+- **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its
+  remote-tracking ref (`origin/<base>`, nothing else) before they judge a delivery, once per command
+  call and at each poll of a wait, so a stale local copy of the base no longer decides whether a
+  change is merged. When the fetch fails or times out, the reply says the step was decided from this
+  machine's copy. The checkers (`conduct-check`, `deliver-check`) stay offline. The skills and the
+  flow page state the rule. The CI snippet now pins `v0.45.0`, the release's tag.
 
 ## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
 
