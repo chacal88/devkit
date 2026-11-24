@@ -1,0 +1,254 @@
+✔ change-state AC-3 state: an agent and a session step are running with no reason (28.235851ms)
+✔ change-state AC-3 state: the grill waits for the owner with the reason grill (1.272295ms)
+▶ change-state AC-3 state: each end waiting for the owner keeps its why as the reason, with its gate phrase
+  ✔ waiting-approval (2.263871ms)
+  ✔ waiting-approval-again (0.87041ms)
+  ✔ waiting-retro (1.307848ms)
+  ✔ waiting-merge (0.469319ms)
+  ✔ waiting-archive-merge (0.412803ms)
+  ✔ waiting-review-dispute (0.743765ms)
+  ✔ waiting-unrun-stage (0.918929ms)
+  ✔ waiting-by-hand (0.573815ms)
+  ✔ waiting-pr-decision (0.398804ms)
+✔ change-state AC-3 state: each end waiting for the owner keeps its why as the reason, with its gate phrase (14.526473ms)
+✔ change-state AC-3 state: an unknown wait for the owner throws (1.11173ms)
+▶ change-state AC-3 state: each wait on GitHub takes what it waits for as the reason
+  ✔ checks (0.625756ms)
+  ✔ merge (0.357359ms)
+  ✔ archive-merge (0.346297ms)
+  ✔ silent (0.375097ms)
+✔ change-state AC-3 state: each wait on GitHub takes what it waits for as the reason (4.260844ms)
+▶ change-state AC-3 state: each blocked reason decide gives is the reason, with its phrase and details
+  ✔ ceiling (0.815081ms)
+  ✔ no-progress (0.394955ms)
+  ✔ not-delivered (0.399261ms)
+  ✔ pr-closed (1.38009ms)
+  ✔ previous-script (0.285979ms)
+  ✔ not-opened (0.257637ms)
+  ✔ wrong-branch (0.301967ms)
+  ✔ merge-setup (0.265767ms)
+  ✔ archive-failed (0.259741ms)
+  ✔ tag-elsewhere (0.277619ms)
+  ✔ plan-not-approved (0.246982ms)
+  ✔ pr-problem (0.297432ms)
+  ✔ unknown-step (0.250933ms)
+  ✔ unreadable (0.24936ms)
+  ✖ merge-defect (0.576667ms)
+  ✖ merge-check-failed (0.469483ms)
+✖ change-state AC-3 state: each blocked reason decide gives is the reason, with its phrase and details (13.65085ms)
+✔ change-state AC-3 state: the drawn mock-up waits for the owner with its gate phrase, as an end and as a declared wait (1.264975ms)
+✔ change-state AC-3 state: a stage role of the decisions stage has its icon (0.360331ms)
+▶ change-state AC-3 state: a blocked end the stage roles added keeps its why with a filled phrase in both languages
+  ✔ cannot-accept (0.590707ms)
+  ✔ checks-failing (0.431612ms)
+  ✔ merge-setup-missing (0.335017ms)
+  ✔ branch-conflict (0.535519ms)
+  ✔ archive-refused (0.317239ms)
+  ✔ undeclared-stage (0.280601ms)
+✔ change-state AC-3 state: a blocked end the stage roles added keeps its why with a filled phrase in both languages (4.232424ms)
+✔ change-state AC-3 state: an archived end has no reason (0.414637ms)
+✔ change-state AC-3 state: the phrase is in the person's language and the code is not (10.676151ms)
+▶ change-state AC-3 cli: next and state give the same state for the same files and GitHub answers
+  ✔ a plan stage handed out (5378.885475ms)
+  ✔ the grill (5262.754686ms)
+  ✔ the approval (5316.652375ms)
+  ✔ a ceiling (5191.368373ms)
+  ✔ archived (268.103072ms)
+  ✔ checks pending (7577.808243ms)
+  ✔ GitHub silent (5861.50551ms)
+✔ change-state AC-3 cli: next and state give the same state for the same files and GitHub answers (36565.10918ms)
+✖ post-merge-validate 2: with a merge and no record every step that pushes or waits on the pull request gets the merge-check step (6.728267ms)
+✔ post-merge-validate 2: a step outside the list, the archive branch, no merge and a flow without evidence get no merge-check step (9.584956ms)
+✖ post-merge-validate 2: a green record of the merge gives the action without the check; a green record of another merge does not (1.878907ms)
+✖ post-merge-validate 2: a red record of the same files goes to the planner as a merge defect; other files offer the check again (1.468334ms)
+✖ post-merge-validate 2: three reds in a row on one merge end blocked, the ceiling is the flow default, the evidence stage is not read (0.969819ms)
+✖ post-merge-validate 2: a check that could not run ends blocked after its step, and is offered again on a fresh call (0.513603ms)
+✖ post-merge-validate 2: next end to end offers the check, hands the red to the planner, spends no header, and goes on once the delta is fixed (7910.970133ms)
+✖ post-merge-validate 2: next end to end, a check that cannot run ends blocked naming the CLI; with no CLI at all next exits 3 (4164.062509ms)
+✔ post-merge-validate 2: a plan edit made as a merge-defect fix leaves the plan gate where an ordinary design edit does (8195.309617ms)
+ℹ tests 63
+ℹ suites 0
+ℹ pass 53
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57609.990558
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:4970:13
+✖ merge-defect (0.576667ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'why')
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:4971:31)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:4970:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:4970:13
+✖ merge-check-failed (0.469483ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'why')
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:4971:31)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:4970:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5896:1
+✖ post-merge-validate 2: with a merge and no record every step that pushes or waits on the pull request gets the merge-check step (6.728267ms)
+  AssertionError [ERR_ASSERTION]: verify
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'verify',
+  -   'session',
+  -   'merge-check',
+      'evidence',
+      0
+    ]
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5899:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'verify', 'evidence', 0 ],
+    expected: [ 'session', 'merge-check', 'evidence', 0 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5924:1
+✖ post-merge-validate 2: a green record of the merge gives the action without the check; a green record of another merge does not (1.878907ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'verify'
+  -   'session',
+  -   'merge-check'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5930:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'verify' ],
+    expected: [ 'session', 'merge-check' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5933:1
+✖ post-merge-validate 2: a red record of the same files goes to the planner as a merge defect; other files offer the check again (1.468334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'agent',
+  +   'devkit-core:pr-verifier',
+  +   'verify',
+  +   'evidence',
+  +   'pr-verifier',
+  -   'devkit-core:change-planner',
+  -   'merge-defect',
+  -   'specs',
+  -   'change-planner',
+      0
+    ]
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5935:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'devkit-core:pr-verifier', 'verify', 'evidence', 'pr-verifier', 0 ],
+    expected: [ 'agent', 'devkit-core:change-planner', 'merge-defect', 'specs', 'change-planner', 0 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5946:1
+✖ post-merge-validate 2: three reds in a row on one merge end blocked, the ceiling is the flow default, the evidence stage is not read (0.969819ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'devkit-core:pr-verifier'
+  - 'devkit-core:change-planner'
+                 ^
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5947:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'devkit-core:pr-verifier',
+    expected: 'devkit-core:change-planner',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5964:1
+✖ post-merge-validate 2: a check that could not run ends blocked after its step, and is offered again on a fresh call (0.513603ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'state')
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:5967:33)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5994:1
+✖ post-merge-validate 2: next end to end offers the check, hands the red to the planner, spends no header, and goes on once the delta is fixed (7910.970133ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'verify',
+  -   'session',
+  -   'merge-check',
+      'evidence',
+  +   undefined
+  -   '492dff0a0b673497a559da661f2b273f47b8b675'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:6005:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'verify', 'evidence', undefined ],
+    expected: [ 'session', 'merge-check', 'evidence', '492dff0a0b673497a559da661f2b273f47b8b675' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6031:1
+✖ post-merge-validate 2: next end to end, a check that cannot run ends blocked naming the CLI; with no CLI at all next exits 3 (4164.062509ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'merge-check'
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:6035:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'merge-check',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
