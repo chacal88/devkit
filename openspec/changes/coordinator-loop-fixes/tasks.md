@@ -271,7 +271,7 @@ every task with `git status --short`.
   when it prints 0, change nothing and report it, so that the conducting session tells that change's session (D-7).
   Check: `openspec validate coordinator-loop-fixes --strict` passes, and `grep -c "^### Requirement: A merge-defect fix follows the rule of every plan edit" openspec/changes/coordinator-loop-fixes/specs/change-coordination/spec.md`
   prints what the first `grep -c` printed.
-- [ ] 3.7 D-20 in `plugins/openspec/hooks/deliver-check.mjs`: the exported `foreignArchiveHead(id, name)`, the first line
+- [x] 3.7 D-20 in `plugins/openspec/hooks/deliver-check.mjs`: the exported `foreignArchiveHead(id, name)`, the first line
   of `isOwnPr` and the merged-list filter of `findChangePr` through it; `isArchiveHead` and `archiveHeads` are not edited.
   Check: T119 to T124 pass, and every `field-fixes 4` test (`env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^field-fixes 4" plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/flow-check.test.mjs`)
   and "delivery-train P3 isOwnPr: a train/<n> head is never a change's own pull request, whatever files it changes"

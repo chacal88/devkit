@@ -704,6 +704,9 @@ export const archiveHeads = (id) => [`chore/archive-${id}`, `archive-${id}`];
 // Every change's archive head, not only one id's (`chore/archive-<name>` or `archive-<name>`).
 export const isArchiveHead = (name) => /^(chore\/)?archive-/.test(String(name ?? ''));
 
+// An archive head other than change `id`'s own branch (coordinator-loop-fixes D-20).
+export const foreignArchiveHead = (id, name) => String(name ?? '') !== id && isArchiveHead(name);
+
 // The files a pull request changed, read by number and paginated (gh pr view --json files stops at 100):
 // { files } | { error }.
 export function prFiles(gh, number) {
@@ -723,12 +726,13 @@ function inOwnArchiveFolder(id, file) {
   return ARCHIVED.exec(rest.slice(0, slash))?.[2] === id;
 }
 
-// The change's own pull request (field-fixes D-4, own-pr-archive-paths): not an archive head, not a train's
+// The change's own pull request (field-fixes D-4, own-pr-archive-paths): not an archive head other than the change's own
+// branch (coordinator-loop-fixes D-20: a change whose id starts with `archive-` keeps its pull request), not a train's
 // (`train/<n>`), no file in the change's own archive folder (openspec/changes/archive/<date>-<id>/, the exact id;
 // another change's archived files do not count), and some file under the change's active folder. A body or a
 // head name that names the change is never proof.
 export function isOwnPr(id, pr, files) {
-  if (isArchiveHead(pr?.headRefName)) return false;
+  if (foreignArchiveHead(id, pr?.headRefName)) return false;
   if (TRAIN_BRANCH.test(String(pr?.headRefName ?? ''))) return false;
   if (files.some((f) => inOwnArchiveFolder(id, f))) return false;
   return files.some((f) => f.startsWith(`openspec/changes/${id}/`));
@@ -804,7 +808,7 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
   if (!Array.isArray(list)) return { error: 'gh pr list returned unreadable JSON' };
-  const rest = list.filter((p) => !isArchiveHead(p.headRefName) && (!base || p.baseRefName === base)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
+  const rest = list.filter((p) => !foreignArchiveHead(id, p.headRefName) && (!base || p.baseRefName === base)).sort((a, b) => when(b.mergedAt) - when(a.mergedAt));
   for (const p of rest) {
     const f = prFiles(gh, p.number);
     if (f.error) return { error: f.error };
