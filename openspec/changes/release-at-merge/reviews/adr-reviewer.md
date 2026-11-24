@@ -1,0 +1,42 @@
+Verdict: rejected
+Commit: 4a6e858761c181c549b412025dae02aff354a646
+
+## ADR review — release-at-merge
+
+### Findings
+- [blocking] plugins/openspec/hooks/deliver-check.mjs:30-35 (CITATION_PATHSPEC, holdsCitations; used by citationsOf, citedAt and release-merge.mjs numberRelease) — Violates ADR 0031 (`docs/adr/0031-release-at-merge.md`) § Decision 3, and the approved design D-4 (`openspec/changes/release-at-merge/design.md`:217) and spec requirement (`openspec/changes/release-at-merge/specs/change-delivery/spec.md`:171), which all say the step rewrites citations in every tracked text file outside openspec/changes/. Commit 620c047 limits the rewrite, the unlanded-citation refusal and the still-cited check to *.md/*.yaml/*.yml files. A noted change that cites its own record (or another change's unlanded one) in a source comment therefore reaches main with `ADR [<slug>]` in it, and neither the step nor scripts/check.py refuses it; the repository already holds 259 `ADR NNNN` citations in .mjs/.py files. evidence.md records this as defect 4 and does not list it among the deviations from the plan. Fix: either bring the rewrite and the unlanded check back to the ADR's scope with a narrower exclusion for test fixtures, or have the owner approve an amendment of ADR 0031 decision 3, D-4 and the spec requirement to the Markdown/YAML scope, together with a check that refuses `ADR [` left in any other file on the base.
+- [important] openspec/changes/release-at-merge/evidence.md, 'Open item for the owner'; plugins/core/skills/plan-readiness-review/SKILL.md (release note paragraph); the readiness stage's staleAfter in the schema's… — Drifts from the intent of ADR 0031 (`docs/adr/0031-release-at-merge.md`) § Decision 2: the readiness review now judges release.md, but no stage staleness covers the note. A revision that changes only the note leaves the readiness verdict standing: when it had failed, the loop hands the planner the same brief again (S-6); when it had passed, the owner approves a note that readiness never read (the approval hash covers later edits, not the readiness). Decision 2 forbids a new flow version, so the fix cannot go into staleAfter. Fix: the owner chooses before merge, either a loop-level rule that a note changed since readiness's commit re-runs readiness, or a Consequence in ADR 0031 that accepts the gap.
+- [nit] docs/adr/0031-release-at-merge.md:74-75 (Decision 4, last sentences) — ADR 0031 (`docs/adr/0031-release-at-merge.md`) § Decision 4 says that a project with 'no devkit.release_tag, no train, no release file or no docs/adr sees no new step, refusal or file'. Read literally, 'no train' contradicts Decision 1, which adds assign-release when there is no train. The owner-approved reading in design F-6 (no train and no key) is not stated in the ADR. Fix: put F-6's reading into the sentence.
+- [nit] .compozy/kit-manifest.json:3 ("pack": "0.4.1", written by 3356036) — The kit manifest's `pack` field holds devkit-compozy's version, but it is not among the release lines of ADR 0031 (`docs/adr/0031-release-at-merge.md`) § Decision 5, so the step never writes it. A change author's kit reinstall writes it instead. For a noted change that copy lags the assigned version (it is written before assign-release), and two reinstalls conflict on it, which goes against the ADR's Positive consequence that no branch edits a shared release line. Follow-up: either make it a release line the step writes, or stop the installer recording the pack version.
+- [nit] release lines at HEAD vs local origin/main 5d6084f (after the review range) — Local origin/main has moved to 5d6084f: devkit-core is 0.16.1 and metadata.version is 0.50.1 there, while the branch's release was assigned on d6d7f6a. ADR 0031 (`docs/adr/0031-release-at-merge.md`) Consequences, Note and § Decision 8 say the branch now takes such a merge by the old rule (release-merge.mjs --base). The numbers stay 0.17.0 and 0.51.0, and the ADR number stays 0031, but the CHANGELOG entry must sit above 0.16.1's. Re-check origin/main before the push.
+- [praise] plugins/openspec/hooks/deliver-check.mjs:7-19, 1467, 1474 — RELEASE_FILE and unnamedFiles are unchanged, and the archive pin rule and the tag rule are untouched. The moved helpers keep deliver-check.mjs importing only node: modules, guard.mjs and merge-setup.mjs. This conforms to ADR 0027 (`docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`) § Decision 6, ADR 0030 (`docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md`) § Decision 3, ADR 0019 (`docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md`) and ADR 0031 (`docs/adr/0031-release-at-merge.md`) § Decisions 7 and 9.
+
+## ADR review — release-at-merge
+
+ADRs reviewed: ADR 0031 (`docs/adr/0031-release-at-merge.md`), ADR 0022 (`docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md`), ADR 0025 (`docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md`), ADR 0027 (`docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`), ADR 0030 (`docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md`), ADR 0019 (`docs/adr/0019-the-delivery-loop-tags-the-release-it-merged.md`), ADR 0003 (`docs/adr/0003-auto-merge-the-archive-pr.md`). No ADR index or open-decisions log exists in the repository; `docs/adr/` was listed directly.
+
+Remit: the in-scope ADRs, and the product files and texts of the range d6d7f6a...4a6e858 that carry their decisions: the release step, the checker, the conductor, the loop, `scripts/check.py`, the agent and skill texts, the documents, and the change's plan, evidence and note. The proof artifacts and the test files belong to the other reviewers of the bench.
+
+### Conformance checked
+- Amendments: ADR 0022 and ADR 0025 carry `Amended by ADR 0031` and a dated `Note (release-at-merge, ...)` in their Context, as earlier amendments in `docs/adr/` do. ADR 0003, 0019, 0027 and 0030 are byte-identical to the base.
+- ADR 0031 § Decision 1: `assign-release` is a main-session step (conduct-check `MAIN`). It comes last, after `boarded` and before `ready-base`, `ready`, `wait-merge` and `enable-auto-merge` (row N6). It replaces `update-branch` and the conflict stop for a noted change (row N5).
+- ADR 0031 § Decision 2: one reader (`parseReleaseNote`). `approval.md` records `- Release note: sha256:<hash>`, and row A1 refuses a moved note whether or not a task is ticked. No new flow version, since `openspec/schemas` is untouched.
+- ADR 0031 § Decisions 5 and 6: `staleness` gains the `release` predicate only for a noted change, and only for approved verdicts with no open finding. Each revision is masked with its own ADRs. The `unassigned`/`assigned`/`hand` state is derived in `deliver-check.mjs` alone, consistent with ADR 0017.
+- ADR 0031 § Decisions 7 and 8: `RELEASE_FILE` does not grow, and the pins are written through `setPins`. Old-rule heads still take `releaseConflict`, `renumber-adr` and the old `--merge` path.
+- `scripts/check.py` refuses an unnumbered record on the base (GITHUB_HEAD_REF `train/<n>` counts as the base), an unlisted unnumbered record, and two records with one slug.
+- Commits in the range follow conventional format.
+
+### Deviations listed in evidence.md, judged
+- Manifests versioned on the merged text instead of the target's (D-6 step 3): no ADR conflict. ADR 0031 § Decision 1 only requires that the step commit release-class files. The hand-edit check already ensures the side holds no version of its own, so the merged text differs from the target's only by the change's non-version manifest edits.
+- `--assign` exits 2 with no `devkit.release_tag`: conforms to ADR 0031 § Decision 4. The loop never hands the step without the key (`release.applies` is false), so the refusal exists only for a manual run.
+- `.compozy/kit-manifest.json` `pack` not treated as a release line: see F4.
+- Defect 4 (citations only in Markdown and YAML) is a deviation from ADR 0031 § Decision 3 that evidence.md does not list as one: see F1.
+- Open item (readiness not re-run on a note-only revision): see F2.
+
+### Runs
+- `TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs`: `suite: 1 files, 81 tests, 81 pass, 0 fail, 58.0s`.
+- `python3 scripts/check.py`: `all checks passed`.
+- `git status --porcelain` empty before and after.
+
+### Summary
+- 6 findings (1 blocking, 1 important, 3 nit, 1 praise)
