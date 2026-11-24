@@ -3,9 +3,3 @@ created: 2026-11-23
 x-devkit-machine: MacBook-Pro-2
 x-devkit-version: 0.33.0
 x-devkit-flow: 2
-devkit:
-  models:
-    readiness: opus
-    implementation: opus
-    evidence: opus
-    review: opus
