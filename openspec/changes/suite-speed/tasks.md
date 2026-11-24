@@ -213,7 +213,7 @@ merge of `origin/main` repeats them.
   passes (two tests), and
   `node scripts/test-suite.mjs --test-name-pattern="^change-loop docs: the design records the answers$" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
-- [ ] 5.3 Run the AC-2 procedure of D-10 and the AC-6 procedure of D-11, keeping their outputs in
+- [x] 5.3 Run the AC-2 procedure of D-10 and the AC-6 procedure of D-11, keeping their outputs in
   `/var/tmp/devkit-suite-speed-proof/` (`base.tap`, `head.tap`, `base.names`, `head.names`, the
   diff, `red.log`) for the evidence. The base copy gets its own repository before its run, as D-10
   step 1 says (`git -C /var/tmp/devkit-suite-speed-proof/base init -q && git -C /var/tmp/devkit-suite-speed-proof/base add -A -f`,
