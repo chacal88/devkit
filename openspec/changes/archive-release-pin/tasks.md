@@ -122,7 +122,7 @@ every task with `git status --short`.
 
 ## 3. Real-run proof and the whole suite (AC-1 to AC-10)
 
-- [ ] 3.1 Run the real-run proof of D-10, cases R1 to R8, in
+- [x] 3.1 Run the real-run proof of D-10, cases R1 to R8, in
   `/var/tmp/devkit-archive-release-pin/proof-repo` (never in the worktree). Record the build
   commands, each run's command, exit code and `archive.unnamed` (R8: the two booleans) in
   `openspec/changes/archive-release-pin/proof/real-run.txt`, with the sentence that the local stop
