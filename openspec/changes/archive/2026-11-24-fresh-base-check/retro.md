@@ -14,8 +14,8 @@
 
 ## Proposed updates
 
-### `plugins/core/agents/pr-verifier.md`, `plugins/compozy/skills/compozy-setup/templates/agents/pr-verifier/AGENT.md` (process-friction)
-A whole-suite summary is read by each file's status: `LEFT` counts as a failure. The CompozyOS copy is regenerated from the agent by `gen-agents.mjs` (path added at the archive with the owner's answer).
+### `plugins/core/agents/pr-verifier.md`, `plugins/compozy/skills/compozy-setup/templates/agents/pr-verifier/AGENT.md`, `.compozy/agents/pr-verifier/AGENT.md` (process-friction)
+A whole-suite summary is read by each file's status: `LEFT` counts as a failure. The CompozyOS template is regenerated from the agent by `gen-agents.mjs`, and this repository's installed copy is rendered from that template (both paths added at the archive with the owner's answers).
 - before: - Run the check command for the touched surfaces and keep its summary (pass/fail per gate). Each gate runs as its own command and its exit code decides; no `| tail`, `; echo $?` or `|| true` masking it.
 + after: - Run the check command for the touched surfaces and keep its summary (pass/fail per gate). Each gate runs as its own command and its exit code decides; no `| tail`, `; echo $?` or `|| true` masking it. A suite runner that reports each file's status (`pass`, `FAIL`, `LEFT`) is read file by file: every file not `pass` gets a row with its status and what the summary names (a `LEFT` file fails the run even with 0 failing tests), and a run that exits non-zero is never recorded as a pass.
 - Answer: approved
