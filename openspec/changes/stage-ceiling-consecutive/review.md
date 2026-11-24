@@ -66,3 +66,26 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: stage-ceiling-consecutive, round 1
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 5168ebb |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 5168ebb |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Re-run at the merge of origin/main d917ae0 (release 0.42.1 / 0.47.1, roadmap and change-loop.test.mjs conflicts resolved); the product code is unchanged since the approved round.
+
+## Next
+Ready to ship.

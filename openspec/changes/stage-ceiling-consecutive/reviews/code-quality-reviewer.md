@@ -1,13 +1,13 @@
 Verdict: approved
-Commit: db246141622b2267a22defb1129d0785f7d39982
+Commit: 5168ebbb3b97800e358211bb1b95b082fa1dbdf9
 
 ## Quality review — stage-ceiling-consecutive (round 1)
 
 ### Findings
-- [praise] plugins/openspec/hooks/flow-check.mjs:181-225 — stageHistory never throws (returns [] on any git failure) and failuresInARow falls back to today's attempt rule when no pass is visible; both are covered by AC-4 unit cases and real runs P-10/P-11.
-- [praise] plugins/openspec/hooks/change-loop-compozy.test.mjs:362-364 — The CI pin test now derives the expected pin from plugin.json (main's form) instead of a growing list of doesNotMatch lines, so the next release does not touch it.
-- [nit] docs/coordination-design.md:369 — The inserted parenthesis leaves one very long line in the attempt-ceilings bullet; rewrap optional.
+- [nit] CHANGELOG.md:13-19 (main's 0.47.0 and 0.46.0 entries) — Main's entries say devkit-openspec 0.41.0 while main's plugin.json is 0.42.0; main's own inconsistency, not this change's.
+- [praise] plugins/openspec/hooks/change-loop.test.mjs — Conflict resolution kept every test of both sides (184 names, none missing, no markers) and all 184 pass.
+- [praise] .claude-plugin/marketplace.json, plugins/openspec/.claude-plugin/plugin.json, CHANGELOG.md, docs/openspec-flow.md — Release (0.42.1 / 0.47.1) and the v0.42.1 CI pin are consistent across every file and sit above main's numbers.
 
 ### Summary
 - 3 findings (0 blocking, 0 important, 1 nit) + 2 praise
-- Justification: Reviewed the whole own diff against origin/main, focused on what is new since 849d5c7. The renumbered release (0.40.1 / 0.45.1) is consistent across plugin.json, marketplace.json, CHANGELOG, the CI pin in docs/openspec-flow.md and the pin test, with no stale 0.40.0 pin. The AC-8 reword is identical in requirements.md and proposal.md and is backed by tasks.md, roadmap line 79 and approval.md attempt 2. The product code (flow-check.mjs, change-loop.mjs, project-loop.mjs) is unchanged since the approved 849d5c7. Ran check.py (all checks passed), gen-catalog.py --check (exit 0) and change-loop-compozy.test.mjs via scripts/test-suite.mjs (199 tests, 199 pass, 0 fail). Did not re-run flow-check, change-loop or project-loop tests (unchanged since the approved round, evidence reports them passing at 451dcfe) and did not run claude plugin validate. Acceptance is demonstrated with real output in evidence.md: AC-1 to AC-9 each cite unit tests plus real runs (P-1, P-10 repeated at the merged head; the rest kept from proof/real-run.txt with the unchanged-files argument stated).
+- Justification: Re-review of the delta since db24614 (merge of origin/main d917ae0 plus evidence refresh). Test-name comparison of the resolved change-loop.test.mjs against both parents shows nothing dropped. The filtered suite passes 184/184 and check.py passes. Release and pin numbers are consistent. Roadmap resolution keeps main's ticks and this change's note. Own product code is unchanged since the approved round.
