@@ -15,12 +15,12 @@ See `proposal.md` (Why). This plan read the code at `98145b0`, the branch head. 
 | `plugins/openspec/hooks/change-loop.mjs#nextAction` (line 1143) | Options `{ env, lang, after, openspec, gh, claims, budget = false }`. After `collectFlow` and `computeFlow`, when `inDelivery(report, flow, archiving)`, it runs `collectState(found.root, id, …)` and `buildReport`, then `defaultBase(found.root)`, then `deliveryRow({ ref: 'origin/<base>', base }, …)`. A throw becomes `row = { error }`. Then `decide(...)`, the icon, the state, the title, the Jira task |
 | `change-loop.mjs#defaultBase` (line 1123) | `origin/HEAD`'s target, else `main`, else `master`, read from local refs only |
 | `change-loop.mjs` helpers | `git()` and `tryGit()` (line 1111) run git with `process.env`. `LS_REMOTE_TIMEOUT_MS = 15_000` and `gitPasses()` are module-level `const`s declared at lines 1668 and 1683, after `nextAction` |
-| `change-loop.mjs` callers of `nextAction` | `runNext` (line 2268, `budget: true`), `runWait`'s poll (line 2388), `stateEntries` (line 1521), `stopDecision` (line 2139) |
+| `change-loop.mjs` callers of `nextAction` | `runNext` (line 2271, `budget: true`), `runWait`'s poll (line 2388), `stateEntries` (line 1521), `stopDecision` (line 2139) |
 | `change-loop.mjs#waitLoop`, `decisionKey` (lines 2071, 2078) | The key is `[kind, end.state, end.why, agent, step, reply]`. A poll whose key differs from the first ends the wait |
 | `plugins/openspec/hooks/roadmap-loop.mjs` callers of `nextAction` | `collectRoadmap` (line 661), which `runCmd` (928), `nextCmd` (957), `statusCmd` (1008) and `roadmapStopDecision` (731) call. Also `statusJson` (973), `draftCmd` (1025) and `waitCmd`'s poll (1068) |
 | `plugins/openspec/hooks/conduct-check.mjs` header | "never writes files in the repository, refs or GitHub objects …, never fetches." `releaseConflict` (line 372) classifies the conflict with `git merge-tree … origin/<base> HEAD`. A clean merge in `merge` mode gives `update-branch` with the reason "GitHub reports a conflict but origin/<base> merges cleanly; update the branch" |
 | `plugins/openspec/hooks/deliver-check.mjs` header | "Reads files and git; never writes, pushes or posts." It does not say "never fetches". `collectState` reads `origin/<base>` in the archive file check (line 1108) and the two-pull-request facts (line 749) |
-| `docs/openspec-flow.md` | Line 236 "The loop.", line 242 "Waiting on GitHub.", line 252 the `conduct-check` section ("never fetches (run `git fetch origin --prune --quiet` first)"), line 486 ("`deliver-check` does not fetch"), the roadmap section's "What it decides and says.", and the CI pins `v0.32.0` (lines 653, 654, 667) |
+| `docs/openspec-flow.md` | Line 230 "The loop.", line 236 "Waiting on GitHub.", the `conduct-check` section ("never fetches (run `git fetch origin --prune --quiet` first)"), line 486 ("`deliver-check` does not fetch"), the roadmap section's "What it decides and says.", and the CI pins of the CI example (lines 653, 654, 667 at this plan's base, naming the devkit-openspec version of the manifest; `release-merge.mjs#pinsIn` reads them). Edit by the quoted text, not by line number |
 
 Constraints:
 
@@ -94,18 +94,18 @@ mirrored, as a plain `git fetch` does for the default refspec.
 
 ## D-2 `nextAction` fetches before the delivery read (AC-1, AC-4, AC-5)
 
-`nextAction` gains the option `fetchBase = false`. When given, it is a `baseFetches()` record. Inside
-`if (inDelivery(report, flow, archiving))`, before the `try`:
+`nextAction` gains the option `fetchBase = false`. When given, it is a `baseFetches()` record. At the
+top of the function body, `let baseFetch = null;` (it is read after `decide`, outside the delivery
+block). Inside `if (inDelivery(report, flow, archiving))`, before the `try`:
 
 ```js
 const baseBranch = defaultBase(found.root);
-const baseFetch = fetchBase ? refreshBase(found.root, baseBranch, { env: clean, memo: fetchBase }) : null;
+if (fetchBase) baseFetch = refreshBase(found.root, baseBranch, { env: clean, memo: fetchBase });
 ```
 
 `baseBranch` moves out of the `try` and is used by `deliveryRow` as today. `collectState` runs after
 the fetch, so the archive file check and the staleness facts read the fetched ref too (proposal,
-choice 4). A change outside its delivery part fetches nothing. `baseFetch` is declared with `let`
-at the top of the function body, `null` by default.
+choice 4). A change outside its delivery part fetches nothing, and `baseFetch` stays `null`.
 
 Right after `const action = decide({...})`:
 
@@ -179,7 +179,9 @@ The header of `conduct-check.mjs` already says "never fetches", and stays as it 
 
 `docs/openspec-flow.md`:
 
-1. "The loop." paragraph (line 236): after the sentence ending "the loop copies their decision and
+Each edit is anchored by its quoted text; the line numbers are those of this plan's base.
+
+1. "The loop." paragraph (line 230): after the sentence ending "the loop copies their decision and
    adds none.", insert: "Before it asks the delivery checker, `next` fetches the default branch
    from `origin` into `origin/<base>` (`git fetch --no-tags --quiet --no-write-fetch-head origin
    +refs/heads/<base>:refs/remotes/origin/<base>`, at most 15 seconds, once per call), so the
@@ -187,10 +189,10 @@ The header of `conduct-check.mjs` already says "never fetches", and stays as it 
    fetch writes that one ref. A fetch that fails stops nothing: the action is decided from the local
    copy, records `baseFetch: { ok: false, base, error }`, and its reply ends with one line saying so.
    A successful one records `baseFetch: { ok: true, base }`. `state` and the locks never fetch."
-2. "Waiting on GitHub." paragraph: after "holds no state and exits as soon as GitHub's answer
+2. "Waiting on GitHub." paragraph (line 236): after "holds no state and exits as soon as GitHub's answer
    changes the decision;", insert "each poll fetches the base first, as `next` does, and a failed
    fetch alone is no new decision;".
-3. The `conduct-check` section, line 252: replace "and never fetches (run `git fetch origin
+3. The `conduct-check` section: replace "and never fetches (run `git fetch origin
    --prune --quiet` first)" with "and never fetches: the loops of `/devkit change` and `/devkit
    roadmap` fetch the base before they ask it, and a run by hand needs `git fetch origin --prune
    --quiet` first".
@@ -216,6 +218,16 @@ section list is pinned, D-9).
 
 Every new test's name starts `fresh-base-check <n>: `. The fixtures are real repositories (a bare
 origin and a clone, `roundRepo`) with the fake `gh`. Nothing reads this repository's history.
+
+Import form. In `change-loop.test.mjs` the new tests reach the two new exports through the namespace
+the file already imports (line 19): `changeLoopModule.refreshBase(...)` and
+`changeLoopModule.baseFetches()`. They are not added to a named import: an ES module whose named
+import is missing fails to load as a whole, so before task 1.2 no test of the file would run and the
+red run of task 1.1 could not split as stated below. A call through the namespace before 1.2 throws
+`TypeError` inside its own test only. In `roadmap-loop.test.mjs`, task 2.1 runs after 1.2 has
+landed, so it adds `baseFetches` to the existing named import from `./change-loop.mjs` (line 13),
+and imports `gitShim`, `deliveredChange` and `implementingChange` (written in 1.1) from
+`./change-loop.test.mjs` next to `readCounter`.
 
 Helpers, in `plugins/openspec/hooks/change-loop.test.mjs` unless named otherwise:
 
@@ -247,12 +259,12 @@ fixture" is `deliveredChange({ config: MERGE_CONFIG, files: { ...RELEASE, ...MER
 |---|---|---|---|---|
 | 1 | change-loop | AC-1 | Stale merge fixture: `nextAction(t.main, 'feat', { env })` with no `fetchBase` gives a `session` action, step `update-branch`, `detail.reason` matching `/merges cleanly/`, and `origin/main` still at `stale`. Then `next` gives exit 0, an `agent` action with step `resolve-release-conflict`, `baseFetch` deep-equal `{ ok: true, base: 'main' }`, no `reply` key, and `origin/main` at `remote` | positive |
 | 2 | change-loop | AC-4 | Stale merge fixture, `git remote set-url origin <a missing folder>`. `next` gives the same `kind` and `step` as the no-fetch `nextAction` (`update-branch`) and the same exit code. `baseFetch.ok` is false, `base` is `main`, and `error` is one non-empty line. `reply` equals `render('en', 'base-unfetched', { base: 'main' })`. `origin/main` is still at `stale`. With `--lang pt-BR` the reply is the Portuguese line | negative |
-| 3 | change-loop | AC-4 | `refreshBase(t.main, 'main', { env: shim.env(cleanEnv, { sleep: 30 }), memo: baseFetches(), timeoutMs: 1000 })` returns `ok` false and `error` `timed out after 1 s`, within 10 seconds, with `origin/main` unchanged | negative |
+| 3 | change-loop | AC-4 | `changeLoopModule.refreshBase(t.main, 'main', { env: shim.env(cleanEnv, { sleep: 30 }), memo: changeLoopModule.baseFetches(), timeoutMs: 1000 })` returns `ok` false and `error` `timed out after 1 s`, within 10 seconds, with `origin/main` unchanged | negative |
 | 4 | change-loop | AC-4 | Stale merge fixture with a file `<git common dir>/refs/remotes/origin/main.lock`. `next` gives `baseFetch.ok` false, an `error` matching `/lock/i`, the no-fetch action and `origin/main` at `stale`. The test removes the lock at its end | negative |
-| 5 | change-loop | AC-5 | Delivered fixture (PR mode), stale. From a second clone of `originDir`, push a branch `other` and a tag `v9`. Before and after `next`: `refs(t.main)` differs only in the `refs/remotes/origin/main` line. No `refs/tags/v9` and no `refs/remotes/origin/other`. `git status --porcelain` and `git ls-files -s` are unchanged in `t.main` and in the worktree. `git rev-parse --git-path FETCH_HEAD` names no file, in both | positive |
+| 5 | change-loop | AC-5 | Delivered fixture (PR mode), stale. From a second clone of `originDir`, push a branch `other` and a tag `v9`. Before and after `next`: `refs(t.main)` differs only in the `refs/remotes/origin/main` line. No `refs/tags/v9` and no `refs/remotes/origin/other`. `git status --porcelain` and `git ls-files -s` are unchanged in `t.main` and in the worktree. `FETCH_HEAD`: `roundRepo` itself runs `git fetch -q origin` on the clone, which writes one, so before `next` the test resolves `git rev-parse --path-format=absolute --git-path FETCH_HEAD` in `t.main` and in the worktree and deletes that file in both (`rmSync(..., { force: true })`); after `next`, neither path exists. Self-check: a plain `git -C <worktree> fetch -q origin` run afterwards makes the worktree's path exist, so the assertion can fail | positive |
 | 6 | change-loop | AC-2 | Delivered fixture with checks pending, `env` through `gitShim`. `runCommand(['wait', …])` with a `sleep` that sets the checks to `pass` at its second call ends with a non-wait action. `fetches()` has exactly three lines, one per poll | positive |
 | 7 | change-loop | AC-2 | Stale merge fixture through `gitShim`: `main(['state', '--change', 'feat', '--lang', 'en'])`, `stateEntries(t.main, { id: 'feat', … })` and `stopDecision(stopInput(t.main, runTranscript()), { env })` log no fetch. `origin/main` stays at `stale`. `stopDecision`'s `why` is not `no-run`, so it read the change | negative |
-| 8 | change-loop | spec: one fetch per base in one call | Delivered fixture through `gitShim`: two `nextAction` calls sharing one `baseFetches()` log one fetch. Two `next` calls log two | positive and negative |
+| 8 | change-loop | spec: one fetch per base in one call | Delivered fixture through `gitShim`: two `nextAction` calls sharing one `changeLoopModule.baseFetches()` log one fetch. Two `next` calls log two | positive and negative |
 | 9 | change-loop | AC-3 | Stale merge fixture: `node conduct-check.mjs --json --change feat` (cwd `t.main`) and `node deliver-check.mjs feat --json` (cwd the worktree), spawned with `env` through `gitShim`, log no fetch, and `origin/main` stays at `stale`. The first six lines of each file match `/never fetches|or fetches/`. Self-check: `git fetch` run through the same shim is logged, so the assertion can fail | negative |
 | 10 | change-loop | spec: the wait | `waitLoop` with synthetic polls: a wait, then the same wait with `baseFetch: { ok: false, … }` and the line appended, then a different action. It returns the third, after three polls | negative |
 | 11 | change-loop | AC-7 | `docs/openspec-flow.md` holds the five texts of D-7, and no longer holds "never fetches (run"; the `ship-change` `update-branch` row and the `devkit` skill's `## Loop` section hold their D-7 sentences | positive |
@@ -260,13 +272,22 @@ fixture" is `deliveredChange({ config: MERGE_CONFIG, files: { ...RELEASE, ...MER
 | 13 | roadmap-loop | AC-2 | The delivered fixture with checks pending, its roadmap listing `feat`. `loopModule.main(['wait', '--change', 'feat', …FLAGS], { cwd: t.main, env: shim.env(env), gh: t.ghFor(wt), sleep })` with the flipping `sleep` of test 6 logs three fetches | positive |
 | 14 | roadmap-loop | AC-2 | The fixture of test 12: `doStatus`, `status --json` and `roadmapStopDecision(...)` log no fetch, and `origin/main` stays stale | negative |
 | 15 | roadmap-loop | proposal choice 1 | The fixture of test 12: `doRun(t.main, '', { env: shim.env(cleanEnv) })` logs exactly one fetch | positive |
+| 16 | change-loop | spec: a repository without a remote (D-1 step 2, D-2) | Delivered fixture, then `git -C t.main remote remove origin` (the config is shared, so the worktree has no `origin` either), env through `gitShim`. `next` logs no fetch; its action has no `baseFetch` key; its `kind`, `step`, `reply` and exit code equal those of `nextAction(<worktree>, 'feat', { env })` with no `fetchBase` on the same fixture. Then `changeLoopModule.refreshBase(t.main, 'main', { env, memo })` returns `null` and logs no fetch, and a second call with the same `memo` returns `null` again (the `null` is memoized) | negative |
+| 17 | change-loop | spec: a change before its delivery (D-2) | A `roundRepo` with a worktree `t.addWt('plan')` holding a `devkit-lite` change whose `requirements.md` alone is passed (the stage checker places it at `proposal`), `origin/main` made stale by one `commitOrigin`, env through `gitShim`. `next --change plan` logs no fetch, its action has no `baseFetch` key, and `origin/main` stays stale. Self-check, same repository: `implementingChange(t, 'impl')` and `next --change impl` log exactly one fetch, so the assertion can fail | negative |
+| 18 | roadmap-loop | spec: the remote cannot be reached during a run | The fixture of test 12, then `git -C t.main remote set-url origin <a missing folder>`. `loopModule.collectRoadmap(t.main, { env: shim.env(cleanEnv), lang: 'en', gh: OFFLINE, fetchBase: baseFetches() })` returns `actions` for `a`, `b` and `c`, each with `baseFetch.ok` false, `base` `main` and the same one-line `error`, and each with the `kind` and `step` that `nextAction(t.main, <id>, { env: cleanEnv, lang: 'en', gh: OFFLINE })` gives with no `fetchBase` (the local copy's decision); the shim logs exactly one fetch for the call (the failure is memoized). Then, with the shim's log emptied, `doNext(t.main, [], { env: shim.env(cleanEnv) })` logs exactly one fetch, does not exit 3, and `origin/main` stays stale | negative |
 
 Test first: tasks 1.1 and 2.1 write these tests and run them before the code they test exists. The
 output, as printed, goes to `openspec/changes/fresh-base-check/proof/red-1.txt` and `red-2.txt`.
-Expected red: 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13 and 15, which need `refreshBase`, `baseFetches`,
-the option or the texts. Test 9 is red too, on its header assertion only, until D-6. Its "no fetch"
-assertions already hold. Expected green before the code: 7 and 14, which pin today's behaviour. A
-different result is settled in its task before the code task starts.
+Expected red: 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 15, 16, 17 and 18, which need `refreshBase`,
+`baseFetches`, the option or the texts. Test 16 is red on its `refreshBase` call (a `TypeError`
+through the namespace); its `next` assertions already hold. Test 17 is red on its self-check only;
+its plan-stage assertions already hold. Test 18 is red because no action carries `baseFetch`. Test 9
+is red too, on its header assertion only, until D-6; its "no fetch" assertions already hold.
+Expected green before the code: 7 and 14, which pin today's behaviour. A different result is settled
+in its task before the code task starts.
+
+Test 3 proves the timeout on `refreshBase` itself; the action's record of it is the same `ok: false`
+branch of D-2 that test 2 proves through `next`, so no 15-second `next` run is added.
 
 ## D-9 Existing tests that pin the edited texts
 
@@ -296,8 +317,14 @@ free numbers on `origin/main` at the last merge before review (0.33.0 and 0.37.0
 written). Each goes into `plugins/openspec/.claude-plugin/plugin.json` and
 `.claude-plugin/marketplace.json`. Add a `CHANGELOG.md` section
 `## <marketplace version> — the loop fetches the base before it judges` with one bullet for
-devkit-openspec. Move the three `v0.32.0` CI pins of `docs/openspec-flow.md` to the new tag and run
-`python3 scripts/gen-catalog.py`. Siblings that bump the same pack are renumbered at the release
+devkit-openspec. Move every CI pin of `docs/openspec-flow.md` to the new devkit-openspec tag: the
+pins are the lines of the CI example that name the devkit-openspec version the manifest held before
+the bump (`release-merge.mjs#pinsIn` reads them; `git grep -n 'v[0-9]*\.[0-9]*\.[0-9]*' --
+docs/openspec-flow.md` lists them with the floors around them). That old version is whatever
+`origin/main` carries at the last merge before review, not a number fixed by this plan: a sibling
+that released first will have moved it. Then run `python3 scripts/gen-catalog.py`. The proof is by
+the new tag: the existing test "change-loop docs: the design records the answers" asserts that every
+CI pin names the manifest's version (`pinMismatches`). Siblings that bump the same pack are renumbered at the release
 merge (`CONTRIBUTING.md`, step 5).
 
 ## Alternatives considered
@@ -327,7 +354,7 @@ merge (`CONTRIBUTING.md`, step 5).
 | A git older than 2.29 refuses `--no-write-fetch-head` | LOW × LOW | That is a failed fetch: nothing blocks, and the reply line says so. The release-conflict override already needs git 2.38 |
 | `state` (and the panel) can show a step decided from a staler base than `next` | MEDIUM × LOW | ADR 0017: the state is derived on every read. The next `next` refreshes the shared ref, and later reads agree |
 | The reply line makes a wait end on a flapping network | LOW × MEDIUM | D-4 keys the decision without the line. Test 10 pins it |
-| Existing delivery tests slow down by one local fetch each | HIGH × LOW | The fetch is from a local bare folder, which takes milliseconds. The whole-suite gate (3.3) measures it |
+| Existing delivery tests slow down by one local fetch each | HIGH × LOW | The fetch is from a local bare folder, which takes milliseconds. The whole-suite gate (3.2) measures it |
 
 ## Migration Plan
 
@@ -353,16 +380,16 @@ docs, skills and the release (D-6, D-7, D-10).
 Modify: the files above, `change-loop.test.mjs`, `roadmap-loop.test.mjs` and `conduct-check.test.mjs`
 (three exports). Delete: none.
 
-**Estimate.** Optimistic 8 h, likely 12 h, pessimistic 18 h. The pessimistic case is the fixtures:
+**Estimate.** Optimistic 9 h, likely 13 h, pessimistic 19 h. The pessimistic case is the fixtures:
 merge mode in a delivered change, and a roadmap of three changes at implementation.
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
 | Test helpers (`gitShim`, `deliveredChange` options, `staleBase`, `implementingChange`, the exports) | 2 | Testing | MEDIUM |
-| Tests 1 to 11 and the red run | 2.5 | Testing | MEDIUM |
+| Tests 1 to 10, 16, 17 and the red run | 3 | Testing | MEDIUM |
 | `refreshBase`, `baseFetches`, `nextAction`, `runNext`, `runWait`, `decisionKey`, the message (D-1 to D-5) | 2 | Core | LOW |
 | `deliver-check.mjs` header (D-6) | 0.25 | Core | LOW |
-| Tests 12 to 15 and the red run | 1.5 | Testing | MEDIUM |
+| Tests 11 to 15, 18 and the red run | 2 | Testing | MEDIUM |
 | `roadmap-loop.mjs` callers (D-3) | 1 | Integration | LOW |
 | Docs and skills (D-7) | 1 | Documentation | LOW |
 | Release (D-10) | 0.75 | Documentation | LOW |

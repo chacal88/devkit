@@ -31,7 +31,7 @@ the tree, and end every task with `git status --short`.
 | AC-1 | `next-fetches-before-judging` | 1.1, 1.2, 1.3, 1.5 |
 | AC-2 | `wait-and-roadmap-fetch` | 1.1, 1.3, 1.5, 2.1, 2.2, 2.4 |
 | AC-3 | `checkers-stay-pure` | 1.1, 1.4, 1.5 |
-| AC-4 | `fetch-failure-does-not-block` | 1.1, 1.2, 1.5 |
+| AC-4 | `fetch-failure-does-not-block` | 1.1, 1.2, 1.5, 2.1, 2.2, 2.4 |
 | AC-5 | `fetch-writes-only-the-base` | 1.1, 1.2, 1.5 |
 | AC-6 | `one-fetch-per-process` | 1.1, 1.2, 2.1, 2.2, 2.4 |
 | AC-7 | `docs-state-the-rule` | 2.1, 2.3, 2.4, 3.2 |
@@ -44,11 +44,14 @@ the tree, and end every task with `git status --short`.
   `MERGE_CONFIG`, `MERGE_FILES` and `presetMerge`, unchanged. In
   `plugins/openspec/hooks/change-loop.test.mjs`, add the helpers of D-8 (`gitShim`, the new options
   of `deliveredChange` and its export, `staleBase`, `implementingChange`), and tests
-  `fresh-base-check 1` to `fresh-base-check 10`, exactly as the D-8 table says: one test per row,
-  each guard and label with its own test. Run
+  `fresh-base-check 1` to `fresh-base-check 10`, `fresh-base-check 16` and `fresh-base-check 17`,
+  exactly as the D-8 table says: one test per row, each guard and label with its own test. The new
+  tests reach the new exports as `changeLoopModule.refreshBase` and `changeLoopModule.baseFetches`
+  (D-8, import form); add no named import of either to this file. Run
   `node --test --test-concurrency=1 --test-name-pattern="^fresh-base-check " plugins/openspec/hooks/change-loop.test.mjs`
   and save its output to `openspec/changes/fresh-base-check/proof/red-1.txt`. Check: the file holds
-  the ten names; 1, 2, 3, 4, 5, 6, 8 and 10 fail, 9 fails on its header assertion only, and 7
+  the twelve names (the file loads and every test runs); 1, 2, 3, 4, 5, 6, 8, 10, 16 and 17 fail
+  (16 on its `refreshBase` call, 17 on its self-check), 9 fails on its header assertion only, and 7
   passes, as D-8 expects. If test 1 shows that a D-8 assumption does not hold (merge mode reaching
   item 5), settle it here, in `design.md`, before 1.2. Also check that
   `node --test --test-concurrency=1 --test-name-pattern="^change-loop next" plugins/openspec/hooks/change-loop.test.mjs`
@@ -58,12 +61,12 @@ the tree, and end every task with `git status --short`.
   `ownReply` and the new `decisionKey` (D-4), and the `base-unfetched` key in both languages after
   `waiting-github` (D-5). Do not add a top-level `const` that reads `LS_REMOTE_TIMEOUT_MS` or
   `gitPasses` above their declarations (D-1). Update the comment above `nextAction` to name the
-  option. Check: tests 2, 3, 4, 5, 8 and 10 pass, and so does
+  option. Check: tests 2, 3, 4, 5, 8, 10 and 16 pass, and so does
   `node --test --test-concurrency=1 --test-name-pattern="^change-loop replies" plugins/openspec/hooks/change-loop.test.mjs`.
 - [ ] 1.3 In `change-loop.mjs`, pass `fetchBase: baseFetches()` from `runNext`, and a new
   `baseFetches()` in each call of `runWait`'s `poll` (D-3). Leave `stateEntries` and `stopDecision`
   as they are. Add one sentence to the file's header comment: `next` and `wait` fetch the base of a
-  change in delivery before they judge, and `state` and the locks never do. Check: tests 1, 6 and 7
+  change in delivery before they judge, and `state` and the locks never do. Check: tests 1, 6, 7 and 17
   pass, and `git grep -n "fetchBase" -- plugins/openspec/hooks/change-loop.mjs` shows only
   `nextAction`, `runNext` and `runWait`.
 - [ ] 1.4 In `plugins/openspec/hooks/deliver-check.mjs`, change line 3 to the comment of D-6 and
@@ -75,20 +78,21 @@ the tree, and end every task with `git status --short`.
 
 - [ ] 2.1 In `plugins/openspec/hooks/change-loop.test.mjs`, add test `fresh-base-check 11` (D-8).
   In `plugins/openspec/hooks/roadmap-loop.test.mjs`, import `gitShim`, `deliveredChange` and
-  `implementingChange` from `./change-loop.test.mjs` and `baseFetches` from `./change-loop.mjs` if
-  a test needs it. Add tests `fresh-base-check 12` to `fresh-base-check 15`, exactly as the D-8
+  `implementingChange` from `./change-loop.test.mjs`, and add `baseFetches` to the existing named
+  import from `./change-loop.mjs` (allowed here only because 1.2 has landed; D-8, import form). Add
+  tests `fresh-base-check 12` to `fresh-base-check 15` and `fresh-base-check 18`, exactly as the D-8
   table says. Run
   `node --test --test-concurrency=1 --test-name-pattern="^fresh-base-check " plugins/openspec/hooks/roadmap-loop.test.mjs`
   and save its output to `openspec/changes/fresh-base-check/proof/red-2.txt`. Check: the file holds
-  the fifteen names; 11, 12, 13 and 15 fail, 14 passes, and 1 to 10 pass. If test 12's change is not
+  the eighteen names; 11, 12, 13, 15 and 18 fail, 14 passes, and 1 to 10, 16 and 17 pass. If test 12's change is not
   read as `implementation` without `gh` (D-8 assumptions), settle the fixture here, in `design.md`,
   before 2.2.
 - [ ] 2.2 In `plugins/openspec/hooks/roadmap-loop.mjs`, import `baseFetches`, add the
   `fetchBase = false` option to `collectRoadmap` and hand it to its `nextAction` call. Pass
   `fetchBase: baseFetches()` from `runCmd` and `nextCmd`, and a new `baseFetches()` in each call of
   `waitCmd`'s `poll` (D-3). Leave `statusCmd`, `statusJson`, `draftCmd` and `roadmapStopDecision`
-  as they are. Update the comment above `collectRoadmap` to name the option. Check: tests 12, 13, 14
-  and 15 pass, and `git grep -n "fetchBase" -- plugins/openspec/hooks/roadmap-loop.mjs` shows only
+  as they are. Update the comment above `collectRoadmap` to name the option. Check: tests 12, 13, 14,
+  15 and 18 pass, and `git grep -n "fetchBase" -- plugins/openspec/hooks/roadmap-loop.mjs` shows only
   `collectRoadmap`, `runCmd`, `nextCmd` and `waitCmd`.
 - [ ] 2.3 Edit `docs/openspec-flow.md` (the five texts of D-7, and not the CI pins),
   `plugins/openspec/skills/ship-change/SKILL.md` (the `update-branch` row) and
@@ -104,10 +108,12 @@ the tree, and end every task with `git status --short`.
 - [ ] 3.1 Release as D-10 says. Bump devkit-openspec, minor, to the next free number on
   `origin/main` at the last merge before review, in `plugins/openspec/.claude-plugin/plugin.json`
   and `.claude-plugin/marketplace.json`. Bump the marketplace `metadata.version`, minor, the same
-  way. Add the `CHANGELOG.md` section of D-10. Move every `v0.32.0` CI pin of
-  `docs/openspec-flow.md` (three lines) to the new devkit-openspec tag. Run
-  `python3 scripts/gen-catalog.py`. Check: `python3 scripts/gen-catalog.py --check` passes;
-  `git grep -c "v0.32.0" -- docs/openspec-flow.md` prints nothing; and
+  way. Add the `CHANGELOG.md` section of D-10. Move every CI pin of `docs/openspec-flow.md` (the
+  lines of the CI example that name the devkit-openspec version the manifest held before the bump,
+  whatever `origin/main` carries then; `git grep -n 'v[0-9]*\.[0-9]*\.[0-9]*' -- docs/openspec-flow.md`
+  lists them) to the new devkit-openspec tag. Run `python3 scripts/gen-catalog.py`. Check:
+  `python3 scripts/gen-catalog.py --check` passes; `git grep -n -F "v<new devkit-openspec version>" -- docs/openspec-flow.md`
+  lists every pin line of the CI example; and
   `node --test --test-concurrency=1 --test-name-pattern="design records the answers" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
 - [ ] 3.2 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate fresh-base-check --strict` green (the guard suite as a background command of the tool); covers AC-1 to AC-7 and every other suite at once.
@@ -118,6 +124,6 @@ the tree, and end every task with `git status --short`.
   `main`. When a sibling (`stale-only-on-own-files`, `delivery-merge-hold`) released first, it
   merges `main` and renumbers the release (`CONTRIBUTING.md`, step 5), then runs verify and review
   again.
-- After the merge, tag the new devkit-openspec version on the merge commit and push the tag
-  (`CONTRIBUTING.md`, step 5).
+- After the merge, the loop's own `tag-release` step (ADR 0019) tags the new devkit-openspec
+  version on the merge commit; nothing is added for it here.
 - Archive with the retro; the archive ticks this change's line of `openspec/roadmap.md`.
