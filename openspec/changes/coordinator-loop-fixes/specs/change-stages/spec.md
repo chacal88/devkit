@@ -89,3 +89,33 @@ the working tree or history changed.
 #### Scenario: The flow version's own ceiling is the base
 - **WHEN** a change follows a flow version whose code review ceiling is 1, one code-review round is recorded as authorized, and the review's header says `result=failed attempt=1`
 - **THEN** the run does not end, and at `result=failed attempt=2` it ends blocked with the ceiling 2
+
+### Requirement: After a merge the walk resumes at the retro
+Off the change's own branch (a default branch, the archive branch or no branch), or on its own
+branch when that branch's head is contained in `origin/<base>` (the branch was advanced into the
+base after the merge), in the `pr` and `merge` modes, a merged pull request of a delivered change
+(its own pull request, every task ticked on the default branch) SHALL switch the checker to the
+walk after the merge, which reports
+every stage before the delivery from its header alone, with no staleness check and no task count,
+passes the delivery and offers the retro. A merged pull request of a change that is not delivered
+SHALL NOT switch it.
+
+#### Scenario: Resuming at the retro after a squash merge
+- **WHEN** the checkout is on the default branch, the change's own pull request was squash-merged with every task ticked, and the header commits of the demonstration and the review are no longer in the history
+- **THEN** the implementation, the demonstration, the review and the delivery are reported passed, no stage is reported stale, and the next stage is the retro
+
+#### Scenario: A pull request that only links the evidence
+- **WHEN** the checkout is on the default branch and the only merged pull request naming the change links its evidence without changing a file of the change's folder
+- **THEN** the checker does not switch to the walk after the merge and offers no retro
+
+#### Scenario: The own branch advanced into the base after a delivery
+- **WHEN** the change was delivered by its merged pull request, its own branch was fast-forwarded to `origin/main`, and `origin/main` holds a commit touching `src/a.ts` after the reviewed head
+- **THEN** no stage is reported stale, no review or evidence is asked again, and the next stage is the retro
+
+#### Scenario: The own branch still ahead of the base
+- **WHEN** the change was delivered and its own branch holds a commit touching `src/a.ts` that the base does not hold, after the reviewed head
+- **THEN** the checker does not switch to the walk after the merge, and the stages that commit makes stale are reported stale, as before
+
+#### Scenario: Advanced but not delivered
+- **WHEN** the change's own branch was advanced into the base and a task is still unticked on the default branch
+- **THEN** the checker does not switch to the walk after the merge

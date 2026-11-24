@@ -1,4 +1,4 @@
-# ADR 0025: The loop declares every decision it meets outside the stage gates, and a plan revised after the start goes back to its gates
+# ADR 0032: The loop declares every decision it meets outside the stage gates, and a plan revised after the start goes back to its gates
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-24, in the approval of the plan of change coordinator-loop-fixes (openspec/changes/coordinator-loop-fixes/approval.md)

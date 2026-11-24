@@ -286,18 +286,18 @@ code review's deadlock is the blocked end of its stage's ceiling, or `stop-revie
 
 ### Requirement: A conflict outside the release files goes to the implementer
 The step `resolve-base-conflict` SHALL hand the implementer the base and the conflicting paths, to
-merge `origin/<base>` into the branch, resolve every conflict, run the project's test command and
-commit the merge, never pushing and never rebasing; the loop SHALL then hand the evidence, the review
-and a plain push. An agent's failure on it SHALL end the run blocked as any stage agent's failure.
-The step SHALL not replace the train steps `stop-archive` and `rejoin-train`.
+merge `origin/<base>`, resolve every conflict, run the project's test command and commit the merge,
+never pushing or rebasing; the loop SHALL then hand the evidence, the review and a plain push. It
+SHALL not replace `stop-archive` or `rejoin-train`, and SHALL not be given in a project with a
+delivery train.
 
 #### Scenario: The resolution is pushed plainly
 - **WHEN** the implementer committed the merge and the pull request's head is an ancestor of the new head
 - **THEN** the next actions are the evidence and the review, and then `push` (or `open-archive-pr` on an archive branch) with `git push origin <branch>`
 
 #### Scenario: The implementer cannot resolve it
-- **WHEN** the implementer returns a failure for `resolve-base-conflict`
-- **THEN** the session declares the run blocked with `reply blocked --param why=role-failed`
+- **WHEN** the implementer returns a failure for `resolve-base-conflict` and the session runs `next` with that action's progress key
+- **THEN** the loop hands the step once more on the next model up, and after a second failure ends the run blocked, saying the stage could not finish its work, as for any stage agent; the session declares no end of its own
 
 #### Scenario: An archive that left a delivery train
 - **WHEN** an archive left a delivery train and its pull request conflicts with the base in a file that is neither a release file, the CI pin nor a roadmap tick
@@ -306,3 +306,7 @@ The step SHALL not replace the train steps `stop-archive` and `rejoin-train`.
 #### Scenario: A change that left a delivery train
 - **WHEN** a change left a delivery train and its pull request conflicts with the base
 - **THEN** the next action is its own step `rejoin-train`, as before, and `resolve-base-conflict` is not given
+
+#### Scenario: A project with a delivery train
+- **WHEN** the project sets `devkit.delivery.train` and a change's pull request conflicts with the base outside the release files
+- **THEN** the change goes on toward boarding the train as before, and `resolve-base-conflict` is not given

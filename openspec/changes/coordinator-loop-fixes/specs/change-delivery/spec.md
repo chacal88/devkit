@@ -54,3 +54,58 @@ limit, a re-review after a failed round SHALL be the next round, carrying the li
 #### Scenario: A record that cannot be read
 - **WHEN** the record of declared steps cannot be read
 - **THEN** the limit is 2
+
+## MODIFIED Requirements
+
+### Requirement: A change's own pull request
+A merged pull request SHALL be the change's own only when it changes a file under the change's
+active folder `openspec/changes/<id>/`, brings no file under the change's own archive folder
+`openspec/changes/archive/<YYYY-MM-DD>-<id>/` (the exact id), and its head branch is not an archive
+branch (`chore/archive-<name>` or `archive-<name>`) other than the change's own id. A head equal to the
+change's id SHALL be the change's own branch whatever its prefix, so a change whose id starts with
+`archive-` keeps its own pull request. A pull request that only names the change, or links its
+evidence, SHALL NOT be its own.
+
+#### Scenario: A body that links the evidence
+- **WHEN** a merged pull request's body links `openspec/changes/foo/evidence.md` and its diff touches nothing under `openspec/changes/foo/`
+- **THEN** it is not the change pull request of `foo`
+
+#### Scenario: Another change's archive pull request
+- **WHEN** the archive pull request of `bar` (head `chore/archive-bar`) names `foo` in its body and moves `openspec/changes/bar/`
+- **THEN** it is not the change pull request of `foo`
+
+#### Scenario: An unrelated head ending in the id
+- **WHEN** a merged pull request from `fix/foo` touches no file under `openspec/changes/foo/`
+- **THEN** it is not the change pull request of `foo`
+
+#### Scenario: A head that does not name the change
+- **WHEN** a merged pull request from `calm-badger` changes `openspec/changes/foo/tasks.md`
+- **THEN** it is the change pull request of `foo`
+
+#### Scenario: Another change's archived files
+- **WHEN** a merged pull request from `ship/foo` changes `openspec/changes/foo/tasks.md` and `openspec/changes/archive/2026-11-09-bar/retro.md`
+- **THEN** it is the change pull request of `foo`, and from the default branch in the `merge` ship mode the delivery checker finds it among the merged pull requests
+
+#### Scenario: The change's own archive folder
+- **WHEN** a merged pull request from `ship/foo` changes `openspec/changes/foo/tasks.md` and `openspec/changes/archive/2026-11-09-foo/retro.md`
+- **THEN** it is not the change pull request of `foo`
+
+#### Scenario: An id that starts another change's id
+- **WHEN** a merged pull request changes a file of the change folder and a file under `openspec/changes/archive/2026-11-09-foo-two/` (or, for `foo-two`, under `openspec/changes/archive/2026-11-09-foo/`)
+- **THEN** that archive folder does not keep it from being the change pull request of `foo` (or of `foo-two`)
+
+#### Scenario: An id that starts with archive-
+- **WHEN** a merged pull request from head `archive-x` changes `openspec/changes/archive-x/tasks.md`
+- **THEN** it is the change pull request of `archive-x`, found on the branch `archive-x` and, from the default branch, among the merged pull requests
+
+#### Scenario: The archive branch of an archive- id
+- **WHEN** a merged pull request from head `chore/archive-archive-x` (or `archive-archive-x`) changes `openspec/changes/archive-x/tasks.md`
+- **THEN** it is not the change pull request of `archive-x`
+
+#### Scenario: The archive branch of an ordinary id
+- **WHEN** a merged pull request from head `chore/archive-x` changes `openspec/changes/x/tasks.md`
+- **THEN** it is not the change pull request of `x`
+
+#### Scenario: Another change's archive- head
+- **WHEN** a merged pull request from head `archive-y` changes `openspec/changes/archive-x/tasks.md` (or `openspec/changes/x/tasks.md`)
+- **THEN** it is not the change pull request of `archive-x` (or of `x`)

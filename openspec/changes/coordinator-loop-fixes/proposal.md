@@ -2,7 +2,8 @@
 # Proposal
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(source: `requirements.md`, the kept items 1 to 6, 8 to 18, 21 to 24 of its "Checked against main" list;
+(source: `requirements.md`, the kept items 1, 2, 4 to 6, 8 to 18, 21 to 24 of its "Checked against main" list,
+item 3 dropped there as covered by main, and the coordinator's two field findings 25 and 26 of 2026-11-24;
 decision record: `decisions.md`, the change's ADR, accepted at the plan approval).
 
 ## Why
@@ -38,8 +39,10 @@ the second only where the plan says so (design D-19).
 - A pull request that conflicts with its base outside the release files gets the declared step
   `resolve-base-conflict` (the implementer merges the base and resolves it), in place of a blocked
   end; a release-only conflict keeps `resolve-release-conflict`. This covers a change's pull request and
-  an archive's that never left a delivery train; an archive that left one keeps its blocked
-  `stop-archive`, and a change that left one keeps `rejoin-train` (design D-5).
+  an archive's that never left a delivery train, in a project without the train (with the train on,
+  a conflict boards the train as today); an archive that left one keeps its blocked `stop-archive`,
+  and a change that left one keeps `rejoin-train` (design D-5). The implementer's failure on the step
+  goes back to `next`, as for any agent (the stage models' retry, then the loop's `role-failed` end).
 - A task whose description starts with `Conductor:` is the conducting session's: the delivery
   checker gives the session step `conductor-task` for it and never hands it to the implementer.
 - The owner's approval records a digest of the plan files (ticks ignored), in the Claude session's
@@ -52,6 +55,14 @@ the second only where the plan says so (design D-19).
   app's monitor wakes the session on green checks is not provable here and is carried to a roadmap
   line (AC-11 below).
 - The fallback agent map of the loops comes from the pack table `PACKS` through one helper.
+- A change whose id starts with `archive-` finds its own pull request again: a head equal to the change's
+  own id is never taken for an archive head, in `isOwnPr` and in the merged-list search of `findChangePr`,
+  through one helper (`foreignArchiveHead`); `chore/archive-<id>` and `archive-<id>` stay the archive of
+  change `<id>` (design D-20).
+- A delivered change whose local branch was advanced into the base goes to the walk after the merge on
+  its own branch too, and the delivery checker's item 5 takes the merged pull request's head as met when
+  it is an ancestor of such a head, so the change reaches the retro with no new evidence or review round;
+  one helper (`headInBase`) tells it, shared with the own-files rule of ADR 0025 (design D-21).
 - Documents: a dated Note on ADR 0011, `docs/openspec-flow.md` (the two `devkit-lite` decisions, the
   declared steps, the round limit, the red gate), `docs/coordination-design.md`, the review gate
   sentence and the tasks instruction of both schemas, `openspec/config.yaml`'s ADR list.
@@ -66,7 +77,7 @@ the second only where the plan says so (design D-19).
 
 - AC-1 `declared-step-outside-gates`: after the owner asks for a pause, or the session meets a decision outside the script's gates, a declared `change-loop.mjs reply` key records the end; ending the turn with its first output line is accepted by the stop lock, and the same turn without it is still refused. A test per case (pause, decision outside the gates).
 - AC-2 `end-marker-id-checked`: a `devkit-end: <id> <state>` marker whose id differs from the run's change does not release the stop lock; one with the run's id does. Two tests in the guard's suite.
-- AC-3 `skill-names-declared-end`: the `resolve-release-conflict` and `renumber-adr` items of `plugins/openspec/skills/devkit/SKILL.md` name the declared end (`reply blocked --param why=role-failed`) for `Outcome: failure`, and a test reads the skill for it.
+- AC-3 `skill-names-declared-end`: dropped, covered by main (merge 8f14bd1, `stage-models`): both skill items say "`Outcome: failure` goes back to `next`, as for any agent", and the loop retries once on the next model up, then ends the run blocked `role-failed` with its own `devkit-end:` line (`requirements.md`, "Checked against main again").
 - AC-4 `agent-map-from-pack-table`: the loop's fallback agent map and the pack table `PACKS` come from one source; a test fails when they differ.
 - AC-5 `adr-0011-note`: `docs/adr/0011-the-change-coordinator-is-the-owners-session.md` has a dated Note on the stop lock after a recorded end, and its Decision section is unchanged.
 - AC-6 `language-never-set`: with the person's language never set, the loop's messages come out in the project's default language with no unsubstituted placeholder, shown by a test and by one real run of the installed plugin with the setting absent.
@@ -78,10 +89,12 @@ the second only where the plan says so (design D-19).
   - proven in this change: with host instructions that name a monitor and forbid polling, the session starts no `wait` and says that the host's monitor holds the wait; without them, the background `wait` starts (T82, real runs R13a and R13b);
   - deferred to the next change run in the desktop app: whether the host's event wakes the session when the checks pass, so that it goes on alone. Carried by the roadmap line `host-monitor-wake` (task 6.5) and recorded by this change's retro; this change does not claim it.
 - AC-12 `verifier-writes-proof`: `pr-verifier` can write under the change's `proof/` folder, `guard.mjs` allows it, `core/agents/pr-verifier.md` says so, and a write outside `evidence.md` and `proof/` is still refused.
-- AC-13 `resolve-outside-release-files`: a pull request that conflicts with the base outside the release files gets a declared resolve step; the run does not end blocked for it, and a conflict in the release files still uses `resolve-release-conflict`. Read as design D-5 reads it: the pull requests are a change's and an archive's that never left a delivery train; an archive that left a train and conflicts outside the release files and the roadmap ticks keeps its blocked `stop-archive`, and a change that left one keeps its own `rejoin-train`, both unchanged.
+- AC-13 `resolve-outside-release-files`: a pull request that conflicts with the base outside the release files gets a declared resolve step; the run does not end blocked for it, and a conflict in the release files still uses `resolve-release-conflict`. Read as design D-5 reads it: the pull requests are a change's and an archive's that never left a delivery train; an archive that left a train and conflicts outside the release files and the roadmap ticks keeps its blocked `stop-archive`, and a change that left one keeps its own `rejoin-train`, both unchanged. In a project with a delivery train a change or an archive in conflict with its base boards the train and is not stopped (the delivery-train rows), so the step is met in a project without the train (design D-5).
 - AC-14 `nits-closed`: the change-coordination spec words the archive sources as their union; the project-setup spec states exit 1 of `github-setup` for a blocked state; a test covers an unreadable `.openspec.yaml`; project-loop T25 fails without the export; the roadmap scenario of the commit-attribution spec has a test of its own; T31 no longer counts a literal phrase.
 - AC-15 `short-script-decisions-recorded`: `docs/openspec-flow.md` records that `devkit-lite` has no plan approval of its own by decision and that a first-spec change follows the ordinary choice rule; no behaviour changes: `devkit-lite`'s stages and gates are the same before and after.
-- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13 state; the existing suites stay green.
+- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13, AC-17 and AC-18 state; the existing suites stay green.
+- AC-17 `archive-prefixed-id-own-pr`: a change whose id starts with `archive-` and whose pull request's head is its own id finds that pull request as its own, merged or open, so `next` goes on to the retro after its merge; a head `chore/archive-<id>` (or `archive-<id>`) is still the archive of change `<id>` and never its own pull request, and another change's `archive-` head is neither. A test per condition, negatives included, and a real `next` run on `archive-release-pin`.
+- AC-18 `delivered-advanced-branch-no-rereview`: a delivered change whose local branch was advanced into the base (its head contained in `origin/<base>`) goes to the retro with no new evidence or review round; on its own branch still ahead of the base, and for a change not delivered, the evidence and the reviews are judged as today.
 
 ## Capabilities
 
@@ -98,9 +111,13 @@ None.
 - `coordination-locks`: a recorded end counts as the run's last action only when it names the run's
   change (a modified requirement, with the scenarios of the declared pause and decision).
 - `change-stages`: a plan revised after the implementation started goes back to its gates; the
-  code review stage's attempt ceiling is its declared ceiling plus the rounds the owner authorized.
+  code review stage's attempt ceiling is its declared ceiling plus the rounds the owner authorized;
+  after a merge the walk resumes at the retro on the change's own branch too when that branch was
+  advanced into the base (a modified requirement).
 - `change-delivery`: a task marked for the conducting session is never handed to the implementer
-  and counts as done only when ticked; the review round limit follows the owner's authorizations.
+  and counts as done only when ticked; the review round limit follows the owner's authorizations; a
+  head equal to the change's own id is never an archive head for its own pull request (a modified
+  requirement).
 - `delivery-models`: a conflict resolution's review deadlock comes after its round limit, 2 plus the
   rounds the owner authorized for that review, in place of "after the second round".
 - `review-round`: the round script accepts a round up to an authorized limit.
@@ -127,9 +144,13 @@ None.
   `openspec/roadmap.md` (the `host-monitor-wake` line), `docs/compozy-kit.md`. Versions: each changed pack
   and the marketplace take the next free minor at merge (design D-18); the plan names no version.
 - Dependencies: the change's ADR (accepted at the plan approval through `accept-decisions`); ADR
-  0010 decisions 3, 5 and 6; ADR 0011 decision 2; ADR 0016; ADR 0017. Sibling changes in flight touch
-  the same files (design D-17); each phase that edits one of them opens with a merge of `origin/main`.
-- Exit criteria: `node --test plugins/openspec/hooks/guard.test.mjs`, `python3 scripts/check.py`,
+  0010 decisions 3, 5 and 6; ADR 0011 decision 2; ADR 0016; ADR 0017; ADR 0022 (the delivery train,
+  on in this repository); ADR 0023 (the stage models' retry); ADR 0025 (a base merge stales only on the
+  change's own files); ADR 0026 (the suite runs by file); ADR 0030 (no test holds a release's version).
+  Sibling changes in flight touch the same files (design D-17); each phase that edits one of them opens
+  with a merge of `origin/main`.
+- Exit criteria: `node scripts/test-suite.mjs` (the whole suite; with the train on, the train's own run
+  proves it in `evidence.md`, design D-18), the new tests under CI's branch variables, `python3 scripts/check.py`,
   `python3 scripts/gen-catalog.py --check`, `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`,
   `claude plugin validate .` and
   `openspec validate coordinator-loop-fixes --strict` green on the merged head, and the real-run
