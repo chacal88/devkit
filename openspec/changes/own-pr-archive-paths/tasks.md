@@ -134,6 +134,14 @@ invariant comment above gains `own-pr-archive-paths moves it to <version> (relea
 version>), above roadmap-sessions-upfront's 0.33.0 (release 0.37.0)`. Nothing else in that test
 changes. Every earlier release moved these lines the same way.
 
+Merge note (2026-11-24, after `origin/main` took suite-speed, PR 98): `deliver-check.test.mjs` is split, so
+the six new tests and the reworded `isOwnPr` test live in `plugins/openspec/hooks/deliver-check-archive.test.mjs`
+and the pin assertion of the amendment in `plugins/openspec/hooks/change-loop-compozy.test.mjs`, every test name
+unchanged; `main` holds devkit-openspec 0.38.0 and marketplace 0.42.0, so the release is 0.38.1 and 0.42.1;
+`isOwnPr` keeps `main`'s `train/<n>` rule, ahead of the archive-folder rule. The whole suite is
+`node scripts/test-suite.mjs`, run once on the merged tree. Where a gate above names `deliver-check.test.mjs`
+or `change-loop.test.mjs`, read the split file that holds the test.
+
 ## 1. The predicate, its tests and its doc (AC-1 to AC-6)
 
 - [x] 1.1 Write the six tests of H-3 in `plugins/openspec/hooks/deliver-check.test.mjs`, run them on
