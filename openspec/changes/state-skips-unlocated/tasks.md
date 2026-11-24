@@ -44,7 +44,7 @@ every task with `git status --short`.
 
 ## 1. Where the loop reads a change, and the state command
 
-- [ ] 1.1 Merge `origin/main` into the branch, then add to `plugins/openspec/hooks/change-loop.test.mjs`
+- [x] 1.1 Merge `origin/main` into the branch, then add to `plugins/openspec/hooks/change-loop.test.mjs`
   the tests 1.1 to 1.19 of `design.md` D-7 (a new section `state-skips-unlocated: locate, the helper
   and the state command` after the change-state AC-4 tests), with the fixtures D-7 names. Run
   `env TMPDIR=/private/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test
@@ -52,18 +52,18 @@ every task with `git status --short`.
   is. Check: `proof/red-1.txt` holds that run, with 1.1, 1.9 to 1.14 and 1.16 to 1.19 failing, and
   1.2 to 1.8 and 1.15 passing (they pin unchanged behaviour: the archive worktree and the worktree on
   `x` already win today, 1.2 and 1.3).
-- [ ] 1.2 In `plugins/openspec/hooks/change-loop.mjs`, give `locate` the order of D-5 (the caller's
+- [x] 1.2 In `plugins/openspec/hooks/change-loop.mjs`, give `locate` the order of D-5 (the caller's
   step with its three conditions) and update its comment to name the four steps. Check: tests
   `unlocated 1:` 1.1 to 1.8, 1.16 and 1.17 pass; the change-state tests of D-7's existing table
   pass.
-- [ ] 1.3 In `plugins/openspec/hooks/change-loop.mjs`, add the exported `unplacedAction(start, id)`
+- [x] 1.3 In `plugins/openspec/hooks/change-loop.mjs`, add the exported `unplacedAction(start, id)`
   of D-2 right after `knownChange`, and make `stateEntries` follow D-3's order: the helper, then the
   archived step for an id it stands in for (`archivedDates` read lazily once, `createdAfter`, the
   archived stand-in hoisted unchanged), then the blocked stand-in, leaving the `knownChange`,
   archived, run-file and `no change named` branches as they are. Check: tests `unlocated 1:` 1.9 to
   1.15, 1.18 and 1.19 pass, and "change-state AC-1 command: an unknown change exits 3 with the plain
   reply" and every "field-fixes 1 archived" test pass unchanged.
-- [ ] 1.4 Gate: `env TMPDIR=/private/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green (a background command); covers AC-1, AC-2, AC-4, AC-5 and the change-loop half of AC-6.
+- [x] 1.4 Gate: `env TMPDIR=/private/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green (a background command); covers AC-1, AC-2, AC-4, AC-5 and the change-loop half of AC-6.
 
 ## 2. The roadmap facts: the board, the run and its stop lock
 

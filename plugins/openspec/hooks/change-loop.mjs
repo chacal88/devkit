@@ -1243,12 +1243,18 @@ export function defaultBase(root) {
   return 'main';
 }
 
-// The checkout of change `id`: a worktree on its archive branch, else one on its own branch, else the main checkout.
+// The checkout of change `id`: a worktree on its archive branch, else one on its own branch, else the checkout the loop is
+// called from when that checkout holds the change's active folder and the main checkout holds no folder of it (state-skips-unlocated
+// D-5), else the main checkout.
 export function locate(start, id) {
   const worktrees = listWorktrees(start);
   const own = worktrees.find((w) => w.branch === `chore/archive-${id}`) ?? worktrees.find((w) => w.branch === id);
   if (own) return { root: realpathSync(own.path), branch: own.branch };
   const root = mainRoot(start);
+  const here = realpathSync(start);
+  if (here !== realpathSync(root) && locateChange(here, id)?.archived === false && !locateChange(root, id)) {
+    return { root: here, branch: tryGit(here, ['symbolic-ref', '--short', '-q', 'HEAD']) };
+  }
   return { root, branch: tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) };
 }
 
@@ -1607,6 +1613,17 @@ export function knownChange(start, id) {
   return archive ?? null;
 }
 
+// The blocked stand-in of change `id` when some checkout holds its folder but the checkout `locate` reads it in does not
+// (state-skips-unlocated D-2); null when the loop can place it, or when no checkout holds it.
+export function unplacedAction(start, id) {
+  const found = locate(start, id);
+  if (found.branch === `chore/archive-${id}` || locateChange(found.root, id)) return null;
+  const holder = knownChange(start, id);
+  if (!holder) return null;
+  return { kind: 'end', change: id, script: null, root: holder.root, branch: holder.branch, stage: null, stageTitle: null,
+    end: { state: 'blocked', why: 'wrong-branch' }, params: { id } };
+}
+
 // Where the change stopped, in one phrase of the person's language, from the stage checker's report in its checkout
 // (the next stage's title, or the end state with its stage's title). Throws LoopUsageError when it cannot be read.
 export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec, gh } = {}) {
@@ -1651,15 +1668,19 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
   const named = namedByRun(run);
   const ids = id !== null ? [id] : [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...named])].sort((a, b) => a.localeCompare(b));
   let archived = null;
+  let days = null; // archivedDates(start, ...), read at most once per command, only when an id is unplaced
+  const archivedStandIn = (cid) => ({ kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } });
   const openTitle = () => {
     try { return readFlow(start, 'devkit')?.stages.find((s) => s.id === 'open')?.title[l] ?? 'open'; } catch { return 'open'; }
   };
   return ids.map((cid) => {
     let action;
-    if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
-    else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) {
-      action = { kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } };
-    } else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
+    const unplaced = unplacedAction(start, cid);
+    if (unplaced && (days ??= archivedDates(start, { env, gh })).has(cid) && !createdAfter(unplaced.root, cid, days.get(cid))) action = archivedStandIn(cid);
+    else if (unplaced) action = unplaced;
+    else if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
+    else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) action = archivedStandIn(cid);
+    else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
     else throw new LoopUsageError(`no change named ${cid}`);
     const line = changeSessions && roadmapIds.has(cid) ? (readRoadmap(mainRoot(start)) ?? []).flatMap((round) => round.items).find((item) => item.id === cid) : null;
     const dependency = line && line.after.length > 0 && isPlanStage(start, cid, action) ? line.after.find((d) => !(archived ??= archivedOnDefault(start, { env, gh })).has(d)) ?? null : null;
