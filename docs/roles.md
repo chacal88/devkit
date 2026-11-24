@@ -15,7 +15,7 @@ and not to the change folder.
 
 In `docs/coordination-design.md` this role is the team's `tech-lead`; the first CompozyOS kit's `tech-lead` shell, which is gone, was a different role, its planner, today `change-planner`.
 
-- Does: Runs the change from its opening to its retro: opens the folder, grills the owner for the requirements, hands each stage to its role, reads the checker after every stage and asks the owner only where a stage says so.
+- Does: Runs the change from its opening to its retro: opens the folder, grills the owner for the requirements, hands each stage to its role, reads the checker after every stage and asks the owner only where a stage says so. In a project with a delivery train it also departs the train on `/devkit train` (the `train-loop.mjs` script), when the owner types it.
 - Delivers: The change folder, `requirements.md` and `retro.md`, each with its stage header.
 - Never: Writes product code, approves its own change, or skips a stage the checker has not passed.
 - Stages: `open`, `requirements`, `retro` (both scripts).
@@ -25,7 +25,7 @@ In `docs/coordination-design.md` this role is the team's `tech-lead`; the first 
 
 In `docs/coordination-design.md` this role is the team's `manager`.
 
-- Does: Reads `openspec/roadmap.md`, starts every change whose `after:` dependencies are archived up to the number the owner set for the run, holds a start while the machine is loaded, and keeps the changes it holds open going while the owner answers another one.
+- Does: Reads `openspec/roadmap.md`, starts every change whose `after:` dependencies are archived up to the number the owner set for the run, holds a start while the machine is loaded, and keeps the changes it holds open going while the owner answers another one. In a project with a delivery train it departs the train on `/devkit train`, as the roadmap run's session.
 - Delivers: Nothing of its own: the changes it starts, and the run's event lines and board.
 - Never: Writes product code, starts a change the loop did not return, hands two stages of one change at once, or answers an owner gate itself.
 - Stages: none; it starts changes.

@@ -5,6 +5,7 @@
 - Change: delivery-models
 - Amends: ADR 0002 (0002-merge-without-the-owner-opt-in.md), the sentence of its Decision that names `ship: <schema>: merge` as the opt-in; ADR 0003 (0003-auto-merge-the-archive-pr.md), the sentence on who merges the archive PR in `pr` mode; ADR 0010 (0010-openspec-as-the-harness.md), decision 6, which keeps the merge rules of ADR 0002 and ADR 0003 unchanged; ADR 0012 (0012-the-reviews-check-follows-the-change-script.md), decision 1, on what the check judges for a change on a devkit script
 - Accepted by: the owner, on 2026-11-22, in the message that approved the plan of the change: `Aprovo` ("I approve"); recorded in `openspec/changes/delivery-models/approval.md`
+- Amended by ADR 0022 (0022-reviewed-changes-leave-on-a-delivery-train.md)
 
 ## Context
 
@@ -23,6 +24,8 @@ pull requests open together; the owner merges both; on a conflict a support bran
 it; the pull request to the base branch stays red until the one to the test branch is merged; the
 conflict resolution goes through the review bench again, on the resolution only; the archive
 goes to both branches.
+
+Note (delivery-train, 2026-11-23): ADR 0022 amends decision 1: in the models `trunk` and `trunk-auto`, a project that sets `devkit.delivery.train` delivers its reviewed changes through one train pull request merged with a merge commit instead of one pull request per change, and `two-prs` with that key is refused. The Decision is otherwise unchanged.
 
 ## Decision
 

@@ -239,6 +239,23 @@ branch's own work, goes through the review bench again before the branch is push
 archived through two archive pull requests, one to each branch
 ([ADR 0018](adr/0018-the-delivery-model-is-chosen-per-project.md)).
 
+**The delivery train (decided on 2026-11-23, grill of `delivery-train`, answered by the coordinating
+session under the owner's delegation; built by that change, key `devkit.delivery.train`).** In the models
+`trunk` and `trunk-auto` a project may send its reviewed changes to the base branch together instead of
+one pull request each, because GitHub's merge queue is offered only to repositories owned by an
+organization and `chacal88/devkit` is owned by a user. A change boards when its review is approved at its
+own head and its delivery contract is met except "up to date with the base" and the CI wait; a ready
+archive boards like a change. A boarded change is not updated, verified or reviewed again when the base
+moves, because its own head did not change. `/devkit train` (the coordinating session sends it in a
+roadmap run; the owner types it otherwise) cuts `train/<n>` from the base, joins the boarded heads in
+boarding order, renumbers the release files on the train only, runs the project's whole suite once, writes
+the record `openspec/trains/<n>.md` and opens one pull request. A red train finds the smallest red prefix
+by bisection and the change at its end leaves with the failure; a join conflict outside the release files
+takes the change off with the path. The pull request is merged with a merge commit: GitHub merges it in
+`trunk-auto` once `check`, `devkit-reviews` and the record are green, the owner in `trunk`. The `devkit`
+ruleset and its strict rule stay as they are, and a project without the key sees no change
+([ADR 0022](adr/0022-reviewed-changes-leave-on-a-delivery-train.md)).
+
 ## 6. Panels (D-6)
 
 **Read-only panels (decided; to be built in round 23).** The panels follow the work; the owner does
@@ -406,6 +423,8 @@ devkit:
 for round 20. `devkit.budget` (a whole number of tokens, the
 cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml`, are final too, decided by
 `change-budget` on 2026-11-22.
+`devkit.models` (a table from a stage id to a model, built-in default per stage), and its override in a change's own
+`.openspec.yaml`, is final, decided by `stage-models` on 2026-11-23.
 Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
 
 

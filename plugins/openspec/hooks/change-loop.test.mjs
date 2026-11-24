@@ -29,7 +29,7 @@ const LOOP = join(HERE, 'change-loop.mjs');
 
 // Every env a test of this file builds blanks the branch variables together (CONTRIBUTING.md, testing rules).
 const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
-const cleanEnv = { ...process.env, ...SET };
+export const cleanEnv = { ...process.env, ...SET };
 
 const TDD = 'devkit-core:tdd-implementer';
 const COMMIT = 'devkit-core:commit-and-pr';
@@ -37,7 +37,7 @@ const PLANNER = 'devkit-core:change-planner';
 const READINESS = 'devkit-core:plan-readiness-reviewer';
 const VERIFIER = 'devkit-core:pr-verifier';
 
-const FLOWS = Object.fromEntries(['devkit', 'devkit-lite'].map((s) => [s, JSON.parse(readFileSync(join(SCHEMAS, s, 'flow.json'), 'utf8'))]));
+export const FLOWS = Object.fromEntries(['devkit', 'devkit-lite'].map((s) => [s, JSON.parse(readFileSync(join(SCHEMAS, s, 'flow.json'), 'utf8'))]));
 const read = (f) => readFileSync(join(HERE, f), 'utf8');
 
 // ---------------------------------------------------------------- settings (D-9)
@@ -89,7 +89,7 @@ const SAMPLE = {
   places: 3, open: 2, load: 92, limit: 80, queue: 5, archived: 9, word: 'many', after: 'add-csv-import', gate: 'approval', phases: 4,
   version: 1, state: 'github', machine: 'avel', taken: 1, entry: 'avel', field: 'folder', fix: 'compozy daemon start', run: 'looprun-1',
   branch: 'develop', base: 'master', default: 'main', installed: '2.46.0', minimum: '2.50.0', key: 'PROJ-482', name: 'In Review', choices: 'move it to "In Review"; only comment; no',
-  spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d',
+  spent: 2100000, cap: 2000000, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d', models: 'opus 3210, sonnet 1105', tokens: 4315, from: 'haiku', to: 'sonnet',
   file: '/work/repo/.claude/worktrees/add-csv-export/openspec/changes/add-csv-export/.openspec.yaml',
 };
 // The one reply that names a file: the budget stop names the change's settings file, where the owner raises the cap.
@@ -201,17 +201,17 @@ test('change-loop replies: a stage reads as a noun phrase in each language', () 
 const CTX = (over = {}) => ({ id: 'feat', script: 'devkit', root: '/w/feat', branch: 'feat', lang: 'en', filesLanguage: 'en', ...over });
 const stageOf = (flow, id) => flow.stages.find((s) => s.id === id);
 const stagesOf = (flow, over = {}) => flow.stages.map((s, i) => ({ n: i + 1, id: s.id, title: s.title.en, state: 'passed', reasonCode: 'passed', params: {}, ...over[s.id] }));
-const nextOf = (flow, stage, reasonCode, params = {}) => {
+export const nextOf = (flow, stage, reasonCode, params = {}) => {
   const s = stageOf(flow, stage);
   return { n: flow.stages.indexOf(s) + 1, stage, role: s.role, skills: s.skills ?? [], reasonCode, params, reason: 'x', progressKey: `${stage}@abc123` };
 };
-const endOf = (state, stage, reasonCode, params = {}) => ({ state, stage, reasonCode, params, reason: 'x' });
-const reportOf = (flow, { next = null, end = null, stages = {}, script = 'current', schema = 'devkit' } = {}) => (
+export const endOf = (state, stage, reasonCode, params = {}) => ({ state, stage, reasonCode, params, reason: 'x' });
+export const reportOf = (flow, { next = null, end = null, stages = {}, script = 'current', schema = 'devkit' } = {}) => (
   { version: 1, change: 'feat', schema, script, head: 'h', stages: stagesOf(flow, stages), next, end, previous: null });
 const APPROVAL = { status: null, recorded: null, readiness: 'sha256:abcdef012345', ok: false };
-const rowOf = (step, extra = {}) => ({ next: { step, reason: 'r', actor: 'x', ...extra }, state: 's', delivered: {} });
+export const rowOf = (step, extra = {}) => ({ next: { step, reason: 'r', actor: 'x', ...extra }, state: 's', delivered: {} });
 
-function run(over = {}) {
+export function run(over = {}) {
   const flow = over.flow ?? FLOWS.devkit;
   return decide({
     ctx: CTX(over.ctx), flow, report: over.report ?? reportOf(flow, over.rep), after: null, fingerprint: 'abc123', approval: APPROVAL,
@@ -710,7 +710,7 @@ const PLAN_FILES = { requirements: 'requirements.md', decisions: 'decisions.md',
 
 // A committed `devkit` change `feat` in the main checkout with the plan files of `have` written as passed (`results` and
 // `attempts` per stage), the ship mode plan (no ship key). `headerless` writes no header line.
-function planChange({ have, results = {}, attempts = {}, headerless = false } = {}) {
+export function planChange({ have, results = {}, attempts = {}, headerless = false } = {}) {
   const root = gitRepo({ config: 'schema: devkit\n' });
   const c0 = git(root, 'rev-parse', 'HEAD');
   const files = { '.openspec.yaml': 'schema: devkit\n' };
@@ -724,7 +724,7 @@ function planChange({ have, results = {}, attempts = {}, headerless = false } = 
 }
 const next = (cwd, extra = [], env = cleanEnv, opts = {}) => main(['next', '--change', 'feat', '--lang', 'en', ...extra], { cwd, env, ...opts });
 // The marker lines come first (`devkit-run:`, then `devkit-end:` on an end); the JSON action follows them.
-const actionOf = (stdout) => JSON.parse(stdout.split('\n').filter((l) => !/^devkit-(run|end): /.test(l)).join('\n'));
+export const actionOf = (stdout) => JSON.parse(stdout.split('\n').filter((l) => !/^devkit-(run|end): /.test(l)).join('\n'));
 const parsed = (r) => ({ first: r.stdout.split('\n')[0], action: actionOf(r.stdout) });
 
 test('change-loop next: the approval awaited exits 1 and carries the readiness hash', () => {
@@ -977,7 +977,7 @@ test('change-loop start: S2 no verb or an unknown verb names the commands that e
     assert.equal(b.mode, 'unknown-verb', JSON.stringify(text));
     assert.equal(b.reply, render('en', 'verb-unknown'));
   }
-  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status e \/devkit project/);
+  assert.match(body(startRun(root, '', { lang: 'pt-BR' })).reply, /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project e \/devkit train/);
   assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status.*\/devkit project/);
   assert.equal(body(startRun(root, '', { lang: '${user_config.language}' })).reply, render('pt-BR', 'verb-unknown'));
 });
@@ -1624,7 +1624,7 @@ const LINE_BASE = { parentUuid: null, isSidechain: false, userType: 'external', 
 const stored = (extra) => JSON.stringify({ ...LINE_BASE, uuid: 'uuid-0001', timestamp: '2026-11-20T10:00:00.000Z', ...extra });
 const commandText = (name, args) => `<command-message>${name.replace(/^.*:|^\//g, '')}</command-message>\n<command-name>${name}</command-name>\n<command-args>${args}</command-args>`;
 // A typed command: a line of type user whose message.content is a string.
-const typedLine = (args, name = '/devkit') => stored({ type: 'user', message: { role: 'user', content: commandText(name, args) } });
+export const typedLine = (args, name = '/devkit') => stored({ type: 'user', message: { role: 'user', content: commandText(name, args) } });
 // The first line of a plain typed message (the panel's own form).
 const plainLine = (text) => stored({ type: 'user', message: { role: 'user', content: text } });
 // The skill body that follows the typed command: type user, isMeta, a list holding one text block.
@@ -1637,15 +1637,15 @@ const toolResultLine = (text, form = 'both') => stored({
   ...(form === 'blocks' ? {} : { toolUseResult: { stdout: text, stderr: '', interrupted: false, isImage: false, noOutputExpected: false } }),
 });
 // A command that printed `devkit-run: <id>`.
-const runLine = (id, form = 'both') => toolResultLine(`devkit-run: ${id}\n{"version":1}`, form);
+export const runLine = (id, form = 'both') => toolResultLine(`devkit-run: ${id}\n{"version":1}`, form);
 // A command that ended the run: `next` or `wait` (the run line first, then the end line, then the action) or the session's own
 // `reply` of an end key (the end line alone, then the reply).
 const nextEndLine = (id, state, form = 'both') => toolResultLine(`devkit-run: ${id}\ndevkit-end: ${id} ${state}\n{"version":1}`, form);
 const endLine = (id, state, form = 'both') => toolResultLine(`devkit-end: ${id} ${state}\nThe change ${id} stopped: x.`, form);
 // The api-request-blob lines repeat the command text inside text blocks: never the typed command.
 const blobLine = (text) => stored({ type: 'api-request-blob', message: { role: 'user', content: [{ type: 'text', text }] } });
-const assistantLine = () => stored({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'working' }] } });
-const transcriptOf = (lines) => {
+export const assistantLine = () => stored({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'working' }] } });
+export const transcriptOf = (lines) => {
   const file = join(sandbox(), `${SESSION}.jsonl`);
   writeFileSync(file, `${lines.join('\n')}\n`);
   return file;
@@ -1754,7 +1754,7 @@ function hook(mode, input, env = {}) {
   const r = spawnSync(process.execPath, [GUARD, mode], { input: JSON.stringify(input), encoding: 'utf8', env: { ...process.env, ...SET, ...env } });
   return { code: r.status, err: r.stderr, out: r.stdout };
 }
-const stopInput = (root, transcript, extra = {}) => ({ session_id: SESSION, transcript_path: transcript, cwd: root, stop_hook_active: false, background_tasks: [], ...extra });
+export const stopInput = (root, transcript, extra = {}) => ({ session_id: SESSION, transcript_path: transcript, cwd: root, stop_hook_active: false, background_tasks: [], ...extra });
 const subInput = (root, transcript, role, extra = {}) => stopInput(root, transcript, { agent_type: `devkit-core:${role}`, agent_id: 'agent-0001', agent_transcript_path: join(sandbox(), 'agent.jsonl'), ...extra });
 const PLAN_UP_TO_TASKS = ['requirements', 'proposal', 'specs', 'design', 'tasks'];
 
@@ -2389,7 +2389,7 @@ test('change-loop skill: the release-conflict sentence', () => {
   const md = skillText();
   assert.ok(md.includes('`resolve-release-conflict`'));
   assert.ok(md.includes('Run `detail.command` in the worktree, then the project\'s test command; report the JSON and the result; change nothing else.'));
-  assert.match(md, /`Outcome: failure` ends the run blocked/);
+  assert.match(md, /`Outcome: failure` goes back to `next`, as for any agent/);
 });
 
 test('change-loop skill: the script rule and its correction', () => {
@@ -2428,9 +2428,10 @@ test('change-loop skill: an end the session declares goes through reply, and the
   const loop = section(md, '## Loop', '## Owner gates');
   assert.match(loop, /a second line `devkit-end: <id> <state>` follows/);
   assert.match(loop, /never show one to the owner/);
-  assert.match(loop, /An end the session declares itself \(an agent's failure, a red gate, a pull-request decision left to the owner\) goes through `reply`/);
+  assert.match(loop, /An end the session declares itself \(a red gate, a pull-request decision left to the owner\) goes through `reply`/);
   assert.match(loop, /only the lines after it are shown to the owner/);
-  for (const key of ['reply blocked --param id=<id> --param why=role-failed', 'reply blocked --param id=<id> --param why=tests-red', 'reply waiting-pr-decision --param id=<id>']) assert.ok(loop.includes(key), key);
+  for (const key of ['reply blocked --param id=<id> --param why=tests-red', 'reply waiting-pr-decision --param id=<id>']) assert.ok(loop.includes(key), key);
+  assert.ok(!loop.includes('why=role-failed'), 'a failed agent is the loop\'s end, not the session\'s');
   assert.doesNotMatch(loop, /\bsay `node/, 'the declared ends are run, not said');
 });
 
@@ -2468,8 +2469,8 @@ test('change-loop skill: the grill paragraph names the stage header and requirem
 test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () => {
   const md = skillText();
   const heads = md.split('\n').filter((l) => l.startsWith('## '));
-  assert.deepEqual(heads, ['## Settings', '## Start', '## On the CompozyOS driver', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Roadmap', '## Status', '## Project', '## Never']);
-  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'driver-no-project', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status', 'project', 'is-slice']) {
+  assert.deepEqual(heads, ['## Settings', '## Start', '## On the CompozyOS driver', '## A new change', '## Loop', '## Owner gates', '## Waiting on GitHub', '## Train', '## Roadmap', '## Status', '## Project', '## Never']);
+  for (const mode of ['not-built', 'unknown-verb', 'not-set-up', 'setting-unknown', 'driver-not-built', 'driver-no-project', 'nothing', 'choose', 'ask-unfinished', 'resume', 'new', 'roadmap', 'status', 'project', 'is-slice', 'train', 'train-args']) {
     assert.ok(md.includes(`\`${mode}\``), `mode ${mode}`);
   }
   assert.match(md, /AskUserQuestion/);
@@ -2610,10 +2611,11 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); compozy-driver moves it to 0.34.0 (release 0.38.0), above roadmap-sessions-upfront's 0.33.0 (release 0.37.0), remote-worker's 0.32.0 (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.34\.0/, 'the CI snippet pins the current release (compozy-driver: 0.34.0)');
-  assert.doesNotMatch(flow, /v0\.33\.0/, 'no pin left on main\'s release before it (roadmap-sessions-upfront)');
-  assert.doesNotMatch(flow, /v0\.32\.0/, 'no pin left on main\'s release before it (remote-worker)');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); stage-models moves it to 0.35.0 (release 0.39.0), above delivery-train's 0.34.0 (release 0.38.0), which moved it above roadmap-sessions-upfront's 0.33.0 (release 0.37.0); 0.33.0 went to roadmap-sessions-upfront, 0.32.0 to remote-worker (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.35\.0/, 'the CI snippet pins the current release (stage-models: 0.35.0)');
+  assert.doesNotMatch(flow, /v0\.34\.0/, 'no pin left on main\'s release before it (delivery-train)');
+  assert.doesNotMatch(flow, /v0\.33\.0/, 'no pin left on the release before that (roadmap-sessions-upfront)');
+  assert.doesNotMatch(flow, /v0\.32\.0/, 'no pin left on the release before that (remote-worker)');
   assert.doesNotMatch(flow, /v0\.31\.0/, 'no pin left on the release before that (change-version-pin)');
   assert.doesNotMatch(flow, /v0\.30\.1/, 'no pin left on main\'s release before it (retro of release-tags)');
   assert.doesNotMatch(flow, /v0\.30\.0/, 'no pin left on the release before that (release-tags)');

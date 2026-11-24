@@ -29,6 +29,9 @@
 // `<os.tmpdir()>/devkit-stop/<session_id>[-<agent_id>].json` and let the same key through the next time.
 // With a token budget set (`budget:` in the `devkit:` block), `next` counts the session's spend and holds a hand-off at the cap:
 // the action becomes an end waiting for the owner (change-budget).
+// Every action at a stage carries the `model` of its stage (stage-models), and `next` hands a stage whose subagent returned
+// `Outcome: failure` once more on the next model up, or ends the run blocked: the retry is read from the session's subagent
+// transcripts on a `next` called with `--after` (the call after a stage agent returns); a `next` with no `--after` reads none.
 // No dependencies.
 
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -36,7 +39,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, releaseTagSetting } from './guard.mjs';
+import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
@@ -60,16 +63,44 @@ export class LoopRefusal extends LoopUsageError {
 export const DRIVERS = ['claude', 'compozy', 'script'];
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
-// The token budget a `budget:` value gives (change-budget D-1): null when absent or empty, { cap } for a whole number above
-// zero that is a safe integer, else { invalid: raw }.
-export function budgetValue(raw) {
-  if (raw === undefined || raw === '') return null;
-  if (!/^\d+$/.test(raw)) return { invalid: raw };
-  const n = Number(raw);
-  return n > 0 && Number.isSafeInteger(n) ? { cap: n } : { invalid: raw };
-}
+// The token budget a `budget:` value gives (change-budget D-1) is read by `guard.mjs#budgetValue`; every caller keeps importing it from here.
+export { budgetValue };
 const BUDGET_ACCEPTED = '1, 2, 3, …';
 const RELEASE_TAG_ACCEPTED = 'a path from the repository root to a JSON file, such as package.json';
+
+// ---------------------------------------------------------------- the model of each stage (stage-models D-1)
+
+// The stages that have a model, in flow order: the stage ids of the `devkit` and `devkit-lite` scripts but `open`, which are the
+// `stage` field of every action `next` prints (the archive steps are steps of the retro stage).
+export const MODEL_STAGES = Object.freeze([
+  'requirements', 'mockup', 'decisions', 'proposal', 'specs', 'design', 'tasks', 'readiness', 'approval',
+  'implementation', 'unit-tests', 'e2e-tests', 'evidence', 'review', 'delivery', 'retro',
+]);
+
+// The built-in model of each stage (ADR 0023 decision 1); no default is a 1M variant, which is an explicit opt-in.
+export const DEFAULT_MODELS = Object.freeze({
+  requirements: 'opus', mockup: 'sonnet', decisions: 'opus', proposal: 'opus', specs: 'opus', design: 'opus', tasks: 'opus',
+  readiness: 'sonnet', approval: 'sonnet', implementation: 'sonnet', 'unit-tests': 'haiku', 'e2e-tests': 'sonnet',
+  evidence: 'sonnet', review: 'sonnet', delivery: 'haiku', retro: 'sonnet',
+});
+
+// The stages a change session performs itself, not through a stage subagent, in flow order (ADR 0023 decision 4): the grill, the
+// owner's approval, the review round, the delivery steps and the retro. Only the step-down floor reads this list.
+export const SESSION_RUN_STAGES = Object.freeze(['requirements', 'approval', 'review', 'delivery', 'retro']);
+
+// The values a model can take, cheapest first; `haiku` has no 1M variant.
+export const MODEL_VALUES = Object.freeze(['haiku', 'sonnet', 'sonnet[1m]', 'opus', 'opus[1m]']);
+
+// The place of a value in that order, -1 for anything else.
+export const modelRank = (value) => MODEL_VALUES.indexOf(value);
+// True when both values are known and `a` is the cheaper one.
+export const cheaper = (a, b) => modelRank(a) >= 0 && modelRank(b) >= 0 && modelRank(a) < modelRank(b);
+// The strongest known value of a list, null when none is known.
+export const strongest = (values) => values.filter((v) => modelRank(v) >= 0).reduce((top, v) => (top === null || modelRank(v) > modelRank(top) ? v : top), null);
+// A value without its 1M suffix: the family an Agent call names.
+export const familyOf = (value) => String(value).replace(/\[1m\]$/, '');
+// The next family up, keeping the 1M suffix; null on Opus.
+export const oneUp = (value) => ({ haiku: 'sonnet', sonnet: 'opus', 'sonnet[1m]': 'opus[1m]' })[value] ?? null;
 
 // The text of a settings file; a missing file is '' and any other read error a LoopUsageError.
 function settingsText(file, label) {
@@ -81,10 +112,11 @@ function settingsText(file, label) {
 
 // { driver, language, unknown: [{ setting, value, accepted }] } from the `devkit:` block of openspec/config.yaml, plus
 // `delivery: { model, base, testBranch }` when a delivery model is set and `missing: [{ setting }]` when two pull requests
-// are chosen without a name (delivery-models D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
-// other keys of the block are ignored, except an invalid `budget` and the tests' coverage target, whose bad values are
-// listed in `unknown` after the two above (flow-check's `readTestSettings`), then an invalid `release_tag` (release-tags D-1);
-// a valid one sets `releaseTag`, the path of the JSON file the release is read from, and only then.
+// are chosen without a name (delivery-models D-1), and `train: { suite, problem }` only when the delivery train is set or refused
+// (delivery-train D-1). No block, no file or a missing key gives the defaults (`claude`, `en`);
+// other keys of the block are ignored, except an invalid `budget`, the `models:` table's problems (`modelProblems`) and the tests'
+// coverage target, whose bad values are listed in `unknown` after the two above (flow-check's `readTestSettings`), then an invalid
+// `release_tag` (release-tags D-1); a valid one sets `releaseTag`, the path of the JSON file the release is read from, and only then.
 export function readDevkitSettings(root) {
   const block = parseDevkitBlock(settingsText(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml'));
   const driver = block.driver || 'claude';
@@ -94,6 +126,7 @@ export function readDevkitSettings(root) {
   if (!LANGUAGE_TAG.test(language)) unknown.push({ setting: 'language', value: language, accepted: 'a language tag such as en or pt-BR' });
   const budget = budgetValue(block.budget);
   if (budget?.invalid !== undefined) unknown.push({ setting: 'budget', value: budget.invalid, accepted: BUDGET_ACCEPTED });
+  unknown.push(...modelProblems(block.models));
   unknown.push(...readTestSettings(root).unknown);
   const releaseTag = releaseTagSetting(block);
   if (releaseTag.problem) unknown.push({ setting: releaseTag.problem.setting, value: releaseTag.problem.value, accepted: RELEASE_TAG_ACCEPTED });
@@ -101,16 +134,19 @@ export function readDevkitSettings(root) {
   if (releaseTag.file) settings.releaseTag = releaseTag.file;
   const { model, base, testBranch, problems } = deliverySettings(block);
   if (model) settings.delivery = { model, base, testBranch };
+  const train = trainSetting(block);
+  if (train.suite !== null || train.problem !== null) settings.train = train;
   const missing = [];
   for (const p of problems) {
     if (p.kind === 'missing') missing.push({ setting: p.setting });
     else unknown.push({ setting: p.setting, value: p.value, accepted: DELIVERY_ACCEPTED[p.setting] });
   }
   if (missing.length) settings.missing = missing;
+  if (train.problem?.kind === 'unknown') unknown.push({ setting: train.problem.setting, value: train.problem.value, accepted: DELIVERY_ACCEPTED[train.problem.setting] });
   return settings;
 }
 
-const DELIVERY_ACCEPTED = { 'delivery-model': 'two-prs, trunk, trunk-auto', 'delivery-test-branch': 'a branch other than the base' };
+const DELIVERY_ACCEPTED = { 'delivery-model': 'two-prs, trunk, trunk-auto', 'delivery-test-branch': 'a branch other than the base', 'delivery-train': 'a command whose quotes are closed' };
 
 // The token cap of the change in `dir`: { cap, from: 'change' | 'project', file } (the file is always the change's own
 // `.openspec.yaml`, where the owner raises it), or null. The change's value wins over the project's, which is the one in
@@ -126,6 +162,32 @@ export function budgetOf(root, dir, lang) {
   return null;
 }
 
+// The problems of a parsed `models:` table, in map order (stage-models D-2): a key that is no stage of the table (the inline value
+// of `models: <value>` for the key ''), and a non-empty value that is no model. An unknown stage gives its own problem only.
+export function modelProblems(map) {
+  const problems = [];
+  for (const [stage, value] of map ?? []) {
+    if (!MODEL_STAGES.includes(stage)) problems.push({ setting: 'model-stage', value: stage === '' ? value : stage, accepted: MODEL_STAGES.join(', ') });
+    else if (value !== undefined && !MODEL_VALUES.includes(value)) problems.push({ setting: 'model-value', value: `${stage}: ${value}`, accepted: MODEL_VALUES.join(', ') });
+  }
+  return problems;
+}
+
+// The model of every stage of the change in `dir`, a plain object over MODEL_STAGES (stage-models D-2): the change's non-empty
+// value, else the project's, else the default. With `strict` (the change's own loop) the first problem of the change's table, else
+// of the project's, is a LoopRefusal with the settings reply; without it a table with a problem is ignored whole, so a typing error
+// in one change stops no lock and no other change.
+export function modelsOf(root, dir, { strict = false, lang = 'en' } = {}) {
+  const read = (file, label) => parseDevkitBlock(settingsText(file, label)).models;
+  const tables = [read(join(dir, '.openspec.yaml'), '.openspec.yaml'), read(join(root, 'openspec', 'config.yaml'), 'openspec/config.yaml')].map((map) => ({ map, problems: modelProblems(map) }));
+  if (strict) {
+    const bad = tables.find((t) => t.problems.length)?.problems[0];
+    if (bad) throw new LoopRefusal('setting-unknown', render(lang, 'setting-unknown', bad));
+  }
+  const usable = tables.filter((t) => !t.problems.length).map((t) => t.map);
+  return Object.fromEntries(MODEL_STAGES.map((stage) => [stage, usable.map((map) => map.get(stage)).find((v) => v) ?? DEFAULT_MODELS[stage]]));
+}
+
 // The person's language: `en`, and `pt-BR` for anything else (an unsubstituted placeholder included).
 export const normalizeLang = (value) => (value === 'en' ? 'en' : 'pt-BR');
 
@@ -139,10 +201,12 @@ export const filesLanguageName = (tag) => ({ en: 'English', 'pt-BR': 'Brazilian 
 export const MESSAGES = {
   en: {
     'verb-not-built': '/devkit {verb} is not built yet: it arrives in round {round}. Nothing was done.',
-    'verb-unknown': 'So far /devkit change, /devkit roadmap, /devkit status and /devkit project exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, or /devkit project and a name to plan a new project or slice.',
+    'verb-unknown': 'So far /devkit change, /devkit roadmap, /devkit status, /devkit project and /devkit train exist: type /devkit change and what you want done, /devkit roadmap to run the roadmap, /devkit status to see where everything is, /devkit project and a name to plan a new project or slice, or /devkit train to send the boarded changes on one train.',
     'not-set-up': 'This project is not set up for devkit yet: run /openspec-setup first. Nothing was run.',
     'setting-unknown': 'The project\'s devkit settings have an unknown {setting}, "{value}"; use one of: {accepted}. Nothing was run.',
     'setting-missing': 'The project\'s devkit settings choose two pull requests but do not name the {setting}. Nothing was run.',
+    'train-model': 'The project\'s devkit settings set a delivery train, but the delivery model is two-prs: the train runs only with trunk or trunk-auto, because two-prs delivers each change through pull requests of its own. Nothing was run.',
+    'train-no-model': 'The project\'s devkit settings set a delivery train but choose no delivery model: the train runs only with the delivery model trunk or trunk-auto. Nothing was run.',
     'test-branch-missing': 'This project delivers with two pull requests, but its test branch {branch} does not exist on the remote: create it there, then call /devkit change again. Nothing was created.',
     'base-not-default': 'This project delivers to {base}, but the repository\'s default branch is {default}: they must be the same branch. Nothing was created.',
     'name-test-suffix': '{id} cannot be a change name here: a name ending in -{branch} is kept for the support branches.',
@@ -196,6 +260,17 @@ export const MESSAGES = {
     'waiting-merge-test-branch': 'Pull request #{number} of {id} to {branch} is ready: in this project, merging it is up to you. The pull request to {base} waits for it.',
     'waiting-merge-base': 'Pull request #{number} of {id} to {base} is ready: in this project, merging it is up to you.',
     'waiting-archive-merges': 'The archive pull requests of {id} are ready: {list}. In this project, merging them is up to you.',
+    'waiting-train': '{id} is boarded: it leaves with the next train, which /devkit train departs.',
+    'train-off': 'This project has no delivery train: devkit.delivery.train in its devkit settings switches it on. Nothing was created.',
+    'train-running': 'A train is departing now, so no second one starts. When no departure is running (a session ended in the middle of one), delete the lock file ({where}) or wait: after six hours a new departure takes it over.',
+    'train-nothing': 'Nothing is boarded: no change or archive is waiting for a train. Nothing was created.',
+    'train-blocked': 'The train stopped: {error}. Nothing more runs until this is sorted out.',
+    'train-base-red': 'The suite fails on {base} itself, so no train departs and no change was taken off: fix {base} first.',
+    'train-checks': 'Train {n} (pull request #{number}) is waiting on GitHub for its checks. I keep waiting and go on by myself when they finish.',
+    'train-auto-merge-on': 'Auto-merge is on for pull request #{number} of train {n}: GitHub merges it once its checks pass.',
+    'train-ready': 'Pull request #{number} of train {n} is ready: in this project, merging it is up to you, with a merge commit.',
+    'train-delivered': 'Train {n} merged in pull request #{number}: its changes are delivered, and what it left behind is tidied now.',
+    'train-args': '/devkit train takes nothing after it: type /devkit train alone. Nothing was started.',
     'waiting-review-dispute': 'The code review of {id} still disagrees after its second round: the disputed points need your decision.',
     'waiting-by-hand': 'This project delivers each change by hand: {id} stops here, and the session writes no code for it.',
     'waiting-unrun-stage': '{Stage} of {id} has an unfinished file that no role of this version can finish: tell me its result, or remove it.',
@@ -253,6 +328,7 @@ export const MESSAGES = {
     'gate.approval': 'your approval of the plan',
     'gate.retro': 'your answers to its retro',
     'gate.merge': 'your merge of its pull request',
+    'gate.train': 'the departure of the next train',
     'gate.decision': 'a decision only you can take',
     'gate.dispute': 'your decision on the disputed review points',
     'gate.stage': 'your result for an unfinished file',
@@ -334,6 +410,7 @@ export const MESSAGES = {
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
+    'what.train': 'the pull request of its train',
     'what.silent': 'GitHub did not answer',
     'where.next': 'next is {stage}',
     'where.owner': 'waiting for you at {stage}',
@@ -350,7 +427,10 @@ export const MESSAGES = {
     'setting.delivery-model': 'delivery model',
     'setting.delivery-base': 'base branch',
     'setting.delivery-test-branch': 'test branch',
+    'setting.delivery-train': 'delivery train',
     'setting.budget': 'budget',
+    'setting.model-stage': 'stage named in the model table',
+    'setting.model-value': 'model of a stage',
     'setting.coverage-target': 'coverage target',
     'setting.release-tag': 'release file',
     'project-opened': 'I opened the slice {id} in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval.',
@@ -402,13 +482,16 @@ export const MESSAGES = {
     'blocked-why.branch-conflict': 'pull request #{number} conflicts with {base}: resolve the conflict on the slice\'s branch, then call /devkit project {id} again',
     'blocked-why.archive-refused': 'the slice cannot be archived yet: {list} not settled',
     'blocked-why.undeclared-stage': 'the flow asked for {stage}, which this project script does not declare',
+    ...SPEND_MESSAGES.en,
   },
   'pt-BR': {
     'verb-not-built': '/devkit {verb} ainda não existe: chega na rodada {round}. Nada foi feito.',
-    'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap, /devkit status e /devkit project: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, ou /devkit project e um nome para planejar um projeto ou uma fatia nova.',
+    'verb-unknown': 'Por enquanto existem /devkit change, /devkit roadmap, /devkit status, /devkit project e /devkit train: digite /devkit change e o que você quer fazer, /devkit roadmap para rodar o roadmap, /devkit status para ver onde está tudo, /devkit project e um nome para planejar um projeto ou uma fatia nova, ou /devkit train para mandar as changes embarcadas em um trem só.',
     'not-set-up': 'Este projeto ainda não está preparado para o devkit: rode /openspec-setup primeiro. Nada foi executado.',
     'setting-unknown': 'As configurações devkit do projeto têm {setting} desconhecido, "{value}"; use um de: {accepted}. Nada foi executado.',
     'setting-missing': 'As configurações devkit do projeto escolhem dois pull requests mas não dizem {setting}. Nada foi executado.',
+    'train-model': 'As configurações devkit do projeto definem um trem de entrega, mas o modelo de entrega é two-prs: o trem só roda com trunk ou trunk-auto, porque two-prs entrega cada mudança em pull requests próprios. Nada foi executado.',
+    'train-no-model': 'As configurações devkit do projeto definem um trem de entrega mas não escolhem um modelo de entrega: o trem só roda com o modelo de entrega trunk ou trunk-auto. Nada foi executado.',
     'test-branch-missing': 'Este projeto entrega com dois pull requests, mas a branch de teste {branch} não existe no remoto: crie-a lá e chame /devkit change de novo. Nada foi criado.',
     'base-not-default': 'Este projeto entrega em {base}, mas a branch padrão do repositório é {default}: elas precisam ser a mesma. Nada foi criado.',
     'name-test-suffix': '{id} não pode ser nome de change aqui: um nome terminado em -{branch} é reservado às branches de apoio.',
@@ -462,6 +545,17 @@ export const MESSAGES = {
     'waiting-merge-test-branch': 'O pull request #{number} de {id} para {branch} está pronto: neste projeto, o merge é com você. O pull request para {base} espera por ele.',
     'waiting-merge-base': 'O pull request #{number} de {id} para {base} está pronto: neste projeto, o merge é com você.',
     'waiting-archive-merges': 'Os pull requests de arquivo de {id} estão prontos: {list}. Neste projeto, o merge deles é com você.',
+    'waiting-train': '{id} está embarcada: ela sai com o próximo trem, que o /devkit train despacha.',
+    'train-off': 'Este projeto não tem trem de entrega: devkit.delivery.train nas configurações devkit do projeto o liga. Nada foi criado.',
+    'train-running': 'Um trem está saindo agora, então um segundo não começa. Se nenhuma saída estiver rodando (uma sessão acabou no meio de uma), apague o arquivo de trava ({where}) ou espere: depois de seis horas uma nova saída assume a trava.',
+    'train-nothing': 'Não há nada embarcado: nenhuma change nem arquivamento espera por um trem. Nada foi criado.',
+    'train-blocked': 'O trem parou: {error}. Nada mais roda até isso ser resolvido.',
+    'train-base-red': 'A suíte falha em {base} sozinha, então nenhum trem sai e nenhuma change foi tirada: conserte {base} primeiro.',
+    'train-checks': 'O trem {n} (pull request #{number}) espera o GitHub terminar as verificações. Continuo esperando e sigo sozinho quando terminarem.',
+    'train-auto-merge-on': 'O merge automático está ligado no pull request #{number} do trem {n}: o GitHub faz o merge assim que as verificações passarem.',
+    'train-ready': 'O pull request #{number} do trem {n} está pronto: neste projeto, fazer o merge é com você, com um commit de merge.',
+    'train-delivered': 'O trem {n} entrou no pull request #{number}: as changes dele estão entregues, e o que ele deixou para trás está sendo arrumado agora.',
+    'train-args': '/devkit train não aceita nada depois dele: digite /devkit train sozinho. Nada foi iniciado.',
     'waiting-review-dispute': 'A revisão de código de {id} ainda discorda depois da segunda rodada: os pontos em disputa precisam da sua decisão.',
     'waiting-by-hand': 'Este projeto entrega cada change à mão: {id} para aqui, e a sessão não escreve código para ela.',
     'waiting-unrun-stage': '{Stage} de {id} tem um arquivo inacabado que nenhum papel desta versão consegue terminar: diga o resultado ou remova o arquivo.',
@@ -519,6 +613,7 @@ export const MESSAGES = {
     'gate.approval': 'a sua aprovação do plano',
     'gate.retro': 'as suas respostas à retro',
     'gate.merge': 'o seu merge do pull request',
+    'gate.train': 'a saída do próximo trem',
     'gate.decision': 'uma decisão que só você pode tomar',
     'gate.dispute': 'a sua decisão sobre os pontos em disputa da revisão',
     'gate.stage': 'o resultado de um arquivo inacabado',
@@ -600,6 +695,7 @@ export const MESSAGES = {
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
+    'what.train': 'o pull request do trem dela',
     'what.silent': 'o GitHub não respondeu',
     'where.next': 'a próxima é {stage}',
     'where.owner': 'esperando você {inStage}',
@@ -616,7 +712,10 @@ export const MESSAGES = {
     'setting.delivery-model': 'modelo de entrega',
     'setting.delivery-base': 'a branch base',
     'setting.delivery-test-branch': 'a branch de teste',
+    'setting.delivery-train': 'trem de entrega',
     'setting.budget': 'budget',
+    'setting.model-stage': 'etapa citada na tabela de modelos',
+    'setting.model-value': 'modelo de uma etapa',
     'setting.coverage-target': 'meta de cobertura',
     'setting.release-tag': 'arquivo da versão',
     'project-opened': 'Abri a fatia {id} no próprio worktree. Começamos pelo negócio: faço uma pergunta de cada vez, e cada fase termina com a sua aprovação.',
@@ -668,6 +767,7 @@ export const MESSAGES = {
     'blocked-why.branch-conflict': 'o pull request #{number} tem conflito com {base}: resolva o conflito no branch da fatia e chame /devkit project {id} de novo',
     'blocked-why.archive-refused': 'a fatia ainda não pode ser arquivada: {list} não resolvidas',
     'blocked-why.undeclared-stage': 'o fluxo pediu {stage}, que este roteiro de projeto não declara',
+    ...SPEND_MESSAGES['pt-BR'],
   },
 };
 
@@ -711,7 +811,7 @@ export const GATE_OF_WHY = {
   'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
   'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
   'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
-  'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge',
+  'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge', 'waiting-train': 'train',
 };
 
 // The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
@@ -897,6 +997,14 @@ export function inDelivery(report, flow, archiving) {
   return BUILD_PARTS.includes(part);
 }
 
+// The steps that wait on the pull request of a delivery train (delivery-train D-2).
+const TRAIN_WAITS = ['on-train', 'wait-train'];
+
+// The brief of `rejoin-train` (delivery-train D-7): the change left a train; its own cycle merges the base and fixes what the record says.
+const rejoinBrief = (detail) => `train ${detail.train} took this change off (${detail.why === 'red' ? 'the suite failed with it' : 'it conflicts with the train'}): `
+  + `merge origin/${detail.base} into the branch with \`node release-merge.mjs --base ${detail.base}\` when only release files conflict, else with \`git merge origin/${detail.base}\`, `
+  + `and ${detail.why === 'red' ? 'fix the failure below' : `resolve ${(detail.paths ?? []).join(', ')}`}, test first; the record says ${JSON.stringify({ why: detail.why, paths: detail.paths, failure: detail.failure })}`;
+
 const detailOf = (next) => {
   const { actor, agent, askable, blockedState, ...rest } = next; // eslint-disable-line no-unused-vars
   return rest;
@@ -914,6 +1022,7 @@ const ROWS = {
   'fix-checks': handOff('implementation', 'tdd-implementer'),
   'apply-proposals': handOff('implementation', 'tdd-implementer'),
   'resolve-release-conflict': handOff('implementation', 'tdd-implementer'),
+  'rejoin-train': handOff('implementation', 'tdd-implementer'),
   'renumber-adr': handOff('implementation', 'tdd-implementer'),
   commit: handOff('delivery', 'commit-and-pr'),
   'open-pr': handOff('delivery', 'commit-and-pr'),
@@ -941,9 +1050,14 @@ const ROWS = {
   retro: session('retro'),
   archive: session('retro'),
   'tick-roadmap': session('retro'),
+  'rejoin-archive': session('delivery'),
+  'close-boarded-pr': session('delivery'),
   'tag-release': session('delivery'),
   'wait-checks': { end: 'github' },
   'wait-merge': { end: 'github' },
+  'on-train': { end: 'github' },
+  'wait-train': { end: 'github' },
+  boarded: { end: 'owner' },
   ready: { end: 'owner' },
   'archive-pr-ready': { end: 'owner' },
   'archive-prs-ready': { end: 'owner' },
@@ -965,7 +1079,7 @@ const AGENT_STEPS = ROW_STEPS.filter((s) => ROWS[s].role);
 const BLOCKED_STEP = { 'stop-branch': 'wrong-branch', 'stop-merge-setup': 'merge-setup', 'stop-archive': 'archive-failed', 'stop-not-approved': 'plan-not-approved', blocked: 'pr-problem' };
 const OWNER_STEP = {
   ready: 'waiting-merge', 'archive-pr-ready': 'waiting-archive-merge', 'archive-prs-ready': 'waiting-archive-merges', 'stop-review-deadlock': 'waiting-review-dispute',
-  'ready-test-branch': 'waiting-merge-test-branch', 'ready-base': 'waiting-merge-base',
+  'ready-test-branch': 'waiting-merge-test-branch', 'ready-base': 'waiting-merge-base', boarded: 'waiting-train',
   'stop-retro-answers': 'waiting-retro', 'stop-plan-mode': 'waiting-by-hand',
 };
 
@@ -1035,7 +1149,9 @@ function triageUnsourcedOf(dir) {
 // hasProposal, flags (the grill's classification), archiving, row
 // (conduct-check's deliveryRow result, `{ error }` when it threw, null when not read), place (the place facts of D-9, { machine, places,
 // taken, held }, null when the change records no places), budget ({ cap, file, spent } with `spent`
-// null when it could not be read; null or absent when no cap applies) }.
+// null when it could not be read; null or absent when no cap applies), models (the model of each stage, `modelsOf`'s result: every
+// action at a stage with a row carries its `model`; absent, none does), handOffs (the session's stage subagents of the current run,
+// `handOffsOf`'s result: a hand-off whose newest run failed is handed once more a model up; null or absent when none was read) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
   const { ctx, flow, report } = facts;
@@ -1046,7 +1162,8 @@ export function decide(facts) {
   const base = { version: 1, change: ctx.id, script: ctx.script, root: ctx.root, branch: ctx.branch, filesLanguage: ctx.filesLanguage };
   const stageFields = (id) => {
     const s = stageById(id);
-    return { stage: s ? id : null, stageTitle: s ? s.title[lang] : null, role: s?.role ?? null, skills: s?.skills ?? [] };
+    const model = s ? facts.models?.[id] : undefined; // the stage's model (stage-models D-3): none for a stage with no row, or when no table is given
+    return { stage: s ? id : null, stageTitle: s ? s.title[lang] : null, role: s?.role ?? null, skills: s?.skills ?? [], ...(model ? { model } : {}) };
   };
   const finish = (state, why, key, params, stageId, detail) => ({
     ...base, kind: 'end', ...stageFields(stageId), end: { state, why }, params: { id: ctx.id, ...params }, ...(detail ? { detail } : {}), reply: say(key, params),
@@ -1089,10 +1206,26 @@ export function decide(facts) {
   // when the row names none, and for the plan stages, which have no row.
   const agent = (stage, role, step, what, detail, named) => {
     const id = named ?? AGENT[role];
-    return hold(guard({
+    const action = {
       ...base, kind: 'agent', ...stageFields(stage), agent: id, ...(step ? { step } : {}), ...(detail ? { detail } : {}),
       brief: withAttribution(id, brief(stage, what, detail)), progressKey: key(stage, step),
-    }));
+    };
+    const again = retried(action);
+    return again ? hold(again) : hold(guard(action));
+  };
+  // The retry (stage-models D-5), before `guard` so the progress key the session passes after a failure gives the retry and not a
+  // no-progress end: null when the newest run of this brief did not fail; the same hand-off a model up, marked, after one failure
+  // that was not on Opus; else the end blocked, after a second failure in a row or a failure on Opus.
+  const retried = (action) => {
+    const handKey = handOffKey(action.brief);
+    const runs = handKey === null ? [] : (facts.handOffs ?? []).filter((r) => r.key === handKey);
+    let failures = 0;
+    while (failures < runs.length && runs[runs.length - 1 - failures].failed) failures += 1;
+    if (failures === 0) return null;
+    const from = runs[runs.length - 1].family ?? (action.model ? familyOf(action.model) : null);
+    const up = oneUp(from);
+    if (failures === 1 && up !== null) return { ...action, model: action.model?.endsWith('[1m]') ? `${up}[1m]` : up, retry: { failedOn: from, attempt: 2 } };
+    return blocked('role-failed', { stage: titleOf(action.stage) }, action.stage);
   };
   const sessionAction = (stage, step, detail, extra = {}) => hold(guard({
     ...base, kind: 'session', ...stageFields(stage), step, ...(detail ? { detail } : {}), ...extra, progressKey: key(stage, step),
@@ -1214,14 +1347,14 @@ export function decide(facts) {
       return sessionAction('implementation', 'take-place', { command: ['node', join(HOOKS_DIR, 'change-loop.mjs'), 'place', ctx.id, '--lang', lang] });
     }
     const detail = detailOf(row.next);
-    if (spec.role) return agent(spec.stage, spec.role, step, `step ${step} ${JSON.stringify(detail)}`, detail, row.next.agent);
+    if (spec.role) return agent(spec.stage, spec.role, step, step === 'rejoin-train' ? rejoinBrief(detail) : `step ${step} ${JSON.stringify(detail)}`, detail, row.next.agent);
     if (spec.session) return sessionAction(spec.stage, step, detail);
     // A tag on the remote at another commit is the owner's to settle; every other stop of the archive stays `archive-failed`.
     if (step === 'stop-archive' && row.next.archiveStep === 'tag-release' && row.next.at) {
       return blocked('tag-elsewhere', { tag: row.next.tag, at: String(row.next.at).slice(0, 7), sha: String(row.next.sha).slice(0, 7) }, currentId);
     }
     switch (spec.end) {
-      case 'github': return waiting('waiting-on-github', 'waiting-github', currentId, { what: step === 'wait-checks' ? 'checks' : facts.archiving ? 'archive-merge' : 'merge' });
+      case 'github': return waiting('waiting-on-github', 'waiting-github', currentId, { what: step === 'wait-checks' ? 'checks' : TRAIN_WAITS.includes(step) ? 'train' : facts.archiving ? 'archive-merge' : 'merge' });
       case 'blocked': return blocked(BLOCKED_STEP[step], {}, currentId);
       case 'archived': return finish('archived', 'archived', 'archived', {}, currentId);
       default: break;
@@ -1296,7 +1429,7 @@ export function isPlanStage(start, id, action) {
 
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, strictModels = false, retry = false, handOffs } = {}) {
   const clean = cleanOf(env);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -1304,6 +1437,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   const settings = readDevkitSettings(found.root);
   const filesLanguage = settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language;
   const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+  // The model of each stage: refused when it is bad in the change's own loop (`next`), ignored when bad everywhere else (stage-models D-2).
+  const models = modelsOf(found.root, dir, { strict: strictModels, lang: normalizeLang(lang) });
   // The token budget is read only when the caller asks (`next`, and `session-next` of a change session): the locks, `wait` and the roadmap never count (change-budget D-4).
   let budgetFact = null;
   if (budget) {
@@ -1312,6 +1447,14 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
       const path = sessionTranscript(env);
       budgetFact = { cap: cap.cap, file: cap.file, spent: path ? spentOf(path, id)?.spent ?? null : null };
     }
+  }
+  // The stage hand-offs of the current run, read only when the caller hands a list or asks to retry (`next`): a lock, `wait` and the
+  // board read none (stage-models D-5).
+  let handOffsFact = null;
+  if (handOffs) handOffsFact = handOffs;
+  else if (retry) {
+    const path = sessionTranscript(env);
+    if (path) handOffsFact = handOffsOf(path, typedSince(path));
   }
   const run = openspec ?? makeOpenspec(found.root, clean);
   const { facts, flow } = collectFlow(found.root, id, { env: clean, openspec: run, ...(gh ? { gh } : {}) });
@@ -1349,6 +1492,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     row,
     place,
     budget: budgetFact,
+    models,
+    handOffs: handOffsFact,
   });
   // The icon of the action's stage, its state and the change session's title for it (change-state D-1, D-5); the title only when the state has one.
   action.icon = stageIcon(action);
@@ -1602,7 +1747,8 @@ function createdAfter(root, id, archivedDay) {
 // `chore/archive-<id>` (its archive pull request is not merged yet). Each once; a worktree on the archive branch wins,
 // then one on the change's own branch, then any other checkout. A change archived on the default branch is never
 // unfinished, whatever old checkout still holds its folder or its branch, unless that folder was created after the
-// archive (a new change that reuses the id). A slice of `/devkit project` is left out unless `slices` is true.
+// archive (a new change that reuses the id). A slice of `/devkit project` is left out unless `slices` is true, and the checkout of
+// a delivery train (`train/<n>`) is never a change's place.
 export function unfinished(start, { env = process.env, gh, slices = false } = {}) {
   const archived = archivedDates(start, { env, gh });
   const found = new Map();
@@ -1610,6 +1756,8 @@ export function unfinished(start, { env = process.env, gh, slices = false } = {}
   const delivery = readDevkitSettings(realpathSync(mainRoot(start))).delivery;
   const testSuffix = delivery?.model === 'two-prs' && delivery.testBranch ? `-${delivery.testBranch}` : null;
   for (const c of checkoutsOf(start)) {
+    // The checkout of a delivery train holds the folder of every change it carries, none of them unfinished there (delivery-train D-2).
+    if (/^train\/\d+$/.test(c.branch)) continue;
     const archive = /^chore\/archive-(.+)$/.exec(c.branch);
     // The test branch's archive branch (`chore/archive-<id>-<test>`) is the archive of <id> too, behind the base's own.
     if (archive && testSuffix && archive[1].endsWith(testSuffix)) note(archive[1].slice(0, -testSuffix.length), c, 2.5);
@@ -1717,6 +1865,8 @@ export function projectGate(start, settings, verb) {
   if (unknown) return { mode: 'setting-unknown', key: 'setting-unknown', params: { setting: unknown.setting, value: unknown.value, accepted: unknown.accepted } };
   const missing = settings.missing?.[0];
   if (missing) return { mode: 'setting-missing', key: 'setting-missing', params: { setting: missing.setting } };
+  const refused = settings.train?.problem;
+  if (refused) return { mode: 'setting-unknown', key: refused.model === 'two-prs' ? 'train-model' : 'train-no-model', params: {} };
   if (DRIVER_ROUND[settings.driver]) return { mode: 'driver-not-built', key: 'driver-not-built', params: { driver: settings.driver, round: DRIVER_ROUND[settings.driver] } };
   if (settings.driver === 'compozy' && verb === 'project') return { mode: 'driver-no-project', key: 'driver-no-project', params: {} };
   return null;
@@ -1749,10 +1899,11 @@ export function startMode(cwd, input, { lang = 'pt-BR', env = process.env, opens
   });
   const say = (key, params = {}) => render(l, key, params);
   if (VERB_ROUND[verb]) return out('not-built', { reply: say('verb-not-built', { verb, round: VERB_ROUND[verb] }) });
-  if (!['change', 'roadmap', 'status', 'project'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
+  if (!['change', 'roadmap', 'status', 'project', 'train'].includes(verb)) return out('unknown-verb', { reply: say('verb-unknown') });
   const gate = projectGate(start, settings, verb);
   if (gate) return out(gate.mode, { reply: say(gate.key, gate.params) });
-  if (verb !== 'change') return out(verb); // the skill calls roadmap-loop.mjs or project-loop.mjs for these (roadmap-coordinator D-3, project-phases D-4)
+  if (verb === 'train' && text) return out('train-args', { reply: say('train-args') }); // nothing follows the verb (delivery-train D-5)
+  if (verb !== 'change') return out(verb); // the skill calls roadmap-loop.mjs, project-loop.mjs or train-loop.mjs for these (roadmap-coordinator D-3, project-phases D-4, delivery-train D-5)
 
   const read = { lang: l, env, openspec, gh };
   const list = unfinished(start, { env, gh }).map((u) => {
@@ -2807,7 +2958,7 @@ function runNext(args, { env, cwd, openspec, gh }) {
     if (opts.view !== 'compozy') throw new LoopUsageError(`--view needs compozy; ${USAGE}`);
     return { code: 0, stdout: json(compozyState(cwd, opts.change, { env, lang: opts.lang, openspec, gh }).view), stderr: '' };
   }
-  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true });
+  const action = nextAction(cwd, opts.change, { env, lang: opts.lang, after: opts.after ?? null, openspec, gh, budget: true, strictModels: true, retry: opts.after !== undefined });
   return { code: exitCodeOf(action), stdout: loopOutput(opts.change, action), stderr: '' };
 }
 
