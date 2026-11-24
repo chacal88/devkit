@@ -3,12 +3,14 @@
 
 Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (motivation: `proposal.md`; requirements: `requirements.md`; decision record:
-`docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`, called "the record" below). Base:
+`docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`, called "the record" below). Base:
 the branch `project-setup` after its last merge of `origin/main` (at this revision the merge
-`f81f53b`, which brought `cf34ff2`: `suite-speed`, merged on top of `compozy-driver`,
-`delivery-train` and `stage-models`; the four merged and not archived), re-read on 2026-11-24 with
-no fetch. The first draft was written against `origin/main` at `c1ac8c4`; every fact below was
-re-read on the merged tree. `main` keeps moving, so this design cites functions, files, headings and
+`6569874`, which brought `c663f21`: the delivery train on in this repository, trains 1 to 4 with
+`own-pr-archive-paths`, `release-merge-leftovers` and `archive-release-pin`, and the archives of
+`compozy-driver`, `delivery-train`, `stage-models`, `suite-speed` and `stale-only-on-own-files`),
+re-read on 2026-11-24 with no fetch. The first draft was written against `origin/main` at
+`c1ac8c4`, the previous revision against `f81f53b` (`cf34ff2`); every fact below was re-read on the
+merged tree. `main` keeps moving, so this design cites functions, files, headings and
 test names by name and gives no line number: a test is found by its name (`grep -rn`), and the
 tests are the contract.
 
@@ -31,12 +33,16 @@ tests are the contract.
   the reply `compozy-kit-missing` and `compozy-driver.mjs`'s fix text `kit-missing`, both naming
   `/compozy-setup`. CI runs `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`
   (the `CompozyOS agents are up to date` step), and `CLAUDE.md` names it. Its record is
-  `docs/adr/0024-compozy-runs-the-short-loop.md`. The siblings' versions are read again at every
-  later merge (D-12) and are not quoted here. This change's record takes the next free number on
-  `origin/main` at the last merge before review; its file name carries that number today (0025, free
-  on `origin/main` at `cf34ff2`, where `suite-speed`'s record is
-  `0026-the-devkit-test-suite-runs-by-file-in-parallel.md`), and every reference to it names the file.
-- `suite-speed` (merged, not archived; record `0026-the-devkit-test-suite-runs-by-file-in-parallel.md`)
+  `docs/adr/0024-compozy-runs-the-short-loop.md`. It is archived
+  (`openspec/changes/archive/2026-11-24-compozy-driver/`): the canonical `compozy-kit-setup` spec
+  holds its text, the requirement "The kit runs the new stages in its four shells" is gone from it,
+  and the three requirements it added name `compozy-setup` (D-12, step 4). The siblings' versions are
+  read again at every later merge (D-12) and are not quoted here. This change's record takes the
+  next free number on `origin/main` at the last merge before review; its file name carries that
+  number today (0031: `origin/main` at `c663f21` holds 0025, 0026, 0027 and 0030, and the open
+  changes `forced-merge-path` and `project-slice-claim` claim 0028 and 0029 on their branches), and
+  every reference to it names the file.
+- `suite-speed` (archived; record `0026-the-devkit-test-suite-runs-by-file-in-parallel.md`)
   replaced the test command. The suite is `node scripts/test-suite.mjs [--test-name-pattern=<re>]
   [<test file>...]`: it runs every `*.test.mjs` of the folders listed in `SUITE_FOLDERS`, each file in
   a process of its own with its own `TMPDIR`, refuses a test file that imports a test file, and exits
@@ -53,18 +59,45 @@ tests are the contract.
   of this change. `CLAUDE.md`'s suite row, the suite paragraph of `CONTRIBUTING.md` (which lists the
   four folders) and the `Test suite` step of `ci.yml` name the new command; `suite-speed AC-7` and
   `suite-speed AC-8` pin those documents.
-- `delivery-train` (merged, not archived) added a sixth verb, `/devkit train`, with the replies
+- `delivery-train` (archived) added a sixth verb, `/devkit train`, with the replies
   `train-args` and the train replies, a `## Train` section of the `devkit` skill right after
   `## Waiting on GitHub`, the script `plugins/openspec/hooks/train-loop.mjs` and the suites
   `plugins/openspec/hooks/delivery-train.test.mjs` and `delivery-train-after.test.mjs`.
   `verb-unknown` now lists `change, roadmap, status, project, train`, and the skill's
   `argument-hint` reads `... | status | train | project [<name>]`. `train-loop.mjs`'s `nextAction`
   strips the old setup pointer from `mergeSetup`'s facts with its own copy of `project-loop.mjs`'s
-  regex (D-8). Its delta MODIFIES the same `change-coordination` requirement as this change (D-12,
+  regex (D-8). Its archive wrote the `change-coordination` requirement this change MODIFIES (D-12,
   step 7).
-- `stage-models` (merged, not archived) added the `models:` table and `stage-models.test.mjs`. It
+- `stage-models` (archived) added the `models:` table and `stage-models.test.mjs`. It
   names neither old skill and touches no file this plan edits beyond what D-13 lists; the setup asks
   no `models` key (requirements, Out of scope).
+- What the merge of `c663f21` brought beside the archives, and what it means here:
+  - The delivery train is on in this repository: `openspec/config.yaml` sets `devkit.delivery`
+    (`model: trunk-auto`, `train: "node scripts/test-suite.mjs && python3 scripts/check.py"`) next
+    to its `ship:` map, all `merge` (ADR 0022). A reviewed change boards and leaves on a train; the
+    departure renumbers its release above the train's numbers, and the train's merge commit is the
+    one tagged (CONTRIBUTING, D-15). The setup step's own handling of `delivery.train` is unchanged:
+    it never writes or removes it, and lists a refused one in `kept` (D-3).
+  - A merge of the base stales the evidence and reviews only when it brings one of the change's own
+    files (`stale-only-on-own-files`, `docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md`;
+    the own-files rule of `docs/openspec-flow.md`). D-12's re-reads after a merge stay; they no
+    longer imply a new review round by themselves.
+  - `archive-release-pin` (merged on train 4, not archived; `docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md`):
+    the test `change-loop docs: the design records the answers` (`change-loop-compozy.test.mjs`)
+    reads the expected CI pin from `plugins/openspec/.claude-plugin/plugin.json` through
+    `pinMismatches`, so a devkit-openspec release moves the CI pins of `docs/openspec-flow.md` and
+    edits no test (D-15). Its fixtures `plugins/openspec/hooks/fixtures/c561553/openspec-flow.before.txt`
+    and `openspec-flow.after.txt` hold the bytes of `docs/openspec-flow.md` at a past commit, the
+    sentence "The openspec-setup script resolves the tag" included; `archive-release-pin 1` and
+    `archive-release-pin 6` (`deliver-check-archive.test.mjs`) read them as they are (D-9).
+  - `CONTRIBUTING.md` asks every test file to stay under about 300 s in the suite's summary; on the
+    last recorded full run (`openspec/changes/archive-release-pin/proof/full-suite.txt`)
+    `change-loop.test.mjs` already took 371 s and `guard.test.mjs` 67 s (Risks).
+  - No code claim of this design moved: `startMode`'s verb list, `projectGate`, the reply keys of
+    D-8, `readDevkitSettings`, `trainSetting`, `deliveryConfig` and `MODEL_SHIP`, the pointer and
+    both strips, `FIX['kit-missing']`, `SUITE_FOLDERS` and the skill's headings read as before.
+    `flow-check.mjs` gained the own-files staleness only; its `schema-without-declaration` text is
+    unchanged.
 - The `devkit` skill's `##` headings on the merged tree, as `change-loop skill: the sections of D-3 to
   D-9 and the modes of start` (`change-loop-compozy.test.mjs`) pins them: `Settings, Start, On the CompozyOS driver, A new change, Loop, Owner gates, Waiting on
   GitHub, Train, Roadmap, Status, Project, Never`. `## Start`'s first item ends "When the JSON's
@@ -77,8 +110,8 @@ tests are the contract.
   `parseDevkitBlock` and `deliverySettings` (`guard.mjs`), `readDevkitSettings` (`change-loop.mjs`),
   `readTestSettings` (`flow-check.mjs`), `parseShip`, `parseMergeMethod` and `deliveryConfig`
   (`deliver-check.mjs`). `deliveryConfig` refuses a `ship:` entry that disagrees with
-  `devkit.delivery.model` (`MODEL_SHIP`: `trunk` is `pr`, `trunk-auto` is `merge`, `two-prs` takes no
-  entry).
+  `devkit.delivery.model` (`MODEL_SHIP`: `trunk` and `two-prs` are `pr`, `trunk-auto` is `merge`;
+  under `two-prs` any `ship:` entry for the schema disagrees).
 - The CI pin a project records is the commit of the tag `v<devkit-openspec version>` in
   `.github/workflows/devkit-reviews.yml`. `github-setup.mjs` writes it (its `workflow` item) in
   `merge` mode (ADR 0002, ADR 0019). Each change also records `x-devkit-version` when it opens
@@ -86,10 +119,13 @@ tests are the contract.
 - Decisions this design follows: ADR 0004 (per-project opt-in; amended), ADR 0009 (CompozyOS as a
   second driver; its Decision kept), ADR 0010 decision 1 (what lives under the project's `openspec/`),
   ADR 0018 (delivery model; and its rejected fourth downloaded checker file), ADR 0002 (merge mode
-  by opt-in), ADR 0019 (the release tag), the record
+  by opt-in), ADR 0019 (the release tag), ADR 0022 (the delivery train this repository's release
+  leaves on; D-15), the record
   `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md` (the one suite command and the
-  folders it reads; D-10, T-31), and the proposed record
-  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`.
+  folders it reads; D-10, T-31), the record
+  `docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md` (a
+  release moves the flow page's CI pins and edits no test; D-15), and the proposed record
+  `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`.
 
 ## Goals / Non-Goals
 
@@ -448,9 +484,13 @@ holding `openspec-setup` or `compozy-setup`, naming the file and the line. What 
 
 1. History, by folder or file: `.git/`, `node_modules/`, `docs/adr/`, `openspec/changes/` (the
    archive included) and `CHANGELOG.md`.
-2. The N-15 fixture folder `plugins/openspec/skills/devkit/scripts/fixtures/old-setup/`, by path:
-   it holds the bytes an old project holds, and the template of `c1ac8c4` names `openspec-setup` in
-   its comment on `merge` by design. No other fixture is skipped.
+2. Two fixture folders that hold the bytes of a past commit, by path:
+   `plugins/openspec/skills/devkit/scripts/fixtures/old-setup/` (N-15's: the bytes an old project
+   holds; the template of `c1ac8c4` names `openspec-setup` in its comment on `merge` by design) and
+   `plugins/openspec/hooks/fixtures/c561553/` (`archive-release-pin`'s: `docs/openspec-flow.md` at
+   commit `c561553`, whose pin paragraph names "the openspec-setup script"; `archive-release-pin 1`
+   and `archive-release-pin 6` compare them with the real hunks of that commit, so rewriting them
+   would change what those tests prove). No other fixture is skipped.
 3. In `openspec/specs/project-setup/spec.md` and `openspec/specs/compozy-kit-setup/spec.md` only,
    a `### Requirement:` block (from its header to the next `### Requirement:` or `## ` heading)
    whose header this change's delta MODIFIES. N-10 reads the delta's headers from
@@ -465,10 +505,11 @@ holding `openspec-setup` or `compozy-setup`, naming the file and the line. What 
    MODIFIED or untouched, holds an old name, and the spec scenario "The files of the repository"
    holds for its own requirement. No line of this change's spec deltas holds an old name (task 6.1
    greps them).
-   Until the archive of `compozy-driver` reaches the branch, the canonical `compozy-kit-setup`
-   still holds the requirement "The kit runs the new stages in its four shells", which names
-   `compozy-setup` and which `compozy-driver` REMOVES: N-10 is red until task 6.5 merges that
-   archive, by design.
+   The archive of `compozy-driver` is on the base: the canonical `compozy-kit-setup` no longer holds
+   "The kit runs the new stages in its four shells", and the delta MODIFIES all six of its
+   requirements that name `compozy-setup` (D-12, step 4), so every line of that file outside the
+   Purpose that names an old skill is in a skipped block, and N-10 turns green once tasks 6.2 to 6.4
+   are done.
 
 No test file is skipped. The tests that must hold the old names build them by concatenation
 (`'openspec' + '-setup'`, `'compozy' + '-setup'`), so no source line holds the name: N-10's own
@@ -539,7 +580,7 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
 
 ### D-11 Documents and the records
 
-- The record `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md` is the adr-author's.
+- The record `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` is the adr-author's.
   Its number is the next free number on `origin/main` at the last merge before review; its file name
   carries that number today. When a later merge of `main` takes it, the loop's `renumber-adr` step
   at that merge renames the file and moves every link. The implementation sets the status to
@@ -556,7 +597,7 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
   <date>: one verb, `/devkit setup`, with no checker copied into the project (the version pin and
   the schemas are what lives under its `openspec/`)".
 - `openspec/config.yaml` `context`, ADRs line: `<n> one setup verb replaces the two setup skills,
-  amends 0004`.
+  amends 0004`, placed in number order (after the `0030` entry while `<n>` is 0031).
 - `CHANGELOG.md`: one entry for the new marketplace version, with a `- Projects:` line saying that
   existing projects need no step and that the next re-run is `/devkit setup`.
 - The prose of `README.md`, `plugins/openspec/README.md`, `plugins/compozy/README.md`,
@@ -574,16 +615,18 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
 ### D-12 This change beside its siblings: `compozy-driver`, `delivery-train`, `stage-models` and `suite-speed`
 
 `compozy-driver` merged into `main` first (the owner's order; requirements, assumption 4), and
-`main` was merged into `project-setup` with `delivery-train` and `stage-models`, then again with
-`suite-speed`. `main` keeps moving; the plan's base is the branch's last merge of `origin/main`.
+`main` was merged into `project-setup` with `delivery-train` and `stage-models`, then with
+`suite-speed`, then with trains 1 to 4, which also brought the archives of all four. `main` keeps
+moving; the plan's base is the branch's last merge of `origin/main`.
 
-1. That merge is done (at this revision `f81f53b`, which brought `cf34ff2`). Task 1.1 confirms it
-   with an ancestor check on the fixed commit `cf34ff2`, never on the moving `origin/main` ref, so a
+1. That merge is done (at this revision `6569874`, which brought `c663f21`). Task 1.1 confirms it
+   with an ancestor check on the fixed commit `c663f21`, never on the moving `origin/main` ref, so a
    later move of `main` cannot turn it red; it runs no merge. Task 1.2 re-reads, on the base, every
-   file this design names from the four siblings, and fixes this plan where a name or path moved.
-   The siblings' record numbers and versions are read by file and are not quoted in the plan. This
-   change's record keeps the rule of D-11: the next free number on `origin/main` at the last merge
-   before review. Gate 1.4 checks that `cf34ff2` is in the branch, that `DRIVER_ROUND` holds no
+   file this design names from the four siblings and from the trains, and fixes this plan where a
+   name or path moved. The siblings' record numbers and versions are read by file and are not
+   quoted in the plan. This change's record keeps the rule of D-11: the next free number on
+   `origin/main` at the last merge before review. Gate 1.4 checks that `c663f21` is in the branch,
+   that the archives of `compozy-driver` and `delivery-train` are on it, that `DRIVER_ROUND` holds no
    `compozy`, that `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` and
    `scripts/test-suite.mjs` exist. A red part means `main` moved under the plan, and the change
    stops for the owner; if `compozy` is not built, the requirement's condition ("if `driver: compozy`
@@ -593,42 +636,52 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
 3. Its new texts naming `/compozy-setup` (`compozy-kit-missing`, `FIX['kit-missing']`,
    `compozy-driver readiness: kit-missing when the change loop is not in the workspace`, its CI step,
    its `CLAUDE.md` row, its docs) are in D-8, D-10 and the test table.
-4. Its spec delta on `compozy-kit-setup` reaches the canonical spec only when it is archived. This
-   change's delta MODIFIES the three requirements both versions share, with the `compozy-driver`
-   text. Task 6.5, after the documents of phase 6 (which do not wait on it), checks that the archive
-   is on `origin/main` and merges `origin/main` into the branch. It then adds MODIFIED blocks for the three requirements `compozy-driver` adds and that name `compozy-setup`
-   ("A re-run removes the retired files the project did not edit", "A retired file the project
-   edited stays and is named", "Inputs the kit no longer uses are dropped"), with the installer
-   named and no other change.
-5. Its record took its number at its merge (`0024-compozy-runs-the-short-loop.md`), and
-   `suite-speed`'s took the next one (`0026-the-devkit-test-suite-runs-by-file-in-parallel.md`).
-   This change's record takes the next free number on `origin/main` at the last merge before review
-   (D-11); 0025, the number its file name carries, is free on `origin/main` at `cf34ff2`.
-6. Any later merge of `main` (task 6.5's, task 6.6's, and the one before the last verify and review) becomes
-   the branch's last merge of `origin/main`. It repeats step 1's re-read for these files (the
-   project's rule: merge the base before the final review), the grep of D-13 over the suite's test
-   files (a sibling may have moved or split a suite again), and gate 1.4's content checks at the
-   paths phase 2 left:
+4. Its spec delta on `compozy-kit-setup` is archived: the canonical spec on the base holds its text.
+   This change's delta MODIFIES the three requirements the two versions shared and, written at this
+   plan revision, the three `compozy-driver` added that name `compozy-setup` ("A re-run removes the
+   retired files the project did not edit", "A retired file the project edited stays and is named",
+   "Inputs the kit no longer uses are dropped"), each copied whole from the canonical spec with the
+   installer named and no other change. Task 6.5 re-reads the six canonical blocks at each later
+   merge of `main` and rewrites a block from the canonical text where it moved.
+5. Its record took its number at its merge (`0024-compozy-runs-the-short-loop.md`), and the later
+   siblings took 0025 (`stale-only-on-own-files`), 0026 (`suite-speed`), 0027 and 0030
+   (`archive-release-pin`); the open changes `forced-merge-path` and `project-slice-claim` claim
+   0028 and 0029 on their branches. This change's record takes the next free number on
+   `origin/main` at the last merge before review (D-11); 0031, the number its file name carries, is
+   the lowest one neither on `origin/main` at `c663f21` nor claimed.
+6. Any later merge of `main` (the one before the last verify and review included) becomes the
+   branch's last merge of `origin/main`. It repeats step 1's re-read for these files (the project's
+   rule: merge the base before the final review; under the own-files rule a merge that brings none
+   of the change's own files stales no evidence or review by itself), the grep of D-13 over the
+   suite's test files (a sibling may have moved or split a suite again), tasks 6.5 and 6.6, and gate
+   1.4's content checks at the paths phase 2 left:
    `test -f plugins/openspec/hooks/compozy-driver.mjs && test -f plugins/compozy/kit/scripts/gen-agents.mjs && test -f scripts/test-suite.mjs && test ! -e plugins/compozy/skills/compozy-setup && test ! -e plugins/openspec/skills/openspec-setup && grep -q "const DRIVER_ROUND = { script: 22 };" plugins/openspec/hooks/change-loop.mjs && grep -q "plugins/openspec/skills/devkit/scripts" scripts/test-suite.mjs && grep -q "plugins/compozy/kit/scripts" scripts/test-suite.mjs`.
    A red part means `main` moved under the plan: the change stops for the owner. The plan's checks
    name fixed commits or paths, never the position of `origin/main`, so they hold after each merge.
-7. `delivery-train` and this change MODIFY the same `change-coordination` requirement, "The devkit
-   command reads its verb". Whichever archives second replaces the other's block, so each block must
-   hold both verbs. This change's block is `delivery-train`'s text with `setup` added (the verb
-   sentence with all six verbs, `delivery-train`'s two train scenarios, the unknown-verb scenario
-   listing six commands in the order of D-7, and this change's two setup scenarios); no sentence of
-   `delivery-train`'s block is dropped or reworded. Task 6.6, beside 6.5, checks that `origin/main`
-   holds the archive of `delivery-train`, merges it, and re-reads the canonical requirement: if the
-   archived text differs from `delivery-train`'s delta as read here, the block is written again from
-   the canonical text plus `setup`, with no other change. `stage-models`'s `change-coordination`
-   delta MODIFIES another requirement ("Every end of a run is marked in the session's record"), so
-   it does not overlap.
+7. `delivery-train`'s archive wrote the canonical `change-coordination` requirement "The devkit
+   command reads its verb" that this change MODIFIES. This change's block is that canonical text
+   with `setup` added (the verb sentence with all six verbs, the two train scenarios, the
+   unknown-verb scenario listing six commands in the order of D-7, and this change's two setup
+   scenarios); no sentence of the canonical block is dropped or reworded. Read on `6569874`, the
+   canonical block equals the delta's block minus `setup`, and so does "The command runs only in a
+   project set up for devkit" minus the `/devkit setup` wording. Task 6.6 re-reads both canonical
+   requirements at each later merge: where one moved, the block is written again from the canonical
+   text plus `setup`, with no other change. `stage-models`'s archived `change-coordination` delta
+   MODIFIED another requirement ("Every end of a run is marked in the session's record"), so it
+   does not overlap.
 
 ### D-13 Existing tests this change touches
 
 Every row was found by grepping the test files of the suite's folders on the base (this branch after
-its last merge of `origin/main`, `suite-speed` included) for `openspec-setup`, `compozy-setup`,
-`skills/devkit/SKILL.md`, the old reply texts, the verb lists and the skill sentences. Each row names
+its last merge of `origin/main`, `6569874`) for `openspec-setup`, `compozy-setup`,
+`skills/devkit/SKILL.md`, the old reply texts, the verb lists and the skill sentences. The merge of
+`c663f21` added no test that names an old skill and moved no row: it changed
+`change-loop-compozy.test.mjs` (the skill sentence `release-merge-conflict 16` quotes now reads
+"`verify` and `review` for what the merge made stale", outside the Setup text; the literal pin lines
+of `change-loop docs: the design records the answers` were replaced by the manifest read),
+`delivery-train-after.test.mjs`, `deliver-check*.test.mjs`, `conduct-check.test.mjs`,
+`flow-check.test.mjs` and `release-merge.test.mjs`, and every test name of the rows below was found
+again by name. Each row names
 the file the test lives in now, the test by its name, the invariant, the layer that owns it and the
 suite. No row gives a line number: the test is found by its name. Every file named here is a file
 of the suite (`node scripts/test-suite.mjs` runs it in a process of its own); no test file imports
@@ -686,7 +739,10 @@ pins (`suite-speed AC-7` and `suite-speed AC-8`: the one command in `CLAUDE.md`,
 `plugins/openspec/README.md` and `openspec/config.yaml`, no old command outside the records, the
 measured time) keep that text: tasks 2.8 and 6.2 edit only the folder names and the setup prose
 around it. `plugins/compozy/skills/test-tmp.mjs` does not move (`test-tmp.test.mjs` pins it), so
-the kit tests import it from their new depth (D-10).
+the kit tests import it from their new depth (D-10). `archive-release-pin 1` and
+`archive-release-pin 6` (`deliver-check-archive.test.mjs`) read the `c561553` fixtures, which keep
+their bytes (D-9, point 2). `change-loop docs: the design records the answers` needs no edit for the
+release: it reads the pin from the manifest, and D-15 moves the pins of `docs/openspec-flow.md`.
 
 New tests. Every name starts `setup AC-<n> <area>: `. Each fails on the base, except N-6, N-7 and
 N-16, which pin behaviour that already holds, and N-19, which passes once task 4.1's two files
@@ -769,10 +825,25 @@ with the reason, and the owner decides at the evidence whether it counts.
 devkit-openspec, devkit-compozy and the marketplace each take the next free minor version on
 `origin/main` at the last merge before review. The version goes in `plugin.json` and
 `marketplace.json`, with a `CHANGELOG.md` entry. devkit-core keeps its version: no file of it
-changes (T-27 is dropped). `scripts/test-suite.mjs` is a repository script, shipped by no pack. The tag `v<devkit-openspec version>` is
-pushed after the merge by the delivery loop (`release_tag`). This repository's `.compozy/` is
-installed again after the devkit-compozy bump, so its manifest records the new pack version
-(`adoption.test.mjs`).
+changes (T-27 is dropped). `scripts/test-suite.mjs` is a repository script, shipped by no pack.
+
+The devkit-openspec bump moves every CI pin of `docs/openspec-flow.md` (the lines `pinsIn` reads:
+the `# pinned to the commit of v<x>` comments of the CI snippet and the "Pin the commit sha of the
+release tag (`v<x>` above)" sentence) to `v<the new version>`, and edits no test: the test
+`change-loop docs: the design records the answers` asserts `pinMismatches(flow, version)` with
+`version` read from `plugins/openspec/.claude-plugin/plugin.json` (ADR 0030; CONTRIBUTING, release
+step). Gate 6.10 runs that test.
+
+This repository delivers on a delivery train (`devkit.delivery.train` in `openspec/config.yaml`,
+ADR 0022). The change's head carries the versions above; once boarded, the departure renumbers its
+release above the train's numbers (`release-merge.mjs --merge`, which also resolves the pin lines of
+`docs/openspec-flow.md`), and the train's merge commit is tagged `v<the train's version>` when the
+train's release changes devkit-openspec's version; the change's intermediate version gets no tag
+(CONTRIBUTING). This repository's `.compozy/` is installed again after the devkit-compozy bump, so
+the `pack` field of `.compozy/kit-manifest.json` records the new pack version. No test pins that
+field (`adoption.test.mjs` pins the installed files, the inputs and the digests), and
+`release-merge.mjs` does not rewrite it, so a renumbering on the train leaves it at the head's
+version, which the next install corrects.
 
 ## Risks / Trade-offs
 
@@ -823,8 +894,8 @@ Files to delete: `plugins/openspec/skills/openspec-setup/SKILL.md`,
 D-10, D-11, D-13.
 
 Estimate: optimistic 27 h, likely 38 h, pessimistic 56 h (the pessimistic case: more sibling merges
-that move or split the files this plan names, two archive merges in phase 6, or the real runs
-needing host workarounds).
+that move or split the files this plan names, a canonical block of task 6.5 or 6.6 moved by a
+later merge, or the real runs needing host workarounds).
 
 | Component | Hours | Type | Risk |
 |---|---|---|---|
@@ -834,35 +905,41 @@ needing host workarounds).
 | Start mode, `BUILT_DRIVERS`, replies and messages, the two pointer strips, N-1 to N-9, N-18, T-7 to T-22, T-30 (P13) | 5.5 | Core | LOW |
 | Moves, the suite's folder list, path fixes, regenerated agents, `.compozy/`, CI (D-10, T-3 to T-5, T-23, T-28, T-31) | 4.5 | Migration | MEDIUM |
 | The `## Setup` section, `## Start` on every driver, `## Never`, ship-change, N-10 to N-17, T-29, T-30 (hint) | 5.5 | Core | MEDIUM |
-| Documents, ADRs, Purpose edits, the two delta re-reads (6.5, 6.6), catalog, changelog, versions | 4 | Documentation | LOW |
+| Documents, ADRs, Purpose edits, the two delta re-reads (6.5, 6.6), catalog, changelog, versions and the flow page's CI pins | 4 | Documentation | LOW |
 | Whole suite runs and fixes | 2 | Testing | MEDIUM |
 | Real runs R-1 to R-6 | 2.5 | Testing | MEDIUM |
 
 | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
 | `compozy-driver` not merged, or merged with `compozy` still not built | LOW | HIGH | gate 1.4 stops the change before any code; the owner decides |
-| `compozy-driver` merged but not archived by the last phase | MEDIUM | MEDIUM | task 6.5 waits on it, after the documents; the delta revision and N-10's green run are the only things that need it |
-| `delivery-train` and this change archive in either order and one block of "The devkit command reads its verb" replaces the other | MEDIUM | HIGH | this change's block is `delivery-train`'s text plus `setup` (D-12, step 7), so either order keeps all six verbs; task 6.6 re-reads the archived text and rewrites the block from it |
+| A later merge of `main` moves a canonical `compozy-kit-setup` block this delta MODIFIES | LOW | MEDIUM | the six blocks are copied whole from the canonical text on `6569874` (D-12, step 4); task 6.5 re-reads them at each later merge and rewrites a moved block from the canonical text |
+| A sibling archived after this plan MODIFIES "The devkit command reads its verb" again, and this change's archive drops its text | LOW | HIGH | this change's block is the canonical text plus `setup` (D-12, step 7); task 6.6 re-reads the canonical requirement at each later merge and rewrites the block from it |
 | A sibling's copy of a mechanism this plan changes is missed (as `train-loop.mjs`'s pointer strip was) | LOW | MEDIUM | one helper `withoutSetupPointer` for every strip (D-8); N-10 fails on any old name left in a script; task 1.2's re-read greps every file the siblings added |
 | A pinned text missed by the grep | MEDIUM | LOW | the whole suite in gates 2.9 and 7.8; N-10 fails on any old name left |
 | The moved or new setup tests drop out of the suite while every gate stays green (`SUITE_FOLDERS` reads a missing folder as empty) | MEDIUM | HIGH | T-31 moves the folder list with the files in task 2.3; every phase gate names its test files as arguments, which the script refuses with exit 2 when they are not in its folders; N-19 pins the two new files in the suite's list |
 | Regenerated agents drift from `.compozy/` | LOW | MEDIUM | `gen-agents.mjs --check` and `adoption.test.mjs` in the gates |
 | The host's `-p` mode cannot run a typed skill with answers by `--resume` | LOW | MEDIUM | D-14: an interactive session run instead, recorded the same way |
+| `change-loop.test.mjs` grows further above the 300 s per file that `CONTRIBUTING.md` asks (371 s on the last recorded full run) | MEDIUM | LOW | the start tests it gains (N-1 to N-5, N-8, N-16) call `startMode` in a scratch folder, about a second each; a split of the file is its own change, as `CONTRIBUTING.md` describes it (by section heading, no test renamed), and is not widened into this one; the evidence names the file's time |
 | The suite's long run on a full machine | MEDIUM | LOW | the whole suite (`node scripts/test-suite.mjs`) runs only in gates 2.9 and 7.8, as a background command of the tool; the phase gates name their files |
 | A re-run edits `openspec/config.yaml` outside the block | LOW | HIGH | `fill` (D-3) decides it in a script, B-15 tests it, N-17 pins step 5's sentence, R-2 compares the bytes |
 | A later merge of `main` takes the number this change's record carries today | LOW | LOW | every link to the record names its file; the record's number is the next free number on `origin/main` at the last merge before review, and the loop's renumber step at that merge moves every link (D-11, task 6.7) |
 
 Assumptions (where the plan breaks if reality differs):
 
-- The base holds `compozy-driver` as merged: `DRIVER_ROUND = { script: 22 }`, the kit under
-  `skills/compozy-setup/` with `gen-agents.mjs`, its record
-  `docs/adr/0024-compozy-runs-the-short-loop.md` (requirements, assumption 4; gate 1.4; task 1.2).
-- The base holds `suite-speed` as merged at `cf34ff2`: `node scripts/test-suite.mjs` is the one
-  suite command and `SUITE_FOLDERS` lists the folders it reads (its record
-  `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`; gate 1.4; task 1.2).
-- `delivery-train` stays as merged on the base until its archive: the verb `train`, the `## Train`
-  section right after `## Waiting on GitHub`, `train-loop.mjs` and its change-coordination delta
-  (D-12, step 7; task 6.6).
+- The base holds `compozy-driver` merged and archived: `DRIVER_ROUND = { script: 22 }`, the kit
+  under `skills/compozy-setup/` with `gen-agents.mjs`, its record
+  `docs/adr/0024-compozy-runs-the-short-loop.md`, its text in the canonical `compozy-kit-setup`
+  spec (requirements, assumption 4; gate 1.4; task 1.2).
+- The base holds `suite-speed` merged and archived (in the branch since `cf34ff2`):
+  `node scripts/test-suite.mjs` is the one suite command and `SUITE_FOLDERS` lists the folders it
+  reads (its record `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`; gate 1.4;
+  task 1.2).
+- The base holds `delivery-train` merged and archived: the verb `train`, the `## Train` section
+  right after `## Waiting on GitHub`, `train-loop.mjs`, and its text in the canonical
+  `change-coordination` requirement this change MODIFIES (D-12, step 7; task 6.6).
+- This repository keeps the delivery train on (`devkit.delivery` in `openspec/config.yaml`) and the
+  pin test reads the manifest (ADR 0030), as on `c663f21`: D-15's release and the Workflow
+  follow-up of `tasks.md` follow both.
 - `--plugin-dir` places packs as siblings named by folder (`plugins/openspec`, `plugins/compozy`),
   as earlier live checks used it (`openspec/changes/archive/2026-11-22-project-phases/tasks.md`,
   task 5.2).
@@ -870,9 +947,11 @@ Assumptions (where the plan breaks if reality differs):
   (`upfront AC-1 skill: devkit-session is model-invocable, ...` in `roadmap-loop-followups.test.mjs`
   relies on it for the `devkit` skill).
 
-Dependencies: `compozy-driver` merged (D-12; its archive for task 6.5); `delivery-train` merged
-(the verb `train`, D-7, D-8; its archive for task 6.6); `stage-models` merged (no overlap, D-12
-step 7); `suite-speed` merged (the suite command and `SUITE_FOLDERS`, D-10, T-31; no spec delta,
-so its archive is not waited on); the archived
+Dependencies: `compozy-driver` archived (D-12; its canonical text for task 6.5); `delivery-train`
+archived (the verb `train`, D-7, D-8; its canonical text for task 6.6); `stage-models` archived (no
+overlap, D-12 step 7); `suite-speed` archived (the suite command and `SUITE_FOLDERS`, D-10, T-31);
+`archive-release-pin` merged on train 4 (the pin test reads the manifest, D-15; not archived, and
+nothing here waits on its archive); `stale-only-on-own-files` archived (the own-files rule, D-12
+step 6); the archived
 `delivery-models` (the delivery keys and `MODEL_SHIP`), `change-version-pin` (the pin this step
 leaves) and `gh-version-check` (step 1's `gh` line).

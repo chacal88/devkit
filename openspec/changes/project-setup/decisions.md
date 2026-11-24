@@ -1,11 +1,11 @@
 <!-- devkit-stage decisions result=passed attempt=1 commit=df0beb015918e8ea5344202a3eeb41ebbfdda78c -->
 # Decisions and ADRs
 
-- ADR: `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md` — One setup verb, `/devkit setup`, replaces the two setup skills
+- ADR: `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` — One setup verb, `/devkit setup`, replaces the two setup skills
 
 Notes for the planner:
 
-- The record amends ADR 0004 (its Decision and Consequences name `openspec-setup`) and keeps ADR 0009's Decision; ADR 0009 does not name `compozy-setup`, so it needs no amendment. Its number 0025 is final unless a later merge of `main` takes it (`origin/main` holds 0022 to 0024 today; 0024 is the `compozy-driver` record): then the record takes the next free number at the change's last merge of `main` before review, and every link to it moves with it.
+- The record amends ADR 0004 (its Decision and Consequences name `openspec-setup`) and keeps ADR 0009's Decision; ADR 0009 does not name `compozy-setup`, so it needs no amendment. Its number 0031 is final unless a later merge of `main` takes it: `origin/main` at `c663f21` holds 0025 (`stale-only-on-own-files`), 0026 (`suite-speed`), 0027 and 0030 (`archive-release-pin`), and the open changes `forced-merge-path` and `project-slice-claim` claim 0028 and 0029 on their branches, so 0031 is the lowest number neither on `main` nor claimed (it replaced 0025, which `stale-only-on-own-files` took). When a later merge finds it taken, the record takes the next free number at the change's last merge of `main` before review, and every link to it moves with it.
 - `docs/coordination-design.md` needs no amending record: ADR 0010, decision 1, lists the configuration, the roadmap and the schemas, not checker code. Its Open points line on project setup is answered in that doc ("answered by the change project-setup"), as other changes answered theirs, reading "the checker" as the version pin.
 - The driver rule, the `devkit:` block's questions and the re-run behaviour use keys earlier records decided and are easy to reverse: no record.
 - The ADR list in `openspec/config.yaml` (`context`, ADRs line) and the dated Note on ADR 0004 that the project adds when a record amends it are the planner's edits, written after plan approval; this stage did not edit them.

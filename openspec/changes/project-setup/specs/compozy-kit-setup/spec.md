@@ -44,6 +44,38 @@ template and write it only when the owner accepts that file.
 - **WHEN** `.compozy/` has no record of digests and its `config.toml` differs from the current template
 - **THEN** `config.toml` is treated as edited: shown, and left in place until the owner accepts it
 
+### Requirement: A re-run removes the retired files the project did not edit
+On a re-run, each file of the old kit (`agents/tech-lead/AGENT.md`, `agents/dev/AGENT.md`,
+`agents/qa/AGENT.md`, `agents/design/AGENT.md` and `loops/openspec-change/loop.yaml`) whose bytes
+match its recorded digest SHALL be deleted, with its folder when the folder is left empty, and
+reported as removed.
+
+#### Scenario: The old kit untouched
+- **WHEN** the kit installer runs over a project that has the old kit as it installed it
+- **THEN** the four old agents and the old loop are deleted and reported, and the new agents and loops are written
+
+### Requirement: A retired file the project edited stays and is named
+On a re-run, a retired file that differs from its recorded digest, or has none, SHALL be left in
+place and named in the run's output for the owner to decide; it SHALL be deleted only when the owner
+accepts that file.
+
+#### Scenario: A hand-edited old agent
+- **WHEN** the project edited `.compozy/agents/qa/AGENT.md` and the kit installer runs again
+- **THEN** that file stays, the output names it as edited and kept, and the other retired files are deleted
+
+#### Scenario: The owner accepts the removal
+- **WHEN** the owner answers yes for that file and the run is repeated with it accepted
+- **THEN** the file is deleted and reported as removed
+
+### Requirement: Inputs the kit no longer uses are dropped
+A re-run SHALL drop each recorded input the current kit no longer has a placeholder for, name it in
+the output, and SHALL NOT fail because of it; an input given on the command line that the kit does
+not have SHALL still be a usage error.
+
+#### Scenario: The old planner input
+- **WHEN** the record holds `__PLANNER__` from the old kit and the kit installer runs again
+- **THEN** the run completes, the output names the input as dropped, and the new record does not hold it
+
 ## ADDED Requirements
 
 ### Requirement: The kit installer ships in devkit-compozy with no setup skill

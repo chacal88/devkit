@@ -2,9 +2,10 @@
 # Tasks
 
 Change: `project-setup` · Date: 2026-11-23, revised 2026-11-24 · Owner: Kaue (chacal88) · Base:
-the branch after its last merge of `origin/main` (at this revision the merge `f81f53b`, which brought
-`cf34ff2`: `suite-speed`, whose record is `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`,
-on top of `compozy-driver`, `delivery-train` and `stage-models`; the four merged, not archived)
+the branch after its last merge of `origin/main` (at this revision the merge `6569874`, which brought
+`c663f21`: trains 1 to 4, the delivery train on in this repository, and the archives of
+`compozy-driver`, `delivery-train`, `stage-models` and `suite-speed`, whose record is
+`docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`)
 
 Work only in this change's worktree, on its branch. Every rule, name, text and path is in
 `design.md`: D-1 the verb, D-2 the driver list, D-3 the block writer, D-4 the kit installer's
@@ -51,11 +52,12 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
 ## 1. Setup: the base as the last merge of `main` left it
 
 - [ ] 1.1 Confirm the base as it is: the branch holds its last merge of `origin/main`, which brought
-  `suite-speed` (`cf34ff2`) and, before it, `compozy-driver`, `delivery-train` and `stage-models`
-  (D-12, step 1). Run no fetch and no merge here: the next merges are task 6.5's, task 6.6's and the
-  last one before review, which the Workflow follow-up re-checks as the release rule says. The check
-  names fixed commits, never a moving ref, so a later move of `main` does not turn it red. Check:
-  `git merge-base --is-ancestor cf34ff2 HEAD` exits 0, and `git status --short` is empty.
+  `c663f21` (trains 1 to 4 and the archives of `compozy-driver`, `delivery-train`, `stage-models`
+  and `suite-speed`; D-12, step 1). Run no fetch and no merge here: the next merge is the last one
+  before review, which the Workflow follow-up re-checks as the release rule says, and any merge
+  before it repeats tasks 6.5 and 6.6. The check names fixed commits, never a moving ref, so a later
+  move of `main` does not turn it red. Check: `git merge-base --is-ancestor c663f21 HEAD` exits 0,
+  and `git status --short` is empty.
 - [ ] 1.2 Re-read, on the base, every file `design.md` names from the four siblings.
   From `compozy-driver`: `change-loop.mjs` (`DRIVER_ROUND`, `compozy-kit-missing`),
   `compozy-driver.mjs` (`FIX`), `plugins/compozy/skills/compozy-setup/` (scripts, templates,
@@ -64,12 +66,16 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   `plugins/openspec/hooks/delivery-train.test.mjs` and `delivery-train-after.test.mjs` (T-30, N-18),
   the `verb-unknown` texts and the verb list of `startMode`, the `## Train` and
   `## On the CompozyOS driver` sections and the frontmatter of `plugins/openspec/skills/devkit/SKILL.md`,
-  and `openspec/changes/delivery-train/specs/change-coordination/spec.md`. From `stage-models`:
+  and the canonical requirement "The devkit command reads its verb" of
+  `openspec/specs/change-coordination/spec.md` (the archive of `delivery-train`). From `stage-models`:
   `plugins/openspec/hooks/stage-models.test.mjs` and the `models:` lines of `change-loop.mjs`'s
   settings reader. From `suite-speed`: `scripts/test-suite.mjs` (`SUITE_FOLDERS`, the refusal of a
   test file that imports a test file), `plugins/openspec/hooks/test-suite.test.mjs`, the suite
   paragraph of `CONTRIBUTING.md`, the suite row of `CLAUDE.md` and the `Test suite` step of `ci.yml`.
-  Then run the grep of D-13 over every test file of the suite's folders. The siblings' records and
+  From the trains: `devkit.delivery` in `openspec/config.yaml`, the release step of
+  `CONTRIBUTING.md` (the CI pins of `docs/openspec-flow.md`, no test edited; ADR 0030), the test
+  `change-loop docs: the design records the answers` and the fixtures
+  `plugins/openspec/hooks/fixtures/c561553/` (D-9, point 2). Then run the grep of D-13 over every test file of the suite's folders. The siblings' records and
   versions are read by file name and are not quoted in this plan: this change's record and versions
   take the next free ones on `origin/main` at the last merge before review (tasks 6.7, 6.8). A name or
   path that moved is drift: fix it in `design.md` and `tasks.md` without asking. A text that no
@@ -80,7 +86,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
 - [ ] 1.3 Create `openspec/changes/project-setup/proof/` with a `README.txt` that lists the files the
   phases will save there (`red-<phase>.txt`, `r1-first-install.txt` to `r6-typed-only.txt`, D-14).
   Check: `test -s openspec/changes/project-setup/proof/README.txt`.
-- [ ] 1.4 Gate: `git merge-base --is-ancestor cf34ff2 HEAD && test -f plugins/openspec/hooks/compozy-driver.mjs && test -f plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs && test -f scripts/test-suite.mjs && grep -q "const DRIVER_ROUND = { script: 22 };" plugins/openspec/hooks/change-loop.mjs` green; when a part is red, `main` moved under the plan (the base lacks a sibling, or `compozy` is not built): stop for the owner (D-12, step 1). Covers no AC; it is the precondition of every one.
+- [ ] 1.4 Gate: `git merge-base --is-ancestor c663f21 HEAD && test -d openspec/changes/archive/2026-11-24-compozy-driver && test -d openspec/changes/archive/2026-11-24-delivery-train && test -f plugins/openspec/hooks/compozy-driver.mjs && test -f plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs && test -f scripts/test-suite.mjs && grep -q "const DRIVER_ROUND = { script: 22 };" plugins/openspec/hooks/change-loop.mjs` green; when a part is red, `main` moved under the plan (the base lacks a sibling, or `compozy` is not built): stop for the owner (D-12, step 1). Covers no AC; it is the precondition of every one.
 
 ## 2. The setup files move, with no behaviour change (AC-2, AC-9)
 
@@ -263,13 +269,14 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
 ## 6. Documents, records and release (AC-2)
 
 - [ ] 6.1 Write N-10 in `plugins/openspec/hooks/guard.test.mjs` with the skips of D-9 (history,
-  the old-setup fixture, and the canonical requirement blocks this change's delta MODIFIES), its
+  the old-setup and `c561553` fixture folders, and the canonical requirement blocks this change's
+  delta MODIFIES), its
   needles built by concatenation, and rewrite T-6's quoted literal the same way (D-9, D-13; N-8
   and T-14 were written so in task 3.1). Run it on the tree as it is:
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern="^setup AC-2 tree" plugins/openspec/hooks/guard.test.mjs`.
   Check: `openspec/changes/project-setup/proof/red-6.txt` holds the run, and N-10 fails in it, naming
-  the files of 6.2 to 6.4 and, until 6.5, the canonical `compozy-kit-setup` requirement "The kit runs
-  the new stages in its four shells", and
+  the files of 6.2 to 6.4 and no line inside a canonical requirement block this change's delta
+  MODIFIES, and
   `grep -rlE "openspec-setup|compozy-setup" openspec/changes/project-setup/specs/` prints nothing
   (the ADDED blocks are not skipped after the archive, D-9 point 3).
 - [ ] 6.2 Rewrite the prose that names the old skills (D-11): `README.md`, `CONTRIBUTING.md`,
@@ -291,43 +298,54 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   step of the last merge before review (task 6.7) moves it with every other reference.
   Check: the Open points list of `docs/coordination-design.md` holds no "Project setup" bullet, and
   the `change-loop docs: the design records the answers` test passes in gate 6.10.
-- [ ] 6.5 The delta of `compozy-driver` waits here, after the documents. Check that `origin/main` holds
-  the archive of `compozy-driver` (`git fetch` then
-  `git ls-tree -d --name-only origin/main openspec/changes/archive/` names a folder ending in
-  `-compozy-driver`). If it does not, stop the phase and wait (D-12, step 4). Then merge
-  `origin/main` into the branch, re-read and run the content checks of D-12 step 6, and add to
-  `openspec/changes/project-setup/specs/compozy-kit-setup/spec.md` the MODIFIED blocks of the three
-  requirements D-12 step 4 lists, copied whole from the canonical spec with `compozy-setup` replaced
-  by "the kit installer". Check: `openspec validate project-setup --type change --strict` exits 0
-  and N-10 passes.
-- [ ] 6.6 Beside 6.5, the other overlap (D-12, step 7). Check that `origin/main` holds the archive of
-  `delivery-train` (`git fetch` then
-  `git ls-tree -d --name-only origin/main openspec/changes/archive/` names a folder ending in
-  `-delivery-train`). If it does not, stop the phase and wait. Then merge `origin/main` into the
-  branch, re-read and run the content checks of D-12 step 6, and compare the requirement "The devkit
-  command reads its verb" of `openspec/specs/change-coordination/spec.md` with the MODIFIED block of
-  `openspec/changes/project-setup/specs/change-coordination/spec.md`: every sentence and scenario
-  of the canonical block is in this change's block, which differs from it only by `setup` (the verb
-  sentence, the two setup scenarios, `/devkit setups` and `/devkit setup` in the unknown-verb
-  scenario). Where the archived text moved, write the block again from it plus `setup`, with no other
-  change. Check: `openspec validate project-setup --type change --strict` exits 0,
+- [ ] 6.5 The `compozy-kit-setup` delta beside the canonical spec (D-12, step 4). The archive of
+  `compozy-driver` is on the base, and the delta already MODIFIES the six canonical requirements that
+  name `compozy-setup`, each copied whole with the installer named. On the branch as it is, and again
+  after every later merge of `origin/main`, compare each of those six blocks with the canonical one
+  in `openspec/specs/compozy-kit-setup/spec.md`: they differ only where the canonical text names
+  `compozy-setup`. Where a canonical block moved, write the delta block again from it, with
+  `compozy-setup` replaced by "the kit installer" and no other change. Check:
+  `openspec validate project-setup --type change --strict` exits 0,
+  `grep -c "^### Requirement:" openspec/changes/project-setup/specs/compozy-kit-setup/spec.md` prints
+  7 (six MODIFIED, one ADDED), and N-10 passes in gate 6.10.
+- [ ] 6.6 The `change-coordination` delta beside the canonical spec (D-12, step 7). The archive of
+  `delivery-train` is on the base. On the branch as it is, and again after every later merge of
+  `origin/main`, compare the requirements "The devkit command reads its verb" and "The command runs
+  only in a project set up for devkit" of `openspec/specs/change-coordination/spec.md` with the
+  MODIFIED blocks of `openspec/changes/project-setup/specs/change-coordination/spec.md`: every
+  sentence and scenario of each canonical block is in this change's block, which differs from it
+  only by `setup` (the verb sentence, the two setup scenarios, `/devkit setups` and `/devkit setup`
+  in the unknown-verb scenario, and `/devkit setup` named where the canonical text says "the setup
+  command"). Where a canonical block moved, write the block again from it plus `setup`, with no
+  other change. Check: `openspec validate project-setup --type change --strict` exits 0,
   `grep -c "#### Scenario: The train verb" openspec/changes/project-setup/specs/change-coordination/spec.md`
-  prints 2, and every `#### Scenario:` line of the canonical requirement is in the block.
+  prints 2, and every `#### Scenario:` line of the two canonical requirements is in the delta.
 - [ ] 6.7 Only after `approval.md` holds the owner's approval of this plan: add the header line and
   the dated Note of D-11 to `docs/adr/0004-devkit-per-project.md`. Set the record of
   `decisions.md` to `accepted`, quoting `approval.md`. The record's number is the next free one on
   `origin/main` at the last merge before review; its file name carries it today. Refer to it by
-  its file name, and write `<n>` in the Note and the header line of D-11 as that number. When the
+  its file name, and write `<n>` in the Note and the header line of D-11 as that number. The record
+  was renamed to `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` at the plan
+  revision of 2026-11-24 (its old number 0025 went to `stale-only-on-own-files`); the guard kept the
+  plan stage from editing it, so this task also sets its title line to `# ADR 0031: ...` and its
+  `Number:` line to the reason of `decisions.md` (0031: the lowest number neither on `origin/main`
+  nor claimed by an open change), with no other change to the record. When the
   last merge before review finds the number taken, the loop's renumber step at that merge renames the
   file with `git mv` and moves every link, the ones this task wrote included. Check:
-  `grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md` prints 1 and the record's
-  `Status:` line reads `accepted`.
+  `grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md` prints 1, the record's
+  `Status:` line reads `accepted`, and
+  `grep -c "^# ADR 0031: " docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` prints 1
+  (or the number the renumber step gave it).
 - [ ] 6.8 Bump devkit-openspec, devkit-compozy and the marketplace, each to the next free minor
   version on `origin/main` at the last merge before review. Use `plugins/openspec/.claude-plugin/plugin.json`,
-  `plugins/compozy/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`. Add the
-  `CHANGELOG.md` entry of D-11 and D-15. Install this repository's kit again, so its manifest
-  records the new devkit-compozy version. Check: `python3 scripts/check.py` exits 0 (the changelog
-  check) and
+  `plugins/compozy/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`. Move every CI
+  pin of `docs/openspec-flow.md` to `v<the new devkit-openspec version>` and edit no test: the test
+  `change-loop docs: the design records the answers` reads the version from the manifest (D-15,
+  ADR 0030). Add the `CHANGELOG.md` entry of D-11 and D-15. Install this repository's kit again, so
+  the `pack` field of its manifest records the new devkit-compozy version. Check:
+  `python3 scripts/check.py` exits 0 (the changelog check), the task's commit touches no test file
+  (`change-loop-compozy.test.mjs` keeps only the T-26 and T-28 edits of phases 2 and 5),
+  `change-loop docs: the design records the answers` passes in gate 6.10, and
   `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/compozy/kit/scripts/adoption.test.mjs`
   exits 0.
 - [ ] 6.9 Set the stage headers of `proposal.md`, `design.md`, the three spec files and `tasks.md`
@@ -366,10 +384,16 @@ worktree's `plugins/core`, `plugins/openspec` and `plugins/compozy`. Each saves 
 ## Workflow follow-up
 
 - Merge `origin/main` before the last verify and review, as the release rule says (D-12, step 6).
-  That merge becomes the branch's last merge of `origin/main`. After it, repeat task 1.2's re-read
-  and the content checks of D-12 step 6 (gate 1.4's checks at the paths phase 2 left, with the
-  ancestor check naming the `origin/main` commit that merge brought); a red part stops the change
-  for the owner. At that merge the record takes its number and the versions are checked again as
-  tasks 6.7 and 6.8 say.
-- After the merge: tag `v<devkit-openspec version>` (the delivery loop's `tag-release` step), the
-  retro, then archive and tick `project-setup` in `openspec/roadmap.md`.
+  That merge becomes the branch's last merge of `origin/main`. After it, repeat task 1.2's re-read,
+  tasks 6.5 and 6.6, and the content checks of D-12 step 6 (gate 1.4's checks at the paths phase 2
+  left, with the ancestor check naming the `origin/main` commit that merge brought); a red part stops
+  the change for the owner. At that merge the record takes its number and the versions are checked
+  again as tasks 6.7 and 6.8 say. Under the own-files rule a later merge of `main` that brings none
+  of this change's own files stales no evidence or review by itself.
+- Delivery: this repository runs the delivery train (`devkit.delivery.train`, ADR 0022). Once the
+  change is boarded it never merges `main` for a sibling; the departure joins its head, renumbers
+  its release above the train's numbers and resolves the pin lines of `docs/openspec-flow.md`
+  (`release-merge.mjs --merge`, D-15). After the train's merge: the train's merge commit is tagged
+  `v<the train's version>` when its release changes devkit-openspec's version (this change's own
+  version gets no tag), then the retro, then archive and tick `project-setup` in
+  `openspec/roadmap.md`.

@@ -3,7 +3,7 @@
 
 Change: `project-setup` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (sources: `requirements.md`, `decisions.md`, the proposed record
-`docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`, whose number is the next free
+`docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`, whose number is the next free
 number on `origin/main` at the last merge before review (its file name carries it today);
 `docs/coordination-design.md`, Open points, "Project setup"). Roadmap line `project-setup`
 (round 26), item 3 of the `orchestrator-replan` retro.
@@ -50,8 +50,9 @@ install the kit when the owner wants it.
   uses that is not enabled in `.claude/settings.json`.
 - Documents: the open point of `docs/coordination-design.md` is answered. ADR 0004 gets a dated Note
   and an "Amended by" line, written by the implementation after plan approval. The record
-  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md` is accepted, with the next free
-  number on `origin/main` at the last merge before review. Releases of devkit-openspec, devkit-compozy and the marketplace.
+  `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` is accepted, with the next free
+  number on `origin/main` at the last merge before review. Releases of devkit-openspec, devkit-compozy and the marketplace;
+  the devkit-openspec release moves the CI pins of `docs/openspec-flow.md` and edits no test (ADR 0030).
 
 Non-goals: everything under "Out of scope" in `requirements.md` (the `script` driver; changing or
 copying the checkers; a task-source key; writing `budget` or `design:`; re-running setup in the
@@ -98,8 +99,8 @@ None.
   outside any skill folder and how `/devkit setup` finds it.
 - `change-coordination`: `/devkit` reads `setup` as a verb that runs before the project gate, on
   every driver, beside the five verbs `main` holds (`train` included). The reply for a project not
-  set up names `/devkit setup`. The delta's block is `delivery-train`'s text plus `setup`, because
-  both changes modify the same requirement (`design.md` D-12, step 7).
+  set up names `/devkit setup`. The delta's block is the canonical text, as the archive of
+  `delivery-train` left it, plus `setup` (`design.md` D-12, step 7).
 
 ## Impact
 
@@ -124,27 +125,36 @@ None.
   `.compozy/` installed again; `.github/workflows/ci.yml`; `CLAUDE.md`,
   `CONTRIBUTING.md`, `README.md`, `docs/getting-started.md`, `docs/openspec-flow.md`,
   `docs/compozy-kit.md`, `docs/conventions.md`, `docs/coordination-design.md`, `docs/catalog.md`;
-  ADR 0004 and the record `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`;
+  ADR 0004 and the record `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`;
   `openspec/config.yaml` (the ADR list); the canonical Purpose of the two
   capability specs; `CHANGELOG.md`, `.claude-plugin/marketplace.json`.
 - Versions: devkit-openspec, devkit-compozy and the marketplace each take the next free minor version
-  on `origin/main` at the last merge before review. devkit-openspec is tagged `v<that version>` after
-  the merge (CONTRIBUTING).
-- Dependencies: `compozy-driver` (round 21), `delivery-train`, `stage-models` and `suite-speed`, all
-  merged into `main` and into this branch before the first task; the plan's base is the branch's
-  last merge of `origin/main` (`design.md` D-12). `compozy-driver` is archived before its delta
-  blocks are added in the last phase (task 6.5); `delivery-train` is archived before task 6.6
-  re-reads the shared `change-coordination` block. `suite-speed` gives the one suite command,
-  `node scripts/test-suite.mjs`, and the folder list this change moves (`SUITE_FOLDERS`); it has no
-  spec delta. The siblings' records are named by file (`docs/adr/0024-compozy-runs-the-short-loop.md`,
+  on `origin/main` at the last merge before review. The devkit-openspec bump moves the CI pins of
+  `docs/openspec-flow.md` to `v<that version>` and edits no test: the test
+  `change-loop docs: the design records the answers` reads the expected pin from
+  `plugins/openspec/.claude-plugin/plugin.json` (ADR 0030). This repository delivers on a delivery
+  train (`devkit.delivery` in `openspec/config.yaml`, ADR 0022): the departure renumbers the release
+  above the train's numbers, and the train's merge commit is tagged `v<the train's version>`
+  (CONTRIBUTING).
+- Dependencies: `compozy-driver` (round 21), `delivery-train`, `stage-models` and `suite-speed`,
+  merged and archived on `main` (`openspec/changes/archive/2026-11-24-<id>/`) and merged into this
+  branch; the plan's base is the branch's last merge of `origin/main` (`design.md` D-12). With
+  `compozy-driver` archived, the `compozy-kit-setup` delta already holds the MODIFIED blocks of the
+  three requirements it added; with `delivery-train` archived, the `change-coordination` block is the
+  canonical text plus `setup`. Tasks 6.5 and 6.6 re-check both at each later merge. `suite-speed`
+  gives the one suite command, `node scripts/test-suite.mjs`, and the folder list this change moves
+  (`SUITE_FOLDERS`); it has no spec delta. The siblings' records are named by file
+  (`docs/adr/0024-compozy-runs-the-short-loop.md`,
   `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`), and their versions are read at
   each merge, not quoted here. This change's record and versions take the next free ones on
   `origin/main` at the last merge before review, so no two records share a number.
   `delivery-models` (archived) for the delivery keys; `change-version-pin` (archived) for the pin
-  this step does not move.
-- Decisions cited: ADR 0002, 0004, 0009, 0010 (decision 1), 0018, 0019, the record
-  `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md` and the proposed record
-  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`.
+  this step does not move; `archive-release-pin` (merged on train 4, not archived; ADR 0030) for the
+  release rule above.
+- Decisions cited: ADR 0002, 0004, 0009, 0010 (decision 1), 0018, 0019, 0022 (the delivery train
+  this repository's release leaves on), 0030 (a release moves the flow page's pins and no test), the
+  record `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md` and the proposed record
+  `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md`.
   Open decisions inherited: none. The open point "Project setup" of `docs/coordination-design.md` is
   the one this change answers.
 

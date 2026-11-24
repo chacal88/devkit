@@ -1,12 +1,12 @@
-# ADR 0025: One setup verb, `/devkit setup`, replaces the two setup skills
+# ADR 0031: One setup verb, `/devkit setup`, replaces the two setup skills
 
 - Status: accepted
 - Accepted by: the owner, on 2026-11-24, in the approval of the plan of change project-setup (openspec/changes/project-setup/approval.md)
 - Date: 2026-11-23
 - Change: project-setup
-- Number: 0025, the next free number on `origin/main` after the records 0022 to 0024. It stays final
-  unless a later merge of `main` before the review round takes it; then the record moves to the next
-  free number.
+- Number: 0031, the lowest free number on `origin/main` that no open change claims, at the merge of
+  c663f21. The last merge of `origin/main` before the review round re-checks it; if that merge
+  takes 0031, the record moves to the next free number.
 - Amends: ADR 0004 (0004-devkit-per-project.md), the sentence of its Decision "The docs and
   `openspec-setup` teach only the per-project install" and the mitigation of its Consequences
   "`openspec-setup` writes the settings": both now name `/devkit setup`. ADR 0009
@@ -21,7 +21,8 @@ the project in, checks `gh`, lists the changes under way, installs the schemas `
 `devkit-lite`, writes `context` and part of the `devkit:` block of `openspec/config.yaml`, adds the
 `devkit-project` ship entry and runs the GitHub step. `compozy-setup` (devkit-compozy, beside its
 skills `screen-design` and `screen-demo`) installs the CompozyOS kit under `.compozy/`. Every other owner entry is a verb of the one
-skill `devkit`: `/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit project`.
+skill `devkit`: `/devkit change`, `/devkit roadmap`, `/devkit status`, `/devkit project` and
+`/devkit train` (a verb of the skill since the delivery-train change, ADR 0022).
 
 The coordination design (`docs/coordination-design.md`, Open points) left project setup open:
 "one setup step per project writes the `devkit:` block of `openspec/config.yaml` (driver, language
