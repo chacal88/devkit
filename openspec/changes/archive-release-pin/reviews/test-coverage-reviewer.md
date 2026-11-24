@@ -1,24 +1,28 @@
 Verdict: approved
-Commit: e0c946ad9e3e83cbaa94f41ee4da75a5bbba172f
+Commit: b906df57ecf925bffc6075204d054a14e70a4359
 
-## Coverage analysis: archive-release-pin (re-review, ec2730f..HEAD)
+## Coverage analysis: archive-release-pin, amendment (ADR 0030), range e0c946a..HEAD
 
 ### Findings
-- [nit] plugins/openspec/hooks/deliver-check.mjs:1259-1275 (archiveChanges texts) — Spec scenario 'present but cannot be read' has no seam test: the before/after catch-to-null paths are exercised only by a deleted file and a file new on the branch; a regression turning a read failure into '' would pass equal empty texts as pin-only. Write in deliver-check-archive.test.mjs next to archive-release-pin 8.
-- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs: archive-release-pin 11 — Implementation-coupled: asserts exact prose substrings in the flow page, ADR 0003 and config.yaml; a legitimate rewording turns it red without any behavior change.
-- [praise] plugins/openspec/hooks/deliver-check-archive.test.mjs: archive-release-pin 7, 8, 9 — Each seam (local stop, --ci, three-file consumer folder) is asserted end to end on real scratch git repos, committed and uncommitted, pass and fail; passes at the merged head.
-- [praise] plugins/openspec/hooks/fixtures/c561553 and archive-release-pin 1, 3, 6 — Fixtures are the literal hunks of the real archive commit c561553, and test 6 shows the same file list without texts names both pin files.
-
-Seams checked (all unchanged since the previous verdict): archiveChanges texts -> archive-release-pin 7 and 8; archiveNext/filesStop texts argument -> 7; archivePrCheck texts argument (--ci) -> 8; three-file consumer CI -> 9; pin definition moved and re-exported -> 10 plus the existing release-merge pin tests; pinLinesOnly core -> 1 to 6 on the real c561553 hunks; interaction with the own-files rule of #97 -> none (the archive check does not use staleness). Mutation runs: 0.
+- [nit] plugins/openspec/hooks/deliver-check.mjs:1259-1275 (archiveChanges texts) — Spec scenario 'present but cannot be read' (flow page) has no seam test: a regression turning a read failure into '' would pass equal empty texts as pin-only. Write in deliver-check-archive.test.mjs next to archive-release-pin 8.
+- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs: archive-release-pin 11 — Implementation-coupled: asserts exact prose substrings in the flow page, ADR 0003, ADR 0027 and config.yaml; a legitimate rewording turns it red without a behavior change.
+- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs: archive-release-pin 4 — Vacuous since ADR 0030: every case asserts pinHas(LOOP_PATH, ...) is false, which the PIN_LINE_FILES path check decides regardless of content; the invariant is held by tests 3, 7 and 8. Rename or fold it.
+- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs: archive-release-pin 12 (changeIds) — Implementation-coupled: the forbidden change names are a hand-kept list, so a new change id pasted into the pin test passes; the version-literal and Invariant-comment checks are what protect the contract.
+- [praise] archive-release-pin 3, 6, 7, 8 and release-merge archive-release-pin 10 — The test-file removal is asserted at the seam: PIN_LINE_FILES equals the flow page in both modules, and the old pin-only test edit is named by the local stop and by --ci, committed and uncommitted, on real scratch git repos; red-before-fix recorded in proof/red-4.txt.
+- [praise] plugins/openspec/hooks/change-loop-compozy.test.mjs:363-364 with release-merge-conflict 15 and archive-release-pin 12 — The manifest-derived pin test fails on a stale or mismatched CI pin (pinMismatches against plugin.json, at least 3 pins), and test 12 keeps release literals and the pin assertion shape from creeping back.
 
 Blocking gaps (8-10 without a plan): 0
 
-Scope since the previous Commit ec2730f: deliver-check-archive.test.mjs, release-merge.mjs and release-merge.test.mjs, the c561553 fixtures and the change's spec delta are unchanged apart from one line in specs/reviews-check/spec.md; the deliver-check.mjs delta is the own-files rule of PR #97 (stalenessBase, ownFiles, ownWalk, staleness own option), which is not this change's behavior. The release renumber (devkit-openspec 0.40.0, marketplace 0.44.0) is consistent: the flow page pins v0.40.0 and change-loop-compozy.test.mjs asserts it.
+In-scope surfaces: plugins/openspec/hooks (deliver-check.mjs, archive, release-merge and change-loop-compozy tests), the flow page, ADR 0003/0027/0030, the spec delta, CHANGELOG, config.yaml.
 
-Filtered runs with TMPDIR=/var/tmp/devkit-archive-release-pin, all green: deliver-check-archive.test.mjs and release-merge.test.mjs matching 'archive-release-pin' (11 tests: 1 to 9, 10, 11); change-loop-compozy.test.mjs 'release-merge-conflict 15' and 'change-loop docs: the design records the answers' (2 tests). The whole suite was not run.
+Seams checked (mutation runs: 0): PIN_LINE_FILES reduced to the flow page -> archive-release-pin 3 and release-merge archive-release-pin 10; test-file half removed from pinLinesOnly and unnamedFiles -> 6, 7 and 8 (LOOP_EDIT, committed and uncommitted, local stop and --ci); archiveChanges texts for the flow page only -> 7 (deleted), 8 (added), 9 (three-file consumer CI); pin test reads the manifest -> change-loop-compozy.test.mjs:363-364, release-merge-conflict 15 and archive-release-pin 12; doc, ADR and config statements -> 11.
+
+Previous findings: the two nits of the previous verdict (F1 the unreadable-text scenario, F2 the prose coupling of test 11) are unchanged by the amendment and stay open as nits.
+
+Filtered runs with TMPDIR=/var/tmp/devkit-archive-release-pin, all green: deliver-check-archive.test.mjs and release-merge.test.mjs matching 'archive-release-pin' (12 of 12 pass, tests 1 to 12); change-loop-compozy.test.mjs 'change-loop docs: the design records the answers' (1 of 1). The whole suite was not run.
 
 ### Well covered
-- Pin-only doc edit passes and a doc edit beyond the pin names the file: tests 2, 7, 8 and 9.
-- A test file with any non-form line fails: test 4.
-- The real c561553 file list passes with no proposal naming either pin file, and names both files without texts: test 6.
-- Red-before-fix proofs are recorded in proof/red-1.txt and proof/red-2.txt.
+- A pin-only doc edit passes and a doc edit beyond the pin names the file: tests 1, 2, 7, 8, 9.
+- Any edit of the pin test file in an archive is named again: tests 3, 6, 7, 8.
+- The flow page is the only file read by its content, in both modules: tests 3 and release-merge 10.
+- A stale CI pin against the manifest goes red: change-loop-compozy.test.mjs:364 plus release-merge-conflict 15.
