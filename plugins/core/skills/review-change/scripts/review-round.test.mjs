@@ -1,5 +1,5 @@
 // node --test plugins/core/skills/review-change/scripts/review-round.test.mjs
-// Imported by plugins/openspec/hooks/guard.test.mjs, as the openspec-setup script tests are.
+// Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/core/skills/review-change/scripts/review-round.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';

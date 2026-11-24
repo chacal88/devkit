@@ -11,9 +11,8 @@ import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
 import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
-import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
 import { conductState } from './conduct-check.mjs';
 
 const SHA7 = 'a1b2c3d';
@@ -1242,7 +1241,7 @@ let sampleCache = null;
 // demonstration passed, the plan readiness at attempt 2, the code review failed at attempt 1. Invariant (T-22, D-13): the readout of the approved
 // sample change reads as the owner approved it; layer: the readout; suite: flow-check. The change records `x-devkit-flow: 2`, as a change opened with
 // this release does: with no pin it follows flow 1 under the installed flow 2 and its readout gains the newer-flow line (D-17).
-export function sampleChange() {
+function sampleChange() {
   if (sampleCache) return sampleCache;
   const root = tmpFolder('devkit-flow-check-sample-');
   git(root, 'init', '-q', '-b', 'main');
