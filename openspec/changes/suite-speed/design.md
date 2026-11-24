@@ -421,8 +421,8 @@ run on each side.
   in `/var/tmp/devkit-suite-speed-proof/red.log` for the evidence.
 - **AC-4, symlink** (task 2.4). `mkdir /var/tmp/devkit-suite-speed-link-target`, then
   `ln -s /var/tmp/devkit-suite-speed-link-target /var/tmp/devkit-suite-speed-link`, then
-  `env TMPDIR=/var/tmp/devkit-suite-speed-link node scripts/test-suite.mjs --test-name-pattern="^change-budget " plugins/openspec/hooks/change-loop-remote.test.mjs`
-  passes; the tests named `change-budget ...` of `change-loop-remote.test.mjs` (`change-loop.test.mjs` from line 4882 before the split of task 4.2, among them
+  `env TMPDIR=/var/tmp/devkit-suite-speed-link node scripts/test-suite.mjs --test-name-pattern="^change-budget " plugins/openspec/hooks/change-loop-remote-state.test.mjs`
+  passes; the tests named `change-budget ...` of `change-loop-remote-state.test.mjs` (`change-loop.test.mjs` from line 4882 before the split of task 4.2, among them
   `change-budget AC-9 sessionTranscript finds the session file under CLAUDE_CONFIG_DIR`, which
   compares a path built from a temporary folder with the path the guard returns) are the
   change-budget tests that compare paths. T-8 proves the real path for any file.
@@ -727,3 +727,43 @@ None.
     of the tests that enclose them, against the same list over the three parts, and the owner's measure again (4.1's command).
     The checks that named a split file for a test (the AC-4 symlink run of D-11, tasks 2.4, 5.1, 5.2 and 5.3) name the part that
     holds it now.
+- **D-11, task 4.2 reopened a second time (2026-11-24, second round).** The measure of the 3+3 split of the round above (34 files,
+  2915 tests, all green; idle 8-core Avell) is 659.5 s: AC-5 wants at most 600 s, and no file is above it. The seconds of the
+  files add to 4298 s, so about 537 s is the best packing on 8 cores, but three files keep the packing from reaching it:
+  `deliver-check.test.mjs` 567.5 s, `change-loop-remote.test.mjs` 411.3 s and `delivery-train.test.mjs` 384.5 s (then
+  `change-loop-compozy` 349 s, `roadmap-loop-upfront` 341 s, `stage-models` 319 s and `change-loop` 319 s, which stay as they
+  are). D-11's rule applies again, cut at `// ----` headings (or `// ====`, where one marks a phase) and balanced by the cost of
+  each test in `head3.tap`, a TAP run of the head after the 3+3 split (parts of at most about 220 s):
+  - `deliver-check.test.mjs` is three: it keeps the history of the original and the ship config, the staleness, the eight items,
+    the next step and summary, the plan approval on disk and the merge mode up to the stops (lines 1 to 2402; 190 s);
+    `deliver-check-cli.test.mjs` takes the wait at wait-merge, the merge walkthrough, the CLI, host and watch, the field items,
+    `--ci`, the change selection, the checkout preflight and the release-ready pins (2403 to 3643; 172 s);
+    `deliver-check-archive.test.mjs` takes the archive steps after the merge (`// ====` heading of the archive-after-merge phase
+    2), their skills, agents and docs, the later field fixes, the verdict files and the commit attribution (3644 to the end; 205 s).
+  - `change-loop-remote.test.mjs` is two: it keeps the claim at open and the place on the remote (1 to 705; 217 s);
+    `change-loop-remote-state.test.mjs` takes the Jira entry and its write-back, the budget, change-state, commit attribution and
+    the held state of the upfront sessions (706 to the end; 194 s). It is the third part of `change-loop.test.mjs` cut in two,
+    so its headers say 3a and 3b.
+  - `delivery-train.test.mjs` is two: it keeps the setting, the join, the roadmap tick, the record, boarding, the bisection, the
+    departure scenarios and the rows of `next` (1 to 2140; 207 s); `delivery-train-after.test.mjs` takes `depart --update`, the
+    command line, the lock record and the verb, the documents, devkit-reviews on a train, phase 5 and the real run (2141 to the
+    end; 177 s).
+  - What two parts of one file share is in `deliver-check-fixtures.mjs`, `change-loop-remote-fixtures.mjs` and
+    `delivery-train-fixtures.mjs` (D-4's rules: no test, no folder, spawn or git call at import; builders, paths and constants
+    only). `change-loop-remote-state.test.mjs` also imports `change-loop-fixtures.mjs`, as its other half does. The one load made
+    at import is `train` in `delivery-train-fixtures.mjs`: the departure script, imported on the side the way the original file
+    imported it, so that its two parts read the same module (a module load, no folder, spawn or git call). A helper that only one part uses
+    lives in that part; the module-level fixtures of the original stay where their tests are (`ownTmp`, the one made at module
+    level, is used by one part). The git identity that `change-loop-remote.test.mjs` put in `process.env` for the whole file
+    (`IDENT`) is set by both halves.
+  - The suite goes from 34 to 41 files. T-1 and T-2 count the 29 files the old command ran, which still exist (the three first
+    parts keep the names), so they do not change. No test is renamed and no assertion changes; the only edit inside a test is the
+    exemption of `AC-6 instructions-follow: no tracked file outside the records still says review before evidence`, which
+    exempts the file that defines `OLD_ORDER` (now `deliver-check-cli.test.mjs`). The `deliver-check.test.mjs:4489,4504` rows of
+    the tables above are sample paths in a fixture, not file references, and stay. The `file:line` references of the plan's
+    tables are lines of the files at the base; a check that names one of these tests by its file names the part that holds it
+    now (tasks 2.4 and 5.2 to 5.3).
+  - The proof is D-10's, per split file: the sorted titles of the head's `test(` and `t.test(` calls (431, 182 and 174 with the
+    titles of the tests that enclose them) against the same list over the parts, and a comparison of the top-level statements
+    of the head's file against the parts and the fixtures (equal as a set of statements; the one statement written twice is the
+    `IDENT` loop), then the owner's measure again (4.1's command).
