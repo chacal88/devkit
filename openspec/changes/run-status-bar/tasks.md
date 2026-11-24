@@ -127,8 +127,9 @@ they read the version from `plugin.json`, and 3.1 moves the doc's pins with the 
 - [x] 3.1 Bump devkit-openspec's `version` in `plugins/openspec/.claude-plugin/plugin.json` and in
   `.claude-plugin/marketplace.json` to the next minor after `origin/main`'s at the last merge before
   review, and the marketplace's own version to the next after `origin/main`'s at that merge (at the merge
-  of `c09860c`: devkit-openspec 0.44.1 to 0.45.0, marketplace 0.49.1 to 0.50.0, the heading `## 0.50.0`
-  and the doc's pins `v0.45.0`; at the earlier merge of `d917ae0` it was 0.43.0 and 0.48.0); in the same
+  of `74f2444`: devkit-openspec 0.45.0 to 0.46.0, marketplace 0.50.0 to 0.51.0, the heading `## 0.51.0`
+  and the doc's pins `v0.46.0`; at the merge of `c09860c` it was 0.45.0 and 0.50.0, and at the earlier
+  merge of `d917ae0` 0.43.0 and 0.48.0); in the same
   task add the `CHANGELOG.md` entry headed `## <that marketplace version>` (the status line command, the
   settings entry, the `stages` field and `--offline` of `state`, the offline stub's one place), since
   `check_changelog` of `scripts/check.py` refuses a marketplace version with no such heading; and move
@@ -150,9 +151,9 @@ they read the version from `plugin.json`, and 3.1 moves the doc's pins with the 
   renumbers the release, the versions, the `CHANGELOG.md` heading and the doc's pins move together.
   Check: `python3 scripts/check.py`
   exits 0, the two devkit-openspec versions are equal,
-  `git diff --quiet c09860c HEAD -- plugins/openspec/hooks/change-loop-compozy.test.mjs` exits 0 (the
-  last merge's `origin/main` commit; `d917ae0` before the merge of `c09860c`, and after a later merge
-  that merge's commit), and
+  `git diff --quiet 74f2444 HEAD -- plugins/openspec/hooks/change-loop-compozy.test.mjs` exits 0 (the
+  last merge's `origin/main` commit; `c09860c` before the merge of `74f2444`, `d917ae0` before the merge
+  of `c09860c`, and after a later merge that merge's commit), and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/release-merge.test.mjs`
   passes, those four tests included.
 - [x] 3.2 Check the generated catalog and the marketplace. Check: `python3 scripts/gen-catalog.py --check`
@@ -179,3 +180,7 @@ they read the version from `plugin.json`, and 3.1 moves the doc's pins with the 
   (requirements, question 3; D-13). No task of this change edits the roadmap.
 - The owner adds the `statusLine` entry of D-1 to a `settings.json` after the release is installed, and
   checks the dogfood column of D-12 in the next change and the next roadmap run.
+- The retro proposes the follow-up `state-listing-speed` for the roadmap (the `state` listing fast enough
+  for the coordinator bar, by reading the changes in parallel or skipping the per-change GitHub reads;
+  after: run-status-bar), the owner's choice of 2026-11-24 on the known limit of AC-3 (D-12, the risk
+  table of design.md). No task of this change edits the roadmap.

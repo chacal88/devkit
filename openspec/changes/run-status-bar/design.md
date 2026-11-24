@@ -37,6 +37,13 @@ Since then, two review fixes and one more merge (scope and behaviour unchanged):
   The merge brought the code of `state-skips-unlocated` (its folder not yet archived), whose test
   `unlocated 1: state lists an unplaced change blocked and every other change as before` compares a whole
   `state` entry, so the merge added `stages: null` to its expected entry (E-6, D-11).
+- The merge of `origin/main` `74f2444` (commit `e14e1fa`): `main` is at devkit-openspec 0.45.0 and
+  marketplace 0.50.0, the versions the branch had taken, so the release target moves to devkit-openspec
+  0.46.0 and marketplace 0.51.0 (D-13). The merge edits no test of this change, and
+  `change-loop-compozy.test.mjs` stays `main`'s file.
+- The owner's decision of 2026-11-24 on the real coordinator listing (D-12, the risk table): the bar on
+  this repository's own roadmap run prints nothing, because the listing takes longer than the bar's
+  20 s bound; accepted as a known limit, with the follow-up `state-listing-speed`.
 
 What exists:
 
@@ -473,7 +480,7 @@ the release is installed.
 |---|---|---|
 | AC-1 | B-9, B-21, B-26 and a real run in this worktree at its real stage (the implementation: `🛠️ run-status-bar · Implementation · ■■■■■■■■■■◆□□□□ · 11 of 15`); the approval moment by a real run on the `approvedChange` fixture | the line under the message box of the next change's session at its plan approval |
 | AC-2 | B-39, B-41; a real run with a `budget` cap in a fixture project | none |
-| AC-3 | B-7, B-33, B-43; a real run in a fixture repository whose run file records the input's session | the counts under the coordinator's message box in the next roadmap run of this repository, after `state-skips-unlocated` (the listing exits 3 here today) |
+| AC-3 | B-7, B-33, B-43; a real run in a fixture repository whose run file records the input's session. Known, accepted limit: on this repository's own run the listing `state --offline` now exits 0 with 11 changes but takes 37 to 45 s, about 5 s per change read one after another, past the bar's 20 s bound (D-9), so the coordinator's bar prints nothing there, as the spec states for a call past the bound; the lone-change bar works (`evidence.md`, "Real runs on this repository's roadmap run", C1 to C3). The owner chose on 2026-11-24, typed in the conducting session: `Entregar e seguir` (ship as is; make the listing faster in a follow-up). The follow-up is `state-listing-speed` (the `state` listing fast enough for the coordinator bar, by reading the changes in parallel or skipping the per-change GitHub reads; after: run-status-bar), which the retro proposes for the roadmap | the counts under the coordinator's message box in a roadmap run of this repository, after `state-listing-speed` |
 | AC-4 | B-11, B-44; a real run from the root checkout on `main` with a session id that no run file records | the empty line in an ordinary session |
 | AC-5 | B-40, B-41; the real runs of AC-1 and AC-3 between two snapshots of `git status`, the run file and `git worktree list` | none |
 | AC-6 | B-37; the real run of AC-1 with `--lang pt-BR` | the owner's own language setting |
@@ -489,16 +496,17 @@ the release is installed.
   bump (`scripts/check.py` refuses a marketplace version with no `## <version>` heading). devkit-openspec's
   `plugin.json` and `marketplace.json` take the next minor version after `origin/main`'s at the last merge
   before review, and the marketplace's own version the next after its own; the loop pushes the tag after
-  the merge (ADR 0019). At the last merge, `c09860c` (devkit-openspec 0.44.1, marketplace 0.49.1), that
-  is devkit-openspec 0.45.0 and marketplace 0.50.0, with the entry headed `## 0.50.0` (at the earlier
-  merge of `d917ae0`, 0.42.0 and 0.47.0 on `main`, it was 0.43.0 and 0.48.0).
+  the merge (ADR 0019). At the last merge, `74f2444` (devkit-openspec 0.45.0, marketplace 0.50.0), that
+  is devkit-openspec 0.46.0 and marketplace 0.51.0, with the entry headed `## 0.51.0` (at the merge of
+  `c09860c`, 0.44.1 and 0.49.1 on `main`, it was 0.45.0 and 0.50.0; at the earlier merge of `d917ae0`,
+  0.42.0 and 0.47.0 on `main`, it was 0.43.0 and 0.48.0).
 - The same bump moves every release pin of `docs/openspec-flow.md` to the new devkit-openspec version:
   the `<commit sha of v...>` URL line, the `pinned to the commit of v...` comment, the
   `` (`v...` above) `` sentence and the `gh api repos/chacal88/devkit/git/ref/tags/v...` command, the
   set `PIN_MARKER` of `plugins/openspec/hooks/release-merge.mjs` names (`v0.39.0` on `origin/main` at
   `3af3655`, the plan's base, lines 733, 734 and 747; `v0.42.0` at `d917ae0`, the same lines; `v0.44.1`
-  at `c09860c`, the same lines, which the branch moves to `v0.45.0`, at its lines 741, 742 and 755 after
-  the status line paragraph). Two existing tests of
+  at `c09860c`, the same lines, and `v0.45.0` at `74f2444`, which the branch moves to `v0.46.0`, at its
+  lines 741, 742 and 755 after the status line paragraph). Two existing tests of
   `plugins/openspec/hooks/deliver-check-cli.test.mjs` read `plugin.json`'s version and refuse a doc that
   names another: `the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version,
   with the tag in a comment, never the tag in the URL (R-10, security)` and `AC-8 release-ready: every
@@ -552,14 +560,14 @@ asks; a merge of `main` between phases costs a rerun).
 | Line drawing, cut rule, counts, words, E-5 | 2 | Core | LOW |
 | B-1 to B-46 | 4 | Testing | MEDIUM |
 | Docs and README | 1 | Documentation | LOW |
-| Release (0.45.0 / 0.50.0 at the merge of `c09860c`, `CHANGELOG.md`, the doc's pins; E-3 superseded by ADR 0030) and full gates | 1 | Integration | LOW |
+| Release (0.46.0 / 0.51.0 at the merge of `74f2444`, `CHANGELOG.md`, the doc's pins; E-3 superseded by ADR 0030) and full gates | 1 | Integration | LOW |
 
 **Risks.**
 
 | Risk | P × I | Mitigation |
 |---|---|---|
 | `state --change` takes several seconds on a busy machine, so the line lags | MEDIUM × LOW | one call per refresh; Claude Code aborts a stale run; the 20 s bound and the child kill (D-9) keep processes from piling up |
-| The listing fails in this repository today (`state-skips-unlocated`) | HIGH × LOW | the bar prints nothing on failure (B-36); AC-3 proven on a fixture, the real line left to dogfood |
+| The listing on this repository (11 changes) takes 37 to 45 s, about 5 s per change read one after another, past the bar's 20 s bound, so the coordinator's bar prints nothing here (`evidence.md`, C1 to C3); known, accepted limit | HIGH × LOW | the bar prints nothing past the bound and leaves no process (D-9, B-18, the spec's "The state cannot be read"); AC-3 proven on fixtures; the lone-change bar works. The owner chose on 2026-11-24: `Entregar e seguir` (ship as is; make the listing faster in a follow-up). Follow-up `state-listing-speed` (the `state` listing fast enough for the coordinator bar, by reading the changes in parallel or skipping the per-change GitHub reads; after: run-status-bar), proposed by the retro for the roadmap |
 | `CLAUDE_SESSION_ID` in the skill and `session_id` on the bar's input differ in some host | LOW × MEDIUM | both are Claude Code's session id; the dogfood row of AC-3 checks it; on a mismatch the line is empty, never wrong |
 | `■ ◆ □` are East Asian ambiguous width: a CJK terminal draws them two columns wide | LOW × LOW | the approved glyphs stay; the count follows the mock-up; noted in the docs paragraph |
 | The newest installed copy differs from the project's pinned plugin | LOW × LOW | old flows stay readable (spec `change-stages`); the bar only reads |
@@ -573,7 +581,8 @@ line's `PATH` (the plugin's hooks already need both).
 **Dependencies.** `change-state` (archived) for the command; `suite-speed` (merged, ADR 0026) for the test
 command and fixture layout; `archive-release-pin` (merged at `d917ae0`, ADR 0030), which removed the
 literal pin of E-3; `state-skips-unlocated` (its code merged with `c09860c`, its folder not yet
-archived; it brought the test of E-6) only for the dogfood of AC-3 in this repository.
+archived; it brought the test of E-6) and the follow-up `state-listing-speed` (not yet on the roadmap)
+only for the dogfood of AC-3 in this repository.
 
 ## Risks / Trade-offs
 
