@@ -146,28 +146,28 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 
 ## 4. The loop and the conductor
 
-- [ ] 4.1 Write the D-15 tests of this phase in `plugins/openspec/hooks/conduct-check.test.mjs` (AC-4,
+- [x] 4.1 Write the D-15 tests of this phase in `plugins/openspec/hooks/conduct-check.test.mjs` (AC-4,
   AC-10), `plugins/openspec/hooks/change-loop.test.mjs` (AC-1 planner stop with its two keys, AC-4
   session action, AC-5 resolver, AC-12 approval details) and
   `plugins/openspec/hooks/release-tags.test.mjs` (AC-13). Run them and save the failing run as
   `proof/red-4.txt`. Done when each exists by its D-15 name and fails there.
-- [ ] 4.2 In `plugins/openspec/hooks/conduct-check.mjs` apply D-10 (`MAIN`, the overrides for a noted
+- [x] 4.2 In `plugins/openspec/hooks/conduct-check.mjs` apply D-10 (`MAIN`, the overrides for a noted
   change, `ADR_DIRS` from `deliver-check.mjs`). Done when the conduct-check tests of 4.1 pass and T-15
   stays green.
-- [ ] 4.3 In `plugins/openspec/hooks/change-loop.mjs` apply D-9 (the approval details, the optional
+- [x] 4.3 In `plugins/openspec/hooks/change-loop.mjs` apply D-9 (the approval details, the optional
   `release` of `approvalText` and `recordApproval`), D-10 (`decisionRecords` resolves a numbered
   record) and D-11 (in `subagentStopFor`, the release-note check inside the `allow('delivered')`
   condition, before that return, with `refuseOnce` code `no-release-note` and key
   `release-note/<missing|malformed>@<facts.fingerprint ?? ''>`). Done when the change-loop tests of
   4.1 pass and T-4, T-19 and T-40 stay green.
-- [ ] 4.4 In `plugins/openspec/skills/devkit/SKILL.md` add the `assign-release` exit-2 sentence to the
+- [x] 4.4 In `plugins/openspec/skills/devkit/SKILL.md` add the `assign-release` exit-2 sentence to the
   Loop's `session` bullet, before its `tag-release` sentence (D-10), leaving the sentence and the
   absent words that `change-loop-compozy.test.mjs` "release-merge-conflict 16" asserts (T-5). Done when
   these stay green: T-5, T-27 and T-28 (`change-loop-compozy.test.mjs`), T-31
   (`deliver-check-cli.test.mjs`), T-34 (`change-loop-remote-state.test.mjs`), T-36's `devkit` test
   (`guard.test.mjs`), T-37 (`roadmap-loop-followups.test.mjs`) and T-39's `devkit` test
   (`release-tags.test.mjs`).
-- [ ] 4.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-4, AC-5, AC-10, AC-12 and AC-13 in the loop and the conductor.
+- [x] 4.5 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs plugins/openspec/hooks/stage-models.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-4, AC-5, AC-10, AC-12 and AC-13 in the loop and the conductor.
 
 ## 5. Readers, rules and texts
 

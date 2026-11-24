@@ -13,7 +13,7 @@ import {
 } from './test-fixtures.mjs';
 import { shipConfig, collectState, buildReport } from './deliver-check.mjs';
 import { actorOf } from './conduct-check.mjs';
-import { TEXT } from './flow-check.mjs';
+import { TEXT, fingerprint } from './flow-check.mjs';
 import * as guardModule from './guard.mjs';
 import * as changeLoopModule from './change-loop.mjs';
 import {
@@ -2035,4 +2035,126 @@ test('change-loop lock: bypass and a project not opted in refuse nothing', () =>
   for (const out of calls(plain, {})) assert.equal(out.code, 0, out.err);
   assert.equal(existsSync(log), false, 'nothing logged for either');
   assert.equal(existsSync(join(tmp, 'devkit-stop')), false);
+});
+
+// ---------------------------------------------------------------- release-at-merge: the loop (D-9, D-10, D-11)
+// In a project that names `devkit.release_tag` a change states its release in openspec/changes/<id>/release.md: the planner does not
+// stop without it, the approval covers it, the delivery assigns it in a session step, and the records it lists are found once numbered.
+
+const NOTED_KEY = 'devkit:\n  release_tag: package.json\n';
+const NOTE_OK = '# Release note\n\npacks: []\n';
+// `planChange` with the setting (`setting: false`: none) and the note `note` (null: none) written uncommitted, as the planner leaves it.
+function notedPlan({ have = PLAN_UP_TO_TASKS, setting = true, note = null } = {}) {
+  const root = gitRepo({ config: `schema: devkit\n${setting ? NOTED_KEY : ''}`, files: { 'package.json': '{ "name": "x", "version": "1.0.0" }\n' } });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const files = { '.openspec.yaml': 'schema: devkit\n' };
+  for (const stage of have) {
+    const body = stage === 'readiness' ? '# Readiness\n\n- Status: APPROVED\n' : stage === 'tasks' ? '# Tasks\n\n- [ ] 1.1 a\n' : `# ${stage}\n`;
+    files[PLAN_FILES[stage]] = `${head(stage, c0)}${body}`;
+  }
+  put(root, Object.fromEntries(Object.entries(files).map(([f, b]) => [`openspec/changes/feat/${f}`, b])));
+  commitAll(root, 'change files');
+  if (note !== null) put(root, { 'openspec/changes/feat/release.md': note });
+  return root;
+}
+const plannerStop = (root, tmp) => hook('subagent-stop', subInput(root, runTranscript(), 'change-planner'), { TMPDIR: tmp });
+const stopKey = (tmp) => JSON.parse(readFileSync(join(tmp, 'devkit-stop', `${SESSION}-agent-0001.json`), 'utf8')).key;
+const printOf = (root) => fingerprint(root, git(root, 'rev-parse', 'HEAD'));
+const noteHash = (root) => `sha256:${createHash('sha256').update(readFileSync(join(root, 'openspec', 'changes', 'feat', 'release.md'))).digest('hex').slice(0, 12)}`;
+
+test('release-note AC-4 loop: assign-release is a session step of the delivery with the number, the base, the branch and the command', () => {
+  const command = ['node', '/hooks/release-merge.mjs', '--assign', '--base', 'main', '--json'];
+  const a = build(rowOf('assign-release', { number: 12, base: 'main', branch: 'feat', command }));
+  assert.deepEqual([a.kind, a.step, a.stage, a.agent, exitCodeOf(a)], ['session', 'assign-release', 'delivery', undefined, 0]);
+  assert.deepEqual([a.detail.number, a.detail.base, a.detail.branch, a.detail.command], [12, 'main', 'feat', command]);
+  assert.equal(a.progressKey, 'delivery/assign-release@abc123');
+  assert.equal(actorOf('assign-release').actor, 'main', 'the conductor runs it in the main session too');
+});
+
+test('release-note AC-1 planner stop: no release.md is refused once naming the file, the same state goes through, a changed plan is refused again, a written note goes through', () => {
+  const root = notedPlan();
+  const tmp = sandbox();
+  const first = plannerStop(root, tmp);
+  assert.equal(first.code, 2, first.err);
+  assert.match(first.err, /openspec\/changes\/feat\/release\.md does not exist: write the release note \(packs:, the changelog title and body\) before you stop/);
+  assert.equal(stopKey(tmp), `release-note/missing@${printOf(root)}`);
+  assert.equal(plannerStop(root, tmp).code, 0, 'the same state the second time goes through');
+  put(root, { 'openspec/changes/feat/design.md': `${head('design', git(root, 'rev-parse', 'HEAD'))}# design, revised\n` });
+  assert.equal(plannerStop(root, tmp).code, 2, 'the planner changed a file: refused once again');
+  put(root, { 'openspec/changes/feat/release.md': NOTE_OK });
+  const written = plannerStop(root, tmp);
+  assert.equal(written.code, 0, written.err);
+});
+
+test('release-note AC-1 planner stop: a malformed release.md is refused once with the reader\'s message', () => {
+  const root = notedPlan({ note: '# Release note\n\npacks:\n- devkit-openspec: big\n' });
+  const tmp = sandbox();
+  const r = plannerStop(root, tmp);
+  assert.equal(r.code, 2, r.err);
+  assert.match(r.err, /openspec\/changes\/feat\/release\.md cannot be read: release\.md: /);
+  assert.match(r.err, /big/);
+  assert.equal(stopKey(tmp), `release-note/malformed@${printOf(root)}`);
+  assert.equal(plannerStop(root, tmp).code, 0, 'the same state the second time goes through');
+});
+
+test('release-note AC-1 planner stop: another role, a plan with no tasks.md yet and a project with no release_tag are not asked for the note', () => {
+  const other = hook('subagent-stop', subInput(notedPlan(), runTranscript(), 'adr-author'), { TMPDIR: sandbox() });
+  assert.equal(other.code, 0, other.err);
+  const tmp = sandbox();
+  const early = plannerStop(notedPlan({ have: ['requirements', 'proposal', 'specs', 'design'] }), tmp);
+  assert.equal(early.code, 2, early.err);
+  assert.match(early.err, /tasks\.md of stage tasks does not exist/);
+  assert.doesNotMatch(early.err, /release\.md/);
+  assert.match(stopKey(tmp), /^tasks\/no-file@/);
+  const plain = plannerStop(notedPlan({ setting: false }), sandbox());
+  assert.equal(plain.code, 0, plain.err);
+});
+
+test('release-note AC-5 decisions: a listed record the release step numbered is read from its numbered file; two numbered files are unreadable, naming both', () => {
+  const root = gitRepo({ config: `schema: devkit\n${NOTED_KEY}`, changes: { feat: { 'decisions.md': '# Decisions\n\n- ADR: `docs/adr/feat.md`\n' } } });
+  const dir = join(root, 'openspec', 'changes', 'feat');
+  put(root, { 'docs/adr/0002-feat.md': '# ADR 0002: the rule\n\n- Status: proposed\n- Change: `feat`\n' });
+  assert.deepEqual(changeLoopModule.decisionRecords(root, dir), { listed: ['docs/adr/feat.md'], proposed: ['docs/adr/feat.md'], unreadable: [] });
+  put(root, { 'docs/adr/0002-feat.md': '# ADR 0002: the rule\n\n- Status: accepted\n' });
+  assert.deepEqual(changeLoopModule.decisionRecords(root, dir), { listed: ['docs/adr/feat.md'], proposed: [], unreadable: [] });
+  put(root, { 'docs/adr/0003-feat.md': '# ADR 0003: the rule\n\n- Status: proposed\n' });
+  const two = changeLoopModule.decisionRecords(root, dir);
+  assert.deepEqual([two.listed, two.proposed, two.unreadable.map((u) => u.path)], [['docs/adr/feat.md'], [], ['docs/adr/feat.md']]);
+  assert.match(two.unreadable[0].why, /docs\/adr\/0002-feat\.md/);
+  assert.match(two.unreadable[0].why, /docs\/adr\/0003-feat\.md/);
+  rmSync(join(root, 'docs', 'adr'), { recursive: true });
+  assert.deepEqual(changeLoopModule.decisionRecords(root, dir).unreadable, [{ path: 'docs/adr/feat.md', why: 'the file does not exist' }], 'neither form: as before');
+});
+
+test('release-note AC-12 approval: the waiting-approval details carry release beside readiness, and only with a note', () => {
+  const NOTE = 'sha256:0123456789ab';
+  const approval = { status: null, recorded: null, readiness: 'sha256:abcdef012345', release: NOTE, recordedRelease: null, ok: false };
+  const pending = run({ rep: { end: endOf('waiting-for-owner', 'approval', 'owner-pending') }, facts: { approval } });
+  assert.deepEqual([pending.end.why, pending.detail.readiness, pending.detail.release], ['waiting-approval', 'sha256:abcdef012345', NOTE]);
+  const stale = run({ rep: { end: endOf('waiting-for-owner', 'approval', 'approval-stale') }, facts: { approval } });
+  assert.deepEqual([stale.end.why, stale.detail.release], ['waiting-approval-again', NOTE]);
+  const again = build(rowOf('stop-plan-approval', { readiness: 'sha256:abcdef012345', release: NOTE }), { approval: { ...approval, status: 'APPROVED', recorded: 'sha256:abcdef012345', recordedRelease: 'sha256:111111111111' } });
+  assert.deepEqual([again.end.why, again.detail.readiness, again.detail.release], ['waiting-approval-again', 'sha256:abcdef012345', NOTE]);
+  const plain = run({ rep: { end: endOf('waiting-for-owner', 'approval', 'owner-pending') } });
+  assert.deepEqual(Object.keys(plain.detail), ['readiness'], 'a change with no note keeps its detail');
+  // On a real plan: the hash of the note the owner is asked to approve.
+  const root = notedPlan({ have: [...PLAN_UP_TO_TASKS, 'readiness'], note: NOTE_OK });
+  const r = next(root);
+  assert.equal(r.code, 1, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.end.why, action.detail.release], ['waiting-approval', noteHash(root)]);
+});
+
+test('release-note AC-12 approval: approvalText writes the release note line only when given, and record-approval records the note\'s hash', () => {
+  const fields = { id: 'feat', attempt: 1, commit: 'abc', readiness: 'sha256:abcdef012345', date: '2026-11-24', words: 'go' };
+  assert.equal(changeLoopModule.approvalText(fields), '<!-- devkit-stage approval result=passed attempt=1 commit=abc -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:abcdef012345\n- Date: 2026-11-24\n- Owner\'s words: "`go`"\n');
+  assert.equal(changeLoopModule.approvalText({ ...fields, release: 'sha256:0123456789ab' }), '<!-- devkit-stage approval result=passed attempt=1 commit=abc -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:abcdef012345\n- Release note: sha256:0123456789ab\n- Date: 2026-11-24\n- Owner\'s words: "`go`"\n');
+  const root = notedPlan({ have: [...PLAN_UP_TO_TASKS, 'readiness'], note: NOTE_OK });
+  const r = main(['record-approval', '--change', 'feat', '--words', 'go ahead', '--lang', 'en'], { cwd: root, env: cleanEnv });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const text = readFileSync(join(root, 'openspec', 'changes', 'feat', 'approval.md'), 'utf8');
+  assert.match(text, new RegExp(`\\n- Readiness: sha256:[0-9a-f]{12}\\n- Release note: ${noteHash(root)}\\n- Date: `));
+  const plain = notedPlan({ have: [...PLAN_UP_TO_TASKS, 'readiness'], setting: false });
+  assert.equal(main(['record-approval', '--change', 'feat', '--words', 'go', '--lang', 'en'], { cwd: plain, env: cleanEnv }).code, 0);
+  assert.doesNotMatch(readFileSync(join(plain, 'openspec', 'changes', 'feat', 'approval.md'), 'utf8'), /Release note/);
 });

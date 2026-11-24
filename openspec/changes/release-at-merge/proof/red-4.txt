@@ -1,0 +1,220 @@
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern='^release-note AC-(1|4|5|10|12|13) (conduct|loop|planner stop|decisions|approval|tag)' plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/release-tags.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/conduct-check.test.mjs
+start plugins/openspec/hooks/release-tags.test.mjs
+=== plugins/openspec/hooks/release-tags.test.mjs
+✔ release-note AC-13 tag: the single merge whose release assign-release wrote asks tag-release for its merge commit (1444.616096ms)
+✔ release-note AC-13 tag: a train's merge commit that carries two noted releases asks tag-release for that commit (706.936983ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2287.970916
+=== plugins/openspec/hooks/release-tags.test.mjs: pass 2.3s
+=== plugins/openspec/hooks/conduct-check.test.mjs
+✔ release-note AC-4 conduct: actorOf gives assign-release to the main session (3.611098ms)
+✖ release-note AC-4 conduct: a noted change in a release-only conflict gets assign-release for the main session, never resolve-release-conflict (934.138703ms)
+✖ release-note AC-4 conduct: a noted change whose ADR the step numbered 0016, a number the base then took, gets no renumber-adr (638.766041ms)
+✔ release-note AC-10 conduct: an old-rule change, and a numbered ADR a noted change lists, still get resolve-release-conflict and renumber-adr (1688.343ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3397.629849
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1644:1
+✖ release-note AC-4 conduct: a noted change in a release-only conflict gets assign-release for the main session, never resolve-release-conflict (934.138703ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to:
+  
+  'resolve-release-conflict'
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1656:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'resolve-release-conflict',
+    expected: 'resolve-release-conflict',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1660:1
+✖ release-note AC-4 conduct: a noted change whose ADR the step numbered 0016, a number the base then took, gets no renumber-adr (638.766041ms)
+  AssertionError [ERR_ASSERTION]: the number of an ADR listed without one is the release step's
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1671:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'renumber-adr',
+    expected: 'renumber-adr',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/conduct-check.test.mjs: FAIL 3.5s
+=== plugins/openspec/hooks/change-loop.test.mjs
+✔ release-note AC-4 loop: assign-release is a session step of the delivery with the number, the base, the branch and the command (5.264247ms)
+✖ release-note AC-1 planner stop: no release.md is refused once naming the file, the same state goes through, a changed plan is refused again, a written note goes through (1866.551325ms)
+✖ release-note AC-1 planner stop: a malformed release.md is refused once with the reader's message (1749.150545ms)
+✔ release-note AC-1 planner stop: another role, a plan with no tasks.md yet and a project with no release_tag are not asked for the note (5251.075647ms)
+✖ release-note AC-5 decisions: a listed record the release step numbered is read from its numbered file; two numbered files are unreadable, naming both (34.71378ms)
+✖ release-note AC-12 approval: the waiting-approval details carry release beside readiness, and only with a note (0.650626ms)
+✖ release-note AC-12 approval: approvalText writes the release note line only when given, and record-approval records the note's hash (0.556471ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9060.460272
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2074:1
+✖ release-note AC-1 planner stop: no release.md is refused once naming the file, the same state goes through, a changed plan is refused again, a written note goes through (1866.551325ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2078:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2089:1
+✖ release-note AC-1 planner stop: a malformed release.md is refused once with the reader's message (1749.150545ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2093:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2113:1
+✖ release-note AC-5 decisions: a listed record the release step numbered is read from its numbered file; two numbered files are unreadable, naming both (34.71378ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      listed: [
+        'docs/adr/feat.md'
+      ],
+  +   proposed: [],
+  +   unreadable: [
+  +     {
+  +       path: 'docs/adr/feat.md',
+  +       why: 'the file does not exist'
+  +     }
+  -   proposed: [
+  -     'docs/adr/feat.md'
+      ],
+  -   unreadable: []
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2117:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { listed: [ 'docs/adr/feat.md' ], proposed: [], unreadable: [ [Object] ] },
+    expected: { listed: [ 'docs/adr/feat.md' ], proposed: [ 'docs/adr/feat.md' ], unreadable: [] },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2129:1
+✖ release-note AC-12 approval: the waiting-approval details carry release beside readiness, and only with a note (0.650626ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'waiting-approval',
+      'sha256:abcdef012345',
+  +   undefined
+  -   'sha256:0123456789ab'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2133:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'waiting-approval', 'sha256:abcdef012345', undefined ],
+    expected: [ 'waiting-approval', 'sha256:abcdef012345', 'sha256:0123456789ab' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2148:1
+✖ release-note AC-12 approval: approvalText writes the release note line only when given, and record-approval records the note's hash (0.556471ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+    '<!-- devkit-stage approval result=passed attempt=1 commit=abc -->\n' +
+      '# Plan approval: feat\n' +
+      '\n' +
+      '- Status: APPROVED\n' +
+      '- Readiness: sha256:abcdef012345\n' +
+  -   '- Release note: sha256:0123456789ab\n' +
+      '- Date: 2026-11-24\n' +
+      '- Owner\'s words: "`go`"\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2151:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<!-- devkit-stage approval result=passed attempt=1 commit=abc -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:abcdef012345\n- Date: 2026-11-24\n- Owner\'s words: "`go`"\n',
+    expected: '<!-- devkit-stage approval result=passed attempt=1 commit=abc -->\n# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: sha256:abcdef012345\n- Release note: sha256:0123456789ab\n- Date: 2026-11-24\n- Owner\'s words: "`go`"\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/change-loop.test.mjs: FAIL 9.1s
+FAIL 9.1s plugins/openspec/hooks/change-loop.test.mjs
+FAIL 3.5s plugins/openspec/hooks/conduct-check.test.mjs
+pass 2.3s plugins/openspec/hooks/release-tags.test.mjs
+suite: 3 files, 13 tests, 6 pass, 7 fail, 9.1s, concurrency 8
+exit: 1
+
+Guards (pass on the code as phase 4 finds it, and say so):
+- "release-note AC-4 conduct: actorOf gives assign-release to the main session" and "release-note AC-4 loop: assign-release is a
+  session step ..." hold what phase 2 already wrote (task 2.5: `assign-release` in conduct-check's MAIN and ROWS['assign-release']
+  in change-loop.mjs, T-3, T-4).
+- "release-note AC-10 conduct: ..." holds the old rule unchanged (AC-10: resolve-release-conflict and renumber-adr for an old-rule
+  change and for a numbered ADR a noted change lists).
+- "release-note AC-1 planner stop: another role, a plan with no tasks.md yet and a project with no release_tag ..." holds the cases
+  where the new check must not fire (D-11).
+- The two "release-note AC-13 tag: ..." tests hold the tag rule unchanged (ADR [release-at-merge] decision 9, builds on ADR 0019):
+  the merge that carries the numbers is tagged by the same GitHub reads, through a single merge or a train.
+- In "release-note AC-4 conduct: a noted change in a release-only conflict ...", the first half (the real round gives assign-release
+  for the main session, from deliver-check's row N5) passes; the test fails at its second half, the override for the conflict stop.

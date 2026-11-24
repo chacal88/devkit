@@ -14,7 +14,7 @@ import { changeSchemaAt, changeFlow, changeDeclaresOrInstalled, findRoot, parseR
 import { readRepoSettings } from './merge-setup.mjs';
 import { FlowUsageError } from './flow-check.mjs';
 import {
-  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes, ADR_DIRS,
+  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes, ADR_DIRS, changeAdrs,
 } from './deliver-check.mjs';
 import { PIN_FILE, classifyConflict, resolveRoadmapTicks } from './release-merge.mjs';
 
@@ -372,10 +372,12 @@ function threeVersions(root, ref, path) {
 // Override 3: an ADR number the default branch took (roadmap-sessions-upfront D-10). The ADR files the branch added since it left
 // `ctx.ref` whose four-digit number another file of the same folder has on `ctx.ref` are each renumbered to the next free number of
 // the folder, in the order of their numbers: the implementer does it and rewrites the references, and the owner is not asked. The
-// same path on both sides is no clash (the branch was merged); a `ctx.ref` that does not resolve gives no override.
+// same path on both sides is no clash (the branch was merged); a `ctx.ref` that does not resolve gives no override. For a change with a
+// release note, `<dir>/<NNNN>-<slug>.md` of a record its decisions.md lists as `<dir>/<slug>.md` is left out: that number is the release
+// step's (release-at-merge D-10); a numbered record such a change lists keeps this rule.
 export { ADR_DIRS }; // the folders live in deliver-check.mjs (release-at-merge D-2)
 const ADR_FILE = /^(\d{4})-(.+\.md)$/;
-function adrClash(ctx, row) {
+function adrClash(ctx, row, noted = false) {
   const root = row.worktree;
   if (!root || !resolves(root, ctx.ref)) return null;
   try {
@@ -383,13 +385,15 @@ function adrClash(ctx, row) {
     const added = new Set(git(root, ['diff', '--name-only', '--diff-filter=A', mergeBase, 'HEAD']).split('\n').filter(Boolean));
     const listing = (rev, dir) => git(root, ['ls-tree', '--name-only', rev, `${dir}/`]).split('\n').filter(Boolean);
     const numberOf = (path) => ADR_FILE.exec(path.slice(path.lastIndexOf('/') + 1));
+    const assigned = new Set(noted ? changeAdrs(root, null, row.id) : []);
+    const stepNumbers = (p) => assigned.has(`${p.slice(0, p.lastIndexOf('/'))}/${numberOf(p)[2]}`);
     const files = [];
     for (const dir of ADR_DIRS) {
       const onBase = listing(ctx.ref, dir);
       const onBranch = listing('HEAD', dir);
       let top = Math.max(0, ...[...onBase, ...onBranch].map((p) => Number(numberOf(p)?.[1] ?? 0)));
       const clashes = onBranch
-        .filter((p) => added.has(p) && numberOf(p) && !onBase.includes(p) && onBase.some((b) => numberOf(b)?.[1] === numberOf(p)[1]))
+        .filter((p) => added.has(p) && numberOf(p) && !stepNumbers(p) && !onBase.includes(p) && onBase.some((b) => numberOf(b)?.[1] === numberOf(p)[1]))
         .sort((a, b) => numberOf(a)[1].localeCompare(numberOf(b)[1]) || a.localeCompare(b));
       for (const from of clashes) {
         top += 1;
@@ -461,7 +465,8 @@ export function trainRejoin(ctx, row, state, report) {
 }
 
 // deliver-check's report as a conduct row, after the overrides that need git (D9): the release-file conflict and the archive that
-// left a train, except that auto-merge is switched off before anything else.
+// left a train, except that auto-merge is switched off before anything else. A change with a release note gets no release-file
+// conflict override: its conflicts are the release step's (`assign-release`, release-at-merge D-10).
 export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
@@ -470,7 +475,8 @@ export function deliveryRow(ctx, row, d) {
     const next = { ...plain.next, base: ctx.base };
     return { next, state: stateOf(next, { summary: d.report.summary }), ...info };
   }
-  const override = adrClash(ctx, row) ?? releaseConflict(ctx, row, d.state, d.report) ?? trainRejoin(ctx, row, d.state, d.report);
+  const noted = Boolean(d.state?.release?.noted);
+  const override = adrClash(ctx, row, noted) ?? (noted ? null : releaseConflict(ctx, row, d.state, d.report)) ?? trainRejoin(ctx, row, d.state, d.report);
   if (!override) return { ...plain, ...info };
   const next = { ...override, ...actorOf(override.step) };
   return { next, state: stateOf(next, { summary: d.report.summary }), ...info };

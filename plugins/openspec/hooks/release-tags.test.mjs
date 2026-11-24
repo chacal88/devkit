@@ -16,7 +16,7 @@ import * as deliver from './deliver-check.mjs';
 import { readDevkitSettings, decide, exitCodeOf, render } from './change-loop.mjs';
 import { deliveryStep } from './conduct-check.mjs';
 import { pinsIn } from './release-merge.mjs';
-import { pm, retroMd, writeRetro, mergedPr, archivePrJson, ARCHIVE_PRS, ARCHIVE_LISTING, fakeGh, scenario, archiving, TWO_PRS } from './test-fixtures.mjs';
+import { pm, retroMd, writeRetro, mergedPr, archivePrJson, ARCHIVE_PRS, ARCHIVE_LISTING, fakeGh, scenario, archiving, TWO_PRS, put, commitAll } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 const PLUGIN_JSON = 'plugins/openspec/.claude-plugin/plugin.json';
@@ -409,6 +409,41 @@ test('release-tags 2: an archived change whose archive PR list has no merged ent
   const t = archivedRelease({ archivePrs: [] });
   assert.equal(t.next().step, 'archived');
   assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('chore/archive-feat')), 'the archive PR list was read');
+});
+
+// ---- release-at-merge (AC-13): the merge that carries the numbers assign-release or the train's join wrote is the one tagged, by the same
+// rules (ADR 0019). The change states its release in openspec/changes/feat/release.md; the version at the merge is the one the note's bump
+// gives over the version before it, read through the same GitHub calls as any other merge.
+const NOTED = '# Release note\n\npacks: []\nrelease: minor\n\n## the change\n\n- it does a thing\n';
+const TRAIN_MERGE = '7'.repeat(40);
+const TRAIN_PARENT = '8'.repeat(40);
+function notedMerged({ version, before, merge = MERGE, parent = PARENT }) {
+  const t = pm({ extra: KEY });
+  releaseFixtures(t.gh, { atMerge: version, atParent: before, merge, parent });
+  put(t.root, { 'openspec/changes/feat/release.md': NOTED });
+  commitAll(t.root, 'the release note of feat');
+  return t;
+}
+const bumped = (version, times = 1) => Array.from({ length: times }).reduce((v) => deliver.applyBump(v, deliver.parseReleaseNote(NOTED).release), version);
+
+test('release-note AC-13 tag: the single merge whose release assign-release wrote asks tag-release for its merge commit', () => {
+  const version = bumped('1.2.0');
+  const t = notedMerged({ version, before: '1.2.0' });
+  const n = t.next();
+  assert.deepEqual({ step: n.step, tag: n.tag, sha: n.sha, number: n.number, merged: n.merged, version: n.version, file: n.file },
+    { step: 'tag-release', tag: 'v1.3.0', sha: MERGE, number: 12, merged: 'change', version: '1.3.0', file: FILE });
+  releaseFixtures(t.gh, { atMerge: version, atParent: '1.2.0', tag: { at: MERGE } });
+  assert.equal(t.next().step, 'retro', 'with the tag at the merge commit the run goes on');
+});
+
+test("release-note AC-13 tag: a train's merge commit that carries two noted releases asks tag-release for that commit", () => {
+  // GitHub marks a boarded pull request merged with the train's merge commit (delivery-train D-2); two noted joins bumped the file twice.
+  const version = bumped('1.2.0', 2);
+  const t = notedMerged({ version, before: '1.2.0', merge: TRAIN_MERGE, parent: TRAIN_PARENT });
+  const n = t.next();
+  assert.deepEqual({ step: n.step, tag: n.tag, sha: n.sha, number: n.number, version: n.version },
+    { step: 'tag-release', tag: 'v1.4.0', sha: TRAIN_MERGE, number: 12, version: '1.4.0' });
+  assert.equal(n.reason, `PR #12 merged version 1.4.0 of ${FILE} at ${TRAIN_MERGE.slice(0, 7)}, and origin has no tag v1.4.0`);
 });
 
 // ---- two-prs (ADR 0018): only the merges into the base branch are tagged. The delivery-models simulator answers the pull requests of

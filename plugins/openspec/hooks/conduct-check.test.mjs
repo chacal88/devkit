@@ -8,6 +8,7 @@ import { tmpFolder } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
 import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, TWO_PRS, cleanEnv, real, roundRepo, pinDoc, underOwnTmp } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
+import { REL_CONFIG, releaseLayout, NOTE_TEXT, stepCommit } from './deliver-check-fixtures.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, deliveryRow, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
@@ -1616,4 +1617,79 @@ test('upfront AC-11 adr: an unresolvable base gives no step', () => {
   const report = { summary: 's', met: [], next: { step: 'wait-checks', reason: 'r' } };
   const out = deliveryRow(ctx, row, { state: {}, report });
   assert.notEqual(out.next.step, 'renumber-adr');
+});
+
+// ---------------------------------------------------------------- release-at-merge: the conductor and the release note (D-10, AC-4, AC-10)
+// A change with `openspec/changes/<id>/release.md`, in a project that names `devkit.release_tag`, is numbered only by `assign-release`:
+// the conductor gives it neither `resolve-release-conflict` nor a `renumber-adr` for the ADR its decisions.md lists without a number.
+
+const NOTED_ROUND = `${CONFIG}${REL_CONFIG}`;
+const OTHER_RELEASE = '# Changelog\n\n## 1.1.0 — another change\n\n- **devkit-openspec**: another thing\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n';
+// A round whose noted change `b` was assigned (the step's commit, release lines only) before another change released on origin/main,
+// so that its pull request conflicts with the base in CHANGELOG.md alone.
+function notedConflict() {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: NOTED_ROUND, files: releaseLayout() });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: { 'openspec/changes/b/release.md': NOTE_TEXT } });
+  stepCommit(b, { adr: false });
+  t.commitOrigin(releaseLayout({ openspec: '1.1.0', market: '1.1.0', changelog: OTHER_RELEASE }), 'another change released');
+  openPr(t, b, 'b', { mergeable: 'CONFLICTING' });
+  return { t, b };
+}
+
+test('release-note AC-4 conduct: actorOf gives assign-release to the main session', () => {
+  assert.deepEqual(actorOf('assign-release'), { actor: 'main' });
+});
+
+test('release-note AC-4 conduct: a noted change in a release-only conflict gets assign-release for the main session, never resolve-release-conflict', () => {
+  const { t, b } = notedConflict();
+  const head0 = headOf(b);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['assign-release', 'main']);
+  assert.deepEqual(c.next.command.slice(2), ['--assign', '--base', 'main', '--json']);
+  assert.equal(headOf(b), head0, 'the conductor wrote nothing');
+  // The same conflict reported as the conflict stop of item 5: the override leaves a noted change's conflict to the release step.
+  const ctx = { root: t.main, ref: 'origin/main', base: 'main' };
+  const state = { release: { applies: true, noted: true, base: 'main' }, ship: 'pr', branch: 'b', pr: { number: 12, state: 'OPEN', headRefOid: head0 } };
+  const report = { summary: 'S', met: [], next: { step: 'blocked', reason: 'item 5 (PR #12 conflicts with main)', item: 5, conflict: true } };
+  const out = deliveryRow(ctx, { id: 'b', worktree: b }, { state, report });
+  assert.notEqual(out.next.step, 'resolve-release-conflict');
+  assert.equal(out.next.step, 'blocked');
+});
+
+test('release-note AC-4 conduct: a noted change whose ADR the step numbered 0016, a number the base then took, gets no renumber-adr', () => {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: NOTED_ROUND, files: { 'docs/adr/0001-first.md': ADR_BODY('1', 'first') } });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: {
+    'openspec/changes/b/release.md': '# Release note\n\npacks: []\n',
+    'openspec/changes/b/decisions.md': '# Decisions\n\n- ADR: `docs/adr/b.md`\n',
+    'docs/adr/0016-b.md': ADR_BODY('16', 'b'),
+  } });
+  t.commitOrigin({ 'docs/adr/0016-x.md': ADR_BODY('16', 'x') }, 'origin adds record 0016');
+  openPr(t, b, 'b');
+  const c = byId(t.state(), 'b');
+  assert.notEqual(c.next.step, 'renumber-adr', 'the number of an ADR listed without one is the release step\'s');
+  assert.equal(c.next.files, undefined);
+});
+
+test('release-note AC-10 conduct: an old-rule change, and a numbered ADR a noted change lists, still get resolve-release-conflict and renumber-adr', () => {
+  const { t } = conflictRepo(['CHANGELOG.md', '.claude-plugin/marketplace.json'], { config: NOTED_ROUND });
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['resolve-release-conflict', 'subagent'], 'old rule: no release.md');
+  const numbered = (release) => {
+    const r = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), config: NOTED_ROUND, files: { 'docs/adr/0001-first.md': ADR_BODY('1', 'first') } });
+    const b = r.addWt('b');
+    readyChange(b, 'b', { files: {
+      ...(release ? { 'openspec/changes/b/release.md': '# Release note\n\npacks: []\n' } : {}),
+      'openspec/changes/b/decisions.md': '# Decisions\n\n- ADR: `docs/adr/0016-a.md`\n',
+      'docs/adr/0016-a.md': ADR_BODY('16', 'a'),
+    } });
+    r.commitOrigin({ 'docs/adr/0016-x.md': ADR_BODY('16', 'x') }, 'origin adds record 0016');
+    openPr(r, b, 'b');
+    return byId(r.state(), 'b');
+  };
+  for (const release of [false, true]) {
+    const c = numbered(release);
+    assert.deepEqual(planStep(c), ['renumber-adr', 'subagent'], release ? 'a numbered ADR of a noted change keeps the old rule' : 'old rule');
+    assert.deepEqual(c.next.files, [{ from: 'docs/adr/0016-a.md', to: 'docs/adr/0017-a.md', number: '0017' }]);
+  }
 });
