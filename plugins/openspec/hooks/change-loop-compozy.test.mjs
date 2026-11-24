@@ -258,6 +258,12 @@ test('change-loop skill: every reply not yet shown ends the turn, in order, befo
   assert.ok(sw && /keeps `reply` for the message that ends the turn/.test(sw), 'switch-script keeps its reply');
 });
 
+test('forced-merge-path 2: D1 the devkit skill\'s session item names the forced retro reply', () => {
+  const sw = skillText().split('\n').find((l) => l.startsWith('- `session`'));
+  assert.ok(sw, 'the session item exists');
+  assert.match(sw, /A `retro` step that carries `reply` \(an owner's forced merge\) keeps `reply` for the message that ends the turn\./);
+});
+
 test('change-loop skill: what the session writes itself follows the message table\'s rule (AC-11)', () => {
   const md = skillText();
   const never = md.slice(md.indexOf('## Never'));

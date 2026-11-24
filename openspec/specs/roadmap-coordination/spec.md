@@ -1159,3 +1159,25 @@ roadmap run SHALL treat that line as any blocked change.
 #### Scenario: The stop lock of a roadmap run with such a line
 - **WHEN** the session of that roadmap run ends its turn while `a` has a stage ready, or while no other line has anything ready
 - **THEN** the stop is refused for `a`'s ready stage, or let through because nothing is ready
+
+### Requirement: The roadmap's decisions are judged from a freshly fetched base
+The roadmap command's `run`, `next` and `wait` SHALL fetch the base, as the change command's `next`
+does, before they decide the action of a change in its delivery part: at most once per base in one
+call, and again at each poll of a wait. A failed fetch SHALL NOT stop the decision. The status
+command, its machine-readable form, the draft and the run's stop lock SHALL never fetch.
+
+#### Scenario: Three changes in delivery
+- **WHEN** `next` decides a roadmap whose three open changes are in delivery against the same base
+- **THEN** the base is fetched exactly once in that call
+
+#### Scenario: The roadmap's wait
+- **WHEN** the roadmap's wait for a change in delivery polls twice
+- **THEN** the base is fetched before each poll
+
+#### Scenario: The status board on a stale base
+- **WHEN** the status command reads a change in delivery whose base's tracking ref is behind the remote
+- **THEN** no fetch runs and the tracking ref stays where it was
+
+#### Scenario: The remote cannot be reached during a run
+- **WHEN** `next` runs and the base cannot be fetched
+- **THEN** the decision is made from the local copy, and each change in delivery records the failed fetch

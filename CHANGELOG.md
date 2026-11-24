@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.52.0 — one setup verb, `/devkit setup`
+## 0.53.0 — one setup verb, `/devkit setup`
 
-- **devkit-openspec** 0.47.0: a project is set up by the owner's typed `/devkit setup`, a verb of the
+- **devkit-openspec** 0.48.0: a project is set up by the owner's typed `/devkit setup`, a verb of the
   `devkit` skill (ADR 0031, which amends ADR 0004). `change-loop.mjs start` answers it with the `setup`
   mode before the project gate, so it runs in a folder not set up yet, and with `setup-no-repo` outside a
   git repository. It is one step for a first install and for a re-run: `scripts/setup-block.mjs` plans
@@ -13,7 +13,7 @@
   copies no checker into the project and names the version it installs. The skill `openspec-setup` is
   removed, with no alias: its scripts and templates moved under `skills/devkit/`, and every reply that
   named it (`not-set-up`, `design-pack-missing`, the merge-setup reasons) names `/devkit setup`. The CI
-  snippet now pins `v0.47.0`, the release's tag.
+  snippet now pins `v0.48.0`, the release's tag.
 - **devkit-compozy** 0.5.0: the skill `compozy-setup` is removed, with no alias. The kit installer
   (`install-kit.mjs`), its generator and its templates moved to `kit/`, and `/devkit setup` runs the
   installer. The kit's files change only in the generator path their comments name.
@@ -22,6 +22,24 @@
   the answer to its "Project setup" open point.
 - Projects: no step is needed; a project the removed skills set up keeps working as it is. The next
   re-run of the setup is `/devkit setup`.
+
+## 0.52.0 — an owner's forced merge leads the change to the archive
+
+- **devkit-openspec** 0.46.0: the delivery checker recognises a change's own pull request that was merged while a
+  required check was not green and a task stayed unticked as the owner's forced merge, by the pull request number or by
+  its merge commit, and names the items it left open (the unticked tasks and the checks that were not green). The loop
+  no longer answers `implement` for such a change: it leads it to the retro and then to the archive. `retro.md`
+  records the open items; nothing is ticked.
+- Docs: [ADR 0028](docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md) (accepted) amends ADR 0003,
+  with a Note in it; `docs/openspec-flow.md` and the ADR list of `openspec/config.yaml` follow. The CI snippet now pins
+  `v0.46.0`, the release's tag.
+
+## 0.51.1 — fresh-base-check retro
+
+- **devkit-core** 0.16.2: the pr-verifier reads a suite summary by each file's status; a `LEFT` file
+  fails the run even with 0 failing tests, and a run that exits non-zero is never recorded as a pass.
+- **devkit-openspec** 0.46.1: `nextAction` no longer reads the default branch twice. The CI snippet
+  now pins `v0.46.1`, the release's tag.
 
 ## 0.51.0 — a status line for the session of a change or a roadmap run
 

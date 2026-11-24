@@ -1,0 +1,21 @@
+{
+  "case": "no-evidence",
+  "about": "Live case 3 (delivery-train, compozy-driver): merged without its final evidence and without any review file.",
+  "rollup": [
+    "check",
+    {
+      "name": "devkit-reviews",
+      "conclusion": "FAILURE"
+    }
+  ],
+  "gates": {
+    "evidence": "missing",
+    "reviews": {}
+  },
+  "expect": {
+    "all": {
+      "after": "retro",
+      "loop": "retro"
+    }
+  }
+}

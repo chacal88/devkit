@@ -62,6 +62,24 @@ test('readValue: unfilled template line is not a value; full token kept', () => 
   assert.equal(readValue(join(root, 'openspec/changes/a/b.md'), 'Status'), 'APPROVED');
 });
 
+test('forced-merge-path 1: V1 valueIn reads a text as readValue reads the same file, and an empty text is null', () => {
+  assert.equal(typeof GUARD.valueIn, 'function');
+  const texts = {
+    't.md': '- Status: APPROVED | NEEDS-REVISION | BLOCKED\n',
+    'n.md': '- Status: NEEDS-REVISION\n',
+    'b.md': '**Status:** APPROVED — high\n',
+    'v.md': twoVerdicts('approved', 'rejected'),
+    'none.md': '# Review\nno value here\n',
+  };
+  const root = repo({ changes: { a: texts } });
+  for (const [name, text] of Object.entries(texts)) {
+    for (const key of ['Status', 'Verdict']) {
+      assert.equal(GUARD.valueIn(text, key), readValue(join(root, 'openspec/changes/a', name), key), `${name} ${key}`);
+    }
+  }
+  assert.equal(GUARD.valueIn('', 'Verdict'), null);
+});
+
 test('sanitize drops heredoc bodies and quoted text', () => {
   const cmd = "cat > tasks.md <<'EOF'\n- [ ] 9.1 run gh pr create\ngit push --force\nEOF\necho \"git add -A\"";
   const s = sanitize(cmd);
