@@ -48,6 +48,13 @@ left (the loop's next action is the one place that decides, ADR 0017); the guard
 merging and `--admin`; no gate is re-run, ticked or faked after a merge; a merge with every task
 ticked and a red check stays delivered as today and lists no open item.
 
+Also out of scope: when several merged pull requests change the change's folder (a stack), the number the
+checker names is the newest merged by `mergedAt` from the default branch and from another change's checkout, and
+the change's own pull request from its own branch. This is inherited from `origin/main` and was observed on
+delivery-train (#91 against #93) in `evidence.md` Observation 1. The count of open items is the same; the pull
+request number (the retro title and the release tag) may be the stack's top. A follow-up change is proposed to
+prefer the pull request whose head branch is the change id.
+
 ## Acceptance criteria
 
 - AC-1 `forced-merge-recognised`: given a merged pull request of the change whose `check` or `devkit-reviews` is not `SUCCESS` on its head, with the change's tasks unticked on the default branch (the PR 88 facts), `deliver-check.mjs <id>` and `change-loop.mjs next --change <id>` answer a retro step that says `merged by the owner with N items open` (N the real count), never `implement`, `stop-branch`, `verify` or `review`.

@@ -1203,9 +1203,14 @@ test('field-fixes 4 delivered: a further open pull request on the same head afte
   t.gh.tasksOnDefault('feat', tasksText({ ticked: ['1.1'], unticked: ['3.1'] }));
   const further = prJson({ number: 15, state: 'OPEN', headRefOid: head(t.root), body: PR_BODY });
   t.gh.set('pr-list', { stdout: [further] });
+  // Merged #12 has a task left and a required check red: still no forced merge while a further pull request is open (it is not delivered).
+  t.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
   const s = collectState(t.root, 'feat', { env: t.env });
   assert.equal(s.pr.number, 15, 'the open pull request of the same head is the pull request');
   assert.notEqual(nextStep(s).step, 'open-pr');
+  assert.equal(s.forced, null);
+  assert.equal(s.unreadMerge, null);
+  assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'no pr view 12 call: the rollup is not read');
 });
 
 test('field-fixes 4 delivered: with no open pull request on the head after a merge with tasks left, the answer names the merged one and the tasks', () => {
@@ -2179,12 +2184,25 @@ test(`${FMP}: N1 PR 88 from the default branch answers the retro with its exact 
   assert.equal(stateOf(t).mergedLeft, null);
 });
 
+// The report of a forced merge read from the change's own branch is the one N5 reads from the default branch: items 1 and 6 open, the rest met,
+// exit 1 and the summary that names the retro (D-4).
+function assertOpenItems1And6(t) {
+  const r = runCli(t, ['feat', '--json']);
+  assert.equal(r.code, 1, r.out + r.err);
+  const j = JSON.parse(r.out);
+  assert.deepEqual(j.items.map((i) => i.status), ['open', 'met', 'met', 'met', 'met', 'open', 'met', 'met']);
+  assert.equal(j.items[0].reason, 'not done at the merge: task 9.6; evidence.md (missing); reviews/code-quality-reviewer.md (verdict REJECTED)');
+  assert.equal(j.items[5].reason, 'not green at the merge: devkit-reviews (FAILURE)');
+  assert.deepEqual([j.met, j.summary, j.next.step, j.next.number], [6, 'merged: archive step retro', 'retro', 88]);
+}
+
 test(`${FMP}: N2 PR 88 on the change's own branch with no open pull request answers the retro, never implement`, () => {
   const t = forcedOnBranch();
   const n = nextStep(stateOf(t));
   assert.equal(n.step, 'retro');
   assert.match(n.reason, /^PR #88 merged by the owner with 4 items open: task 9\.6; devkit-reviews \(FAILURE\); /);
   assert.deepEqual([n.number, n.forced.count], [88, 4]);
+  assertOpenItems1And6(t);
 });
 
 test(`${FMP}: N3 PR 88 from another change's branch answers the retro`, () => {
@@ -2202,6 +2220,7 @@ test(`${FMP}: N4 PR 88 found with its branch deleted, from its own branch, answe
   assert.equal(n.number, 88);
   assert.equal(n.forced.count, 4);
   assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('--head')), 'found by the head branch list');
+  assertOpenItems1And6(t);
 });
 
 test(`${FMP}: N5 a forced merge opens items 1 and 6 only, exits 1 and says merged: archive step retro`, () => {
@@ -2376,6 +2395,72 @@ test(`${FMP}: L3 an unreadable commit arm blocks from the default branch and fro
     const n = nextStep(s);
     assert.deepEqual([n.step, n.reason], ['blocked', 'cannot find the merged pull request of feat: gh: boom'], branch);
   }
+});
+
+// The commit arm's success path composed with the delivery: a full list of 100 merged pull requests, none the change's own (archive heads),
+// the change's branch deleted, and GitHub's commits of the default branch that changed its tasks.md lead to pull request 12 (head `b`*40).
+// `ticked`/`unticked` and the `rollup` of pull request 12 are the case's; the gate files at the head are PR 88's shape (evidence missing, one
+// reviewer REJECTED). Returns the repository on `branch`.
+function commitArmPm({ branch = 'main', ...fixtures } = {}) {
+  const prs = cap().map((p) => mergedPr({ number: p.number, headRefName: p.headRefName }));
+  const t = forcedFixtures(pm({ branch, mergedPrs: prs }), fixtures);
+  t.gh.set(COMMITS_KEY('feat'), { stdout: [{ sha: SHA1 }] });
+  t.gh.set(PULLS_KEY(SHA1), { stdout: [restPr({ number: 12, html_url: 'https://github.com/o/r/pull/12', head: { ref: 'ship/feat', sha: 'b'.repeat(40) } })] });
+  t.gh.prFiles(12, [FEAT_TASKS, 'src/a.ts']);
+  return t;
+}
+const viaOf = (t, branch) => DC.deliveryOf(makeGh(t.root, t.env), t.root, 'feat', { ship: 'merge', branch, env: t.env, mergeFields: true }).fetched.via;
+const commitRoutes = ['repos/{owner}/{repo}/commits?sha=main&path=openspec/changes/feat/tasks.md&per_page=10', `repos/{owner}/{repo}/commits/${SHA1}/pulls`];
+
+// Invariant: a pull request the commit arm found is judged like one the list arm finds: with a task left and a required check red it is the
+// owner's forced merge, named by its number and its real count. Layer: findChangePr's commit arm composed with deliveryOf, collectState and
+// nextStep (deliver-check). Suite: deliver-check-archive.
+test(`${FMP}: L5 a pull request found by the commit arm with a task left and devkit-reviews FAILURE answers the retro with the real count, from the default branch and another change's branch`, () => {
+  for (const branch of ['main', 'ship/other']) {
+    const t = commitArmPm({ branch });
+    const s = stateOf(t);
+    assert.equal(s.unreadMerge, null, branch);
+    assert.equal(s.mergedLeft, null, branch);
+    assert.deepEqual([s.forced?.number, s.forced?.url, s.forced?.head, s.forced?.count], [12, 'https://github.com/o/r/pull/12', 'b'.repeat(40), 4], branch);
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.number, n.forced.count], ['retro', 12, 4], branch);
+    assert.equal(n.reason, 'PR #12 merged by the owner with 4 items open: task 9.6; devkit-reviews (FAILURE); evidence.md (missing); reviews/code-quality-reviewer.md (verdict REJECTED); run the retro', branch);
+    assert.deepEqual(commitRoutes.filter((r) => commitCalls(t).some((c) => c[1] === r)), commitRoutes, `${branch}: the commit arm found it`);
+    assert.equal(viaOf(commitArmPm({ branch }), branch), 'commit', branch);
+  }
+});
+
+// Invariant: a pull request the commit arm found, with a task left and every required check green, is a partial merge: stop-branch, never a forced
+// merge, and its checks' gate files are not read. Layer and suite as L5.
+test(`${FMP}: L6 a pull request found by the commit arm with a task left and every required check green stops at the branch, with no forced fact`, () => {
+  const t = commitArmPm({ rollup: [OKRUN('check'), OKRUN('devkit-reviews')] });
+  const s = stateOf(t);
+  assert.equal(s.forced, null);
+  assert.equal(s.unreadMerge, null);
+  assert.deepEqual(s.mergedLeft, { number: 12, tasks: ['9.6'] });
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.number, n.tasks], ['stop-branch', 12, ['9.6']]);
+  assert.equal(n.reason, 'PR #12 of feat merged with tasks left (9.6); continue on branch feat and open a further pull request');
+  assert.equal('forced' in n, false);
+  assert.equal(commitCalls(t).some((c) => c[1] === commitRoutes[1]), true, 'the commit arm found it');
+  assert.equal(t.gh.calls().some((c) => c[0] === 'api' && /contents\/openspec\/changes\/feat\/(evidence\.md|reviews)/.test(c[1] ?? '')), false, 'no gate file read');
+  assert.equal(viaOf(commitArmPm({ rollup: [OKRUN('check'), OKRUN('devkit-reviews')] }), 'main'), 'commit');
+});
+
+// Invariant: a pull request the commit arm found, with every task ticked, is delivered whatever its checks said, with today's retro reason and
+// no read of its rollup. Layer and suite as L5.
+test(`${FMP}: L7 a pull request found by the commit arm with every task ticked is delivered, answers today's retro row and is never forced`, () => {
+  const t = commitArmPm({ ticked: ['1.1', '1.2', '9.6'], unticked: [] });
+  const s = stateOf(t);
+  assert.equal(s.forced, null);
+  assert.equal(s.unreadMerge, null);
+  assert.equal(s.mergedLeft, null);
+  const n = nextStep(s);
+  assert.deepEqual([n.step, n.reason, n.number], ['retro', 'the change PR is merged; run the retro', 12]);
+  assert.equal('forced' in n, false);
+  assert.equal(commitCalls(t).some((c) => c[1] === commitRoutes[1]), true, 'the commit arm found it');
+  assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'no rollup read');
+  assert.equal(viaOf(commitArmPm({ ticked: ['1.1', '1.2', '9.6'], unticked: [] }), 'main'), 'commit');
 });
 
 test(`${FMP}: L4 a list of three with none of the change's own reads no commit`, () => {

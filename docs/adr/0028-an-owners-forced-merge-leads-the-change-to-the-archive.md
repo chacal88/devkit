@@ -11,9 +11,10 @@
   (0012-the-reviews-check-follows-the-change-script.md), ADR 0016
   (0016-stage-roles-write-their-own-files.md), ADR 0017 (0017-a-change-state-is-derived-in-one-place.md),
   ADR 0019 (0019-the-delivery-loop-tags-the-release-it-merged.md); amends none of them
-- Number: the next free number on `origin/main` when this record was drafted; it is taken again at
-  the last merge of `main` before the review (`openspec/config.yaml`, rules), and the file is
-  renamed if a sibling change took it
+- Number: 0025 and 0026 are on `origin/main` and 0027 is held by the sibling change
+  archive-release-pin, so 0028 is the next free number after it; it is taken again at the last
+  merge of `main` before the review (`openspec/config.yaml`, rules), and the file is renamed if a
+  sibling change took it
 
 ## Context
 
@@ -84,6 +85,10 @@ not by letting any session make one.
   changes that check within this change's scope.
 - Note: the release tag of ADR 0019 applies once the change is in the archive phase, and needs the
   pull request's number, which decision 6 finds.
+- Note (forced-merge-path, 2026-11-24): decision 1 names `check` and `devkit-reviews`, the two
+  checks this repository requires; the rule the checker applies, and the spec change-delivery
+  states, is the checks the default branch requires, plus `devkit-reviews` when it reported, so a
+  project whose ruleset names other checks is judged on its own ruleset.
 
 ### Review trigger
 

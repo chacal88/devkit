@@ -166,6 +166,10 @@ a passing verdict current at the merged head. The reason SHALL say `<N> items op
 - **WHEN** the `Commit:` of `evidence.md` or of a review file at the merged head is not an ancestor of the merged head
 - **THEN** that file is an open item naming its commit as not an ancestor of the merged head
 
+#### Scenario: A verdict recorded too far behind to read
+- **WHEN** the compare of the `Commit:` of `evidence.md` or of a review file with the merged head lists 300 files or more
+- **THEN** that file is an open item naming its commit as too far behind the merged head to read
+
 #### Scenario: The gate files cannot be read
 - **WHEN** reading a gate file or the `reviews/` folder at the merged head fails for a reason other than not found, or answers a folder where a file is expected or a file where the folder is expected
 - **THEN** `deliver-check.mjs foo` answers `next.step` `blocked`, quoting the error, from the default branch and from branch `foo` alike
@@ -179,7 +183,7 @@ The delivery checker SHALL find the change's merged own pull request with its br
 GitHub, from the change's own branch, the default branch, an archive branch or any other branch. When
 the list of the newest 100 merged pull requests is full and holds none, it SHALL look for it by the
 commits of the default branch that changed the change's `tasks.md`, newest first, through the pull
-requests each commit belongs to.
+requests each commit belongs to. It reads the newest 10 such commits.
 
 #### Scenario: On the change's own branch, the branch deleted
 - **WHEN** the checkout is on branch `foo`, GitHub deleted it, and `gh pr view` finds no pull request while `gh pr list --head foo --state all` holds merged #88
