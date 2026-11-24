@@ -8,7 +8,7 @@ git-ignored.
 
 The devkit is the engine: OpenSpec changes, hooks that keep product code closed until the plan is
 ready, reviewer agents and checkers. CompozyOS only sequences the stages, holds the human gates,
-runs sessions and shows the panel. There is one agent here for every role the devkit names, twenty
+runs sessions and shows the panel. There is one agent here for every role the devkit names, twenty-one
 in all. Each is a seat: a CompozyOS session that hands its work, unchanged, to the Claude agent of
 the same name (`devkit-core:<role>` or `devkit-openspec:<role>`) and returns that agent's report in
 the shape the loop's node asks for, so the devkit hooks judge the work exactly as they do in

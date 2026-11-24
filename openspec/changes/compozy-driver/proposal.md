@@ -50,7 +50,7 @@ node's output), so the short loop ADR 0010 decision 4 promised can now be built.
   does itself, the facts an approved mock-up settled). In Claude Code the session stays the coordinator and the agent is never handed work.
 - In a CompozyOS session the hooks refuse every tool write of `approval.md`: only the kit's record
   step writes it, from the owner's own answer.
-- A new ADR (next free number at merge; `0021` today) amends ADR 0009 (the gates and the loop),
+- A new ADR (next free number at merge; `0022` today) amends ADR 0009 (the gates and the loop),
   ADR 0008 decision 5 (a third path for the review round's three stages) and ADR 0016 decision 3's
   CompozyOS sentence (the records are accepted by the loop's step, not by the implementer shell
   that leaves). The planning role is named
@@ -120,8 +120,8 @@ tests of the view, the record step and the loop, and live in dogfood with the re
   docs (`docs/compozy-kit.md`, `docs/roles.md`, `docs/coordination-design.md`,
   `docs/openspec-flow.md`, `docs/conventions.md`, `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`),
   ADRs 0008, 0009, 0010 and 0016 (Notes) and the new ADR, `openspec/config.yaml`,
-  `openspec/roadmap.md`; versions, from 0.32.0, 0.3.1 and 0.36.1 today: devkit-openspec 0.33.0
-  (tagged `v0.33.0` after the merge), devkit-compozy 0.4.0, marketplace 0.37.0.
+  `openspec/roadmap.md`; versions, from 0.33.0, 0.3.1 and 0.37.0 today: devkit-openspec 0.34.0
+  (tagged `v0.34.0` after the merge), devkit-compozy 0.4.0, marketplace 0.38.0.
 - devkit-core: unchanged; its agents are the sources the kit's agents are generated from.
 - Dependencies: CompozyOS 0.6.2 (`compozy` CLI and daemon) on the machine that runs the driver;
   round 15 (`change-coordinator`), round 16 (`stage-roles`, ADR 0016) and round 18

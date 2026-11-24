@@ -52,7 +52,7 @@ function copyOfPlugins() {
 }
 
 test('compozy-agents set: the agents are the keys of PACKS and no shell of the old kit', () => {
-  assert.equal(ROLES.length, 20, 'PACKS holds 20 roles');
+  assert.equal(ROLES.length, 21, 'PACKS holds 21 roles');
   const dirs = readdirSync(join(REPO, ...AGENTS_AT)).sort();
   assert.deepEqual(dirs, ROLES);
   for (const old of ['tech-lead', 'dev', 'qa', 'design']) assert.ok(!dirs.includes(old), `${old} left the kit`);
@@ -84,14 +84,14 @@ test('compozy-agents frontmatter: every key the daemon reads, and the source bod
   assert.equal(display, 'display_name: Plan Readiness Reviewer');
 });
 
-test('compozy-agents icon: shield-check for the checking roles, list-checks for the other ten', () => {
+test('compozy-agents icon: shield-check for the checking roles, list-checks for the other eleven', () => {
   const icon = (role) => frontmatterOf(read(agentPath(REPO, role))).find((l) => l.startsWith('  icon:'));
   assert.equal(REVIEW_ICON.length, 10);
   for (const role of REVIEW_ICON) assert.equal(icon(role), '  icon: shield-check', role);
   const rest = ROLES.filter((r) => !REVIEW_ICON.includes(r));
-  assert.equal(rest.length, 10);
+  assert.equal(rest.length, 11);
   for (const role of rest) assert.equal(icon(role), '  icon: list-checks', role);
-  for (const role of ['screen-designer', 'adr-author', 'test-runner', 'e2e-tester']) assert.ok(rest.includes(role), `${role} takes list-checks`);
+  for (const role of ['screen-designer', 'adr-author', 'test-runner', 'e2e-tester', 'requirements-triage']) assert.ok(rest.includes(role), `${role} takes list-checks`);
 });
 
 test('compozy-agents seat: every agent hands its work to the Claude agent and maps the outcome words', () => {

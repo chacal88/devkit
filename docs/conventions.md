@@ -21,7 +21,7 @@ plugins/<pack>/
 | `stack` | Technology references: Postgres, React, Vitest, multi-tenant SaaS, threat modeling |
 | `ai-engineering` | Building with LLMs: evaluation, multi-agent patterns, tool design, context, skill vetting |
 | `panel` | A Claude Code mod for the desktop app: a read-only side pane over the devkit checkers (`conduct-check`, `deliver-check`), the band above the prompt and buttons that fill the prompt box with the owner's next command. Hooks modules only: no agents or skills |
-| `compozy` | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.compozy/` (twenty agents generated from the Claude agents, the loops `devkit-change`, `devkit-review` and `devkit-roadmap`, the resolver) into a project; `screen-design` and `screen-demo` stay shipped for a project's own screens |
+| `compozy` | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.compozy/` (twenty-one agents generated from the Claude agents, the loops `devkit-change`, `devkit-review` and `devkit-roadmap`, the resolver) into a project; `screen-design` and `screen-demo` stay shipped for a project's own screens |
 
 ## Naming
 

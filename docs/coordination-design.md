@@ -21,7 +21,7 @@ Tense: a sentence in the present tense is about what exists at the commit that s
 their locks, `ship-change`, `conduct-check`, `deliver-check`, the review Workflow script
 and the panel exist today. So does, since the change `compozy-driver` (round 21), the CompozyOS driver: three loops of
 `devkit-compozy` over the change loop, one CompozyOS agent per role and the setting value `devkit.driver: compozy`
-([ADR 0021](adr/0021-compozy-runs-the-short-loop.md)). So do, since the change `change-coordinator` (round 15),
+([ADR 0022](adr/0022-compozy-runs-the-short-loop.md)). So do, since the change `change-coordinator` (round 15),
 the command `/devkit change`, the change coordinator of the Claude driver (the owner's session, run by
 the script `change-loop.mjs`), its two stop locks and its edit and hand-off locks
 ([ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md)), and the two settings
@@ -443,7 +443,7 @@ All proposed. The three drivers are to be built in rounds 15, 21 and 22.
   **Waiting on GitHub. Decided by the owner on 2026-11-20 (round 15 grill, question 1): wait with no
   time limit and go on alone.** Built as a background command of the session that ends when GitHub
   answers; the session is called back, runs the loop again and goes on. The command holds no state.
-- **CompozyOS (round 21; built by `compozy-driver`, [ADR 0021](adr/0021-compozy-runs-the-short-loop.md)).** One short,
+- **CompozyOS (round 21; built by `compozy-driver`, [ADR 0022](adr/0022-compozy-runs-the-short-loop.md)).** One short,
   generic loop (ask the checker, run the role, record the answer) in place of the 619-line flow written apart, with the
   review round and the roadmap as loops of their own. `/devkit` starts the run. One CompozyOS agent per role, named as
   the role: the kit's planning role is `change-planner` (section 2). CompozyOS chooses the role at each turn: a node's

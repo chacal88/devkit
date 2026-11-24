@@ -1,6 +1,6 @@
 # The CompozyOS kit: devkit-compozy
 
-`devkit-compozy` (`plugins/compozy/`) ships the CompozyOS driver of the devkit flow as a pack: twenty
+`devkit-compozy` (`plugins/compozy/`) ships the CompozyOS driver of the devkit flow as a pack: twenty-one
 agents, three loops, the `bin/devkit-kit` resolver, a workspace `config.toml`, and the
 `compozy-setup` skill that installs them into a project as `.compozy/`. CompozyOS runs the loops and
 holds the owner's questions; the devkit itself (OpenSpec change files, the hooks that keep product
@@ -8,7 +8,7 @@ code closed until the plan is ready, the reviewer agents and the checkers) decid
 does the work inside it. A project installs the kit only when it runs CompozyOS: a project that does
 not never pays for its skill descriptions.
 
-The design is [ADR 0021](adr/0021-compozy-runs-the-short-loop.md), which amends
+The design is [ADR 0022](adr/0022-compozy-runs-the-short-loop.md), which amends
 [ADR 0009](adr/0009-compozy-loop-as-a-second-driver.md): the twelve-stage loop and its four role
 shells of the first kit are gone.
 
@@ -28,7 +28,7 @@ driver started the run.
 
 ## The agents and the seat
 
-There is one CompozyOS agent for every role that has a Claude agent file, twenty in all, named as the
+There is one CompozyOS agent for every role that has a Claude agent file, twenty-one in all, named as the
 role (`change-planner`, `tdd-implementer`, `commit-and-pr`, `pr-verifier`, `screen-designer`,
 `test-runner`, `e2e-tester`, the reviewers and the rest). Each is a **seat**: a CompozyOS session that
 hands its work, unchanged, to the Claude agent of the same name (`devkit-core:<role>` or
@@ -82,7 +82,7 @@ See [the pack's README](../plugins/compozy/README.md) for the contract.
 ## How to adopt it
 
 1. **Install the pack and run `compozy-setup`.** It writes `.compozy/` into the project:
-   `config.toml`, `README.md`, the twenty agents (`agents/<role>/AGENT.md`), the three loops
+   `config.toml`, `README.md`, the twenty-one agents (`agents/<role>/AGENT.md`), the three loops
    (`loops/<name>/loop.yaml`) and the resolver `bin/devkit-kit`; it adds the `design:` block to
    `openspec/config.yaml` only when the project has screens. It never starts a run or writes
    product code. A loop file in the workspace's `.compozy/loops/` is listed and run by name; there is
@@ -103,7 +103,7 @@ A project on the first kit (four role shells and the `openspec-change` loop) run
 again. Each file of the old kit that is still equal to its recorded digest is removed (`remove`); one
 the project edited is kept and named (`kept`), and is removed only when it is named in `--accept`. The
 inputs the old templates recorded and the new ones no longer have are dropped from the manifest
-(`dropped`). The twenty agents and the three loops are created. Runs of the old loop under way finish
+(`dropped`). The twenty-one agents and the three loops are created. Runs of the old loop under way finish
 on the loop definition CompozyOS already holds. A workspace whose default agent was `tech-lead` needs
 another one: `compozy workspace edit <name> --default-agent change-coordinator`.
 
@@ -121,7 +121,7 @@ The merge itself stays the owner's unless the project's ship mode says `merge`
 
 The CompozyOS driver does not carry every feature of the Claude driver: the token budget, the Jira
 entry and write-back, the `state` command's view of a run, and the machines of a remote roadmap are not
-reached from a CompozyOS run. [ADR 0021](adr/0021-compozy-runs-the-short-loop.md) lists each limit.
+reached from a CompozyOS run. [ADR 0022](adr/0022-compozy-runs-the-short-loop.md) lists each limit.
 
 ## Checker portability
 

@@ -3,7 +3,7 @@
 The CompozyOS driver of the devkit flow, as files any project installs: one agent for every devkit
 role, three loops and the skills the screen roles can use. `compozy-setup` writes them into the
 project as `.compozy/`; `/devkit` then starts the runs (`driver: compozy` in the `devkit:` block of
-`openspec/config.yaml`). The design is [ADR 0021](../../docs/adr/0021-compozy-runs-the-short-loop.md).
+`openspec/config.yaml`). The design is [ADR 0022](../../docs/adr/0022-compozy-runs-the-short-loop.md).
 
 ```bash
 claude plugin install devkit-compozy@devkit --scope project
@@ -20,7 +20,7 @@ Run at the project root, or add the pack to the project's `.claude/settings.json
 
 - The devkit decides, the loops only run: every gate is a script (`change-loop.mjs`, reading
   `flow-check` and, through `conduct-check`, `deliver-check`), the same ones the Claude driver asks.
-- The twenty agents under `agents/` are seats generated from the Claude agent files
+- The twenty-one agents under `agents/` are seats generated from the Claude agent files
   (`scripts/gen-agents.mjs`): each hands its work, unchanged, to the Claude agent of the same name, so
   the devkit hooks judge it as in Claude Code. A change goes into the Claude agent, never into the copy.
 - Every automated decision is a command, never a judge; every human decision is a CompozyOS request
@@ -30,7 +30,7 @@ Run at the project root, or add the pack to the project's `.claude/settings.json
   template holds a path that exists in only one repository.
 
 The driver does not carry every feature of the Claude driver; the limits are listed in the
-Consequences of ADR 0021.
+Consequences of ADR 0022.
 
 ## What a project must provide
 
@@ -46,7 +46,7 @@ Consequences of ADR 0021.
 
 ## Install
 
-`compozy-setup` writes `.compozy/` into the project: `config.toml`, `README.md`, the twenty agents
+`compozy-setup` writes `.compozy/` into the project: `config.toml`, `README.md`, the twenty-one agents
 under `agents/<role>/AGENT.md`, the loops under `loops/<name>/loop.yaml`, the resolver
 `bin/devkit-kit` and `kit-manifest.json`. It never starts a run and never writes product code. A
 project on the first kit (four role shells and the `openspec-change` loop) runs it again: the unedited

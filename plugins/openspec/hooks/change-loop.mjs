@@ -2466,7 +2466,7 @@ export function applyAnswer(record, gate, { answer, question = '', at }) {
 
 // The hand-off steps are the ones `ROWS` gives a role (`AGENT_STEPS`); each has a `ship-change` row for its dispatch sentence, except
 // the steps the `devkit` skill's Loop describes instead (`SKILL_LOOP_STEPS`).
-const SKILL_LOOP_STEPS = ['resolve-release-conflict'];
+const SKILL_LOOP_STEPS = ['resolve-release-conflict', 'renumber-adr'];
 const SHIP_ROW_STEPS = AGENT_STEPS.filter((step) => !SKILL_LOOP_STEPS.includes(step));
 const COMMAND_STEPS = ['switch-script', 'accept-decisions', 'take-place'];
 // The kinds whose progress key a confirmed view records as handed; any other kind clears it.

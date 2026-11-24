@@ -328,7 +328,7 @@ test('compozy-kit templates: the default agent, the three inputs, the three loop
   const tokens = Object.keys(JSON.parse(read('substitutions.json')).placeholders);
   assert.deepEqual(tokens.sort(), ['__MOCKUP__', '__SCREEN_MAP__', '__TIMEZONE__']);
   assert.deepEqual(readdirSync(join(SETUP_DIR, 'templates', 'loops')).sort(), LOOPS, 'the three loops, and no openspec-change');
-  assert.equal(AGENTS.length, 20);
+  assert.equal(AGENTS.length, 21);
   for (const old of RETIRED_AGENTS) assert.ok(!AGENTS.includes(old), `${old} is not an agent of the kit`);
   const readme = read('README.md');
   for (const word of [...LOOPS, 'change-coordinator', '/devkit']) assert.ok(readme.includes(word), `the README names ${word}`);

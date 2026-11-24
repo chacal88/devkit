@@ -25,7 +25,7 @@ files, and installs them again on a re-run without losing what the project edite
 
    It writes `.compozy/config.toml` (the workspace overlay: default agent `change-coordinator`,
    provider, `permissions.mode`, skills sources, timezone), `.compozy/README.md` (what the kit is, the
-   loops and what the owner answers), the twenty agents `.compozy/agents/<role>/AGENT.md` (one per
+   loops and what the owner answers), the twenty-one agents `.compozy/agents/<role>/AGENT.md` (one per
    devkit role, generated from the Claude agent files and written verbatim), the three loops
    `.compozy/loops/devkit-change/loop.yaml`, `.compozy/loops/devkit-review/loop.yaml` and
    `.compozy/loops/devkit-roadmap/loop.yaml`, and `.compozy/bin/devkit-kit`, executable and verbatim

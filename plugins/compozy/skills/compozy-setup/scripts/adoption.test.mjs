@@ -7,7 +7,7 @@
 // the templates, with the one value this repository overrides (`__TIMEZONE__`) — then compares it
 // to the installed file byte for byte. A render-then-compare, never a line-by-line heuristic: a
 // hand-edit of the installed copy that drifts from the template in any way, placeholder or not,
-// fails this test. The kit is the twenty agents, the three loops, `config.toml`, `README.md` and
+// fails this test. The kit is the twenty-one agents, the three loops, `config.toml`, `README.md` and
 // `bin/devkit-kit` (compozy-driver D-10); none of the five files of the old kit is installed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -71,9 +71,9 @@ for (const file of RENDERED_FILES) {
   });
 }
 
-test('AC-9 repo-adopts: the kit holds the three loops and twenty agents, and the loops are the ones of D-5, D-6 and D-7', () => {
+test('AC-9 repo-adopts: the kit holds the three loops and twenty-one agents, and the loops are the ones of D-5, D-6 and D-7', () => {
   assert.deepEqual(LOOPS, ['devkit-change', 'devkit-review', 'devkit-roadmap']);
-  assert.equal(AGENTS.length, 20);
+  assert.equal(AGENTS.length, 21);
   assert.deepEqual(readdirSync(join(COMPOZY_DIR, 'loops')).sort(), LOOPS, 'only the three loops are installed');
 });
 
