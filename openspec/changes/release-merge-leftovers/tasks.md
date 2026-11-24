@@ -198,7 +198,10 @@ merge before review"; the numbers at the plan base are given only to locate the 
 
 ## 2. The two-PR override tests (AC-3, AC-4)
 
-- [x] 2.1 Move `TWO_PRS` into `plugins/openspec/hooks/conduct-check.test.mjs` and make
+- [x] 2.1 Superseded at the merge of main (suite-speed, ADR 0026; see the update in "The two-PR
+  override tests (AC-3)"): `TWO_PRS` lives in `plugins/openspec/hooks/test-fixtures.mjs`, `conduct-check.test.mjs`
+  imports it from there, and `delivery-models.test.mjs` and `release-tags.test.mjs` keep main's imports; the
+  move below was not made and its Check does not apply. Original text: Move `TWO_PRS` into `plugins/openspec/hooks/conduct-check.test.mjs` and make
   `plugins/openspec/hooks/delivery-models.test.mjs` import and re-export it, as "The `TWO_PRS`
   constant moves, unchanged" says; commit message: invariant "the two-prs settings text is one
   constant, unchanged", layer "test fixture", suite "the guard suite (delivery-models and

@@ -31,12 +31,12 @@ command would go unnoticed.
 - `plugins/openspec/hooks/conduct-check.test.mjs` gains two tests that run the release-merge override
   with `openspec/config.yaml` set to the two-PR delivery model (`two-prs`, base `main`, test branch
   `develop`): a conflict only in release files answers `resolve-release-conflict` with the paths and a
-  merge command on `main`; a conflict that also has `README.md` answers `blocked`. The `TWO_PRS`
-  config text moves into `conduct-check.test.mjs` and `delivery-models.test.mjs` re-exports it, byte
-  for byte (see "Flagged for the owner").
+  merge command on `main`; a conflict that also has `README.md` answers `blocked`. The tests import
+  the `TWO_PRS` config text from `plugins/openspec/hooks/test-fixtures.mjs`, where the suite-speed
+  change put it; the move this plan first described is superseded (see "Flagged for the owner").
 - Release: a patch of devkit-panel, of devkit-openspec (its test files change) and of the
   marketplace, a `CHANGELOG.md` entry, and the CI pin of `docs/openspec-flow.md` moved to the new
-  devkit-openspec version with its assertion in `plugins/openspec/hooks/change-loop.test.mjs`.
+  devkit-openspec version with its assertion in `plugins/openspec/hooks/change-loop-compozy.test.mjs`.
 
 Non-goals: everything under "Out of scope" in `requirements.md` (how the release step, the override
 or the delivery checker work; `CHANGELOG.md` history and `openspec/changes/archive/**`, which keep
@@ -84,8 +84,8 @@ None.
 - devkit-panel (patch above origin/main's at the last merge before review; 0.3.0 at the plan base):
   `hooks/steps.ts`, `hooks/i18n.ts`, `hooks/report.test.tsx`.
 - devkit-openspec (patch above origin/main's at the last merge before review; 0.33.0 at the plan
-  base): `hooks/conduct-check.test.mjs`, `hooks/delivery-models.test.mjs`,
-  `hooks/change-loop.test.mjs` (the CI-pin assertion only). No hook, skill, agent or schema changes.
+  base): `hooks/conduct-check.test.mjs`, `hooks/change-loop-compozy.test.mjs` (the CI-pin assertion
+  only). `hooks/delivery-models.test.mjs` is not changed: the `TWO_PRS` move is superseded. No hook, skill, agent or schema changes.
 - Spec: `openspec/specs/commit-attribution/spec.md`, through the delta at archive.
 - Docs and release: `docs/openspec-flow.md` (the CI pin, three lines), `CHANGELOG.md`,
   `.claude-plugin/marketplace.json` (the two packs and the marketplace patch; 0.37.0 at the plan
@@ -123,6 +123,10 @@ uses is still under way.
   `node <hooks>/release-merge.mjs --base main --json`: it holds `--base main` and ends with `--json`.
   The new test asserts that the value after `--base` is `main` and that no argument is `develop`;
   the command itself does not change (AC-4).
+- **Superseded at the merge of main (suite-speed, ADR 0026):** `TWO_PRS` now lives in
+  `plugins/openspec/hooks/test-fixtures.mjs`, `conduct-check.test.mjs` imports it from there and
+  `delivery-models.test.mjs` is not changed, so the move and re-export described in the rest of this
+  bullet were never made; it records the plan as approved.
 - `requirements.md` says the test reuses `TWO_PRS` exported by `delivery-models.test.mjs`. Importing
   it from there into `conduct-check.test.mjs` would make an import cycle (`delivery-models.test.mjs`
   already imports `roundRepo` from `conduct-check.test.mjs`), and `delivery-models.test.mjs` builds a
