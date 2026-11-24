@@ -8,10 +8,12 @@
   a roadmap run shows the counts (in play, working, waiting on the owner, blocked); a session that
   conducts nothing shows nothing. The owner turns it on once with the `statusLine` entry in
   `docs/openspec-flow.md` (the newest installed copy, so a plugin update needs no edit); the plugin
-  writes no settings file. The bar reads only `state`, writes nothing and starts no process but `node`
-  and `git`, with a bound on each. `state` gains a `stages` field (the stages that apply to the change, in
-  order) and an `--offline` option (a listing with no GitHub call), and the offline stub that listing
-  uses lives in one place. The CI snippet now pins `v0.40.0`, the release's tag.
+  writes no settings file. The bar reads only `state`, writes nothing and itself starts only `node` and
+  `git` (`state` keeps its own reads), with a bound on each; at the bound, or when Claude Code stops it,
+  it ends the `state` call and everything that call started. `state` gains a `stages` field (the stages
+  that apply to the change, in order) and an `--offline` option (a listing with no GitHub call), and the
+  offline stub that listing uses lives in one place. The CI snippet now pins `v0.40.0`, the release's
+  tag.
 
 ## 0.43.1 — a change's own pull request may edit another change's archive
 

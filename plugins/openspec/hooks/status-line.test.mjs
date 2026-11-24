@@ -5,7 +5,7 @@
 // The `state` command itself is tested in change-state-stages.test.mjs and change-loop-remote-state.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, readFileSync, existsSync, realpathSync, symlinkSync, appendFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, realpathSync, symlinkSync, appendFileSync, chmodSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { gitRepo, git, planChange, fakeGh, putRun, runFileOf, SET_LOOP as SET } from './test-fixtures.mjs';
@@ -60,19 +60,24 @@ const ASKING = (reasonText, over = {}) => entry({
 const ASKING_HEAD = `${ICON.owner} ${ICON.plan} feat · Owner's approval · ${strip(9)} · 10 of 15`;
 
 // A fixture script standing for `change-loop.mjs state`: it logs its arguments and folder, then prints `reply` and exits `exit`;
-// with `sleep` it writes its pid and waits until it is killed. Nothing here is the product's.
-function stateStub({ reply = '', exit = 0, sleep = false } = {}) {
+// with `sleep` it writes its pid and waits until it is killed; with `grandchild` it also starts a child of its own (as `state` starts
+// `openspec` and `gh`) that writes its pid and waits. Nothing here is the product's.
+function stateStub({ reply = '', exit = 0, sleep = false, grandchild = false } = {}) {
   const dir = tmpFolder('devkit-bar-stub-');
   const log = join(dir, 'calls.log');
   const pidFile = join(dir, 'pid');
+  const grandchildFile = join(dir, 'grandchild-pid');
   const replyFile = join(dir, 'reply.txt');
   writeFileSync(replyFile, typeof reply === 'string' ? reply : JSON.stringify(reply));
   const script = join(dir, 'state-stub.mjs');
+  const child = `writeFileSync(${JSON.stringify(grandchildFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
   const body = sleep
-    ? `writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`
+    ? `${grandchild ? `spawn(process.execPath, ['--input-type=module', '-e', ${JSON.stringify(`import { writeFileSync } from 'node:fs'; ${child}`)}], { stdio: 'ignore' });` : ''}`
+      + `writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`
     : `process.stdout.write(readFileSync(${JSON.stringify(replyFile)}, 'utf8')); process.exitCode = ${exit};`;
   writeFileSync(script, [
     "import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';",
+    "import { spawn } from 'node:child_process';",
     `appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() }) + String.fromCharCode(10));`,
     body,
   ].join('\n'));
@@ -80,6 +85,7 @@ function stateStub({ reply = '', exit = 0, sleep = false } = {}) {
     command: [process.execPath, script],
     calls: () => (existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []),
     pid: () => (existsSync(pidFile) ? Number(readFileSync(pidFile, 'utf8')) : null),
+    grandchildPid: () => (existsSync(grandchildFile) ? Number(readFileSync(grandchildFile, 'utf8')) : null),
   };
 }
 const argvOf = (stub) => stub.calls().map((c) => c.argv);
@@ -447,6 +453,127 @@ test('run-status-bar AC-5 failure: an abort of the signal ends the state process
   });
 });
 
+// Invariant (B-19b, review round 1, code-quality F1): the bound and the abort end the whole process group of the state call, so what
+// `state` itself started (`openspec`, `gh`) does not outlive it.
+test('run-status-bar AC-5 failure: the bound and an abort also end the processes the state call started', async (t) => {
+  for (const [label, make] of VIEWS) {
+    await t.test(`${label}, at the bound`, async () => {
+      const view = make();
+      const stub = stateStub({ sleep: true, grandchild: true });
+      const pending = bar(view.folder, view.session, stub, { boundMs: 1500 });
+      const [pid, grandchild] = await until(() => stub.pid() && stub.grandchildPid() && [stub.pid(), stub.grandchildPid()]);
+      const r = await pending;
+      assert.deepEqual([r.stdout, r.code], ['', 0]);
+      assert.deepEqual([alive(pid), alive(grandchild)], [false, false], 'the state process and the one it started are gone');
+    });
+    await t.test(`${label}, at an abort`, async () => {
+      const view = make();
+      const stub = stateStub({ sleep: true, grandchild: true });
+      const abort = new AbortController();
+      const pending = bar(view.folder, view.session, stub, { signal: abort.signal, boundMs: 15_000 });
+      const [pid, grandchild] = await until(() => stub.pid() && stub.grandchildPid() && [stub.pid(), stub.grandchildPid()]);
+      abort.abort();
+      const r = await pending;
+      assert.deepEqual([r.stdout, r.code], ['', 0]);
+      assert.deepEqual([alive(pid), alive(grandchild)], [false, false], 'the state process and the one it started are gone');
+    });
+  }
+});
+
+// Invariant (B-19c, review round 1, test-coverage F1): the real process turns SIGTERM, SIGINT and SIGHUP into an abort, so the real
+// `state` it started, and the `openspec` that `state` is waiting on, are gone when it exits. The `openspec` here is a shim first on PATH
+// (outside the repository) that records its pid and sleeps; the bar is the real process on the real `state`, nothing injected.
+test('run-status-bar AC-5 failure: SIGTERM, SIGINT and SIGHUP end the real bar and the real openspec its state is waiting on', async (t) => {
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
+    await t.test(signal, async () => {
+      const root = real(planChange({ have: ['requirements', 'proposal'] }));
+      git(root, 'checkout', '-q', '-b', 'feat');
+      const shim = tmpFolder('devkit-bar-shim-');
+      const pidFile = join(shim, 'openspec-pid');
+      mkdirSync(join(shim, 'bin'));
+      writeFileSync(join(shim, 'bin', 'openspec'), `#!/bin/sh\necho $$ > ${JSON.stringify(pidFile)}\nexec sleep 300\n`);
+      chmodSync(join(shim, 'bin', 'openspec'), 0o755);
+      const env = { ...process.env, ...SET, PATH: `${join(shim, 'bin')}:${process.env.PATH}` };
+      const child = spawn(process.execPath, [BAR, '--lang', 'en'], { cwd: root, env, stdio: ['pipe', 'pipe', 'pipe'] });
+      let out = '';
+      child.stdout.on('data', (d) => { out += d; });
+      child.stdin.end(JSON.stringify({ session_id: 'S-x', cwd: root }));
+      const closed = new Promise((resolve) => child.on('close', (code, by) => resolve({ code, by })));
+      let pid = null;
+      try {
+        pid = Number(await until(() => (existsSync(pidFile) ? readFileSync(pidFile, 'utf8').trim() : '')));
+        assert.equal(alive(pid), true, 'the real state is waiting on the openspec shim');
+        const started = Date.now();
+        child.kill(signal);
+        const ended = await closed;
+        assert.deepEqual([ended.code, ended.by, out], [0, null, ''], 'the bar exits 0 and prints nothing');
+        assert.ok(Date.now() - started < 10_000, 'the signal ended it, not the bound');
+        assert.equal(alive(pid), false, 'the openspec of the state call is gone when the bar has exited');
+      } finally {
+        // a failing run must not leave the shim, or the `state` waiting on it, behind
+        if (pid !== null && alive(pid)) { try { process.kill(pid, 'SIGKILL'); } catch { /* gone already */ } }
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      }
+    });
+  }
+});
+
+// ---------------------------------------------------------------- the settings snippet (D-12)
+
+// Invariant (B-47, review round 1, test-coverage F3): the `statusLine` command the README tells the owner to paste, run by `sh -c`
+// against a fake plugin cache (named by CLAUDE_CONFIG_DIR, the variable the snippet reads), starts the newest installed copy with the
+// language option, and with no copy prints nothing and exits 0. The docs carry the same text.
+const SNIPPET_OF = (file) => {
+  const block = /```json\n(\{ "statusLine".*\})\n```/.exec(readFileSync(file, 'utf8'));
+  assert.ok(block, `${file} holds the statusLine snippet`);
+  return JSON.parse(block[1]).statusLine;
+};
+const README = join(HERE, '..', 'README.md');
+const FLOW_DOC = join(HERE, '..', '..', '..', 'docs', 'openspec-flow.md');
+function fakeCache(...versions) {
+  const config = tmpFolder('devkit-bar-config-');
+  for (const version of versions) {
+    const hooks = join(config, 'plugins', 'cache', 'devkit', 'devkit-openspec', version, 'hooks');
+    mkdirSync(hooks, { recursive: true });
+    writeFileSync(join(hooks, 'status-line.mjs'), `process.stdout.write(${JSON.stringify(`${version} `)} + process.argv.slice(2).join(' ') + '\\n');\n`);
+  }
+  return config;
+}
+const runSnippet = (config) => spawnSync('sh', ['-c', SNIPPET_OF(README).command], {
+  cwd: tmpFolder('devkit-bar-snippet-'), encoding: 'utf8', input: '{}', env: { ...process.env, CLAUDE_CONFIG_DIR: config, HOME: tmpFolder('devkit-bar-home-') },
+});
+test('run-status-bar AC-1 snippet: the README command starts the newest installed copy, and with none prints nothing and exits 0', async (t) => {
+  await t.test('the docs carry the same entry as the README', () => assert.deepEqual(SNIPPET_OF(FLOW_DOC), SNIPPET_OF(README)));
+  await t.test('it is a command entry', () => assert.equal(SNIPPET_OF(README).type, 'command'));
+  await t.test('two versions: 0.10.0 is newer than 0.9.0 (the sort -V case)', () => {
+    const r = runSnippet(fakeCache('0.9.0', '0.10.0'));
+    assert.deepEqual([r.status, r.stdout, r.stderr], [0, '0.10.0 --lang pt-BR\n', '']);
+  });
+  await t.test('one version', () => {
+    const r = runSnippet(fakeCache('0.40.0'));
+    assert.deepEqual([r.status, r.stdout, r.stderr], [0, '0.40.0 --lang pt-BR\n', '']);
+  });
+  await t.test('no copy of the plugin: nothing on either stream, exit 0', () => {
+    const r = runSnippet(tmpFolder('devkit-bar-config-'));
+    assert.deepEqual([r.status, r.stdout, r.stderr], [0, '', '']);
+  });
+  await t.test('the plugin folder holds no version: nothing, exit 0', () => {
+    const config = tmpFolder('devkit-bar-config-');
+    mkdirSync(join(config, 'plugins', 'cache', 'devkit', 'devkit-openspec'), { recursive: true });
+    const r = runSnippet(config);
+    assert.deepEqual([r.status, r.stdout, r.stderr], [0, '', '']);
+  });
+  await t.test('with no CLAUDE_CONFIG_DIR the copy is under $HOME/.claude', () => {
+    const home = tmpFolder('devkit-bar-home-');
+    const hooks = join(home, '.claude', 'plugins', 'cache', 'devkit', 'devkit-openspec', '0.1.0', 'hooks');
+    mkdirSync(hooks, { recursive: true });
+    writeFileSync(join(hooks, 'status-line.mjs'), "process.stdout.write('home copy\\n');\n");
+    const { CLAUDE_CONFIG_DIR: _unset, ...env } = process.env;
+    const r = spawnSync('sh', ['-c', SNIPPET_OF(README).command], { cwd: home, encoding: 'utf8', input: '{}', env: { ...env, HOME: home } });
+    assert.deepEqual([r.status, r.stdout, r.stderr], [0, 'home copy\n', '']);
+  });
+});
+
 // ---------------------------------------------------------------- the change's line (D-5)
 
 const ofEntry = (over, lang = 'en') => lineOfChange(entry(over), lang);
@@ -612,6 +739,24 @@ test('run-status-bar AC-6 language: the four new message keys exist in both lang
     'pt-BR': { 'bar.progress': '{n} de {total}', 'bar.counts': `{all} em jogo · {running} em andamento · ${ICON.owner} {waiting} aguardando o dono · ${ICON.blocked} {blocked} {blockedWord}`, 'bar.blocked-one': 'bloqueada', 'bar.blocked-other': 'bloqueadas' },
   };
   for (const [lang, table] of Object.entries(words)) for (const [key, text] of Object.entries(table)) assert.equal(MESSAGES[lang][key], text, `${lang} ${key}`);
+});
+
+// Invariant (B-37b, review round 1, test-coverage F2): the language the bar normalizes is the one the `state` call gets, in both views,
+// so the stage titles and reasons it prints are in the language of the bar's own words.
+test('run-status-bar AC-6 language: the language reaches the state call of the coordinator and of a change worktree', async (t) => {
+  for (const [given, passed] of [['pt-BR', 'pt-BR'], ['fr', 'pt-BR'], ['en', 'en']]) {
+    for (const [label, make] of VIEWS) {
+      await t.test(`--lang ${given}, ${label}`, async () => {
+        const view = make();
+        const stub = stateStub({ reply: listing(entry({ root: view.folder })) });
+        const r = await bar(view.folder, view.session, stub, { argv: ['--lang', given] });
+        assert.deepEqual(argvOf(stub), [[...view.args.slice(0, -1), passed]]);
+        assert.equal(r.code, 0);
+        if (label === 'a change worktree') assert.match(r.stdout, passed === 'en' ? / · 11 of 15\n$/ : / · 11 de 15\n$/, 'the line is drawn in the same language');
+        else assert.match(r.stdout, passed === 'en' ? /^1 in play · 1 working/ : /^1 em jogo · 1 em andamento/, 'the counts are drawn in the same language');
+      });
+    }
+  }
 });
 
 // ---------------------------------------------------------------- no budget (D-2)

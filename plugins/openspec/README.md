@@ -43,8 +43,10 @@ The `openspec-*` skills (propose, explore, apply, archive, ...) are not in this 
 To turn the status line on, add this entry to the project's or the user's `.claude/settings.json`; it picks the newest installed copy of the pack, so a plugin update needs no edit:
 
 ```json
-{ "statusLine": { "type": "command", "command": "f=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/*/devkit-openspec/*/hooks/status-line.mjs 2>/dev/null | sort -V | tail -n 1); [ -n \"$f\" ] && node \"$f\" --lang pt-BR" } }
+{ "statusLine": { "type": "command", "command": "f=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/*/devkit-openspec/*/hooks/status-line.mjs 2>/dev/null | sort -V | tail -n 1); [ -z \"$f\" ] || node \"$f\" --lang pt-BR" } }
 ```
+
+The line is in Brazilian Portuguese with `--lang pt-BR`; write `--lang en` instead for English. With no installed copy the command prints nothing and exits 0.
 
 ## Hooks
 

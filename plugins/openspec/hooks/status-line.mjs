@@ -154,15 +154,19 @@ function changeAt(folder) {
 // ---------------------------------------------------------------- the state call (D-9)
 
 // The standard output of `program <args>` run in `folder`, or null when it exits non-zero, cannot start, is aborted, or passes `boundMs`.
-// Its child is killed with SIGTERM at the bound or at the abort, and the promise settles only once the child has ended.
+// Its child leads a process group of its own and the whole group is killed with SIGTERM at the bound or at the abort, so what `state`
+// started (`openspec`, `gh`) does not outlive it; the promise settles only once the child has ended.
 function stateText(program, args, folder, { boundMs, signal }) {
   return new Promise((resolve) => {
     if (signal?.aborted) { resolve(null); return; }
     let child;
-    try { child = spawn(program, args, { cwd: folder, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { resolve(null); return; }
+    try { child = spawn(program, args, { cwd: folder, stdio: ['ignore', 'pipe', 'ignore'], detached: true }); } catch { resolve(null); return; }
     let out = '';
     let cut = false;
-    const stop = () => { cut = true; child.kill('SIGTERM'); };
+    const stop = () => {
+      cut = true;
+      try { process.kill(-child.pid, 'SIGTERM'); } catch { try { child.kill('SIGTERM'); } catch { /* the group and the child are gone */ } }
+    };
     const timer = setTimeout(stop, boundMs);
     signal?.addEventListener('abort', stop, { once: true });
     const settle = (value) => { clearTimeout(timer); signal?.removeEventListener('abort', stop); resolve(value); };
