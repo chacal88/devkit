@@ -349,7 +349,7 @@ ls-files` check needs (readiness attempt 5, O4).
   defect-4 tests D-18 names. Done when the 9.2 tests pass, every other `release-note AC-5` and `AC-7`
   test stays green, and T-5, T-14 and T-31 stay green.
 - [x] 9.4 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs && python3 scripts/check.py` green; covers AC-5 and AC-7 for the citations.
-- [ ] 9.5 Write the D-26 tests of D-20 (code-quality F1), the reviewer's reproduction first: in
+- [x] 9.5 Write the D-26 tests of D-20 (code-quality F1), the reviewer's reproduction first: in
   `plugins/openspec/hooks/release-merge.test.mjs` "release-note AC-4 assign: an assigned branch
   merged by hand after a code conflict with a base that released the same pack and ADR number is
   numbered again" (assign; the base releases the same pack and ADR number and edits `src/a.ts`;
@@ -373,7 +373,7 @@ ls-files` check needs (readiness attempt 5, O4).
   this repository's history. Run them; append the run to `proof/red-9.txt`. Done when each exists by
   its D-26 name, the reproduction and the other red ones fail (the two-records test on its record
   part), and the two guards pass.
-- [ ] 9.6 Apply D-20 (code-quality F1; test-coverage F6, the row's part; readiness M1, M3, M4, O1):
+- [x] 9.6 Apply D-20 (code-quality F1; test-coverage F6, the row's part; readiness M1, M3, M4, O1):
   in `plugins/openspec/hooks/deliver-check.mjs` `stepRecord` and the state of `releaseStateAt`
   (`reassign`: only keys equal to the record's and not to the merge base's); in
   `plugins/openspec/hooks/release-merge.mjs` the trailers of every `--assign` commit and the

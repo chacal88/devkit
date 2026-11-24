@@ -751,6 +751,81 @@ test('release-note AC-6 check: a root that is not a git repository is the base',
   assert.doesNotMatch(r.out, NOT_LISTED, 'its change lists it');
 });
 
+// ---------------------------------------------------------------- AC-4: the step's own record (review round 1, D-20)
+
+const RELEASE_PATHS = [REL_FILE, 'plugins/core/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'CHANGELOG.md', 'docs/openspec-flow.md'];
+// A merge of origin/main by hand: every release file of releaseLayout takes the base's side but those of `ours`, which keep the branch's;
+// `files` are written as the person resolves them; one merge commit.
+function mergeByHand(root, { files = {}, ours = [] } = {}) {
+  spawnSync('git', ['-C', root, 'merge', '--no-ff', '--no-commit', 'origin/main'], { encoding: 'utf8', env: GIT_ENV });
+  for (const path of RELEASE_PATHS) git(root, 'checkout', ours.includes(path) ? 'HEAD' : 'origin/main', '--', path);
+  put(root, files);
+  commitAll(root, 'merge origin/main by hand');
+}
+const OTHER_CHANGELOG = (version) => `# Changelog\n\n## ${version} — other\n\n- **devkit-openspec**: other\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n`;
+
+test('release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one', () => {
+  const root = noteRepo();
+  const recordOf = (tip = 'origin/main', id = 'feat') => D.stepRecord(root, { head: 'HEAD', tip, id });
+  assert.equal(recordOf(), null, 'no commit of the branch carries a record');
+
+  const first = stepCommit(root, { record: true });
+  const one = recordOf();
+  assert.equal(one.commit, first);
+  assert.deepEqual([...one.lines.keys()].sort(), ['.claude-plugin/marketplace.json', 'CHANGELOG.md', 'docs/adr/feat.md', 'docs/openspec-flow.md', 'plugins/core/.claude-plugin/plugin.json', REL_FILE].sort());
+  assert.equal(one.lines.get(REL_FILE), '1.1.0', 'a value read from the commit\'s tree');
+  assert.equal(one.lines.get('docs/adr/feat.md'), 'numbered:docs/adr/0002-feat.md');
+  assert.deepEqual(one.adrs, [{ from: 'docs/adr/feat.md', to: 'docs/adr/0002-feat.md' }]);
+  assert.deepEqual(one.citations, ['docs/x.md']);
+
+  rewriteVersion(root, 'plugins/core/.claude-plugin/plugin.json', '1.0.2');
+  const second = commitAll(root, [
+    'chore(release): assign the release of feat', '',
+    'Release-change: feat',
+    'Release-line: plugins/core/.claude-plugin/plugin.json',
+    'Release-line: CHANGELOG.md',
+    'Release-adr: docs/adr/other.md -> docs/adr/0009-other.md',
+    'Release-citation: docs/x.md',
+  ].join('\n'));
+  const two = recordOf();
+  assert.equal(two.commit, second, 'the newest recorded commit is the record');
+  assert.deepEqual([...two.lines], [['plugins/core/.claude-plugin/plugin.json', '1.0.2']], 'a trailer naming what its commit did not write is ignored');
+  assert.deepEqual([two.adrs, two.citations], [[], []]);
+
+  commitAll(root, 'chore(release): assign the release of other\n\nRelease-change: other');
+  commitAll(root, 'notes\n\nRelease-change: feat\n\nnot a trailer block');
+  assert.equal(recordOf().commit, second, 'another change\'s record and a Release- line outside the last paragraph are not this change\'s');
+  assert.equal(recordOf('nope'), null, 'git log fails');
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  assert.equal(recordOf(), null, 'a recorded commit the tip holds is not read');
+});
+
+test('release-note AC-4 record: a line equal to both the merge base\'s value and the record\'s is unassigned and outside reassign, and a version kept from the record is left to step 3', () => {
+  // The reproduction: the base released devkit-openspec 1.1.0 and devkit-core 1.0.1, as the step had, and took ADR 0002.
+  const root = noteRepo({ extra: { 'src/a.ts': 'mine\n' } });
+  assert.equal(assignIn(root).code, 0);
+  baseReleases(root, { ...releaseLayout({ openspec: '1.1.0', core: '1.0.1', market: '1.1.0', changelog: OTHER_CHANGELOG('1.1.0') }), 'docs/adr/0002-other.md': '# ADR 0002: other\n', 'src/a.ts': 'theirs\n' });
+  const refused = assignIn(root);
+  assert.equal(refused.code, 2, refused.text);
+  mergeByHand(root, { files: { 'src/a.ts': 'both\n' } });
+  const s = stateOf(root);
+  assert.equal(s.kind, 'unassigned', s.paths.join(', '));
+  assert.deepEqual(s.reassign, ['docs/adr/feat.md'], 'devkit-openspec 1.1.0 on both sides is the merge base\'s, not the record\'s');
+
+  // A merge by hand that kept the branch's 1.1.0 over a base at 2.0.0.
+  const kept = noteRepo();
+  assert.equal(assignIn(kept).code, 0);
+  baseReleases(kept, releaseLayout({ openspec: '2.0.0', market: '2.0.0', changelog: OTHER_CHANGELOG('2.0.0') }));
+  mergeByHand(kept, { ours: [REL_FILE] });
+  const k = stateOf(kept);
+  assert.equal(k.kind, 'unassigned', k.paths.join(', '));
+  assert.ok(k.reassign.includes(REL_FILE), k.reassign.join(', '));
+  const r = assignIn(kept);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(JSON.parse(readIn(kept, REL_FILE)).version, '2.1.0', 'step 3 writes the version computed from the base');
+  assert.deepEqual([stateOf(kept).kind, stateOf(kept).current], ['assigned', true]);
+});
+
 // ---------------------------------------------------------------- AC-14: the documents and agent texts (D-13)
 
 // The change's id, which is its ADR's slug. The texts cite that ADR as `ADR [<slug>]` before the delivery and `ADR <NNNN>` after it, and
@@ -758,6 +833,8 @@ test('release-note AC-6 check: a root that is not a git repository is the base',
 const SLUG = 'release-at-merge';
 const CITED = `ADR (?:\\[${SLUG}\\]|\\d{4})`;
 const FILED = `(?:\\d{4}-)?${SLUG}\\.md`;
+// The change's second record, which amends the first (D-20, "The `ADRs:` line"), cited in the same two forms.
+const CITED2 = `ADR (?:\\[${SLUG}-step-record\\]|\\d{4})`;
 const repoText = (...parts) => readFileSync(join(here, '..', '..', '..', ...parts), 'utf8');
 const sectionOf = (text, heading) => (text.split(`\n${heading}\n`)[1] ?? '').split('\n## ')[0];
 
@@ -825,7 +902,7 @@ test('release-note AC-14 texts: the agents, the documents and the records follow
     assert.match(rule, /^\s{4}- ['"]/, 'the rule is quoted');
     for (const part of ['no task bumps a version or numbers an ADR', 'old-rule', 'the next free number on origin/main at the last merge before review']) assert.ok(rule.includes(part), `the tasks rule says ${part}`);
     const adrs = config.find((l) => l.trim().startsWith('ADRs:'));
-    assert.match(adrs, new RegExp(`; ${CITED} [^;]+, amends 0022 and 0025\\)$`), 'the ADRs line ends with this change\'s record');
+    assert.match(adrs, new RegExp(`; ${CITED} [^;]+, amends 0022 and 0025, amended by ${CITED2}; ${CITED2} [^;]+, amends ${CITED}\\)$`), 'the ADRs line ends with this change\'s two records, the first naming the second as its amender');
     assert.ok(adrs.includes('; 0030 the pin test reads the manifest, so only the flow page pins pass unnamed, amends 0003 and 0027;'), 'the entries before it stay');
 
     const flow = repoText('docs', 'openspec-flow.md');

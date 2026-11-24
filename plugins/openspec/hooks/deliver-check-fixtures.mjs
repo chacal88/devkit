@@ -362,8 +362,19 @@ export function noteRepo({ config = `schema: devkit-lite\n${REL_CONFIG}`, files 
   return root;
 }
 // The commit the delivery step would make on noteRepo's branch (base at 1.0.0): the versions, the changelog entry, the pin and the
-// ADR numbered 0002 with its citations rewritten. each option set to false leaves that part out, to build a half of it.
-export function stepCommit(root, { versions = true, changelog = true, pin = true, adr = true } = {}) {
+// ADR numbered 0002 with its citations rewritten. each option set to false leaves that part out, to build a half of it. `record: true`
+// ends its message with the step's record of all of it (release-at-merge D-20), written out here by hand.
+export const STEP_RECORD = [
+  'Release-change: feat',
+  `Release-line: ${REL_FILE}`,
+  'Release-line: plugins/core/.claude-plugin/plugin.json',
+  'Release-line: .claude-plugin/marketplace.json',
+  'Release-line: CHANGELOG.md',
+  'Release-line: docs/openspec-flow.md',
+  'Release-adr: docs/adr/feat.md -> docs/adr/0002-feat.md',
+  'Release-citation: docs/x.md',
+].join('\n');
+export function stepCommit(root, { versions = true, changelog = true, pin = true, adr = true, record = false } = {}) {
   const files = {};
   if (versions) {
     files[REL_FILE] = manifestJson('devkit-openspec', '1.1.0');
@@ -377,7 +388,7 @@ export function stepCommit(root, { versions = true, changelog = true, pin = true
     git(root, 'mv', 'docs/adr/feat.md', 'docs/adr/0002-feat.md');
     put(root, { 'docs/adr/0002-feat.md': ADR_FEAT.replace('ADR [feat]', 'ADR 0002'), 'docs/x.md': 'See ADR 0002 for the rule.\n' });
   }
-  return commitAll(root, 'chore(release): assign the release of feat');
+  return commitAll(root, `chore(release): assign the release of feat${record ? `\n\n${STEP_RECORD}` : ''}`);
 }
 // A commit on main that releases another change (every file written by hand) and the bare origin follows; the root ends on `branch`.
 export function baseReleases(root, files, branch = 'feat') {

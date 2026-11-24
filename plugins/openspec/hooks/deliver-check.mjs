@@ -2048,6 +2048,52 @@ function adrValue(root, reader, head, adr) {
   return `other:${unnumbered ? adr.from : ''}${numbered.join(',')}`;
 }
 
+// The step's own record of what it wrote (D-20): the newest commit of `git log --first-parent <tip>..<head>` whose message's last paragraph
+// holds the trailer `Release-change: <id>`, or null when none does or `git log` fails (a clone that cannot reach the range). Its
+// `Release-line`, `Release-adr` and `Release-citation` trailers each count only when the commit changed what they name from its first parent,
+// and every value is read from the commit's tree, never from the trailer text: { commit, lines, adrs, citations }. `lines` maps a key of the
+// state (a release line, or the unnumbered path of a renamed record) to its value in the form linesOf and adrValue give, the changelog masked
+// with the head's numbers as releaseStateAt masks it; `adrs` are the { from, to } renames in trailer order; `citations` the paths.
+export function stepRecord(root, { head, tip, id }) {
+  const log = spawnSync('git', ['-C', root, 'log', '--first-parent', '--format=%H%x00%B%x1e', `${tip}..${head}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
+  if (log.status !== 0) return null;
+  let found = null;
+  for (const entry of log.stdout.split('\x1e')) {
+    const at = entry.indexOf('\0');
+    if (at === -1) continue;
+    const paragraphs = entry.slice(at + 1).trim().split(/\n[ \t]*\n/);
+    const trailers = paragraphs.length < 2 ? [] : paragraphs[paragraphs.length - 1].split('\n').flatMap((line) => {
+      const m = /^(Release-[a-z]+): (.+)$/.exec(line.trim());
+      return m ? [{ key: m[1], value: m[2].trim() }] : [];
+    });
+    if (trailers.some((t) => t.key === 'Release-change' && t.value === id)) { found = { commit: entry.slice(0, at).trim(), trailers }; break; }
+  }
+  if (!found) return null;
+  const { commit } = found;
+  const parent = `${commit}^1`;
+  const reader = repoReader(root);
+  const named = (key) => [...new Set(found.trailers.filter((t) => t.key === key).map((t) => t.value))];
+  const linePaths = named('Release-line');
+  const packPaths = linePaths.filter((p) => p !== MARKETPLACE && p !== CHANGELOG && p !== PIN_FILE);
+  const now = linesOf((p) => reader.file(commit, p), packPaths, null);
+  const was = linesOf((p) => reader.file(parent, p), packPaths, null);
+  const lines = new Map();
+  for (const path of linePaths) {
+    const value = now.get(path) ?? null;
+    if (value !== null && value !== (was.get(path) ?? null)) lines.set(path, value);
+  }
+  if (lines.has(CHANGELOG)) lines.set(CHANGELOG, maskRelease(lines.get(CHANGELOG), CHANGELOG, { adrs: numberedAdrs(reader, head), file: null }));
+  const adrs = [];
+  for (const value of named('Release-adr')) {
+    const m = /^(\S+) -> (\S+)$/.exec(value);
+    if (!m || reader.file(commit, m[2]) === null || reader.file(parent, m[2]) !== null) continue;
+    adrs.push({ from: m[1], to: m[2] });
+    lines.set(m[1], `numbered:${m[2]}`);
+  }
+  const citations = named('Release-citation').filter((p) => reader.file(commit, p) !== reader.file(parent, p));
+  return { commit, lines, adrs, citations };
+}
+
 // The `ADR [<x>]` citations of the branch's changed files that hold citations (holdsCitations, a binary text skipped) and of the note's
 // changelog title and body (the step writes them into CHANGELOG.md) for a slug `x` that is not `own`: { cited, unlanded }; a citation is
 // unlanded when no `<dir>/<NNNN>-<x>.md` is on `tip`.
@@ -2060,11 +2106,12 @@ function citationsOf(root, reader, { mergeBase, head, tip, own, noteText = '' })
   return { cited, unlanded: cited.filter((slug) => !landed(slug)) };
 }
 
-// The state of a noted change's branch against the release (D-3), or null for a change that follows no note:
-// { kind: 'unassigned' | 'assigned' | 'hand' | 'error', paths, current, base, citations, adrs, error?, why? }.
-// unassigned: the lines are the merge base's with every ADR unnumbered; assigned: they are what computeRelease writes there (a note with
-// nothing to write is assigned at once); hand: anything else, `paths` the lines edited by hand or still to write; error: the release cannot
-// be computed (`why` is 'note', 'base' or 'release'). `current` is assigned with origin/<base> in the head.
+// The state of a noted change's branch against the release (D-3, D-20), or null for a change that follows no note:
+// { kind: 'unassigned' | 'assigned' | 'hand' | 'error', paths, current, base, citations, adrs, reassign, error?, why? }.
+// assigned: the lines are what computeRelease writes on the merge base (a note with nothing to write is assigned at once); unassigned: each
+// line is the merge base's (every ADR unnumbered) or what the step's own record wrote (stepRecord), `reassign` listing the keys taken from the
+// record whose value is not the merge base's, for the step to give back; hand: anything else, `paths` the lines edited by hand or still to
+// write; error: the release cannot be computed (`why` is 'note', 'base' or 'release'). `current` is assigned with origin/<base> in the head.
 export function releaseState(root, id, facts) {
   const rf = releaseFacts(root, id, facts);
   if (!rf.noted) return null;
@@ -2073,15 +2120,15 @@ export function releaseState(root, id, facts) {
   const tip = facts.base ? baseTip(root, facts.base) : null;
   if (!tip) return releaseFailure(base, 'base', `cannot compute the release: origin/${base} is missing; git fetch origin ${base}`);
   if (!facts.head) return releaseFailure(base, 'base', 'cannot compute the release: no commit at HEAD yet');
-  return releaseStateAt(root, { head: facts.head, tip, base, note: rf.note, file: rf.file, adrs: changeAdrs(root, null, id) });
+  return releaseStateAt(root, { head: facts.head, tip, base, note: rf.note, file: rf.file, adrs: changeAdrs(root, null, id), id });
 }
 
-const releaseFailure = (base, why, error) => ({ kind: 'error', why, error, paths: [], current: false, base, citations: { cited: [], unlanded: [] }, adrs: [] });
+const releaseFailure = (base, why, error) => ({ kind: 'error', why, error, paths: [], current: false, base, citations: { cited: [], unlanded: [] }, adrs: [], reassign: [] });
 
 // The same state for any revision `head` against any revision `tip` it is numbered above (D-3; the step and the join judge their side with
 // it, D-6, D-7): `note` is what parseReleaseNote read, `file` the release file the project names, `adrs` the unnumbered records the change's
-// decisions.md lists, `base` the name the messages give the tip.
-export function releaseStateAt(root, { head: headRev, tip, base, note, file, adrs }) {
+// decisions.md lists, `base` the name the messages give the tip, `id` the change whose step record is read (none without it).
+export function releaseStateAt(root, { head: headRev, tip, base, note, file, adrs, id = null }) {
   const fail = (why, error) => releaseFailure(base, why, error);
   let mergeBase;
   try { mergeBase = git(root, ['merge-base', headRev, tip]).trim(); } catch { return fail('base', `cannot compute the release: HEAD and origin/${base} have no merge base`); }
@@ -2106,18 +2153,22 @@ export function releaseStateAt(root, { head: headRev, tip, base, note, file, adr
   }
   const keys = [...new Set([...head.keys(), ...before.keys(), ...after.keys()])].sort();
   const eq = (a, b, k) => (a.get(k) ?? null) === (b.get(k) ?? null);
-  const outside = keys.filter((k) => !eq(head, before, k) && !eq(head, after, k));
-  const asBefore = keys.every((k) => eq(head, before, k));
+  // A value neither the merge base's nor the computed one counts as the step's own when its own record wrote that value (D-20).
+  const record = id ? stepRecord(root, { head: headRev, tip, id }) : null;
+  const recorded = (k) => Boolean(record?.lines.has(k)) && eq(head, record.lines, k);
+  const unassigned = (k) => eq(head, before, k) || recorded(k);
+  const outside = keys.filter((k) => !unassigned(k) && !eq(head, after, k));
   const asAfter = keys.every((k) => eq(head, after, k));
   let kind;
   let paths = [];
   if (outside.length) { kind = 'hand'; paths = outside; }
   else if (asAfter) kind = 'assigned';
-  else if (asBefore) kind = 'unassigned';
-  else { kind = 'hand'; paths = keys.filter((k) => eq(head, before, k) && !eq(head, after, k)); }
+  else if (keys.every(unassigned)) kind = 'unassigned';
+  else { kind = 'hand'; paths = keys.filter((k) => unassigned(k) && !eq(head, after, k)); }
+  const reassign = kind === 'unassigned' ? keys.filter((k) => recorded(k) && !eq(head, before, k)) : [];
   const current = kind === 'assigned' && gitOk(root, ['merge-base', '--is-ancestor', tip, headRev]);
   const citations = citationsOf(root, reader, { mergeBase, head: headRev, tip, own: new Set(computed.adrs.map((a) => a.slug)), noteText: `${note.title ?? ''}\n${note.body ?? ''}` });
-  return { kind, paths, current, base, citations, adrs: computed.adrs };
+  return { kind, paths, current, base, citations, adrs: computed.adrs, reassign };
 }
 
 // What `collectState` records of the release rule for nextStep (D-8): { applies: false }, or `noted` and, for a noted change, its `state`; for

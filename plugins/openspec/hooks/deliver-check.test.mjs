@@ -2770,6 +2770,27 @@ test('release-note AC-4 row N6: a train project is never answered assign-release
   assert.equal(n.step, 'boarded');
 });
 
+// Review round 1 (D-20): the base released what the step had written (the same versions, ADR 0002 for another record), and a person merged
+// it by hand, taking the base's side of every release file; the step's commit carries its record.
+test('release-note AC-4 row N6: a branch merged by hand after the step is handed assign-release, not refused', () => {
+  const t = noteReady();
+  stepCommit(t.root, { record: true });
+  baseReleases(t.root, {
+    ...releaseLayout({ openspec: '1.1.0', core: '1.0.1', market: '1.1.0', changelog: '# Changelog\n\n## 1.1.0 — other\n\n- **devkit-openspec**: other\n\n## 1.0.0 — first\n\n- **devkit-openspec**: start\n' }),
+    'docs/adr/0002-other.md': '# ADR 0002: other\n',
+    'src/other.ts': 'other\n',
+  }, 'ship/feat');
+  spawnSync('git', ['-C', t.root, 'merge', '--no-ff', '--no-commit', 'main'], { encoding: 'utf8', env: GIT_ENV });
+  git(t.root, 'checkout', 'main', '--', ...Object.keys(releaseLayout()).filter((p) => !p.startsWith('docs/adr/')));
+  commitAll(t.root, 'merge main by hand');
+  setPrHead(t);
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.deepEqual([s.release.state.kind, s.release.state.paths], ['unassigned', []]);
+  const n = relNext(t);
+  assert.equal(n.step, 'assign-release', n.reason);
+  assert.deepEqual(n.command, STEP_COMMAND);
+});
+
 test('release-note AC-4 row N5: a branch behind the base is given assign-release in place of update-branch', () => {
   const t = noteReady();
   stepCommit(t.root);

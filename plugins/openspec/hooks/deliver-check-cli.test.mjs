@@ -702,6 +702,21 @@ test('loop-evidence 16: the ship-change review row leaves the commit to the loop
   assert.ok(commit.includes('are still staged from `git status`'), 'the commit row still stages the folder from git status');
 });
 
+// Invariant (release-at-merge D-20, test-coverage F6): the session's assign-release row says how the step is run and what follows its exit
+// 2, the merge by hand included. Owner: the ship-change skill (text pins). Suite: deliver-check-cli.test.mjs.
+test('release-note AC-4 format: ship-change\'s assign-release row fetches, runs next.command, pushes plain and never by force, stops blocked on exit 2 and names the merge by hand', () => {
+  const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const row = md.split('\n').find((l) => l.startsWith('| `assign-release` |')) ?? '';
+  const at = (part) => { const i = row.indexOf(part); assert.ok(i >= 0, `the row names ${part}`); return i; };
+  assert.ok(at('`git fetch origin <next.base>`') < at('`next.command`'), 'it fetches before it runs the step');
+  assert.ok(at('`next.command`') < at('`git push origin <next.branch>`'), 'it pushes after the step');
+  at('a plain push, never a force push');
+  assert.doesNotMatch(row, /--force|\bpush -f\b/);
+  const stop = at('Exit 2: stop as `blocked: item 5');
+  assert.ok(stop < at('merge `origin/<next.base>` by hand'), 'the merge by hand follows the stop');
+  for (const part of ['take the base\'s side of every release line in conflict', 'run the loop again', 'from its own record']) at(part);
+});
+
 test('loop-evidence 17: the flow doc\'s order of the delivery steps names the commit before the review round', () => {
   const doc = readFileSync(join(repoRoot, 'docs', 'openspec-flow.md'), 'utf8');
   const para = doc.split('\n').find((l) => l.startsWith('**Order of the delivery steps.**')) ?? '';

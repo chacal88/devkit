@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, adrFileRe, maskCitations } from './deliver-check.mjs';
+import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, adrFileRe, maskCitations, stepRecord } from './deliver-check.mjs';
 // The pin definition (ADR 0027) and the helpers every consumer CI needs live in deliver-check.mjs, which it downloads alone (release-at-merge D-3a);
 // each name stays importable from here as the same object.
 export { pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, PIN_FILE, PIN_PACK, PIN_PACK_NAME };
@@ -324,7 +324,8 @@ function landedNumber(reader, rev, slug) {
 // `file` the release file the project names, `label` how a message names the target. The release lines keep no number the side wrote: the
 // release files take the target's side, a text the side numbered is merged with its numbers masked, and its ADRs get their unnumbered
 // names back; then the lines `computeRelease` gives above `target` are written on the merged text, each ADR is renamed to its number and
-// every citation outside openspec/changes/ is rewritten. Returns { code, out, text }; a refusal or a failure leaves the tree as it was.
+// every citation outside openspec/changes/ is rewritten. With no merge to make, what the step's own record wrote is given back first (D-20).
+// The step's commit ends with its record, the join's with none. Returns { code, out, text }; a refusal or a failure leaves the tree as it was.
 export function numberRelease(root, { side, target, id, file, merging = false, label }) {
   const oldHead = gitOut(root, ['rev-parse', 'HEAD']);
   const notePath = `openspec/changes/${id}/${RELEASE_NOTE}`;
@@ -337,7 +338,7 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
   const note = parseReleaseNote(noteText ?? '');
   if (note.error) return refuse({ error: note.error });
   const adrs = changeAdrs(root, merging ? side : null, id);
-  const state = releaseStateAt(root, { head: side, tip: target, base: label, note, file, adrs });
+  const state = releaseStateAt(root, { head: side, tip: target, base: label, note, file, adrs, id });
   if (state.kind === 'error') return refuse({ error: state.error });
   if (state.kind === 'hand') return refuse({ error: `release lines edited by hand: ${state.paths.join(', ')}` });
   if (state.citations.unlanded.length) return refuse({ error: state.citations.unlanded.map((x) => `ADR [${x}] is cited but has not landed on ${label}; it lands with its own change`).join('; ') });
@@ -416,6 +417,37 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
         writeStaged(root, touched, a.from, text);
       }
     }
+    // D-20: with no merge to make (a person merged the base by hand), what the step's own record wrote is given back: each renamed record
+    // whose key is in `reassign`, and the record's citation paths that hold its number, each through `git merge-file` of the path's text at
+    // the record's commit, the working text and that commit's text with the record's numbers masked. Only the tokens the step wrote go back,
+    // so a citation the base brought with the same number stays; a line edited where the step wrote a number conflicts and is refused. A
+    // release line in `reassign` is left to step 3, which writes every release line.
+    if (!needsMerge && state.reassign.length) {
+      const record = stepRecord(root, { head: oldHead, tip: target, id });
+      const back = (record?.adrs ?? []).filter((a) => state.reassign.includes(a.from));
+      const nameOf = (path) => path.slice(path.lastIndexOf('/') + 1);
+      const numbers = back.map((a) => ({ number: nameOf(a.to).slice(0, 4), slug: nameOf(a.from).replace(/\.md$/, '') }));
+      const givenBack = (path, working) => {
+        const recorded = show(root, record.commit, path) ?? '';
+        const theirs = maskCitations(recorded, path, numbers);
+        return theirs === recorded ? working : mergeTexts(recorded, working, theirs, 'devkit-release-');
+      };
+      const cannot = (path) => refuse({ error: `cannot give back the numbers the step wrote in ${path}` });
+      for (const a of back) {
+        const text = givenBack(a.to, readFileSync(join(root, a.to), 'utf8'));
+        if (text === null) return cannot(a.to);
+        touched.push(a.to, a.from);
+        gitOut(root, ['mv', '-f', a.to, a.from]);
+        writeStaged(root, touched, a.from, text);
+      }
+      for (const path of back.length ? record.citations : []) {
+        if (!existsSync(join(root, path))) continue;
+        const working = readFileSync(join(root, path), 'utf8');
+        const text = givenBack(path, working);
+        if (text === null) return cannot(path);
+        if (text !== working) writeStaged(root, touched, path, text);
+      }
+    }
     // A slug another record of the ADR folders already has (D-4).
     const listed = listPaths(root, ['ls-files', '--', ...ADR_DIRS]);
     for (const a of state.adrs) {
@@ -483,7 +515,15 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
     const message = merging
       ? `chore(train): join ${side.slice(0, 7)} and renumber its release above the train`
       : needsMerge ? `chore(release): merge origin/${label} and assign the release of ${id}` : `chore(release): assign the release of ${id}`;
-    const committed = sh(root, ['commit', '-q', '-m', message]);
+    // The step's record (D-20): one trailer per thing the commit wrote, the release lines in the order they are written.
+    const lineOrder = [...Object.keys(computed.files).filter((p) => p !== PIN_FILE), PIN_FILE];
+    const trailers = [
+      `Release-change: ${id}`,
+      ...lineOrder.filter((p) => files.includes(p)).map((p) => `Release-line: ${p}`),
+      ...adrsOut.map((a) => `Release-adr: ${a.from} -> ${a.to}`),
+      ...citations.map((p) => `Release-citation: ${p}`),
+    ].join('\n');
+    const committed = sh(root, ['commit', '-q', '-m', message, ...(merging ? [] : ['-m', trailers])]);
     if (!committed.ok) return refuse({ error: `git commit failed: ${committed.err}` });
     const newHead = gitOut(root, ['rev-parse', 'HEAD']);
     return {
@@ -522,6 +562,7 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
   // The release note (release-at-merge D-6, D-7): the step of a noted change, and the join of a noted head.
   const numbered = (r) => {
     if (r.code === 3) { stderr(`release-merge: ${r.error}\n`); return 3; }
+    if (r.code === 2 && opts.assign && r.out.error) stderr(`release-merge: ${r.out.error}\n`);
     return report(r.code, r.out, r.text);
   };
   // The release file the project names; read only by the step and the join, so --base is as it was. A setting the reader refuses is a
