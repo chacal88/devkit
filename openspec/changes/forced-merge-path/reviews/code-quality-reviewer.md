@@ -1,16 +1,22 @@
 Verdict: approved
-Commit: 8dcee767e6571680c851906a17ba978980a1316a
+Commit: c6442089e54614c6871c50400b920f810a467c85
 
-## Quality review — forced-merge-path (round 2)
+## Quality review — forced-merge-path (round 3)
 
 ### Findings
-- [nit] openspec/changes/forced-merge-path/tasks.md:34 — Task 1.9 gate command names deliver-check.test.mjs but not deliver-check-archive.test.mjs, where the phase-1 tests live; still open (carried from the previous round).
-- [nit] plugins/openspec/hooks/deliver-check.mjs:notGreen; docs/openspec-flow.md — SKIPPED/NEUTRAL required checks count as not green and no doc line says so; grep for SKIPPED|NEUTRAL in docs/openspec-flow.md finds nothing, so this is still open (carried from the previous round).
-- [praise] plugins/openspec/hooks/deliver-check.mjs:553-572 — findingsOfText(reviewer, text, inHead) is split out of findingsOfFile. The disk reader and the GitHub-contents reader now share one parser, so the forced path cannot drift from main's disposition rule.
-- [praise] plugins/openspec/hooks/deliver-check.mjs:950-963 — A 404 from the compare route counts as undisposed, and any other error is returned as { error }, which blocks the gate. A flaky API cannot turn a finding into 'fixed'. The head.startsWith(sha) shortcut avoids a call when the sha is the head.
-- [praise] plugins/openspec/hooks/deliver-check-archive.test.mjs:2550-2580 — G11 and G12 cover the stale case, the count including that gate, the review-record-only commit, a fixed-in disposition and a refuted disposition. Both pass when run alone.
+- [nit] openspec/changes/forced-merge-path/tasks.md:34 — Task 1.9 gate command names deliver-check.test.mjs but not deliver-check-archive.test.mjs, where the phase-1 tests live; carried from the previous rounds and still open.
+- [nit] plugins/openspec/hooks/deliver-check.mjs:notGreen; docs/openspec-flow.md — SKIPPED/NEUTRAL required checks count as not green and no doc line says so; grep for SKIPPED|NEUTRAL in docs/openspec-flow.md finds nothing; carried from the previous rounds and still open.
+- [praise] plugins/openspec/hooks/deliver-check-archive.test.mjs:2582-2608 — G13 is a table of three cases (behind, diverged, 404) against the exact open-item text. G14 checks the non-404 compare error from both the gate reader and the default-branch state, so a flaky API cannot turn a finding into 'fixed' or force a merge.
+- [praise] openspec/changes/forced-merge-path/design.md:112-122 — D-3 now states the four-argument verdictAllowed call and the inHead rule. Both match deliver-check.mjs:950-963, so the design is not a false claim about the code.
 
 ### Summary
-- 5 findings (0 blocking, 0 important, 2 nit, both carried from the previous round) + 3 praise.
-- Justification: I checked the range c30bfb8..HEAD for my remit. The only branch-own code change is 0934b63 in deliver-check.mjs and the G11/G12 tests. In gatesAtHead, the open flag now comes from the verdict text through findingsOfText and goes into verdictAllowed(id, name, verdict, open). That matches verdictAllowed at deliver-check.mjs:257, which returns reviewRecord when the verdict is not approved or has an open finding. ghJson sets notFound only on an HTTP 404, so 'a 404 means undisposed' and 'any other error blocks' both hold. A sha that is neither ahead of nor identical to the head, such as behind or diverged, is treated as not in history, which is correct. The rest of the range is the merge of origin/main (train 12) and evidence commits, with no change to the forced-merge logic. I ran the focused test `--test-name-pattern='G1[12] '` and G11 and G12 both pass (2/2). I did not run any whole file or the suite, as instructed. The two nits do not block.
-- Previous findings: none were blocking or important. F1 and F2 are the two earlier nits and are still open. The earlier praise items still hold.
+- 4 findings (0 blocking, 0 important, 2 nit) + 2 praise.
+- Justification: I reviewed 8dcee76..HEAD for my remit. No product code changed (the diff touches only openspec files and deliver-check-archive.test.mjs). The three new spec scenarios (undisposed finding, fixed-in in the head's history, fixed-in that cannot be checked) and D-3 match gatesAtHead. The code does these things:
+  - `inHead` shortcuts when the head starts with the sha.
+  - It calls compare once otherwise.
+  - It treats only `ahead` or `identical` as history.
+  - It treats a 404 as not in history.
+  - It keeps any other error in `historyError`, which returns `{ error }` and blocks.
+  G13 and G14 cover those branches, and both pass when run alone. I did not rerun the mutation proofs the implementer reports. They are consistent with the code, because `inHead` always true would make the G13 cases pass wrongly and dropping the `historyError` line would remove G14's error.
+- Previous findings: none were blocking or important. The two earlier nits (tasks.md 1.9 command, SKIPPED/NEUTRAL doc line) are still open and do not block.
+- Acceptance: the evidence recorded in c644208 (attempt 8) shows the real output. The whole suite is the train's job and I did not run it.
