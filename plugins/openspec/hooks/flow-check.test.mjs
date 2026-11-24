@@ -317,6 +317,7 @@ function fixture(kind, on) {
   commitAll(root, 'plan and code');
   const sha = git(root, 'rev-parse', 'HEAD');
   if (rank >= 5) put(root, { [`${CHANGE}/evidence.md`]: evidenceText(sha, on, kind === 'fix-defect') });
+  if (kind === 'review') commitAll(root, 'evidence');
   if (rank >= 8) {
     for (const r of ['code-quality-reviewer', 'test-coverage-reviewer']) put(root, { [`${CHANGE}/reviews/${r}.md`]: reviewText('approved', sha) });
   }

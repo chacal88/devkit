@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.47.0 — the change folder is committed before the review round
+
+- **devkit-openspec** 0.41.0: `deliver-check` hands the `commit` step before a review round while anything under the
+  change folder is uncommitted, the `ship-change` rows `commit` and `review` say so, and the CI snippet now pins
+  `v0.41.0`.
+
 ## 0.46.0 — post-merge validate
 
 - **devkit-openspec** 0.41.0: after a merge of the base the delivery loop checks the plan before it hands the evidence. A new
