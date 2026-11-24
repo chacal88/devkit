@@ -123,6 +123,20 @@ The CompozyOS driver does not carry every feature of the Claude driver: the toke
 entry and write-back, the `state` command's view of a run, and the machines of a remote roadmap are not
 reached from a CompozyOS run. [ADR 0024](adr/0024-compozy-runs-the-short-loop.md) lists each limit.
 
+### Not carried yet
+
+What the Claude driver gained after the kit's loops were written, and the CompozyOS driver does not
+run yet. Each line is a later change (`compozy-driver-gaps` in `openspec/roadmap.md`):
+
+- The delivery train: the steps `on-train` and `wait-train`, the `boarded` end and the `train` verb
+  ([ADR 0022](adr/0022-reviewed-changes-leave-on-a-delivery-train.md)). The view turns the first two
+  into the `github` kind and `boarded` into an owner question; no loop departs a train.
+- The model chosen by stage and the retry one model up
+  ([ADR 0023](adr/0023-the-model-is-chosen-by-stage.md)): the CompozyOS agents choose their own
+  models, and the view has no `model` field.
+- The `requirements-triage` seat is installed with the other agents, but no loop dispatches it, so
+  every grill question goes to the owner.
+
 ## Checker portability
 
 Every shipped loop calls the devkit checkers through `.compozy/bin/devkit-kit`, a resolver that finds

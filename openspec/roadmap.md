@@ -133,10 +133,11 @@ Not changes of this repository, and so not lines of this roadmap: in each projec
 - [ ] jira-entry-live (after: jira-entry) — read a real Jira task through the session's Atlassian connector with `/devkit change <key>`, and write back once on a disposable test task the owner names (one comment, one transition), on each platform the owner uses; it checks what the jira-entry plan assumed: the connector's tool names, the description's text form and the acceptance-criteria field (coordination-design D-13: Jira can be read on each platform)
 
 ## Round 21: the CompozyOS driver
-- [ ] compozy-driver (after: change-coordinator) — CompozyOS runs the same short loop (ask the checker, run the role, check the gate) in place of the twelve-stage loop, `/devkit` starts the run when the project's driver is CompozyOS, and the kit's planning role is `change-planner`, named as its Claude agent (D-2, D-3, D-10)
+- [x] compozy-driver (after: change-coordinator) — CompozyOS runs the same short loop (ask the checker, run the role, check the gate) in place of the twelve-stage loop, `/devkit` starts the run when the project's driver is CompozyOS, and the kit's planning role is `change-planner`, named as its Claude agent (D-2, D-3, D-10)
 
 ## Round 21b: the CompozyOS driver's dogfood
 - [ ] compozy-driver-dogfood (after: compozy-driver) — the first real change run on the CompozyOS driver proves what the local proof of `compozy-driver` could not: AC-6 (the pull request, the required checks, the merge and the archive on CompozyOS), AC-10 (a roadmap run starts the change an archive freed, with Claude Code closed), the plan approval and the `accept-decisions` step live (the local proof ran the lite script, which has neither), and the rest of AC-3 (the retro answers, and the mock-up approval on a change flagged `ui`); each is recorded in that change's evidence
+- [ ] compozy-driver-gaps (after: compozy-driver-dogfood) — carries on the CompozyOS driver what `compozy-driver` left out (see `docs/compozy-kit.md`, "Not carried yet"): the delivery train steps and the `train` verb, the stage models with the retry one model up, and the dispatch of the `requirements-triage` seat; each gets its own proof on a real run
 
 ## Round 22: the script driver
 - [ ] script-driver (after: change-coordinator) — a small program runs the same loop and calls the AI from the command line (documented for `claude -p`), for a project whose driver is a script; built when the owner needs it (D-10)
