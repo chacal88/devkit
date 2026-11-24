@@ -67,7 +67,7 @@ every task with `git status --short`.
 
 ## 2. The roadmap facts: the board, the run and its stop lock
 
-- [ ] 2.1 Add to `plugins/openspec/hooks/roadmap-loop.test.mjs` the tests 2.1 to 2.8 of `design.md`
+- [x] 2.1 Add to `plugins/openspec/hooks/roadmap-loop.test.mjs` the tests 2.1 to 2.8 of `design.md`
   D-7 (a new section `state-skips-unlocated: the board` after the change-state AC-6 tests), built on
   `lkProject`, `projectWith`, `addOpen`, `putRun`, `inFlight`, `changeMain`, a worktree on branch
   `side` holding `x`'s active folder, `doStatus`, `cmd`, `doNext`, `stopOf` and `placedOn`. Run
@@ -76,10 +76,10 @@ every task with `git status --short`.
   is. Check: `proof/red-2.txt` holds that run, with 2.1 to 2.6 and 2.8 failing (2.8's in-flight
   board exits 3, and both its subtests compare with the state command, which exits 3 on the old
   code) and 2.7 passing.
-- [ ] 2.2 In `plugins/openspec/hooks/roadmap-loop.mjs`, import `unplacedAction` from
+- [x] 2.2 In `plugins/openspec/hooks/roadmap-loop.mjs`, import `unplacedAction` from
   `./change-loop.mjs` and make `collectRoadmap` ask it before `nextAction` for each open line (D-4);
   `statusJson` and `draftCmd` stay as they are. Check: tests `unlocated 2:` 2.1 to 2.8 pass.
-- [ ] 2.3 Gate: `env TMPDIR=/private/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py` green (a background command); covers AC-3 and the roadmap-loop half of AC-6.
+- [x] 2.3 Gate: `env TMPDIR=/private/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py` green (a background command); covers AC-3 and the roadmap-loop half of AC-6.
 
 ## 3. Documents, release, the real run and the whole suite
 

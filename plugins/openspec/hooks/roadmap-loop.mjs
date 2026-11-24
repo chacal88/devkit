@@ -44,7 +44,7 @@ import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
   HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
-  loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection, remoteClaims, thisMachine, MACHINE_NAME,
+  loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection, remoteClaims, thisMachine, MACHINE_NAME, unplacedAction,
 } from './change-loop.mjs';
 
 // The run file's reader and the gate of an owner wait live in change-loop.mjs (change-state D-2); the callers of this module keep importing them from here.
@@ -725,7 +725,7 @@ export function collectRoadmap(cwd, {
       if (ownOf(line.id) && !readFlying && !readOwn && machines.length === 0) continue;
     } else if (run.inflight[line.id] && !(line.id in after) && !readFlying) continue;
     const progress = SESSION_KEYS.includes(after[line.id]) ? null : (after[line.id] ?? null); // the session keys are no progress key of a stage
-    const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh });
+    const action = unplacedAction(start, line.id) ?? nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh });
     if (isPrevious(action)) previous.add(line.id); else actions[line.id] = action;
   }
   const lines = classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere });
