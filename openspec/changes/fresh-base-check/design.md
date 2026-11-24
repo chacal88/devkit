@@ -7,7 +7,8 @@ Change: `fresh-base-check` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD 
 
 ## Context
 
-See `proposal.md` (Why). This plan read the code at `98145b0`, the branch head. `origin/main` is at
+See `proposal.md` (Why). This plan read the code at `98145b0`; the commits after it on this branch
+touch plan files only, so every code claim below holds at the branch head. `origin/main` is at
 `4631376` (devkit-openspec 0.32.0, marketplace 0.36.1), the fork point of this branch.
 
 | Where | What it does today |
@@ -242,7 +243,10 @@ Helpers, in `plugins/openspec/hooks/change-loop.test.mjs` unless named otherwise
   defaults and their results.
 - `staleBase(t)`: after the fixture's `commitOrigin`, the remote's sha is `git -C <originDir>
   rev-parse main`. The helper runs `git -C <main> update-ref refs/remotes/origin/main <that sha>^` and
-  returns `{ remote, stale }`.
+  returns `{ remote, stale }`. `commitOrigin` pushes from the clone, which moves the clone's
+  `origin/main` with it, so a base is stale only after `staleBase`. Every row below that says
+  "stale" therefore names the remote commit it rewinds: the merge fixture's `conflicts` commit, or
+  `t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves')` on a fixture that has none.
 - `implementingChange(t, id)` (exported): a worktree `t.addWt(id)` holding a `devkit-lite` change
   whose requirements, proposal, specs and tasks are passed at its commit and whose task is not
   ticked, committed. The stage checker places it at `implementation`, the build part, without
@@ -261,19 +265,19 @@ fixture" is `deliveredChange({ config: MERGE_CONFIG, files: { ...RELEASE, ...MER
 | 2 | change-loop | AC-4 | Stale merge fixture, `git remote set-url origin <a missing folder>`. `next` gives the same `kind` and `step` as the no-fetch `nextAction` (`update-branch`) and the same exit code. `baseFetch.ok` is false, `base` is `main`, and `error` is one non-empty line. `reply` equals `render('en', 'base-unfetched', { base: 'main' })`. `origin/main` is still at `stale`. With `--lang pt-BR` the reply is the Portuguese line | negative |
 | 3 | change-loop | AC-4 | `changeLoopModule.refreshBase(t.main, 'main', { env: shim.env(cleanEnv, { sleep: 30 }), memo: changeLoopModule.baseFetches(), timeoutMs: 1000 })` returns `ok` false and `error` `timed out after 1 s`, within 10 seconds, with `origin/main` unchanged | negative |
 | 4 | change-loop | AC-4 | Stale merge fixture with a file `<git common dir>/refs/remotes/origin/main.lock`. `next` gives `baseFetch.ok` false, an `error` matching `/lock/i`, the no-fetch action and `origin/main` at `stale`. The test removes the lock at its end | negative |
-| 5 | change-loop | AC-5 | Delivered fixture (PR mode), stale. From a second clone of `originDir`, push a branch `other` and a tag `v9`. Before and after `next`: `refs(t.main)` differs only in the `refs/remotes/origin/main` line. No `refs/tags/v9` and no `refs/remotes/origin/other`. `git status --porcelain` and `git ls-files -s` are unchanged in `t.main` and in the worktree. `FETCH_HEAD`: `roundRepo` itself runs `git fetch -q origin` on the clone, which writes one, so before `next` the test resolves `git rev-parse --path-format=absolute --git-path FETCH_HEAD` in `t.main` and in the worktree and deletes that file in both (`rmSync(..., { force: true })`); after `next`, neither path exists. Self-check: a plain `git -C <worktree> fetch -q origin` run afterwards makes the worktree's path exist, so the assertion can fail | positive |
+| 5 | change-loop | AC-5 | Delivered fixture (PR mode), then `t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves')` and `staleBase(t)`. From a second clone of `originDir`, push a branch `other` and a tag `v9`. Before and after `next`: `refs(t.main)` differs only in the `refs/remotes/origin/main` line. No `refs/tags/v9` and no `refs/remotes/origin/other`. `git status --porcelain` and `git ls-files -s` are unchanged in `t.main` and in the worktree. `FETCH_HEAD`: `roundRepo` itself runs `git fetch -q origin` on the clone, which writes one, so before `next` the test resolves `git rev-parse --path-format=absolute --git-path FETCH_HEAD` in `t.main` and in the worktree and deletes that file in both (`rmSync(..., { force: true })`); after `next`, neither path exists. Self-check: a plain `git -C <worktree> fetch -q origin` run afterwards makes the worktree's path exist, so the assertion can fail | positive |
 | 6 | change-loop | AC-2 | Delivered fixture with checks pending, `env` through `gitShim`. `runCommand(['wait', …])` with a `sleep` that sets the checks to `pass` at its second call ends with a non-wait action. `fetches()` has exactly three lines, one per poll | positive |
 | 7 | change-loop | AC-2 | Stale merge fixture through `gitShim`: `main(['state', '--change', 'feat', '--lang', 'en'])`, `stateEntries(t.main, { id: 'feat', … })` and `stopDecision(stopInput(t.main, runTranscript()), { env })` log no fetch. `origin/main` stays at `stale`. `stopDecision`'s `why` is not `no-run`, so it read the change | negative |
-| 8 | change-loop | spec: one fetch per base in one call | Delivered fixture through `gitShim`: two `nextAction` calls sharing one `changeLoopModule.baseFetches()` log one fetch. Two `next` calls log two | positive and negative |
+| 8 | change-loop | spec: one fetch per base in one call | Delivered fixture through `gitShim`: first, two `nextAction` calls sharing one `changeLoopModule.baseFetches()` log one fetch; then, with the shim's log emptied, two `next` calls log two | positive and negative |
 | 9 | change-loop | AC-3 | Stale merge fixture: `node conduct-check.mjs --json --change feat` (cwd `t.main`) and `node deliver-check.mjs feat --json` (cwd the worktree), spawned with `env` through `gitShim`, log no fetch, and `origin/main` stays at `stale`. The first six lines of each file match `/never fetches|or fetches/`. Self-check: `git fetch` run through the same shim is logged, so the assertion can fail | negative |
 | 10 | change-loop | spec: the wait | `waitLoop` with synthetic polls: a wait, then the same wait with `baseFetch: { ok: false, … }` and the line appended, then a different action. It returns the third, after three polls | negative |
 | 11 | change-loop | AC-7 | `docs/openspec-flow.md` holds the five texts of D-7, and no longer holds "never fetches (run"; the `ship-change` `update-branch` row and the `devkit` skill's `## Loop` section hold their D-7 sentences | positive |
-| 12 | roadmap-loop | AC-6 | A `roundRepo` with a roadmap of `a`, `b`, `c` and `implementingChange` for each, `origin/main` made stale by one `commitOrigin`. `doNext(t.main, [], { env: shim.env(cleanEnv) })` logs exactly one fetch, and `origin/main` reaches the remote's sha | positive |
+| 12 | roadmap-loop | AC-6 | A `roundRepo` with a roadmap of `a`, `b`, `c` and `implementingChange` for each, then `t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves')` and `staleBase(t)`. `doNext(t.main, [], { env: shim.env(cleanEnv) })` logs exactly one fetch, and `origin/main` reaches the remote's sha | positive |
 | 13 | roadmap-loop | AC-2 | The delivered fixture with checks pending, its roadmap listing `feat`. `loopModule.main(['wait', '--change', 'feat', …FLAGS], { cwd: t.main, env: shim.env(env), gh: t.ghFor(wt), sleep })` with the flipping `sleep` of test 6 logs three fetches | positive |
 | 14 | roadmap-loop | AC-2 | The fixture of test 12: `doStatus`, `status --json` and `roadmapStopDecision(...)` log no fetch, and `origin/main` stays stale | negative |
 | 15 | roadmap-loop | proposal choice 1 | The fixture of test 12: `doRun(t.main, '', { env: shim.env(cleanEnv) })` logs exactly one fetch | positive |
 | 16 | change-loop | spec: a repository without a remote (D-1 step 2, D-2) | Delivered fixture, then `git -C t.main remote remove origin` (the config is shared, so the worktree has no `origin` either), env through `gitShim`. `next` logs no fetch; its action has no `baseFetch` key; its `kind`, `step`, `reply` and exit code equal those of `nextAction(<worktree>, 'feat', { env })` with no `fetchBase` on the same fixture. Then `changeLoopModule.refreshBase(t.main, 'main', { env, memo })` returns `null` and logs no fetch, and a second call with the same `memo` returns `null` again (the `null` is memoized) | negative |
-| 17 | change-loop | spec: a change before its delivery (D-2) | A `roundRepo` with a worktree `t.addWt('plan')` holding a `devkit-lite` change whose `requirements.md` alone is passed (the stage checker places it at `proposal`), `origin/main` made stale by one `commitOrigin`, env through `gitShim`. `next --change plan` logs no fetch, its action has no `baseFetch` key, and `origin/main` stays stale. Self-check, same repository: `implementingChange(t, 'impl')` and `next --change impl` log exactly one fetch, so the assertion can fail | negative |
+| 17 | change-loop | spec: a change before its delivery (D-2) | A `roundRepo` with a worktree `t.addWt('plan')` holding a `devkit-lite` change whose `requirements.md` alone is passed (the stage checker places it at `proposal`), then `t.commitOrigin({ 'other.txt': 'o\n' }, 'origin moves')` and `staleBase(t)`, env through `gitShim`. `next --change plan` logs no fetch, its action has no `baseFetch` key, and `origin/main` stays stale. Self-check, same repository: `implementingChange(t, 'impl')` and `next --change impl` log exactly one fetch, so the assertion can fail | negative |
 | 18 | roadmap-loop | spec: the remote cannot be reached during a run | The fixture of test 12, then `git -C t.main remote set-url origin <a missing folder>`. `loopModule.collectRoadmap(t.main, { env: shim.env(cleanEnv), lang: 'en', gh: OFFLINE, fetchBase: baseFetches() })` returns `actions` for `a`, `b` and `c`, each with `baseFetch.ok` false, `base` `main` and the same one-line `error`, and each with the `kind` and `step` that `nextAction(t.main, <id>, { env: cleanEnv, lang: 'en', gh: OFFLINE })` gives with no `fetchBase` (the local copy's decision); the shim logs exactly one fetch for the call (the failure is memoized). Then, with the shim's log emptied, `doNext(t.main, [], { env: shim.env(cleanEnv) })` logs exactly one fetch, does not exit 3, and `origin/main` stays stale | negative |
 
 Test first: tasks 1.1 and 2.1 write these tests and run them before the code they test exists. The
@@ -285,6 +289,20 @@ its plan-stage assertions already hold. Test 18 is red because no action carries
 is red too, on its header assertion only, until D-6; its "no fetch" assertions already hold.
 Expected green before the code: 7 and 14, which pin today's behaviour. A different result is settled
 in its task before the code task starts.
+
+Which task turns each red test green, by the entry point the test drives:
+
+| Task | Lands | Tests that pass after it | Why not earlier |
+|---|---|---|---|
+| 1.2 | `refreshBase`, `baseFetches`, `nextAction`'s option, `decisionKey`, the message | 3, 10, 16 (and 7, still green) | they call `refreshBase`, `waitLoop` or `nextAction` directly, or (16) assert no fetch through `next` |
+| 1.2 | same | 8 still fails, on its two-`next` assertion only (its shared-record `nextAction` half passes) | `runNext` passes no record until 1.3 |
+| 1.3 | `runNext` and `runWait` pass `fetchBase` | 1, 2, 4, 5, 6, 8, 17 (and 7, still green) | each drives the `next` or `wait` command |
+| 1.4 | the `deliver-check.mjs` header | 9 | its header assertion |
+| 2.2 | the roadmap callers | 12, 13, 15, 18 (and 14, still green) | each drives `collectRoadmap` or a roadmap command |
+| 2.3 | the docs and skills | 11 | its text assertions |
+
+Test 8 asserts its `nextAction` half before its `next` half, so the failure message after 1.2 names
+the `next` assertion.
 
 Test 3 proves the timeout on `refreshBase` itself; the action's record of it is the same `ok: false`
 branch of D-2 that test 2 proves through `next`, so no 15-second `next` run is added.

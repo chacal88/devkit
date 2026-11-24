@@ -61,14 +61,18 @@ the tree, and end every task with `git status --short`.
   `ownReply` and the new `decisionKey` (D-4), and the `base-unfetched` key in both languages after
   `waiting-github` (D-5). Do not add a top-level `const` that reads `LS_REMOTE_TIMEOUT_MS` or
   `gitPasses` above their declarations (D-1). Update the comment above `nextAction` to name the
-  option. Check: tests 2, 3, 4, 5, 8, 10 and 16 pass, and so does
-  `node --test --test-concurrency=1 --test-name-pattern="^change-loop replies" plugins/openspec/hooks/change-loop.test.mjs`.
+  option. Check (the phase table of D-8): tests 3, 10 and 16 pass and 7 still passes; test 8 fails
+  on its two-`next` assertion only; 1, 2, 4, 5, 6 and 17 still fail, because they drive the `next`
+  or `wait` command, which passes no record until 1.3. And
+  `node --test --test-concurrency=1 --test-name-pattern="^change-loop replies" plugins/openspec/hooks/change-loop.test.mjs`
+  passes.
 - [ ] 1.3 In `change-loop.mjs`, pass `fetchBase: baseFetches()` from `runNext`, and a new
   `baseFetches()` in each call of `runWait`'s `poll` (D-3). Leave `stateEntries` and `stopDecision`
   as they are. Add one sentence to the file's header comment: `next` and `wait` fetch the base of a
-  change in delivery before they judge, and `state` and the locks never do. Check: tests 1, 6, 7 and 17
-  pass, and `git grep -n "fetchBase" -- plugins/openspec/hooks/change-loop.mjs` shows only
-  `nextAction`, `runNext` and `runWait`.
+  change in delivery before they judge, and `state` and the locks never do. Check: tests 1, 2, 4, 5,
+  6, 7, 8 and 17 pass, and 3, 10 and 16 still pass; and the code lines (not comment lines) that
+  `git grep -n "fetchBase" -- plugins/openspec/hooks/change-loop.mjs` prints are in `nextAction`,
+  `runNext` and `runWait` only.
 - [ ] 1.4 In `plugins/openspec/hooks/deliver-check.mjs`, change line 3 to the comment of D-6 and
   nothing else. Check: test 9 passes, and `git diff --stat -- plugins/openspec/hooks/deliver-check.mjs`
   shows one line changed.
@@ -92,8 +96,9 @@ the tree, and end every task with `git status --short`.
   `fetchBase: baseFetches()` from `runCmd` and `nextCmd`, and a new `baseFetches()` in each call of
   `waitCmd`'s `poll` (D-3). Leave `statusCmd`, `statusJson`, `draftCmd` and `roadmapStopDecision`
   as they are. Update the comment above `collectRoadmap` to name the option. Check: tests 12, 13, 14,
-  15 and 18 pass, and `git grep -n "fetchBase" -- plugins/openspec/hooks/roadmap-loop.mjs` shows only
-  `collectRoadmap`, `runCmd`, `nextCmd` and `waitCmd`.
+  15 and 18 pass, and the code lines (not comment lines) that
+  `git grep -n "fetchBase" -- plugins/openspec/hooks/roadmap-loop.mjs` prints are in
+  `collectRoadmap`, `runCmd`, `nextCmd` and `waitCmd` only.
 - [ ] 2.3 Edit `docs/openspec-flow.md` (the five texts of D-7, and not the CI pins),
   `plugins/openspec/skills/ship-change/SKILL.md` (the `update-branch` row) and
   `plugins/openspec/skills/devkit/SKILL.md` (the `## Loop` paragraph), word for word as D-7 says.
