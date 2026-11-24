@@ -34,8 +34,12 @@ stage's conversation in the same session.
 - **THEN** the reply names the pack and the setup step that enables it, and nothing is created
 
 #### Scenario: A project not set up for devkit
-- **WHEN** the project's schema is not `devkit` or `devkit-lite`, a setting is unknown, or the driver is not `claude`
+- **WHEN** the project's schema is not `devkit` or `devkit-lite`, a setting is unknown, or the driver is `script`
 - **THEN** the reply is the one `/devkit change` gives in that project, and nothing is created
+
+#### Scenario: The CompozyOS driver
+- **WHEN** `devkit.driver` is `compozy` and `/devkit project billing` is typed
+- **THEN** the reply says in one plain sentence that `/devkit project` does not run on CompozyOS yet, and nothing is created or run
 
 ### Requirement: Calling the project command again resumes the slice
 `/devkit project <slice>` on an unfinished slice, and `/devkit project` alone with exactly one
