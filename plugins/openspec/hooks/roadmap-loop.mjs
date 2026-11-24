@@ -46,7 +46,7 @@ import { findRoot, readRoadmap, changeFlow, changeSchemaAt, readFlow, roadmapRun
 import { collectFlow, computeFlow, makeOpenspec, spendBlock } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
-  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
+  render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, baseFetches, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
   HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
   loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection, remoteClaims, thisMachine, MACHINE_NAME, READINESS_KEY, unplacedAction,
   modelsOf, MODEL_STAGES, MODEL_VALUES, SESSION_RUN_STAGES, cheaper, strongest,
@@ -743,9 +743,10 @@ function stageModelsOf(start, found, { env, lang, openspec, gh }) {
 // coordinating session hands the stages, so a failed one is handed again a model up (stage-models D-5). `models` (`run` and `next` only)
 // reads, for each change session recorded with a model and the one just reported started, the stage its change is at, its table and its
 // script's stage order, so that `decideRoadmap` can switch the session down (`stageModels`, stage-models D-6).
+// `fetchBase` is a `baseFetches()` record: given, each change's action fetches the base before it judges (once per record); `status` and the locks leave it out.
 export function collectRoadmap(cwd, {
   env = process.env, lang = 'pt-BR', load = 0, limit = DEFAULT_LIMIT, openspec, gh, after = {}, wheres = 'new', readFlying = false, readOwn = true, turn,
-  machines = [], machinesText = '', probe = true, ssh, claimsGh, retry = false, models = false,
+  machines = [], machinesText = '', probe = true, ssh, claimsGh, retry = false, models = false, fetchBase = false,
 } = {}) {
   const l = normalizeLang(lang);
   const start = findRoot(cwd);
@@ -804,7 +805,7 @@ export function collectRoadmap(cwd, {
       }
     } else if (run.inflight[line.id] && !(line.id in after) && !readFlying) continue;
     const progress = SESSION_KEYS.includes(after[line.id]) ? null : (after[line.id] ?? null); // the session keys are no progress key of a stage
-    const action = unplacedAction(start, line.id) ?? nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh, ...(handOffs ? { handOffs } : {}) });
+    const action = unplacedAction(start, line.id) ?? nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh, ...(handOffs ? { handOffs } : {}), fetchBase });
     if (isPrevious(action)) previous.add(line.id); else actions[line.id] = action;
   }
   const lines = classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere });
@@ -1463,7 +1464,7 @@ function runCmd(args, ctx) {
     run.declared = {};
     return run;
   }, { sleep: ctx.lockSleep });
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed', machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, retry: true, models: true }); // `run` is a message the owner typed
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed', machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, retry: true, fetchBase: baseFetches(), models: true }); // `run` is a message the owner typed
   const decision = decide(start, facts, ctx);
   const say = (key, params) => render(lang, key, params);
   let preface = '';
@@ -1512,7 +1513,7 @@ function nextCmd(args, ctx) {
   if (!hasRoadmapFile(start)) return plain(render(lang, 'roadmap-none'));
   const run = recordFlags(start, opts, ctx);
   const stopping = run.stopping;
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn, machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, retry: true, models: true });
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn, machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh, retry: true, models: true, fetchBase: baseFetches() });
   facts.startAnyway = Boolean(opts.flag['--start-anyway']);
   const decision = decide(start, facts, ctx);
   return { code: 0, stdout: `${decisionText(decision)}${decisionJson(decision)}`, stderr: '' };
@@ -1755,7 +1756,7 @@ async function waitCmd(args, ctx) {
     return run;
   }, { sleep: ctx.lockSleep });
   try {
-    const poll = async () => nextAction(start, id, { env: ctx.env, lang, openspec: ctx.openspec, gh: ctx.gh });
+    const poll = async () => nextAction(start, id, { env: ctx.env, lang, openspec: ctx.openspec, gh: ctx.gh, fetchBase: baseFetches() });
     const action = await waitLoop({ poll, sleep: ctx.sleep ?? realSleep, interval, id, lang });
     return { code: 0, stdout: json(action), stderr: '' };
   } finally {
