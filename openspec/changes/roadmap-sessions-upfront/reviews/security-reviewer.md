@@ -1,29 +1,28 @@
 Verdict: approved
-Commit: f7c5945b8bd8763a51040c609968fe937a9633c4
+Commit: 5edea6bd2080c7e55bca299fb82202d2d25484cf
 
-## Security audit — roadmap-sessions-upfront (round 2)
+## Security audit — roadmap-sessions-upfront (round 3)
 
 ### Findings
-- [nit] plugins/openspec/skills/devkit-session/SKILL.md:28 (merge-base exit 3) — The new merge-base exit-3 step tells the agent to paste the JSON `error` (git merge output, which can contain conflicting file names) inside a double-quoted `--param error="..."` shell argument, although the JSON already carries a rendered `reply`; the same pre-existing pattern is in devkit/SKILL.md (write-back-failed, accept-decisions), so no blocking finding, but a file name with `$(...)` could expand if pasted unescaped. Consider saying the reply is shown as the JSON gives it, or that the value is single-quoted.
+- [nit] plugins/openspec/skills/devkit-session/SKILL.md:28 (merge-base exit 3) — Round 2 nit, unchanged: the skill tells the agent to paste the JSON `error` (git merge output, which can include file names) inside a double-quoted `--param error="..."` shell argument, although the JSON already carries a rendered `reply`. The same pattern is in devkit/SKILL.md. Consider saying the reply is shown as given, or that the value is single-quoted.
 
-Triaged scope: high: guard.mjs (skill entry gate, leading-note parsing), roadmap-loop.mjs (wait-process kill, push, merge-base, check, pruneRecords), hooks.json; medium: change-loop.mjs (triage section reader), conduct-check.mjs (ADR renumber override), schemas, devkit-session skill; low: the 877026a ADR renumber (comments and strings), the evidence commit, tests and docs. Judged: git diff origin/main...HEAD and the change's own commits since 123a7ba (6fab305, 84da7ff, 877026a, f7c5945); what main brought (release-tags, deliver-check.mjs, releaseTagSetting) was not judged.
+Triaged scope: high: roadmap-loop.mjs (isRequirementsHelper and roadmapAgentDecision, the persist block of `decide`, run-file.mjs readUpfront, session-start actions), guard.mjs (skill gate, leading notes); medium: change-loop.mjs (the grill `helpers` field), conduct-check.mjs (adrClash), flows/2.json in four copies, released-flows.json; low: spec deltas, design D-17, tests, evidence, docs.
 
-Previous findings: round 1 (commit 123a7ba) was approved with no findings, so there is nothing to re-list.
+Judged: git diff origin/main...HEAD, plus 7eb62be (phase 8) and the merge 5cc1c69. For the merge I looked only at how remote-worker's code and this change's combine: `occupied` against `placed` in OUTLIVES, pruneRecords and the persist block, and the remote session-start. What main brought (remote-worker, machine-probe.mjs, ssh and askMachine) was not judged.
 
 Categories walked: injection, authn/authz/IDOR, exposure, crypto, secret, config.
 
+Previous findings: round 2 (commit f7c5945) was approved, and its only finding is F1, a nit with no disposition. It is unchanged, so it is listed as it stands.
+
 Discarded false positives:
-- process kill of waits (isWaitProcess): hardening; a pid is signalled only when ps shows a roadmap-loop wait command line; integer-checked pid, argument array, no shell; a ps error gives false, so a recycled pid is never killed.
-- skill guard split (namesEntrySkill before the import): another skill is allowed without loading roadmap-loop.mjs; a call naming the entry skill still fails closed on any error, import included, and still needs the one-use ticket.
-- withoutLeadingNotes / startedTaskOf: strips only leading system-reminder blocks; an unclosed block gives null, so the entry is refused; a forged note cannot skip the ticket, which is claimed under the run-file lock.
-- pruneRecords: deletes placed/queued entries of ids no longer open, in memory under the lock; no access widened.
-- triageSection / hasTriageSection: a parser refactor; an unreadable file gives [].
-- adrClash (ADR renumber): git through an argument array, no shell; names from git ls-tree/diff filtered by a four-digit pattern; it only emits an instruction for the implementer.
-- mergeBaseCmd and pushCmd via gitIn: execFileSync with an argument array, no shell; change id validated, --what limited to grill|plan, paths after --, push refuses the default branch.
-- unpushedOf using approval.md as the plan-push record: workflow bookkeeping, not an authorization boundary.
-- secret and config: no secret-looking files or credential patterns; no fail-open default added.
-- crypto: the entry ticket comparison is non-constant-time, but it is a local one-use workflow token that gates no data.
+- isRequirementsHelper now reads the change's pinned flow (phase 8, D-17). The change id comes from the hand-off prompt through `BRIEF_OF`, `^Change ([A-Za-z0-9][\w.-]*) \(`. The first character is alphanumeric and `/` is excluded, so the id cannot traverse a path. The pin and schema readers (`changeFlow`, `changeSchemaAt`, `readFlow`) are existing code and only read files. For a missing folder, the project's installed flow answers and the later `open.includes(change)` check still refuses. The check only widens what a grill may delegate to roles listed in the flow's `requirements` helpers, and the caller still needs the change open on the roadmap and not on the previous script.
+- The grill `helpers` field and the check's `triage` filter are pure data from the pinned flow. They add no input path, and a flow without the helper simply gets no triage action.
+- flows/2.json (four copies) and the released-flows.json digests: static JSON checked against a pinned digest. The only difference from version 1 is `requirements-triage` in the helpers. The triage agent has `tools: Read, Glob, Grep`, so it is read-only.
+- Merge `occupied` against `placed`: `readUpfront` validates ids with `isChangeId` and every field type, and drops entries that are not whole. `placed`, main's shape, keeps its own reader and its `machine` string check. A remote-placed change gets no ticket, so its session starts with the typed form. That cannot widen access, because the entry gate only applies to the `devkit-session` skill, and a missing ticket refuses rather than allows. `forgotten()` only keeps records when the claims could not be read, which is fail-safe.
+- Process kill of waits, the skill guard split, `withoutLeadingNotes` and `startedTaskOf`, `pruneRecords`, adrClash, and the git calls through `gitIn` and `pushCmd`: judged in round 2 and not changed in a way that matters. They use argument arrays with no shell, validated ids, a ps check before any kill, and fail-closed handling.
+- Ticket comparison and `mintTicket`: tickets come from randomBytes in 16 hex digits. The comparison is not constant-time, but the ticket is a local, one-use workflow token that gates no data.
+- Secret and config: no secret-looking files or credentials added, and no fail-open default. `DEVKIT_HOOK_LOG` is opt-in logging of decisions, with no secrets in it.
 
 Out of round: nothing found.
 
-Verdict basis: zero exploitable true positives after the filter; the only note is a nit. The test suite was not run (13 to 21 minutes); no finding depended on it.
+Verdict basis: after the false-positive filter there are zero exploitable true positives. The one open item is the F1 nit. I ran no tests; the whole-suite log for 5cc1c69 shows 0 failures and no finding depended on a run.

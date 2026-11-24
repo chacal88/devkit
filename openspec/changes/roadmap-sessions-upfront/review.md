@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=2 commit=f7c5945b8bd8763a51040c609968fe937a9633c4 -->
+<!-- devkit-stage review result=failed attempt=3 commit=5edea6bd2080c7e55bca299fb82202d2d25484cf -->
 # Review: roadmap-sessions-upfront, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -66,3 +66,32 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: roadmap-sessions-upfront, round 1
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | rejected | 0 | 1 | 1 | 0 | 5edea6b |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 5edea6b |
+| code-quality-reviewer | rejected | 0 | 1 | 1 | 0 | 5edea6b |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 5edea6b |
+| spec-reviewer | rejected | 0 | 1 | 1 | 0 | 5edea6b |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 5edea6b |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- adr-reviewer — [important] docs/adr/0021-a-roadmap-run-opens-every-change-at-its-start.md (header Amends, decisions 1, 3, 4, 5); docs/adr/0020-a-change-can-run-on-another-machine.md (decisions 5, 7, 8) — ADR 0021 never names ADR 0020 though both amend ADR 0013 decision 4, ADR 0014 and ADR 0017 decision 4, and they differ on a ticket for every session vs none for another machine, on a place wait being running vs blocked no-place, and on nothing scheduled vs a cron; the code resolves all three but no ADR records it; ADR 0020 has no Amended by line for ADR 0021 either.
+- code-quality-reviewer — [important] plugins/openspec/hooks/roadmap-loop.mjs:1623-1640 (pushCmd) x plugins/openspec/hooks/change-loop.mjs:1346-1358 (placeFacts) — In a machines+session run the plan push puts approval.md on origin, so the remote-worker place gate reads taken:true and never gates this machine's changes; two place counters (occupied vs claims) coexist and the board's machine.row uses the claims one; no test or design text reconciles them
+- spec-reviewer — [important] openspec/changes/roadmap-sessions-upfront/specs/roadmap-coordination/spec.md:24-29 (A place is held only by a change that loads the machine) against openspec/specs/roadmap-coordination/spec.md:684-68… — After the merge of remote-worker, the added requirement still says "At most the run's number SHALL hold a place at once" with no clause for the machines setting, while main's requirement counts places per machine (this machine's is the run's number, another's is its entry); the code (roadmap-loop.mjs:346-349) counts per machine, so the literal reading of the added text differs from the shipped behaviour and the merge resolved it silently. Qualify the added requirement (as the modified "Every open change of the roadmap fills a place" already does) or say which reading holds.
+
+## Refuted by verification
+None.
+
+## Notes
+- Scoped review after phase 8 (flow version 2) and the second merge of origin/main: the suite ran once on 5cc1c69 (2356 tests, 0 fail), cited by every reviewer.
+
+## Next
+Fix the open findings, then run review-change again (round 2).
