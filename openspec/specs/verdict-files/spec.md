@@ -47,8 +47,9 @@ setting SHALL change this pattern.
 
 ### Requirement: A commit of test files leaves the reviews it does not concern current
 An approved or declined verdict file of `spec-reviewer`, `adr-reviewer`, `architecture-reviewer` or
-`security-reviewer` SHALL stay current after a later commit that touches only `openspec/` paths and
-test files; every other verdict file SHALL go stale after it. A commit that touches any other path
+`security-reviewer` that lists no undisposed `[blocking]` or `[important]` finding SHALL stay current
+after a later commit that touches only `openspec/` paths and test files; every other verdict file
+SHALL go stale after it. A commit that touches any other path
 outside `openspec/`, and any uncommitted change outside `openspec/` and `.claude/`, SHALL make every
 verdict file stale. Each commit after the recorded one SHALL be judged on its own.
 
@@ -88,6 +89,10 @@ verdict file stale. Each commit after the recorded one SHALL be judged on its ow
 - **WHEN** `spec-reviewer` rejects at commit A, `adr-reviewer`, `architecture-reviewer` and `security-reviewer` approve at commit A, and the one later commit touches only `src/a.test.ts`
 - **THEN** `spec-reviewer` is listed as stale and `adr-reviewer`, `architecture-reviewer` and `security-reviewer` are not
 
+#### Scenario: An approved verdict with an undisposed finding of a reviewer that does not read tests
+- **WHEN** `spec-reviewer` approves at commit A and its file lists `- [important] x` with no disposition, and the one later commit touches only `src/a.test.ts`
+- **THEN** `spec-reviewer` is listed as stale
+
 ### Requirement: A rejected verdict goes stale after any commit outside the change's review record
 A verdict file whose verdict is neither approved nor declined, a missing `Verdict:` line included,
 SHALL go stale after a later commit that touches any path outside the change's own review record:
@@ -125,8 +130,24 @@ merge of the base gets no own-files exemption (`change-delivery`) for such a ver
 - **THEN** none of them is listed as stale and the reviews item is met
 
 #### Scenario: A plan fix not committed yet
-- **WHEN** a reviewer rejects at commit A and `openspec/changes/<id>/design.md` is edited and not committed
-- **THEN** that verdict is current and the next step is `fix-review`
+- **WHEN** a reviewer rejects at commit A, `review.md` ends at `Consensus: FAIL (round 1/2)`, and `openspec/changes/<id>/design.md` is edited and not committed
+- **THEN** that verdict is current and the next step is `commit`, whose `paths` are exactly `openspec/changes/<id>/design.md`
+
+#### Scenario: Only the review record is not committed
+- **WHEN** a reviewer rejects at commit A and the only uncommitted files are under `openspec/changes/<id>/reviews/`, or are `openspec/changes/<id>/review.md` or `openspec/changes/<id>/evidence.md`
+- **THEN** that verdict is current and the next step is `fix-review` naming that reviewer
+
+#### Scenario: The plan fix committed
+- **WHEN** in the repository of "A plan fix not committed yet" the edit of `openspec/changes/<id>/design.md` is committed
+- **THEN** that verdict is stale and the next step is `review` at `round` 2 naming that reviewer, not `fix-review`
+
+#### Scenario: A plan fix after the round-2 stop is not committed yet
+- **WHEN** a reviewer rejects at the head, `review.md` ends at `Consensus: FAIL (round 2/2)`, and `openspec/changes/<id>/design.md` is edited and not committed
+- **THEN** the next step is `stop-review-deadlock` naming that reviewer
+
+#### Scenario: Nothing to fix
+- **WHEN** every reviewer approves at the head with no undisposed finding and `openspec/changes/<id>/design.md` is edited and not committed
+- **THEN** the next step is not `commit` for that file
 
 #### Scenario: A merge of the base that brings only openspec files
 - **WHEN** a reviewer rejects at commit A and a merge of the base after A brings only `openspec/changes/other.md`
@@ -151,3 +172,30 @@ merge of the base gets no own-files exemption (`change-delivery`) for such a ver
 #### Scenario: The stage readout after a failed review
 - **WHEN** `review.md`'s header says `result=failed`, a reviewer rejects at commit A, and the one later commit touches only `openspec/changes/<id>/design.md`
 - **THEN** `flow-check` offers the review stage again with the reason code `rerun-after-fix`, and when that commit touches only the change's review record it offers the implementation with `fix-after-failure`
+
+### Requirement: An approved verdict with an undisposed finding goes stale as a rejected one does
+An approved or declined verdict file that lists a `[blocking]` or `[important]` finding with no
+disposition (no `fixed in <sha>` of a commit in the history of the head, no `refuted:`) SHALL follow
+the rule of a rejected verdict: it SHALL go stale after a later commit that touches any path outside the change's
+own review record, and a commit of that record alone SHALL leave it current. A merge of the base
+SHALL get no own-files exemption (`change-delivery`) for such a verdict either.
+
+#### Scenario: A plan fix for an approved verdict's finding, not committed yet
+- **WHEN** `test-coverage-reviewer` approves at commit A, its file lists `- [important] x` with no disposition, and `openspec/changes/<id>/design.md` is edited and not committed
+- **THEN** that verdict is current and the next step is `commit`, whose `paths` are exactly `openspec/changes/<id>/design.md`
+
+#### Scenario: The plan fix committed
+- **WHEN** in that repository the edit of `openspec/changes/<id>/design.md` is committed
+- **THEN** `test-coverage-reviewer` is listed as stale with the reason naming that commit and `openspec/changes/<id>/design.md`, and the next step is `review` naming it, not `fix-review`
+
+#### Scenario: The record committed alone
+- **WHEN** an approved verdict at commit A lists an undisposed `[important]` finding and the only later commit touches `openspec/changes/<id>/reviews/`
+- **THEN** that verdict is current and the next step is `fix-review` naming that reviewer
+
+#### Scenario: The stage readout after the plan fix is committed
+- **WHEN** in the repository of "The plan fix committed" for an approved verdict, `flow-check` reads the change
+- **THEN** its review stage is stale with the reason code `stale-reviewers` naming `test-coverage-reviewer`
+
+#### Scenario: A disposed finding keeps the approved rule
+- **WHEN** an approved verdict at commit A lists `- [important] x · fixed in <a commit in the history of the head>`, or `- [important] x · refuted: <evidence>`, and the one later commit touches only `openspec/changes/<id>/design.md`
+- **THEN** that verdict is current
