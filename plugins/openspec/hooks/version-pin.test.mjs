@@ -436,6 +436,80 @@ test('version-pin AC-4 readFlowFile: a version is a whole number from 1', () => 
   }
 });
 
+// Invariant (jira-entry-followups D-3, AC-5 and AC-6, readFlowFile in guard.mjs): a flow file newer than the reader knows for its script is refused
+// with the update to make before any other check, never as "malformed"; a file at a known version keeps every check it had. Layer: the flow reader.
+// Suite: version-pin. The fixtures are the shipped devkit flow (version FLOW_VERSIONS.devkit) with a stage key this reader does not know.
+const SHIPPED_DEVKIT = () => JSON.parse(readFileSync(join(PLUGIN_SCHEMAS, 'devkit', 'flow.json'), 'utf8'));
+const withColour = (flow) => ({ ...flow, stages: flow.stages.map((s) => (s.id === 'mockup' ? { ...s, colour: 'red' } : s)) });
+const flowFile = (flow) => { const f = join(tmpFolder('devkit-followups-flow-'), 'flow.json'); writeFileSync(f, JSON.stringify(flow)); return f; };
+const newerText = (v, newest, tail) => `flow.json of devkit is version ${v} of the devkit flow, and this devkit-openspec reads that flow up to version ${newest}: ${tail}; update the plugin and restart the session`;
+const refusedWith = (message) => (e) => e instanceof GUARD.FlowUsageError && e.message === message;
+
+test('jira-entry-followups AC-5 readFlowFile refuses a newer flow with the update to make', () => {
+  const newest = GUARD.FLOW_VERSIONS.devkit;
+  const f = flowFile(withColour({ ...SHIPPED_DEVKIT(), version: newest + 1 }));
+  assert.throws(() => GUARD.readFlowFile(f, 'devkit'), refusedWith(newerText(newest + 1, newest, 'it needs a later devkit-openspec')));
+  try { GUARD.readFlowFile(f, 'devkit'); } catch (e) { assert.doesNotMatch(e.message, /malformed|unknown key/); }
+});
+
+test('jira-entry-followups AC-5 a newer flow that names its release gets it in the message', () => {
+  const newest = GUARD.FLOW_VERSIONS.devkit;
+  const f = flowFile(withColour({ ...SHIPPED_DEVKIT(), version: newest + 1, readerRelease: '9.1.0' }));
+  assert.throws(() => GUARD.readFlowFile(f, 'devkit'), refusedWith(newerText(newest + 1, newest, 'it needs devkit-openspec 9.1.0 or later')));
+});
+
+test('jira-entry-followups AC-5 a newer flow with a release field that is not a release number gets the text with no release', () => {
+  const newest = GUARD.FLOW_VERSIONS.devkit;
+  for (const readerRelease of ['soon', 9, '1.2', '1.2.3.4', null]) {
+    const f = flowFile({ ...SHIPPED_DEVKIT(), version: newest + 1, readerRelease });
+    assert.throws(() => GUARD.readFlowFile(f, 'devkit'), refusedWith(newerText(newest + 1, newest, 'it needs a later devkit-openspec')), JSON.stringify(readerRelease));
+  }
+});
+
+test('jira-entry-followups AC-5 a script outside FLOW_VERSIONS has no ceiling', () => {
+  const f = flowFile({ ...SHIPPED_DEVKIT(), script: 'mine', version: 99 });
+  assert.equal(GUARD.readFlowFile(f, 'mine').version, 99);
+});
+
+test('jira-entry-followups AC-5 a release number that cannot be read at a known version is malformed', () => {
+  for (const readerRelease of ['soon', '1.2']) {
+    const f = flowFile({ ...SHIPPED_DEVKIT(), readerRelease });
+    assert.throws(() => GUARD.readFlowFile(f, 'devkit'),
+      refusedWith(`flow.json of devkit is malformed: readerRelease ${JSON.stringify(readerRelease)} is not a release number such as 1.2.3`), readerRelease);
+  }
+});
+
+test('jira-entry-followups AC-5 a release number at a known version is accepted', () => {
+  const f = flowFile({ ...SHIPPED_DEVKIT(), readerRelease: '1.2.3' });
+  assert.equal(GUARD.readFlowFile(f, 'devkit').version, GUARD.FLOW_VERSIONS.devkit);
+});
+
+test('jira-entry-followups AC-6 an unknown stage key at a known version is still malformed', () => {
+  const f = flowFile(withColour(SHIPPED_DEVKIT()));
+  assert.throws(() => GUARD.readFlowFile(f, 'devkit'), refusedWith('flow.json of devkit is malformed: stage mockup has an unknown key colour'));
+});
+
+test('jira-entry-followups AC-5 FLOW_VERSIONS equals the version of each shipped flow.json', () => {
+  assert.deepEqual(Object.keys(GUARD.FLOW_VERSIONS).sort(), ['devkit', 'devkit-lite', 'devkit-project']);
+  for (const copy of [join(PLUGIN_SCHEMAS), join(REPO, 'openspec', 'schemas')]) {
+    for (const script of Object.keys(GUARD.FLOW_VERSIONS)) {
+      const shipped = JSON.parse(readFileSync(join(copy, script, 'flow.json'), 'utf8'));
+      assert.equal(shipped.version, GUARD.FLOW_VERSIONS[script], `${script} in ${copy}`);
+    }
+  }
+});
+
+test('jira-entry-followups AC-5 the shipped flow.json files stay byte-identical to flows/2.json', () => {
+  for (const copy of [join(PLUGIN_SCHEMAS), join(REPO, 'openspec', 'schemas')]) {
+    for (const script of ['devkit', 'devkit-lite']) {
+      const shipped = readFileSync(join(copy, script, 'flow.json'));
+      assert.equal(JSON.parse(shipped).version, 2, `${script} in ${copy}`);
+      assert.equal(JSON.parse(shipped).readerRelease, undefined, `${script} in ${copy} names no release`);
+      assert.ok(shipped.equals(readFileSync(join(copy, script, 'flows', '2.json'))), `${script} in ${copy} equals flows/2.json`);
+    }
+  }
+});
+
 test('version-pin AC-4 readout: a recorded flow that is not installed stops the checker', () => {
   const root = withYaml(shared({ pin: null, stages: PLAN_V1 }), yamlOf('devkit', 7));
   const r = readout(root, '--lang', 'en');

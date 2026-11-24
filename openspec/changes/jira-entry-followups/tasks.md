@@ -132,7 +132,7 @@ scratch file in the tree, and end every task with `git status --short`.
 
 ## 3. The flow reader refuses a newer flow clearly (AC-5, AC-6)
 
-- [ ] 3.1 Add `FLOW_VERSIONS` at `{ devkit: 2, 'devkit-lite': 2, 'devkit-project': 1 }` and the two
+- [x] 3.1 Add `FLOW_VERSIONS` at `{ devkit: 2, 'devkit-lite': 2, 'devkit-project': 1 }` and the two
   checks of D-3 to `readFlowFile` in `plugins/openspec/hooks/guard.mjs`; no flow file changes.
   Write in `plugins/openspec/hooks/version-pin.test.mjs`, beside `version-pin AC-4 readFlowFile: a
   version is a whole number from 1`, the AC-5 and AC-6 tests of D-10: the newer flow with no release
@@ -156,14 +156,14 @@ scratch file in the tree, and end every task with `git status --short`.
   rewrite, with the reader changed, both fail; after it both pass. Run
   `grep -n "version + 1\|version: [3-9]" plugins/openspec/hooks/*.test.mjs` (the design's grep):
   no hit is left that installs a flow above `FLOW_VERSIONS` (D-10 explains the known others).
-- [ ] 3.2 In `docs/openspec-flow.md` write the two sentences of D-3: in "The flow a change follows",
+- [x] 3.2 In `docs/openspec-flow.md` write the two sentences of D-3: in "The flow a change follows",
   a reader from this release on refuses a `flow.json` newer than it knows with the update to make,
   naming the release when the file carries `readerRelease`, while an unknown key at a known version
   stays malformed; after "A change to a `flow.json` raises its `version`", a new version adds
   `readerRelease` and raises `FLOW_VERSIONS` in `plugins/openspec/hooks/guard.mjs`; the same two
   steps in `CONTRIBUTING.md`, "Changing the OpenSpec schemas". Check: `python3 scripts/check.py`
   passes.
-- [ ] 3.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py` green; covers AC-5 and AC-6, and the two rewritten `roadmap-loop` tests.
+- [x] 3.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py` green; covers AC-5 and AC-6, and the two rewritten `roadmap-loop` tests.
 
 ## 4. The review's open nits (AC-7 to AC-11)
 
