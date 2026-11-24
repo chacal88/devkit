@@ -16,9 +16,16 @@ merge of main d917ae0 is the delivery train's own text (see 3.4). The whole suit
 background command of the tool, never with a shell `&`. Test first: each phase's test task comes
 before its code tasks and its new tests fail on the phase's base (the check says how; a test file that
 imports an export or a module not written yet fails as a whole at load, before any of its tests runs). An existing
-test changes only where D-11 names it: E-1 (in 1.2), E-4 (in 1.6) and E-5 (in 2.3). E-3 (in 3.1, with
+test changes only where D-11 names it: E-1 (in 1.2), E-4 (in 1.6), E-5 (in 2.3) and E-6 (in the merge
+of `origin/main` `c09860c`, commit `4c25ecc`: `stages: null` at the end of the expected entry of
+`unlocated 1: state lists an unplaced change blocked and every other change as before` in
+`plugins/openspec/hooks/change-loop-remote-state.test.mjs`; invariant: an unplaced change is listed
+blocked, with the root and branch of the checkout that holds it and null stage fields; layer: the
+`state` command; suite: change-loop-remote-state). E-3 (in 3.1, with
 the bump, in the approved plan) is superseded by ADR 0030 at the merge of `origin/main` `d917ae0`: no
-release edits `change-loop-compozy.test.mjs` any more. Any other existing
+release edits `change-loop-compozy.test.mjs` any more. The review fixes add the new tests S-9b (in
+`change-state-stages.test.mjs`, finding F10) and B14b (in `change-loop.test.mjs`, finding F11), both
+under 1.5, and edit no existing test. Any other existing
 test that fails is a stop: report it and change nothing. The two release-pin tests of
 `deliver-check-cli.test.mjs` (D-13), the real-doc pin test of `release-merge.test.mjs` and, since ADR
 0030, `change-loop docs: the design records the answers` of `change-loop-compozy.test.mjs` do not change:
@@ -62,7 +69,12 @@ they read the version from `plugin.json`, and 3.1 moves the doc's pins with the 
   `OFFLINE_GH`, import it in `plugins/openspec/hooks/roadmap-loop.mjs` (its own copy removed) and in
   `change-loop.mjs`, and add `--offline` to `runState` and to `USAGE` (D-4). Check: S-7 to S-11 pass,
   and `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs`
-  passes unchanged.
+  passes unchanged. Added after review (findings F10 and F11): the `offline` fact set by `nextAction`
+  and the `silent` helper of `decide`, which route `stop-merge-setup` to `waiting-on-github`, `silent`
+  only offline (D-4, commit `accaace`), with S-9b in `change-state-stages.test.mjs` and B14b beside
+  `B14` in `plugins/openspec/hooks/change-loop.test.mjs` (D-11). Check: S-9b passes, and
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern="^change-loop decide: " plugins/openspec/hooks/change-loop.test.mjs`
+  passes, `B14` and B14b among them.
 - [x] 1.6 Update the "A change's state" paragraph of `docs/openspec-flow.md` (D-13): `[--offline]` in
   the command and `stages` in the list of fields, the paragraph still after "**Waiting on GitHub.**" and
   still citing ADR 0017 (E-2, in `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, asserts
@@ -115,7 +127,8 @@ they read the version from `plugin.json`, and 3.1 moves the doc's pins with the 
 - [x] 3.1 Bump devkit-openspec's `version` in `plugins/openspec/.claude-plugin/plugin.json` and in
   `.claude-plugin/marketplace.json` to the next minor after `origin/main`'s at the last merge before
   review, and the marketplace's own version to the next after `origin/main`'s at that merge (at the merge
-  of `d917ae0`: devkit-openspec 0.42.0 to 0.43.0, marketplace 0.47.0 to 0.48.0); in the same
+  of `c09860c`: devkit-openspec 0.44.1 to 0.45.0, marketplace 0.49.1 to 0.50.0, the heading `## 0.50.0`
+  and the doc's pins `v0.45.0`; at the earlier merge of `d917ae0` it was 0.43.0 and 0.48.0); in the same
   task add the `CHANGELOG.md` entry headed `## <that marketplace version>` (the status line command, the
   settings entry, the `stages` field and `--offline` of `state`, the offline stub's one place), since
   `check_changelog` of `scripts/check.py` refuses a marketplace version with no such heading; and move
@@ -137,8 +150,9 @@ they read the version from `plugin.json`, and 3.1 moves the doc's pins with the 
   renumbers the release, the versions, the `CHANGELOG.md` heading and the doc's pins move together.
   Check: `python3 scripts/check.py`
   exits 0, the two devkit-openspec versions are equal,
-  `git diff --quiet d917ae0 HEAD -- plugins/openspec/hooks/change-loop-compozy.test.mjs` exits 0 (after
-  a later merge, with that merge's `origin/main` commit in place of `d917ae0`), and
+  `git diff --quiet c09860c HEAD -- plugins/openspec/hooks/change-loop-compozy.test.mjs` exits 0 (the
+  last merge's `origin/main` commit; `d917ae0` before the merge of `c09860c`, and after a later merge
+  that merge's commit), and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/release-merge.test.mjs`
   passes, those four tests included.
 - [x] 3.2 Check the generated catalog and the marketplace. Check: `python3 scripts/gen-catalog.py --check`

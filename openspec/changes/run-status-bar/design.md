@@ -26,6 +26,18 @@ So E-3 (D-11) is superseded at that merge (the merge kept `main`'s file unchange
 target is devkit-openspec 0.43.0 and marketplace 0.48.0, the next after `main`'s 0.42.0 and 0.47.0 (D-13).
 Scope and behaviour do not change.
 
+Since then, two review fixes and one more merge (scope and behaviour unchanged):
+
+- Code-quality finding F10 (commit `accaace`): with `--offline`, the merge-setup stop of the delivery
+  checker reads as GitHub silent, as D-4 already promised for every GitHub read (D-4, test S-9b).
+- Test-coverage finding F11: a test beside the decide test `B14` of `change-loop.test.mjs` pins that the
+  other stops stay blocked offline (D-11, `B14b`).
+- The merge of `origin/main` `c09860c` (commit `4c25ecc`): `main` is at devkit-openspec 0.44.1 and
+  marketplace 0.49.1, so the release target is devkit-openspec 0.45.0 and marketplace 0.50.0 (D-13).
+  The merge brought the code of `state-skips-unlocated` (its folder not yet archived), whose test
+  `unlocated 1: state lists an unplaced change blocked and every other change as before` compares a whole
+  `state` entry, so the merge added `stages: null` to its expected entry (E-6, D-11).
+
 What exists:
 
 - `node plugins/openspec/hooks/change-loop.mjs state [--change <id>] --lang <l>` (`runState`,
@@ -164,9 +176,20 @@ In `plugins/openspec/hooks/change-loop.mjs`:
   flow)` from the `facts` and `flow` it already holds. `next` never passes it, so its output does not
   change.
 - `stateEntries` passes `stages: true` and adds `stages: action.stages ?? null` to each entry, after
-  `branch`; the archived and start-with-no-folder entries it builds itself get `null`.
+  `branch`; the archived and start-with-no-folder entries it builds itself get `null`, and so does the
+  blocked stand-in of an unplaced change (`unplacedAction`, from `state-skips-unlocated`, merged with
+  `c09860c`), whose action carries no `stages`.
 - `runState` takes the flag `--offline`: when set, `gh` is the offline stub (below) for the whole
   read. `USAGE` reads `state [--change <id>] [--offline] --lang <l>`.
+- `nextAction` sets the fact `offline: gh === OFFLINE_GH`. In `decide`, one local helper `silent(stageId,
+  error)` gives the GitHub-silent wait (`waiting-on-github`, reason `waiting-github`, `what: 'silent'`,
+  the error in the detail); the existing silent branch of `blockedEnd` calls it, and the delivery
+  checker's `blocked` end routes the step `stop-merge-setup` to it, with the checker's reason as the
+  error, only when `facts.offline` holds. Online, `stop-merge-setup` still ends `blocked` with
+  `merge-setup`, and every other blocked step (`stop-branch`, `stop-not-approved`, `stop-archive`,
+  `blocked`) ends `blocked` offline too. The merge-setup read is a GitHub read (the repository's
+  settings), so offline it reads silent like every other GitHub read; without this a reviewed change of
+  a merge-mode project counted as blocked on the coordinator's line (review finding F10, `accaace`).
 
 The offline stub `() => ({ status: 1, stdout: '', stderr: 'offline' })` exists as `OFFLINE_GH` in
 `roadmap-loop.mjs`. It moves to `plugins/openspec/hooks/merge-setup.mjs`, beside `makeGh`, exported as
@@ -330,6 +353,7 @@ New file `plugins/openspec/hooks/change-state-stages.test.mjs` (the `state` addi
 | S-7 | `--offline`, listing and `--change`, in a real process with a logging `gh` first on `PATH`, on a plan-stage fixture (`planChange`) and on a delivery-stage fixture (`deliveredChange`, its pull request waiting on checks): no call in either |
 | S-8 | `--offline` at the plan approval: same state, reason, stage and title as with GitHub answering |
 | S-9 | `--offline` at the delivery's checks: `waiting-on-github`, `silent` |
+| S-9b | a merge-mode change at the code review (`deliveredChange` with no `review.md`), in a real process with a logging `gh`: online, `blocked` with `merge-setup` at `review`; with `--offline`, `waiting-on-github`, `silent` at `review`, and no `gh` call (D-4; review finding F10) |
 | S-10 | `--offline yes` exits 3 with the plain reply |
 | S-11 | `roadmap-loop.mjs` defines no offline stub of its own and imports `OFFLINE_GH` from `merge-setup.mjs` |
 | S-12 | two `state --change feat` reads of the same `devkit` change with no `mockup.md`, before and after its classification line gains the `ui` flag: the first `stages` has no `mockup`, the second holds it, so N goes from 14 to 15 |
@@ -388,6 +412,13 @@ with the injection points of D-9 (`stateCommand`, `boundMs`, `signal`) where the
 | B-45 | usage | an unknown option: nothing on standard output, one line on standard error, exit 0 |
 | B-46 | input | the real process, spawned with `stdio` `pipe` in a `tmpFolder` that is no git folder, its standard input left open and never written: nothing on standard output, exit 0, and the process ends within 5 s of its start (the 1 s bound of `readStdin(1000)`; the 10 s default would fail it) |
 
+New test in an existing file, `plugins/openspec/hooks/change-loop.test.mjs` (the `decide` side of D-4;
+review finding F11). Its id follows that file's own `decide` numbering, not the B- ids above:
+
+| Id | Test |
+|---|---|
+| B14b | `change-loop decide: B14b offline, only the merge-setup stop reads as GitHub silent; the other stops stay blocked`, right after the existing `B14` (which does not change): the rows `stop-branch`, `stop-not-approved`, `stop-archive` and `blocked` built with the fact `offline: true` still end `blocked` with `wrong-branch`, `plan-not-approved`, `archive-failed` and `pr-problem`; `stop-merge-setup` with `offline: true` and a checker reason ends `waiting-on-github`, `waiting-github`, with `what` `silent` and the reason as the detail's error |
+
 Existing tests this change touches (searched with `git grep` on `origin/main` for the `state` output, its
 usage line and the offline stub):
 
@@ -398,11 +429,13 @@ usage line and the offline stub):
 | E-3 (superseded) | `plugins/openspec/hooks/change-loop-compozy.test.mjs`, `change-loop docs: the design records the answers` (line 325 on `origin/main` at `3af3655`) | superseded by ADR 0030 at the merge of `origin/main` `d917ae0`: `main`'s test now reads the release from `plugin.json` through `pinMismatches(flow, version)` only, its literal pin line, its comment and its `assert.doesNotMatch` history are gone, and the merge kept `main`'s file unchanged; this change does not edit the file, and the test keeps passing as the doc's pins follow the manifest. The approved plan read, at `3af3655`: line 360 asserts `assert.match(flow, /v0\.39\.0/, 'the CI snippet pins the current release (stale-only-on-own-files: 0.39.0)')` on `docs/openspec-flow.md`, and line 361 `assert.doesNotMatch(flow, /v0\.38\.0/, ...)` for the release before it; after the bump of D-13 the doc holds no `v0.39.0` (its only three occurrences, lines 733, 734 and 747, are the pins the bump moves), so line 360 fails | done in the same task as the bump (3.1), as every earlier release did with its own: the regex and the message of line 360 name the new devkit-openspec version (`run-status-bar: <new>`); one `assert.doesNotMatch` line for `v0.39.0` (`'no pin left on the release before it (stale-only-on-own-files)'`) goes right after it, and no other line of the test changes; the comment of line 359 gains this change's release in front of the list (`run-status-bar moves it to <new> (release <marketplace>), above stale-only-on-own-files' 0.39.0 (release 0.43.0), which moved it above ...`). Invariant (the CI snippet pins the current release, and no earlier one), layer (the documents), suite (the change loop's) unchanged |
 | E-4 | `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, the helper `lessIdentity` (its constant `NEXT_ONLY = ['change', 'script', 'root', 'branch']`, line 1269), used by `change-state AC-3 cli: next and state give the same state for the same files and GitHub answers` (line 1296), `change-state AC-5 plan: with GitHub silent the grill, a plan stage and the approval keep their state` (line 1324) and `change-state AC-5 build: with GitHub silent the implementation and the code review keep the loop's action` (line 1342) | the helper strips the fields only `state` carries from a `state` entry and compares the rest with `next`'s `action.state` through `assert.deepEqual`; the new `stages` field of the entry (D-4) is a field `next` does not carry (S-6), so the three tests fail; found by the phase 1 gate (1.7), not by the plan's search | `'stages'` is added to `NEXT_ONLY`, and no other line of the file changes. Invariant (`state` and `next` agree on a change's identity apart from the next-only fields), layer (the change loop's state), suite (change-loop-remote-state) unchanged |
 | E-5 | `plugins/openspec/hooks/change-loop.test.mjs`, the constant `SAMPLE` (line 70), used through `renderings` by `change-loop replies: no internal term in either language` (line 109) | the test renders every key of `MESSAGES` in both languages with `SAMPLE`'s parameters; the `bar.*` keys of D-8 (`bar.progress`, `bar.counts`) need `total`, `all`, `running`, `waiting`, `blocked` and `blockedWord`, which `SAMPLE` lacks, so `render` throws `reply bar.progress needs the parameter total`; found by the phase 2 work, not by the plan's search | `total: 15, all: 6, running: 3, waiting: 2, blocked: 1, blockedWord: 'blocked'` are added to `SAMPLE`, and no other line of the file changes. Invariant (every reply key renders in both languages with its sample parameters and no internal term shows), layer (the change loop's replies), suite (change-loop) unchanged |
+| E-6 | `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, `unlocated 1: state lists an unplaced change blocked and every other change as before` (line 1598 at `4c25ecc`), a test `main` brought at the merge of `c09860c` (change `state-skips-unlocated`) | it compares the whole entry of the unplaced change `x` through `assert.deepEqual`; the entry now ends in the `stages` field of D-4, `null` for the unplaced stand-in, so the test fails without it; found at the merge of `c09860c`, not by the plan's search (the test did not exist at `3af3655`) | `stages: null` is added at the end of the expected entry, and no other line of the test changes; done in the merge commit `4c25ecc`. Invariant (an unplaced change is listed blocked, with the root and branch of the checkout that holds it and null stage fields), layer (the `state` command), suite (change-loop-remote-state) unchanged |
 
-The allowed edits of existing tests are E-1, E-4 and E-5. In the approved plan E-3 was the second, E-4
-the third (beside E-1 and E-3) and E-5 the fourth (beside E-1, E-3 and E-4); E-3 is superseded by ADR
-0030 at the merge of `d917ae0`, so the delivered branch edits E-1, E-4 and E-5 only. No other existing
-test changes.
+The allowed edits of existing tests are E-1, E-4, E-5 and E-6. In the approved plan E-3 was the second,
+E-4 the third (beside E-1 and E-3) and E-5 the fourth (beside E-1, E-3 and E-4); E-3 is superseded by ADR
+0030 at the merge of `d917ae0`, so the delivered branch edits E-1, E-4 and E-5, and E-6 at the merge of
+`c09860c`. The new tests S-9b and B14b (review findings F10 and F11) add tests to existing files and edit
+no existing test. No other existing test changes.
 
 Searched with `git grep` on `origin/main` at `3af3655` for a test that pins a release version of a
 document (`v0\.`, `0.39.0`, `0.43.0`, `PIN_MARKER`, `commit sha of v` in every `*.test.mjs`, the
@@ -418,7 +451,8 @@ version)`) reads the manifest too. The `v0.20.0` assertions (`change-loop-compoz
 floor, which the bump does not touch; `change-loop-compozy.test.mjs:308` and the `release-merge.test.mjs`
 literals use synthetic versions.
 
-Beside E-1 and E-4, no other test pins the exact `state` output or its usage line. The plan's first
+Beside E-1, E-4 and (since the merge of `c09860c`) E-6, no other test pins the exact `state` output or its
+usage line. The plan's first
 search missed E-4: it looked for the `state` output as a literal (an expected string or object), and
 `lessIdentity` compares a `state` entry with `next`'s state through a helper and a list of field names,
 with no literal of the entry. The search for tests pinning `MESSAGES` missed E-5 for a like reason:
@@ -455,14 +489,16 @@ the release is installed.
   bump (`scripts/check.py` refuses a marketplace version with no `## <version>` heading). devkit-openspec's
   `plugin.json` and `marketplace.json` take the next minor version after `origin/main`'s at the last merge
   before review, and the marketplace's own version the next after its own; the loop pushes the tag after
-  the merge (ADR 0019). At the last merge, `d917ae0` (devkit-openspec 0.42.0, marketplace 0.47.0), that
-  is devkit-openspec 0.43.0 and marketplace 0.48.0, with the entry headed `## 0.48.0`.
+  the merge (ADR 0019). At the last merge, `c09860c` (devkit-openspec 0.44.1, marketplace 0.49.1), that
+  is devkit-openspec 0.45.0 and marketplace 0.50.0, with the entry headed `## 0.50.0` (at the earlier
+  merge of `d917ae0`, 0.42.0 and 0.47.0 on `main`, it was 0.43.0 and 0.48.0).
 - The same bump moves every release pin of `docs/openspec-flow.md` to the new devkit-openspec version:
   the `<commit sha of v...>` URL line, the `pinned to the commit of v...` comment, the
   `` (`v...` above) `` sentence and the `gh api repos/chacal88/devkit/git/ref/tags/v...` command, the
   set `PIN_MARKER` of `plugins/openspec/hooks/release-merge.mjs` names (`v0.39.0` on `origin/main` at
-  `3af3655`, the plan's base, lines 733, 734 and 747; `v0.42.0` at `d917ae0`, the same lines, which the
-  branch moves to `v0.43.0`). Two existing tests of
+  `3af3655`, the plan's base, lines 733, 734 and 747; `v0.42.0` at `d917ae0`, the same lines; `v0.44.1`
+  at `c09860c`, the same lines, which the branch moves to `v0.45.0`, at its lines 741, 742 and 755 after
+  the status line paragraph). Two existing tests of
   `plugins/openspec/hooks/deliver-check-cli.test.mjs` read `plugin.json`'s version and refuse a doc that
   names another: `the pin in docs/openspec-flow.md is the commit sha of v + the devkit-openspec version,
   with the tag in a comment, never the tag in the URL (R-10, security)` and `AC-8 release-ready: every
@@ -498,7 +534,7 @@ Release: `plugin.json`, `marketplace.json`, `CHANGELOG.md`. No frontend, no work
 | Modify | `plugins/openspec/hooks/flow-check.mjs`, `plugins/openspec/hooks/flow-check.test.mjs` |
 | Modify | `plugins/openspec/hooks/change-loop.mjs` |
 | Modify | `plugins/openspec/hooks/merge-setup.mjs`, `plugins/openspec/hooks/roadmap-loop.mjs` |
-| Modify | `plugins/openspec/hooks/change-loop-remote-state.test.mjs` (E-1, E-4), `plugins/openspec/hooks/change-loop.test.mjs` (E-5); `plugins/openspec/hooks/change-loop-compozy.test.mjs` (E-3) is no longer modified, superseded by ADR 0030 at the merge of `d917ae0` |
+| Modify | `plugins/openspec/hooks/change-loop-remote-state.test.mjs` (E-1, E-4, E-6), `plugins/openspec/hooks/change-loop.test.mjs` (E-5, and the new test B14b); `plugins/openspec/hooks/change-loop-compozy.test.mjs` (E-3) is no longer modified, superseded by ADR 0030 at the merge of `d917ae0` |
 | Modify | `docs/openspec-flow.md` (the state paragraph, the status line paragraph, the release pins), `plugins/openspec/README.md`, `CHANGELOG.md` |
 | Modify | `plugins/openspec/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` |
 | Delete | none |
@@ -511,12 +547,12 @@ asks; a merge of `main` between phases costs a rerun).
 |---|---|---|---|
 | Merge `origin/main`, baseline gates | 1 | Integration | LOW |
 | `notApplicableOf`, `appliedStages` and H-1 to H-8 | 2 | Core | LOW |
-| `stages` field, `--offline`, `OFFLINE_GH` move, S-1 to S-11, E-1, E-4 | 3 | Core | MEDIUM |
+| `stages` field, `--offline` (the offline merge-setup read included), `OFFLINE_GH` move, S-1 to S-12 with S-9b, B14b, E-1, E-4, E-6 | 3 | Core | MEDIUM |
 | `status-line.mjs`: input, choice, calls, bounds | 4 | Core | MEDIUM |
 | Line drawing, cut rule, counts, words, E-5 | 2 | Core | LOW |
 | B-1 to B-46 | 4 | Testing | MEDIUM |
 | Docs and README | 1 | Documentation | LOW |
-| Release (0.43.0 / 0.48.0, `CHANGELOG.md`, the doc's pins; E-3 superseded by ADR 0030) and full gates | 1 | Integration | LOW |
+| Release (0.45.0 / 0.50.0 at the merge of `c09860c`, `CHANGELOG.md`, the doc's pins; E-3 superseded by ADR 0030) and full gates | 1 | Integration | LOW |
 
 **Risks.**
 
@@ -536,7 +572,8 @@ line's `PATH` (the plugin's hooks already need both).
 
 **Dependencies.** `change-state` (archived) for the command; `suite-speed` (merged, ADR 0026) for the test
 command and fixture layout; `archive-release-pin` (merged at `d917ae0`, ADR 0030), which removed the
-literal pin of E-3; `state-skips-unlocated` (open) only for the dogfood of AC-3 in this repository.
+literal pin of E-3; `state-skips-unlocated` (its code merged with `c09860c`, its folder not yet
+archived; it brought the test of E-6) only for the dogfood of AC-3 in this repository.
 
 ## Risks / Trade-offs
 
