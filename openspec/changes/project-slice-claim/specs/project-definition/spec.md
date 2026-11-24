@@ -60,8 +60,12 @@ machine that opened it and pushes the new branch by a push that only creates it.
 - **THEN** the reply names the pack and the setup step that enables it, and nothing is created
 
 #### Scenario: A project not set up for devkit
-- **WHEN** the project's schema is not `devkit` or `devkit-lite`, a setting is unknown, or the driver is not `claude`
+- **WHEN** the project's schema is not `devkit` or `devkit-lite`, a setting is unknown, or the driver is `script`
 - **THEN** the reply is the one `/devkit change` gives in that project, and nothing is created
+
+#### Scenario: The CompozyOS driver
+- **WHEN** `devkit.driver` is `compozy` and `/devkit project billing` is typed
+- **THEN** the reply says in one plain sentence that `/devkit project` does not run on CompozyOS yet, and nothing is created or run
 
 ### Requirement: The slice readout shows the five stages
 The readout of a slice SHALL list the five stages, each as passed, not applicable, ready or blocked,

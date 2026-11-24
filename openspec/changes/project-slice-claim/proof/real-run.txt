@@ -1,0 +1,415 @@
+devkit project-slice-claim: real-run proof of design D-7 (the real project-loop.mjs and roadmap-loop.mjs, run by hand)
+Code under test: 27c60065c008d6593be676697c8bc986245b1d87 (branch project-slice-claim)
+node v26.13.1, openspec 2.0.0, git 2.53.0, TMPDIR=/var/tmp/devkit-project-slice-claim
+hostname: avell -> machine name 'thisMachine()' = avell
+Both clones run on this one host, so both claim as that machine name; the git identities differ (proof-alpha, proof-bravo).
+Every project is a throwaway under /var/tmp/devkit-project-slice-claim/proof-*-r2: a bare origin.git, a main checkout (clone alpha) and clone-bravo.
+
+=================== CASE 1: open of a slice with an origin leaves the claim on origin (AC-1, AC-2) ===================
+$ (A, in proof-claim-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open billing --lang en
+{
+  "version": 1,
+  "slice": "billing",
+  "worktree": "/var/tmp/devkit-project-slice-claim/proof-claim-r2/main/.claude/worktrees/billing",
+  "branch": "billing",
+  "base": "origin/main",
+  "reply": "I opened the slice billing in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+}
+[exit 0]
+
+-- origin holds the claim
+$ (A, in proof-claim-r2/main) git ls-remote origin refs/heads/billing; echo 'worktree HEAD:'; git -C .claude/worktrees/billing rev-parse HEAD
+355b7b67589b0a8950421873bf450f35536364fe	refs/heads/billing
+worktree HEAD:
+355b7b67589b0a8950421873bf450f35536364fe
+[exit 0]
+$ (A, in proof-claim-r2/origin.git) git log -1 --format='subject: %s' 355b7b67589b0a8950421873bf450f35536364fe; echo '--- the slice folder in the open commit:'; git ls-tree -r --name-only 355b7b67589b0a8950421873bf450f35536364fe -- openspec/changes/billing; echo '--- openspec/changes/billing/.openspec.yaml at the claim:'; git show 355b7b67589b0a8950421873bf450f35536364fe:openspec/changes/billing/.openspec.yaml; echo '--- x-devkit-places line?'; if git show 355b7b67589b0a8950421873bf450f35536364fe:openspec/changes/billing/.openspec.yaml | grep -q x-devkit-places; then echo PRESENT; else echo 'none'; fi
+subject: chore(openspec): open billing
+--- the slice folder in the open commit:
+openspec/changes/billing/.openspec.yaml
+--- openspec/changes/billing/.openspec.yaml at the claim:
+schema: devkit-project
+created: 2026-11-24
+skip_specs: true
+x-devkit-machine: avell
+x-devkit-version: 0.40.0
+x-devkit-flow: 1
+--- x-devkit-places line?
+none
+[exit 0]
+$ (A, in proof-claim-r2/origin.git) git show 355b7b67589b0a8950421873bf450f35536364fe:openspec/changes/billing/.openspec.yaml | grep -n -E '^x-devkit-(machine|version|flow)'
+4:x-devkit-machine: avell
+5:x-devkit-version: 0.40.0
+6:x-devkit-flow: 1
+[exit 0]
+
+-- the local worktree stays and is clean
+branches: + billing * main remotes/origin/HEAD -> origin/main remotes/origin/billing remotes/origin/main 
+worktrees: proof-claim-r2/main proof-claim-r2/main/.claude/worktrees/billing 
+worktree folder: [billing ]
+change folders: [archive ]
+status: []
+$ (A, in proof-claim-r2/main) git -C .claude/worktrees/billing status --porcelain | wc -l; git -C .claude/worktrees/billing branch --show-current
+0
+billing
+[exit 0]
+
+=================== CASE 6a: status <slice> prints the Machine line under the title (AC-6) ===================
+$ (A, in proof-claim-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs status billing --lang en
+Slice billing
+Machine: avell
+Business: ready (business.md does not exist yet)
+Domain model: blocked
+Architecture: blocked
+Implementation plan: blocked
+Roadmap: blocked
+[exit 0]
+$ (A, in proof-claim-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs status billing --lang pt-BR
+Fatia billing
+Máquina: avell
+Negócio: pronta (business.md ainda não existe)
+Modelo de domínio: bloqueada
+Arquitetura: bloqueada
+Plano de implementação: bloqueada
+Roadmap: bloqueada
+[exit 0]
+
+=================== CASE 2: a second open of the same slice from another clone is refused (AC-3) ===================
+$ (Bv, in proof-claim-r2/clone-bravo) git fetch -q origin && echo fetched
+fetched
+[exit 0]
+-- clone-bravo before the open (after a fetch, so its remote-tracking refs are current)
+branches: * main remotes/origin/HEAD -> origin/main remotes/origin/billing remotes/origin/main 
+worktrees: proof-claim-r2/clone-bravo 
+worktree folder: []
+change folders: [archive ]
+status: []
+$ (Bv, in proof-claim-r2/clone-bravo) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open billing --lang en
+{"version":1,"error":"claimed","reply":"billing is already open on avell: I opened nothing here. Continue it there, or choose another name."}
+project-loop: claimed
+[exit 3]
+$ (Bv, in proof-claim-r2/clone-bravo) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open billing --lang pt-BR
+{"version":1,"error":"claimed","reply":"billing já está aberta em avell: não abri nada aqui. Continue lá, ou escolha outro nome."}
+project-loop: claimed
+[exit 3]
+-- clone-bravo after the refused opens (must equal the snapshot above)
+branches: * main remotes/origin/HEAD -> origin/main remotes/origin/billing remotes/origin/main 
+worktrees: proof-claim-r2/clone-bravo 
+worktree folder: []
+change folders: [archive ]
+status: []
+$ (Bv, in proof-claim-r2/clone-bravo) git ls-remote origin refs/heads/billing
+355b7b67589b0a8950421873bf450f35536364fe	refs/heads/billing
+[exit 0]
+
+=================== CASE 2b: a branch hand-pushed by a machine named 'avel', and one with no machine key (AC-3) ===================
+$ (Bv, in proof-claim-r2/clone-bravo) git switch -q -c hand-machine && mkdir -p openspec/changes/hand && printf 'schema: devkit-project\nx-devkit-machine: avel\n' > openspec/changes/hand/.openspec.yaml && git add openspec/changes/hand && git commit -q -m 'hand: claim' && git push -q origin hand-machine:hand && git switch -q main && git branch -q -D hand-machine && rm -rf openspec/changes/hand && git ls-remote origin refs/heads/hand
+e2c75984347d7954276cabfe9c2a7f0d566597c8	refs/heads/hand
+[exit 0]
+$ (Bv, in proof-claim-r2/clone-bravo) git switch -q -c hand-nomachine && mkdir -p openspec/changes/nomach && printf 'schema: devkit-project\n' > openspec/changes/nomach/.openspec.yaml && git add openspec/changes/nomach && git commit -q -m 'hand: no machine' && git push -q origin hand-nomachine:nomach && git switch -q main && git branch -q -D hand-nomachine && rm -rf openspec/changes/nomach && git ls-remote origin refs/heads/nomach
+077cc27ff0266b9d3d9c125889b8dcdd8befb60b	refs/heads/nomach
+[exit 0]
+$ (Bv, in proof-claim-r2/clone-bravo) git switch -q -c hand-nofolder && git commit -q --allow-empty -m 'hand: no folder' && git push -q origin hand-nofolder:invoices && git switch -q main && git branch -q -D hand-nofolder && git ls-remote origin refs/heads/invoices
+d6a0b2033df944ab2100d5a0ece290769d25f1a3	refs/heads/invoices
+[exit 0]
+-- clone alpha (the main checkout) opens each; before:
+branches: + billing * main remotes/origin/HEAD -> origin/main remotes/origin/billing remotes/origin/main 
+worktrees: proof-claim-r2/main proof-claim-r2/main/.claude/worktrees/billing 
+worktree folder: [billing ]
+change folders: [archive ]
+status: []
+$ (A, in proof-claim-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open hand --lang en
+{"version":1,"error":"claimed","reply":"hand is already open on avel: I opened nothing here. Continue it there, or choose another name."}
+project-loop: claimed
+[exit 3]
+$ (A, in proof-claim-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open nomach --lang en
+{"version":1,"error":"claimed-elsewhere","reply":"nomach is already open on another machine: I opened nothing here. Continue it there, or choose another name."}
+project-loop: claimed-elsewhere
+[exit 3]
+$ (A, in proof-claim-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open invoices --lang en
+{"version":1,"error":"name-taken","reply":"A change named invoices already exists; I will choose another name."}
+project-loop: name-taken
+[exit 3]
+-- after (the worktree list holds only billing, no hand/nomach/invoices branch or folder)
+branches: + billing * main remotes/origin/HEAD -> origin/main remotes/origin/billing remotes/origin/hand remotes/origin/invoices remotes/origin/main remotes/origin/nomach 
+worktrees: proof-claim-r2/main proof-claim-r2/main/.claude/worktrees/billing 
+worktree folder: [billing ]
+change folders: [archive ]
+status: []
+
+=================== CASE 3: two clones open one slice at once, exactly one wins (AC-4) ===================
+-- both processes wait on a barrier file, then start in the same instant
+
+-- alpha: exit 3
+{"version":1,"error":"claimed","reply":"billing is already open on avell: I opened nothing here. Continue it there, or choose another name."}
+(stderr)
+project-loop: claimed
+
+-- bravo: exit 0
+{
+  "version": 1,
+  "slice": "billing",
+  "worktree": "/var/tmp/devkit-project-slice-claim/proof-race-r2/clone-bravo/.claude/worktrees/billing",
+  "branch": "billing",
+  "base": "origin/main",
+  "reply": "I opened the slice billing in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+}
+
+-- exit codes sorted: 0 3 
+-- origin refs/heads/billing:
+bce698adfb5bb7b88a5ca8e44038f1b5c508bcbe	refs/heads/billing
+-- alpha state:
+branches: * main remotes/origin/HEAD -> origin/main remotes/origin/billing remotes/origin/main 
+worktrees: proof-race-r2/main 
+worktree folder: []
+change folders: [archive ]
+status: []
+   alpha worktree HEAD: fatal: cannot change to '.claude/worktrees/billing': No such file or directory
+-- bravo state:
+branches: + billing * main remotes/origin/HEAD -> origin/main remotes/origin/billing remotes/origin/main 
+worktrees: proof-race-r2/clone-bravo proof-race-r2/clone-bravo/.claude/worktrees/billing 
+worktree folder: [billing ]
+change folders: [archive ]
+status: []
+   bravo worktree HEAD: bce698adfb5bb7b88a5ca8e44038f1b5c508bcbe
+-- machine in the winning claim:
+schema: devkit-project
+created: 2026-11-24
+skip_specs: true
+x-devkit-machine: avell
+x-devkit-version: 0.40.0
+x-devkit-flow: 1
+
+=================== CASE 4: a push the remote refuses fails the open with project-unreadable and leaves nothing (D-2) ===================
+-- origin.git/hooks/pre-receive rejects every new branch but main
+-- before:
+branches: * main remotes/origin/HEAD -> origin/main remotes/origin/main 
+worktrees: proof-reject-r2/main 
+worktree folder: []
+change folders: [archive ]
+status: []
+$ (A, in proof-reject-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open billing --lang en
+{"version":1,"error":"git push failed: remote: pre-receive: creating refs/heads/billing is not allowed on this remote        \nTo /var/tmp/devkit-project-slice-claim/proof-reject-r2/origin.git\n ! [remote rejected] billing -> billing (pre-receive hook declined)\nerror: failed to push some refs to '/var/tmp/devkit-project-slice-claim/proof-reject-r2/origin.git'","reply":"I could not read that request. Type /devkit project and the name of the slice to plan, or /devkit project alone to continue."}
+project-loop: git push failed: remote: pre-receive: creating refs/heads/billing is not allowed on this remote        
+To /var/tmp/devkit-project-slice-claim/proof-reject-r2/origin.git
+ ! [remote rejected] billing -> billing (pre-receive hook declined)
+error: failed to push some refs to '/var/tmp/devkit-project-slice-claim/proof-reject-r2/origin.git'
+[exit 3]
+-- after (must equal the snapshot above):
+branches: * main remotes/origin/HEAD -> origin/main remotes/origin/main 
+worktrees: proof-reject-r2/main 
+worktree folder: []
+change folders: [archive ]
+status: []
+$ (A, in proof-reject-r2/main) echo 'origin refs/heads/billing:'; git ls-remote origin refs/heads/billing | wc -l; echo 'local refs/heads/billing:'; git branch --list billing | wc -l
+origin refs/heads/billing:
+0
+local refs/heads/billing:
+0
+[exit 0]
+
+=================== CASE 5: no origin remote: open pushes nothing and writes no claim key (AC-5) ===================
+$ (A, in proof-noorigin-r2/main) git remote remove origin && git remote -v | wc -l
+0
+[exit 0]
+$ (A, in proof-noorigin-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open billing --lang en
+{
+  "version": 1,
+  "slice": "billing",
+  "worktree": "/var/tmp/devkit-project-slice-claim/proof-noorigin-r2/main/.claude/worktrees/billing",
+  "branch": "billing",
+  "base": "HEAD",
+  "reply": "I opened the slice billing in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+}
+[exit 0]
+$ (A, in proof-noorigin-r2/main) echo 'worktree HEAD = main HEAD?'; test $(git -C .claude/worktrees/billing rev-parse HEAD) = $(git rev-parse HEAD) && echo yes; echo 'folder tracked?'; git -C .claude/worktrees/billing ls-files openspec/changes/billing | wc -l; echo 'git status in worktree:'; git -C .claude/worktrees/billing status --porcelain; echo '--- .openspec.yaml:'; cat .claude/worktrees/billing/openspec/changes/billing/.openspec.yaml; echo '--- x-devkit-machine line?'; if grep -q x-devkit-machine .claude/worktrees/billing/openspec/changes/billing/.openspec.yaml; then echo PRESENT; else echo none; fi
+worktree HEAD = main HEAD?
+yes
+folder tracked?
+0
+git status in worktree:
+?? openspec/changes/billing/
+--- .openspec.yaml:
+schema: devkit-project
+created: 2026-11-24
+skip_specs: true
+x-devkit-version: 0.40.0
+x-devkit-flow: 1
+--- x-devkit-machine line?
+none
+[exit 0]
+
+=================== CASE 6b: status of a slice with no machine key prints no Machine line (AC-6) ===================
+$ (A, in proof-noorigin-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs status billing --lang en
+Slice billing
+Business: ready (business.md does not exist yet)
+Domain model: blocked
+Architecture: blocked
+Implementation plan: blocked
+Roadmap: blocked
+[exit 0]
+$ (A, in proof-noorigin-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs status billing --lang pt-BR
+Fatia billing
+Negócio: pronta (business.md ainda não existe)
+Modelo de domínio: bloqueada
+Arquitetura: bloqueada
+Plano de implementação: bloqueada
+Roadmap: bloqueada
+[exit 0]
+
+=================== CASE 7: roadmap-loop status lists no slice, claimed here or on another clone (AC-7) ===================
+$ (A, in proof-board-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open alpha --lang en
+{
+  "version": 1,
+  "slice": "alpha",
+  "worktree": "/var/tmp/devkit-project-slice-claim/proof-board-r2/main/.claude/worktrees/alpha",
+  "branch": "alpha",
+  "base": "origin/main",
+  "reply": "I opened the slice alpha in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+}
+[exit 0]
+$ (Bv, in proof-board-r2/clone-bravo) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/project-loop.mjs open beta --lang en
+{
+  "version": 1,
+  "slice": "beta",
+  "worktree": "/var/tmp/devkit-project-slice-claim/proof-board-r2/clone-bravo/.claude/worktrees/beta",
+  "branch": "beta",
+  "base": "origin/main",
+  "reply": "I opened the slice beta in its own worktree. We start with the business: I ask one question at a time, and each phase ends with your approval."
+}
+[exit 0]
+$ (A, in proof-board-r2/main) git fetch -q origin && git ls-remote origin refs/heads/alpha refs/heads/beta
+7aef455eacd2aad85e2bcc5b830b413c87be6322	refs/heads/alpha
+d9b3b6f9a54f5bb6acd5be4b3fc8fc2c45d19aaa	refs/heads/beta
+[exit 0]
+$ (A, in proof-board-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/roadmap-loop.mjs status --lang en --load-limit 80
+Roadmap: 0 open of 1 · 1 in the queue · 0 archived
+Starts held: processor at 93% (limit 80%)
+
+In the queue
+  first   ready, held by the load
+[exit 0]
+-- do the board lines name alpha or beta?
+no: neither is named
+$ (A, in proof-board-r2/main) node /home/kaue/repos/devkit/.claude/worktrees/project-slice-claim/plugins/openspec/hooks/roadmap-loop.mjs status --json --lang en --load-limit 80
+{
+  "version": 1,
+  "machine": "avell",
+  "changes": []
+}
+[exit 0]
+-- ids in the JSON `changes` (alpha/beta expected absent):
+changes: []
+-- the spec keeps the requirement:
+269:### Requirement: A slice is not a change of the other commands
+
+=================== CASE 8: a claimed slice's delivery push is a fast-forward and the slice contract passes (AC-8) ===================
+-- the claimed slice is driven to its archived state and pushed by the test of the plan (settling the five stages by hand needs the whole phase machinery); this runs that one test by name:
+$ (in repo) env TMPDIR=/var/tmp/devkit-project-slice-claim GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern='slice-claim AC-8' plugins/openspec/hooks/project-loop.test.mjs
+start plugins/openspec/hooks/project-loop.test.mjs
+=== plugins/openspec/hooks/project-loop.test.mjs
+✔ slice-claim AC-8 delivery: the claimed slice reaches its pull request by a fast-forward push and passes the slice contract (3472.705343ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6796.165295
+=== plugins/openspec/hooks/project-loop.test.mjs: pass 6.9s
+pass 6.9s plugins/openspec/hooks/project-loop.test.mjs
+suite: 1 files, 1 tests, 1 pass, 0 fail, 6.9s, concurrency 2
+[exit 0]
+-- by hand, on the claimed slice of CASE 1: the claim on origin is an ancestor of what the slice can push (the branch only moves forward)
+$ (A, in proof-claim-r2/main) git -C .claude/worktrees/billing commit -q --allow-empty -m 'proof: a later commit on the slice' && git merge-base --is-ancestor $(git ls-remote origin refs/heads/billing | cut -f1) HEAD 2>/dev/null; git -C .claude/worktrees/billing merge-base --is-ancestor 355b7b67589b0a8950421873bf450f35536364fe HEAD && echo 'claim is an ancestor of the slice HEAD'; git -C .claude/worktrees/billing push origin billing 2>&1; echo 'push exit '$?; git ls-remote origin refs/heads/billing; git -C .claude/worktrees/billing rev-parse HEAD
+claim is an ancestor of the slice HEAD
+To /var/tmp/devkit-project-slice-claim/proof-claim-r2/origin.git
+   355b7b6..3aed7b4  billing -> billing
+push exit 0
+3aed7b4213a910b38b27f2c645d716ac626c66ce	refs/heads/billing
+3aed7b4213a910b38b27f2c645d716ac626c66ce
+[exit 0]
+
+=================== CASE 9: the claim code is shared; project-loop.mjs holds no second copy (AC-9) ===================
+$ grep -n "claim:" plugins/openspec/hooks/project-loop.mjs
+448:    claim: { machine: thisMachine(), places: null },
+[exit 0]
+$ grep -c -F -e "force-with-lease" plugins/openspec/hooks/project-loop.mjs
+0
+[exit 1: 1 means no match]
+$ grep -c -F -e "x-devkit-machine" plugins/openspec/hooks/project-loop.mjs
+0
+[exit 1: 1 means no match]
+$ grep -c -F -e "chore(openspec): open" plugins/openspec/hooks/project-loop.mjs
+0
+[exit 1: 1 means no match]
+$ grep -c -F -e "writeClaimKeys" plugins/openspec/hooks/project-loop.mjs
+0
+[exit 1: 1 means no match]
+$ grep -c -F -e "claimOnOrigin" plugins/openspec/hooks/project-loop.mjs
+0
+[exit 1: 1 means no match]
+$ grep -n "openCheckout" plugins/openspec/hooks/project-loop.mjs plugins/openspec/hooks/change-loop.mjs | head
+plugins/openspec/hooks/project-loop.mjs:30:  COMMIT_AGENT, withAttribution, knownChange, archivedDates, mainRoot, defaultBase, tryGit, NAME, openCheckout, whereOf, waitLoop, readStdin, stagePhrase, filesLanguageOf, filesLanguageName,
+plugins/openspec/hooks/project-loop.mjs:446:  const { worktree, base } = openCheckout(cwd, id, {
+plugins/openspec/hooks/change-loop.mjs:2172:  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep, claim, remote, beforePush });
+plugins/openspec/hooks/change-loop.mjs:2181:export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare, lockSleep, claim = null, remote = false, beforePush } = {}) {
+
+$ git diff 9dff5735a04c18ec3190965d7fca32087e7f5331 HEAD -U0 -- plugins/openspec/hooks/change-loop.mjs  (what this change altered in the shared module, base = merge-base with origin/main)
+diff --git a/plugins/openspec/hooks/change-loop.mjs b/plugins/openspec/hooks/change-loop.mjs
+index cd8714c..d71b7ae 100644
+--- a/plugins/openspec/hooks/change-loop.mjs
++++ b/plugins/openspec/hooks/change-loop.mjs
+@@ -461,0 +462 @@ export const MESSAGES = {
++    'slice-machine': 'Machine: {machine}',
+@@ -746,0 +748 @@ export const MESSAGES = {
++    'slice-machine': 'Máquina: {machine}',
+[exit 0]
+
+$ git diff 9dff5735a04c18ec3190965d7fca32087e7f5331 HEAD -U0 -- plugins/openspec/hooks/project-loop.mjs
+diff --git a/plugins/openspec/hooks/project-loop.mjs b/plugins/openspec/hooks/project-loop.mjs
+index 46e03ec..c70fc72 100644
+--- a/plugins/openspec/hooks/project-loop.mjs
++++ b/plugins/openspec/hooks/project-loop.mjs
+@@ -30,0 +31 @@ import {
++  thisMachine, parseClaim,
+@@ -306 +307 @@ function readFacts(cwd, slice, { env, lang, after, openspec, gh }) {
+-  const common = { ctx, after, noRounds, kind, flow: null, fingerprint: '' };
++  const common = { ctx, after, noRounds, kind, flow: null, fingerprint: '', folder: located.dir };
+@@ -437 +438 @@ export function startProject(cwd, text, { lang = 'pt-BR', env = process.env, ope
+-export function openSlice(cwd, id, { lang = 'pt-BR', env = process.env, openspec } = {}) {
++export function openSlice(cwd, id, { lang = 'pt-BR', env = process.env, openspec, lockSleep, beforePush } = {}) {
+@@ -445 +446,4 @@ export function openSlice(cwd, id, { lang = 'pt-BR', env = process.env, openspec
+-  const { worktree, base } = openCheckout(cwd, id, { script: SCRIPT, lang: l, env, openspec });
++  const { worktree, base } = openCheckout(cwd, id, {
++    script: SCRIPT, lang: l, env, openspec, lockSleep, beforePush,
++    claim: { machine: thisMachine(), places: null },
++  });
+@@ -589,0 +594,2 @@ export function statusText(cwd, slice, { lang = 'pt-BR', env = process.env, open
++  const machine = claimMachineOf(facts.folder);
++  if (machine) lines.push(say('slice-machine', { machine }));
+@@ -606,0 +613,5 @@ export function statusText(cwd, slice, { lang = 'pt-BR', env = process.env, open
++// The machine named by the slice's `.openspec.yaml`; null when the file is absent, unreadable or names none.
++const claimMachineOf = (dir) => {
++  try { return parseClaim(readFileSync(join(dir, '.openspec.yaml'), 'utf8')).machine; } catch { return null; }
++};
++
+[exit 0]
+
+$ env TMPDIR=/var/tmp/devkit-project-slice-claim GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern='slice-claim AC-9' plugins/openspec/hooks/project-loop.test.mjs
+start plugins/openspec/hooks/project-loop.test.mjs
+=== plugins/openspec/hooks/project-loop.test.mjs
+✔ slice-claim AC-9 code: project-loop.mjs takes the claim from openCheckout and holds no claim step of its own (4.402392ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3014.543831
+=== plugins/openspec/hooks/project-loop.test.mjs: pass 3.1s
+pass 3.1s plugins/openspec/hooks/project-loop.test.mjs
+suite: 1 files, 1 tests, 1 pass, 0 fail, 3.1s, concurrency 2
+[exit 0]
