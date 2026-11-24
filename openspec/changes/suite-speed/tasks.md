@@ -169,7 +169,7 @@ and end every task with `git status --short`.
   from `measure.md`, never from the test. Check:
   `node scripts/test-suite.mjs --test-name-pattern="^suite-speed AC-8 " plugins/openspec/hooks/test-suite.test.mjs`
   passes, and `grep -c "13 to 21 minutes" CLAUDE.md` prints 0.
-- [ ] 4.4 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs && python3 scripts/check.py` green; covers AC-5 and AC-8.
+- [x] 4.4 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs && python3 scripts/check.py` green; covers AC-5 and AC-8.
 
 ## 5. Release and the proofs (AC-2, AC-6)
 
