@@ -1888,6 +1888,10 @@ export function nextStep(state) {
     ...it(3).details.undisposed.map((f) => f.reviewer),
   ]);
   if (toReview.length) {
+    // The review round runs on a clean change folder (loop-place-and-evidence D-2): its commit first, with no product path.
+    if (state.folderDirty?.length) {
+      return step('commit', `uncommitted files in the change folder before the review round: ${state.folderDirty.slice(0, 3).join(', ')}`, { paths: [] });
+    }
     const reRejected = toReview.some((n) => {
       const r = state.reviews.find((x) => x.name === n);
       return r && !approved(r.verdict);
@@ -2132,6 +2136,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
     // The change folder's files edited and not committed, outside its own review record: a plan fix waiting for its commit.
     planDirty: changedUnder(root, `openspec/changes/${id}`).filter((p) => !reviewRecord(id)(p)),
+    // The change folder's uncommitted paths (loop-place-and-evidence D-1): the review round waits for their commit.
+    folderDirty: changedUnder(root, `openspec/changes/${id}`),
     pr: prFacts(fetched),
     ...(two ? { twoPrs: twoPrsOf(acceptance.details.ids, items[5]) } : {}),
     ...(trainOn ? { train: boardable && delivery.trainFacts ? delivery.trainFacts : trainFacts(gh, root, id, { suite: trainSuite, prHead: boardable ? fetched.pr.headRefOid : null, kind: 'change' }) } : {}),

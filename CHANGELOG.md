@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.46.0 — the jira-entry retro's fixes
+## 0.48.0 — the jira-entry retro's fixes
 
-- **devkit-openspec** 0.41.0:
+- **devkit-openspec** 0.43.0:
   - `deliver-check` hands `commit` for a plan fix that touches only the change folder, then `review` at round 2:
     `next` no longer answers `fix-review` again after such a fix. A rejected verdict, or an approved one that
     still lists an undisposed `[blocking]` or `[important]` finding, goes stale after a commit of the plan files
@@ -14,12 +14,31 @@
   - `write-back ask` compares the pull request number as `next` does; `change-loop.mjs reply` reads a
     parameter from standard input with `--stdin <name>`, and the devkit skill passes the connector's error
     through the quoted heredoc and not `--param error=`; the `task-taken` check of `open --task` runs inside the
-    open lock. The CI snippet now pins `v0.41.0`, the release's tag.
+    open lock. The CI snippet now pins `v0.43.0`, the release's tag.
 - **devkit-core** 0.16.0: the review round takes the `Commit:` line's marker from git (`review-round.mjs tree`,
   `args.dirty`), not from the reviewer: `(uncommitted changes)` appears only when a path outside `openspec/` is
   uncommitted, the delivery check's own rule, so a tree dirty only in the change folder records plain verdicts.
 - Docs: the flow doc and `CONTRIBUTING.md` state the reader's refusal and the `readerRelease` step of a new flow
   version; the review-change skill and the ship-change `review` row fill `args.dirty` from `review-round.mjs tree`.
+
+## 0.47.0 — the change folder is committed before the review round
+
+- **devkit-openspec** 0.41.0: `deliver-check` hands the `commit` step before a review round while anything under the
+  change folder is uncommitted, the `ship-change` rows `commit` and `review` say so, and the CI snippet now pins
+  `v0.41.0`.
+
+## 0.46.0 — post-merge validate
+
+- **devkit-openspec** 0.41.0: after a merge of the base the delivery loop checks the plan before it hands the evidence. A new
+  `merge-check` session step runs `change-loop.mjs merge-check <id>`, which runs `openspec validate <id> --type change --strict` and records
+  the answer in `<git common dir>/devkit/merge-check/<id>.json`; a red check goes to `devkit-core:change-planner` as a merge
+  defect (its brief quotes validate's errors) and spends no stage attempt, a green one lets the loop go on, and three reds in
+  a row on the same merge, or a check that could not run (CLI missing, timed out, refused by the pin), end the run `blocked`
+  with the new reasons `merge-defect` and `merge-check-failed`. No merge, no check. The roadmap line `evidence-attempts-by-failure`
+  keeps the counting of attempts by real failures.
+- Docs: the `devkit` skill, `docs/openspec-flow.md` ("The loop", the merge paragraph and two Troubleshooting rows) and the
+  README of the pack describe the step; a Note on ADR 0017 (status proposed, accepted with the plan) names the merge-check record
+  as one more input of its decision 1; the CI snippet now pins `v0.41.0`, the release's tag.
 
 ## 0.45.0 — the archive check lets the release pin lines pass unnamed
 
