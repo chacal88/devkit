@@ -40,8 +40,9 @@ import { hostname, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
-import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
+import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings, appliedStages } from './flow-check.mjs';
 import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
+import { OFFLINE_GH } from './merge-setup.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
 import { readiness, liveRuns, startRun, CHANGE_LOOP } from './compozy-driver.mjs';
@@ -1429,7 +1430,7 @@ export function isPlanStage(start, id, action) {
 
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
-export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, strictModels = false, retry = false, handOffs } = {}) {
+export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false, strictModels = false, retry = false, handOffs, stages = false } = {}) {
   const clean = cleanOf(env);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -1499,6 +1500,8 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   action.icon = stageIcon(action);
   action.state = changeState(action, null, { lang });
   if (action.state.title !== null) action.sessionTitle = action.state.title;
+  // The ids of the stages that apply, for the state command only (run-status-bar D-4): `next` never asks, so its action keeps its shape.
+  if (stages) action.stages = appliedStages(facts, flow);
   // The Jira task the change records, and the write-back question the developer is still owed (jira-entry D-6).
   const task = recordedTask(readRequirements({ root: found.root, id }));
   if (task) {
@@ -1828,7 +1831,7 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
   };
   return ids.map((cid) => {
     let action;
-    if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
+    if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh, stages: true });
     else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) {
       action = { kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } };
     } else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
@@ -1836,7 +1839,7 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
     const line = changeSessions && roadmapIds.has(cid) ? (readRoadmap(mainRoot(start)) ?? []).flatMap((round) => round.items).find((item) => item.id === cid) : null;
     const dependency = line && line.after.length > 0 && isPlanStage(start, cid, action) ? line.after.find((d) => !(archived ??= archivedOnDefault(start, { env, gh })).has(d)) ?? null : null;
     const facts = runFactsOf(dependency ? { ...run, waitsFor: { [cid]: dependency } } : run, cid, { onRoadmap: roadmapIds.has(cid) });
-    return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch };
+    return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch, stages: action.stages ?? null };
   });
 }
 
@@ -2920,7 +2923,7 @@ export function compozyRetry(cwd, id) {
 
 const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) '
-  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l> '
+  + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] [--offline] --lang <l> '
   + '| next --change <id> --lang <l> --view compozy | compozy-start <id> --lang <l> (the request on standard input) | confirm --change <id> --lang <l> --view <json> '
   + '| record-approval --change <id> --words <text> --lang <l> | record-mockup --change <id> --decision <approve|changes> --words <text> --lang <l> '
   + '| record-answer --change <id> --gate <grill|approval|retro> --answer <text> [--question <text>] --lang <l> | run-gate --change <id> --lang <l> '
@@ -2963,9 +2966,10 @@ function runNext(args, { env, cwd, openspec, gh }) {
 }
 
 function runState(args, { env, cwd, openspec, gh }) {
-  const opts = parseArgs(args, { values: ['--change', '--lang'] });
+  const opts = parseArgs(args, { values: ['--change', '--lang'], flags: ['--offline'] });
   if (opts.positional.length) throw new LoopUsageError(USAGE);
-  const changes = stateEntries(cwd, { id: opts.change ?? null, lang: opts.lang, env, openspec, gh });
+  // `--offline`: GitHub reads as not answering for the whole read, so no call is made (run-status-bar D-4).
+  const changes = stateEntries(cwd, { id: opts.change ?? null, lang: opts.lang, env, openspec, gh: opts.offline ? OFFLINE_GH : gh });
   return { code: 0, stdout: json({ version: 1, changes }), stderr: '' };
 }
 
