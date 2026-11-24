@@ -2,7 +2,7 @@
 // Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, rmSync as fsRm, symlinkSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, rmSync as fsRm, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
@@ -2510,4 +2510,318 @@ test('own-files AC-7 own: ownFiles leaves out release files, keeps the change fo
   assert.equal(DC.ownFiles(root, 'feat', gitFacts(root, { base: 'nowhere' })), null, 'a base with no origin ref');
   git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   assert.equal(DC.ownFiles(root, 'feat', ownFacts(root)), null, 'the head is in the base');
+});
+
+// ---------------------------------------------------------------- the release note rows (release-at-merge D-5, D-8, D-9)
+
+import {
+  REL_FILE, REL_CONFIG, NOTE_TEXT, releaseLayout, noteRepo, stepCommit, baseReleases, noteShip, noteReady, setPrHead, tickAll, ciProve, flowPage,
+} from './deliver-check-fixtures.mjs';
+
+const relNext = (t, over = {}) => nextStep(collectState(t.root, 'feat', { env: { ...t.env, ...over } }));
+const relNote = (...lines) => `${lines.join('\n')}\n`;
+const setVersion = (root, path, version) => {
+  const file = join(root, path);
+  const obj = JSON.parse(readFileSync(file, 'utf8'));
+  obj.version = version;
+  writeFileSync(file, `${JSON.stringify(obj, null, 2)}\n`);
+};
+// A commit on main (by hand) that lands `files`, with origin/main set to it; the root ends on ship/feat again.
+const relLand = (t, files) => {
+  git(t.root, 'switch', '-q', 'main');
+  put(t.root, files);
+  commitAll(t.root, 'landed on main');
+  git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(t.root, 'switch', '-q', 'ship/feat');
+};
+const { ['.claude-plugin/marketplace.json']: _market, ...NO_MARKET } = releaseLayout();
+
+// ---- N1: the note cannot be read, or the repository cannot release it
+const N1 = [
+  ['a bump that is not one', { note: 'packs:\n- devkit-core: big\n' }, /^release\.md: packs: devkit-core: "big" is not patch, minor or major/],
+  ['a pack the project does not have', { note: relNote('packs:', '- devkit-nope: patch', '', '## t', '', 'body') }, /^release\.md: packs: devkit-nope is not a pack of this project/],
+  ['marketplace: in a project with no marketplace file', { files: NO_MARKET, note: relNote('packs:', '- devkit-core: patch', 'marketplace: minor', '', '## t', '', 'body') }, /^release\.md: marketplace: the project has no \.claude-plugin\/marketplace\.json/],
+  ['release: on a pack manifest', { note: relNote('packs: []', 'release: minor', '', '## t', '', 'body') }, /^release\.md: release: .*devkit-openspec; state its bump under packs:/],
+];
+for (const [label, opts, pattern] of N1) {
+  test(`release-note AC-1 row N1: ${label} blocks the delivery with the reason of the reader`, () => {
+    const t = noteShip(opts);
+    tickAll(t);
+    const n = relNext(t);
+    assert.equal(n.step, 'blocked');
+    assert.match(n.reason, pattern);
+  });
+}
+
+// ---- N2: no release
+test('release-note AC-11 row N2: a change with no note that changes a pack file and no version of its own is refused naming the pack', () => {
+  const t = noteShip({ note: null, adr: false });
+  put(t.root, { 'plugins/openspec/hooks/x.mjs': 'x\n' });
+  commitAll(t.root, 'a pack file');
+  tickAll(t);
+  const n = relNext(t);
+  assert.equal(n.step, 'blocked');
+  assert.match(n.reason, /^no release: plugins\/openspec\b/);
+});
+
+test('release-note AC-11 row N2: a change with no note and a bump of its own is not refused, the old rule is kept', () => {
+  const t = noteShip({ note: null, adr: false });
+  put(t.root, { 'plugins/openspec/hooks/x.mjs': 'x\n' });
+  setVersion(t.root, REL_FILE, '1.0.1');
+  commitAll(t.root, 'a pack file and its own bump');
+  tickAll(t);
+  assert.doesNotMatch(relNext(t).reason ?? '', /^no release:/);
+  assert.equal(collectState(t.root, 'feat', { env: t.env }).release.applies, true);
+});
+
+test('release-note AC-11 row N2: an unnumbered ADR listed with no note is refused naming its path', () => {
+  const t = noteShip({ note: null });
+  tickAll(t);
+  const n = relNext(t);
+  assert.equal(n.step, 'blocked');
+  assert.match(n.reason, /^no release: docs\/adr\/feat\.md\b/);
+});
+
+test('release-note AC-11 row N2: a note of packs: [] is never refused for a pack file it leaves alone', () => {
+  const t = noteShip({ note: 'packs: []\n', adr: false });
+  put(t.root, { 'plugins/openspec/hooks/x.mjs': 'x\n' });
+  commitAll(t.root, 'a pack file');
+  tickAll(t);
+  assert.equal(collectState(t.root, 'feat', { env: t.env }).release.state.kind, 'assigned', 'a note with nothing to write is assigned at once');
+  assert.doesNotMatch(relNext(t).reason ?? '', /^no release:/);
+});
+
+// ---- N3: release lines edited by hand
+test('release-note AC-2 row N3: a version edited by hand blocks the delivery naming the manifest', () => {
+  const t = noteShip();
+  setVersion(t.root, REL_FILE, '1.0.7');
+  commitAll(t.root, 'a version by hand');
+  tickAll(t);
+  const n = relNext(t);
+  assert.equal(n.step, 'blocked');
+  assert.match(n.reason, /^release lines edited by hand: plugins\/openspec\/\.claude-plugin\/plugin\.json$/);
+});
+
+test('release-note AC-2 row N3: a train project is refused for a hand edit too, the train rows follow otherwise', () => {
+  const t = noteShip({ train: 'node -e 0' });
+  setVersion(t.root, REL_FILE, '1.0.7');
+  commitAll(t.root, 'a version by hand');
+  tickAll(t);
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.match(nextStep({ ...s, train: { error: null, left: null, onTrain: null } }).reason, /^release lines edited by hand:/);
+});
+
+// ---- N4: an unlanded citation
+test('release-note AC-7 row N4: a citation of an ADR the base has not numbered blocks the delivery naming the slug and the base', () => {
+  const t = noteShip();
+  put(t.root, { 'docs/y.md': 'This amends ADR [other].\n' });
+  commitAll(t.root, 'cite another change');
+  tickAll(t);
+  const n = relNext(t);
+  assert.equal(n.step, 'blocked');
+  assert.match(n.reason, /^ADR \[other\] is cited but has not landed on main/);
+  const inTrain = nextStep({ ...collectState(t.root, 'feat', { env: t.env }), train: { error: null, left: null, onTrain: null } });
+  assert.doesNotMatch(inTrain.reason ?? '', /has not landed/, 'the join refuses it in a train project, not the checker');
+});
+
+test('release-note AC-7 row N4: once the base numbers the cited ADR the checker no longer blocks it', () => {
+  const t = noteShip();
+  put(t.root, { 'docs/y.md': 'This amends ADR [other].\n' });
+  commitAll(t.root, 'cite another change');
+  relLand(t, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+  tickAll(t);
+  assert.deepEqual(collectState(t.root, 'feat', { env: t.env }).release.state.citations.unlanded, []);
+  const n = relNext(t);
+  assert.notEqual(n.step, 'blocked', n.reason);
+});
+
+// ---- N5, N6: the step stands where the update and the last step stood
+const STEP_COMMAND = ['node', join(here, 'release-merge.mjs'), '--assign', '--base', 'main', '--json'];
+
+test('release-note AC-4 row N6: assign-release comes last, before enable-auto-merge, and after the step\'s commit enable-auto-merge follows', () => {
+  const t = noteReady();
+  const n = relNext(t);
+  assert.equal(n.step, 'assign-release');
+  assert.deepEqual([n.number, n.base, n.branch], [12, 'main', 'ship/feat']);
+  assert.deepEqual(n.command, STEP_COMMAND);
+  assert.match(n.reason, /./);
+  stepCommit(t.root);
+  setPrHead(t);
+  assert.equal(relNext(t).step, 'enable-auto-merge', 'the evidence and the reviews stayed current across the step\'s commit');
+  const old = noteReady({ note: null, adr: false });
+  assert.equal(relNext(old).step, 'enable-auto-merge', 'a change with no note is delivered as before');
+});
+
+test('release-note AC-4 row N6: with auto-merge on, a base that released another change gives assign-release, not wait-merge', () => {
+  const t = noteReady();
+  stepCommit(t.root);
+  baseReleases(t.root, { 'src/other.ts': 'other\n' }, 'ship/feat');
+  setPrHead(t, { autoMergeRequest: { enabledAt: '2026-11-24T10:00:00Z' }, mergeStateStatus: 'CLEAN' });
+  const n = relNext(t);
+  assert.equal(n.step, 'assign-release');
+  const current = noteReady();
+  stepCommit(current.root);
+  setPrHead(current, { autoMergeRequest: { enabledAt: '2026-11-24T10:00:00Z' }, mergeStateStatus: 'CLEAN' });
+  assert.equal(relNext(current).step, 'wait-merge', 'a current release waits for GitHub');
+});
+
+test('release-note AC-4 row N6: in ship mode pr the step comes before ready', () => {
+  const t = noteReady({ ship: 'pr' });
+  assert.equal(relNext(t).step, 'assign-release');
+  stepCommit(t.root);
+  setPrHead(t);
+  assert.equal(relNext(t).step, 'ready');
+});
+
+test('release-note AC-4 row N6: a train project is never answered assign-release', () => {
+  const t = noteReady();
+  const s = collectState(t.root, 'feat', { env: t.env });
+  assert.equal(s.release.noted, true);
+  const n = nextStep({ ...s, train: { error: null, left: null, onTrain: null } });
+  assert.equal(n.step, 'boarded');
+});
+
+test('release-note AC-4 row N5: a branch behind the base is given assign-release in place of update-branch', () => {
+  const t = noteReady();
+  stepCommit(t.root);
+  setPrHead(t, { mergeStateStatus: 'BEHIND' });
+  const n = relNext(t);
+  assert.equal(n.step, 'assign-release');
+  assert.match(n.reason, /behind main/);
+  assert.deepEqual(n.command, STEP_COMMAND);
+  const old = noteReady({ note: null, adr: false });
+  setPrHead(old, { mergeStateStatus: 'BEHIND' });
+  assert.equal(relNext(old).step, 'update-branch', 'a change with no note is updated as before');
+});
+
+test('release-note AC-4 row N5: a pull request in conflict with the base is given assign-release in place of the conflict stop', () => {
+  const t = noteReady();
+  stepCommit(t.root);
+  setPrHead(t, { mergeable: 'CONFLICTING' });
+  assert.equal(relNext(t).step, 'assign-release');
+  const old = noteReady({ note: null, adr: false });
+  setPrHead(old, { mergeable: 'CONFLICTING' });
+  const stop = relNext(old);
+  assert.deepEqual([stop.step, stop.item, stop.conflict], ['blocked', 5, true]);
+});
+
+// ---- N7: no base to compute from
+test('release-note AC-2 row N7: without origin/<base> the release is never judged and the reason names the fetch', () => {
+  const t = noteShip({ origin: false });
+  tickAll(t);
+  const n = relNext(t);
+  assert.equal(n.step, 'blocked');
+  assert.match(n.reason, /origin\/main/);
+  assert.match(n.reason, /git fetch origin main/);
+});
+
+// ---- A1: the plan approval covers the note (D-9)
+function approvedNote(tasks, { key = true, recorded = true } = {}) {
+  const t = planRepo({ tasks });
+  const dir = join(t.root, 'openspec', 'changes', 'feat');
+  put(t.root, { 'openspec/config.yaml': `schema: devkit\nship:\n  devkit: pr\n${key ? REL_CONFIG : ''}`, 'openspec/changes/feat/release.md': NOTE_TEXT });
+  const line = recorded ? `- Release note: ${DC.releaseNoteHash(dir)}\n` : '';
+  put(t.root, { 'openspec/changes/feat/approval.md': approvalMd(readinessHash(t.root)).replace('- Date:', `${line}- Date:`) });
+  commitAll(t.root, 'plan, note and approval');
+  return t;
+}
+const CHANGED_NOTE = NOTE_TEXT.replace('minor', 'major');
+
+test('release-note AC-12 row A1: a note changed after the approval asks the owner again, with no task ticked and with tasks ticked', () => {
+  for (const tasks of ['## 1. First\n- [ ] 1.1 code\n', '## 1. First\n- [x] 1.1 code\n- [ ] 1.2 more\n']) {
+    const t = approvedNote(tasks);
+    assert.equal(t.state().approval.ok, true, 'the approval covers the note it recorded');
+    assert.equal(nextStep(t.state()).step, 'implement', tasks);
+    put(t.root, { 'openspec/changes/feat/release.md': CHANGED_NOTE });
+    const n = nextStep(t.state());
+    assert.equal(n.step, 'stop-plan-approval', tasks);
+    assert.equal(n.reason, 'release note changed after approval');
+    assert.equal(n.release, DC.releaseNoteHash(join(t.root, 'openspec', 'changes', 'feat')));
+    assert.equal(n.readiness, readinessHash(t.root));
+    assert.equal(n.file, 'openspec/changes/feat/approval.md');
+  }
+});
+
+test('release-note AC-12 row A1: a note added after an approval that recorded none asks the owner again', () => {
+  const t = approvedNote('## 1. First\n- [ ] 1.1 code\n', { recorded: false });
+  const n = nextStep(t.state());
+  assert.equal(n.step, 'stop-plan-approval');
+  assert.equal(n.reason, 'release note changed after approval');
+});
+
+test('release-note AC-12 row A1: a change with no note keeps its approval object and its steps, with or without the key', () => {
+  const t = planRepo({ approval: approvalMd });
+  assert.deepEqual(Object.keys(approvalState(join(t.root, 'openspec', 'changes', 'feat'))), ['status', 'recorded', 'readiness', 'ok']);
+  assert.deepEqual(Object.keys(approvalState(join(t.root, 'openspec', 'changes', 'feat'), { release: true })), ['status', 'recorded', 'readiness', 'ok'], 'no note and none recorded: no new key');
+  assert.equal(nextStep(t.state()).step, 'implement');
+  const noKey = approvedNote('## 1. First\n- [ ] 1.1 code\n', { key: false, recorded: false });
+  assert.equal(nextStep(noKey.state()).step, 'implement', 'without devkit.release_tag a release.md is ignored');
+  const keyed = approvedNote('## 1. First\n- [ ] 1.1 code\n');
+  const keys = Object.keys(keyed.state().approval);
+  assert.deepEqual(keys, ['status', 'recorded', 'readiness', 'release', 'recordedRelease', 'ok']);
+});
+
+// ---- the step's commit leaves the records current (D-5)
+const provedNote = (over = {}) => {
+  const root = noteRepo(over);
+  ciProve(root, 'feat');
+  return root;
+};
+const relFacts = (root) => gitFacts(root, { base: 'main' });
+const recordsOf = (root) => {
+  const f = relFacts(root);
+  return { tasks: tasksItem(root, 'feat', f).details.evidence, acceptance: acceptanceItem(root, 'feat', f).details.evidence, reviews: reviewsItem(root, 'feat', f) };
+};
+
+test('release-note AC-4 staleness: the step\'s commit leaves the evidence and the approved reviews current', () => {
+  const root = provedNote();
+  assert.deepEqual([recordsOf(root).tasks, recordsOf(root).acceptance, recordsOf(root).reviews.status], ['current', 'current', 'met']);
+  stepCommit(root);
+  const after = recordsOf(root);
+  assert.deepEqual([after.tasks, after.acceptance, after.reviews.status], ['current', 'current', 'met']);
+});
+
+test('release-note AC-5 staleness: a commit that numbers the ADR and also edits a sentence stales the records naming the file', () => {
+  const root = provedNote();
+  put(root, { 'docs/openspec-flow.md': flowPage('1.1.0').replace('Prose of the flow page.', 'A new sentence.') });
+  stepCommit(root, { pin: false });
+  const f = relFacts(root);
+  assert.equal(tasksItem(root, 'feat', f).details.evidence, 'stale');
+  assert.match(tasksItem(root, 'feat', f).reason, /touches docs\/openspec-flow\.md/);
+  assert.equal(reviewsItem(root, 'feat', f).status, 'open');
+});
+
+test('release-note AC-5 staleness: a citation changed to another ADR\'s number stales the records, the masked text differs', () => {
+  const root = provedNote();
+  stepCommit(root);
+  assert.equal(recordsOf(root).tasks, 'current', 'the step\'s own commit is a release edit');
+  put(root, { 'docs/x.md': 'See ADR 0001 for the rule.\n' });
+  commitAll(root, 'cite another record');
+  assert.match(tasksItem(root, 'feat', relFacts(root)).reason, /touches docs\/x\.md/);
+});
+
+test('release-note AC-4 staleness: a rejected review stays stale across the step\'s commit, an approved one does not', () => {
+  const root = provedNote();
+  const R = git(root, 'rev-parse', 'HEAD');
+  put(root, { 'openspec/changes/feat/reviews/test-coverage-reviewer.md': review('rejected', R) });
+  commitAll(root, 'a rejected review');
+  stepCommit(root);
+  const found = DC.readReviews(root, 'feat', relFacts(root));
+  assert.equal(found.find((r) => r.name === 'code-quality-reviewer').why, null);
+  assert.match(found.find((r) => r.name === 'test-coverage-reviewer').why, /touches/);
+});
+
+test('release-note AC-4 staleness: a change with no note is judged as before, the same commit stales its records', () => {
+  const root = provedNote({ note: null, adr: false });
+  assert.deepEqual(DC.releaseFacts(root, 'feat', relFacts(root)), { applies: true, noted: false, file: REL_FILE });
+  stepCommit(root, { adr: false });
+  assert.equal(recordsOf(root).tasks, 'stale');
+  assert.equal(recordsOf(root).reviews.status, 'open');
+});
+
+test('release-note AC-4 staleness: without the setting the same commit stales the records', () => {
+  const root = provedNote({ config: 'schema: devkit-lite\n' });
+  assert.deepEqual(DC.releaseFacts(root, 'feat', relFacts(root)), { applies: false });
+  stepCommit(root);
+  assert.equal(recordsOf(root).tasks, 'stale');
 });

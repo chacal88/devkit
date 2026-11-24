@@ -14,6 +14,7 @@ import { makeGh } from './deliver-check.mjs';
 import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
 import { conductState } from './conduct-check.mjs';
+import { REL_CONFIG, NOTE_TEXT, DECISIONS, ADR_FEAT, releaseLayout, stepCommit } from './deliver-check-fixtures.mjs';
 
 const SHA7 = 'a1b2c3d';
 const SHA40 = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
@@ -1051,6 +1052,36 @@ test('own-files AC-2 stages: an own-file merge reports the first code-bound stag
   assert.equal(first.reasonCode, 'stale-code');
   assert.match(first.params.why, new RegExp(`is behind ${merged.slice(0, 7)}, which touches src/a\\.ts$`));
   assert.equal(report.next.stage, 'unit-tests');
+});
+
+// ---- release-at-merge: the stage readout reads the delivery step's commit as a release edit, not as a plain commit
+
+// liveChange() of a devkit project that names devkit.release_tag, with the release layout on main (origin/main set to it) and the
+// noted change `feat` on a branch; the evidence and review headers are rewritten to the commit R of the plan files, then the commit
+// the delivery step would make follows. `noted: false` leaves the change without a release.md.
+function releaseStagesReadout({ noted = true } = {}) {
+  const root = liveChange({ ship: 'plan', config: `schema: devkit\nship:\n  devkit: plan\n${REL_CONFIG}` });
+  put(root, releaseLayout());
+  commitAll(root, 'release layout on main');
+  git(root, 'update-ref', 'refs/remotes/origin/main', git(root, 'rev-parse', 'HEAD'));
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, { ...(noted ? { 'openspec/changes/feat/release.md': NOTE_TEXT } : {}), 'openspec/changes/feat/decisions.md': `<!-- devkit-stage decisions result=passed attempt=1 commit=none -->\n${DECISIONS}`, 'docs/adr/feat.md': ADR_FEAT, 'docs/x.md': 'See ADR [feat] for the rule.\n' });
+  const R = commitAll(root, 'plan files');
+  for (const f of ['evidence.md', 'review.md']) {
+    const file = join(root, 'openspec', 'changes', 'feat', f);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/commit=[0-9a-f]+/, `commit=${R}`));
+  }
+  commitAll(root, 'headers at the plan commit');
+  stepCommit(root, { adr: true });
+  const env = { ...fakeGh().env, ...SHIP_ENV };
+  const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+  return computeFlow(facts, flow, {});
+}
+
+test('release-note AC-4 stages: the evidence and review headers stay passed after the delivery step\'s commit, and stale for a change with no note', () => {
+  const report = releaseStagesReadout();
+  for (const id of ['evidence', 'review']) assert.equal(stageOf(report, id).state, 'passed', id);
+  assert.equal(stageOf(releaseStagesReadout({ noted: false }), 'evidence').state, 'stale', 'a change with no release note reads the same commit as before');
 });
 
 // ---- field-fixes 4: a merged pull request delivers only when it is the change's own and every task is ticked

@@ -14,7 +14,7 @@ import { changeSchemaAt, changeFlow, changeDeclaresOrInstalled, findRoot, parseR
 import { readRepoSettings } from './merge-setup.mjs';
 import { FlowUsageError } from './flow-check.mjs';
 import {
-  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
+  UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes, ADR_DIRS,
 } from './deliver-check.mjs';
 import { PIN_FILE, classifyConflict, resolveRoadmapTicks } from './release-merge.mjs';
 
@@ -59,7 +59,7 @@ const SUBAGENT = {
   readiness: 'devkit-core:plan-readiness-reviewer',
   audit: 'devkit-core:plan-reality-auditor',
 };
-const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'tag-release', 'answer', 'worktree', 'rebase', 'rerun-checks',
+const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'assign-release', 'archive', 'tick-roadmap', 'tag-release', 'answer', 'worktree', 'rebase', 'rerun-checks',
   'checkout-support', 'merge-into-support', 'close-boarded-pr', 'rejoin-archive'];
 const ASKABLE = ['stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill', 'approve'];
 const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'boarded', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
@@ -373,7 +373,7 @@ function threeVersions(root, ref, path) {
 // `ctx.ref` whose four-digit number another file of the same folder has on `ctx.ref` are each renumbered to the next free number of
 // the folder, in the order of their numbers: the implementer does it and rewrites the references, and the owner is not asked. The
 // same path on both sides is no clash (the branch was merged); a `ctx.ref` that does not resolve gives no override.
-export const ADR_DIRS = ['docs/adr', 'docs/decisions'];
+export { ADR_DIRS }; // the folders live in deliver-check.mjs (release-at-merge D-2)
 const ADR_FILE = /^(\d{4})-(.+\.md)$/;
 function adrClash(ctx, row) {
   const root = row.worktree;

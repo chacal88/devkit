@@ -41,7 +41,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
-import { collectState, buildReport, locateChange, approvalState, makeGh } from './deliver-check.mjs';
+import { collectState, buildReport, locateChange, approvalState, makeGh, ADR_LINES } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
 import { readiness, liveRuns, startRun, CHANGE_LOOP } from './compozy-driver.mjs';
@@ -1046,6 +1046,7 @@ const ROWS = {
   'enable-auto-merge': session('delivery'),
   'disable-auto-merge': session('delivery'),
   'update-branch': session('delivery'),
+  'assign-release': session('delivery'),
   answer: session('delivery'),
   retro: session('retro'),
   archive: session('retro'),
@@ -1590,7 +1591,6 @@ export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env
 
 const STATUS_LINE = /^(\s*[-*]?\s*\**Status\**\s*:\s*\**\s*)(\S+)(.*)$/im;
 const BULLETED_STATUS = /^([ \t]*[-*][ \t]+)Status[ \t]*:[ \t]*$/i; // the bullet and its indent, when the status line is a plain bulleted `- Status:` one
-const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
 
 // One record `decisions.md` lists, read from `root`: { path, ok: true, rel, text, status, match } or { path, ok: false, why }.
 function readRecord(root, path) {

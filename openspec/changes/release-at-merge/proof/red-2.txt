@@ -1,0 +1,1200 @@
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/flow-check.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+start plugins/openspec/hooks/merge-setup.test.mjs
+=== plugins/openspec/hooks/merge-setup.test.mjs
+✖ release-note AC-9 boundary: deliver-check --ci and guard.mjs ci run from the three downloaded files for a noted change (341.294032ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 468.245792
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/merge-setup.test.mjs:203:1
+✖ release-note AC-9 boundary: deliver-check --ci and guard.mjs ci run from the three downloaded files for a noted change (341.294032ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs: {"version":1,"mode":"ci","change":"feat","schema":"devkit-lite","head":"62be78d0388110f44fd32e8b666e5ac003e4e1fc","readiness":{"status":null,"met":true},"items":[{"id":1,"name":"tasks","status":"open","reason":"evidence.md is stale (d5d5b47 is behind 62be78d, which touches .claude-plugin/marketplace.json)","details":{"unticked":[],"missingGates":[],"evidence":"stale"}},{"id":2,"name":"reviews","status":"open","reason":"stale code-quality-reviewer (d5d5b47 is behind 62be78d, which touches .claude-plugin/marketplace.json); stale test-coverage-reviewer (d5d5b47 is behind 62be78d, which touches .claude-plugin/marketplace.json)","details":{"stale":["code-quality-reviewer","test-coverage-reviewer"],"rejected":[],"missing":[]}},{"id":3,"name":"findings","status":"met","reason":"0 fixed, 0 refuted","details":{"fixed":0,"refuted":0,"undisposed":[]}},{"id":4,"name":"acceptance","status":"open","reason":"evidence.md is stale (d5d5b47 is behind 62be78d, which touches .claude-plugin/marketplace.json)","details":{"ids":["AC-1"],"proven":["AC-1"],"missing":[],"defects":[],"noProof":[],"evidence":"stale"}}],"pass":false}
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/merge-setup.test.mjs:215:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/merge-setup.test.mjs: FAIL 0.5s
+=== plugins/openspec/hooks/release-note.test.mjs
+✖ release-note AC-1 reader: a complete note is read with its packs, the largest bump as the marketplace bump, the title and the body (2.695255ms)
+✖ release-note AC-1 reader: the marketplace and release lines are read when given, and a file name constant names the note (1.349573ms)
+✖ release-note AC-1 reader: packs: [] is no release and needs no title and no body (0.407494ms)
+✖ release-note AC-1 reader: CRLF is read as LF and a last line with no newline as if it had one (0.451087ms)
+✖ release-note AC-1 reader: a code fence that is closed, backticks or tildes, is part of the body (0.549751ms)
+✖ release-note AC-1 reader: refuses an empty file naming the field (0.32521ms)
+✖ release-note AC-1 reader: refuses no packs line naming the field (0.314482ms)
+✖ release-note AC-1 reader: refuses a list line that is not "- name: kind" naming the field (0.348277ms)
+✖ release-note AC-1 reader: refuses a kind outside patch, minor and major naming the field (0.488688ms)
+✖ release-note AC-1 reader: refuses a pack twice naming the field (0.501664ms)
+✖ release-note AC-1 reader: refuses marketplace: before packs: naming the field (0.246581ms)
+✖ release-note AC-1 reader: refuses release: before marketplace: naming the field (0.168333ms)
+✖ release-note AC-1 reader: refuses marketplace: twice naming the field (0.286211ms)
+✖ release-note AC-1 reader: refuses a marketplace bump that is not one naming the field (0.406813ms)
+✖ release-note AC-1 reader: refuses a release bump that is not one naming the field (0.200705ms)
+✖ release-note AC-1 reader: refuses an unknown line before the title naming the field (0.189795ms)
+✖ release-note AC-1 reader: refuses no title for a note that releases naming the field (0.183501ms)
+✖ release-note AC-1 reader: refuses no title for a release: bump alone naming the field (0.195191ms)
+✖ release-note AC-1 reader: refuses no body for a note that releases naming the field (0.16333ms)
+✖ release-note AC-1 reader: refuses a code fence never closed naming the field (0.180784ms)
+✖ release-note AC-1 reader: releaseNoteHash is the first 12 hex of the sha256 of the file bytes, null with no file (117.022314ms)
+✖ release-note AC-1 reader: a pack the project does not have is refused naming it (117.03604ms)
+✖ release-note AC-1 reader: marketplace: in a project with no marketplace file is refused, a default marketplace is not (118.758112ms)
+✖ release-note AC-1 reader: release: when the release file is a pack manifest is refused naming the pack (108.007459ms)
+✖ release-note AC-2 computed: computeRelease gives the versions, the changelog entry, the pin and the ADR number the step writes (98.070379ms)
+✖ release-note AC-2 computed: two ADRs of one change take the next numbers in the order listed (102.108469ms)
+✖ release-note AC-2 computed: a note that releases nothing writes nothing (102.030381ms)
+✖ release-note AC-2 computed: changelogEntry inserts above the first ## line and rewrites only the listed packs bullets (0.341375ms)
+✖ release-note AC-2 computed: changelogEntry appends the entry when the base has no ## line (0.251685ms)
+✖ release-note AC-2 state: a branch that holds the base lines and an unnumbered ADR is unassigned (105.114533ms)
+✖ release-note AC-2 state: a branch that holds what the step writes is assigned, and current while the base is in it (135.302431ms)
+✖ release-note AC-2 state: an assigned branch stays assigned and is not current once the base has moved (184.564934ms)
+✖ release-note AC-2 state: a version edited by hand is hand and names the manifest (129.560217ms)
+✖ release-note AC-2 state: a version that is neither the base's nor the computed one is hand even when the computed ones are in (143.024759ms)
+✖ release-note AC-2 state: an edited changelog is hand and names CHANGELOG.md (124.681198ms)
+✖ release-note AC-2 state: an edited CI pin is hand and names the flow page (128.040684ms)
+✖ release-note AC-2 state: a release file that is not a manifest, edited by hand, is hand (101.715202ms)
+✖ release-note AC-2 state: the versions written with the ADR still unnumbered are hand and name the ADR (141.048431ms)
+✖ release-note AC-2 state: the ADR numbered with the versions not written is hand and names the versions (143.806446ms)
+✖ release-note AC-2 state: an ADR numbered with another number than the next free one is hand (147.815088ms)
+✖ release-note AC-2 state: a missing origin/<base> is an error naming the fetch, never a pass (110.362132ms)
+✖ release-note AC-2 state: a note that cannot be read leaves the state out and the facts carry its message (107.013394ms)
+✖ release-note AC-5 adrs: changeAdrs lists the unnumbered records of decisions.md in the folders, in the order listed (114.592685ms)
+✖ release-note AC-5 adrs: ADR_DIRS and ADR_LINES live in deliver-check.mjs and conduct-check.mjs re-exports ADR_DIRS (0.578316ms)
+✖ release-note AC-9 no key: the project names no devkit.release_tag, so no rule applies whatever release.md holds (107.002287ms)
+✖ release-note AC-9 no key: the delivery checker walks a change with a malformed release.md to ready as before (1609.009903ms)
+✖ release-note AC-9 release file missing: the key names a file the project does not have and nothing is written or refused (101.111923ms)
+✖ release-note AC-9 no key: releaseTagOf names the file the key gives, and null without the key (103.813223ms)
+✖ release-note AC-11 no release: a note of packs: [] has nothing to write and is assigned at once (110.971707ms)
+✖ release-note AC-11 no release: a pack file changed with no note and no bump is refused naming the pack, a note of packs: [] is not (336.331526ms)
+✖ release-note AC-9 boundary: release-merge.mjs re-exports the moved names as the same objects (0.344687ms)
+✔ release-note AC-9 boundary: deliver-check.mjs names no relative module but guard.mjs and merge-setup.mjs (1.482461ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 1
+ℹ fail 51
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5102.63764
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:35:1
+✖ release-note AC-1 reader: a complete note is read with its packs, the largest bump as the marketplace bump, the title and the body (2.695255ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:36:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/release-note.test.mjs:45:1
+✖ release-note AC-1 reader: the marketplace and release lines are read when given, and a file name constant names the note (1.349573ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'release.md'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:46:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'release.md',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:53:1
+✖ release-note AC-1 reader: packs: [] is no release and needs no title and no body (0.407494ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:54:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:61:1
+✖ release-note AC-1 reader: CRLF is read as LF and a last line with no newline as if it had one (0.451087ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:62:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:68:1
+✖ release-note AC-1 reader: a code fence that is closed, backticks or tildes, is part of the body (0.549751ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:70:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses an empty file naming the field (0.32521ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses no packs line naming the field (0.314482ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses a list line that is not "- name: kind" naming the field (0.348277ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses a kind outside patch, minor and major naming the field (0.488688ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses a pack twice naming the field (0.501664ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses marketplace: before packs: naming the field (0.246581ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses release: before marketplace: naming the field (0.168333ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses marketplace: twice naming the field (0.286211ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses a marketplace bump that is not one naming the field (0.406813ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses a release bump that is not one naming the field (0.200705ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses an unknown line before the title naming the field (0.189795ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses no title for a note that releases naming the field (0.183501ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses no title for a release: bump alone naming the field (0.195191ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses no body for a note that releases naming the field (0.16333ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:94:3
+✖ release-note AC-1 reader: refuses a code fence never closed naming the field (0.180784ms)
+  TypeError [Error]: D.parseReleaseNote is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:95:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:101:1
+✖ release-note AC-1 reader: releaseNoteHash is the first 12 hex of the sha256 of the file bytes, null with no file (117.022314ms)
+  TypeError [Error]: D.releaseNoteHash is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:104:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:112:1
+✖ release-note AC-1 reader: a pack the project does not have is refused naming it (117.03604ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    Comparison {
+  +   message: 'D.repoReader is not a function',
+  +   name: 'TypeError'
+  -   message: /^release\.md: packs: devkit-nope is not a pack of this project/,
+  -   name: 'ReleaseError'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:114:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: D.repoReader is not a function
+        at computeAt (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:110:94)
+        at assert.throws.name (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:114:23)
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:114:10)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: { name: 'ReleaseError', message: /^release\.md: packs: devkit-nope is not a pack of this project/ },
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:117:1
+✖ release-note AC-1 reader: marketplace: in a project with no marketplace file is refused, a default marketplace is not (118.758112ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    Comparison {
+  +   message: 'D.repoReader is not a function',
+  +   name: 'TypeError'
+  -   message: /^release\.md: marketplace: the project has no \.claude-plugin\/marketplace\.json/,
+  -   name: 'ReleaseError'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:120:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: D.repoReader is not a function
+        at computeAt (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:110:94)
+        at assert.throws.name (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:120:23)
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:120:10)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: { name: 'ReleaseError', message: /^release\.md: marketplace: the project has no \.claude-plugin\/marketplace\.json/ },
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:125:1
+✖ release-note AC-1 reader: release: when the release file is a pack manifest is refused naming the pack (108.007459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    Comparison {
+  +   message: 'D.repoReader is not a function',
+  +   name: 'TypeError'
+  -   message: /^release\.md: release: plugins\/openspec\/\.claude-plugin\/plugin\.json is the manifest of devkit-openspec; state its bump under packs:/,
+  -   name: 'ReleaseError'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:127:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: D.repoReader is not a function
+        at computeAt (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:110:94)
+        at assert.throws.name (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:127:23)
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:127:10)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: { name: 'ReleaseError', message: /^release\.md: release: plugins\/openspec\/\.claude-plugin\/plugin\.json is the manifest of devkit-openspec; state its bump under packs:/ },
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:132:1
+✖ release-note AC-2 computed: computeRelease gives the versions, the changelog entry, the pin and the ADR number the step writes (98.070379ms)
+  TypeError [Error]: D.repoReader is not a function
+      at computeAt (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:110:94)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:134:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:145:1
+✖ release-note AC-2 computed: two ADRs of one change take the next numbers in the order listed (102.108469ms)
+  TypeError [Error]: D.repoReader is not a function
+      at computeAt (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:110:94)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:147:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:151:1
+✖ release-note AC-2 computed: a note that releases nothing writes nothing (102.030381ms)
+  TypeError [Error]: D.repoReader is not a function
+      at computeAt (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:110:94)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:153:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:159:1
+✖ release-note AC-2 computed: changelogEntry inserts above the first ## line and rewrites only the listed packs bullets (0.341375ms)
+  TypeError [Error]: D.changelogEntry is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:160:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:164:1
+✖ release-note AC-2 computed: changelogEntry appends the entry when the base has no ## line (0.251685ms)
+  TypeError [Error]: D.changelogEntry is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:165:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:170:1
+✖ release-note AC-2 state: a branch that holds the base lines and an unnumbered ADR is unassigned (105.114533ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:171:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:177:1
+✖ release-note AC-2 state: a branch that holds what the step writes is assigned, and current while the base is in it (135.302431ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:180:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:185:1
+✖ release-note AC-2 state: an assigned branch stays assigned and is not current once the base has moved (184.564934ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:189:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:194:1
+✖ release-note AC-2 state: a version edited by hand is hand and names the manifest (129.560217ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:198:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:201:1
+✖ release-note AC-2 state: a version that is neither the base's nor the computed one is hand even when the computed ones are in (143.024759ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:206:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:209:1
+✖ release-note AC-2 state: an edited changelog is hand and names CHANGELOG.md (124.681198ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:213:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:216:1
+✖ release-note AC-2 state: an edited CI pin is hand and names the flow page (128.040684ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:220:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:223:1
+✖ release-note AC-2 state: a release file that is not a manifest, edited by hand, is hand (101.715202ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:226:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:235:1
+✖ release-note AC-2 state: the versions written with the ADR still unnumbered are hand and name the ADR (141.048431ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:238:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:241:1
+✖ release-note AC-2 state: the ADR numbered with the versions not written is hand and names the versions (143.806446ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:244:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:249:1
+✖ release-note AC-2 state: an ADR numbered with another number than the next free one is hand (147.815088ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:254:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:257:1
+✖ release-note AC-2 state: a missing origin/<base> is an error naming the fetch, never a pass (110.362132ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:260:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:265:1
+✖ release-note AC-2 state: a note that cannot be read leaves the state out and the facts carry its message (107.013394ms)
+  TypeError [Error]: D.releaseFacts is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:267:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:275:1
+✖ release-note AC-5 adrs: changeAdrs lists the unnumbered records of decisions.md in the folders, in the order listed (114.592685ms)
+  TypeError [Error]: D.changeAdrs is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:279:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:284:1
+✖ release-note AC-5 adrs: ADR_DIRS and ADR_LINES live in deliver-check.mjs and conduct-check.mjs re-exports ADR_DIRS (0.578316ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - [
+  -   'docs/adr',
+  -   'docs/decisions'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:285:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [ 'docs/adr', 'docs/decisions' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:292:1
+✖ release-note AC-9 no key: the project names no devkit.release_tag, so no rule applies whatever release.md holds (107.002287ms)
+  TypeError [Error]: D.releaseTagOf is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:294:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:299:1
+✖ release-note AC-9 no key: the delivery checker walks a change with a malformed release.md to ready as before (1609.009903ms)
+  AssertionError [ERR_ASSERTION]: the state records that no release rule applies
+  + actual - expected
+  
+  + undefined
+  - {
+  -   applies: false
+  - }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:306:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { applies: false },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:309:1
+✖ release-note AC-9 release file missing: the key names a file the project does not have and nothing is written or refused (101.111923ms)
+  TypeError [Error]: D.repoReader is not a function
+      at computeAt (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:110:94)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:312:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:318:1
+✖ release-note AC-9 no key: releaseTagOf names the file the key gives, and null without the key (103.813223ms)
+  TypeError [Error]: D.releaseTagOf is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:319:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:325:1
+✖ release-note AC-11 no release: a note of packs: [] has nothing to write and is assigned at once (110.971707ms)
+  TypeError [Error]: D.releaseState is not a function
+      at stateOf (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:24:29)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:327:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/release-note.test.mjs:332:1
+✖ release-note AC-11 no release: a pack file changed with no note and no bump is refused naming the pack, a note of packs: [] is not (336.331526ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:338:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:350:1
+✖ release-note AC-9 boundary: release-merge.mjs re-exports the moved names as the same objects (0.344687ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs exports ReleaseError
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:353:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 5.2s
+=== plugins/openspec/hooks/flow-check.test.mjs
+✖ release-note AC-4 stages: the evidence and review headers stay passed after the delivery step's commit, and stale for a change with no note (226.71476ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10979.539966
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1081:1
+✖ release-note AC-4 stages: the evidence and review headers stay passed after the delivery step's commit, and stale for a change with no note (226.71476ms)
+  AssertionError [ERR_ASSERTION]: evidence
+  
+  'stale' !== 'passed'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/flow-check.test.mjs:1083:51)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'stale',
+    expected: 'passed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/flow-check.test.mjs: FAIL 11.0s
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-1 row N1: a bump that is not one blocks the delivery with the reason of the reader (399.182311ms)
+✖ release-note AC-1 row N1: a pack the project does not have blocks the delivery with the reason of the reader (319.353701ms)
+✖ release-note AC-1 row N1: marketplace: in a project with no marketplace file blocks the delivery with the reason of the reader (321.204295ms)
+✖ release-note AC-1 row N1: release: on a pack manifest blocks the delivery with the reason of the reader (349.322627ms)
+✖ release-note AC-11 row N2: a change with no note that changes a pack file and no version of its own is refused naming the pack (354.679937ms)
+✖ release-note AC-11 row N2: a change with no note and a bump of its own is not refused, the old rule is kept (573.725214ms)
+✖ release-note AC-11 row N2: an unnumbered ADR listed with no note is refused naming its path (343.774159ms)
+✖ release-note AC-11 row N2: a note of packs: [] is never refused for a pack file it leaves alone (355.556534ms)
+✖ release-note AC-2 row N3: a version edited by hand blocks the delivery naming the manifest (371.032869ms)
+✖ release-note AC-2 row N3: a train project is refused for a hand edit too, the train rows follow otherwise (371.825183ms)
+✖ release-note AC-7 row N4: a citation of an ADR the base has not numbered blocks the delivery naming the slug and the base (355.116348ms)
+✖ release-note AC-7 row N4: once the base numbers the cited ADR the checker no longer blocks it (414.390232ms)
+✖ release-note AC-4 row N6: assign-release comes last, before enable-auto-merge, and after the step's commit enable-auto-merge follows (2921.68119ms)
+✖ release-note AC-4 row N6: with auto-merge on, a base that released another change gives assign-release, not wait-merge (2936.514523ms)
+✖ release-note AC-4 row N6: in ship mode pr the step comes before ready (1522.227222ms)
+✖ release-note AC-4 row N6: a train project is never answered assign-release (2762.297004ms)
+✖ release-note AC-4 row N5: a branch behind the base is given assign-release in place of update-branch (2823.927013ms)
+✖ release-note AC-4 row N5: a pull request in conflict with the base is given assign-release in place of the conflict stop (2751.697125ms)
+✖ release-note AC-2 row N7: without origin/<base> the release is never judged and the reason names the fetch (296.228861ms)
+✖ release-note AC-12 row A1: a note changed after the approval asks the owner again, with no task ticked and with tasks ticked (37.577798ms)
+✖ release-note AC-12 row A1: a note added after an approval that recorded none asks the owner again (141.792515ms)
+✖ release-note AC-12 row A1: a change with no note keeps its approval object and its steps, with or without the key (311.561714ms)
+✖ release-note AC-4 staleness: the step's commit leaves the evidence and the approved reviews current (389.622626ms)
+✖ release-note AC-5 staleness: a commit that numbers the ADR and also edits a sentence stales the records naming the file (195.31739ms)
+✖ release-note AC-5 staleness: a citation changed to another ADR's number stales the records, the masked text differs (222.265282ms)
+✖ release-note AC-4 staleness: a rejected review stays stale across the step's commit, an approved one does not (219.648731ms)
+✖ release-note AC-4 staleness: a change with no note is judged as before, the same commit stales its records (139.896196ms)
+✖ release-note AC-4 staleness: without the setting the same commit stales the records (134.577646ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 0
+ℹ fail 28
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22491.633125
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2547:3
+✖ release-note AC-1 row N1: a bump that is not one blocks the delivery with the reason of the reader (399.182311ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2551:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2547:3
+✖ release-note AC-1 row N1: a pack the project does not have blocks the delivery with the reason of the reader (319.353701ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2551:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2547:3
+✖ release-note AC-1 row N1: marketplace: in a project with no marketplace file blocks the delivery with the reason of the reader (321.204295ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2551:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2547:3
+✖ release-note AC-1 row N1: release: on a pack manifest blocks the delivery with the reason of the reader (349.322627ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2551:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2557:1
+✖ release-note AC-11 row N2: a change with no note that changes a pack file and no version of its own is refused naming the pack (354.679937ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2563:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2567:1
+✖ release-note AC-11 row N2: a change with no note and a bump of its own is not refused, the old rule is kept (573.725214ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'applies')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2574:68)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2577:1
+✖ release-note AC-11 row N2: an unnumbered ADR listed with no note is refused naming its path (343.774159ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2581:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2585:1
+✖ release-note AC-11 row N2: a note of packs: [] is never refused for a pack file it leaves alone (355.556534ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'state')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2590:68)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2595:1
+✖ release-note AC-2 row N3: a version edited by hand blocks the delivery naming the manifest (371.032869ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2601:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2605:1
+✖ release-note AC-2 row N3: a train project is refused for a hand edit too, the train rows follow otherwise (371.825183ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^release lines edited by hand:/. Input:
+  
+  'evidence.md is missing, stale or lacks a gate or criterion row'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2611:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'evidence.md is missing, stale or lacks a gate or criterion row',
+    expected: /^release lines edited by hand:/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2615:1
+✖ release-note AC-7 row N4: a citation of an ADR the base has not numbered blocks the delivery naming the slug and the base (355.116348ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2621:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2627:1
+✖ release-note AC-7 row N4: once the base numbers the cited ADR the checker no longer blocks it (414.390232ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'state')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2633:72)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2641:1
+✖ release-note AC-4 row N6: assign-release comes last, before enable-auto-merge, and after the step's commit enable-auto-merge follows (2921.68119ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'assign-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2644:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'assign-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2655:1
+✖ release-note AC-4 row N6: with auto-merge on, a base that released another change gives assign-release, not wait-merge (2936.514523ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'disable-auto-merge'
+  - 'assign-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2661:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'disable-auto-merge',
+    expected: 'assign-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2668:1
+✖ release-note AC-4 row N6: in ship mode pr the step comes before ready (1522.227222ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'ready'
+  - 'assign-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2670:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'ready',
+    expected: 'assign-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2676:1
+✖ release-note AC-4 row N6: a train project is never answered assign-release (2762.297004ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'noted')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2679:26)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2684:1
+✖ release-note AC-4 row N5: a branch behind the base is given assign-release in place of update-branch (2823.927013ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'assign-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2689:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'assign-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2697:1
+✖ release-note AC-4 row N5: a pull request in conflict with the base is given assign-release in place of the conflict stop (2751.697125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'assign-release'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2701:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'assign-release',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2709:1
+✖ release-note AC-2 row N7: without origin/<base> the release is never judged and the reason names the fetch (296.228861ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'verify'
+  - 'blocked'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2713:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'verify',
+    expected: 'blocked',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2730:1
+✖ release-note AC-12 row A1: a note changed after the approval asks the owner again, with no task ticked and with tasks ticked (37.577798ms)
+  TypeError [Error]: DC.releaseNoteHash is not a function
+      at approvedNote (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2723:49)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2732:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2745:1
+✖ release-note AC-12 row A1: a note added after an approval that recorded none asks the owner again (141.792515ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'implement'
+  - 'stop-plan-approval'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2748:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'implement',
+    expected: 'stop-plan-approval',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2752:1
+✖ release-note AC-12 row A1: a change with no note keeps its approval object and its steps, with or without the key (311.561714ms)
+  TypeError [Error]: DC.releaseNoteHash is not a function
+      at approvedNote (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2723:49)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2759:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2776:1
+✖ release-note AC-4 staleness: the step's commit leaves the evidence and the approved reviews current (389.622626ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'stale',
+  +   'stale',
+  +   'open'
+  -   'current',
+  -   'current',
+  -   'met'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2781:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stale', 'stale', 'open' ],
+    expected: [ 'current', 'current', 'met' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2784:1
+✖ release-note AC-5 staleness: a commit that numbers the ADR and also edits a sentence stales the records naming the file (195.31739ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /touches docs\/openspec-flow\.md/. Input:
+  
+  'evidence.md is stale (9680ea8 is behind d5a73fe, which touches .claude-plugin/marketplace.json)'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2790:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'evidence.md is stale (9680ea8 is behind d5a73fe, which touches .claude-plugin/marketplace.json)',
+    expected: /touches docs\/openspec-flow\.md/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2794:1
+✖ release-note AC-5 staleness: a citation changed to another ADR's number stales the records, the masked text differs (222.265282ms)
+  AssertionError [ERR_ASSERTION]: the step's own commit is a release edit
+  
+  'stale' !== 'current'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2797:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'stale',
+    expected: 'current',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2803:1
+✖ release-note AC-4 staleness: a rejected review stays stale across the step's commit, an approved one does not (219.648731ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '50ba305 is behind c0c45f0, which touches .claude-plugin/marketplace.json'
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2810:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '50ba305 is behind c0c45f0, which touches .claude-plugin/marketplace.json',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2814:1
+✖ release-note AC-4 staleness: a change with no note is judged as before, the same commit stales its records (139.896196ms)
+  TypeError [Error]: DC.releaseFacts is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2816:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2822:1
+✖ release-note AC-4 staleness: without the setting the same commit stales the records (134.577646ms)
+  TypeError [Error]: DC.releaseFacts is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2824:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 22.5s
+FAIL 22.5s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 11.0s plugins/openspec/hooks/flow-check.test.mjs
+FAIL 0.5s plugins/openspec/hooks/merge-setup.test.mjs
+FAIL 5.2s plugins/openspec/hooks/release-note.test.mjs
+suite: 4 files, 82 tests, 1 pass, 81 fail, 22.5s, concurrency 8
+exit 1

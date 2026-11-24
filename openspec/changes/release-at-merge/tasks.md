@@ -46,7 +46,7 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 
 ## 1. Setup
 
-- [ ] 1.1 Before this task the coordinating session commits the plan files (this change's folder and
+- [x] 1.1 Before this task the coordinating session commits the plan files (this change's folder and
   `docs/adr/release-at-merge.md`) on the branch. The plan base is `ba3126b` (it merged `origin/main` at
   `c663f21`, train 4, with `archive-release-pin`; design header and F-2). When `git merge-base
   --is-ancestor origin/main HEAD` exits 0, the merge does nothing. When the base has moved since
@@ -59,15 +59,15 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
   `openspec validate release-at-merge --strict` passes, and `git status --short` lists no path outside
   `openspec/changes/release-at-merge/` (the stage files the flow writes uncommitted, `approval.md`
   among them, may be listed).
-- [ ] 1.2 Check that `openspec/changes/release-at-merge/approval.md` holds `- Release note: sha256:`
+- [x] 1.2 Check that `openspec/changes/release-at-merge/approval.md` holds `- Release note: sha256:`
   followed by the first 12 hex of `sha256sum openspec/changes/release-at-merge/release.md` (D-17;
   AC-12 for this change itself). Done when the two values are equal; when the line is missing or
   differs, stop and ask the owner to approve the plan again with the line.
-- [ ] 1.3 Gate: `openspec validate release-at-merge --strict && python3 scripts/check.py` green.
+- [x] 1.3 Gate: `openspec validate release-at-merge --strict && python3 scripts/check.py` green.
 
 ## 2. The module boundary, the note, the release state and the delivery rows (deliver-check, flow-check)
 
-- [ ] 2.1 Write the D-15 tests of this phase: in `plugins/openspec/hooks/release-note.test.mjs` (new)
+- [x] 2.1 Write the D-15 tests of this phase: in `plugins/openspec/hooks/release-note.test.mjs` (new)
   the two boundary tests (D-3a), the AC-1 reader tests, the AC-2 state tests, the AC-9 "no key" and
   "release file missing" tests and the AC-11 tests; in `plugins/openspec/hooks/merge-setup.test.mjs`
   the boundary test of `--ci` and `guard.mjs ci` from the three downloaded files for a noted change;
@@ -77,7 +77,7 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
   test. Run them and save the failing run as `proof/red-2.txt`. Done when every listed test exists by
   its D-15 name and `red-2.txt` shows them failing, except the source-scan boundary test, a guard that
   passes before and after the move (`red-2.txt` shows it passing).
-- [ ] 2.2 Apply D-3a: move `ReleaseError`, `bumpKind`, `applyBump`, `resolveManifest`,
+- [x] 2.2 Apply D-3a: move `ReleaseError`, `bumpKind`, `applyBump`, `resolveManifest`,
   `withoutVersions` (now exported), `PIN_FILE`, `PIN_PACK`, `PIN_PACK_NAME` and their private `SEMVER`
   and `parseSemver` from `plugins/openspec/hooks/release-merge.mjs` into
   `plugins/openspec/hooks/deliver-check.mjs`, bodies unchanged; do not touch `PIN_MARKER`,
@@ -89,17 +89,17 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
   `release-note.test.mjs` pass and T-11, T-20, T-21, T-22 and T-42 stay green (`release-merge.test.mjs`,
   `merge-setup.test.mjs`, `delivery-train-after.test.mjs`, `delivery-train.test.mjs`,
   `release-tags.test.mjs`, `change-loop-compozy.test.mjs` "release-merge-conflict 15").
-- [ ] 2.3 In `plugins/openspec/hooks/deliver-check.mjs` add D-1 (`RELEASE_NOTE`, `parseReleaseNote`,
+- [x] 2.3 In `plugins/openspec/hooks/deliver-check.mjs` add D-1 (`RELEASE_NOTE`, `parseReleaseNote`,
   `releaseNoteHash`), D-2 (`releaseFacts`; export `releaseTagOf`; move `ADR_DIRS` and `ADR_LINES` here,
   imported and re-exported by `conduct-check.mjs` and imported by `change-loop.mjs`) and D-3
   (`changeAdrs`, `computeRelease` with D-1's repository errors, `changelogEntry`, `releaseState`), with
   `node:` imports only (D-3a). Done when the AC-1, AC-2, AC-9 and AC-11 tests of
   `release-note.test.mjs` pass and the source-scan boundary test stays green.
-- [ ] 2.4 In the same file add D-5 (`maskRelease`, `releaseOnlyEdit`, the `release` option of
+- [x] 2.4 In the same file add D-5 (`maskRelease`, `releaseOnlyEdit`, the `release` option of
   `staleness`, passed by `tasksItem`, `acceptanceItem` and `readReviews` for approved or declined
   verdicts), and pass it from `collectFlow` in `plugins/openspec/hooks/flow-check.mjs`. Done when the
   staleness tests and the flow-check stage test pass and the T-13 tests stay green.
-- [ ] 2.5 In the same file add `state.release` to `collectState`, the rows N1 to N7 and A1 of D-8 in
+- [x] 2.5 In the same file add `state.release` to `collectState`, the rows N1 to N7 and A1 of D-8 in
   `nextStep`, and D-9's `approvalState` keys; add `ROWS['assign-release'] = session('delivery')` in
   `plugins/openspec/hooks/change-loop.mjs` (T-3) and `assign-release` to `MAIN` in
   `plugins/openspec/hooks/conduct-check.mjs` (T-4); in `plugins/openspec/skills/ship-change/SKILL.md`
@@ -110,14 +110,14 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
   (`flow-check.test.mjs`), T-30, T-31 and T-32 (`deliver-check-cli.test.mjs`), T-33
   and T-41 to T-43 (`deliver-check-archive.test.mjs`), T-34 (`change-loop-remote-state.test.mjs`), T-35
   (`delivery-models.test.mjs`) and T-39's `ship-change` test (`release-tags.test.mjs`).
-- [ ] 2.6 In `docs/openspec-flow.md` write the D-13 parts of this phase: "The release note"
+- [x] 2.6 In `docs/openspec-flow.md` write the D-13 parts of this phase: "The release note"
   paragraph, the rows N1 to N7 and A1 in "The delivery contract", `assign-release` in the merge-mode
   step table, the own-files sentence (after the phrases `deliver-check-cli.test.mjs` "own-files AC-9
   docs" asserts, T-14) and the release paragraph (keeping the phrase that test asserts). Done when
   T-14, T-31, T-35, T-41 (the P13 row, the file-check paragraph and the "Classification." bullet are
   not edited) and the `release-tags.test.mjs` test "release-tags 4: CONTRIBUTING and the flow page
   describe the key and the step" (T-8) stay green.
-- [ ] 2.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-2, AC-4, AC-7, AC-9, AC-11 and AC-12 at the checker and the module boundary.
+- [x] 2.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/merge-setup.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs && python3 scripts/check.py` green; covers AC-1, AC-2, AC-4, AC-7, AC-9, AC-11 and AC-12 at the checker and the module boundary.
 
 ## 3. The step and the join (release-merge, the train)
 

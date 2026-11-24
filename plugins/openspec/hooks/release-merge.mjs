@@ -15,36 +15,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { RELEASE_FILE, pinsIn, setPins } from './deliver-check.mjs';
-export { pinsIn, setPins }; // the pin definition lives in deliver-check.mjs (ADR 0027)
-
-export class ReleaseError extends Error {
-  constructor(message) { super(message); this.name = 'ReleaseError'; }
-}
+import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME } from './deliver-check.mjs';
+// The pin definition (ADR 0027) and the helpers every consumer CI needs live in deliver-check.mjs, which it downloads alone (release-at-merge D-3a);
+// each name stays importable from here as the same object.
+export { pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, PIN_FILE, PIN_PACK, PIN_PACK_NAME };
 
 // ---------------------------------------------------------------- versions
-
-const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
-function parseSemver(v) {
-  const m = SEMVER.exec(String(v));
-  if (!m) throw new ReleaseError(`not a semver version: ${JSON.stringify(v)}`);
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
-}
-
-export function bumpKind(from, to) {
-  const a = parseSemver(from);
-  const b = parseSemver(to);
-  const i = a.findIndex((n, k) => n !== b[k]);
-  return i < 0 ? 'none' : ['major', 'minor', 'patch'][i];
-}
-
-export function applyBump(version, kind) {
-  const [major, minor, patch] = parseSemver(version);
-  if (kind === 'major') return `${major + 1}.0.0`;
-  if (kind === 'minor') return `${major}.${minor + 1}.0`;
-  if (kind === 'patch') return `${major}.${minor}.${patch + 1}`;
-  return version;
-}
 
 // `mergeBase`: the version where the branch forked; `change`: the branch's own; `base`: origin/<base>'s.
 export function resolveVersion({ mergeBase, change, base }) {
@@ -52,24 +28,6 @@ export function resolveVersion({ mergeBase, change, base }) {
 }
 
 // ---------------------------------------------------------------- manifests
-
-// versions: { packs: { <plugin name>: version }, metadata?: version }
-export function resolveManifest(baseText, versions) {
-  const obj = JSON.parse(baseText);
-  const packs = versions.packs ?? {};
-  if (typeof obj.name === 'string' && typeof obj.version === 'string' && obj.name in packs) obj.version = packs[obj.name];
-  if (obj.metadata && versions.metadata !== undefined) obj.metadata.version = versions.metadata;
-  if (Array.isArray(obj.plugins)) for (const p of obj.plugins) if (p && p.name in packs) p.version = packs[p.name];
-  return JSON.stringify(obj, null, 2) + (baseText.endsWith('\n') ? '\n' : '');
-}
-
-function withoutVersions(obj) {
-  const c = JSON.parse(JSON.stringify(obj));
-  delete c.version;
-  if (c.metadata) delete c.metadata.version;
-  if (Array.isArray(c.plugins)) for (const p of c.plugins) delete p.version;
-  return c;
-}
 
 function diffPaths(a, b, path, out) {
   const named = (x) => Array.isArray(x) && x.every((e) => e && typeof e === 'object' && typeof e.name === 'string');
@@ -124,10 +82,6 @@ export function resolveChangelog({ mergeBase, change, base, version }) {
 
 // ---------------------------------------------------------------- the CI pin
 
-// docs/openspec-flow.md pins the CI snippet to the devkit-openspec release (release-rebase-pin design D1-D4).
-export const PIN_FILE = 'docs/openspec-flow.md';
-export const PIN_PACK = 'plugins/openspec/.claude-plugin/plugin.json';
-export const PIN_PACK_NAME = 'devkit-openspec';
 const MASK = '0.0.0';
 
 // The three sides merged with their pins masked: the merged text (pins at v0.0.0), or null when the
