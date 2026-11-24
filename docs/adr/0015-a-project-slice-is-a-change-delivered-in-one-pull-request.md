@@ -1,7 +1,7 @@
 # ADR 0015: A project slice is a change on the devkit-project script, delivered in one pull request that the ADR reviewer clears
 
 - Status: accepted
-- Amended by ADR 0022 (0022-a-project-slice-is-claimed-on-github-when-it-opens.md)
+- Amended by ADR 0029 (0029-a-project-slice-is-claimed-on-github-when-it-opens.md)
 - Date: 2026-11-21
 - Change: project-phases
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), the open point of decision 8 on whether the
@@ -43,7 +43,7 @@ check of its review. ADR 0003's archive pull request needs a retro the owner's f
 6. The pull request follows `ship: devkit-project:` as any script follows its entry (ADR 0002
    unchanged): auto-merge only in `merge` mode, on a default branch that requires `devkit-reviews`.
 
-Note (project-slice-claim, 2026-11-23): [ADR 0022](0022-a-project-slice-is-claimed-on-github-when-it-opens.md)
+Note (project-slice-claim, 2026-11-23): [ADR 0029](0029-a-project-slice-is-claimed-on-github-when-it-opens.md)
 makes a slice's branch public at its open: with an origin remote, the open commits the slice's
 folder with the machine's name and pushes the branch by a push that only creates it, and refuses a
 slice already open on another machine. The change and roadmap commands still never see a slice.

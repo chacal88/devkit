@@ -18,8 +18,10 @@ when.
 
 Tense: a sentence in the present tense is about what exists at the commit that ships this page. The
 `devkit` and `devkit-lite` schemas (each with its `flow.json`), the stage header and the checker `flow-check` (built by the change `flow-script-checker`), `openspec/config.yaml`, `openspec/roadmap.md`, the hooks and
-their locks, `ship-change`, `conduct-check`, `deliver-check`, the review Workflow script,
-the panel and the CompozyOS loop exist today. So do, since the change `change-coordinator` (round 15),
+their locks, `ship-change`, `conduct-check`, `deliver-check`, the review Workflow script
+and the panel exist today. So does, since the change `compozy-driver` (round 21), the CompozyOS driver: three loops of
+`devkit-compozy` over the change loop, one CompozyOS agent per role and the setting value `devkit.driver: compozy`
+([ADR 0024](adr/0024-compozy-runs-the-short-loop.md)). So do, since the change `change-coordinator` (round 15),
 the command `/devkit change`, the change coordinator of the Claude driver (the owner's session, run by
 the script `change-loop.mjs`), its two stop locks and its edit and hand-off locks
 ([ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md)), and the two settings
@@ -123,12 +125,13 @@ team-like names, said naming is not important, and left the choice to the assist
 the CompozyOS kit's `tech-lead` role is a planner today. `manager` is the roadmap coordinator and
 `tech-lead` the change coordinator; the CompozyOS kit's present `tech-lead` role, which plans, is
 renamed `planner`, so every driver uses the same role names: `manager`, `tech-lead`, `planner`,
-`dev`, `qa` and `design`. The rename is to be built in round 21 (CompozyOS driver); until then the
-kit's planner keeps the name `tech-lead`.
+`dev`, `qa` and `design`. Round 21 (`compozy-driver`) built it differently: the owner chose on 2026-11-22
+(grill question 4) to name every CompozyOS agent as its role, so the planner is `change-planner`, the name of
+its Claude agent, and the kit's four shells (`tech-lead`, `dev`, `qa`, `design`) are gone.
 
 **The two roles called `tech-lead`. Decided on 2026-11-20 (A-7).** The script, the agents and
 `docs/roles.md` use the role id `change-coordinator`; `tech-lead` stays the team name of that role in
-this document. The CompozyOS kit's `tech-lead` (its planner) is untouched until round 21.
+this document. The CompozyOS kit's `tech-lead` (its planner) left with round 21: its agent is `change-planner`.
 
 ## 3. What the orchestrator is (D-3)
 
@@ -236,6 +239,23 @@ branch's own work, goes through the review bench again before the branch is push
 archived through two archive pull requests, one to each branch
 ([ADR 0018](adr/0018-the-delivery-model-is-chosen-per-project.md)).
 
+**The delivery train (decided on 2026-11-23, grill of `delivery-train`, answered by the coordinating
+session under the owner's delegation; built by that change, key `devkit.delivery.train`).** In the models
+`trunk` and `trunk-auto` a project may send its reviewed changes to the base branch together instead of
+one pull request each, because GitHub's merge queue is offered only to repositories owned by an
+organization and `chacal88/devkit` is owned by a user. A change boards when its review is approved at its
+own head and its delivery contract is met except "up to date with the base" and the CI wait; a ready
+archive boards like a change. A boarded change is not updated, verified or reviewed again when the base
+moves, because its own head did not change. `/devkit train` (the coordinating session sends it in a
+roadmap run; the owner types it otherwise) cuts `train/<n>` from the base, joins the boarded heads in
+boarding order, renumbers the release files on the train only, runs the project's whole suite once, writes
+the record `openspec/trains/<n>.md` and opens one pull request. A red train finds the smallest red prefix
+by bisection and the change at its end leaves with the failure; a join conflict outside the release files
+takes the change off with the path. The pull request is merged with a merge commit: GitHub merges it in
+`trunk-auto` once `check`, `devkit-reviews` and the record are green, the owner in `trunk`. The `devkit`
+ruleset and its strict rule stay as they are, and a project without the key sees no change
+([ADR 0022](adr/0022-reviewed-changes-leave-on-a-delivery-train.md)).
+
 ## 6. Panels (D-6)
 
 **Read-only panels (decided; to be built in round 23).** The panels follow the work; the owner does
@@ -273,7 +293,7 @@ documents live in `docs/design/<slice>/`, its ADRs in `docs/adr/`, and it reache
 pull request that the ADR reviewer clears
 ([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). Since
 `project-slice-claim`, a slice's open claims it on origin as a change's open does
-([ADR 0022](adr/0022-a-project-slice-is-claimed-on-github-when-it-opens.md)).
+([ADR 0029](adr/0029-a-project-slice-is-claimed-on-github-when-it-opens.md)).
 
 **Decided by `project-phases` on 2026-11-21 (the grill's nine answers).**
 
@@ -405,6 +425,8 @@ devkit:
 for round 20. `devkit.budget` (a whole number of tokens, the
 cap of a `/devkit change` run), and its override in a change's own `.openspec.yaml`, are final too, decided by
 `change-budget` on 2026-11-22.
+`devkit.models` (a table from a stage id to a model, built-in default per stage), and its override in a change's own
+`.openspec.yaml`, is final, decided by `stage-models` on 2026-11-23.
 Decided by `jira-entry` on 2026-11-22: the task source needs no field; the key or link typed names it.
 
 
@@ -442,10 +464,11 @@ All proposed. The three drivers are to be built in rounds 15, 21 and 22.
   **Waiting on GitHub. Decided by the owner on 2026-11-20 (round 15 grill, question 1): wait with no
   time limit and go on alone.** Built as a background command of the session that ends when GitHub
   answers; the session is called back, runs the loop again and goes on. The command holds no state.
-- **CompozyOS (round 21).** One short, generic loop (ask, run the role, check) in place of the
-  619-line flow written apart. `/devkit` starts the run. The kit's planning role is renamed from
-  `tech-lead` to `planner` (section 2). Not verified: whether CompozyOS can choose the role at each
-  turn (open).
+- **CompozyOS (round 21; built by `compozy-driver`, [ADR 0024](adr/0024-compozy-runs-the-short-loop.md)).** One short,
+  generic loop (ask the checker, run the role, record the answer) in place of the 619-line flow written apart, with the
+  review round and the roadmap as loops of their own. `/devkit` starts the run. One CompozyOS agent per role, named as
+  the role: the kit's planning role is `change-planner` (section 2). CompozyOS chooses the role at each turn: a node's
+  agent may be the output of an earlier node (proved by the live run of `compozy-driver`, 2026-11-23).
 - **Script (round 22).** A small program running the same loop and calling the AI from the command
   line. Documented for Claude (`claude -p`); not verified for any other AI (open). Built when the
   owner needs it.
@@ -467,7 +490,7 @@ changes run one at a time.
 | 6 | The roadmap coordinator and `/devkit roadmap` | 18 | `roadmap-coordinator` | `change-coordinator` |
 | 7 | The four phases and `/devkit project` | 19 | `project-phases` | `roadmap-coordinator` |
 | 8 | The Jira entry | 20 | `jira-entry` | `change-coordinator` |
-| 9 | The CompozyOS driver, and the kit's planning role renamed `planner` | 21 | `compozy-driver` | `change-coordinator` |
+| 9 | The CompozyOS driver: one short loop, one agent per role (the planner is `change-planner`) | 21 | `compozy-driver` | `change-coordinator` |
 | 10 | The script driver, for another AI, when the owner needs it | 22 | `script-driver` | `change-coordinator` |
 | 11 | The panels: roadmap coordinator, change coordinator and help, read-only, from the approved mock | 23 | `coordination-panels` | `roadmap-coordinator` |
 | 12 | The cleanup: the old scripts, the child-session code, the old panel, the final documentation | 24 | `coordination-cleanup` | `coordination-panels`, `compozy-driver` |
@@ -476,8 +499,8 @@ Step 1 has no round of its own in `openspec/roadmap.md`: listing it unticked wou
 current round. Each `after:` is the real dependency of the step: round 15 asks round 14's checker;
 rounds 16, 17, 20, 21 and 22 are stages, entries or drivers of round 15's loop; round 18 starts
 round 15's coordinators; round 19 writes the roadmap round 18 reads; round 23 shows the state of
-rounds 18 and 15; round 24 removes the old panel once round 23 replaces it and the old loop once
-round 21 replaces it.
+rounds 18 and 15; round 24 removes the old panel once round 23 replaces it, and runs after round 21 so
+that no driver still reads the old scripts it removes.
 
 ## 12. What the survey found (D-12)
 
@@ -509,7 +532,7 @@ All proposed.
 - Many background subagent ends in a row over whole changes (not proved by round 19, whose phases run in the session; the first `/devkit roadmap` run that carries several changes to their ends records it).
 - The two stop locks hold without looping (shown live by the live test of `change-coordinator`, with the
   hook log it records; the interrupt case rests on the documented fact that an interrupt fires no stop event).
-- CompozyOS accepts the generic loop.
+- CompozyOS accepts the generic loop (proved by `compozy-driver`, 2026-11-23, in `proof/local-run.md` of that change).
 - Jira can be read on each platform (the follow-up `jira-entry-live`, round 20b).
 - Grouped sessions work as a view.
 
@@ -529,10 +552,9 @@ The points still to prove are proved together, in one live test session, when th
 
 Every item nobody has decided yet. The command names, the role names, holding a start while the
 machine is loaded (and how the load is measured, answered by the change `roadmap-coordinator` on 2026-11-21, section 2), writing back to Jira, small work and the roadmap, and the lean pull-request
-template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10).
+template were answered on 2026-11-19 and are recorded in their sections; the header's field names were answered by the change `flow-script-checker`; what to do when the task branch conflicts with `develop` was answered by the change `delivery-models` on 2026-11-21 (section 5); and four points were answered by the change `change-coordinator` on 2026-11-20: the ADR 0007 rules the change coordinator keeps, the configuration's field names, how it waits on GitHub and how the two roles called `tech-lead` are told apart (sections 2, 8 and 10); and whether CompozyOS can choose the role at each turn was answered by the change `compozy-driver` on 2026-11-23 (section 10).
 
 - Whether the review stage keeps the Workflow path in the Claude driver (ADR 0008, ADR 0010).
-- Whether CompozyOS can choose the role at each turn (section 10).
 - The script driver for an AI other than Claude (section 10).
 - Project setup (proposed; to be built in round 26): one setup step per project writes the `devkit:`
   block of `openspec/config.yaml` (driver, language of the files, delivery model, test commands, task
@@ -553,7 +575,6 @@ the round that replaces it:
 | The child-session rules and code (ADR 0006) | round 24 (cleanup) |
 | The review Workflow script (ADR 0008) | stays; whether it stays is open |
 | `devkit-panel`, the current panel | round 24 (cleanup), after round 23's panels |
-| The CompozyOS twelve-stage loop (ADR 0009) | round 21 (CompozyOS driver) replaces it; round 24 removes the old loop |
 
 ## Where a change runs
 

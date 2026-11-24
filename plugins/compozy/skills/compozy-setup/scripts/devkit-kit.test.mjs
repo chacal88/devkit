@@ -217,3 +217,99 @@ test('AC-8 portable-hooks: at the same version, the lexicographically last path 
   assert.match(r.stdout, /MARKER:zzz/);
   assert.equal(r.status, 1);
 });
+
+// ---------------------------------------------------------------- the three subcommands of compozy-driver (D-9)
+
+const SIX = ['deliver-check', 'conduct-check', 'screens-check', 'change-loop', 'roadmap-loop', 'review-round'];
+const REVIEW_ROUND = ['skills', 'review-change', 'scripts', 'review-round.mjs'];
+
+// An installed copy of any devkit pack with one stub script at a path under it.
+function installPack(configDir, { pack, dirName, version, marker, exitCode = 0, script }) {
+  const root = join(configDir, 'plugins', 'cache', 'devkit', dirName, version);
+  write(join(root, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: pack, version }, null, 2));
+  stub(join(root, ...script), marker, exitCode);
+  return root;
+}
+
+// A checkout holding one stub script, and its deepest leaf to run from.
+function checkoutOf(script, marker, exitCode = 0) {
+  const root = tmp('devkit-kit-checkout-');
+  stub(join(root, ...script), marker, exitCode);
+  const leaf = join(root, 'a', 'b', 'c');
+  mkdirSync(leaf, { recursive: true });
+  return leaf;
+}
+
+for (const sub of ['change-loop', 'roadmap-loop']) {
+  test(`compozy-resolver ${sub}: $DEVKIT_HOOKS wins over a checkout and an installed devkit-openspec`, () => {
+    const cwd = checkoutOf(['plugins', 'openspec', 'hooks', `${sub}.mjs`], 'checkout', 9);
+    const hooksDir = tmp('devkit-kit-hooks-');
+    stub(join(hooksDir, `${sub}.mjs`), 'devkit-hooks', 7);
+    const configDir = tmp('devkit-kit-config-');
+    installPack(configDir, { pack: 'devkit-openspec', dirName: 'o', version: '9.9.9', marker: 'installed', exitCode: 5, script: ['hooks', `${sub}.mjs`] });
+    const r = run([sub, '--change', 'x'], { cwd, devkitHooks: hooksDir, claudeConfigDir: configDir });
+    assert.match(r.stdout, /MARKER:devkit-hooks/);
+    assert.match(r.stdout, /ARGS:--change,x/);
+    assert.equal(r.status, 7);
+  });
+
+  test(`compozy-resolver ${sub}: a repository checkout wins over an installed devkit-openspec`, () => {
+    const cwd = checkoutOf(['plugins', 'openspec', 'hooks', `${sub}.mjs`], 'checkout', 9);
+    const configDir = tmp('devkit-kit-config-');
+    installPack(configDir, { pack: 'devkit-openspec', dirName: 'o', version: '9.9.9', marker: 'installed', exitCode: 5, script: ['hooks', `${sub}.mjs`] });
+    const r = run([sub], { cwd, claudeConfigDir: configDir });
+    assert.match(r.stdout, /MARKER:checkout/);
+    assert.equal(r.status, 9);
+  });
+
+  test(`compozy-resolver ${sub}: the installed devkit-openspec with the highest version is the last resort`, () => {
+    const configDir = tmp('devkit-kit-config-');
+    installPack(configDir, { pack: 'devkit-openspec', dirName: 'aaa', version: '0.9.0', marker: 'lower', exitCode: 2, script: ['hooks', `${sub}.mjs`] });
+    installPack(configDir, { pack: 'devkit-openspec', dirName: 'bbb', version: '0.13.0', marker: 'higher', exitCode: 1, script: ['hooks', `${sub}.mjs`] });
+    const r = run([sub], { claudeConfigDir: configDir });
+    assert.match(r.stdout, /MARKER:higher/);
+    assert.equal(r.status, 1);
+  });
+
+  test(`compozy-resolver ${sub}: exit 3 naming where it looked when nothing resolves`, () => {
+    const r = run([sub]);
+    assert.equal(r.status, 3);
+    assert.match(r.stderr, new RegExp(`no ${sub} found`));
+  });
+}
+
+test('compozy-resolver review-round: a repository checkout of devkit-core wins over an installed devkit-core', () => {
+  const cwd = checkoutOf(['plugins', 'core', ...REVIEW_ROUND], 'checkout', 9);
+  const configDir = tmp('devkit-kit-config-');
+  installPack(configDir, { pack: 'devkit-core', dirName: 'c', version: '9.9.9', marker: 'installed', exitCode: 5, script: REVIEW_ROUND });
+  const r = run(['review-round', 'stage1', '--args', 'a.json'], { cwd, claudeConfigDir: configDir });
+  assert.match(r.stdout, /MARKER:checkout/);
+  assert.match(r.stdout, /ARGS:stage1,--args,a.json/);
+  assert.equal(r.status, 9);
+});
+
+test('compozy-resolver review-round: the installed devkit-core with the highest version is the last resort', () => {
+  const configDir = tmp('devkit-kit-config-');
+  installPack(configDir, { pack: 'devkit-core', dirName: 'aaa', version: '0.9.0', marker: 'lower', exitCode: 2, script: REVIEW_ROUND });
+  installPack(configDir, { pack: 'devkit-core', dirName: 'bbb', version: '0.13.0', marker: 'higher', exitCode: 1, script: REVIEW_ROUND });
+  const r = run(['review-round'], { claudeConfigDir: configDir });
+  assert.match(r.stdout, /MARKER:higher/);
+  assert.equal(r.status, 1);
+});
+
+test('compozy-resolver review-round: $DEVKIT_HOOKS does not apply to it, and an installed devkit-openspec is not a source', () => {
+  const hooksDir = tmp('devkit-kit-hooks-');
+  stub(join(hooksDir, 'review-round.mjs'), 'devkit-hooks', 7);
+  const configDir = tmp('devkit-kit-config-');
+  installPack(configDir, { pack: 'devkit-openspec', dirName: 'o', version: '9.9.9', marker: 'openspec', exitCode: 5, script: REVIEW_ROUND });
+  const r = run(['review-round'], { devkitHooks: hooksDir, claudeConfigDir: configDir });
+  assert.equal(r.status, 3);
+  assert.doesNotMatch(r.stdout, /MARKER/);
+  assert.match(r.stderr, /no review-round found/);
+});
+
+test('compozy-resolver subcommands: the unknown-subcommand message lists all six', () => {
+  const r = run(['frobnicate-check']);
+  assert.equal(r.status, 3);
+  for (const sub of SIX) assert.ok(r.stderr.includes(sub), `the message names ${sub}: ${r.stderr}`);
+});

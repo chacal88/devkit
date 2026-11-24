@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
-- Amended by ADR 0022 (0022-a-project-slice-is-claimed-on-github-when-it-opens.md)
+- Amended by ADR 0029 (0029-a-project-slice-is-claimed-on-github-when-it-opens.md)
 - Date: 2026-11-22
 - Change: remote-worker
 - Amends: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), the hold of a start by
@@ -63,7 +63,7 @@ sessions on the run's ticket from the run file, not from `origin`, and keeps one
 roadmap run; its Note says how each point sits beside decisions 5, 7 and 8. The status and the
 decisions above stay.
 
-Note (project-slice-claim, 2026-11-23): [ADR 0022](0022-a-project-slice-is-claimed-on-github-when-it-opens.md)
+Note (project-slice-claim, 2026-11-23): [ADR 0029](0029-a-project-slice-is-claimed-on-github-when-it-opens.md)
 applies decision 1 to a slice opened by /devkit project, with the machine's name only and no
 places. The status and the decisions above stay.
 

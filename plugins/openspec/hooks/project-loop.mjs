@@ -408,7 +408,7 @@ export function startProject(cwd, text, { lang = 'pt-BR', env = process.env, ope
     settings: { driver: settings.driver, filesLanguage: filesLanguageOf(settings), personLanguage: l }, ...extra,
   });
   const say = (key, params = {}) => render(l, key, params);
-  const gate = projectGate(start, settings);
+  const gate = projectGate(start, settings, 'project');
   if (gate) return out(gate.mode, { reply: say(gate.key, gate.params) });
   if (!designPackEnabled(start)) return out('design-pack-missing', { reply: say('design-pack-missing') });
 
@@ -441,7 +441,7 @@ export function openSlice(cwd, id, { lang = 'pt-BR', env = process.env, openspec
   if (!NAME.test(id) || id === 'archive') throw refuse('name-invalid', { id });
   const start = findRoot(cwd);
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
-  const gate = projectGate(start, settings);
+  const gate = projectGate(start, settings, 'project');
   if (gate) throw refuse(gate.key, gate.params);
   const { worktree, base } = openCheckout(cwd, id, {
     script: SCRIPT, lang: l, env, openspec, lockSleep, beforePush,
