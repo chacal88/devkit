@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utime
 import { join } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
-import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, cleanEnv, real, roundRepo, pinDoc, underOwnTmp } from './test-fixtures.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, TWO_PRS, cleanEnv, real, roundRepo, pinDoc, underOwnTmp } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, deliveryRow, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
@@ -622,6 +622,47 @@ test('conduct: a conflict that also has README.md is blocked, and an independent
   assert.equal(byId(res, 'b').state, 'blocked: item 5 (conflict in README.md)');
   assert.equal(byId(res, 'b').next.actor, 'stop');
   assert.deepEqual(res.dispatch, ['c']);
+});
+
+// Invariant (release-merge-leftovers AC-3): under the two-PR delivery model the release-merge override merges the
+// base branch (the repository's default branch, ADR 0018 decision 2), never the test branch, and a conflict outside
+// the release files stays blocked. Layer: conduct-check's releaseConflict over deliver-check's two-prs item 5.
+// Suite: conduct-check.test.mjs (loaded by guard.test.mjs).
+const TWO_PRS_CONFIG = `schema: devkit-lite\n${TWO_PRS}`;
+function twoPrsConflict(conflicts) {
+  const { t, b } = conflictRepo(conflicts, { config: TWO_PRS_CONFIG });
+  // The test branch exists on origin, at the base's tip, as in a two-prs project.
+  git(t.main, 'push', '-q', 'origin', 'main:refs/heads/develop');
+  // In two-prs deliver-check finds the change PR with `gh pr list --head b --base main` (never `gh pr view`).
+  t.ghAt(b).set('pr-list-head-b', { stdout: [prJson('b', { headRefOid: headOf(b), mergeable: 'CONFLICTING' })] });
+  return { t, b };
+}
+// The --base of every `gh pr list` call deliver-check made in worktree b.
+const listedBases = (t, b) => t.ghAt(b).calls()
+  .filter((a) => a[0] === 'pr' && a[1] === 'list' && a.includes('--base'))
+  .map((a) => a[a.indexOf('--base') + 1]);
+
+test('conduct: under two-prs, a change PR in conflict only in release files is resolve-release-conflict on the base branch, never the test branch (release-merge-leftovers AC-3)', () => {
+  const { t, b } = twoPrsConflict(['CHANGELOG.md', '.claude-plugin/marketplace.json']);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(new Set(listedBases(t, b)), new Set(['main', 'develop']), 'deliver-check read the PRs to main and to develop: the two-prs model is in force');
+  assert.deepEqual(planStep(c), ['resolve-release-conflict', 'subagent']);
+  assert.equal(c.next.agent, TDD);
+  assert.deepEqual(c.next.paths, ['.claude-plugin/marketplace.json', 'CHANGELOG.md']);
+  assert.equal(c.next.base, 'main');
+  assert.match(c.next.command[1], /release-merge\.mjs$/);
+  assert.equal(c.next.command[c.next.command.indexOf('--base') + 1], 'main', c.next.command.join(' '));
+  assert.ok(!c.next.command.includes('develop'), `the merge command never names the test branch: ${c.next.command.join(' ')}`);
+  assert.equal(c.deliver.next.step, 'blocked', 'deliver-check alone says blocked');
+  assert.equal(c.deliver.next.conflict, true);
+});
+
+test('conduct: under two-prs, a conflict that also has README.md is blocked (release-merge-leftovers AC-3)', () => {
+  const { t, b } = twoPrsConflict(['CHANGELOG.md', 'README.md']);
+  const c = byId(t.state(), 'b');
+  assert.ok(listedBases(t, b).includes('develop'), 'the two-prs model is in force');
+  assert.deepEqual(planStep(c), ['blocked', 'stop']);
+  assert.equal(c.state, 'blocked: item 5 (conflict in README.md)');
 });
 
 test('conduct: git merge-tree exit 0 (GitHub is stale) keeps what deliver-check says in pr mode', () => {

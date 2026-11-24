@@ -8,9 +8,10 @@ the change's own, and what the delivery checker answers while a task of the chan
 
 ### Requirement: A change's own pull request
 A merged pull request SHALL be the change's own only when it changes a file under the change's
-active folder `openspec/changes/<id>/`, brings no folder under `openspec/changes/archive/`, and its
-head branch is not an archive branch (`chore/archive-<name>` or `archive-<name>`). A pull request
-that only names the change, or links its evidence, SHALL NOT be its own.
+active folder `openspec/changes/<id>/`, brings no file under the change's own archive folder
+`openspec/changes/archive/<YYYY-MM-DD>-<id>/` (the exact id), and its head branch is not an archive
+branch (`chore/archive-<name>` or `archive-<name>`). A pull request that only names the change, or
+links its evidence, SHALL NOT be its own.
 
 #### Scenario: A body that links the evidence
 - **WHEN** a merged pull request's body links `openspec/changes/foo/evidence.md` and its diff touches nothing under `openspec/changes/foo/`
@@ -27,6 +28,18 @@ that only names the change, or links its evidence, SHALL NOT be its own.
 #### Scenario: A head that does not name the change
 - **WHEN** a merged pull request from `calm-badger` changes `openspec/changes/foo/tasks.md`
 - **THEN** it is the change pull request of `foo`
+
+#### Scenario: Another change's archived files
+- **WHEN** a merged pull request from `ship/foo` changes `openspec/changes/foo/tasks.md` and `openspec/changes/archive/2026-11-09-bar/retro.md`
+- **THEN** it is the change pull request of `foo`, and from the default branch in the `merge` ship mode the delivery checker finds it among the merged pull requests
+
+#### Scenario: The change's own archive folder
+- **WHEN** a merged pull request from `ship/foo` changes `openspec/changes/foo/tasks.md` and `openspec/changes/archive/2026-11-09-foo/retro.md`
+- **THEN** it is not the change pull request of `foo`
+
+#### Scenario: An id that starts another change's id
+- **WHEN** a merged pull request changes a file of the change folder and a file under `openspec/changes/archive/2026-11-09-foo-two/` (or, for `foo-two`, under `openspec/changes/archive/2026-11-09-foo/`)
+- **THEN** that archive folder does not keep it from being the change pull request of `foo` (or of `foo-two`)
 
 ### Requirement: Delivered means its own pull request merged and every task ticked
 A change SHALL be delivered when it is archived, or when its own pull request is merged and every
@@ -94,8 +107,10 @@ checks' final state. While the repository is not prepared the next step SHALL st
 When the delivery checker decides whether a recorded `Commit:` is still current, a merge commit
 after it SHALL count only the files that differ between its first parent and itself, edits made
 while resolving and moved files included, and a file outside `openspec/` among them SHALL make the
-record stale. Every other commit after the record, each commit the merge brings in included, SHALL
-be judged by its own files as before. The stage checker SHALL report the same.
+record stale, unless the merge is a merge of the base that the own-files rule exempts (requirement
+"A merge of the base is judged by the change's own files"). Every other commit after the record,
+each commit the merge brings in included, SHALL be judged by its own files as before, under the
+same exemption for a commit of the base. The stage checker SHALL report the same.
 
 #### Scenario: The base brings only openspec files
 - **WHEN** a branch has a product commit before the commit its reviews and `evidence.md` record, and a merge of the base after the record brings only files under `openspec/`
@@ -106,19 +121,19 @@ be judged by its own files as before. The stage checker SHALL report the same.
 - **THEN** the rejected review is stale and the reason names the merge commit and the first file it brought, as the rule for a rejected verdict says (`verdict-files`)
 
 #### Scenario: The base brings a product file
-- **WHEN** the same merge brings a file outside `openspec/` from the base
+- **WHEN** the same merge brings a file outside `openspec/` from the base, and `origin/<base>` is not available or that file is one of the change's own files
 - **THEN** the record is stale with the reason `<recorded short> is behind <merge short>, which touches <that file>`, and the stage checker reports the evidence stage stale
 
 #### Scenario: A product edit made while resolving the merge
-- **WHEN** the base brings only files under `openspec/` and the merge commit also changes a file outside `openspec/`
+- **WHEN** the base brings only files under `openspec/` and the merge commit also changes a file outside `openspec/` that is one of the change's own files, or `origin/<base>` is not available
 - **THEN** the record is stale and the reason names the merge commit and that file
 
 #### Scenario: A product file moved under openspec by the merge
-- **WHEN** the merge commit moves a file from outside `openspec/` to a path under `openspec/`
+- **WHEN** the merge commit moves one of the change's own files from outside `openspec/` to a path under `openspec/`, or moves any product file while `origin/<base>` is not available
 - **THEN** the record is stale and the reason names the merge commit and the file's old path
 
 #### Scenario: A product commit the merge brings in
-- **WHEN** a commit of the base adds a file outside `openspec/` and a later commit of the base removes it, so the merge itself brings only files under `openspec/`
+- **WHEN** a commit of the base adds a file outside `openspec/` and a later commit of the base removes it, so the merge itself brings only files under `openspec/`, and `origin/<base>` is not available or that file is one of the change's own files
 - **THEN** the record is stale and the reason names a commit of the base, not the merge
 
 #### Scenario: The branch's head is a merge made on the base
@@ -294,3 +309,69 @@ not need a passing row in `evidence.md`; every other gate part SHALL, as before.
 #### Scenario: A row that names the train is not a pass
 - **WHEN** `evidence.md` has, for `node --test all.test.mjs`, a row whose last cell reads `train: proven by the train record`, and the train setting that reader reads is missing
 - **THEN** the tasks item is open, naming `node --test all.test.mjs` as having no passing row
+
+### Requirement: A merge of the base is judged by the change's own files
+The change's own files SHALL be the paths that differ between the merge base of `origin/<base>` and
+the head, and the head, plus every path under `openspec/changes/<id>/`; a release file SHALL never
+be one. A merge of the base, and each commit of the base it brings in, SHALL leave the recorded
+evidence and the approved or declined reviews current when none of its files is one of them, and
+SHALL make them stale when one is, the reason naming that commit and that file.
+
+#### Scenario: The base brings only unrelated files
+- **WHEN** `evidence.md` and the approved reviews record commit R, and a merge of `origin/<base>` after R brings `src/other.ts` and `openspec/changes/other/tasks.md`, none of which the branch changed
+- **THEN** the delivery checker reads the evidence and every approved review as current, it hands no `verify` and no `review` step because of that merge, and the stage checker reports the evidence and review stages passed
+
+#### Scenario: The base brings a file the branch changed
+- **WHEN** the branch changed `src/a.ts` and a merge of `origin/<base>` after R brings a change to `src/a.ts`
+- **THEN** the evidence and every review are stale with the reason `<R short> is behind <merge short>, which touches src/a.ts`
+
+#### Scenario: The base brings a test file the branch changed
+- **WHEN** the branch changed `src/a.test.ts` and a merge of `origin/<base>` after R brings a change to it
+- **THEN** the evidence is stale and the reason names the merge commit and `src/a.test.ts`
+
+#### Scenario: One own file among unrelated ones
+- **WHEN** a merge of `origin/<base>` after R brings `src/other.ts`, which the branch did not change, and `src/a.ts`, which it did
+- **THEN** the evidence and the reviews are stale and the reason names `src/a.ts`
+
+#### Scenario: The base brings only release files
+- **WHEN** a merge of `origin/<base>` after R brings only release files (a plugin manifest, `.claude-plugin/marketplace.json`, `CHANGELOG.md`, `docs/catalog.md`), the ones the branch itself bumped included, the merge's own resolution of them included
+- **THEN** the evidence and every approved review are current
+
+#### Scenario: A file the branch changed then restored
+- **WHEN** the branch changed `src/b.ts` in an early commit and restored it later, so it no longer differs from the base, and a merge of `origin/<base>` after R brings a change to `src/b.ts`
+- **THEN** `src/b.ts` is not one of the change's own files and that merge leaves the records current
+
+### Requirement: The own-files exemption fails safe
+A merge SHALL be exempted only when it is a merge of the base: a merge on the branch's own line,
+its first parent not contained in `origin/<base>` and every other parent contained in it. With
+`origin/<base>` missing, or with the head already contained in `origin/<base>`, no commit SHALL be
+exempted and every verdict SHALL be the one given before this rule.
+
+#### Scenario: No origin of the base
+- **WHEN** `origin/<base>` does not resolve and a merge of the local base after R brings only unrelated product files
+- **THEN** the records are stale exactly as before this rule, with the same reason
+
+#### Scenario: A base the checkout has not fetched
+- **WHEN** the branch merged a commit of the base that the local `origin/<base>` does not contain yet
+- **THEN** that merge is not exempted and the records are stale as before this rule
+
+#### Scenario: A merge of another branch
+- **WHEN** a merge after R brings a branch other than the base, whose files are unrelated to the change
+- **THEN** the merge is judged as before this rule and the records are stale
+
+#### Scenario: The head is already in the base
+- **WHEN** `origin/<base>` contains the head
+- **THEN** no commit after R is exempted
+
+### Requirement: A plain commit on the branch keeps its rule
+A commit on the branch's own line that is not a merge of the base SHALL be judged as before the
+own-files rule, whatever files it touches, and the per-reviewer allowances (the test-spared
+reviewers, the `openspec/`-only rule for approved or declined verdicts) SHALL stay as they are.
+
+#### Scenario: A plain product commit after a base merge
+- **WHEN** a merge of `origin/<base>` after R brings only unrelated files and a later one-parent commit on the branch changes `src/unrelated.ts`, a file the branch never changed before
+- **THEN** the records are stale and the reason names that commit and `src/unrelated.ts`
+
+#### Scenario: A test-only commit after a base merge
+- **WHEN** a merge of `origin/<base>` after R brings only unrelated files and a later one-parent commit changes only test files
+- **THEN** the reviews of the four test-spared reviewers stay current and the evidence and the other reviews are stale, as before this rule
