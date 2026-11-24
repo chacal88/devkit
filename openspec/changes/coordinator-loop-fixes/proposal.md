@@ -3,7 +3,7 @@
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (source: `requirements.md`, the kept items 1 to 6, 8 to 18, 21 to 24 of its "Checked against main" list;
-decision record: `decisions.md`, ADR 0022 as proposed).
+decision record: `decisions.md`, ADR 0025 as proposed).
 
 ## Why
 
@@ -12,7 +12,7 @@ decision outside the gates, a third review round, a small fix after a red gate, 
 conflict, a task only the session can do), and each ended on an undeclared stop, a false `blocked`
 or a stage header edited by hand. The stop lock also accepts an end marker of another change, and a
 plan revised after the implementation started keeps an approval the owner gave to the older plan.
-ADR 0022 decides how the loop declares each of these; this change builds it and closes the open
+ADR 0025 decides how the loop declares each of these; this change builds it and closes the open
 nits the same retros left.
 
 ## What Changes
@@ -115,7 +115,7 @@ None.
 - Docs: `docs/openspec-flow.md`, `docs/coordination-design.md`, ADR 0011's Note,
   `openspec/config.yaml`'s ADR list, `CHANGELOG.md`, `.claude-plugin/marketplace.json`,
   `openspec/roadmap.md` (the `host-monitor-wake` line).
-- Dependencies: ADR 0022 (proposed, accepted at the plan approval through `accept-decisions`); ADR
+- Dependencies: ADR 0025 (proposed, accepted at the plan approval through `accept-decisions`); ADR
   0010 decisions 3, 5 and 6; ADR 0011 decision 2; ADR 0016; ADR 0017. Sibling changes in flight touch
   the same files (design, "Siblings"); this change merges `origin/main` before its last gate.
 - Exit criteria: `node --test plugins/openspec/hooks/guard.test.mjs`, `python3 scripts/check.py`,

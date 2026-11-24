@@ -213,7 +213,7 @@ every task with `git status --short`.
 
 - [ ] 6.1 D-17: merge `origin/main` (as the conducting session fetched it) into the branch; resolve each conflict by
   D-17 (a key a sibling added to `END_OF_KEY` becomes a `reply` row of `DECLARED`, and "roadmap-loop replies: every
-  owner wait has a gate" gains it); when another change took ADR 0022's number, rename the ADR to the next free
+  owner wait has a gate" gains it); when another change took ADR 0025's number, rename the ADR to the next free
   number of `docs/adr/` on `origin/main` with `git mv` and change every reference this change made to it. Check:
   `git merge-base --is-ancestor origin/main HEAD` exits 0 and `openspec validate coordinator-loop-fixes --strict`
   passes.

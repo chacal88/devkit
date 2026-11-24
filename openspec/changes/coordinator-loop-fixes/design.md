@@ -2,7 +2,7 @@
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
-Decision: ADR 0022 (`docs/adr/0022-the-loop-declares-the-decisions-outside-the-stage-gates.md`,
+Decision: ADR 0025 (`docs/adr/0025-the-loop-declares-the-decisions-outside-the-stage-gates.md`,
 proposed; see `decisions.md`).
 
 ## Context
@@ -61,7 +61,7 @@ present (AC-16).
   `### A session per change`); the deadlock is answered in the change's own session.
 - Any change to `devkit-lite`'s stages or gates (AC-15).
 
-## D-1 The declared steps: one table, one helper (AC-1; ADR 0022 decision 1)
+## D-1 The declared steps: one table, one helper (AC-1; ADR 0025 decision 1)
 
 One table and one helper in `plugins/openspec/hooks/change-loop.mjs` carry every step or end the
 session declares outside the stage gates. They replace `END_OF_KEY` in `change-loop.mjs` and in
@@ -177,12 +177,12 @@ upgrade'`, so "change-loop replies: no internal term in either language" renders
 | `declare-unreadable` | The record of the steps declared for {id} cannot be read ({error}), so nothing was recorded. | `O registro dos passos declarados de {id} não pode ser lido ({error}), então nada foi registrado.` |
 | `waiting-review-dispute` (reworded) | The code review of {id} still disagrees after its last round: the disputed points need your decision, or your word for one more round. | `A revisão de código de {id} ainda discorda depois da última rodada: os pontos em disputa precisam da sua decisão, ou da sua palavra para mais uma rodada.` |
 
-Alternatives: a fifth end state `paused` (rejected by ADR 0022: ADR 0010 decision 3 has four ends);
+Alternatives: a fifth end state `paused` (rejected by ADR 0025: ADR 0010 decision 3 has four ends);
 putting the recorded keys under `reply` too (rejected: `reply` stays a pure printer that reads no
 change, so a reply can never write a file by mistake); a second table in `roadmap-loop.mjs` (the
 drift this change removes).
 
-## D-2 The end marker names the run's change (AC-2; ADR 0022 decision 2)
+## D-2 The end marker names the run's change (AC-2; ADR 0025 decision 2)
 
 `guard.mjs`: `runMarkers` captures the end's id, `{ end: { id, state } }`; `runOf` sets
 `ended = mark.end.state` only when `mark.end.id === change` (the newest `devkit-run:` id), and leaves
@@ -190,7 +190,7 @@ drift this change removes).
 reader (`roadmapRunOf`) and the run-line reader at `guard.mjs` line 861 read `mark.run` only and do
 not change. `stopDecision` in `change-loop.mjs` is unchanged: it trusts `run.ended`.
 
-## D-3 One fix after a red gate (AC-10; ADR 0022 decision 4)
+## D-3 One fix after a red gate (AC-10; ADR 0025 decision 4)
 
 - `declare <id> gate-red --param phase=<n>`: `nextAction` must be the session step `gate` whose
   `detail.phase` is `n` (else `declare-not-at-gate`, exit 3, nothing recorded). The command counts
@@ -219,7 +219,7 @@ not change. `stopDecision` in `change-loop.mjs` is unchanged: it trusts `run.end
   (so the run file holds it). `ship-change/SKILL.md` `gate` row: unchanged (ship-change is not the
   loop).
 
-## D-4 One more review round on the owner's word (AC-7; ADR 0022 decision 3)
+## D-4 One more review round on the owner's word (AC-7; ADR 0025 decision 3)
 
 Two reviews can reach a deadlock: the change's code review and, in `two-prs`, the review of a
 conflict resolution on the support branch (`deliver-check.mjs` lines 1621 and 1635, the
@@ -245,7 +245,7 @@ therefore lifts two bounds of the code review by one each, and one bound of the 
 | The resolution review's round limit | `deliver-check.mjs` `res.limit` | 2 | 2 | 2 + m (m records) |
 
 Because both bounds of the code review rise together, each authorization hands exactly one more round
-whichever of them binds (ADR 0022 decision 3): with the shipped flows both are 2; under a flow whose
+whichever of them binds (ADR 0025 decision 3): with the shipped flows both are 2; under a flow whose
 `review` ceiling is 1 (the synthetic version 2 of `version-pin.test.mjs`) the stage ceiling binds and
 an authorization still gives one round. T113 pins the shipped flows' `review` ceiling to
 `REVIEW_ROUNDS`.
@@ -334,7 +334,7 @@ new tests T105 to T109 hold under either count: none of their fixtures has a pas
 failure, so the count equals `attempt`. This change merges `origin/main` before its last gate (task
 6.1), so the merged head is what the whole suite of 6.6 and the real runs prove.
 
-## D-5 A conflict outside the release files (AC-13; ADR 0022 decision 5)
+## D-5 A conflict outside the release files (AC-13; ADR 0025 decision 5)
 
 - `conduct-check.mjs` `releaseConflict` (the override): where it returns `stop(... conflict in
   ${others})` today, it returns `step('resolve-base-conflict', 'the PR conflicts with <base> outside
@@ -356,7 +356,7 @@ failure, so the count equals `attempt`. This change merges `origin/main` before 
   --param why=role-failed --param stage="<stageTitle>"`." `ship-change/SKILL.md` gains the row
   `resolve-base-conflict` with the same dispatch sentence.
 
-## D-6 A task for the conducting session (AC-9; ADR 0022 decision 6)
+## D-6 A task for the conducting session (AC-9; ADR 0025 decision 6)
 
 - The marker: a task whose description (the text after its id) starts with `Conductor:`.
 - `deliver-check.mjs` `parseTasks`: each task gains `isConductor: description.startsWith('Conductor:')`
@@ -384,7 +384,7 @@ failure, so the count equals `attempt`. This change merges `origin/main` before 
 - This change's own `tasks.md` uses no marker (it is written before the marker exists); the tasks the
   conducting session does are named in D-14.
 
-## D-7 A plan revised after the start (AC-8; ADR 0022 decision 7)
+## D-7 A plan revised after the start (AC-8; ADR 0025 decision 7)
 
 - `deliver-check.mjs`: `planDigest(dir)` is the one digest of the plan: SHA-256 over, in this order,
   `proposal.md`, `design.md`, `tasks.md` and every `.md` file under `specs/` sorted by its path
@@ -483,7 +483,7 @@ and its output files, and writes no sentence when that line is missing or does n
 - `docs/adr/0011-the-change-coordinator-is-the-owners-session.md`: a Note after the last Note of
   `## Context`: "Note (coordinator-loop-fixes, <date of the edit>): the stop lock lets the session end
   its turn after a recorded end only when that end's `devkit-end:` line names the run's change, and
-  the ends a session declares outside the stage gates are those of ADR 0022." (ADR 0022 written as a
+  the ends a session declares outside the stage gates are those of ADR 0025." (ADR 0025 written as a
   relative link to its file, as the other Notes link theirs.) "Decisions 1 to 3 are unchanged." `## Decision`
   is not touched.
 - `docs/openspec-flow.md`: the `devkit-lite` section records the two decisions of item 8 and item 9
@@ -499,12 +499,12 @@ and its output files, and writes no sentence when that line is missing or does n
   that the monitor wakes it on green checks, D-10); the person's language sentence (D-11, written from
   R10's recorded result).
 - `docs/coordination-design.md` line 185: "consensus; two rounds at most" becomes "consensus; two
-  rounds, one more for each the owner authorizes (ADR 0022)".
+  rounds, one more for each the owner authorizes (ADR 0025)".
 - Both schemas' review gate sentence "Gate: the reviewers reach consensus; two rounds at most."
   becomes "... two rounds at most, one more for each round the owner authorizes." (both copies).
-- `openspec/config.yaml` `context:` ADR list gains "0022 the loop declares every decision outside the
+- `openspec/config.yaml` `context:` ADR list gains "0025 the loop declares every decision outside the
   stage gates, and a revised plan goes back to its gates".
-- Every mention of "ADR 0022" follows the number the ADR has at the last merge of `origin/main` (the
+- Every mention of "ADR 0025" follows the number the ADR has at the last merge of `origin/main` (the
   ADR may be renumbered, `decisions.md`).
 
 ## D-13 The nits (AC-14)
@@ -725,7 +725,7 @@ Every new test's name starts `coordinator-loop-fixes AC-<n> T<k> `. "Loop CLI" t
 | T75 | 4 | for every role of the exported `AGENT_ROLES`, the exported `AGENT[role]` is `${PACKS[role]}:${role}`, and `COMMIT_AGENT` is `agentOf('commit-and-pr')` | loop | change-loop.test.mjs |
 | T76 | 4 | a map built from a `PACKS` with one pack changed differs from the shipped one (the test fails on a drift); `agentOf('owner')` is undefined | loop | change-loop.test.mjs |
 | T77 | 4 | project-loop's ADR reviewer agent is `agentOf('adr-reviewer')` | loop | project-loop.test.mjs |
-| T78 | 5 | ADR 0011 has a `Note (coordinator-loop-fixes, <date>)` naming the stop lock, the run's change and ADR 0022, and its `## Decision` section equals the text held in the test | doc | change-loop.test.mjs |
+| T78 | 5 | ADR 0011 has a `Note (coordinator-loop-fixes, <date>)` naming the stop lock, the run's change and ADR 0025, and its `## Decision` section equals the text held in the test | doc | change-loop.test.mjs |
 | T79 | 6 | `normalizeLang`'s fallback equals `userConfig.language.default` of devkit-openspec's `plugin.json` | loop | change-loop.test.mjs |
 | T80 | 6 | each `DECLARED` reply key rendered with `--lang '${user_config.language}'` and with `--lang ''`, with the parameters it needs (`id`, and `decision` for `waiting-owner-decision`), equals the pt-BR text and holds no `${` | loop CLI | change-loop.test.mjs |
 | T81 | 6 | `next` on a fixture change with `--lang '${user_config.language}'` gives the pt-BR reply of the same action | loop CLI | change-loop.test.mjs |
@@ -799,16 +799,16 @@ description changes; `gen-catalog.py --check` proves it). The tag is the loop's 
 
 ## Decisions and ADRs
 
-- ADR 0022 (proposed, `decisions.md`) is the decision behind D-1 to D-7; the plan follows its eight
+- ADR 0025 (proposed, `decisions.md`) is the decision behind D-1 to D-7; the plan follows its eight
   points. Read for this plan: ADR 0010 (decisions 3, 5, 6, 8), ADR 0011, ADR 0016, ADR 0017, ADR 0021
   (only the owner's own typed message is a go-ahead), ADR 0002 and ADR 0003 (merge mode, unchanged).
 - Not recorded as an ADR, per `decisions.md`: the verifier's `proof/` folder, the host-monitor wait,
   the shared agent map, the language check, the nits and the two `devkit-lite` decisions.
-- Rejected alternatives that an ADR already rejected are not used: no fifth end state (ADR 0022), no
-  unbounded fix loop (ADR 0022, ADR 0010 decision 3's ceilings), no authorization from any message
+- Rejected alternatives that an ADR already rejected are not used: no fifth end state (ADR 0025), no
+  unbounded fix loop (ADR 0025, ADR 0010 decision 3's ceilings), no authorization from any message
   (ADR 0011, ADR 0021), no lifting of the edit lock for a conductor task (ADR 0010 decision 8, ADR 0011
   decision 2).
-- ADR 0022 decision 3 ("recorded from the owner's session ... a message from another session or
+- ADR 0025 decision 3 ("recorded from the owner's session ... a message from another session or
   agent is no authorization", "each authorization hands exactly one round") covers the
   main-session-only `declare` command and a round of the resolution's review. Its wording was made
   precise in this revision (attempt 3 of the readiness review): the code review's deadlock the loop
@@ -821,7 +821,7 @@ description changes; `gen-catalog.py --check` proves it). The tag is the loop's 
 | Option | Why not |
 |---|---|
 | Count red gates from the transcript instead of a record | The loop is a script that reads files; a transcript read by the loop would make the gate's bound depend on which session ran it |
-| Record the authorized round in `review.md` | `review.md` is the round's output; editing it is the hand-edited header ADR 0022 forbids |
+| Record the authorized round in `review.md` | `review.md` is the round's output; editing it is the hand-edited header ADR 0025 forbids |
 | Turn the stage walk's `ceiling-reached` on `review` into `waiting-review-dispute` in `decide` | It changes what the owner sees at every round-2 FAIL with no authorization (a blocked end becomes a wait), which AC-16 keeps as today, and the walk would still block a third round, so the ceiling would need lifting anyway |
 | Drop the `review` stage's numeric ceiling and let the delivery checker own the round limit | A `flow.json` change needs a new flow version, and a change under way keeps every rule of the version it opened with (`openspec/specs/change-stages/spec.md`, the version-pin requirement), so changes opened before it would keep the numeric ceiling anyway; one count read by both checkers keeps both bounds and lifts them together |
 | A `fix-gate` row in `ROWS` returned by the delivery checker | The checker cannot know the gate was red (the session ran it); a row no checker returns breaks the rows-match invariant |
@@ -830,7 +830,7 @@ description changes; `gen-catalog.py --check` proves it). The tag is the loop's 
 | Keep the resolution's review at two rounds | An authorization recorded at the resolution's deadlock would then change nothing, and the owner's word would be lost (readiness finding 2) |
 | Word the declared-steps record as a direct-write rule only | `guardBash` sees the command a subagent runs (it already judges `gh pr create` by its text), so the command can be refused at the same layer |
 | Record the plan digest in `readiness.md` | That changes what the readiness reviewer writes and every readiness ever written; the approval is the record the owner already writes from `next` |
-| Keep a blocked end for a conflict outside the release files and let the owner merge | The retro's finding; ADR 0022 decision 5 |
+| Keep a blocked end for a conflict outside the release files and let the owner merge | The retro's finding; ADR 0025 decision 5 |
 
 ## Risks / Trade-offs
 
@@ -839,7 +839,7 @@ description changes; `gen-catalog.py --check` proves it). The tag is the loop's 
 | A sibling lands a change to `END_OF_KEY`, `nextStep` or `artifactState` first and the merge conflicts | HIGH × MEDIUM | D-17; merge before the last gate; one full suite per merge that matters; ask a merge pause before the long evidence run |
 | `resolve-base-conflict` judges against a stale `origin/<base>` until `fresh-base-check` lands | MEDIUM × LOW | The implementer's merge shows the real conflict; a clean merge gives `update-branch` as today |
 | The implementer resolves a conflict wrongly | MEDIUM × MEDIUM | `verify` and `review` run before the push (D-5); `Outcome: failure` ends blocked |
-| A session declares `review-round` without the owner's typed message | LOW × HIGH | The skill rule (D-4) and the words recorded in `declared.json`; a subagent can neither write the file (edit tool or redirect, any change's folder) nor run `change-loop.mjs declare` (the `guardBash` rule of D-1, T98 to T104); the main session's own misuse rests on the skill rule and the recorded words, as the plan approval does; the review trigger of ADR 0022 |
+| A session declares `review-round` without the owner's typed message | LOW × HIGH | The skill rule (D-4) and the words recorded in `declared.json`; a subagent can neither write the file (edit tool or redirect, any change's folder) nor run `change-loop.mjs declare` (the `guardBash` rule of D-1, T98 to T104); the main session's own misuse rests on the skill rule and the recorded words, as the plan approval does; the review trigger of ADR 0025 |
 | A subagent's command names `node .../change-loop.mjs declare` inside a quoted string (a commit message) and is refused | LOW × LOW | The rule needs a `node` call before the script; the refusal names the main session, and the subagent rephrases (T102 pins the ordinary commit message) |
 | An authorization at one deadlock lifts the other review's limit | LOW × MEDIUM | Each entry records its `scope` from the deadlock it answers (D-4); T96, T97 |
 | The plan digest changes for an edit that is not a plan change (a header rewrite of `tasks.md`) | LOW × MEDIUM | Only `tasks.md`'s checkboxes are ignored; any other edit after the approval is a plan edit by the ADR, and asks the owner once |
@@ -905,7 +905,7 @@ exactly one round (D-4); `devkit-session` carries out every kind as the devkit s
 Loop says (`devkit-session/SKILL.md` item 3); a fixture can make `.openspec.yaml` unreadable with a
 folder at its path.
 
-**Dependencies:** ADR 0022 accepted at the plan approval (`accept-decisions`); no sibling change is
+**Dependencies:** ADR 0025 accepted at the plan approval (`accept-decisions`); no sibling change is
 required first.
 
 ## Open Questions
