@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=c30bfb8d0761b3f7f73f1f8ceaf94b8736f2ea53 -->
+<!-- devkit-stage review result=failed attempt=2 commit=8dcee767e6571680c851906a17ba978980a1316a -->
 # Review: forced-merge-path, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -104,3 +104,31 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: forced-merge-path, round 2
+
+Path: agents · range `c30bfb8d0761b3f7f73f1f8ceaf94b8736f2ea53..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 8dcee76 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 8dcee76 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 8dcee76 |
+| spec-reviewer | rejected | 0 | 1 | 1 | 0 | 8dcee76 |
+| test-coverage-reviewer | rejected | 0 | 2 | 2 | 0 | 8dcee76 |
+
+Consensus: FAIL (round 2/2)
+
+## Open findings
+- spec-reviewer — [important] specs/change-delivery/spec.md 'A review that did not pass' (deliver-check.mjs:947-962) — The gate at the merged head now treats an approved verdict that lists an undisposed finding as current only behind commits of the change's own review record (0934b63, tests G11 and G12). The spec scenario says only 'recorded before a product change'. The stricter rule, the 'fixed in <sha>' check through the GitHub compare route at the merged head, and the block on a compare error other than 404 are in no scenario. The change resolved this silently. Extend the scenario, or say it follows main's readReviews rule.
+- test-coverage-reviewer — [important] plugins/openspec/hooks/deliver-check.mjs:951-958 (inHead in gatesAtHead); deliver-check-archive.test.mjs G12 — No test puts a 'fixed in <sha>' whose compare answers behind, diverged or 404 on a verdict. If inHead always returned true, G11 and G12 would stay green and a finding fixed in a sha outside the merged head would pass as disposed. Write in deliver-check-archive.test.mjs, next to G12, with openGateRepo and compareFx('behind'|'diverged') or a 404 fixture; expect the stale-behind-head gate.
+- test-coverage-reviewer — [important] plugins/openspec/hooks/deliver-check.mjs:956-958 (historyError) — The rule 'a non-404 compare error blocks the gate' (return { error }) is asserted by no test. G9 covers contents-read errors but not the compare route in inHead. Dropping the historyError line, or treating the error as a 404, stays green. Write in deliver-check-archive.test.mjs beside G9: a 'fixed in' verdict whose compare answers a 500 or timeout, expecting { error }.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 FAIL: no convergence after round 2; escalated to the owner (no automatic third round). spec-reviewer F3 asks for a spec-delta scenario, which needs the owner's approval of the plan revision.
+
+## Next
+Consensus deadlock after round 2: the owner decides.
