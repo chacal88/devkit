@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=3 commit=bec9bf03e8ba0b5dc02c6ad2e719f9b7757f6e7c -->
+<!-- devkit-stage specs result=passed attempt=4 commit=fd29ac6c22ab2b8c385200a8f357d6d7796fd281 -->
 # Spec Delta
 
 ## MODIFIED Requirements
@@ -198,6 +198,62 @@ not on the default branch yet.
 #### Scenario: Resuming an archived change by its id
 - **WHEN** `/devkit change foo` names a change archived on the default branch
 - **THEN** the run continues `foo` as before this change, ending archived
+
+### Requirement: A run can carry a token budget
+`/devkit change` SHALL read an optional cap, a whole number of tokens, from `budget:` in the settings
+block of the change's `.openspec.yaml` (its `x-devkit:` block, or its `devkit:` block when the file has
+no `x-devkit:` block), else from `budget:` in the `devkit:` block of `openspec/config.yaml` as the
+change's own checkout holds it. With neither, or with an empty value, the run SHALL have no cap, and
+every output of the loop SHALL be what it is without the setting.
+
+#### Scenario: The project's cap
+- **WHEN** `openspec/config.yaml` has `budget: 2000000` in its `devkit:` block and the change's `.openspec.yaml` has no `x-devkit:` or `devkit:` block
+- **THEN** the cap of the change's run is 2000000 tokens
+
+#### Scenario: The change's cap wins for that change only
+- **WHEN** `openspec/config.yaml` has `budget: 2000000` in its `devkit:` block, change `a`'s `.openspec.yaml` has an `x-devkit:` block with `budget: 500000`, and change `b`'s has none
+- **THEN** the cap of `a`'s run is 500000 tokens and the cap of `b`'s run is 2000000 tokens
+
+#### Scenario: No budget anywhere
+- **WHEN** neither file has a `budget:` key in its settings block
+- **THEN** every output of `change-loop.mjs` is the same as before the setting existed, and no transcript is read for a count
+
+#### Scenario: An empty value
+- **WHEN** a settings block holds `budget:` with no value
+- **THEN** that file sets no cap, as if the key were absent
+
+#### Scenario: A key outside the devkit block
+- **WHEN** the change's `.openspec.yaml` holds a top-level `budget: 100` and no `x-devkit:` or `devkit:` block
+- **THEN** that line sets no cap, and the project's value, or no cap, applies
+
+#### Scenario: A quoted value, a comment and an unclosed quote
+- **WHEN** a settings block holds `budget: "2000000"  # two million`, or `budget: "2000000` with no closing quote
+- **THEN** the cap is 2000000 tokens, as the other settings of the block read a value
+
+#### Scenario: The change's block passes the strict validation
+- **WHEN** a change's `.openspec.yaml` holds an `x-devkit:` block with `budget: 2000000` and `openspec validate <id> --type change --strict` is run on the change
+- **THEN** the validation reports no unknown key for the file, and the cap of the change's run is 2000000 tokens
+
+#### Scenario: A devkit block written before the x-devkit block
+- **WHEN** a change's `.openspec.yaml` holds a `devkit:` block with `budget: 500000` and no `x-devkit:` block
+- **THEN** the cap of the change's run is 500000 tokens, as before
+
+#### Scenario: Both blocks in the change's file
+- **WHEN** a change's `.openspec.yaml` holds an `x-devkit:` block with `budget: 500000` and a `devkit:` block with `budget: 100`
+- **THEN** the cap of the change's run is 500000 tokens, read from the `x-devkit:` block alone
+
+### Requirement: The budget stop says how to go on
+The reply of a budget stop SHALL state, in the person's language, the tokens spent, the cap, the
+absolute path of the change's `.openspec.yaml` and the key `budget` of its `x-devkit:` block as the
+place to raise the cap, and that typing `/devkit change` again goes on.
+
+#### Scenario: In English
+- **WHEN** the run of `feat` stops at a cap of 2000000 with 2100000 tokens spent and the person's language is `en`
+- **THEN** the reply names `feat`, 2100000, 2000000, the absolute path of `feat`'s `.openspec.yaml`, `budget` in the `x-devkit` block and `/devkit change`
+
+#### Scenario: In Brazilian Portuguese
+- **WHEN** the same stop happens and the person's language is `pt-BR`
+- **THEN** the reply says the same in Brazilian Portuguese
 
 ## ADDED Requirements
 

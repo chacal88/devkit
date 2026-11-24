@@ -1,9 +1,10 @@
-<!-- devkit-stage proposal result=passed attempt=3 commit=bec9bf03e8ba0b5dc02c6ad2e719f9b7757f6e7c -->
+<!-- devkit-stage proposal result=passed attempt=4 commit=fd29ac6c22ab2b8c385200a8f357d6d7796fd281 -->
 # Proposal
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
 (source: `requirements.md`, the kept items 1, 2, 4 to 6, 8 to 18, 21 to 24 of its "Checked against main" list,
-item 3 dropped there as covered by main, and the coordinator's two field findings 25 and 26 of 2026-11-24;
+item 3 dropped there as covered by main, and the coordinator's four field findings 25 to 28 of 2026-11-24,
+checked again against `origin/main` c09860c;
 decision record: `decisions.md`, the change's ADR, accepted at the plan approval).
 
 ## Why
@@ -34,8 +35,10 @@ the second only where the plan says so (design D-19).
   the review in dispute (the code review, or in `two-prs` a conflict resolution's review); each
   review's round limit is 2 plus the rounds authorized for it, the code review stage's attempt
   ceiling in the stage walk rises by the same count (the loop meets that ceiling before the delivery
-  checker's deadlock), and the round script accepts a `limit` argument (default 2, so every round
-  without an authorization reads as today).
+  checker's deadlock; the walk compares the review's failures in a row, as main counts them since
+  `stage-ceiling-consecutive`, with that ceiling), and the round script accepts a `limit` argument
+  (default 2, so every round without an authorization reads as today). The record of declared steps is
+  no plan fix, so an uncommitted record never puts a `commit` before the authorized round's fix.
 - A pull request that conflicts with its base outside the release files gets the declared step
   `resolve-base-conflict` (the implementer merges the base and resolves it), in place of a blocked
   end; a release-only conflict keeps `resolve-release-conflict`. This covers a change's pull request and
@@ -48,7 +51,8 @@ the second only where the plan says so (design D-19).
 - The owner's approval records a digest of the plan files (ticks ignored), in the Claude session's
   approval and in the CompozyOS driver's `record-approval`; a plan file edited after the implementation
   started makes the readiness review stale and then the approval, so the revised plan goes back to its
-  gates.
+  gates. The planner's fix of a merge defect after a merge of the base (`post-merge-validate`) is such an
+  edit, with no exception (design D-7).
 - `pr-verifier` may write under the change's `proof/` folder; its definition says so.
 - With a host that has its own pull-request monitor and forbids polling, the session ends the turn
   without the background wait and says so; elsewhere the wait starts as today. Whether the desktop
@@ -63,6 +67,12 @@ the second only where the plan says so (design D-19).
   its own branch too, and the delivery checker's item 5 takes the merged pull request's head as met when
   it is an ancestor of such a head, so the change reaches the retro with no new evidence or review round;
   one helper (`headInBase`) tells it, shared with the own-files rule of ADR 0025 (design D-21).
+- A change's own `budget` and `models:` move to an `x-devkit:` block of its `.openspec.yaml`, which
+  `openspec validate <id> --type change --strict` accepts (it refuses the `devkit:` block the flow
+  document offers today); a `devkit:` block already written there is still read; the flow document shows
+  the block, and ADR 0023 gets a dated Note (design D-22).
+- `openspec/config.yaml` gains the rule that no test asserts the tick or the done state of a live roadmap
+  line, and the three tests that do follow it (design D-23).
 - Documents: a dated Note on ADR 0011, `docs/openspec-flow.md` (the two `devkit-lite` decisions, the
   declared steps, the round limit, the red gate), `docs/coordination-design.md`, the review gate
   sentence and the tasks instruction of both schemas, `openspec/config.yaml`'s ADR list.
@@ -92,9 +102,11 @@ the second only where the plan says so (design D-19).
 - AC-13 `resolve-outside-release-files`: a pull request that conflicts with the base outside the release files gets a declared resolve step; the run does not end blocked for it, and a conflict in the release files still uses `resolve-release-conflict`. Read as design D-5 reads it: the pull requests are a change's and an archive's that never left a delivery train; an archive that left a train and conflicts outside the release files and the roadmap ticks keeps its blocked `stop-archive`, and a change that left one keeps its own `rejoin-train`, both unchanged. In a project with a delivery train a change or an archive in conflict with its base boards the train and is not stopped (the delivery-train rows), so the step is met in a project without the train (design D-5).
 - AC-14 `nits-closed`: the change-coordination spec words the archive sources as their union; the project-setup spec states exit 1 of `github-setup` for a blocked state; a test covers an unreadable `.openspec.yaml`; project-loop T25 fails without the export; the roadmap scenario of the commit-attribution spec has a test of its own; T31 no longer counts a literal phrase.
 - AC-15 `short-script-decisions-recorded`: `docs/openspec-flow.md` records that `devkit-lite` has no plan approval of its own by decision and that a first-spec change follows the ordinary choice rule; no behaviour changes: `devkit-lite`'s stages and gates are the same before and after.
-- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13, AC-17 and AC-18 state; the existing suites stay green.
+- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13 and AC-17 to AC-20 state; the existing suites stay green.
 - AC-17 `archive-prefixed-id-own-pr`: a change whose id starts with `archive-` and whose pull request's head is its own id finds that pull request as its own, merged or open, so `next` goes on to the retro after its merge; a head `chore/archive-<id>` (or `archive-<id>`) is still the archive of change `<id>` and never its own pull request, and another change's `archive-` head is neither. A test per condition, negatives included, and a real `next` run on `archive-release-pin`.
 - AC-18 `delivered-advanced-branch-no-rereview`: a delivered change whose local branch was advanced into the base (its head contained in `origin/<base>`) goes to the retro with no new evidence or review round; on its own branch still ahead of the base, and for a change not delivered, the evidence and the reviews are judged as today.
+- AC-19 `stage-models-override-validates`: the per-change override of a stage's model that `docs/openspec-flow.md` documents and the strict validation agree: either the loop reads the table from a place `openspec validate <id> --type change --strict` accepts, or the document stops offering the change's own `.openspec.yaml`; the plan decides which. A test writes the table exactly as the document shows it, runs `openspec validate <id> --type change --strict` on that change and asserts exit 0, and asserts that `modelsOf` reads the table's values (or, if the document stops offering it, that the document no longer shows it). Decided by this plan: the `x-devkit:` block, for `budget` too (design D-22).
+- AC-20 `no-test-pins-live-roadmap-state`: the `context:` rules of `openspec/config.yaml`, beside "Test history", say that a test never asserts the tick or the done state of a live line of `openspec/roadmap.md`, and that a line's old content is held as a fixture or a constant. The tests of finding 28 follow that rule, each named in the plan's test table with its invariant and the layer that owns it: `post-merge-validate 3: ... and stays unticked` (if still present on the base when the phase runs; that change's own archive may fix it first), `jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry`, and `stage-roles docs: the roadmap line of stage-roles keeps its text, ...`. Each corrected test passes on the live roadmap and on a copy of it with the line it reads ticked.
 
 ## Capabilities
 
@@ -107,11 +119,13 @@ None.
 - `change-coordination`: the declared ends for a pause and for a decision outside the gates, the
   declared fix after a red gate, the owner-authorized review round, the resolve step for a conflict
   outside the release files (not for an archive that left a train), the session step for a conductor
-  task, the wait with a host's own monitor, and the archive sources worded as their union.
+  task, the wait with a host's own monitor, the archive sources worded as their union, and a change's
+  budget read from the `x-devkit:` block of its `.openspec.yaml` (two modified requirements).
 - `coordination-locks`: a recorded end counts as the run's last action only when it names the run's
   change (a modified requirement, with the scenarios of the declared pause and decision).
-- `change-stages`: a plan revised after the implementation started goes back to its gates; the
-  code review stage's attempt ceiling is its declared ceiling plus the rounds the owner authorized;
+- `change-stages`: a plan revised after the implementation started goes back to its gates, a
+  merge-defect fix included; the code review stage's ceiling, which the failures in a row are compared
+  with, is its declared ceiling plus the rounds the owner authorized;
   after a merge the walk resumes at the retro on the change's own branch too when that branch was
   advanced into the base (a modified requirement).
 - `change-delivery`: a task marked for the conducting session is never handed to the implementer
@@ -124,10 +138,13 @@ None.
 - `file-writers`: the verifier's `proof/` folder, and the declared-steps record written only by the
   main session (no subagent writes the file or runs the command that writes it).
 - `project-setup`: exit 1 of `github-setup` for a blocked state.
+- `stage-models`: a change's table is read from the `x-devkit:` block of its `.openspec.yaml`, else
+  from its `devkit:` block (a modified requirement).
 
 ## Impact
 
-- `devkit-openspec` (minor bump): `plugins/openspec/hooks/change-loop.mjs`, `guard.mjs`,
+- `devkit-openspec` (minor bump): `plugins/openspec/hooks/change-loop.mjs`, `guard.mjs` (with
+  `parseDevkitBlock`'s key and `changeDevkitBlock`),
   `deliver-check.mjs`, `flow-check.mjs`, `conduct-check.mjs`, `roadmap-loop.mjs`, `project-loop.mjs`
   and their tests (`change-loop.mjs` also holds the CompozyOS driver's approval writer, `approvalText` and
   `recordApproval`); `skills/devkit/SKILL.md`, `skills/devkit-session/SKILL.md`,
@@ -139,21 +156,23 @@ None.
   `skills/compozy-setup/templates/agents/tdd-implementer/AGENT.md` and `.../pr-verifier/AGENT.md` are
   regenerated by `gen-agents.mjs` from the two core agent files, and this repository's `.compozy/` copies
   and `.compozy/kit-manifest.json` are installed again by `install-kit.mjs` (design D-19).
-- Docs: `docs/openspec-flow.md`, `docs/coordination-design.md`, ADR 0011's Note,
-  `openspec/config.yaml`'s ADR list, `CHANGELOG.md`, `.claude-plugin/marketplace.json`,
+- Docs: `docs/openspec-flow.md`, `docs/coordination-design.md`, ADR 0011's Note, ADR 0023's Note,
+  `openspec/config.yaml` (the ADR list, the settings comments and the `Live roadmap:` rule), `CHANGELOG.md`, `.claude-plugin/marketplace.json`,
   `openspec/roadmap.md` (the `host-monitor-wake` line), `docs/compozy-kit.md`. Versions: each changed pack
   and the marketplace take the next free minor at merge (design D-18); the plan names no version.
 - Dependencies: the change's ADR (accepted at the plan approval through `accept-decisions`); ADR
   0010 decisions 3, 5 and 6; ADR 0011 decision 2; ADR 0016; ADR 0017; ADR 0022 (the delivery train,
-  on in this repository); ADR 0023 (the stage models' retry); ADR 0025 (a base merge stales only on the
+  on in this repository); ADR 0023 (the stage models' retry, and decision 1's change override); ADR 0025 (a base merge stales only on the
   change's own files); ADR 0026 (the suite runs by file); ADR 0030 (no test holds a release's version).
   Sibling changes in flight touch the same files (design D-17); each phase that edits one of them opens
   with a merge of `origin/main`.
-- Exit criteria: `node scripts/test-suite.mjs` (the whole suite; with the train on, the train's own run
-  proves it in `evidence.md`, design D-18), the new tests under CI's branch variables, `python3 scripts/check.py`,
+- Exit criteria: every phase gate green (each runs the test files its phase touches with
+  `--concurrency=2`, design D-17; the whole suite runs only on the delivery train, at its head), the new
+  tests under CI's branch variables, `python3 scripts/check.py`,
   `python3 scripts/gen-catalog.py --check`, `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check`,
   `claude plugin validate .` and
-  `openspec validate coordinator-loop-fixes --strict` green on the merged head, and the real-run
+  `openspec validate coordinator-loop-fixes --strict` green on the merged head (the loop's own
+  `merge-check` after the last merge), and the real-run
   proofs of design D-14 recorded in `evidence.md`, and the roadmap line `host-monitor-wake` present
   in `openspec/roadmap.md`.
 - Open decisions inherited: none blocking. AC-11's second half (the desktop app's monitor waking the

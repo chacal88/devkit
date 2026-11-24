@@ -136,6 +136,53 @@ first two checked on c663f21, the third on this branch, the fourth on `origin/ma
     The rule "Test history" of `openspec/config.yaml` keeps tests off git history but says nothing of
     the live roadmap. No roadmap line owns it.
 
+## Checked against main again (2026-11-24, `origin/main` c09860c)
+
+Every kept item and AC-1 to AC-20 were read again against `origin/main` c09860c, merged into the
+branch at fd29ac6. Five delivery trains landed since the last check (c663f21): train 5 (49d865f, the
+archive of `release-merge-leftovers`), train 6 (d917ae0: `post-merge-validate` and
+`loop-place-and-evidence`), train 7 (52d191b: the archive of `loop-place-and-evidence`), train 8
+(086a53c: `project-slice-claim`, `state-skips-unlocated` and `jira-entry-followups`) and train 9
+(c09860c: `stage-ceiling-consecutive`). Main delivers none of the criteria, so nothing is dropped
+this time.
+
+### Changed: what the plan follows now
+
+- AC-7 (item 10), c09860c (`stage-ceiling-consecutive`): the stage walk ends a failed stage when its
+  failures in a row (`failuresInARow`, `raw.failures` in `computeFlow`) reach its ceiling, no longer
+  its header's attempt, and the reasons `header-failed`, `fix-after-failure` and `ceiling-reached`
+  carry `failures`. The criterion stands as written: while the code review has not passed, its
+  failures in a row are its rounds, so one authorization still hands one round. The plan compares the
+  failures with the lifted ceiling, and its tests assert `failures` (design D-4).
+- AC-8 (item 11), d917ae0 (`post-merge-validate`): after a merge of the base, a red
+  `openspec validate <id> --type change --strict` hands the planner a `merge-defect` step that edits
+  plan files after the implementation started. That change's own requirement "A merge-defect fix
+  follows the rule of every plan edit" adds no exception, so the criterion applies to the fix as
+  written: with an approval that records the plan's digest, the fix sends the plan back to the
+  readiness review and the owner; with an approval that records none, nothing is asked, as today
+  (design D-7).
+- AC-1 (item 1), 086a53c (`jira-entry-followups`): `runReply` takes `--stdin <name>`, which the
+  declared reply keys keep. d917ae0 (`loop-place-and-evidence`) added no key to `END_OF_KEY`.
+- AC-10 (item 15), d917ae0: `decide`'s `buildPart` now holds the place step
+  (`loop-place-and-evidence`) and the merge-check block (`post-merge-validate`) after it reads the
+  step; the fix after a red gate goes after the place step, and `gate` is not a step the merge check
+  precedes (design D-3).
+- AC-7, d917ae0 and 086a53c: the delivery checker gives a `commit` step for an uncommitted fix in the
+  change folder (`planDirty`) and before a review round (`folderDirty`). The record that `declare`
+  writes is left out of the first, so an authorized round goes to its fix with no extra commit
+  (design D-1).
+- AC-18 (item 26), partly overlapped by d917ae0 and 086a53c: the walk still switches to the walk after
+  the merge only off the change's own branch, so the criterion stands; the new `commit` rows mean the
+  real run keeps the change folder clean (design D-14, R17).
+- AC-17 (item 25): unchanged on c09860c (only lines moved). `archive-release-pin` waits on this change
+  for its own archive, so the real run stays on it (design D-14, R16).
+- Names moved in every hook file; the plan cites names, never lines.
+
+### Added to the plan
+
+- AC-19 (item 27) and AC-20 (item 28) had no plan step. Each now has its decision, its tasks, its
+  tests and, for AC-19, its spec deltas (design D-22 and D-23).
+
 ## Assumptions
 
 <!-- Each confirmed by the owner. Literal paths, fields, names. -->

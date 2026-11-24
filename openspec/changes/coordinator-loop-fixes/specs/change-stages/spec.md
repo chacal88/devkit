@@ -1,4 +1,4 @@
-<!-- devkit-stage specs result=passed attempt=3 commit=bec9bf03e8ba0b5dc02c6ad2e719f9b7757f6e7c -->
+<!-- devkit-stage specs result=passed attempt=4 commit=fd29ac6c22ab2b8c385200a8f357d6d7796fd281 -->
 # Spec Delta
 
 ## ADDED Requirements
@@ -42,53 +42,69 @@ as before.
 - **WHEN** a `devkit-lite` change edits a plan file after a task is ticked
 - **THEN** nothing is reported stale and no approval is asked, as before
 
+#### Scenario: A merge-defect fix is a plan edit
+- **WHEN** a task is ticked, `approval.md` records the plan's digest, a merge of the base made the plan's strict validation red, and the planner's fix of that merge defect edits a spec delta
+- **THEN** the plan readiness is reported stale because the plan changed after the approval, exactly as for an edit of `design.md`, and after the readiness runs again the owner is asked to approve again
+
+#### Scenario: A merge-defect fix under an approval with no digest
+- **WHEN** the same fix is made and `approval.md` records no plan digest
+- **THEN** neither the plan readiness nor the approval is reported stale, and the check of the plan after the merge runs again
+
 ## MODIFIED Requirements
 
 ### Requirement: Attempt ceilings and no progress stop the run
-A failed stage whose header attempt reaches its ceiling SHALL end the run as blocked with that
-reason. A stage's ceiling SHALL be the one the flow version the change follows declares, except the
-code review stage (`review`, role `review-bench`), whose ceiling SHALL be that declared ceiling plus
-the number of code-review rounds the session recorded as authorized by the owner in the change's
-record of declared steps. A round authorized for a conflict resolution's review, a record that cannot
-be read, and any other stage or review stage SHALL NOT change a ceiling. Given the previous run's
-progress key, the checker SHALL end the run as blocked when the same stage comes back and nothing in
-the working tree or history changed.
+A failed stage whose failures in a row reach its ceiling SHALL end the run as blocked with that
+reason, naming the attempt, the failures in a row and the ceiling. A stage's ceiling SHALL be the one
+the flow version the change follows declares, except the code review stage (`review`, role
+`review-bench`), whose ceiling SHALL be that declared ceiling plus the number of code-review rounds
+the session recorded as authorized by the owner in the change's record of declared steps. A round
+authorized for a conflict resolution's review, a record that cannot be read, and any other stage or
+review stage SHALL NOT change a ceiling. Given the previous run's progress key, the checker SHALL end
+the run as blocked when the same stage comes back and nothing in the working tree or history changed.
 
 #### Scenario: The ceiling is reached
-- **WHEN** the review's header says `result=failed attempt=2` and its ceiling is 2
-- **THEN** the run ends blocked, naming the review and its ceiling
+- **WHEN** the review's header says `result=failed attempt=2`, its file was committed with `result=failed` at attempt 1, and its ceiling is 2
+- **THEN** the run ends blocked, naming the review, its two failures in a row and its ceiling
+
+#### Scenario: Three failures in a row block a stage with a ceiling of three
+- **WHEN** the evidence's header says `result=failed attempt=3`, its file was committed with `result=failed` at attempts 1 and 2, and its ceiling is 3
+- **THEN** the run ends blocked with `ceiling-reached`, as before this rule
 
 #### Scenario: The same stage comes back with nothing changed
 - **WHEN** the checker is run with `--after` set to the progress key it printed last and nothing changed
 - **THEN** the run ends blocked, naming the stage that came back
 
 #### Scenario: One round authorized for the code review
-- **WHEN** the review's header says `result=failed attempt=2`, its declared ceiling is 2, and one code-review round is recorded as authorized
+- **WHEN** the review's header says `result=failed attempt=2` with two failures in a row, its declared ceiling is 2, and one code-review round is recorded as authorized
 - **THEN** the run does not end; the checker offers the review's fix stage with the ceiling 3, or the review again once a commit made its header stale
 
 #### Scenario: The authorized round failed too
-- **WHEN** the review's header says `result=failed attempt=3`, its declared ceiling is 2, and one code-review round is recorded as authorized
-- **THEN** the run ends blocked, naming the review and its ceiling 3
+- **WHEN** the review's header says `result=failed attempt=3` with three failures in a row, its declared ceiling is 2, and one code-review round is recorded as authorized
+- **THEN** the run ends blocked, naming the review, its three failures in a row and its ceiling 3
+
+#### Scenario: A pass before the failures
+- **WHEN** the review's file was committed with `result=passed`, then with `result=failed attempt=1`, its header now says `result=failed attempt=2`, its declared ceiling is 2, and one code-review round is recorded as authorized
+- **THEN** its two failures in a row are below the ceiling 3 and the checker offers the review's fix stage
 
 #### Scenario: Two rounds authorized
-- **WHEN** two code-review rounds are recorded as authorized and the review's header says `result=failed attempt=3`
-- **THEN** the run does not end; at `result=failed attempt=4` it ends blocked with the ceiling 4
+- **WHEN** two code-review rounds are recorded as authorized and the review's header says `result=failed attempt=3` with three failures in a row
+- **THEN** the run does not end; at `result=failed attempt=4` with four failures in a row it ends blocked with the ceiling 4
 
 #### Scenario: A round authorized for the resolution's review only
-- **WHEN** only a round for a conflict resolution's review is recorded and the review's header says `result=failed attempt=2` with a declared ceiling of 2
+- **WHEN** only a round for a conflict resolution's review is recorded and the review's header says `result=failed attempt=2` with two failures in a row and a declared ceiling of 2
 - **THEN** the run ends blocked, naming the review and its ceiling 2
 
 #### Scenario: Other stages keep their ceiling
-- **WHEN** one code-review round is recorded as authorized and the plan readiness or the evidence says `result=failed attempt=3` with a declared ceiling of 3
+- **WHEN** one code-review round is recorded as authorized and the plan readiness or the evidence says `result=failed attempt=3` with three failures in a row and a declared ceiling of 3
 - **THEN** the run ends blocked at that stage's ceiling 3
 
 #### Scenario: A review stage of another role
-- **WHEN** a script's `review` stage has a role other than `review-bench` (the ADR review of a project), its header says `result=failed attempt=2`, its ceiling is 2, and a code-review round is recorded as authorized
+- **WHEN** a script's `review` stage has a role other than `review-bench` (the ADR review of a project), its header says `result=failed attempt=2` with two failures in a row, its ceiling is 2, and a code-review round is recorded as authorized
 - **THEN** the run ends blocked at the ceiling 2
 
 #### Scenario: The flow version's own ceiling is the base
 - **WHEN** a change follows a flow version whose code review ceiling is 1, one code-review round is recorded as authorized, and the review's header says `result=failed attempt=1`
-- **THEN** the run does not end, and at `result=failed attempt=2` it ends blocked with the ceiling 2
+- **THEN** the run does not end, and at `result=failed attempt=2` with two failures in a row it ends blocked with the ceiling 2
 
 ### Requirement: After a merge the walk resumes at the retro
 Off the change's own branch (a default branch, the archive branch or no branch), or on its own
