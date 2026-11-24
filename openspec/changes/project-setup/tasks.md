@@ -337,21 +337,21 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   `grep -c "#### Scenario: The train verb" openspec/changes/project-setup/specs/change-coordination/spec.md`
   prints 2, and every `#### Scenario:` line of the two canonical requirements is in the delta.
 - [ ] 6.7 Only after `approval.md` holds the owner's approval of this plan: add the header line and
-  the dated Note of D-11 to `docs/adr/0004-devkit-per-project.md`. Set the record of
-  `decisions.md` to `accepted`, quoting `approval.md`. The record's number is the next free one on
-  `origin/main` at the last merge before review; its file name carries it today. Refer to it by
-  its file name, and write `<n>` in the Note and the header line of D-11 as that number. The record
-  was renamed to `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` at the plan
-  revision of 2026-11-24 (its old number 0025 went to `stale-only-on-own-files`); the guard kept the
-  plan stage from editing it, so this task also sets its title line to `# ADR 0031: ...` and its
-  `Number:` line to the reason of `decisions.md` (0031: the lowest number neither on `origin/main`
-  nor claimed by an open change), with no other change to the record. When the
-  last merge before review finds the number taken, the loop's renumber step at that merge renames the
-  file with `git mv` and moves every link, the ones this task wrote included. Check:
-  `grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md` prints 1, the record's
-  `Status:` line reads `accepted`, and
-  `grep -c "^# ADR 0031: " docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` prints 1
-  (or the number the renumber step gave it).
+  the dated Note of D-11 to `docs/adr/0004-devkit-per-project.md`. The record is the file
+  `docs/adr/<n>-one-setup-verb-replaces-the-two-setup-skills.md`: its number `<n>` is the next free
+  number on origin/main at the last merge before review, and its file name carries it today. Refer to
+  the record by its file name, and write `<n>` in the Note and the header line of D-11 as the number
+  that file name carries. The record's title line, its `Number:` line and its `- Status: accepted`
+  line are already set on the branch since `09654b7`: this task edits no line of the record, and
+  those lines move only with the loop's renumber step (`renumber-adr`). The record's `Accepted by:`
+  line is not rewritten after the owner's new approval of this plan, because it names `approval.md`,
+  which holds that approval, and the record's decision has not changed since it was accepted (D-11).
+  When the last merge before review finds the number taken, the renumber step at that merge renames
+  the file with `git mv` and changes every reference to it, the record's title and `Number:` lines
+  and the links this task wrote included. Check: the task's commit names no file under `docs/adr/`
+  other than `docs/adr/0004-devkit-per-project.md`, and
+  `set -- docs/adr/*-one-setup-verb-replaces-the-two-setup-skills.md && test $# -eq 1 && n=${1#docs/adr/} && n=${n%%-*} && grep -q "^# ADR $n: " "$1" && grep -q "^- Number: $n," "$1" && grep -q "^- Status: accepted$" "$1" && grep -q "^- Amended by ADR $n ($n-one-setup-verb-replaces-the-two-setup-skills.md)$" docs/adr/0004-devkit-per-project.md && test "$(grep -c "Note (project-setup" docs/adr/0004-devkit-per-project.md)" = 1`
+  exits 0 (it takes `<n>` from the record's file name, so it holds after a renumber).
 - [ ] 6.8 Bump devkit-openspec, devkit-compozy and the marketplace, each to the next free minor
   version on `origin/main` at the last merge before review. Use `plugins/openspec/.claude-plugin/plugin.json`,
   `plugins/compozy/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`. Move every CI

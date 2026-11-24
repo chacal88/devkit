@@ -610,9 +610,12 @@ for the kit (a folder under `skills/` is read as a skill, and `scripts/check.py`
 - The record `docs/adr/0031-one-setup-verb-replaces-the-two-setup-skills.md` is the adr-author's.
   Its number is the next free number on `origin/main` at the last merge before review; its file name
   carries that number today. When a later merge of `main` takes it, the loop's `renumber-adr` step
-  at that merge renames the file and moves every link. The implementation sets the status to
-  `accepted` with the plan approval's words, as earlier changes did. In the texts below, `<n>` is
-  that number.
+  at that merge renames the file and moves every link. Its title line, its `Number:` line and its
+  `Status: accepted` line are already set on the branch since `09654b7`; the implementation edits no
+  line of the record, and those lines move only with that renumber step (task 6.7). The record's
+  `Accepted by:` line is not rewritten after the owner's new approval of this plan, because it names
+  `approval.md`, which holds that approval, and the record's decision has not changed since it was
+  accepted. In the texts below, `<n>` is that number.
 - ADR 0004, after plan approval, by the implementation: a header line
   `- Amended by ADR <n> (<file>)` under the existing one, and a dated Note at the top of its Context:
   "Note (project-setup, <date>): the setup is the verb `/devkit setup` of the `devkit` skill
