@@ -33,16 +33,16 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
   assumption grep of `design.md`: `grep -rn "\.listen(" plugins scripts --include='*.mjs'` finds only
   `plugins/openspec/hooks/test-fixtures.mjs:622`. Check: both outputs are as stated. Any other hit means stop and report it to the
   conducting session.
-- [x] 1.2 Write the ten tests of `design.md` D-2 in `plugins/openspec/hooks/test-suite.test.mjs`, with
+- [x] 1.2 Write the twelve tests of `design.md` D-2 in `plugins/openspec/hooks/test-suite.test.mjs`, with
   the namespace import `import * as suiteScript from '../../../scripts/test-suite.mjs';` beside the
   existing named import. Do not touch `scripts/test-suite.mjs` yet. Check (red, not a gate): the
-  command of 1.1 exits 1. The ten new tests fail, and test 1 fails on its `bound` assertion with
+  command of 1.1 exits 1. The twelve new tests fail, and test 1 fails on its `bound` assertion with
   `EINVAL` (AC-4: red on the script before this change), not on a load or link error. The 18 existing tests pass.
 - [x] 1.3 Implement `design.md` D-1 in `scripts/test-suite.mjs`: the exports `SOCKET_PATH_MAX_BYTES`,
-  `SOCKET_TAIL_BYTES`, `RUN_ROOT_NAME_BYTES`, `SHORT_TMP`, `runRootLimit`, `runRootFits` and
+  `SOCKET_TAIL_BYTES`, `RUN_ROOT_NAME_BYTES`, `SHORT_TMP`, `runRootLimit`, `runRootBytes`, `runRootFits` and
   `makeRunRoot`; the `makeRunRoot` call last inside `main`'s `try`, with the third parameter `short`;
   the `run root:` line before the first `start` line; the header comment and the line-141 comment.
-  Check: the command of 1.1 shows the ten new tests passing (AC-2, AC-3, AC-4). The only failures
+  Check: the command of 1.1 shows the twelve new tests passing (AC-2, AC-3, AC-4). The only failures
   are the two that D-3 predicts (`suite-speed AC-4 each file runs in its own empty TMPDIR ...` and
   `suite-speed AC-4 a symlinked TMPDIR gives each file a real path`), each on its run-root parent assertion.
 - [x] 1.4 Apply `design.md` D-3 to the existing tests: the default base `tmpFolder('devkit-b-')` in
@@ -96,7 +96,7 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
   test fails on its `bound` assertion with `EINVAL`. Then `git worktree remove --force` that folder, and
   `git worktree list` no longer shows it.
 - [x] 3.4 Test names. Compare the sorted test names of `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`
-  with the baseline of 1.1. Check: they are equal except for the ten `suite-socket-path AC-` names that
+  with the baseline of 1.1. Check: they are equal except for the twelve `suite-socket-path AC-` names that
   `design.md` D-2 adds; none is renamed or lost (AC-4).
 - [x] 3.5 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py` green (the project's test command; AC-1, whose default-`TMPDIR` run is 3.1).
 

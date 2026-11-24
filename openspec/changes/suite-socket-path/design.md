@@ -32,10 +32,13 @@ copy of these numbers in a test):
 - `runRootLimit(fileCount)`: `SOCKET_PATH_MAX_BYTES - SOCKET_TAIL_BYTES - (1 + Math.max(2, String(fileCount - 1).length))`.
   71 for 1 to 100 files, 70 from 101. The place width is computed, so a suite that grows past 100 files
   cannot quietly push a socket path over again.
-- `runRootFits(realBase, fileCount)`: `Buffer.byteLength(realBase) + RUN_ROOT_NAME_BYTES <= runRootLimit(fileCount)`.
+- `runRootBytes(realBase)`: `Buffer.byteLength(realBase) + RUN_ROOT_NAME_BYTES`, the one place that adds the run root's name.
   Bytes, not characters (a non-ASCII folder name counts its UTF-8 bytes).
+- `runRootFits(realBase, limit)`: `runRootBytes(realBase) <= limit`. `main` passes `runRootLimit(files.length)` as the limit;
+  `tryRunRoot` (inside `makeRunRoot`) decides through this function and quotes `runRootBytes` in its reason, so the test of the
+  byte count guards production.
 - `makeRunRoot({ tmp, short, limit })` returns `{ runRoot, line }`. In order:
-  1. `realBase = realpathSync(tmp)`. If it resolves and `Buffer.byteLength(realBase) + RUN_ROOT_NAME_BYTES <= limit`,
+  1. `realBase = realpathSync(tmp)`. If it resolves and `runRootFits(realBase, limit)`,
      try `mkdtempSync(join(realBase, 'devkit-suite-'))`; on success return it with `line: null`.
      The reason recorded for the next step: `its run root would take <n> bytes, over <limit>, and a Unix socket path under it would pass 103 bytes`
      when it does not fit, or `cannot be used: <error.code or message>` when `realpathSync` or
@@ -96,8 +99,10 @@ The new tests: one per labelled branch and condition, negatives included.
 | 6 | `AC-3 when the short folder is too long as well, a usage error names both folders and nothing is made` | `tmp` and `short` both `tmpFolder`s, `limit` below both. Asserts: throws `UsageError` (`name === 'UsageError'`) whose message starts `no folder can hold the run root: ` and names both real paths; both folders empty | AC-3 |
 | 7 | `AC-3 when the short folder cannot be used either, a usage error names both folders` | `tmp` too long for `limit`; `short` under a regular file. Same assertions, and the message holds `cannot be used: ENOTDIR` | AC-3 |
 | 8 | `AC-3 when no folder can hold the run root, the script exits 2 with the usage before any file runs` | first asserts `typeof suiteScript.makeRunRoot === 'function'`, so on the plan base's script it fails before running anything; then in-process `suiteScript.main([], root, shortUnderAFile)` on a `tree(...)` with one probe, with `process.env.TMPDIR` set to the long base of test 1 and put back in `finally` (CONTRIBUTING, testing paragraph: a test that calls in-process code under the temporary root points it at a `tmpFolder` and restores it). `process.stdout.write` and `process.stderr.write` are swapped for collectors around the call and put back in `finally`. The swap is safe because the refusal returns before the first `await` of `main`. Asserts: result 2; stderr holds `no folder can hold the run root` and `usage: node scripts/test-suite.mjs`; no `start ` line in stdout; the long base is empty | AC-3 |
-| 9 | `AC-4 the run root fits by bytes: 51 fits, 52 does not, a non-ASCII byte counts` | pure: `runRootFits('/' + 'a'.repeat(50), 1)` true; `'/' + 'a'.repeat(51)` false; `'/' + 'é' + 'a'.repeat(48)` (51 bytes, 50 characters) true and `'/' + 'é' + 'a'.repeat(49)` false. The lengths are built from `suiteScript.runRootLimit(1) - suiteScript.RUN_ROOT_NAME_BYTES`, never a literal 51 | AC-4 |
-| 10 | `AC-4 the run-root limit leaves room for a wider place: 71 up to 100 files, one less from 101` | pure: `runRootLimit(1) === runRootLimit(100)`, `runRootLimit(101) === runRootLimit(100) - 1`, and `runRootLimit(100) + 3 + suiteScript.SOCKET_TAIL_BYTES === suiteScript.SOCKET_PATH_MAX_BYTES` | AC-4 |
+| 9 | `AC-4 the run root fits by bytes: 51 fits, 52 does not, a non-ASCII byte counts` | pure, with `limit = suiteScript.runRootLimit(1)`: `runRootFits('/' + 'a'.repeat(50), limit)` true; `'/' + 'a'.repeat(51)` false; `'/' + 'é' + 'a'.repeat(48)` (51 bytes, 50 characters) true and `'/' + 'é' + 'a'.repeat(49)` false. The lengths are built from `suiteScript.runRootLimit(1) - suiteScript.RUN_ROOT_NAME_BYTES`, never a literal 51 | AC-4 |
+| 10 | `AC-4 the run-root limit leaves room for a wider place: 71 up to 100 files, one less from 101` | pure: `runRootLimit(1) === runRootLimit(100)`, `runRootLimit(101) === runRootLimit(100) - 1`, and `runRootLimit(1) + 1 + 2 + suiteScript.SOCKET_TAIL_BYTES === 103`, the literal being the macOS `sun_path` size (104) less the terminator | AC-4 |
+| 11 | `AC-4 a TMPDIR over the limit by bytes but under it by characters puts the run root under the short folder` | in-process: `tmp` is a folder named `ééé` (six bytes) made with `mkdirSync` under a `tmpFolder`, `short = tmpFolder('devkit-sh-')`, `limit` is the character count of `realpathSync(tmp)` plus `RUN_ROOT_NAME_BYTES`, so the bytes are over it and the characters are not. Asserts: root under `realpathSync(short)`; a `run root: ` line; `tmp` empty. It fails if `tryRunRoot` counted characters | AC-4 |
+| 12 | `AC-4 a TMPDIR of exactly the longest base keeps the run root inside it and a socket bound at 103 bytes` | the BIND probe of test 1 under a base whose real path is exactly `runRootLimit(1) - RUN_ROOT_NAME_BYTES` bytes (51), nested folders under a `tmpFolder` with the last name padded, or a unique padded folder under `realpathSync(SHORT_TMP)` removed in a `finally` when the test's own `TMPDIR` is too long for that. Asserts: exit 0; `bound === true`; the run root is exactly `runRootLimit(1)` bytes and the socket path 103; no `run root: ` line; the run root is under the real base and removed; `readdirSync(base)` is empty | AC-4 |
 
 Test 1 is the regression test. On the plan base's script, the child's `TMPDIR` is at least
 60 + 20 + 3 = 83 bytes and the socket path at least 112 (over macOS's 104 and Linux's 108), so
@@ -134,7 +139,7 @@ suite-speed evidence's form, the test's own `TMPDIR` is long enough to push the 
 fallback. They do not change meaning in the gate environments: on a default Mac and on CI, the inner base
 is 51 or 43 bytes and the "fits" branch runs, as before. On macOS the 51 is exactly at the limit, so
 the margin is zero. Risk R-2 covers this. The sorted test names before and after are equal except for
-the ten tests that D-2 adds: no test is renamed or removed.
+the twelve tests that D-2 adds: no test is renamed or removed.
 
 The file's line 1 already says to run it alone with `node scripts/test-suite.mjs <file>`. Run bare with
 `node --test` under the default macOS `TMPDIR` (56 bytes), the bases are 72 bytes or more, so the
@@ -168,7 +173,7 @@ Estimate: optimistic 4 h, likely 6 h, pessimistic 9 h (the whole suite takes abo
 
 | Deliverable | Hours | Type | Risk |
 | --- | --- | --- | --- |
-| Ten new tests, red on the base (D-2) | 2.5 | Testing | MEDIUM: the in-process test 8 |
+| Twelve new tests, red on the base (D-2) | 2.5 | Testing | MEDIUM: the in-process test 8 |
 | `makeRunRoot`, the limit, `main` wiring (D-1) | 1.5 | Core | LOW |
 | Existing tests' prefixes and `runParent` (D-3) | 0.5 | Testing | MEDIUM: the zero margin on macOS |
 | CONTRIBUTING paragraph (D-4) | 0.5 | Documentation | LOW |
@@ -184,7 +189,7 @@ Risks:
   `main`'s parameter by a two-line wrapper module in the tree.
 - R-2 The macOS inner base in D-3 is exactly at the limit (51 bytes). A longer short root, a wider place, or
   a longer prefix would push those tests to the fallback. (LOW × LOW.) Mitigation: `runParent` keeps them green
-  either way. Test 10 pins the limit's arithmetic.
+  either way. Tests 10 and 12 pin the limit's arithmetic and its real boundary.
 - R-3 A run killed with SIGKILL leaves its root in `/private/tmp` instead of in `TMPDIR`. (LOW × LOW.)
   Mitigation: same as today (the `finally` covers SIGINT and SIGTERM); the root's name says what it is.
 - R-4 A sibling release takes the version numbers first. (MEDIUM × LOW.) Mitigation: the numbers are taken at the last

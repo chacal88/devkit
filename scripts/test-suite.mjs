@@ -147,9 +147,14 @@ export function runRootLimit(fileCount) {
   return SOCKET_PATH_MAX_BYTES - SOCKET_TAIL_BYTES - (1 + Math.max(2, String(fileCount - 1).length));
 }
 
-// Whether a run root made under the real path `realBase` fits (bytes, not characters).
-export function runRootFits(realBase, fileCount) {
-  return Buffer.byteLength(realBase) + RUN_ROOT_NAME_BYTES <= runRootLimit(fileCount);
+// The bytes of a run root made under the real path `realBase` (bytes, not characters): the one place that adds its name.
+export function runRootBytes(realBase) {
+  return Buffer.byteLength(realBase) + RUN_ROOT_NAME_BYTES;
+}
+
+// Whether a run root made under the real path `realBase` fits `limit` (runRootLimit of the file count).
+export function runRootFits(realBase, limit) {
+  return runRootBytes(realBase) <= limit;
 }
 
 function failure(shown, error) {
@@ -164,9 +169,8 @@ function tryRunRoot(folder, limit) {
   } catch (error) {
     return failure(folder, error);
   }
-  const need = Buffer.byteLength(real) + RUN_ROOT_NAME_BYTES;
-  if (need > limit) {
-    return { shown: real, reason: `its run root would take ${need} bytes, over ${limit}, and a Unix socket path under it would pass ${SOCKET_PATH_MAX_BYTES} bytes` };
+  if (!runRootFits(real, limit)) {
+    return { shown: real, reason: `its run root would take ${runRootBytes(real)} bytes, over ${limit}, and a Unix socket path under it would pass ${SOCKET_PATH_MAX_BYTES} bytes` };
   }
   try {
     return { runRoot: mkdtempSync(join(real, 'devkit-suite-')) };
