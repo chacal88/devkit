@@ -623,7 +623,8 @@ test('conduct: a conflict that also has README.md is resolve-base-conflict, and 
 
 // Invariant (release-merge-leftovers AC-3): under the two-PR delivery model the release-merge override merges the
 // base branch (the repository's default branch, ADR 0018 decision 2), never the test branch, and a conflict outside
-// the release files stays blocked. Layer: conduct-check's releaseConflict over deliver-check's two-prs item 5.
+// the release files is the resolve-base-conflict hand-off on the base branch (coordinator-loop-fixes D-5). Layer:
+// conduct-check's releaseConflict over deliver-check's two-prs item 5.
 // Suite: conduct-check.test.mjs (loaded by guard.test.mjs).
 const TWO_PRS_CONFIG = `schema: devkit-lite\n${TWO_PRS}`;
 function twoPrsConflict(conflicts) {
@@ -654,12 +655,16 @@ test('conduct: under two-prs, a change PR in conflict only in release files is r
   assert.equal(c.deliver.next.conflict, true);
 });
 
-test('conduct: under two-prs, a conflict that also has README.md is blocked (release-merge-leftovers AC-3)', () => {
+test('conduct: under two-prs, a conflict that also has README.md is resolve-base-conflict on the base branch (release-merge-leftovers AC-3)', () => {
   const { t, b } = twoPrsConflict(['CHANGELOG.md', 'README.md']);
   const c = byId(t.state(), 'b');
   assert.ok(listedBases(t, b).includes('develop'), 'the two-prs model is in force');
-  assert.deepEqual(planStep(c), ['blocked', 'stop']);
-  assert.equal(c.state, 'blocked: item 5 (conflict in README.md)');
+  assert.deepEqual(planStep(c), ['resolve-base-conflict', 'subagent']);
+  assert.equal(c.next.agent, TDD);
+  assert.deepEqual(c.next.paths, ['CHANGELOG.md', 'README.md']);
+  assert.deepEqual(c.next.others, ['README.md']);
+  assert.equal(c.next.base, 'main', 'the base branch, never the test branch develop');
+  assert.equal(c.state, 'ready to run: resolve-base-conflict');
 });
 
 test('conduct: git merge-tree exit 0 (GitHub is stale) keeps what deliver-check says in pr mode', () => {

@@ -177,7 +177,7 @@ every task with `git status --short`.
   `stage-ceiling-consecutive` test of those files among them); and the other D-15 tests kept for this rule pass by name:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^delivery-models P7" --test-name-pattern="^delivery-models AC-7" --test-name-pattern="^review-openspec-fix" --test-name-pattern="^jira-entry-followups AC-" --test-name-pattern="^loop-evidence" --test-name-pattern="^change-loop decide: B10" --test-name-pattern="^change-loop decide: P9" --test-name-pattern="^stage-ceiling-consecutive" --test-name-pattern="^version-pin AC-2 readout" --test-name-pattern="^version-pin AC-3 readout" --test-name-pattern="^roadmap-loop decide: an end action" plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs`
   passes.
-- [ ] 2.4 D-5: `releaseConflict` and `SUBAGENT` in `plugins/openspec/hooks/conduct-check.mjs` (`trainRejoin` and `deliveryRow`'s
+- [x] 2.4 D-5: `releaseConflict` and `SUBAGENT` in `plugins/openspec/hooks/conduct-check.mjs` (`trainRejoin` and `deliveryRow`'s
   order are not edited), `ROWS` in `change-loop.mjs` (`resolve-base-conflict` is not added to `SKILL_LOOP_STEPS`, so
   the compozy view takes its dispatch sentence from the `ship-change` row), the `resolve-base-conflict` row of
   `plugins/openspec/skills/ship-change/SKILL.md` (the merge sentence) and the `resolve-base-conflict` item of
