@@ -217,7 +217,7 @@ merge before review"; the numbers at the plan base are given only to locate the 
 
 ## 3. Release, the spec proof and the whole suite (AC-1, AC-4)
 
-- [ ] 3.1 Bump devkit-panel (`plugins/panel/.claude-plugin/plugin.json`) and devkit-openspec
+- [x] 3.1 Bump devkit-panel (`plugins/panel/.claude-plugin/plugin.json`) and devkit-openspec
   (`plugins/openspec/.claude-plugin/plugin.json`) each by a patch, to the next free number on
   origin/main at the last merge before review, the same two in `.claude-plugin/marketplace.json`, and
   the marketplace's `metadata.version` by a patch, likewise. Add at the top of `CHANGELOG.md` a section
@@ -228,7 +228,7 @@ merge before review"; the numbers at the plan base are given only to locate the 
   since devkit-openspec 0.29.0), and one for the spec (`commit-attribution` drops the scenario and the
   mention of `push-rebased`). Check: `python3 scripts/check.py` and
   `python3 scripts/gen-catalog.py --check` pass.
-- [ ] 3.2 Move the CI pin to the new devkit-openspec version: the `v0.33.0` of
+- [x] 3.2 Move the CI pin to the new devkit-openspec version: the `v0.33.0` of
   `docs/openspec-flow.md` (lines 661, 662 and 675 at the plan base, four occurrences) become
   `v<devkit-openspec version>`. In the same commit, in `plugins/openspec/hooks/change-loop.test.mjs`,
   test `change-loop docs: the design records the answers`: the invariant comment (line 2577) says

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.43.0 — release-merge leftovers
+
+- **devkit-openspec** 0.38.1: a conduct-check test runs the release-merge override under the two-PR delivery model, with
+  the base and the test branch apart; the CI snippet now pins `v0.38.1`, the release's tag.
+- **devkit-panel** 0.3.1: the step table and the label table drop `push-rebased`, which no checker has returned since
+  devkit-openspec 0.29.0.
+- **Spec** (`commit-attribution`): drops the scenario and the mention of `push-rebased`.
+
 ## 0.42.0 — the test suite runs by file, in parallel
 
 - **Repository** (`scripts/test-suite.mjs`, `CLAUDE.md`, `CONTRIBUTING.md`, `openspec/config.yaml`): one command,
