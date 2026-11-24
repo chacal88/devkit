@@ -13,6 +13,7 @@ import * as D from './deliver-check.mjs';
 import * as R from './release-merge.mjs';
 import * as C from './conduct-check.mjs';
 import { git, put, commitAll, shipRepo, GIT_ENV } from './test-fixtures.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import {
   REL_FILE, REL_CONFIG, NOTE_TEXT, ASSIGNED_CHANGELOG, CHANGELOG0, releaseLayout, noteRepo, stepCommit, baseReleases, noteShip, tickAll, driveToReady,
 } from './deliver-check-fixtures.mjs';
@@ -485,4 +486,189 @@ test('release-note AC-9 boundary: deliver-check.mjs names no relative module but
   const source = readFileSync(join(here, 'deliver-check.mjs'), 'utf8');
   const specifiers = [...source.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*)['"](\.{1,2}\/[^'"]+)['"]/g)].map((m) => m[1]);
   assert.deepEqual([...new Set(specifiers)].sort(), ['./guard.mjs', './merge-setup.mjs']);
+});
+
+// ---------------------------------------------------------------- AC-6: scripts/check.py reads both ADR forms (D-12)
+
+const CHECK_PY = join(here, '..', '..', '..', 'scripts', 'check.py');
+const runCheckPy = (root, env = {}) => {
+  const r = spawnSync('python3', [CHECK_PY, '--root', root], { encoding: 'utf8', env: { ...GIT_ENV, ...BLANK, ...env } });
+  return { code: r.status, out: r.stdout + r.stderr };
+};
+const adrText = (slug) => `# ADR [${slug}]: a decision\n\n- Status: proposed\n`;
+const listedBy = (dir, ...paths) => ({ [`${dir}/decisions.md`]: `# Decisions and ADRs\n\n${paths.map((p) => `- ADR: \`${p}\` — a decision`).join('\n')}\n` });
+const UNNUMBERED_FEAT = { 'docs/adr/feat.md': adrText('feat'), ...listedBy('openspec/changes/feat', 'docs/adr/feat.md') };
+const ON_BASE = /docs\/adr\/feat\.md: an unnumbered ADR on the base branch/;
+const NOT_LISTED = /docs\/adr\/feat\.md: an unnumbered ADR that no active openspec\/changes\/<id>\/decisions\.md lists/;
+// A repository on `main` (or `branch`) with one numbered record and `files`, all committed.
+function adrRepo(files = {}, branch = 'main') {
+  const root = tmpFolder('devkit-release-note-adrs-');
+  git(root, 'init', '-q', '-b', branch);
+  put(root, { 'docs/adr/0001-start.md': '# ADR 0001: Start\n\n- Status: accepted\n', ...files });
+  commitAll(root, 'base');
+  return root;
+}
+// `root` with a branch `feat` made from main's tip and one commit of `files` on it.
+function onFeat(root, files) {
+  git(root, 'checkout', '-q', '-b', 'feat');
+  put(root, files);
+  commitAll(root, 'feat');
+  return root;
+}
+
+test('release-note AC-6 check: on a change branch an unnumbered ADR its change lists is tolerated', () => {
+  const branch = onFeat(adrRepo(), UNNUMBERED_FEAT);
+  const r = runCheckPy(branch);
+  assert.equal(r.code, 0, r.out);
+  assert.equal(runCheckPy(adrRepo(UNNUMBERED_FEAT), { GITHUB_HEAD_REF: 'feat' }).code, 0, 'a pull request\'s head on CI is a branch, whatever is checked out');
+  const merge = adrRepo(UNNUMBERED_FEAT, 'pr-merge');
+  git(merge, 'checkout', '-q', '--detach');
+  const detached = runCheckPy(merge);
+  assert.equal(detached.code, 0, `a detached merge ref with no default branch is a branch: ${detached.out}`);
+});
+
+test('release-note AC-6 check: on main, and on a fresh branch at main\'s tip, an unnumbered ADR is refused as the base\'s', () => {
+  const main = adrRepo(UNNUMBERED_FEAT);
+  const r = runCheckPy(main);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, ON_BASE);
+  const fresh = adrRepo();
+  git(fresh, 'checkout', '-q', '-b', 'feat');
+  put(fresh, UNNUMBERED_FEAT);
+  const f = runCheckPy(fresh);
+  assert.equal(f.code, 1, f.out);
+  assert.match(f.out, ON_BASE, 'an uncommitted ADR on a branch at the base\'s tip reads as the base');
+  const numbered = runCheckPy(adrRepo({ 'docs/adr/0002-feat.md': '# ADR 0002: A decision\n' }));
+  assert.equal(numbered.code, 0, `numbered records pass on the base: ${numbered.out}`);
+});
+
+test('release-note AC-6 check: a train/<n> pull request is the base, and an unnumbered ADR on it is refused', () => {
+  const root = onFeat(adrRepo(), UNNUMBERED_FEAT);
+  const r = runCheckPy(root, { GITHUB_HEAD_REF: 'train/1' });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, ON_BASE);
+  assert.equal(runCheckPy(root, { GITHUB_HEAD_REF: 'train-notes' }).code, 0, 'only train/<n> is a train');
+});
+
+test('release-note AC-6 check: an unnumbered ADR no active change lists is refused, on a branch too', () => {
+  for (const [label, files] of [
+    ['no decisions.md', { 'docs/adr/feat.md': adrText('feat') }],
+    ['listed only by an archived change', { 'docs/adr/feat.md': adrText('feat'), ...listedBy('openspec/changes/archive/2026-11-01-feat', 'docs/adr/feat.md') }],
+    ['decisions.md lists another record', { 'docs/adr/feat.md': adrText('feat'), ...listedBy('openspec/changes/feat', 'docs/adr/other.md') }],
+  ]) {
+    const r = runCheckPy(onFeat(adrRepo(), files));
+    assert.equal(r.code, 1, `${label}: ${r.out}`);
+    assert.match(r.out, NOT_LISTED, label);
+    assert.doesNotMatch(r.out, ON_BASE, `${label}: a branch is not the base`);
+  }
+});
+
+test('release-note AC-6 check: two records with one slug are refused, across the two folders and numbered or not', () => {
+  const both = runCheckPy(onFeat(adrRepo(), { ...UNNUMBERED_FEAT, 'docs/decisions/0002-feat.md': '# ADR 0002: A decision\n' }));
+  assert.equal(both.code, 1, both.out);
+  assert.match(both.out, /a second ADR with the slug feat: docs\/adr\/feat\.md, docs\/decisions\/0002-feat\.md/);
+  const numbered = runCheckPy(adrRepo({ 'docs/adr/0002-feat.md': '# ADR 0002: A\n', 'docs/adr/0003-feat.md': '# ADR 0003: B\n' }));
+  assert.equal(numbered.code, 1, numbered.out);
+  assert.match(numbered.out, /a second ADR with the slug feat: docs\/adr\/0002-feat\.md, docs\/adr\/0003-feat\.md/);
+});
+
+test('release-note AC-6 check: a README.md and a file whose first line is not an ADR title are ignored; blank lines before the title are not', () => {
+  const ignored = runCheckPy(adrRepo({ 'docs/adr/README.md': '# Decision records\n\nOne file per decision.\n', 'docs/decisions/notes.md': '\n\nSome notes.\n' }));
+  assert.equal(ignored.code, 0, ignored.out);
+  const titled = runCheckPy(adrRepo({ 'docs/adr/feat.md': `\n\n${adrText('feat')}`, ...listedBy('openspec/changes/feat', 'docs/adr/feat.md') }));
+  assert.equal(titled.code, 1, titled.out);
+  assert.match(titled.out, ON_BASE);
+});
+
+test('release-note AC-6 check: a root that is not a git repository is the base', () => {
+  const root = tmpFolder('devkit-release-note-nogit-');
+  put(root, UNNUMBERED_FEAT);
+  const r = runCheckPy(root);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, ON_BASE);
+  assert.doesNotMatch(r.out, NOT_LISTED, 'its change lists it');
+});
+
+// ---------------------------------------------------------------- AC-14: the documents and agent texts (D-13)
+
+// The change's id, which is its ADR's slug. The texts cite that ADR as `ADR [<slug>]` before the delivery and `ADR <NNNN>` after it, and
+// name its file `<slug>.md`, then `<NNNN>-<slug>.md`: each pattern below takes both forms, so the step's rewrite leaves this test green.
+const SLUG = 'release-at-merge';
+const CITED = `ADR (?:\\[${SLUG}\\]|\\d{4})`;
+const FILED = `(?:\\d{4}-)?${SLUG}\\.md`;
+const repoText = (...parts) => readFileSync(join(here, '..', '..', '..', ...parts), 'utf8');
+const sectionOf = (text, heading) => (text.split(`\n${heading}\n`)[1] ?? '').split('\n## ')[0];
+
+test('release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR', async (t) => {
+  await t.test('agents: the planner, the ADR author and reviewer, the implementer and the readiness review', () => {
+    const planner = repoText('plugins', 'core', 'agents', 'change-planner.md');
+    for (const part of ['`release.md`', '`devkit.release_tag`', '`ADR [<slug>]`', 'no task bumps a version']) assert.ok(planner.includes(part), `change-planner names ${part}`);
+    assert.match(planner, /stop hook refuses your stop/, 'the planner knows the stop hook refuses a stop without the note');
+    assert.match(planner, /no `devkit\.release_tag`, write no `release\.md`/, 'without the setting the planner writes no note');
+
+    for (const file of [['agents', 'adr-author.md'], ['skills', 'adr-authoring', 'SKILL.md']]) {
+      const text = repoText('plugins', 'core', ...file);
+      for (const part of ['`devkit.release_tag`', '`docs/adr/<slug>.md`', '`# ADR [<slug>]: ', '`ADR [<slug>]`', '0001']) assert.ok(text.includes(part), `${file.join('/')} names ${part}`);
+      assert.match(text, /no ADR folder, create `docs\/adr\/` with the unnumbered record/, `${file.join('/')}: a project with no folder gets docs/adr/ unnumbered`);
+    }
+
+    const reviewer = repoText('plugins', 'core', 'agents', 'adr-reviewer.md');
+    for (const part of ['`docs/adr/<slug>.md`', '`ADR [<slug>]`', 'before its delivery']) assert.ok(reviewer.includes(part), `adr-reviewer names ${part}`);
+
+    const implementer = repoText('plugins', 'core', 'agents', 'tdd-implementer.md');
+    const never = sectionOf(implementer, '## Never');
+    for (const part of ['`release.md`', 'a version', 'a CHANGELOG line', 'a CI pin', 'an ADR number']) assert.ok(never.includes(part), `tdd-implementer never edits ${part}`);
+    assert.match(sectionOf(implementer, '## Escalate (return `failure` with the reason; don\'t force it)'), /release line/, 'a task asking for a release line is escalated');
+    assert.match(implementer, /apply-proposals call/, 'the apply-proposals call keeps its bump');
+
+    const readiness = repoText('plugins', 'core', 'skills', 'plan-readiness-review', 'SKILL.md');
+    for (const part of ['`release.md`', 'no task bumps a version', '`docs/adr/<slug>.md`']) assert.ok(readiness.includes(part), `plan-readiness-review names ${part}`);
+    const nextFree = readiness.split('\n').filter((l) => l.includes('next free number'));
+    assert.ok(nextFree.length > 0 && nextFree.every((l) => l.includes('old rule')), 'the next-free-number sentence is scoped to old-rule changes');
+
+    for (const agent of ['change-planner', 'adr-author', 'adr-reviewer', 'tdd-implementer']) {
+      const copy = repoText('plugins', 'compozy', 'skills', 'compozy-setup', 'templates', 'agents', agent, 'AGENT.md');
+      assert.ok(copy.includes('`release.md`') || copy.includes('`ADR [<slug>]`'), `the CompozyOS copy of ${agent} is regenerated`);
+    }
+  });
+
+  await t.test('documents: CONTRIBUTING step 5, the config and the flow page', () => {
+    const contributing = repoText('CONTRIBUTING.md');
+    const step5 = contributing.slice(contributing.indexOf('\n5. Bump the `version`'), contributing.indexOf('\n   A release that changes devkit-openspec\'s version is tagged'));
+    assert.ok(step5.startsWith('\n5. Bump the `version`'), 'step 5 keeps its first words');
+    for (const part of ['`release.md`', 'edits no release line', 'the CI pins of `docs/openspec-flow.md` included', '`assign-release`', 'opened before', 'old rule', '0030-the-pin-test-reads-the-manifest']) {
+      assert.ok(step5.includes(part), `step 5 names ${part}`);
+    }
+
+    const config = repoText('openspec', 'config.yaml').split('\n');
+    const conventions = config.find((l) => l.trim().startsWith('Conventions:'));
+    assert.match(conventions, /release note/, 'the Conventions line names the note');
+    assert.match(conventions, /bumps no version and numbers no ADR/);
+    const tasksAt = config.findIndex((l) => /^  tasks:\s*$/.test(l));
+    const afterTasks = config.slice(tasksAt + 1);
+    const taskRules = afterTasks.slice(0, afterTasks.findIndex((l) => !/^\s{4}-/.test(l)));
+    const rule = taskRules.find((l) => l.includes('release note'));
+    assert.ok(rule, 'a tasks rule names the release note');
+    assert.match(rule, /^\s{4}- ['"]/, 'the rule is quoted');
+    for (const part of ['no task bumps a version or numbers an ADR', 'old-rule', 'the next free number on origin/main at the last merge before review']) assert.ok(rule.includes(part), `the tasks rule says ${part}`);
+    const adrs = config.find((l) => l.trim().startsWith('ADRs:'));
+    assert.match(adrs, new RegExp(`; ${CITED} [^;]+, amends 0022 and 0025\\)$`), 'the ADRs line ends with this change\'s record');
+    assert.ok(adrs.includes('; 0030 the pin test reads the manifest, so only the flow page pins pass unnamed, amends 0003 and 0027;'), 'the entries before it stay');
+
+    const flow = repoText('docs', 'openspec-flow.md');
+    for (const part of ['**The release note.**', '| `assign-release` |', '`--assign --base <base>`', '**A noted change on the train.**']) assert.ok(flow.includes(part), `the flow page names ${part}`);
+  });
+
+  await t.test('records: ADR 0022 and ADR 0025 are amended, ADR 0003, 0027 and 0030 are not', () => {
+    const amended = new RegExp(`^- Amended by ${CITED} \\(${FILED}\\)$`, 'm');
+    for (const name of ['0022-reviewed-changes-leave-on-a-delivery-train.md', '0025-a-base-merge-stales-only-on-the-changes-own-files.md']) {
+      const text = repoText('docs', 'adr', name);
+      const header = text.split('\n## Context\n')[0];
+      assert.match(header, amended, `${name} has the Amended by line in its header`);
+      assert.match(text.split('\n## Context\n')[1], new RegExp(`^Note \\(${SLUG}, \\d{4}-\\d{2}-\\d{2}\\): ${CITED} amends `, 'm'), `${name} has the dated Note`);
+    }
+    for (const name of ['0003-auto-merge-the-archive-pr.md', '0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md', '0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md']) {
+      assert.doesNotMatch(repoText('docs', 'adr', name), amended, `${name} is built on, not amended`);
+    }
+  });
 });

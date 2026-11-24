@@ -1,0 +1,202 @@
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern='^release-note AC-(6|14) ' plugins/openspec/hooks/release-note.test.mjs
+start plugins/openspec/hooks/release-note.test.mjs
+=== plugins/openspec/hooks/release-note.test.mjs
+✔ release-note AC-6 check: on a change branch an unnumbered ADR its change lists is tolerated (260.474019ms)
+✖ release-note AC-6 check: on main, and on a fresh branch at main's tip, an unnumbered ADR is refused as the base's (81.480487ms)
+✖ release-note AC-6 check: a train/<n> pull request is the base, and an unnumbered ADR on it is refused (93.419334ms)
+✖ release-note AC-6 check: an unnumbered ADR no active change lists is refused, on a branch too (92.870785ms)
+✖ release-note AC-6 check: two records with one slug are refused, across the two folders and numbered or not (96.335417ms)
+✖ release-note AC-6 check: a README.md and a file whose first line is not an ADR title are ignored; blank lines before the title are not (157.987662ms)
+✖ release-note AC-6 check: a root that is not a git repository is the base (56.892663ms)
+▶ release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR
+  ✖ agents: the planner, the ADR author and reviewer, the implementer and the readiness review (0.557205ms)
+  ✖ documents: CONTRIBUTING step 5, the config and the flow page (0.382901ms)
+  ✖ records: ADR 0022 and ADR 0025 are amended, ADR 0003, 0027 and 0030 are not (0.761534ms)
+✖ release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR (2.696058ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 1
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 953.931891
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:530:1
+✖ release-note AC-6 check: on main, and on a fresh branch at main's tip, an unnumbered ADR is refused as the base's (81.480487ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:533:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:545:1
+✖ release-note AC-6 check: a train/<n> pull request is the base, and an unnumbered ADR on it is refused (93.419334ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:548:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:553:1
+✖ release-note AC-6 check: an unnumbered ADR no active change lists is refused, on a branch too (92.870785ms)
+  AssertionError [ERR_ASSERTION]: no decisions.md: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:560:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:566:1
+✖ release-note AC-6 check: two records with one slug are refused, across the two folders and numbered or not (96.335417ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:568:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:575:1
+✖ release-note AC-6 check: a README.md and a file whose first line is not an ADR title are ignored; blank lines before the title are not (157.987662ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:579:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:583:1
+✖ release-note AC-6 check: a root that is not a git repository is the base (56.892663ms)
+  AssertionError [ERR_ASSERTION]: all checks passed
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:587:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:603:11
+✖ agents: the planner, the ADR author and reviewer, the implementer and the readiness review (0.557205ms)
+  AssertionError [ERR_ASSERTION]: change-planner names `release.md`
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:605:118)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:603:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:635:11
+✖ documents: CONTRIBUTING step 5, the config and the flow page (0.382901ms)
+  AssertionError [ERR_ASSERTION]: step 5 names `release.md`
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:640:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:635:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-note.test.mjs:662:11
+✖ records: ADR 0022 and ADR 0025 are amended, ADR 0003, 0027 and 0030 are not (0.761534ms)
+  AssertionError [ERR_ASSERTION]: 0022-reviewed-changes-leave-on-a-delivery-train.md has the Amended by line in its header
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:667:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:662:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '# ADR 0022: Reviewed changes leave on a delivery train, and the whole suite runs once per train\n\n- Status: accepted\n- Date: 2026-11-23\n- Change: delivery-train\n- Amends: ADR 0002 (0002-merge-without-the-owner-opt-in.md), the Negative consequence "Strict up-to-date re-runs stale reviews after each base update (Accepted: cost, scoped re-review)" and the "Merge queue" row of its alternatives; ADR 0003 (0003-auto-merge-the-archive-pr.md), the Decision on how an archive pull request reaches the base branch in `merge` mode; ADR 0012 (0012-the-reviews-check-follows-the-change-script.md), decision 4, on what `devkit-reviews` recomputes at the pull request\'s head; ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md), decision 1, on what the models `trunk` and `trunk-auto` deliver through\n- Accepted by: the owner, on 2026-11-23, in the message that approved the plan of the change: `1` (option 1, "Aprovo"), the answer to the question "approve the plan and ADR 0019 to start the implementation?" (the number was 0019 until the base took it, then 0021 until the base took that too; the ADR is now 0022); recorded in `openspec/changes/delivery-train/approval.md`\n',
+    expected: /^- Amended by ADR (?:\[release-at-merge\]|\d{4}) \((?:\d{4}-)?release-at-merge\.md\)$/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-note.test.mjs: FAIL 1.0s
+FAIL 1.0s plugins/openspec/hooks/release-note.test.mjs
+suite: 1 files, 11 tests, 1 pass, 10 fail, 1.0s, concurrency 8
+exit: 1
+
+Guards (pass on the code as phase 5 finds it, and say so):
+- "release-note AC-6 check: on a change branch an unnumbered ADR its change lists is tolerated" holds what D-12 keeps:
+  `scripts/check.py` has no ADR check yet, so a change branch passes today, and it must still pass once `check_adrs` is in.
+- In "release-note AC-6 check: a README.md and a file whose first line is not an ADR title ...", the first half (the ignored
+  files pass) holds today; the test fails at its second half, the titled record after blank lines.
+- In the AC-14 "documents" part, the flow page's anchors were written by tasks 2.6 and 3.4; the part fails on CONTRIBUTING
+  step 5, which task 5.5 changes.

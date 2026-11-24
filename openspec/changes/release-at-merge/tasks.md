@@ -171,35 +171,35 @@ invariant, layer and suite in the commit message. Leave no backup or scratch fil
 
 ## 5. Readers, rules and texts
 
-- [ ] 5.1 Write the D-15 tests of this phase in `release-note.test.mjs`: the AC-6 `check.py` tests and
+- [x] 5.1 Write the D-15 tests of this phase in `release-note.test.mjs`: the AC-6 `check.py` tests and
   the AC-14 documents and agent texts test. Run them and save the failing run as `proof/red-5.txt`.
   Done when each exists by its D-15 name and fails there.
-- [ ] 5.2 Add `check_adrs` to `scripts/check.py` (D-12) and call it from `main`. Done when the AC-6
+- [x] 5.2 Add `check_adrs` to `scripts/check.py` (D-12) and call it from `main`. Done when the AC-6
   tests pass and `version-pin.test.mjs` "version-pin AC-7 check: the tree's flows pass" (T-18) stays
   green on this branch.
-- [ ] 5.3 In `plugins/openspec/hooks/guard.test.mjs` change the two "no duplicate ADR number" checks
+- [x] 5.3 In `plugins/openspec/hooks/guard.test.mjs` change the two "no duplicate ADR number" checks
   as T-1 says (invariant: no two ADRs share a number; layer: the repository's records; suite:
   `guard.test.mjs`). Done when both tests pass with an unnumbered record in `docs/adr/`.
-- [ ] 5.4 Update `plugins/core/agents/change-planner.md`, `adr-author.md`, `adr-reviewer.md`,
+- [x] 5.4 Update `plugins/core/agents/change-planner.md`, `adr-author.md`, `adr-reviewer.md`,
   `tdd-implementer.md`, `plugins/core/skills/adr-authoring/SKILL.md` and
   `plugins/core/skills/plan-readiness-review/SKILL.md` as D-13 says, then run
   `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs` and `python3 scripts/gen-catalog.py`.
   Done when the AC-14 test's agent part passes, both `--check` runs pass, and these stay green: T-23,
   T-24, T-25 and T-26 (`change-loop-compozy.test.mjs`), T-29 (`flow-check.test.mjs`), T-38
   (`project-loop.test.mjs`) and T-40 (`change-loop.test.mjs`).
-- [ ] 5.5 Update `CONTRIBUTING.md` step 5 (keeping the prefix and six parts `release-tags.test.mjs`
+- [x] 5.5 Update `CONTRIBUTING.md` step 5 (keeping the prefix and six parts `release-tags.test.mjs`
   "release-tags 4" asserts, T-8) and `openspec/config.yaml` (Conventions line, the quoted `tasks`
   rule that `guard.test.mjs` "config.yaml rules: no list item is an unquoted string holding ': '"
   checks (T-17), the `ADRs:` entry `ADR [release-at-merge] <subject>, amends 0022 and 0025` appended
   after the last entry); keep step 5's last sentence (ADR 0030) for the old rule. Done when the AC-14
   test's documents part, T-8, T-17, T-41 and T-44 pass.
-- [ ] 5.6 Add `- Amended by ADR [release-at-merge] (release-at-merge.md)` and a dated
+- [x] 5.6 Add `- Amended by ADR [release-at-merge] (release-at-merge.md)` and a dated
   `Note (release-at-merge, <date>)` to `docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md`
   and `docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md` (D-13); edit no file of ADR
   0003, ADR 0027 or ADR 0030 (built on, not amended). Done when `python3 scripts/check.py` passes,
   `git diff --stat origin/main -- docs/adr/0003-auto-merge-the-archive-pr.md` is empty, and the T-1,
   T-41 and T-44 tests stay green.
-- [ ] 5.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/test-suite.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate .` green; covers AC-6 and AC-14.
+- [x] 5.7 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/release-tags.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/test-suite.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check && claude plugin validate .` green; covers AC-6 and AC-14.
 
 ## 6. Real-run proof of every case
 
