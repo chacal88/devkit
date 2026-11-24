@@ -43,3 +43,26 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: stage-ceiling-consecutive, round 1
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | db24614 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | db24614 |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Re-run at the merged head (origin/main merged, release renumbered, AC-8 reworded); the product code is unchanged since the approved round at 849d5c7.
+
+## Next
+Ready to ship.

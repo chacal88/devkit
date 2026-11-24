@@ -1,26 +1,23 @@
 Verdict: approved
-Commit: 849d5c70748ee4caba1fd2c26703aeb3b4418e6f
+Commit: db246141622b2267a22defb1129d0785f7d39982
 
-## Coverage analysis — stage-ceiling-consecutive (round 2, e7494d1..HEAD)
+## Coverage analysis — stage-ceiling-consecutive, round 1 of 2, head db24614, range origin/main...HEAD
 
 ### Findings
-- [important] plugins/openspec/hooks/project-loop.mjs:173 — project-loop blockedEnd passes failures but S12 had attempt == failures, so dropping `failures:` left every test green · fixed in 2222180
-- [nit] plugins/openspec/hooks/change-loop.mjs:1279 — the `failures ?? attempt` fallback of the two fix briefs (lines 1279 and 1318) was untested · fixed in 2222180
-- [nit] plugins/openspec/hooks/flow-check.mjs stageHistory — no test for a commit where the file is missing (deleted) nor for non-ASCII content (byte-offset parse of cat-file --batch); fixtures are ASCII only
-- [nit] plugins/openspec/hooks/flow-check.mjs artifactState — history of the first failed file of a multi-file stage (specs) has no test
-- [nit] openspec/changes/stage-ceiling-consecutive/proof/red-flow-check.txt — several new tests are red on old code for incidental reasons (stageHistory missing, params shape), not only the behavioural assertion; not a literal reporter-payload red run
-- [praise] plugins/openspec/hooks/project-loop.test.mjs:1090 — the new project-loop test uses real committed review history with attempt 3 vs failures 2 and asserts both the positive and the negative match, so it goes red if the failures param is dropped
-- [praise] plugins/openspec/hooks/flow-check.test.mjs AC-1..AC-7 — seam tests use real git repositories (real merge commits, shallow clones, missing git on PATH) and pin exact params
+- [praise] plugins/openspec/hooks/change-loop-compozy.test.mjs:303-364 — The CI pin test now reads the version from the manifest and asserts every pin in docs/openspec-flow.md equals it; v0.40.1 matches, so the release renumbering is guarded by content, not by a hand-edited literal.
+- [praise] plugins/openspec/hooks/flow-check.test.mjs (stage-ceiling-consecutive AC-1..AC-7) — The seams (history read, count in computeFlow, failures param into change-loop and project-loop replies, briefs with fallback) each have a named test, and the flow-check ones were shown red on the old code.
+- [nit] openspec/roadmap.md:79, openspec/changes/stage-ceiling-consecutive/tasks.md:133 — AC-8 (the roadmap line says it was delivered by this change; the archive follow-up ticks both lines) has no automated check, only the grep proof in evidence.md; if the note is dropped in a merge, no test goes red. Proportionate for a roadmap note (score 2).
 
-In-scope surfaces: plugins/openspec/hooks (flow-check.mjs, change-loop.mjs, project-loop.mjs) and their node:test files. Round 2 diff since e7494d1 is tests plus review/evidence docs only; no production code changed.
-
+In-scope surfaces: plugins/openspec/hooks (flow-check.mjs, change-loop.mjs, project-loop.mjs and their tests), release files (marketplace.json, plugin.json, CHANGELOG.md), docs/openspec-flow.md, docs/coordination-design.md, plugins/openspec/README.md, openspec/roadmap.md.
 Blocking gaps (8-10 without a plan): 0
+Seams checked: history read into the count (facts.history in collectFlow) -> flow-check AC-4 H-3..H-5 and F-1..F-4; count against the ceiling (computeFlow raw.failures >= ceiling) -> flow-check AC-1, AC-2, AC-3, AC-7; failures param into the change-loop blocked reply -> AC-6 loop ceiling reply test; failures param into the project-loop blocked reply -> AC-6 project-loop test; the briefs of plan fix and fix-tests with their fallback to attempt -> the two AC-6 loop tests in change-loop-compozy.test.mjs; CI pin versus manifest -> change-loop docs: the design records the answers (reads plugin.json; v0.40.1 matches); release numbers -> scripts/check.py (marketplace version has a CHANGELOG entry; passed). (mutation runs: 0)
 
-Seams checked (mutation runs: 0): project-loop blockedEnd failures -> caught by 'AC-6 project-loop: the ceiling reply says the failures in a row, not the attempt' (attempt 3, failures 2, doesNotMatch (3)); change-loop plan brief failures ?? attempt -> caught by the new plan-brief fallback test; change-loop fix-tests brief failures ?? attempt -> caught by the new fix-tests fallback test; all other seams from round 1 unchanged and still caught (history fact, walk, artifactState call, unreadable history, pass reset, retaken takes after merges, readout wording, change-loop blockedEnd failures).
+Run at db24614 with TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive: node scripts/test-suite.mjs on flow-check, change-loop, project-loop and change-loop-compozy test files: 4 files, 649 tests, 649 pass, 0 fail, exit 0. python3 scripts/check.py: all checks passed.
 
-Ran filtered: plugins/openspec/hooks/project-loop.test.mjs 143 of 143 pass; change-loop.test.mjs and change-loop-compozy.test.mjs filtered to 'stage-ceiling-consecutive AC-6': 4 of 4 pass.
+Unchanged since 849d5c7: flow-check.mjs, change-loop.mjs, project-loop.mjs and their tests, so the earlier seam mapping stands. New since then: main's merge (the CI pin test takes main's form and reads plugin.json, so this change no longer edits its literals), the renumbered release (devkit-openspec 0.40.1 = main's 0.40.0 plus a patch, marketplace 0.45.1 over main's 0.45.0, CHANGELOG 0.45.1 above 0.45.0, CI pin v0.40.1 in docs/openspec-flow.md), the reworded AC-8 and the refreshed evidence. None adds an untested behaviour.
 
 ### Well covered
-- Project-loop ceiling reply says failures in a row with attempt and failures set apart (real committed review history).
-- Fix-brief fallback to the attempt when the report carries no failures, in both the plan and the fix-tests briefs.
-- Everything listed as well covered in round 1 (AC-1 to AC-7 of flow-check, review restart, fallbacks, readout wording, header and attempt unchanged).
+- Count of failures in a row, including a pass between failures and takes retaken after a merge of main: the 17 stage-ceiling-consecutive tests in flow-check.test.mjs, red on the old code (proof/red-flow-check.txt).
+- Fallback to today's rule when history is unreadable: AC-4 F-1..F-4 and the no-history-fact walk.
+- Readout in both languages and the change-loop and project-loop replies: the AC-6 tests, plus the updated version-pin and change-loop-remote-state literals.
+- CI pin versus manifest: the docs test now release-proof.
