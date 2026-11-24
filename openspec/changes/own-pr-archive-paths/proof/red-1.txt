@@ -1,0 +1,88 @@
+✔ field-fixes 4 own archive 1: the change's own archive folder refuses its pull request (9.421684ms)
+✖ field-fixes 4 own archive 2: another change's archived files do not refuse its pull request (2.341194ms)
+✖ field-fixes 4 own archive 3: an id that starts another change's id is not confused with it (0.64708ms)
+✔ field-fixes 4 own archive 4: an archive head is refused whatever its files (0.83876ms)
+✖ field-fixes 4 own archive 5: a path in no change's archive folder does not refuse its pull request (0.601712ms)
+✖ field-fixes 4 own archive 6: findChangePr finds the change's own merged pull request that also edits another change's archive (196.437121ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 2
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 401.934944
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4920:1
+✖ field-fixes 4 own archive 2: another change's archived files do not refuse its pull request (2.341194ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/own-pr-archive-paths/plugins/openspec/hooks/deliver-check.test.mjs:4923:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4927:1
+✖ field-fixes 4 own archive 3: an id that starts another change's id is not confused with it (0.64708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/own-pr-archive-paths/plugins/openspec/hooks/deliver-check.test.mjs:4929:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4942:1
+✖ field-fixes 4 own archive 5: a path in no change's archive folder does not refuse its pull request (0.601712ms)
+  AssertionError [ERR_ASSERTION]: openspec/changes/archive/README.md
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/own-pr-archive-paths/plugins/openspec/hooks/deliver-check.test.mjs:4945:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5019:1
+✖ field-fixes 4 own archive 6: findChangePr finds the change's own merged pull request that also edits another change's archive (196.437121ms)
+  AssertionError [ERR_ASSERTION]: {"none":true}
+  
+  undefined !== 11
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/own-pr-archive-paths/plugins/openspec/hooks/deliver-check.test.mjs:5023:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 11,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

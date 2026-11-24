@@ -1,15 +1,23 @@
 # Changelog
 
-## 0.43.1 — the state command and the board list a change they cannot place
+## 0.43.2 — the state command and the board list a change they cannot place
 
-- **devkit-openspec** 0.39.1: `change-loop.mjs state` (with or without `--change`), `/devkit status` and the roadmap
+- **devkit-openspec** 0.39.2: `change-loop.mjs state` (with or without `--change`), `/devkit status` and the roadmap
   decision no longer exit 3 on a change whose active folder is only in a checkout the main checkout does not read
   (a worktree on a branch that is neither `<id>` nor `chore/archive-<id>`): it is listed `blocked` with the reason
   `wrong-branch`, under Blocked on the board, with the checkout that holds it; when that folder is the stale copy of a
   change archived on the default branch it is listed `archived`; an id nothing knows still exits 3. `locate` reads a
   change in the worktree on `chore/archive-<id>`, else the worktree on branch `<id>`, else the checkout it is called
   from when that checkout holds the change's active folder and the main checkout holds none, else the main checkout.
-  The CI snippet now pins `v0.39.1`, the release's tag.
+  The CI snippet now pins `v0.39.2`, the release's tag.
+
+## 0.43.1 — a change's own pull request may edit another change's archive
+
+- **devkit-openspec** 0.39.1: `deliver-check` counts a merged pull request as the change's own when it
+  also edits another change's archived files; only a file in the change's own archive folder
+  (`openspec/changes/archive/<date>-<id>/`) refuses it, so `/devkit change` finds such a pull request
+  after its merge instead of asking to open it again. The CI snippet now pins `v0.39.1`, the
+  release's tag.
 
 ## 0.43.0 — a merge of the base stales only the change's own files
 
