@@ -3839,7 +3839,7 @@ const ARCHIVED_DIR = 'openspec/changes/archive/2026-11-09-feat';
 const NOT_FOUND = { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' };
 
 const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
-const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
+export const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
   `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
 export const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
 const retroPath = (archived) => (archived ? `${ARCHIVED_DIR}/retro.md` : 'openspec/changes/feat/retro.md');
@@ -5901,7 +5901,7 @@ test('own-files AC-9 docs: the flow doc states the rule, the fail-safe cases and
     ['a head inside the base fails safe', /head (is )?(already )?(in|inside) the base/],
     ['the check is the backstop', /backstop/],
     ['the check runs on the merged ref', /`check`/],
-    ['the decision is cited', /ADR 0022/],
+    ['the decision is cited', /ADR 0025/],
   ]) assert.match(para, pattern, what);
   const everyMerge = /every merge of the base that touches a file outside `openspec\/` makes its evidence and all its reviews stale/;
   for (const file of [['docs', 'openspec-flow.md'], ['CONTRIBUTING.md'], ['plugins', 'core', 'skills', 'review-change', 'SKILL.md']]) {

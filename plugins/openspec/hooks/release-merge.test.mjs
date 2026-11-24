@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpFolder, tmpRoot } from './test-tmp.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
@@ -325,7 +325,27 @@ test('release-merge: a missing origin/<base> and an unknown option are setup err
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const here = dirname(fileURLToPath(import.meta.url));
-const pinTmp = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
+
+// The invariant "mergePins and a release-file merge leave no devkit-pin-* folder behind", checked in a temporary
+// folder of its own: other test processes of one gate (these files import each other) make and remove their own
+// devkit-pin-* folders in the shared one while this test runs, so a before/after listing of the shared folder
+// differs by chance. `fn` runs with TMPDIR set to a new empty folder (the temporary-folder lookup of Node reads it at
+// call time); the previous TMPDIR is back when it returns or throws. Returns what `fn` returned and what it left in
+// that folder.
+export function underOwnTmp(fn) {
+  const own = tmpFolder('devkit-ownscope-');
+  assert.deepEqual(readdirSync(own), [], 'the private folder starts empty');
+  const had = Object.hasOwn(process.env, 'TMPDIR');
+  const previous = process.env.TMPDIR;
+  process.env.TMPDIR = own;
+  try {
+    const value = fn();
+    return { value, left: readdirSync(own) };
+  } finally {
+    if (had) process.env.TMPDIR = previous;
+    else delete process.env.TMPDIR;
+  }
+}
 
 // A doc shaped like docs/openspec-flow.md around its CI pin: a top slot, a body, the `## CI` block with
 // the three pin lines of the real file, and a bottom slot. Each slot is 3+ unchanged lines from the pin lines.
@@ -374,27 +394,27 @@ test('release-merge pin: setPins keeps CRLF endings, leaves a marker line withou
 });
 
 test('release-merge pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder', () => {
-  const before = pinTmp();
   const base = pinDoc('0.10.0');
   const ours = pinDoc('0.11.0', { top: 'TOP A' });
   const theirs = pinDoc('0.10.1', { bottom: 'BOTTOM B' });
-  const merged = mergePins({ base, ours, theirs });
+  const { value: merged, left } = underOwnTmp(() => mergePins({ base, ours, theirs }));
   assert.equal(typeof merged, 'string');
   assert.match(merged, /TOP A/);
   assert.match(merged, /BOTTOM B/);
   assert.deepEqual([...new Set(pinsOf(merged))], ['v0.0.0']);
-  assert.deepEqual(pinTmp(), before);
+  assert.deepEqual(left, [], 'no temporary folder is left behind');
 });
 
 test('release-merge pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder', () => {
-  const before = pinTmp();
   const base = pinDoc('0.10.0');
-  assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
-  for (const side of ['base', 'ours', 'theirs']) {
-    const sides = { base, ours: base, theirs: base, [side]: null };
-    assert.equal(mergePins(sides), null, side);
-  }
-  assert.deepEqual(pinTmp(), before);
+  const { left } = underOwnTmp(() => {
+    assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
+    for (const side of ['base', 'ours', 'theirs']) {
+      const sides = { base, ours: base, theirs: base, [side]: null };
+      assert.equal(mergePins(sides), null, side);
+    }
+  });
+  assert.deepEqual(left, [], 'no temporary folder is left behind');
 });
 
 test('release-merge pin: classifyConflict lets release files through without reading any stage', () => {

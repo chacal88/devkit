@@ -13,6 +13,8 @@ jobs:
         with: { python-version: "3.12" }
       - name: Catalog is up to date
         run: python3 scripts/gen-catalog.py --check
+      - name: CompozyOS agents are up to date
+        run: node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check
       - name: Names, descriptions, links, language
         run: python3 scripts/check.py
       - name: Install OpenSpec (the hook tests and the schema step need it)

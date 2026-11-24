@@ -86,13 +86,13 @@ where D-7 names it. Leave no backup or scratch file in the tree; end every task 
   the evidence and the reviews.
 - [x] 3.2 Write `own-files AC-9 docs` in `plugins/openspec/hooks/deliver-check.test.mjs` (D-8). Done when
   it passes on the 3.1 text.
-- [x] 3.3 Add the "Amended by ADR 0022" line and the dated Note to
-  `docs/adr/0002-merge-without-the-owner-opt-in.md`, and append ADR 0022 to the `ADRs:` line of
-  `openspec/config.yaml` (D-6). If `origin/main` took 0021 by the last merge before review, take the
+- [x] 3.3 Add the "Amended by ADR 0025" line and the dated Note to
+  `docs/adr/0002-merge-without-the-owner-opt-in.md`, and append ADR 0025 to the `ADRs:` line of
+  `openspec/config.yaml` (D-6). If `origin/main` took 0022 by the last merge before review, take the
   next free number on `origin/main` and renumber the ADR file and every reference this change made
   (CONTRIBUTING step 5). Done when the ADR tests that read the `ADRs:` line stay green at gate 3.8.
 - [x] 3.4 After the owner approves the plan, set `- Status: accepted` and the `- Accepted by:` line in
-  ADR 0022, as ADR 0020 does, citing `openspec/changes/stale-only-on-own-files/approval.md`. Done when
+  ADR 0025, as ADR 0020 does, citing `openspec/changes/stale-only-on-own-files/approval.md`. Done when
   the header holds both lines.
 - [x] 3.5 Release: bump devkit-openspec and devkit-core to the next free minor version on `origin/main`
   at the last merge before review, in each `plugin.json` and in `.claude-plugin/marketplace.json`

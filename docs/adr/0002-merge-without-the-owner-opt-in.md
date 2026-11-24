@@ -2,9 +2,10 @@
 
 - Status: accepted
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
-- Amended by ADR 0022 (0022-a-base-merge-stales-only-on-the-changes-own-files.md)
+- Amended by ADR 0025 (0025-a-base-merge-stales-only-on-the-changes-own-files.md)
 - Date: 2026-11-08
 - Change: auto-merge
+- Amended by ADR 0022 (0022-reviewed-changes-leave-on-a-delivery-train.md)
 
 ## Context
 
@@ -12,12 +13,14 @@ Note (coordinator-field-fixes, 2026-11-20): ADR 0012 limits what devkit-reviews 
 
 Note (delivery-models, 2026-11-22): ADR 0018 amends the sentence of the Decision that names `ship: <schema>: merge` as the opt-in: a project may also choose `trunk-auto` in `devkit.delivery.model`, which is this merge mode under a second spelling with all of the conditions below, and every `ship:` entry must then agree with it. The Decision is otherwise unchanged.
 
-Note (stale-only-on-own-files, 2026-11-23): ADR 0022 narrows the accepted cost "Strict up-to-date re-runs stale reviews after each base update": a merge of the base stales the evidence and the approved or declined reviews only when it brings one of the change's own files, and the pull request's required `devkit-reviews` and `check` runs on the merged ref remain the backstop for the rest. The Decision is otherwise unchanged.
+Note (stale-only-on-own-files, 2026-11-23): ADR 0025 narrows the accepted cost "Strict up-to-date re-runs stale reviews after each base update": a merge of the base stales the evidence and the approved or declined reviews only when it brings one of the change's own files, and the pull request's required `devkit-reviews` and `check` runs on the merged ref remain the backstop for the rest. The Decision is otherwise unchanged.
 
 This ADR builds on ADR 0001 and leaves its gates unchanged. Since ADR 0001, `ship-change` takes an approved change to a PR that `deliver-check` reports
 as ready (8/8), and the owner merges it. Owners of some repositories want that merge to happen
 on its own. An agent saying "ready" is not enough to merge on: until this change, CI checked
 review verdicts without checking that they were current at the PR head.
+
+Note (delivery-train, 2026-11-23): ADR 0022 amends the Negative consequence "Strict up-to-date re-runs stale reviews after each base update" and the "Merge queue" row of the alternatives: a project that sets `devkit.delivery.train` sends its reviewed changes to the base branch together on one train, so a boarded change is not sent to `update-branch` or re-reviewed when the base moves, and the `devkit` ruleset and its strict rule stay as they are. The Decision is otherwise unchanged.
 
 ## Decision
 
