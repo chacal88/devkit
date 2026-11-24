@@ -3,7 +3,8 @@
 // [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]` (ADR 0026).
 //
 // Runs every `*.test.mjs` of the suite's four folders, each file in a process of its own (`node --test <file>`),
-// several at once, each with its own empty real-path TMPDIR under one run root. Refuses a test file or a fixtures
+// several at once, each with its own empty real-path TMPDIR under one run root (made under the real TMPDIR when a Unix socket
+// path under it fits, else under the real /tmp). Refuses a test file or a fixtures
 // module that imports a test file, fails a file that leaves anything in its TMPDIR, and exits 1 when any file fails.
 // Exit codes: 0 green; 1 a failed file, a leftover, a refused import or no test file; 2 a usage error;
 // 130 after SIGINT; 143 after SIGTERM.
@@ -30,6 +31,10 @@ const FIXTURES = 'plugins/openspec/hooks/test-fixtures.mjs';
 const USAGE = 'usage: node scripts/test-suite.mjs [--concurrency=<n>] [--reporter=<name>] [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]';
 const STOP_WAIT_MS = 10_000;
 const LEFT_NAMES_SHOWN = 10;
+export const SOCKET_PATH_MAX_BYTES = 103; // the longest Unix socket path both platforms take: macOS sun_path holds 104 with the terminator, Linux 108
+export const SOCKET_TAIL_BYTES = 29; // /devkit-ch-XXXXXX (17) + /daemon.sock (12): the deepest socket a suite test binds (test-fixtures.mjs daemon)
+export const RUN_ROOT_NAME_BYTES = 20; // /devkit-suite-XXXXXX, the run root's own name
+export const SHORT_TMP = '/tmp'; // the folder whose real path (/private/tmp on macOS) holds the run root when TMPDIR does not fit
 
 export class UsageError extends Error {
   constructor(message) {
@@ -137,8 +142,54 @@ function removeTree(path) {
   rmSync(path, { recursive: true, force: true, maxRetries: 3 });
 }
 
+// The longest run root, in bytes: the socket limit less the socket tail and the file's place (a slash and at least two digits).
+export function runRootLimit(fileCount) {
+  return SOCKET_PATH_MAX_BYTES - SOCKET_TAIL_BYTES - (1 + Math.max(2, String(fileCount - 1).length));
+}
+
+// The bytes of a run root made under the real path `realBase` (bytes, not characters): the one place that adds its name.
+export function runRootBytes(realBase) {
+  return Buffer.byteLength(realBase) + RUN_ROOT_NAME_BYTES;
+}
+
+// Whether a run root made under the real path `realBase` fits `limit` (runRootLimit of the file count).
+export function runRootFits(realBase, limit) {
+  return runRootBytes(realBase) <= limit;
+}
+
+function failure(shown, error) {
+  return { shown, reason: `cannot be used: ${error.code || error.message}` };
+}
+
+// Makes the run root under `folder` when it fits `limit` and can be written; else says why not. Nothing is written to a folder that does not fit.
+function tryRunRoot(folder, limit) {
+  let real;
+  try {
+    real = realpathSync(folder);
+  } catch (error) {
+    return failure(folder, error);
+  }
+  if (!runRootFits(real, limit)) {
+    return { shown: real, reason: `its run root would take ${runRootBytes(real)} bytes, over ${limit}, and a Unix socket path under it would pass ${SOCKET_PATH_MAX_BYTES} bytes` };
+  }
+  try {
+    return { runRoot: mkdtempSync(join(real, 'devkit-suite-')) };
+  } catch (error) {
+    return failure(real, error);
+  }
+}
+
+// The run root: under the real `tmp` when it fits, else under the real `short`, else a UsageError. `line` says where and why when `tmp` was not used.
+export function makeRunRoot({ tmp, short, limit }) {
+  const first = tryRunRoot(tmp, limit);
+  if (first.runRoot) return { runRoot: first.runRoot, line: null };
+  const second = tryRunRoot(short, limit);
+  if (second.runRoot) return { runRoot: second.runRoot, line: `run root: ${second.runRoot} (TMPDIR ${first.shown}: ${first.reason})` };
+  throw new UsageError(`no folder can hold the run root: TMPDIR ${first.shown}: ${first.reason}; ${second.shown}: ${second.reason}`);
+}
+
 function runFile(file, place, options, root, runRoot, running) {
-  const folder = join(runRoot, String(place).padStart(2, '0')); // the place alone: a Unix socket path under it must stay short (about 104 characters on macOS)
+  const folder = join(runRoot, String(place).padStart(2, '0')); // the place alone: a Unix socket path under it must stay short (runRootLimit)
   mkdirSync(folder);
   const env = { ...process.env, TMPDIR: folder };
   delete env.NODE_TEST_CONTEXT; // a nested `node --test` would otherwise act as a child runner and write serialized reports
@@ -237,9 +288,10 @@ function isEntry(argv1) {
   }
 }
 
-export async function main(argv, root = ROOT) {
+export async function main(argv, root = ROOT, short = SHORT_TMP) {
   let options;
   let order;
+  let made;
   try {
     const files = suiteFiles(root);
     options = parseArgs(argv, root, files);
@@ -259,13 +311,15 @@ export async function main(argv, root = ROOT) {
     order = chosen
       .map((file) => ({ file, place: files.indexOf(file), size: statSync(join(root, file)).size }))
       .sort((a, b) => b.size - a.size || (a.file < b.file ? -1 : 1));
+    made = makeRunRoot({ tmp: tmpdir(), short, limit: runRootLimit(files.length) });
   } catch (error) {
     if (!(error instanceof UsageError)) throw error;
     process.stderr.write(`${error.message}\n${USAGE}\n`);
     return 2;
   }
 
-  const runRoot = mkdtempSync(join(realpathSync(tmpdir()), 'devkit-suite-'));
+  const { runRoot, line } = made;
+  if (line) process.stdout.write(`${line}\n`);
   const running = new Map(); // file -> child
   const state = { signal: null };
   let stillRunning = [];

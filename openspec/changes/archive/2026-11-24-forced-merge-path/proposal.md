@@ -3,7 +3,7 @@
 
 Change: `forced-merge-path` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
 Requirements: [requirements.md](requirements.md) · Decision: [decisions.md](decisions.md), ADR 0028
-(drafted `proposed`, [docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md](../../../docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md))
+(drafted `proposed`, [docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md](../../../../docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md))
 
 ## Why
 
