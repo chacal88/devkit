@@ -383,7 +383,7 @@ export const MESSAGES = {
     'why.ui': 'it changes a screen',
     'why.capability': 'it adds something the project cannot do today',
     'why.risk': 'it touches access, money or personal data, or is hard to undo',
-    'blocked-why.ceiling': '{stage} failed {attempt} times, which is its limit',
+    'blocked-why.ceiling': '{stage} reached its limit of failures in a row ({failures})',
     'blocked-why.no-progress': '{stage} came back with nothing changed',
     'blocked-why.no-place': 'it waits for a free place on {machine} ({taken} of {places} taken)',
     'blocked-why.not-delivered': '{stage} ended without delivering its result',
@@ -671,7 +671,7 @@ export const MESSAGES = {
     'why.ui': 'muda uma tela',
     'why.capability': 'acrescenta algo que o projeto não faz hoje',
     'why.risk': 'mexe com acesso, dinheiro ou dados pessoais, ou é difícil de desfazer',
-    'blocked-why.ceiling': '{stage} falhou {attempt} vezes, que é o limite',
+    'blocked-why.ceiling': '{stage} chegou ao limite de falhas seguidas ({failures})',
     'blocked-why.no-progress': '{stage} voltou sem nada ter mudado',
     'blocked-why.no-place': 'espera um lugar livre em {machine} ({taken} de {places} ocupados)',
     'blocked-why.not-delivered': '{stage} terminou sem entregar o resultado',
@@ -802,6 +802,7 @@ export function render(lang, key, params = {}) {
     if (name === 'stage') return stagePhrase(l, need('stage'));
     if (name === 'inStage') return inStagePhrase(l, need('stage'));
     if (name === 'Stage') return capital(stagePhrase(l, need('stage')));
+    if (name === 'failures') return String(params.failures ?? need('attempt'));
     if (name === 'why') return render(l, `${BLOCKED_WHY_KEYS.includes(key) ? 'blocked-why' : 'why'}.${need('why')}`, params);
     if (FAMILY[name]) return render(l, `${FAMILY[name]}${need(name)}`, params);
     return need(name);
@@ -1289,7 +1290,8 @@ export function decide(facts) {
       }
       if (n.reasonCode === 'fix-after-failure') {
         const { failed, attempt, ceiling } = n.params;
-        return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} of ${ceiling}: revise the plan from its findings`);
+        const failures = n.params.failures ?? attempt;
+        return agent(n.stage, s.role, null, `${failed} failed at attempt ${attempt} (failures in a row: ${failures} of ${ceiling}): revise the plan from its findings`);
       }
       if (PLAN_REASONS.includes(n.reasonCode) && s && AGENT[s.role]) {
         const stale = ['stale-plan', 'rerun-after-fix'].includes(n.reasonCode);
@@ -1327,8 +1329,9 @@ export function decide(facts) {
     }
     if (n.stage === 'implementation' && n.reasonCode === 'fix-after-failure' && TEST_STAGES.includes(n.params?.failed)) {
       const { failed, attempt, ceiling } = n.params;
+      const failures = n.params.failures ?? attempt;
       const file = stageById(failed)?.file ?? null;
-      return agent('implementation', 'tdd-implementer', 'fix-tests', `${failed} failed at attempt ${attempt} of ${ceiling}: fix the code from ${file}, test first, within the approved tasks`, { failed, file });
+      return agent('implementation', 'tdd-implementer', 'fix-tests', `${failed} failed at attempt ${attempt} (failures in a row: ${failures} of ${ceiling}): fix the code from ${file}, test first, within the approved tasks`, { failed, file });
     }
     return null;
   }
@@ -1338,7 +1341,7 @@ export function decide(facts) {
     if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
-    const params = { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number };
+    const params = { stage: titleOf(stageId), attempt: e.params?.attempt, failures: e.params?.failures, error: e.params?.error ?? '', number: e.params?.number };
     if (why === 'gh-too-old') Object.assign(params, { installed: e.params?.installed ?? render(lang, 'gh-version-unknown'), minimum: e.params?.minimum, verb: 'change' });
     return blocked(why, params, e.stage);
   }

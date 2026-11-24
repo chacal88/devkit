@@ -368,7 +368,7 @@ OpenSpec prints that its `schema` commands are experimental and may change.
 - Stale work: when the code changed after a stage, the commit in its header no longer matches and
   only that stage runs again.
 - Attempt ceilings, counted by the checker, move from skill prose to configuration: a plan rejected
-  at readiness three times; two review rounds; three fixes of the same item; the same stage coming
+  at readiness three times in a row (counted since it last passed); two review rounds; three fixes of the same item; the same stage coming
   back twice with nothing changed stops.
 - The loop ends in exactly one of four states, each with its reason: archived, waiting for the owner,
   waiting on GitHub, blocked.

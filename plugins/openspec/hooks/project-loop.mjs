@@ -171,7 +171,7 @@ export function decideSlice(facts) {
   const blockedEnd = (e) => {
     const why = BLOCKED_OF[e.reasonCode] ?? 'unknown-step';
     const stageId = e.params?.stage ?? e.stage;
-    const params = { stage: titleOf(stageId), attempt: e.params?.attempt };
+    const params = { stage: titleOf(stageId), attempt: e.params?.attempt, failures: e.params?.failures };
     if (why === 'gh-too-old') Object.assign(params, ghParams(e.params));
     return blocked(why, params, e.stage);
   };

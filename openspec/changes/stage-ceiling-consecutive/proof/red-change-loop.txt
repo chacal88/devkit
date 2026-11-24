@@ -1,0 +1,47 @@
+✖ stage-ceiling-consecutive AC-6 loop: the ceiling reply says the failures in a row, in both languages (18.88012ms)
+✖ stage-ceiling-consecutive AC-6 loop: the fix briefs name the failures in a row (1.694284ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 602.001453
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6192:1
+✖ stage-ceiling-consecutive AC-6 loop: the ceiling reply says the failures in a row, in both languages (18.88012ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'The change feat stopped: the demonstration failed 5 times, which is its limit. Nothing more runs until this is sorted out.'
+  - 'The change feat stopped: the demonstration reached its limit of failures in a row (3). Nothing more runs until this is sorted out.'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/change-loop.test.mjs:6195:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'The change feat stopped: the demonstration failed 5 times, which is its limit. Nothing more runs until this is sorted out.',
+    expected: 'The change feat stopped: the demonstration reached its limit of failures in a row (3). Nothing more runs until this is sorted out.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6202:1
+✖ stage-ceiling-consecutive AC-6 loop: the fix briefs name the failures in a row (1.694284ms)
+  AssertionError [ERR_ASSERTION]: Change feat (devkit script), stage proposal: readiness failed at attempt 3 of 3: revise the plan from its findings. Work only in /w/feat on branch feat; every file path is absolute under it; start every Bash command with cd /w/feat && ; do not fetch. Write the change's files in English.
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stage-ceiling-consecutive/plugins/openspec/hooks/change-loop.test.mjs:6204:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
