@@ -36,7 +36,7 @@ scratch file in the tree, and end every task with `git status --short`.
 
 ## 1. The checker: commit the change folder before a review round (AC-1 to AC-5, AC-7)
 
-- [ ] 1.1 Write tests `loop-evidence 1` to `loop-evidence 14` in
+- [x] 1.1 Write tests `loop-evidence 1` to `loop-evidence 14` in
   `plugins/openspec/hooks/deliver-check.test.mjs` (a new section at the end of the file) and
   `loop-evidence 15` in `plugins/openspec/hooks/change-loop.test.mjs` (right after "change-loop
   decide: B2 commits and pull requests go to the commit agent"), as design D-4's tables say. Run
@@ -46,36 +46,36 @@ scratch file in the tree, and end every task with `git status --short`.
   tests. 1, 6, 7, 8, 9, 10, 11, 12 and 14 fail (7, 12 and 14 read `folderDirty`, which is
   `undefined` before D-1; the others expect the step of D-2); 2, 3, 4, 5, 13 and 15 pass, because
   they pin behaviour that must not change (design D-4, column "Red before D-1/D-2").
-- [ ] 1.2 Add the `folderDirty` field to `collectState`'s pre-merge return (design D-1) and the
+- [x] 1.2 Add the `folderDirty` field to `collectState`'s pre-merge return (design D-1) and the
   `commit` condition inside `nextStep`'s `if (toReview.length)` block (design D-2), with their two
   comments, in `plugins/openspec/hooks/deliver-check.mjs`. Change nothing else in the file. Check:
   tests 1 to 15 pass, and `git diff --stat -- plugins/openspec/hooks/` lists only
   `deliver-check.mjs` and the two test files of 1.1.
-- [ ] 1.3 Run the whole `plugins/openspec/hooks/deliver-check.test.mjs` and the test "flow-check AC-6:
+- [x] 1.3 Run the whole `plugins/openspec/hooks/deliver-check.test.mjs` and the test "flow-check AC-6:
   deliver-check gives the same step with and without stage headers" of
   `plugins/openspec/hooks/flow-check.test.mjs` on the code of 1.2, before any edit to an existing
   test, and save both outputs to `openspec/changes/loop-place-and-evidence/proof/red-1b.txt`.
   Check: the failing tests are exactly E1 to E9 of design D-4, or a subset of them. A failing test
   outside E1 to E9 stops the phase: report it, and the plan is revised before any edit.
-- [ ] 1.4 Edit E1 to E8 in `plugins/openspec/hooks/deliver-check.test.mjs` and E9 in
+- [x] 1.4 Edit E1 to E8 in `plugins/openspec/hooks/deliver-check.test.mjs` and E9 in
   `plugins/openspec/hooks/flow-check.test.mjs`, exactly as design D-4's table says: commit the evidence
   before the call, or add the `commit` step to the recorded sequence. Expected reviewers and rounds
   stay as they are, and no assertion is removed. Check: E1 to E9 pass, and `git diff -U0` of the two
   files shows no removed `assert` line except the three sequence lists of E2 and E7, each replaced by
   its new list.
-- [ ] 1.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence " --test-name-pattern="^flow-check AC-6" --test-name-pattern="^change-loop decide: B2" --test-name-pattern="^remote AC-10 stop" --test-name-pattern="^upfront AC-[789] " plugins/openspec/hooks/guard.test.mjs`
+- [x] 1.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence " --test-name-pattern="^flow-check AC-6" --test-name-pattern="^change-loop decide: B2" --test-name-pattern="^remote AC-10 stop" --test-name-pattern="^upfront AC-[789] " plugins/openspec/hooks/guard.test.mjs`
   green (a background command); covers AC-1, AC-2, AC-3, AC-4 and AC-5 (the fixture round, test 13),
   and AC-7 (the place-wait tests, unedited).
 
 ## 2. The texts: the skill rows and the flow doc (AC-6)
 
-- [ ] 2.1 Write tests `loop-evidence 16` and `loop-evidence 17` in
+- [x] 2.1 Write tests `loop-evidence 16` and `loop-evidence 17` in
   `plugins/openspec/hooks/deliver-check.test.mjs`, after "format: ship-change names every next.step
   the checker can return", as design D-4 says. Run
   `node --test --test-name-pattern="^loop-evidence 1[67]: " plugins/openspec/hooks/deliver-check.test.mjs`
   on the texts as they are and save its output to
   `openspec/changes/loop-place-and-evidence/proof/red-2.txt`. Check: both tests are named and both fail.
-- [ ] 2.2 Edit rows `commit` and `review` of `plugins/openspec/skills/ship-change/SKILL.md` with the
+- [x] 2.2 Edit rows `commit` and `review` of `plugins/openspec/skills/ship-change/SKILL.md` with the
   exact texts of design D-3. The rest of each row stays byte for byte. No test asserts the replaced
   sentences (`grep -rn "Commit every modified\|lists only the paths outside\|verify and review run next" plugins/*/hooks/*.test.mjs scripts/`
   prints only test 16's lines). The rows are pinned, unchanged, by "format: ship-change names every
@@ -83,13 +83,13 @@ scratch file in the tree, and end every task with `git status --short`.
   stage file names the stage header" (`flow-check.test.mjs`, the `review` row keeps the header) and
   "stage-roles gates: the verify row allows no pull-request comment" (`guard.test.mjs`). Check: test
   16 and those three pass.
-- [ ] 2.3 Edit the paragraph "**Order of the delivery steps.**" of `docs/openspec-flow.md` with the two
+- [x] 2.3 Edit the paragraph "**Order of the delivery steps.**" of `docs/openspec-flow.md` with the two
   insertions of design D-3, and nothing else. The heading is pinned by "AC-6 instructions-follow:
   configs, ship-change, devkit, flow doc and READMEs name evidence before review", and the old
   phrases are refused by "AC-6 instructions-follow: no tracked file outside the records still says
   review before evidence" (both in `deliver-check.test.mjs`). Check: test 17 and both AC-6 tests pass,
   and `python3 scripts/check.py` passes.
-- [ ] 2.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence 1[67]: " --test-name-pattern="^format: ship-change" --test-name-pattern="^AC-6 instructions-follow" --test-name-pattern="^flow-check AC-3: every writer" --test-name-pattern="^stage-roles gates" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py`
+- [x] 2.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence 1[67]: " --test-name-pattern="^format: ship-change" --test-name-pattern="^AC-6 instructions-follow" --test-name-pattern="^flow-check AC-3: every writer" --test-name-pattern="^stage-roles gates" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py`
   green; covers AC-6.
 
 ## 3. Release and the whole suite (AC-1 to AC-7)

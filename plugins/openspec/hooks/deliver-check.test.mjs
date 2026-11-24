@@ -1994,6 +1994,7 @@ test('resume: code committed with one review current runs only the other reviewe
   commitAll(t.root, 'all code');
   reviewAt(t.root, ['code-quality-reviewer']);
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   let n = t.next();
   assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['test-coverage-reviewer'], 1]);
 
@@ -2005,6 +2006,7 @@ test('resume: code committed with one review current runs only the other reviewe
   commitAll(t.root, 'fix after review');
   reviewAt(t.root, ['code-quality-reviewer']);
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', ['test-coverage-reviewer']]);
 });
@@ -2054,7 +2056,7 @@ function driveToReady(t) {
 }
 
 test('walkthrough: a devkit-lite change goes from no ticked task to ready without a stop step (AC-2)', () => {
-  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'ready']);
+  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'commit', 'review', 'open-pr', 'ready']);
 });
 
 test('resume: a round-2 deadlock on disk stops while current and re-reviews as round 1 after the owner\'s product commit (AC-4, AC-5)', () => {
@@ -2069,6 +2071,7 @@ test('resume: a round-2 deadlock on disk stops while current and re-reviews as r
   commitAll(t.root, 'owner fix');
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.round], ['review', 1]);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
@@ -2090,6 +2093,7 @@ test('AC-3 fix-restales-both (a): after a rejected review and its fix commit, ve
   productCommit(t);
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   const n = t.next();
   assert.deepEqual([n.step, n.round, n.reviewers], ['review', 2, ['code-quality-reviewer', 'test-coverage-reviewer']]);
 });
@@ -2101,6 +2105,7 @@ test('AC-3 fix-restales-both (b): after a fail row and its fix commit, verify co
   productCommit(t);
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   assert.deepEqual([t.next().step], ['review']);
 });
 
@@ -2112,6 +2117,7 @@ test('AC-3 fix-restales-both (c): after a failing check and its fix commit, veri
   let n = t.next();
   assert.equal(n.step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', ['code-quality-reviewer', 'test-coverage-reviewer']]);
   reviewAt(t.root, n.reviewers);
@@ -2688,7 +2694,7 @@ test('--watch outside wait-merge never polls (enable-auto-merge, and no --watch 
 test('walkthrough (merge): enable at 8/8, wait, a product commit disables first, the loop re-runs, enable again, then the retro', () => {
   const t = shipRepo({ ship: 'merge' });
   const taken = driveToReady(t);
-  assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'enable-auto-merge']);
+  assert.deepEqual(taken, ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'commit', 'review', 'open-pr', 'enable-auto-merge']);
 
   const pr = (extra = {}, sha = head(t.root)) => t.gh.set('pr-view', { stdout: prJson({ headRefOid: sha, body: PR_BODY, ...extra }) });
   const step = () => nextStep(collectState(t.root, 'feat', { env: t.env }));
@@ -2708,6 +2714,8 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
   n = step();
   seen.push(n.step);
   fullEvidence(t.root, t.env);
+  seen.push(step().step); // the change folder is committed before the review round
+  commitAll(t.root, 'evidence');
   n = step();
   seen.push(n.step);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
@@ -2726,7 +2734,7 @@ test('walkthrough (merge): enable at 8/8, wait, a product commit disables first,
   presetArchiveReads(t);
   seen.push(step().step);
 
-  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'verify', 'review', 'push', 'enable-auto-merge', 'wait-merge', 'retro']);
+  assert.deepEqual(seen, ['enable-auto-merge', 'wait-merge', 'disable-auto-merge', 'verify', 'commit', 'review', 'push', 'enable-auto-merge', 'wait-merge', 'retro']);
   assert.deepEqual(noMergeCall(t), [], 'deliver-check never merges; the skill runs gh pr merge');
 });
 
@@ -3220,6 +3228,29 @@ test('format: ship-change names every next.step the checker can return', () => {
   const emitted = [...new Set([...src.matchAll(/\bstep\('([a-z-]+)'/g)].map((m) => m[1]))];
   assert.ok(emitted.length >= steps.length - 1, 'found the steps in nextStep');
   for (const s of emitted) assert.match(md, new RegExp(`^\\|[^|]*\`${s}\`[^|]*\\|`, 'm'), `a table row for ${s}`);
+});
+
+// Invariant: the texts that tell the conducting session what to do say what the checker does: the loop hands
+// `commit` before a review round while the change folder is uncommitted. Owner: the ship-change skill and the
+// flow doc (text pins). Suite: deliver-check.test.mjs.
+test('loop-evidence 16: the ship-change review row leaves the commit to the loop and the commit row allows empty paths', () => {
+  const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
+  const row = (step) => md.split('\n').find((l) => l.startsWith(`| \`${step}\``)) ?? '';
+  const review = row('review');
+  assert.ok(review.length > 0, 'the review row exists');
+  assert.ok(!review.includes('Commit every modified or untracked file under the change folder first'), 'the review row no longer commits by prose');
+  assert.ok(review.includes('The loop hands the `commit` step first while anything under the change folder is uncommitted'), 'the review row names the loop\'s commit step');
+  const commit = row('commit');
+  assert.ok(commit.includes('`next.paths` lists only the paths outside `openspec/`, and may be empty'), 'the commit row allows empty paths');
+  assert.ok(commit.includes('are still staged from `git status`'), 'the commit row still stages the folder from git status');
+});
+
+test('loop-evidence 17: the flow doc\'s order of the delivery steps names the commit before the review round', () => {
+  const doc = readFileSync(join(repoRoot, 'docs', 'openspec-flow.md'), 'utf8');
+  const para = doc.split('\n').find((l) => l.startsWith('**Order of the delivery steps.**')) ?? '';
+  assert.ok(para.length > 0, 'the paragraph exists');
+  assert.ok(para.includes('`commit` (a reviewer missing or stale while a path under `openspec/changes/<id>/` is uncommitted'), 'the order names the commit step');
+  assert.ok(para.includes('A review round never starts on an uncommitted change folder'), 'the order states the rule');
 });
 
 test('format: ship-change enables auto-merge with one exact command, only at enable-auto-merge, and disables it at disable-auto-merge (AC-2, AC-3, AC-8)', () => {
@@ -5257,6 +5288,7 @@ test('review-writer-prompt AC-8 after a test-only commit the evidence goes stale
   commitAll(t.root, 'tests only');
   assert.equal(t.next().step, 'verify', 'the evidence is stale before any review');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   const n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', TEST_READERS]);
 });
@@ -5618,4 +5650,168 @@ test('commit-attribution AC-1 T36 the ship-change Attribution section holds the 
     "The caller's lines win over your own environment's, as the owner's choice: write exactly these and no other Co-Authored-By line, attribution trailer or footer.",
     'Attribution (from the caller): none', 'verbatim', "never take the agent's"]) assert.ok(s.includes(part), part);
   assert.doesNotMatch(s, /Opus|Sonnet|Haiku|noreply/);
+});
+
+// ---- loop-place-and-evidence: the change folder is committed before a review round (spec change-delivery)
+// Invariant: the review round runs on a clean change folder, so no verdict carries `(uncommitted changes)` for it.
+// Layer: deliver-check collectState (the folderDirty fact) and nextStep (the commit before review). Suite: deliver-check.
+
+const FOLDER = 'openspec/changes/feat';
+const folderState = (over = {}) => state({ folderDirty: [`${FOLDER}/evidence.md`], items: { 2: open({ missing: ['code-quality-reviewer'] }) }, ...over });
+
+test('loop-evidence 1: a dirty change folder before review answers commit with no paths', () => {
+  const n = nextStep(folderState());
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  assert.equal(n.reason, `uncommitted files in the change folder before the review round: ${FOLDER}/evidence.md`);
+});
+
+test('loop-evidence 2: with the folder clean or the field absent the review answer is unchanged', () => {
+  const missing = folderState();
+  for (const s of [{ ...missing, folderDirty: [] }, (({ folderDirty: _f, ...rest }) => rest)(missing)]) {
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['code-quality-reviewer'], 1]);
+  }
+  const failed = (over) => rejectedState({
+    reviews: [{ name: 'code-quality-reviewer', verdict: 'REJECTED', current: false }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
+    items: { 2: open({ stale: ['code-quality-reviewer'] }), 3: open({ undisposed: [] }) },
+    ...over,
+  });
+  const base2 = failed({ folderDirty: [] });
+  const { folderDirty: _g, ...absent } = base2;
+  for (const s of [base2, absent]) {
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['code-quality-reviewer'], 2]);
+  }
+});
+
+test('loop-evidence 3: product paths dirty with the folder answer the product commit once', () => {
+  const n = nextStep(folderState({ dirty: ['src/a.ts'] }));
+  assert.deepEqual([n.step, n.paths], ['commit', ['src/a.ts']]);
+  assert.match(n.reason, /^uncommitted changes outside openspec\//);
+});
+
+test('loop-evidence 4: a dirty folder never comes before verify, fix-defect, fix-review or the round-2 stop', () => {
+  const folderDirty = [`${FOLDER}/tasks.md`];
+  const missing = { 2: open({ missing: ['code-quality-reviewer'] }) };
+  assert.equal(nextStep(state({ folderDirty, items: { ...missing, 1: open({ evidence: 'stale', missingGates: [] }) } })).step, 'verify');
+  assert.equal(nextStep(state({ folderDirty, items: { ...missing, 4: open({ defects: ['AC-1'], proven: [] }) } })).step, 'fix-defect');
+  assert.equal(nextStep(rejectedState({ folderDirty })).step, 'fix-review');
+  assert.equal(nextStep(rejectedState({ folderDirty, reviewMd: { consensus: 'FAIL', round: 2 } })).step, 'stop-review-deadlock');
+});
+
+test('loop-evidence 5: a dirty folder with no reviewer to run changes nothing', () => {
+  const folderDirty = [`${FOLDER}/reviews/code-quality-reviewer.md`];
+  assert.equal(nextStep(state({ folderDirty })).step, 'ready');
+  assert.equal(nextStep(state({ folderDirty, items: { 5: open({ none: true }) } })).step, 'open-pr');
+});
+
+test('loop-evidence 6: the reason names at most three folder paths', () => {
+  const n = nextStep(folderState({ folderDirty: ['a.md', 'b.md', 'c.md', 'd.md'].map((f) => `${FOLDER}/${f}`) }));
+  assert.equal(n.step, 'commit');
+  for (const f of ['a.md', 'b.md', 'c.md']) assert.ok(n.reason.includes(`${FOLDER}/${f}`), n.reason);
+  assert.ok(!n.reason.includes('d.md'), n.reason);
+  assert.deepEqual(n.paths, []);
+});
+
+test('loop-evidence 7: evidence.md uncommitted alone answers commit, and once committed review with the same reviewers and round', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  assert.deepEqual(collectState(t.root, 'feat', { env: t.env }).folderDirty, [`${FOLDER}/evidence.md`]);
+  let n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  commitAll(t.root, 'evidence');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers, n.round], ['review', BOTH, 1]);
+});
+
+test('loop-evidence 8: a modified evidence.md alone answers commit', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  ev(t.root, `${readFileSync(join(t.root, FOLDER, 'evidence.md'), 'utf8')}\n`);
+  const n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+});
+
+test('loop-evidence 9: a ticked tasks.md uncommitted alone answers commit', () => {
+  const t = shipRepo();
+  tick(t.root, '1.1', '1.2', '2.1', '2.2');
+  commitAll(t.root, 'code');
+  tick(t.root, '2.3');
+  fullEvidence(t.root, t.env);
+  git(t.root, 'add', '--', `${FOLDER}/evidence.md`);
+  git(t.root, 'commit', '-q', '-m', 'evidence');
+  assert.deepEqual(git(t.root, 'status', '--porcelain').split('\n').map((l) => l.replace(/^\s*\S+\s+/, '')), [`${FOLDER}/tasks.md`]);
+  let n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  commitAll(t.root, 'tick');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers, n.round], ['review', BOTH, 1]);
+});
+
+test('loop-evidence 10: an untracked file, then the same file staged, answer commit and are named', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  put(t.root, { [`${FOLDER}/proof/red-1.txt`]: 'red\n' });
+  let n = t.next();
+  assert.equal(n.step, 'commit');
+  assert.ok(n.reason.endsWith(`${FOLDER}/proof/red-1.txt`), n.reason);
+  git(t.root, 'add', '--', `${FOLDER}/proof/red-1.txt`);
+  n = t.next();
+  assert.equal(n.step, 'commit');
+  assert.ok(n.reason.endsWith(`${FOLDER}/proof/red-1.txt`), n.reason);
+  commitAll(t.root, 'proof');
+  assert.equal(t.next().step, 'review');
+});
+
+test('loop-evidence 11: product code dirty with the folder: the product commit, verify, the folder commit, then review', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  put(t.root, { 'src/a.ts': 'changed\n' });
+  let n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', ['src/a.ts']]);
+  commitAll(t.root, 'product');
+  assert.equal(t.next().step, 'verify');
+  fullEvidence(t.root, t.env);
+  n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', []]);
+  commitAll(t.root, 'evidence');
+  n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['review', BOTH]);
+});
+
+test('loop-evidence 12: paths outside the change folder do not count', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  put(t.root, { 'openspec/changes/featx/tasks.md': 'x\n', 'openspec/config.yaml': `${readFileSync(join(t.root, 'openspec/config.yaml'), 'utf8')}# x\n` });
+  assert.deepEqual(collectState(t.root, 'feat', { env: t.env }).folderDirty, []);
+  assert.equal(t.next().step, 'review');
+});
+
+test('loop-evidence 13: a round recorded after the commit step is current; one marked uncommitted is not', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  reviewAt(t.root, BOTH);
+  assert.equal(itemsOf(t)[1].status, 'met');
+  assert.equal(t.next().step, 'open-pr');
+  put(t.root, withReviews(Object.fromEntries(BOTH.map((n) => [n, review('approved', head(t.root), ' (uncommitted changes)')]))));
+  const two = itemsOf(t)[1];
+  assert.equal(two.status, 'open');
+  assert.deepEqual([...two.details.stale].sort(), BOTH);
+});
+
+test('loop-evidence 14: collectState lists the folder\'s modified, staged, untracked and renamed paths', () => {
+  const t = committedChange();
+  fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
+  writeFileSync(join(t.root, FOLDER, 'tasks.md'), `${readFileSync(join(t.root, FOLDER, 'tasks.md'), 'utf8')}\n<!-- note -->\n`);
+  put(t.root, { [`${FOLDER}/notes.md`]: 'n\n' });
+  git(t.root, 'add', '--', `${FOLDER}/notes.md`);
+  put(t.root, { [`${FOLDER}/proof/x.txt`]: 'x\n' });
+  git(t.root, 'mv', `${FOLDER}/proposal.md`, `${FOLDER}/proposal-old.md`);
+  const dirty = [...(collectState(t.root, 'feat', { env: t.env }).folderDirty ?? [])].sort();
+  assert.deepEqual(dirty, [`${FOLDER}/notes.md`, `${FOLDER}/proof/x.txt`, `${FOLDER}/proposal-old.md`, `${FOLDER}/tasks.md`]);
 });

@@ -422,6 +422,16 @@ test('change-loop decide: B2 commits and pull requests go to the commit agent', 
   }
 });
 
+test('loop-evidence 15: a commit row with no paths goes to the commit agent, as one with paths does', () => {
+  const none = build(rowOf('commit', { paths: [] }));
+  const some = build(rowOf('commit', { paths: ['src/a.ts'] }));
+  for (const a of [none, some]) {
+    assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role], ['agent', COMMIT, 'commit', 'delivery', 'commit-and-pr']);
+    assert.deepEqual(a.skills, ['commit-message-guidelines']);
+  }
+  assert.deepEqual(none.detail.paths, []);
+});
+
 test('release-merge-conflict 14: a push row with a plain command goes to the commit agent', () => {
   const command = ['git', 'push', 'origin', 'feat'];
   const a = build(rowOf('push', { number: 12, branch: 'feat', command }));
