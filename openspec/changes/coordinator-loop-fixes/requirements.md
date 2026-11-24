@@ -86,8 +86,8 @@ the sibling changes in flight (`loop-place-and-evidence`, `stage-ceiling-consecu
 
 ### Added: the coordinator's field findings of 2026-11-24
 
-Two loop defects found in the field on 2026-11-24 join this change (the coordinator's message), each
-checked on c663f21:
+Three loop defects found in the field on 2026-11-24 join this change (the coordinator's messages),
+the first two checked on c663f21, the third on this branch:
 
 25. A change whose id starts with `archive-` loses its own pull request: `isArchiveHead`
     (`plugins/openspec/hooks/deliver-check.mjs:684`) tests `/^(chore\/)?archive-/`, so `isOwnPr` (`:710`)
@@ -110,6 +110,16 @@ checked on c663f21:
     is still ahead of it, not a branch advanced into the base; `post-merge-validate` (roadmap line 74),
     `evidence-attempts-by-failure` (line 79), `fresh-base-check` (line 71) and `own-files-by-content`
     (line 93) do not cover it either.
+27. A third field finding of 2026-11-24 (the coordinator's second message, found by the change
+    `run-status-bar`), checked on this branch at 20c0930 with the `openspec` CLI 2.0.0: the
+    paragraph "The model of each stage" of `docs/openspec-flow.md` offers a change's own
+    `.openspec.yaml` a `models:` table under a `devkit:` block, and `modelsOf`
+    (`plugins/openspec/hooks/change-loop.mjs`) reads it there, but
+    `openspec validate <id> --type change --strict` warns "Unrecognized key name(s) in .openspec.yaml
+    ... devkit" and exits 1 on that file (it accepts only `schema`, `created`, `goal`,
+    `affected_areas`, `initiative`, `skip_specs`, `retire_capabilities` and `x-` keys). A change
+    that follows the document turns its own validation, its gates and the `check` red. Commit
+    a9d75e9 of this branch wrote the table and 20c0930 removed it again. No roadmap line owns it.
 
 ## Assumptions
 
@@ -155,9 +165,10 @@ checked on c663f21:
 - AC-13 `resolve-outside-release-files`: a pull request that conflicts with the base outside the release files gets a declared resolve step; the run does not end blocked for it, and a conflict in the release files still uses `resolve-release-conflict`.
 - AC-14 `nits-closed`: the change-coordination spec words the archive sources as their union; the project-setup spec states exit 1 of `github-setup` for a blocked state; a test covers an unreadable `.openspec.yaml`; project-loop T25 fails without the export; the roadmap scenario of the commit-attribution spec has a test of its own; T31 no longer counts a literal phrase.
 - AC-15 `short-script-decisions-recorded`: `docs/openspec-flow.md` records that `devkit-lite` has no plan approval of its own by decision and that a first-spec change follows the ordinary choice rule; no behaviour changes: `devkit-lite`'s stages and gates are the same before and after.
-- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13, AC-17 and AC-18 state; the existing suites stay green.
+- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13 and AC-17 to AC-19 state; the existing suites stay green.
 - AC-17 `archive-prefixed-id-own-pr`: a change whose id starts with `archive-` and whose pull request's head is its own id finds that pull request as its own, merged or open, so `next` goes on to the retro after its merge; a head `chore/archive-<id>` (or `archive-<id>`) is still the archive of change `<id>` and never its own pull request, and another change's `archive-` head is neither. A test per condition, negatives included, and a real `next` run on `archive-release-pin`.
 - AC-18 `delivered-advanced-branch-no-rereview`: a delivered change whose local branch was advanced into the base (its head contained in `origin/<base>`) goes to the retro with no new evidence or review round; on its own branch still ahead of the base, and for a change not delivered, the evidence and the reviews are judged as today.
+- AC-19 `stage-models-override-validates`: the per-change override of a stage's model that `docs/openspec-flow.md` documents and the strict validation agree: either the loop reads the table from a place `openspec validate <id> --type change --strict` accepts, or the document stops offering the change's own `.openspec.yaml`; the plan decides which. A test writes the table exactly as the document shows it, runs `openspec validate <id> --type change --strict` on that change and asserts exit 0, and asserts that `modelsOf` reads the table's values (or, if the document stops offering it, that the document no longer shows it).
 
 ## Out of scope
 
