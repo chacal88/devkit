@@ -566,7 +566,7 @@ test here is written before the code it proves; an existing test changes only wh
   `upfront AC-5 docs: ...` passes; `upfront ADR 0021: the documents follow`, `change-loop docs: the
   design records the answers` and every `change-budget AC-10` docs test pass unchanged;
   `python3 scripts/check.py` passes (links, language, changelog).
-- [ ] 8.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 45 minutes; it covers the documents 8.5 edits, read by suites outside phase 8's patterns), a failure handled by 8.4's rule; covers AC-5 (flow version 2, the triage of a change on flow 2 only), AC-4 (the coordinating session's triage by the change's flow) and AC-14 (the check's triage by the change's flow).
+- [x] 8.6 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && openspec validate roadmap-sessions-upfront --strict` green, the suite run as a background command of the tool (13 to 45 minutes; it covers the documents 8.5 edits, read by suites outside phase 8's patterns), a failure handled by 8.4's rule; covers AC-5 (flow version 2, the triage of a change on flow 2 only), AC-4 (the coordinating session's triage by the change's flow) and AC-14 (the check's triage by the change's flow).
 
 ## Workflow follow-up
 
