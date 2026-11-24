@@ -1,4 +1,4 @@
-<!-- devkit-stage design result=passed attempt=9 commit=1a742290b1b7cde8c4d48f317f834c834b6c8a95 -->
+<!-- devkit-stage design result=passed attempt=10 commit=a27d9c9f3d82d3969f333532b86ceb3ea94775ea -->
 # Design
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
@@ -562,10 +562,17 @@ today and does not change:
   never edit product code for it, the edit lock refuses it. A task you cannot do is declared with
   `reply waiting-owner-decision --param id=<id> --param decision="<the task in plain words>"`."); the `implement` row adds
   "with `next.stopAt`, stop before that task". `devkit/SKILL.md` `session` item names `conductor-task`.
-- `plugins/core/agents/tdd-implementer.md`, `## Work`: "A task whose description starts with
+- `plugins/core/agents/tdd-implementer.md`, in `## Per task: red → green → refactor` (the file has no
+  `## Work` section), right after its first sentence "Work through the phase's tasks in `tasks.md`
+  order.": "A task whose description starts with
   `Conductor:` is the conducting session's: never do it or tick it; stop before the first open one,
   report the phase as stopped there, and return `success` for the tasks before it." The kit's copy of
   this file is generated from it, so the same task regenerates the kit (D-19).
+- The new `conductor` field is part of every phase the delivery checker reports, so the `--json` report's
+  `phases` carry it too; the one test that compares a phase of that report exactly,
+  `CLI --json carries the items, phases and next, with version 1` (`deliver-check-cli.test.mjs`), is
+  updated to expect `conductor: []` (D-15, task 3.8). The report's `version` stays 1: a field is added,
+  none is renamed or removed.
 - Both schemas' tasks instruction (`plugins/openspec/schemas/devkit/schema.yaml` and
   `devkit-lite/schema.yaml`, and their byte-identical copies under `openspec/schemas/`), after the gate
   sentence: "A task only the conducting session can do (a run in the host, a host setting, a real
@@ -594,7 +601,9 @@ today and does not change:
   `!stale && started && !facts.postMerge && stage.id === 'readiness' && facts.approvalOk &&
   facts.planRevision?.changed`, `stale = { code: 'plan-revised', params: {} }`. `TEXT` gains
   `plan-revised` (en "the plan changed after the owner approved it"; pt-BR
-  `o plano mudou depois que o dono o aprovou`). Once the readiness runs again its hash changes,
+  `o plano mudou depois que o dono o aprovou`); the test that requires a parameter row for every code of
+  `TEXT`, `flow-check readout: both languages cover every reason code` (`flow-check.test.mjs`), gains
+  the row `'plan-revised': {}` (D-15, task 3.8). Once the readiness runs again its hash changes,
   `approvalOk` turns false and the readiness is no longer stale; the walk reaches the implementation,
   where `nextStep` gives `stop-plan-approval`, which `decide` turns into `waiting-approval-again`.
 - `change-loop.mjs`: `PLAN_REASONS` and the stale list of `planPart` gain `plan-revised` (the
@@ -931,6 +940,7 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `post-merge-validate 2: a plan edit made as a merge-defect fix leaves the plan gate where an ordinary design edit does` (change-loop.test.mjs) | a merge-defect fix and a design edit give the same readiness and approval states, both passed, with `approvalState` ok | kept: its fixture's `approval.md` holds no `- Plan:` line, so D-7 asks nothing in either case; the invariant "the same answer as an ordinary plan edit" is also pinned with a digest by T133 (D-7) | 3.5 |
 | `review-openspec-fix 12: a plan fix written and not committed ...`, `jira-entry-followups AC-3 a plan fix edited after a rejecting round is handed to commit, not fix-review`, `jira-entry-followups AC-4 ...` and `loop-evidence 1: a dirty change folder before review answers commit with no paths` with the other `folderDirty` tests (deliver-check-archive.test.mjs) | an uncommitted plan fix goes to `commit` before `fix-review`; a dirty change folder goes to `commit` before a review round | kept: `planDirty` leaves out only `declared.json`, which none of them writes, and `folderDirty` is unchanged (D-1) | 2.3 |
 | `parseTasks: only a description that starts with Gate: is a gate ...` (deliver-check.test.mjs) and `review-writer-prompt AC-9 parseTasks ...` (deliver-check-archive.test.mjs) | the fields they map | kept: the new field is not mapped | 3.2 |
+| `CLI --json carries the items, phases and next, with version 1` (deliver-check-cli.test.mjs; added at the plan revision of task 3.8, when the test failed on the field D-6 adds) | invariant: the CLI's `--json` report is version 1 and carries the items, the phases and `next`, its first phase in the exact shape `readPhases` gives (`deepEqual` of `j.phases[0]`); layer: `deliver-check.mjs` `readPhases` through the CLI's `--json` report; suite: deliver-check-cli.test.mjs | updated: the expected phase gains `conductor: []` (D-6: `{ n: 1, title: 'First', open: ['1.1'], conductor: [], gate: { id: '1.2', done: false, command: 'node -e 0' } }`); `version` stays 1 and the rest of the test is unchanged | 3.2, 3.8 |
 | `evidence.md is written only by pr-verifier` (guard.test.mjs) | evidence's writer | kept | 4.3 |
 | `change-loop skill: the wait is started in the background on a GitHub wait` (change-loop-compozy.test.mjs) | the background wait | kept: the first paragraph is unchanged | 4.5 |
 | `project-settings: PACKS equals the plugin names in marketplace.json` (plugins/openspec/skills/openspec-setup/scripts/project-settings.test.mjs) | rule: `PACKS` names the marketplace's plugins | kept: D-9 moves `PACKS` above `AGENT` and changes no entry | 4.4 |
@@ -941,7 +951,7 @@ plugins/*/skills/*/scripts/*.test.mjs`. Before each gate the implementer also ru
 | `flow-check stages: a failed header does not pass its stage` (`{ attempt: 1, failures: 1, ceiling: 2 }`) and `flow-check stages: a failed stage offers its fix, then itself after the fix` (`{ failed: 'review', attempt: 1, failures: 1, ceiling: 2 }`) (flow-check.test.mjs) | the review's ceiling in the reason's parameters | kept: no record, ceiling 2 | 2.3 |
 | every `stage-ceiling-consecutive` test (flow-check.test.mjs: `AC-1` to `AC-7`, `failuresInARow ...`, `the history is read only ...`, `the readout says ...`; change-loop.test.mjs, change-loop-compozy.test.mjs and project-loop.test.mjs: the `AC-6` loop and reply tests) | the failures in a row, read from git, are the left side of the ceiling comparison, and the replies and briefs say them | kept: D-4 changes only the right side, and only for the `review` stage of role `review-bench` with a record; none of these fixtures writes `declared.json` | 2.3 |
 | the `liveChange` test (`review: 'failed', reviewAttempt: 2` exits 2) (flow-check.test.mjs) | the CLI exit of a review at its ceiling | kept: its fixture writes no `declared.json` | 2.3 |
-| `flow-check readout: both languages cover every reason code` (flow-check.test.mjs, the `ceiling-reached` and `header-failed` parameters) | every reason code is said in both languages | kept: no reason code is added or renamed for the ceiling | 2.3 |
+| `flow-check readout: both languages cover every reason code` (flow-check.test.mjs, the `ceiling-reached` and `header-failed` parameters; row revised at the plan revision of task 3.8, when the test failed on the code D-7 adds) | invariant: every reason code of `TEXT` is said in both languages, and the test's parameter table `P` names exactly the codes of `TEXT.en` (`deepEqual` of the sorted keys); layer: `flow-check.mjs` `TEXT` and `reasonText`; suite: flow-check.test.mjs | updated: D-4 adds no code for the ceiling (2.3), and D-7 adds `plan-revised` (3.5), so `P` gains the one row `'plan-revised': {}` (the code takes no parameters); the rest of the test is unchanged | 2.3, 3.8 |
 | `stage-roles flow owner: a mock-up sent back at attempt 3 and at attempt 40 is never blocked by a ceiling` (flow-check.test.mjs: "a numeric ceiling still blocks") | a numeric ceiling still blocks the review | kept: no record | 2.3 |
 | `version-pin AC-2 readout: the version-1 ceiling holds after the upgrade` and `version-pin AC-3 readout: the version-2 ceiling blocks` (version-pin.test.mjs) | the pinned flow's `review` ceiling (2, or 1 in the synthetic version 2) | kept: no record, so `ceilingOf` is the pinned flow's own ceiling | 2.3 |
 | `change-loop decide: P9 a ceiling and the other blocked ends of the plan` (change-loop.test.mjs) and the `ceilingFixture` tests of roadmap-loop.test.mjs | a readiness at its ceiling ends blocked `ceiling` | kept: the readiness is never lifted (`ceilingOf` lifts only the `review` stage of role `review-bench`) | 2.3 |

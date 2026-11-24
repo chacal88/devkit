@@ -1,4 +1,4 @@
-<!-- devkit-stage tasks result=passed attempt=9 commit=1a742290b1b7cde8c4d48f317f834c834b6c8a95 -->
+<!-- devkit-stage tasks result=passed attempt=10 commit=a27d9c9f3d82d3969f333532b86ceb3ea94775ea -->
 # Tasks
 
 Change: `coordinator-loop-fixes` · Date: 2026-11-23 · Owner: Kaue (chacal88)
@@ -228,7 +228,8 @@ every task with `git status --short`.
   description that starts with Gate: is a gate; a mid-sentence `Gate:` is not" (`deliver-check.test.mjs`) and
   "review-writer-prompt AC-9 parseTasks counts the task and the gate after an unclosed fence"
   (`deliver-check-archive.test.mjs`) still pass.
-- [x] 3.3 D-6's texts: `plugins/core/agents/tdd-implementer.md`, the `conductor-task` and `implement` rows of
+- [x] 3.3 D-6's texts: `plugins/core/agents/tdd-implementer.md` (the sentence in `## Per task: red → green → refactor`, right
+  after "Work through the phase's tasks in `tasks.md` order."; the file has no `## Work` section, D-6), the `conductor-task` and `implement` rows of
   `plugins/openspec/skills/ship-change/SKILL.md`, the `session` item of `plugins/openspec/skills/devkit/SKILL.md`, and
   the tasks instruction of `plugins/openspec/schemas/devkit/schema.yaml`, `plugins/openspec/schemas/devkit-lite/schema.yaml`,
   `openspec/schemas/devkit/schema.yaml` and `openspec/schemas/devkit-lite/schema.yaml`, each pair byte-identical.
@@ -281,11 +282,18 @@ every task with `git status --short`.
   passes.
 - [ ] 3.8 D-21: the exported `headInBase(root, facts)` in `plugins/openspec/hooks/deliver-check.mjs`, read by `ownFiles`
   (its result unchanged) and by `prItem`'s merged arm, and `collectFlow`'s `postMerge` in `plugins/openspec/hooks/flow-check.mjs` (`offOwnBranch` or
-  `headInBase`, and delivered). Check: T125 to T131 pass, and `node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/deliver-check.test.mjs`
-  passes (the walk after a squash merge, the `field-fixes 4` and `own-files` tests of those files among them).
+  `headInBase`, and delivered). With it, the two D-15 updates of the plan revision of task 3.8 (the field of 3.2 and the
+  code of 3.5 left them red): the row `'plan-revised': {}` in the table `P` of "flow-check readout: both languages cover
+  every reason code" (`plugins/openspec/hooks/flow-check.test.mjs`), and `conductor: []` in the phase that "CLI --json
+  carries the items, phases and next, with version 1" (`plugins/openspec/hooks/deliver-check-cli.test.mjs`) expects; no
+  other line of either test changes. Check: T125 to T131 pass, and `node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/deliver-check.test.mjs`
+  passes (the walk after a squash merge, the `field-fixes 4` and `own-files` tests of those files and "flow-check
+  readout: both languages cover every reason code" among them), and so does
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^CLI --json carries the items, phases and next" plugins/openspec/hooks/deliver-check-cli.test.mjs`
+  (one test).
   Then the runs gate 3.9 held before the `Gates:` rule of `openspec/config.yaml` (D-17) pass, before the gate:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/compozy/skills/compozy-setup/scripts/gen-agents.test.mjs plugins/compozy/skills/compozy-setup/scripts/adoption.test.mjs` and
-  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes" --test-name-pattern="^change-loop decide" --test-name-pattern="^change-loop compozy" --test-name-pattern="^change-loop skill" --test-name-pattern="^stage-roles" --test-name-pattern="^review-writer-prompt" --test-name-pattern="^format:" --test-name-pattern="^conduct: deliveryStep" --test-name-pattern="^field-fixes 4" --test-name-pattern="^field-fixes 7" --test-name-pattern="^delivery-train P3 isOwnPr" --test-name-pattern="^delivery-train P3 delivered" --test-name-pattern="^delivery-train own-files" --test-name-pattern="^ship-change SKILL.md pins" --test-name-pattern="^post-merge-validate 2" plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs`.
+  `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes" --test-name-pattern="^change-loop decide" --test-name-pattern="^change-loop compozy" --test-name-pattern="^change-loop skill" --test-name-pattern="^stage-roles" --test-name-pattern="^review-writer-prompt" --test-name-pattern="^format:" --test-name-pattern="^CLI --json carries the items, phases and next" --test-name-pattern="^conduct: deliveryStep" --test-name-pattern="^field-fixes 4" --test-name-pattern="^field-fixes 7" --test-name-pattern="^delivery-train P3 isOwnPr" --test-name-pattern="^delivery-train P3 delivered" --test-name-pattern="^delivery-train own-files" --test-name-pattern="^ship-change SKILL.md pins" --test-name-pattern="^post-merge-validate 2" plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/delivery-train-after.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/skills/openspec-setup/scripts/changes-under-way.test.mjs`.
 - [ ] 3.9 Gate: `node scripts/test-suite.mjs && python3 scripts/check.py && node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` green; covers AC-9 (T62 to T69, and the kit's copy of the agent), AC-8 (T51 to T61, T93, T94, T115, T116, T133, T134), AC-17 (T119 to T124, and the `delivery-train P3` tests of `findChangePr`) and AC-18 (T125 to T131).
 
 ## 4. The language run, the verifier, the agent map, the host monitor and the documents (AC-6, AC-12, AC-4, AC-11, AC-5, AC-15)
