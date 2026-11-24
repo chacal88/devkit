@@ -11,7 +11,7 @@ schema: devkit-lite
 #   plan  - the flow stops before any PR work; the merge is the owner's
 #   pr    - ship-change takes the change to a ready PR; the merge is the owner's
 #   merge - ship-change also enables GitHub auto-merge at 8/8; GitHub merges
-# `merge` needs the GitHub step of the openspec-setup skill first (workflow,
+# `merge` needs the GitHub step of /devkit setup first (workflow,
 # auto-merge allowed, a ruleset that requires devkit-reviews). Uncomment to opt in:
 # ship:
 #   devkit-lite: merge
@@ -29,6 +29,10 @@ schema: devkit-lite
 #       command: "npm run coverage"    # prints the total coverage
 #       target: 80                     # whole number, percent; absent: coverage is recorded, never fails
 #     e2e: "npm run e2e"               # absent: the E2E stage does not run
+#   budget: 200000                     # token cap per change; absent: no cap
+# design:                              # only when the project tracks screens (the screen-design skill)
+#   screen_map: docs/design/screen-map.md
+#   mockup: Figma                      # the tool or document the mockup lives in
 
 # Shown to the agent in every artifact and in apply. Fill in for this project.
 context: |

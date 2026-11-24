@@ -215,7 +215,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
 
 ## 4. The block writer and the kit finder (AC-3 to AC-7)
 
-- [ ] 4.1 Write B-1 to B-17 in a new `plugins/openspec/skills/devkit/scripts/setup-block.test.mjs`,
+- [x] 4.1 Write B-1 to B-17 in a new `plugins/openspec/skills/devkit/scripts/setup-block.test.mjs`,
   K-1 to K-5 in a new `plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs`, P-1 in
   `plugins/openspec/skills/devkit/scripts/project-settings.test.mjs`, and N-19 in
   `plugins/openspec/hooks/test-suite.test.mjs`. The suite runs the two new files because their folder
@@ -225,7 +225,7 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   Check: `openspec/changes/project-setup/proof/red-4.txt` holds the run, and B-1 to B-17 and K-1 to
   K-5 fail in it. P-1 passes, because `project-settings.mjs` already reports it, and N-19 passes,
   because the two files exist once written; the task says so.
-- [ ] 4.2 Write `plugins/openspec/skills/devkit/scripts/setup-block.mjs` as D-3 says: `plan` and
+- [x] 4.2 Write `plugins/openspec/skills/devkit/scripts/setup-block.mjs` as D-3 says: `plan` and
   `apply`, the `missing` rules, the `fill` field, the refusals with exit 3, the usage errors with
   exit 2, the writing rules and the parser decisions, the `delivery.train` entry of `kept` and
   the `delivery` options it narrows. Export `LANGUAGE_TAG` from
@@ -233,14 +233,14 @@ commit message. Leave no backup or scratch file in the tree, and end every task 
   regex. It reuses the readers named in D-3's Context and writes no YAML library. Check: B-1 to
   B-17 pass, and `grep -c "A-Za-z]{2,3}" plugins/openspec/skills/devkit/scripts/setup-block.mjs`
   prints 0.
-- [ ] 4.3 Write `plugins/openspec/skills/devkit/scripts/kit-installer.mjs` as D-4 says: the sibling,
+- [x] 4.3 Write `plugins/openspec/skills/devkit/scripts/kit-installer.mjs` as D-4 says: the sibling,
   then the installed packs by highest version and last path, `--where`, and the pass-through run.
   Check: K-1 to K-5 pass.
-- [ ] 4.4 Add `budget` and `design:` as commented examples to
+- [x] 4.4 Add `budget` and `design:` as commented examples to
   `plugins/openspec/skills/devkit/templates/config.yaml`, and change its comment that names the
   GitHub step of the old skill (D-8). Keep the heading line and every line of the block a comment.
   Check: T-5 and B-3 pass.
-- [ ] 4.5 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup AC-" --test-name-pattern="^stage-roles setup" --test-name-pattern="^format: the config template" plugins/openspec/skills/devkit/scripts/setup-block.test.mjs plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs plugins/openspec/skills/devkit/scripts/project-settings.test.mjs plugins/openspec/skills/devkit/scripts/github-setup.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/test-suite.test.mjs` green; covers AC-3, AC-4, AC-5 (version, packs), AC-6 (driver, kit finder) and AC-7 (ship and `merge_method` questions).
+- [x] 4.5 Gate: `env GITHUB_HEAD_REF=project-setup GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^setup AC-" --test-name-pattern="^stage-roles setup" --test-name-pattern="^format: the config template" plugins/openspec/skills/devkit/scripts/setup-block.test.mjs plugins/openspec/skills/devkit/scripts/kit-installer.test.mjs plugins/openspec/skills/devkit/scripts/project-settings.test.mjs plugins/openspec/skills/devkit/scripts/github-setup.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/test-suite.test.mjs` green; covers AC-3, AC-4, AC-5 (version, packs), AC-6 (driver, kit finder) and AC-7 (ship and `merge_method` questions).
 
 ## 5. The Setup section of the devkit skill (AC-1, AC-5 to AC-8)
 

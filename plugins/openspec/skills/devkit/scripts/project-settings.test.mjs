@@ -176,3 +176,18 @@ test('project-settings: PACKS equals the plugin names in marketplace.json', () =
   const market = JSON.parse(readFileSync(join(here, '..', '..', '..', '..', '..', '.claude-plugin', 'marketplace.json'), 'utf8'));
   assert.deepEqual([...PACKS].sort(), market.plugins.map((p) => p.name).sort());
 });
+
+// Invariant: before the opt-in, the setup's dry run names each pack the project has set to false, and writes nothing.
+// Layer: settings writer (project-setup D-5). Suite: project-settings.
+test('setup AC-5 settings: a dry run names a pack set to false and writes nothing', () => {
+  const w = world();
+  const seeded = text({ ...DEFAULT, enabledPlugins: { 'devkit-core@devkit': true, 'devkit-openspec@devkit': false } });
+  seed(w, seeded);
+  const r = run(w, [w.root, '--packs', 'devkit-core,devkit-openspec,devkit-compozy', '--dry-run', '--json']);
+  assert.equal(r.code, 0, r.err);
+  assert.deepEqual(JSON.parse(r.out).items.filter((item) => item.action !== 'ok'), [
+    { key: 'devkit-openspec@devkit', action: 'enable (was false)' },
+    { key: 'devkit-compozy@devkit', action: 'enable' },
+  ]);
+  assert.equal(readFileSync(w.file, 'utf8'), seeded);
+});

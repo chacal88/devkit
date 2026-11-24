@@ -62,7 +62,7 @@ export class LoopRefusal extends LoopUsageError {
 // ---------------------------------------------------------------- the settings (D-9)
 
 export const DRIVERS = ['claude', 'compozy', 'script'];
-const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+export const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
 // The token budget a `budget:` value gives (change-budget D-1) is read by `guard.mjs#budgetValue`; every caller keeps importing it from here.
 export { budgetValue };
@@ -1994,7 +1994,7 @@ function readRequirements(u) {
 }
 
 const VERB_ROUND = { help: 23 };
-const DRIVER_ROUND = { script: 22 };
+export const DRIVER_ROUND = { script: 22 };
 // The drivers that run: the only source of the setup's driver question (project-setup D-2).
 export const BUILT_DRIVERS = DRIVERS.filter((d) => !DRIVER_ROUND[d]);
 
