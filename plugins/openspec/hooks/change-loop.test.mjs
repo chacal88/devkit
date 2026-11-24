@@ -2213,6 +2213,56 @@ test('fresh-base-check 10: a wait that only gains the failed-fetch line goes on 
   assert.equal(n, 3);
 });
 
+test('fresh-base-check 19: a wait whose fetch really fails keeps waiting, and ends on the real change of decision', async () => {
+  const { t, gh, env } = deliveredChange();
+  const sleeps = [];
+  const sleep = async (s) => {
+    sleeps.push(s);
+    if (sleeps.length === 1) git(t.main, 'remote', 'set-url', 'origin', MISSING(t));
+    if (sleeps.length === 2) gh.set('pr-checks', { stdout: [check('build', 'pass')] });
+  };
+  const r = await runCommand(['wait', '--change', 'feat', '--lang', 'en', '--interval', '5'], { cwd: t.main, env, sleep });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const { action } = parsed(r);
+  assert.equal(sleeps.length, 2, 'the poll that only gained the failed-fetch line did not end the wait');
+  assert.equal(action.end.why, 'waiting-merge');
+  assert.equal(action.baseFetch.ok, false);
+  assert.ok(action.reply.endsWith(`\n${render('en', 'base-unfetched', { base: 'main' })}`));
+});
+
+test('fresh-base-check 19b: a reply that is only the failed-fetch line is no new decision either', async () => {
+  const d = staleMergeFixture();
+  const origin = git(d.t.main, 'remote', 'get-url', 'origin');
+  const seen = [];
+  // The first poll judges from the local copy (no fetch); the second fetches and fails; the third fetches and moves the base.
+  const poll = async () => {
+    if (seen.length === 1) git(d.t.main, 'remote', 'set-url', 'origin', MISSING(d.t));
+    if (seen.length === 2) git(d.t.main, 'remote', 'set-url', 'origin', origin);
+    const a = nextAction(d.t.main, 'feat', { env: d.env, lang: 'en', ...(seen.length === 0 ? {} : { fetchBase: changeLoopModule.baseFetches() }) });
+    seen.push(a);
+    return a;
+  };
+  const got = await waitLoop({ poll, sleep: async () => {}, interval: 5, id: 'feat', lang: 'en', waiting: () => true });
+  assert.equal(seen[0].reply ?? null, null, 'the local action has no reply');
+  assert.deepEqual([seen[1].baseFetch.ok, seen[1].reply], [false, render('en', 'base-unfetched', { base: 'main' })], 'the failed fetch is the whole reply');
+  assert.equal(seen.length, 3, 'the poll that only gained the line did not end the wait');
+  assert.deepEqual([got.kind, got.step], ['agent', 'resolve-release-conflict']);
+});
+
+test('fresh-base-check 20: a failed fetch appends its line to a reply the local action already has', () => {
+  const d = deliveredChange();
+  const local = localAction(d);
+  assert.equal(local.kind, 'end');
+  assert.equal(typeof local.reply, 'string');
+  assert.notEqual(local.reply, '', 'the local action has a reply of its own');
+  git(d.t.main, 'remote', 'set-url', 'origin', MISSING(d.t));
+  const r = next(d.t.main, [], d.env);
+  const { action } = parsed(r);
+  assert.equal(action.baseFetch.ok, false);
+  assert.equal(action.reply, `${local.reply}\n${render('en', 'base-unfetched', { base: 'main' })}`);
+  assert.deepEqual([action.kind, action.end.why, r.code], [local.kind, local.end.why, exitCodeOf(local)]);
+});
+
 test('fresh-base-check 16: a repository with no remote fetches nothing and decides as it did', () => {
   const d = deliveredChange();
   git(d.t.main, 'remote', 'remove', 'origin');
