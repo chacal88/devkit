@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.49.3 — the grill and the readiness review refuse a criterion only the archive can prove
+
+- **devkit-core** 0.16.1: `requirements-grill` never writes an acceptance criterion that only the archive or a later step can prove, and `plan-readiness-review` flags one as a Mandatory finding; the work goes in the plan's `## Workflow follow-up` (stage-ceiling-consecutive retro, proposal 1). Skill text only.
+
 ## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
 
 - **devkit-openspec** 0.44.2: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.

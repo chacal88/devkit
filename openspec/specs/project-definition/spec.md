@@ -228,10 +228,10 @@ follow.
 
 ### Requirement: A slice's run stops with its reason when it cannot go on
 The project command SHALL end a slice's run, saying why in one plain sentence and writing nothing more,
-when the slice cannot be found, its folder was left half-made, a stage fails at its limit of attempts or
-comes back with nothing changed, its pull request conflicts with its base branch, or its pull request
-was closed without being merged. Calling the command again SHALL give the same end until the cause is
-gone.
+when the slice cannot be found, its folder was left half-made, a stage fails as many times in a row as
+its limit allows or comes back with nothing changed, its pull request conflicts with its base branch, or
+its pull request was closed without being merged. Calling the command again SHALL give the same end
+until the cause is gone.
 
 #### Scenario: A slice that does not exist
 - **WHEN** the next step of `billing` is asked and no checkout holds a slice named `billing`, active or archived
@@ -246,8 +246,8 @@ gone.
 - **THEN** the run ends blocked saying the stage came back with nothing changed
 
 #### Scenario: A stage at its limit
-- **WHEN** a stage's record says failed at the attempt its limit allows
-- **THEN** the run ends blocked naming the stage and its limit, and no later stage runs
+- **WHEN** a stage's record says failed and its failures in a row since it last passed reach its limit
+- **THEN** the run ends blocked naming the stage and its failures in a row, and no later stage runs
 
 #### Scenario: A pull request in conflict with its base
 - **WHEN** the slice's pull request conflicts with its base branch
