@@ -113,7 +113,7 @@ If there is an escalation, don't proceed to planning on your own: present it and
 - Answer a question yourself: the triage's answers are the agent's, each with a written source, and the owner can correct them.
 - Grant an exception to an ADR or inviolable rule yourself.
 - Ask again after the owner opted out.
-- Write an acceptance criterion with no observable effect (`success: true`).
+- Write an acceptance criterion with no observable effect (`success: true`), or one that only the archive or a later step can prove ("at archive both lines are ticked"): every criterion is provable before the change's pull request merges, and archive work goes in the plan's `## Workflow follow-up`.
 
 ## Related
 
