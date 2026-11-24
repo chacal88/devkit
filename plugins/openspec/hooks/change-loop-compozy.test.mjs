@@ -22,7 +22,7 @@ import {
 import {
   HERE, LOOP, TDD, PLANNER, read, configRepo, shape, says, build, next, parsed, check, deliveredChange, startRun, body, snapshot, addChange,
   devkitRepo, freshProject, WAIT, runOf, plainLine, skillBodyLine, runTranscript, hook, subInput, PLAN_UP_TO_TASKS, editInput, bashInput, liteChange,
-  approvedChange, agentInput, REPO_ROOT, readRepo, SKILL_FILE, skillText, LANG_FLAG, section, IDENT, archiveGh, archivedFolder, archiveOnOrigin, withCreated,
+  approvedChange, agentInput, REPO_ROOT, readRepo, SKILL_FILE, skillText, LANG_FLAG, section, IDENT,
 } from './change-loop-fixtures.mjs';
 
 // The same git identity the whole file had when it was one file (see IDENT in change-loop-fixtures.mjs).
@@ -356,36 +356,6 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
-  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); state-skips-unlocated moves it to 0.39.2 (release 0.43.2), above own-pr-archive-paths' 0.39.1 (release 0.43.1), above stale-only-on-own-files' 0.39.0 (release 0.43.0), above suite-speed's 0.38.0 (release 0.42.0), which moved it above compozy-driver's 0.36.0 (release 0.40.0), which moved it above stage-models' 0.35.0 (release 0.39.0), which moved it above delivery-train's 0.34.0 (release 0.38.0), which moved it above roadmap-sessions-upfront's 0.33.0 (release 0.37.0); 0.37.0 was this change's number until suite-speed took the release above compozy-driver, and no release has it; 0.33.0 went to roadmap-sessions-upfront, 0.32.0 to remote-worker (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
-  assert.match(flow, /v0\.39\.2/, 'the CI snippet pins the current release (state-skips-unlocated: 0.39.2)');
-  assert.doesNotMatch(flow, /v0\.39\.1/, 'no pin left on the release before it (own-pr-archive-paths)');
-  assert.doesNotMatch(flow, /v0\.39\.0/, 'no pin left on main\'s release before that (stale-only-on-own-files)');
-  assert.doesNotMatch(flow, /v0\.38\.0/, 'no pin left on the release before it (suite-speed)');
-  assert.doesNotMatch(flow, /v0\.37\.0/, 'no pin left on the number this change had before it was renumbered above suite-speed');
-  assert.doesNotMatch(flow, /v0\.36\.0/, 'no pin left on the release before that (compozy-driver)');
-  assert.doesNotMatch(flow, /v0\.35\.0/, 'no pin left on main\'s release before it (stage-models)');
-  assert.doesNotMatch(flow, /v0\.34\.0/, 'no pin left on the release before that (delivery-train)');
-  assert.doesNotMatch(flow, /v0\.33\.0/, 'no pin left on the release before that (roadmap-sessions-upfront)');
-  assert.doesNotMatch(flow, /v0\.32\.0/, 'no pin left on the release before that (remote-worker)');
-  assert.doesNotMatch(flow, /v0\.31\.0/, 'no pin left on the release before that (change-version-pin)');
-  assert.doesNotMatch(flow, /v0\.30\.1/, 'no pin left on main\'s release before it (retro of release-tags)');
-  assert.doesNotMatch(flow, /v0\.30\.0/, 'no pin left on the release before that (release-tags)');
-  assert.doesNotMatch(flow, /v0\.29\.0/, 'no pin left on main\'s release before it (release-merge-conflict)');
-  assert.doesNotMatch(flow, /v0\.28\.2/, 'no pin left on main\'s release before it (change-state-retro-fixes)');
-  assert.doesNotMatch(flow, /v0\.28\.1/, 'no pin left on the release before that (retro of change-budget)');
-  assert.doesNotMatch(flow, /v0\.28\.0/, 'no pin left on the release before that (delivery-models)');
-  assert.doesNotMatch(flow, /v0\.27\.1/, 'no pin left on the release before that (earlier retro fixes)');
-  assert.doesNotMatch(flow, /v0\.27\.0/, 'no pin left on the previous release (gh-version-check)');
-  assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
-  assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');
-  assert.doesNotMatch(flow, /v0\.25\.0/, 'no pin left on the previous release (change-budget)');
-  assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release (change-state)');
-  assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release (commit-attribution)');
-  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release (test-fixture-cleanup)');
-  assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
-  assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
   const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
   assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
   assert.match(flow, /moves this pin to `v0\.20\.0` or later first/, 'the slice-merge floor (project-phases) is kept');
@@ -433,7 +403,22 @@ test('field-fixes 6 change-loop: next with a pinned 2.x is answered by the pinne
 
 // ---- field-fixes 1: a change archived on the default branch is not unfinished (D-3)
 
+// A gh that lists `names` as the archived folders of the default branch, or fails (`fail`), and nothing else.
+const archiveGh = (names, { fail = false } = {}) => (args) => (
+  !fail && args[0] === 'api' && /contents\/openspec\/changes\/archive\?ref=/.test(args[1])
+    ? { status: 0, stdout: JSON.stringify(names.map((name) => ({ name }))), stderr: '', missing: false, timedOut: false }
+    : { status: 1, stdout: '', stderr: 'gh: not reachable', missing: false, timedOut: false });
 const listedBy = (cwd, gh) => body(main(['start', '--lang', 'en'], { cwd, env: cleanEnv, stdin: 'change add a thing', gh })).unfinished.map((u) => u.id);
+const archivedFolder = (date, id, flow = null) => ({ [`openspec/changes/archive/${date}-${id}/.openspec.yaml`]: `schema: devkit\n${flow === null ? '' : `x-devkit-flow: ${flow}\n`}` });
+
+// The default branch on origin gains the archived folder of `id` while the main checkout stays where it was.
+function archiveOnOrigin(t, id) {
+  const pusher = t.addWt('pusher');
+  put(pusher, archivedFolder('2026-11-20', id));
+  commitAll(pusher, `archive ${id}`);
+  git(pusher, 'push', '-q', 'origin', 'HEAD:main');
+  git(t.main, 'fetch', '-q', 'origin');
+}
 
 test('field-fixes 1 archived: an old worktree on another branch that holds the active folder does not list the change', () => {
   const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
@@ -449,6 +434,8 @@ test('field-fixes 1 archived: an old worktree on the change\'s own branch does n
   assert.deepEqual(listedBy(t.main, archiveGh(['2026-11-20-bar'])), []);
 });
 
+// An active folder whose `.openspec.yaml` records the day it was created, as `openspec new change` writes it.
+const withCreated = (wt, id, created) => put(wt, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\ncreated: ${created}\n` });
 
 test('field-fixes 1 archived: a new change that reuses an archived id, created after the archive, stays listed', () => {
   const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
