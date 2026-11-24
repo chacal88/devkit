@@ -129,7 +129,7 @@ every task with `git status --short`.
   is proved by test 7 through `collectState`. Remove the scratch repository afterwards. Check: the
   file holds R1 to R8 and every result equals the "Expected" column of D-10; and
   `git status --short` shows only `openspec/changes/archive-release-pin/proof/real-run.txt` as new.
-- [ ] 3.2 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate archive-release-pin --strict` green. This is the owner-run whole suite (13 to 21 minutes), started by the owner or the coordinating session as a background command of the tool. It covers AC-1 to AC-8 and AC-10 with every other suite at once.
+- [x] 3.2 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate archive-release-pin --strict` green. This is the owner-run whole suite (13 to 21 minutes), started by the owner or the coordinating session as a background command of the tool. It covers AC-1 to AC-8 and AC-10 with every other suite at once.
 
 ## Workflow follow-up
 
