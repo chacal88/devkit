@@ -287,7 +287,7 @@ merge of `origin/main` repeats them.
   subagent runs only the AC-6 part and the name extraction. Check: both AC-2 runs exited 0, the diff
   of `base.names` and `head.names` is empty, and `red.log` shows exit 1 with the failing test's name
   and `plugins/openspec/hooks/jira-task.test.mjs`, and `merge-setup.test.mjs` as `pass`.
-- [ ] 5.4 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate suite-speed --strict` green; covers AC-1 to AC-8 again on the release head.
+- [x] 5.4 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate suite-speed --strict` green; covers AC-1 to AC-8 again on the release head.
 
 ## Workflow follow-up
 
