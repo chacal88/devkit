@@ -2526,7 +2526,7 @@ test('release-merge-conflict 16: the flow doc and the skill describe the release
   for (const text of ['**Release-file conflicts: `release-merge.mjs`.**', 'git merge --no-ff --no-commit origin/<base>', 'git push origin <branch>']) assert.ok(flow.includes(text), text);
   for (const re of [/push-rebased/, /release-rebase\.mjs/, /force-with-lease/]) assert.doesNotMatch(flow, re);
   const skill = skillText();
-  assert.ok(skill.includes('The command merges `origin/<base>` into the branch and commits the merge with the release renumbered above the base\'s; then the loop hands `verify`, `review` and a plain `push` (`open-archive-pr` on an archive branch) with `detail.command` `git push origin <branch>`, never a force push.'));
+  assert.ok(skill.includes('The command merges `origin/<base>` into the branch and commits the merge with the release renumbered above the base\'s; then the loop hands `verify` and `review` for what the merge made stale, and a plain `push` (`open-archive-pr` on an archive branch) with `detail.command` `git push origin <branch>`, never a force push.'));
   for (const re of [/push-rebased/, /rebase/, /--force/]) assert.doesNotMatch(skill, re);
   assert.ok(readRepo('plugins', 'openspec', 'README.md').includes('(hooks/release-merge.mjs)'));
 });
