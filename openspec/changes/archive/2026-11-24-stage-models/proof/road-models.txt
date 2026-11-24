@@ -1,0 +1,4 @@
+agent-ada20a145d03a27f2.jsonl stage=unit-tests start=2026-11-23T19:37:03.516Z models=claude-haiku-5-5
+agent-add6d017949d5d84a.jsonl stage=unit-tests start=2026-11-23T19:37:20.382Z models=claude-sonnet-5-5
+agent-ac191379b83feed00.jsonl stage=e2e-tests start=2026-11-23T19:37:41.220Z models=claude-sonnet-5-5
+agent-a0e9847011b64aafd.jsonl stage=e2e-tests start=2026-11-23T19:37:55.803Z models=claude-opus-5-5

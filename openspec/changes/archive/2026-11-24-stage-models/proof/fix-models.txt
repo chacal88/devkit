@@ -1,0 +1,3 @@
+subagent unit-tests model=claude-haiku-5-5 stop-hook-asked=yes wrote=unit-tests.md result=failed outcome=failure
+hand-off stage=implementation agent=devkit-core:tdd-implementer step=fix-tests model=sonnet retry=none
+subagent implementation step=fix-tests model=claude-sonnet-5-5

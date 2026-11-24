@@ -11,9 +11,8 @@ import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
 import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
-import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
 import { conductState } from './conduct-check.mjs';
 
 const SHA7 = 'a1b2c3d';
@@ -286,7 +285,7 @@ test('flow-check AC-2: the session hook names the checker and the roles', () => 
 
 const HEADER = (stage, result = 'passed') => `<!-- devkit-stage ${stage} result=${result} attempt=1 commit=none -->\n`;
 const headed = (on, stage, text) => (on ? HEADER(stage) + text : text);
-const SHIP_ENV = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const SHIP_ENV = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
 const CHANGE = 'openspec/changes/feat';
 const PLAN_PROPOSAL = '# Proposal\n\n## Why\n\nx\n\n## Acceptance criteria\n\n- AC-1: a thing\n';
 const hashOfFile = (file) => `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 12)}`;
@@ -791,7 +790,7 @@ const DONE_STAGES = ['requirements', 'proposal', 'design', 'tasks', 'readiness',
 // `review` a result, `reviewAttempt` its attempt, `tasks` the text of tasks.md, `headerless` writes no header
 // line, `ship` the project's ship mode, `skip` the stage files not written.
 function liveChange(over = {}) {
-  const config = `schema: devkit\n${over.ship ? `ship:\n  devkit: ${over.ship}\n` : ''}`;
+  const config = over.config ?? `schema: devkit\n${over.ship ? `ship:\n  devkit: ${over.ship}\n` : ''}`;
   const root = gitRepo({ config });
   const c0 = git(root, 'rev-parse', 'HEAD');
   const text = (id, result = 'passed', body = `# ${id}\n`) => `${over.headerless ? '' : `<!-- devkit-stage ${id} result=${result} attempt=${id === 'review' ? (over.reviewAttempt ?? 1) : 1} commit=${c0} -->\n`}${body}`;
@@ -990,6 +989,70 @@ test('merge-staleness 10: the stage readout reports evidence stale after a merge
   assert.equal(report.next.stage, 'evidence');
 });
 
+// ---- stale-only-on-own-files: the stage readout reads a merge of origin/main by the change's own files
+
+// liveChange() on main with src/a.ts committed; feat edits its first line (R), the unit-tests, evidence and review
+// headers are rewritten to R; main edits src/a.ts's last line (an own file) or src/base.ts (not one); origin/main is
+// set to main's tip, then main is merged into feat. Returns the readout and the merge sha.
+// With `base` other than main, origin/<base> is that tip and origin/main the commit before it, so a run that judges
+// against main finds the base commit off its base; `config` replaces the project's config.yaml and `env` is added to the run's.
+function ownMergedReadout(baseFile, { base = 'main', config = null, env: extraEnv = {} } = {}) {
+  const lines = (first, last) => Array.from({ length: 12 }, (_, i) => (i === 0 ? first : i === 11 ? last : `line ${i + 1}`)).join('\n') + '\n';
+  const root = liveChange({ ship: 'plan', config });
+  put(root, { 'src/a.ts': lines('line 1', 'line 12') });
+  commitAll(root, 'product file on main');
+  git(root, 'switch', '-q', '-c', 'feat');
+  put(root, { 'src/a.ts': lines('branch 1', 'line 12'), 'openspec/changes/feat/unit-tests.md': '<!-- devkit-stage unit-tests result=passed attempt=1 commit=none -->\n# unit-tests\n' });
+  const R = commitAll(root, 'product commit');
+  for (const f of ['unit-tests.md', 'evidence.md', 'review.md']) {
+    const file = join(root, 'openspec', 'changes', 'feat', f);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/commit=[0-9a-f]+|commit=none/, `commit=${R}`));
+  }
+  commitAll(root, 'headers at the product commit');
+  git(root, 'switch', '-q', 'main');
+  put(root, { [baseFile]: baseFile === 'src/a.ts' ? lines('line 1', 'main 12') : 'b\n' });
+  commitAll(root, 'base commit');
+  git(root, 'update-ref', `refs/remotes/origin/${base}`, git(root, 'rev-parse', 'HEAD'));
+  if (base !== 'main') git(root, 'update-ref', 'refs/remotes/origin/main', git(root, 'rev-parse', 'HEAD~1'));
+  git(root, 'switch', '-q', 'feat');
+  git(root, 'merge', '-q', '--no-ff', '-m', 'merge main', 'main');
+  const merged = git(root, 'rev-parse', 'HEAD');
+  const gh = fakeGh();
+  const env = { ...gh.env, ...SHIP_ENV, ...extraEnv };
+  const { facts, flow } = collectFlow(root, 'feat', { env, gh: makeGh(root, env), openspec: fakeOpenspec(root) });
+  return { report: computeFlow(facts, flow, {}), merged };
+}
+
+test('own-files AC-1 stages: an unrelated merge of origin/main keeps unit-tests, evidence and review passed', () => {
+  const { report } = ownMergedReadout('src/base.ts');
+  for (const id of ['unit-tests', 'evidence', 'review']) assert.equal(stageOf(report, id).state, 'passed', id);
+});
+
+const OWN_FLOW_TWO_PRS = 'schema: devkit\ndevkit:\n  delivery:\n    model: two-prs\n    base: develop\n    test_branch: staging\n';
+const ownStages = (report) => ['unit-tests', 'evidence', 'review'].map((id) => stageOf(report, id).state);
+
+test('own-files AC-7 stages: the configured base (two-prs) is the branch collectFlow exempts the merge of, not main', () => {
+  const current = ownMergedReadout('src/base.ts', { base: 'develop', config: OWN_FLOW_TWO_PRS });
+  assert.deepEqual(ownStages(current.report), ['passed', 'passed', 'passed'], 'base develop: the unrelated merge keeps the stages');
+  const viaMain = ownMergedReadout('src/base.ts', { base: 'develop', config: 'schema: devkit\nship:\n  devkit: plan\n' });
+  assert.equal(stageOf(viaMain.report, 'unit-tests').state, 'stale', 'without the configured base the main fallback judges the same repository stale');
+});
+
+test('own-files AC-7 stages: GITHUB_BASE_REF is the base collectFlow exempts the merge of, ahead of main', () => {
+  const via = ownMergedReadout('src/base.ts', { base: 'develop', env: { GITHUB_BASE_REF: 'develop' } });
+  assert.deepEqual(ownStages(via.report), ['passed', 'passed', 'passed'], 'GITHUB_BASE_REF=develop');
+  assert.equal(stageOf(ownMergedReadout('src/base.ts', { base: 'develop' }).report, 'unit-tests').state, 'stale', 'the same repository without it falls back to main');
+});
+
+test('own-files AC-2 stages: an own-file merge reports the first code-bound stage stale-code naming the merge', () => {
+  const { report, merged } = ownMergedReadout('src/a.ts');
+  const first = report.stages.find((s) => s.state === 'stale');
+  assert.equal(first.id, 'unit-tests');
+  assert.equal(first.reasonCode, 'stale-code');
+  assert.match(first.params.why, new RegExp(`is behind ${merged.slice(0, 7)}, which touches src/a\\.ts$`));
+  assert.equal(report.next.stage, 'unit-tests');
+});
+
 // ---- field-fixes 4: a merged pull request delivers only when it is the change's own and every task is ticked
 
 const MERGED_OWN = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefOid: 'f'.repeat(40), baseRefName: 'main', mergeable: 'UNKNOWN', autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', headRefName: 'feat', mergedAt: '2026-11-19T10:00:00Z', body: 'evidence: openspec/changes/feat/evidence.md' };
@@ -1178,7 +1241,7 @@ let sampleCache = null;
 // demonstration passed, the plan readiness at attempt 2, the code review failed at attempt 1. Invariant (T-22, D-13): the readout of the approved
 // sample change reads as the owner approved it; layer: the readout; suite: flow-check. The change records `x-devkit-flow: 2`, as a change opened with
 // this release does: with no pin it follows flow 1 under the installed flow 2 and its readout gains the newer-flow line (D-17).
-export function sampleChange() {
+function sampleChange() {
   if (sampleCache) return sampleCache;
   const root = tmpFolder('devkit-flow-check-sample-');
   git(root, 'init', '-q', '-b', 'main');
@@ -1250,6 +1313,8 @@ test('flow-check readout: both languages cover every reason code', () => {
     'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },
     'no-test-pr': {}, 'owner-merges-test-branch': { number: 13, branch: 'develop', base: 'main' }, 'owner-merges-base': { number: 12, base: 'main' },
     'stale-reviewers': { names: ['spec-reviewer'] },
+    // The delivery train (delivery-train D-2): a change that boards, rides a train or was taken off one.
+    boarded: {}, 'on-train': { number: 40 }, 'left-train': { train: 4, number: 40 }, 'disable-auto-merge': { number: 12 },
   };
   assert.deepEqual(Object.keys(P).sort(), en, 'the table below names every code');
   for (const code of en) {

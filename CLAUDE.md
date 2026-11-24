@@ -17,7 +17,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 | How to contribute, test and release (version bumps, tags) | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Conventions (names, commits, language) | [docs/conventions.md](docs/conventions.md) |
 | The OpenSpec flow, its checkers and CI | [docs/openspec-flow.md](docs/openspec-flow.md) |
-| The CompozyOS delivery loop (`devkit-compozy`) | [docs/compozy-kit.md](docs/compozy-kit.md) |
+| The CompozyOS driver and its kit (`devkit-compozy`) | [docs/compozy-kit.md](docs/compozy-kit.md) |
 | The coordination design (ADR 0010) and its build order | [docs/coordination-design.md](docs/coordination-design.md) |
 | The roles each stage names | [docs/roles.md](docs/roles.md) |
 | Decisions | [docs/adr/](docs/adr/) |
@@ -28,8 +28,9 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 | Action | Command |
 | --- | --- |
 | Catalog is up to date | `python3 scripts/gen-catalog.py --check` |
+| CompozyOS agents are up to date | `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` |
 | Names, descriptions, links, language | `python3 scripts/check.py` |
-| Every hook test and the review round (13 to 21 minutes; run it as a background command of the tool, never with a shell `&`) | `node --test plugins/openspec/hooks/guard.test.mjs` |
+| The suite's test files, each in its own process, several at once (about 10 minutes on an idle 8-core machine; run it as a background command of the tool, never with a shell `&`) | `node scripts/test-suite.mjs` |
 | Validate the marketplace | `claude plugin validate .` |
 
 ## Working rules
@@ -41,9 +42,10 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
   `devkit-reviews` checks, and the repository ships in `merge` mode (ADR 0002, ADR 0003).
 - Destructive Git (`reset`, `checkout --`, `clean`, `rm`, `stash`) only with explicit authorization.
 - Commits: conventional (`<type>(<scope>): <description>`), as `docs/conventions.md` states.
-- Before changing a test, name its invariant, the layer that owns it and the suite it lives in.
+- Before changing a test, name its invariant, the layer that owns it and the suite it lives in. A time or a count the documents state (the suite's minutes, its tests) is measured again after the last merge of the base, with no other suite running on the machine.
 - When the installed devkit-openspec cannot read `main`'s `flow.json` (`unknown key ...`), drive the change with the worktree's own `plugins/openspec/hooks/change-loop.mjs` until the plugin is updated.
 - When a change alters what an agent writes, its real-run proof covers every case the plan declares (each input variant, and the conducting session's own part), not one case plus prose tests.
+- A plan rule that reacts to a stage agent's failure names the hook that sees the failure (the stop hook refuses a first stop without a stage file) and the files the agent leaves, and its real run proves the failure path as well as the success path.
 
 ## Gates
 
@@ -52,5 +54,6 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
   before `implement`.
 - Every delivery passes the independent review bench (`review-change`) before it is ready; the
   implementer never approves its own work.
-- `.compozy/` holds the CompozyOS roles and the delivery loop that sequence this flow; see
+- `.compozy/` holds the CompozyOS agents and the three loops (`devkit-change`, `devkit-review`,
+  `devkit-roadmap`) that run this flow on CompozyOS; see
   [.compozy/README.md](.compozy/README.md).

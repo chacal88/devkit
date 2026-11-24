@@ -21,7 +21,7 @@ plugins/<pack>/
 | `stack` | Technology references: Postgres, React, Vitest, multi-tenant SaaS, threat modeling |
 | `ai-engineering` | Building with LLMs: evaluation, multi-agent patterns, tool design, context, skill vetting |
 | `panel` | A Claude Code mod for the desktop app: a read-only side pane over the devkit checkers (`conduct-check`, `deliver-check`), the band above the prompt and buttons that fill the prompt box with the owner's next command. Hooks modules only: no agents or skills |
-| `compozy` | The CompozyOS delivery loop (version 2) over the devkit flow: `compozy-setup` installs `.compozy/` (loop, role shells, resolver) into a project; `screen-design` and `screen-demo` back its design gate and demo step |
+| `compozy` | The CompozyOS driver of the devkit flow: `compozy-setup` installs `.compozy/` (twenty-one agents generated from the Claude agents, the loops `devkit-change`, `devkit-review` and `devkit-roadmap`, the resolver) into a project; `screen-design` and `screen-demo` stay shipped for a project's own screens |
 
 ## Naming
 
@@ -63,3 +63,4 @@ description: <What it does>. Use when <concrete triggers, including phrases a us
 - Gate files have one writer: `readiness.md` ← `plan-readiness-reviewer`, `reviews/<reviewer>.md` ← that reviewer, `evidence.md` ← `pr-verifier`. Don't add an asset that writes them.
 - Cut bloat, keep method. Don't invent rules the sources didn't have.
 - Body in English.
+- A study's recommendation marks each decision that rests on an open point as `(provisional until O-n)`, and any command output pasted into it is scrubbed of personal paths and e-mails when it is pasted.
