@@ -105,7 +105,7 @@ and end every task with `git status --short`.
   keep its output in `/var/tmp/devkit-suite-speed-proof/symlink.log` for the evidence, then remove
   the link and its target. Check: the run exits 0 and its summary line counts the `change-budget`
   tests as passed.
-- [ ] 2.5 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs` green (the first full run of the new command; a file that fails alone or under load is fixed as the preamble says); covers AC-1, AC-3, AC-4 and AC-6.
+- [x] 2.5 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs` green (the first full run of the new command; a file that fails alone or under load is fixed as the preamble says); covers AC-1, AC-3, AC-4 and AC-6.
 
 ## 3. CI, the skip check and the texts (AC-1, AC-5b, AC-5c, AC-7)
 
