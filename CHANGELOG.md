@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.50.1 — fresh-base-check retro
+
+- **devkit-core** 0.16.1: the pr-verifier reads a suite summary by each file's status; a `LEFT` file
+  fails the run even with 0 failing tests, and a run that exits non-zero is never recorded as a pass.
+- **devkit-openspec** 0.45.1: `nextAction` no longer reads the default branch twice. The CI snippet
+  now pins `v0.45.1`, the release's tag.
+
 ## 0.50.0 — the loop fetches the base before it judges
 
 - **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its

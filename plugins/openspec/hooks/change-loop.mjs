@@ -1546,7 +1546,6 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   let deliveredPr = null;
   const baseBranch = defaultBase(found.root);
   if (inDelivery(report, flow, archiving)) {
-    const baseBranch = defaultBase(found.root);
     if (fetchBase) baseFetch = refreshBase(found.root, baseBranch, { env: clean, memo: fetchBase });
     try {
       const ghRun = gh ?? makeGh(found.root, clean);
