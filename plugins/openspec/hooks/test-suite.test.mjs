@@ -71,6 +71,18 @@ const run = (root, args, options) => start(root, args, options).done;
 const startLines = (out) => out.stdout.split('\n').filter((line) => line.startsWith('start ')).map((line) => line.slice(6));
 const either = (out) => out.stdout + out.stderr;
 
+test('suite-speed AC-1 started through a symlinked folder or file, the script still runs (a bad argument exits 2 with the usage)', () => {
+  const root = tree({ [`${HOOKS}/a${TEST_EXT}`]: probe() });
+  const links = tmpFolder('devkit-suite-links-');
+  symlinkSync(join(root, 'scripts'), join(links, 'folder'));
+  symlinkSync(join(root, 'scripts', 'test-suite.mjs'), join(links, 'file.mjs'));
+  for (const path of [join(links, 'folder', 'test-suite.mjs'), join(links, 'file.mjs')]) {
+    const r = spawnSync(process.execPath, [path, '--no-such-option'], { cwd: root, env: { ...process.env, TMPDIR: links }, encoding: 'utf8' });
+    assert.equal(r.status, 2, `${path}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /^usage: node scripts\/test-suite\.mjs /m, `${path}: ${r.stderr}`);
+  }
+});
+
 test('suite-speed AC-1 the script runs the test files of the four folders and no other', async () => {
   const root = tree({
     [`${HOOKS}/a${TEST_EXT}`]: probe(),
@@ -304,6 +316,15 @@ test('suite-speed AC-4 a file that leaves something in its TMPDIR fails the run 
   assert.equal(more.code, 1, either(more));
   assert.match(more.stdout, /f00.*f09, and 2 more/, 'ten names, then the rest counted');
   assert.deepEqual(readdirSync(more.base), []);
+
+  const failing = probe({
+    name: 'suite-speed probe fails and leaves a folder',
+    body: "mkdirSync(join(process.env.TMPDIR, 'left-by-failure')); assert.fail('on purpose');",
+  });
+  const both = await run(tree({ [`${HOOKS}/both${TEST_EXT}`]: failing }), []);
+  assert.equal(both.code, 1, either(both));
+  assert.match(both.stdout, new RegExp(`^FAIL .*${HOOKS}/both\\.test\\.mjs.*left: left-by-failure`, 'm'), 'a failing file names what it left');
+  assert.deepEqual(readdirSync(both.base), []);
 });
 
 test('suite-speed AC-6 a failing test exits 1 and prints its name and file; the other files still run', async () => {
@@ -395,9 +416,14 @@ test('suite-speed AC-5c check.py refuses skip, only and todo in the suite test f
     refused.out,
   );
   assert.ok(lines[0].includes('(skip, only or todo); the suite runs every test'), lines[0]);
-  const compozy = check({ [`plugins/compozy/skills/x/b${TEST_EXT}`]: body });
+  const [skipForm, onlyForm, todoForm] = SKIPPED_TEST_FORMS;
+  const compozy = check({ [`plugins/compozy/skills/x/b${TEST_EXT}`]: [NOT_A_TEST_CALL, skipForm, todoForm, ''].join('\n') });
   assert.equal(compozy.code, 0, compozy.out);
   assert.equal(compozy.out.trim(), 'all checks passed');
+  const compozyOnly = check({ [`plugins/compozy/skills/x/b${TEST_EXT}`]: [NOT_A_TEST_CALL, skipForm, onlyForm, ''].join('\n') });
+  assert.equal(compozyOnly.code, 1, compozyOnly.out);
+  const onlyLines = compozyOnly.out.split('\n').filter((line) => line.includes('a test is skipped'));
+  assert.deepEqual(onlyLines.map((line) => line.split(' ')[0]), [`plugins/compozy/skills/x/b${TEST_EXT}:3:`], compozyOnly.out);
   const clean = check({ [`${HOOKS}/c${TEST_EXT}`]: [NOT_A_TEST_CALL, "test('fine', () => {});", ''].join('\n') });
   assert.equal(clean.code, 0, clean.out);
   assert.equal(clean.out.trim(), 'all checks passed');

@@ -137,21 +137,23 @@ def check_awaited_subtests():
 
 
 SKIPPED_TEST = (
-    re.compile(r"\b(?:test|it|describe|suite|t)\.(?:skip|only|todo)\s*\("),
-    re.compile(r"^\s*(?:await\s+)?(?:test|it|describe|suite|t\.test)\s*\(.*[{,]\s*(?:skip|only|todo)\s*:"),
+    re.compile(r"\b(?:test|it|describe|suite|t)\.(?P<kind>skip|only|todo)\s*\("),
+    re.compile(r"^\s*(?:await\s+)?(?:test|it|describe|suite|t\.test)\s*\(.*[{,]\s*(?P<kind>skip|only|todo)\s*:"),
 )
 
 
 def check_no_skipped_tests():
     # The suite runs every test (ADR 0026): a skipped, only or todo test is a test that does not run.
-    # plugins/compozy is exempt: its tests skip themselves when the `compozy` program is not installed. An options object split
-    # over several lines is not seen.
+    # In plugins/compozy skip and todo pass: its tests skip themselves when the `compozy` program is not installed. `only` is
+    # refused there too. An options object split over several lines is not seen.
     for f in sorted(ROOT.glob("plugins/**/*.test.mjs")):
         parts = f.relative_to(ROOT).parts
-        if SKIP_DIRS.intersection(parts) or parts[1] == "compozy":
+        if SKIP_DIRS.intersection(parts):
             continue
+        exempt = {"skip", "todo"} if parts[1] == "compozy" else set()
         for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-            if any(rx.search(line) for rx in SKIPPED_TEST):
+            hits = (rx.search(line) for rx in SKIPPED_TEST)
+            if any(hit and hit.group("kind") not in exempt for hit in hits):
                 problems.append(f"{f.relative_to(ROOT)}:{n}: a test is skipped (skip, only or todo); the suite runs every test")
 
 

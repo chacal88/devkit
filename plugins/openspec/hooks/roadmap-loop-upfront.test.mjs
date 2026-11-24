@@ -406,7 +406,7 @@ test('upfront AC-4 lock agent: the coordinating session\'s triage for a change o
 
 // A project with a bare `origin` and a roadmap, and a second clone of it (the "other machine") in which each id of `claims` is opened for
 // the machine named: its branch is pushed to `origin` with the claim. The main checkout fetches, so its remote-tracking refs are current.
-// (The commits of `openChange` use the identity change-loop.test.mjs puts in the environment when it is imported.)
+// (The commits of `openChange` use the git identity of the fixtures module, `GIT_ENV` in test-fixtures.mjs.)
 function remoteProject(lines, claims = {}) {
   const t = roundRepo({ roadmap: roadmapText(...lines), config: 'schema: devkit\n' });
   const dir = tmpFolder('devkit-roadmap-machine-');

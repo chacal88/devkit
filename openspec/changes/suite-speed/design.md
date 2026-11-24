@@ -253,8 +253,8 @@ that merges `main` and runs the suite meets it at once.
 ### D-7 `scripts/check.py` refuses a skipped test (AC-5c)
 
 A new `check_no_skipped_tests()`, called from `main()` after `check_awaited_subtests()`, over
-`plugins/**/*.test.mjs` minus `SKIP_DIRS` and minus every path under `plugins/compozy/` (its five
-`skip`s guard a missing `compozy` CLI, and its tests are outside the suite, ADR 0026 decision 6).
+`plugins/**/*.test.mjs` minus `SKIP_DIRS`; under `plugins/compozy/` only `skip` and `todo` pass (its
+`skip`s guard a missing `compozy` CLI) and `only` is refused (review round 1, F4).
 A line is refused when it matches either
 
 ```
@@ -454,7 +454,7 @@ probe's own output stays in the probe test's captured stdout and never reaches t
 | T-8 | `suite-speed AC-4 a symlinked TMPDIR gives each file a real path` (test-suite) | with `TMPDIR` a symlink to a `tmpFolder`, a probe's `realpathSync(TMPDIR) === TMPDIR` and its run root's parent is the target's real path | the script's folders | AC-4 |
 | T-9 | `suite-speed AC-4 a file that leaves something in its TMPDIR fails the run and is named with what it left` (test-suite) | a passing probe that makes `left-behind/`: exit 1, summary line `LEFT` with the file and `left-behind`; the run root is gone | the leftover check | AC-4 |
 | T-10 | `suite-speed AC-6 a failing test exits 1 and prints its name and file; the other files still run` (test-suite) | a probe test `suite-speed probe fails on purpose` and a passing probe: exit 1, both names in stdout, `FAIL` on the first file | the script's exit and output | AC-6 |
-| T-11 | `suite-speed AC-5c check.py refuses skip, only and todo in the suite's test files, not in compozy's` (test-suite) | `python3 scripts/check.py --root <synthetic>`: a `.skip(`, an `{ only: true }` option and a `.todo(` in `plugins/openspec/hooks/a.test.mjs` are three problem lines; the same in `plugins/compozy/skills/x/b.test.mjs` are none; a clean tree prints `all checks passed` | `scripts/check.py` | AC-5c |
+| T-11 | `suite-speed AC-5c check.py refuses skip, only and todo in the suite's test files, not in compozy's` (test-suite) | `python3 scripts/check.py --root <synthetic>`: a `.skip(`, an `{ only: true }` option and a `.todo(` in `plugins/openspec/hooks/a.test.mjs` are three problem lines; the same in `plugins/compozy/skills/x/b.test.mjs` give one problem line (`only`; `skip` and `todo` pass there); a clean tree prints `all checks passed` | `scripts/check.py` | AC-5c |
 | T-12 | `suite-speed AC-3 the branch-blank scan reads test-fixtures.mjs` (guard) | `testFilesUnder` returns a synthetic `test-fixtures.mjs` and its offending line is found | static scan | AC-3 |
 | T-13 | `suite-speed AC-3 the raw-temp scan reads test-fixtures.mjs` (test-tmp) | `rawTempCalls` names a raw call in a synthetic `plugins/x/test-fixtures.mjs` | static scan | AC-3 |
 | T-14 | `suite-speed AC-7 the docs and the agents' context name the one command, and no file outside the records names the old one` (test-suite) | `CLAUDE.md`, `CONTRIBUTING.md`, `plugins/openspec/README.md` and `openspec/config.yaml` hold `node scripts/test-suite.mjs`; no line of a file of `git ls-files` outside the exemptions matches `OLD_COMMAND` or `OLD_HEADER` (below) | the documents | AC-7 |
@@ -692,8 +692,8 @@ None.
     `plugins/compozy/` (`screen-demo`, `screen-design`) and those of `plugins/panel/` stay out, as they were out of the old
     command. T-1 and T-2 follow (four folders, 29 files the old command ran).
   - **The skip check (D-7).** The five compozy suites run in the suite now, and `loop-templates.test.mjs` calls `t.skip(...)`
-    when the `compozy` CLI is missing. The exemption of `plugins/compozy/` in `scripts/check.py` stays: those skips guard a
-    missing program on the machine, not a test that was dropped, and T-11 keeps proving the exemption.
+    when the `compozy` CLI is missing. `scripts/check.py` lets `skip` and `todo` pass under `plugins/compozy/` and refuses `only` there (review
+    round 1, F4): those skips guard a missing program on the machine, not a test that was dropped, and T-11 proves both.
   - **The helpers (D-4).** The stack's test files imported more from test files (`fakeCompozy`, `underOwnTmp`, `simGitHub`,
     `proposal`, and from `change-loop.test.mjs` and `roadmap-loop.test.mjs` the helpers `stage-models.test.mjs` uses). They moved
     to `test-fixtures.mjs` with their closures, as D-4 says; the `SET`/`cleanEnv` pair that `change-loop.test.mjs` and

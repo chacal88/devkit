@@ -216,7 +216,7 @@ function summary(results, seconds, concurrency) {
   const lines = [];
   for (const result of [...results].sort((a, b) => (a.file < b.file ? -1 : 1))) {
     let line = `${result.status} ${result.seconds.toFixed(1)}s ${result.file}`;
-    if (result.status === 'LEFT') {
+    if (result.left.length) { // LEFT, or FAIL with something left too
       const shown = result.left.slice(0, LEFT_NAMES_SHOWN).join(', ');
       const more = result.left.length - LEFT_NAMES_SHOWN;
       line += ` left: ${shown}${more > 0 ? `, and ${more} more` : ''}`;
@@ -226,6 +226,15 @@ function summary(results, seconds, concurrency) {
   const sum = (key) => (results.every((r) => r.counts) ? String(results.reduce((total, r) => total + r.counts[key], 0)) : '?');
   lines.push(`suite: ${results.length} files, ${sum('tests')} tests, ${sum('pass')} pass, ${sum('fail')} fail, ${seconds.toFixed(1)}s, concurrency ${concurrency}`);
   return lines.join('\n');
+}
+
+function isEntry(argv1) {
+  try {
+    return realpathSync(argv1) === fileURLToPath(import.meta.url);
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return false;
+    throw error;
+  }
 }
 
 export async function main(argv, root = ROOT) {
@@ -293,6 +302,7 @@ export async function main(argv, root = ROOT) {
   return results.every((result) => result.status === 'pass') ? 0 : 1;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// `import.meta.url` is the real path, so a start through a symlink (macOS /tmp and /var are links) compares by real path.
+if (process.argv[1] && isEntry(process.argv[1])) {
   process.exitCode = await main(process.argv.slice(2));
 }
