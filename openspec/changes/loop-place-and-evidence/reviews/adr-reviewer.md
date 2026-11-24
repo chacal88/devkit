@@ -1,21 +1,18 @@
-Verdict: rejected
-Commit: 80ae28772aebdd569cf6209a0a6de6a669ef18a3
+Verdict: approved
+Commit: 96ea09921ecd863be523e40ec403b87596c25406
 
-## ADR review — loop-place-and-evidence
+## ADR review — loop-place-and-evidence (round 2)
 
 ### Findings
-- [important] openspec/changes/loop-place-and-evidence/tasks.md:66,92 — Gates 1.5 and 2.4 still filter guard.test.mjs, which ADR 0026 (docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md) reduced to the guard's own tests, so they exit 0 while running 1 and 8 tests; point them at the files that hold the tests or at node scripts/test-suite.mjs via a plan revision.
+- [important] openspec/changes/loop-place-and-evidence/tasks.md:66,92 — Gates 1.5 and 2.4 filtered guard.test.mjs, which ADR 0026 reduced to the guard's own tests; the gates now name the files that hold the tests and the rewritten 2.4 ran 20 tests green. · fixed in 96ea09921ecd863be523e40ec403b87596c25406
 
-ADRs reviewed: ADR 0002 (`docs/adr/0002-merge-without-the-owner-opt-in.md`), ADR 0008 (`docs/adr/0008-reviews-as-a-workflow.md`), ADR 0010 (`docs/adr/0010-openspec-as-the-harness.md`), ADR 0016 (`docs/adr/0016-stage-roles-write-their-own-files.md`), ADR 0017 (`docs/adr/0017-a-change-state-is-derived-in-one-place.md`), ADR 0025 (`docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md`), ADR 0026 (`docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`); ADR 0022 and ADR 0020 checked through the indexes and notes against the checker and the loop.
+ADRs reviewed: ADR 0026 (`docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`), ADR 0016 (`docs/adr/0016-stage-roles-write-their-own-files.md`), ADR 0025 (`docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md`). Round 1 also covered ADR 0002, 0008, 0010, 0017 and 0022; nothing in this range touches them.
 
 ### Conformance
-- ADR 0010 decisions 2 and 3: the step order moves into `deliver-check.mjs` (`nextStep`, around line 1811) and the existing `commit` step is reused. No new step, end, row, role or agent, and `change-loop.mjs` is unchanged.
-- ADR 0008 decision 4 and ADR 0016: the `Commit:` lines, verdict writers and `Verdict:` lines are untouched, and the commit role only commits files that roles already wrote (`plugins/core` untouched).
-- ADR 0017: the state stays derived in the checker only; `folderDirty` is a derived fact and nothing stores it.
-- ADR 0025: commits under `openspec/changes/<id>/` do not stale the evidence or reviews, so after the folder commit the next call returns `review` with the same round.
-- ADR 0026 decision 3: no test file imports another test file; the shared helpers moved to `deliver-check-fixtures.mjs`, which holds no test.
-- ADR 0002 and ADR 0022: `--ci` never calls `nextStep`, so the required `devkit-reviews` check and the train are untouched.
-- `decisions.md` records no record needed, which is consistent. No open decision is touched and no ADR is contradicted or superseded.
+- ADR 0026: gates 1.5 and 2.4 list the files that hold each test (`deliver-check*.test.mjs`, `flow-check.test.mjs`, `change-loop*.test.mjs`, `roadmap-loop-upfront.test.mjs`, `roadmap-loop-followups.test.mjs`, `guard.test.mjs`). Every name pattern was grepped and lands in a listed file. Gate 2.4 was run filtered in the foreground and ran 20 tests, all passing, against 8 before. Gate 1.5 was not run here; the evidence records it at 480 tests, all green. The whole suite was not run. No test imports another test file.
+- ADR 0016: the range changes only `evidence.md`, `review.md`, `reviews/*.md` and `tasks.md`, all under the change folder, and `plugins/` is untouched in it. The `reviews/*.md` files carry the round 1 verdict lines.
+- ADR 0025: `evidence.md` keeps `Commit: 80ae287` while HEAD is `96ea099`. The commits since then touch only the change folder, so they do not stale the evidence or the reviews.
+- No open decision is touched and no ADR is contradicted.
 
 ### Summary
-- 1 finding (0 blocking, 1 important, 0 nit)
+- 1 finding (0 blocking, 1 important now fixed, 0 nit); nothing is left open.
