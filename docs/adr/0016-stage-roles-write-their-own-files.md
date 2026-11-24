@@ -10,7 +10,7 @@
 
 Note (compozy-driver, 2026-11-23): decision 3's last sentence ("In the CompozyOS kit the implementer
 sets them before its first phase, after the operator's approval.") is replaced by decision 4 of
-[ADR 0022](0022-compozy-runs-the-short-loop.md) (proposed). The implementer shell that sentence
+[ADR 0024](0024-compozy-runs-the-short-loop.md) (proposed). The implementer shell that sentence
 names leaves with the old kit, and on CompozyOS the records are accepted by the same
 `accept-decisions` script as on the Claude driver, which the loop runs with no agent right after the
 recorded plan approval. The rest of this record is unchanged.

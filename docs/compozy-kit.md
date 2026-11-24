@@ -8,7 +8,7 @@ code closed until the plan is ready, the reviewer agents and the checkers) decid
 does the work inside it. A project installs the kit only when it runs CompozyOS: a project that does
 not never pays for its skill descriptions.
 
-The design is [ADR 0022](adr/0022-compozy-runs-the-short-loop.md), which amends
+The design is [ADR 0024](adr/0024-compozy-runs-the-short-loop.md), which amends
 [ADR 0009](adr/0009-compozy-loop-as-a-second-driver.md): the twelve-stage loop and its four role
 shells of the first kit are gone.
 
@@ -121,7 +121,7 @@ The merge itself stays the owner's unless the project's ship mode says `merge`
 
 The CompozyOS driver does not carry every feature of the Claude driver: the token budget, the Jira
 entry and write-back, the `state` command's view of a run, and the machines of a remote roadmap are not
-reached from a CompozyOS run. [ADR 0022](adr/0022-compozy-runs-the-short-loop.md) lists each limit.
+reached from a CompozyOS run. [ADR 0024](adr/0024-compozy-runs-the-short-loop.md) lists each limit.
 
 ## Checker portability
 

@@ -93,7 +93,7 @@ its reason. Decisions 1 to 8 are otherwise unchanged.
 
 Note (compozy-driver, 2026-11-23): the CompozyOS driver of decision 4 is built, as one short loop
 that asks the change loop each turn, with one CompozyOS agent per role that has a Claude agent
-file ([ADR 0022](0022-compozy-runs-the-short-loop.md), proposed). The CompozyOS planner is named
+file ([ADR 0024](0024-compozy-runs-the-short-loop.md), proposed). The CompozyOS planner is named
 `change-planner`, the owner's choice on 2026-11-22 (grill question 4), over the `planner` of the
 2026-11-19 Note above. Decisions 1 to 8 are otherwise unchanged.
 

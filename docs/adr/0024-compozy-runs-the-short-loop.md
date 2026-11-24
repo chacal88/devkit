@@ -1,4 +1,4 @@
-# ADR 0022: CompozyOS runs the short loop of the checker, one agent per role
+# ADR 0024: CompozyOS runs the short loop of the checker, one agent per role
 
 - Status: proposed
 - Date: 2026-11-23

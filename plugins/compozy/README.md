@@ -3,7 +3,7 @@
 The CompozyOS driver of the devkit flow, as files any project installs: one agent for every devkit
 role, three loops and the skills the screen roles can use. `compozy-setup` writes them into the
 project as `.compozy/`; `/devkit` then starts the runs (`driver: compozy` in the `devkit:` block of
-`openspec/config.yaml`). The design is [ADR 0022](../../docs/adr/0022-compozy-runs-the-short-loop.md).
+`openspec/config.yaml`). The design is [ADR 0024](../../docs/adr/0024-compozy-runs-the-short-loop.md).
 
 ```bash
 claude plugin install devkit-compozy@devkit --scope project
@@ -30,7 +30,7 @@ Run at the project root, or add the pack to the project's `.claude/settings.json
   template holds a path that exists in only one repository.
 
 The driver does not carry every feature of the Claude driver; the limits are listed in the
-Consequences of ADR 0022.
+Consequences of ADR 0024.
 
 ## What a project must provide
 

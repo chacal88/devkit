@@ -14,7 +14,7 @@ the short generic loop, the twelve-stage loop of devkit-compozy, its gates that 
 deliver-check, conduct-check and screens-check, and its opt-in per project hold as decided here;
 round 24 (coordination-cleanup) removes the old loop.
 
-Note (compozy-driver, 2026-11-23): [ADR 0022](0022-compozy-runs-the-short-loop.md) (proposed)
+Note (compozy-driver, 2026-11-23): [ADR 0024](0024-compozy-runs-the-short-loop.md) (proposed)
 amends this record. The twelve-stage loop and its four role shells leave with round 21, and
 CompozyOS runs one short loop that asks the change loop each turn, so the Decision's first bullet now
 reads: every gate of a CompozyOS run is decided by `change-loop.mjs`, reading `flow-check` and,

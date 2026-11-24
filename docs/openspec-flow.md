@@ -213,7 +213,7 @@ OpenSpec lists changes flat. To keep rounds, the order between them and "where a
 
 ## The change coordinator: `/devkit change`
 
-`/devkit change <what you want>` runs one change from your request to its archive, in your own Claude Code session. It is one of two ways to drive this flow from gate to gate: the other is the CompozyOS driver (`devkit-compozy`), a supervised multi-agent run of one short loop that asks this same checker each turn, over the same artifacts, checkers and owner gates, which a project chooses with `driver: compozy` (see [docs/compozy-kit.md](compozy-kit.md) and [ADR 0022](adr/0022-compozy-runs-the-short-loop.md)). Neither replaces the other. The decision is [ADR 0010](adr/0010-openspec-as-the-harness.md), and [ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md) says why the coordinator is your session, held by hooks. `/devkit change` replaced the `/conduct` skill (ADR 0005, ADR 0006 and ADR 0007 describe the older design); a change begun under the previous script is still finished with `ship-change`.
+`/devkit change <what you want>` runs one change from your request to its archive, in your own Claude Code session. It is one of two ways to drive this flow from gate to gate: the other is the CompozyOS driver (`devkit-compozy`), a supervised multi-agent run of one short loop that asks this same checker each turn, over the same artifacts, checkers and owner gates, which a project chooses with `driver: compozy` (see [docs/compozy-kit.md](compozy-kit.md) and [ADR 0024](adr/0024-compozy-runs-the-short-loop.md)). Neither replaces the other. The decision is [ADR 0010](adr/0010-openspec-as-the-harness.md), and [ADR 0011](adr/0011-the-change-coordinator-is-the-owners-session.md) says why the coordinator is your session, held by hooks. `/devkit change` replaced the `/conduct` skill (ADR 0005, ADR 0006 and ADR 0007 describe the older design); a change begun under the previous script is still finished with `ship-change`.
 
 **The verb and its forms.** The `devkit` skill of devkit-openspec (`plugins/openspec/skills/devkit/SKILL.md`) reads its arguments through a quoted heredoc and hands them to `node <devkit>/plugins/openspec/hooks/change-loop.mjs start`, which decides and creates nothing. A model never starts a run by its own choice (`disable-model-invocation`). The forms:
 
@@ -728,8 +728,8 @@ jobs:
         with: { node-version: 22 }
       - name: Download the checker (outside the workspace, so no review goes stale)
         run: |
-          # pinned to the commit of v0.35.0 (a tag can move; a commit cannot)
-          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.35.0>/plugins/openspec/hooks
+          # pinned to the commit of v0.36.0 (a tag can move; a commit cannot)
+          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v0.36.0>/plugins/openspec/hooks
           curl -fsSL "$base/guard.mjs" -o "$RUNNER_TEMP/guard.mjs"
           curl -fsSL "$base/deliver-check.mjs" -o "$RUNNER_TEMP/deliver-check.mjs"
           curl -fsSL "$base/merge-setup.mjs" -o "$RUNNER_TEMP/merge-setup.mjs"
@@ -742,7 +742,7 @@ The readiness is asked of a change when the flow it follows declares it, read fr
 
 The check also judges the archived folder of a `devkit-project` slice by the slice contract (see "Defining a project"); a project that sets `ship: devkit-project: merge` moves this pin to `v0.20.0` or later first, because older releases pass a slice with a note.
 
-Pin the commit sha of the release tag (`v0.35.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.35.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
+Pin the commit sha of the release tag (`v0.36.0` above), not the tag: a tag can be moved, and this job's output gates the merge. The openspec-setup script resolves the tag to its sha for you (and defers the workflow if the tag does not exist yet); by hand, run `gh api repos/chacal88/devkit/git/ref/tags/v0.36.0` (for an annotated tag, follow `object.sha` through `git/tags/<sha>`). Bump it on purpose. The job id is the check's name (`devkit-reviews`), so give the job no `name:`; and keep the trigger `pull_request` with no `paths:` filter, because a required check that is filtered out never reports. The files are downloaded into `$RUNNER_TEMP`, never into the workspace: a file added to the repository would make every review stale.
 
 If your CI also validates the OpenSpec files, keep that step in a job of its own (for example `npm i -g @fission-ai/openspec@2` then `openspec validate --all --strict`); `deliver-check --ci` does not call the OpenSpec CLI, so the snippet this section used to show for it is unchanged and still valid:
 
