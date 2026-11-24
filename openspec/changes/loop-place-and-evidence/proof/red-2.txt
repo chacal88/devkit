@@ -1,0 +1,42 @@
+✖ loop-evidence 16: the ship-change review row leaves the commit to the loop and the commit row allows empty paths (64.490805ms)
+✖ loop-evidence 17: the flow doc's order of the delivery steps names the commit before the review round (10.25864ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 788.682573
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3236:1
+✖ loop-evidence 16: the ship-change review row leaves the commit to the loop and the commit row allows empty paths (64.490805ms)
+  AssertionError [ERR_ASSERTION]: the review row no longer commits by prose
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:3241:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:3248:1
+✖ loop-evidence 17: the flow doc's order of the delivery steps names the commit before the review round (10.25864ms)
+  AssertionError [ERR_ASSERTION]: the order names the commit step
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/loop-place-and-evidence/plugins/openspec/hooks/deliver-check.test.mjs:3252:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

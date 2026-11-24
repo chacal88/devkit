@@ -1,0 +1,64 @@
+✖ post-merge-validate 3: the devkit skill names the merge-check step among the session steps, run whatever its exit code (22.77891ms)
+✖ post-merge-validate 3: the flow document names the merge-check step, its two Troubleshooting rows and no longer asks the session to run the check by hand (2.996451ms)
+✖ post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked (1.653631ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 582.173369
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6095:1
+✖ post-merge-validate 3: the devkit skill names the merge-check step among the session steps, run whatever its exit code (22.77891ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /A `merge-check` step runs `detail\.command` the same way, then `next`, whatever its exit code/. Input:
+  
+  '- `session`: do the step as the `ship-change` row of the same name says, in `root`, with `detail` as its `next` object. A `take-place` step runs `detail.command`, then `next`, whatever its exit code. A `switch-script` step runs `detail.command` and keeps `reply` for the message that ends the turn. An `accept-decisions` step runs `detail.command` the same way (it marks the decision records of the approved plan accepted, and the next call goes on); an exit 3 is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=cannot-accept --param error="<the JSON\'s error field>" --lang ${user_config.language}`, shown, and ends the run. An `answer` step that only the owner can decide is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply waiting-pr-decision --param id=<id> --param url=<the pull request\'s url> --lang ${user_config.language}`, shown, and ends the turn. A `tag-release` step that stops (a refused push, a local tag at another commit) is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=archive-failed --lang ${user_config.language}`, shown with git\'s first error line, and ends the run.'
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:6099:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '- `session`: do the step as the `ship-change` row of the same name says, in `root`, with `detail` as its `next` object. A `take-place` step runs `detail.command`, then `next`, whatever its exit code. A `switch-script` step runs `detail.command` and keeps `reply` for the message that ends the turn. An `accept-decisions` step runs `detail.command` the same way (it marks the decision records of the approved plan accepted, and the next call goes on); an exit 3 is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=cannot-accept --param error="<the JSON\'s error field>" --lang ${user_config.language}`, shown, and ends the run. An `answer` step that only the owner can decide is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply waiting-pr-decision --param id=<id> --param url=<the pull request\'s url> --lang ${user_config.language}`, shown, and ends the turn. A `tag-release` step that stops (a refused push, a local tag at another commit) is declared with `node <skill-dir>/../../hooks/change-loop.mjs reply blocked --param id=<id> --param why=archive-failed --lang ${user_config.language}`, shown with git\'s first error line, and ends the run.',
+    expected: /A `merge-check` step runs `detail\.command` the same way, then `next`, whatever its exit code/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6103:1
+✖ post-merge-validate 3: the flow document names the merge-check step, its two Troubleshooting rows and no longer asks the session to run the check by hand (2.996451ms)
+  AssertionError [ERR_ASSERTION]: the loop paragraph
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:6105:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6116:1
+✖ post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked (1.653631ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /evidence-attempts-by-failure/. Input:
+  
+  "- [ ] post-merge-validate — after a merge from the base, the delivery loop runs `openspec validate <id> --strict` before the evidence and sends a failure to the planner as a merge defect, and an evidence attempt that a base merge made stale or red does not count toward the stage's limit; in stage-roles a merge from main left the roadmap-coordination delta without main's new scenario, and the evidence's third attempt hit the limit (stage-roles retro, item 3)"
+  
+      at TestContext.<anonymous> (file:///home/<user>/repos/devkit/.claude/worktrees/post-merge-validate/plugins/openspec/hooks/change-loop.test.mjs:6120:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "- [ ] post-merge-validate — after a merge from the base, the delivery loop runs `openspec validate <id> --strict` before the evidence and sends a failure to the planner as a merge defect, and an evidence attempt that a base merge made stale or red does not count toward the stage's limit; in stage-roles a merge from main left the roadmap-coordination delta without main's new scenario, and the evidence's third attempt hit the limit (stage-roles retro, item 3)",
+    expected: /evidence-attempts-by-failure/,
+    operator: 'match',
+    diff: 'simple'
+  }
