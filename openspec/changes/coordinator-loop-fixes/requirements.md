@@ -86,8 +86,8 @@ the sibling changes in flight (`loop-place-and-evidence`, `stage-ceiling-consecu
 
 ### Added: the coordinator's field findings of 2026-11-24
 
-Three loop defects found in the field on 2026-11-24 join this change (the coordinator's messages),
-the first two checked on c663f21, the third on this branch:
+Four defects found in the field on 2026-11-24 join this change (the coordinator's messages), the
+first two checked on c663f21, the third on this branch, the fourth on `origin/main` d917ae0:
 
 25. A change whose id starts with `archive-` loses its own pull request: `isArchiveHead`
     (`plugins/openspec/hooks/deliver-check.mjs:684`) tests `/^(chore\/)?archive-/`, so `isOwnPr` (`:710`)
@@ -120,6 +120,21 @@ the first two checked on c663f21, the third on this branch:
     `affected_areas`, `initiative`, `skip_specs`, `retire_capabilities` and `x-` keys). A change
     that follows the document turns its own validation, its gates and the `check` red. Commit
     a9d75e9 of this branch wrote the table and 20c0930 removed it again. No roadmap line owns it.
+28. A fourth field finding of 2026-11-24 (the coordinator's third message, found by delivery train 8,
+    which spent three suite runs on it), checked on `origin/main` d917ae0: a test that pins the state of
+    a live line of `openspec/roadmap.md` forbids the archive that changes that line. The test
+    `post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence
+    attempts, and stays unticked` (`plugins/openspec/hooks/change-loop.test.mjs`) asserts
+    `/^- \[ \] post-merge-validate/` on the live roadmap, so the archive of `post-merge-validate`
+    (pull request 125), which ticks that line, turned its own `check` red and left the train. The same
+    class, not biting yet: `jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry`
+    (`change-loop-remote-state.test.mjs`) finds its line by the text `- [ ] jira-entry-live (after:
+    jira-entry)` and asserts `done: false`, so the archive of `jira-entry-live` will fail it; and
+    `stage-roles docs: the roadmap line of stage-roles keeps its text, and every carried item moved to
+    coordinator-loop-fixes` (`change-loop-compozy.test.mjs`) asserts no tick but reads the live text of
+    the `stage-roles` and `coordinator-loop-fixes` lines, which an archive or a roadmap edit may change.
+    The rule "Test history" of `openspec/config.yaml` keeps tests off git history but says nothing of
+    the live roadmap. No roadmap line owns it.
 
 ## Assumptions
 
@@ -165,10 +180,11 @@ the first two checked on c663f21, the third on this branch:
 - AC-13 `resolve-outside-release-files`: a pull request that conflicts with the base outside the release files gets a declared resolve step; the run does not end blocked for it, and a conflict in the release files still uses `resolve-release-conflict`.
 - AC-14 `nits-closed`: the change-coordination spec words the archive sources as their union; the project-setup spec states exit 1 of `github-setup` for a blocked state; a test covers an unreadable `.openspec.yaml`; project-loop T25 fails without the export; the roadmap scenario of the commit-attribution spec has a test of its own; T31 no longer counts a literal phrase.
 - AC-15 `short-script-decisions-recorded`: `docs/openspec-flow.md` records that `devkit-lite` has no plan approval of its own by decision and that a first-spec change follows the ordinary choice rule; no behaviour changes: `devkit-lite`'s stages and gates are the same before and after.
-- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13 and AC-17 to AC-19 state; the existing suites stay green.
+- AC-16 `no-behaviour-change-elsewhere`: no behaviour changes for any item under "Dropped" and for the stages `devkit` runs today, other than what AC-1 to AC-13 and AC-17 to AC-20 state; the existing suites stay green.
 - AC-17 `archive-prefixed-id-own-pr`: a change whose id starts with `archive-` and whose pull request's head is its own id finds that pull request as its own, merged or open, so `next` goes on to the retro after its merge; a head `chore/archive-<id>` (or `archive-<id>`) is still the archive of change `<id>` and never its own pull request, and another change's `archive-` head is neither. A test per condition, negatives included, and a real `next` run on `archive-release-pin`.
 - AC-18 `delivered-advanced-branch-no-rereview`: a delivered change whose local branch was advanced into the base (its head contained in `origin/<base>`) goes to the retro with no new evidence or review round; on its own branch still ahead of the base, and for a change not delivered, the evidence and the reviews are judged as today.
 - AC-19 `stage-models-override-validates`: the per-change override of a stage's model that `docs/openspec-flow.md` documents and the strict validation agree: either the loop reads the table from a place `openspec validate <id> --type change --strict` accepts, or the document stops offering the change's own `.openspec.yaml`; the plan decides which. A test writes the table exactly as the document shows it, runs `openspec validate <id> --type change --strict` on that change and asserts exit 0, and asserts that `modelsOf` reads the table's values (or, if the document stops offering it, that the document no longer shows it).
+- AC-20 `no-test-pins-live-roadmap-state`: the `context:` rules of `openspec/config.yaml`, beside "Test history", say that a test never asserts the tick or the done state of a live line of `openspec/roadmap.md`, and that a line's old content is held as a fixture or a constant. The tests of finding 28 follow that rule, each named in the plan's test table with its invariant and the layer that owns it: `post-merge-validate 3: ... and stays unticked` (if still present on the base when the phase runs; that change's own archive may fix it first), `jira-entry AC-10 the roadmap has the live-proof follow-up after jira-entry`, and `stage-roles docs: the roadmap line of stage-roles keeps its text, ...`. Each corrected test passes on the live roadmap and on a copy of it with the line it reads ticked.
 
 ## Out of scope
 
