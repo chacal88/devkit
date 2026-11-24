@@ -305,7 +305,7 @@ every task with `git status --short`.
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
   D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0, the runs of 3.8's Check that gate 3.9 held (its `Then` part) pass again, and `python3 scripts/check.py` and `node plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs --check` pass (D-17: gate 3.9's whole suite is the conducting session's, never this task's).
 
-- [ ] 4.1 The conducting session's task (D-14, D-11), done and ticked before phase 4 is handed; it needs nothing this
+- [x] 4.1 The conducting session's task (D-14, D-11), done and ticked before phase 4 is handed; it needs nothing this
   change builds, so it may run earlier. Run R10 (the person's language never set, the installed plugin) in a scratch
   project outside this repository; write its output as `openspec/changes/coordinator-loop-fixes/proof/r10-*.jsonl`
   and append its line to `openspec/changes/coordinator-loop-fixes/proof/checks.txt` in the D-14 form; the run's

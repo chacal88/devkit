@@ -1,0 +1,1 @@
+r10 language never set, installed plugin: the init event lists devkit-openspec from the install, no language option is set in the config dir used (the command passed the unsubstituted ${user_config.language}), and the reply is in Portuguese with no ${user_config: pass
