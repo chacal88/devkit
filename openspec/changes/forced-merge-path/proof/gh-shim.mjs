@@ -3,6 +3,8 @@
 //
 //   Live mode (REPLAY_REAL_GH set): a read goes to the real gh after the policy below; the default branch in `?ref=<branch>` becomes
 //   `?ref=<REPLAY_MERGE_SHA>`, so a replay of an old pull request sees the default branch as it was at its merge.
+//   REPLAY_MAX_PR=<n> (live mode): the repository is shown as it was when pull request n was merged, so no pull request numbered above n
+//   is visible: `pr view|checks|diff` of such a number answers "missing", `pr list` and the `pulls` routes of `gh api` drop those entries.
 //   Fixture mode (REPLAY_ANSWERS set): the answer comes from the answers file; a call it does not hold is refused. No call leaves the machine.
 //
 // Policy: only `gh --version`, `gh pr view|list|checks|diff`, a GET `gh api` call and a `gh api graphql` query without `mutation` pass.
@@ -109,8 +111,106 @@ export function shim(args, env, { runReal, answers = null } = {}) {
     if (!a) return { exit: NO_ANSWER, stdout: '', stderr: `gh-shim: the fixture holds no answer for "${fixtureKeys(args)[0]}": gh ${args.join(' ')}\n` };
     return { exit: a.exit ?? 0, stdout: text(a.stdout), stderr: a.stderr ?? '' };
   }
-  const real = runReal(rewriteRef(args, env.REPLAY_DEFAULT_BRANCH, env.REPLAY_MERGE_SHA));
-  return { exit: real.status ?? 1, stdout: real.stdout ?? '', stderr: real.stderr ?? '' };
+  const call = rewriteRef(args, env.REPLAY_DEFAULT_BRANCH, env.REPLAY_MERGE_SHA);
+  const max = maxPr(env);
+  if (max === undefined) return { exit: REFUSED, stdout: '', stderr: `gh-shim: refused (REPLAY_MAX_PR "${env.REPLAY_MAX_PR}" is not a pull request number): gh ${args.join(' ')}\n` };
+  return (max === null ? null : cutAbove(call, max, runReal)) ?? plain(runReal(call));
+}
+
+const plain = (real) => ({ exit: real.status ?? 1, stdout: real.stdout ?? '', stderr: real.stderr ?? '' });
+
+// ---------------------------------------------------------------- the cut: no pull request above the replayed one (live mode)
+
+// null when REPLAY_MAX_PR is unset, undefined when it is set to something that is not a number, else the number.
+function maxPr(env) {
+  const raw = env.REPLAY_MAX_PR;
+  if (raw === undefined || raw === '') return null;
+  return /^[0-9]+$/.test(raw) ? Number(raw) : undefined;
+}
+
+const refusedCut = (what, args) => ({ exit: REFUSED, stdout: '', stderr: `gh-shim: refused (REPLAY_MAX_PR is set and ${what}): gh ${args.join(' ')}\n` });
+const missingPr = (k) => ({ exit: 1, stdout: '', stderr: `Could not resolve to a pull request with the number of ${k}.\n` });
+const noPrForBranch = (branch) => ({ exit: 1, stdout: '', stderr: `no pull requests found for branch "${branch}"\n` });
+const NOT_FOUND_404 = { exit: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)\n' };
+const ANSWER_FILTERS = ['--jq', '-q', '--template', '-t'];
+const hasAnswerFilter = (args) => args.some((a) => ANSWER_FILTERS.includes(a) || /^--(jq|template)=/.test(a));
+const PR_SELECTOR_FLAGS = ['--json', '--jq', '-q', '--template', '-t', '-R', '--repo'];
+
+// The first positional argument of `gh pr <sub> ...`: a number, a URL or a branch; null when the call names none (the current branch).
+function selectorOf(args) {
+  const rest = args.slice(2);
+  for (let i = 0; i < rest.length; i += 1) {
+    if (PR_SELECTOR_FLAGS.includes(rest[i])) { i += 1; continue; }
+    if (rest[i].startsWith('-')) continue;
+    return rest[i];
+  }
+  return null;
+}
+
+// The number a selector names: `92`, `#92` or a pull request URL; null for a branch.
+const numberOfSelector = (sel) => (/^#?([0-9]+)$/.exec(sel) ?? /\/pull\/([0-9]+)(?:[/?#]|$)/.exec(sel))?.[1] ?? null;
+
+// The list call with `number` among its --json fields; { args, added } where `added` says the shim put it there.
+function withNumber(args) {
+  const i = args.findIndex((a) => a === '--json' || a.startsWith('--json='));
+  if (i < 0) return null;
+  const eq = args[i].startsWith('--json=');
+  const fields = (eq ? args[i].slice('--json='.length) : args[i + 1] ?? '').split(',').filter(Boolean);
+  if (fields.length === 0) return null;
+  if (fields.includes('number')) return { args, added: false, fields };
+  const next = [...args];
+  if (eq) next[i] = `--json=${[...fields, 'number'].join(',')}`; else next[i + 1] = [...fields, 'number'].join(',');
+  return { args: next, added: true, fields };
+}
+
+function cutPrList(args, max, runReal) {
+  const call = hasAnswerFilter(args) ? null : withNumber(args);
+  if (!call) return refusedCut('this pull request list has no --json to cut, or a --jq/--template that runs before the cut', args);
+  const real = runReal(call.args);
+  if ((real.status ?? 1) !== 0) return plain(real);
+  let list;
+  try { list = JSON.parse(real.stdout); } catch { return refusedCut('the list answer is not JSON', args); }
+  if (!Array.isArray(list)) return refusedCut('the list answer is not an array', args);
+  const kept = list.filter((p) => !(Number(p?.number) > max));
+  const shown = call.added ? kept.map(({ number, ...rest }) => rest) : kept;
+  return { exit: 0, stdout: `${JSON.stringify(shown)}\n`, stderr: real.stderr ?? '' };
+}
+
+// `gh pr view|checks|diff [<number> | <url> | <branch>]`: a number above the cut is a missing pull request; a branch (or none) is probed.
+function cutPrOne(args, max, runReal) {
+  const sel = selectorOf(args);
+  const named = sel === null ? null : numberOfSelector(sel);
+  if (named !== null) return Number(named) > max ? missingPr(Number(named)) : null;
+  const probe = runReal(['pr', 'view', ...(sel === null ? [] : [sel]), '--json', 'number,headRefName']);
+  if ((probe.status ?? 1) !== 0) return null;
+  let found;
+  try { found = JSON.parse(probe.stdout); } catch { return null; }
+  return Number(found?.number) > max ? noPrForBranch(sel ?? found.headRefName ?? '') : null;
+}
+
+const API_PR_ROUTE = /^\/?repos\/[^/?]+\/[^/?]+\/(?:pulls(?:\/([0-9]+))?(\/[^?]*)?|commits\/[^/?]+\/pulls)(?:\?.*)?$/;
+
+function cutApi(args, max, runReal) {
+  const hit = API_PR_ROUTE.exec(apiRoute(args) ?? '');
+  if (!hit) return null;
+  const [, number, sub] = hit;
+  if (number !== undefined) return Number(number) > max ? NOT_FOUND_404 : null; // pulls/<k> and what hangs under it: the route names the pull request
+  if (sub !== undefined) return null; // pulls/<something that is not a number>: nothing to cut
+  if (hasAnswerFilter(args)) return refusedCut('this pull request route has a --jq/--template that runs before the cut', args);
+  const real = runReal(args);
+  if ((real.status ?? 1) !== 0) return plain(real);
+  let body;
+  try { body = JSON.parse(real.stdout); } catch { return refusedCut('the pull request answer is not one JSON document (--paginate?)', args); }
+  if (Array.isArray(body)) return { exit: 0, stdout: `${JSON.stringify(body.filter((p) => !(Number(p?.number) > max)))}\n`, stderr: real.stderr ?? '' };
+  return Number(body?.number) > max ? NOT_FOUND_404 : plain(real);
+}
+
+// The answer of the shim for a call the cut touches, or null when the call goes on to the real gh as it is.
+function cutAbove(args, max, runReal) {
+  if (args[0] === 'pr' && args[1] === 'list') return cutPrList(args, max, runReal);
+  if (args[0] === 'pr') return cutPrOne(args, max, runReal);
+  if (args[0] === 'api' && args[1] !== 'graphql') return cutApi(args, max, runReal);
+  return null;
 }
 
 // ---------------------------------------------------------------- the answers of a fixture case

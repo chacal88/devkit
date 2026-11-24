@@ -110,6 +110,7 @@ export function dryRun(name, opts) {
   lines.push(fixture
     ? '  gh shim: answers every call from the fixture and refuses the rest (no call leaves the machine)'
     : `  gh shim: GET reads of GitHub only${resolved ? `, ?ref=${c.base} rewritten to ?ref=${c.merge}` : ', its shas read first with gh pr view <n> --json mergeCommit,headRefOid,headRefName'}`);
+  if (!fixture) lines.push(`  gh shim cut: REPLAY_MAX_PR=${number ?? '<the number the case resolves>'} (no pull request above it is visible, so GitHub's later pull requests do not change the replay)`);
   if (resolved) {
     lines.push('the three checkouts:');
     checkoutsOf(c).forEach((k, i) => lines.push(`  ${i + 1}. ${k.name}: git checkout -B ${k.branch} ${k.sha}`));
@@ -200,7 +201,11 @@ export function replay(name, opts) {
   const base = { ...process.env };
   for (const k of CLEAN) base[k] = '';
   const env = { ...base, PATH: `${bin}:${process.env.PATH}`, REPLAY_BIN: bin, REPLAY_REAL_PATH: process.env.PATH, REPLAY_CALLS_LOG: calls, REPLAY_DEFAULT_BRANCH: c.base, GIT_TERMINAL_PROMPT: '0' };
-  if (real) env.REPLAY_REAL_GH = real;
+  if (real) {
+    env.REPLAY_REAL_GH = real;
+    // The replay sees GitHub as it was at the merge: no pull request numbered above the replayed one (design D-13).
+    if (p.number) env.REPLAY_MAX_PR = String(p.number);
+  }
   try {
     if (p.fixture?.spec.git) Object.assign(c, p.fixture.spec.git);
     else if (p.c.kind === 'resolve') {
@@ -231,7 +236,7 @@ export function replay(name, opts) {
     const expect = p.fixture?.spec.expect ?? null;
     const ghCalls = existsSync(calls) ? readFileSync(calls, 'utf8').split('\n').filter(Boolean).map(json) : [];
     const outcome = { case: name, change: c.id, number: c.number, results, expect, ghCalls: ghCalls.length, refused: ghCalls.filter((g) => g && g.exit >= 97).map((g) => g.args.join(' ').replace(/\s+/g, ' ').slice(0, 120)) };
-    if (opts.prepare) return { ...outcome, kept: { work, clone, bin, env: { PATH: env.PATH, REPLAY_REAL_GH: env.REPLAY_REAL_GH ?? null, REPLAY_ANSWERS: env.REPLAY_ANSWERS ?? null, REPLAY_MERGE_SHA: env.REPLAY_MERGE_SHA, REPLAY_DEFAULT_BRANCH: c.base, REPLAY_REAL_PATH: env.REPLAY_REAL_PATH } } };
+    if (opts.prepare) return { ...outcome, kept: { work, clone, bin, env: { PATH: env.PATH, REPLAY_REAL_GH: env.REPLAY_REAL_GH ?? null, REPLAY_ANSWERS: env.REPLAY_ANSWERS ?? null, REPLAY_MERGE_SHA: env.REPLAY_MERGE_SHA, REPLAY_DEFAULT_BRANCH: c.base, REPLAY_REAL_PATH: env.REPLAY_REAL_PATH, REPLAY_MAX_PR: env.REPLAY_MAX_PR ?? null } } };
     if (!opts.keep) rmSync(work, { recursive: true, force: true });
     else outcome.kept = { work };
     return outcome;
