@@ -78,7 +78,7 @@ from the three files the consumer workflow downloads, and SHALL NOT count either
 file when it resolves a merge conflict.
 
 #### Scenario: A pin-only archive pull request on CI
-- **WHEN** `devkit-reviews --ci` runs on an archive pull request whose only unnamed edits are a pin move in `docs/openspec-flow.md` and pin assertion lines in `change-loop.test.mjs`
+- **WHEN** `devkit-reviews --ci` runs on an archive pull request whose only unnamed edits are a pin move in `docs/openspec-flow.md` and pin assertion lines in `plugins/openspec/hooks/change-loop-compozy.test.mjs`
 - **THEN** the check passes, and it passes when run from only `guard.mjs`, `deliver-check.mjs` and `merge-setup.mjs`
 
 #### Scenario: The same branch beyond the pin
