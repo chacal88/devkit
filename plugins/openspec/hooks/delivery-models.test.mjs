@@ -278,7 +278,7 @@ test('delivery-models open: the new replies exist in both languages and name no 
 //
 // The fake keeps its pull requests in a JSON file and reads heads live from the bare origin, so a push moves a pull request
 // as it does on GitHub. It answers the calls deliver-check makes (`pr list` with --head, --base and --state, `pr checks`,
-// `api graphql`, the repository, the contents and the files of a pull request, `run view`) and the writes the agents make
+// `api graphql`, the repository, the contents and the files of a pull request, the rules of a branch, `pr view <n>` for its check rollup, `run view`) and the writes the agents make
 // (`pr create`, `pr close`, `run rerun`). A merge is the test's hook (`__merge`): a merge commit or a squash made in the origin.
 
 const SIM_GH = String.raw`#!/usr/bin/env node
@@ -322,6 +322,7 @@ if (a === 'pr' && b === 'list') {
   out(state.prs.filter((p) => (!head || p.head === head) && (!base || p.base === base) && (st === 'all' || p.state === st.toUpperCase()))
     .sort((x, y) => y.number - x.number).slice(0, Number(opt('--limit') || 30)).map(view));
 }
+if (a === 'pr' && b === 'view' && /^\d+$/.test(args[2] || '')) { prOf(args[2]); out({ statusCheckRollup: (state.rollup || {})[args[2]] || [] }); }
 if (a === 'pr' && b === 'view') fail('no pull requests found for branch "x"');
 if (a === 'pr' && b === 'create') {
   const p = { number: ++state.next, base: opt('--base'), head: opt('--head'), title: opt('--title'), body: opt('--body') || '', state: 'OPEN' };
@@ -337,6 +338,8 @@ if (a === 'run' && b === 'rerun') out('');
 if (a === 'api') {
   const route = args[1];
   if (route === 'graphql') out({ data: { viewer: { login: 'owner' }, repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { nodes: [] }, reviews: { nodes: [] } } } } });
+  if (/^repos\/\{owner\}\/\{repo\}\/rules\/branches\/[^/]+$/.test(route)) out(state.rules || []);
+  if (/^repos\/\{owner\}\/\{repo\}\/branches\/[^/]+\/protection\/required_status_checks$/.test(route)) fail('gh: Branch not protected (HTTP 404)');
   if (route === 'repos/{owner}/{repo}') out({ default_branch: state.defaultBranch, allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true });
   const files = /^repos\/\{owner\}\/\{repo\}\/pulls\/(\d+)\/files$/.exec(route);
   if (files) out(filesOf(prOf(files[1])).join('\n') + '\n');
@@ -381,6 +384,8 @@ function simGitHub({ origin, defaultBranch = 'main' }) {
     setChecks: (n, list) => edit((s) => { s.checks[n] = list; }),
     setRun: (id, run) => edit((s) => { s.runs[id] = run; }),
     setDefaultBranch: (name) => edit((s) => { s.defaultBranch = name; }),
+    setRollup: (n, list) => edit((s) => { (s.rollup ||= {})[n] = list; }),
+    setRules: (rules) => edit((s) => { s.rules = rules; }),
   };
 }
 
@@ -771,6 +776,28 @@ test('delivery-models AC-9 delivered: the merged-list path drops a pull request 
   s.sim.merge(base);
   const done = from('main');
   assert.deepEqual([done.fetched.pr.number, done.fetched.via, done.delivered], [base, 'list', true]);
+});
+
+test('forced-merge-path 1: N11 two-prs: the base pull request merged with a task left and devkit-reviews FAILURE answers the retro, and the test-branch pull request is never read as forced', () => {
+  const s = scenario();
+  put(s.wt, { 'openspec/changes/feat/tasks.md': '# Tasks\n\n## 1. Phase\n\n- [x] 1.1 code\n- [ ] 1.2 left after the merge\n' });
+  commitAll(s.wt, 'a task left');
+  git(s.wt, 'push', '-q', 'origin', 'feat');
+  const { base, test } = s.openBoth();
+  s.sim.setRules([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }]);
+  const run = (name, conclusion) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion });
+  s.sim.setRollup(base, [run('check', 'SUCCESS'), run('devkit-reviews', 'FAILURE')]);
+  s.sim.setRollup(test, [run('check', 'FAILURE'), run('devkit-reviews', 'FAILURE')]);
+  s.sim.merge(test);
+  s.sim.merge(base);
+  const n = s.next();
+  assert.equal(n.step, 'retro', n.reason);
+  assert.deepEqual([n.number, n.forced.number, n.forced.count], [base, base, 5]);
+  assert.deepEqual(n.forced.items.map((i) => i.kind), ['task', 'check', 'gate', 'gate', 'gate']);
+  assert.deepEqual(n.forced.items.slice(0, 2).map((i) => i.text), ['task 1.2', 'devkit-reviews (FAILURE)']);
+  assert.match(n.reason, new RegExp(`^PR #${base} merged by the owner with 5 items open: task 1\\.2; devkit-reviews \\(FAILURE\\); `));
+  assert.equal(s.sim.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === String(test)), false, 'the test-branch pull request is never read as forced');
+  assert.equal(s.sim.writes().length, 2, 'only the two pull requests the scenario opened were written');
 });
 
 // ---------------------------------------------------------------- AC-2, AC-3, AC-8, AC-9

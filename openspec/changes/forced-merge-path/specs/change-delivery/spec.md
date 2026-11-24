@@ -139,6 +139,10 @@ for it.
 - **WHEN** `deliver-check.mjs foo` runs on a forced merge
 - **THEN** `tasks.md`, `readiness.md`, `approval.md`, `evidence.md` and every file under `reviews/` of the change are byte-identical afterwards
 
+#### Scenario: Two pull requests, the base one forced
+- **WHEN** in a `two-prs` project the pull request to the base branch (the default branch) merged with task 1.2 unticked and `devkit-reviews` `FAILURE`, and the pull request to the test branch merged too
+- **THEN** `deliver-check.mjs foo` answers the retro with `forced` set for the base pull request, and the pull request to the test branch is never read as a forced merge
+
 ### Requirement: The open items of a forced merge are named
 The open items of a forced merge SHALL be each unticked task of the change's `tasks.md` on the
 default branch, each required check that is not green, and each gate file (`evidence.md`, each

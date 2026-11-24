@@ -161,6 +161,9 @@ gates (`{ kind: 'gate', file, why, text: '<file> (<why>)' }`); `count = items.le
     (`fetched = { error }`, item 5 `blocked`; the test at `deliver-check.test.mjs:5066` is
     unchanged), a `gh pr view`, `gh pr list` or `prFiles` read of `findChangePr`, the open-PR read of
     `mergedOnBranch`. The row below is limited to the forced and commit reads.
+  - The stage readout reads the same `fetched`: `flow-check.mjs#readDelivery` ends its walk `blocked` with the
+    reason code `gh-error`, quoting the error, for an unreadable forced read, as for any `fetched` error
+    (a `flow-check.test.mjs` assertion beside the partial-merge fixture pins it).
 - `collectState`: `postMerge = ship !== 'plan' && (delivery.delivered || Boolean(delivery.forced))`;
   `mergedLeft` is set only when `forced` is null and `unreadMerge` is null, so a failed forced read
   never yields `PR #undefined`; `common.forced = delivery.forced`; `common.unreadMerge =
@@ -440,7 +443,7 @@ the skills, then documents and release.
   deleted (checked on PR 88, 2026-11-24).
 - GitHub serves contents and compare at a pull request's head sha after a squash merge (the head
   commit object stays reachable through `refs/pull/<n>/head`; to be confirmed by a live call in the
-  evidence; if not, the gate items say `unreadable at the merged head` and the step stays `retro`).
+  evidence).
 - `openspec archive --yes` continues past incomplete tasks in CLI 2.x (checked with 2.0.0).
 - The required checks are read when the loop runs, not as they were at the merge (rules rarely
   change between the two; ADR 0022 decision 1 names the merged head's checks).
