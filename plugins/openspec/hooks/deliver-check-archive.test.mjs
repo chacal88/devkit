@@ -2,7 +2,7 @@
 // Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, rmSync as fsRm, readFileSync, renameSync, existsSync } from 'node:fs';
+import { writeFileSync, appendFileSync, rmSync as fsRm, readFileSync, renameSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
@@ -14,9 +14,11 @@ import {
 } from './deliver-check.mjs';
 import * as DC from './deliver-check.mjs';
 import { pendingTasks } from './flow-check.mjs';
+import { main as loopMain } from './change-loop.mjs';
+import { recordText, SUITE as TRAIN_SUITE } from './delivery-train-fixtures.mjs';
 import {
   git, gitRepo, put, commitAll, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, tasksText, tasksFixture, check, presetSetup, shipRepo, cli, runCli, mergedPr, archivePrJson,
-  ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS, ARCHIVED_DIR, NOT_FOUND, retroMd, retroPath, writeRetro, pm, proposal,
+  ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS, ARCHIVED_DIR, NOT_FOUND, retroMd, retroPath, writeRetro, pm, proposal, SET_LOOP, actionOf,
 } from './test-fixtures.mjs';
 import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, acRow, changeFiles, callGh, prJson, OLD_FLAG, versionsOf,
@@ -1839,9 +1841,14 @@ const unreadReason = (n, error) => `cannot tell whether PR #${n} of feat was mer
 
 // PR 88 merged, the checkout on the change's own branch `ship/feat`: GitHub still holds the branch (`pr view` finds it, no further pull
 // request is open), or deleted it (`pr view` finds none, `pr list --head` lists it merged).
-function forcedOnBranch({ n = 88, deleted = false, ...fixtures } = {}) {
+function forcedOnBranch({ n = 88, deleted = false, extra = '', ...fixtures } = {}) {
   const t = shipRepo({ ship: 'merge' });
   driveToReady(t);
+  // Settings that change what a ready change does (the train boards it) come after the drive.
+  if (extra) {
+    appendFileSync(join(t.root, 'openspec/config.yaml'), extra);
+    commitAll(t.root, 'settings');
+  }
   const sha = head(t.root);
   const merged = prJson({ number: n, url: `https://github.com/o/r/pull/${n}`, state: 'MERGED', headRefOid: sha, body: PR_BODY });
   if (deleted) {
@@ -2392,4 +2399,113 @@ test(`${FMP}: R1 the archive check passes with an archived tasks.md that has an 
   const open = archivePrRepo({ files: { 'openspec/changes/archive/2026-11-09-x/tasks.md': tasks }, retro: '## Proposed updates\n\n### `src/a.ts` (process-friction)\nSummary.\n' });
   const bad = runCi(open, [], { GITHUB_BASE_REF: 'main' });
   assert.equal(bad.code, 1, bad.out + bad.err);
+});
+
+// ---- T: an owner's forced merge in a project that runs the delivery train (ADR 0022; this repository sets devkit.delivery.train)
+
+// The settings of this repository: ship merge through the model trunk-auto, and the whole-suite command of the train.
+const TRAIN_CONFIG = `devkit:\n  delivery:\n    model: trunk-auto\n    train: "${TRAIN_SUITE}"\n`;
+const OWN_HEAD = 'b'.repeat(40);
+const TRAIN_HEAD = 'a'.repeat(40);
+const TRAIN_MERGE = '9'.repeat(40);
+const trainPr = { number: 40, url: 'https://github.com/o/r/pull/40', state: 'MERGED', headRefName: 'train/4', headRefOid: TRAIN_HEAD, mergedAt: '2026-11-09T15:00:00Z', mergeCommit: { oid: TRAIN_MERGE } };
+
+// A merged train, pull request 40 on `train/4`, whose record lists change `feat` at `head`, the head of its own pull request 12.
+function carriedByTrain(t, { head = OWN_HEAD } = {}) {
+  t.gh.set('pr-list-state-all', { stdout: [trainPr] });
+  t.gh.set(contentsKey('openspec/trains/4.md', TRAIN_HEAD), fileFx(recordText({ n: 4, boarded: [{ id: 'feat', number: 12, head }] })));
+  return t;
+}
+
+// Invariant: a project that sets the train still reads its own pull request's merge, and a merge no train carried with tasks left and a required
+// check not green is an owner's forced merge, never an implement or stop-branch. Layer: deliveryOf and nextStep (deliver-check). Suite: deliver-check-archive.
+test('forced-merge-path T1: a train project reads a merged own pull request with a task left and devkit-reviews FAILURE as a forced merge, from every checkout', () => {
+  const REASON = /^PR #12 merged by the owner with 4 items open: task 9\.6; devkit-reviews \(FAILURE\); evidence\.md \(missing\); reviews\/code-quality-reviewer\.md \(verdict REJECTED\); run the retro$/;
+  const cases = {
+    'the default branch': () => forcedFixtures(pm({ extra: TRAIN_CONFIG })),
+    "another change's branch": () => forcedFixtures(pm({ extra: TRAIN_CONFIG, branch: 'ship/other' })),
+    "the change's own branch": () => forcedOnBranch({ n: 12, extra: TRAIN_CONFIG }),
+  };
+  for (const [where, build] of Object.entries(cases)) {
+    const t = build();
+    const s = stateOf(t);
+    assert.equal(s.train?.suite, TRAIN_SUITE, `${where}: the train is on`);
+    assert.equal(s.train.carried, null, `${where}: no train carries the change`);
+    assert.equal(s.unreadMerge, null, where);
+    assert.equal(s.forced?.count, 4, where);
+    const n = nextStep(s);
+    assert.deepEqual([n.step, n.number, n.forced.count], ['retro', 12, 4], where);
+    assert.match(n.reason, REASON, where);
+    assert.ok(!['implement', 'stop-branch'].includes(n.step), where);
+    assert.ok(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'list' && c.includes('all')), `${where}: the train list was read`);
+  }
+});
+
+// Invariant: a merge carried by a merged train is the train's delivery, never a forced merge: `deliveryOf` reads no rollup for it, whatever the
+// required checks said on the change's own pull request. Layer: deliveryOf and nextStep (deliver-check). Suite: deliver-check-archive.
+test('forced-merge-path T2: a change a merged train carried is delivered with every task ticked, and is never forced with a task left', () => {
+  // Every task ticked: delivered by the train, the retro row of today, no forced read.
+  const done = carriedByTrain(pm({ extra: TRAIN_CONFIG }));
+  done.gh.set('pr-view-12', rollupFx([OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')]));
+  const delivered = stateOf(done);
+  assert.deepEqual(delivered.carriedBy, { n: 4, number: 40, mergeCommit: TRAIN_MERGE });
+  assert.equal(delivered.forced, null);
+  const retro = nextStep(delivered);
+  assert.deepEqual([retro.step, retro.reason, retro.number], ['retro', 'the change PR is merged; run the retro', 12]);
+  assert.equal('forced' in retro, false);
+  assert.equal(done.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, 'no rollup read');
+
+  // A task left: the train's merge is not forced, whether the checks are green or one of them failed on the change's own pull request.
+  const rollups = { 'checks green': [OKRUN('check'), OKRUN('devkit-reviews')], 'devkit-reviews FAILURE': [OKRUN('check'), RUNOF('devkit-reviews', 'FAILURE')] };
+  const answers = {};
+  for (const [name, rollup] of Object.entries(rollups)) {
+    const t = forcedFixtures(carriedByTrain(pm({ extra: TRAIN_CONFIG })), { rollup });
+    const s = stateOf(t);
+    const d = DC.deliveryOf(makeGh(t.root, t.env), t.root, 'feat', { ship: 'merge', branch: 'main', env: t.env, mergeFields: true, trainSuite: TRAIN_SUITE });
+    assert.equal(d.trainFacts.carried?.number, 40, `${name}: the train carries it`);
+    assert.deepEqual([d.delivered, d.forced, d.unreadMerge], [false, null, null], name);
+    assert.equal(s.forced, null, name);
+    assert.equal(s.unreadMerge, null, name);
+    const n = nextStep(s);
+    answers[name] = [n.step, n.reason];
+    assert.notEqual(n.step, 'retro', name);
+    assert.doesNotMatch(n.reason, /merged by the owner/, name);
+    assert.equal('forced' in n, false, name);
+    assert.equal(t.gh.calls().some((c) => c[0] === 'pr' && c[1] === 'view' && c[2] === '12'), false, `${name}: no rollup read`);
+  }
+  assert.deepEqual(answers['devkit-reviews FAILURE'], answers['checks green'], 'the answer does not depend on the checks');
+  // The answer main's train path gives today for a merge with tasks left (field-fixes 4), unchanged.
+  assert.deepEqual(answers['checks green'], ['stop-branch', 'PR #12 of feat merged with tasks left (9.6); continue on branch feat and open a further pull request']);
+});
+
+// A train project on the default branch after a forced merge of pull request 12: the change's stage files are passed, its tasks.md holds the
+// task 9.6 the owner left, GitHub answers what forcedFixtures says.
+function forcedLoopProject() {
+  const t = forcedFixtures(pm({ extra: TRAIN_CONFIG }));
+  const c0 = head(t.root);
+  const stage = (id, body = `# ${id}\n`) => `<!-- devkit-stage ${id} result=passed attempt=1 commit=${c0} -->\n${body}`;
+  put(t.root, Object.fromEntries(Object.entries({
+    '.openspec.yaml': 'schema: devkit-lite\n',
+    'requirements.md': stage('requirements'),
+    'proposal.md': stage('proposal', proposalWithAcceptance()),
+    'specs/s/spec.md': stage('specs'),
+    'tasks.md': stage('tasks', '# Tasks\n\n- [x] 1.1 a\n- [x] 1.2 b\n- [ ] 9.6 left after the merge\n'),
+    'evidence.md': stage('evidence'),
+    'review.md': stage('review'),
+  }).map(([f, body]) => [`openspec/changes/feat/${f}`, body])));
+  commitAll(t.root, 'change files');
+  return t;
+}
+const proposalWithAcceptance = () => '# Proposal\n\n## Acceptance criteria\n\n- AC-1: something\n';
+
+// Invariant: the loop's `next` turns the forced retro row of a train project into the retro session step, whose reply tells the owner the
+// pull request and the count (forced-merge-path D-6). Layer: change-loop `next` over collectState and deliveryRow. Suite: deliver-check-archive.
+test('forced-merge-path T3: change-loop next in a train project answers the retro session step with the reply naming the pull request and the count', () => {
+  const t = forcedLoopProject();
+  const env = { ...t.env, ...SET_LOOP };
+  const r = loopMain(['next', '--change', 'feat', '--lang', 'en'], { cwd: t.root, env, gh: makeGh(t.root, env) });
+  const action = actionOf(r.stdout);
+  assert.deepEqual([r.code, action.kind, action.step, action.stage], [0, 'session', 'retro', 'retro'], r.stdout + r.stderr);
+  assert.equal(action.detail.forced.count, 4);
+  assert.match(action.reply, /pull request #12 of feat with 4 items still open/);
 });
