@@ -1,0 +1,5 @@
+schema: devkit-lite
+created: 2026-11-23
+x-devkit-machine: avell
+x-devkit-version: 0.33.0
+x-devkit-flow: 2

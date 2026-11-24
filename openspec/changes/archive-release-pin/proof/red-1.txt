@@ -1,0 +1,244 @@
+✖ release list: RELEASE_FILE is unchanged and unnamedFiles still reports docs/openspec-flow.md (AC-7) (8.982828ms)
+✖ archive-release-pin 1: pinLinesOnly passes a flow page whose only change is its CI pins, and the real c561553 hunks (0.531197ms)
+✖ archive-release-pin 2: pinLinesOnly names a flow page changed beyond its pins (0.366894ms)
+✖ archive-release-pin 3: pinLinesOnly passes a test file whose only changed lines are the pin forms (0.406944ms)
+✖ archive-release-pin 4: pinLinesOnly names a test file with any other changed line (0.335101ms)
+✖ archive-release-pin 5: a pin file missing or unreadable on either side, another path, a CRLF form line or a changed final newline is never pin-only, and an empty base is a text (0.288696ms)
+✖ archive-release-pin 6: unnamedFiles takes the pin rule from the texts, and c561553's file list passes with proposals naming neither pin file (0.461304ms)
+✖ archive-release-pin 7: the local archive stop: pin-only edits open the archive PR, an edit beyond the pin stops on apply-proposals, committed or in the tree, and a deleted pin file stops (478.951026ms)
+✖ archive-release-pin 8: --ci on an archive branch applies the same pin rule (170.58262ms)
+✖ archive-release-pin 9: --ci from only the three downloaded files passes a pin-only archive and fails one beyond the pin (195.803666ms)
+✖ archive-release-pin 10: release-merge.mjs re-exports the one pin definition of deliver-check.mjs, which never imports release-merge.mjs (0.769392ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 0
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1012.674121
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4890:1
+✖ release list: RELEASE_FILE is unchanged and unnamedFiles still reports docs/openspec-flow.md (AC-7) (8.982828ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'docs/openspec-flow.md'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:4897:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'docs/openspec-flow.md' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4936:1
+✖ archive-release-pin 1: pinLinesOnly passes a flow page whose only change is its CI pins, and the real c561553 hunks (0.531197ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs exports pinLinesOnly
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:4937:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4942:1
+✖ archive-release-pin 2: pinLinesOnly names a flow page changed beyond its pins (0.366894ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs exports pinLinesOnly
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:4943:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4958:1
+✖ archive-release-pin 3: pinLinesOnly passes a test file whose only changed lines are the pin forms (0.406944ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs exports pinLinesOnly
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:4959:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4973:1
+✖ archive-release-pin 4: pinLinesOnly names a test file with any other changed line (0.335101ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs exports pinLinesOnly
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:4974:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:4991:1
+✖ archive-release-pin 5: a pin file missing or unreadable on either side, another path, a CRLF form line or a changed final newline is never pin-only, and an empty base is a text (0.288696ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs exports pinLinesOnly
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:4992:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5012:1
+✖ archive-release-pin 6: unnamedFiles takes the pin rule from the texts, and c561553's file list passes with proposals naming neither pin file (0.461304ms)
+  AssertionError [ERR_ASSERTION]: pin-only texts
+  + actual - expected
+  
+  + [
+  +   'docs/openspec-flow.md',
+  +   'plugins/openspec/hooks/change-loop.test.mjs'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:5015:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'docs/openspec-flow.md', 'plugins/openspec/hooks/change-loop.test.mjs' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5047:1
+✖ archive-release-pin 7: the local archive stop: pin-only edits open the archive PR, an edit beyond the pin stops on apply-proposals, committed or in the tree, and a deleted pin file stops (478.951026ms)
+  AssertionError [ERR_ASSERTION]: pin-only committed: files no approved proposal names: docs/openspec-flow.md, plugins/openspec/hooks/change-loop.test.mjs
+  + actual - expected
+  
+  + 'stop-archive'
+  - 'open-archive-pr'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:5051:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'stop-archive',
+    expected: 'open-archive-pr',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5061:1
+✖ archive-release-pin 8: --ci on an archive branch applies the same pin rule (170.58262ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"mode":"ci","change":null,"pass":false,"archive":{"folders":["openspec/changes/archive/2026-11-09-x"],"noRetro":[],"missingRetro":[],"unanswered":[],"unnamed":["docs/openspec-flow.md","plugins/openspec/hooks/change-loop.test.mjs"],"slices":[],"notes":[]}}
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:5065:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5078:1
+✖ archive-release-pin 9: --ci from only the three downloaded files passes a pin-only archive and fails one beyond the pin (195.803666ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"mode":"ci","change":null,"pass":false,"archive":{"folders":["openspec/changes/archive/2026-11-09-x"],"noRetro":[],"missingRetro":[],"unanswered":[],"unnamed":["docs/openspec-flow.md","plugins/openspec/hooks/change-loop.test.mjs"],"slices":[],"notes":[]}}
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.test.mjs:5084:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-merge.test.mjs:668:1
+✖ archive-release-pin 10: release-merge.mjs re-exports the one pin definition of deliver-check.mjs, which never imports release-merge.mjs (0.769392ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs exports pinsIn
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/release-merge.test.mjs:669:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

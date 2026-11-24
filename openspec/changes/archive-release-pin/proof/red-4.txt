@@ -1,0 +1,200 @@
+start plugins/openspec/hooks/deliver-check-archive.test.mjs
+start plugins/openspec/hooks/release-merge.test.mjs
+=== plugins/openspec/hooks/release-merge.test.mjs
+✖ archive-release-pin 10: release-merge.mjs re-exports the one pin definition of deliver-check.mjs, which never imports release-merge.mjs (4.892204ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 120.851746
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:651:1
+✖ archive-release-pin 10: release-merge.mjs re-exports the one pin definition of deliver-check.mjs, which never imports release-merge.mjs (4.892204ms)
+  AssertionError [ERR_ASSERTION]: the archive check reads by content exactly the one file whose pins the conflict rule resolves
+  + actual - expected
+  
+    [
+      'docs/openspec-flow.md',
+  +   'plugins/openspec/hooks/change-loop-compozy.test.mjs'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/release-merge.test.mjs:658:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'docs/openspec-flow.md', 'plugins/openspec/hooks/change-loop-compozy.test.mjs' ],
+    expected: [ 'docs/openspec-flow.md' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/release-merge.test.mjs: FAIL 0.2s
+=== plugins/openspec/hooks/deliver-check-archive.test.mjs
+✔ archive-release-pin 1: pinLinesOnly passes a flow page whose only change is its CI pins, and the real c561553 hunks (4.281821ms)
+✔ archive-release-pin 2: pinLinesOnly names a flow page changed beyond its pins (0.532424ms)
+✖ archive-release-pin 3: pinLinesOnly names a test file whose only changed lines are the old pin forms (5.318124ms)
+✔ archive-release-pin 4: pinLinesOnly names a test file with any other changed line (0.806939ms)
+✖ archive-release-pin 5: a flow page missing or unreadable on either side, another path, a CRLF pin line or a changed final newline is never pin-only, and an empty base is a text (0.468423ms)
+✖ archive-release-pin 6: unnamedFiles takes the pin rule from the texts, and c561553's file list names only its test file when no proposal names the flow page (0.975492ms)
+✖ archive-release-pin 7: the local archive stop: pin-only edits open the archive PR, an edit beyond the pin stops on apply-proposals, committed or in the tree, and a deleted pin file stops (1393.52497ms)
+✖ archive-release-pin 8: --ci on an archive branch applies the same pin rule (494.995231ms)
+✔ archive-release-pin 9: --ci from only the three downloaded files passes a pin-only archive and fails one beyond the pin (357.14807ms)
+✖ archive-release-pin 11: the flow page, ADR 0003 and the config state the pin-line rule (1.778917ms)
+✖ archive-release-pin 12: the pin test reads the manifest and holds no release version literal and no change name outside the v0.20.0 floor (2.505432ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 4
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2393.120641
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check-archive.test.mjs:1115:1
+✖ archive-release-pin 3: pinLinesOnly names a test file whose only changed lines are the old pin forms (5.318124ms)
+  AssertionError [ERR_ASSERTION]: the flow page is the only file read by its content
+  + actual - expected
+  
+    [
+      'docs/openspec-flow.md',
+  +   'plugins/openspec/hooks/change-loop-compozy.test.mjs'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check-archive.test.mjs:1118:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'docs/openspec-flow.md', 'plugins/openspec/hooks/change-loop-compozy.test.mjs' ],
+    expected: [ 'docs/openspec-flow.md' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check-archive.test.mjs:1149:1
+✖ archive-release-pin 5: a flow page missing or unreadable on either side, another path, a CRLF pin line or a changed final newline is never pin-only, and an empty base is a text (0.468423ms)
+  AssertionError [ERR_ASSERTION]: equal texts under the test file, which is another path now
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check-archive.test.mjs:1158:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check-archive.test.mjs:1168:1
+✖ archive-release-pin 6: unnamedFiles takes the pin rule from the texts, and c561553's file list names only its test file when no proposal names the flow page (0.975492ms)
+  AssertionError [ERR_ASSERTION]: pin-only texts: the flow page passes, the test file never does
+  + actual - expected
+  
+  + []
+  - [
+  -   'plugins/openspec/hooks/change-loop-compozy.test.mjs'
+  - ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check-archive.test.mjs:1171:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'plugins/openspec/hooks/change-loop-compozy.test.mjs' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check-archive.test.mjs:1202:1
+✖ archive-release-pin 7: the local archive stop: pin-only edits open the archive PR, an edit beyond the pin stops on apply-proposals, committed or in the tree, and a deleted pin file stops (1393.52497ms)
+  AssertionError [ERR_ASSERTION]: the test file with only its old pin lines changed committed
+  + actual - expected
+  
+    [
+  +   'open-archive-pr',
+  +   undefined,
+  +   'commit the archive and open its pull request'
+  -   'stop-archive',
+  -   'apply-proposals',
+  -   'files no approved proposal names: plugins/openspec/hooks/change-loop-compozy.test.mjs'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check-archive.test.mjs:1210:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'open-archive-pr', undefined, 'commit the archive and open its pull request' ],
+    expected: [ 'stop-archive', 'apply-proposals', 'files no approved proposal names: plugins/openspec/hooks/change-loop-compozy.test.mjs' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check-archive.test.mjs:1218:1
+✖ archive-release-pin 8: --ci on an archive branch applies the same pin rule (494.995231ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"mode":"ci","change":null,"pass":true,"archive":{"folders":["openspec/changes/archive/2026-11-09-x"],"noRetro":[],"missingRetro":[],"unanswered":[],"unnamed":[],"slices":[],"notes":[]}}
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check-archive.test.mjs:1228:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check-archive.test.mjs:1249:1
+✖ archive-release-pin 11: the flow page, ADR 0003 and the config state the pin-line rule (1.778917ms)
+  AssertionError [ERR_ASSERTION]: the P13 row no longer names the pin test
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check-archive.test.mjs:1256:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check-archive.test.mjs:1282:1
+✖ archive-release-pin 12: the pin test reads the manifest and holds no release version literal and no change name outside the v0.20.0 floor (2.505432ms)
+  AssertionError [ERR_ASSERTION]: a version literal: // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); archive-release-pin moves it to 0.40.0 (release 0.44.0), above stale-only-on-own-files' 0.39.0 (release 0.43.0), which moved it above suite-speed's 0.38.0 (release 0.42.0), which moved it above compozy-driver's 0.36.0 (release 0.40.0), which moved it above stage-models' 0.35.0 (release 0.39.0), which moved it above delivery-train's 0.34.0 (release 0.38.0), which moved it above roadmap-sessions-upfront's 0.33.0 (release 0.37.0); 0.37.0 was this change's number until suite-speed took the release above compozy-driver, and no release has it; 0.33.0 went to roadmap-sessions-upfront, 0.32.0 to remote-worker (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check-archive.test.mjs:1292:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: "  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); archive-release-pin moves it to 0.40.0 (release 0.44.0), above stale-only-on-own-files' 0.39.0 (release 0.43.0), which moved it above suite-speed's 0.38.0 (release 0.42.0), which moved it above compozy-driver's 0.36.0 (release 0.40.0), which moved it above stage-models' 0.35.0 (release 0.39.0), which moved it above delivery-train's 0.34.0 (release 0.38.0), which moved it above roadmap-sessions-upfront's 0.33.0 (release 0.37.0); 0.37.0 was this change's number until suite-speed took the release above compozy-driver, and no release has it; 0.33.0 went to roadmap-sessions-upfront, 0.32.0 to remote-worker (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.",
+    expected: /\d+\\?\.\d+\\?\.\d+/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check-archive.test.mjs: FAIL 2.4s
+FAIL 2.4s plugins/openspec/hooks/deliver-check-archive.test.mjs
+FAIL 0.2s plugins/openspec/hooks/release-merge.test.mjs
+suite: 2 files, 12 tests, 4 pass, 8 fail, 2.4s, concurrency 2
