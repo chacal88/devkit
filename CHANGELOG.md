@@ -1,15 +1,50 @@
 # Changelog
 
-## 0.44.0 — an owner's forced merge leads the change to the archive
+## 0.46.0 — an owner's forced merge leads the change to the archive
 
-- **devkit-openspec** 0.40.0: the delivery checker recognises a change's own pull request that was merged while a
+- **devkit-openspec** 0.41.0: the delivery checker recognises a change's own pull request that was merged while a
   required check was not green and a task stayed unticked as the owner's forced merge, by the pull request number or by
   its merge commit, and names the items it left open (the unticked tasks and the checks that were not green). The loop
   no longer answers `implement` for such a change: it leads it to the retro and then to the archive. `retro.md`
   records the open items; nothing is ticked.
 - Docs: [ADR 0028](docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md) (accepted) amends ADR 0003,
   with a Note in it; `docs/openspec-flow.md` and the ADR list of `openspec/config.yaml` follow. The CI snippet now pins
-  `v0.40.0`, the release's tag.
+  `v0.41.0`, the release's tag.
+
+## 0.45.0 — the archive check lets the release pin lines pass unnamed
+
+- **devkit-openspec** 0.40.0: the archive's file check no longer asks a retro proposal to name
+  `docs/openspec-flow.md` when only its CI pin lines moved: the file passes when its text with every
+  CI pin masked equals its text at the merge base masked the same way
+  ([ADR 0027](docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md), as amended
+  by [ADR 0030](docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md)).
+  Any other edit of the file, or the file missing or unreadable on either side, still stops the
+  archive on `apply-proposals` and fails `devkit-reviews --ci`, which applies the same rule from the
+  same place (`unnamedFiles`). The file does not join the release list, so a merge conflict in it is
+  classified as before. The CI pin test (`change-loop docs: the design records the answers`) now
+  derives the pin from `plugins/openspec/.claude-plugin/plugin.json` and holds no release number, so
+  no release edits it and the delivery train can join several changes that release; a change to that
+  test in an archive needs a named proposal, as any test file does. The pin definition
+  (`PIN_MARKER`, `PIN_TOKEN`, `pinsIn`, `setPins`) now lives in `deliver-check.mjs`, and
+  `release-merge.mjs` re-exports it, so the downloaded CI files stay three.
+  The CI snippet now pins `v0.40.0`, the release's tag.
+- Docs: ADR 0027 and ADR 0030, the Notes in ADR 0003 and ADR 0027, and the flow doc's file check (P13) and Classification bullet.
+
+## 0.44.0 — release-merge leftovers
+
+- **devkit-openspec** 0.39.2: a conduct-check test runs the release-merge override under the two-PR delivery model, with
+  the base and the test branch apart; the CI snippet now pins `v0.39.2`, the release's tag.
+- **devkit-panel** 0.3.1: the step table and the label table drop `push-rebased`, which no checker has returned since
+  devkit-openspec 0.29.0.
+- **Spec** (`commit-attribution`): drops the scenario and the mention of `push-rebased`.
+
+## 0.43.1 — a change's own pull request may edit another change's archive
+
+- **devkit-openspec** 0.39.1: `deliver-check` counts a merged pull request as the change's own when it
+  also edits another change's archived files; only a file in the change's own archive folder
+  (`openspec/changes/archive/<date>-<id>/`) refuses it, so `/devkit change` finds such a pull request
+  after its merge instead of asking to open it again. The CI snippet now pins `v0.39.1`, the
+  release's tag.
 
 ## 0.43.0 — a merge of the base stales only the change's own files
 
