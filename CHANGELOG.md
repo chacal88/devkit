@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
+
+- **devkit-openspec** 0.44.2: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.
+
 ## 0.49.1 — a stage's ceiling counts failures in a row
 
 - **devkit-openspec** 0.42.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
