@@ -56,6 +56,13 @@ leave the first true but a label with no step; all three files change in one com
 
 ### The two-PR override tests (AC-3)
 
+**Update at the merge of main (suite-speed, ADR 0026).** Main moved the shared helpers, `CONFIG`,
+`roundRepo` and `TWO_PRS` among them, into `plugins/openspec/hooks/test-fixtures.mjs`, and no test
+file may import another test file. So the move below is superseded: task 2.1's end state is that
+`conduct-check.test.mjs` imports `TWO_PRS` from `./test-fixtures.mjs` and `delivery-models.test.mjs`
+and `release-tags.test.mjs` keep main's own imports; no `TWO_PRS` line is added or changed in either
+of the other two files. The text that follows records the original plan.
+
 **The `TWO_PRS` constant moves, unchanged.** `plugins/openspec/hooks/delivery-models.test.mjs`
 already imports `roundRepo` from `conduct-check.test.mjs` and calls it at load (`hookRepo()`), so
 `conduct-check.test.mjs` cannot import from `delivery-models.test.mjs`: the cycle would run

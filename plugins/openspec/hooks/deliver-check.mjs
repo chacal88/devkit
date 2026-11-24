@@ -4,7 +4,8 @@
 // Imports its helpers from guard.mjs, which runs a mode only when executed
 // directly, so importing it here has no side effects.
 
-import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +16,7 @@ import { mergeSetup, readRepoSettings, makeGh, ghError, ghVersion, GH_MIN_VERSIO
 export { makeGh };
 // The `Commit:` line reader moved to guard.mjs, which the slice contract reads it from; still importable from here.
 export { parseCommitLine };
-import { archiveBranchChange, mainCheckout, parseDevkitBlock, deliverySettings, releaseTagSetting, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, changeDeclares, REQUIRED_REVIEWERS } from './guard.mjs';
+import { archiveBranchChange, mainCheckout, parseDevkitBlock, deliverySettings, trainSetting, releaseTagSetting, changeDir, parseCommitLine, sliceProblems, changeSchema, changeSchemaAt, DEVKIT_SCHEMAS, findRoot, readValue, resolveChange, changeDeclares, REQUIRED_REVIEWERS } from './guard.mjs';
 
 // ---------------------------------------------------------------- ship config
 
@@ -134,29 +135,41 @@ export function shipConfig(root, schema) {
   return { ship: map[schema] ?? 'plan', mergeMethod: parseMergeMethod(text) };
 }
 
-// { model, ship, mergeMethod, base, testBranch } for a schema: the delivery model of `devkit.delivery` next to the `ship:`
+// { model, ship, mergeMethod, base, testBranch, train } for a schema: the delivery model of `devkit.delivery` next to the `ship:`
 // map (delivery-models D-1). `ship` is what every existing branch reads (`two-prs` is `pr`, so auto-merge is never enabled).
-// A `ship:` entry that disagrees with the model, and any problem of the delivery settings, is a ShipConfigError.
+// `train` is the whole-suite command of the delivery train, or null (delivery-train D-1).
+// A `ship:` entry that disagrees with the model, and any problem of the delivery or train settings, is a ShipConfigError.
 const MODEL_SHIP = { trunk: 'pr', 'trunk-auto': 'merge', 'two-prs': 'pr' };
+
+// The refusal text of a train problem (delivery-train D-1); the quote problem names the value it could not close.
+function trainProblemText(problem) {
+  if (problem.kind === 'unknown') return `devkit.delivery.train: "${problem.value}" opens a quote it never closes`;
+  return problem.model === 'two-prs'
+    ? 'devkit.delivery.train: the train runs only with the model trunk or trunk-auto (two-prs delivers each change through pull requests of its own)'
+    : 'devkit.delivery.train: needs devkit.delivery.model trunk or trunk-auto';
+}
 
 export function deliveryConfig(root, schema) {
   const file = join(root, CONFIG);
   const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
   const map = parseShip(text);
   const mergeMethod = parseMergeMethod(text);
-  const { model, base, testBranch, problems } = deliverySettings(parseDevkitBlock(text));
+  const devkit = parseDevkitBlock(text);
+  const { model, base, testBranch, problems } = deliverySettings(devkit);
   if (problems[0]) {
     const p = problems[0];
     throw new ShipConfigError(p.kind === 'missing'
       ? `devkit.delivery: two-prs needs the ${p.setting.replace('delivery-', '').replace('-', '_')}`
       : `devkit.delivery: unknown ${p.setting.replace('delivery-', '').replace('-', '_')} "${p.value}"`);
   }
-  if (!model) return { model: null, ship: map[schema] ?? 'plan', mergeMethod, base: null, testBranch: null };
+  const { suite: train, problem } = trainSetting(devkit);
+  if (problem) throw new ShipConfigError(trainProblemText(problem));
+  if (!model) return { model: null, ship: map[schema] ?? 'plan', mergeMethod, base: null, testBranch: null, train };
   const ship = MODEL_SHIP[model];
   const entry = map[schema];
   const agrees = entry === undefined || (model !== 'two-prs' && entry === ship);
   if (!agrees) throw new ShipConfigError(`ship.${schema}: "${entry}" disagrees with devkit.delivery.model ${model}; remove the ship entry or set it to ${model === 'two-prs' ? 'nothing' : ship}`);
-  return { model, ship, mergeMethod, base, testBranch };
+  return { model, ship, mergeMethod, base, testBranch, train };
 }
 
 // The JSON file the release is read from (`devkit.release_tag`, release-tags D-1), or null when the project names none. A value that
@@ -433,8 +446,10 @@ export function readPhases(file) {
 }
 
 // Item 1: every task ticked, every gate command green in evidence.md at a
-// current commit.
-export function tasksItem(root, id, facts = gitFacts(root)) {
+// current commit. A gate part equal to one of `trainParts` (the `&&` parts of the train's whole-suite command, trimmed)
+// is proven by the train: it needs no row, and `details.trainParts` lists the ones that would have needed one
+// (present only when `trainParts` is not empty; delivery-train D-11).
+export function tasksItem(root, id, facts = gitFacts(root), { trainParts = [] } = {}) {
   const dir = changeDir(root, id);
   const tasksFile = join(dir, 'tasks.md');
   if (!existsSync(tasksFile)) return item(1, 'tasks', 'blocked', `openspec/changes/${id}/tasks.md does not exist`, { unticked: [], missingGates: [], evidence: 'missing' });
@@ -448,8 +463,10 @@ export function tasksItem(root, id, facts = gitFacts(root)) {
   const staleWhy = text === null ? null : staleness(root, parseCommitLine(text), facts);
   if (text !== null) evidence = staleWhy ? 'stale' : 'current';
   const passing = text === null ? [] : tableRows(text).filter((cells) => /^pass/i.test(cells.at(-1) || ''));
-  const missingGates = commands.filter((c) => !passing.some((cells) => cells.some((cell) => cell.includes(`\`${c}\``))));
-  const details = { unticked, missingGates, evidence };
+  const withoutRow = commands.filter((c) => !passing.some((cells) => cells.some((cell) => cell.includes(`\`${c}\``))));
+  const byTrain = withoutRow.filter((c) => trainParts.includes(c));
+  const missingGates = withoutRow.filter((c) => !trainParts.includes(c));
+  const details = { unticked, missingGates, evidence, ...(trainParts.length ? { trainParts: byTrain } : {}) };
   if (noCommand.length) {
     return item(1, 'tasks', 'blocked', `gate task ${noCommand.join(', ')} names no command in backticks after "Gate:"`, details);
   }
@@ -460,7 +477,12 @@ export function tasksItem(root, id, facts = gitFacts(root)) {
     ...missingGates.map((c) => `no passing row in evidence.md for \`${c}\``),
   ].filter(Boolean);
   if (reasons.length) return item(1, 'tasks', 'open', reasons.join('; '), details);
-  return item(1, 'tasks', 'met', `all tasks ticked${commands.length ? `; ${commands.length} gate command${commands.length > 1 ? 's' : ''} green in evidence.md` : ''}`, details);
+  const inRows = commands.length - byTrain.length;
+  const proven = [
+    inRows ? `${inRows} gate command${inRows > 1 ? 's' : ''} green in evidence.md` : '',
+    byTrain.length ? `${byTrain.length} proven by the train` : '',
+  ].filter(Boolean).map((part) => `; ${part}`).join('');
+  return item(1, 'tasks', 'met', `all tasks ticked${proven}`, details);
 }
 
 // Cells of every markdown table row in the text.
@@ -571,8 +593,8 @@ function parsePr(r) {
 // the branch no longer finds it (it was merged and the branch deleted), by head
 // branch among open, merged and closed PRs (design D6, readiness carry-over).
 // `list: true` allows that fallback in pr mode too (archive-after-merge D4).
-export function fetchPr(gh, { merge = false, number = null, branch = '', list: lookup = merge, base = null } = {}) {
-  const fields = merge ? MERGE_FIELDS : PR_FIELDS;
+export function fetchPr(gh, { merge = false, number = null, branch = '', list: lookup = merge, base = null, mergeFields = merge } = {}) {
+  const fields = mergeFields ? MERGE_FIELDS : PR_FIELDS;
   // Two pull requests share the head in `two-prs`, and `gh pr view` picks one: with a base the pull requests of the branch
   // to that base are listed, the open one first, else the newest (delivery-models D-4).
   if (base && branch && !number) return listFound(gh, ['--head', branch, '--base', base], fields);
@@ -611,10 +633,11 @@ export function prFiles(gh, number) {
   return { files: String(r.stdout).split(/\r?\n/).filter(Boolean) };
 }
 
-// The change's own pull request (field-fixes D-4): not an archive head, no archive folder among its files,
-// and some file under the change's active folder. A body or a head name that names the change is never proof.
+// The change's own pull request (field-fixes D-4): not an archive head, not a train's (`train/<n>`), no archive folder among its
+// files, and some file under the change's active folder. A body or a head name that names the change is never proof.
 export function isOwnPr(id, pr, files) {
   if (isArchiveHead(pr?.headRefName)) return false;
+  if (TRAIN_BRANCH.test(String(pr?.headRefName ?? ''))) return false;
   if (files.some((f) => f.startsWith('openspec/changes/archive/'))) return false;
   return files.some((f) => f.startsWith(`openspec/changes/${id}/`));
 }
@@ -652,9 +675,9 @@ function defaultTasks(gh, id) {
 //     open PR of the same head is the PR, else `{ none: true, mergedBefore }`;
 //  2. otherwise, in pr and merge modes: the newest merged PR that is the change's
 //     own (isOwnPr over its files), archive heads dropped first.
-const branchNamesChange = (branch, id) => branch.split('/').pop() === id || branch.includes(id);
+export const branchNamesChange = (branch, id) => branch.split('/').pop() === id || branch.includes(id);
 
-function mergedOnBranch(gh, id, found, branch, merge, base = null) {
+function mergedOnBranch(gh, id, found, branch, mergeFields, base = null) {
   const files = prFiles(gh, found.pr.number);
   if (files.error) return { error: files.error };
   if (!isOwnPr(id, { headRefName: found.pr.headRefName ?? branch }, files.files)) return { none: true };
@@ -662,7 +685,7 @@ function mergedOnBranch(gh, id, found, branch, merge, base = null) {
   if (tasks.error) return { error: tasks.error };
   const known = { tasks, repo: tasks.repo };
   if (tasks.unticked?.length === 0 || !branch) return { ...found, ...known };
-  const l = gh(['pr', 'list', '--head', branch, ...(base ? ['--base', base] : []), '--state', 'open', '--limit', '10', '--json', merge ? MERGE_FIELDS : PR_FIELDS]);
+  const l = gh(['pr', 'list', '--head', branch, ...(base ? ['--base', base] : []), '--state', 'open', '--limit', '10', '--json', mergeFields ? MERGE_FIELDS : PR_FIELDS]);
   if (l.status !== 0) return { error: ghError(l) };
   let list;
   try { list = JSON.parse(l.stdout); } catch { return { error: 'gh pr list returned unreadable JSON' }; }
@@ -671,19 +694,19 @@ function mergedOnBranch(gh, id, found, branch, merge, base = null) {
 }
 
 // In `two-prs` `base` is the base branch: only the pull requests to it are the change's own (the one to the test branch is not).
-export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = process.env, number = null, base = null } = {}) {
+export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = process.env, number = null, base = null, mergeFields = ship === 'merge' } = {}) {
   const merge = ship === 'merge';
   const selected = resolveChange(root, env, branch);
   const own = selected?.name === id && Boolean(branch) && branchNamesChange(branch, id) && !defaultBranches(root).includes(branch) && !archiveHeads(id).includes(branch);
   if (ship === 'plan' || number || own) {
-    const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan', base });
+    const r = fetchPr(gh, { merge, number, branch: own ? branch : '', list: ship !== 'plan', base, mergeFields });
     if (!r.pr) return r;
     const found = { ...r, via: 'branch' };
-    return ship !== 'plan' && r.pr.state === 'MERGED' ? mergedOnBranch(gh, id, found, own ? branch : '', merge, base) : found;
+    return ship !== 'plan' && r.pr.state === 'MERGED' ? mergedOnBranch(gh, id, found, own ? branch : '', mergeFields, base) : found;
   }
   // Light fields only: 100 PRs with their bodies can pass spawnSync's buffer. A PR's files are read,
   // by number and newest first, only while no PR has been found to be the change's own.
-  const light = `${(merge ? MERGE_FIELDS : PR_FIELDS).replace(',body', '')},headRefName,mergedAt`;
+  const light = `${(mergeFields ? MERGE_FIELDS : PR_FIELDS).replace(',body', '')},headRefName,mergedAt`;
   const l = gh(['pr', 'list', '--state', 'merged', '--limit', '100', '--json', light]);
   if (l.status !== 0) return { error: ghError(l) };
   let list;
@@ -699,17 +722,23 @@ export function findChangePr(gh, root, id, { ship = 'plan', branch = '', env = p
 }
 
 // What the delivery of change `id` is (field-fixes D-4): its PR as findChangePr answers it, and whether the
-// change is delivered: archived, or its own PR merged with every task ticked on the default branch.
-// { fetched, delivered, merged, left: [ids], absent, repo, error }.
-export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = process.env, located = null, number = null, base = null } = {}) {
-  let fetched = findChangePr(gh, root, id, { ship, branch, env, number, base });
+// change is delivered: archived, or its own PR merged with every task ticked on the default branch. In a train project (`trainSuite`
+// set) a merged train that lists the change at its PR's head delivers it too, whatever state GitHub gives that PR (delivery-train D-2).
+// { fetched, delivered, merged, left: [ids], absent, repo, error, carried, trainFacts }.
+export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = process.env, located = null, number = null, base = null, mergeFields = ship === 'merge', trainSuite = null } = {}) {
+  let fetched = findChangePr(gh, root, id, { ship, branch, env, number, base, mergeFields });
   const archived = Boolean(located?.archived);
   const mergedPr = fetched.pr?.state === 'MERGED';
+  // The train facts at the PR's head, read once: a read that fails is the train row's to report (nextStep), never this one's.
+  const facts = trainSuite !== null && !archived && ship !== 'plan' && fetched.pr?.headRefOid
+    ? trainFacts(gh, root, id, { suite: trainSuite, prHead: fetched.pr.headRefOid, kind: 'change' })
+    : null;
+  const carried = facts?.carried ?? null;
   let tasks = fetched.tasks ?? null;
-  if (mergedPr && !archived && ship !== 'plan' && !tasks) tasks = defaultTasks(gh, id);
+  if ((mergedPr || carried) && !archived && ship !== 'plan' && !tasks) tasks = defaultTasks(gh, id);
   if (tasks?.error) fetched = { error: tasks.error };
   const left = tasks?.unticked ?? [];
-  const delivered = archived || (ship !== 'plan' && mergedPr && Boolean(tasks) && !tasks.error && !tasks.absent && left.length === 0);
+  const delivered = archived || (ship !== 'plan' && (mergedPr || carried !== null) && Boolean(tasks) && !tasks.error && !tasks.absent && left.length === 0);
   return {
     fetched,
     delivered,
@@ -718,8 +747,122 @@ export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = pro
     absent: Boolean(tasks?.absent),
     repo: tasks?.repo ?? null,
     error: fetched.error ?? null,
+    carried: delivered ? carried : null,
+    trainFacts: facts,
   };
 }
+
+// ---------------------------------------------------------------- the delivery train (ADR 0022, delivery-train D-2, D-4)
+
+// The train branch's name, and the whole-suite command split into its `&&` parts, trimmed.
+export const TRAIN_BRANCH = /^train\/(\d+)$/;
+export const trainParts = (suite) => String(suite ?? '').split('&&').map((c) => c.trim()).filter(Boolean);
+
+const HEX40 = /^[0-9a-f]{40}$/;
+const TRAIN_HEADER = /^<!--\s*devkit-train\s+n=(\d+)\s+base=(\S+)\s+result=(\S+)\s*-->\s*$/;
+const FENCE = /^\s*(`{3,}|~{3,})/;
+const inBackticks = (text) => (/^`+([\s\S]*?)`+$/.exec(String(text).trim())?.[1] ?? String(text).trim());
+const cellsOf = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+
+// The record of a train (`openspec/trains/<n>.md`, D-4) as { n, base, result, baseSha, suite, ranAt, boarded: [{ order, kind,
+// id, number, head, at }], left: [{ kind, id, number, head, why, detail, failure }] }, or { error }. The tables are read outside
+// fenced blocks only; `failure` is the fenced block under `## Failure of `<id>``, or null.
+export function parseTrainRecord(text) {
+  const src = String(text ?? '');
+  if (!src.trim()) return { error: 'the train record is empty' };
+  const lines = src.split(/\r?\n/);
+  const header = TRAIN_HEADER.exec(lines[0]);
+  if (!header) return { error: 'the train record does not start with the <!-- devkit-train n=<n> base=<base> result=<result> --> line' };
+  const fenced = fencedLines(src);
+  const opening = lines.findIndex((l, i) => FENCE.test(l) && !fenced.has(i + 1));
+  if (opening !== -1) return { error: `a fenced block opens at line ${opening + 1} of the train record and never closes` };
+
+  const sections = [];
+  const facts = {};
+  const failures = {};
+  for (let i = 1; i < lines.length; i++) {
+    if (fenced.has(i + 1)) continue;
+    const heading = /^##\s+(.*?)\s*$/.exec(lines[i]);
+    if (heading) {
+      sections.push({ title: heading[1], rows: [] });
+      const failed = /^Failure of `(.+)`$/.exec(heading[1]);
+      if (failed) {
+        const from = lines.findIndex((l, k) => k > i && FENCE.test(l));
+        const close = from === -1 ? -1 : lines.findIndex((l, k) => k > from && fenced.has(k + 1) && FENCE.test(l) && FENCE.exec(l)[1][0] === FENCE.exec(lines[from])[1][0] && FENCE.exec(l)[1].length >= FENCE.exec(lines[from])[1].length);
+        if (from !== -1 && close !== -1) failures[failed[1]] = lines.slice(from + 1, close).join('\n');
+      }
+      continue;
+    }
+    if (lines[i].trim().startsWith('|') && sections.length) sections.at(-1).rows.push(cellsOf(lines[i]));
+    const fact = /^-\s+(Base|Suite|Ran at):\s*(.*)$/.exec(lines[i]);
+    if (fact) facts[fact[1]] = fact[2];
+  }
+  const rowsOf = (title) => (sections.find((sec) => sec.title === title)?.rows ?? []).slice(1).filter((cells) => !cells.every((c) => /^:?-{3,}:?$/.test(c)));
+
+  const boardedRows = rowsOf('Boarded');
+  if (boardedRows.length === 0) return { error: 'the train record has no Boarded table, or an empty one' };
+  const boarded = [];
+  for (const [i, cells] of boardedRows.entries()) {
+    const [order, kind, id, number, head, at] = cells;
+    if (cells.length !== 6) return { error: `Boarded row ${i + 1} of the train record has ${cells.length} cells, not 6` };
+    if (!['change', 'archive'].includes(kind)) return { error: `Boarded row ${i + 1}: the kind "${kind}" is not change or archive` };
+    if (!HEX40.test(inBackticks(head))) return { error: `Boarded row ${i + 1}: the head "${head}" is not 40 hex characters` };
+    boarded.push({ order: Number(order), kind, id: inBackticks(id), number: Number(String(number).replace(/^#/, '')), head: inBackticks(head), at });
+  }
+  if (!boarded.every((b, i) => b.order === i + 1)) return { error: `the order of the Boarded table is ${boarded.map((b) => b.order).join(', ')}, not 1 to ${boarded.length}` };
+
+  const left = [];
+  for (const [i, cells] of rowsOf('Left').entries()) {
+    const [kind, id, number, head, why, detail] = cells;
+    if (cells.length !== 6) return { error: `Left row ${i + 1} of the train record has ${cells.length} cells, not 6` };
+    if (!['change', 'archive'].includes(kind)) return { error: `Left row ${i + 1}: the kind "${kind}" is not change or archive` };
+    if (!HEX40.test(inBackticks(head))) return { error: `Left row ${i + 1}: the head "${head}" is not 40 hex characters` };
+    if (!['conflict', 'red'].includes(why)) return { error: `Left row ${i + 1}: the why "${why}" is not conflict or red` };
+    left.push({ kind, id: inBackticks(id), number: Number(String(number).replace(/^#/, '')), head: inBackticks(head), why, detail, failure: failures[inBackticks(id)] ?? null });
+  }
+  return {
+    n: Number(header[1]), base: header[2], result: header[3],
+    baseSha: /`([0-9a-f]{40})`\s*$/.exec(facts.Base ?? '')?.[1] ?? null,
+    suite: facts.Suite === undefined ? null : inBackticks(facts.Suite),
+    ranAt: facts['Ran at'] === undefined ? null : inBackticks(facts['Ran at']),
+    boarded, left,
+  };
+}
+
+// The train facts of a change or an archive (`kind`) whose pull request has the head `prHead` (D-2): the five newest pull
+// requests with a `train/<n>` head, each with its record read at its head, and where this entry stands in them. Without a pull
+// request head nothing is read. { suite, parts, kind, records, onTrain, carried, left } or the same with `error` when GitHub
+// did not answer. A record that is missing or does not parse lists nobody. `onTrain` is an open train that boards it at
+// `prHead`, `carried` a merged one, `left` the newest train that lists it as left at `prHead`.
+export function trainFacts(gh, root, id, { suite, prHead = null, kind = 'change' }) {
+  const out = { suite, parts: trainParts(suite), kind, records: [], onTrain: null, carried: null, left: null };
+  if (!prHead) return out;
+  const l = gh(['pr', 'list', '--state', 'all', '--limit', '100', '--json', 'number,url,state,headRefName,headRefOid,mergedAt,mergeCommit']);
+  if (l.status !== 0) return { ...out, error: ghError(l) };
+  let list;
+  try { list = JSON.parse(l.stdout); } catch { return { ...out, error: 'gh pr list returned unreadable JSON' }; }
+  if (!Array.isArray(list)) return { ...out, error: 'gh pr list returned unreadable JSON' };
+  const trains = list.map((pr) => ({ pr, n: Number(TRAIN_BRANCH.exec(pr.headRefName ?? '')?.[1]) })).filter((t) => Number.isInteger(t.n)).sort((a, b) => b.n - a.n).slice(0, 5);
+  for (const { pr, n } of trains) {
+    const got = readContents(gh, `openspec/trains/${n}.md`, pr.headRefOid);
+    if (got.error) return { ...out, error: got.error };
+    if (got.notFound || typeof got.json?.content !== 'string') continue;
+    const record = parseTrainRecord(Buffer.from(got.json.content, 'base64').toString('utf8'));
+    if (record.error) continue;
+    out.records.push({ n, number: pr.number, url: pr.url, state: pr.state, mergeCommit: pr.mergeCommit?.oid ?? null, record });
+  }
+  const mine = (e) => e.kind === kind && e.id === id && e.head === prHead;
+  for (const r of out.records) {
+    if (r.state === 'OPEN' && !out.onTrain && r.record.boarded.some(mine)) out.onTrain = { n: r.n, number: r.number, url: r.url };
+    if (r.state === 'MERGED' && !out.carried && r.record.boarded.some(mine)) out.carried = { n: r.n, number: r.number, mergeCommit: r.mergeCommit };
+    const gone = r.record.left.find(mine);
+    if (gone && !out.left) out.left = { n: r.n, number: r.number, state: r.state, why: gone.why, detail: gone.detail, failure: gone.failure };
+  }
+  return out;
+}
+
+// The paths a left entry's `detail` names (a conflict's, each in backticks).
+const pathsOfDetail = (detail) => [...String(detail ?? '').matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 
 // ---------------------------------------------------------------- the two-pull-request delivery (delivery-models D-4)
 
@@ -1122,6 +1265,9 @@ const isArchiveRecord = (p) => p.startsWith('openspec/changes/') || p === 'opens
 const normalizePath = (p) => p.replace(/^(\.\/)+/, '');
 // Files a version bump or a regenerated catalog changes without a proposal naming them (design D8).
 export const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
+// The file whose CI pins a release renumbers (delivery-train D-10). The same path as release-merge.mjs's PIN_FILE, written here
+// because release-merge.mjs imports this file and the CI job downloads neither; a test holds the two equal.
+export const TRAIN_PIN_FILE = 'docs/openspec-flow.md';
 
 // The changed paths that no approved proposal names exactly (AC-3):
 // no directory, prefix or glob matching.
@@ -1153,7 +1299,7 @@ function roadmapFacts(root, id) {
 }
 
 // Reads one GitHub contents path on `base`: { json } | { notFound: true } | { error }.
-function readContents(gh, path, base) {
+export function readContents(gh, path, base) {
   const r = gh(['api', `repos/{owner}/{repo}/contents/${path}?ref=${encodeURIComponent(base)}`]);
   if (r.status !== 0) return !r.missing && !r.timedOut && /HTTP 404\b/.test(r.stderr) ? { notFound: true } : { error: ghError(r) };
   try { return { json: JSON.parse(r.stdout) }; } catch { return { error: `${path} returned unreadable JSON` }; }
@@ -1433,6 +1579,7 @@ function archiveNext(state) {
   }
 
   const pr = a.pr;
+  const train = state.train ?? null;
   const brief = (ps) => ps.map(({ n, targets, kind }) => ({ n, targets, kind }));
   const unanswered = a.retro.proposals.filter((p) => p.answer === null);
   const answersStop = () => step('stop-retro-answers', `${unanswered.length} retro proposal${unanswered.length > 1 ? 's' : ''} waiting for the owner's answer`, { proposals: brief(unanswered) });
@@ -1454,11 +1601,13 @@ function archiveNext(state) {
     const conflicts = pr.mergeable === 'CONFLICTING';
     const failing = pr.checks.failing.length > 0 || pr.checks.error != null;
     const uncommitted = a.dirty.length > 0;
+    // P3a: in a train project auto-merge on an archive pull request is disabled whenever it is on (delivery-train D-2).
+    if (train && pr.autoMerge) return step('disable-auto-merge', `auto-merge is on for the archive PR #${pr.number} but an archive of a delivery train never merges by itself`, { number: pr.number });
     if (merge && pr.autoMerge && (held || conflicts || failing || pr.headRel !== 'same' || uncommitted)) {
       return step('disable-auto-merge', `auto-merge is on but the archive PR #${pr.number} no longer qualifies`, { number: pr.number });
     }
     if (held) return held;
-    if (conflicts) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`, { conflict: true });
+    if (conflicts && !train) return stopArchive('archive-pr', `PR #${pr.number} has merge conflicts with ${a.base}`, { conflict: true });
     if (pr.headRel === 'foreign') return stopArchive('archive-pr', `PR #${pr.number} head ${String(pr.headRefOid).slice(0, 7)} is not in local history (someone else pushed?)`);
     if (pr.headRel === 'ahead' || uncommitted) {
       return step('open-archive-pr', `${pr.headRel === 'ahead' ? `local is ahead of PR head ${String(pr.headRefOid).slice(0, 7)}` : `uncommitted files: ${a.dirty.slice(0, 3).join(', ')}`}; commit and push`, { branch: a.branch, number: pr.number });
@@ -1467,7 +1616,17 @@ function archiveNext(state) {
       const f = pr.checks.failing.map((c) => `${c.name} (${c.link})`).join(', ');
       return stopArchive('archive-pr', pr.checks.error ? `cannot read the checks: ${pr.checks.error}` : `failing ${f}`);
     }
-    if (merge && pr.mergeStateStatus === 'BEHIND') return step('update-branch', `archive PR #${pr.number} is behind ${a.base}; update it`, { number: pr.number });
+    if (merge && !train && pr.mergeStateStatus === 'BEHIND') return step('update-branch', `archive PR #${pr.number} is behind ${a.base}; update it`, { number: pr.number });
+    if (train) {
+      // A1 to A5 take the place of P3g to P3i: where an archive stands on the trains.
+      if (train.error) return stopArchive('archive-pr', `cannot read the train pull requests: ${train.error}`);
+      const left = train.left;
+      if (left?.state === 'OPEN') return step('wait-train', `train ${left.n} left the archive of ${state.id} at this head and its pull request #${left.number} is open`, { number: left.number, train: left.n, waitingFor: `pull request #${left.number} of train ${left.n}` });
+      if (left?.why === 'red') return stopArchive('train-left', `the archive of ${state.id} left train ${left.n} because the suite failed with it; its record attaches the failure:\n${left.failure ?? '(none)'}`, { train: left.n, number: left.number });
+      if (left) return step('rejoin-archive', `the archive of ${state.id} left train ${left.n} for a conflict`, { number: pr.number, branch: a.branch, base: a.base, paths: pathsOfDetail(left.detail), train: left.n });
+      if (train.onTrain) return step('on-train', `the archive of ${state.id} is carried by train ${train.onTrain.n}, pull request #${train.onTrain.number}`, { number: train.onTrain.number, train: train.onTrain.n, url: train.onTrain.url, waitingFor: `pull request #${train.onTrain.number} of train ${train.onTrain.n}` });
+      return step('boarded', `the archive PR #${pr.number} is ready; it leaves with the next train`, { number: pr.number });
+    }
     if (two && !merge) return two.testPr ? readyBoth() : openTestArchive();
     if (!merge) return step('archive-pr-ready', `archive PR #${pr.number} is open; merge it, then run again`, { number: pr.number, url: pr.url });
     if (!pr.autoMerge) return step('enable-auto-merge', `archive PR #${pr.number} qualifies`, { number: pr.number, method: state.mergeMethod, head: state.head });
@@ -1512,7 +1671,12 @@ export function nextStep(state) {
   const step = (name, reason, extra = {}) => ({ step: name, reason, ...extra });
 
   const merge = state.ship === 'merge';
+  const train = state.train ?? null;
   const allMet = state.items.every((i) => i.status === 'met');
+  // T1: in a train project auto-merge is never on for a change's own pull request, whatever the contract says (delivery-train D-2).
+  if (train && !state.archive && state.pr?.state === 'OPEN' && state.pr.autoMerge) {
+    return step('disable-auto-merge', 'auto-merge is on but a change of a delivery train never merges by itself', { number: state.pr.number });
+  }
   // Auto-merge is disabled before any stop or push once the contract drops below 8/8.
   if (merge && state.pr?.state === 'OPEN' && state.pr.autoMerge && !allMet) {
     return step('disable-auto-merge', `auto-merge is on but the contract is no longer met (${state.items.find((i) => i.status !== 'met').reason})`, { number: state.pr.number });
@@ -1522,6 +1686,12 @@ export function nextStep(state) {
   const two = state.twoPrs ?? null;
   if (two && !two.defaultOk) {
     return step('blocked', two.defaultBranch ? `the base branch ${two.base} is not the repository's default branch ${two.defaultBranch}` : `cannot read the default branch on GitHub: ${two.defaultError ?? 'the answer has no default branch'}`);
+  }
+  // A change a merged train carried, whose pull request GitHub left open: closed with a comment before the post-merge rows (D-9).
+  if (state.archive && state.carriedBy && state.pr?.state === 'OPEN') {
+    const { n, number, mergeCommit } = state.carriedBy;
+    const comment = `Delivered by train ${n} in #${number} (merge commit ${String(mergeCommit ?? '').slice(0, 7)}).`;
+    return step('close-boarded-pr', `train ${n} (pull request #${number}) carried ${state.id}; close its pull request #${state.pr.number} with a comment`, { number: state.pr.number, train: n, trainNumber: number, comment });
   }
   if (state.archive) return archiveNext(state);
   if (!state.branchOk) {
@@ -1589,6 +1759,13 @@ export function nextStep(state) {
   }
   const stuck = [1, 2, 3, 4].find((n) => it(n).status === 'blocked');
   if (stuck) return step('blocked', it(stuck).reason, { item: stuck });
+  if (train?.error) return step('blocked', `cannot read the train pull requests: ${train.error}`);
+  if (train?.left) {
+    const { n, number, state: ended, why, detail, failure } = train.left;
+    // T2 and T3: a train took the change off at this head; it waits while that train is open, then goes back to its cycle (D-7).
+    if (ended === 'OPEN') return step('wait-train', `train ${n} left ${state.id} at this head and its pull request #${number} is open`, { number, train: n, waitingFor: `pull request #${number} of train ${n}` });
+    return step('rejoin-train', `train ${n} left ${state.id} (${why === 'red' ? 'the suite failed with it' : 'it conflicts with the train'}); merge the base branch into it and fix it`, { number, train: n, why, paths: why === 'red' ? [] : pathsOfDetail(detail), failure });
+  }
   if (two?.foreign) return step('blocked', `${two.foreign.sha.slice(0, 7)} (${two.foreign.subject}) is on ${two.testBranch} and not on ${two.base}; the task branch never receives ${two.testBranch}`);
 
   if (two?.test.error) return step('blocked', `cannot read the pull requests to ${two.testBranch}: ${two.test.error}`);
@@ -1600,12 +1777,15 @@ export function nextStep(state) {
       ? step('open-pr', 'no pull request to the base branch yet', { base: two.base })
       : step('open-prs', 'no pull request yet', { branch: state.branch, base: two.base, testBranch: two.testBranch });
   }
-  if (it(5).status === 'blocked') return step('blocked', it(5).reason, { item: 5, ...(it(5).details.conflict ? { conflict: true } : {}) });
+  // T5: in a train project a conflict with the base, or being behind it, is not a stop and not an update (D-2).
   const five = it(5).details;
-  if (merge && it(5).status === 'open' && five.behind && !five.ahead && !five.uncommitted.length) {
+  const trainGoOn = Boolean(train) && ((it(5).status === 'blocked' && five.conflict === true)
+    || (it(5).status === 'open' && five.behind === true && !five.ahead && !five.uncommitted.length));
+  if (it(5).status === 'blocked' && !trainGoOn) return step('blocked', it(5).reason, { item: 5, ...(five.conflict ? { conflict: true } : {}) });
+  if (merge && !train && it(5).status === 'open' && five.behind && !five.ahead && !five.uncommitted.length) {
     return step('update-branch', it(5).reason, { number: state.pr.number });
   }
-  if (it(5).status === 'open') return step('push', it(5).reason);
+  if (it(5).status === 'open' && !trainGoOn) return step('push', it(5).reason);
   if (it(8).status === 'open') return step('edit-pr-body', it(8).reason, { missing: it(8).details.missing });
   const reviewsCheck = it(6).details.failing.find((f) => f.name === DEVKIT_REVIEWS_CHECK);
   if (two) {
@@ -1665,9 +1845,13 @@ export function nextStep(state) {
   }
   const waiting = [6, 7].find((n) => it(n).status === 'blocked');
   if (waiting) return step('blocked', it(waiting).reason, { item: waiting });
-  if (it(6).details.pending.length) return step('wait-checks', it(6).reason, { pending: it(6).details.pending });
-  const left = state.items.find((i) => i.status !== 'met');
+  // Pending checks board (ADR 0022 decision 2): they are never the wait of a train project.
+  if (it(6).details.pending.length && !train) return step('wait-checks', it(6).reason, { pending: it(6).details.pending });
+  const left = state.items.find((i) => i.status !== 'met' && !(train && ((i.id === 5 && trainGoOn) || (i.id === 6 && i.status === 'open' && !i.details.failing.length))));
   if (left) return step('blocked', left.reason, { item: left.id });
+  // T8 and T9: nothing is left to do for the change itself.
+  if (train?.onTrain) return step('on-train', `carried by train ${train.onTrain.n}, pull request #${train.onTrain.number}`, { number: train.onTrain.number, train: train.onTrain.n, url: train.onTrain.url, waitingFor: `pull request #${train.onTrain.number} of train ${train.onTrain.n}` });
+  if (train) return step('boarded', 'every item of the contract is met; the change leaves with the next train', { number: state.pr.number });
   if (two) return step('ready-base', 'all eight items are met', { number: state.pr.number, base: two.base });
   if (!merge) return step('ready', 'all eight items are met');
   if (state.pr.autoMerge) return step('wait-merge', 'auto-merge is on; GitHub merges once its rules pass', { number: state.pr.number, head: state.pr.headRefOid, waitingFor: waitingFor(state.pr.mergeStateStatus) });
@@ -1702,12 +1886,14 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
   const located = locateChange(root, id) ?? { dir: changeDir(root, id), archived: false };
   const dir = located.dir;
   const schema = schemaOf(root, located);
-  const { ship, mergeMethod, model, base: configuredBase, testBranch } = deliveryConfig(root, schema);
+  const { ship, mergeMethod, model, base: configuredBase, testBranch, train: trainSuite } = deliveryConfig(root, schema);
   const two = model === 'two-prs';
+  // The delivery train (delivery-train D-2): on for a change of a devkit script in a project that sets `devkit.delivery.train`.
+  const trainOn = trainSuite !== null && isDevkitScript(schema);
   const branch = currentBranch(root, env);
   const selected = resolveChange(root, env, branch);
   const merge = ship === 'merge';
-  const delivery = deliveryOf(gh, root, id, { ship, branch, env, located, number: prNumber, ...(two ? { base: configuredBase } : {}) });
+  const delivery = deliveryOf(gh, root, id, { ship, branch, env, located, number: prNumber, mergeFields: merge || trainOn, ...(trainOn ? { trainSuite } : {}), ...(two ? { base: configuredBase } : {}) });
   const fetched = delivery.fetched;
   // The post-merge phase: the change is delivered, its own PR merged with every task ticked on the default
   // branch, or its folder already moved (design D4, field-fixes D-4).
@@ -1725,7 +1911,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     head: facts.head,
     dirty: facts.dirty,
     mergedLeft,
-    ...(merge ? { setup: mergeSetup(gh, root, mergeMethod, repo) } : {}),
+    ...(merge ? { setup: mergeSetup(gh, root, trainOn ? 'merge' : mergeMethod, repo) } : {}),
   };
   // The facts of the two-pull-request delivery (D-4): the base is the repository's default branch, the pull request to the test
   // branch and, once it merged, the base checks that ran before it. `checks` is the base pull request's item 6.
@@ -1743,11 +1929,12 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     };
   };
   const prFacts = (f) => (f.pr
-    ? { number: f.pr.number, url: f.pr.url, state: f.pr.state, headRefOid: f.pr.headRefOid, mergeable: f.pr.mergeable ?? null, ...(merge ? { autoMerge: f.pr.autoMergeRequest != null, mergeStateStatus: f.pr.mergeStateStatus ?? null } : {}) }
+    ? { number: f.pr.number, url: f.pr.url, state: f.pr.state, headRefOid: f.pr.headRefOid, mergeable: f.pr.mergeable ?? null, ...(merge || trainOn ? { autoMerge: f.pr.autoMergeRequest != null, mergeStateStatus: f.pr.mergeStateStatus ?? null } : {}) }
     : null);
 
   if (postMerge) {
     const pr = fetched.pr;
+    const archive = archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env, testBranch: two ? testBranch : null, releaseFile: releaseTagOf(root) });
     const checked = (n, name, details) => item(n, name, 'met', pr ? `checked before PR #${pr.number} merged` : 'checked before the change was archived', details);
     const five = pr?.state === 'MERGED' && fetched.via === 'branch'
       ? prItem(root, id, fetched, facts, { merge: true })
@@ -1764,7 +1951,9 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
       reviews: [],
       pr: prFacts(fetched),
       ...(two ? { twoPrs: twoPrsOf([], null) } : {}),
-      archive: archiveFacts(gh, root, id, { located, repo, facts, changePr: pr, branch, env, testBranch: two ? testBranch : null, releaseFile: releaseTagOf(root) }),
+      archive,
+      ...(trainOn ? { train: trainFacts(gh, root, id, { suite: trainSuite, prHead: archive.pr?.state === 'OPEN' ? archive.pr.headRefOid : null, kind: 'archive' }) } : {}),
+      ...(delivery.carried ? { carriedBy: delivery.carried } : {}),
       items: [
         checked(1, 'tasks', { unticked: [], missingGates: [], evidence: 'current' }),
         checked(2, 'reviews', { stale: [], rejected: [], missing: [] }),
@@ -1780,7 +1969,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
 
   const acceptance = acceptanceItem(root, id, facts);
   const items = [
-    tasksItem(root, id, facts),
+    tasksItem(root, id, facts, { trainParts: trainOn ? trainParts(trainSuite) : [] }),
     reviewsItem(root, id, facts),
     findingsItem(root, id, facts),
     acceptance,
@@ -1790,6 +1979,8 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     bodyItem(id, fetched, acceptance.details.ids),
   ];
   const needsReadiness = changeDeclares(root, dir, 'readiness'); // the flow the change follows (guard.mjs#changeFlow)
+  // The train facts are read only once items 1 to 4 are met and the pull request is open: they cost one list and up to five records.
+  const boardable = items.slice(0, 4).every((i) => i.status === 'met') && fetched.pr?.state === 'OPEN';
   return {
     ...common,
     branchOk: selected?.name === id && Boolean(branch) && !defaultBranches(root).includes(branch),
@@ -1802,6 +1993,7 @@ export function collectState(root, id, { env = process.env, gh = makeGh(root, en
     reviews: readReviews(root, id, facts).map((r) => ({ name: r.name, verdict: r.verdict, current: !r.why })),
     pr: prFacts(fetched),
     ...(two ? { twoPrs: twoPrsOf(acceptance.details.ids, items[5]) } : {}),
+    ...(trainOn ? { train: boardable && delivery.trainFacts ? delivery.trainFacts : trainFacts(gh, root, id, { suite: trainSuite, prHead: boardable ? fetched.pr.headRefOid : null, kind: 'change' }) } : {}),
     items,
   };
 }
@@ -1880,6 +2072,9 @@ function summaryOf(state, next, itemsSummary) {
     }
   }
   if (next.step === 'stop-plan-approval') return "waiting for the owner's plan approval";
+  if (next.step === 'boarded') return 'boarded: waiting for the next train';
+  if (next.step === 'on-train') return `on train ${next.train}: waiting for its pull request #${next.number}`;
+  if (next.step === 'wait-train') return `left train ${next.train}: waiting for its pull request #${next.number}`;
   if (state.ship !== 'merge') return itemsSummary;
   if (next.step === 'stop-merge-setup') return 'blocked: merge setup';
   if (next.step === 'wait-merge') return `auto-merge on: waiting for ${next.waitingFor}`;
@@ -1916,6 +2111,11 @@ function describeNext(n) {
     'update-branch': `PR #${n.number}`,
     'enable-auto-merge': `PR #${n.number} with --${n.method} at ${String(n.head).slice(0, 7)}`,
     'wait-merge': `waiting for ${n.waitingFor}`,
+    'on-train': `train ${n.train}, PR #${n.number}`,
+    'wait-train': `train ${n.train}, PR #${n.number}`,
+    'rejoin-train': `train ${n.train}, PR #${n.number}`,
+    'close-boarded-pr': `PR #${n.number}`,
+    'rejoin-archive': `PR #${n.number}, train ${n.train}`,
     retro: n.number ? `PR #${n.number}` : '',
     'open-archive-pr': n.branch,
     'open-test-archive-pr': n.branch,
@@ -2205,6 +2405,120 @@ function archivePrCheck(root, base) {
   };
 }
 
+// What is wrong with the archived folders an archive pull request brings (`archivePrCheck`'s answer), one line each.
+function archiveProblems(a) {
+  const retroOf = (f) => `${f}/retro.md`;
+  return [
+    ...a.missingRetro.map((f) => `${retroOf(f)} is missing: it holds the change's retro, with a "## Proposed updates" section listing each proposal and the owner's answer to it; the retro step of the archive writes it (/devkit change, or ship-change for a change begun under the previous script, after the change's pull request merges)`),
+    ...a.noRetro.filter((f) => !a.missingRetro.includes(f)).map((f) => `${retroOf(f)} has no "## Proposed updates" section: it must list each proposal with the owner's answer; the retro step of the archive writes it`),
+    ...(a.unanswered.length ? [`unanswered proposals: ${a.unanswered.length}`] : []),
+    ...(a.unnamed.length ? [`files no approved proposal names: ${a.unnamed.join(', ')}`] : []),
+    ...a.slices.flatMap((s) => s.problems.map((m) => `slice ${s.id}: ${m}`)),
+  ];
+}
+
+// The `&&` parts of the whole-suite command the default branch's settings name (delivery-train D-10): [] without a ref to read, a
+// file or the key; a refused key is a usage error, as a refused delivery setting is in `twoPrsContext`.
+export function ciTrainParts(root, env) {
+  const { ref } = ciSettingsRef(root, env);
+  if (!ref) return [];
+  let text;
+  try { text = git(root, ['show', `${ref}:openspec/config.yaml`]); } catch { return []; }
+  const { suite, problem } = trainSetting(parseDevkitBlock(text));
+  if (problem) throw new UsageError(`delivery settings in openspec/config.yaml on ${ref}: ${trainProblemText(problem)}`);
+  return trainParts(suite);
+}
+
+// `fn(worktree)` in a scratch worktree of `head` made under the system temporary folder, removed when `fn` returns or throws;
+// a head that cannot be checked out gives `fn` nothing: { error }.
+function inWorktreeAt(root, head, fn) {
+  const scratch = mkdtempSync(join(tmpdir(), 'devkit-train-check-'));
+  const wt = join(scratch, 'w');
+  try {
+    try { git(root, ['worktree', 'add', '-q', '--detach', wt, head]); } catch (e) { return { error: `${head.slice(0, 7)} cannot be checked out (${String(e.stderr ?? e.message).trim().split('\n')[0]})` }; }
+    return { value: fn(wt) };
+  } finally {
+    gitOk(root, ['worktree', 'remove', '--force', wt]);
+    gitOk(root, ['worktree', 'prune']);
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+// One boarded entry of a train judged at its own head (D-10 failures 5 and 6): { problems, report? }. A change gets the check of
+// its own pull request, an archive the check of an archive pull request.
+function judgeBoarded(root, entry, base, parts) {
+  const found = inWorktreeAt(root, entry.head, (wt) => {
+    if (entry.kind === 'archive') {
+      const a = archivePrCheck(wt, base);
+      if (!a) return { problems: [`the head brings no archived folder`] };
+      const problems = archiveProblems(a);
+      return { problems: problems.length ? [`${a.folders.join(', ')}: ${problems.join('; ')}`] : [] };
+    }
+    if (!existsSync(join(wt, 'openspec', 'changes', entry.id))) return { problems: [`openspec/changes/${entry.id}/ does not exist at that head`] };
+    const schema = changeSchema(wt, entry.id);
+    if (!isDevkitScript(schema)) return { problems: [`${entry.id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')})`] };
+    const one = checkOne(wt, entry.id, gitFacts(wt), null, { trainParts: parts });
+    const open = [...(one.report.readiness.met ? [] : [`readiness: Status ${one.report.readiness.status || 'missing'}`]), ...one.report.items.filter((i) => i.status !== 'met').map((i) => `${LABELS[i.id - 1]}: ${i.reason}`)];
+    return { problems: open, report: one.report };
+  });
+  return found.error ? { problems: [found.error] } : found.value;
+}
+
+// The whole judgement of a pull request from `train/<n>` (D-10): { code, report, text }. The record at the head decides what is
+// judged; no GitHub call is made and no setting but the train parts is read.
+function trainCheck(root, n, env, facts, parts) {
+  const base = env.GITHUB_BASE_REF || '';
+  const file = `openspec/trains/${n}.md`;
+  const problems = [];
+  let raw = null;
+  try { raw = git(root, ['show', `HEAD:${file}`]); } catch { /* no record at the head */ }
+  const record = raw === null ? null : parseTrainRecord(raw);
+  if (raw === null) problems.push(`${file} is missing (the departure writes it: /devkit train)`);
+  else if (record.error) problems.push(`the train record cannot be read: ${record.error}`);
+  const entries = [];
+  if (record && !record.error) {
+    const ref = `origin/${base || record.base}`;
+    if (!gitOk(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])) {
+      throw new UsageError(`${ref} is not available; fetch the full history (actions/checkout with fetch-depth: 0)`);
+    }
+    if (record.result !== 'passed') problems.push(`the train record did not pass (result ${record.result})`);
+    else {
+      const stale = staleness(root, record.ranAt ? { sha: record.ranAt } : null, facts);
+      if (stale) problems.push(`the train record is not current at the pull request's head (${stale})`);
+    }
+    const known = record.boarded.filter((b) => gitOk(root, ['rev-parse', '--verify', '--quiet', `${b.head}^{commit}`]));
+    const allowed = (p) => RELEASE_FILE.test(p) || p === TRAIN_PIN_FILE || p === 'openspec/roadmap.md' || p === file;
+    for (const line of git(root, ['rev-list', '--parents', 'HEAD', `^${ref}`, ...known.map((b) => `^${b.head}`)]).split('\n').filter(Boolean)) {
+      const [c, ...parents] = line.split(' ');
+      let paths;
+      if (parents.length > 1) {
+        const tree = autoMergeTree(root, parents[0], parents[1]);
+        paths = git(root, ['diff', '--name-only', '-z', tree ?? parents[0], c]).split('\0').filter(Boolean);
+      } else paths = touchedPaths(root, c, parents);
+      const outside = paths.filter((x) => !allowed(x));
+      if (outside.length) problems.push(`${c.slice(0, 7)} (${git(root, ['log', '-1', '--format=%s', c]).trim()}) changes ${outside.join(', ')}: the train's own commits change only release files, the CI pin, openspec/roadmap.md and ${file}`);
+    }
+    for (const b of record.boarded) {
+      const own = [];
+      if (!known.includes(b) || !gitOk(root, ['merge-base', '--is-ancestor', b.head, 'HEAD'])) {
+        own.push(`head ${b.head.slice(0, 7)} is not in the train (it is not an ancestor of the pull request's head)`);
+      }
+      if (known.includes(b)) own.push(...judgeBoarded(root, b, base || record.base, parts).problems);
+      entries.push({ kind: b.kind, id: b.id, number: b.number, head: b.head, pass: own.length === 0, problems: own });
+    }
+  }
+  const failedEntries = entries.filter((e) => !e.pass);
+  const pass = problems.length === 0 && failedEntries.length === 0;
+  const lines = [
+    `devkit-reviews: train ${n} (${file}, ${entries.length} boarded)`,
+    ...entries.map((e) => `  ${e.kind} ${e.id} (#${e.number}, head ${e.head.slice(0, 7)}): ${e.pass ? 'pass' : `fail: ${e.problems.join('; ')}`}`),
+    ...problems.map((m) => `  ${m}`),
+    pass ? 'pass' : `fail: ${[...problems, ...failedEntries.map((e) => `${e.id}: ${e.problems.length} problem${e.problems.length > 1 ? 's' : ''}`)].join('; ')}`,
+  ];
+  const report = { version: 1, mode: 'ci', change: null, pass, train: { n, record: file, base: base || record?.base || null, ranAt: record?.ranAt ?? null, problems, boarded: entries } };
+  return { code: pass ? 0 : 1, report, text: `${lines.join('\n')}\n` };
+}
+
 // Runs the devkit-reviews check: { code, stdout, stderr }. 0 pass, 1 fail,
 // 3 setup or usage error. Does not read `ship` or `merge_method`, and ignores DEVKIT_BYPASS.
 function runCi(opts, env, cwd) {
@@ -2218,6 +2532,12 @@ function runCi(opts, env, cwd) {
   if (!gitOk(root, ['rev-parse', '--git-dir'])) throw new UsageError(`${root} is not a git repository: deliver-check reads commits and the working tree`);
   const facts = gitFacts(root);
   ciPreflight(root, env, facts.head);
+  const parts = ciTrainParts(root, env);
+  const trainBranch = TRAIN_BRANCH.exec(currentBranch(root, env));
+  if (trainBranch) {
+    const t = trainCheck(root, Number(trainBranch[1]), env, facts, parts);
+    return finish(t.code, t.report, t.text);
+  }
   const two = twoPrsContext(root, env);
   let selected;
   try { selected = selectCiChange(root, opts.id, env, currentBranch(root, env)); } catch (e) {
@@ -2227,21 +2547,14 @@ function runCi(opts, env, cwd) {
   if (selected.none && env.GITHUB_BASE_REF) {
     const a = archivePrCheck(root, env.GITHUB_BASE_REF);
     if (a) {
-      const retroOf = (f) => `${f}/retro.md`;
-      const problems = [
-        ...a.missingRetro.map((f) => `${retroOf(f)} is missing: it holds the change's retro, with a "## Proposed updates" section listing each proposal and the owner's answer to it; the retro step of the archive writes it (/devkit change, or ship-change for a change begun under the previous script, after the change's pull request merges)`),
-        ...a.noRetro.filter((f) => !a.missingRetro.includes(f)).map((f) => `${retroOf(f)} has no "## Proposed updates" section: it must list each proposal with the owner's answer; the retro step of the archive writes it`),
-        ...(a.unanswered.length ? [`unanswered proposals: ${a.unanswered.length}`] : []),
-        ...(a.unnamed.length ? [`files no approved proposal names: ${a.unnamed.join(', ')}`] : []),
-        ...a.slices.flatMap((s) => s.problems.map((m) => `slice ${s.id}: ${m}`)),
-      ];
+      const problems = archiveProblems(a);
       const sliceLines = a.slices.filter((s) => !s.problems.length).map((s) => `  slice ${s.id}: passed the slice contract`);
       const pass = problems.length === 0;
       const text = [`devkit-reviews: archive ${a.folders.join(', ')}`, ...a.notes.map((n) => `  note: ${otherScriptNote(n.change, n.schema)}`), ...sliceLines, ...problems.map((m) => `  ${m}`), pass ? 'pass' : `fail: ${problems.join('; ')}`].join('\n') + '\n';
       return finish(pass ? 0 : 1, { version: 1, mode: 'ci', change: null, pass, archive: a }, text);
     }
   }
-  if (selected.several) return runSeveral(root, selected.several, facts, finish, two);
+  if (selected.several) return runSeveral(root, selected.several, facts, finish, two, parts);
   if (selected.none) {
     const note = `no change selected by branch ${currentBranch(root, env) || '(detached)'} or touched by this PR; nothing to check`;
     return finish(0, { version: 1, mode: 'ci', change: null, pass: true, note }, `devkit-reviews: ${note}\n`);
@@ -2256,19 +2569,19 @@ function runCi(opts, env, cwd) {
     const note = `${id} is on the ${schema} script, not a devkit script (${DEVKIT_SCHEMAS.join(', ')}); nothing was checked`;
     return finish(0, { version: 1, mode: 'ci', change: id, schema, pass: true, note }, `devkit-reviews: ${note}\npass\n`);
   }
-  const one = checkOne(root, id, facts, two);
+  const one = checkOne(root, id, facts, two, { trainParts: parts });
   return finish(one.pass ? 0 : 1, one.report, [...one.lines, one.pass ? 'pass' : `fail: ${one.failed.join(', ')}`].join('\n') + '\n');
 }
 
 // Today's single-change check, unchanged: { report, lines, failed, pass } for a change on a devkit script. On a pull request to the
 // test branch of a two-prs project (D-7) it judges the resolution instead.
-function checkOne(root, id, facts, two = null) {
+function checkOne(root, id, facts, two = null, { trainParts = [] } = {}) {
   if (two && two.env.GITHUB_BASE_REF === two.testBranch && !(two.defaultName && two.defaultName !== two.base)) return testBranchPr(root, id, facts, two);
   const schema = changeSchema(root, id);
   const needsReadiness = changeDeclares(root, changeDir(root, id), 'readiness'); // the flow the change follows; an unreadable pin fails the check
   const status = needsReadiness ? readValue(join(changeDir(root, id), 'readiness.md'), 'Status') : null;
   const readinessMet = !needsReadiness || status === 'APPROVED';
-  const items = [tasksItem(root, id, facts), reviewsItem(root, id, facts), findingsItem(root, id, facts), acceptanceItem(root, id, facts)];
+  const items = [tasksItem(root, id, facts, { trainParts }), reviewsItem(root, id, facts), findingsItem(root, id, facts), acceptanceItem(root, id, facts)];
   const pass = readinessMet && items.every((i) => i.status === 'met');
   const report = {
     version: 1, mode: 'ci', change: id, schema, head: facts.head,
@@ -2290,7 +2603,7 @@ function checkOne(root, id, facts, two = null) {
 
 // A pull request that touches several changes and is named after none (ADR 0012): each touched devkit-script
 // change with a ticked task is judged on its own; a plan or another script is a note.
-function runSeveral(root, ids, facts, finish, two = null) {
+function runSeveral(root, ids, facts, finish, two = null, parts = []) {
   const judged = [];
   const notes = [];
   for (const id of ids) {
@@ -2307,7 +2620,7 @@ function runSeveral(root, ids, facts, finish, two = null) {
     const message = `this PR delivers no change: ${plans.map((n) => n.change).join(', ')} hold only a plan (no ticked task in tasks.md)`;
     return finish(1, { version: 1, mode: 'ci', change: null, changes: [], notes, pass: false, error: message }, [header, ...noteLines, `fail: ${message}`].join('\n') + '\n');
   }
-  const results = judged.map((id) => ({ id, ...checkOne(root, id, facts, two) }));
+  const results = judged.map((id) => ({ id, ...checkOne(root, id, facts, two, { trainParts: parts }) }));
   const pass = results.every((r) => r.pass);
   const failedText = results.filter((r) => !r.pass).map((r) => `${r.id}: ${r.failed.join(', ')}`).join('; ');
   const text = [header, ...results.flatMap((r) => r.lines), ...noteLines, pass ? 'pass' : `fail: ${failedText}`].join('\n') + '\n';
@@ -2363,7 +2676,8 @@ export function main(argv, env = process.env, cwd = process.cwd()) {
     }
     const report = buildReport(state, env);
     if (watch) report.watch = watch;
-    const code = report.summary.startsWith('blocked') || report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 && report.next.step !== 'stop-plan-approval' ? 0 : 1;
+    const trainWait = ['boarded', 'on-train', 'wait-train'].includes(report.next.step);
+    const code = trainWait ? 1 : report.summary.startsWith('blocked') || report.items.some((i) => i.status === 'blocked') ? 2 : report.met === 8 && report.next.step !== 'stop-plan-approval' ? 0 : 1;
     return { code, stdout: opts.json ? `${JSON.stringify(report, null, 2)}\n` : renderHuman(report), stderr: '' };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

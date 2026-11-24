@@ -45,7 +45,7 @@ not per-screen, per-theme or per-width: one file for the change.
 ## Where the evidence lands, and who reads it
 
 Commit the evidence folder on the change's own branch (`<id>`), in the worktree already in use for
-the change, next to the code it demonstrates. The `deliver` step of the loop links
+the change, next to the code it demonstrates. The delivery step (`commit-and-pr`) links
 `openspec/changes/<id>/evidence/` from the pull-request body, so a reviewer finds it from the PR
 without asking.
 
@@ -58,11 +58,11 @@ is what a project's `demo_command` must set before running it:
 
 - `DEMO_CHANGE_ID` — the change id, used for the evidence path.
 - `DEMO_SCREENS` — the declared screens, as a comma-separated list of screen ids.
-- `DEMO_URL` — the base URL to run the demo against (the loop's `demo_url` input).
+- `DEMO_URL` — the base URL to run the demo against (the project's own demo URL).
 
 ## No demo_command, no demo
 
-An empty `demo_command` means the project has no demo: the loop's `has_demo` branch is false, this
+An empty `demo_command` means the project has no demo: this
 skill never runs, and no evidence folder is expected. This is not a failure; a project without a
 demo pipeline pays nothing for this step.
 

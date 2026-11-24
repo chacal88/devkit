@@ -1,0 +1,175 @@
+✖ delivery-train P3 isOwnPr: a train/<n> head is never a change's own pull request, whatever files it changes (2.379137ms)
+✖ delivery-train P3 delivered: looked up from the default branch, the train's merged pull request is not the change's own (2365.353535ms)
+✖ delivery-train P3 delivered: a pull request GitHub marked merged is delivered by its train and nothing is posted on it (2601.440999ms)
+✖ delivery-train P3 delivered: a pull request GitHub left open at the head the train carried is delivered, and the next step closes it with the comment (2633.95834ms)
+✔ delivery-train P3 delivered: a head the train did not carry is not delivered by it (2705.153276ms)
+✔ delivery-train P3 delivered: a train that merged but left the tasks unticked on the default branch delivers nothing (856.090772ms)
+✔ delivery-train P3 delivered: without the key a merged pull request alone delivers, as before, and nothing is read from a train (793.838428ms)
+✔ delivery-train P4 trainFacts: the merged train carries the change with its pull request and merge commit (2284.062364ms)
+✖ delivery-train AC-10: after the merge every boarded change is delivered, merged or closed with a comment; trunk-auto enables auto-merge with --merge, trunk waits for the owner (3876.850843ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 4
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18504.842016
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2560:1
+✖ delivery-train P3 isOwnPr: a train/<n> head is never a change's own pull request, whatever files it changes (2.379137ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2562:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2569:1
+✖ delivery-train P3 delivered: looked up from the default branch, the train's merged pull request is not the change's own (2365.353535ms)
+  AssertionError [ERR_ASSERTION]: beta has no merged pull request of its own, and the train is not one
+  + actual - expected
+  
+    [
+  -   true,
+      undefined,
+  +   {
+  +     autoMergeRequest: null,
+  +     baseRefName: 'main',
+  +     body: '<!-- devkit-train n=1 base=main result=passed -->\n' +
+  +       '# Train 1\n' +
+  +       '\n' +
+  +       '- Base: `main` at `b3fe3f7958ba14c483ea4dbb37eba91582abbb35`\n' +
+  +       '- Suite: `true`\n' +
+  +       '- Ran at: `880089f16150f50da5a28e286d9e991348d68bdb`\n' +
+  +       '- Result: passed\n' +
+  +       '\n' +
+  +       '## Boarded\n' +
+  +       '\n' +
+  +       '| Order | Kind | Change | Pull request | Head | Boarded at |\n' +
+  +       '| --- | --- | --- | --- | --- | --- |\n' +
+  +       '| 1 | change | `alpha` | #11 | `4b8564c71443a45a5c7c9f7130664c0df7bcca24` | 2026-11-23T23:01:15Z |\n' +
+  +       '| 2 | change | `beta` | #12 | `8e1706008324e8949f891f98690a80b9cf5e3647` | 2026-11-23T23:01:15Z |\n' +
+  +       '\n' +
+  +       '## Runs\n' +
+  +       '\n' +
+  +       '| Run | Changes | Head | Result |\n' +
+  +       '| --- | --- | --- | --- |\n' +
+  +       '| 1 | alpha, beta | `880089f16150f50da5a28e286d9e991348d68bdb` | passed |\n',
+  +     headRefName: 'train/1',
+  +     headRefOid: '0540457d029fe389e467b3a5aa0157aa3440f871',
+  +     mergeCommit: {
+  +       oid: 'ae24336b62e89a1675d27635b90bc1b37a7a9015'
+  +     },
+  +     mergeStateStatus: 'CLEAN',
+  +     mergeable: 'UNKNOWN',
+  +     mergedAt: '2026-11-23T23:01:17.590Z',
+  +     number: 13,
+  +     state: 'MERGED',
+  +     url: 'https://github.com/o/r/pull/13'
+  +   }
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2576:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ undefined, { number: 13, url: 'https://github.com/o/r/pull/13', state: 'MERGED', headRefOid: '0540457d029fe389e467b3a5aa0157aa3440f871', baseRefName: 'main', headRefName: 'train/1', mergeable: 'UNKNOWN', body: '<!-- devkit-train n=1 base=main result=passed -->\n# Train 1\n\n- Base: `main` at `b3fe3f7958ba14c483ea4dbb37eba91582abbb35`\n- Suite: `true`\n- Ran at: `880089f16150f50da5a28e286d9e991348d68bdb`\n- Result: passed\n\n## Boarded\n\n| Order | Kind | Change | Pull request | Head | Boarded at |\n| --- | --- | --- | --- | --- | --- |\n| 1 | change | `alpha` | #11 | `4b8564c71443a45a5c7c9f7130664c0df7bcca24` | 2026-11-23T23:01:15Z |\n| 2 | change | `beta` | #12 | `8e1706008324e8949f891f98690a80b9cf5e3647` | 2026-11-23T23:01:15Z |\n\n## Runs\n\n| Run | Changes | Head | Result |\n| --- | --- | --- | --- |\n| 1 | alpha, beta | `880089f16150f50da5a28e286d9e991348d68bdb` | passed |\n', mergedAt: '2026-11-23T23:01:17.590Z', mergeCommit: [Object], autoMergeRequest: null, mergeStateStatus: 'CLEAN' } ],
+    expected: [ true, undefined ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2579:1
+✖ delivery-train P3 delivered: a pull request GitHub marked merged is delivered by its train and nothing is posted on it (2601.440999ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   mergeCommit: 'b7ec258abe73958489b71fe221345bc8fa497d1a',
+  -   n: 1,
+  -   number: 13
+  - }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2584:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { n: 1, number: 13, mergeCommit: 'b7ec258abe73958489b71fe221345bc8fa497d1a' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2591:1
+✖ delivery-train P3 delivered: a pull request GitHub left open at the head the train carried is delivered, and the next step closes it with the comment (2633.95834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   mergeCommit: '05b368ce65a69e77549eb0447e9002def63febe6',
+  -   n: 1,
+  -   number: 13
+  - }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2597:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { n: 1, number: 13, mergeCommit: '05b368ce65a69e77549eb0447e9002def63febe6' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2652:1
+✖ delivery-train AC-10: after the merge every boarded change is delivered, merged or closed with a comment; trunk-auto enables auto-merge with --merge, trunk waits for the owner (3876.850843ms)
+  AssertionError [ERR_ASSERTION]: trunk-auto
+  + actual - expected
+  
+    [
+  +   'boarded',
+  +   undefined
+  -   'close-boarded-pr',
+  -   'Delivered by train 1 in #13 (merge commit c212313).'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:2682:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'boarded', undefined ],
+    expected: [ 'close-boarded-pr', 'Delivered by train 1 in #13 (merge commit c212313).' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+=== 5.3 (output as printed, filtered by grep for the failing line and its message) ===
+✖ delivery-train docs: pr-verifier leaves the parts the train proves to the train, and a change that edits the key runs every part (1.947459ms)
+  AssertionError [ERR_ASSERTION]: it names the key
+
+=== 5.4 (output as printed, filtered by grep) ===
+✖ delivery-train docs: the post-merge section and CONTRIBUTING say what a merged train delivers and how a release rides it (3.99831ms)
+✖ failing tests:
+✖ delivery-train docs: the post-merge section and CONTRIBUTING say what a merged train delivers and how a release rides it (3.99831ms)
