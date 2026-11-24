@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.42.0 — the test suite runs by file, in parallel
+
+- **Repository** (`scripts/test-suite.mjs`, `CLAUDE.md`, `CONTRIBUTING.md`, `openspec/config.yaml`): one command,
+  `node scripts/test-suite.mjs`, replaces `node --test plugins/openspec/hooks/guard.test.mjs`. It runs every
+  `*.test.mjs` of the four folders the old command ran, each file in a process of its own and several at once (as many as
+  the machine has cores; `--concurrency=<n>` on a loaded machine), takes file arguments and `--test-name-pattern=`, and
+  exits non-zero when a test fails, naming it ([ADR 0026](docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md)).
+  `CLAUDE.md`, `CONTRIBUTING.md` and the agents' context in `openspec/config.yaml` quote it, with the time measured on an
+  idle 8-core machine.
+- **devkit-openspec** 0.38.0: the helpers that test files shared moved out of the test files into
+  `plugins/openspec/hooks/test-fixtures.mjs` (no test, nothing made when it is imported), so no test file imports another
+  and `guard.test.mjs` holds only the guard's own tests. The script refuses a `*.test.mjs` under `plugins/` that imports
+  another, naming the file and the line, and gives each file its own empty `TMPDIR` (a real path, under one run root it
+  removes at the end); a file that leaves anything there fails the run, and the summary names what it left.
+- **devkit-core** 0.14.2: the header comment of the review round's test file names the new command (comment only).
+- **CI**: the job `check` has one `Test suite` step, `node scripts/test-suite.mjs`, in place of `Hook tests` and
+  `Hook tests left nothing in TMPDIR`.
+- **`scripts/check.py`** refuses a skipped test (`skip`, `only` or `todo`) in the suite's files; `plugins/compozy` is
+  exempt, its skips guard a missing `compozy` program.
+- Docs: ADR 0026 (accepted); the CI snippet now pins `v0.38.0`, the release's tag.
+
 ## 0.40.0 — the CompozyOS driver
 
 - **devkit-openspec** 0.36.0: a project that sets `driver: compozy` runs its changes on CompozyOS.
