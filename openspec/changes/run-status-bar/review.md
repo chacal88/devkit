@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=22230be382d0c7f9cbb7f18c6abd865125b602e1 -->
+<!-- devkit-stage review result=passed attempt=2 commit=3a53ac94b3676d8063672b1a3b9887f806956424 -->
 # Review: run-status-bar, round 1
 
 Path: agents · range `8085104..HEAD` · structural: PASS
@@ -27,3 +27,30 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: run-status-bar, round 2
+
+Path: agents · range `22230be..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 3a53ac9 |
+| architecture-reviewer | approved | 0 | 0 | 0 | 0 | 3a53ac9 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 3a53ac9 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 3a53ac9 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 3a53ac9 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- code-quality-reviewer F7 (nit, follow-up): the statusLine snippet does not exec node, so on macOS a signal sent only to the command pid does not reach the bar.
+- spec-reviewer F1 (nit): a one-word reason is dropped at once instead of cut to <word>…; the spec does not say which is meant.
+
+## Next
+Ready to ship.
