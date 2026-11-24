@@ -1,0 +1,313 @@
+Phase 4 tests on the unchanged code (base 77b15b1 plus phases 1 to 3): 13 of the 19 new tests fail. The six that pass pin behaviour the base has:
+- upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage (the base refuses every subagent's write; a new agent type changes nothing);
+- upfront AC-11 adr: no clash gives no step; the same file on both gives no step; an unresolvable base gives no step (negatives: the base gives no renumbering step at all);
+- upfront AC-11 next: a requirements file set back to pending after the proposal gives the grill (the stage checker already names the requirements stage first; the planner rule that writes the reopened header is text of 4.5);
+- upfront AC-4 lock agent: the triage with no brief is refused own-sessions (RH6 refuses every hand-off today).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront AC-(4 lock agent|5 triage|5 skill|6 |11 )" plugins/openspec/hooks/guard.test.mjs
+
+✖ upfront AC-11 adr: a number the base gave another file is renumbered to the next free one (1906.835209ms)
+✖ upfront AC-11 adr: the folder docs/decisions is read like docs/adr (1686.842958ms)
+✔ upfront AC-11 adr: no clash gives no step (1881.858667ms)
+✔ upfront AC-11 adr: the same file on both gives no step (1721.669125ms)
+✖ upfront AC-11 adr: two clashes take the next two numbers in order (1626.995458ms)
+✔ upfront AC-11 adr: an unresolvable base gives no step (662.004917ms)
+✖ upfront AC-6 triage: an answer under the triage heading with no source sends the change back to its grill naming it (1747.521167ms)
+✖ upfront AC-6 triage: decide gives the grill only in the plan part, only when the requirements stage passed and only for a non-empty list (0.463333ms)
+✖ upfront AC-6 triage: the heading's end, an unclosed fence, an item over indented lines, no heading and an empty section (0.172208ms)
+✖ upfront AC-5 triage: the agent file has the name, a description that says when, the tools Read, Glob and Grep only, and the Never rules (0.236459ms)
+✖ upfront AC-5 triage: requirements-triage is a helper of the requirements stage of both scripts, in both schema copies, and PACKS ships it in devkit-core (0.2785ms)
+✖ upfront AC-5 triage: a change run may hand devkit-core:requirements-triage (421.608792ms)
+✔ upfront AC-11 next: a requirements file set back to pending after the proposal gives the grill (1616.55925ms)
+✖ upfront AC-11 delivery: renumber-adr is a hand-off of the implementer, with the files in its detail (2.185208ms)
+✖ upfront AC-4 lock agent: the coordinating session may hand requirements-triage with a brief naming an open change, and marks nothing under way (202.363959ms)
+✔ upfront AC-4 lock agent: the triage with no brief is refused own-sessions (242.377583ms)
+✖ upfront AC-4 lock agent: the triage for a change not open is refused not-open (180.038167ms)
+✔ upfront AC-6 guard: approval.md refuses a write by devkit-core:requirements-triage (140.842833ms)
+✖ upfront AC-5 skill: the grill rule of config.yaml and of the four schema files names the triage and forbids answering yourself (0.441542ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 6
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24826.428958
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1539:1
+✖ upfront AC-11 adr: a number the base gave another file is renumbered to the next free one (1906.835209ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'owner'
+  -   'renumber-adr',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/conduct-check.test.mjs:1545:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'owner' ],
+    expected: [ 'renumber-adr', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1551:1
+✖ upfront AC-11 adr: the folder docs/decisions is read like docs/adr (1686.842958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'owner'
+  -   'renumber-adr',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/conduct-check.test.mjs:1557:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'owner' ],
+    expected: [ 'renumber-adr', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1577:1
+✖ upfront AC-11 adr: two clashes take the next two numbers in order (1626.995458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'ready',
+  +   'owner'
+  -   'renumber-adr',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/conduct-check.test.mjs:1583:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ready', 'owner' ],
+    expected: [ 'renumber-adr', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3459:1
+✖ upfront AC-6 triage: an answer under the triage heading with no source sends the change back to its grill naming it (1747.521167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'proposal',
+  +   'change-planner'
+  -   'grill',
+  -   'requirements',
+  -   'change-coordinator'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3468:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'proposal', 'change-planner' ],
+    expected: [ 'grill', 'requirements', 'change-coordinator' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3475:1
+✖ upfront AC-6 triage: decide gives the grill only in the plan part, only when the requirements stage passed and only for a non-empty list (0.463333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'agent',
+  +   'proposal',
+  +   undefined,
+  -   'grill',
+  -   'requirements',
+  -   {
+  -     unsourced: [
+  -       'q'
+  -     ]
+  -   },
+      0
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3478:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'proposal', undefined, 0 ],
+    expected: [ 'grill', 'requirements', { unsourced: [Array] }, 0 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3488:1
+✖ upfront AC-6 triage: the heading's end, an unclosed fence, an item over indented lines, no heading and an empty section (0.172208ms)
+  TypeError [Error]: changeLoopModule.triageUnsourced is not a function
+      at triageUnsourced (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3453:52)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3490:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3516:1
+✖ upfront AC-5 triage: the agent file has the name, a description that says when, the tools Read, Glob and Grep only, and the Never rules (0.236459ms)
+  Error: ENOENT: no such file or directory, open '/Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/core/agents/requirements-triage.md'
+      at readFileSync (node:fs:483:20)
+      at readRepo (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:2183:28)
+      at assetOf (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:2704:16)
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3517:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/core/agents/requirements-triage.md'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3530:1
+✖ upfront AC-5 triage: requirements-triage is a helper of the requirements stage of both scripts, in both schema copies, and PACKS ships it in devkit-core (0.2785ms)
+  AssertionError [ERR_ASSERTION]: plugins/openspec/schemas/devkit
+  + actual - expected
+  
+    [
+      'codebase-researcher',
+  -   'requirements-triage'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3535:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'codebase-researcher' ],
+    expected: [ 'codebase-researcher', 'requirements-triage' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3544:1
+✖ upfront AC-5 triage: a change run may hand devkit-core:requirements-triage (421.608792ms)
+  AssertionError [ERR_ASSERTION]: devkit-core:requirements-triage: devkit guard: in a /devkit change run this session hands work only to the roles of the devkit-lite script: codebase-researcher, change-planner, openspec-validator, tdd-implementer, test-runner, e2e-tester, pr-verifier, code-quality-reviewer, test-coverage-reviewer, architecture-reviewer, security-reviewer, adr-reviewer, spec-reviewer, finding-verifier, commit-and-pr; devkit-core:requirements-triage is not one of them
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3549:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:3563:1
+✖ upfront AC-11 delivery: renumber-adr is a hand-off of the implementer, with the files in its detail (2.185208ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(ROW_STEPS.includes('renumber-adr'))
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/change-loop.test.mjs:3564:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3964:1
+✖ upfront AC-4 lock agent: the coordinating session may hand requirements-triage with a brief naming an open change, and marks nothing under way (202.363959ms)
+  AssertionError [ERR_ASSERTION]: devkit-core:requirements-triage
+  + actual - expected
+  
+    [
+  +   'refuse',
+  +   'own-sessions',
+  -   'allow',
+  -   'grill-helper',
+      'a'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/roadmap-loop.test.mjs:3971:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'refuse', 'own-sessions', 'a' ],
+    expected: [ 'allow', 'grill-helper', 'a' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3992:1
+✖ upfront AC-4 lock agent: the triage for a change not open is refused not-open (180.038167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'refuse',
+  +   'own-sessions',
+  -   'not-open',
+      'zzz'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/roadmap-loop.test.mjs:3996:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'refuse', 'own-sessions', 'zzz' ],
+    expected: [ 'refuse', 'not-open', 'zzz' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/guard.test.mjs:1616:1
+✖ upfront AC-5 skill: the grill rule of config.yaml and of the four schema files names the triage and forbids answering yourself (0.441542ms)
+  AssertionError [ERR_ASSERTION]: openspec/config.yaml rules.requirements
+      at TestContext.<anonymous> (file:///Users/kauesantos/Documents/devkit/.claude/worktrees/roadmap-sessions-upfront/plugins/openspec/hooks/guard.test.mjs:1620:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

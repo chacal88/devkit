@@ -6,6 +6,7 @@
 - Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
 - Amended by ADR 0016 (0016-stage-roles-write-their-own-files.md)
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
+- Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-19
 - Change: orchestrator-replan
 - Supersedes: ADR 0001 (0001-coordination-without-a-harness.md) and ADR 0007 (0007-one-change-on-request.md)
@@ -57,6 +58,17 @@ the session to start the changes the load holds at that moment anyway, and the h
 to every later start; that permission is the owner's own message and is kept nowhere. Decisions 1
 to 8 are otherwise unchanged.
 
+Note (roadmap-sessions-upfront, 2026-11-22): where the host can start sessions, a roadmap run opens every
+pending change at its start, and its number counts only the changes in the implementation, its
+tests, evidence or review; a plan waits for its dependencies ([ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md)). Decision 2
+holds unchanged where the host cannot start sessions. Decision 8's sentence that the owner's gates
+(grill answers, plan approval, retro answers) stay the owner's is amended for the grill answers the
+project's files settle: in every grill, a lone `/devkit change` as much as a roadmap run, of a change
+that follows flow version 2 or later of its script, the requirements-triage agent answers those first,
+each with its source, and the owner answers every question nothing written settles and every approval
+and retro answer; a change on flow 1 keeps its grill with no triage until the owner moves it (ADR
+0021's Note). This change leaves the other decisions as they are.
+
 Note (project-phases, 2026-11-22): the project entry and the `devkit-project` schema are built;
 [ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md) answers decision 8's open point
 (the hooks act in a slice's checkout as for any change, no run lock holds a `/devkit project` run) and
@@ -78,6 +90,12 @@ Note (remote-worker, 2026-11-22): opening a change pushes its branch at once wit
 name, and a roadmap run may open changes on other machines the person lists
 ([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Waiting for a place is a blocked end with
 its reason. Decisions 1 to 8 are otherwise unchanged.
+
+Note (compozy-driver, 2026-11-23): the CompozyOS driver of decision 4 is built, as one short loop
+that asks the change loop each turn, with one CompozyOS agent per role that has a Claude agent
+file ([ADR 0024](0024-compozy-runs-the-short-loop.md), proposed). The CompozyOS planner is named
+`change-planner`, the owner's choice on 2026-11-22 (grill question 4), over the `planner` of the
+2026-11-19 Note above. Decisions 1 to 8 are otherwise unchanged.
 
 ADR 0001 let devkit coordinate but never through a harness. Five ADRs then made exceptions to it or
 amended them: parallel step subagents and a session cron (ADR 0005), phases as child sessions

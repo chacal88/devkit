@@ -1,0 +1,30 @@
+Task 9.1: the tests of phase 9 run on the unchanged code (HEAD a7f501b plus the new tests only; no product file and no document edited; the test helpers `upChange` and `approve` gained an optional `id`, default `a`, so the new tests can use two-letter ids, which are the ones a claim on origin is read for).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront D-18" --test-name-pattern="^upfront ADR 0021: the documents follow" plugins/openspec/hooks/guard.test.mjs
+
+New tests that pass here (2, as the plan expects; each pins today's behaviour):
+  - upfront D-18 place: a change of this machine whose ticket no session claimed keeps the remote-worker gate   (pins today's gate)
+  - upfront D-18 place: a claimed change does not wait for an unclaimed one, and the board's row then reads above the number   (pins today's two counts)
+
+New tests that fail here (3) and T-27 (1), each on the assertion D-18 names (none for a typo or an import error):
+  - upfront D-18 place: a change session of this machine on the run's ticket takes its place ...: before the plan push session-next ends aa `blocked` `no-place` (expected the implementation hand-off)
+  - upfront D-18 place: a place of this machine frees when its change leaves the load stages ...: the board's row reads "1 of 1 places taken" while aa's claim is still placed (expected "0 of 1")
+  - upfront D-18 docs: ... (the Amends entry of ADR 0021 does not name ADR 0020 yet)
+  - upfront ADR 0021: the documents follow (T-27): the config's ADRs line has "amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017" (expected "... 0017 and 0020")
+
+Output:
+
+✖ upfront ADR 0021: the documents follow (24.257719ms)
+✖ upfront D-18 place: a change session of this machine on the run's ticket takes its place from occupied only, before and after its plan push (2081.79067ms)
+✖ upfront D-18 place: a place of this machine frees when its change leaves the load stages, whatever its claim on origin, and nothing of it counts once archived (334.172217ms)
+✔ upfront D-18 place: a change of this machine whose ticket no session claimed keeps the remote-worker gate (4058.932763ms)
+✔ upfront D-18 place: a claimed change does not wait for an unclaimed one, and the board's row then reads above the number (2147.110497ms)
+✖ upfront D-18 docs: ADR 0021 names ADR 0020 in its Amends and a Note, ADR 0020 is amended by ADR 0021, and ADR 0010's Note and the config rule qualify the triage by flow (0.993878ms)
+
+ℹ tests 6
+ℹ suites 0
+ℹ pass 2
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24617.411318

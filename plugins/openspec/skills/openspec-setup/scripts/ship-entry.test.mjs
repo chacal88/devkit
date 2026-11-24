@@ -1,5 +1,5 @@
-// Tests for ship-entry.mjs (project-phases, design D-15). Imported by hooks/guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for ship-entry.mjs (project-phases, design D-15). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/ship-entry.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';

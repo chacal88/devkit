@@ -7,7 +7,7 @@ artifacts:
     description: Owner-confirmed assumptions and acceptance criteria, before any spec
     template: requirements.md
     instruction: |
-      Role: change-coordinator. Skills: requirements-grill. Helpers: codebase-researcher.
+      Role: change-coordinator. Skills: requirements-grill. Helpers: codebase-researcher, requirements-triage.
 
       The file's first line is the stage header of the template:
       `<!-- devkit-stage requirements result=pending attempt=1 commit=none -->`. Keep it first. When the stage's
@@ -17,7 +17,9 @@ artifacts:
 
       Load the requirements-grill skill and interview the owner (ask one
       question at a time) across scope, end effect, edge cases and conflicts
-      with the project's rules. Do not answer the questions yourself.
+      with the project's rules. Ask the owner every question that nothing
+      written settles; the requirements-triage agent answers the others first,
+      each with its source. Never answer a question yourself.
 
       Write requirements.md with:
       - **Request**: the owner's request, in their words; when the project's docs must be in another language than the request, the faithful translation, marked "(translated from <language>)".
@@ -99,6 +101,11 @@ artifacts:
       rewrite, and `commit` to `git rev-parse HEAD`.
 
       Create the proposal document that establishes WHY this change is needed.
+
+      When code merged since the grill contradicts what a requirement says, write no plan file: add
+      the question under `## Reopened` in `requirements.md`, set its header to `result=pending` with
+      the attempt one more, and return. Resolve every other drift (an ADR number, a release version,
+      a moved file) in the plan without asking.
 
       Sections:
       - **Why**: 1-2 sentences on the problem or opportunity. What problem does this solve? Why now?

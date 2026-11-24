@@ -1,0 +1,169 @@
+# Phase 6, tests first (task 6.6, the real run)
+
+The real run (`delivery-train AC-12: the real run`) found three defects in code written in phases 3 and 5. The tests below were
+written for them, each from the observed failure, and ran red on the code as it was. Output as printed, from a copy of the
+tree in which only the three fixes are left out (`train-loop.mjs`: the `what` suffix of the progress key, `branchDeletable`
+and its fetch, `--set-upstream-to`; `deliver-check.mjs`: `paths: []` for a red leaver). With the fixes they pass.
+
+## The five new or extended tests
+
+✖ delivery-train P3 T3: a red leaver carries the failure to the implementer (915.019421ms)
+✖ delivery-train P9 depart: the train branch tracks origin/<base>, so git branch -d accepts it once the base holds the merged train (1123.487859ms)
+✔ delivery-train P9 N13: a merged train's worktree is removed, then its local branch deleted, and nothing else (870.261725ms)
+✖ delivery-train P9 N13: next fetches origin before the branch step, so a stale origin/<base> does not make git refuse the deletion (843.997907ms)
+✖ delivery-train P9 N13: a train branch its upstream does not hold (the owner squashed the merge) is left, and the run goes on (867.065621ms)
+✖ delivery-train P9 N13: the worktree step and the branch step carry different progress keys, so --after never blocks the second (825.711207ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5843.107394
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:813:1
+✖ delivery-train P3 T3: a red leaver carries the failure to the implementer (915.019421ms)
+  AssertionError [ERR_ASSERTION]: a red change has no conflicting paths
+  + actual - expected
+  
+  + [
+  +   'feat'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:821:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'feat' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1746:1
+✖ delivery-train P9 depart: the train branch tracks origin/<base>, so git branch -d accepts it once the base holds the merged train (1123.487859ms)
+  Error: Command failed: git -C /var/tmp/devkit-delivery-train/devkit-deliver-21HmpE config branch.train/1.remote
+      at genericNodeError (node:internal/errors:999:15)
+      at wrappedFn (node:internal/errors:544:14)
+      at checkExecSyncError (node:child_process:990:11)
+      at execFileSync (node:child_process:1026:15)
+      at git (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:31:32)
+      at gitOf (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:1420:31)
+      at TestContext.<anonymous> (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:1751:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    status: 1,
+    signal: null,
+    output: [ null, '', '' ],
+    pid: 993824,
+    stdout: '',
+    stderr: ''
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2046:1
+✖ delivery-train P9 N13: next fetches origin before the branch step, so a stale origin/<base> does not make git refuse the deletion (843.997907ms)
+  AssertionError [ERR_ASSERTION]: error: the branch 'train/4' is not fully merged
+  hint: If you are sure you want to delete it, run 'git branch -D train/4'
+  hint: Disable this message with "git config set advice.forceDeleteBranch false"
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:2059:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2063:1
+✖ delivery-train P9 N13: a train branch its upstream does not hold (the owner squashed the merge) is left, and the run goes on (867.065621ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"kind":"session","step":"clean-train","detail":{"n":4,"number":12,"what":"branch","command":["git","-C","/var/tmp/devkit-delivery-train/devkit-deliver-OPpCbx","branch","-d","train/4"]},"reply":"Train 4 merged in pull request #12: its changes are delivered, and what it left behind is tidied now.","progressKey":"clean-train@12"}
+      at TestContext.<anonymous> (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:2073:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'clean-train',
+    expected: 'clean-train',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2080:1
+✖ delivery-train P9 N13: the worktree step and the branch step carry different progress keys, so --after never blocks the second (825.711207ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"kind":"end","step":"train-blocked","detail":{"error":"clean-train was done and changed nothing"},"reply":"The train stopped: clean-train was done and changed nothing. Nothing more runs until this is sorted out.","end":{"state":"blocked","why":"train-blocked"},"progressKey":"train-blocked@"}
+  + actual - expected
+  
+    [
+  +   2,
+  +   'end',
+  +   'train-blocked'
+  -   0,
+  -   'session',
+  -   'clean-train'
+    ]
+  
+      at TestContext.<anonymous> (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:2091:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 2, 'end', 'train-blocked' ],
+    expected: [ 0, 'session', 'clean-train' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+
+## The real run on the same code
+
+✖ delivery-train AC-12: the real run (7807.787161ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8234.503188
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:2904:1
+✖ delivery-train AC-12: the real run (7807.787161ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'close-boarded-pr',
+      'close-boarded-pr',
+      'clean-train',
+  -   'clean-train'
+    ]
+  
+      at TestContext.<anonymous> (file:///var/tmp/devkit-delivery-train/red/plugins/openspec/hooks/delivery-train.test.mjs:2927:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'close-boarded-pr', 'close-boarded-pr', 'clean-train' ],
+    expected: [ 'close-boarded-pr', 'close-boarded-pr', 'clean-train', 'clean-train' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

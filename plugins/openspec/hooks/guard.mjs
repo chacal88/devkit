@@ -9,6 +9,7 @@
 //   node guard.mjs stop          Stop: in a `/devkit change` run, the session does not end its turn while a stage is ready
 //   node guard.mjs subagent-stop SubagentStop: a stage agent does not stop before its stage file is delivered
 //   node guard.mjs agent         PreToolUse on Agent: in a run, work goes only to the roles of the change's script
+//   node guard.mjs skill         PreToolUse on Skill: devkit-session runs only on the ticket a roadmap run wrote for its change
 //
 // It only vetoes (exit 2 + reason on stderr). The flow lives in the OpenSpec
 // schema; this file enforces what the CLI can't see:
@@ -95,17 +96,29 @@ export function plainValue(raw) {
   return text.replace(/(^|\s)#.*$/, '').trim();
 }
 
-const DELIVERY_KEYS = ['model', 'base', 'test_branch'];
+// True when the raw value starts with a quote and has no second quote of the same kind.
+function unclosedQuote(raw) {
+  const text = raw.replace(/\r$/, '').trim();
+  const quote = text[0];
+  return (quote === '"' || quote === "'") && text.indexOf(quote, 1) === -1;
+}
+
+const DELIVERY_KEYS = ['model', 'base', 'test_branch', 'train'];
 
 // The `devkit:` block of openspec/config.yaml, read with one level of nesting (delivery-models D-1, D-11):
-// { driver, language, budget, release_tag, delivery: { model, base, test_branch } } (`budget` from change-budget, `release_tag`
-// from release-tags D-1). A value that is not set, or empty, is undefined; a key nested under `delivery:` never sets `driver`,
-// `language`, `budget` or `release_tag`; other keys of the block are ignored.
+// { driver, language, budget, release_tag, delivery: { model, base, test_branch, train, trainUnclosed? }, models } (`budget` from change-budget,
+// `release_tag` from release-tags D-1, `models` from stage-models D-2). `models` is a Map from each key written under a `models:` line to its
+// value, in file order, a later duplicate winning; an inline value (`models: opus`) is recorded under the key ''. A value that is
+// not set, or empty, is undefined; a key nested under `delivery:` or `models:` never sets `driver`, `language`, `budget` or
+// `release_tag`; an entry nested deeper than the table is ignored; other keys of the block are ignored. `trainUnclosed` is set
+// (delivery-train D-1) when the raw value of `train` opens a quote it never closes, which `plainValue` would read as the rest of the line.
 export function parseDevkitBlock(text) {
-  const block = { driver: undefined, language: undefined, budget: undefined, release_tag: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined } };
+  const block = { driver: undefined, language: undefined, budget: undefined, release_tag: undefined, delivery: { model: undefined, base: undefined, test_branch: undefined }, models: new Map() };
   let inBlock = false;
   let indent = null;
   let inDelivery = false;
+  let inModels = false;
+  let modelsIndent = null;
   for (const line of String(text).split('\n')) {
     if (/^devkit:\s*(#.*)?\r?$/.test(line)) { inBlock = true; continue; }
     if (!inBlock) continue;
@@ -116,10 +129,20 @@ export function parseDevkitBlock(text) {
     if (indent === null) indent = m[1].length;
     const value = plainValue(m[3]) || undefined;
     if (m[1].length > indent) {
-      if (inDelivery && DELIVERY_KEYS.includes(m[2])) block.delivery[m[2]] = value;
+      if (inDelivery && DELIVERY_KEYS.includes(m[2])) {
+        block.delivery[m[2]] = value;
+        if (m[2] === 'train') block.delivery.trainUnclosed = unclosedQuote(m[3]);
+      }
+      if (inModels) {
+        if (modelsIndent === null) modelsIndent = m[1].length;
+        if (m[1].length === modelsIndent) block.models.set(m[2], value);
+      }
       continue;
     }
     inDelivery = m[2] === 'delivery';
+    inModels = m[2] === 'models';
+    modelsIndent = null;
+    if (inModels && value !== undefined) block.models.set('', value);
     if (m[2] === 'driver' || m[2] === 'language' || m[2] === 'budget' || m[2] === 'release_tag') block[m[2]] = value;
   }
   return block;
@@ -162,6 +185,24 @@ export function deliverySettings(block) {
 export function readDeliverySettings(root) {
   try { return deliverySettings(parseDevkitBlock(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'))); } catch {
     return deliverySettings(null);
+  }
+}
+
+// { suite, problem } from a parsed block: the table of delivery-train D-1. `suite` is the whole-suite command of the train
+// (the train is on) and `problem` is { kind: 'train-model', model } or { kind: 'unknown', setting, value }; both are null
+// without the key or with an empty value. The value is never split or run here.
+export function trainSetting(block) {
+  const { model, train, trainUnclosed } = block?.delivery ?? {};
+  if (!train) return { suite: null, problem: null };
+  if (trainUnclosed) return { suite: null, problem: { kind: 'unknown', setting: 'delivery-train', value: train } };
+  if (model === 'trunk' || model === 'trunk-auto') return { suite: train, problem: null };
+  return { suite: null, problem: { kind: 'train-model', model: model === 'two-prs' ? model : null } };
+}
+
+// The train setting of the project at `root`; no file, or one that cannot be read, is no train.
+export function readTrainSetting(root) {
+  try { return trainSetting(parseDevkitBlock(readFileSync(join(root, 'openspec', 'config.yaml'), 'utf8'))); } catch {
+    return trainSetting(null);
   }
 }
 
@@ -590,11 +631,17 @@ export function isTestFile(rel) {
   return parts.some((d) => /^(tests?|__tests__|e2e|specs?|cypress|playwright)$/i.test(d)) || /^test_|_test\.[^.]+$|[._-](test|spec|e2e|cy)\.[^.]+$/i.test(name);
 }
 
+// True in a CompozyOS session: a seat of a run sees its own session id (compozy-driver D-11, probe P-1).
+export const compozySession = (env) => String(env?.COMPOZY_SESSION_ID ?? '') !== '';
+
 // Why `actor` may not write `file` now, or null.
 function writeViolation(root, ch, actor, file) {
   const c = classify(root, ch.name, file);
   if (c.kind === 'outside' || c.kind === 'exempt') return null;
   const who = actor || 'the main session';
+  if (c.kind === 'gate' && c.owner === '' && compozySession(process.env)) {
+    return 'in a CompozyOS session approval.md is written only by the kit\'s record step, from the owner\'s answer';
+  }
   if (c.kind === 'gate' && c.owner === '') {
     return actor === '' ? null
       : `approval.md is written only by the main session, from the owner's own message; not by ${who}`;
@@ -793,7 +840,8 @@ export function runOf(input, events = transcriptEvents(input)) {
 //
 // With `usage` true the scan also reads the model lines (change-budget D-3): the first line with a string `timestamp` gives
 // `{ start }` first, every other event carries `at` (its line's timestamp or null), and an `assistant` line with a `message.usage`
-// object gives `{ usage: { id, tokens }, at }` (sidechain lines included). Without it the result is what it always was.
+// object gives `{ usage: { id, tokens, model }, at }` (sidechain lines included; `model` is the line's `message.model` when a string, else
+// null: stage-models D-7). Without it the result is what it always was.
 export function transcriptEvents(input, { usage = false } = {}) {
   const file = input && input.transcript_path;
   if (typeof file !== 'string' || !file) return null;
@@ -811,7 +859,8 @@ export function transcriptEvents(input, { usage = false } = {}) {
     const at = usage ? { at: stamp } : {};
     if (rec?.type === 'assistant') {
       if (usage && rec.message?.usage && typeof rec.message.usage === 'object') {
-        events.push({ usage: { id: rec.message.id ?? null, tokens: tokensOf(rec.message.usage) }, ...at });
+        const model = typeof rec.message.model === 'string' ? rec.message.model : null;
+        events.push({ usage: { id: rec.message.id ?? null, tokens: tokensOf(rec.message.usage), model }, ...at });
       }
       continue;
     }
@@ -836,20 +885,112 @@ export function transcriptEvents(input, { usage = false } = {}) {
 const tokensOf = (u) => ['input_tokens', 'output_tokens', 'cache_creation_input_tokens']
   .reduce((sum, key) => sum + (Number.isFinite(u[key]) && u[key] >= 0 ? u[key] : 0), 0);
 
+// The family a model id names, `opus`, `sonnet` or `haiku` (any case), null for any other text and for a value that is no string
+// (stage-models D-4).
+export function familyOfId(id) {
+  const found = typeof id === 'string' ? /opus|sonnet|haiku/i.exec(id) : null;
+  return found ? found[0].toLowerCase() : null;
+}
+
+// The key of a stage hand-off: the text of its prompt from its start through the brief's last sentence (`change-loop.mjs#decide`'s
+// inner `brief`), which cuts off what the session appends (the dispatch sentence, the attribution block) and the commit hand-off's
+// own attribution ask. `[^.\n]+` and not letters and spaces: the files language may be a raw tag such as `zh-CN`. Null when the text
+// holds no such sentence (stage-models D-4).
+const BRIEF_END = /\. Write the change's files in [^.\n]+\./;
+export function handOffKey(text) {
+  const found = typeof text === 'string' ? BRIEF_END.exec(text) : null;
+  return found ? text.slice(0, found.index + found[0].length) : null;
+}
+
+// A line that starts (after quoting marks) with `Outcome: failure`, the way a stage agent ends a run it could not finish.
+const FAILURE_LINE = /^[ \t>*_`]*Outcome:[ \t*_`]*failure\b/m;
+
+// One subagent file read in one pass (stage-models D-4): null when it cannot be read, else { start, prompt, family, failed, usage }.
+// `start` is the first string timestamp, `prompt` the first user line's content (the text blocks of a list joined by a line break),
+// `family` that of the newest assistant line's model, `failed` whether the newest assistant line that holds text has a failure line,
+// and `usage` the `{ id, tokens, family }` of every assistant line with a usage object. A cut-off or broken line is skipped.
+export function subagentRun(file) {
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch { return null; }
+  const run = { start: null, prompt: null, family: null, failed: false, usage: [] };
+  let seenUser = false;
+  for (const line of text.split('\n')) {
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; }
+    if (rec === null || typeof rec !== 'object') continue;
+    if (run.start === null && typeof rec.timestamp === 'string') run.start = rec.timestamp;
+    const content = rec.message?.content;
+    if (rec.type === 'user' && !seenUser) {
+      seenUser = true;
+      if (typeof content === 'string') run.prompt = content;
+      else if (Array.isArray(content)) run.prompt = content.filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n');
+    } else if (rec.type === 'assistant') {
+      run.family = familyOfId(rec.message?.model);
+      const blocks = Array.isArray(content) ? content.filter((b) => b?.type === 'text' && typeof b.text === 'string') : [];
+      if (blocks.length) run.failed = FAILURE_LINE.test(blocks.map((b) => b.text).join('\n'));
+      const usage = rec.message?.usage;
+      if (usage && typeof usage === 'object') run.usage.push({ id: rec.message.id ?? null, tokens: tokensOf(usage), family: familyOfId(rec.message.model) });
+    }
+  }
+  return run;
+}
+
+// The stage hand-offs of the session `transcript` names, in the order they started (then by file name): each `agent-*.jsonl` of its
+// `subagents` folder as `subagentRun` reads it plus `key` (`handOffKey` of its prompt), those that started at or after `since` (all
+// when `since` is null). A folder that cannot be listed gives [] (stage-models D-4).
+export function handOffsOf(transcript, since) {
+  let folder;
+  let names;
+  try {
+    folder = join(dirname(transcript), basename(transcript, '.jsonl'), 'subagents');
+    names = readdirSync(folder).filter((name) => /^agent-.*\.jsonl$/.test(name)).sort();
+  } catch { return []; }
+  const runs = [];
+  for (const name of names) {
+    const run = subagentRun(join(folder, name));
+    if (run && (since === null || (typeof run.start === 'string' && run.start >= since))) runs.push({ ...run, key: handOffKey(run.prompt) });
+  }
+  return runs.sort((a, b) => (a.start ?? '').localeCompare(b.start ?? '')); // stable: equal starts stay in file-name order
+}
+
+// The time of the newest typed `/devkit` command that is not `/devkit status`, null when there is none or the file cannot be read:
+// the start of the window a retry is read in. A status check typed mid-run starts no window and erases no failure (stage-models D-4).
+export function typedSince(transcript) {
+  const events = transcriptEvents({ transcript_path: transcript }, { usage: true });
+  if (!events) return null;
+  let since = null;
+  for (const event of events) {
+    if (event.typed && /^(?:[\w-]+:)?devkit$/.test(event.typed.name) && !isDevkitVerb(event.typed, 'status')) since = event.at ?? null;
+  }
+  return since;
+}
+
+// The folder the host keeps its session folders in: `<config>/projects`, `<config>` being CLAUDE_CONFIG_DIR, else `~/.claude`.
+const projectsDir = (env) => join(env?.CLAUDE_CONFIG_DIR || join(env?.HOME || homedir(), '.claude'), 'projects');
+
 // The transcript of the session `env` names (CLAUDE_CODE_SESSION_ID): `<config>/projects/<folder>/<id>.jsonl`, null when the id is
 // unsafe, no such file exists or a read throws. It reads no file content (change-budget D-2).
 export function sessionTranscript(env) {
   const id = env?.CLAUDE_CODE_SESSION_ID;
   if (typeof id !== 'string' || !/^[A-Za-z0-9][\w-]*$/.test(id)) return null;
   try {
-    const base = env.CLAUDE_CONFIG_DIR || join(env.HOME || homedir(), '.claude');
-    const projects = join(base, 'projects');
+    const projects = projectsDir(env);
     for (const folder of readdirSync(projects).sort()) {
       const file = join(projects, folder, `${id}.jsonl`);
       if (existsSync(file)) return file;
     }
   } catch { return null; }
   return null;
+}
+
+// The token budget a `budget:` value gives (change-budget D-1): null when absent or empty, { cap } for a whole number above
+// zero that is a safe integer, else { invalid: raw }. Here and not in change-loop.mjs so that the stage readout, which change-loop.mjs
+// imports, reads the cap without importing it (stage-models D-7).
+export function budgetValue(raw) {
+  if (raw === undefined || raw === '') return null;
+  if (!/^\d+$/.test(raw)) return { invalid: raw };
+  const n = Number(raw);
+  return n > 0 && Number.isSafeInteger(n) ? { cap: n } : { invalid: raw };
 }
 
 // The run's spend in tokens (change-budget D-3): { spent, since } counted from the change's first `devkit-run:` line in the
@@ -881,6 +1022,136 @@ export function spentOf(transcript, change) {
   return { spent, since };
 }
 
+// ---------------------------------------------------------------- the spend readout (stage-models D-7)
+
+// The stage a hand-off's brief names: `Change <id> (<script>), stage <stage>:` (the loop's brief, `change-loop.mjs#decide`'s inner `brief`).
+export const STAGE_OF = /^Change \S+ \([^)]*\), stage ([\w-]+):/;
+
+// The families a spend line lists, in the order of the model values (cheapest first), `other` for a model id that names none.
+const FAMILY_ORDER = ['haiku', 'sonnet', 'opus', 'other'];
+
+// The text after the first `{` of a text, parsed: the action JSON the loop prints after its marker lines; null when it is not JSON.
+function jsonAfterMarkers(text) {
+  const from = text.indexOf('{');
+  if (from < 0) return null;
+  try { return JSON.parse(text.slice(from)); } catch { return null; }
+}
+
+// Where a change's tokens went (stage-models D-7): reads each transcript of `transcripts` (deduplicated) and the subagent files of its
+// session, and returns { change, stages: [{ stage, models: { <family>: tokens } }] in first-seen order, retries: [{ stage, from, to, tokens }], total }.
+// A session message counts in the stage of the change's newest `next` before it (the `devkit-run:` line and the JSON after it); a
+// subagent counts in the stage its brief names; each message id counts once per transcript, as the budget counts. A transcript that
+// cannot be read adds nothing and a cut-off line is skipped. A retry is a hand-off whose brief the hand-off before it of that brief
+// failed.
+export function spendOf(transcripts, change) {
+  const stages = [];
+  const retries = [];
+  let total = 0;
+  const add = (stage, family, tokens) => {
+    let entry = stages.find((e) => e.stage === stage);
+    if (!entry) { entry = { stage, models: {} }; stages.push(entry); }
+    entry.models[family] = (entry.models[family] ?? 0) + tokens;
+    total += tokens;
+  };
+  for (const transcript of new Set(transcripts)) {
+    const events = transcriptEvents({ transcript_path: transcript }, { usage: true });
+    if (!events) continue;
+    const seen = new Set();
+    const once = (usage) => {
+      if (usage.id === null) return true;
+      if (seen.has(usage.id)) return false;
+      seen.add(usage.id);
+      return true;
+    };
+    let current = null;
+    let stage = null;
+    for (const event of events) {
+      if (event.texts) {
+        const text = [...event.texts, event.stdout].find((t) => runMarkers(t).some((mark) => mark.run));
+        const run = text === undefined ? undefined : runMarkers(text).filter((mark) => mark.run).at(-1)?.run;
+        if (run !== undefined) {
+          current = run;
+          const stated = run === change ? jsonAfterMarkers(text)?.stage : null;
+          stage = typeof stated === 'string' ? stated : null;
+        }
+      } else if (event.usage && current === change && once(event.usage)) {
+        add(stage, familyOfId(event.usage.model) ?? 'other', event.usage.tokens);
+      }
+    }
+    const lastOfKey = new Map();
+    for (const record of handOffsOf(transcript, null)) {
+      if (typeof record.prompt !== 'string' || !record.prompt.startsWith(`Change ${change} (`)) continue;
+      const handed = STAGE_OF.exec(record.prompt)?.[1] ?? null;
+      let tokens = 0;
+      for (const usage of record.usage) {
+        if (!once(usage)) continue;
+        add(handed, usage.family ?? 'other', usage.tokens);
+        tokens += usage.tokens;
+      }
+      const before = record.key === null ? undefined : lastOfKey.get(record.key);
+      if (before?.failed) retries.push({ stage: handed, from: before.family ?? 'other', to: record.family ?? 'other', tokens });
+      if (record.key !== null) lastOfKey.set(record.key, record);
+    }
+  }
+  return { change, stages, retries, total };
+}
+
+// The transcripts a change's spend is read from (stage-models D-7): the calling session's, and every `*.jsonl` directly in the folder the
+// host keeps for the change's checkout `root`, each once. The main checkout's folder is not read by a worktree's readout.
+export function spendSources(env, root) {
+  const found = new Set();
+  const own = sessionTranscript(env);
+  if (own) found.add(own);
+  try {
+    const folder = join(projectsDir(env), String(root).replace(/[^A-Za-z0-9]/g, '-'));
+    for (const entry of readdirSync(folder, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.isFile() && entry.name.endsWith('.jsonl')) found.add(join(folder, entry.name));
+    }
+  } catch { /* the host kept no folder for this checkout */ }
+  return [...found];
+}
+
+// The rows of the spend block, in both languages (stage-models D-8). `{title}` is the stage's plain title, never `{stage}`.
+export const SPEND_MESSAGES = {
+  en: {
+    'spend-head': 'Spend of {id}, in tokens:',
+    'spend-stage': 'Stage {title}: {models}',
+    'spend-stage-none': 'Outside a stage: {models}',
+    'spend-retry': 'Stage {title}, a retry from {from} to {to}: {tokens}',
+    'spend-total': 'Total: {tokens} tokens of the budget {cap}',
+    'spend-total-none': 'Total: {tokens} tokens; no budget is set',
+  },
+  'pt-BR': {
+    'spend-head': 'Gasto de {id}, em tokens:',
+    'spend-stage': 'Etapa {title}: {models}',
+    'spend-stage-none': 'Fora de uma etapa: {models}',
+    'spend-retry': 'Etapa {title}, uma repetição de {from} para {to}: {tokens}',
+    'spend-total': 'Total: {tokens} tokens do orçamento {cap}',
+    'spend-total-none': 'Total: {tokens} tokens; nenhum orçamento definido',
+  },
+};
+
+// The lines of a change's spend block (stage-models D-7): none when no token was counted; else the head, one line per stage, one per
+// retry and the total against `cap` (a number) or without one. `titleOf` gives a stage's title in the person's language.
+export function spendLines(lang, spend, { cap, titleOf }) {
+  if (!spend.total) return [];
+  const rows = SPEND_MESSAGES[lang === 'en' ? 'en' : 'pt-BR'];
+  // `change-loop.mjs#render` cannot be called from here (it imports this file): the rows use only plain parameters, which it fills the same way.
+  const fill = (key, params) => rows[key].replace(/\{(\w+)\}/g, (_, name) => {
+    if (params[name] === undefined || params[name] === null) throw new TypeError(`spend row ${key} needs the parameter ${name}`);
+    return String(params[name]);
+  });
+  const modelsText = (models) => FAMILY_ORDER.filter((family) => family in models).map((family) => `${family} ${models[family]}`).join(', ');
+  return [
+    fill('spend-head', { id: spend.change }),
+    ...spend.stages.map((entry) => (entry.stage === null
+      ? fill('spend-stage-none', { models: modelsText(entry.models) })
+      : fill('spend-stage', { title: titleOf(entry.stage), models: modelsText(entry.models) }))),
+    ...spend.retries.map((retry) => fill('spend-retry', { title: titleOf(retry.stage), from: retry.from, to: retry.to, tokens: retry.tokens })),
+    cap ? fill('spend-total', { tokens: spend.total, cap }) : fill('spend-total-none', { tokens: spend.total }),
+  ];
+}
+
 // The marker lines of a tool-result event, read with `markers`: those in the `tool_result` blocks, else those in the stdout.
 function marksOf(event, markers) {
   const found = event.texts.flatMap((text) => markers(text));
@@ -888,8 +1159,28 @@ function marksOf(event, markers) {
 }
 
 // The first line of the first message of a session another session started, in the desktop app's form: this line, a background
-// paragraph, a line `Task:` and the task (roadmap-coordinator-followups D-4, ADR 0014).
+// paragraph, a line `Task:` and the task (roadmap-coordinator-followups D-4, ADR 0014). The app may put notes of its own before it, each a
+// `<system-reminder>` block (its list of linked sessions: roadmap-sessions-upfront D-1, review round 1 test-coverage F4); `startedTaskOf` skips them.
 export const STARTED_BY_SESSION = 'Background (from the session that started this one):';
+
+const NOTE_OPEN = '<system-reminder>';
+const NOTE_CLOSE = '</system-reminder>';
+
+// `lines` without the host's notes that lead the message: while the first non-blank line, trimmed, is `<system-reminder>`, the lines up to and including the
+// next line that, trimmed, is `</system-reminder>` are dropped, then the blank lines after them. null when a note is never closed; the lines as they are
+// when none leads.
+function withoutLeadingNotes(lines) {
+  let rest = lines;
+  let dropped = false;
+  for (;;) {
+    const first = rest.findIndex((line) => line.trim() !== '');
+    if (first < 0 || rest[first].trim() !== NOTE_OPEN) return dropped ? rest.slice(Math.max(first, 0)) : rest;
+    const close = rest.findIndex((line, at) => at > first && line.trim() === NOTE_CLOSE);
+    if (close < 0) return null;
+    rest = rest.slice(close + 1);
+    dropped = true;
+  }
+}
 
 // A slash command on one line: { name, args } when the line starts with `/`, else null.
 function commandOfLine(line) {
@@ -897,8 +1188,35 @@ function commandOfLine(line) {
   return found ? { name: found[1], args: (found[2] ?? '').trim() } : null;
 }
 
-// The slash command typed in a `user` line of the transcript: { name, args } from the `<command-name>` tag, else from a first line
-// that starts with `/`, else, in the form of a session another session started, from the first non-blank line after `Task:`;
+// The lines after the `Task:` line of a message in the started form (`STARTED_BY_SESSION` first line, after the host's leading notes), else null: the one
+// reader of that form (roadmap-sessions-upfront D-1). A session's task may be followed by lines of its own, such as the run's `devkit-start:` line.
+export function startedTaskOf(content) {
+  const lines = withoutLeadingNotes(String(content).split('\n'));
+  if (lines === null || lines[0]?.trim() !== STARTED_BY_SESSION) return null;
+  const task = lines.findIndex((line) => line.trim() === 'Task:');
+  return task < 0 ? null : lines.slice(task + 1);
+}
+
+// The line a roadmap run writes below the task of a change session it starts: the change id and the run's ticket for it.
+export const START_LINE = /^devkit-start: ([A-Za-z0-9][\w.-]*) ([0-9a-f]{16})[ \t]*\r?$/;
+
+// The string `message.content` of the first `user` line of the transcript that is neither `isMeta` nor a sidechain; null when that line's
+// content is no string, when there is no such line or no transcript path. A transcript that cannot be read throws (the entry fails closed).
+export function firstMessageOf(input) {
+  const file = input && input.transcript_path;
+  if (typeof file !== 'string' || !file) return null;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (!/"type"\s*:\s*"user"/.test(line)) continue;
+    let rec;
+    try { rec = JSON.parse(line); } catch { continue; }
+    if (rec?.type !== 'user' || rec.isMeta || rec.isSidechain) continue;
+    return typeof rec.message?.content === 'string' ? rec.message.content : null;
+  }
+  return null;
+}
+
+// The slash command typed in a `user` line of the transcript: { name, args } from the `<command-name>` tag, else, in the form of a session another session
+// started (after the host's leading notes), from the first non-blank line after `Task:`, else from the message's first line, which must start with `/`;
 // null when the line is no typed command. A command on a later line of any other message is no command.
 function typedOf(content) {
   const tag = /<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/.exec(content);
@@ -906,12 +1224,9 @@ function typedOf(content) {
     const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(content)?.[1] ?? '';
     return { name: tag[1], args: args.trim() };
   }
-  const lines = content.split('\n');
-  if (lines[0].trim() !== STARTED_BY_SESSION) return commandOfLine(lines[0]);
-  const task = lines.findIndex((line) => line.trim() === 'Task:');
-  if (task < 0) return null;
-  const first = lines.slice(task + 1).find((line) => line.trim() !== '');
-  return first === undefined ? null : commandOfLine(first);
+  const task = startedTaskOf(content);
+  const line = task === null ? content.split('\n')[0] : task.find((l) => l.trim() !== '');
+  return line === undefined ? null : commandOfLine(line);
 }
 
 // The text of a tool result block (a string, or a list of text blocks).
@@ -924,7 +1239,7 @@ const isDevkitVerb = (typed, verb) => /^(?:[\w-]+:)?devkit$/.test(typed.name) &&
 // The roadmap run a session is in, read from the transcript's events like `runOf` (design roadmap-coordinator D-11): { command, stopping }
 // when the newest typed slash command is `/devkit roadmap ...` (bare or plugin-scoped) and a tool result carrying a line
 // `devkit-roadmap: <n>` or `devkit-roadmap: stop` follows it; `stopping` is whether the newest such line says stop. A typed
-// `/devkit status` neither starts nor ends a run; any other typed slash command ends it. Pure: null when it cannot read the file.
+// `/devkit status` or `/devkit train` neither starts nor ends a run; any other typed slash command ends it. Pure: null when it cannot read the file.
 export function roadmapRunOf(input, events = transcriptEvents(input)) {
   if (!events) return null;
   const markers = (s) => [...String(s).matchAll(/^devkit-roadmap: (\d{1,2}|stop)[ \t]*\r?$/gm)].map((m) => m[1]);
@@ -932,7 +1247,7 @@ export function roadmapRunOf(input, events = transcriptEvents(input)) {
   let stopping = null;
   for (const event of events) {
     if (event.typed) {
-      if (!isDevkitVerb(event.typed, 'status')) {
+      if (!isDevkitVerb(event.typed, 'status') && !isDevkitVerb(event.typed, 'train')) {
         command = isDevkitVerb(event.typed, 'roadmap') ? event.typed : null;
         stopping = null;
       }
@@ -1048,9 +1363,46 @@ function guardBash(input) {
 const LOCKS = { stop: 'stopDecision', 'subagent-stop': 'subagentStopDecision', agent: 'agentDecision' };
 const ROADMAP_LOCKS = { stop: 'roadmapStopDecision', 'subagent-stop': 'roadmapSubagentStopDecision', agent: 'roadmapAgentDecision' };
 
+// With DEVKIT_HOOK_LOG naming a file, every decision is appended to it as one JSON line; a log that cannot be written never blocks anything.
+function logDecision(mode, input, d) {
+  const file = process.env.DEVKIT_HOOK_LOG;
+  if (!file) return;
+  try {
+    appendFileSync(file, `${JSON.stringify({
+      at: new Date().toISOString(), mode, session: input.session_id ?? null,
+      agentType: input.agent_type ?? input.tool_input?.subagent_type ?? null, change: d.change ?? null,
+      decision: d.decision, why: d.why,
+    })}\n`);
+  } catch { /* a log that cannot be written never blocks anything */ }
+}
+
+// The entry skill of a change session a roadmap run started (roadmap-sessions-upfront D-1), and whether the input of a Skill call names it: some string value
+// of `tool_input` is that name or ends in `:devkit-session`. The host's field name for the skill is not documented, so any string field counts.
+export const ENTRY_SKILL = 'devkit-session';
+export function namesEntrySkill(toolInput) {
+  return Object.values(toolInput ?? {}).some((v) => typeof v === 'string' && (v === ENTRY_SKILL || v.endsWith(`:${ENTRY_SKILL}`)));
+}
+
+// `skill`: PreToolUse on the Skill tool. The entry skill of a change session a roadmap run started runs only on the run's ticket
+// (`entryDecision` of roadmap-loop.mjs); every other skill is let through. The raw input is tested first, with no import, so a roadmap-loop.mjs that cannot
+// load never refuses another skill (review round 1, code-quality F2); a call of the entry skill fails closed on any error, the import included: the owner's
+// typed `/devkit change` still runs the change. It does not depend on the project's opt-in.
+async function skillEntry(input) {
+  let d;
+  if (!namesEntrySkill(input?.tool_input)) d = { decision: 'allow', why: 'not-entry' };
+  else {
+    try {
+      const loop = await import('./roadmap-loop.mjs');
+      d = loop.entryDecision(input, { env: process.env });
+    } catch { d = { decision: 'refuse', why: 'unreadable', reason: 'the entry could not be checked; the owner can run this change by typing /devkit change <id> in this session' }; }
+  }
+  logDecision('skill', input, d);
+  if (d.decision === 'refuse') block(d.reason);
+}
+
 // `stop`, `subagent-stop` and `agent`: the decision is roadmap-loop.mjs's in a `/devkit roadmap` run (`roadmapRunOf`), else
 // change-loop.mjs's, which gets the scanned `events` and does not read the transcript again (each imported dynamically, as `ci` imports deliver-check.mjs), refusing with exit 2 and the reason on stderr.
-// Any error of the lock lets the action through. With DEVKIT_HOOK_LOG naming a file, every decision is appended to it as one JSON line.
+// Any error of the lock lets the action through; each decision is logged as `logDecision` says.
 async function lock(mode, input) {
   const root = findRoot(input.cwd);
   if (!root || !optedIn(root)) return;
@@ -1061,21 +1413,15 @@ async function lock(mode, input) {
     if (run) {
       const loop = await import('./roadmap-loop.mjs');
       d = loop[ROADMAP_LOCKS[mode]](input, { env: process.env, run });
+    } else if (mode === 'stop') { // a change session a roadmap run started may stop while it waits; any other is the change loop's (roadmap-sessions-upfront D-6)
+      const loop = await import('./roadmap-loop.mjs');
+      d = loop.changeSessionStopDecision(input, { env: process.env, events });
     } else {
       const loop = await import('./change-loop.mjs');
       d = loop[LOCKS[mode]](input, { env: process.env, events });
     }
   } catch { d = { decision: 'allow', why: 'error' }; }
-  const file = process.env.DEVKIT_HOOK_LOG;
-  if (file) {
-    try {
-      appendFileSync(file, `${JSON.stringify({
-        at: new Date().toISOString(), mode, session: input.session_id ?? null,
-        agentType: input.agent_type ?? input.tool_input?.subagent_type ?? null, change: d.change ?? null,
-        decision: d.decision, why: d.why,
-      })}\n`);
-    } catch { /* a log that cannot be written never blocks anything */ }
-  }
+  logDecision(mode, input, d);
   if (d.decision === 'refuse') block(d.reason);
 }
 
@@ -1280,5 +1626,6 @@ if (isMain()) {
   else if (mode === 'edit') guardEdit(readStdin());
   else if (mode === 'bash') guardBash(readStdin());
   else if (mode === 'session') session(readStdin());
+  else if (mode === 'skill') skillEntry(readStdin());
   else if (Object.hasOwn(LOCKS, mode)) lock(mode, readStdin());
 }

@@ -3,6 +3,7 @@
 - Status: accepted
 - Amended by ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md)
 - Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
+- Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), the bullet of decision 8 that answers ADR 0005's "One subagent per whole change"; ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md), decisions 1 and 2, which name only /devkit change
@@ -21,6 +22,9 @@ Note (remote-worker, 2026-11-22): with the person's machines setting set, a star
 no machine can take it, and the run file also holds the changes opened for another machine
 ([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Decisions 1 to 3 and 5 are otherwise
 unchanged.
+
+Note (roadmap-sessions-upfront, 2026-11-22): decision 4 names the fields [ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md) adds.
+Decisions 1 to 3 and 5 are otherwise unchanged.
 
 ADR 0010 decision 2 asks for a roadmap coordinator that starts every change whose after:
 dependencies are archived, several at once up to a number the owner sets per run. Its decision 8
@@ -75,6 +79,10 @@ background, to be settled by a probe before anything is built on it.
    - the session that runs the run (`session`);
    - whether each change runs in a session of its own (`changeSessions`), which change sessions were
      started (`startedSessions`) and what started the last turn (`turn`), as ADR 0014 decides;
+   - the start tickets (`tickets`), the places held (`occupied`), the changes waiting for one
+     (`queued`), the start-anyway of the moment (`anyway`), the wait loops under way (`waits`),
+     whether the host offers a session cron (`cron`) and the periodic check (`check`), as ADR 0021
+     decides;
    - which changes the run opened for another machine (`placed`), as ADR 0020 decides;
    - the form of the file and its last write (`version`, `updatedAt`).
 

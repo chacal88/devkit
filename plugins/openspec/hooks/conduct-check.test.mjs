@@ -1,64 +1,17 @@
-// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/conduct-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpFolder, tmpRoot } from './test-tmp.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
-import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, cleanEnv, real, roundRepo, pinDoc, underOwnTmp, MERGE_CONFIG, MERGE_FILES, presetMerge } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
-import { pinDoc } from './release-merge.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
-import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
+import { conductState, planningStep, dependencyStep, deliveryStep, deliveryRow, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
 // ---------------------------------------------------------------- fixture harness (task 2.1)
-
-const CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n  devkit: pr\n';
-const cleanEnv = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '', DEVKIT_HOST: 'cli' };
-const real = (p) => realpathSync(p);
-
-// A bare origin with main, a clone (the "main checkout") and, per path, its own fake gh.
-export function roundRepo({ roadmap, config = CONFIG, files = {}, changes = {} } = {}) {
-  const clone = gitRepo({ config, changes, files: { 'openspec/roadmap.md': roadmap, ...files } });
-  const originDir = tmpFolder('devkit-origin-');
-  git(originDir, 'init', '-q', '--bare', '-b', 'main');
-  git(clone, 'remote', 'add', 'origin', originDir);
-  git(clone, 'push', '-q', 'origin', 'main');
-  git(clone, 'fetch', '-q', 'origin');
-  const main = real(clone);
-  const ghs = new Map();
-  const ghAt = (path) => {
-    const key = real(path);
-    if (!ghs.has(key)) {
-      const g = fakeGh();
-      g.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main', allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true } });
-      g.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "x"\n' });
-      g.set('pr-list', { stdout: [] });
-      ghs.set(key, g);
-    }
-    return ghs.get(key);
-  };
-  const t = {
-    main, originDir, ghAt,
-    ghFor: (r) => makeGh(r, ghAt(r).env),
-    wtPath: (id) => join(main, '.claude', 'worktrees', id),
-    addWt(id, { path = t.wtPath(id), from = 'origin/main', branch = id } = {}) {
-      git(main, 'worktree', 'add', '-q', '-b', branch, path, from);
-      return real(path);
-    },
-    // Put files on origin/main (committed in the main checkout, then pushed).
-    commitOrigin(files, message = 'origin change') {
-      put(main, files);
-      const sha = commitAll(main, message);
-      git(main, 'push', '-q', 'origin', 'main');
-      return sha;
-    },
-    originSha: () => git(main, 'rev-parse', 'origin/main'),
-    state: (opts = {}, root = main) => conductState(root, { env: cleanEnv, ghFor: t.ghFor, ...opts }),
-  };
-  return t;
-}
 
 const roadmapOf = (...rounds) => `# Roadmap\n\n${rounds.map(([title, ...lines]) => `## ${title}\n${lines.join('\n')}\n`).join('\n')}`;
 const byId = (res, id) => res.changes.find((c) => c.id === id);
@@ -604,8 +557,6 @@ const prJson = (id, over = {}) => ({
 const check = (name, bucket) => ({ name, state: bucket.toUpperCase(), bucket, link: `https://ci/${name}` });
 const headOf = (wt) => git(wt, 'rev-parse', 'HEAD');
 const NO_TALK = { data: { viewer: { login: 'me' }, repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { nodes: [] }, reviews: { nodes: [] } } } } };
-export const MERGE_CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: merge\n  devkit: merge\nmerge_method: squash\n';
-export const MERGE_FILES = { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' };
 
 function writeReviews(wt, id, sha) {
   const review = `Verdict: approved\nCommit: ${sha}\n\n# Review\n`;
@@ -622,10 +573,6 @@ function readyChange(wt, id, { files = {} } = {}) {
   const sha = commitAll(wt, 'code');
   writeReviews(wt, id, sha);
   commitAll(wt, 'reviews and evidence');
-}
-export function presetMerge(g) {
-  g.set('api-GET-repos__owner___repo__rules_branches_main', { stdout: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }] });
-  g.set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' });
 }
 function openPr(t, wt, id, over = {}) {
   const g = t.ghAt(wt);
@@ -1442,7 +1389,6 @@ test('conduct: unfinished names the dirty paths and the half-done phase together
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const PIN_DOC = 'docs/openspec-flow.md';
-const pinTmpFolders = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
 // A round whose change and origin both edit CHANGELOG.md and docs/openspec-flow.md.
 function pinConflictRepo({ change, origin }) {
@@ -1461,14 +1407,14 @@ test('conduct pin: a change PR whose only conflicts are release files and the CI
   const { t, b } = pinConflictRepo({ change: pinDoc('0.10.1', { bottom: 'BOTTOM B' }), origin: pinDoc('0.11.0', { top: 'TOP A' }) });
   const head = headOf(b);
   const status = git(b, 'status', '--porcelain');
-  const before = pinTmpFolders();
-  const c = byId(t.state(), 'b');
+  const { value: c, left } = underOwnTmp(() => byId(t.state(), 'b'));
   assert.deepEqual(planStep(c), ['resolve-release-conflict', 'subagent']);
   assert.deepEqual(c.next.paths, ['CHANGELOG.md', PIN_DOC]);
   assert.match(c.next.reason, /and the CI pin/);
   assert.equal(headOf(b), head);
   assert.equal(git(b, 'status', '--porcelain'), status);
-  assert.deepEqual(pinTmpFolders(), before);
+  // The state read also makes the folder of its fake gh (devkit-gh-*, the harness's own); the invariant is the pin folder.
+  assert.deepEqual(left.filter((f) => f.startsWith('devkit-pin-')), [], 'the state read leaves no devkit-pin-* folder');
 });
 
 test('conduct pin: both sides editing one paragraph of docs/openspec-flow.md is blocked (AC-2)', () => {
@@ -1533,4 +1479,82 @@ test('stage-roles flow conduct-check: the short script is asked for no decisions
   const b = t.addWt('b');
   writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit-lite\n', 'requirements.md': '# Requirements\n' });
   assert.deepEqual(byId(t.state(), 'b').next.missing, ['proposal.md', 'tasks.md']);
+});
+
+// ---------------------------------------------------------------- ADR numbers the base took (roadmap-sessions-upfront D-10, AC-11)
+
+const ADR_BODY = (n, name) => `# ADR ${n}: ${name}\n\nStatus: proposed\n`;
+// A round whose change `b` adds `branch` files (path -> text) after it forked, while origin/main gains `origin`.
+function adrRepo({ branch, origin = {} }) {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), files: { 'docs/adr/0001-first.md': ADR_BODY('1', 'first') } });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: branch });
+  if (Object.keys(origin).length) t.commitOrigin(origin, 'origin adds records');
+  openPr(t, b, 'b');
+  return { t, b };
+}
+
+// Invariant (AC-11, conduct-check, conduct): an ADR number the default branch gave another file is renumbered by the implementer, never asked of the owner.
+test('upfront AC-11 adr: a number the base gave another file is renumbered to the next free one', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0016-b.md': ADR_BODY('16', 'b'), 'docs/adr/0017-c.md': ADR_BODY('17', 'c') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['renumber-adr', 'subagent']);
+  assert.equal(c.next.agent, TDD);
+  assert.deepEqual(c.next.files, [{ from: 'docs/adr/0016-a.md', to: 'docs/adr/0018-a.md', number: '0018' }]);
+  assert.match(c.next.reason, /an ADR number the base took: renumber docs\/adr\/0016-a\.md to docs\/adr\/0018-a\.md and every reference/);
+});
+
+test('upfront AC-11 adr: the folder docs/decisions is read like docs/adr', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/decisions/0005-a.md': ADR_BODY('5', 'a') },
+    origin: { 'docs/decisions/0005-b.md': ADR_BODY('5', 'b') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['renumber-adr', 'subagent']);
+  assert.deepEqual(c.next.files, [{ from: 'docs/decisions/0005-a.md', to: 'docs/decisions/0006-a.md', number: '0006' }]);
+});
+
+test('upfront AC-11 adr: no clash gives no step', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0015-b.md': ADR_BODY('15', 'b'), 'docs/decisions/0016-c.md': ADR_BODY('16', 'c') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.notEqual(c.next.step, 'renumber-adr', 'a number in another folder is no clash');
+  assert.equal(c.next.files, undefined);
+});
+
+test('upfront AC-11 adr: the same file on both gives no step', () => {
+  const same = { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') };
+  const { t } = adrRepo({ branch: same, origin: same });
+  assert.notEqual(byId(t.state(), 'b').next.step, 'renumber-adr');
+});
+
+test('upfront AC-11 adr: two clashes take the next two numbers in order', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0017-b.md': ADR_BODY('17', 'b'), 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0016-x.md': ADR_BODY('16', 'x'), 'docs/adr/0017-y.md': ADR_BODY('17', 'y') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['renumber-adr', 'subagent']);
+  assert.deepEqual(c.next.files, [
+    { from: 'docs/adr/0016-a.md', to: 'docs/adr/0018-a.md', number: '0018' },
+    { from: 'docs/adr/0017-b.md', to: 'docs/adr/0019-b.md', number: '0019' },
+  ]);
+});
+
+test('upfront AC-11 adr: an unresolvable base gives no step', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0016-b.md': ADR_BODY('16', 'b') },
+  });
+  const wt = t.wtPath('b');
+  const ctx = { root: t.main, ref: 'origin/no-such-branch', base: 'no-such-branch' };
+  const row = { id: 'b', worktree: wt };
+  const report = { summary: 's', met: [], next: { step: 'wait-checks', reason: 'r' } };
+  const out = deliveryRow(ctx, row, { state: {}, report });
+  assert.notEqual(out.next.step, 'renumber-adr');
 });
