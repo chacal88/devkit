@@ -1,6 +1,7 @@
 # ADR 0030: The pin test reads the manifest, so only the flow page's pins pass the archive check unnamed
 
-- Status: proposed
+- Status: accepted
+- Accepted by: the owner, on 2026-11-24, in the approval of the plan of change archive-release-pin (openspec/changes/archive-release-pin/approval.md)
 - Date: 2026-11-24
 - Change: archive-release-pin
 - Amends: ADR 0027 (0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md), the test-file half of its Decision 1, its Decision 2 for that file, and the alternative "The test reads the current pin from the manifest", which it had left for later; ADR 0003 (0003-auto-merge-the-archive-pr.md), the exemption list of its Decision as ADR 0027 amended it

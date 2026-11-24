@@ -1,7 +1,7 @@
-<!-- devkit-stage approval result=passed attempt=1 commit=d2010cafc71627b2d8d365d75af477fbecd0e736 -->
+<!-- devkit-stage approval result=passed attempt=2 commit=435238b2cb733b662710194ef5789ce6e0ae4b57 -->
 # Plan approval: archive-release-pin
 
 - Status: APPROVED
-- Readiness: sha256:dd9c7f17cdef
-- Date: 2026-11-23
-- Owner's words: "`Aprovo o plano`"
+- Readiness: sha256:22526aa15c93
+- Date: 2026-11-24
+- Owner's words: "`Aprovo a emenda`"
