@@ -4,15 +4,17 @@
 # Validate with: compozy config validate
 
 [defaults]
-# Agent used when a command/session does not name one: the project's planner (see agents/).
-agent = "tech-lead"
+# Agent used when a command/session does not name one: the change coordinator, the hands of the
+# devkit loops (see agents/).
+agent = "change-coordinator"
 # Provider for AGENT.md files that do not declare one. Uses the native Claude Code login.
 provider = "claude"
 
 [permissions]
-# Default level for this workspace's agents. The delivery agents (tech-lead, dev, qa, design)
-# declare approve-all in their AGENT.md: the Loop gates, the devkit hooks and the agent rules hold
-# the oversight (a Loop judge session cannot start under approve-all, so the loop has no judge).
+# Default level for this workspace's agents. The kit's agents (change-coordinator, tdd-implementer,
+# the reviewers and the rest of agents/) declare approve-all in their AGENT.md: the Loop gates, the
+# devkit hooks and the agent rules hold the oversight (a Loop judge session cannot start under
+# approve-all, so the loops have no judge).
 mode = "approve-edits"
 
 [skills]

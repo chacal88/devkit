@@ -15,6 +15,7 @@ import * as changeLoopModule from './change-loop.mjs';
 import { approvalState } from './deliver-check.mjs';
 import { roundRepo } from './conduct-check.test.mjs';
 import { readCounter } from './change-loop.test.mjs';
+import { fakeCompozy } from './compozy-driver.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
 import { limitOf, readLoad, parseWord, gateOf, isPrevious, classifyLines, decideRoadmap, boardOf, draftText } from './roadmap-loop.mjs';
@@ -23,7 +24,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SCHEMAS = join(HERE, '..', 'schemas');
 
 // Every env a test of this file builds blanks the branch variables together (CONTRIBUTING.md, testing rules).
-const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
 const cleanEnv = { ...process.env, ...SET };
 
 const FLOWS = Object.fromEntries(['devkit', 'devkit-lite'].map((s) => [s, JSON.parse(readFileSync(join(SCHEMAS, s, 'flow.json'), 'utf8'))]));
@@ -87,27 +88,27 @@ const clsOf = (classified) => Object.fromEntries(classified.map((l) => [l.id, l.
 
 // The actions of change-loop as decideRoadmap reads them (the fields of a real action, nothing the loop does not read).
 const base = (id) => ({ version: 1, change: id, script: 'devkit', root: `/w/${id}`, branch: id, filesLanguage: 'en' });
-const agentAct = (id, stage = 'proposal', over = {}) => ({
+export const agentAct = (id, stage = 'proposal', over = {}) => ({
   ...base(id), kind: 'agent', stage, stageTitle: 'Proposal', role: 'change-planner', skills: [], agent: 'devkit-core:change-planner',
-  brief: `Change ${id} (devkit script), stage ${stage}: write the plan.`, progressKey: `${stage}/${stage}@abc123`, ...over,
+  brief: `Change ${id} (devkit script), stage ${stage}: write the plan.`, progressKey: `${stage}/${stage}@abc123`, model: 'opus', ...over,
 });
 const sessionAct = (id, step = 'review', over = {}) => ({
   ...base(id), kind: 'session', stage: 'review', stageTitle: 'Code review', role: 'change-coordinator', skills: [], step, progressKey: `review/${step}@abc123`, ...over,
 });
-const grillAct = (id) => ({
-  ...base(id), kind: 'grill', stage: 'requirements', stageTitle: 'Requirements', role: 'change-coordinator', skills: ['requirements-grill'], progressKey: 'requirements@abc123',
+export const grillAct = (id) => ({
+  ...base(id), kind: 'grill', stage: 'requirements', stageTitle: 'Requirements', role: 'change-coordinator', skills: ['requirements-grill'], progressKey: 'requirements@abc123', model: 'opus',
 });
 const endAct = (id, state, why, params = {}, over = {}) => ({
   ...base(id), kind: 'end', stage: null, stageTitle: null, role: null, skills: [], end: { state, why }, params: { id, ...params }, reply: 'x', ...over,
 });
-const ownerAct = (id, why = 'waiting-approval') => endAct(id, 'waiting-for-owner', why, {}, { stage: 'approval', stageTitle: 'Plan approval' });
+export const ownerAct = (id, why = 'waiting-approval') => endAct(id, 'waiting-for-owner', why, {}, { stage: 'approval', stageTitle: 'Plan approval' });
 const githubAct = (id, what = 'merge') => endAct(id, 'waiting-on-github', 'waiting-github', { what }, { stage: 'delivery', stageTitle: 'Delivery' });
 const blockedAct = (id, why, params = {}) => endAct(id, 'blocked', why, { why, ...params });
 const archivedAct = (id) => endAct(id, 'archived', 'archived');
 const FLYING = { kind: 'agent', stage: 'proposal', agentType: 'change-planner', at: '2026-11-21T10:00:00.000Z' };
 
 // The facts of one decision: a roadmap, what is archived, the open changes' actions and the run's bookkeeping.
-function world(over = {}) {
+export function world(over = {}) {
   const { lines = [], archived = [], actions = {}, previous = [], declared = {}, inflight = {}, openExtra = [], ...rest } = over;
   const open = [...Object.keys(actions), ...Object.keys(inflight), ...previous, ...openExtra];
   return {
@@ -582,7 +583,7 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
     'waiting-approval': 'approval', 'waiting-approval-again': 'approval', 'waiting-retro': 'retro', 'waiting-merge': 'merge',
     'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
     'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
-    'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge',
+    'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge', 'waiting-train': 'train',
   };
   const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github' && k !== 'waiting-place');
   assert.deepEqual([...waits].sort(), Object.keys(expected).sort(), 'every waiting- key of the table is covered');
@@ -758,20 +759,20 @@ test('roadmap-loop draft: the text is one round with an unticked line per change
 
 const OFFLINE = () => ({ status: 1, stdout: '', stderr: 'offline' });
 const LOOP_FILE = join(HERE, 'roadmap-loop.mjs');
-const FLAGS = ['--lang', 'en', '--load-limit', '80'];
-const roadmapText = (...lines) => `# Roadmap\n\n## Round 1: flags\n${lines.map((l) => `- ${l}`).join('\n')}\n`;
-const projectWith = (roadmap, { config = 'schema: devkit\n' } = {}) => gitRepo({ config, files: roadmap === null ? {} : { 'openspec/roadmap.md': roadmap } });
+export const FLAGS = ['--lang', 'en', '--load-limit', '80'];
+export const roadmapText = (...lines) => `# Roadmap\n\n## Round 1: flags\n${lines.map((l) => `- ${l}`).join('\n')}\n`;
+export const projectWith = (roadmap, { config = 'schema: devkit\n' } = {}) => gitRepo({ config, files: roadmap === null ? {} : { 'openspec/roadmap.md': roadmap } });
 const titleEn = (stage) => FLOWS.devkit.stages.find((s) => s.id === stage).title.en;
 
 // One command of roadmap-loop, with no GitHub and the load handed in (a percentage).
-const cmd = (cwd, argv, { stdin = '', load = 10, env = cleanEnv, ...rest } = {}) => loopModule.main(argv, { cwd, env, stdin, gh: OFFLINE, load: () => load, ...rest });
-const doRun = (cwd, word = '', { session = 'S1', extra = [], ...opts } = {}) => cmd(cwd, ['run', ...FLAGS, '--session', session, ...extra], { stdin: word, ...opts });
-const doNext = (cwd, extra = [], opts = {}) => cmd(cwd, ['next', ...FLAGS, ...extra], opts);
-const doStatus = (cwd, opts = {}) => cmd(cwd, ['status', ...FLAGS], opts);
-const jsonOf = (stdout) => { const lines = stdout.split('\n'); return JSON.parse(lines.slice(lines.indexOf('{')).join('\n')); };
+export const cmd = (cwd, argv, { stdin = '', load = 10, env = cleanEnv, ...rest } = {}) => loopModule.main(argv, { cwd, env, stdin, gh: OFFLINE, load: () => load, ...rest });
+export const doRun = (cwd, word = '', { session = 'S1', extra = [], ...opts } = {}) => cmd(cwd, ['run', ...FLAGS, '--session', session, ...extra], { stdin: word, ...opts });
+export const doNext = (cwd, extra = [], opts = {}) => cmd(cwd, ['next', ...FLAGS, ...extra], opts);
+export const doStatus = (cwd, opts = {}) => cmd(cwd, ['status', ...FLAGS], opts);
+export const jsonOf = (stdout) => { const lines = stdout.split('\n'); return JSON.parse(lines.slice(lines.indexOf('{')).join('\n')); };
 const runFileOf = (cwd) => loopModule.runFilePath(cwd);
-const stateOf = (cwd) => JSON.parse(readFileSync(runFileOf(cwd), 'utf8'));
-const putRun = (cwd, patch) => {
+export const stateOf = (cwd) => JSON.parse(readFileSync(runFileOf(cwd), 'utf8'));
+export const putRun = (cwd, patch) => {
   mkdirSync(dirname(runFileOf(cwd)), { recursive: true });
   writeFileSync(runFileOf(cwd), JSON.stringify({
     version: 1, session: 'S1', places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [], held: false, holding: false,
@@ -779,10 +780,10 @@ const putRun = (cwd, patch) => {
   }));
 };
 // The event lines a command shows: the ones it printed itself, then the `lines` of its decision.
-const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsWith('▸ ')), ...jsonOf(stdout).lines];
+export const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsWith('▸ ')), ...jsonOf(stdout).lines];
 // `flow` is the version the change records as `x-devkit-flow`; null records none (a change opened before devkit-openspec 0.31.0).
 const pinLine = (flow) => (flow === null ? '' : `x-devkit-flow: ${flow}\n`);
-const addOpen = (root, id, flow = null) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pinLine(flow)}` }); commitAll(root, `open ${id}`); };
+export const addOpen = (root, id, flow = null) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pinLine(flow)}` }); commitAll(root, `open ${id}`); };
 const pinFlow = (root, id, flow) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pinLine(flow)}` }); commitAll(root, `${id} follows flow ${flow}`); };
 // The mark of a watch of the load that runs: this process (design roadmap-coordinator-followups D-7).
 const WATCH = { pid: process.pid, at: '2026-11-21T10:00:00.000Z' };
@@ -801,7 +802,7 @@ test('roadmap-loop start: roadmap and status are routed', () => {
     assert.equal(b.reply, undefined, 'no reply: the skill calls roadmap-loop');
   }
   // After the project gate, as for the change verb.
-  for (const config of ['schema: spec-driven\n', 'schema: devkit\ndevkit:\n  driver: robot\n', 'schema: devkit\ndevkit:\n  driver: compozy\n']) {
+  for (const config of ['schema: spec-driven\n', 'schema: devkit\ndevkit:\n  driver: robot\n', 'schema: devkit\ndevkit:\n  driver: script\n']) {
     const cwd = gitRepo({ config });
     const asked = JSON.parse(startRun(cwd, 'change add a thing').stdout);
     for (const verb of ['roadmap', 'status']) {
@@ -809,11 +810,17 @@ test('roadmap-loop start: roadmap and status are routed', () => {
       assert.deepEqual([b.mode, b.reply], [asked.mode, asked.reply], `${verb} in ${config}`);
     }
   }
+  // The compozy driver passes the gate for both verbs: the modes are the Claude driver's, with the driver named for the skill (compozy-driver D-1, D-7).
+  const onCompozy = gitRepo({ config: 'schema: devkit\ndevkit:\n  driver: compozy\n' });
+  for (const verb of ['roadmap', 'status']) {
+    const b = JSON.parse(startRun(onCompozy, verb).stdout);
+    assert.deepEqual([b.mode, b.verb, b.settings.driver, b.reply], [verb, verb, 'compozy', undefined], `${verb} on compozy`);
+  }
   // The verbs of later rounds keep their round; an unknown verb names the three commands that exist.
   for (const [verb, round] of [['help', 23]]) assert.equal(JSON.parse(startRun(root, verb).stdout).reply, render('en', 'verb-not-built', { verb, round }));
   assert.notEqual(JSON.parse(startRun(root, 'project').stdout).mode, 'not-built', 'project leaves the not-built row');
   assert.match(render('en', 'verb-unknown'), /\/devkit change.*\/devkit roadmap.*\/devkit status.*\/devkit project/);
-  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status e \/devkit project/);
+  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project e \/devkit train/);
   assert.equal(JSON.parse(startRun(root, 'frobnicate', 'pt-BR').stdout).reply, render('pt-BR', 'verb-unknown'));
   assert.equal(picture(root), before, 'start creates nothing');
 });
@@ -1841,7 +1848,7 @@ test('roadmap-loop skill: every roadmap-loop command carries the person\'s langu
 test('roadmap-loop skill: the frontmatter and the start modes name the roadmap and the status', () => {
   const md = skillMd();
   const fm = md.split('---')[1];
-  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| project \[<name>\]"$/m);
+  assert.match(fm, /^argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| train \| project \[<name>\]"$/m);
   const desc = /^description: (.*)$/m.exec(fm)[1];
   assert.match(desc, /\/devkit roadmap \[<n>\] runs the roadmap's ready changes, several at once, and \/devkit status shows where everything is/);
   assert.match(desc, /Use when the owner types \/devkit.*\/devkit roadmap.*\/devkit status/);
@@ -1864,7 +1871,8 @@ test('roadmap-loop skill: background hand-offs, one change per question, and the
   assert.match(roadmap, /`hold`: start `node <skill-dir>\/\.\.\/\.\.\/hooks\/roadmap-loop\.mjs hold[^`]*` with the Bash tool's background option/);
   assert.ok(roadmap.includes('--after <id>=<progressKey of its action>'), 'a returned subagent passes the key of its action');
   assert.match(roadmap, /when a wait or a hold ends, run the same call with no `--after`/);
-  assert.match(roadmap, /`Outcome: failure` is declared with `node [^`]*roadmap-loop\.mjs reply blocked --param id=<id> --param why=role-failed/);
+  assert.match(roadmap, /`Outcome: failure` is reported like its success, with `--after <id>=<progressKey of its action>`/);
+  assert.ok(!roadmap.includes('why=role-failed'), 'a failed agent is the loop\'s end, not the session\'s');
   // One change per question; the answer belongs to that change only.
   assert.match(roadmap, /The owner is asked one change at a time\. `ask` names the change at the head of the owner's queue/);
   assert.match(roadmap, /naming that change in the question \(the grill's questions included/);
@@ -2322,7 +2330,7 @@ test('followups F-2 skill: start anyway only on the owner\'s own message, with b
 // ================================================================ roadmap-coordinator-followups, phase 3: a session per change, the turn
 
 const AT = '2026-11-21T10:00:00.000Z';
-const START_FIELDS = ['background', 'context', 'cwd', 'initiation', 'name', 'prompt', 'title', 'use_worktree'];
+const START_FIELDS = ['background', 'context', 'cwd', 'initiation', 'model', 'name', 'prompt', 'title', 'use_worktree'];
 // The facts of a run with a session per change (design D-3): the coordinating session `S-main`, the turn named by the caller.
 const sessionWorld = (over = {}) => world({ changeSessions: true, coordinator: 'S-main', turn: 'typed', startedSessions: {}, ...over });
 const linesOf = (r) => r.lines;
@@ -2335,9 +2343,9 @@ test('followups F-3 decide: with a session per change the coordinator hands no s
   const [a, b] = r.actions;
   assert.deepEqual([a.cwd, a.title, a.progressKey], ['/w/a', '📝 a', 'session-start']);
   assert.deepEqual([b.cwd, b.title, b.input.title], ['/w/b', '🙋 ❓ b', '🙋 ❓ b']);
-  assert.deepEqual(Object.keys(a.input).sort(), START_FIELDS, 'the eight fields of the start tool and no other');
+  assert.deepEqual(Object.keys(a.input).sort(), START_FIELDS, 'the nine fields of the start tool and no other');
   assert.deepEqual(a.input, {
-    initiation: 'user_asked', context: 'fresh', title: '📝 a', name: loopModule.sessionName('a'), cwd: '/w/a', use_worktree: false,
+    initiation: 'user_asked', context: 'fresh', title: '📝 a', name: loopModule.sessionName('a'), cwd: '/w/a', use_worktree: false, model: 'opus',
     prompt: '/devkit-openspec:devkit change a',
     background: loopModule.sessionBackground({ id: 'a', root: '/w/a', branch: 'a', coordinator: 'S-main', lang: 'en' }),
   });
@@ -2664,7 +2672,7 @@ test('followups AC-13 skill: the session-per-change part names the tools, the li
   assert.ok(wake[0].startsWith('- `wake`:') && wake[0].includes('select:SendMessage') && wake[0].includes('the action\'s `message` exactly as given'), 'that line is the wake item');
   assert.doesNotMatch(md.replace(wake[0], ''), /SendMessage/, 'no message tool outside the wake item');
   const never = md.slice(md.indexOf('## Never'));
-  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s other gates or start a wait on GitHub from this session, start a change session `next` did not return, call the session-start tool with any input but the action\'s `input`, start a session for a change on another machine the run did not open, or send a `wake` message `next` did not return'));
+  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s other gates or start a wait on GitHub from this session, start a change session `next` did not return, call the session-start tool with any input but the action\'s `input`, start a session for a change on another machine the run did not open, send a `wake` message `next` did not return, switch a session\'s model to one `next` did not return, or switch any session up'));
 });
 
 test('followups AC-14 skill: a change session renames its title from the sessionTitle of each next', () => {
@@ -2749,6 +2757,234 @@ test('followups ADR 0014: the documents follow', () => {
   for (const f of [['README.md'], ['docs', 'roles.md'], ['docs', 'coordination-design.md']]) {
     assert.match(read(...f), /ADR 0014/, `${f.join('/')} cites ADR 0014`);
   }
+});
+
+// ---------------------------------------------------------------- the roadmap on CompozyOS (compozy-driver D-7)
+
+const COMPOZY_CONFIG = 'schema: devkit\ndevkit:\n  driver: compozy\n';
+const COMPOZY_READY = {
+  'workspace info': { stdout: { workspace: { name: 'devkit' } } },
+  'loop inspect': { stdout: { name: 'devkit-change' } },
+  'loop runs': { stdout: { items: [] } },
+  'loop run': { stdout: { run: { run_id: 'looprun-r1' }, web_url: 'http://localhost:2123/loop-runs/looprun-r1' } },
+  'loop requests': { stdout: { items: [] } },
+};
+const czRun = (id, status, change, loop) => ({ run_id: id, status, loop, inputs: change ? { change_id: change } : {} });
+const czRuns = (loop, ...runs) => ({ [`loop runs ${loop}`]: { stdout: { items: runs } } });
+
+// A project on the compozy driver with the fake `compozy` answering as a ready CompozyOS and the daemon's socket listening.
+async function czProject(t, { lines = ['[ ] a', '[ ] b', '[ ] c'], replies = {}, daemon = true, config = COMPOZY_CONFIG, changes = {}, files = {} } = {}) {
+  const root = gitRepo({ config, changes, files: { ...(lines === null ? {} : { 'openspec/roadmap.md': roadmapText(...lines) }), ...files } });
+  const k = fakeCompozy({ ...COMPOZY_READY, ...replies });
+  if (daemon) await k.daemon(t);
+  return { root, k, env: { ...cleanEnv, ...k.env } };
+}
+const czCmd = (p, argv, { stdin = '', load = 10 } = {}) => cmd(p.root, argv, { stdin, load, env: p.env });
+const czStart = (p, word = '', flags = FLAGS) => czCmd(p, ['compozy-start', ...flags], { stdin: word });
+const czTick = (p, places, opts = {}) => czCmd(p, ['compozy-tick', '--places', String(places), '--load-limit', '80', '--lang', 'en'], opts);
+const czState = (p) => czCmd(p, ['compozy-state', '--lang', 'en']);
+const calls = (p, verb) => p.k.argvs().filter((a) => a[0] === 'loop' && a[1] === verb);
+const inputsIn = (argv) => Object.fromEntries(argv.flatMap((a, i) => (argv[i - 1] === '--input' ? [[a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)]] : [])));
+const runIdOf = (argv) => argv[argv.indexOf('--run-id') + 1];
+const archive = (root, ...ids) => { put(root, Object.fromEntries(ids.map((id) => [`openspec/changes/archive/2026-11-20-${id}/proposal.md`, `# ${id}\n`]))); commitAll(root, 'archive'); };
+
+test('roadmap-loop compozy start: a number starts the roadmap run with its places, load limit and language', async (t) => {
+  const p = await czProject(t);
+  const r = czStart(p, '2');
+  assert.equal(r.code, 0, r.stdout);
+  const started = calls(p, 'run');
+  assert.equal(started.length, 1);
+  assert.equal(started[0][started[0].indexOf('--name') + 1], 'devkit-roadmap');
+  assert.deepEqual(inputsIn(started[0]), { places: '2', load_limit: '80', lang: 'en' });
+  assert.equal(r.stdout, `${render('en', 'compozy-roadmap-started', { places: 2, url: 'http://localhost:2123/loop-runs/looprun-r1' })}\n`);
+  assert.doesNotMatch(r.stdout, /devkit-roadmap:/, 'no run line: the stop lock never holds the turn');
+  // No word is one place, `roadmap 3` is three, and the load limit is read as the Claude driver reads it.
+  assert.equal(inputsIn(calls(p, 'run').at(-1)).places, '2');
+  const one = await czProject(t);
+  czStart(one, '');
+  assert.equal(inputsIn(calls(one, 'run')[0]).places, '1');
+  const three = await czProject(t);
+  czStart(three, 'roadmap 3', ['--lang', 'pt-BR', '--load-limit', '50%']);
+  assert.deepEqual(inputsIn(calls(three, 'run')[0]), { places: '3', load_limit: '80', lang: 'pt-BR' });
+  const fifty = await czProject(t);
+  czStart(fifty, '1', ['--lang', 'en', '--load-limit', '50']);
+  assert.equal(inputsIn(calls(fifty, 'run')[0]).load_limit, '50');
+});
+
+test('roadmap-loop compozy start: a live roadmap run is cancelled and the paused change runs resumed, before the new run starts', async (t) => {
+  const p = await czProject(t, {
+    replies: {
+      ...czRuns('devkit-roadmap', czRun('rr-1', 'running', null), czRun('rr-0', 'done', null)),
+      ...czRuns('devkit-change', czRun('cr-5', 'paused', 'a'), czRun('cr-6', 'running', 'b'), czRun('cr-4', 'done', 'c')),
+    },
+  });
+  const r = czStart(p, '2');
+  assert.equal(r.code, 0, r.stdout);
+  const order = p.k.argvs().filter((a) => ['cancel', 'resume', 'run'].includes(a[1]));
+  assert.deepEqual(order.map((a) => [a[1], a[1] === 'run' ? null : runIdOf(a)]), [['cancel', 'rr-1'], ['resume', 'cr-5'], ['run', null]]);
+});
+
+test('roadmap-loop compozy start: stop cancels the roadmap run, pauses the roadmap lines\' change runs and says where each open change stays', async (t) => {
+  const p = await czProject(t, {
+    lines: ['[ ] a', '[ ] b'],
+    changes: { a: { '.openspec.yaml': 'schema: devkit\n' } },
+    replies: {
+      ...czRuns('devkit-roadmap', czRun('rr-1', 'running', null)),
+      ...czRuns('devkit-change', czRun('cr-1', 'running', 'a'), czRun('cr-2', 'watching', 'elsewhere'), czRun('cr-3', 'done', 'b')),
+    },
+  });
+  const r = czStart(p, 'stop');
+  assert.equal(r.code, 0, r.stdout);
+  assert.deepEqual(calls(p, 'cancel').map(runIdOf), ['rr-1']);
+  assert.deepEqual(calls(p, 'pause').map(runIdOf), ['cr-1'], 'only a live run of a roadmap line');
+  assert.equal(calls(p, 'run').length, 0, 'stop starts nothing');
+  const lines = r.stdout.trimEnd().split('\n');
+  assert.equal(lines[0], render('en', 'roadmap-stopping'));
+  assert.match(lines[1], /^a: .+\.$/);
+  assert.equal(lines.length, 2, 'one roadmap-stayed line per open change');
+  assert.doesNotMatch(r.stdout, /devkit-roadmap:/);
+});
+
+test('roadmap-loop compozy start: an invalid word and a project with no roadmap answer as the Claude driver does, asking nothing', async (t) => {
+  const p = await czProject(t);
+  const bad = czStart(p, 'many');
+  assert.deepEqual([bad.code, bad.stdout], [0, `${render('en', 'roadmap-invalid', { word: 'many' })}\n`]);
+  const none = await czProject(t, { lines: null });
+  const r = czStart(none, '2');
+  assert.deepEqual([r.code, r.stdout], [0, `${render('en', 'roadmap-none')}\n`]);
+  assert.deepEqual([...p.k.calls(), ...none.k.calls()], [], 'CompozyOS was not asked');
+});
+
+test('roadmap-loop compozy start: CompozyOS not ready stops with its own reply and starts nothing', async (t) => {
+  const p = await czProject(t, { daemon: false });
+  const r = czStart(p, '2');
+  assert.equal(r.code, 3);
+  assert.match(r.stdout, new RegExp(render('en', 'compozy-stopped', { fix: 'compozy daemon start' }).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(calls(p, 'run').length + calls(p, 'cancel').length + calls(p, 'resume').length + calls(p, 'pause').length, 0);
+});
+
+test('roadmap-loop compozy tick: free places and ready lines start the lines in roadmap order, up to the free places', async (t) => {
+  const p = await czProject(t);
+  const r = czTick(p, 2);
+  assert.equal(r.code, 0, r.stdout);
+  const started = calls(p, 'run');
+  assert.deepEqual(started.map((a) => inputsIn(a)), [{ change_id: 'a', request: 'a', lang: 'en' }, { change_id: 'b', request: 'b', lang: 'en' }]);
+  assert.ok(started.every((a) => a[a.indexOf('--name') + 1] === 'devkit-change'));
+  assert.equal(r.stdout, `${render('en', 'roadmap-started', { id: 'a', open: 1, places: 2 })}\n${render('en', 'roadmap-started', { id: 'b', open: 2, places: 2 })}\n`);
+});
+
+test('roadmap-loop compozy tick: an open change fills a place, and with no free place nothing starts', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b', '[ ] c'] });
+  addOpen(p.root, 'a');
+  addOpen(p.root, 'b');
+  const r = czTick(p, 2);
+  assert.equal(r.code, 0);
+  assert.equal(calls(p, 'run').length, 0);
+  const more = czTick(p, 3);
+  assert.deepEqual(calls(p, 'run').map((a) => inputsIn(a).change_id), ['c'], 'a third place is filled by the next ready line');
+  assert.equal(more.code, 0);
+});
+
+test('roadmap-loop compozy tick: a loaded machine starts none and prints the held line; at the limit it starts', async (t) => {
+  const p = await czProject(t);
+  const held = czTick(p, 2, { load: 95 });
+  assert.equal(held.code, 0);
+  assert.equal(calls(p, 'run').length, 0);
+  assert.equal(held.stdout, `${render('en', 'roadmap-held', { id: 'a', load: 95, limit: 80 })}\n`);
+  const eased = czTick(p, 1, { load: 80 });
+  assert.equal(eased.code, 0);
+  assert.deepEqual(calls(p, 'run').map((a) => inputsIn(a).change_id), ['a'], 'the limit itself is not loaded');
+  const idle = await czProject(t, { lines: ['[ ] a'] });
+  addOpen(idle.root, 'a');
+  assert.equal(czTick(idle, 1, { load: 99 }).stdout, '', 'nothing ready, so nothing is held');
+});
+
+test('roadmap-loop compozy tick: a line whose run is live fills a place even with its folder absent', async (t) => {
+  const live = czRuns('devkit-change', czRun('cr-1', 'running', 'a'));
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b'], replies: live });
+  czTick(p, 1);
+  assert.equal(calls(p, 'run').length, 0, 'a holds the one place');
+  const q = await czProject(t, { lines: ['[ ] a', '[ ] b'], replies: live });
+  czTick(q, 2);
+  assert.deepEqual(calls(q, 'run').map((a) => inputsIn(a).change_id), ['b'], 'a is not started a second time');
+});
+
+test('roadmap-loop compozy tick: a line waits for a dependency that is not archived, and starts once it is archived on the default branch', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'] });
+  czTick(p, 2);
+  assert.deepEqual(calls(p, 'run').map((a) => inputsIn(a).change_id), ['a'], 'b waits for a');
+  const q = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'] });
+  archive(q.root, 'a');
+  czTick(q, 2);
+  assert.deepEqual(calls(q, 'run').map((a) => inputsIn(a).change_id), ['b'], 'a is archived: b starts, with Claude Code closed');
+});
+
+test('roadmap-loop compozy tick: CompozyOS not reachable exits 3 with the reply and starts nothing', async (t) => {
+  const p = await czProject(t, { daemon: false });
+  const r = czTick(p, 2);
+  assert.equal(r.code, 3);
+  assert.match(r.stdout, /CompozyOS is not running/);
+  assert.equal(calls(p, 'run').length, 0);
+  const gone = await czProject(t, { replies: { 'loop runs': { code: 1, stderr: 'daemon refused\n' } } });
+  assert.equal(czTick(gone, 2).code, 3);
+});
+
+test('roadmap-loop compozy state: exit 10 when every line is archived', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b'] });
+  archive(p.root, 'a', 'b');
+  const before = picture(p.root);
+  const r = czState(p);
+  assert.equal(r.code, 10, r.stdout);
+  assert.equal(picture(p.root), before, 'writes nothing');
+  assert.equal(calls(p, 'run').length, 0, 'starts nothing');
+});
+
+test('roadmap-loop compozy state: exit 0 while a change run is live or a line can start', async (t) => {
+  const live = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'], replies: czRuns('devkit-change', czRun('cr-1', 'running', 'a')) });
+  assert.equal(czState(live).code, 0, 'a run is live');
+  const ready = await czProject(t, { lines: ['[ ] a'] });
+  assert.equal(czState(ready).code, 0, 'a ready line can start');
+  assert.equal(calls(ready, 'run').length, 0);
+});
+
+test('roadmap-loop compozy state: exit 11 when nothing can start and no change run is live, saying what each open change needs', async (t) => {
+  const p = await czProject(t, { lines: ['[ ] a', '[ ] b (after: a)'] });
+  addOpen(p.root, 'a');
+  const r = czState(p);
+  assert.equal(r.code, 11, r.stdout);
+  assert.match(r.stdout, /^a: .+\.$/m);
+  assert.equal(calls(p, 'run').length, 0);
+});
+
+test('roadmap-loop compozy state: CompozyOS not reachable exits 3', async (t) => {
+  const p = await czProject(t, { daemon: false });
+  const r = czState(p);
+  assert.equal(r.code, 3);
+  assert.match(r.stdout, /CompozyOS is not running/);
+});
+
+test('roadmap-loop compozy status: the board and then the pending requests, or the reason CompozyOS cannot be reached', async (t) => {
+  const plain = gitRepo({ config: 'schema: devkit\n', files: { 'openspec/roadmap.md': roadmapText('[ ] a', '[ ] b') } });
+  const board = doStatus(plain).stdout;
+  const ready = await czProject(t, { lines: ['[ ] a', '[ ] b'], replies: { 'loop requests': { stdout: { items: [{ id: 'q1' }, { id: 'q2' }] } } } });
+  const withIt = czCmd(ready, ['status', ...FLAGS]);
+  assert.equal(withIt.code, 0);
+  assert.equal(withIt.stdout, `${board}${render('en', 'compozy-requests', { n: 2 })}\n`);
+  const down = await czProject(t, { lines: ['[ ] a', '[ ] b'], daemon: false });
+  const without = czCmd(down, ['status', ...FLAGS]);
+  assert.equal(without.code, 0);
+  assert.ok(without.stdout.startsWith(board));
+  assert.match(without.stdout.slice(board.length), /CompozyOS is not running/);
+});
+
+test('roadmap-loop compozy status: on the Claude driver the board is unchanged and CompozyOS is never asked', async (t) => {
+  const k = fakeCompozy(COMPOZY_READY);
+  await k.daemon(t);
+  const root = gitRepo({ config: 'schema: devkit\n', files: { 'openspec/roadmap.md': roadmapText('[ ] a') } });
+  const r = cmd(root, ['status', ...FLAGS], { env: { ...cleanEnv, ...k.env } });
+  assert.equal(r.code, 0);
+  assert.doesNotMatch(r.stdout, /CompozyOS/);
+  assert.deepEqual(k.calls(), []);
 });
 
 // ================================================================ roadmap-sessions-upfront, phase 1: the entry of a started change session (design D-1)
@@ -4451,7 +4687,8 @@ test('remote AC-9 next: a placed change gets a session-start with its checkout, 
       background: loopModule.sessionBackground({ id: 'rrr', root: RRR_CWD, branch: 'rrr', coordinator: 'S-main', lang: 'en' }), target: 'ssh', host: 'avel',
     },
   }]);
-  assert.deepEqual(Object.keys(r.actions[0].input).sort(), [...START_FIELDS, 'host', 'target'].sort());
+  // A change placed on another machine has no action read here, so its start carries no `model` (stage-models D-6: a session recorded with no model is never switched).
+  assert.deepEqual(Object.keys(r.actions[0].input).sort(), [...START_FIELDS.filter((k) => k !== 'model'), 'host', 'target'].sort());
   // Not recorded as placed by this run, a session already started, or a machine that does not list it: none.
   assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims })).actions, []);
   assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, startedSessions: { rrr: { at: AT } } })).actions, []);
@@ -4468,7 +4705,7 @@ test('remote AC-9 next: a placed change gets a session-start with its checkout, 
   const started = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, after: { rrr: 'session-start' } }));
   assert.deepEqual(started.actions, []);
   assert.ok(started.lines.includes(say('roadmap-session-started-on', { id: 'rrr', machine: 'avel' })), started.lines.join('|'));
-  assert.deepEqual(started.state.sessionsStarted, ['rrr']);
+  assert.deepEqual(started.state.sessionsStarted.map((e) => e.id), ['rrr']); // each entry is { id, model } (stage-models D-6); a change placed on another machine carries no model
   assert.ok(started.state.openLines.includes('rrr'), 'the record of a started session is kept while the line is open elsewhere');
 });
 

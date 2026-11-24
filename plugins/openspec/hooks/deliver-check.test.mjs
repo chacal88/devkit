@@ -3839,7 +3839,7 @@ const ARCHIVED_DIR = 'openspec/changes/archive/2026-11-09-feat';
 const NOT_FOUND = { exit: 1, stderr: 'gh: Not Found (HTTP 404)\n' };
 
 const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
-const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
+export const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
   `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
 export const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n${blocks.length ? blocks.join('\n') : 'None.\n'}`;
 const retroPath = (archived) => (archived ? `${ARCHIVED_DIR}/retro.md` : 'openspec/changes/feat/retro.md');
