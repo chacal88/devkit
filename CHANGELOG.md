@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.44.0 — a status line for the session of a change or a roadmap run
+## 0.45.0 — a status line for the session of a change or a roadmap run
 
 - **devkit-openspec** 0.40.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
   box of Claude Code. A session that conducts one change shows the change's name, its stage, a strip of
@@ -14,6 +14,14 @@
   that apply to the change, in order) and an `--offline` option (a listing with no GitHub call), and the
   offline stub that listing uses lives in one place. The CI snippet now pins `v0.40.0`, the release's
   tag.
+
+## 0.44.0 — release-merge leftovers
+
+- **devkit-openspec** 0.39.2: a conduct-check test runs the release-merge override under the two-PR delivery model, with
+  the base and the test branch apart; the CI snippet now pins `v0.39.2`, the release's tag.
+- **devkit-panel** 0.3.1: the step table and the label table drop `push-rebased`, which no checker has returned since
+  devkit-openspec 0.29.0.
+- **Spec** (`commit-attribution`): drops the scenario and the mention of `push-rebased`.
 
 ## 0.43.1 — a change's own pull request may edit another change's archive
 
