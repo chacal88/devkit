@@ -112,7 +112,14 @@ the same from every checkout and after a squash merge:
   folder). Each `REQUIRED_REVIEWERS` name without a file is `{ file: 'reviews/<name>.md', why:
   'missing' }`. Each file read: `valueIn(text, 'Verdict')` not `APPROVED` or `DECLINED` is `why:
   'verdict <v>'` (or `'no verdict line'`); else its `Commit:` must be current under
-  `verdictAllowed(id, name, verdict)`.
+  `verdictAllowed(id, name, verdict, open)`, the four-argument call of `readReviews`: `open` is true
+  when `findingsOfText(name, text, inHead).undisposed` is not empty, that is, the verdict lists a
+  `[blocking]` or `[important]` finding with no `refuted: <evidence>` and no `fixed in <sha>` of a
+  commit in the merged head's history. An open verdict is current only through commits that touch
+  the change's own review record (`reviews/`, `review.md`, `evidence.md`). `inHead(sha)` is true
+  when `head` starts with `sha`, else one `ghJson(gh, 'compare/<sha>...<head>')`: `ahead` or
+  `identical` is in history; `behind`, `diverged` or a 404 is not, so the finding stays undisposed;
+  any other compare error is kept and ends the read as `{ error }`, which blocks the step.
 - Current: no `Commit:` line is `'no Commit: line'`; `(uncommitted changes)` is `'<short> was recorded
   with uncommitted changes'`; a recorded sha that `head` starts with is current with no call; else
   one `ghJson(gh, 'compare/<sha>...<head>')`, cached per sha within the run: `status` other than

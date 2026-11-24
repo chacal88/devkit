@@ -162,6 +162,18 @@ a passing verdict current at the merged head. The reason SHALL say `<N> items op
 - **WHEN** `reviews/code-quality-reviewer.md` is missing at the merged head, or its `Verdict:` is `REJECTED`, or its approved verdict was recorded before a product change
 - **THEN** that file is an open item, naming why
 
+#### Scenario: An approved verdict with an undisposed finding
+- **WHEN** an approved or declined `reviews/<name>.md` at the merged head lists a `[blocking]` or `[important]` finding with no disposition (no `refuted: <evidence>`, no `fixed in <sha>` of a commit in the merged head's history), and a commit between its `Commit:` and the merged head touches a path outside the change's own review record (`reviews/`, `review.md`, `evidence.md`)
+- **THEN** that file is an open item naming its commit as behind the merged head and the file that changed; when only the change's own review record changed between the two, it is not an open item
+
+#### Scenario: A fixed-in commit is in the merged head's history
+- **WHEN** a finding carries `fixed in <sha>` and the compare `<sha>...<merged head>` answers `ahead` or `identical`
+- **THEN** the finding is disposed; when it answers `behind` or `diverged`, or the sha is not found (404), the finding stays undisposed and the verdict follows "An approved verdict with an undisposed finding"
+
+#### Scenario: A fixed-in commit that cannot be checked
+- **WHEN** the compare `<sha>...<merged head>` of a `fixed in <sha>` finding fails for a reason other than not found
+- **THEN** `deliver-check.mjs foo` answers `next.step` `blocked`, quoting the error, from the default branch and from branch `foo` alike
+
 #### Scenario: A verdict recorded on another line of history
 - **WHEN** the `Commit:` of `evidence.md` or of a review file at the merged head is not an ancestor of the merged head
 - **THEN** that file is an open item naming its commit as not an ancestor of the merged head

@@ -2579,6 +2579,34 @@ test(`${FMP}: G12 the same verdict with the finding disposed (fixed in a sha in 
   assert.deepEqual(gatesOf(refuted), { gates: [] });
 });
 
+test(`${FMP}: G13 a fixed-in sha that is behind, diverged from or unknown to the merged head leaves the finding undisposed`, () => {
+  const fixedIn = FIX.slice(0, 12);
+  const cases = [
+    ['behind', compareFx('behind', ['src/a.ts'])],
+    ['diverged', compareFx('diverged', ['src/a.ts'])],
+    ['a sha GitHub does not find (404)', NOT_FOUND],
+  ];
+  for (const [name, answer] of cases) {
+    const t = openGateRepo(withFinding(` · fixed in ${fixedIn}`), ['openspec/changes/feat/tasks.md']);
+    t.gh.set(compareKey(fixedIn, GHEAD), answer);
+    assert.deepEqual(gatesOf(t), { gates: [{ file: 'reviews/code-quality-reviewer.md', why: `${OLD.slice(0, 7)} is behind the merged head, which changes openspec/changes/feat/tasks.md` }] }, name);
+  }
+});
+
+test(`${FMP}: G14 a fixed-in sha whose compare fails with anything but a 404 blocks, quoting the error`, () => {
+  const fixedIn = FIX.slice(0, 12);
+  const t = openGateRepo(withFinding(` · fixed in ${fixedIn}`), ['openspec/changes/feat/tasks.md']);
+  t.gh.set(compareKey(fixedIn, GHEAD), BOOM);
+  assert.deepEqual(gatesOf(t), { error: 'gh: boom' });
+  // From the default branch the same unreadable compare blocks and never forces.
+  const f = forcedFixtures(pm(), { gates: { evidence: STAGE('passed', 'b'.repeat(40)), reviews: { 'code-quality-reviewer': withFinding(` · fixed in ${fixedIn}`, 'b'.repeat(40)), 'test-coverage-reviewer': verdictText('approved', 'b'.repeat(40)) } } });
+  f.gh.set(compareKey(fixedIn, 'b'.repeat(40)), BOOM);
+  const s = stateOf(f);
+  assert.deepEqual(s.unreadMerge, { number: 12, error: 'gh: boom' });
+  assert.equal(s.forced, null);
+  assert.deepEqual([nextStep(s).step, nextStep(s).reason], ['blocked', unreadReason(12, 'gh: boom')]);
+});
+
 test(`${FMP}: G9 gatesAtHead answers an error for a contents read that fails, a folder where a file is expected and a file where the folder is expected`, () => {
   const short = GHEAD.slice(0, 7);
   const base = () => gatesRepo({ reviews: approvedAt(GHEAD) });
