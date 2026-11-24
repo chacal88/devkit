@@ -34,7 +34,7 @@ role (`change-planner`, `tdd-implementer`, `commit-and-pr`, `pr-verifier`, `scre
 hands its work, unchanged, to the Claude agent of the same name (`devkit-core:<role>` or
 `devkit-openspec:<role>`) and returns that agent's report in the shape the loop's node asks for. The
 devkit hooks therefore judge the work exactly as they do in Claude Code. The agents are generated
-from the Claude agent files by `plugins/compozy/skills/compozy-setup/scripts/gen-agents.mjs`, and CI
+from the Claude agent files by `plugins/compozy/kit/scripts/gen-agents.mjs`, and CI
 fails when one is out of date, so a change goes into the Claude agent, never into the copy. A
 description is shortened to the 280 characters CompozyOS accepts; the body is the source's.
 

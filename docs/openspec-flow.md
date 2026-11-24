@@ -139,14 +139,14 @@ The `openspec-setup` skill does all of this; here is what it does, if you prefer
 2. Install the schemas into the project, so the team and CI share them (run it inside the project, no argument needed):
 
    ```bash
-   bash <devkit>/plugins/openspec/skills/openspec-setup/scripts/install-schemas.sh
+   bash <devkit>/plugins/openspec/skills/devkit/scripts/install-schemas.sh
    ```
 
    Or, for every project on this machine, add `--user`: the same command with `--user` installs under `$XDG_DATA_HOME/openspec/schemas/` and leaves the project untouched.
 
    A re-run replaces each schema folder with the release's, which holds every released `flows/<n>.json`, so a change opened before it keeps the flow it was opened with until you ask to move it (see [Moving to a newer flow](#the-change-coordinator-devkit-change)).
 
-3. Copy [`templates/config.yaml`](../plugins/openspec/skills/openspec-setup/templates/config.yaml) to `openspec/config.yaml` and fill in `context` with the real stack, test command and conventions.
+3. Copy [`templates/config.yaml`](../plugins/openspec/skills/devkit/templates/config.yaml) to `openspec/config.yaml` and fill in `context` with the real stack, test command and conventions.
 
 4. Opt the project in: enable the packs `devkit-core` and `devkit-openspec` per project, in its `.claude/settings.json` (see [getting-started.md](getting-started.md)).
 

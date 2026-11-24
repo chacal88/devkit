@@ -26,7 +26,7 @@ test('constants: the check name, the workflow path, the ruleset name and the met
 
 const files = {
   'this repository': join(repoRoot, WORKFLOW_PATH),
-  'the setup template': join(repoRoot, 'plugins', 'openspec', 'skills', 'openspec-setup', 'templates', 'devkit-reviews.yml'),
+  'the setup template': join(repoRoot, 'plugins', 'openspec', 'skills', 'devkit', 'templates', 'devkit-reviews.yml'),
 };
 const read = (label) => {
   assert.ok(existsSync(files[label]), `${label}: ${files[label]} exists`);

@@ -1294,7 +1294,7 @@ test('delivery-models P5: the same configuration read through S3 has no such lin
 
 for (const label of ['devkit-reviews.yml']) {
   test(`delivery-models P5 workflow (${label}): the job reads pull requests and the checker gets GH_TOKEN, the token staying read-only`, () => {
-    const yml = readFileSync(join(HERE, '..', 'skills', 'openspec-setup', 'templates', label), 'utf8');
+    const yml = readFileSync(join(HERE, '..', 'skills', 'devkit', 'templates', label), 'utf8');
     assert.match(yml, /^permissions:\n {2}contents: read\n {2}pull-requests: read\n/m);
     assert.match(yml, /- run: node "\$RUNNER_TEMP\/deliver-check\.mjs" --ci\n {8}env:\n {10}GH_TOKEN: \$\{\{ github\.token \}\}\n/);
     assert.doesNotMatch(yml, /: write/);

@@ -20,9 +20,9 @@ const IMPORT = 'imp' + 'ort';
 const FROM = 'fr' + 'om';
 
 const HOOKS = 'plugins/openspec/hooks';
-const SETUP = 'plugins/openspec/skills/openspec-setup/scripts';
+const SETUP = 'plugins/openspec/skills/devkit/scripts';
 const REVIEW = 'plugins/core/skills/review-change/scripts';
-const COMPOZY_SETUP = 'plugins/compozy/skills/compozy-setup/scripts';
+const COMPOZY_SETUP = 'plugins/compozy/kit/scripts';
 
 // A small test file made only of node built-ins. `body` runs inside one async test.
 function probe({ name = 'suite-speed probe passes', body = '' } = {}) {
@@ -92,7 +92,7 @@ test('suite-speed AC-1 the script runs the test files of the four folders and no
     [`${COMPOZY_SETUP}/d${TEST_EXT}`]: probe(),
     [`${HOOKS}/notes.mjs`]: 'throw new Error("not a test file");\n',
     [`${HOOKS}/node_modules/dep/n${TEST_EXT}`]: probe({ body: 'assert.fail("node_modules is not read");' }),
-    [`plugins/compozy/skills/x/c${TEST_EXT}`]: probe({ body: 'assert.fail("only the compozy-setup folder is in the suite");' }),
+    [`plugins/compozy/skills/x/c${TEST_EXT}`]: probe({ body: 'assert.fail("only the kit\'s scripts folder is in the suite");' }),
   });
   const out = await run(root, []);
   assert.equal(out.code, 0, either(out));

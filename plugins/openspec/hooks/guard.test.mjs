@@ -610,9 +610,12 @@ test('the hook docs say where the hooks act (1.7)', () => {
   assert.match(read('plugins', 'openspec', 'hooks', 'hooks.json'), /opted-in|opted in/);
 });
 
-test('openspec-setup SKILL.md teaches the per-project opt-in (2.4)', () => {
+test('setup skill: the Setup section teaches the per-project opt-in (2.4)', () => {
   const root = join(here, '..', '..', '..');
-  const skill = readFileSync(join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'SKILL.md'), 'utf8');
+  const md = readFileSync(join(root, 'plugins', 'openspec', 'skills', 'devkit', 'SKILL.md'), 'utf8');
+  const from = md.indexOf('\n## Setup\n');
+  assert.ok(from >= 0, 'the devkit skill has a Setup section');
+  const skill = md.slice(from, md.indexOf('\n## ', from + 1));
   assert.match(skill, /scripts\/project-settings\.mjs/);
   assert.match(skill, /--user/);
   assert.match(skill, /\.claude\/settings\.json/);
@@ -620,7 +623,7 @@ test('openspec-setup SKILL.md teaches the per-project opt-in (2.4)', () => {
   for (const line of skill.split('\n').filter((l) => /install-schemas\.sh/.test(l) && /bash /.test(l))) {
     assert.match(line, /install-schemas\.sh (<project-root>|--user)/, `install-schemas.sh call needs an argument: ${line}`);
   }
-  const never = skill.slice(skill.indexOf('## Never'));
+  const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /user scope/);
   assert.match(never, /~\/\.claude/);
 });
@@ -633,7 +636,7 @@ test('this repository opts in through .claude/settings.json (2.5, ADR 0004)', ()
   assert.deepEqual(s.extraKnownMarketplaces.devkit.source, { source: 'github', repo: 'chacal88/devkit' });
   assert.equal(s.enabledPlugins['devkit-core@devkit'], true);
   assert.equal(s.enabledPlugins['devkit-openspec@devkit'], true);
-  const script = join(root, 'plugins', 'openspec', 'skills', 'openspec-setup', 'scripts', 'project-settings.mjs');
+  const script = join(root, 'plugins', 'openspec', 'skills', 'devkit', 'scripts', 'project-settings.mjs');
   const r = spawnSync('node', [script, root, '--dry-run'], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /file: unchanged /);
@@ -1521,7 +1524,7 @@ test('stage-roles guard: the implementer is unchanged, and the main session is s
 
 // ---------------------------------------------------------------- stage-roles: the setup (design D-3; tasks 2.1, 2.8)
 
-const setupRoot = join(here, '..', 'skills', 'openspec-setup');
+const setupRoot = join(here, '..', 'skills', 'devkit');
 const setupStep5 = () => {
   const md = readFileSync(join(setupRoot, 'SKILL.md'), 'utf8');
   const from = md.indexOf('5. **Write `openspec/config.yaml`.**');

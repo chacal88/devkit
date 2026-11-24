@@ -106,7 +106,7 @@ test('flow-check tasks: a checkbox inside a fenced block is not a task', () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_SCHEMAS = join(HERE, '..', 'schemas');
 const REPO_SCHEMAS = join(HERE, '..', '..', '..', 'openspec', 'schemas');
-const INSTALL = join(HERE, '..', 'skills', 'openspec-setup', 'scripts', 'install-schemas.sh');
+const INSTALL = join(HERE, '..', 'skills', 'devkit', 'scripts', 'install-schemas.sh');
 
 const DEVKIT_STAGES = ['requirements', 'mockup', 'decisions', 'proposal', 'specs', 'design', 'tasks', 'readiness',
   'approval', 'unit-tests', 'e2e-tests', 'evidence', 'review', 'retro'];

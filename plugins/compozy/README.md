@@ -59,7 +59,6 @@ old files are removed, an edited one is kept and named.
 
 | Skill | What it does / when to use |
 |---|---|
-| [`compozy-setup`](skills/compozy-setup/SKILL.md) | Installs the CompozyOS kit into a project as `.compozy/` - config.toml, one agent per devkit role, the three loops (a change, its review round, a roadmap) and the devkit-kit resolver. Use when a project adopts the CompozyOS kit, or when the user says "install compozy", "set up the compozy loop" or "adopt the compozy kit". |
 | [`screen-demo`](skills/screen-demo/SKILL.md) | Runs a project's demo command and files the screenshots and the journey video a change's declared screens produce, under openspec/changes/<id>/evidence/. Use when a change's `## Screens` section names at least one screen and the project has a demo_command, after verify and before the pull request. |
 | [`screen-design`](skills/screen-design/SKILL.md) | Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical check of the screen map (`screens-check`). Use when a change's `## Screens` section names at least one screen, before implementation starts. |
 <!-- catalog:end -->

@@ -97,7 +97,7 @@ test('makeGh: a gh call that outlives its timeout is cut, reported as timedOut a
 });
 
 test('one gh runner: deliver-check.mjs and github-setup.mjs do not spawn gh themselves (architecture)', () => {
-  for (const f of [join(here, 'deliver-check.mjs'), join(here, '..', 'skills', 'openspec-setup', 'scripts', 'github-setup.mjs')]) {
+  for (const f of [join(here, 'deliver-check.mjs'), join(here, '..', 'skills', 'devkit', 'scripts', 'github-setup.mjs')]) {
     assert.doesNotMatch(readFileSync(f, 'utf8'), /spawnSync\(\s*'gh'/, f);
   }
 });
@@ -605,7 +605,7 @@ test('AC-6 instructions-follow: the schema copies are identical and dispatch pr-
 });
 
 test('AC-6 instructions-follow: configs, ship-change, devkit, flow doc and READMEs name evidence before review', () => {
-  for (const f of [['plugins', 'openspec', 'skills', 'openspec-setup', 'templates', 'config.yaml'], ['openspec', 'config.yaml']]) {
+  for (const f of [['plugins', 'openspec', 'skills', 'devkit', 'templates', 'config.yaml'], ['openspec', 'config.yaml']]) {
     const t = textOf(...f);
     const line = t.split('\n').find((l) => l.includes('devkit-core:pr-verifier') && l.includes('review-change'));
     assert.ok(line, `${f.join('/')} guidance line`);
