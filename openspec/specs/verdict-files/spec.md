@@ -93,7 +93,8 @@ A verdict file whose verdict is neither approved nor declined, a missing `Verdic
 SHALL go stale after a later commit that touches any path outside the change's own review record:
 `openspec/changes/<id>/reviews/`, `openspec/changes/<id>/review.md` and
 `openspec/changes/<id>/evidence.md`. A commit that touches only those paths SHALL leave it current.
-Uncommitted files and merge commits SHALL count as they do for every verdict file.
+Uncommitted files and merge commits SHALL count as they do for every verdict file, except that a
+merge of the base gets no own-files exemption (`change-delivery`) for such a verdict.
 
 #### Scenario: A rejected review fixed in the plan files
 - **WHEN** `code-quality-reviewer` rejects at commit A with `review.md` at `Consensus: FAIL (round 1/2)`, `test-coverage-reviewer` approves at commit A, the evidence is current, and one later commit touches only `openspec/changes/<id>/design.md`
@@ -130,6 +131,10 @@ Uncommitted files and merge commits SHALL count as they do for every verdict fil
 #### Scenario: A merge of the base that brings only openspec files
 - **WHEN** a reviewer rejects at commit A and a merge of the base after A brings only `openspec/changes/other.md`
 - **THEN** that verdict is stale and the reason names the merge commit and `openspec/changes/other.md`
+
+#### Scenario: A merge of origin's base that brings no own file
+- **WHEN** a reviewer rejects at commit A, `origin/<base>` resolves, and a merge of `origin/<base>` after A brings only a product file the branch did not change
+- **THEN** that verdict is stale and the reason names the merge commit and that file, while the approved reviews recorded at A stay current
 
 #### Scenario: The round-2 stop
 - **WHEN** a reviewer rejects at the head, `review.md` ends at `Consensus: FAIL (round 2/2)`, and the only commit after the verdict's commit touches the change's review record
