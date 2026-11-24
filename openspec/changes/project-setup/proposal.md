@@ -49,8 +49,9 @@ install the kit when the owner wants it.
   come from, and the version the CI pin points at in `merge` mode. It names each pack the project
   uses that is not enabled in `.claude/settings.json`.
 - Documents: the open point of `docs/coordination-design.md` is answered. ADR 0004 gets a dated Note
-  and an "Amended by" line, written by the implementation after plan approval. ADR 0025 is accepted
-  with the next free number on `origin/main` at the last merge before review. Releases of devkit-openspec, devkit-compozy and the marketplace.
+  and an "Amended by" line, written by the implementation after plan approval. The record
+  `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md` is accepted, with the next free
+  number on `origin/main` at the last merge before review. Releases of devkit-openspec, devkit-compozy and the marketplace.
 
 Non-goals: everything under "Out of scope" in `requirements.md` (the `script` driver; changing or
 copying the checkers; a task-source key; writing `budget` or `design:`; re-running setup in the
@@ -75,7 +76,7 @@ Copied from `requirements.md`, with their ids.
 How `design.md` reads three of them: "the behaviour `compozy-setup` has today" (AC-6) is the
 installer's behaviour; the old skill's `design:` step is not carried (Out of scope; D-6). "Names
 them" (AC-2) excludes decision records, past `CHANGELOG.md` entries and change folders, which are
-history (ADR 0025's Context; D-9). "Records the plugin version" (AC-5) uses the pins that exist, with
+history (the record's Context; D-9). "Records the plugin version" (AC-5) uses the pins that exist, with
 no new key (requirements, second assumption; D-5).
 
 ## Capabilities
@@ -108,38 +109,47 @@ None.
   (message texts); `skills/devkit/` (the
   `## Setup` section, the moved scripts, templates and fixtures, the new `setup-block.mjs` and
   `kit-installer.mjs`); `skills/ship-change/SKILL.md`; `skills/openspec-setup/` removed; the suites
-  `guard.test.mjs`, `change-loop.test.mjs`, `roadmap-loop.test.mjs`, `project-loop.test.mjs`,
-  `deliver-check.test.mjs`, `merge-setup.test.mjs`, `delivery-models.test.mjs`, `flow-check.test.mjs`,
-  `version-pin.test.mjs`, `compozy-driver.test.mjs` and `delivery-train.test.mjs` (the verb list,
-  the hint and the train's blocked reply).
+  `guard.test.mjs`, `change-loop.test.mjs`, `change-loop-compozy.test.mjs`, `roadmap-loop.test.mjs`,
+  `roadmap-loop-followups.test.mjs`, `project-loop.test.mjs`, `deliver-check.test.mjs`,
+  `deliver-check-cli.test.mjs`, `merge-setup.test.mjs`, `delivery-models.test.mjs`,
+  `flow-check.test.mjs`, `version-pin.test.mjs`, `compozy-driver.test.mjs`,
+  `delivery-train.test.mjs` and `delivery-train-after.test.mjs` (the verb list, the hint and the
+  train's blocked reply), and `test-suite.test.mjs` (the suite's folder names).
 - devkit-compozy: `skills/compozy-setup/` removed; `kit/` holds `install-kit.mjs`, `gen-agents.mjs`,
   the templates and their tests; the generated agents are generated again with the new generator
   path; `README.md`, `plugin.json`.
-- devkit-core: `skills/review-change/scripts/review-round.test.mjs` (one comment), no release.
-- This repository: `.compozy/` installed again; `.github/workflows/ci.yml`; `CLAUDE.md`,
+- devkit-core: no change and no release (`suite-speed` already rewrote the comment of
+  `review-round.test.mjs` that named the setup tests).
+- This repository: `scripts/test-suite.mjs` (its `SUITE_FOLDERS` names the two new folders);
+  `.compozy/` installed again; `.github/workflows/ci.yml`; `CLAUDE.md`,
   `CONTRIBUTING.md`, `README.md`, `docs/getting-started.md`, `docs/openspec-flow.md`,
   `docs/compozy-kit.md`, `docs/conventions.md`, `docs/coordination-design.md`, `docs/catalog.md`;
-  ADR 0004 and ADR 0025; `openspec/config.yaml` (the ADR list); the canonical Purpose of the two
+  ADR 0004 and the record `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`;
+  `openspec/config.yaml` (the ADR list); the canonical Purpose of the two
   capability specs; `CHANGELOG.md`, `.claude-plugin/marketplace.json`.
 - Versions: devkit-openspec, devkit-compozy and the marketplace each take the next free minor version
   on `origin/main` at the last merge before review. devkit-openspec is tagged `v<that version>` after
   the merge (CONTRIBUTING).
-- Dependencies: `compozy-driver` (round 21), `delivery-train` and `stage-models`, all merged into
-  `main` and into this branch at `f84bc6e` before the first task (`design.md` D-12). `compozy-driver`
-  is archived before its delta blocks are added in the last phase (task 6.5); `delivery-train` is
-  archived before task 6.6 re-reads the shared `change-coordination` block. The sibling's record is
-  `docs/adr/0024-compozy-runs-the-short-loop.md`; the versions are read at the last merge (at
-  `f84bc6e`: devkit-openspec 0.36.0, marketplace 0.40.0). This change's record takes the next free
-  number on `origin/main` at the last merge before review, so no two records share a number.
+- Dependencies: `compozy-driver` (round 21), `delivery-train`, `stage-models` and `suite-speed`, all
+  merged into `main` and into this branch before the first task; the plan's base is the branch's
+  last merge of `origin/main` (`design.md` D-12). `compozy-driver` is archived before its delta
+  blocks are added in the last phase (task 6.5); `delivery-train` is archived before task 6.6
+  re-reads the shared `change-coordination` block. `suite-speed` gives the one suite command,
+  `node scripts/test-suite.mjs`, and the folder list this change moves (`SUITE_FOLDERS`); it has no
+  spec delta. The siblings' records are named by file (`docs/adr/0024-compozy-runs-the-short-loop.md`,
+  `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`), and their versions are read at
+  each merge, not quoted here. This change's record and versions take the next free ones on
+  `origin/main` at the last merge before review, so no two records share a number.
   `delivery-models` (archived) for the delivery keys; `change-version-pin` (archived) for the pin
   this step does not move.
-- Decisions cited: ADR 0002, 0004, 0009, 0010 (decision 1), 0018, 0019 and the proposed record
+- Decisions cited: ADR 0002, 0004, 0009, 0010 (decision 1), 0018, 0019, the record
+  `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md` and the proposed record
   `docs/adr/0025-one-setup-verb-replaces-the-two-setup-skills.md`.
   Open decisions inherited: none. The open point "Project setup" of `docs/coordination-design.md` is
   the one this change answers.
 
 Exit criteria: `openspec validate project-setup --type change --strict` (the bare form is ambiguous:
-a change and a capability share the name); the hook suite
-`node --test plugins/openspec/hooks/guard.test.mjs` with `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set;
-`python3 scripts/check.py`; `python3 scripts/gen-catalog.py --check`; `claude plugin validate .`;
+a change and a capability share the name); the whole suite `node scripts/test-suite.mjs` with
+`GITHUB_HEAD_REF` and `GITHUB_BASE_REF` set, which lists the moved setup and kit tests and the new
+ones; `python3 scripts/check.py`; `python3 scripts/gen-catalog.py --check`; `claude plugin validate .`;
 `node plugins/compozy/kit/scripts/gen-agents.mjs --check`; the real-run proof files of AC-10.
