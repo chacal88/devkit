@@ -95,14 +95,14 @@ task with `git status --short`.
   `origin/main` at the last merge before review; regenerate `docs/catalog.md` with
   `python3 scripts/gen-catalog.py`. Check: `python3 scripts/gen-catalog.py --check` passes and
   `change-loop docs: the design records the answers` passes.
-- [ ] 3.2 In `openspec/roadmap.md`, append to the `evidence-attempts-by-failure` line ` — delivered by
+- [x] 3.2 In `openspec/roadmap.md`, append to the `evidence-attempts-by-failure` line ` — delivered by
   stage-ceiling-consecutive (fused, 2026-11-23)`, leaving both lines unticked until the archive (AC-8).
   Check: `grep -n "evidence-attempts-by-failure" openspec/roadmap.md` shows the line with that text
   and `- [ ]`.
-- [ ] 3.3 AC-5: the header, the agents and the declarations are unchanged. Check:
+- [x] 3.3 AC-5: the header, the agents and the declarations are unchanged. Check:
   `git diff --stat "$(git merge-base HEAD origin/main)" HEAD -- plugins/openspec/hooks/guard.mjs plugins/openspec/schemas openspec/schemas plugins/core/agents plugins/openspec/skills scripts/released-flows.json`
   prints nothing, and `flow-check header: a well-formed line is read` passes unchanged.
-- [ ] 3.4 Real-run proof (D-8): build the scratch repositories under
+- [x] 3.4 Real-run proof (D-8): build the scratch repositories under
   `/var/tmp/devkit-stage-ceiling-consecutive`, with no `ship:` key in their `openspec/config.yaml` and
   the change-loop CLI tests' environment (`DEVKIT_BYPASS`, `DEVKIT_BRANCH`, `DEVKIT_CHANGE`,
   `GITHUB_HEAD_REF`, `GITHUB_BASE_REF`, `GITHUB_EVENT_PATH` and `CLAUDE_CODE_SESSION_ID` empty,
@@ -122,7 +122,7 @@ task with `git status --short`.
   stage file never committed). No run outside a git repository or without `git`: `flow-check` exits
   3 there before any walk, as today, and the reader's `[]` for those is proven by task 1.2's unit
   cases only.
-- [ ] 3.5 Remove the scratch repositories of 3.4. Check: `ls /var/tmp/devkit-stage-ceiling-consecutive`
+- [x] 3.5 Remove the scratch repositories of 3.4. Check: `ls /var/tmp/devkit-stage-ceiling-consecutive`
   lists none of them, and `git status --short` shows only the change's files.
 - [ ] 3.6 Gate: `mkdir -p /var/tmp/devkit-stage-ceiling-consecutive && env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate stage-ceiling-consecutive --strict`
   green, the suite run as a background command of the tool; covers AC-1 to AC-7 and AC-9 with every
