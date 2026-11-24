@@ -13,7 +13,7 @@ import { GIT_ENV, git, gitRepo, put, commitAll, proposalWith, fakeGh, check, pre
 import {
   here, review, reviews, withReviews, head, gateRow, ev, acRow, prJson, reviewAt, fullEvidence, PR_BODY, driveToReady, MERGE_FIELDS, noMergeCall,
   mergeReady, presetArchiveReads, repoRoot, coreAgent, CI_TASKS, CI_ENV, runCi, ciGate, ciProve, changeFilesOf, ciRepo, X_RETRO, archivePrRepo,
-  bothEntries,
+  bothEntries, GUARD_FILE, s7, ownFilesRepo, ownBrings, ownLines,
 } from './deliver-check-fixtures.mjs';
 
 // ---- the wait: --watch at wait-merge (AC-4)
@@ -643,6 +643,36 @@ test('AC-6 instructions-follow: no tracked file outside the records still says r
   assert.deepEqual(hits, []);
 });
 
+test('own-files AC-9 docs: the flow doc states the rule, the fail-safe cases and the check backstop', () => {
+  const flow = textOf('docs', 'openspec-flow.md');
+  const at = flow.indexOf('**The own-files rule.**');
+  assert.ok(at >= 0, 'the flow doc has the own-files paragraph');
+  const para = flow.slice(at, flow.indexOf('\n\n', at));
+  for (const [what, pattern] of [
+    ['the own files are the net diff against the base', /own files/],
+    ['a release file is never own', /release files/],
+    ['the merge and the base commits it brings are exempt', /base commits/],
+    ['the base is named', /`origin\/<base>`/],
+    ['a rejected review keeps the strict rule', /rejected review/],
+    ['no origin ref fails safe', /no `origin\/<base>`/],
+    ['an unfetched base fails safe', /not fetched|unfetched/],
+    ['a merge of another branch fails safe', /another branch/],
+    ['a head inside the base fails safe', /head (is )?(already )?(in|inside) the base/],
+    ['the check is the backstop', /backstop/],
+    ['the check runs on the merged ref', /`check`/],
+    ['the decision is cited', /ADR 0025/],
+  ]) assert.match(para, pattern, what);
+  const everyMerge = /every merge of the base that touches a file outside `openspec\/` makes its evidence and all its reviews stale/;
+  for (const file of [['docs', 'openspec-flow.md'], ['CONTRIBUTING.md'], ['plugins', 'core', 'skills', 'review-change', 'SKILL.md']]) {
+    assert.doesNotMatch(textOf(...file), everyMerge, file.join('/'));
+  }
+  assert.match(textOf('docs', 'openspec-flow.md'), /every merge of the base that brings one of its own files/, 'the release paragraph');
+  assert.match(textOf('CONTRIBUTING.md'), /own files/, 'CONTRIBUTING names the own files');
+  assert.match(textOf('plugins', 'core', 'skills', 'review-change', 'SKILL.md'), /brings none of the change's own files/, 'the review skill');
+  const ci = textOf('docs', 'openspec-flow.md');
+  assert.match(ci.slice(ci.indexOf('\n## CI')), /`GITHUB_BASE_REF`[^\n]*own files|own files[^\n]*`GITHUB_BASE_REF`/, 'the CI section');
+});
+
 test('format: ship-change names every next.step the checker can return', () => {
   const md = readFileSync(join(repoRoot, 'plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md'), 'utf8');
   const steps = ['stop-plan-mode', 'stop-branch', 'stop-not-approved', 'stop-plan-approval', 'implement', 'gate', 'commit', 'stop-review-deadlock', 'fix-review', 'review', 'fix-defect', 'verify', 'blocked', 'open-pr', 'push', 'edit-pr-body', 'fix-checks', 'answer', 'wait-checks', 'ready',
@@ -752,6 +782,25 @@ test('AC-5 guards-kept: --ci with only the evidence re-recorded at a later produ
   const r = runCi(root);
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /^fail: item 2$/m);
+});
+
+test('own-files AC-8 ci: the check passes after an unrelated merge and fails naming the merge after an own-file merge, from both entries', () => {
+  const run = (root) => {
+    const event = join(tmpFolder('devkit-event-'), 'event.json');
+    writeFileSync(event, JSON.stringify({ pull_request: { head: { sha: head(root) } } }));
+    const env = { ...process.env, ...CI_ENV, GITHUB_BASE_REF: 'main', GITHUB_HEAD_REF: 'feat', GITHUB_EVENT_PATH: event };
+    const a = spawnSync(process.execPath, [cli, '--ci'], { cwd: root, encoding: 'utf8', env });
+    const b = spawnSync(process.execPath, [GUARD_FILE, 'ci'], { cwd: root, encoding: 'utf8', env, input: '{}' });
+    return { deliver: a, guard: b };
+  };
+  const ok = run(ownFilesRepo().root);
+  for (const [entry, r] of Object.entries(ok)) assert.equal(r.status, 0, `${entry}: ${r.stdout}${r.stderr}`);
+  const bad = ownFilesRepo({ onMain: ownBrings({ 'src/a.ts': ownLines('line 1', 'main 12') }) });
+  const failed = run(bad.root);
+  for (const [entry, r] of Object.entries(failed)) {
+    assert.equal(r.status, 1, `${entry}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stdout, new RegExp(`${s7(bad.R)} is behind ${s7(bad.merged)}, which touches src/a\\.ts`), entry);
+  }
 });
 
 test('--ci: fails for each of an undisposed blocking finding, an AC without a pass row, a no proof AC and a gate without a passing row (AC-5)', () => {

@@ -11,6 +11,7 @@ import {
   parseTasks, readPhases, findingsItem, acceptanceItem, makeGh, fetchPr, prItem, checksItem, conversationItem, bodyItem, nextStep, readReviewMd,
   waitingFor, summarize, collectState, buildReport, locateChange, schemaOf, approvalState, RELEASE_FILE, ciMain,
 } from './deliver-check.mjs';
+import * as DC from './deliver-check.mjs';
 import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
 import { git, gitRepo, put, commitAll, proposalWith, fakeGh, tasksText, check, presetSetup, shipRepo, runCli } from './test-fixtures.mjs';
 import {
@@ -18,6 +19,7 @@ import {
   prJson, OLD_FLAG, versionsOf, conversation, tick, devkitRepo, readinessHash, approvalMd, planRepo, reviewAt, fullEvidence, PR_BODY, driveToReady,
   readyRepo, committedChange, itemsOf, bothEvidenceCurrent, MERGE_FIELDS, noMergeCall, mergeReady, presetArchiveReads,
   state, open, blocked, rejectedState, BOTH,
+  ciGate, changeFilesOf, CI_ENV, OWN_REVIEWERS, ownLines, ownReviews, ownEvidence, ownUnrelated, ownFilesRepo, ownBrings,
 } from './deliver-check-fixtures.mjs';
 
 test('test helpers: commits work without a global git identity and return the head sha', () => {
@@ -2201,3 +2203,283 @@ test('merge mode: auto-merge already on with an unresolved thread or a failing c
   for (const t of [answer, fix]) assert.deepEqual(noMergeCall(t), []);
 });
 function on0() { return { autoMergeRequest: { enabledAt: '2026-11-09T00:00:00Z' } }; }
+
+// ---------------------------------------------------------------- own-files (stale-only-on-own-files D-8)
+// A merge of the base stales the evidence and the approved or declined reviews only when it brings one of the
+// change's own files. The tests reach the new exports through the DC namespace so a missing one fails its own test.
+
+const OWN_SPARED = ['spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer'];
+const ownFacts = (root) => gitFacts(root, { base: 'main' });
+const ownGitOk = (root, ...args) => { try { git(root, ...args); return true; } catch { return false; } };
+const evWhy = (root, facts) => acceptanceItem(root, 'feat', facts).reason.match(/evidence\.md is stale \(([^)]*)\)/)?.[1] ?? null;
+const reviewWhys = (root, facts) => Object.fromEntries(DC.readReviews(root, 'feat', facts).map((r) => [r.name, r.why]));
+const allCurrent = Object.fromEntries(OWN_REVIEWERS.map((n) => [n, null]));
+
+
+test('own-files AC-1 rule: a merge of origin/main that brings only unrelated files leaves the evidence and every approved review current', () => {
+  const { root } = ownFilesRepo();
+  const facts = ownFacts(root);
+  assert.equal(evWhy(root, facts), null);
+  assert.equal(tasksItem(root, 'feat', facts).details.evidence, 'current');
+  assert.equal(acceptanceItem(root, 'feat', facts).details.evidence, 'current');
+  assert.deepEqual(reviewWhys(root, facts), allCurrent);
+  const it = reviewsItem(root, 'feat', facts);
+  assert.equal(it.status, 'met', it.reason);
+  assert.deepEqual(it.details.stale, []);
+});
+
+test('own-files AC-1 rule: the base commits a merge brings in are exempt unless they touch an own file', () => {
+  const exempt = ownFilesRepo({ onMain: (r) => {
+    put(r, { 'src/x.ts': 'x\n' });
+    commitAll(r, 'X adds a product file');
+    git(r, 'rm', '-q', 'src/x.ts');
+    put(r, { 'src/other.ts': 'changed on main\n' });
+    commitAll(r, 'Y removes it');
+  } });
+  assert.equal(git(exempt.root, 'diff', '--name-only', 'HEAD^1', 'HEAD'), 'src/other.ts');
+  assert.equal(evWhy(exempt.root, ownFacts(exempt.root)), null, 'a product file the base added and removed is not an own file');
+  assert.deepEqual(reviewWhys(exempt.root, ownFacts(exempt.root)), allCurrent);
+
+  const own = ownFilesRepo({ onMain: (r) => {
+    put(r, { 'src/a.ts': ownLines('line 1', 'main 12') });
+    commitAll(r, 'X edits a file the branch changed');
+    put(r, { 'src/a.ts': ownLines() });
+    commitAll(r, 'Y puts it back');
+  } });
+  assert.equal(git(own.root, 'diff', '--name-only', 'HEAD^1', 'HEAD'), '', 'the merge itself brings nothing');
+  assert.match(evWhy(own.root, ownFacts(own.root)), /^[0-9a-f]{7} is behind [0-9a-f]{7}, which touches src\/a\.ts$/);
+  assert.ok(!evWhy(own.root, ownFacts(own.root)).includes(s7(own.merged)), 'it names a commit of the base, not the merge');
+});
+
+test('own-files AC-1 next: collectState hands open-pr, not verify or review, after an unrelated merge', () => {
+  const gh = fakeGh();
+  gh.set('pr-list', { stdout: [] });
+  gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "feat"\n' });
+  const env = { ...gh.env, ...CI_ENV };
+  const step = (config, onMain) => {
+    const { root } = ownFilesRepo({ config, onMain });
+    return nextStep(collectState(root, 'feat', { env })).step;
+  };
+  const config = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n';
+  assert.equal(step(config, ownUnrelated), 'open-pr', 'unrelated merge: the records are current, the pull request is the next step');
+  assert.equal(step(config, ownBrings({ 'src/a.ts': ownLines('line 1', 'main 12') })), 'verify', 'own-file merge');
+});
+
+test('own-files AC-2 rule: a merge that brings a product file the branch changed is stale and names the merge and the file', () => {
+  const { root, R, merged } = ownFilesRepo({ onMain: ownBrings({ 'src/a.ts': ownLines('line 1', 'main 12') }) });
+  const facts = ownFacts(root);
+  const why = `${s7(R)} is behind ${s7(merged)}, which touches src/a.ts`;
+  assert.equal(evWhy(root, facts), why);
+  assert.match(tasksItem(root, 'feat', facts).reason, new RegExp(`evidence\\.md is stale \\(${why}\\)`));
+  assert.deepEqual(reviewWhys(root, facts), Object.fromEntries(OWN_REVIEWERS.map((n) => [n, why])));
+  assert.equal(reviewsItem(root, 'feat', facts).status, 'open');
+});
+
+test('own-files AC-2 rule: a merge that brings a test file the branch changed stales the evidence', () => {
+  const { root, R, merged } = ownFilesRepo({ onMain: ownBrings({ 'src/a.test.ts': ownLines('line 1', 'main 12') }) });
+  const facts = ownFacts(root);
+  assert.equal(evWhy(root, facts), `${s7(R)} is behind ${s7(merged)}, which touches src/a.test.ts`);
+  assert.equal(tasksItem(root, 'feat', facts).details.evidence, 'stale');
+  const whys = reviewWhys(root, facts);
+  assert.ok(whys['code-quality-reviewer'] && whys['test-coverage-reviewer']);
+});
+
+test('own-files AC-3 rule: one own file among unrelated ones is enough and is the one named', () => {
+  const { root, R, merged } = ownFilesRepo({ onMain: ownBrings({ 'docs/unrelated.md': 'u\n', 'src/other.ts': 'changed on main\n', 'src/a.ts': ownLines('line 1', 'main 12') }) });
+  const facts = ownFacts(root);
+  assert.equal(evWhy(root, facts), `${s7(R)} is behind ${s7(merged)}, which touches src/a.ts`);
+  assert.ok(reviewWhys(root, facts)['code-quality-reviewer'].endsWith('which touches src/a.ts'));
+});
+
+test('own-files AC-4 rule: a merge that brings only release files, the bumped CHANGELOG.md resolved in the merge included, leaves the records current', () => {
+  const { root } = ownFilesRepo({
+    onMain: ownBrings({
+      'CHANGELOG.md': '# Changelog\n\n## 1.0.1\n- main\n\n## 1.0.0\n- start\n', 'plugins/p/.claude-plugin/plugin.json': '{"version":"1.0.1"}\n',
+      '.claude-plugin/marketplace.json': '{"version":"1.0.1"}\n', 'docs/catalog.md': 'catalog 2\n',
+    }),
+    merge: (r) => {
+      try { git(r, 'merge', '-q', '--no-ff', '--no-commit', 'main'); } catch { /* the release files conflict */ }
+      put(r, { 'CHANGELOG.md': '# Changelog\n\n## 1.1.0\n- feat\n\n## 1.0.1\n- main\n\n## 1.0.0\n- start\n', 'plugins/p/.claude-plugin/plugin.json': '{"version":"1.1.0"}\n' });
+      git(r, 'add', '-A');
+      git(r, 'commit', '-q', '-m', 'merge main, resolving the release files');
+    },
+  });
+  assert.equal(git(root, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').length, 3, 'a merge commit');
+  const facts = ownFacts(root);
+  assert.equal(evWhy(root, facts), null);
+  assert.deepEqual(reviewWhys(root, facts), allCurrent);
+});
+
+test('own-files AC-5 rule: a plain product commit after an exempt merge is stale', () => {
+  const { root, R } = ownFilesRepo();
+  assert.equal(evWhy(root, ownFacts(root)), null);
+  put(root, { 'src/unrelated.ts': 'u\n' });
+  const P = commitAll(root, 'product after the merge');
+  const facts = ownFacts(root);
+  assert.equal(evWhy(root, facts), `${s7(R)} is behind ${s7(P)}, which touches src/unrelated.ts`);
+  assert.equal(reviewWhys(root, facts)['code-quality-reviewer'], `${s7(R)} is behind ${s7(P)}, which touches src/unrelated.ts`);
+});
+
+test('own-files AC-6 rule: a rejected verdict is stale after an exempt merge; the approved ones are current', () => {
+  const { root } = ownFilesRepo({ rejected: ['security-reviewer'] });
+  const whys = reviewWhys(root, ownFacts(root));
+  assert.match(whys['security-reviewer'], /^[0-9a-f]{7} is behind [0-9a-f]{7}, which touches /);
+  assert.deepEqual(Object.fromEntries(Object.entries(whys).filter(([n]) => n !== 'security-reviewer')), Object.fromEntries(OWN_REVIEWERS.filter((n) => n !== 'security-reviewer').map((n) => [n, null])));
+});
+
+test('own-files AC-6 rule: a test-only commit after an exempt merge keeps the four test-spared reviewers current', () => {
+  const { root, R } = ownFilesRepo();
+  put(root, { 'src/a.test.ts': ownLines('branch 1', 'tests again') });
+  const T = commitAll(root, 'tests only');
+  const whys = reviewWhys(root, ownFacts(root));
+  for (const n of OWN_SPARED) assert.equal(whys[n], null, n);
+  for (const n of ['code-quality-reviewer', 'test-coverage-reviewer']) assert.equal(whys[n], `${s7(R)} is behind ${s7(T)}, which touches src/a.test.ts`, n);
+});
+
+test('own-files AC-7 rule: no origin/<base>, an unfetched base, a merge of another branch and a head inside the base each give today\'s verdict', () => {
+  const sameAsToday = (label, repo) => {
+    const { root } = repo;
+    const today = evWhy(root, gitFacts(root));
+    assert.ok(today, `${label}: the verdict without a base is stale`);
+    assert.equal(evWhy(root, ownFacts(root)), today, label);
+    assert.deepEqual(reviewWhys(root, ownFacts(root)), reviewWhys(root, gitFacts(root)), label);
+  };
+  sameAsToday('no origin/main', ownFilesRepo({ origin: 'none' }));
+  sameAsToday('an unfetched base', ownFilesRepo({ origin: 'initial' }));
+  sameAsToday('the head inside the base', ownFilesRepo({ origin: 'head' }));
+  sameAsToday('a merge of another branch', ownFilesRepo({
+    onMain: () => {},
+    merge: (r) => {
+      git(r, 'switch', '-q', '-c', 'side', 'main');
+      put(r, { 'docs/unrelated.md': 'u\n' });
+      commitAll(r, 'side work');
+      git(r, 'switch', '-q', 'feat');
+      git(r, 'merge', '-q', '--no-ff', '-m', 'merge side', 'side');
+    },
+    origin: 'tip',
+  }));
+});
+
+test('own-files AC-7 rule: a file the branch changed then restored is not own', () => {
+  const { root } = ownFilesRepo({
+    before: (r) => {
+      put(r, { 'src/b.ts': 'changed early\n' });
+      commitAll(r, 'change b');
+      put(r, { 'src/b.ts': 'b\n' });
+      commitAll(r, 'restore b');
+    },
+    onMain: ownBrings({ 'src/b.ts': 'changed on main\n' }),
+  });
+  const facts = ownFacts(root);
+  assert.equal(evWhy(root, facts), null);
+  assert.deepEqual(reviewWhys(root, facts), allCurrent);
+});
+
+test('own-files AC-7 rule: a head that is a merge made on the base, both parents already in origin/<base>, is judged as without a base', () => {
+  const root = gitRepo({ config: 'schema: devkit-lite\n', changes: { feat: changeFilesOf() }, files: { 'src/x.ts': 'x\n' } });
+  const R = head(root);
+  put(root, { ...ownReviews(R), 'openspec/changes/feat/evidence.md': ownEvidence(R) });
+  commitAll(root, 'reviews and evidence');
+  put(root, { 'openspec/changes/other/tasks.md': '- [ ] 1.1 x\n' });
+  commitAll(root, 'main moves');
+  git(root, 'switch', '-q', '-c', 'side');
+  put(root, { 'src/y.ts': 'y\n' });
+  const tip = commitAll(root, 'the base goes on with a product file');
+  git(root, 'update-ref', 'refs/remotes/origin/main', tip);
+  // the branch merges the base's newest commit into its own first parent: the merge is the branch's, but both parents are in the base
+  git(root, 'switch', '-q', '-c', 'feat', 'main');
+  git(root, 'merge', '-q', '--no-ff', '-m', 'merge side on the branch', 'side');
+  for (const parent of git(root, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').slice(1)) {
+    assert.ok(ownGitOk(root, 'merge-base', '--is-ancestor', parent, 'refs/remotes/origin/main'), 'both parents are in the base');
+  }
+  const facts = ownFacts(root);
+  assert.ok(DC.ownFiles(root, 'feat', facts), 'the rule applies: the head itself is not in the base');
+  assert.equal(DC.ownFiles(root, 'feat', facts).isOwn('src/y.ts'), false, 'the merge brings no own file');
+  const today = evWhy(root, gitFacts(root));
+  assert.equal(today, `${s7(R)} is behind ${s7(head(root))}, which touches src/y.ts`, 'the verdict without a base names the merge');
+  assert.equal(evWhy(root, facts), today, 'the merge is not exempted as a merge of the base');
+  assert.deepEqual(reviewWhys(root, facts), reviewWhys(root, gitFacts(root)));
+});
+
+test('own-files AC-7 rule: histories with no merge base give ownFiles null and today\'s verdict', () => {
+  const { root } = ownFilesRepo({ origin: 'none' });
+  const orphan = git(root, 'commit-tree', git(root, 'hash-object', '-t', 'tree', '/dev/null'), '-m', 'unrelated root');
+  git(root, 'update-ref', 'refs/remotes/origin/main', orphan);
+  assert.ok(!ownGitOk(root, 'merge-base', 'HEAD', orphan), 'the base shares no history with the head');
+  assert.equal(DC.ownFiles(root, 'feat', ownFacts(root)), null);
+  const today = evWhy(root, gitFacts(root));
+  assert.ok(today, 'the verdict without a base is stale');
+  assert.equal(evWhy(root, ownFacts(root)), today);
+  assert.deepEqual(reviewWhys(root, ownFacts(root)), reviewWhys(root, gitFacts(root)));
+});
+
+test('own-files AC-7 base: stalenessBase reads GITHUB_BASE_REF, then the configured base, then origin/HEAD, then main or master, else null', () => {
+  const repo = (refs = []) => {
+    const root = gitRepo();
+    for (const r of refs) git(root, 'update-ref', `refs/remotes/origin/${r}`, 'HEAD');
+    return root;
+  };
+  const none = {};
+  assert.equal(DC.stalenessBase(repo(['main']), { GITHUB_BASE_REF: 'develop' }, 'trunk'), 'develop', 'the pull request base wins, resolved or not');
+  assert.equal(DC.stalenessBase(repo(['main']), { GITHUB_BASE_REF: '' }, 'trunk'), 'trunk', 'a blank GITHUB_BASE_REF is not set');
+  const withHead = repo(['main', 'dev']);
+  git(withHead, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/dev');
+  assert.equal(DC.stalenessBase(withHead, none, null), 'dev', 'origin/HEAD');
+  assert.equal(DC.stalenessBase(repo(['master']), none, null), 'master');
+  assert.equal(DC.stalenessBase(repo(['master', 'main']), none, null), 'main', 'main first');
+  assert.equal(DC.stalenessBase(repo(), none, null), null);
+});
+
+// origin/develop holds the base tip the merge brought (unrelated files only) and origin/main an older commit, so a
+// run that judges against `main` instead of `develop` finds the unrelated merge off the base and calls the records stale.
+const OWN_TWO_PRS = 'schema: devkit-lite\ndevkit:\n  delivery:\n    model: two-prs\n    base: develop\n    test_branch: staging\n';
+function ownDevelopRepo(config) {
+  const r = ownFilesRepo({ config, origin: 'none' });
+  git(r.root, 'update-ref', 'refs/remotes/origin/develop', r.tip);
+  git(r.root, 'update-ref', 'refs/remotes/origin/main', r.initial);
+  return r.root;
+}
+const ownStateOf = (root, env = {}) => {
+  const gh = fakeGh();
+  gh.set('pr-list', { stdout: [] });
+  gh.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "feat"\n' });
+  const state = collectState(root, 'feat', { env: { ...gh.env, ...CI_ENV, ...env } });
+  return { evidence: state.items[0].details.evidence, staleReviews: state.reviews.filter((x) => !x.current).map((x) => x.name) };
+};
+const OWN_JUDGED_CURRENT = { evidence: 'current', staleReviews: [] };
+
+test('own-files AC-7 collectState: the configured base (two-prs) is the branch whose merges the rule exempts, not main', () => {
+  assert.deepEqual(ownStateOf(ownDevelopRepo(OWN_TWO_PRS)), OWN_JUDGED_CURRENT, 'base develop: the unrelated merge stays current');
+  const viaMain = ownStateOf(ownDevelopRepo('schema: devkit-lite\n'));
+  assert.equal(viaMain.evidence, 'stale', 'without the configured base the main fallback judges the same repository stale');
+  assert.deepEqual(viaMain.staleReviews, [...OWN_REVIEWERS].sort());
+});
+
+test('own-files AC-7 collectState: GITHUB_BASE_REF is the base, ahead of main', () => {
+  const root = ownDevelopRepo('schema: devkit-lite\n');
+  assert.deepEqual(ownStateOf(root, { GITHUB_BASE_REF: 'develop' }), OWN_JUDGED_CURRENT, 'GITHUB_BASE_REF=develop');
+  assert.equal(ownStateOf(root, {}).evidence, 'stale', 'the same repository without it falls back to main');
+});
+
+test('own-files AC-7 collectState: GITHUB_BASE_REF wins over the configured base', () => {
+  const root = ownDevelopRepo(OWN_TWO_PRS);
+  git(root, 'update-ref', 'refs/remotes/origin/trunk', git(root, 'rev-parse', 'refs/remotes/origin/main'));
+  assert.equal(ownStateOf(root, { GITHUB_BASE_REF: 'trunk' }).evidence, 'stale', 'the pull request base trunk is judged, not the configured develop');
+  assert.deepEqual(ownStateOf(root, {}), OWN_JUDGED_CURRENT, 'the configured develop when no pull request base is set');
+});
+
+test('own-files AC-7 own: ownFiles leaves out release files, keeps the change folder and both sides of a move', () => {
+  const { root, tip } = ownFilesRepo({ merge: null, before: (r) => {
+    git(r, 'mv', 'src/other.ts', 'src/moved.ts');
+    git(r, 'commit', '-q', '-m', 'move');
+  } });
+  const own = DC.ownFiles(root, 'feat', ownFacts(root));
+  assert.equal(own.base, 'main');
+  assert.equal(own.tip, tip);
+  for (const p of ['src/a.ts', 'src/a.test.ts', 'src/other.ts', 'src/moved.ts', 'openspec/changes/feat/notes.md']) assert.equal(own.isOwn(p), true, p);
+  for (const p of ['CHANGELOG.md', 'plugins/p/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'docs/catalog.md', 'src/b.ts', 'openspec/changes/other/tasks.md']) assert.equal(own.isOwn(p), false, p);
+  assert.equal(DC.ownFiles(root, 'feat', gitFacts(root)), null, 'no base');
+  assert.equal(DC.ownFiles(root, 'feat', gitFacts(root, { base: 'nowhere' })), null, 'a base with no origin ref');
+  git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  assert.equal(DC.ownFiles(root, 'feat', ownFacts(root)), null, 'the head is in the base');
+});
