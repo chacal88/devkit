@@ -13,7 +13,9 @@
   (0011-the-change-coordinator-is-the-owners-session.md), decision 2; ADR 0013
   (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 4; ADR 0014
   (0014-each-roadmap-change-runs-in-a-session-of-its-own.md), decisions 1 to 4; ADR 0017
-  (0017-a-change-state-is-derived-in-one-place.md), decision 4, the title of a held change session
+  (0017-a-change-state-is-derived-in-one-place.md), decision 4, the title of a held change session;
+  ADR 0020 (0020-a-change-can-run-on-another-machine.md), decisions 5 and 8, for a change of this
+  machine whose session claimed the run's ticket
 
 ## Context
 
@@ -95,6 +97,24 @@ version 2, which lists `requirements-triage` among the helpers of the grill; a c
 before devkit-openspec 0.33.0, or with no recorded flow) keeps its grill with no triage until the owner
 moves it with `change-loop.mjs flow <id>`, because a released flow version never changes under the
 changes that follow it. The status and the decisions above stay.
+
+Note (roadmap-sessions-upfront and remote-worker, 2026-11-23): [ADR 0020](0020-a-change-can-run-on-another-machine.md)
+lets a run open a change on another machine and amends ADR 0013 decision 4, ADR 0014 and ADR 0017
+decision 4 as this record does. The two sit side by side. A change opened for another machine
+gets no ticket: no hook reaches that machine (ADR 0020 decision 7), so its session starts with the
+typed form `/devkit-openspec:devkit change <id>` and asks its own grill, plan approval and retro
+answers; decisions 1 and 3 hold for the change sessions of this machine. A change session of this
+machine that claimed the run's ticket takes its place from the run's own count (decision 2), whatever
+the setting: while it waits it is `running`, titled `⏳ <id>` (decision 5), and its plan on `origin`
+is no place taken; a change whose place is counted from `origin` (one on another machine, or one of
+this machine whose session claimed no ticket) ends `blocked` with the reason `no-place`, titled
+`⏳ <id>`, and is woken by one message as ADR 0020 decisions 5 and 8 say. ADR 0020 decision 5's
+"nothing is scheduled" holds for that wake; for a roadmap run decision 4 keeps one session cron in
+the coordinating session and decision 2 a background wait in each held change session of this
+machine. The two counts stay apart: a change session on the run's ticket does not wait for a change
+of this machine counted from `origin`, so with both kinds at once this machine can hold more places
+than the run's number, and the board's row of this machine then reads above it. ADR 0020's other
+decisions hold as written.
 
 ## Consequences
 

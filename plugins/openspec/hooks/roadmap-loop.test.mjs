@@ -3070,26 +3070,26 @@ test('upfront AC-7 session-next: every other gate stays in the change session', 
   for (const action of ends) assert.deepEqual(sd(action).action, action, action.end.why);
 });
 
-// A change `a` of the default script on its own branch of a scratch project, its plan written up to the readiness review, in a run with a session per change.
-function upChange({ roadmap = ['[ ] a', '[ ] b'], run = {}, files = {} } = {}) {
+// A change `a` (or the `id` given) of the default script on its own branch of a scratch project, its plan written up to the readiness review, in a run with a session per change.
+function upChange({ roadmap = ['[ ] a', '[ ] b'], run = {}, files = {}, id = 'a' } = {}) {
   const root = projectWith(roadmapText(...roadmap), { config: 'schema: devkit\nship:\n  devkit: pr\n' });
-  git(root, 'checkout', '-q', '-b', 'a');
+  git(root, 'checkout', '-q', '-b', id);
   const c0 = git(root, 'rev-parse', 'HEAD');
-  const dir = 'openspec/changes/a';
+  const dir = `openspec/changes/${id}`;
   const planned = { [`${dir}/.openspec.yaml`]: 'schema: devkit\n' };
   for (const [stage, file] of Object.entries(PLAN_FILES)) {
     const body = stage === 'readiness' ? '# Readiness\n\n- Status: APPROVED\n' : stage === 'tasks' ? '# Tasks\n\n- [ ] 1.1 a\n' : `# ${stage}\n`;
     planned[`${dir}/${file}`] = `<!-- devkit-stage ${stage} result=passed attempt=1 commit=${c0} -->\n${body}`;
   }
   put(root, { ...planned, ...files });
-  commitAll(root, 'plan a');
-  putRun(root, { changeSessions: true, places: 1, tickets: upTickets('a', { claimedBy: 'S-a' }), ...run });
+  commitAll(root, `plan ${id}`);
+  putRun(root, { changeSessions: true, places: 1, tickets: upTickets(id, { claimedBy: `S-${id}` }), ...run });
   return root;
 }
-const approve = (root) => {
-  const dir = join(root, 'openspec', 'changes', 'a');
-  put(root, { 'openspec/changes/a/approval.md': `<!-- devkit-stage approval result=passed attempt=1 commit=none -->\n# Plan approval: a\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n` });
-  commitAll(root, 'approve a');
+const approve = (root, id = 'a') => {
+  const dir = join(root, 'openspec', 'changes', id);
+  put(root, { [`openspec/changes/${id}/approval.md`]: `<!-- devkit-stage approval result=passed attempt=1 commit=none -->\n# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir).readiness}\n` });
+  commitAll(root, `approve ${id}`);
 };
 const doSessionNext = (cwd, extra = [], opts = {}) => cmd(cwd, ['session-next', '--change', 'a', ...FLAGS, ...extra], opts);
 
@@ -5130,7 +5130,7 @@ test('upfront ADR 0021: the documents follow', () => {
   assert.ok(adr10.includes('Note (roadmap-sessions-upfront'), 'ADR 0010 has the Note');
   assert.ok(/decision 8/i.test(note10) && note10.replaceAll('`', '').includes('a lone /devkit change'), 'ADR 0010\'s Note names decision 8 and the lone change');
   const adrs = read('openspec', 'config.yaml').split('\n').find((l) => l.trim().startsWith('ADRs:'));
-  assert.ok(adrs.includes('amends 0004, 0006, 0010, 0011, 0013, 0014 and 0017'), 'the ADRs line names the amended ADRs');
+  assert.ok(adrs.includes('amends 0004, 0006, 0010, 0011, 0013, 0014, 0017 and 0020'), 'the ADRs line names the amended ADRs');
   const log = read('CHANGELOG.md');
   const entryStart = log.indexOf('## 0.37.0');
   const entry = flat(log.slice(entryStart, log.indexOf('\n## ', entryStart + 1)));
@@ -5195,4 +5195,168 @@ test('upfront merge check: the periodic check carries the machines setting it wa
   assert.equal(r.stdout, `${render('en', 'machines-unreadable')}\n`);
   assert.deepEqual(calls, [], 'no machine was reached');
   assert.equal(existsSync(runFileOf(t.main)), false, 'nothing was written');
+});
+
+// ================================================================ roadmap-sessions-upfront beside remote-worker: the places of this machine (phase 9, design D-18)
+
+// The ids are two letters long because a claim on `origin` is read only for a change name (`NAME` of the change loop): `aa` is the change session under test,
+// `bb`, `cc` and `dd` are other changes of this machine.
+const D18_YAML = `schema: devkit\nx-devkit-machine: ${thisMachine()}\nx-devkit-places: run\n`;
+const D18_APPROVAL = '# Approval\n\n- Status: APPROVED\n';
+const d18Tickets = (claimed, unclaimed = []) => Object.assign({}, ...claimed.map((id) => upTickets(id, { claimedBy: `S-${id}` })), ...unclaimed.map((id) => upTickets(id, { claimedBy: null })));
+
+// Change `aa` on its branch (its plan approved only once the test calls `approve`) with the claim of this machine on the run's own count, `places: 1`, an `origin`
+// that holds only main, and each of `others` (changes of this machine with the same claim) with its branch and approval.md on that `origin`, pushed from a second clone.
+function d18Project({ roadmap = ['[ ] aa'], tickets, others = [] }) {
+  const root = upChange({ id: 'aa', roadmap, files: { 'openspec/changes/aa/.openspec.yaml': D18_YAML }, run: { places: 1, tickets } });
+  const origin = tmpFolder('devkit-d18-origin-');
+  git(origin, 'init', '-q', '--bare', '-b', 'main');
+  git(root, 'remote', 'add', 'origin', origin);
+  git(root, 'push', '-q', 'origin', 'main');
+  const clones = tmpFolder('devkit-d18-clone-');
+  const other = join(clones, 'clone');
+  git(clones, 'clone', '-q', origin, other);
+  for (const id of others) {
+    git(other, 'checkout', '-q', '-b', id, 'origin/main');
+    put(other, { [`openspec/changes/${id}/.openspec.yaml`]: D18_YAML, [`openspec/changes/${id}/approval.md`]: D18_APPROVAL });
+    commitAll(other, `plan ${id}`);
+    git(other, 'push', '-q', 'origin', id);
+  }
+  git(root, 'fetch', '-q', 'origin');
+  return { root, origin, other };
+}
+const d18Next = (root, over = {}) => loopModule.sessionNext(root, 'aa', { env: cleanEnv, lang: 'en', gh: OFFLINE, ...over });
+const d18Claims = (root) => Object.fromEntries(changeLoopModule.remoteClaims(root, { env: cleanEnv, gh: OFFLINE }).claims);
+// This machine's row of the board over the claims `origin` holds, the run's `occupied` and its tickets: the text before the open count.
+function d18Row(root, { occupied = {}, tickets, ids = ['aa', 'bb'] }) {
+  const f = machinesWorld({
+    lines: ids.map((id) => `[ ] ${id}`), local: Object.fromEntries(ids.map((id) => [id, agentAct(id)])), places: 1, claims: d18Claims(root), occupied, queued: {}, tickets, thisMachine: thisMachine(),
+  });
+  const name = render('en', 'machine.this', { name: thisMachine() });
+  const row = boardOf(f).split('\n').find((l) => l.trim().startsWith(name));
+  return row.trim().slice(name.length).trim().split(' · ')[0];
+}
+const d18Taken = (taken) => render('en', 'machine.row', { taken, places: 1, open: 0 }).split(' · ')[0];
+const d18Shape = (action) => [action.kind, action.stage, action.step ?? action.end?.why ?? action.held?.why ?? null];
+
+// Invariant: one gate and one count for a change session of this machine on the run's ticket: `occupied` alone, whether its plan is on `origin` or not; the board's
+// row counts the same places. Layer: placeFacts (through sessionNext) and boardOf. Suite: roadmap-loop.
+test('upfront D-18 place: a change session of this machine on the run\'s ticket takes its place from occupied only, before and after its plan push', () => {
+  const tickets = d18Tickets(['aa', 'bb']);
+  const { root } = d18Project({ tickets, others: ['bb'] });
+  approve(root, 'aa');
+  const run = (occupied) => putRun(root, { changeSessions: true, places: 1, tickets, occupied });
+  run({});
+  const free = d18Next(root);
+  assert.deepEqual(d18Shape(free), ['agent', 'implementation', 'implement'], `before the push, the plan of bb on origin fills the run's number and aa still gets its hand-off: ${JSON.stringify(free)}`);
+  run({ bb: { at: AT } });
+  const wait = d18Next(root);
+  assert.deepEqual([wait.kind, wait.held?.why, wait.sessionTitle], ['held', 'place', '⏳ aa'], 'before the push, occupied holds bb: aa waits for a place');
+  git(root, 'push', '-q', 'origin', 'aa');
+  run({});
+  assert.deepEqual(d18Shape(d18Next(root)), ['agent', 'implementation', 'implement'], 'after the push, the hand-off');
+  run({ bb: { at: AT } });
+  const after = d18Next(root);
+  assert.deepEqual([after.kind, after.held?.why, after.sessionTitle], ['held', 'place', '⏳ aa'], 'after the push, the wait');
+  assert.equal(d18Claims(root).aa.placed, true, 'the plans of aa and bb are both on origin');
+  assert.equal(d18Row(root, { occupied: { aa: { at: AT } }, tickets }), d18Taken(1), 'occupied holds aa alone: one place taken of one');
+});
+
+// Invariant: a place of this machine frees with the load stages, whatever its claim on origin, and no record of an archived change holds one. Layer: sessionDecide,
+// boardOf, checkCmd. Suite: roadmap-loop.
+test('upfront D-18 place: a place of this machine frees when its change leaves the load stages, whatever its claim on origin, and nothing of it counts once archived', () => {
+  const tickets = d18Tickets(['aa', 'cc']);
+  const { root } = d18Project({ roadmap: ['[ ] aa', '[ ] cc'], tickets });
+  approve(root, 'aa');
+  addOpen(root, 'cc');
+  git(root, 'push', '-q', 'origin', 'aa');
+  assert.equal(d18Claims(root).aa.placed, true, 'the claim of aa is placed on origin');
+  const delivery = endAct('aa', 'waiting-on-github', 'waiting-github', { what: 'merge' }, { stage: 'delivery', stageTitle: 'Delivery' });
+  const freed = sd(delivery, { occupied: { aa: { at: AT } }, queued: { cc: { at: AT, why: 'place' } } });
+  assert.deepEqual([freed.occupied, Object.keys(freed.queued)], [{}, ['cc']], 'the delivery drops the place of aa and keeps cc queued');
+  assert.equal(d18Row(root, { occupied: freed.occupied, tickets, ids: ['aa', 'cc'] }), d18Taken(0), 'the board reads no place taken while the claim of aa is placed');
+  putRun(root, { changeSessions: true, places: 1, turn: 'typed', ...startedIn('aa', 'cc'), occupied: freed.occupied, queued: freed.queued });
+  const checked = doCheck(root);
+  assert.equal(checked.code, 0, checked.stdout + checked.stderr);
+  assert.deepEqual([Object.keys(stateOf(root).occupied), stateOf(root).queued], [['cc'], {}], 'the check\'s locked update gives cc the place');
+  archiveOn(root, 'aa');
+  putRun(root, { changeSessions: true, places: 1, turn: 'typed', ...startedIn('aa', 'cc'), occupied: { aa: { at: AT }, cc: { at: AT } }, queued: {} });
+  const archived = doCheck(root);
+  assert.equal(archived.code, 0, archived.stdout + archived.stderr);
+  assert.deepEqual(Object.keys(stateOf(root).occupied), ['cc'], 'pruneRecords keeps nothing of the archived aa');
+  assert.equal(d18Claims(root).aa, undefined, 'the claim of an archived change is not read');
+});
+
+// Invariant: the fix never loosens the gate of a change that `sessionDecide` does not hold: a change whose ticket no session claimed meets the claims on origin.
+// Layer: placeFacts (through sessionNext) and boardOf. Suite: roadmap-loop. (It pins today's gate: it passes before the change.)
+test('upfront D-18 place: a change of this machine whose ticket no session claimed keeps the remote-worker gate', () => {
+  const tickets = d18Tickets([], ['aa', 'bb']);
+  const { root, origin } = d18Project({ tickets, others: ['bb'] });
+  approve(root, 'aa');
+  const full = d18Next(root);
+  assert.deepEqual(d18Shape(full), ['end', 'implementation', 'no-place'], JSON.stringify(full));
+  assert.deepEqual([full.params.taken, full.params.places], [1, 1], 'the plan of bb on origin fills the one place');
+  assert.equal(d18Row(root, { tickets }), d18Taken(1), 'bb is counted by its claim');
+  git(origin, 'branch', '-q', '-D', 'bb');
+  git(root, 'fetch', '-q', '--prune', 'origin');
+  assert.deepEqual(d18Shape(d18Next(root)), ['session', 'implementation', 'take-place'], 'with bb gone the place is free: take-place');
+});
+
+// Invariant: the two counts stay apart (a claimed change counts `occupied`, an unclaimed one the claims on origin) and the board shows both. Layer: sessionDecide and
+// boardOf. Suite: roadmap-loop. (It pins today's two counts: it passes before the change.)
+test('upfront D-18 place: a claimed change does not wait for an unclaimed one, and the board\'s row then reads above the number', () => {
+  const tickets = d18Tickets(['aa'], ['dd']);
+  const { root } = d18Project({ tickets, others: ['dd'] });
+  approve(root, 'aa');
+  git(root, 'push', '-q', 'origin', 'aa');
+  const taken = d18Next(root, { write: true });
+  assert.deepEqual(d18Shape(taken), ['agent', 'implementation', 'implement'], JSON.stringify(taken));
+  assert.deepEqual(Object.keys(stateOf(root).occupied), ['aa'], 'aa took its place by occupied');
+  assert.equal(d18Row(root, { occupied: stateOf(root).occupied, tickets, ids: ['aa', 'dd'] }), render('en', 'machine.row', { taken: 2, places: 1, open: 0 }).split(' · ')[0], 'aa by occupied and dd by its claim: two of one');
+});
+
+// Invariant: ADR 0021 records its place beside ADR 0020 (Amends and a Note), ADR 0020 names ADR 0021, and the documents qualify the triage by flow and state the two counts.
+// Layer: the documents. Suite: roadmap-loop.
+test('upfront D-18 docs: ADR 0021 names ADR 0020 in its Amends and a Note, ADR 0020 is amended by ADR 0021, and ADR 0010\'s Note and the config rule qualify the triage by flow', () => {
+  const REPO = join(HERE, '..', '..', '..');
+  const read = (...p) => readFileSync(join(REPO, ...p), 'utf8');
+  const flat = (text) => text.replace(/\s+/g, ' ');
+  const plain = (text) => flat(text).replaceAll('`', '');
+  const [n20, n21] = ['0020-a-change-can-run-on-another-machine.md', '0021-a-roadmap-run-opens-every-change-at-its-start.md'];
+  const adr21 = read('docs', 'adr', n21);
+  const amends = flat(adr21.slice(adr21.indexOf('- Amends:'), adr21.indexOf('\n\n', adr21.indexOf('- Amends:'))));
+  assert.ok(amends.includes(`ADR 0020 (${n20}), decisions 5 and 8, for a change of this machine whose session claimed the run's ticket`), 'the Amends entry');
+  const start = adr21.indexOf('Note (roadmap-sessions-upfront and remote-worker, 2026-11-23)');
+  assert.ok(start > adr21.indexOf('## Decision') && start < adr21.indexOf('## Consequences'), 'the second Note sits after the Decision and before the Consequences');
+  const note = plain(adr21.slice(start, adr21.indexOf('## Consequences')));
+  for (const part of [`[ADR 0020](${n20})`, 'gets no ticket', 'no hook reaches that machine (ADR 0020 decision 7)', 'takes its place from the run\'s own count', 'ends blocked with the reason no-place, titled ⏳ <id>',
+    'decision 4 keeps one session cron', 'this machine can hold more places than the run\'s number', 'the board\'s row of this machine then reads above it', 'ADR 0020\'s other decisions hold as written']) {
+    assert.ok(note.includes(part), `the Note says: ${part}`);
+  }
+  const adr20 = read('docs', 'adr', n20);
+  assert.ok(adr20.split('\n').slice(0, 8).includes(`- Amended by ADR 0021 (${n21})`), 'ADR 0020 has the Amended by line in its header');
+  assert.match(adr20, /^- Status: accepted$/m);
+  const noteAt = adr20.indexOf('Note (roadmap-sessions-upfront, 2026-11-23)');
+  assert.ok(noteAt > adr20.indexOf('9. ADR 0010 decisions 1 to 8') && noteAt < adr20.indexOf('## Consequences'), 'ADR 0020\'s Note sits after the Decision list and before the Consequences');
+  const note20 = plain(adr20.slice(noteAt, adr20.indexOf('## Consequences')));
+  for (const part of [`[ADR 0021](${n21})`, 'from the run file, not from origin', 'one session cron', 'The status and the decisions above stay']) assert.ok(note20.includes(part), `ADR 0020's Note says: ${part}`);
+  const adr10 = read('docs', 'adr', '0010-openspec-as-the-harness.md');
+  const note10 = plain(adr10.slice(adr10.indexOf('Note (roadmap-sessions-upfront'))).split(' Note (')[0];
+  assert.ok(note10.includes('of a change that follows flow version 2 or later of its script, the requirements-triage agent answers those first'), 'ADR 0010\'s Note qualifies the triage by flow');
+  assert.ok(note10.includes('a change on flow 1 keeps its grill with no triage until the owner moves it (ADR 0021\'s Note)'), 'and says what flow 1 keeps');
+  const rule = read('openspec', 'config.yaml').split('\n').find((l) => l.includes('Ask the owner every question that nothing written settles'));
+  assert.ok(rule.includes('only in the grill of a change that follows flow version 2 or later of its script; in a change on flow 1 the owner answers every question.'), 'the config rule qualifies the triage by flow');
+  const sentence = 'With the machines setting set, a change session of this machine on the run\'s ticket takes its place from the run\'s own count, and its plan on origin is no place taken; '
+    + 'a change counted from origin (another machine\'s, or one of this machine whose session claimed no ticket) keeps ADR 0020\'s places, so with both kinds at once this machine can hold more places than the run\'s number, '
+    + 'and the board\'s row of this machine then reads above it.';
+  for (const file of ['openspec-flow.md', 'coordination-design.md']) {
+    const paragraph = plain(read('docs', file).split('\n').find((l) => l.startsWith('**Opening every change at the start')));
+    assert.ok(paragraph.includes(sentence), `${file} holds the sentence in its paragraph "Opening every change at the start"`);
+  }
+  const log = read('CHANGELOG.md');
+  const entryStart = log.indexOf('## 0.37.0');
+  const entry = plain(log.slice(entryStart, log.indexOf('\n## ', entryStart + 1)));
+  const bullet = entry.slice(entry.indexOf('**devkit-openspec** 0.33.0'), entry.indexOf('- **devkit-core** 0.14.0'));
+  assert.ok(bullet.includes('With the machines setting set, a change session of this machine on the run\'s ticket takes its place from the run\'s own count: its plan on origin is no place taken, and the board\'s row of this machine counts those places '
+    + 'and the places of this machine\'s changes counted from origin, which a run with both kinds at once can take above the run\'s number.'), 'the 0.33.0 bullet of the changelog holds the sentence');
 });

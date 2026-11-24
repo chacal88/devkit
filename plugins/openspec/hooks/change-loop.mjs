@@ -1345,13 +1345,17 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
 
 // The place facts of change `id` (D-9): its machine and places from its claim (`run` is the run file's number), whether it holds
 // its place (its branch on `origin` holds approval.md) and, when it does not, how many other changes of its machine do.
-// null when the claim records no places. `claims` is a `remoteClaims` result a caller already read.
+// null when the claim records no places, and for a `run` claim of a change session on the run's ticket (a run with a session per change whose
+// ticket for `id` a session claimed): that change's one gate is `sessionNext`'s, over the run file's `occupied` (roadmap-sessions-upfront D-18), so
+// the two gates never both apply. `claims` is a `remoteClaims` result a caller already read.
 function placeFacts(found, id, dir, { env, gh, claims }) {
   const file = join(dir, '.openspec.yaml');
   if (!existsSync(file)) return null;
   const { machine, places } = parseClaim(readFileSync(file, 'utf8'));
   if (!machine || places === null) return null;
-  const total = places === 'run' ? readRun(runFilePath(found.root)).places : places;
+  const run = places === 'run' ? readRun(runFilePath(found.root)) : null;
+  if (run?.changeSessions && run.tickets[id]?.claimedBy) return null;
+  const total = run ? run.places : places;
   if (gitPasses(found.root, ['cat-file', '-e', `refs/remotes/origin/${id}:openspec/changes/${id}/approval.md`])) return { machine, places: total, taken: true, held: null };
   const read = claims ?? remoteClaims(found.root, { env, gh });
   const held = [...read.claims.values()].filter((c) => c.id !== id && c.machine === machine && c.placed === true).length;

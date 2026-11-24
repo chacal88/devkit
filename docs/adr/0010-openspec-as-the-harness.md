@@ -63,10 +63,11 @@ pending change at its start, and its number counts only the changes in the imple
 tests, evidence or review; a plan waits for its dependencies ([ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md)). Decision 2
 holds unchanged where the host cannot start sessions. Decision 8's sentence that the owner's gates
 (grill answers, plan approval, retro answers) stay the owner's is amended for the grill answers the
-project's files settle: in every grill, a lone `/devkit change` as much as a roadmap run, the
-requirements-triage agent answers those first, each with its source, and the owner answers every
-question nothing written settles and every approval and retro answer. This change leaves the other
-decisions as they are.
+project's files settle: in every grill, a lone `/devkit change` as much as a roadmap run, of a change
+that follows flow version 2 or later of its script, the requirements-triage agent answers those first,
+each with its source, and the owner answers every question nothing written settles and every approval
+and retro answer; a change on flow 1 keeps its grill with no triage until the owner moves it (ADR
+0021's Note). This change leaves the other decisions as they are.
 
 Note (project-phases, 2026-11-22): the project entry and the `devkit-project` schema are built;
 [ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md) answers decision 8's open point

@@ -562,9 +562,17 @@ export function boardOf(f) {
   const intro = [count, ...(f.claimsReadable === false ? [say('status-claims-unreadable')] : []), ...(held ? [say('status-held', { load: f.load, limit: f.limit })] : [])];
   // This machine first, then each listed one: the places its changes took (a claim whose branch holds the approved plan) and its open changes.
   const takenBy = (name) => Object.values(f.claims ?? {}).filter((c) => c.machine === name && c.placed === true).length;
+  // In a run with a session per change this machine's places are the run's own count (roadmap-sessions-upfront D-18): the changes in `occupied` (the ones on the
+  // run's ticket) and the placed claims of this machine whose ticket no session claimed, each change once.
+  const takenHere = () => {
+    if (!f.changeSessions) return takenBy(f.thisMachine);
+    const held = new Set(Object.keys(f.occupied ?? {}));
+    for (const [id, c] of Object.entries(f.claims ?? {})) if (c.machine === f.thisMachine && c.placed === true && !f.tickets?.[id]?.claimedBy) held.add(id);
+    return held.size;
+  };
   const openOn = (name) => remote.filter((e) => e.machine === name).length;
   const machineRows = machinesOn ? [
-    { id: say('machine.this', { name: f.thisMachine }), text: say('machine.row', { taken: takenBy(f.thisMachine), places: f.places, open: placed.length + openOn(f.thisMachine) }) },
+    { id: say('machine.this', { name: f.thisMachine }), text: say('machine.row', { taken: takenHere(), places: f.places, open: placed.length + openOn(f.thisMachine) }) },
     ...f.machines.map((m) => ({ id: m.name, text: m.answered ? say('machine.row', { taken: takenBy(m.host), places: m.places, open: openOn(m.host) }) : say('machine.no-answer') })),
   ] : [];
   const blocks = [['status-machines', machineRows], ['status-owner', rows.owner], ['status-running', rows.running], ['status-blocked', rows.blocked], ['status-queue', rows.queue], ['status-outside', rows.outside]]

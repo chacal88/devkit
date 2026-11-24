@@ -15,7 +15,10 @@
   `session-next`, `session-wait`, `merge-base`, `push` and `check`. A change session's `session-next`
   now honours the token budget as `next` does. The `devkit` and `devkit-lite` flows are released as flow version 2, which adds the `requirements-triage` helper to the grill: a change opened from this
   release records `x-devkit-flow: 2` and has the triage; a change opened before keeps flow 1 and its grill with no triage until the owner moves it with `change-loop.mjs flow <id>`;
-  the `devkit-project` flow stays at version 1.
+  the `devkit-project` flow stays at version 1. With the machines setting set, a change session of this
+  machine on the run's ticket takes its place from the run's own count: its plan on `origin` is no place
+  taken, and the board's row of this machine counts those places and the places of this machine's changes
+  counted from `origin`, which a run with both kinds at once can take above the run's number.
   The CI snippet now pins `v0.33.0`, the release's tag.
 - **devkit-core** 0.14.0: the `requirements-triage` agent answers the grill's questions the project's
   files settle, with the file that settles each, and the `requirements-grill` skill asks it first.
