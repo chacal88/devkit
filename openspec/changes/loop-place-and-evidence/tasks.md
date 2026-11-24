@@ -63,7 +63,7 @@ scratch file in the tree, and end every task with `git status --short`.
   stay as they are, and no assertion is removed. Check: E1 to E9 pass, and `git diff -U0` of the two
   files shows no removed `assert` line except the three sequence lists of E2 and E7, each replaced by
   its new list.
-- [x] 1.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence " --test-name-pattern="^flow-check AC-6" --test-name-pattern="^change-loop decide: B2" --test-name-pattern="^remote AC-10 stop" --test-name-pattern="^upfront AC-[789] " plugins/openspec/hooks/guard.test.mjs`
+- [x] 1.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/deliver-check-archive.test.mjs && env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence " --test-name-pattern="^flow-check AC-6" --test-name-pattern="^change-loop decide: B2" --test-name-pattern="^remote AC-10 stop" --test-name-pattern="^upfront AC-[789] " plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/change-loop-remote.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs`
   green (a background command); covers AC-1, AC-2, AC-3, AC-4 and AC-5 (the fixture round, test 13),
   and AC-7 (the place-wait tests, unedited).
 
@@ -89,7 +89,7 @@ scratch file in the tree, and end every task with `git status --short`.
   phrases are refused by "AC-6 instructions-follow: no tracked file outside the records still says
   review before evidence" (both in `deliver-check.test.mjs`). Check: test 17 and both AC-6 tests pass,
   and `python3 scripts/check.py` passes.
-- [x] 2.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence 1[67]: " --test-name-pattern="^format: ship-change" --test-name-pattern="^AC-6 instructions-follow" --test-name-pattern="^flow-check AC-3: every writer" --test-name-pattern="^stage-roles gates" plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py`
+- [x] 2.4 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^loop-evidence 1[67]: " --test-name-pattern="^format: ship-change" --test-name-pattern="^AC-6 instructions-follow" --test-name-pattern="^flow-check AC-3: every writer" --test-name-pattern="^stage-roles gates" plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py`
   green; covers AC-6.
 
 ## 3. Release and the whole suite (AC-1 to AC-7)
