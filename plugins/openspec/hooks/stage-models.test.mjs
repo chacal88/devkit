@@ -11,11 +11,10 @@ import { syncBuiltinESMExports } from 'node:module';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
-import { put, gitRepo, commitAll, git } from './deliver-check.test.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
-import { FLOWS, cleanEnv, planChange, actionOf, run, nextOf, endOf, rowOf, reportOf } from './change-loop.test.mjs';
-import { typedLine, runLine, transcriptOf, stopInput, assistantLine } from './change-loop.test.mjs';
-import { doNext, doStatus, putRun, jsonOf, addOpen, world, agentAct, doRun, stateOf, projectWith, roadmapText, events } from './roadmap-loop.test.mjs';
+import {
+  put, gitRepo, commitAll, git, roundRepo, FLOWS, cleanEnvLoop as cleanEnv, planChange, actionOf, run, nextOf, endOf, rowOf, reportOf,
+  typedLine, runLine, transcriptOf, stopInput, assistantLine, doNext, doStatus, putRun, jsonOf, addOpen, world, agentAct, doRun, stateOf, projectWith, roadmapText, events,
+} from './test-fixtures.mjs';
 import * as guard from './guard.mjs';
 import * as loop from './change-loop.mjs';
 import * as roadmap from './roadmap-loop.mjs';
