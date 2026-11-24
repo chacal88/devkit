@@ -79,7 +79,7 @@ and end every task with `git status --short`.
   Check: `node --test --test-name-pattern="^suite-speed AC-3 " plugins/openspec/hooks/test-tmp.test.mjs`
   passes, and `node --test --test-name-pattern="^suite-speed AC-3 |^no test env blanks|^test-fixture-cleanup AC-3 " plugins/openspec/hooks/guard.test.mjs`
   passes.
-- [ ] 1.5 Gate: `mkdir /var/tmp/devkit-suite-speed-p1 && env TMPDIR=/var/tmp/devkit-suite-speed-p1 node --test plugins/openspec/hooks/guard.test.mjs && rmdir /var/tmp/devkit-suite-speed-p1` green (the old command, every file still loaded once through the guard's imports; record its summary counts); covers AC-3 for the helpers and the precondition of AC-2 (no test lost by the move).
+- [x] 1.5 Gate: `mkdir /var/tmp/devkit-suite-speed-p1 && env TMPDIR=/var/tmp/devkit-suite-speed-p1 node --test plugins/openspec/hooks/guard.test.mjs && rmdir /var/tmp/devkit-suite-speed-p1` green (the old command, every file still loaded once through the guard's imports; record its summary counts); covers AC-3 for the helpers and the precondition of AC-2 (no test lost by the move).
 
 ## 2. The suite script (AC-1, AC-3, AC-4, AC-6)
 
