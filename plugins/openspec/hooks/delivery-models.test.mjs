@@ -278,7 +278,9 @@ test('delivery-models open: the new replies exist in both languages and name no 
 // The fake keeps its pull requests in a JSON file and reads heads live from the bare origin, so a push moves a pull request
 // as it does on GitHub. It answers the calls deliver-check makes (`pr list` with --head, --base and --state, `pr checks`,
 // `api graphql`, the repository, the contents and the files of a pull request, `run view`) and the writes the agents make
-// (`pr create`, `pr close`, `run rerun`). A merge is the test's hook (`__merge`): a merge commit or a squash made in the origin.
+// (`pr create`, `pr close`, `pr comment`, `pr merge`, `run rerun`). A merge is the test's hook (`__merge`): a merge commit or a squash made in the
+// origin. Per pull request it keeps an auto-merge method, a `mergeStateStatus` (default `CLEAN`) and `over`, fields that replace the ones the view
+// computes (delivery-train D-13); the argument log (`calls`) lists every call it received.
 
 const SIM_GH = String.raw`#!/usr/bin/env node
 const fs = require('node:fs');
@@ -297,24 +299,24 @@ const out = (v) => { process.stdout.write(typeof v === 'string' ? v : JSON.strin
 const fail = (m, code) => { process.stderr.write(m + '\n'); process.exit(code || 1); };
 const opt = (n) => { const i = args.indexOf(n); return i < 0 ? null : args[i + 1]; };
 const mergeable = (p) => { const b = tip(p.base); const h = tip(p.head); if (!b || !h) return 'UNKNOWN'; return git('merge-tree', '--write-tree', b, h).status === 0 ? 'MERGEABLE' : 'CONFLICTING'; };
-const view = (p) => ({ number: p.number, url: p.url, state: p.state, headRefOid: p.state === 'MERGED' ? p.mergedHead : tip(p.head), baseRefName: p.base, headRefName: p.head, mergeable: p.state === 'OPEN' ? mergeable(p) : 'UNKNOWN', body: p.body || '', mergedAt: p.mergedAt || null, autoMergeRequest: null, mergeStateStatus: 'CLEAN' });
+const view = (p) => ({ number: p.number, url: p.url, state: p.state, headRefOid: p.state === 'MERGED' ? p.mergedHead : tip(p.head), baseRefName: p.base, headRefName: p.head, mergeable: p.state === 'OPEN' ? mergeable(p) : 'UNKNOWN', body: p.body || '', mergedAt: p.mergedAt || null, mergeCommit: p.mergeCommit ? { oid: p.mergeCommit } : null, autoMergeRequest: p.autoMerge ? { mergeMethod: p.autoMerge } : null, mergeStateStatus: p.mergeState || 'CLEAN', ...(p.over || {}) });
 const filesOf = (p) => (p.state === 'MERGED' ? p.files : git('diff', '--name-only', tip(p.base) + '...' + tip(p.head)).stdout.split('\n').filter(Boolean));
 const prOf = (n) => { const p = state.prs.find((x) => x.number === Number(n)); if (!p) fail('no pull request #' + n); return p; };
 
-if (args[0] === '__merge') {
-  const p = prOf(args[1]);
+const doMerge = (p, method) => {
   if (p.state !== 'OPEN') fail('not open');
   const b = tip(p.base); const h = tip(p.head);
   const m = git('merge-tree', '--write-tree', b, h);
   if (m.status !== 0) fail('conflict');
-  const parents = (args[2] || 'merge') === 'squash' ? ['-p', b] : ['-p', b, '-p', h];
+  const parents = method === 'squash' ? ['-p', b] : ['-p', b, '-p', h];
   const c = git('commit-tree', m.stdout.split('\n')[0], ...parents, '-m', 'Merge pull request #' + p.number).stdout.trim();
   const files = filesOf(p);
   git('update-ref', 'refs/heads/' + p.base, c);
-  Object.assign(p, { state: 'MERGED', mergedHead: h, mergedAt: new Date().toISOString(), files });
+  Object.assign(p, { state: 'MERGED', mergedHead: h, mergedAt: new Date().toISOString(), files, mergeCommit: c });
   save();
-  out(c);
-}
+  return c;
+};
+if (args[0] === '__merge') out(doMerge(prOf(args[1]), args[2] || 'merge'));
 const [a, b] = args;
 if (a === 'pr' && b === 'list') {
   const head = opt('--head'); const base = opt('--base'); const st = opt('--state') || 'open';
@@ -323,25 +325,43 @@ if (a === 'pr' && b === 'list') {
 }
 if (a === 'pr' && b === 'view') fail('no pull requests found for branch "x"');
 if (a === 'pr' && b === 'create') {
-  const p = { number: ++state.next, base: opt('--base'), head: opt('--head'), title: opt('--title'), body: opt('--body') || '', state: 'OPEN' };
+  const bodyFile = opt('--body-file');
+  const p = { number: ++state.next, base: opt('--base'), head: opt('--head'), title: opt('--title'), body: bodyFile ? fs.readFileSync(bodyFile, 'utf8') : (opt('--body') || ''), state: 'OPEN' };
   p.url = 'https://github.com/o/r/pull/' + p.number;
   state.prs.push(p);
   save();
   out(p.url + '\n');
 }
 if (a === 'pr' && b === 'close') { prOf(args[2]).state = 'CLOSED'; save(); out(''); }
+if (a === 'pr' && b === 'comment') { const p = prOf(args[2]); (p.comments = p.comments || []).push(opt('--body')); save(); out(''); }
+if (a === 'pr' && b === 'merge') {
+  const p = prOf(args[2]);
+  const method = ['--merge', '--squash', '--rebase'].find((f) => args.includes(f));
+  if (args.includes('--disable-auto')) { p.autoMerge = null; save(); out(''); }
+  if (args.includes('--auto')) {
+    if (opt('--match-head-commit') && opt('--match-head-commit') !== tip(p.head)) fail('head commit did not match', 1);
+    p.autoMerge = (method || '--merge').slice(2);
+    save();
+    out('');
+  }
+  doMerge(p, (method || '--merge').slice(2));
+  out('');
+}
 if (a === 'pr' && b === 'checks') out(state.checks[args[2]] || []);
 if (a === 'run' && b === 'view') { const r = state.runs[args[2]]; if (!r) fail('no run ' + args[2]); out({ startedAt: r.startedAt }); }
 if (a === 'run' && b === 'rerun') out('');
 if (a === 'api') {
   const route = args[1];
   if (route === 'graphql') out({ data: { viewer: { login: 'owner' }, repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { nodes: [] }, reviews: { nodes: [] } } } } });
+  if (/^repos\/\{owner\}\/\{repo\}\/rules\/branches\//.test(route)) out([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }]);
+  if (/^repos\/\{owner\}\/\{repo\}\/branches\/.*\/protection\/required_status_checks$/.test(route)) fail('gh: Branch not protected (HTTP 404)');
   if (route === 'repos/{owner}/{repo}') out({ default_branch: state.defaultBranch, allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true });
   const files = /^repos\/\{owner\}\/\{repo\}\/pulls\/(\d+)\/files$/.exec(route);
   if (files) out(filesOf(prOf(files[1])).join('\n') + '\n');
   const contents = /^repos\/\{owner\}\/\{repo\}\/contents\/(.*)\?ref=(.*)$/.exec(route);
   if (contents) {
-    const spec = 'refs/heads/' + decodeURIComponent(contents[2]) + ':' + contents[1];
+    const ref = decodeURIComponent(contents[2]);
+    const spec = (/^[0-9a-f]{40}$/.test(ref) ? ref : 'refs/heads/' + ref) + ':' + contents[1];
     const kind = git('cat-file', '-t', spec);
     if (kind.status !== 0) fail('gh: Not Found (HTTP 404)');
     if (kind.stdout.trim() === 'tree') out(git('ls-tree', '--name-only', spec).stdout.split('\n').filter(Boolean).map((name) => ({ name })));
@@ -351,7 +371,7 @@ if (a === 'api') {
 fail('simGitHub: unhandled ' + args.join(' '), 99);
 `;
 
-function simGitHub({ origin, defaultBranch = 'main' }) {
+export function simGitHub({ origin, defaultBranch = 'main' }) {
   const dir = tmpFolder('devkit-delivery-models-gh-');
   const bin = join(dir, 'bin');
   mkdirSync(bin);
@@ -370,7 +390,7 @@ function simGitHub({ origin, defaultBranch = 'main' }) {
   const calls = () => (existsSync(join(dir, 'calls.log')) ? readFileSync(join(dir, 'calls.log'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
   return {
     env, dir, calls,
-    writes: () => calls().filter((c) => (c[0] === 'pr' && ['create', 'close', 'merge', 'reopen', 'edit'].includes(c[1])) || (c[0] === 'run' && c[1] === 'rerun')),
+    writes: () => calls().filter((c) => (c[0] === 'pr' && ['create', 'close', 'comment', 'merge', 'reopen', 'edit'].includes(c[1])) || (c[0] === 'run' && c[1] === 'rerun')),
     prs: () => read().prs,
     pr: (n) => read().prs.find((p) => p.number === n),
     gh: (cwd) => makeGh(cwd, { ...process.env, ...env }),
@@ -378,6 +398,9 @@ function simGitHub({ origin, defaultBranch = 'main' }) {
     close: (n) => call('pr', 'close', String(n)),
     merge: (n, method = 'merge') => call('__merge', String(n), method),
     setChecks: (n, list) => edit((s) => { s.checks[n] = list; }),
+    // Fields of a pull request's view replaced from now on (`mergeStateStatus`, `mergeable`, ...), and its auto-merge method.
+    setPr: (n, over) => edit((s) => { const p = s.prs.find((x) => x.number === n); p.over = { ...p.over, ...over }; }),
+    setAutoMerge: (n, method) => edit((s) => { s.prs.find((x) => x.number === n).autoMerge = method; }),
     setRun: (id, run) => edit((s) => { s.runs[id] = run; }),
     setDefaultBranch: (name) => edit((s) => { s.defaultBranch = name; }),
   };

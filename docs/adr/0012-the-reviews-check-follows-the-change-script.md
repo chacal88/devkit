@@ -7,6 +7,7 @@
 - Accepted by: the owner, on 2026-11-20, in the message that approved the plan of the change: `Aprovo com o ADR 0012` ("I approve, with ADR 0012"); recorded in `openspec/changes/coordinator-field-fixes/approval.md`
 - Amended by ADR 0015 (0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
+- Amended by ADR 0021 (0021-reviewed-changes-leave-on-a-delivery-train.md)
 
 ## Context
 
@@ -45,6 +46,8 @@ hooks act; it answers that rejection under Consequences.
 Note (project-phases, 2026-11-22): [ADR 0015](0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)
 amends decisions 1 and 3 for `devkit-project`: its active changes fail and its archived folders are judged
 by the slice contract. The Decision is otherwise unchanged.
+
+Note (delivery-train, 2026-11-23): ADR 0021 amends decision 4: on the pull request of a delivery train, `devkit-reviews` recomputes reviews, findings, gates and acceptance proof of each boarded change at that change's own head, fails when that head is not contained in the train or the train record is not green, and judges each archived folder as before. The Decision is otherwise unchanged.
 
 ## Decision
 

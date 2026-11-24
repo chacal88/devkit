@@ -1,7 +1,7 @@
 ---
 name: devkit
-description: "Runs one change from the owner's request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner's gates (the grill, the mock-up, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit change <Jira key or link> opens the change from that task, read through the session's Atlassian connector, and asks once, when the pull request opens, whether to write its link back. /devkit roadmap [<n>] runs the roadmap's ready changes, several at once, and /devkit status shows where everything is. /devkit project [<name>] plans a new project or slice phase by phase with the owner (business, domain model, architecture, implementation plan, roadmap), then delivers it as one pull request. Every decision comes from the change-loop, roadmap-loop and project-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change <Jira key or link>, /devkit change to continue, /devkit roadmap [<n> | stop], /devkit status or /devkit project [<name>]."
-argument-hint: "change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | project [<name>]"
+description: "Runs one change from the owner's request to its archive in this session: /devkit change <what to do> opens the change in its own worktree and carries it, stage by stage, asking the owner only at the owner's gates (the grill, the mock-up, the plan approval, the retro answers) and waiting on GitHub with no time limit; /devkit change alone continues the unfinished change. /devkit change <Jira key or link> opens the change from that task, read through the session's Atlassian connector, and asks once, when the pull request opens, whether to write its link back. /devkit roadmap [<n>] runs the roadmap's ready changes, several at once, and /devkit status shows where everything is. /devkit train departs the boarded changes of a project with a delivery train, together on one train. /devkit project [<name>] plans a new project or slice phase by phase with the owner (business, domain model, architecture, implementation plan, roadmap), then delivers it as one pull request. Every decision comes from the change-loop, roadmap-loop and project-loop scripts, never from this text. Use when the owner types /devkit, /devkit change <what to do>, /devkit change <Jira key or link>, /devkit change to continue, /devkit roadmap [<n> | stop], /devkit status, /devkit train or /devkit project [<name>]."
+argument-hint: "change [<request> | <change-id> | <Jira key or link>] | roadmap [<n> | stop] | status | train | project [<name>]"
 disable-model-invocation: true
 ---
 
@@ -32,13 +32,14 @@ DEVKIT_ARGS
 
 When a line of the request equals `DEVKIT_ARGS`, use `DEVKIT_ARGS_` followed by digits that no line of the request holds as the terminator. The script prints JSON with a `mode` and a `reply`. Act on the mode:
 
-- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built` and `nothing`: say `reply` and end the turn.
+- `not-built`, `unknown-verb`, `not-set-up`, `setting-unknown`, `driver-not-built`, `nothing` and `train-args`: say `reply` and end the turn.
 - `choose` and `ask-unfinished`: ask `reply` as one question with AskUserQuestion (else say it and end the turn). The options are each listed id and, for `ask-unfinished`, "start the new request". The answer is `resume` of that id, or the new change below; when `task` is not null, "start the new request" goes to `### A Jira task`.
 - `resume`: keep `reply` for the message that ends the turn, then enter the Loop with `change`.
 - `new`: a new change, below.
 - `task`: the request is a Jira key or link, in `task`: a new change from that task, in `### A Jira task` below.
 - `roadmap`: the Roadmap section below.
 - `status`: the Status section below.
+- `train`: the Train section below.
 - `project`: the Project section below, with `text` as the words after `project`.
 - `is-slice`: say `reply` and end the turn: the slice continues with `/devkit project` and its name.
 
@@ -124,6 +125,19 @@ node <skill-dir>/../../hooks/change-loop.mjs wait --change <id> --lang ${user_co
 ```
 
 The wait has no time limit of its own and exits as soon as GitHub's answer changes the decision; its end starts the next turn, which then runs `next` and goes on. Calling `/devkit change` again at any time is safe: it re-reads everything and starts a new wait if GitHub still waits.
+
+## Train
+
+`/devkit train` departs the boarded changes and archives of a project with a delivery train, together, on one train. The script `<skill-dir>/../../hooks/train-loop.mjs` decides and this text carries it out; the session keeps no state, and every call carries `--lang ${user_config.language}`. A project with no `devkit.delivery.train` gets a blocked end saying so, and nothing is created.
+
+1. Run `node <skill-dir>/../../hooks/train-loop.mjs next --lang ${user_config.language}`, adding `--after` and the `progressKey` of the action after every `session` action. It prints one JSON action (`kind`, `step`, `detail`, `reply`, `progressKey`, and `end` on an end) and exits 0 on an action, 1 on a wait, 2 when blocked, 3 when it cannot read git or GitHub.
+2. Carry the action out by its `kind`:
+   - `session`, step `depart` or `update-train`: run `detail.command` with the Bash tool's background option (it runs the project's whole suite and takes minutes), and run `next` when it ends. The command prints JSON; when it exits 1 or 2 and the JSON has a `reply`, say the `reply` and end the turn.
+   - any other `session` step (`push-train`, `open-train-pr`, `enable-auto-merge`, `close-boarded-pr`, `clean-train`): run `detail.command` alone in Bash and let its exit decide, say the action's `reply` when it has one, then run `next`. Never add a flag to it, and never force a push.
+   - `end`: say `reply`. `blocked` ends the run. `waiting-for-owner` ends the turn: the owner's next message is the answer. `waiting-on-github`: start `node <skill-dir>/../../hooks/train-loop.mjs wait --lang ${user_config.language}` with the Bash tool's background option, then say `reply`; its end starts the next turn, which runs `next` again.
+3. Calling `/devkit train` again at any time is safe: `next` re-reads git and GitHub, starts no second train while one is under way, and says so when a departure holds its lock.
+
+The coordinating session of a roadmap run may run the same calls; when it does so on its own is decided by the roadmap, not here.
 
 ## Roadmap
 

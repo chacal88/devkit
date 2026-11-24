@@ -18,6 +18,7 @@ import './change-loop.test.mjs'; // change-coordinator: the loop, its commands a
 import './jira-task.test.mjs'; // jira-entry: the Jira key, the task and the write-back
 import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
 import './delivery-models.test.mjs'; // delivery-models: the delivery model per project, its settings and opening
+import './delivery-train.test.mjs'; // delivery-train: reviewed changes leave together on a delivery train
 import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
 import './test-tmp.test.mjs'; // test-fixture-cleanup: the temporary-folder helper
 import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script

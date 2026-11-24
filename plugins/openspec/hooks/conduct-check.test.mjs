@@ -4,11 +4,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpFolder, tmpRoot } from './test-tmp.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
 import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
 import { makeGh } from './merge-setup.mjs';
-import { pinDoc } from './release-merge.test.mjs';
+import { pinDoc, underOwnTmp } from './release-merge.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
@@ -1442,7 +1442,6 @@ test('conduct: unfinished names the dirty paths and the half-done phase together
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const PIN_DOC = 'docs/openspec-flow.md';
-const pinTmpFolders = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
 // A round whose change and origin both edit CHANGELOG.md and docs/openspec-flow.md.
 function pinConflictRepo({ change, origin }) {
@@ -1461,14 +1460,14 @@ test('conduct pin: a change PR whose only conflicts are release files and the CI
   const { t, b } = pinConflictRepo({ change: pinDoc('0.10.1', { bottom: 'BOTTOM B' }), origin: pinDoc('0.11.0', { top: 'TOP A' }) });
   const head = headOf(b);
   const status = git(b, 'status', '--porcelain');
-  const before = pinTmpFolders();
-  const c = byId(t.state(), 'b');
+  const { value: c, left } = underOwnTmp(() => byId(t.state(), 'b'));
   assert.deepEqual(planStep(c), ['resolve-release-conflict', 'subagent']);
   assert.deepEqual(c.next.paths, ['CHANGELOG.md', PIN_DOC]);
   assert.match(c.next.reason, /and the CI pin/);
   assert.equal(headOf(b), head);
   assert.equal(git(b, 'status', '--porcelain'), status);
-  assert.deepEqual(pinTmpFolders(), before);
+  // The state read also makes the folder of its fake gh (devkit-gh-*, the harness's own); the invariant is the pin folder.
+  assert.deepEqual(left.filter((f) => f.startsWith('devkit-pin-')), [], 'the state read leaves no devkit-pin-* folder');
 });
 
 test('conduct pin: both sides editing one paragraph of docs/openspec-flow.md is blocked (AC-2)', () => {

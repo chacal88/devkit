@@ -1,0 +1,3031 @@
+// delivery-train: reviewed changes leave together on a delivery train (ADR 0021).
+// Tests of the setting, the join (`release-merge.mjs --merge`), the roadmap tick, the train record, the train facts and boarding. Imported by guard.test.mjs so that
+// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too. Every scenario runs on real Git in a temporary
+// folder; the env blanks every variable a pull-request run on CI sets. Every test name starts `delivery-train `.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync, readdirSync, utimesSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { spawnSync, execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { tmpFolder, tmpRoot } from './test-tmp.mjs';
+import { put, commitAll } from './deliver-check.test.mjs';
+import { roundRepo } from './conduct-check.test.mjs';
+import { simGitHub } from './delivery-models.test.mjs';
+import { deliveryRow, actorOf, conductState } from './conduct-check.mjs';
+import * as guard from './guard.mjs';
+import * as deliver from './deliver-check.mjs';
+import * as release from './release-merge.mjs';
+import { main, readDevkitSettings, MESSAGES, render, decide, exitCodeOf, gateOf, unfinished } from './change-loop.mjs';
+
+// The env fixture of this suite: the variables a CI run sets for a pull request are blanked together.
+const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+export const trainEnv = { ...process.env, ...SET };
+
+const GIT_ENV = {
+  ...trainEnv,
+  GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid',
+  GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid',
+  GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', GIT_EDITOR: 'true',
+};
+const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', env: GIT_ENV, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+
+const SUITE = 'node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py';
+const block = (delivery, extra = '') => `devkit:\n  delivery:\n${delivery}${extra}`;
+const trunkAuto = (train) => block('    model: trunk-auto\n', train === undefined ? '' : `    train: ${train}\n`);
+
+function configRepo(text) {
+  const root = tmpFolder('devkit-train-cfg-');
+  mkdirSync(join(root, 'openspec', 'changes'), { recursive: true });
+  if (text !== null) writeFileSync(join(root, 'openspec', 'config.yaml'), text);
+  return root;
+}
+const trainOf = (text) => guard.trainSetting(guard.parseDevkitBlock(text));
+
+// ---------------------------------------------------------------- P1 trainSetting
+
+test('delivery-train config: no key and an empty value are no train and no problem', () => {
+  for (const text of ['', 'devkit:\n', trunkAuto(), trunkAuto('""'), trunkAuto("''"), trunkAuto(''), 'devkit:\n  delivery:\n    train:\n']) {
+    assert.deepEqual(trainOf(text), { suite: null, problem: null }, JSON.stringify(text));
+  }
+});
+
+test('delivery-train config: a value with trunk or trunk-auto is the whole-suite command', () => {
+  for (const model of ['trunk', 'trunk-auto']) {
+    assert.deepEqual(trainOf(block(`    model: ${model}\n`, `    train: "${SUITE}"\n`)), { suite: SUITE, problem: null }, model);
+  }
+});
+
+test('delivery-train config: a value with two-prs is a train-model problem naming the model', () => {
+  const text = block('    model: two-prs\n    base: main\n    test_branch: develop\n', `    train: "${SUITE}"\n`);
+  assert.deepEqual(trainOf(text), { suite: null, problem: { kind: 'train-model', model: 'two-prs' } });
+});
+
+test('delivery-train config: a value with no model, or an unknown one, is a train-model problem with no model', () => {
+  assert.deepEqual(trainOf(block('', `    train: "${SUITE}"\n`)), { suite: null, problem: { kind: 'train-model', model: null } });
+  assert.deepEqual(trainOf(block('    model: three-prs\n', `    train: "${SUITE}"\n`)), { suite: null, problem: { kind: 'train-model', model: null } });
+});
+
+test('delivery-train config: an unclosed double or single quote is refused, never read as the rest of the line', () => {
+  for (const quote of ['"', "'"]) {
+    const t = trainOf(trunkAuto(`${quote}node --test a.mjs`));
+    assert.equal(t.suite, null, quote);
+    assert.deepEqual(t.problem, { kind: 'unknown', setting: 'delivery-train', value: 'node --test a.mjs' }, quote);
+  }
+  assert.deepEqual(trainOf(trunkAuto('"closed" # a comment')), { suite: 'closed', problem: null });
+});
+
+test('delivery-train config: a quoted command keeps its && and #, an unquoted one ends at a # comment', () => {
+  const quoted = 'node --test a.mjs && python3 b.py # not a comment';
+  assert.equal(trainOf(trunkAuto(`"${quoted}"`)).suite, quoted);
+  assert.equal(trainOf(trunkAuto(`'${quoted}'`)).suite, quoted);
+  assert.equal(trainOf(trunkAuto('node --test a.mjs && python3 b.py # a comment')).suite, 'node --test a.mjs && python3 b.py');
+});
+
+test('delivery-train config: a train key nested under another key is not the setting', () => {
+  const text = 'devkit:\n  delivery:\n    model: trunk-auto\n  other:\n    train: "x"\n';
+  assert.deepEqual(trainOf(text), { suite: null, problem: null });
+  assert.deepEqual(trainOf('devkit:\n  train: "x"\n'), { suite: null, problem: null });
+  assert.deepEqual(trainOf('train: "x"\n'), { suite: null, problem: null });
+});
+
+test('delivery-train config: readTrainSetting reads the file, and no file is no train', () => {
+  assert.deepEqual(guard.readTrainSetting(configRepo(trunkAuto(`"${SUITE}"`))), { suite: SUITE, problem: null });
+  assert.deepEqual(guard.readTrainSetting(configRepo(null)), { suite: null, problem: null });
+  assert.deepEqual(guard.readTrainSetting(configRepo('schema: devkit\n')), { suite: null, problem: null });
+});
+
+test('delivery-train config: deliverySettings keeps its shape with a train set', () => {
+  const settings = guard.deliverySettings(guard.parseDevkitBlock(trunkAuto(`"${SUITE}"`)));
+  assert.deepEqual(settings, { model: 'trunk-auto', base: null, testBranch: null, problems: [] });
+});
+
+// ---------------------------------------------------------------- P2 deliveryConfig and projectGate
+
+const configOf = (text, schema = 'devkit') => deliver.deliveryConfig(configRepo(text), schema);
+
+test('delivery-train config: deliveryConfig adds the suite, null without the key', () => {
+  assert.equal(configOf(trunkAuto(`"${SUITE}"`)).train, SUITE);
+  assert.equal(configOf(block('    model: trunk\n', `    train: "${SUITE}"\n`)).train, SUITE);
+  assert.equal(configOf(trunkAuto()).train, null);
+  assert.equal(configOf(trunkAuto('""')).train, null);
+  assert.equal(configOf('schema: devkit\n').train, null);
+});
+
+test('delivery-train config: deliveryConfig refuses the three train problems with their messages', () => {
+  const refusal = (text) => {
+    try { configOf(text); } catch (e) { assert.ok(e instanceof deliver.ShipConfigError, String(e)); return e; }
+    return assert.fail('the setting was accepted');
+  };
+  const two = block('    model: two-prs\n    base: main\n    test_branch: develop\n', `    train: "${SUITE}"\n`);
+  assert.match(refusal(two).message, /^openspec\/config\.yaml: devkit\.delivery\.train: the train runs only with the model trunk or trunk-auto \(two-prs delivers each change through pull requests of its own\)$/);
+  assert.match(refusal(block('', `    train: "${SUITE}"\n`)).message, /^openspec\/config\.yaml: devkit\.delivery\.train: needs devkit\.delivery\.model trunk or trunk-auto$/);
+  assert.match(refusal(trunkAuto('"node --test')).message, /^openspec\/config\.yaml: devkit\.delivery\.train: "node --test" opens a quote it never closes$/);
+});
+
+function startRun(cwd, text, lang = 'en') {
+  const r = main(['start', '--lang', lang], { cwd, env: trainEnv, stdin: text });
+  return { code: r.code, body: JSON.parse(r.stdout) };
+}
+const optedIn = (devkit) => `schema: devkit\n${devkit}`;
+
+test('delivery-train config: a refused train setting stops change, roadmap, status and project in both languages', () => {
+  const two = optedIn(block('    model: two-prs\n    base: main\n    test_branch: develop\n', `    train: "${SUITE}"\n`));
+  const noModel = optedIn(block('', `    train: "${SUITE}"\n`));
+  const unclosed = optedIn(trunkAuto('"node --test'));
+  const cases = [
+    [two, 'train-model', {}],
+    [noModel, 'train-no-model', {}],
+    [unclosed, 'setting-unknown', { setting: 'delivery-train', value: 'node --test', accepted: 'a command whose quotes are closed' }],
+  ];
+  for (const [text, key, params] of cases) {
+    const root = configRepo(text);
+    for (const lang of ['en', 'pt-BR']) {
+      for (const verb of ['change', 'roadmap', 'status', 'project']) {
+        const { body } = startRun(root, verb === 'change' ? 'change add a thing' : verb, lang);
+        assert.equal(body.mode, 'setting-unknown', `${key} ${lang} ${verb}`);
+        assert.equal(body.reply, render(lang, key, params), `${key} ${lang} ${verb}`);
+      }
+    }
+  }
+  assert.match(render('en', 'train-model'), /delivery train.*trunk/);
+  assert.match(render('pt-BR', 'train-model'), /trem de entrega.*trunk/);
+  assert.match(render('en', 'train-no-model'), /delivery train.*delivery model/);
+  assert.match(render('pt-BR', 'train-no-model'), /trem de entrega.*modelo de entrega/);
+  assert.match(render('en', 'setting-unknown', { setting: 'delivery-train', value: 'x', accepted: 'y' }), /unknown delivery train/);
+  assert.match(render('pt-BR', 'setting-unknown', { setting: 'delivery-train', value: 'x', accepted: 'y' }), /trem de entrega desconhecido/);
+});
+
+test('delivery-train config: an unknown driver is reported before a refused train', () => {
+  const text = optedIn(`devkit:\n  driver: robot\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n    train: "${SUITE}"\n`);
+  const { body } = startRun(configRepo(text), 'status');
+  assert.equal(body.mode, 'setting-unknown');
+  assert.match(body.reply, /driver/);
+});
+
+test('delivery-train config: a valid train does not stop the verbs', () => {
+  const root = configRepo(optedIn(trunkAuto(`"${SUITE}"`)));
+  for (const verb of ['roadmap', 'status', 'project']) {
+    assert.equal(startRun(root, verb).body.mode, verb, verb);
+  }
+});
+
+test('delivery-train config: readDevkitSettings holds the train only when the key is set', () => {
+  const withTrain = readDevkitSettings(configRepo(trunkAuto(`"${SUITE}"`)));
+  assert.deepEqual(withTrain.train, { suite: SUITE, problem: null });
+  assert.deepEqual(withTrain.delivery, { model: 'trunk-auto', base: null, testBranch: null });
+  const refused = readDevkitSettings(configRepo(block('    model: two-prs\n    base: main\n    test_branch: develop\n', `    train: "${SUITE}"\n`)));
+  assert.deepEqual(refused.train, { suite: null, problem: { kind: 'train-model', model: 'two-prs' } });
+  const unclosed = readDevkitSettings(configRepo(trunkAuto('"node --test')));
+  assert.deepEqual(unclosed.unknown, [{ setting: 'delivery-train', value: 'node --test', accepted: 'a command whose quotes are closed' }]);
+  // neg: without the key the object keeps its shape
+  assert.deepEqual(readDevkitSettings(configRepo('devkit:\n  language: en\n')), { driver: 'claude', language: 'en', unknown: [] });
+  assert.equal('train' in readDevkitSettings(configRepo(trunkAuto())), false);
+  assert.equal('train' in readDevkitSettings(configRepo(trunkAuto('""'))), false);
+});
+
+// ---------------------------------------------------------------- the join: release-merge --merge (P6)
+
+const script = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
+const json = (obj) => `${JSON.stringify(obj, null, 2)}\n`;
+const pluginJson = (name, version) => json({ name, version, description: `pack ${name}` });
+const marketplace = (metadata, packs) => json({ name: 'devkit', metadata: { description: 'd', version: metadata }, plugins: Object.entries(packs).map(([name, version]) => ({ name, description: `pack ${name}`, version })) });
+const entry = (v, title, body = '- x') => `## ${v} — ${title}\n\n${body}\n\n`;
+const CL = (...entries) => `# Changelog\n\n${entries.join('')}`.replace(/\n+$/, '\n');
+
+function write(root, files) {
+  for (const [f, body] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, f)), { recursive: true });
+    writeFileSync(join(root, f), body);
+  }
+}
+const commit = (root, message) => { git(root, 'add', '-A'); git(root, 'commit', '-q', '--allow-empty', '-m', message); return git(root, 'rev-parse', 'HEAD'); };
+const read = (root, f) => readFileSync(join(root, f), 'utf8');
+const noMerge = (root) => { try { git(root, 'rev-parse', '-q', '--verify', 'MERGE_HEAD'); return false; } catch { return true; } };
+
+// The files one side's release bump touches: a pack's plugin.json, the marketplace and the CHANGELOG entry.
+function bump(root, { packs, metadata, packsAll, title, body = '- change' }) {
+  const files = {};
+  for (const [name, v] of Object.entries(packs)) files[`plugins/${name}/.claude-plugin/plugin.json`] = pluginJson(name, v);
+  files['.claude-plugin/marketplace.json'] = marketplace(metadata, packsAll);
+  files['CHANGELOG.md'] = read(root, 'CHANGELOG.md').replace('# Changelog\n\n', `# Changelog\n\n${entry(metadata, title, body)}`);
+  write(root, files);
+}
+
+const ROADMAP = '# Roadmap\n\n## Round 1\n- [ ] alpha\n- [ ] beta\n- [ ] gamma\n';
+
+// A repository on `train/4` (one commit by the train) and a branch `change` (one commit by the change), both cut from
+// the same initial commit. Returns the train's tip, the change's head `rev` and the root, checked out on the train.
+function joinRepo({ train = null, change = null, extraTrain = {}, extraChange = {}, initial = {} } = {}) {
+  const root = tmpFolder('devkit-train-join-');
+  git(root, 'init', '-q', '-b', 'main');
+  write(root, {
+    'plugins/a/.claude-plugin/plugin.json': pluginJson('a', '0.6.0'),
+    'plugins/b/.claude-plugin/plugin.json': pluginJson('b', '0.5.0'),
+    '.claude-plugin/marketplace.json': marketplace('0.6.0', { a: '0.6.0', b: '0.5.0' }),
+    'CHANGELOG.md': CL(entry('0.6.0', 'first')),
+    'README.md': 'readme\n',
+    'openspec/roadmap.md': ROADMAP,
+    ...initial,
+  });
+  commit(root, 'initial');
+  git(root, 'checkout', '-q', '-b', 'change');
+  if (change) bump(root, change);
+  write(root, extraChange);
+  const rev = commit(root, 'change B');
+  git(root, 'checkout', '-q', 'main');
+  git(root, 'checkout', '-q', '-b', 'train/4');
+  if (train) bump(root, train);
+  write(root, extraTrain);
+  const tip = commit(root, 'train tip');
+  return { root, rev, tip };
+}
+
+// The env of a spawned release-merge.mjs: a TMPDIR of its own, made once, outside every fixture repository. The script
+// makes a `devkit-pin-*` folder there; in the shared one it would show in release-merge.test.mjs, which compares that
+// folder before and after while this file runs in a parallel process. Made here, outside any test, so that no test's
+// cleanup removes it under the others; test-tmp.mjs sweeps it on exit.
+const ownTmp = tmpFolder('devkit-train-run-tmp-');
+const runEnv = () => ({ ...GIT_ENV, TMPDIR: ownTmp });
+
+const run = (root, ...args) => {
+  const r = spawnSync(process.execPath, [script, ...args], { cwd: root, encoding: 'utf8', env: runEnv() });
+  let out = null;
+  try { out = JSON.parse(r.stdout); } catch { /* human output */ }
+  return { code: r.status, out, stdout: r.stdout, stderr: r.stderr };
+};
+
+test('delivery-train join: a spawned release-merge makes its temporary folders in a folder of its own, never the shared one', () => {
+  const own = runEnv().TMPDIR;
+  assert.equal(typeof own, 'string');
+  assert.notEqual(own, tmpRoot(), 'devkit-pin-* folders would appear in the folder other test files compare');
+  assert.ok(statSync(own).isDirectory());
+  assert.equal(runEnv().TMPDIR, own, 'one folder for every call');
+});
+
+const versionOf = (root, f) => JSON.parse(read(root, f)).version;
+const metaOf = (root) => JSON.parse(read(root, '.claude-plugin/marketplace.json')).metadata.version;
+
+const MINOR = { packs: { a: '0.7.0' }, metadata: '0.7.0', packsAll: { a: '0.7.0', b: '0.5.0' } };
+const PATCH = { packs: { a: '0.6.1' }, metadata: '0.6.1', packsAll: { a: '0.6.1', b: '0.5.0' } };
+
+test('delivery-train join: a change with no release file merges into the train as one commit with the train message', () => {
+  const { root, rev, tip } = joinRepo({ extraTrain: { 'src/a.txt': 'a\n' }, extraChange: { 'src/b.txt': 'b\n' } });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(r.out.resolved, true);
+  assert.equal(r.out.mode, 'merge');
+  assert.deepEqual(r.out.conflicts, []);
+  assert.deepEqual(r.out.files, []);
+  assert.equal(r.out.oldHead, tip);
+  assert.equal(git(root, 'rev-parse', 'HEAD'), r.out.newHead);
+  assert.equal(git(root, 'rev-parse', 'HEAD^1'), tip);
+  assert.equal(git(root, 'rev-parse', 'HEAD^2'), rev);
+  assert.equal(git(root, 'log', '-1', '--format=%s'), `chore(train): join ${rev.slice(0, 7)} and renumber its release above the train`);
+  assert.equal(read(root, 'src/a.txt'), 'a\n');
+  assert.equal(read(root, 'src/b.txt'), 'b\n');
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('delivery-train join: two identical minor bumps become 0.8.0 above 0.7.0, with the CHANGELOG in order', () => {
+  const { root, rev } = joinRepo({
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...MINOR, title: 'mine', body: '- mine' },
+  });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(r.out.mode, 'merge');
+  assert.ok(r.out.conflicts.includes('CHANGELOG.md'), 'the CHANGELOG conflicted and was resolved by rule');
+  assert.equal(versionOf(root, 'plugins/a/.claude-plugin/plugin.json'), '0.8.0');
+  assert.equal(versionOf(root, 'plugins/b/.claude-plugin/plugin.json'), '0.5.0');
+  assert.equal(metaOf(root), '0.8.0');
+  assert.deepEqual(JSON.parse(read(root, '.claude-plugin/marketplace.json')).plugins.map((p) => p.version), ['0.8.0', '0.5.0']);
+  const cl = read(root, 'CHANGELOG.md');
+  assert.ok(cl.indexOf('## 0.8.0 — mine') < cl.indexOf('## 0.7.0 — theirs') && cl.indexOf('## 0.7.0 — theirs') < cl.indexOf('## 0.6.0 — first'), cl);
+  assert.doesNotMatch(cl, /<<<<<<<|>>>>>>>/);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('delivery-train join: a patch of the change above a minor of the train is renumbered above it', () => {
+  const { root, rev } = joinRepo({
+    train: { ...MINOR, title: 'theirs', body: '- theirs' },
+    change: { ...PATCH, title: 'mine', body: '- mine' },
+  });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(versionOf(root, 'plugins/a/.claude-plugin/plugin.json'), '0.7.1');
+  assert.equal(metaOf(root), '0.7.1');
+  const cl = read(root, 'CHANGELOG.md');
+  assert.ok(cl.indexOf('## 0.7.1 — mine') < cl.indexOf('## 0.7.0 — theirs'), cl);
+});
+
+test('delivery-train join: a product conflict exits 2 with the path and leaves the train as it was', () => {
+  const { root, rev, tip } = joinRepo({
+    train: { ...MINOR, title: 'theirs' }, change: { ...PATCH, title: 'mine' },
+    extraTrain: { 'README.md': 'train\n' }, extraChange: { 'README.md': 'change\n' },
+  });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 2, r.stderr + r.stdout);
+  assert.equal(r.out.resolved, false);
+  assert.equal(r.out.mode, 'merge');
+  assert.ok(r.out.conflicts.includes('README.md'));
+  assert.equal(git(root, 'rev-parse', 'HEAD'), tip);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  assert.ok(noMerge(root));
+});
+
+// A doc shaped like docs/openspec-flow.md around its CI pin: three unchanged lines separate the pin from each slot.
+const pinDoc = (version, { top = null, bottom = null } = {}) => [
+  '# Flow', '', ...(top === null ? [] : [top, '']),
+  'intro 1', 'intro 2', 'intro 3', 'intro 4', '',
+  '## CI', '',
+  `          # pinned to the commit of v${version} (a tag can move; a commit cannot)`,
+  '', 'ci 1', 'ci 2', 'ci 3', '',
+  '## Notes', 'note 1', 'note 2', 'note 3', 'note 4', ...(bottom === null ? [] : ['', bottom]), '',
+].join('\n');
+
+test('delivery-train join: the CI pin of both sides is merged and set to the renumbered devkit-openspec version', () => {
+  const pack = (version) => ({ [release.PIN_PACK]: pluginJson(release.PIN_PACK_NAME, version) });
+  const market = (meta, version) => marketplace(meta, { a: '0.6.0', b: '0.5.0', [release.PIN_PACK_NAME]: version });
+  const initial = { ...pack('0.10.0'), [release.PIN_FILE]: pinDoc('0.10.0'), '.claude-plugin/marketplace.json': market('0.6.0', '0.10.0') };
+  const side = (meta, version, title, doc) => ({
+    ...pack(version), [release.PIN_FILE]: doc, '.claude-plugin/marketplace.json': market(meta, version),
+    'CHANGELOG.md': CL(entry(meta, title), entry('0.6.0', 'first')),
+  });
+  const { root, rev } = joinRepo({ initial, extraTrain: side('0.7.0', '0.11.0', 'theirs', pinDoc('0.11.0', { top: 'TOP A' })), extraChange: side('0.6.1', '0.10.1', 'mine', pinDoc('0.10.1', { bottom: 'BOTTOM B' })) });
+  const r = run(root, '--merge', rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.ok(r.out.conflicts.includes(release.PIN_FILE));
+  assert.equal(versionOf(root, release.PIN_PACK), '0.11.1');
+  const doc = read(root, release.PIN_FILE);
+  assert.match(doc, /TOP A/);
+  assert.match(doc, /BOTTOM B/);
+  assert.deepEqual([...new Set(doc.match(/v\d+\.\d+\.\d+/g))], ['v0.11.1']);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+});
+
+test('delivery-train join: a revision already in the train is nothing to do', () => {
+  const { root, rev, tip } = joinRepo({ extraTrain: { 'src/a.txt': 'a\n' } });
+  assert.equal(run(root, '--merge', rev, '--json').code, 0);
+  const head = git(root, 'rev-parse', 'HEAD');
+  assert.notEqual(head, tip);
+  const again = run(root, '--merge', rev, '--json');
+  assert.equal(again.code, 0, again.stderr + again.stdout);
+  assert.equal(again.out.resolved, true);
+  assert.equal(again.out.mode, 'merge');
+  assert.equal(again.out.oldHead, head);
+  assert.equal(again.out.newHead, head);
+  assert.equal(git(root, 'rev-parse', 'HEAD'), head);
+});
+
+test('delivery-train join: a missing revision, both modes together and a lone --roadmap-ticks are setup errors', () => {
+  const { root, rev } = joinRepo();
+  const missing = run(root, '--merge', 'no-such-rev');
+  assert.equal(missing.code, 3);
+  assert.match(missing.stderr, /no-such-rev/);
+  assert.equal(run(root, '--merge', rev, '--base', 'main').code, 3);
+  assert.equal(run(root, '--roadmap-ticks').code, 3);
+  assert.equal(run(root, '--merge').code, 3);
+});
+
+// ---------------------------------------------------------------- the roadmap tick (P7)
+
+test('delivery-train roadmap: two neighbouring ticks of the change are written onto the base', () => {
+  const mergeBase = '# R\n- [ ] a\n- [ ] b\n- [ ] c\n- [ ] d\n';
+  const change = '# R\n- [x] a\n- [x] b\n- [ ] c\n- [ ] d\n';
+  const base = '# R\n- [ ] a\n- [ ] b\n- [x] c\n- [ ] d\n- [ ] e\n';
+  assert.equal(release.resolveRoadmapTicks({ mergeBase, change, base }), '# R\n- [x] a\n- [x] b\n- [x] c\n- [ ] d\n- [ ] e\n');
+});
+
+test('delivery-train roadmap: a tick of a line the base already ticked changes nothing', () => {
+  const mergeBase = '- [ ] a\n- [ ] b\n';
+  const change = '- [x] a\n- [ ] b\n';
+  const base = '- [x] a\n- [x] b\n';
+  assert.equal(release.resolveRoadmapTicks({ mergeBase, change, base }), base);
+});
+
+test('delivery-train roadmap: a reworded, added, removed, unticked or unknown line throws', () => {
+  const mergeBase = '- [ ] a\n- [ ] b\n';
+  const base = '- [ ] a\n- [ ] b\n';
+  const throws = (change, baseText = base) => assert.throws(() => release.resolveRoadmapTicks({ mergeBase, change, base: baseText }), { name: 'ReleaseError' }, change);
+  throws('- [x] a renamed\n- [ ] b\n');
+  throws('- [x] a\n- [ ] b\n- [ ] c\n');
+  throws('- [x] a\n');
+  throws('- [ ] a\n- [x] b\n', '- [ ] a\n');
+  throws('- [x] a\n- [ ] b\n', '- [ ] b\n');
+  assert.throws(() => release.resolveRoadmapTicks({ mergeBase: '- [x] a\n', change: '- [ ] a\n', base: '- [x] a\n' }), { name: 'ReleaseError' }, 'an untick');
+});
+
+test('delivery-train roadmap: a missing final newline is kept as the base has it', () => {
+  const mergeBase = '- [ ] a\n- [ ] b';
+  const change = '- [x] a\n- [ ] b';
+  assert.equal(release.resolveRoadmapTicks({ mergeBase, change, base: '- [ ] a\n- [ ] b' }), '- [x] a\n- [ ] b');
+  assert.equal(release.resolveRoadmapTicks({ mergeBase, change, base: '- [ ] a\n- [ ] b\n' }), '- [x] a\n- [ ] b\n');
+});
+
+const stagesOf = (mergeBase, theirs, ours) => () => ({ base: mergeBase, ours, theirs });
+
+test('delivery-train roadmap: classifyConflict resolves a tick conflict only with the resolver, and returns roadmapMerged', () => {
+  const mergeBase = '- [ ] a\n- [ ] b\n';
+  const stages = stagesOf(mergeBase, '- [ ] a\n- [x] b\n', '- [x] a\n- [ ] b\n');
+  const none = release.classifyConflict(['openspec/roadmap.md'], stages);
+  assert.deepEqual(none, { blocking: ['openspec/roadmap.md'], pinMerged: null });
+  assert.equal(none.roadmapMerged, null, 'without a resolver the field is null');
+  const resolved = release.classifyConflict(['openspec/roadmap.md'], stages, { roadmap: release.resolveRoadmapTicks });
+  assert.deepEqual(resolved.blocking, []);
+  assert.equal(resolved.roadmapMerged, '- [x] a\n- [x] b\n');
+  const reworded = release.classifyConflict(['openspec/roadmap.md'], stagesOf(mergeBase, '- [ ] a\n- [x] b!\n', '- [x] a\n- [ ] b\n'), { roadmap: release.resolveRoadmapTicks });
+  assert.deepEqual(reworded.blocking, ['openspec/roadmap.md']);
+  assert.equal(reworded.roadmapMerged, null);
+});
+
+const ticks = (a, b) => `# Roadmap\n\n## Round 1\n- [${a}] alpha\n- [${b}] beta\n- [ ] gamma\n`;
+
+test('delivery-train roadmap: --merge resolves a tick conflict by rule and a reworded line is blocking', () => {
+  const ok = joinRepo({ extraTrain: { 'openspec/roadmap.md': ticks('x', ' ') }, extraChange: { 'openspec/roadmap.md': ticks(' ', 'x') } });
+  const r = run(ok.root, '--merge', ok.rev, '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.ok(r.out.conflicts.includes('openspec/roadmap.md'));
+  assert.equal(read(ok.root, 'openspec/roadmap.md'), ticks('x', 'x'));
+  assert.equal(git(ok.root, 'status', '--porcelain'), '');
+
+  const bad = joinRepo({ extraTrain: { 'openspec/roadmap.md': ticks('x', ' ') }, extraChange: { 'openspec/roadmap.md': ticks(' ', 'x').replace('beta', 'beta renamed') } });
+  const tip = git(bad.root, 'rev-parse', 'HEAD');
+  const refused = run(bad.root, '--merge', bad.rev, '--json');
+  assert.equal(refused.code, 2, refused.stderr + refused.stdout);
+  assert.ok(refused.out.conflicts.includes('openspec/roadmap.md'));
+  assert.equal(git(bad.root, 'rev-parse', 'HEAD'), tip);
+  assert.ok(noMerge(bad.root));
+});
+
+// `change` is the branch under work and origin/main the train's tip, the orientation of --base.
+function baseRepo() {
+  const { root, tip, rev } = joinRepo({ extraTrain: { 'openspec/roadmap.md': ticks('x', ' ') }, extraChange: { 'openspec/roadmap.md': ticks(' ', 'x') } });
+  git(root, 'update-ref', 'refs/remotes/origin/main', tip);
+  git(root, 'checkout', '-q', 'change');
+  return { root, rev, tip };
+}
+
+test('delivery-train roadmap: --base resolves a tick conflict only under --roadmap-ticks, and exits 2 without it', () => {
+  const without = baseRepo();
+  const head = git(without.root, 'rev-parse', 'HEAD');
+  const refused = run(without.root, '--base', 'main', '--json');
+  assert.equal(refused.code, 2, refused.stderr + refused.stdout);
+  assert.deepEqual(refused.out.conflicts, ['openspec/roadmap.md']);
+  assert.equal(git(without.root, 'rev-parse', 'HEAD'), head);
+  assert.ok(noMerge(without.root));
+
+  const flagged = baseRepo();
+  const r = run(flagged.root, '--base', 'main', '--roadmap-ticks', '--json');
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.equal(read(flagged.root, 'openspec/roadmap.md'), ticks('x', 'x'));
+  assert.equal(git(flagged.root, 'rev-parse', 'HEAD^2'), flagged.tip);
+  assert.equal(git(flagged.root, 'log', '-1', '--format=%s'), 'chore(release): merge origin/main and renumber the release above it');
+  assert.equal('mode' in r.out, false, '--base keeps its JSON');
+});
+
+test('delivery-train roadmap: --base keeps its resolved JSON keys as they are', () => {
+  const { root } = baseRepo();
+  const r = run(root, '--base', 'main', '--roadmap-ticks', '--json');
+  assert.deepEqual(Object.keys(r.out), ['resolved', 'oldHead', 'newHead', 'versions', 'files']);
+});
+
+// kept so the render helper and the message table are exercised by name in this suite
+test('delivery-train config: both languages carry the same train keys', () => {
+  for (const key of ['train-model', 'train-no-model', 'setting.delivery-train']) {
+    assert.ok(MESSAGES.en[key] && MESSAGES['pt-BR'][key], key);
+  }
+});
+
+// ================================================================ phase 2: the record, the train facts and boarding
+
+const H = (c) => c.repeat(40);
+const projectConfig = (model, train = null) => `schema: devkit-lite\ndevkit:\n  delivery:\n${model ? `    model: ${model}\n` : ''}${train === null ? '' : `    train: "${train}"\n`}`;
+const WORKFLOW = { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' };
+const PROPOSAL = '<!-- devkit-stage proposal result=passed attempt=1 commit=none -->\n# Proposal\n\n## Acceptance criteria\n\n- AC-1: something\n';
+const bodyOf = (id) => `${id}\n- AC-1\nopenspec/changes/${id}/evidence.md\n`;
+const CHECK = (name, bucket) => ({ name, state: bucket.toUpperCase(), bucket, link: 'https://github.com/o/r/actions/runs/77/job/1' });
+const GREEN = [CHECK('check', 'pass'), CHECK('devkit-reviews', 'pass')];
+const PENDING = [CHECK('check', 'pending'), CHECK('devkit-reviews', 'pass')];
+const REVIEWS = ['code-quality-reviewer', 'test-coverage-reviewer'];
+const PARTS = SUITE.split('&&').map((c) => c.trim());
+
+// The train record of D-4, written by hand here (the departure's writer is phase 3).
+function recordText({ n = 4, base = 'main', baseSha = H('a'), suite = SUITE, ranAt = H('b'), result = 'passed', boarded = [], left = [], runs = [], failures = {} } = {}) {
+  const row = (cells) => `| ${cells.join(' | ')} |`;
+  const out = [
+    `<!-- devkit-train n=${n} base=${base} result=${result} -->`, `# Train ${n}`, '',
+    `- Base: \`${base}\` at \`${baseSha}\``, `- Suite: \`${suite}\``, `- Ran at: \`${ranAt}\``, `- Result: ${result}`, '',
+    '## Boarded', '', row(['Order', 'Kind', 'Change', 'Pull request', 'Head', 'Boarded at']), row(['---', '---', '---', '---', '---', '---']),
+    ...boarded.map((b, i) => row([i + 1, b.kind ?? 'change', `\`${b.id}\``, `#${b.number}`, `\`${b.head}\``, b.at ?? '2026-11-23T10:00:00Z'])), '',
+  ];
+  if (left.length) {
+    out.push('## Left', '', row(['Kind', 'Change', 'Pull request', 'Head', 'Why', 'Detail']), row(['---', '---', '---', '---', '---', '---']),
+      ...left.map((l) => row([l.kind ?? 'change', `\`${l.id}\``, `#${l.number}`, `\`${l.head}\``, l.why, l.detail ?? (l.why === 'red' ? `Failure of \`${l.id}\`, below` : '`x`')])), '');
+  }
+  if (runs.length) out.push('## Runs', '', row(['Run', 'Changes', 'Head', 'Result']), row(['---', '---', '---', '---']), ...runs.map((r, i) => row([i + 1, r.changes, `\`${r.head}\``, r.result])), '');
+  for (const [id, text] of Object.entries(failures)) out.push(`## Failure of \`${id}\``, '', '```text', text, '```', '');
+  return out.join('\n');
+}
+
+// ---------------------------------------------------------------- P5 parseTrainRecord
+
+test('delivery-train record: a full record parses into its facts, its tables and the failure of a red change', () => {
+  const text = recordText({
+    boarded: [{ id: 'alpha', number: 81, head: H('1') }, { kind: 'archive', id: 'gamma', number: 85, head: H('2'), at: '2026-11-23T10:05:00Z' }],
+    left: [{ id: 'beta', number: 83, head: H('3'), why: 'conflict', detail: '`plugins/x/hooks/a.mjs`' }, { id: 'delta', number: 84, head: H('4'), why: 'red' }],
+    runs: [{ changes: 'alpha, gamma, delta', head: H('5'), result: 'failed' }],
+    failures: { delta: 'not ok 1 - delta\n## Boarded\n| 9 | nope |' },
+  });
+  assert.deepEqual(deliver.parseTrainRecord(text), {
+    n: 4, base: 'main', result: 'passed', baseSha: H('a'), suite: SUITE, ranAt: H('b'),
+    boarded: [
+      { order: 1, kind: 'change', id: 'alpha', number: 81, head: H('1'), at: '2026-11-23T10:00:00Z' },
+      { order: 2, kind: 'archive', id: 'gamma', number: 85, head: H('2'), at: '2026-11-23T10:05:00Z' },
+    ],
+    left: [
+      { kind: 'change', id: 'beta', number: 83, head: H('3'), why: 'conflict', detail: '`plugins/x/hooks/a.mjs`', failure: null },
+      { kind: 'change', id: 'delta', number: 84, head: H('4'), why: 'red', detail: 'Failure of `delta`, below', failure: 'not ok 1 - delta\n## Boarded\n| 9 | nope |' },
+    ],
+  });
+});
+
+test('delivery-train record: a record with no left entries has an empty left list', () => {
+  const r = deliver.parseTrainRecord(recordText({ boarded: [{ id: 'alpha', number: 81, head: H('1') }] }));
+  assert.deepEqual(r.left, []);
+  assert.equal(r.boarded.length, 1);
+});
+
+test('delivery-train record: an empty file, a missing header and a wrong header are errors', () => {
+  assert.match(deliver.parseTrainRecord('').error, /empty/);
+  assert.match(deliver.parseTrainRecord('\n\n').error, /empty/);
+  assert.match(deliver.parseTrainRecord('# Train 4\n').error, /devkit-train/);
+  assert.match(deliver.parseTrainRecord(recordText({ boarded: [{ id: 'a', number: 1, head: H('1') }] }).replace('devkit-train', 'devkit-other')).error, /devkit-train/);
+});
+
+test('delivery-train record: a fence that opens and never closes is an error', () => {
+  const text = `${recordText({ boarded: [{ id: 'a', number: 1, head: H('1') }] })}\n## Failure of \`a\`\n\n\`\`\`text\nnever closed\n`;
+  assert.match(deliver.parseTrainRecord(text).error, /fence/);
+});
+
+test('delivery-train record: no Boarded table, or an empty one, is an error', () => {
+  assert.match(deliver.parseTrainRecord('<!-- devkit-train n=4 base=main result=passed -->\n# Train 4\n\n- Result: passed\n').error, /Boarded/);
+  assert.match(deliver.parseTrainRecord(recordText({ boarded: [] })).error, /Boarded/);
+});
+
+test('delivery-train record: a bad head, kind, order or why is an error naming it', () => {
+  const ok = recordText({ boarded: [{ id: 'a', number: 1, head: H('1') }, { id: 'b', number: 2, head: H('2') }], left: [{ id: 'c', number: 3, head: H('3'), why: 'conflict' }] });
+  assert.equal(deliver.parseTrainRecord(ok).error, undefined);
+  assert.match(deliver.parseTrainRecord(ok.replace(H('1'), 'abc123')).error, /head/);
+  assert.match(deliver.parseTrainRecord(ok.replace('| change | `a`', '| feature | `a`')).error, /kind/);
+  assert.match(deliver.parseTrainRecord(ok.replace('| 2 | change |', '| 3 | change |')).error, /order/);
+  assert.match(deliver.parseTrainRecord(ok.replace('| conflict |', '| broken |')).error, /why/);
+});
+
+// ---------------------------------------------------------------- the scenario fixture: origin, main checkout, change worktrees, simulated GitHub
+
+// A commit made at `at` (an ISO time) for the order of boarding, which reads the committer time of the newest review commit.
+function commitAt(wt, message, at = null) {
+  if (!at) return commitAll(wt, message);
+  git(wt, 'add', '-A');
+  execFileSync('git', ['-C', wt, 'commit', '-q', '--allow-empty', '-m', message], { encoding: 'utf8', env: { ...GIT_ENV, GIT_COMMITTER_DATE: at, GIT_AUTHOR_DATE: at }, stdio: ['ignore', 'pipe', 'pipe'] });
+  return git(wt, 'rev-parse', 'HEAD');
+}
+
+function prove(wt, id, gates = [], at = null) {
+  const sha = git(wt, 'rev-parse', 'HEAD');
+  const gateTable = gates.length ? `\n### Gates\n| gate | command | result |\n|---|---|---|\n${gates.map((g) => `| 1.2 | \`${g}\` | pass: green |`).join('\n')}\n` : '';
+  put(wt, {
+    [`openspec/changes/${id}/evidence.md`]: `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n${gateTable}`,
+    ...Object.fromEntries(REVIEWS.map((r) => [`openspec/changes/${id}/reviews/${r}.md`, `Verdict: approved\nCommit: ${sha}\n\n# Review\n`])),
+  });
+  return commitAt(wt, `evidence and reviews of ${id}`, at);
+}
+
+// A project on the simulated GitHub: `p.t` is roundRepo's fixture (bare origin, main checkout), `p.sim` the fake gh.
+function project({ model = 'trunk-auto', train = SUITE, roadmap = '# Roadmap\n', files = {}, config = null } = {}) {
+  const t = roundRepo({ roadmap, config: config ?? projectConfig(model, train), files: { ...WORKFLOW, ...files } });
+  const sim = simGitHub({ origin: t.originDir });
+  const env = { ...process.env, ...sim.env, ...SET };
+  const p = { t, sim, env, changes: {}, archives: {}, scratch: tmpFolder('devkit-train-scratch-') };
+  p.state = (id) => deliver.collectState(p.changes[id].wt, id, { env });
+  p.next = (id) => deliver.nextStep(p.state(id));
+  return p;
+}
+
+const DEFAULT_TASKS = '# Tasks\n\n## 1. Phase\n\n- [x] 1.1 code\n';
+
+// A change with its work, evidence and reviews at its head, pushed, with an open pull request and green checks.
+function addChange(p, id, { tasks = DEFAULT_TASKS, gates = [], pr = true, files = {}, at = null, branch = id } = {}) {
+  const wt = p.t.addWt(id, { branch });
+  put(wt, {
+    [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit-lite\n',
+    [`openspec/changes/${id}/proposal.md`]: PROPOSAL,
+    [`openspec/changes/${id}/tasks.md`]: tasks,
+    [`src/${id}.txt`]: `${id}\n`,
+    ...files,
+  });
+  commitAll(wt, `code of ${id}`);
+  prove(wt, id, gates, at);
+  git(wt, 'push', '-q', 'origin', branch);
+  const entry = { wt, number: null, branch };
+  if (pr) {
+    entry.number = p.sim.create({ base: 'main', head: branch, body: bodyOf(id) });
+    p.sim.setChecks(entry.number, GREEN);
+  }
+  p.changes[id] = entry;
+  return entry;
+}
+
+// The pull request head of a change: what a train record lists as its head.
+const headOf = (p, id) => git(p.changes[id].wt, 'rev-parse', 'HEAD');
+
+// A train: the branch train/<n> on origin holding its record, and its pull request. `merged` and `closed` end the pull request.
+function launchTrain(p, n, record, { merged = false, closed = false } = {}) {
+  const dir = tmpFolder('devkit-train-wt-');
+  const wt = join(dir, 'w');
+  git(p.t.main, 'worktree', 'add', '-q', '-b', `train/${n}`, wt, 'origin/main');
+  put(wt, { [`openspec/trains/${n}.md`]: recordText({ n, ...record }) });
+  const head = commitAll(wt, `chore(train): record train ${n}`);
+  git(wt, 'push', '-q', 'origin', `train/${n}`);
+  git(p.t.main, 'worktree', 'remove', '--force', wt);
+  const number = p.sim.create({ base: 'main', head: `train/${n}`, body: '' });
+  if (merged) p.sim.merge(number);
+  else if (closed) p.sim.close(number);
+  return { number, head, n };
+}
+const boardedOf = (p, id, kind = 'change') => ({ kind, id, number: p.changes[id].number, head: headOf(p, id) });
+
+// ---------------------------------------------------------------- P3 boarding: the rows of a change
+
+test('delivery-train P3 T9: a change with all its items met boards, in trunk-auto and in trunk', () => {
+  for (const model of ['trunk-auto', 'trunk']) {
+    const p = project({ model });
+    addChange(p, 'feat');
+    const state = p.state('feat');
+    const next = deliver.nextStep(state);
+    assert.equal(next.step, 'boarded', model);
+    assert.equal(state.train.suite, SUITE, model);
+    assert.deepEqual(state.train.parts, PARTS, model);
+    assert.equal(state.train.kind, 'change');
+    assert.deepEqual([state.train.onTrain, state.train.carried, state.train.left], [null, null, null], model);
+  }
+});
+
+test('delivery-train P3 T1: auto-merge found on a change of a train project is disabled first, in trunk-auto and in trunk', () => {
+  for (const model of ['trunk-auto', 'trunk']) {
+    const p = project({ model });
+    const { number } = addChange(p, 'feat');
+    p.sim.setAutoMerge(number, 'squash');
+    const next = p.next('feat');
+    assert.deepEqual([next.step, next.number], ['disable-auto-merge', number], model);
+    p.sim.setAutoMerge(number, null);
+    assert.equal(p.next('feat').step, 'boarded', model);
+  }
+});
+
+test('delivery-train P3 T1: auto-merge on disables even before the contract is met', () => {
+  const p = project();
+  const { number, wt } = addChange(p, 'feat');
+  p.sim.setAutoMerge(number, 'merge');
+  put(wt, { 'src/feat.txt': 'changed\n' });
+  commitAll(wt, 'code after evidence');
+  assert.equal(p.next('feat').step, 'disable-auto-merge');
+});
+
+test('delivery-train P3 T9: a change of a train project is never told to enable auto-merge, update its branch or wait for a merge', () => {
+  for (const model of ['trunk-auto', 'trunk']) {
+    const p = project({ model });
+    const { number } = addChange(p, 'feat');
+    const seen = [];
+    for (const mutate of [() => {}, () => p.sim.setChecks(number, PENDING), () => p.sim.setPr(number, { mergeStateStatus: 'BEHIND' }), () => p.sim.setPr(number, { mergeable: 'CONFLICTING' })]) {
+      mutate();
+      seen.push(p.next('feat').step);
+    }
+    assert.deepEqual(seen, ['boarded', 'boarded', 'boarded', 'boarded'], model);
+  }
+});
+
+test('delivery-train P3 T4: a change with no pull request opens one, as before the train', () => {
+  const p = project();
+  addChange(p, 'feat', { pr: false });
+  assert.equal(p.next('feat').step, 'open-pr');
+});
+
+test('delivery-train P3 T5: pending checks board', () => {
+  const p = project();
+  const { number } = addChange(p, 'feat');
+  p.sim.setChecks(number, PENDING);
+  assert.equal(p.next('feat').step, 'boarded');
+});
+
+test('delivery-train P3 T5: a failing check does not board, and the next step fixes it', () => {
+  const p = project();
+  const { number } = addChange(p, 'feat');
+  p.sim.setChecks(number, [CHECK('check', 'fail'), CHECK('devkit-reviews', 'pass')]);
+  const next = p.next('feat');
+  assert.equal(next.step, 'fix-checks');
+  assert.deepEqual(next.failing.map((f) => f.name), ['check']);
+});
+
+test('delivery-train P3 T5: a pull request behind the base boards, and one in conflict with it boards too', () => {
+  const p = project();
+  const { number } = addChange(p, 'feat');
+  p.sim.setPr(number, { mergeStateStatus: 'BEHIND' });
+  assert.equal(p.next('feat').step, 'boarded', 'behind');
+  p.sim.setPr(number, { mergeStateStatus: 'DIRTY', mergeable: 'CONFLICTING' });
+  assert.equal(p.next('feat').step, 'boarded', 'in conflict');
+  p.sim.setPr(number, { mergeStateStatus: 'BEHIND', mergeable: 'CONFLICTING' });
+  assert.equal(p.next('feat').step, 'boarded', 'behind and in conflict');
+});
+
+test('delivery-train P3 T5: in trunk a conflict boards too and a project without the train still stops on it', () => {
+  const trunk = project({ model: 'trunk' });
+  const a = addChange(trunk, 'feat');
+  trunk.sim.setPr(a.number, { mergeable: 'CONFLICTING' });
+  assert.equal(trunk.next('feat').step, 'boarded');
+  const off = project({ model: 'trunk', train: null });
+  const b = addChange(off, 'feat');
+  off.sim.setPr(b.number, { mergeable: 'CONFLICTING' });
+  const next = off.next('feat');
+  assert.deepEqual([next.step, next.conflict], ['blocked', true]);
+});
+
+test('delivery-train P3 T6: local commits not pushed, and uncommitted files of the change folder, push', () => {
+  const p = project();
+  const { wt } = addChange(p, 'feat');
+  put(wt, { 'openspec/changes/feat/notes.md': 'notes\n' });
+  assert.equal(p.next('feat').step, 'push', 'uncommitted');
+  commitAll(wt, 'notes');
+  assert.equal(p.next('feat').step, 'push', 'ahead of the pull request');
+});
+
+test('delivery-train P3 T6: a closed pull request is blocked, as before the train', () => {
+  const p = project();
+  const { number } = addChange(p, 'feat');
+  p.sim.close(number);
+  const next = p.next('feat');
+  assert.equal(next.step, 'blocked');
+  assert.match(next.reason, /closed/);
+});
+
+test('delivery-train P3 T7: an incomplete body, a failing check and a conversation to answer come before boarding', () => {
+  const p = project();
+  const { number } = addChange(p, 'feat');
+  p.sim.setPr(number, { body: 'feat\n' });
+  assert.equal(p.next('feat').step, 'edit-pr-body');
+  const state = { ...p.state('feat') };
+  const talk = { ...state.items[6], status: 'open', details: { threads: [{ id: 't1' }], comments: [], changesRequested: [], waiting: [] } };
+  const answering = { ...state, items: state.items.map((i, k) => (k === 6 ? talk : k === 7 ? { ...i, status: 'met' } : i)) };
+  assert.equal(deliver.nextStep(answering).step, 'answer');
+});
+
+test('delivery-train P3 T9: a push after boarding unboards, and the next step records the evidence again', () => {
+  const p = project();
+  const { wt } = addChange(p, 'feat');
+  assert.equal(p.next('feat').step, 'boarded');
+  put(wt, { 'src/feat.txt': 'changed after boarding\n' });
+  commitAll(wt, 'code after boarding');
+  assert.equal(p.next('feat').step, 'verify');
+});
+
+test('delivery-train P3 T2: a change left by an open train waits on GitHub naming that pull request', () => {
+  const p = project();
+  addChange(p, 'feat');
+  const train = launchTrain(p, 4, { boarded: [{ id: 'x', number: 1, head: H('1') }], left: [{ id: 'feat', number: p.changes.feat.number, head: headOf(p, 'feat'), why: 'red' }], failures: { feat: 'boom' } });
+  const state = p.state('feat');
+  const next = deliver.nextStep(state);
+  assert.deepEqual([next.step, next.number, next.train], ['wait-train', train.number, 4]);
+  assert.deepEqual(state.train.left, { n: 4, number: train.number, state: 'OPEN', why: 'red', detail: 'Failure of `feat`, below', failure: 'boom' });
+});
+
+test('delivery-train P3 T3: a change left by a train that merged or closed goes back to the implementer with the record\'s facts', () => {
+  for (const ending of [{ merged: true }, { closed: true }]) {
+    const p = project();
+    addChange(p, 'feat');
+    const train = launchTrain(p, 4, { boarded: [{ id: 'x', number: 1, head: H('1') }], left: [{ id: 'feat', number: p.changes.feat.number, head: headOf(p, 'feat'), why: 'conflict', detail: '`src/a.mjs`, `src/b.mjs`' }] }, ending);
+    const next = p.next('feat');
+    assert.equal(next.step, 'rejoin-train', JSON.stringify(ending));
+    assert.deepEqual([next.number, next.train, next.why, next.paths], [train.number, 4, 'conflict', ['src/a.mjs', 'src/b.mjs']]);
+  }
+});
+
+test('delivery-train P3 T3: a red leaver carries the failure to the implementer', () => {
+  const p = project();
+  addChange(p, 'feat');
+  launchTrain(p, 4, { boarded: [{ id: 'x', number: 1, head: H('1') }], left: [{ id: 'feat', number: p.changes.feat.number, head: headOf(p, 'feat'), why: 'red' }], failures: { feat: 'not ok 7 - feat' } }, { merged: true });
+  const next = p.next('feat');
+  assert.deepEqual([next.step, next.why, next.failure], ['rejoin-train', 'red', 'not ok 7 - feat']);
+  // Found by the real run (AC-12): the detail of a red leaver is "Failure of `feat`, below", whose backticks named the change
+  // as if it were a path to resolve in the brief the implementer gets.
+  assert.deepEqual(next.paths, [], 'a red change has no conflicting paths');
+});
+
+test('delivery-train P3 T8: a change on an open train ends on GitHub naming the train\'s pull request', () => {
+  const p = project();
+  addChange(p, 'feat');
+  const train = launchTrain(p, 4, { boarded: [boardedOf(p, 'feat')] });
+  const state = p.state('feat');
+  const next = deliver.nextStep(state);
+  assert.deepEqual([next.step, next.number, next.train], ['on-train', train.number, 4]);
+  assert.deepEqual(state.train.onTrain, { n: 4, number: train.number, url: `https://github.com/o/r/pull/${train.number}` });
+});
+
+test('delivery-train P3 T9: a train that left the change at an older head does not apply, and it boards again', () => {
+  const p = project();
+  const { wt, number } = addChange(p, 'feat');
+  launchTrain(p, 4, { boarded: [{ id: 'x', number: 1, head: H('1') }], left: [{ id: 'feat', number, head: H('9'), why: 'red' }], failures: { feat: 'boom' } });
+  assert.equal(p.next('feat').step, 'boarded');
+  assert.equal(git(wt, 'rev-parse', 'HEAD').length, 40);
+});
+
+test('delivery-train P3 T9: a closed train that carried the change is not under way, so the change boards again', () => {
+  const p = project();
+  addChange(p, 'feat');
+  launchTrain(p, 4, { boarded: [boardedOf(p, 'feat')] }, { closed: true });
+  assert.equal(p.next('feat').step, 'boarded');
+});
+
+test('delivery-train P3 T2: GitHub silent on a train record is a blocked read, never a boarding', () => {
+  const p = project();
+  addChange(p, 'feat');
+  launchTrain(p, 4, { boarded: [boardedOf(p, 'feat')] });
+  const gh = (args, opts) => (args[0] === 'api' && /contents\/openspec\/trains\//.test(args[1]) ? { status: 1, stdout: '', stderr: 'HTTP 502: bad gateway' } : p.sim.gh(p.changes.feat.wt)(args, opts));
+  const state = deliver.collectState(p.changes.feat.wt, 'feat', { env: p.env, gh });
+  assert.match(state.train.error, /502/);
+  const next = deliver.nextStep(state);
+  assert.equal(next.step, 'blocked');
+  assert.match(next.reason, /train/);
+});
+
+test('delivery-train P3 fields: with the key a trunk project asks the merge fields and can see auto-merge on; without it, today\'s', () => {
+  const prFields = (log) => log.filter((c) => c[0] === 'pr' && (c[1] === 'view' || (c[1] === 'list' && c.includes('--head')))).map((c) => c[c.indexOf('--json') + 1]);
+  const MERGE_FIELDS = 'number,url,state,headRefOid,baseRefName,mergeable,body,autoMergeRequest,mergeStateStatus';
+  const PR_FIELDS = 'number,url,state,headRefOid,baseRefName,mergeable,body';
+  const on = project({ model: 'trunk' });
+  addChange(on, 'feat');
+  on.next('feat');
+  assert.ok(prFields(on.sim.calls()).length > 0);
+  assert.deepEqual([...new Set(prFields(on.sim.calls()))], [MERGE_FIELDS]);
+  const off = project({ model: 'trunk', train: null });
+  addChange(off, 'feat');
+  off.next('feat');
+  assert.deepEqual([...new Set(prFields(off.sim.calls()))], [PR_FIELDS]);
+});
+
+test('delivery-train P3 fields: trunk-auto asks the merge fields with and without the key', () => {
+  const fields = (p) => [...new Set(p.sim.calls().filter((c) => c[0] === 'pr' && (c[1] === 'view' || (c[1] === 'list' && c.includes('--head')))).map((c) => c[c.indexOf('--json') + 1]))];
+  const on = project();
+  addChange(on, 'feat');
+  on.next('feat');
+  const off = project({ train: null });
+  addChange(off, 'feat');
+  off.next('feat');
+  assert.deepEqual(fields(on), fields(off));
+  assert.match(fields(on)[0], /autoMergeRequest/);
+});
+
+test('delivery-train P3 fields: a trunk project without the key makes exactly the gh calls it made before the train', () => {
+  const off = project({ model: 'trunk', train: null });
+  addChange(off, 'feat');
+  const before = off.sim.calls().length;
+  const state = off.state('feat');
+  const calls = off.sim.calls().slice(before).map((c) => c.join(' '));
+  assert.equal('train' in state, false);
+  assert.deepEqual(calls.filter((c) => /^pr (view|list)/.test(c)), [
+    'pr view --json number,url,state,headRefOid,baseRefName,mergeable,body',
+    'pr list --head feat --state all --limit 10 --json number,url,state,headRefOid,baseRefName,mergeable,body',
+  ]);
+  assert.equal(calls.some((c) => /train/.test(c)), false, calls.join('\n'));
+});
+
+// ---------------------------------------------------------------- P4 trainFacts
+
+const ghOf = (p, id = 'feat') => p.sim.gh(p.changes[id].wt);
+const factsOf = (p, id = 'feat', extra = {}) => deliver.trainFacts(ghOf(p, id), p.changes[id].wt, id, { suite: SUITE, prHead: headOf(p, id), kind: 'change', ...extra });
+
+test('delivery-train P4 trainFacts: on an open train, carried by a merged one, left on an open one and left on a closed one', () => {
+  const p = project();
+  addChange(p, 'feat');
+  const open = launchTrain(p, 4, { boarded: [boardedOf(p, 'feat')] });
+  assert.deepEqual(factsOf(p).onTrain, { n: 4, number: open.number, url: `https://github.com/o/r/pull/${open.number}` });
+  assert.equal(factsOf(p).carried, null);
+
+  const q = project();
+  addChange(q, 'feat');
+  const merged = launchTrain(q, 4, { boarded: [boardedOf(q, 'feat')] }, { merged: true });
+  const facts = factsOf(q);
+  assert.equal(facts.onTrain, null);
+  assert.deepEqual([facts.carried.n, facts.carried.number], [4, merged.number]);
+  assert.match(facts.carried.mergeCommit, /^[0-9a-f]{40}$/);
+
+  const r = project();
+  addChange(r, 'feat');
+  const leftOpen = launchTrain(r, 4, { boarded: [{ id: 'x', number: 1, head: H('1') }], left: [{ id: 'feat', number: r.changes.feat.number, head: headOf(r, 'feat'), why: 'conflict', detail: '`a`' }] });
+  assert.deepEqual(factsOf(r).left, { n: 4, number: leftOpen.number, state: 'OPEN', why: 'conflict', detail: '`a`', failure: null });
+
+  const s = project();
+  addChange(s, 'feat');
+  launchTrain(s, 4, { boarded: [{ id: 'x', number: 1, head: H('1') }], left: [{ id: 'feat', number: s.changes.feat.number, head: headOf(s, 'feat'), why: 'conflict' }] }, { closed: true });
+  assert.equal(factsOf(s).left.state, 'CLOSED');
+});
+
+test('delivery-train P4 trainFacts: a record at another head, another kind or another change lists nobody', () => {
+  const p = project();
+  addChange(p, 'feat');
+  launchTrain(p, 4, { boarded: [{ id: 'feat', number: 1, head: H('9') }, { kind: 'archive', id: 'feat', number: 2, head: headOf(p, 'feat') }, { id: 'other', number: 3, head: headOf(p, 'feat') }] });
+  const facts = factsOf(p);
+  assert.deepEqual([facts.onTrain, facts.carried, facts.left], [null, null, null]);
+  assert.equal(factsOf(p, 'feat', { kind: 'archive' }).onTrain.n, 4, 'the archive kind reads the archive rows');
+});
+
+test('delivery-train P4 trainFacts: the newest train wins, only train heads are read and only five of them', () => {
+  const p = project();
+  addChange(p, 'feat');
+  for (const n of [1, 2, 3, 4, 5, 6]) launchTrain(p, n, { boarded: [n === 1 ? boardedOf(p, 'feat') : { id: 'x', number: 1, head: H('1') }] }, { closed: true });
+  const facts = factsOf(p);
+  assert.equal(facts.onTrain, null, 'the oldest of six trains is not read');
+  const reads = p.sim.calls().filter((c) => c[0] === 'api' && /contents\/openspec\/trains\//.test(c[1])).length;
+  assert.equal(reads, 5);
+});
+
+test('delivery-train P4 trainFacts: a pull request that is not a train, and no pull request head, make no train reads', () => {
+  const p = project();
+  addChange(p, 'feat');
+  assert.deepEqual(factsOf(p, 'feat', { prHead: null }).records, []);
+  const before = p.sim.calls().length;
+  factsOf(p, 'feat', { prHead: null });
+  assert.equal(p.sim.calls().length, before, 'no pull request head, no call');
+  const facts = factsOf(p);
+  assert.deepEqual(facts.records, [], 'a feature branch is not a train');
+  assert.equal(facts.suite, SUITE);
+  assert.deepEqual(facts.parts, PARTS);
+});
+
+test('delivery-train P4 trainFacts: GitHub silent is an error, and a train with no record or a bad one lists nobody', () => {
+  const p = project();
+  addChange(p, 'feat');
+  const down = (args) => ({ status: 1, stdout: '', stderr: 'HTTP 502: bad gateway', missing: false, timedOut: false });
+  assert.match(deliver.trainFacts(down, p.changes.feat.wt, 'feat', { suite: SUITE, prHead: headOf(p, 'feat'), kind: 'change' }).error, /502/);
+
+  launchTrain(p, 3, { boarded: [boardedOf(p, 'feat')] });
+  const dir = tmpFolder('devkit-train-wt-');
+  const wt = join(dir, 'w');
+  git(p.t.main, 'worktree', 'add', '-q', '-b', 'train/9', wt, 'origin/main');
+  put(wt, { 'openspec/trains/9.md': 'not a record\n' });
+  commitAll(wt, 'bad record');
+  git(wt, 'push', '-q', 'origin', 'train/9');
+  git(p.t.main, 'worktree', 'remove', '--force', wt);
+  p.sim.create({ base: 'main', head: 'train/9', body: '' });
+  git(p.t.main, 'worktree', 'add', '-q', '-b', 'train/10', wt, 'origin/main');
+  git(wt, 'push', '-q', 'origin', 'train/10');
+  git(p.t.main, 'worktree', 'remove', '--force', wt);
+  p.sim.create({ base: 'main', head: 'train/10', body: '' });
+  const facts = factsOf(p);
+  assert.equal(facts.error, undefined);
+  assert.equal(facts.onTrain.n, 3, 'the broken record and the missing one are skipped');
+});
+
+// ---------------------------------------------------------------- AC-2, AC-3
+
+test('delivery-train AC-2: a change approved at its head is boarded behind main, with pending checks, and waits for the owner', () => {
+  const p = project();
+  const { number } = addChange(p, 'feat');
+  p.sim.setChecks(number, PENDING);
+  p.sim.setPr(number, { mergeStateStatus: 'BEHIND' });
+  const state = p.state('feat');
+  const next = deliver.nextStep(state);
+  assert.equal(next.step, 'boarded');
+  assert.deepEqual(state.items.slice(0, 4).map((i) => i.status), ['met', 'met', 'met', 'met']);
+  assert.equal(state.items[4].status, 'open', 'item 5 is open for being behind');
+  assert.equal(state.items[5].status, 'open', 'item 6 is open for pending checks');
+  const flow = deliveryRow({ root: p.t.main, env: p.env, ref: 'origin/main', base: 'main' }, { id: 'feat', worktree: p.changes.feat.wt }, { state, report: deliver.buildReport(state, p.env) });
+  assert.deepEqual([flow.next.step, flow.next.actor], ['boarded', 'owner']);
+  assert.equal(flow.next.askable, false);
+  assert.equal(flow.state, 'waiting for the owner: boarded');
+});
+
+test('delivery-train AC-3: a sibling\'s merge into main leaves the boarded change\'s evidence, reviews and action as they were', () => {
+  const p = project();
+  const { number, wt } = addChange(p, 'feat');
+  const sib = addChange(p, 'sib');
+  const before = p.state('feat');
+  assert.equal(deliver.nextStep(before).step, 'boarded');
+  p.sim.merge(sib.number);
+  git(wt, 'fetch', '-q', 'origin');
+  p.sim.setPr(number, { mergeStateStatus: 'BEHIND' });
+  const after = p.state('feat');
+  const next = deliver.nextStep(after);
+  assert.equal(next.step, 'boarded', 'the same end as before the merge');
+  for (const n of [0, 1, 2, 3]) assert.deepEqual(after.items[n], before.items[n], `item ${n + 1} is as it was`);
+  assert.equal(after.head, before.head, 'the head did not move');
+  assert.equal(after.items[0].details.evidence, 'current');
+  assert.deepEqual(after.items[1].details.stale, []);
+  assert.notEqual(next.step, 'update-branch');
+});
+
+// ---------------------------------------------------------------- AC-5, the tasks item (half)
+
+const GATE_TASKS = `# Tasks\n\n## 1. Phase\n\n- [x] 1.1 code\n- [x] 1.2 Gate: \`${SUITE}\`\n`;
+
+test('delivery-train AC-5: the tasks item skips the parts of the train and says how many the train proves', () => {
+  const root = project().t.main;
+  const dir = join(root, 'openspec', 'changes', 'g');
+  put(root, { 'openspec/changes/g/tasks.md': GATE_TASKS, 'openspec/changes/g/evidence.md': `Commit: ${git(root, 'rev-parse', 'HEAD')}\n\n| gate | command | result |\n|---|---|---|\n| 1.2 | \`${PARTS[0]}\` | pass: green |\n` });
+  assert.ok(dir);
+  const none = deliver.tasksItem(root, 'g', deliver.gitFacts(root));
+  assert.equal(none.status, 'open');
+  assert.deepEqual(none.details.missingGates, [PARTS[1]], 'without the train the second part needs a row');
+  const item = deliver.tasksItem(root, 'g', deliver.gitFacts(root), { trainParts: [PARTS[1]] });
+  assert.equal(item.status, 'met');
+  assert.deepEqual(item.details.trainParts, [PARTS[1]]);
+  assert.match(item.reason, /1 proven by the train/);
+  assert.deepEqual(item.details.missingGates, []);
+});
+
+test('delivery-train AC-5: a part the train does not run still needs its row, and a train row ending in train: is no pass', () => {
+  const root = project().t.main;
+  put(root, { 'openspec/changes/g/tasks.md': GATE_TASKS, 'openspec/changes/g/evidence.md': `Commit: ${git(root, 'rev-parse', 'HEAD')}\n\n| gate | command | result |\n|---|---|---|\n| 1.2 | \`${PARTS[0]}\` | pass: green |\n| 1.2 | \`${PARTS[1]}\` | train: proven by the train record |\n` });
+  const none = deliver.tasksItem(root, 'g', deliver.gitFacts(root));
+  assert.equal(none.status, 'open', 'the train: cell is never a pass');
+  assert.deepEqual(none.details.missingGates, [PARTS[1]]);
+  const other = deliver.tasksItem(root, 'g', deliver.gitFacts(root), { trainParts: ['npm run something-else'] });
+  assert.deepEqual(other.details.missingGates, [PARTS[1]]);
+  assert.deepEqual(other.details.trainParts, []);
+  const both = deliver.tasksItem(root, 'g', deliver.gitFacts(root), { trainParts: PARTS });
+  assert.equal(both.status, 'met');
+  assert.deepEqual(both.details.trainParts, [PARTS[1]], 'a train part that has its pass row is not skipped, so it is not listed');
+});
+
+test('delivery-train AC-5: collectState passes the train parts to the tasks item, and a project without the key does not', () => {
+  const p = project();
+  addChange(p, 'feat', { tasks: GATE_TASKS, gates: [PARTS[0]] });
+  const on = p.state('feat');
+  assert.equal(on.items[0].status, 'met');
+  assert.deepEqual(on.items[0].details.trainParts, [PARTS[1]]);
+  const off = project({ train: null });
+  addChange(off, 'feat', { tasks: GATE_TASKS, gates: [PARTS[0]] });
+  const state = off.state('feat');
+  assert.equal(state.items[0].status, 'open');
+  assert.deepEqual(state.items[0].details.missingGates, [PARTS[1]]);
+  assert.equal('trainParts' in state.items[0].details, false);
+  assert.equal(deliver.nextStep(state).step, 'verify');
+});
+
+// ---------------------------------------------------------------- the archive rows A1-A5 (P3), pure
+
+const URL = (n) => `https://github.com/o/r/pull/${n}`;
+const metItem = (id, name, details = {}) => ({ id, name, status: 'met', reason: `item ${id} met`, details });
+
+// A state after the merge in a train project: the change archived in this checkout, its archive pull request open and clean.
+function archiveState({ pr = {}, train = {}, ship = 'merge', retro = {} } = {}) {
+  return {
+    id: 'gamma', schema: 'devkit-lite', ship, mergeMethod: 'squash', branch: 'chore/archive-gamma', head: H('a'), dirty: [], mergedLeft: null, setup: { ok: true, missing: [] },
+    pr: { number: 5, url: URL(5), state: 'MERGED', headRefOid: H('a'), mergeable: null },
+    items: [metItem(1, 'tasks'), metItem(2, 'reviews'), metItem(3, 'findings'), metItem(4, 'acceptance'), metItem(5, 'pr', { pr: { number: 5, url: URL(5) }, merged: true }), metItem(6, 'checks'), metItem(7, 'conversation'), metItem(8, 'body')],
+    archive: {
+      branch: 'chore/archive-gamma', base: 'main', onDefault: 'active', changePr: { number: 5, url: URL(5) }, local: 'archived', folder: '2026-11-23-gamma',
+      retro: { exists: true, readable: true, proposals: [], ...retro }, roadmap: { listed: true, ticked: true, line: '- [x] gamma' }, branchExists: true, dirty: [], waitingFor: null, changed: { paths: [] },
+      pr: { number: 30, url: URL(30), state: 'OPEN', mergeable: 'MERGEABLE', autoMerge: false, mergeStateStatus: 'CLEAN', headRefOid: H('a'), headRel: 'same', checks: { failing: [], pending: [], error: null }, ...pr },
+    },
+    train: { suite: SUITE, parts: PARTS, kind: 'archive', records: [], onTrain: null, carried: null, left: null, ...train },
+  };
+}
+const LEFT = (over = {}) => ({ n: 4, number: 40, state: 'OPEN', why: 'conflict', detail: '`openspec/specs/x/spec.md`', failure: null, ...over });
+
+test('delivery-train P3 A5: an open archive pull request that passes its checks boards, in trunk-auto and in trunk', () => {
+  for (const ship of ['merge', 'pr']) {
+    const next = deliver.nextStep(archiveState({ ship }));
+    assert.equal(next.step, 'boarded', ship);
+  }
+});
+
+test('delivery-train P3 A5: pending checks board an archive, and a failing check does not', () => {
+  assert.equal(deliver.nextStep(archiveState({ pr: { checks: { failing: [], pending: ['check'], error: null } } })).step, 'boarded');
+  const failing = deliver.nextStep(archiveState({ pr: { checks: { failing: [{ name: 'check', link: 'https://ci/check' }], pending: [], error: null } } }));
+  assert.deepEqual([failing.step, failing.archiveStep], ['stop-archive', 'archive-pr']);
+});
+
+test('delivery-train P3 A4: an archive on an open train ends on GitHub naming it', () => {
+  const next = deliver.nextStep(archiveState({ train: { onTrain: { n: 4, number: 40, url: URL(40) } } }));
+  assert.deepEqual([next.step, next.number, next.train], ['on-train', 40, 4]);
+});
+
+test('delivery-train P3 A1: an archive left while its train is open waits on GitHub and is never boarded', () => {
+  const next = deliver.nextStep(archiveState({ train: { left: LEFT() } }));
+  assert.deepEqual([next.step, next.number, next.train], ['wait-train', 40, 4]);
+});
+
+test('delivery-train P3 A2: an archive left on a red train stops for the owner naming the train and the failure', () => {
+  for (const state of ['MERGED', 'CLOSED']) {
+    const next = deliver.nextStep(archiveState({ train: { left: LEFT({ why: 'red', state, detail: 'Failure of `gamma`, below', failure: 'not ok 3 - spec' }) } }));
+    assert.deepEqual([next.step, next.archiveStep], ['stop-archive', 'train-left'], state);
+    assert.match(next.reason, /train 4/);
+    assert.match(next.reason, /not ok 3 - spec/);
+  }
+});
+
+test('delivery-train P3 A3: an archive left for a conflict on a train that ended rejoins with the paths', () => {
+  const next = deliver.nextStep(archiveState({ train: { left: LEFT({ state: 'MERGED', detail: '`openspec/specs/x/spec.md`, `openspec/roadmap.md`' }) } }));
+  assert.equal(next.step, 'rejoin-archive');
+  assert.deepEqual([next.number, next.branch, next.base, next.train], [30, 'chore/archive-gamma', 'main', 4]);
+  assert.deepEqual(next.paths, ['openspec/specs/x/spec.md', 'openspec/roadmap.md']);
+});
+
+test('delivery-train P3 A rows: a conflicting or behind archive pull request boards, and is never told to update its branch', () => {
+  assert.equal(deliver.nextStep(archiveState({ pr: { mergeable: 'CONFLICTING' } })).step, 'boarded');
+  assert.equal(deliver.nextStep(archiveState({ pr: { mergeStateStatus: 'BEHIND' } })).step, 'boarded');
+  const off = archiveState({ pr: { mergeStateStatus: 'BEHIND' } });
+  delete off.train;
+  assert.equal(deliver.nextStep(off).step, 'update-branch', 'without the train it still updates');
+  const conflict = archiveState({ pr: { mergeable: 'CONFLICTING' } });
+  delete conflict.train;
+  assert.equal(deliver.nextStep(conflict).step, 'stop-archive', 'without the train a conflict still stops');
+});
+
+test('delivery-train P3 A rows: auto-merge on an archive pull request is disabled, and the archive boards after it', () => {
+  for (const ship of ['merge', 'pr']) {
+    const on = archiveState({ ship, pr: { autoMerge: true } });
+    const next = deliver.nextStep(on);
+    assert.deepEqual([next.step, next.number], ['disable-auto-merge', 30], ship);
+    assert.equal(deliver.nextStep(archiveState({ ship })).step, 'boarded', ship);
+  }
+});
+
+test('delivery-train P3 A rows: the retro answers and the file check still hold an archive back, and an unpushed one is pushed first', () => {
+  const unanswered = deliver.nextStep(archiveState({ retro: { proposals: [{ n: 1, targets: ['README.md'], kind: 'x', answer: null }] } }));
+  assert.equal(unanswered.step, 'stop-retro-answers');
+  const ahead = deliver.nextStep(archiveState({ pr: { headRel: 'ahead' } }));
+  assert.equal(ahead.step, 'open-archive-pr');
+});
+
+// ---------------------------------------------------------------- P3b override 4: an archive that left a train
+
+const roadmapOf = (gamma, delta) => `# Roadmap\n\n## Round 1\n- [${gamma}] gamma\n- [${delta}] delta\n- [ ] epsilon\n`;
+const SPEC = 'openspec/specs/change-coordination/spec.md';
+
+// A project whose archive branch `chore/archive-delta` ticks `delta`, in a worktree, with origin/main moved by `originFiles`.
+function archiveBranch({ archiveFiles = {}, originFiles = {}, files = {} } = {}) {
+  const t = roundRepo({ roadmap: roadmapOf(' ', ' '), config: projectConfig('trunk-auto', SUITE), files: { ...WORKFLOW, [SPEC]: '# spec\n\nline 1\nline 2\nline 3\n', ...files } });
+  const wt = t.addWt('archive-delta', { branch: 'chore/archive-delta' });
+  put(wt, { 'openspec/roadmap.md': roadmapOf(' ', 'x'), ...archiveFiles });
+  const head = commitAll(wt, 'archive delta');
+  t.commitOrigin(originFiles, 'origin moves');
+  return { t, wt, head };
+}
+
+function rejoinRow({ t, wt, head }, over = {}) {
+  const ctx = { root: t.main, env: trainEnv, ref: 'origin/main', base: 'main', ghFor: t.ghFor, ...over.ctx };
+  const row = { id: 'delta', worktree: wt };
+  const state = { id: 'delta', branch: 'chore/archive-delta', ship: 'merge', archive: { pr: { number: 30, state: 'OPEN', headRefOid: head } } };
+  const next = { step: 'rejoin-archive', reason: 'archive of delta left train 4', number: 30, branch: 'chore/archive-delta', base: 'main', paths: ['openspec/roadmap.md'], train: 4, ...over.next };
+  return deliveryRow(ctx, row, { state: over.state ?? state, report: { summary: 'in progress', met: 8, next } });
+}
+
+test('delivery-train P3b: a clean merge with the base gives rejoin-archive with the roadmap-ticks command', () => {
+  const r = archiveBranch({ originFiles: { 'README.md': 'origin\n' } });
+  const row = rejoinRow(r);
+  assert.deepEqual([row.next.step, row.next.actor], ['rejoin-archive', 'main']);
+  assert.deepEqual(row.next.command.slice(2), ['--base', 'main', '--roadmap-ticks', '--json']);
+  assert.match(row.next.command[1], /release-merge\.mjs$/);
+  assert.equal(row.next.root, r.wt);
+  assert.equal(git(r.wt, 'rev-parse', 'HEAD'), r.head, 'nothing was touched');
+});
+
+test('delivery-train P3b: release files and a roadmap tick in the way give the same step', () => {
+  const r = archiveBranch({
+    files: { 'CHANGELOG.md': '# c\n' },
+    archiveFiles: { 'CHANGELOG.md': '# c\narchive edit\n', 'openspec/roadmap.md': roadmapOf(' ', 'x') },
+    originFiles: { 'CHANGELOG.md': '# c\norigin edit\n', 'openspec/roadmap.md': roadmapOf('x', ' ') },
+  });
+  const row = rejoinRow(r);
+  assert.equal(row.next.step, 'rejoin-archive');
+  assert.deepEqual(row.next.command.slice(2), ['--base', 'main', '--roadmap-ticks', '--json']);
+});
+
+test('delivery-train P3b: a canonical spec edited on both sides stops for the owner with the path, and nothing is merged', () => {
+  const r = archiveBranch({
+    archiveFiles: { [SPEC]: '# spec\n\nline 1\narchive line 2\nline 3\n' },
+    originFiles: { [SPEC]: '# spec\n\nline 1\norigin line 2\nline 3\n' },
+  });
+  const row = rejoinRow(r);
+  assert.deepEqual([row.next.step, row.next.archiveStep, row.next.actor], ['stop-archive', 'train-left', 'stop']);
+  assert.match(row.next.reason, new RegExp(`archive of delta left train 4 and conflicts with main in ${SPEC.replace(/[.]/g, '\\.')}; resolve them on chore/archive-delta`));
+  assert.equal(git(r.wt, 'rev-parse', 'HEAD'), r.head);
+  assert.equal(git(r.wt, 'status', '--porcelain'), '');
+});
+
+test('delivery-train P3b: a merge made here and not pushed yet is pushed, never with force, and not merged again', () => {
+  const r = archiveBranch({ originFiles: { 'README.md': 'origin\n' } });
+  git(r.wt, 'merge', '-q', '--no-ff', '-m', 'merge main', 'origin/main');
+  const row = rejoinRow(r);
+  assert.equal(row.next.step, 'open-archive-pr');
+  assert.deepEqual(row.next.command, ['git', 'push', 'origin', 'chore/archive-delta']);
+  assert.doesNotMatch(JSON.stringify(row.next), /--force/);
+});
+
+test('delivery-train P3b: a change row, and any other step of an archive, is left alone', () => {
+  const r = archiveBranch({ originFiles: { 'README.md': 'origin\n' } });
+  for (const step of ['boarded', 'on-train', 'wait-train', 'rejoin-train']) {
+    assert.equal(rejoinRow(r, { next: { step } }).next.step, step, step);
+  }
+});
+
+test('delivery-train P3b: the actors of the six new steps', () => {
+  assert.deepEqual(actorOf('boarded'), { actor: 'owner', askable: false });
+  assert.deepEqual(actorOf('on-train'), { actor: 'github' });
+  assert.deepEqual(actorOf('wait-train'), { actor: 'github' });
+  assert.deepEqual(actorOf('rejoin-train'), { actor: 'subagent', agent: 'devkit-core:tdd-implementer' });
+  assert.deepEqual(actorOf('close-boarded-pr'), { actor: 'main' });
+  assert.deepEqual(actorOf('rejoin-archive'), { actor: 'main' });
+});
+
+// ---------------------------------------------------------------- AC-9 boarding: two archives at once
+
+const RETRO_NONE = '# Retro: x\n\n## Proposed updates\n\nNone.\n';
+const roadmapIds = (...ids) => `# Roadmap\n\n## Round 1\n${ids.map((i) => `- [ ] ${i}`).join('\n')}\n`;
+
+// Changes `ids` finished, their pull requests merged by the simulated GitHub, each at its archive step (the retro answered).
+function atArchive({ train = SUITE, ids = ['a', 'b'] } = {}) {
+  const t = roundRepo({ roadmap: roadmapIds(...ids), config: projectConfig('trunk-auto', train), files: WORKFLOW });
+  const sim = simGitHub({ origin: t.originDir });
+  const env = { ...process.env, ...sim.env, ...SET };
+  const p = { t, sim, env, changes: {} };
+  for (const id of ids) {
+    const wt = t.addWt(id);
+    put(wt, {
+      [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit-lite\n', [`openspec/changes/${id}/proposal.md`]: PROPOSAL,
+      [`openspec/changes/${id}/tasks.md`]: DEFAULT_TASKS, [`openspec/changes/${id}/retro.md`]: RETRO_NONE, [`src/${id}.txt`]: `${id}\n`,
+    });
+    commitAll(wt, `work of ${id}`);
+    git(wt, 'push', '-q', 'origin', id);
+    const number = sim.create({ base: 'main', head: id, body: bodyOf(id) });
+    sim.merge(number);
+    p.changes[id] = { wt, number };
+  }
+  git(t.main, 'fetch', '-q', 'origin');
+  return p;
+}
+const archiveRows = (p) => Object.fromEntries(conductState(p.t.main, { env: p.env, ghFor: p.sim.gh }).changes.map((c) => [c.id, c.next.step]));
+
+test('delivery-train AC-9: two archives at the archive step both go on in a train project, and one waits for the other without the key', () => {
+  assert.deepEqual(archiveRows(atArchive()), { a: 'archive', b: 'archive' });
+  assert.deepEqual(archiveRows(atArchive({ train: null })), { a: 'archive', b: 'wait-dependencies' });
+  assert.deepEqual(archiveRows(atArchive({ train: '' })), { a: 'archive', b: 'wait-dependencies' });
+});
+
+// ---------------------------------------------------------------- AC-1 the rows without the key
+
+const SHIP_MERGE = `schema: devkit-lite\nship:\n  devkit-lite: merge\nmerge_method: squash\n`;
+
+test('delivery-train AC-1: without the key the delivery rows give the JSON and the exit code they gave, whatever the model and the ship map', () => {
+  const configs = { 'ship: merge': SHIP_MERGE, 'trunk-auto': projectConfig('trunk-auto'), 'trunk-auto with an empty train': projectConfig('trunk-auto', '') };
+  const p = project({ train: null });
+  const { number, wt } = addChange(p, 'feat');
+  addChange(p, 'solo', { pr: false });
+  const fixtures = [
+    ['solo', 'open-pr', () => {}],
+    ['feat', 'enable-auto-merge', () => {}],
+    ['feat', 'wait-checks', () => p.sim.setChecks(number, PENDING)],
+    ['feat', 'update-branch', () => { p.sim.setChecks(number, GREEN); p.sim.setPr(number, { mergeStateStatus: 'BEHIND' }); }],
+    ['feat', 'wait-merge', () => { p.sim.setPr(number, { mergeStateStatus: 'CLEAN' }); p.sim.setAutoMerge(number, 'squash'); }],
+    ['feat', 'disable-auto-merge', () => { put(wt, { 'src/feat.txt': 'changed\n' }); commitAll(wt, 'code after evidence'); }],
+  ];
+  for (const [id, step, mutate] of fixtures) {
+    mutate();
+    const root = p.changes[id].wt;
+    const answers = Object.entries(configs).map(([name, text]) => {
+      put(root, { 'openspec/config.yaml': text });
+      const r = deliver.main([id, '--json'], p.env, root);
+      return [name, r.code, r.stdout];
+    });
+    assert.equal(JSON.parse(answers[0][2]).next.step, step, `${id} ${step}`);
+    assert.equal('train' in JSON.parse(answers[0][2]), false);
+    for (const [name, code, stdout] of answers.slice(1)) {
+      assert.equal(code, answers[0][1], `${step} ${name}: exit code`);
+      assert.equal(stdout, answers[0][2], `${step} ${name}: JSON`);
+    }
+  }
+});
+
+// ---------------------------------------------------------------- the loop's ends and hand-offs for the new steps (2.5)
+
+const FLOW = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'schemas', 'devkit', 'flow.json'), 'utf8'));
+// A decision inside the delivery stage, as `nextAction` builds it from the delivery checker's row.
+function decideRow(step, extra = {}, { lang = 'en', archiving = false } = {}) {
+  const at = FLOW.stages.find((s) => s.id === 'delivery');
+  const report = {
+    version: 1, change: 'feat', schema: 'devkit', script: 'current', head: 'h', previous: null, end: null,
+    stages: FLOW.stages.map((st, i) => ({ n: i + 1, id: st.id, title: st.title.en, state: 'passed', reasonCode: 'passed', params: {} })),
+    next: { n: FLOW.stages.indexOf(at) + 1, stage: 'delivery', role: at.role, skills: at.skills ?? [], reasonCode: 'not-pushed', params: { number: 12 }, reason: 'x', progressKey: 'delivery@abc123' },
+  };
+  return decide({
+    ctx: { id: 'feat', script: 'devkit', root: '/w/feat', branch: 'feat', lang, filesLanguage: 'en' }, flow: FLOW, report, after: null, fingerprint: 'abc123',
+    approval: { status: null, recorded: null, readiness: 'sha256:abcdef012345', ok: false }, hasProposal: false, flags: [], archiving,
+    row: { next: { step, reason: 'r', actor: 'x', ...extra }, state: 's', delivered: {} },
+  });
+}
+
+test('delivery-train loop: a boarded change ends waiting for the owner with the waiting-train reply, in both languages', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const a = decideRow('boarded', { number: 12 }, { lang });
+    assert.deepEqual([a.kind, a.end.state, a.end.why, exitCodeOf(a)], ['end', 'waiting-for-owner', 'waiting-train', 1], lang);
+    assert.equal(a.reply, render(lang, 'waiting-train', { id: 'feat' }), lang);
+    assert.match(a.reply, /\/devkit train/);
+    assert.equal(gateOf(a), 'train');
+    assert.ok(MESSAGES[lang]['gate.train'] && MESSAGES[lang]['what.train'], lang);
+  }
+  assert.match(render('en', 'waiting-train', { id: 'feat' }), /boarded/);
+});
+
+test('delivery-train loop: a change on a train, or left by an open one, ends waiting on GitHub for the train', () => {
+  for (const step of ['on-train', 'wait-train']) {
+    const a = decideRow(step, { number: 40, train: 4 });
+    assert.deepEqual([a.kind, a.end.state, a.end.why, exitCodeOf(a)], ['end', 'waiting-on-github', 'waiting-github', 1], step);
+    assert.equal(a.params.what, 'train', step);
+    assert.equal(a.reply, render('en', 'waiting-github', { id: 'feat', what: 'train' }), step);
+    assert.match(a.reply, /pull request of its train/, step);
+    assert.equal(decideRow(step, { number: 40, train: 4 }, { archiving: true }).params.what, 'train', `${step} of an archive`);
+  }
+});
+
+test('delivery-train loop: a change that left a train goes to the implementer with the base and the record\'s facts', () => {
+  const a = decideRow('rejoin-train', { number: 40, train: 4, why: 'red', paths: [], failure: 'not ok 7 - feat', base: 'main' });
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role], ['agent', 'devkit-core:tdd-implementer', 'rejoin-train', 'implementation', 'tdd-implementer']);
+  assert.match(a.brief, /node release-merge\.mjs --base main/);
+  assert.match(a.brief, /git merge origin\/main/);
+  assert.match(a.brief, /not ok 7 - feat/);
+  assert.match(a.brief, /test first/);
+  const conflict = decideRow('rejoin-train', { number: 40, train: 4, why: 'conflict', paths: ['src/a.mjs'], failure: null, base: 'main' });
+  assert.match(conflict.brief, /resolve src\/a\.mjs/);
+});
+
+test('delivery-train loop: an archive that rejoins is a session step of the delivery stage', () => {
+  const command = ['node', '/hooks/release-merge.mjs', '--base', 'main', '--roadmap-ticks', '--json'];
+  const rejoin = decideRow('rejoin-archive', { number: 30, branch: 'chore/archive-feat', base: 'main', paths: [], train: 4, command });
+  assert.deepEqual([rejoin.kind, rejoin.step, rejoin.stage, exitCodeOf(rejoin)], ['session', 'rejoin-archive', 'delivery', 0]);
+  assert.deepEqual(rejoin.detail.command, command);
+});
+
+// ---------------------------------------------------------------- unfinished skips the checkout of a train (2.5, P13)
+
+const OFFLINE = () => ({ status: 1, stdout: '', stderr: 'offline', missing: false, timedOut: false, overflowed: false });
+const changeFiles = (id) => ({ [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit-lite\n', [`openspec/changes/${id}/proposal.md`]: PROPOSAL });
+
+test('delivery-train P13: a checkout on train/<n> holding a change folder never reports that change, and its own worktree still does', () => {
+  const t = roundRepo({ roadmap: '# Roadmap\n', config: projectConfig('trunk-auto', SUITE), files: WORKFLOW });
+  const own = t.addWt('feat');
+  put(own, changeFiles('feat'));
+  const train = t.addWt('train-4', { branch: 'train/4' });
+  put(train, { ...changeFiles('carried'), ...changeFiles('feat') });
+  const found = unfinished(t.main, { env: trainEnv, gh: OFFLINE }).map((u) => [u.id, u.branch]);
+  assert.deepEqual(found, [['feat', 'feat']], 'carried lives only in the train\'s checkout and is not unfinished; feat is read from its own worktree');
+  const lone = roundRepo({ roadmap: '# Roadmap\n', config: projectConfig('trunk-auto', SUITE), files: WORKFLOW });
+  put(lone.addWt('train-4', { branch: 'train/4' }), changeFiles('carried'));
+  put(lone.addWt('other-work'), changeFiles('other-work'));
+  assert.deepEqual(unfinished(lone.main, { env: trainEnv, gh: OFFLINE }).map((u) => u.id), ['other-work']);
+  const feature = roundRepo({ roadmap: '# Roadmap\n', config: projectConfig('trunk-auto', SUITE), files: WORKFLOW });
+  put(feature.addWt('trainer', { branch: 'feature/train/4' }), changeFiles('kept'));
+  assert.deepEqual(unfinished(feature.main, { env: trainEnv, gh: OFFLINE }).map((u) => u.id), ['kept'], 'a branch that only contains train/4 is not a train');
+});
+
+// ================================================================ phase 3: the departure, the verb and the skill
+
+// The departure script is imported on the side so that, before it exists, each test of this phase fails on its own call
+// and the tests of the earlier phases still run.
+const train = await import('./train-loop.mjs').catch(() => ({}));
+
+const IDENT = Object.fromEntries(Object.entries(GIT_ENV).filter(([k]) => k.startsWith('GIT_')));
+// The env of a departure: the simulated GitHub on PATH, a git identity, and a TMPDIR of the project's own scratch folder.
+// Runs the command of a session action the way the session does, in the main checkout, against the simulated GitHub.
+const perform = (p, action) => spawnSync(action.detail.command[0], action.detail.command.slice(1), { cwd: p.t.main, env: depEnv(p), encoding: 'utf8' });
+const depEnv = (p) => ({ ...p.env, ...IDENT, TMPDIR: p.scratch });
+const departIn = (p, opts = {}) => train.depart(p.t.main, { env: depEnv(p), tmp: p.scratch, lang: 'en', ...opts });
+const nextIn = (p, opts = {}) => train.next(p.t.main, { env: depEnv(p), tmp: p.scratch, lang: 'en', ...opts });
+
+const roadmapOfIds = (...ids) => `# Roadmap\n\n## Round 1\n${ids.map((i) => `- [ ] ${i}`).join('\n')}\n`;
+const RELEASE_BASE = {
+  'plugins/a/.claude-plugin/plugin.json': pluginJson('a', '0.6.0'),
+  'plugins/b/.claude-plugin/plugin.json': pluginJson('b', '0.5.0'),
+  '.claude-plugin/marketplace.json': marketplace('0.6.0', { a: '0.6.0', b: '0.5.0' }),
+  'CHANGELOG.md': CL(entry('0.6.0', 'first')),
+};
+// A change's release bump: devkit pack `a` to `version`, with its CHANGELOG entry.
+const bumpFiles = (version, title) => ({
+  'plugins/a/.claude-plugin/plugin.json': pluginJson('a', version),
+  '.claude-plugin/marketplace.json': marketplace(version, { a: version, b: '0.5.0' }),
+  'CHANGELOG.md': CL(entry(version, title), entry('0.6.0', 'first')),
+});
+const RETRO = '# Retro: x\n\n## Proposed updates\n\nNone.\n';
+const gitOf = (p, ...args) => git(p.t.main, ...args);
+const showOn = (p, rev, path) => git(p.t.main, 'show', `${rev}:${path}`);
+
+// The archive of change `id`: the change merged by the simulated GitHub, its folder moved and the roadmap ticked on
+// chore/archive-<id>, pushed, with an open pull request and green checks. Its head commit is made at `at`; `files` are
+// written on the archive branch with the move and the tick (a canonical spec the archive syncs, for one), and `changeFiles` are
+// files of the change's own folder (the spec delta that makes that canonical spec the archive's own).
+function addArchive(p, id, { at = null, retro = RETRO, files = {}, changeFiles = {} } = {}) {
+  const own = addChange(p, id, { files: { [`openspec/changes/${id}/retro.md`]: retro, ...changeFiles } });
+  p.sim.merge(own.number);
+  git(p.t.main, 'fetch', '-q', 'origin');
+  const wt = p.t.addWt(`archive-${id}`, { branch: `chore/archive-${id}`, from: 'origin/main' });
+  mkdirSync(join(wt, 'openspec', 'changes', 'archive'), { recursive: true });
+  git(wt, 'mv', `openspec/changes/${id}`, `openspec/changes/archive/2026-11-23-${id}`);
+  put(wt, { 'openspec/roadmap.md': readFileSync(join(wt, 'openspec', 'roadmap.md'), 'utf8').replace(`- [ ] ${id}`, `- [x] ${id}`), ...files });
+  commitAt(wt, `archive ${id}`, at);
+  git(wt, 'push', '-q', 'origin', `chore/archive-${id}`);
+  const number = p.sim.create({ base: 'main', head: `chore/archive-${id}`, body: `Archive ${id}.\n` });
+  p.sim.setChecks(number, GREEN);
+  p.archives[id] = { wt, number };
+  return p.archives[id];
+}
+const archiveNext = (p, id) => deliver.nextStep(deliver.collectState(p.archives[id].wt, id, { env: p.env }));
+
+test('delivery-train depart fixture: a proven change and a ready archive both board where the departure will judge them', () => {
+  const p = project({ roadmap: roadmapOfIds('gamma') });
+  addChange(p, 'alpha');
+  addArchive(p, 'gamma');
+  assert.equal(p.next('alpha').step, 'boarded');
+  assert.equal(archiveNext(p, 'gamma').step, 'boarded');
+});
+
+// ---------------------------------------------------------------- P5 writeTrainRecord
+
+test('delivery-train record: the record the departure writes parses back to what was written, with a fence of four backticks in a failure', () => {
+  const r = {
+    n: 4, base: 'main', result: 'passed', baseSha: H('a'), suite: SUITE, ranAt: H('b'),
+    boarded: [{ order: 1, kind: 'change', id: 'alpha', number: 81, head: H('1'), at: '2026-11-23T10:00:00Z' }, { order: 2, kind: 'archive', id: 'gamma', number: 85, head: H('2'), at: '2026-11-23T10:05:00Z' }],
+    left: [
+      { kind: 'change', id: 'delta', number: 84, head: H('4'), why: 'red', detail: 'Failure of `delta`, below', failure: 'not ok 1\n````\n## Boarded\n| 9 | nope |\n```\nmore' },
+      { kind: 'change', id: 'beta', number: 83, head: H('3'), why: 'conflict', detail: '`plugins/x/hooks/a.mjs`', failure: null },
+    ],
+  };
+  const text = train.writeTrainRecord({ ...r, runs: [{ changes: 'alpha, gamma, delta', head: H('5'), result: 'failed' }] });
+  assert.deepEqual(deliver.parseTrainRecord(text), r);
+  assert.match(text, /^<!-- devkit-train n=4 base=main result=passed -->\n# Train 4\n/);
+  assert.match(text, /\n`````text\n/, 'the fence is one backtick longer than the longest run that starts a line');
+  assert.match(text, /\n\| 1 \| alpha, gamma, delta \| `[0-9a-f]{40}` \| failed \|\n/);
+  const plain = train.writeTrainRecord({ ...r, left: [] });
+  assert.doesNotMatch(plain, /## Left|## Runs|## Failure/);
+  assert.deepEqual(deliver.parseTrainRecord(plain).left, []);
+});
+
+// ---------------------------------------------------------------- P8 the bisection
+
+test('delivery-train P8 bisect: the culprit last of three is found with one probe, in the order the design gives', () => {
+  const probes = [];
+  const found = train.findCulprit(3, (mid) => { probes.push(mid); return { ok: mid < 2, output: `red at ${mid}` }; }, 'full red');
+  assert.deepEqual(probes, [1]);
+  assert.deepEqual([found.index, found.output], [2, 'full red']);
+});
+
+test('delivery-train P8 bisect: the culprit in the middle of four is found with two probes and its smallest red prefix is the failure', () => {
+  const probes = [];
+  const found = train.findCulprit(4, (mid) => { probes.push(mid); return { ok: mid < 2, output: `red at ${mid}` }; }, 'full red');
+  assert.deepEqual(probes, [1, 2]);
+  assert.deepEqual([found.index, found.output], [2, 'red at 2']);
+});
+
+test('delivery-train P8 bisect: the culprit first is the one prefix of one change, and a single change needs no probe', () => {
+  const probes = [];
+  const first = train.findCulprit(3, (mid) => { probes.push(mid); return { ok: false, output: `red at ${mid}` }; }, 'full red');
+  assert.deepEqual(probes, [1, 0]);
+  assert.deepEqual([first.index, first.output], [0, 'red at 0']);
+  const lone = train.findCulprit(1, () => assert.fail('no probe for one change'), 'only red');
+  assert.deepEqual([lone.index, lone.output], [0, 'only red']);
+});
+
+// ---------------------------------------------------------------- departure scenarios
+
+const SUITE_COUNTER = () => join(tmpFolder('devkit-train-count-'), 'runs.txt');
+const countRuns = (file) => (existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).length : 0);
+const trainWorktree = (p, n) => join(p.t.main, '.claude', 'worktrees', `train-${n}`);
+const recordOn = (p, rev, n) => deliver.parseTrainRecord(showOn(p, rev, `openspec/trains/${n}.md`));
+const heads = (p, ...ids) => ids.map((id) => git(p.t.main, 'rev-parse', `origin/${id}`));
+const noScratch = (p) => {
+  assert.deepEqual(readdirSync(p.scratch), [], 'every scratch worktree and folder of the departure is removed');
+  assert.deepEqual(git(p.t.main, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ') && l.includes(p.scratch)), [], 'no scratch worktree stays registered');
+};
+
+test('delivery-train AC-4: one departure cuts train/<n>, joins in order, renumbers on the train only, opens one pull request; a second request starts none', () => {
+  const p = project({ train: 'true', roadmap: roadmapOfIds('gamma'), files: RELEASE_BASE });
+  p.t.commitOrigin({ 'openspec/trains/3.md': recordText({ n: 3, boarded: [{ id: 'old', number: 1, head: H('1') }] }) }, 'train 3 landed');
+  const alpha = addChange(p, 'alpha', { files: bumpFiles('0.7.0', 'alpha'), at: '2026-11-23T10:00:00Z' });
+  const beta = addChange(p, 'beta', { files: bumpFiles('0.7.0', 'beta'), at: '2026-11-23T10:10:00Z' });
+  const gamma = addArchive(p, 'gamma', { at: '2026-11-23T10:05:00Z' });
+  const gammaHead = git(gamma.wt, 'rev-parse', 'HEAD');
+  const alphaHead = headOf(p, 'alpha');
+  const betaHead = headOf(p, 'beta');
+
+  const r = departIn(p);
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  assert.deepEqual([r.out.n, r.out.branch, r.out.result, r.out.worktree], [4, 'train/4', 'passed', trainWorktree(p, 4)]);
+  assert.deepEqual(r.out.boarded.map((b) => [b.kind, b.id, b.number, b.head]), [['change', 'alpha', alpha.number, alphaHead], ['archive', 'gamma', gamma.number, gammaHead], ['change', 'beta', beta.number, betaHead]]);
+  assert.deepEqual(r.out.left, []);
+
+  // cut from origin/main, three merge commits in boarding order, then the record
+  assert.equal(gitOf(p, 'merge-base', 'train/4', 'origin/main'), gitOf(p, 'rev-parse', 'origin/main'));
+  const joins = gitOf(p, 'log', '--first-parent', '--reverse', '--merges', '--format=%P', 'origin/main..train/4').split('\n').map((l) => l.split(' '));
+  assert.deepEqual(joins.map((parents) => parents[1]), [alphaHead, gammaHead, betaHead]);
+  assert.equal(gitOf(p, 'log', '-1', '--format=%s', 'train/4'), 'chore(train): record train 4');
+  assert.equal(gitOf(p, 'rev-parse', 'train/4'), git(trainWorktree(p, 4), 'rev-parse', 'HEAD'));
+  assert.equal(git(trainWorktree(p, 4), 'rev-parse', '--abbrev-ref', 'HEAD'), 'train/4');
+  assert.deepEqual(heads(p, 'alpha', 'beta'), [alphaHead, betaHead], 'no boarded branch moved');
+  assert.equal(git(gamma.wt, 'rev-parse', 'HEAD'), gammaHead);
+  assert.equal(gitOf(p, 'ls-remote', '--heads', 'origin', 'train/4'), '', 'nothing is pushed');
+
+  // the release is renumbered on the train only
+  assert.equal(JSON.parse(showOn(p, 'train/4', 'plugins/a/.claude-plugin/plugin.json')).version, '0.8.0');
+  const changelog = showOn(p, 'train/4', 'CHANGELOG.md');
+  assert.ok(changelog.indexOf('## 0.8.0 — beta') < changelog.indexOf('## 0.7.0 — alpha'), changelog);
+  for (const id of ['alpha', 'beta']) assert.equal(JSON.parse(showOn(p, `origin/${id}`, 'plugins/a/.claude-plugin/plugin.json')).version, '0.7.0', id);
+  noScratch(p);
+
+  // the session steps that follow: push, open one pull request; a second request starts no train
+  const push = nextIn(p).action;
+  assert.deepEqual([push.kind, push.step], ['session', 'push-train']);
+  assert.equal(perform(p, push).status, 0);
+  const open = nextIn(p).action;
+  assert.equal(open.step, 'open-train-pr');
+  assert.equal(perform(p, open).status, 0);
+  const trainPrs = () => p.sim.prs().filter((pr) => /^train\/\d+$/.test(pr.head));
+  assert.equal(trainPrs().length, 1);
+  assert.equal(trainPrs()[0].body.trim(), showOn(p, 'train/4', 'openspec/trains/4.md'), 'the body is the record');
+  const again = nextIn(p);
+  assert.notEqual(again.action.step, 'depart');
+  assert.equal(again.action.step, 'enable-auto-merge');
+  assert.equal(perform(p, again.action).status, 0);
+  const waiting = nextIn(p);
+  assert.deepEqual([waiting.code, waiting.action.kind, waiting.action.end.state, waiting.action.end.why], [1, 'end', 'waiting-on-github', 'train-auto-merge-on']);
+  assert.equal(trainPrs().length, 1, 'a second request opens no second pull request');
+  assert.deepEqual(gitOf(p, 'for-each-ref', '--format=%(refname:short)', 'refs/heads/train'), 'train/4');
+});
+
+test('delivery-train AC-4: the boarding order is the time of the newest review commit, ties by pull request number, an archive by its head', () => {
+  const p = project({ train: 'true', roadmap: roadmapOfIds('gamma') });
+  const alpha = addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+  const beta = addChange(p, 'beta', { at: '2026-11-23T09:00:00Z' });
+  const delta = addChange(p, 'delta', { at: '2026-11-23T10:00:00Z' });
+  const gamma = addArchive(p, 'gamma', { at: '2026-11-23T09:30:00Z' });
+  const set = train.boardedSet(p.t.main, { env: depEnv(p), tmp: p.scratch, base: 'main' });
+  assert.deepEqual(set.boarded.map((b) => `${b.kind}:${b.id}`), ['change:beta', 'archive:gamma', 'change:alpha', 'change:delta']);
+  assert.deepEqual(set.boarded.map((b) => b.number), [beta.number, gamma.number, alpha.number, delta.number]);
+  assert.deepEqual(set.boarded.map((b) => b.at), ['2026-11-23T09:00:00Z', '2026-11-23T09:30:00Z', '2026-11-23T10:00:00Z', '2026-11-23T10:00:00Z']);
+  assert.deepEqual(set.boarded.map((b) => b.head), [headOf(p, 'beta'), git(gamma.wt, 'rev-parse', 'HEAD'), headOf(p, 'alpha'), headOf(p, 'delta')]);
+  noScratch(p);
+});
+
+test('delivery-train P9 boarded set: a change that is not boarded, a train head and a branch of two change names are left out', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  const failing = addChange(p, 'beta');
+  p.sim.setChecks(failing.number, [CHECK('check', 'fail'), CHECK('devkit-reviews', 'pass')]);
+  addChange(p, 'unproven');
+  put(p.changes.unproven.wt, { 'src/unproven.txt': 'changed after the evidence\n' });
+  commitAll(p.changes.unproven.wt, 'code after evidence');
+  git(p.changes.unproven.wt, 'push', '-q', 'origin', 'unproven');
+  const set = train.boardedSet(p.t.main, { env: depEnv(p), tmp: p.scratch, base: 'main' });
+  assert.deepEqual(set.boarded.map((b) => b.id), ['alpha']);
+  assert.deepEqual(set.skipped, [], 'a change that is simply not boarded is not a skipped pull request');
+});
+
+test('delivery-train P9 boarded set: a branch whose name holds two active change ids and equals neither is skipped and listed; the id equal to the last segment wins', () => {
+  const other = (id) => ({ [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit-lite\n', [`openspec/changes/${id}/proposal.md`]: PROPOSAL });
+  const p = project({ train: 'true' });
+  const clash = addChange(p, 'alpha', { branch: 'feat/alpha-beta', files: other('beta') });
+  const none = deliver.nextStep(deliver.collectState(clash.wt, 'alpha', { env: { ...p.env, DEVKIT_BRANCH: 'feat/alpha-beta' } }));
+  assert.equal(none.step, 'stop-branch', 'on its own the hooks cannot tell which of the two changes the branch selects, so it is not boarded; the departure skips it the same way');
+  const set = train.boardedSet(p.t.main, { env: depEnv(p), tmp: p.scratch, base: 'main' });
+  assert.deepEqual(set.boarded, []);
+  assert.deepEqual(set.skipped.map((s) => [s.number, s.branch]), [[clash.number, 'feat/alpha-beta']]);
+  assert.match(set.skipped[0].why, /alpha, beta/);
+
+  const q = project({ train: 'true' });
+  const tail = addChange(q, 'beta', { branch: 'feat/alpha-beta/beta', files: other('alpha') });
+  const taken = train.boardedSet(q.t.main, { env: depEnv(q), tmp: q.scratch, base: 'main' });
+  assert.deepEqual(taken.boarded.map((b) => [b.id, b.number]), [['beta', tail.number]]);
+  assert.deepEqual(taken.skipped, []);
+});
+
+test('delivery-train AC-5: the suite runs once at the train\'s head, into the record committed on the train branch', () => {
+  const counter = SUITE_COUNTER();
+  const suite = `echo run >> ${counter}`;
+  const p = project({ train: suite });
+  addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+  addChange(p, 'beta', { at: '2026-11-23T10:10:00Z' });
+  const r = departIn(p);
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  assert.equal(countRuns(counter), 1, 'one full run for the whole train');
+  assert.equal(r.out.runs, 1);
+  const record = recordOn(p, 'train/1', 1);
+  assert.equal(record.error, undefined);
+  assert.deepEqual([record.n, record.base, record.result, record.suite], [1, 'main', 'passed', suite]);
+  assert.equal(record.baseSha, gitOf(p, 'rev-parse', 'origin/main'));
+  assert.equal(record.ranAt, gitOf(p, 'rev-parse', 'train/1~1'), 'it names the head the suite ran at');
+  assert.deepEqual(record.boarded.map((b) => [b.order, b.kind, b.id, b.number, b.head, b.at]), [
+    [1, 'change', 'alpha', p.changes.alpha.number, headOf(p, 'alpha'), '2026-11-23T10:00:00Z'],
+    [2, 'change', 'beta', p.changes.beta.number, headOf(p, 'beta'), '2026-11-23T10:10:00Z'],
+  ]);
+  assert.deepEqual(gitOf(p, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'train/1').split('\n'), ['openspec/trains/1.md'], 'the record is the only thing the last commit changes');
+  assert.match(showOn(p, 'train/1', 'openspec/trains/1.md'), /^- Result: passed$/m);
+  assert.equal(deliver.staleness(p.t.main, { sha: record.ranAt }, { head: gitOf(p, 'rev-parse', 'train/1'), dirty: [] }), null, 'the record does not stale itself');
+  noScratch(p);
+});
+
+const PAIR_SUITE = 'if test -e src/alpha.txt && test -e src/beta.txt; then echo alpha-and-beta-clash; exit 1; fi';
+
+test('delivery-train AC-7: two changes that pass alone and fail together: the later leaves with the failure, the rest departs after one more run', () => {
+  const p = project({ train: PAIR_SUITE });
+  addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+  addChange(p, 'beta', { at: '2026-11-23T10:10:00Z' });
+  const r = departIn(p);
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  assert.deepEqual(r.out.boarded.map((b) => b.id), ['alpha']);
+  assert.deepEqual(r.out.left.map((l) => [l.id, l.why]), [['beta', 'red']]);
+  assert.equal(r.out.runs, 3, 'the full train (red), the prefix of alpha (green), then the rebuilt train (green)');
+  const record = recordOn(p, 'train/1', 1);
+  assert.equal(record.result, 'passed');
+  assert.deepEqual(record.left.map((l) => [l.id, l.number, l.head, l.why]), [['beta', p.changes.beta.number, headOf(p, 'beta'), 'red']]);
+  assert.match(record.left[0].failure, /alpha-and-beta-clash/);
+  assert.equal(record.left[0].detail, 'Failure of `beta`, below');
+  const runs = [...showOn(p, 'train/1', 'openspec/trains/1.md').matchAll(/^\| (\d) \| ([^|]*) \| `[0-9a-f]{40}` \| (\w+) \|$/gm)].map((m) => [m[1], m[2].trim(), m[3]]);
+  assert.deepEqual(runs, [['1', 'alpha, beta', 'failed'], ['2', 'alpha', 'passed'], ['3', 'alpha', 'passed']]);
+  assert.equal(showOn(p, 'train/1', 'src/alpha.txt'), 'alpha');
+  assert.throws(() => showOn(p, 'train/1', 'src/beta.txt'), 'beta is not in the train');
+  noScratch(p);
+});
+
+test('delivery-train P8: a culprit first with a green base leaves red and the others depart', () => {
+  const p = project({ train: 'if test -e src/alpha.txt; then echo alpha-is-red; exit 1; fi' });
+  addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+  addChange(p, 'beta', { at: '2026-11-23T10:10:00Z' });
+  const r = departIn(p);
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  assert.deepEqual([r.out.boarded.map((b) => b.id), r.out.left.map((l) => [l.id, l.why])], [['beta'], [['alpha', 'red']]]);
+  assert.match(recordOn(p, 'train/1', 1).left[0].failure, /alpha-is-red/);
+  noScratch(p);
+});
+
+test('delivery-train P8: a culprit first with a red base blocks, nobody leaves and nothing is created', () => {
+  const p = project({ train: 'echo the-base-is-red; exit 1' });
+  addChange(p, 'alpha');
+  addChange(p, 'beta');
+  const r = departIn(p);
+  assert.deepEqual([r.code, r.out.result], [2, 'base-red']);
+  assert.equal(r.out.reply, render('en', 'train-base-red', { base: 'main' }));
+  assert.deepEqual(gitOf(p, 'for-each-ref', 'refs/heads/train'), '');
+  assert.equal(existsSync(trainWorktree(p, 1)), false);
+  assert.deepEqual(r.out.left, []);
+  noScratch(p);
+});
+
+test('delivery-train P8: a train that empties leaves every change with its failure and creates nothing', () => {
+  const p = project({ train: 'if test -e src/alpha.txt || test -e src/beta.txt; then echo not-green; exit 1; fi' });
+  addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+  addChange(p, 'beta', { at: '2026-11-23T10:10:00Z' });
+  const r = departIn(p);
+  assert.deepEqual([r.code, r.out.result], [1, 'empty']);
+  assert.deepEqual(r.out.left.map((l) => [l.id, l.why]), [['alpha', 'red'], ['beta', 'red']]);
+  assert.equal(r.out.reply, render('en', 'train-nothing'));
+  assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '');
+  noScratch(p);
+});
+
+const CONFLICT_BASE = { 'plugins/x/hooks/a.mjs': 'line 1\nline 2\nline 3\n', ...RELEASE_BASE };
+
+test('delivery-train AC-8: a release-only conflict is resolved by rule; a product conflict takes the change off with its path', () => {
+  const p = project({ train: 'true', files: CONFLICT_BASE });
+  addChange(p, 'alpha', { files: { ...bumpFiles('0.7.0', 'alpha'), 'plugins/x/hooks/a.mjs': 'line 1\nalpha line 2\nline 3\n' }, at: '2026-11-23T10:00:00Z' });
+  addChange(p, 'beta', { files: { ...bumpFiles('0.7.0', 'beta'), 'plugins/x/hooks/a.mjs': 'line 1\nbeta line 2\nline 3\n' }, at: '2026-11-23T10:10:00Z' });
+  addChange(p, 'delta', { files: bumpFiles('0.6.1', 'delta'), at: '2026-11-23T10:20:00Z' });
+  const r = departIn(p);
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  assert.deepEqual(r.out.boarded.map((b) => b.id), ['alpha', 'delta']);
+  assert.deepEqual(r.out.left.map((l) => [l.id, l.why, l.detail]), [['beta', 'conflict', '`plugins/x/hooks/a.mjs`']]);
+  const record = recordOn(p, 'train/1', 1);
+  assert.deepEqual(record.left.map((l) => [l.id, l.why, l.detail, l.failure]), [['beta', 'conflict', '`plugins/x/hooks/a.mjs`', null]]);
+  assert.equal(showOn(p, 'train/1', 'plugins/x/hooks/a.mjs'), 'line 1\nalpha line 2\nline 3');
+  assert.equal(JSON.parse(showOn(p, 'train/1', 'plugins/a/.claude-plugin/plugin.json')).version, '0.7.1', 'delta\'s patch is renumbered above alpha\'s minor');
+  assert.equal(gitOf(p, 'status', '--porcelain', '--untracked-files=no'), '');
+  assert.equal(git(trainWorktree(p, 1), 'status', '--porcelain'), '', 'no join is left half done');
+  noScratch(p);
+});
+
+test('delivery-train AC-8: a conflict between two boarded changes names the one that came later, and the train still runs the suite once', () => {
+  const counter = SUITE_COUNTER();
+  const p = project({ train: `echo run >> ${counter}`, files: CONFLICT_BASE });
+  addChange(p, 'alpha', { files: { 'plugins/x/hooks/a.mjs': 'line 1\nalpha line 2\nline 3\n' }, at: '2026-11-23T10:10:00Z' });
+  addChange(p, 'beta', { files: { 'plugins/x/hooks/a.mjs': 'line 1\nbeta line 2\nline 3\n' }, at: '2026-11-23T10:00:00Z' });
+  const r = departIn(p);
+  assert.deepEqual([r.out.boarded.map((b) => b.id), r.out.left.map((l) => l.id)], [['beta'], ['alpha']]);
+  assert.equal(countRuns(counter), 1);
+});
+
+test('delivery-train AC-4: nothing boarded creates nothing; a project without the key is blocked; a closed train is not under way', () => {
+  const p = project({ train: 'true' });
+  const none = departIn(p);
+  assert.deepEqual([none.code, none.out.result, none.out.reply], [1, 'nothing', render('en', 'train-nothing')]);
+  assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '');
+  const off = project({ train: null });
+  const blocked = departIn(off);
+  assert.deepEqual([blocked.code, blocked.out.reply], [2, render('en', 'train-off')]);
+  noScratch(p);
+});
+
+test('delivery-train P9 depart: the train after a merged one takes the next number, counting branches and records', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  git(p.t.main, 'push', '-q', 'origin', 'HEAD:refs/heads/train/7');
+  git(p.t.main, 'branch', 'train/9', 'HEAD');
+  const r = departIn(p);
+  assert.equal(r.out.n, 10);
+});
+
+// Found by the real run (AC-12): the branch is made from a commit, so it tracked nothing and `git branch -d` judged it against
+// the main checkout's HEAD, which stays behind the base after the merge: the cleaning step could never delete it.
+test('delivery-train P9 depart: the train branch tracks origin/<base>, so git branch -d accepts it once the base holds the merged train', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  const r = departIn(p);
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  assert.deepEqual([gitOf(p, 'config', 'branch.train/1.remote'), gitOf(p, 'config', 'branch.train/1.merge')], ['origin', 'refs/heads/main']);
+  assert.equal(gitOf(p, 'rev-parse', '--abbrev-ref', 'train/1@{upstream}'), 'origin/main');
+});
+
+// ---------------------------------------------------------------- P9 depart: the lock
+
+const lockOf = (p) => join(gitOf(p, 'rev-parse', '--path-format=absolute', '--git-common-dir'), 'devkit', 'train.lock');
+function holdLock(p, hoursAgo) {
+  const file = lockOf(p);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${process.pid}\n`);
+  const when = new Date(Date.now() - hoursAgo * 3_600_000);
+  utimesSync(file, when, when);
+  return file;
+}
+
+test('delivery-train P9 depart: a lock younger than six hours stops the departure and names the file; one older is taken over and released', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  const file = holdLock(p, 1);
+  const busy = departIn(p);
+  assert.deepEqual([busy.code, busy.out.result, busy.out.lock], [1, 'running', file]);
+  assert.equal(busy.out.reply, render('en', 'train-running', { where: file }));
+  assert.equal(existsSync(file), true, 'the lock of the other departure is left alone');
+  assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '');
+  holdLock(p, 7);
+  const taken = departIn(p);
+  assert.equal(taken.code, 0, JSON.stringify(taken.out));
+  assert.equal(existsSync(file), false, 'the departure releases its lock');
+});
+
+test('delivery-train P9 depart: GitHub silent fails the departure with the error, and the lock is released', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  const down = () => ({ status: 1, stdout: '', stderr: 'HTTP 502: bad gateway', missing: false, timedOut: false });
+  assert.throws(() => train.depart(p.t.main, { env: depEnv(p), tmp: p.scratch, lang: 'en', gh: down }), /502/);
+  assert.equal(existsSync(lockOf(p)), false);
+  noScratch(p);
+});
+
+// ---------------------------------------------------------------- P9 next: the rows N0 to N15
+
+// A train on origin with its record (cut from origin/main, ranAt the base) and its pull request: launchTrain of phase 2.
+const liveTrain = (p, n = 4, record = {}, ending = {}) => launchTrain(p, n, { boarded: [boardedOf(p, 'alpha')], ranAt: p.t.originSha(), baseSha: p.t.originSha(), ...record }, ending);
+// A train branch of the departure's own: in its worktree under .claude/worktrees, with its record, not pushed.
+function localTrain(p, n = 4, record = {}) {
+  const wt = p.t.addWt(`train-${n}`, { branch: `train/${n}`, from: 'origin/main' });
+  put(wt, { [`openspec/trains/${n}.md`]: recordText({ n, ranAt: p.t.originSha(), baseSha: p.t.originSha(), boarded: [boardedOf(p, 'alpha')], ...record }) });
+  commitAll(wt, `chore(train): record train ${n}`);
+  return wt;
+}
+// A commit on the local train branch (in a scratch worktree of it), pushed or not.
+function commitOnTrain(p, n, files, { push = true } = {}) {
+  const wt = join(p.scratch, `on-train-${n}`);
+  git(p.t.main, 'worktree', 'add', '-q', wt, `train/${n}`);
+  put(wt, files);
+  const sha = commitAll(wt, 'work on the train');
+  if (push) git(wt, 'push', '-q', 'origin', `train/${n}`);
+  git(p.t.main, 'worktree', 'remove', '--force', wt);
+  return sha;
+}
+const trainLoopFile = join(dirname(fileURLToPath(import.meta.url)), 'train-loop.mjs');
+const endOf = (r) => [r.code, r.action.kind, r.action.end.state, r.action.end.why];
+
+test('delivery-train P9 N0: a project with no train, or a refused one, ends blocked with the setting\'s reply, in both languages', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const off = nextIn(project({ train: null }), { lang });
+    assert.deepEqual(endOf(off), [2, 'end', 'blocked', 'train-off'], lang);
+    assert.equal(off.action.reply, render(lang, 'train-off'), lang);
+    const two = project({ config: `schema: devkit-lite\n${block('    model: two-prs\n    base: main\n    test_branch: develop\n', `    train: "${SUITE}"\n`)}` });
+    const refused = nextIn(two, { lang });
+    assert.deepEqual(endOf(refused), [2, 'end', 'blocked', 'train-model'], lang);
+    assert.equal(refused.action.reply, render(lang, 'train-model'), lang);
+    const noModel = nextIn(project({ config: `schema: devkit-lite\n${block('', `    train: "${SUITE}"\n`)}` }), { lang });
+    assert.equal(noModel.action.end.why, 'train-no-model');
+  }
+  assert.match(render('en', 'train-off'), /devkit\.delivery\.train/);
+});
+
+test('delivery-train P9 N1: a departure under way ends waiting for the owner with the lock file, a lock older than six hours is not under way', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const file = holdLock(p, 1);
+  const busy = nextIn(p);
+  assert.deepEqual(endOf(busy), [1, 'end', 'waiting-for-owner', 'train-running']);
+  assert.equal(busy.action.detail.lock, file);
+  assert.equal(busy.action.reply, render('en', 'train-running', { where: file }));
+  holdLock(p, 7);
+  assert.equal(nextIn(p).action.step, 'depart', 'an old lock is taken over by the departure');
+});
+
+test('delivery-train P9 N2: a train branch with its record that is not on origin is pushed from its worktree', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const wt = localTrain(p, 4);
+  const r = nextIn(p);
+  assert.deepEqual([r.code, r.action.kind, r.action.step], [0, 'session', 'push-train']);
+  assert.deepEqual(r.action.detail.command, ['git', '-C', wt, 'push', 'origin', 'train/4']);
+  assert.doesNotMatch(JSON.stringify(r.action.detail), /force|-f\b/);
+  assert.equal(perform(p, r.action).status, 0);
+  assert.equal(nextIn(p).action.step, 'open-train-pr', 'once pushed the next is the pull request');
+});
+
+test('delivery-train P9 N2: a local train that moved ahead of its open pull request is pushed too', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  liveTrain(p);
+  assert.notEqual(nextIn(p).action.step, 'push-train', 'level with the pull request: nothing to push');
+  commitOnTrain(p, 4, { 'openspec/trains/note.md': 'note\n' }, { push: false });
+  const r = nextIn(p);
+  assert.equal(r.action.step, 'push-train');
+  assert.equal(r.action.detail.command.at(-1), 'train/4');
+});
+
+test('delivery-train P9 N3: a train on origin with no pull request opens one from the branch with the record as its body', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  addChange(p, 'beta');
+  const wt = localTrain(p, 4, { boarded: [boardedOf(p, 'alpha'), boardedOf(p, 'beta')] });
+  git(wt, 'push', '-q', 'origin', 'train/4');
+  const r = nextIn(p);
+  assert.deepEqual([r.code, r.action.step], [0, 'open-train-pr']);
+  assert.deepEqual(r.action.detail.command, ['gh', 'pr', 'create', '--base', 'main', '--head', 'train/4', '--title', 'train 4: alpha, beta', '--body-file', join(wt, 'openspec', 'trains', '4.md')]);
+});
+
+test('delivery-train P9 N3: a train on origin with no checkout to read the record from ends blocked', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const wt = localTrain(p, 4);
+  git(wt, 'push', '-q', 'origin', 'train/4');
+  git(p.t.main, 'worktree', 'remove', '--force', wt);
+  const r = nextIn(p);
+  assert.deepEqual(endOf(r), [2, 'end', 'blocked', 'train-blocked']);
+  assert.match(r.action.reply, /train 4/);
+});
+
+test('delivery-train P9 N4: an open train behind the base is brought up to date by the departure, run in the background', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const { number } = liveTrain(p);
+  p.sim.setPr(number, { mergeStateStatus: 'BEHIND' });
+  const r = nextIn(p);
+  assert.deepEqual([r.code, r.action.kind, r.action.step], [0, 'session', 'update-train']);
+  assert.deepEqual(r.action.detail.command, ['node', trainLoopFile, 'depart', '--update', '--lang', 'en']);
+  assert.equal(r.action.detail.background, true);
+  assert.equal(r.action.detail.number, number);
+});
+
+test('delivery-train P9 N5: a failing check of the open train ends blocked naming the check and its link', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const { number } = liveTrain(p);
+  p.sim.setChecks(number, [CHECK('check', 'fail'), CHECK('devkit-reviews', 'pass')]);
+  const r = nextIn(p);
+  assert.deepEqual(endOf(r), [2, 'end', 'blocked', 'train-blocked']);
+  assert.match(r.action.reply, /check/);
+  assert.match(r.action.reply, /https:\/\/github\.com\/o\/r\/actions\/runs\/77\/job\/1/);
+  assert.deepEqual(r.action.detail.failing.map((f) => f.name), ['check']);
+});
+
+test('delivery-train P9 N6: a record that did not pass, is not current at the head or cannot be read ends blocked naming it', () => {
+  const failed = project();
+  addChange(failed, 'alpha');
+  liveTrain(failed, 4, { result: 'failed' });
+  const a = nextIn(failed);
+  assert.deepEqual(endOf(a), [2, 'end', 'blocked', 'train-blocked']);
+  assert.match(a.action.reply, /failed/);
+
+  const stale = project();
+  addChange(stale, 'alpha');
+  liveTrain(stale, 4);
+  commitOnTrain(stale, 4, { 'src/after-the-run.txt': 'product\n' });
+  const b = nextIn(stale);
+  assert.equal(b.action.end.why, 'train-blocked');
+  assert.match(b.action.reply, /src\/after-the-run\.txt/);
+
+  const current = project();
+  addChange(current, 'alpha');
+  liveTrain(current, 4);
+  commitOnTrain(current, 4, { 'openspec/trains/extra.md': 'only openspec\n' });
+  assert.notEqual(nextIn(current).action.end?.why, 'train-blocked', 'a later commit under openspec/ keeps the record current');
+
+  const missing = project();
+  addChange(missing, 'alpha');
+  const n = missing.sim.create({ base: 'main', head: 'train/4', body: '' });
+  git(missing.t.main, 'push', '-q', 'origin', 'HEAD:refs/heads/train/4');
+  assert.ok(n);
+  const c = nextIn(missing);
+  assert.equal(c.action.end.why, 'train-blocked');
+  assert.match(c.action.reply, /record/);
+});
+
+test('delivery-train P9 N7: a project whose repository does not allow merge commits ends blocked naming the setup, only in trunk-auto', () => {
+  const noMerge = (p) => (args, opts) => {
+    const r = p.sim.gh(p.t.main)(args, opts);
+    if (args[0] === 'api' && args[1] === 'repos/{owner}/{repo}' && r.status === 0) return { ...r, stdout: JSON.stringify({ ...JSON.parse(r.stdout), allow_merge_commit: false }) };
+    return r;
+  };
+  const p = project();
+  addChange(p, 'alpha');
+  liveTrain(p);
+  const r = nextIn(p, { gh: noMerge(p) });
+  assert.deepEqual(endOf(r), [2, 'end', 'blocked', 'train-blocked']);
+  assert.match(r.action.reply, /merge commits|merge merges|allow_merge_commit/);
+  assert.match(r.action.reply, /github-setup\.mjs --method merge/);
+  const t = project({ model: 'trunk' });
+  addChange(t, 'alpha');
+  liveTrain(t);
+  assert.notEqual(nextIn(t, { gh: noMerge(t) }).action.end?.why, 'train-blocked', 'trunk needs no auto-merge setup');
+});
+
+test('delivery-train P9 N8: trunk-auto with auto-merge off enables it with --merge, pinned to the train head', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const { number, head } = liveTrain(p);
+  const r = nextIn(p);
+  assert.deepEqual([r.code, r.action.kind, r.action.step], [0, 'session', 'enable-auto-merge']);
+  assert.deepEqual(r.action.detail.command, ['gh', 'pr', 'merge', String(number), '--auto', '--merge', '--match-head-commit', head]);
+  assert.equal(perform(p, r.action).status, 0);
+  assert.equal(p.sim.pr(number).autoMerge, 'merge');
+  assert.ok(p.sim.calls().some((c) => c.join(' ') === `pr merge ${number} --auto --merge --match-head-commit ${head}`));
+});
+
+test('delivery-train P9 N9: trunk-auto with auto-merge on waits on GitHub for the merge', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const { number } = liveTrain(p);
+  p.sim.setAutoMerge(number, 'merge');
+  const r = nextIn(p);
+  assert.deepEqual(endOf(r), [1, 'end', 'waiting-on-github', 'train-auto-merge-on']);
+  assert.equal(r.action.reply, render('en', 'train-auto-merge-on', { n: 4, number }));
+  assert.equal(r.action.detail.number, number);
+});
+
+test('delivery-train P9 N10 and N11: trunk waits on GitHub while checks run, then for the owner, and never enables auto-merge', () => {
+  const p = project({ model: 'trunk' });
+  addChange(p, 'alpha');
+  const { number } = liveTrain(p);
+  p.sim.setChecks(number, PENDING);
+  const pending = nextIn(p);
+  assert.deepEqual(endOf(pending), [1, 'end', 'waiting-on-github', 'train-checks']);
+  assert.equal(pending.action.reply, render('en', 'train-checks', { n: 4, number }));
+  p.sim.setChecks(number, GREEN);
+  const ready = nextIn(p);
+  assert.deepEqual(endOf(ready), [1, 'end', 'waiting-for-owner', 'train-ready']);
+  assert.equal(ready.action.reply, render('en', 'train-ready', { n: 4, number }));
+  assert.equal(p.sim.calls().some((c) => c.includes('--auto')), false);
+});
+
+test('delivery-train P9 N12: a merged train with a boarded pull request still open at the listed head closes it with the comment', () => {
+  const p = project();
+  const alpha = addChange(p, 'alpha');
+  const beta = addChange(p, 'beta');
+  const merged = liveTrain(p, 4, { boarded: [boardedOf(p, 'alpha'), boardedOf(p, 'beta')] }, { merged: true });
+  p.sim.merge(alpha.number); // GitHub marks alpha merged; beta's pull request stays open
+  const mergeCommit = p.sim.pr(merged.number).mergeCommit;
+  const r = nextIn(p);
+  assert.deepEqual([r.code, r.action.kind, r.action.step], [0, 'session', 'close-boarded-pr']);
+  const comment = `Delivered by train 4 in #${merged.number} (merge commit ${mergeCommit.slice(0, 7)}).`;
+  assert.deepEqual(r.action.detail.command, ['gh', 'pr', 'close', String(beta.number), '--comment', comment]);
+  assert.deepEqual([r.action.detail.number, r.action.detail.train, r.action.detail.trainNumber, r.action.detail.comment], [beta.number, 4, merged.number, comment]);
+  assert.equal(perform(p, r.action).status, 0);
+  assert.equal(p.sim.pr(beta.number).state, 'CLOSED');
+  assert.notEqual(nextIn(p).action.step, 'close-boarded-pr', 'once closed, the next call goes on');
+});
+
+test('delivery-train P9 N12: a pull request that moved after the record is not the boarded one and is left alone', () => {
+  const p = project();
+  const alpha = addChange(p, 'alpha');
+  liveTrain(p, 4, { boarded: [{ kind: 'change', id: 'alpha', number: alpha.number, head: H('9') }] }, { merged: true });
+  assert.notEqual(nextIn(p).action.step, 'close-boarded-pr');
+});
+
+test('delivery-train P9 N13: a merged train\'s worktree is removed, then its local branch deleted, and nothing else', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const wt = localTrain(p, 4);
+  git(wt, 'push', '-q', 'origin', 'train/4');
+  const number = p.sim.create({ base: 'main', head: 'train/4', body: '' });
+  p.sim.merge(number);
+  p.sim.merge(p.changes.alpha.number);
+  const first = nextIn(p);
+  assert.deepEqual([first.code, first.action.kind, first.action.step], [0, 'session', 'clean-train']);
+  assert.deepEqual(first.action.detail.command, ['git', '-C', p.t.main, 'worktree', 'remove', wt]);
+  assert.equal(perform(p, first.action).status, 0);
+  assert.equal(existsSync(wt), false);
+  const second = nextIn(p);
+  assert.equal(second.action.step, 'clean-train');
+  assert.deepEqual(second.action.detail.command, ['git', '-C', p.t.main, 'branch', '-d', 'train/4']);
+  assert.ok(gitOf(p, 'worktree', 'list').includes('alpha'), 'the worktrees of the changes stay');
+});
+
+// Found by the real run (AC-12): `git branch -d` refuses a branch its upstream does not hold, and the train branch tracks
+// `origin/<base>`, which no call had fetched since the merge: the step failed and, being before the departure, blocked every
+// later train. `next` fetches `origin` before it gives the branch step, and gives it only when `git branch -d` can succeed.
+test('delivery-train P9 N13: next fetches origin before the branch step, so a stale origin/<base> does not make git refuse the deletion', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const wt = localTrain(p, 4);
+  git(wt, 'push', '-q', 'origin', 'train/4');
+  const number = p.sim.create({ base: 'main', head: 'train/4', body: '' });
+  p.sim.merge(number);
+  p.sim.merge(p.changes.alpha.number);
+  assert.equal(spawnSync('git', ['-C', p.t.main, 'merge-base', '--is-ancestor', 'train/4', 'origin/main'], { env: GIT_ENV }).status, 1, 'the main checkout has not seen the merge');
+  assert.equal(perform(p, nextIn(p).action).status, 0, 'the worktree goes first');
+  const branch = nextIn(p);
+  assert.deepEqual([branch.action.step, branch.action.detail.command], ['clean-train', ['git', '-C', p.t.main, 'branch', '-d', 'train/4']]);
+  const deleted = perform(p, branch.action);
+  assert.equal(deleted.status, 0, deleted.stderr);
+  assert.equal(spawnSync('git', ['-C', p.t.main, 'rev-parse', '--verify', '-q', 'refs/heads/train/4'], { env: GIT_ENV }).status, 1, 'the branch is gone');
+});
+
+test('delivery-train P9 N13: a train branch its upstream does not hold (the owner squashed the merge) is left, and the run goes on', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const wt = localTrain(p, 4);
+  git(wt, 'push', '-q', 'origin', 'train/4');
+  const number = p.sim.create({ base: 'main', head: 'train/4', body: '' });
+  p.sim.merge(number, 'squash');
+  p.sim.merge(p.changes.alpha.number);
+  assert.equal(perform(p, nextIn(p).action).status, 0, 'the worktree goes first');
+  const left = nextIn(p);
+  assert.notEqual(left.action.step, 'clean-train', JSON.stringify(left.action));
+  assert.deepEqual(endOf(left), [1, 'end', 'waiting-for-owner', 'train-nothing']);
+  assert.equal(gitOf(p, 'rev-parse', '--verify', 'refs/heads/train/4').length, 40, 'the branch stays: it is never forced');
+});
+
+// Found by the real run (AC-12): the skill passes `--after <progressKey>` after every session action, and the two clean-train
+// steps of one merged train had the same key, so the second was refused as "done and changed nothing".
+test('delivery-train P9 N13: the worktree step and the branch step carry different progress keys, so --after never blocks the second', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const wt = localTrain(p, 4);
+  git(wt, 'push', '-q', 'origin', 'train/4');
+  const number = p.sim.create({ base: 'main', head: 'train/4', body: '' });
+  p.sim.merge(number);
+  p.sim.merge(p.changes.alpha.number);
+  const first = nextIn(p);
+  assert.equal(perform(p, first.action).status, 0);
+  const second = nextIn(p, { after: first.action.progressKey });
+  assert.deepEqual([second.code, second.action.kind, second.action.step], [0, 'session', 'clean-train'], JSON.stringify(second.action));
+  assert.deepEqual(second.action.detail.command, ['git', '-C', p.t.main, 'branch', '-d', 'train/4']);
+  assert.notEqual(second.action.progressKey, first.action.progressKey);
+  const deleted = perform(p, second.action);
+  assert.equal(deleted.status, 0, deleted.stderr);
+  const done = nextIn(p, { after: second.action.progressKey });
+  assert.notEqual(done.action.step, 'clean-train', 'nothing is left to clean');
+  assert.notEqual(done.action.end?.why, 'train-blocked', 'and the call is not refused as a repeat');
+});
+
+test('delivery-train P9 N14: with nothing boarded the run ends waiting for the owner and creates nothing', () => {
+  const p = project();
+  const r = nextIn(p);
+  assert.deepEqual(endOf(r), [1, 'end', 'waiting-for-owner', 'train-nothing']);
+  assert.equal(r.action.reply, render('en', 'train-nothing'));
+  assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '');
+  noScratch(p);
+});
+
+test('delivery-train P9 N15: boarded changes and archives give the departure as a session step, run in the background', () => {
+  const p = project({ roadmap: roadmapOfIds('gamma') });
+  addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+  addArchive(p, 'gamma', { at: '2026-11-23T10:05:00Z' });
+  const r = nextIn(p);
+  assert.deepEqual([r.code, r.action.kind, r.action.step], [0, 'session', 'depart']);
+  assert.deepEqual(r.action.detail.command, ['node', trainLoopFile, 'depart', '--lang', 'en']);
+  assert.equal(r.action.detail.background, true);
+  assert.deepEqual(r.action.detail.boarded.map((b) => `${b.kind}:${b.id}`), ['change:alpha', 'archive:gamma']);
+  assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '', 'next never departs by itself');
+  noScratch(p);
+});
+
+test('delivery-train P9 N15: a closed train is not under way, so its boarded changes depart again', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  liveTrain(p, 4, {}, { closed: true });
+  const r = nextIn(p);
+  assert.equal(r.action.step, 'depart');
+  assert.equal(r.action.detail.boarded.length, 1);
+});
+
+test('delivery-train P9 next: the same session step twice in a row ends blocked, and a different one goes on', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const first = nextIn(p);
+  assert.equal(first.action.step, 'depart');
+  assert.match(first.action.progressKey, /^depart@/);
+  const stuck = nextIn(p, { after: first.action.progressKey });
+  assert.deepEqual(endOf(stuck), [2, 'end', 'blocked', 'train-blocked']);
+  assert.equal(nextIn(p, { after: 'push-train@4' }).action.step, 'depart');
+});
+
+// ---------------------------------------------------------------- P9 depart --update
+
+test('delivery-train P9 depart --update: the base merged into the train, the suite once more, the record rewritten, one commit; then the push', () => {
+  const counter = SUITE_COUNTER();
+  const p = project({ train: `echo run >> ${counter}`, files: RELEASE_BASE });
+  addChange(p, 'alpha', { files: bumpFiles('0.7.0', 'alpha') });
+  const out = departIn(p);
+  assert.equal(out.code, 0, JSON.stringify(out.out));
+  assert.equal(perform(p, nextIn(p).action).status, 0); // push
+  assert.equal(perform(p, nextIn(p).action).status, 0); // open the pull request
+  const number = p.sim.prs().find((pr) => pr.head === 'train/1').number;
+  p.t.commitOrigin(bumpFiles('0.7.0', 'base moves'), 'an unboarded change merged');
+  p.sim.setPr(number, { mergeStateStatus: 'BEHIND' });
+  const behind = nextIn(p);
+  assert.equal(behind.action.step, 'update-train');
+  const before = gitOf(p, 'rev-parse', 'train/1');
+
+  const r = departIn(p, { update: true });
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  assert.equal(countRuns(counter), 2, 'the suite ran once more');
+  const head = gitOf(p, 'rev-parse', 'train/1');
+  assert.deepEqual(gitOf(p, 'rev-list', '--parents', '-n', '1', 'train/1~1').split(' ').slice(1), [before, gitOf(p, 'rev-parse', 'origin/main')], 'the base merged into the train');
+  assert.equal(gitOf(p, 'rev-list', '--count', '--first-parent', `${before}..${head}`), '2', 'the merge and one commit for the record');
+  assert.equal(gitOf(p, 'log', '-1', '--format=%s', 'train/1'), 'chore(train): record train 1 after merging main');
+  const record = recordOn(p, 'train/1', 1);
+  assert.deepEqual([record.result, record.ranAt, record.baseSha], ['passed', gitOf(p, 'rev-parse', 'train/1~1'), gitOf(p, 'rev-parse', 'origin/main')]);
+  assert.equal(JSON.parse(showOn(p, 'train/1', 'plugins/a/.claude-plugin/plugin.json')).version, '0.8.0', 'the train\'s release renumbered above the base\'s');
+  const runs = [...showOn(p, 'train/1', 'openspec/trains/1.md').matchAll(/^\| (\d) \|[^|]*\| `[0-9a-f]{40}` \| (\w+) \|$/gm)].map((m) => [m[1], m[2]]);
+  assert.deepEqual(runs, [['1', 'passed'], ['2', 'passed']]);
+  assert.equal(nextIn(p).action.step, 'push-train', 'what the update made is pushed by the session');
+  noScratch(p);
+});
+
+test('delivery-train P9 depart --update: a suite that fails after the base merged is recorded as failed and ends blocked naming the base', () => {
+  const p = project({ train: 'if test -e src/from-the-base.txt; then echo base-broke-it; exit 1; fi' });
+  addChange(p, 'alpha');
+  assert.equal(departIn(p).code, 0);
+  assert.equal(perform(p, nextIn(p).action).status, 0);
+  assert.equal(perform(p, nextIn(p).action).status, 0);
+  p.t.commitOrigin({ 'src/from-the-base.txt': 'x\n' }, 'the base changes');
+  const r = departIn(p, { update: true });
+  assert.deepEqual([r.code, r.out.result], [2, 'blocked']);
+  assert.equal(r.out.reply, render('en', 'train-blocked', { error: r.out.error }));
+  assert.match(r.out.error, /after merging main/);
+  assert.match(r.out.error, /base-broke-it/);
+  const record = recordOn(p, 'train/1', 1);
+  assert.equal(record.result, 'failed');
+  assert.equal(showOn(p, 'train/1', 'openspec/trains/1.md').includes('## Runs'), true);
+  noScratch(p);
+});
+
+test('delivery-train P9 depart --update: with no open train there is nothing to update', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const r = departIn(p, { update: true });
+  assert.deepEqual([r.code, r.out.result], [2, 'blocked']);
+  assert.match(r.out.error, /no open train/);
+});
+
+// ---------------------------------------------------------------- P9 the command line: main and wait
+
+test('delivery-train P9 main: next prints the action as JSON with its exit code, and an unknown subcommand is a usage error', () => {
+  const p = project();
+  addChange(p, 'alpha');
+  const r = train.main(['next', '--lang', 'en'], { cwd: p.t.main, env: depEnv(p) });
+  assert.equal(r.code, 0);
+  const action = JSON.parse(r.stdout);
+  assert.deepEqual([action.version, action.kind, action.step], [1, 'session', 'depart']);
+  const idle = project();
+  const waiting = train.main(['next', '--lang', 'en'], { cwd: idle.t.main, env: depEnv(idle) });
+  assert.equal(waiting.code, 1);
+  assert.equal(JSON.parse(waiting.stdout).end.why, 'train-nothing');
+  const bad = train.main(['teleport', '--lang', 'en'], { cwd: p.t.main, env: depEnv(p) });
+  assert.equal(bad.code, 3);
+  assert.equal(JSON.parse(bad.stdout).version, 1);
+  assert.equal(train.main(['next', '--lang', 'en', '--bogus'], { cwd: p.t.main, env: depEnv(p) }).code, 3);
+});
+
+test('delivery-train P9 main: depart prints its result and the exit code of the departure', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  const r = train.main(['depart', '--lang', 'en'], { cwd: p.t.main, env: depEnv(p), tmp: p.scratch });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual([JSON.parse(r.stdout).n, JSON.parse(r.stdout).result], [1, 'passed']);
+  const again = train.main(['depart', '--lang', 'en'], { cwd: p.t.main, env: depEnv(p), tmp: p.scratch });
+  assert.equal(again.code, 2, 'train 1 is not pushed yet, so it is under way: a second departure is refused');
+  assert.equal(JSON.parse(again.stdout).result, 'blocked');
+  assert.match(JSON.parse(again.stdout).error, /train 1/);
+  assert.equal(gitOf(p, 'for-each-ref', '--format=%(refname:short)', 'refs/heads/train'), 'train/1');
+});
+
+test('delivery-train P9 wait: polls next and prints the action once it differs from the first', async () => {
+  const p = project({ model: 'trunk' });
+  addChange(p, 'alpha');
+  const { number } = liveTrain(p);
+  p.sim.setChecks(number, PENDING);
+  const sleeps = [];
+  const sleep = async (seconds) => { sleeps.push(seconds); if (sleeps.length === 2) p.sim.setChecks(number, GREEN); };
+  const r = await train.runCommand(['wait', '--lang', 'en'], { cwd: p.t.main, env: { ...depEnv(p), DEVKIT_POLL_SECONDS: '7' }, sleep });
+  assert.equal(r.code, 0);
+  assert.equal(JSON.parse(r.stdout).end.why, 'train-ready');
+  assert.deepEqual(sleeps, [7, 7]);
+  const idle = project();
+  const now = await train.runCommand(['wait', '--lang', 'en'], { cwd: idle.t.main, env: depEnv(idle), sleep: () => assert.fail('an end that is not a wait on GitHub returns at once') });
+  assert.equal(JSON.parse(now.stdout).end.why, 'train-nothing');
+});
+
+// ---------------------------------------------------------------- P12 the lock record, P13 the verb
+
+const tLine = (extra) => JSON.stringify({ parentUuid: null, isSidechain: false, userType: 'external', cwd: '/scratch', sessionId: 's-1', version: '2.1.326', uuid: 'u-1', timestamp: '2026-11-21T10:00:00.000Z', ...extra });
+const typedLine = (args) => tLine({ type: 'user', message: { role: 'user', content: `<command-message>devkit</command-message>\n<command-name>/devkit</command-name>\n<command-args>${args}</command-args>` } });
+const printedLine = (text) => tLine({ type: 'user', message: { role: 'user', content: [{ tool_use_id: 't-1', type: 'tool_result', content: text, is_error: false }] }, toolUseResult: { stdout: text, stderr: '', interrupted: false, isImage: false, noOutputExpected: false } });
+function transcriptOf(...lines) {
+  const file = join(tmpFolder('devkit-train-transcript-'), 's-1.jsonl');
+  writeFileSync(file, `${lines.join('\n')}\n`);
+  return { transcript_path: file };
+}
+
+test('delivery-train P12: a typed /devkit train keeps a roadmap run and a typed /devkit change after it still ends it', () => {
+  const run = (...lines) => guard.roadmapRunOf(transcriptOf(...lines));
+  assert.equal(run(typedLine('roadmap 2'), printedLine('devkit-roadmap: 2\n{}'), typedLine('train'))?.command, 'roadmap 2');
+  assert.equal(run(typedLine('roadmap 2'), typedLine('train'), printedLine('devkit-roadmap: 2\n{}'))?.command, 'roadmap 2', 'train between the command and its line');
+  assert.equal(run(typedLine('train'), printedLine('devkit-roadmap: 2\n{}')), null, 'it starts no run');
+  assert.equal(run(typedLine('roadmap 2'), printedLine('devkit-roadmap: 2\n{}'), typedLine('train'), typedLine('change x')), null, 'change after it ends the run (neg)');
+  assert.equal(run(typedLine('roadmap 2'), printedLine('devkit-roadmap: 2\n{}'), typedLine('trains')), null, 'another word starting with train ends it (neg)');
+  assert.equal(guard.runOf(transcriptOf(typedLine('change x'), printedLine('devkit-run: feat\n{}'), typedLine('train'))), null, 'a change run is ended by it');
+});
+
+test('delivery-train P13: /devkit train starts the verb, with text after it is refused, and a refused train setting stops it', () => {
+  const root = configRepo(optedIn(trunkAuto(`"${SUITE}"`)));
+  for (const lang of ['en', 'pt-BR']) {
+    const ok = startRun(root, 'train', lang);
+    assert.deepEqual([ok.code, ok.body.mode, ok.body.verb, ok.body.reply], [0, 'train', 'train', undefined], lang);
+    const args = startRun(root, 'train now', lang);
+    assert.deepEqual([args.body.mode, args.body.reply], ['train-args', render(lang, 'train-args')], lang);
+    const off = startRun(configRepo(optedIn('devkit:\n  language: en\n')), 'train', lang);
+    assert.equal(off.body.mode, 'train', 'with no train key the verb still starts: the departure script answers train-off');
+  }
+  const two = configRepo(optedIn(block('    model: two-prs\n    base: main\n    test_branch: develop\n', `    train: "${SUITE}"\n`)));
+  assert.equal(startRun(two, 'train').body.mode, 'setting-unknown');
+  assert.equal(startRun(two, 'train').body.reply, render('en', 'train-model'));
+  assert.equal(startRun(configRepo(null), 'train').body.mode, 'not-set-up');
+  assert.match(render('en', 'train-args'), /\/devkit train/);
+});
+
+test('delivery-train P13: the reply to an unknown verb names /devkit train, in order, in both languages', () => {
+  assert.match(render('en', 'verb-unknown'), /So far \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project and \/devkit train exist/);
+  assert.match(render('en', 'verb-unknown'), /or \/devkit train to send the boarded changes on one train\.$/);
+  assert.match(render('pt-BR', 'verb-unknown'), /^Por enquanto existem \/devkit change, \/devkit roadmap, \/devkit status, \/devkit project e \/devkit train/);
+  assert.match(render('pt-BR', 'verb-unknown'), /\/devkit train para mandar as changes embarcadas em um trem só\.$/);
+  const unknown = startRun(configRepo(optedIn(trunkAuto(`"${SUITE}"`))), 'teleport');
+  assert.equal(unknown.body.mode, 'unknown-verb');
+});
+
+test('delivery-train loop: the new train replies exist in both languages, each with its own text', () => {
+  for (const key of ['train-off', 'train-running', 'train-nothing', 'train-blocked', 'train-base-red', 'train-checks', 'train-auto-merge-on', 'train-ready', 'train-delivered', 'train-args']) {
+    assert.ok(MESSAGES.en[key] && MESSAGES['pt-BR'][key], key);
+    assert.notEqual(MESSAGES.en[key], MESSAGES['pt-BR'][key], key);
+  }
+});
+
+// ---------------------------------------------------------------- P10 the documents follow
+
+const here = dirname(fileURLToPath(import.meta.url));
+const repoFile = (...parts) => readFileSync(join(here, '..', '..', '..', ...parts), 'utf8');
+const sliceOf = (text, from, to) => text.slice(text.indexOf(from), to ? text.indexOf(to, text.indexOf(from) + from.length) : undefined);
+
+test('delivery-train docs: the documents follow', () => {
+  const flow = repoFile('docs', 'openspec-flow.md');
+  assert.match(flow, /devkit\.delivery\.train/);
+  assert.match(flow, /\/devkit train/);
+  assert.match(flow, /openspec\/trains\//);
+  const ci = sliceOf(flow, '## CI', '## Customizing');
+  assert.match(ci, /reads `devkit\.delivery` from the default branch, and applies rules only in `two-prs`/, 'the sentence of delivery-models stays as it is');
+  for (const [what, re] of [['the train mode', /a pull request from `train\/<n>` is judged by its record/], ['the record it reads', /`openspec\/trains\/<n>\.md`/], ['containment', /ancestor of the train/], ['the train\'s own commits', /release files, the CI pin, `openspec\/roadmap\.md` and the record/], ['the boarded entries', /scratch worktree at its own head/], ['the train parts', /skips the gate parts the train proves/]]) assert.match(ci, re, `the CI section names ${what}`);
+  const section = sliceOf(flow, '### The delivery train', '\n## CI');
+  for (const [what, re] of [
+    ['the verb', /`\/devkit train`/], ['the script', /`train-loop\.mjs`/], ['the departure', /`train\/<n>`/], ['the record', /`openspec\/trains\/<n>\.md`/],
+    ['the red train', /bisect/i], ['the join rules', /`release-merge\.mjs --merge <rev>`/], ['the train\'s pull request', /merge commit/], ['the leavers', /left/],
+  ]) assert.match(section, re, `the subsection names ${what}`);
+
+  const skill = repoFile('plugins', 'openspec', 'skills', 'devkit', 'SKILL.md');
+  const heads = skill.split('\n').filter((l) => l.startsWith('## '));
+  assert.ok(heads.includes('## Train'), 'the devkit skill has a Train section');
+  assert.equal(heads.indexOf('## Train'), heads.indexOf('## Waiting on GitHub') + 1, 'it sits right after Waiting on GitHub');
+  const train = sliceOf(skill, '## Train', '## Roadmap');
+  for (const re of [/train-loop\.mjs next/, /depart/, /update-train/, /background/, /`end`/, /wait/]) assert.match(train, re, String(re));
+  assert.match(skill, /argument-hint: "change \[<request> \| <change-id> \| <Jira key or link>\] \| roadmap \[<n> \| stop\] \| status \| train \| project \[<name>\]"/);
+  assert.match(skill, /\/devkit train departs the boarded changes of a project with a delivery train, together on one train\./);
+  for (const mode of ['train', 'train-args']) assert.ok(sliceOf(skill, '## Start', '## A new change').includes(`\`${mode}\``), `the start mode ${mode}`);
+
+  const ship = repoFile('plugins', 'openspec', 'skills', 'ship-change', 'SKILL.md');
+  for (const step of ['boarded', 'on-train', 'wait-train', 'rejoin-train', 'close-boarded-pr', 'rejoin-archive']) {
+    assert.equal(ship.split('\n').filter((l) => l.startsWith(`| \`${step}\` |`)).length, 1, `ship-change has one row for ${step}`);
+  }
+});
+
+// ---------------------------------------------------------------- 4: devkit-reviews on a train (P11, AC-6, AC-9)
+
+const reviewsCli = join(here, 'deliver-check.mjs');
+// `deliver-check.mjs --ci` as a pull-request run on CI starts it, in `cwd`, with a TMPDIR of the test's own: a scratch
+// worktree the check makes must be gone when it returns, in the folder and in the repository's list.
+function ciIn(cwd, { head, base = 'main', json = false, cli = reviewsCli, env = {} } = {}) {
+  const tmp = tmpFolder('devkit-train-ci-tmp-');
+  const r = spawnSync(process.execPath, [cli, '--ci', ...(json ? ['--json'] : [])], { cwd, encoding: 'utf8', env: { ...GIT_ENV, TMPDIR: tmp, GITHUB_HEAD_REF: head, GITHUB_BASE_REF: base, ...env } });
+  assert.deepEqual(readdirSync(tmp), [], 'the check removes every scratch worktree it makes');
+  assert.deepEqual(git(cwd, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ') && l.includes(tmp)), [], 'no scratch worktree stays registered');
+  return { code: r.status, out: r.stdout, err: r.stderr, json: () => JSON.parse(r.stdout) };
+}
+
+const entryOf = (p, e) => {
+  const x = typeof e === 'string' ? { id: e } : e;
+  const kind = x.kind ?? 'change';
+  const own = kind === 'archive' ? p.archives[x.id] : p.changes[x.id];
+  return { kind, id: x.id, number: own.number, head: x.head ?? git(own.wt, 'rev-parse', 'HEAD') };
+};
+
+// A train built by hand, the way the departure builds one: cut from origin/main, one merge commit per entry, then the record
+// (committed, so the head the suite "ran at" is the last join). `record` overrides what the record says; `branch` names the
+// branch (a train's by default).
+function handTrain(p, n, ids, { branch = `train/${n}`, record = {}, writeRecord = true } = {}) {
+  const wt = join(tmpFolder('devkit-train-hand-'), 'w');
+  git(p.t.main, 'worktree', 'add', '-q', '-b', branch, wt, 'origin/main');
+  const boarded = ids.map((e) => entryOf(p, e));
+  for (const b of boarded) git(wt, 'merge', '--no-ff', '-q', '-m', `chore(train): join ${b.id}`, b.head);
+  const ranAt = git(wt, 'rev-parse', 'HEAD');
+  if (writeRecord) {
+    put(wt, { [`openspec/trains/${n}.md`]: recordText({ n, baseSha: git(wt, 'rev-parse', 'origin/main'), ranAt, boarded, ...record }) });
+    commitAll(wt, `chore(train): record train ${n}`);
+  }
+  return { wt, boarded, ranAt, branch };
+}
+const ciOf = (t, opts = {}) => ciIn(t.wt, { head: t.branch, ...opts });
+const trainLines = (r) => r.out.split('\n');
+
+const GAMMA_DELTA_ROADMAP = '# Roadmap\n\n## Round 1\n- [ ] gamma\n- [ ] keep\n- [ ] delta\n';
+const RETRO_OPEN = '# Retro: x\n\n## Proposed updates\n\n### Tighten `docs/x.md` (docs)\n\n- Why: because\n';
+
+test('delivery-train P11: a whole train passes with one result line per boarded entry, and the check makes no GitHub call', () => {
+  const p = project({ train: 'true', roadmap: GAMMA_DELTA_ROADMAP });
+  addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+  addChange(p, 'beta', { at: '2026-11-23T10:10:00Z' });
+  addArchive(p, 'gamma', { at: '2026-11-23T10:05:00Z' });
+  const out = departIn(p);
+  assert.equal(out.code, 0, JSON.stringify(out.out));
+  const r = ciIn(out.out.worktree, { head: 'train/1' });
+  assert.equal(r.code, 0, r.out + r.err);
+  const lines = trainLines(r);
+  assert.match(lines[0], /^devkit-reviews: train 1 /);
+  for (const [kind, id] of [['change', 'alpha'], ['archive', 'gamma'], ['change', 'beta']]) {
+    assert.equal(lines.filter((l) => l.includes(` ${kind} ${id} `) && /pass$/.test(l)).length, 1, `one pass line for ${id}: ${r.out}`);
+  }
+  assert.equal(lines.at(-2), 'pass');
+  const j = ciIn(out.out.worktree, { head: 'train/1', json: true }).json();
+  assert.deepEqual([j.version, j.mode, j.pass, j.train.n], [1, 'ci', true, 1]);
+  assert.deepEqual(j.train.boarded.map((b) => [b.kind, b.id, b.pass]), [['change', 'alpha', true], ['archive', 'gamma', true], ['change', 'beta', true]]);
+});
+
+test('delivery-train AC-6: devkit-reviews judges each boarded change at its own head, its containment, the train\'s own commits and the record', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  addChange(p, 'beta');
+  const clean = handTrain(p, 1, ['alpha', 'beta']);
+  const ok = ciOf(clean);
+  assert.equal(ok.code, 0, ok.out + ok.err);
+  assert.equal(trainLines(ok).filter((l) => /^ {2}change (alpha|beta) /.test(l) && /pass$/.test(l)).length, 2);
+
+  // a stale review at a boarded head: a product commit after the reviews, listed as beta's head
+  const wt = p.changes.beta.wt;
+  put(wt, { 'src/beta.txt': 'changed after the reviews\n' });
+  commitAll(wt, 'product commit after the reviews');
+  git(wt, 'push', '-q', 'origin', 'beta');
+  const stale = ciOf(handTrain(p, 2, ['alpha', 'beta']));
+  assert.equal(stale.code, 1, stale.out);
+  assert.match(stale.out, /beta[^\n]*stale code-quality-reviewer/);
+  assert.doesNotMatch(trainLines(stale).filter((l) => /alpha/.test(l)).join('\n'), /fail/, 'alpha still passes');
+  assert.match(stale.out.trim().split('\n').at(-1), /^fail: .*beta/);
+
+  // a head the train does not hold: the record lists alpha at a head pushed after the departure
+  const loose = handTrain(p, 3, ['alpha']);
+  const fresh = p.changes.alpha.wt;
+  put(fresh, { 'openspec/changes/alpha/notes.md': 'a note\n' });
+  const later = commitAll(fresh, 'a note after the departure');
+  git(fresh, 'push', '-q', 'origin', 'alpha');
+  put(loose.wt, { 'openspec/trains/3.md': recordText({ n: 3, baseSha: git(loose.wt, 'rev-parse', 'origin/main'), ranAt: loose.ranAt, boarded: [{ kind: 'change', id: 'alpha', number: p.changes.alpha.number, head: later }] }) });
+  commitAll(loose.wt, 'chore(train): record train 3 at the later head');
+  const missing = ciOf(loose);
+  assert.equal(missing.code, 1, missing.out);
+  assert.match(missing.out, new RegExp(`alpha[^\\n]*${later.slice(0, 7)}[^\\n]*not in the train`));
+  assert.doesNotMatch(missing.out, /stale/, 'the later head is judged as it stands, and its evidence is current');
+
+  // a commit of the train's own that no boarded head holds and that edits a product path
+  const own = handTrain(p, 4, ['alpha']);
+  put(own.wt, { 'plugins/x/hooks/a.mjs': 'export {};\n' });
+  const sha = commitAll(own.wt, 'a product fix pushed onto the train');
+  const product = ciOf(own);
+  assert.equal(product.code, 1, product.out);
+  assert.match(product.out, new RegExp(`${sha.slice(0, 7)}[^\\n]*plugins/x/hooks/a\\.mjs`));
+
+  // no record at all
+  const bare = ciOf(handTrain(p, 5, ['alpha'], { writeRecord: false }));
+  assert.equal(bare.code, 1, bare.out);
+  assert.match(bare.out, /openspec\/trains\/5\.md is missing[^\n]*the departure writes it: \/devkit train/);
+});
+
+test('delivery-train P11: a record that is unreadable, red or older than the head fails, and a release file after it does not hide behind failure 4', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  const unclosed = handTrain(p, 1, ['alpha']);
+  put(unclosed.wt, { 'openspec/trains/1.md': `${recordText({ n: 1, boarded: [entryOf(p, 'alpha')] })}\n\`\`\`text\nnever closed\n` });
+  commitAll(unclosed.wt, 'a record with an unclosed fence');
+  const a = ciOf(unclosed);
+  assert.equal(a.code, 1, a.out);
+  assert.match(a.out, /cannot be read[^\n]*fenced block/);
+
+  const red = handTrain(p, 2, ['alpha'], { record: { result: 'failed' } });
+  const b = ciOf(red);
+  assert.equal(b.code, 1, b.out);
+  assert.match(b.out, /train record did not pass \(result failed\)/);
+
+  const old = handTrain(p, 3, ['alpha']);
+  put(old.wt, { 'CHANGELOG.md': '# Changelog\n' });
+  const release = commitAll(old.wt, 'a release file after the run');
+  const c = ciOf(old);
+  assert.equal(c.code, 1, c.out);
+  assert.match(c.out, /train record is not current at the pull request's head/);
+  assert.doesNotMatch(c.out, new RegExp(`${release.slice(0, 7)} \\(a release file after the run\\) changes`), 'a release file is a path the train may change');
+
+  const later = handTrain(p, 4, ['alpha']);
+  put(later.wt, { 'src/after.txt': 'after the run\n' });
+  commitAll(later.wt, 'a product commit after the run');
+  const d = ciOf(later);
+  assert.equal(d.code, 1, d.out);
+  assert.match(d.out, /train record is not current at the pull request's head/);
+});
+
+test('delivery-train P11: the renumbering of the joins is the train\'s own work and passes failure 4', () => {
+  const p = project({ train: 'true', files: RELEASE_BASE });
+  addChange(p, 'alpha', { files: bumpFiles('0.7.0', 'alpha') });
+  addChange(p, 'beta', { files: bumpFiles('0.7.0', 'beta') });
+  const out = departIn(p);
+  assert.equal(out.code, 0, JSON.stringify(out.out));
+  const r = ciIn(out.out.worktree, { head: 'train/1' });
+  assert.equal(r.code, 0, `the renumbering of the joins is the train's own work: ${r.out}${r.err}`);
+});
+
+test('delivery-train P11: a boarded archive is judged as an archive pull request, and an unanswered proposal fails naming its folder', () => {
+  const p = project({ train: 'true', roadmap: GAMMA_DELTA_ROADMAP });
+  addArchive(p, 'gamma', { retro: RETRO_OPEN });
+  addArchive(p, 'delta');
+  const r = ciOf(handTrain(p, 1, [{ kind: 'archive', id: 'gamma' }, { kind: 'archive', id: 'delta' }]));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /openspec\/changes\/archive\/\d{4}-\d{2}-\d{2}-gamma[^\n]*unanswered proposals: 1/);
+  assert.doesNotMatch(trainLines(r).filter((l) => /delta/.test(l)).join('\n'), /fail/, 'the other archive passes');
+});
+
+test('delivery-train AC-9: two archives board together, no archive branch is updated, each folder is judged in the train\'s check', () => {
+  const p = project({ train: 'true', roadmap: GAMMA_DELTA_ROADMAP });
+  addArchive(p, 'gamma');
+  addArchive(p, 'delta');
+  const before = ['gamma', 'delta'].map((id) => git(p.archives[id].wt, 'rev-parse', 'HEAD'));
+  const out = departIn(p);
+  assert.equal(out.code, 0, JSON.stringify(out.out));
+  assert.deepEqual(out.out.boarded.map((b) => [b.kind, b.id]), [['archive', 'gamma'], ['archive', 'delta']]);
+  assert.deepEqual(['gamma', 'delta'].map((id) => git(p.archives[id].wt, 'rev-parse', 'HEAD')), before, 'no archive branch moved');
+  const r = ciIn(out.out.worktree, { head: 'train/1' });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.equal(trainLines(r).filter((l) => /^ {2}archive (gamma|delta) /.test(l) && /pass$/.test(l)).length, 2, r.out);
+  // a boarded archive whose file check fails (a file no approved proposal names) fails the train
+  const wt = p.archives.gamma.wt;
+  put(wt, { 'docs/unnamed.md': 'a file no proposal names\n' });
+  commitAll(wt, 'an unnamed file in the archive');
+  const bad = ciOf(handTrain(p, 2, [{ kind: 'archive', id: 'gamma' }]));
+  assert.equal(bad.code, 1, bad.out);
+  assert.match(bad.out, /files no approved proposal names: docs\/unnamed\.md/);
+});
+
+test('delivery-train P11: TRAIN_PIN_FILE is the pin file release-merge rewrites', () => {
+  assert.equal(deliver.TRAIN_PIN_FILE, release.PIN_FILE);
+  assert.equal(deliver.TRAIN_PIN_FILE, 'docs/openspec-flow.md');
+});
+
+test('delivery-train P11: --ci on a train pull request loads and judges from a folder holding only the three downloaded files', () => {
+  const p = project({ train: 'true' });
+  addChange(p, 'alpha');
+  const t = handTrain(p, 1, ['alpha']);
+  const dir = tmpFolder('devkit-train-three-');
+  for (const f of ['guard.mjs', 'deliver-check.mjs', 'merge-setup.mjs']) writeFileSync(join(dir, f), readFileSync(join(here, f)));
+  const r = ciOf(t, { cli: join(dir, 'deliver-check.mjs') });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.deepEqual(readdirSync(dir).sort(), ['deliver-check.mjs', 'guard.mjs', 'merge-setup.mjs']);
+});
+
+// The train parts on a change's own pull request: item 1 skips the gate parts the train proves, as the local reader does.
+const GATE_SUITE_TASKS = `# Tasks\n\n## 1. Phase\n\n- [x] 1.1 code\n- [x] 1.2 Gate: \`${SUITE}\`\n`;
+
+test('delivery-train P11: a change\'s own pull request in a train project passes item 1 with no row for a train part, and says so', () => {
+  const p = project({ train: SUITE });
+  const a = addChange(p, 'alpha', { tasks: GATE_SUITE_TASKS });
+  const r = ciIn(a.wt, { head: 'alpha', json: true });
+  assert.equal(r.code, 0, r.out + r.err);
+  const j = r.json();
+  assert.deepEqual(j.items[0].details.trainParts, PARTS);
+  assert.match(j.items[0].reason, /2 proven by the train/);
+});
+
+test('delivery-train P11: without the key the same pull request fails on item 1 naming the part', () => {
+  const p = project({ train: null });
+  const a = addChange(p, 'alpha', { tasks: GATE_SUITE_TASKS });
+  const r = ciIn(a.wt, { head: 'alpha' });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /no passing row in evidence\.md for `python3 scripts\/check\.py`/);
+});
+
+test('delivery-train P11: a gate part the key does not name still needs its row', () => {
+  const p = project({ train: PARTS[0] });
+  const a = addChange(p, 'alpha', { tasks: GATE_SUITE_TASKS });
+  const r = ciIn(a.wt, { head: 'alpha' });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /no passing row in evidence\.md for `python3 scripts\/check\.py`/);
+  assert.doesNotMatch(r.out, /no passing row in evidence\.md for `node --test/);
+});
+
+test('delivery-train P11: a pull request that touches several changes passes the train parts to each', () => {
+  const p = project({ train: SUITE });
+  addChange(p, 'alpha', { tasks: GATE_SUITE_TASKS });
+  addChange(p, 'beta', { tasks: GATE_SUITE_TASKS });
+  const both = handTrain(p, 1, ['alpha', 'beta'], { branch: 'both', writeRecord: false });
+  prove(both.wt, 'alpha');
+  prove(both.wt, 'beta'); // the joined product files make each change's evidence stale; one pull request proves both again
+  const r = ciIn(both.wt, { head: 'both', json: true });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.deepEqual(r.json().changes.map((c) => [c.change, c.items[0].details.trainParts]), [['alpha', PARTS], ['beta', PARTS]]);
+});
+
+test('delivery-train P11: a refused train key on the default branch is a usage error, exit 3, for a change\'s pull request and a train\'s', () => {
+  const p = project({ model: null, train: 'true' });
+  const a = addChange(p, 'alpha');
+  const own = ciIn(a.wt, { head: 'alpha' });
+  assert.equal(own.code, 3, own.out + own.err);
+  assert.match(own.err, /devkit\.delivery\.train: needs devkit\.delivery\.model trunk or trunk-auto/);
+  const train = ciOf(handTrain(p, 1, ['alpha']));
+  assert.equal(train.code, 3, train.out + train.err);
+});
+
+test('delivery-train P11: a project with no train key judges a change exactly as before, with no trainParts in its report', () => {
+  const p = project({ train: null });
+  const a = addChange(p, 'alpha');
+  const r = ciIn(a.wt, { head: 'alpha', json: true });
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.equal('trainParts' in r.json().items[0].details, false);
+});
+
+// ================================================================ phase 5: after the train merges
+
+// A real train of `alpha` and `beta`: the departure, the push and the pull request of the session steps, green checks; `number` is
+// the train's pull request. Nothing has merged yet.
+function bothOnTrain(model = 'trunk-auto') {
+  const p = project({ model, train: 'true' });
+  addChange(p, 'alpha');
+  addChange(p, 'beta');
+  const r = departIn(p);
+  assert.equal(r.code, 0, JSON.stringify(r.out));
+  for (const step of ['push-train', 'open-train-pr']) {
+    const action = nextIn(p).action;
+    assert.equal(action.step, step);
+    assert.equal(perform(p, action).status, 0, step);
+  }
+  const number = p.sim.prs().find((pr) => pr.head === `train/${r.out.n}`).number;
+  p.sim.setChecks(number, GREEN);
+  return { p, number, n: r.out.n };
+}
+
+// The train's pull request merges with its merge commit; GitHub marks `alpha`'s pull request merged and leaves `beta`'s open. The
+// stub reads a pull request's files when it merges it, so the ones GitHub marks merged go first and the train's merge is the newest.
+function mergeTrain({ p, number }, { markMerged = ['alpha'] } = {}) {
+  for (const id of markMerged) p.sim.merge(p.changes[id].number);
+  p.sim.merge(number);
+  git(p.t.main, 'fetch', '-q', 'origin');
+  for (const c of Object.values(p.changes)) git(c.wt, 'fetch', '-q', 'origin');
+  return p.sim.pr(number).mergeCommit;
+}
+
+const commentOf = (n, trainNumber, mergeCommit) => `Delivered by train ${n} in #${trainNumber} (merge commit ${mergeCommit.slice(0, 7)}).`;
+// The two calls of the skill's row: the comment, then the close.
+const closeAsSkill = (p, id, next) => {
+  const gh = p.sim.gh(p.changes[id].wt);
+  assert.equal(gh(['pr', 'comment', String(next.number), '--body', next.comment]).status, 0);
+  assert.equal(gh(['pr', 'close', String(next.number)]).status, 0);
+};
+
+test('delivery-train P3 isOwnPr: a train/<n> head is never a change\'s own pull request, whatever files it changes', () => {
+  const files = ['openspec/changes/alpha/tasks.md', 'src/alpha.txt'];
+  assert.equal(deliver.isOwnPr('alpha', { headRefName: 'train/4' }, files), false);
+  assert.equal(deliver.isOwnPr('alpha', { headRefName: 'train/12' }, files), false);
+  assert.equal(deliver.isOwnPr('alpha', { headRefName: 'alpha' }, files), true, 'neg: an ordinary head');
+  assert.equal(deliver.isOwnPr('alpha', { headRefName: 'train/alpha' }, files), true, 'neg: a head that only starts with train/');
+  assert.equal(deliver.isOwnPr('alpha', { headRefName: 'feat/train/4' }, files), true, 'neg: train/<n> is the whole head');
+});
+
+test('delivery-train P3 delivered: looked up from the default branch, the train\'s merged pull request is not the change\'s own', () => {
+  const ride = bothOnTrain();
+  const { p } = ride;
+  mergeTrain(ride, { markMerged: ['alpha'] });
+  const found = deliver.findChangePr(p.sim.gh(p.t.main), p.t.main, 'alpha', { ship: 'merge', branch: 'main', env: p.env, mergeFields: true });
+  assert.equal(found.pr?.number, p.changes.alpha.number, JSON.stringify(found));
+  const beta = deliver.findChangePr(p.sim.gh(p.t.main), p.t.main, 'beta', { ship: 'merge', branch: 'main', env: p.env, mergeFields: true });
+  assert.deepEqual([beta.none, beta.pr], [true, undefined], 'beta has no merged pull request of its own, and the train is not one');
+});
+
+test('delivery-train P3 delivered: a pull request GitHub marked merged is delivered by its train and nothing is posted on it', () => {
+  const ride = bothOnTrain();
+  const { p, n, number } = ride;
+  const mergeCommit = mergeTrain(ride);
+  const state = p.state('alpha');
+  assert.deepEqual(state.carriedBy, { n, number, mergeCommit });
+  const next = deliver.nextStep(state);
+  assert.equal(next.step, 'retro');
+  assert.equal(state.pr.state, 'MERGED');
+  assert.deepEqual(p.sim.writes().filter((c) => c[1] === 'comment' || c[1] === 'close'), []);
+});
+
+test('delivery-train P3 delivered: a pull request GitHub left open at the head the train carried is delivered, and the next step closes it with the comment', () => {
+  const ride = bothOnTrain();
+  const { p, n, number } = ride;
+  const mergeCommit = mergeTrain(ride);
+  const state = p.state('beta');
+  assert.equal(state.pr.state, 'OPEN');
+  assert.deepEqual(state.carriedBy, { n, number, mergeCommit });
+  const next = deliver.nextStep(state);
+  const comment = commentOf(n, number, mergeCommit);
+  assert.deepEqual([next.step, next.number, next.train, next.trainNumber, next.comment], ['close-boarded-pr', p.changes.beta.number, n, number, comment]);
+  closeAsSkill(p, 'beta', next);
+  assert.equal(p.sim.pr(p.changes.beta.number).state, 'CLOSED');
+  assert.deepEqual(p.sim.pr(p.changes.beta.number).comments, [comment]);
+  const after = p.state('beta');
+  assert.equal(after.pr.state, 'CLOSED');
+  assert.equal(deliver.nextStep(after).step, 'retro', 'closed, the change goes on to its retro');
+});
+
+test('delivery-train P3 delivered: a head the train did not carry is not delivered by it', () => {
+  const ride = bothOnTrain();
+  const { p } = ride;
+  mergeTrain(ride);
+  const beta = p.changes.beta;
+  put(beta.wt, { 'src/beta.txt': 'changed after the train\n' });
+  commitAll(beta.wt, 'code after the train');
+  git(beta.wt, 'push', '-q', 'origin', 'beta');
+  const state = p.state('beta');
+  assert.equal(state.carriedBy, undefined);
+  assert.equal(state.archive, undefined, 'not the post-merge phase');
+  assert.notEqual(deliver.nextStep(state).step, 'close-boarded-pr');
+});
+
+test('delivery-train P3 delivered: a train that merged but left the tasks unticked on the default branch delivers nothing', () => {
+  const p = project();
+  addChange(p, 'feat');
+  launchTrain(p, 4, { boarded: [boardedOf(p, 'feat')] }, { merged: true });
+  const state = p.state('feat');
+  assert.equal(state.carriedBy, undefined, 'the change\'s tasks are not on the default branch');
+  assert.equal(state.archive, undefined);
+  assert.equal(deliver.nextStep(state).step, 'boarded');
+});
+
+test('delivery-train P3 delivered: without the key a merged pull request alone delivers, as before, and nothing is read from a train', () => {
+  const p = project({ train: null });
+  addChange(p, 'feat');
+  p.sim.merge(p.changes.feat.number);
+  git(p.changes.feat.wt, 'fetch', '-q', 'origin');
+  const state = p.state('feat');
+  assert.equal('carriedBy' in state, false);
+  assert.equal(deliver.nextStep(state).step, 'retro');
+  assert.equal(p.sim.calls().some((c) => c.join(' ').includes('headRefName,headRefOid,mergedAt,mergeCommit')), false, 'no train list');
+});
+
+test('delivery-train P4 trainFacts: the merged train carries the change with its pull request and merge commit', () => {
+  const ride = bothOnTrain();
+  const { p, n, number } = ride;
+  const mergeCommit = mergeTrain(ride);
+  const facts = deliver.trainFacts(p.sim.gh(p.changes.beta.wt), p.changes.beta.wt, 'beta', { suite: 'true', prHead: headOf(p, 'beta'), kind: 'change' });
+  assert.deepEqual([facts.carried, facts.onTrain, facts.left], [{ n, number, mergeCommit }, null, null]);
+});
+
+test('delivery-train AC-10: after the merge every boarded change is delivered, merged or closed with a comment; trunk-auto enables auto-merge with --merge, trunk waits for the owner', () => {
+  for (const model of ['trunk-auto', 'trunk']) {
+    const ride = bothOnTrain(model);
+    const { p, n, number } = ride;
+    const trainHead = git(p.t.main, 'ls-remote', 'origin', `refs/heads/train/${n}`).split('\t')[0];
+    if (model === 'trunk-auto') {
+      const enable = nextIn(p);
+      assert.deepEqual([enable.action.step, enable.action.detail.command.slice(0, 7)], ['enable-auto-merge', ['gh', 'pr', 'merge', String(number), '--auto', '--merge', '--match-head-commit']], model);
+      assert.equal(perform(p, enable.action).status, 0);
+      assert.ok(p.sim.calls().some((c) => c.join(' ') === `pr merge ${number} --auto --merge --match-head-commit ${trainHead}`), model);
+      assert.deepEqual(endOf(nextIn(p)), [1, 'end', 'waiting-on-github', 'train-auto-merge-on']);
+    } else {
+      assert.deepEqual(endOf(nextIn(p)), [1, 'end', 'waiting-for-owner', 'train-ready'], model);
+      assert.equal(p.sim.calls().some((c) => c.includes('--auto')), false, 'trunk never enables auto-merge');
+    }
+    // GitHub marks alpha merged; the train's merge is the stub's auto-merge in trunk-auto and the owner's step in trunk
+    p.sim.merge(p.changes.alpha.number);
+    if (model === 'trunk-auto') p.sim.merge(number);
+    else assert.equal(p.sim.gh(p.t.main)(['pr', 'merge', String(number), '--merge']).status, 0, 'the owner\'s merge');
+    const mergeCommit = p.sim.pr(number).mergeCommit;
+    assert.equal(p.sim.pr(number).state, 'MERGED', model);
+    git(p.t.main, 'fetch', '-q', 'origin');
+    for (const c of Object.values(p.changes)) git(c.wt, 'fetch', '-q', 'origin');
+
+    // alpha: GitHub marked it merged, delivered, nothing posted
+    assert.equal(p.next('alpha').step, 'retro', model);
+    assert.deepEqual(p.sim.writes().filter((c) => c[1] === 'comment' || c[1] === 'close'), [], model);
+    // beta: still open, delivered by the train, closed with the comment before its retro
+    const close = p.next('beta');
+    const comment = commentOf(n, number, mergeCommit);
+    assert.deepEqual([close.step, close.comment], ['close-boarded-pr', comment], model);
+    closeAsSkill(p, 'beta', close);
+    assert.equal(p.next('beta').step, 'retro', model);
+    assert.deepEqual(p.sim.writes().filter((c) => c[1] === 'comment' || c[1] === 'close').map((c) => [c[1], c[2]]), [['comment', String(p.changes.beta.number)], ['close', String(p.changes.beta.number)]], model);
+    // the train's own run finds it closed and goes on to clean up
+    assert.equal(nextIn(p).action.step, 'clean-train', model);
+    // auto-merge was never enabled on a boarded change's own pull request
+    const autos = p.sim.calls().filter((c) => c[0] === 'pr' && c[1] === 'merge' && c.includes('--auto'));
+    assert.deepEqual(autos.map((c) => c[2]), model === 'trunk-auto' ? [String(number)] : [], model);
+  }
+});
+
+test('delivery-train docs: pr-verifier leaves the parts the train proves to the train, and a change that edits the key runs every part', () => {
+  const agent = repoFile('plugins', 'core', 'agents', 'pr-verifier.md');
+  assert.match(agent, /`devkit\.delivery\.train`/, 'it names the key');
+  assert.match(agent, /default branch/, 'it reads the key from the default branch\'s settings');
+  assert.match(agent, /a gate part equal to a part of that command is not run/, 'the rule');
+  assert.ok(agent.includes('| <gate> | \\`<part>\\` | train: proven by the train record |'), 'the row, written as the gates row is, ends in a cell that starts with train:');
+  assert.match(agent, /adds, edits or removes the key runs every part/, 'a change that edits the key runs every part');
+  assert.doesNotMatch(agent, /gh pr comment/);
+});
+
+test('delivery-train docs: the post-merge section and CONTRIBUTING say what a merged train delivers and how a release rides it', () => {
+  const flow = repoFile('docs', 'openspec-flow.md');
+  const post = sliceOf(flow, '### After the merge: the archive steps', '## Shipping a change: ship modes');
+  for (const [what, re] of [
+    ['delivered by a train', /delivered by a train/i],
+    ['the record that delivers it', /record of a merged train/],
+    ['the head it must list', /at the head of its own pull request/],
+    ['the close step', /`close-boarded-pr`/],
+    ['the comment', /Delivered by train <n> in #<train pull request> \(merge commit <sha7>\)/],
+    ['a train head is never the change\'s own', /head `train\/<n>` is never a change's own pull request/],
+    ['the archives on the train', /archive of a delivered change boards the next train/],
+  ]) assert.match(post, re, `the post-merge section names ${what}`);
+
+  const contributing = repoFile('CONTRIBUTING.md');
+  for (const [what, re] of [
+    ['the merge during review', /a boarded change never merges the base for a sibling/],
+    ['the numbers on the train', /takes its release numbers on the train/],
+    ['the tag of the train', /tagged `v<the train's version>` on the train's merge commit/],
+    ['no tag for the boarded versions', /the intermediate versions of the boarded changes get no tag/],
+  ]) assert.match(contributing, re, `CONTRIBUTING names ${what}`);
+});
+
+// ================================================================ phase 6: the real run (AC-12)
+
+// The real command lines of the delivery, spawned the way the coordinating session spawns them, from fresh scratch
+// repositories (a bare origin, a main checkout, worktrees): `change-loop.mjs start` with `train` on standard input, then
+// `train-loop.mjs next` and the command of each action in turn, with the stub `gh` of `simGitHub` first on PATH. What GitHub
+// does between two commands (it runs the checks, it merges the train's pull request) is the stub's: the test says so in the
+// transcript. Nothing is imported from the scripts here: every call crosses a process boundary.
+//
+// When DEVKIT_REAL_RUN_FILE names a file, the transcript of the four cases is written there as Markdown: that is how
+// `openspec/changes/delivery-train/proof/real-run.md` is made (task 6.8).
+const changeLoopFile = join(here, 'change-loop.mjs');
+const deliverCheckFile = join(here, 'deliver-check.mjs');
+const REAL_RUN_FILE = process.env.DEVKIT_REAL_RUN_FILE ?? '';
+
+// The env of a session's commands: a session does not run under the test runner, so the variable that makes a nested
+// `node --test` behave as a child of this one (and report green without running its files) is dropped.
+const sessionEnv = (p) => { const { NODE_TEST_CONTEXT, ...env } = depEnv(p); return env; };
+
+// A session on the scratch project `p`: `run` spawns a command line in a folder and records it; `github` records what the
+// stub does in the place of GitHub.
+function sessionOf(p) {
+  const log = [];
+  const shown = (text) => String(text ?? '')
+    .split(p.scratch).join('<scratch>').split(p.t.main).join('<repo>').split(p.t.originDir).join('<origin>').split(p.sim.dir).join('<github-stub>').split(here).join('<hooks>');
+  const run = (argv, { cwd = p.t.main, input } = {}) => {
+    const r = spawnSync(argv[0], argv.slice(1), { cwd, env: sessionEnv(p), input, encoding: 'utf8' });
+    log.push({ kind: 'command', cwd: shown(cwd), command: shown(argv.join(' ')), input, status: r.status, stdout: shown(r.stdout), stderr: shown(r.stderr) });
+    return r;
+  };
+  const github = (what) => log.push({ kind: 'github', what });
+  // `train-loop.mjs next`, the way a session asks for its next action, then the action's command when it is one.
+  const next = (after = null) => {
+    const r = run(['node', trainLoopFile, 'next', '--lang', 'en', ...(after ? ['--after', after] : [])]);
+    return { code: r.status, action: JSON.parse(r.stdout) };
+  };
+  // Asks and performs until an action ends the run; `react[step]` is what GitHub does after the session performed `step`.
+  const ride = (react = {}) => {
+    const steps = [];
+    let after = null;
+    for (let i = 0; i < 25; i++) {
+      const { code, action } = next(after);
+      if (action.kind === 'end') return { code, action, steps };
+      const done = run(action.detail.command);
+      steps.push(action.step);
+      assert.equal(done.status, 0, `${action.step}: ${done.stderr}`);
+      react[action.step]?.(action);
+      after = action.progressKey;
+    }
+    throw new Error(`the run did not end: ${steps.join(', ')}`);
+  };
+  // The next step of a change (or an archive) as its own delivery loop gives it, spawned in its worktree.
+  const stepOf = (id, wt) => {
+    const r = run(['node', deliverCheckFile, id, '--json'], { cwd: wt });
+    return JSON.parse(r.stdout).next;
+  };
+  return { log, run, github, next, ride, stepOf };
+}
+
+const transcripts = [];
+function recordCase(no, model, title, ends, log) {
+  const lines = [`## Case ${no}: ${title}`, '', `Model: \`${model}\`.`, '', `Ends with: ${ends}`, ''];
+  for (const e of log) {
+    if (e.kind === 'github') { lines.push(`> The stub \`gh\` stands in for GitHub: ${e.what}`, ''); continue; }
+    lines.push(`$ cd ${e.cwd} && ${e.command}${e.input === undefined ? '' : `   # standard input: ${JSON.stringify(e.input)}`}`, '', `exit code ${e.status}`, '');
+    const out = e.stdout.trim();
+    if (out) lines.push('```text', out.length > 3000 ? `${out.slice(0, 3000)}\n... (${out.length - 3000} more characters)` : out, '```', '');
+    if (e.stderr.trim()) lines.push('stderr:', '', '```text', e.stderr.trim().slice(0, 1000), '```', '');
+  }
+  transcripts.push(lines.join('\n'));
+}
+
+const callsOf = (p) => p.sim.calls().map((c) => c.join(' '));
+// GitHub merges `train`'s pull request with a merge commit and marks the pull requests of `marked` merged; the others stay open.
+function githubMerges(p, s, trainNumber, marked) {
+  for (const id of marked) p.sim.merge(p.changes[id].number);
+  p.sim.merge(trainNumber);
+  s.github(`pull requests ${[...marked.map((id) => p.changes[id].number), trainNumber].map((n) => `#${n}`).join(', ')} are merged (the train's with a merge commit, ${marked.length} of the boarded ones marked merged); the other boarded pull requests stay open`);
+  git(p.t.main, 'fetch', '-q', 'origin');
+  for (const c of [...Object.values(p.changes), ...Object.values(p.archives)]) git(c.wt, 'fetch', '-q', 'origin');
+}
+const trainPrOf = (p) => p.sim.prs().find((pr) => /^train\/\d+$/.test(pr.head));
+
+// The part every case shares: the session types `/devkit train`, the loop departs, pushes and opens the train's pull request.
+function startAndDepart(p, s, react = {}) {
+  const start = s.run(['node', changeLoopFile, 'start', '--lang', 'en'], { input: 'train' });
+  const body = JSON.parse(start.stdout);
+  assert.deepEqual([start.status, body.mode, body.verb], [0, 'train', 'train'], start.stdout);
+  return s.ride(react);
+}
+
+const conductFile = join(here, 'conduct-check.mjs');
+
+// The row of change `id` as the conducting session reads it, spawned from the main checkout.
+function conductRow(s, id) {
+  const r = s.run(['node', conductFile, '--change', id, '--json']);
+  return JSON.parse(r.stdout).changes.find((c) => c.id === id);
+}
+
+const TEST_OF = (id) => `import { test } from 'node:test';\ntest('${id}', () => {});\n`;
+const SHARED_TEST = "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { existsSync } from 'node:fs';\n"
+  + "test('alpha and beta never ship together', () => {\n  assert.ok(!(existsSync('test/alpha.test.mjs') && existsSync('test/beta.test.mjs')), 'alpha and beta clash');\n});\n";
+const TEST_SUITE = 'node --test test/*.test.mjs';
+const SHARED = 'line 1\nline 2\nline 3\n';
+
+test('delivery-train AC-12: the real run', () => {
+  const scratches = [];
+  // Every case's departure TMPDIR is its own and must be empty when the case ends: nothing is left behind.
+  const finish = (p) => { scratches.push(p.scratch); assert.deepEqual(readdirSync(p.scratch), [], 'the run leaves nothing in its TMPDIR'); };
+  const checksPass = (p, s) => () => { p.sim.setChecks(trainPrOf(p).number, GREEN); s.github('the checks of the train\'s pull request pass (`check`, `devkit-reviews`)'); };
+
+  // Case 1: trunk-auto. Two changes and an archive board, depart, push, open the train's pull request, auto-merge, the merge.
+  {
+    const p = project({ model: 'trunk-auto', train: 'true', roadmap: roadmapOfIds('gamma'), files: RELEASE_BASE });
+    const alpha = addChange(p, 'alpha', { files: bumpFiles('0.7.0', 'alpha'), at: '2026-11-23T10:00:00Z' });
+    const beta = addChange(p, 'beta', { files: bumpFiles('0.7.0', 'beta'), at: '2026-11-23T10:10:00Z' });
+    const gamma = addArchive(p, 'gamma', { at: '2026-11-23T10:05:00Z' });
+    const s = sessionOf(p);
+    const end = startAndDepart(p, s, { 'open-train-pr': checksPass(p, s) });
+    assert.deepEqual(end.steps, ['depart', 'push-train', 'open-train-pr', 'enable-auto-merge']);
+    assert.deepEqual([end.code, end.action.end.state, end.action.end.why], [1, 'waiting-on-github', 'train-auto-merge-on']);
+    const number = trainPrOf(p).number;
+    const head = git(p.t.main, 'ls-remote', 'origin', 'refs/heads/train/1').split('\t')[0];
+    assert.ok(callsOf(p).includes(`pr merge ${number} --auto --merge --match-head-commit ${head}`), 'auto-merge is enabled on the train with the merge method merge, pinned to the train head');
+    assert.equal(JSON.parse(git(p.t.main, 'show', `train/1:plugins/a/.claude-plugin/plugin.json`)).version, '0.8.0', 'the release is renumbered on the train only');
+    assert.equal(JSON.parse(git(p.t.main, 'show', 'origin/beta:plugins/a/.claude-plugin/plugin.json')).version, '0.7.0');
+    githubMerges(p, s, number, ['alpha']);
+    const after = s.ride();
+    assert.deepEqual(after.steps, ['close-boarded-pr', 'close-boarded-pr', 'clean-train', 'clean-train']);
+    assert.deepEqual([after.code, after.action.end.why], [1, 'train-nothing']);
+    assert.equal(p.sim.pr(beta.number).state, 'CLOSED', 'the pull request GitHub left open is closed with the comment');
+    assert.equal(p.sim.pr(gamma.number).state, 'CLOSED');
+    assert.ok(callsOf(p).some((c) => c.startsWith(`pr close ${beta.number} --comment Delivered by train 1 in #${number} (merge commit `)), 'with the comment that says which train delivered it');
+    assert.deepEqual([s.stepOf('alpha', alpha.wt).step, s.stepOf('beta', beta.wt).step, s.stepOf('gamma', gamma.wt).step], ['retro', 'retro', 'archived']);
+    assert.equal(callsOf(p).filter((c) => c.startsWith('pr merge') && c.includes('--auto')).length, 1, 'auto-merge is enabled once, on the train, and never on a boarded change\'s own pull request');
+    assert.equal(gitOf(p, 'for-each-ref', 'refs/heads/train'), '', 'the train branch and its worktree are gone');
+    recordCase(1, 'trunk-auto', 'two changes and the archive of a third board, the train merges by auto-merge', 'the train\'s pull request merged by auto-merge (`gh pr merge <n> --auto --merge --match-head-commit <head>`), `beta`\'s pull request and the archive\'s closed with the comment, `alpha` and `beta` at their retro and the archive of `gamma` archived.', s.log);
+    finish(p);
+  }
+
+  // Case 2: trunk. The same boarding; the checks run, the owner's step merges, no auto-merge is ever enabled.
+  {
+    const p = project({ model: 'trunk', train: 'true' });
+    const alpha = addChange(p, 'alpha', { at: '2026-11-23T10:00:00Z' });
+    const beta = addChange(p, 'beta', { at: '2026-11-23T10:10:00Z' });
+    const s = sessionOf(p);
+    const pending = startAndDepart(p, s, { 'open-train-pr': () => { p.sim.setChecks(trainPrOf(p).number, PENDING); s.github('the checks of the train\'s pull request are running (`check` pending)'); } });
+    assert.deepEqual(pending.steps, ['depart', 'push-train', 'open-train-pr']);
+    assert.deepEqual([pending.code, pending.action.end.state, pending.action.end.why], [1, 'waiting-on-github', 'train-checks']);
+    const number = trainPrOf(p).number;
+    p.sim.setChecks(number, GREEN);
+    s.github('the checks of the train\'s pull request pass (`check`, `devkit-reviews`)');
+    const ready = s.ride();
+    assert.deepEqual(ready.steps, []);
+    assert.deepEqual([ready.code, ready.action.end.state, ready.action.end.why], [1, 'waiting-for-owner', 'train-ready']);
+    p.sim.merge(alpha.number);
+    s.github(`pull request #${alpha.number} is marked merged; #${beta.number} stays open`);
+    const owner = s.run(['gh', 'pr', 'merge', String(number), '--merge']);
+    assert.equal(owner.status, 0, owner.stderr);
+    assert.equal(p.sim.pr(number).state, 'MERGED', 'the owner\'s step merged the train');
+    git(p.t.main, 'fetch', '-q', 'origin');
+    for (const c of Object.values(p.changes)) git(c.wt, 'fetch', '-q', 'origin');
+    const after = s.ride();
+    assert.deepEqual(after.steps, ['close-boarded-pr', 'clean-train', 'clean-train']);
+    assert.deepEqual([s.stepOf('alpha', alpha.wt).step, s.stepOf('beta', beta.wt).step], ['retro', 'retro']);
+    assert.deepEqual(callsOf(p).filter((c) => c.includes('--auto')), [], 'no auto-merge call was ever made, on any pull request');
+    recordCase(2, 'trunk', 'two changes board, the owner merges the train', 'the train\'s pull request merged by the owner\'s step (`gh pr merge <n> --merge`), no `--auto` call on any pull request, `alpha` and `beta` at their retro.', s.log);
+    finish(p);
+  }
+
+  // Case 3: trunk-auto. Two changes that pass alone and fail together: the later leaves red, the rest departs after one more run.
+  {
+    const p = project({ model: 'trunk-auto', train: TEST_SUITE, files: { 'test/shared.test.mjs': SHARED_TEST } });
+    const alpha = addChange(p, 'alpha', { files: { 'test/alpha.test.mjs': TEST_OF('alpha') }, at: '2026-11-23T10:00:00Z' });
+    const beta = addChange(p, 'beta', { files: { 'test/beta.test.mjs': TEST_OF('beta') }, at: '2026-11-23T10:10:00Z' });
+    const s = sessionOf(p);
+    const end = startAndDepart(p, s, { 'open-train-pr': checksPass(p, s) });
+    assert.deepEqual(end.steps, ['depart', 'push-train', 'open-train-pr', 'enable-auto-merge']);
+    const departure = JSON.parse(s.log.find((e) => e.kind === 'command' && e.command.includes(' depart ')).stdout);
+    assert.deepEqual([departure.boarded.map((b) => b.id), departure.left.map((l) => [l.id, l.why])], [['alpha'], [['beta', 'red']]]);
+    assert.equal(departure.runs, 3, 'the full train (red), the prefix of alpha (green), then the train without beta (green)');
+    const record = deliver.parseTrainRecord(git(p.t.main, 'show', 'train/1:openspec/trains/1.md'));
+    assert.deepEqual([record.result, record.left.map((l) => [l.id, l.why])], ['passed', [['beta', 'red']]]);
+    assert.match(record.left[0].failure, /alpha and beta clash/, 'the record carries the failure of the suite that ran');
+    assert.deepEqual(s.stepOf('beta', beta.wt).step, 'wait-train', 'while the train is open, beta waits on GitHub for it');
+    githubMerges(p, s, trainPrOf(p).number, ['alpha']);
+    const after = s.ride();
+    assert.deepEqual(after.steps, ['clean-train', 'clean-train']);
+    const rejoin = s.stepOf('beta', beta.wt);
+    assert.equal(rejoin.step, 'rejoin-train', 'once the train merged, beta goes back to its own cycle');
+    assert.match(JSON.stringify(rejoin), /alpha and beta clash/, 'with the failure attached');
+    assert.deepEqual(rejoin.paths, [], 'a red change has no path to resolve');
+    assert.equal(s.stepOf('alpha', alpha.wt).step, 'retro');
+    assert.equal(p.sim.pr(beta.number).state, 'OPEN', 'beta\'s pull request is not closed: it did not ride');
+    recordCase(3, 'trunk-auto', 'two changes pass alone and fail together, the later one leaves red', 'the train (`alpha` alone) merged by auto-merge after the bisection; `beta` at `wait-train` while the train was open and at `rejoin-train`, with the failure attached, once it merged.', s.log);
+    finish(p);
+  }
+
+  // Case 4: trunk-auto. beta conflicts with alpha in a product file; the archives of gamma and delta edit the same canonical spec.
+  {
+    const p = project({ model: 'trunk-auto', train: 'true', roadmap: roadmapOfIds('gamma', 'delta'), files: { 'src/shared.txt': SHARED, [SPEC]: '# spec\n\nline 1\nline 2\nline 3\n' } });
+    const alpha = addChange(p, 'alpha', { files: { 'src/shared.txt': 'line 1\nalpha line 2\nline 3\n' }, at: '2026-11-23T10:00:00Z' });
+    const beta = addChange(p, 'beta', { files: { 'src/shared.txt': 'line 1\nbeta line 2\nline 3\n' }, at: '2026-11-23T10:05:00Z' });
+    const delta = (id) => ({ [`openspec/changes/${id}/specs/change-coordination/spec.md`]: `## ADDED Requirements\n\n### Requirement: ${id}\n`, });
+    const gamma = addArchive(p, 'gamma', { at: '2026-11-23T10:10:00Z', changeFiles: delta('gamma'), files: { [SPEC]: '# spec\n\nline 1\ngamma line 2\nline 3\n' } });
+    const deltaArchive = addArchive(p, 'delta', { at: '2026-11-23T10:15:00Z', changeFiles: delta('delta'), files: { [SPEC]: '# spec\n\nline 1\ndelta line 2\nline 3\n' } });
+    const s = sessionOf(p);
+    const end = startAndDepart(p, s, { 'open-train-pr': checksPass(p, s) });
+    assert.deepEqual(end.steps, ['depart', 'push-train', 'open-train-pr', 'enable-auto-merge']);
+    const departure = JSON.parse(s.log.find((e) => e.kind === 'command' && e.command.includes(' depart ')).stdout);
+    assert.deepEqual(departure.boarded.map((b) => `${b.kind}:${b.id}`), ['change:alpha', 'archive:gamma']);
+    assert.deepEqual(departure.left.map((l) => [l.kind, l.id, l.why]), [['change', 'beta', 'conflict'], ['archive', 'delta', 'conflict']]);
+    assert.equal(departure.left[0].detail, '`src/shared.txt`');
+    assert.ok(departure.left[1].detail.includes(`\`${SPEC}\``), `the archive leaves with the spec's path: ${departure.left[1].detail}`);
+    githubMerges(p, s, trainPrOf(p).number, ['alpha']);
+    const after = s.ride();
+    assert.deepEqual(after.steps, ['close-boarded-pr', 'clean-train', 'clean-train']);
+    const rejoin = s.stepOf('beta', beta.wt);
+    assert.equal(rejoin.step, 'rejoin-train');
+    assert.deepEqual(rejoin.paths, ['src/shared.txt'], 'a conflicting change gets the path to resolve');
+    const stop = conductRow(s, 'delta').next;
+    assert.deepEqual([stop.step, stop.archiveStep], ['stop-archive', 'train-left']);
+    assert.ok(stop.reason.includes(SPEC), stop.reason);
+    assert.equal(s.stepOf('gamma', gamma.wt).step, 'archived');
+    assert.equal(p.sim.pr(deltaArchive.number).state, 'OPEN', 'the archive of delta did not ride and stays open for its own cycle');
+    assert.equal(s.stepOf('alpha', alpha.wt).step, 'retro');
+    recordCase(4, 'trunk-auto', 'a product conflict and two archives of one spec: beta and the archive of delta leave with their paths', 'the train (`alpha` and the archive of `gamma`) merged by auto-merge; `beta` at `rejoin-train` naming `src/shared.txt`; the archive of `delta` at `stop-archive` (`train-left`) naming the spec path.', s.log);
+    finish(p);
+  }
+
+  if (REAL_RUN_FILE) writeFileSync(REAL_RUN_FILE, `# Real run of delivery-train\n\n${transcripts.join('\n')}\n`);
+  assert.equal(scratches.length, 4, 'four cases, each from a fresh scratch repository and a TMPDIR of its own');
+});

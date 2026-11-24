@@ -10,13 +10,13 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHasArtifact } from './guard.mjs';
+import { changeSchemaAt, findRoot, parseRoadmap, readValue, schemaFile, schemaHasArtifact, readTrainSetting } from './guard.mjs';
 import { readRepoSettings } from './merge-setup.mjs';
 import { readFlow, FlowUsageError } from './flow-check.mjs';
 import {
   UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes,
 } from './deliver-check.mjs';
-import { PIN_FILE, classifyConflict } from './release-merge.mjs';
+import { PIN_FILE, classifyConflict, resolveRoadmapTicks } from './release-merge.mjs';
 
 // The worktree list lives in deliver-check.mjs (delivery-models D-11) and stays importable from here.
 export { listWorktrees };
@@ -48,7 +48,7 @@ const TDD = 'devkit-core:tdd-implementer';
 const COMMIT = 'devkit-core:commit-and-pr';
 const PLANNER = 'devkit-core:change-planner';
 const SUBAGENT = {
-  implement: TDD, 'fix-review': TDD, 'fix-defect': TDD, 'fix-checks': TDD, 'apply-proposals': TDD, 'resolve-release-conflict': TDD,
+  implement: TDD, 'fix-review': TDD, 'fix-defect': TDD, 'fix-checks': TDD, 'apply-proposals': TDD, 'resolve-release-conflict': TDD, 'rejoin-train': TDD,
   commit: COMMIT, 'open-pr': COMMIT, push: COMMIT, 'open-archive-pr': COMMIT,
   'open-prs': COMMIT, 'open-test-pr': COMMIT, 'push-support': COMMIT, 'move-test-pr': COMMIT, 'open-test-archive-pr': COMMIT,
   'resolve-support-conflict': TDD, 'fix-resolution': TDD,
@@ -59,10 +59,10 @@ const SUBAGENT = {
   audit: 'devkit-core:plan-reality-auditor',
 };
 const MAIN = ['edit-pr-body', 'enable-auto-merge', 'disable-auto-merge', 'update-branch', 'archive', 'tick-roadmap', 'answer', 'worktree', 'rebase', 'rerun-checks',
-  'checkout-support', 'merge-into-support'];
+  'checkout-support', 'merge-into-support', 'close-boarded-pr', 'rejoin-archive'];
 const ASKABLE = ['stop-retro-answers', 'stop-plan-approval', 'create', 'new-change', 'grill', 'approve'];
-const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
-const GITHUB = ['wait-checks', 'wait-merge'];
+const OWNER = ['ready', 'archive-pr-ready', 'archive-prs-ready', 'ready-test-branch', 'ready-base', 'boarded', 'stop-review-deadlock', 'stop-readiness-blocked', 'stop-audit-unverifiable'];
+const GITHUB = ['wait-checks', 'wait-merge', 'on-train', 'wait-train'];
 const STOP = ['stop-plan-mode', 'stop-branch', 'stop-merge-setup', 'stop-archive', 'blocked', 'stop-not-approved'];
 
 // The static map of design D9: { actor, agent?, askable? } for a `next.step`.
@@ -402,13 +402,41 @@ function releaseConflict(ctx, row, state, report) {
   });
 }
 
-// deliver-check's report as a conduct row, after the override that needs git (D9): the release-file conflict,
-// except that auto-merge is switched off before anything else.
+// Override 4: an archive that left a train for a conflict (delivery-train D-2). Once its train ended, the archive merges the base
+// when that conflicts only in release files, the CI pin and roadmap ticks (`rejoin-archive`, a session step that runs
+// `release-merge.mjs --base <base> --roadmap-ticks` in the archive's worktree and is followed by a plain push); a merge made
+// here and not pushed yet is pushed first; any other conflict, a spec edited by two archives for one, stops for the owner.
+export function trainRejoin(ctx, row, state, report) {
+  const n = report.next;
+  if (n.step !== 'rejoin-archive') return null;
+  const pr = openPrOf(state);
+  const stop = (message, extra = {}) => ({ ...step('stop-archive', message, { archiveStep: 'train-left', ...extra }), blockedState: `blocked: ${message}` });
+  if (unpushedMerge(row.worktree, ctx.ref, pr)) {
+    return step('open-archive-pr', `the merge of ${ctx.ref} is not pushed yet; archive PR #${pr.number} still has ${pr.headRefOid.slice(0, 7)}; push it`, { number: pr.number, branch: state.branch, command: ['git', 'push', 'origin', state.branch] });
+  }
+  const found = conflictedPaths(row.worktree, ctx.ref);
+  if (found.error) return stop(`archive of ${row.id} left train ${n.train}: cannot classify its conflict with ${ctx.base} (git merge-tree --write-tree needs git 2.38)`);
+  if (found.paths) {
+    const blocking = classifyConflict(found.paths, (p) => threeVersions(row.worktree, ctx.ref, p), { roadmap: resolveRoadmapTicks }).blocking;
+    if (blocking.length) return stop(`archive of ${row.id} left train ${n.train} and conflicts with ${ctx.base} in ${blocking.join(', ')}; resolve them on ${state.branch}`, { paths: blocking });
+  }
+  return step('rejoin-archive', `archive of ${row.id} left train ${n.train}: merge ${ctx.ref} into ${state.branch}, then push`, {
+    number: pr?.number ?? n.number, branch: state.branch, base: ctx.base, paths: found.paths ?? [], train: n.train, root: row.worktree,
+    command: ['node', RELEASE_MERGE, '--base', ctx.base, '--roadmap-ticks', '--json'],
+  });
+}
+
+// deliver-check's report as a conduct row, after the overrides that need git (D9): the release-file conflict and the archive that
+// left a train, except that auto-merge is switched off before anything else.
 export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
   if (d.report.next.step === 'disable-auto-merge') return { ...plain, ...info };
-  const override = releaseConflict(ctx, row, d.state, d.report);
+  if (d.report.next.step === 'rejoin-train') {
+    const next = { ...plain.next, base: ctx.base };
+    return { next, state: stateOf(next, { summary: d.report.summary }), ...info };
+  }
+  const override = releaseConflict(ctx, row, d.state, d.report) ?? trainRejoin(ctx, row, d.state, d.report);
   if (!override) return { ...plain, ...info };
   const next = { ...override, ...actorOf(override.step) };
   return { next, state: stateOf(next, { summary: d.report.summary }), ...info };
@@ -418,6 +446,8 @@ export function deliveryRow(ctx, row, d) {
 // other change that already has an archive branch, and on the changes before it in roadmap order that also
 // want to archive.
 function serializeArchives(ctx, rows) {
+  // In a project with a delivery train the archives board together, so they no longer wait on each other (delivery-train D-2).
+  if (ctx.train) return rows;
   const archiving = (r) => r.next.step !== 'archived' && (r.branch === `chore/archive-${r.id}` || resolves(ctx.root, `refs/heads/chore/archive-${r.id}`));
   const wanting = [];
   return rows.map((r) => {
@@ -623,7 +653,7 @@ function compute(root, { env, ghFor, round, busy, change }) {
     const result = { version: 2, base, mode: 'change', change, round: null, startedAt: null, skipped: [], roadmapDone: false, changes: [] };
     const ctx = {
       root, env, ghFor, base, ref, ticked: new Set(), main: mainRoot(root), worktrees: listWorktrees(root),
-      originSha: git(root, ['rev-parse', ref]).trim(), single: true,
+      originSha: git(root, ['rev-parse', ref]).trim(), single: true, train: readTrainSetting(root).suite,
     };
     const items = [{ id: change, after: [], text: null, notes: null }];
     result.changes = serializeArchives(ctx, items.map((item) => evaluate(ctx, item, null)));
@@ -648,7 +678,7 @@ function compute(root, { env, ghFor, round, busy, change }) {
     result.round = { n: at + 1, title: current.title, done: current.items.filter((i) => i.done).length, total: current.items.length };
     ctx = {
       root, env, ghFor, base, ref, ticked, main: mainRoot(root), worktrees: listWorktrees(root),
-      originSha: git(root, ['rev-parse', ref]).trim(),
+      originSha: git(root, ['rev-parse', ref]).trim(), train: readTrainSetting(root).suite,
     };
     items = unticked(current);
     result.changes = serializeArchives(ctx, items.map((item) => evaluate(ctx, item, at + 1)));

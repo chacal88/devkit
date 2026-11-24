@@ -91,6 +91,12 @@ Repeat: run `deliver-check <id> --json`; do exactly the step `next.step` names; 
 | `rerun-checks` | `gh run rerun <run> --failed` for each id in `next.runs` (the base pull request's `devkit-reviews` ran before the test-branch pull request merged), then continue the loop. |
 | `ready-test-branch` | Report ready (`two-prs` mode): the owner merges pull request #`next.number` to `next.branch` first; the one to `next.base` waits for it. |
 | `ready-base` | Report ready (`two-prs` mode): the owner merges pull request #`next.number` to `next.base`. |
+| `boarded` | Report boarded (a project with a delivery train): the change leaves with the next train, which `/devkit train` departs. Do nothing else: never enable auto-merge, never update the branch. |
+| `on-train` | Report that the change rides train `next.train`: wait for its pull request #`next.number`. Nothing else to do. |
+| `wait-train` | Report that train `next.train` took the change off and its pull request #`next.number` is open: wait for it. Nothing else to do. |
+| `rejoin-train` | Dispatch `devkit-core:tdd-implementer`: "Train <next.train> took change <id> off (<next.why>): merge the base branch into the branch with `node <skill-dir>/../../hooks/release-merge.mjs --base <base>` when only release files conflict, else with `git merge origin/<base>`, and resolve <next.paths> or fix <next.failure>, test first." |
+| `close-boarded-pr` | `gh pr comment <next.number> --body "<next.comment>"`, then `gh pr close <next.number>`: the train delivered the change. Continue the loop. |
+| `rejoin-archive` | Run `next.command` in the archive's worktree `next.root`, then `git push origin <next.branch>` (a plain push, never a force push). Continue the loop. |
 | `archived` | Report `archived`. |
 
 ## Stops
