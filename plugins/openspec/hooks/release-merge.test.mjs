@@ -4,11 +4,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpFolder, tmpRoot } from './test-tmp.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
-import { pinDoc } from './test-fixtures.mjs';
+import { pinDoc, underOwnTmp } from './test-fixtures.mjs';
 
 const script = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
 const ENV = {
@@ -326,7 +326,6 @@ test('release-merge: a missing origin/<base> and an unknown option are setup err
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const here = dirname(fileURLToPath(import.meta.url));
-const pinTmp = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
 const pinPack = (version) => ({ [PIN_PACK]: json({ name: PIN_PACK_NAME, version, description: 'pack devkit-openspec' }) });
 const pinMarket = (metadata, version) => marketplace(metadata, { a: '0.6.0', b: '0.5.0', [PIN_PACK_NAME]: version });
@@ -358,27 +357,27 @@ test('release-merge pin: setPins keeps CRLF endings, leaves a marker line withou
 });
 
 test('release-merge pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder', () => {
-  const before = pinTmp();
   const base = pinDoc('0.10.0');
   const ours = pinDoc('0.11.0', { top: 'TOP A' });
   const theirs = pinDoc('0.10.1', { bottom: 'BOTTOM B' });
-  const merged = mergePins({ base, ours, theirs });
+  const { value: merged, left } = underOwnTmp(() => mergePins({ base, ours, theirs }));
   assert.equal(typeof merged, 'string');
   assert.match(merged, /TOP A/);
   assert.match(merged, /BOTTOM B/);
   assert.deepEqual([...new Set(pinsOf(merged))], ['v0.0.0']);
-  assert.deepEqual(pinTmp(), before);
+  assert.deepEqual(left, [], 'no temporary folder is left behind');
 });
 
 test('release-merge pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder', () => {
-  const before = pinTmp();
   const base = pinDoc('0.10.0');
-  assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
-  for (const side of ['base', 'ours', 'theirs']) {
-    const sides = { base, ours: base, theirs: base, [side]: null };
-    assert.equal(mergePins(sides), null, side);
-  }
-  assert.deepEqual(pinTmp(), before);
+  const { left } = underOwnTmp(() => {
+    assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
+    for (const side of ['base', 'ours', 'theirs']) {
+      const sides = { base, ours: base, theirs: base, [side]: null };
+      assert.equal(mergePins(sides), null, side);
+    }
+  });
+  assert.deepEqual(left, [], 'no temporary folder is left behind');
 });
 
 test('release-merge pin: classifyConflict lets release files through without reading any stage', () => {

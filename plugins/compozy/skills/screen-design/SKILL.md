@@ -1,6 +1,6 @@
 ---
 name: screen-design
-description: Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical half of the design gate. Use when a change's `## Screens` section names at least one screen, before implementation starts.
+description: Reads a project's screen map and mockup version, proposes or confirms a row for each screen a change declares, and runs the mechanical check of the screen map (`screens-check`). Use when a change's `## Screens` section names at least one screen, before implementation starts.
 ---
 
 # screen-design
@@ -26,7 +26,7 @@ design:
 - `mockup` names the tool or document the mockup itself lives in (a Figma file, a design doc); it
   is informational only; `screens-check` does not read it to decide pass or fail.
 - No `design:` block means the project has no screen map to check against: nothing to read, and
-  the design gate is a no-op for it (see `screens-check`'s own `SKILL.md`-adjacent contract below).
+  `screens-check` is a no-op for it (see its contract below).
 
 ## What a proposed row must carry
 
@@ -55,16 +55,16 @@ ahead of the code it describes would describe screens no commit yet builds.
 ## One review, before any code
 
 Never approve a proposed row. The screen-map rows and the mockup version are part of what the
-operator reviews before `implement` runs, in the same review as the plan itself (plan and design,
-one decision): both can still change together if the operator asks for either. Only the operator's
-`approve` decision opens the way to code.
+owner reviews before `implement` runs: the plan approval, and the mock-up approval of a change
+flagged `ui` (the CompozyOS loops ask both as requests of their own). Only the owner's answer opens
+the way to code.
 
 ## The mechanical check
 
-`scripts/screens-check.mjs` is the command half of the design gate (design D5): it confirms every
+`scripts/screens-check.mjs` is the command half of this skill's check (design D5): it confirms every
 screen a change declares is a row of the map and the map's `Mockup:` line carries a version or a
 date, but it never judges whether a row's content is accurate — that is this skill's and the
-operator's job.
+owner's job.
 
 ```
 node scripts/screens-check.mjs --change <id> [--json]
@@ -72,7 +72,7 @@ node scripts/screens-check.mjs --change <id> [--json]
 
 - **Exit 0** — every declared screen is mapped and the map has a valid `Mockup:` line, *or* the
   change declares no screens, *or* the project has no `design:` block. A project without a UI pays
-  nothing for this gate.
+  nothing for this check.
 - **Exit 1** — a real failure: a declared screen is missing from the map, the map has no
   `Mockup:` line, or that line's value is neither a version nor an ISO date. The message names
   what is missing.

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // The devkit test suite: `node scripts/test-suite.mjs [--concurrency=<n>] [--reporter=<name>]
-// [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]` (ADR 0022).
+// [--test-name-pattern=<re>] [--test-skip-pattern=<re>] [<test file>...]` (ADR 0026).
 //
-// Runs every `*.test.mjs` of the suite's three folders, each file in a process of its own (`node --test <file>`),
+// Runs every `*.test.mjs` of the suite's four folders, each file in a process of its own (`node --test <file>`),
 // several at once, each with its own empty real-path TMPDIR under one run root. Refuses a test file that imports
 // another test file, fails a file that leaves anything in its TMPDIR, and exits 1 when any file fails.
 // Exit codes: 0 green; 1 a failed file, a leftover, a refused import or no test file; 2 a usage error;
@@ -15,11 +15,13 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-// The folders the suite reads, relative to the root (ADR 0022 decision 6: the compozy and panel tests stay out).
+// The folders the suite reads, relative to the root: those whose tests the old command ran. The other tests of plugins/compozy and
+// those of plugins/panel stay out (ADR 0026 decision 6).
 const SUITE_FOLDERS = [
   'plugins/openspec/hooks',
   'plugins/openspec/skills/openspec-setup/scripts',
   'plugins/core/skills/review-change/scripts',
+  'plugins/compozy/skills/compozy-setup/scripts',
 ];
 const TEST_FILE = /\.test\.mjs$/;
 const IMPORTED_TEST_FILE = /(?:\bfrom\s*|^\s*import\s*|\bimport\s*\(\s*)['"]([^'"]*\.test\.mjs)['"]/;

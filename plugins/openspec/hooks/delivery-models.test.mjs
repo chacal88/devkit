@@ -269,13 +269,6 @@ test('delivery-models open: the new replies exist in both languages and name no 
   }
 });
 
-// ---------------------------------------------------------------- simGitHub (D-11): a second fake gh with state across calls
-//
-// The fake keeps its pull requests in a JSON file and reads heads live from the bare origin, so a push moves a pull request
-// as it does on GitHub. It answers the calls deliver-check makes (`pr list` with --head, --base and --state, `pr checks`,
-// `api graphql`, the repository, the contents and the files of a pull request, `run view`) and the writes the agents make
-// (`pr create`, `pr close`, `run rerun`). A merge is the test's hook (`__merge`): a merge commit or a squash made in the origin.
-
 // ---------------------------------------------------------------- the scenario fixture: origin with main and develop, the main checkout, the task worktree
 
 const CHECK = (name, bucket, link = `https://github.com/o/r/actions/runs/77/job/1`) => ({ name, state: bucket.toUpperCase(), bucket, link });

@@ -2,7 +2,7 @@
 # Design
 
 Change: `suite-speed` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a (sources:
-`requirements.md`, `decisions.md`, ADR 0022, `proposal.md`). Base: `720d91d`. No spec delta
+`requirements.md`, `decisions.md`, ADR 0026, `proposal.md`). Base: `720d91d`. No spec delta
 (`skip_specs: true`, see `proposal.md`, Capabilities).
 
 ## Context
@@ -79,7 +79,7 @@ is the entry file (`process.argv[1]` resolves to its own path).
 `<root>/plugins/openspec/hooks`, `<root>/plugins/openspec/skills/openspec-setup/scripts` and
 `<root>/plugins/core/skills/review-change/scripts`, skipping any `node_modules` segment, as paths
 relative to the root with `/`, sorted. A folder that does not exist adds nothing. No other folder is
-read (ADR 0022 decision 6: the compozy and panel tests stay out).
+read (ADR 0026 decision 6: the compozy and panel tests stay out).
 
 **Arguments.** Only these forms; anything else exits 2 with a usage line on stderr:
 
@@ -119,7 +119,7 @@ that matches no test of a file is not an error: that child exits 0 and its count
 mid-line leaves `?`, never a crash.
 
 Alternatives: one quoted glob per folder (`node --test "plugins/openspec/hooks/*.test.mjs" ...`),
-rejected by ADR 0022 decision 2 (no place for the per-file `TMPDIR`, the import check or the
+rejected by ADR 0026 decision 2 (no place for the per-file `TMPDIR`, the import check or the
 leftover check, and the panel would label it by a glob); Node's `run()` API with `files` and
 `concurrency`, rejected because every file inherits the one `process.env`, so no per-file `TMPDIR`.
 
@@ -194,7 +194,7 @@ naming the file each came from. Rules:
   `devkit-origin-`, `devkit-change-loop-lock-`, ...).
 - **The eight unimported exports lose `export`** and stay in their files. Moving `packV2` would copy
   the whole pack in every importer's process. After the change no `*.test.mjs` exports a name.
-  (`decisions.md` / ADR 0022 decision 3 say every exported name moves; this is flagged for the owner
+  (`decisions.md` / ADR 0026 decision 3 say every exported name moves; this is flagged for the owner
   in `proposal.md`.)
 - **The importers** (table C) import from `./test-fixtures.mjs`, or
   `../../../hooks/test-fixtures.mjs` from `skills/openspec-setup/scripts/`, with the same local
@@ -242,14 +242,14 @@ naming it. When the list is not empty the script prints, per entry,
 `<file>:<line>: imports <spec>, a test file; move what it needs to a module that holds no test (in devkit-openspec, plugins/openspec/hooks/test-fixtures.mjs) and import that`,
 then `refused: <k> test-file imports` and exits 1 without starting any file. The check covers all of
 `plugins/` (AC-3), the suite's folders and the others. Alternative: put it in `scripts/check.py`;
-rejected because ADR 0022 decision 2 makes the script the place where it runs, so a sibling change
+rejected because ADR 0026 decision 2 makes the script the place where it runs, so a sibling change
 that merges `main` and runs the suite meets it at once.
 
 ### D-7 `scripts/check.py` refuses a skipped test (AC-5c)
 
 A new `check_no_skipped_tests()`, called from `main()` after `check_awaited_subtests()`, over
 `plugins/**/*.test.mjs` minus `SKIP_DIRS` and minus every path under `plugins/compozy/` (its five
-`skip`s guard a missing `compozy` CLI, and its tests are outside the suite, ADR 0022 decision 6).
+`skip`s guard a missing `compozy` CLI, and its tests are outside the suite, ADR 0026 decision 6).
 A line is refused when it matches either
 
 ```
@@ -316,17 +316,17 @@ The rule (`openspec/config.yaml`, tasks) is "the next free number on origin/main
 before review": task 5.1, after the last merge of `origin/main` into the branch, lists
 `git ls-tree --name-only origin/main docs/adr/`. When a sibling change has taken 0022, this change's
 ADR takes the next free number `<N>`, and in one commit: the file is renamed
-(`git mv docs/adr/0022-the-devkit-test-suite-runs-by-file-in-parallel.md docs/adr/<N>-the-devkit-test-suite-runs-by-file-in-parallel.md`),
-its title line `# ADR 0022:` becomes `# ADR <N>:`, the `openspec/config.yaml` ADRs entry of this
+(`git mv docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md docs/adr/<N>-the-devkit-test-suite-runs-by-file-in-parallel.md`),
+its title line `# ADR 0026:` becomes `# ADR <N>:`, the `openspec/config.yaml` ADRs entry of this
 table names `<N>`, `openspec/changes/suite-speed/decisions.md` links the new path, and every
-`ADR 0022` and `0022-the-devkit-test-suite` of this change's own texts (`proposal.md`, `design.md`,
+`ADR 0026` and `0026-the-devkit-test-suite` of this change's own texts (`proposal.md`, `design.md`,
 `tasks.md`, the `CHANGELOG.md` section of task 5.1, and the `CONTRIBUTING.md` paragraph if it names
 the ADR) names `<N>`. Nothing outside these files names the ADR. The check:
-`git grep -n "0022-the-devkit-test-suite"` prints nothing, `docs/adr/<N>-the-devkit-test-suite-runs-by-file-in-parallel.md`
+`git grep -n "0026-the-devkit-test-suite"` prints nothing, `docs/adr/<N>-the-devkit-test-suite-runs-by-file-in-parallel.md`
 exists, and `openspec/config.yaml` holds `<N> the devkit test suite runs by file in parallel`. When
 0022 is still free, nothing is renamed and the task records "0022 still free at <sha of origin/main>".
 
-ADR 0022 (or `<N>`): `- Status: proposed` becomes `- Status: accepted`, followed by
+ADR 0026 (or `<N>`): `- Status: proposed` becomes `- Status: accepted`, followed by
 `- Accepted by: the owner, on <date>, in the message that approved the plan of the change: \`<words>\`; recorded in \`openspec/changes/suite-speed/approval.md\``,
 the date and words read from `approval.md` (the form ADR 0021 uses).
 
@@ -484,7 +484,7 @@ both expressions hit the files above, so T-14 is red there (task 3.3's red half)
 
 Exemptions, by path prefix: `openspec/changes/` (archived and open changes' records, this change's
 included), `CHANGELOG.md`, `plugins/panel/` (sample texts and `commandLabel` tests) and `docs/adr/`
-(ADR 0022's Context quotes the old command as the state it replaces; flagged in `proposal.md`).
+(ADR 0026's Context quotes the old command as the state it replaces; flagged in `proposal.md`).
 
 T-15 uses, written in the test:
 
@@ -602,7 +602,7 @@ Changes that already quote `node scripts/test-suite.mjs` would then need the old
 - Test code (devkit-core): one header comment.
 - Repository tooling: `scripts/test-suite.mjs`, `scripts/check.py`, `.github/workflows/ci.yml`.
 - Docs: `CLAUDE.md`, `CONTRIBUTING.md`, `plugins/openspec/README.md`, `openspec/config.yaml`,
-  `docs/openspec-flow.md`, ADR 0022, `CHANGELOG.md`.
+  `docs/openspec-flow.md`, ADR 0026, `CHANGELOG.md`.
 
 **File structure.**
 
@@ -613,7 +613,7 @@ Changes that already quote `node scripts/test-suite.mjs` would then need the old
   `plugins/openspec/skills/openspec-setup/scripts/{github-setup,gh-version,changes-under-way,install-schemas,project-settings,ship-entry}.test.mjs`;
   `plugins/core/skills/review-change/scripts/review-round.test.mjs`; `scripts/check.py`;
   `.github/workflows/ci.yml`; `CLAUDE.md`; `CONTRIBUTING.md`; `plugins/openspec/README.md`;
-  `openspec/config.yaml`; `docs/openspec-flow.md`; `docs/adr/0022-the-devkit-test-suite-runs-by-file-in-parallel.md`;
+  `openspec/config.yaml`; `docs/openspec-flow.md`; `docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`;
   `CHANGELOG.md`; `.claude-plugin/marketplace.json`; `plugins/openspec/.claude-plugin/plugin.json`;
   `plugins/core/.claude-plugin/plugin.json`; `docs/catalog.md` if `gen-catalog.py` rewrites it.
 - Delete: nothing.
@@ -629,7 +629,7 @@ inter-file couplings and flakes found by phase 2).
 | `test-suite.test.mjs` T-1 to T-10, T-16, T-12, T-13 (phase 2) | 3.5 | Testing | Medium |
 | Fixes of couplings or flakes found by the first run (phase 2) | 2 | Testing | Medium |
 | CI step, AC-5 test, `check.py` check and T-11, T-14 (phase 3) | 2 | Integration | Low |
-| Texts, header comments, ADR 0022 (phase 3) | 1.5 | Documentation | Low |
+| Texts, header comments, ADR 0026 (phase 3) | 1.5 | Documentation | Low |
 | Measurement with the owner, times in the docs, T-15 (phase 4; a split adds 4 to 8 h) | 1.5 | Testing | Medium |
 | ADR number, release, pin, AC-2 and AC-6 proofs (phase 5; the AC-2 runs are two whole-suite runs in background, 30 to 90 min wall) | 2.5 | Documentation | Low |
 
@@ -665,7 +665,7 @@ inter-file couplings and flakes found by phase 2).
 - The `openspec` CLI 2.x is on `PATH` (`CONTRIBUTING.md:76`), as today.
 - The coordinating session gives the change an idle place before phase 4 (requirements, Assumptions).
 
-**Dependencies.** ADR 0022 (`decisions.md`; accepted at plan approval, task 3.4; its number
+**Dependencies.** ADR 0026 (`decisions.md`; accepted at plan approval, task 3.4; its number
 re-checked against `origin/main` in task 5.1).
 `test-fixture-cleanup` (archived) delivered `test-tmp.mjs`. `roadmap-sessions-upfront` (archived,
 PR 88 and PR 92) is merged at the base, with devkit-openspec 0.33.0 and marketplace 0.37.0.
@@ -673,3 +673,26 @@ PR 88 and PR 92) is merged at the base, with devkit-openspec 0.33.0 and marketpl
 ## Open Questions
 
 None.
+
+## Revisions
+
+- **The base merge of the stack (2026-11-24).** Merging `origin/compozy-driver` (`38953b6`: stage-models, delivery-train and
+  compozy-driver) into the branch changed three facts this plan was written on, and the implementation follows the new ones
+  (the sections above keep the plan's original counts as its record):
+  - **The folders (D-2).** The stack's `guard.test.mjs` imported 28 test files, among them five suites of devkit-compozy under
+    `plugins/compozy/skills/compozy-setup/scripts/` (`adoption`, `devkit-kit`, `gen-agents`, `install-kit`, `loop-templates`)
+    and three new hook suites (`stage-models`, `delivery-train`, `compozy-driver`). The old command ran all of them, so the
+    script reads a fourth folder, `plugins/compozy/skills/compozy-setup/scripts`: 30 files (the 18 of `hooks/`, the 6 of
+    `openspec-setup/scripts/`, `review-round`, the 5 of devkit-compozy, `test-suite` included). The other tests of
+    `plugins/compozy/` (`screen-demo`, `screen-design`) and those of `plugins/panel/` stay out, as they were out of the old
+    command. T-1 and T-2 follow (four folders, 29 files the old command ran).
+  - **The skip check (D-7).** The five compozy suites run in the suite now, and `loop-templates.test.mjs` calls `t.skip(...)`
+    when the `compozy` CLI is missing. The exemption of `plugins/compozy/` in `scripts/check.py` stays: those skips guard a
+    missing program on the machine, not a test that was dropped, and T-11 keeps proving the exemption.
+  - **The helpers (D-4).** The stack's test files imported more from test files (`fakeCompozy`, `underOwnTmp`, `simGitHub`,
+    `proposal`, and from `change-loop.test.mjs` and `roadmap-loop.test.mjs` the helpers `stage-models.test.mjs` uses). They moved
+    to `test-fixtures.mjs` with their closures, as D-4 says; the `SET`/`cleanEnv` pair that `change-loop.test.mjs` and
+    `roadmap-loop.test.mjs` each held (the same text) is one pair there, `SET_LOOP` and `cleanEnvLoop`, imported `as SET` and
+    `as cleanEnv`; `simGitHub` is the stack's version (it has `pr comment`, `pr merge`, `setPr` and `setAutoMerge`).
+- **The ADR's number (task 5.1).** The stack took 0022, 0023 and 0024, and a sibling change (`stale-only-on-own-files`) takes 0025
+  right before this one, so the ADR is `0026` and every text of this change names it.

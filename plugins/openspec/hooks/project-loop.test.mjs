@@ -689,12 +689,19 @@ test('project-loop start: /devkit change start routes project to the project gat
   const b = body(CL.main(['start', '--lang', 'en'], { cwd: t.main, env: ENV, stdin: 'PROJECT  billing', gh: OFFLINE }));
   assert.deepEqual([b.mode, b.verb, b.text, b.change], ['project', 'project', 'billing', null]);
   assert.equal(b.reply, undefined, 'no reply: the skill calls project-loop');
-  for (const config of ['schema: spec-driven\n', 'schema: devkit\ndevkit:\n  driver: robot\n', 'schema: devkit\ndevkit:\n  driver: compozy\n']) {
+  // Invariant (T-4): the project verb stops where the project gate stops. Layer: startMode and `project-loop start`. Suite: guard.
+  // On compozy the change verb runs (ADR 0017) and the project verb answers `driver-no-project`.
+  for (const config of ['schema: spec-driven\n', 'schema: devkit\ndevkit:\n  driver: robot\n']) {
     const cwd = loopProject({ files: { 'openspec/config.yaml': config } }).main;
     const asked = body(CL.main(['start', '--lang', 'en'], { cwd, env: ENV, stdin: 'change add a thing', gh: OFFLINE }));
     const got = body(CL.main(['start', '--lang', 'en'], { cwd, env: ENV, stdin: 'project billing', gh: OFFLINE }));
     assert.deepEqual([got.mode, got.reply], [asked.mode, asked.reply], config);
   }
+  const compozy = loopProject({ files: { 'openspec/config.yaml': 'schema: devkit\ndevkit:\n  driver: compozy\n' } }).main;
+  const change = body(CL.main(['start', '--lang', 'en'], { cwd: compozy, env: ENV, stdin: 'change add a thing', gh: OFFLINE }));
+  const project = body(CL.main(['start', '--lang', 'en'], { cwd: compozy, env: ENV, stdin: 'project billing', gh: OFFLINE }));
+  assert.equal(change.mode, 'new', 'the change verb runs on compozy');
+  assert.deepEqual([project.mode, project.reply], ['driver-no-project', CL.render('en', 'driver-no-project')]);
   assert.equal(state(t.main), before);
 });
 
@@ -732,15 +739,30 @@ test('project-loop start: unfinished leaves a slice out of /devkit change and of
 
 // ---------------------------------------------------------------- start (D-5)
 
+// Invariant (T-5): the gate answers first. Layer: `project-loop start`. Suite: guard. The compozy row expects `driver-no-project`
+// and its own reply (the change verb does not stop there any more, ADR 0017).
 test('project-loop start: step 1 the project gate answers first, as for /devkit change', () => {
-  for (const [config, mode] of [['schema: spec-driven\n', 'not-set-up'], ['schema: devkit\ndevkit:\n  driver: robot\n', 'setting-unknown'], ['schema: devkit\ndevkit:\n  driver: compozy\n', 'driver-not-built']]) {
+  for (const [config, mode] of [['schema: spec-driven\n', 'not-set-up'], ['schema: devkit\ndevkit:\n  driver: robot\n', 'setting-unknown'], ['schema: devkit\ndevkit:\n  driver: compozy\n', 'driver-no-project']]) {
     const t = loopProject({ files: { 'openspec/config.yaml': config }, settings: null });
     const before = state(t.main);
     const asked = body(CL.main(['start', '--lang', 'en'], { cwd: t.main, env: ENV, stdin: 'change x', gh: OFFLINE }));
     const b = body(startP(t.main, 'billing'));
-    assert.deepEqual([b.mode, b.reply], [mode, asked.reply], config);
+    const reply = mode === 'driver-no-project' ? CL.render('en', 'driver-no-project') : asked.reply;
+    assert.deepEqual([b.mode, b.reply], [mode, reply], config);
     assert.equal(state(t.main), before);
   }
+});
+
+test('project-loop compozy start answers driver-no-project and creates nothing', () => {
+  const t = loopProject({ files: { 'openspec/config.yaml': 'schema: devkit\ndevkit:\n  driver: compozy\n' }, settings: null });
+  const before = state(t.main);
+  const b = body(startP(t.main, 'billing'));
+  assert.deepEqual([b.mode, b.reply], ['driver-no-project', CL.render('en', 'driver-no-project')]);
+  assert.equal(state(t.main), before);
+  const open = lp(t.main, ['open', 'billing'], {});
+  assert.equal(open.code, 3, 'the project open stays refused too');
+  assert.equal(body(open).reply, CL.render('en', 'driver-no-project'));
+  assert.equal(state(t.main), before);
 });
 
 test('project-loop start: step 2 without the design pack nothing runs and the reply names the pack', () => {
@@ -1580,7 +1602,7 @@ test('project-loop skill: the start reads the words through the quoted heredoc a
   const s = projectSection();
   assert.match(s, /project-loop\.mjs start --lang \$\{user_config\.language\} <<'DEVKIT_ARGS'/);
   assert.doesNotMatch(s, /<<\s*[A-Z_]+\b(?!')/, 'no unquoted heredoc');
-  for (const mode of ['not-set-up', 'setting-unknown', 'driver-not-built', 'design-pack-missing', 'project-name-needed', 'name-invalid', 'project-done-already', 'is-change', 'project-folder-exists', 'choose', 'resume', 'new']) {
+  for (const mode of ['not-set-up', 'setting-unknown', 'driver-not-built', 'driver-no-project', 'design-pack-missing', 'project-name-needed', 'name-invalid', 'project-done-already', 'is-change', 'project-folder-exists', 'choose', 'resume', 'new']) {
     assert.ok(s.includes(`\`${mode}\``), `start mode ${mode}`);
   }
   assert.match(s, /project-loop\.mjs open <id>/);

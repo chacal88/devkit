@@ -128,7 +128,7 @@ and end every task with `git status --short`.
   fail at this point (the texts below still match); then change the texts of D-9: `CLAUDE.md:32`
   (the command, with no minutes figure until 4.3), `CONTRIBUTING.md` lines 38 to 42, 46 and 90,
   `plugins/openspec/README.md:73`, `openspec/config.yaml` (the Test command, and the ADRs line: the
-  entry of ADR 0022 appended before `)`, the rest of the line unchanged), `docs/openspec-flow.md:318`,
+  entry of ADR 0026 appended before `)`, the rest of the line unchanged), `docs/openspec-flow.md:318`,
   and the header comments of the 17 test files D-9 lists (comments only). Pinned texts this task
   touches and the tests that read them: the ADRs line, read by `upfront ADR 0021: the documents
   follow` (`roadmap-loop.test.mjs:5132-5133`, stays green). Check:
@@ -136,12 +136,12 @@ and end every task with `git status --short`.
   passes,
   `node scripts/test-suite.mjs --test-name-pattern="^upfront ADR 0021: the documents follow$" plugins/openspec/hooks/roadmap-loop.test.mjs`
   passes, and `python3 scripts/check.py` passes.
-- [x] 3.4 Mark ADR 0022 accepted (D-9: `- Status: accepted` and the `- Accepted by:` line, the date
+- [x] 3.4 Mark ADR 0026 accepted (D-9: `- Status: accepted` and the `- Accepted by:` line, the date
   and the owner's words read from `openspec/changes/suite-speed/approval.md`). Its number is the
   next free number on `origin/main` at the last merge before review: task 5.1 re-checks it and
   renumbers if a sibling change took 0022 first; until then the file keeps 0022. Check:
-  `grep -c "^- Status: accepted$" docs/adr/0022-the-devkit-test-suite-runs-by-file-in-parallel.md`
-  prints 1, and `grep -c "openspec/changes/suite-speed/approval.md" docs/adr/0022-the-devkit-test-suite-runs-by-file-in-parallel.md`
+  `grep -c "^- Status: accepted$" docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`
+  prints 1, and `grep -c "openspec/changes/suite-speed/approval.md" docs/adr/0026-the-devkit-test-suite-runs-by-file-in-parallel.md`
   prints 1.
 - [x] 3.5 Gate: `mkdir -p /var/tmp/devkit-suite-speed && env TMPDIR=/var/tmp/devkit-suite-speed node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate .` green; covers AC-1, AC-5c and AC-7 (the texts and the CI step; the CI run itself is the PR's).
 
@@ -176,20 +176,20 @@ and end every task with `git status --short`.
 Tasks 5.1 and 5.2 run after the last merge of `origin/main` into the branch before review; a later
 merge of `origin/main` repeats them.
 
-- [ ] 5.1 The ADR's number (D-9, "The ADR's number"): list
+- [x] 5.1 The ADR's number (D-9, "The ADR's number"): list
   `git ls-tree --name-only origin/main docs/adr/`. When 0022 is still free, record "0022 still free
   at <sha of origin/main>" in `/var/tmp/devkit-suite-speed-proof/adr-number.md`. When a sibling
   change has taken it, renumber this change's ADR to the next free number on `origin/main` at this
   merge, in one commit: the file (`git mv`), its `# ADR <N>:` title, the `openspec/config.yaml` ADRs
-  entry, `openspec/changes/suite-speed/decisions.md`, and every `ADR 0022` of this change's
+  entry, `openspec/changes/suite-speed/decisions.md`, and every `ADR 0026` of this change's
   `proposal.md`, `design.md` and `tasks.md` (and of `CONTRIBUTING.md` if it names the ADR). Check:
   the ADR file named in `decisions.md` exists, no file of
   `git ls-tree --name-only origin/main docs/adr/` other than it starts with its four-digit number,
   `openspec/config.yaml` holds `<N> the devkit test suite runs by file in parallel` with that
-  number, and, when renumbered, `git grep -n "0022-the-devkit-test-suite"` prints nothing; and
+  number, and, when renumbered, `git grep -n "0026-the-devkit-test-suite"` prints nothing; and
   `node scripts/test-suite.mjs --test-name-pattern="^upfront ADR 0021: the documents follow$" plugins/openspec/hooks/roadmap-loop.test.mjs`
   passes.
-- [ ] 5.2 The release, in one task (the two pin tests below are red from the bump until the doc
+- [x] 5.2 The release, in one task (the two pin tests below are red from the bump until the doc
   pin and the assertion move, so no Check runs in between). Bump devkit-openspec and devkit-core by
   a patch, to the next free number on `origin/main` at the last merge before review, in
   `plugins/openspec/.claude-plugin/plugin.json`, `plugins/core/.claude-plugin/plugin.json` and

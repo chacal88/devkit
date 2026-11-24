@@ -14,7 +14,7 @@ import * as DC from './deliver-check.mjs';
 import { pendingTasks } from './flow-check.mjs';
 import { createHash } from 'node:crypto';
 import { findingLine, consolidate, outcomeOf, validateStage1 } from '../../core/skills/review-change/scripts/review-round.mjs';
-import { GIT_ENV, git, gitRepo, put, commitAll, proposalWith, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, tasksText, check, presetSetup, shipRepo, cli, runCli, mergedPr, archivePrJson, ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS, ARCHIVED_DIR, NOT_FOUND, retroMd, retroPath, writeRetro, pm } from './test-fixtures.mjs';
+import { GIT_ENV, git, gitRepo, put, commitAll, proposalWith, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, tasksText, check, presetSetup, shipRepo, cli, runCli, mergedPr, archivePrJson, ARCHIVE_LISTING, ACTIVE_ON_MAIN, ARCHIVE_PRS, ARCHIVED_DIR, NOT_FOUND, retroMd, retroPath, writeRetro, pm, proposal } from './test-fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -3643,9 +3643,6 @@ test('AC-8 release-ready: every pack version matches its marketplace entry, the 
 
 // ================================================================ after the merge: the archive steps (archive-after-merge phase 2)
 
-const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
-const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
-  `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
 // What `openspec archive feat --yes` does to the working tree.
 const archiveFolder = (t) => renameSync(join(t.root, 'openspec/changes/feat'), join(t.root, ARCHIVED_DIR));
 const ticked = '## Round 3\n- [x] feat\n';

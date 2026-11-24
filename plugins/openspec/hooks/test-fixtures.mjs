@@ -1,15 +1,21 @@
 // Fixtures the devkit-openspec hook tests share. No test lives here and nothing is made when the module is
 // imported: a folder, a spawn or a git call happens only when one of its functions runs. A test file never imports
 // another test file (scripts/test-suite.mjs refuses it); what two test files share is moved to this module.
+import assert from 'node:assert/strict';
+import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { tmpFolder } from './test-tmp.mjs';
-import { mkdirSync, cpSync, writeFileSync, chmodSync, rmSync as fsRm, existsSync, readFileSync, realpathSync, renameSync } from 'node:fs';
+import { mkdirSync, cpSync, writeFileSync, chmodSync, rmSync as fsRm, existsSync, readFileSync, readdirSync, realpathSync, renameSync } from 'node:fs';
 import * as deliver from './deliver-check.mjs';
 import { nextStep, collectState } from './deliver-check.mjs';
 import { makeGh } from './merge-setup.mjs';
 import { conductState } from './conduct-check.mjs';
+import { decide } from './change-loop.mjs';
+import * as loopModule from './roadmap-loop.mjs';
+import { classifyLines } from './roadmap-loop.mjs';
+import { parseRoadmap } from './guard.mjs';
 
 // ---------------------------------------------------------------- from deliver-check.test.mjs
 
@@ -219,6 +225,10 @@ export const retroMd = (...blocks) => `# Retro: feat\n\n## Proposed updates\n\n$
 export const retroPath = (archived) => (archived ? `${ARCHIVED_DIR}/retro.md` : 'openspec/changes/feat/retro.md');
 export const writeRetro = (t, md, archived = false) => put(t.root, { [retroPath(archived)]: md });
 
+const answerLine = (answer) => (answer ? `- Answer: ${answer}\n` : '');
+export const proposal = (targets, { answer = null, applied = false, kind = 'process-friction' } = {}) =>
+  `### ${targets.map((t) => (t === 'user memory' ? t : `\`${t}\``)).join(', ')} (${kind})\nSummary of ${targets.join(' and ')}.\n- before: old\n+ after: new\n${answerLine(answer)}${applied ? '- Applied: yes\n' : ''}`;
+
 // A repository after the change PR was merged: the default branch holds the change
 // folder and the roadmap, origin/main is that commit, GitHub lists the merged PR.
 export function pm({ ship = 'merge', branch = 'main', onDefault = 'active', archivePrs = [], mergedPrs = [mergedPr()], extra = '' } = {}) {
@@ -314,6 +324,27 @@ export function pinDoc(version, { top = null, bottom = null } = {}) {
   ].join('\n');
 }
 
+// The invariant "mergePins and a release-file merge leave no devkit-pin-* folder behind", checked in a temporary
+// folder of its own: other test processes of one gate (these files import each other) make and remove their own
+// devkit-pin-* folders in the shared one while this test runs, so a before/after listing of the shared folder
+// differs by chance. `fn` runs with TMPDIR set to a new empty folder (the temporary-folder lookup of Node reads it at
+// call time); the previous TMPDIR is back when it returns or throws. Returns what `fn` returned and what it left in
+// that folder.
+export function underOwnTmp(fn) {
+  const own = tmpFolder('devkit-ownscope-');
+  assert.deepEqual(readdirSync(own), [], 'the private folder starts empty');
+  const had = Object.hasOwn(process.env, 'TMPDIR');
+  const previous = process.env.TMPDIR;
+  process.env.TMPDIR = own;
+  try {
+    const value = fn();
+    return { value, left: readdirSync(own) };
+  } finally {
+    if (had) process.env.TMPDIR = previous;
+    else delete process.env.TMPDIR;
+  }
+}
+
 // ---------------------------------------------------------------- from change-loop.test.mjs
 
 export const sandbox = () => tmpFolder('devkit-change-loop-lock-');
@@ -343,6 +374,15 @@ export const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GI
 
 export const TWO_PRS = 'devkit:\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
 
+// ---------------------------------------------------------------- simGitHub (D-11): a second fake gh with state across calls
+//
+// The fake keeps its pull requests in a JSON file and reads heads live from the bare origin, so a push moves a pull request
+// as it does on GitHub. It answers the calls deliver-check makes (`pr list` with --head, --base and --state, `pr checks`,
+// `api graphql`, the repository, the contents and the files of a pull request, `run view`) and the writes the agents make
+// (`pr create`, `pr close`, `pr comment`, `pr merge`, `run rerun`). A merge is the test's hook (`__merge`): a merge commit or a squash made in the
+// origin. Per pull request it keeps an auto-merge method, a `mergeStateStatus` (default `CLEAN`) and `over`, fields that replace the ones the view
+// computes (delivery-train D-13); the argument log (`calls`) lists every call it received.
+
 const SIM_GH = String.raw`#!/usr/bin/env node
 const fs = require('node:fs');
 const cp = require('node:child_process');
@@ -360,24 +400,24 @@ const out = (v) => { process.stdout.write(typeof v === 'string' ? v : JSON.strin
 const fail = (m, code) => { process.stderr.write(m + '\n'); process.exit(code || 1); };
 const opt = (n) => { const i = args.indexOf(n); return i < 0 ? null : args[i + 1]; };
 const mergeable = (p) => { const b = tip(p.base); const h = tip(p.head); if (!b || !h) return 'UNKNOWN'; return git('merge-tree', '--write-tree', b, h).status === 0 ? 'MERGEABLE' : 'CONFLICTING'; };
-const view = (p) => ({ number: p.number, url: p.url, state: p.state, headRefOid: p.state === 'MERGED' ? p.mergedHead : tip(p.head), baseRefName: p.base, headRefName: p.head, mergeable: p.state === 'OPEN' ? mergeable(p) : 'UNKNOWN', body: p.body || '', mergedAt: p.mergedAt || null, autoMergeRequest: null, mergeStateStatus: 'CLEAN' });
+const view = (p) => ({ number: p.number, url: p.url, state: p.state, headRefOid: p.state === 'MERGED' ? p.mergedHead : tip(p.head), baseRefName: p.base, headRefName: p.head, mergeable: p.state === 'OPEN' ? mergeable(p) : 'UNKNOWN', body: p.body || '', mergedAt: p.mergedAt || null, mergeCommit: p.mergeCommit ? { oid: p.mergeCommit } : null, autoMergeRequest: p.autoMerge ? { mergeMethod: p.autoMerge } : null, mergeStateStatus: p.mergeState || 'CLEAN', ...(p.over || {}) });
 const filesOf = (p) => (p.state === 'MERGED' ? p.files : git('diff', '--name-only', tip(p.base) + '...' + tip(p.head)).stdout.split('\n').filter(Boolean));
 const prOf = (n) => { const p = state.prs.find((x) => x.number === Number(n)); if (!p) fail('no pull request #' + n); return p; };
 
-if (args[0] === '__merge') {
-  const p = prOf(args[1]);
+const doMerge = (p, method) => {
   if (p.state !== 'OPEN') fail('not open');
   const b = tip(p.base); const h = tip(p.head);
   const m = git('merge-tree', '--write-tree', b, h);
   if (m.status !== 0) fail('conflict');
-  const parents = (args[2] || 'merge') === 'squash' ? ['-p', b] : ['-p', b, '-p', h];
+  const parents = method === 'squash' ? ['-p', b] : ['-p', b, '-p', h];
   const c = git('commit-tree', m.stdout.split('\n')[0], ...parents, '-m', 'Merge pull request #' + p.number).stdout.trim();
   const files = filesOf(p);
   git('update-ref', 'refs/heads/' + p.base, c);
-  Object.assign(p, { state: 'MERGED', mergedHead: h, mergedAt: new Date().toISOString(), files });
+  Object.assign(p, { state: 'MERGED', mergedHead: h, mergedAt: new Date().toISOString(), files, mergeCommit: c });
   save();
-  out(c);
-}
+  return c;
+};
+if (args[0] === '__merge') out(doMerge(prOf(args[1]), args[2] || 'merge'));
 const [a, b] = args;
 if (a === 'pr' && b === 'list') {
   const head = opt('--head'); const base = opt('--base'); const st = opt('--state') || 'open';
@@ -386,25 +426,43 @@ if (a === 'pr' && b === 'list') {
 }
 if (a === 'pr' && b === 'view') fail('no pull requests found for branch "x"');
 if (a === 'pr' && b === 'create') {
-  const p = { number: ++state.next, base: opt('--base'), head: opt('--head'), title: opt('--title'), body: opt('--body') || '', state: 'OPEN' };
+  const bodyFile = opt('--body-file');
+  const p = { number: ++state.next, base: opt('--base'), head: opt('--head'), title: opt('--title'), body: bodyFile ? fs.readFileSync(bodyFile, 'utf8') : (opt('--body') || ''), state: 'OPEN' };
   p.url = 'https://github.com/o/r/pull/' + p.number;
   state.prs.push(p);
   save();
   out(p.url + '\n');
 }
 if (a === 'pr' && b === 'close') { prOf(args[2]).state = 'CLOSED'; save(); out(''); }
+if (a === 'pr' && b === 'comment') { const p = prOf(args[2]); (p.comments = p.comments || []).push(opt('--body')); save(); out(''); }
+if (a === 'pr' && b === 'merge') {
+  const p = prOf(args[2]);
+  const method = ['--merge', '--squash', '--rebase'].find((f) => args.includes(f));
+  if (args.includes('--disable-auto')) { p.autoMerge = null; save(); out(''); }
+  if (args.includes('--auto')) {
+    if (opt('--match-head-commit') && opt('--match-head-commit') !== tip(p.head)) fail('head commit did not match', 1);
+    p.autoMerge = (method || '--merge').slice(2);
+    save();
+    out('');
+  }
+  doMerge(p, (method || '--merge').slice(2));
+  out('');
+}
 if (a === 'pr' && b === 'checks') out(state.checks[args[2]] || []);
 if (a === 'run' && b === 'view') { const r = state.runs[args[2]]; if (!r) fail('no run ' + args[2]); out({ startedAt: r.startedAt }); }
 if (a === 'run' && b === 'rerun') out('');
 if (a === 'api') {
   const route = args[1];
   if (route === 'graphql') out({ data: { viewer: { login: 'owner' }, repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { nodes: [] }, reviews: { nodes: [] } } } } });
+  if (/^repos\/\{owner\}\/\{repo\}\/rules\/branches\//.test(route)) out([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }]);
+  if (/^repos\/\{owner\}\/\{repo\}\/branches\/.*\/protection\/required_status_checks$/.test(route)) fail('gh: Branch not protected (HTTP 404)');
   if (route === 'repos/{owner}/{repo}') out({ default_branch: state.defaultBranch, allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true });
   const files = /^repos\/\{owner\}\/\{repo\}\/pulls\/(\d+)\/files$/.exec(route);
   if (files) out(filesOf(prOf(files[1])).join('\n') + '\n');
   const contents = /^repos\/\{owner\}\/\{repo\}\/contents\/(.*)\?ref=(.*)$/.exec(route);
   if (contents) {
-    const spec = 'refs/heads/' + decodeURIComponent(contents[2]) + ':' + contents[1];
+    const ref = decodeURIComponent(contents[2]);
+    const spec = (/^[0-9a-f]{40}$/.test(ref) ? ref : 'refs/heads/' + ref) + ':' + contents[1];
     const kind = git('cat-file', '-t', spec);
     if (kind.status !== 0) fail('gh: Not Found (HTTP 404)');
     if (kind.stdout.trim() === 'tree') out(git('ls-tree', '--name-only', spec).stdout.split('\n').filter(Boolean).map((name) => ({ name })));
@@ -414,7 +472,7 @@ if (a === 'api') {
 fail('simGitHub: unhandled ' + args.join(' '), 99);
 `;
 
-function simGitHub({ origin, defaultBranch = 'main' }) {
+export function simGitHub({ origin, defaultBranch = 'main' }) {
   const dir = tmpFolder('devkit-delivery-models-gh-');
   const bin = join(dir, 'bin');
   mkdirSync(bin);
@@ -433,7 +491,7 @@ function simGitHub({ origin, defaultBranch = 'main' }) {
   const calls = () => (existsSync(join(dir, 'calls.log')) ? readFileSync(join(dir, 'calls.log'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
   return {
     env, dir, calls,
-    writes: () => calls().filter((c) => (c[0] === 'pr' && ['create', 'close', 'merge', 'reopen', 'edit'].includes(c[1])) || (c[0] === 'run' && c[1] === 'rerun')),
+    writes: () => calls().filter((c) => (c[0] === 'pr' && ['create', 'close', 'comment', 'merge', 'reopen', 'edit'].includes(c[1])) || (c[0] === 'run' && c[1] === 'rerun')),
     prs: () => read().prs,
     pr: (n) => read().prs.find((p) => p.number === n),
     gh: (cwd) => makeGh(cwd, { ...process.env, ...env }),
@@ -441,6 +499,9 @@ function simGitHub({ origin, defaultBranch = 'main' }) {
     close: (n) => call('pr', 'close', String(n)),
     merge: (n, method = 'merge') => call('__merge', String(n), method),
     setChecks: (n, list) => edit((s) => { s.checks[n] = list; }),
+    // Fields of a pull request's view replaced from now on (`mergeStateStatus`, `mergeable`, ...), and its auto-merge method.
+    setPr: (n, over) => edit((s) => { const p = s.prs.find((x) => x.number === n); p.over = { ...p.over, ...over }; }),
+    setAutoMerge: (n, method) => edit((s) => { s.prs.find((x) => x.number === n).autoMerge = method; }),
     setRun: (id, run) => edit((s) => { s.runs[id] = run; }),
     setDefaultBranch: (name) => edit((s) => { s.defaultBranch = name; }),
   };
@@ -519,3 +580,176 @@ export function archiving(options) {
   s.testPr = () => { git(s.testWt, 'push', '-q', 'origin', TEST_ARCHIVE); return s.sim.create({ base: 'develop', head: TEST_ARCHIVE, body: 'archive' }); };
   return s;
 }
+
+// ---------------------------------------------------------------- from compozy-driver.test.mjs
+
+const FAKE = `#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const argv = process.argv.slice(2);
+fs.appendFileSync(path.join(__dirname, 'calls.log'), JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');
+const replies = JSON.parse(fs.readFileSync(path.join(__dirname, 'replies.json'), 'utf8'));
+const key = argv[0] === '--version' ? '--version' : argv.slice(0, 2).join(' ');
+const loop = argv.includes('--loop') ? argv[argv.indexOf('--loop') + 1] : null;
+const r = (loop && replies[key + ' ' + loop]) || replies[key] || {};
+if (r.stderr) process.stderr.write(r.stderr);
+process.stdout.write(r.stdout === undefined ? '' : typeof r.stdout === 'string' ? r.stdout : JSON.stringify(r.stdout));
+process.exitCode = r.code === undefined ? 0 : r.code;
+`;
+
+// The one helper that builds the fake `compozy` and a temporary COMPOZY_HOME (both folders from `tmpFolder`); the suites that
+// need the fake import it from this module. `replies` maps a subcommand ("loop runs", "workspace info", "--version") to
+// { code, stdout (a string or a value to print as JSON), stderr }; an unlisted subcommand exits 0 and prints nothing. A call with
+// `--loop <name>` reads the key "<subcommand> <name>" ("loop runs devkit-roadmap") first.
+// `daemon(t)` listens on the home's socket and closes the server when the test `t` ends.
+export function fakeCompozy(replies = {}) {
+  const dir = tmpFolder('devkit-compozy-bin-');
+  const home = tmpFolder('devkit-compozy-home-');
+  const bin = join(dir, 'compozy');
+  writeFileSync(bin, FAKE);
+  chmodSync(bin, 0o755);
+  const fake = {
+    bin, home, dir,
+    env: { COMPOZY_BIN: bin, COMPOZY_HOME: home },
+    set(next) { writeFileSync(join(dir, 'replies.json'), JSON.stringify(next)); return fake; },
+    calls() {
+      const file = join(dir, 'calls.log');
+      return existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+    },
+    argvs() { return fake.calls().map((c) => c.argv); },
+    async daemon(t) {
+      const server = createServer();
+      await new Promise((resolve, reject) => { server.once('error', reject); server.listen(join(home, 'daemon.sock'), resolve); });
+      t.after(() => new Promise((resolve) => { server.close(() => resolve()); server.closeAllConnections?.(); }));
+      return fake;
+    },
+  };
+  return fake.set(replies);
+}
+
+// ---------------------------------------------------------------- from change-loop.test.mjs (the decision, the plan, the transcripts)
+
+// Every env a test of the two loops builds blanks the branch variables together (CONTRIBUTING.md, testing rules).
+// change-loop.test.mjs and roadmap-loop.test.mjs each had this pair under the names SET and cleanEnv.
+export const SET_LOOP = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
+export const cleanEnvLoop = { ...process.env, ...SET_LOOP };
+
+const SCHEMAS = join(here, '..', 'schemas');
+export const FLOWS = Object.fromEntries(['devkit', 'devkit-lite'].map((s) => [s, JSON.parse(readFileSync(join(SCHEMAS, s, 'flow.json'), 'utf8'))]));
+const CTX = (over = {}) => ({ id: 'feat', script: 'devkit', root: '/w/feat', branch: 'feat', lang: 'en', filesLanguage: 'en', ...over });
+export const stageOf = (flow, id) => flow.stages.find((s) => s.id === id);
+const stagesOf = (flow, over = {}) => flow.stages.map((s, i) => ({ n: i + 1, id: s.id, title: s.title.en, state: 'passed', reasonCode: 'passed', params: {}, ...over[s.id] }));
+export const nextOf = (flow, stage, reasonCode, params = {}) => {
+  const s = stageOf(flow, stage);
+  return { n: flow.stages.indexOf(s) + 1, stage, role: s.role, skills: s.skills ?? [], reasonCode, params, reason: 'x', progressKey: `${stage}@abc123` };
+};
+export const endOf = (state, stage, reasonCode, params = {}) => ({ state, stage, reasonCode, params, reason: 'x' });
+export const reportOf = (flow, { next = null, end = null, stages = {}, script = 'current', schema = 'devkit' } = {}) => (
+  { version: 1, change: 'feat', schema, script, head: 'h', stages: stagesOf(flow, stages), next, end, previous: null });
+const APPROVAL = { status: null, recorded: null, readiness: 'sha256:abcdef012345', ok: false };
+export const rowOf = (step, extra = {}) => ({ next: { step, reason: 'r', actor: 'x', ...extra }, state: 's', delivered: {} });
+export function run(over = {}) {
+  const flow = over.flow ?? FLOWS.devkit;
+  return decide({
+    ctx: CTX(over.ctx), flow, report: over.report ?? reportOf(flow, over.rep), after: null, fingerprint: 'abc123', approval: APPROVAL,
+    hasProposal: false, flags: [], archiving: false, row: null, ...over.facts,
+  });
+}
+export const head = (stage, c0, result = 'passed', attempt = 1) => `<!-- devkit-stage ${stage} result=${result} attempt=${attempt} commit=${c0} -->\n`;
+// Invariant (T-7, loop, change-loop.test.mjs): a fixture change opened at the grill stands right before its proposal, so the planner is its next role:
+// the decisions stage comes first and is part of what the grill leaves behind.
+export const PLAN_FILES = { requirements: 'requirements.md', decisions: 'decisions.md', proposal: 'proposal.md', specs: 'specs/s/spec.md', design: 'design.md', tasks: 'tasks.md', readiness: 'readiness.md', approval: 'approval.md' };
+// A committed `devkit` change `feat` in the main checkout with the plan files of `have` written as passed (`results` and
+// `attempts` per stage), the ship mode plan (no ship key). `headerless` writes no header line.
+export function planChange({ have, results = {}, attempts = {}, headerless = false } = {}) {
+  const root = gitRepo({ config: 'schema: devkit\n' });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  const files = { '.openspec.yaml': 'schema: devkit\n' };
+  for (const stage of have) {
+    const body = stage === 'readiness' ? '# Readiness\n\n- Status: APPROVED\n' : stage === 'tasks' ? '# Tasks\n\n- [ ] 1.1 a\n' : `# ${stage}\n`;
+    files[PLAN_FILES[stage]] = `${headerless ? '' : head(stage, c0, results[stage] ?? 'passed', attempts[stage] ?? 1)}${body}`;
+  }
+  put(root, Object.fromEntries(Object.entries(files).map(([f, b]) => [`openspec/changes/feat/${f}`, b])));
+  commitAll(root, 'change files');
+  return root;
+}
+// The marker lines come first (`devkit-run:`, then `devkit-end:` on an end); the JSON action follows them.
+export const actionOf = (stdout) => JSON.parse(stdout.split('\n').filter((l) => !/^devkit-(run|end): /.test(l)).join('\n'));
+export const SESSION = 'session-0001';
+// Transcript lines in the stored forms the probe of D-12a recorded (Claude Code 2.1.326, session ids replaced).
+const LINE_BASE = { parentUuid: null, isSidechain: false, userType: 'external', entrypoint: 'sdk-cli', cwd: '/scratch/project', sessionId: SESSION, version: '2.1.326', gitBranch: 'main' };
+export const stored = (extra) => JSON.stringify({ ...LINE_BASE, uuid: 'uuid-0001', timestamp: '2026-11-20T10:00:00.000Z', ...extra });
+export const commandText = (name, args) => `<command-message>${name.replace(/^.*:|^\//g, '')}</command-message>\n<command-name>${name}</command-name>\n<command-args>${args}</command-args>`;
+// A typed command: a line of type user whose message.content is a string.
+export const typedLine = (args, name = '/devkit') => stored({ type: 'user', message: { role: 'user', content: commandText(name, args) } });
+// The tool result of a command that printed `text`, in one of the three stored forms: `both` (content a string, and
+// toolUseResult.stdout), `stdout` (the marker only in toolUseResult.stdout) and `blocks` (content a list of text blocks).
+export const toolResultLine = (text, form = 'both') => stored({
+  type: 'user',
+  message: { role: 'user', content: [{ tool_use_id: 'toolu-0001', type: 'tool_result', content: form === 'blocks' ? [{ type: 'text', text: 'first block' }, { type: 'text', text }] : form === 'stdout' ? 'ok' : text, is_error: false }] },
+  ...(form === 'blocks' ? {} : { toolUseResult: { stdout: text, stderr: '', interrupted: false, isImage: false, noOutputExpected: false } }),
+});
+// A command that printed `devkit-run: <id>`.
+export const runLine = (id, form = 'both') => toolResultLine(`devkit-run: ${id}\n{"version":1}`, form);
+export const assistantLine = () => stored({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'working' }] } });
+export const transcriptOf = (lines) => {
+  const file = join(sandbox(), `${SESSION}.jsonl`);
+  writeFileSync(file, `${lines.join('\n')}\n`);
+  return file;
+};
+export const stopInput = (root, transcript, extra = {}) => ({ session_id: SESSION, transcript_path: transcript, cwd: root, stop_hook_active: false, background_tasks: [], ...extra });
+
+// ---------------------------------------------------------------- from roadmap-loop.test.mjs (the actions, the world, the commands)
+
+// A roadmap of one round: each argument is the text after "- " of a line, so it carries its own checkbox.
+export const ROUND = (...lines) => parseRoadmap(`# Roadmap\n\n## Round 1: flags\n${lines.map((l) => `- ${l}`).join('\n')}\n`);
+export const classify = ({ lines, archived = [], open = [], previous = [], declared = {} }) => (
+  classifyLines(ROUND(...lines), { archived: new Set(archived), open: new Set(open), previous: new Set(previous), declared }));
+// The actions of change-loop as decideRoadmap reads them (the fields of a real action, nothing the loop does not read).
+export const base = (id) => ({ version: 1, change: id, script: 'devkit', root: `/w/${id}`, branch: id, filesLanguage: 'en' });
+export const agentAct = (id, stage = 'proposal', over = {}) => ({
+  ...base(id), kind: 'agent', stage, stageTitle: 'Proposal', role: 'change-planner', skills: [], agent: 'devkit-core:change-planner',
+  brief: `Change ${id} (devkit script), stage ${stage}: write the plan.`, progressKey: `${stage}/${stage}@abc123`, model: 'opus', ...over,
+});
+export const grillAct = (id) => ({
+  ...base(id), kind: 'grill', stage: 'requirements', stageTitle: 'Requirements', role: 'change-coordinator', skills: ['requirements-grill'], progressKey: 'requirements@abc123', model: 'opus',
+});
+export const endAct = (id, state, why, params = {}, over = {}) => ({
+  ...base(id), kind: 'end', stage: null, stageTitle: null, role: null, skills: [], end: { state, why }, params: { id, ...params }, reply: 'x', ...over,
+});
+export const ownerAct = (id, why = 'waiting-approval') => endAct(id, 'waiting-for-owner', why, {}, { stage: 'approval', stageTitle: 'Plan approval' });
+// The facts of one decision: a roadmap, what is archived, the open changes' actions and the run's bookkeeping.
+export function world(over = {}) {
+  const { lines = [], archived = [], actions = {}, previous = [], declared = {}, inflight = {}, openExtra = [], ...rest } = over;
+  const open = [...Object.keys(actions), ...Object.keys(inflight), ...previous, ...openExtra];
+  return {
+    lang: 'en', places: 3, stopping: false, holding: false, load: 10, limit: 80, hasRoadmap: true,
+    lines: classify({ lines, archived, open, previous, declared }),
+    actions, inflight, declared, announced: {}, starting: [], held: false, asking: null, after: {}, wheres: {}, phaseTotals: {}, unfinished: [],
+    ...rest,
+  };
+}
+export const OFFLINE = () => ({ status: 1, stdout: '', stderr: 'offline' });
+export const FLAGS = ['--lang', 'en', '--load-limit', '80'];
+export const roadmapText = (...lines) => `# Roadmap\n\n## Round 1: flags\n${lines.map((l) => `- ${l}`).join('\n')}\n`;
+export const projectWith = (roadmap, { config = 'schema: devkit\n' } = {}) => gitRepo({ config, files: roadmap === null ? {} : { 'openspec/roadmap.md': roadmap } });
+// One command of roadmap-loop, with no GitHub and the load handed in (a percentage).
+export const cmd = (cwd, argv, { stdin = '', load = 10, env = cleanEnv, ...rest } = {}) => loopModule.main(argv, { cwd, env, stdin, gh: OFFLINE, load: () => load, ...rest });
+export const doRun = (cwd, word = '', { session = 'S1', extra = [], ...opts } = {}) => cmd(cwd, ['run', ...FLAGS, '--session', session, ...extra], { stdin: word, ...opts });
+export const doNext = (cwd, extra = [], opts = {}) => cmd(cwd, ['next', ...FLAGS, ...extra], opts);
+export const doStatus = (cwd, opts = {}) => cmd(cwd, ['status', ...FLAGS], opts);
+export const jsonOf = (stdout) => { const lines = stdout.split('\n'); return JSON.parse(lines.slice(lines.indexOf('{')).join('\n')); };
+export const runFileOf = (cwd) => loopModule.runFilePath(cwd);
+export const stateOf = (cwd) => JSON.parse(readFileSync(runFileOf(cwd), 'utf8'));
+export const putRun = (cwd, patch) => {
+  mkdirSync(dirname(runFileOf(cwd)), { recursive: true });
+  writeFileSync(runFileOf(cwd), JSON.stringify({
+    version: 1, session: 'S1', places: 1, stopping: false, asking: null, inflight: {}, declared: {}, announced: {}, starting: [], held: false, holding: false,
+    changeSessions: false, startedSessions: {}, turn: null, ...patch,
+  }));
+};
+// The event lines a command shows: the ones it printed itself, then the `lines` of its decision.
+export const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsWith('▸ ')), ...jsonOf(stdout).lines];
+// `flow` is the version the change records as `x-devkit-flow`; null records none (a change opened before devkit-openspec 0.31.0).
+export const pinLine = (flow) => (flow === null ? '' : `x-devkit-flow: ${flow}\n`);
+export const addOpen = (root, id, flow = null) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pinLine(flow)}` }); commitAll(root, `open ${id}`); };

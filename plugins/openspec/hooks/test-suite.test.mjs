@@ -22,6 +22,7 @@ const FROM = 'fr' + 'om';
 const HOOKS = 'plugins/openspec/hooks';
 const SETUP = 'plugins/openspec/skills/openspec-setup/scripts';
 const REVIEW = 'plugins/core/skills/review-change/scripts';
+const COMPOZY_SETUP = 'plugins/compozy/skills/compozy-setup/scripts';
 
 // A small test file made only of node built-ins. `body` runs inside one async test.
 function probe({ name = 'suite-speed probe passes', body = '' } = {}) {
@@ -70,19 +71,21 @@ const run = (root, args, options) => start(root, args, options).done;
 const startLines = (out) => out.stdout.split('\n').filter((line) => line.startsWith('start ')).map((line) => line.slice(6));
 const either = (out) => out.stdout + out.stderr;
 
-test('suite-speed AC-1 the script runs the test files of the three folders and no other', async () => {
+test('suite-speed AC-1 the script runs the test files of the four folders and no other', async () => {
   const root = tree({
     [`${HOOKS}/a${TEST_EXT}`]: probe(),
     [`${HOOKS}/sub/deeper${TEST_EXT}`]: probe(),
     [`${SETUP}/b${TEST_EXT}`]: probe(),
     [`${REVIEW}/c${TEST_EXT}`]: probe(),
+    [`${COMPOZY_SETUP}/d${TEST_EXT}`]: probe(),
     [`${HOOKS}/notes.mjs`]: 'throw new Error("not a test file");\n',
     [`${HOOKS}/node_modules/dep/n${TEST_EXT}`]: probe({ body: 'assert.fail("node_modules is not read");' }),
-    [`plugins/compozy/skills/x/c${TEST_EXT}`]: probe({ body: 'assert.fail("compozy is outside the suite");' }),
+    [`plugins/compozy/skills/x/c${TEST_EXT}`]: probe({ body: 'assert.fail("only the compozy-setup folder is in the suite");' }),
   });
   const out = await run(root, []);
   assert.equal(out.code, 0, either(out));
   assert.deepEqual(startLines(out).sort(), [
+    `${COMPOZY_SETUP}/d${TEST_EXT}`,
     `${HOOKS}/a${TEST_EXT}`,
     `${HOOKS}/sub/deeper${TEST_EXT}`,
     `${REVIEW}/c${TEST_EXT}`,
@@ -92,17 +95,19 @@ test('suite-speed AC-1 the script runs the test files of the three folders and n
 
 test('suite-speed AC-1 the repository suite holds every file the old command ran', () => {
   const ran = [
-    'change-loop', 'conduct-check', 'deliver-check', 'delivery-models', 'flow-check', 'guard', 'jira-task', 'merge-setup',
-    'project-loop', 'release-merge', 'release-tags', 'roadmap-loop', 'test-tmp', 'version-pin',
+    'change-loop', 'compozy-driver', 'conduct-check', 'deliver-check', 'delivery-models', 'delivery-train', 'flow-check', 'guard', 'jira-task', 'merge-setup',
+    'project-loop', 'release-merge', 'release-tags', 'roadmap-loop', 'stage-models', 'test-tmp', 'version-pin',
   ].map((name) => `${HOOKS}/${name}${TEST_EXT}`).concat(
     ['changes-under-way', 'gh-version', 'github-setup', 'install-schemas', 'project-settings', 'ship-entry'].map((name) => `${SETUP}/${name}${TEST_EXT}`),
     [`${REVIEW}/review-round${TEST_EXT}`],
+    ['adoption', 'devkit-kit', 'gen-agents', 'install-kit', 'loop-templates'].map((name) => `${COMPOZY_SETUP}/${name}${TEST_EXT}`),
   );
-  assert.equal(ran.length, 21);
+  assert.equal(ran.length, 29);
   const listed = suiteFiles(REPO_ROOT);
   assert.deepEqual(ran.filter((file) => !listed.includes(file)), [], 'files the old command ran that the script does not list');
   assert.ok(listed.includes(`${HOOKS}/test-suite${TEST_EXT}`), 'this file is in the suite');
-  assert.deepEqual(listed.filter((file) => file.startsWith('plugins/compozy/') || file.startsWith('plugins/panel/')), []);
+  assert.deepEqual(listed.filter((file) => file.startsWith('plugins/compozy/') && !file.startsWith(`${COMPOZY_SETUP}/`)), [], 'no other compozy test file');
+  assert.deepEqual(listed.filter((file) => file.startsWith('plugins/panel/')), []);
 });
 
 test('suite-speed AC-1 files run at the same time up to --concurrency', async () => {

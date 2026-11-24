@@ -6,7 +6,7 @@
 - the panel's copies of the checkers' grammar (plugins/panel/hooks/grammar.ts) match the checkers' literals;
 - every `plugin install` line names its scope: `--scope project` everywhere, and `--scope user`
   only in docs/migrate-to-project-scope.md (ADR 0004);
-- no test of the suite is skipped (`skip`, `only` or `todo`; plugins/compozy is outside the suite, ADR 0022);
+- no test of the suite is skipped (`skip`, `only` or `todo`; plugins/compozy is exempt: its skips guard a missing `compozy` program, ADR 0026);
 - every released flow version of the openspec schemas stays: `flow.json` equals `flows/<its version>.json`, and each
   `flows/<n>.json` matches its digest in scripts/released-flows.json, so a flow change raises its version.
 
@@ -143,8 +143,9 @@ SKIPPED_TEST = (
 
 
 def check_no_skipped_tests():
-    # The suite runs every test (ADR 0022): a skipped, only or todo test is a test that does not run.
-    # The compozy tests are outside the suite. An options object split over several lines is not seen.
+    # The suite runs every test (ADR 0026): a skipped, only or todo test is a test that does not run.
+    # plugins/compozy is exempt: its tests skip themselves when the `compozy` program is not installed. An options object split
+    # over several lines is not seen.
     for f in sorted(ROOT.glob("plugins/**/*.test.mjs")):
         parts = f.relative_to(ROOT).parts
         if SKIP_DIRS.intersection(parts) or parts[1] == "compozy":

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { isChangeId } from './guard.mjs';
-import { LoopUsageError } from './change-loop.mjs'; // used only when a function runs, so the import cycle is harmless
+import { LoopUsageError, MODEL_VALUES } from './change-loop.mjs'; // used only when a function runs, so the import cycle is harmless
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -40,10 +40,13 @@ export function readRun(file) {
   if (typeof parsed.updatedAt === 'string') run.updatedAt = parsed.updatedAt;
   for (const key of ['stopping', 'held', 'changeSessions']) if (typeof parsed[key] === 'boolean') run[key] = parsed[key];
   if (parsed.turn === 'typed' || parsed.turn === 'event') run.turn = parsed.turn;
-  // The change sessions the run started (D-3): { <change id>: { at } }; a key that is no change id is dropped.
+  // The change sessions the run started (D-3): { <change id>: { at, model?, refused? } }; a key that is no change id is dropped. The model
+  // the session runs on and the switch it refused are kept only when they are models (stage-models D-6); an older entry is { at }.
   if (isObject(parsed.startedSessions)) {
     for (const [id, entry] of Object.entries(parsed.startedSessions)) {
-      if (isChangeId(id) && isObject(entry)) run.startedSessions[id] = { at: typeof entry.at === 'string' ? entry.at : null };
+      if (!isChangeId(id) || !isObject(entry)) continue;
+      run.startedSessions[id] = { at: typeof entry.at === 'string' ? entry.at : null };
+      for (const key of ['model', 'refused']) if (MODEL_VALUES.includes(entry[key])) run.startedSessions[id][key] = entry[key];
     }
   }
   // The changes the run opened for another machine (remote-worker D-8): { <change id>: { machine, at } }; anything else is dropped.

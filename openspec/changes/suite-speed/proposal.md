@@ -2,7 +2,7 @@
 # Proposal
 
 Change: `suite-speed` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a
-(sources: `requirements.md`, `decisions.md`, ADR 0022; the number holds only while 0022 is the next
+(sources: `requirements.md`, `decisions.md`, ADR 0026; the number holds only while 0022 is the next
 free ADR number on `origin/main` at the last merge before review, `tasks.md` 5.1). Base: `720d91d`. Roadmap line `suite-speed`
 of `openspec/roadmap.md` (after: roadmap-sessions-upfront).
 
@@ -16,7 +16,7 @@ target in the grill on 2026-11-23: at most 10 minutes on an idle 8-core machine.
 
 ## What Changes
 
-- **One script runs the suite** (ADR 0022 decision 1): `node scripts/test-suite.mjs` runs every
+- **One script runs the suite** (ADR 0026 decision 1): `node scripts/test-suite.mjs` runs every
   `*.test.mjs` under `plugins/openspec/hooks/`, `plugins/openspec/skills/openspec-setup/scripts/`
   and `plugins/core/skills/review-change/scripts/` (the 21 files the old command runs today), each
   in a `node --test` process of its own, as many at once as the machine has cores (`--concurrency=<n>`
@@ -37,7 +37,7 @@ target in the grill on 2026-11-23: at most 10 minutes on an idle 8-core machine.
 - **CI's `check` job** runs `node scripts/test-suite.mjs` in one step (job id `check` unchanged,
   ADR 0002, ADR 0003); `test-tmp.test.mjs` pins it in place of the two old steps.
 - **Docs**: `CLAUDE.md`, `CONTRIBUTING.md`, `plugins/openspec/README.md`, `openspec/config.yaml`
-  (its test command and the 0022 entry of its ADRs line), `docs/openspec-flow.md` line 318 and the
+  (its test command and the 0026 entry of its ADRs line), `docs/openspec-flow.md` line 318 and the
   header comments of 17 test files name the new command; `CLAUDE.md` and `CONTRIBUTING.md` state the
   measured time instead of "13 to 21 minutes" and "about 13 minutes".
 - **Measurement, late**: the owner runs the command on the idle 8-core worker once the coordinating
@@ -45,7 +45,7 @@ target in the grill on 2026-11-23: at most 10 minutes on an idle 8-core machine.
   headings, with no test renamed.
 - **BREAKING (repository contract)**: after the merge, `node --test plugins/openspec/hooks/guard.test.mjs`
   runs only the guard's own tests. Gate rows of other open changes that quote it run less; the
-  coordinating session is told at the merge (ADR 0022, Consequences).
+  coordinating session is told at the merge (ADR 0026, Consequences).
 
 Non-goals: everything under "Out of scope" in `requirements.md` (the compozy and panel tests,
 faster individual tests, CI caching, a newer Node or another runner, rewriting other changes' gate
@@ -95,7 +95,7 @@ None.
 - devkit-core (patch): the header comment of `skills/review-change/scripts/review-round.test.mjs`.
 - Repository: `scripts/test-suite.mjs` (new), `scripts/check.py`, `.github/workflows/ci.yml`,
   `CLAUDE.md`, `CONTRIBUTING.md`, `openspec/config.yaml`, `docs/openspec-flow.md` (line 318 and the
-  CI pin at the release), `docs/adr/0022-*.md` (accepted), `CHANGELOG.md`,
+  CI pin at the release), `docs/adr/0026-*.md` (accepted), `CHANGELOG.md`,
   `.claude-plugin/marketplace.json`.
 - Unchanged: devkit-compozy (its `test-tmp.mjs` copy stays byte-identical), devkit-panel, the
   `devkit.tests.*` settings of projects (ADR 0010).
@@ -105,7 +105,7 @@ None.
 **Dependencies.** `roadmap-sessions-upfront` (archived, PR 88 and 92) is merged at the base.
 Nothing this change uses is still under way.
 
-**Decisions cited.** ADR 0022 (proposed in `decisions.md`; this plan follows its six decisions;
+**Decisions cited.** ADR 0026 (proposed in `decisions.md`; this plan follows its six decisions;
 accepted at plan approval; renumbered by task 5.1 if a sibling change takes 0022 on `origin/main`
 first). ADR 0002 and ADR 0003 (the ruleset requires the `check` job; its id is
 kept). ADR 0004 (each pack carries its own helpers: `test-fixtures.mjs` is in devkit-openspec, and
@@ -131,13 +131,13 @@ touched.
   reporter (`design.md` D-10): Node 26 reports no name of a test a skip or name filter excludes, so
   no cheap listing exists. The two runs take about as long as two whole-suite runs (the base one
   13 to 45 minutes on the worker); the conducting session runs them in background at task 5.3.
-- ADR 0022 decision 3 says every exported name moves; 8 exports no other file imports (among them
+- ADR 0026 decision 3 says every exported name moves; 8 exports no other file imports (among them
   `packV2`, a module-level copy of the whole pack) stop being exported instead of moving, so the
   module makes nothing at import. No test file exports a name afterwards.
 - AC-5c "under `plugins/`": the check covers every `*.test.mjs` under `plugins/` except
   `plugins/compozy/`, whose five `skip`s are guards for a missing `compozy` CLI and whose tests are
-  outside this suite (ADR 0022 decision 6).
-- AC-7's exemptions gain `docs/adr/`: ADR 0022's Context quotes the old command as the state it
+  outside this suite (ADR 0026 decision 6).
+- AC-7's exemptions gain `docs/adr/`: ADR 0026's Context quotes the old command as the state it
   replaces.
 - `requirements.md` says `guard.test.mjs` starts with 22 test imports; at `720d91d` it has 20
   (lines 12 to 31), and the old command runs 21 files with its own.
