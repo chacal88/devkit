@@ -2167,7 +2167,16 @@ test('fresh-base-check 7: state, the stop lock and a call with no record never f
   assert.equal(state.code, 0, state.stderr);
   const entries = changeLoopModule.stateEntries(d.t.main, { id: 'feat', lang: 'en', env });
   assert.equal(entries.length, 1);
-  const stop = changeLoopModule.stopDecision(stopInput(d.t.main, runTranscript()), { env });
+  const tmp = sandbox();
+  const before = process.env.TMPDIR;
+  process.env.TMPDIR = tmp;
+  let stop;
+  try {
+    stop = changeLoopModule.stopDecision(stopInput(d.t.main, runTranscript()), { env });
+  } finally {
+    if (before === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = before;
+    rmSync(tmp, { recursive: true, force: true });
+  }
   assert.notEqual(stop.why, 'no-run', 'the lock read the change');
   assert.deepEqual(shim.fetches(), []);
   assert.equal(git(d.t.main, 'rev-parse', 'origin/main'), d.stale);
