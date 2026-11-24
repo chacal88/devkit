@@ -2048,16 +2048,19 @@ function adrValue(root, reader, head, adr) {
   return `other:${unnumbered ? adr.from : ''}${numbered.join(',')}`;
 }
 
-// The step's own record of what it wrote (D-20): the newest commit of `git log --first-parent <tip>..<head>` whose message's last paragraph
-// holds the trailer `Release-change: <id>`, or null when none does or `git log` fails (a clone that cannot reach the range). Its
-// `Release-line`, `Release-adr` and `Release-citation` trailers each count only when the commit changed what they name from its first parent,
-// and every value is read from the commit's tree, never from the trailer text: { commit, lines, adrs, citations }. `lines` maps a key of the
-// state (a release line, or the unnumbered path of a renamed record) to its value in the form linesOf and adrValue give, the changelog masked
-// with the head's numbers as releaseStateAt masks it; `adrs` are the { from, to } renames in trailer order; `citations` the paths.
+// The step's own record of what it wrote (D-20): the commits of `git log --first-parent <tip>..<head>` whose message's last paragraph holds
+// the trailer `Release-change: <id>`, or null when none does or `git log` fails (a clone that cannot reach the range). Their `Release-line`,
+// `Release-adr` and `Release-citation` trailers each count only when the commit changed what they name from its first parent, and every
+// value is read from the commit's tree, never from the trailer text. Each key takes the newest of those commits that wrote it, so a number
+// the step kept in a later commit (a merge that renumbered nothing, or a give-back to the same number) stays the step's own:
+// { commit, lines, adrs, citations }, `commit` the newest recorded commit. `lines` maps a key of the state (a release line, or the unnumbered
+// path of a renamed record) to its value in the form linesOf and adrValue give, the changelog masked with the head's numbers as
+// releaseStateAt masks it; `adrs` are the { from, to, commit } renames and `citations` the { path, commit } rewrites, each with the commit that
+// wrote it (the give-back reads that commit's text).
 export function stepRecord(root, { head, tip, id }) {
   const log = spawnSync('git', ['-C', root, 'log', '--first-parent', '--format=%H%x00%B%x1e', `${tip}..${head}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
   if (log.status !== 0) return null;
-  let found = null;
+  const recorded = [];
   for (const entry of log.stdout.split('\x1e')) {
     const at = entry.indexOf('\0');
     if (at === -1) continue;
@@ -2066,32 +2069,36 @@ export function stepRecord(root, { head, tip, id }) {
       const m = /^(Release-[a-z]+): (.+)$/.exec(line.trim());
       return m ? [{ key: m[1], value: m[2].trim() }] : [];
     });
-    if (trailers.some((t) => t.key === 'Release-change' && t.value === id)) { found = { commit: entry.slice(0, at).trim(), trailers }; break; }
+    if (trailers.some((t) => t.key === 'Release-change' && t.value === id)) recorded.push({ commit: entry.slice(0, at).trim(), trailers });
   }
-  if (!found) return null;
-  const { commit } = found;
-  const parent = `${commit}^1`;
+  if (!recorded.length) return null;
   const reader = repoReader(root);
-  const named = (key) => [...new Set(found.trailers.filter((t) => t.key === key).map((t) => t.value))];
-  const linePaths = named('Release-line');
-  const packPaths = linePaths.filter((p) => p !== MARKETPLACE && p !== CHANGELOG && p !== PIN_FILE);
-  const now = linesOf((p) => reader.file(commit, p), packPaths, null);
-  const was = linesOf((p) => reader.file(parent, p), packPaths, null);
   const lines = new Map();
-  for (const path of linePaths) {
-    const value = now.get(path) ?? null;
-    if (value !== null && value !== (was.get(path) ?? null)) lines.set(path, value);
-  }
-  if (lines.has(CHANGELOG)) lines.set(CHANGELOG, maskRelease(lines.get(CHANGELOG), CHANGELOG, { adrs: numberedAdrs(reader, head), file: null }));
   const adrs = [];
-  for (const value of named('Release-adr')) {
-    const m = /^(\S+) -> (\S+)$/.exec(value);
-    if (!m || reader.file(commit, m[2]) === null || reader.file(parent, m[2]) !== null) continue;
-    adrs.push({ from: m[1], to: m[2] });
-    lines.set(m[1], `numbered:${m[2]}`);
+  const citations = [];
+  for (const { commit, trailers } of recorded) {
+    const parent = `${commit}^1`;
+    const named = (key) => [...new Set(trailers.filter((t) => t.key === key).map((t) => t.value))];
+    const linePaths = named('Release-line').filter((p) => !lines.has(p));
+    const packPaths = linePaths.filter((p) => p !== MARKETPLACE && p !== CHANGELOG && p !== PIN_FILE);
+    const now = linesOf((p) => reader.file(commit, p), packPaths, null);
+    const was = linesOf((p) => reader.file(parent, p), packPaths, null);
+    for (const path of linePaths) {
+      const value = now.get(path) ?? null;
+      if (value === null || value === (was.get(path) ?? null)) continue;
+      lines.set(path, path === CHANGELOG ? maskRelease(value, CHANGELOG, { adrs: numberedAdrs(reader, head), file: null }) : value);
+    }
+    for (const value of named('Release-adr')) {
+      const m = /^(\S+) -> (\S+)$/.exec(value);
+      if (!m || adrs.some((a) => a.from === m[1]) || reader.file(commit, m[2]) === null || reader.file(parent, m[2]) !== null) continue;
+      adrs.push({ from: m[1], to: m[2], commit });
+      lines.set(m[1], `numbered:${m[2]}`);
+    }
+    for (const path of named('Release-citation')) {
+      if (!citations.some((c) => c.path === path) && reader.file(commit, path) !== reader.file(parent, path)) citations.push({ path, commit });
+    }
   }
-  const citations = named('Release-citation').filter((p) => reader.file(commit, p) !== reader.file(parent, p));
-  return { commit, lines, adrs, citations };
+  return { commit: recorded[0].commit, lines, adrs, citations };
 }
 
 // The `ADR [<x>]` citations of the branch's changed files that hold citations (holdsCitations, a binary text skipped) and of the note's

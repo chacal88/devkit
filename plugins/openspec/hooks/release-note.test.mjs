@@ -775,8 +775,8 @@ test('release-note AC-4 record: stepRecord reads the newest recorded commit, ign
   assert.deepEqual([...one.lines.keys()].sort(), ['.claude-plugin/marketplace.json', 'CHANGELOG.md', 'docs/adr/feat.md', 'docs/openspec-flow.md', 'plugins/core/.claude-plugin/plugin.json', REL_FILE].sort());
   assert.equal(one.lines.get(REL_FILE), '1.1.0', 'a value read from the commit\'s tree');
   assert.equal(one.lines.get('docs/adr/feat.md'), 'numbered:docs/adr/0002-feat.md');
-  assert.deepEqual(one.adrs, [{ from: 'docs/adr/feat.md', to: 'docs/adr/0002-feat.md' }]);
-  assert.deepEqual(one.citations, ['docs/x.md']);
+  assert.deepEqual(one.adrs, [{ from: 'docs/adr/feat.md', to: 'docs/adr/0002-feat.md', commit: first }]);
+  assert.deepEqual(one.citations, [{ path: 'docs/x.md', commit: first }]);
 
   rewriteVersion(root, 'plugins/core/.claude-plugin/plugin.json', '1.0.2');
   const second = commitAll(root, [
@@ -789,8 +789,10 @@ test('release-note AC-4 record: stepRecord reads the newest recorded commit, ign
   ].join('\n'));
   const two = recordOf();
   assert.equal(two.commit, second, 'the newest recorded commit is the record');
-  assert.deepEqual([...two.lines], [['plugins/core/.claude-plugin/plugin.json', '1.0.2']], 'a trailer naming what its commit did not write is ignored');
-  assert.deepEqual([two.adrs, two.citations], [[], []]);
+  const core = 'plugins/core/.claude-plugin/plugin.json';
+  assert.deepEqual([...two.lines].sort(), [...one.lines].map(([k, v]) => [k, k === core ? '1.0.2' : v]).sort(),
+    'each key takes the newest recorded commit that wrote it; a trailer naming what its commit did not write is ignored, so its key keeps the older commit\'s value');
+  assert.deepEqual([two.adrs, two.citations], [one.adrs, one.citations], 'the rename and the citation the second commit did not write stay the first commit\'s');
 
   commitAll(root, 'chore(release): assign the release of other\n\nRelease-change: other');
   commitAll(root, 'notes\n\nRelease-change: feat\n\nnot a trailer block');

@@ -834,3 +834,114 @@ suite: 7 files, 83 tests, 83 pass, 0 fail, 100.6s, concurrency 3
 exit: 0
 
 Task 9.6, reading of the run: the nine red tests of 9.5 pass, the two guards still pass, the changed "documents" subtest passes, and every release-note AC-2, AC-4 and AC-14 test and T-2, T-16, T-32, T-33 ("format: ship-change archive rows ...", "... reused merge rows ...", "... Start takes the id ...", "commit-attribution AC-1 T36"), T-35 and T-36 stay green.
+
+
+Fix of D-20 (fix-defect, phase 9): the step record per key. The gap found while implementing 9.6: stepRecord read only the newest commit carrying `Release-change: <id>`, so a number the step kept in a later commit (a merge that renumbered nothing: 0002 to 0002) was no longer its own, and a later merge by hand read `hand` again. The rule now: each key takes the newest of the step's recorded commits that wrote it (changed it from its first parent); `adrs` and `citations` carry the commit that wrote them, which the give-back reads.
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="a number the step kept across a base merge" plugins/openspec/hooks/release-merge.test.mjs   (red, before the fix)
+✖ release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand (2219.865743ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2396.013113
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-merge.test.mjs:1007:1
+✖ release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand (2219.865743ms)
+  AssertionError [ERR_ASSERTION]: release-merge: release lines edited by hand: docs/adr/feat.md
+  {
+    "resolved": false,
+    "oldHead": "994cc710d4a39d745e1a76e3bb6f505d77819ac0",
+    "change": "feat",
+    "conflicts": [],
+    "error": "release lines edited by hand: docs/adr/feat.md",
+    "mode": "assign"
+  }
+  
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-merge.test.mjs:1037:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="stepRecord reads the newest recorded commit" plugins/openspec/hooks/release-note.test.mjs   (red, before the fix: the per-key rule, its entries naming the commit that wrote them)
+✖ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (270.936085ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 461.182963
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-note.test.mjs:767:1
+✖ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (270.936085ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+  -     commit: '0c164a36d143c12512f87778c3e2cca60a693089',
+        from: 'docs/adr/feat.md',
+        to: 'docs/adr/0002-feat.md'
+      }
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/release-note.test.mjs:778:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { from: 'docs/adr/feat.md', to: 'docs/adr/0002-feat.md' } ],
+    expected: [ { from: 'docs/adr/feat.md', to: 'docs/adr/0002-feat.md', commit: '0c164a36d143c12512f87778c3e2cca60a693089' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+$ (the same two commands, green, after the fix)
+✔ release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand (2820.640563ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2974.126501
+✔ release-note AC-4 record: stepRecord reads the newest recorded commit, ignores a trailer whose commit wrote nothing, and is null without one (665.988976ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 848.364469
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/release-note.test.mjs plugins/openspec/hooks/deliver-check.test.mjs   (after the fix; python3 scripts/check.py: all checks passed)
+=== plugins/openspec/hooks/release-merge.test.mjs: pass 49.5s
+=== plugins/openspec/hooks/release-note.test.mjs: pass 53.7s
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 311.2s
+pass 311.2s plugins/openspec/hooks/deliver-check.test.mjs
+pass 49.5s plugins/openspec/hooks/release-merge.test.mjs
+pass 53.7s plugins/openspec/hooks/release-note.test.mjs
+suite: 3 files, 410 tests, 410 pass, 0 fail, 311.2s, concurrency 3
+exit: 0

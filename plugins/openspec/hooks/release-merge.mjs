@@ -419,31 +419,31 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
     }
     // D-20: with no merge to make (a person merged the base by hand), what the step's own record wrote is given back: each renamed record
     // whose key is in `reassign`, and the record's citation paths that hold its number, each through `git merge-file` of the path's text at
-    // the record's commit, the working text and that commit's text with the record's numbers masked. Only the tokens the step wrote go back,
-    // so a citation the base brought with the same number stays; a line edited where the step wrote a number conflicts and is refused. A
-    // release line in `reassign` is left to step 3, which writes every release line.
+    // the recorded commit that wrote it, the working text and that commit's text with the record's numbers masked. Only the tokens the step
+    // wrote go back, so a citation the base brought with the same number stays; a line edited where the step wrote a number conflicts and is
+    // refused. A release line in `reassign` is left to step 3, which writes every release line.
     if (!needsMerge && state.reassign.length) {
       const record = stepRecord(root, { head: oldHead, tip: target, id });
       const back = (record?.adrs ?? []).filter((a) => state.reassign.includes(a.from));
       const nameOf = (path) => path.slice(path.lastIndexOf('/') + 1);
       const numbers = back.map((a) => ({ number: nameOf(a.to).slice(0, 4), slug: nameOf(a.from).replace(/\.md$/, '') }));
-      const givenBack = (path, working) => {
-        const recorded = show(root, record.commit, path) ?? '';
+      const givenBack = (commit, path, working) => {
+        const recorded = show(root, commit, path) ?? '';
         const theirs = maskCitations(recorded, path, numbers);
         return theirs === recorded ? working : mergeTexts(recorded, working, theirs, 'devkit-release-');
       };
       const cannot = (path) => refuse({ error: `cannot give back the numbers the step wrote in ${path}` });
       for (const a of back) {
-        const text = givenBack(a.to, readFileSync(join(root, a.to), 'utf8'));
+        const text = givenBack(a.commit, a.to, readFileSync(join(root, a.to), 'utf8'));
         if (text === null) return cannot(a.to);
         touched.push(a.to, a.from);
         gitOut(root, ['mv', '-f', a.to, a.from]);
         writeStaged(root, touched, a.from, text);
       }
-      for (const path of back.length ? record.citations : []) {
+      for (const { path, commit } of back.length ? record.citations : []) {
         if (!existsSync(join(root, path))) continue;
         const working = readFileSync(join(root, path), 'utf8');
-        const text = givenBack(path, working);
+        const text = givenBack(commit, path, working);
         if (text === null) return cannot(path);
         if (text !== working) writeStaged(root, touched, path, text);
       }

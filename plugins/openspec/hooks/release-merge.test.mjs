@@ -1004,6 +1004,49 @@ test('release-note AC-4 assign: an assigned branch merged by hand after a code c
   assert.deepEqual([s.kind, s.current], ['assigned', true]);
 });
 
+test('release-note AC-4 assign: a number the step kept across a base merge is still its own after a later merge by hand', () => {
+  // The step numbers ADR 0002; the base releases devkit-openspec 1.1.0 and takes no ADR; the step runs again in a merge commit and keeps
+  // 0002 (its record names the ADR, but that commit did not rename it); the base then takes 0002 and edits src/a.ts in conflict.
+  const { root } = notedRepo({ files: { 'src/a.ts': 'mine\n' } });
+  assert.equal(assign(root).code, 0);
+  git(root, 'checkout', '-q', 'main');
+  write(root, {
+    [PIN_PACK]: pluginJson(PIN_PACK_NAME, '1.1.0'),
+    '.claude-plugin/marketplace.json': marketplace('1.1.0', { [PIN_PACK_NAME]: '1.1.0', 'devkit-core': '1.0.0' }),
+    'CHANGELOG.md': '# Changelog\n\n## 1.1.0 — other\n\n- other\n\n## 1.0.0 — first\n\n- start\n',
+    [PIN_FILE]: pinDoc('1.1.0'),
+  });
+  commit(root, 'another change released with no ADR');
+  git(root, 'push', '-q', 'origin', 'main');
+  git(root, 'checkout', '-q', 'feat');
+  const again = assign(root);
+  assert.equal(again.code, 0, again.stderr + again.stdout);
+  assert.equal(parentsOf(root).length, 2, 'a merge commit');
+  assert.ok(existsSync(join(root, 'docs/adr/0002-feat.md')), 'the step kept 0002');
+  git(root, 'checkout', '-q', 'main');
+  write(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n', 'src/a.ts': 'theirs\n' });
+  commit(root, 'another change takes ADR 0002');
+  git(root, 'push', '-q', 'origin', 'main');
+  git(root, 'checkout', '-q', 'feat');
+  const refused = assign(root);
+  assert.equal(refused.code, 2, refused.stderr + refused.stdout);
+  assert.ok(refused.out.conflicts.includes('src/a.ts'), JSON.stringify(refused.out));
+  mergeByHand(root, { files: { 'src/a.ts': 'both\n' } });
+  const oldHead = sha(root);
+  const r = assign(root);
+  assert.equal(r.code, 0, r.stderr + r.stdout);
+  assert.deepEqual(parentsOf(root), [oldHead]);
+  assert.equal(versionOf(root, PIN_PACK), '1.2.0');
+  assert.ok(!existsSync(join(root, 'docs/adr/0002-feat.md')) && !existsSync(join(root, 'docs/adr/feat.md')));
+  assert.equal(read(root, 'docs/adr/0002-other.md'), '# ADR 0002: other\n');
+  assert.equal(read(root, 'docs/adr/0003-feat.md'), '# ADR 0003: the rule\n\n- Status: proposed\n- Change: `feat`\n');
+  assert.equal(read(root, 'docs/feat.md'), 'See ADR 0003 in docs/adr/0003-feat.md.\n', 'the citation the first record wrote is given back too');
+  assert.deepEqual(r.out.adrs, [{ from: 'docs/adr/feat.md', to: 'docs/adr/0003-feat.md' }]);
+  assert.equal(git(root, 'status', '--porcelain'), '');
+  const s = stateNow(root);
+  assert.deepEqual([s.kind, s.current], ['assigned', true]);
+});
+
 test('release-note AC-4 assign: the step\'s commit ends with its record', () => {
   const record = [
     'Release-change: feat',
