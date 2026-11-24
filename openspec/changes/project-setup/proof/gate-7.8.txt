@@ -1,0 +1,4 @@
+gate 7.8 start 2026-11-24T19:07:01-03:00 load: 1.49 3.13 5.44 cores: 8 concurrency: 3
+suite: 34 files, 2950 tests, 2947 pass, 0 fail, 1208.8s, concurrency 3
+exit=0
+end 2026-11-24T19:27:14-03:00 load: 4.54 4.14 5.00
