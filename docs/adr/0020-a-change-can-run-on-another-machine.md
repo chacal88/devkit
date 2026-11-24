@@ -1,6 +1,7 @@
 # ADR 0020: A change can run on another machine, claimed on GitHub when it opens
 
 - Status: accepted
+- Amended by ADR 0021 (0021-a-roadmap-run-opens-every-change-at-its-start.md)
 - Date: 2026-11-22
 - Change: remote-worker
 - Amends: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), the hold of a start by
@@ -55,6 +56,11 @@ the run's number. Nothing is shared between machines but the repository on GitHu
    reason `no-place`; every other blocked end keeps ADR 0017's form.
 9. ADR 0010 decisions 1 to 8 (the loop's four ends included: waiting for a place is a blocked end
    with its reason), ADR 0011, and the rest of ADR 0013, ADR 0014 and ADR 0017 are unchanged.
+
+Note (roadmap-sessions-upfront, 2026-11-23): [ADR 0021](0021-a-roadmap-run-opens-every-change-at-its-start.md) counts the places of this machine's change
+sessions on the run's ticket from the run file, not from `origin`, and keeps one session cron for a
+roadmap run; its Note says how each point sits beside decisions 5, 7 and 8. The status and the
+decisions above stay.
 
 ## Consequences
 

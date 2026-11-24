@@ -10,7 +10,7 @@ import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, files
 import { makeGh } from './merge-setup.mjs';
 import { pinDoc } from './release-merge.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
-import { conductState, planningStep, dependencyStep, deliveryStep, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
+import { conductState, planningStep, dependencyStep, deliveryStep, deliveryRow, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
 // ---------------------------------------------------------------- fixture harness (task 2.1)
 
@@ -1533,4 +1533,82 @@ test('stage-roles flow conduct-check: the short script is asked for no decisions
   const b = t.addWt('b');
   writeChange(b, 'b', { '.openspec.yaml': 'schema: devkit-lite\n', 'requirements.md': '# Requirements\n' });
   assert.deepEqual(byId(t.state(), 'b').next.missing, ['proposal.md', 'tasks.md']);
+});
+
+// ---------------------------------------------------------------- ADR numbers the base took (roadmap-sessions-upfront D-10, AC-11)
+
+const ADR_BODY = (n, name) => `# ADR ${n}: ${name}\n\nStatus: proposed\n`;
+// A round whose change `b` adds `branch` files (path -> text) after it forked, while origin/main gains `origin`.
+function adrRepo({ branch, origin = {} }) {
+  const t = roundRepo({ roadmap: roadmapOf(['Round 1: x', '- [ ] b']), files: { 'docs/adr/0001-first.md': ADR_BODY('1', 'first') } });
+  const b = t.addWt('b');
+  readyChange(b, 'b', { files: branch });
+  if (Object.keys(origin).length) t.commitOrigin(origin, 'origin adds records');
+  openPr(t, b, 'b');
+  return { t, b };
+}
+
+// Invariant (AC-11, conduct-check, conduct): an ADR number the default branch gave another file is renumbered by the implementer, never asked of the owner.
+test('upfront AC-11 adr: a number the base gave another file is renumbered to the next free one', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0016-b.md': ADR_BODY('16', 'b'), 'docs/adr/0017-c.md': ADR_BODY('17', 'c') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['renumber-adr', 'subagent']);
+  assert.equal(c.next.agent, TDD);
+  assert.deepEqual(c.next.files, [{ from: 'docs/adr/0016-a.md', to: 'docs/adr/0018-a.md', number: '0018' }]);
+  assert.match(c.next.reason, /an ADR number the base took: renumber docs\/adr\/0016-a\.md to docs\/adr\/0018-a\.md and every reference/);
+});
+
+test('upfront AC-11 adr: the folder docs/decisions is read like docs/adr', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/decisions/0005-a.md': ADR_BODY('5', 'a') },
+    origin: { 'docs/decisions/0005-b.md': ADR_BODY('5', 'b') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['renumber-adr', 'subagent']);
+  assert.deepEqual(c.next.files, [{ from: 'docs/decisions/0005-a.md', to: 'docs/decisions/0006-a.md', number: '0006' }]);
+});
+
+test('upfront AC-11 adr: no clash gives no step', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0015-b.md': ADR_BODY('15', 'b'), 'docs/decisions/0016-c.md': ADR_BODY('16', 'c') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.notEqual(c.next.step, 'renumber-adr', 'a number in another folder is no clash');
+  assert.equal(c.next.files, undefined);
+});
+
+test('upfront AC-11 adr: the same file on both gives no step', () => {
+  const same = { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') };
+  const { t } = adrRepo({ branch: same, origin: same });
+  assert.notEqual(byId(t.state(), 'b').next.step, 'renumber-adr');
+});
+
+test('upfront AC-11 adr: two clashes take the next two numbers in order', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0017-b.md': ADR_BODY('17', 'b'), 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0016-x.md': ADR_BODY('16', 'x'), 'docs/adr/0017-y.md': ADR_BODY('17', 'y') },
+  });
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['renumber-adr', 'subagent']);
+  assert.deepEqual(c.next.files, [
+    { from: 'docs/adr/0016-a.md', to: 'docs/adr/0018-a.md', number: '0018' },
+    { from: 'docs/adr/0017-b.md', to: 'docs/adr/0019-b.md', number: '0019' },
+  ]);
+});
+
+test('upfront AC-11 adr: an unresolvable base gives no step', () => {
+  const { t } = adrRepo({
+    branch: { 'docs/adr/0016-a.md': ADR_BODY('16', 'a') },
+    origin: { 'docs/adr/0016-b.md': ADR_BODY('16', 'b') },
+  });
+  const wt = t.wtPath('b');
+  const ctx = { root: t.main, ref: 'origin/no-such-branch', base: 'no-such-branch' };
+  const row = { id: 'b', worktree: wt };
+  const report = { summary: 's', met: [], next: { step: 'wait-checks', reason: 'r' } };
+  const out = deliveryRow(ctx, row, { state: {}, report });
+  assert.notEqual(out.next.step, 'renumber-adr');
 });

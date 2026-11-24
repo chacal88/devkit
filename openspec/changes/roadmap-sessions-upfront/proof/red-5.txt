@@ -1,0 +1,23 @@
+Phase 5 tests on b216a46 (the product code unchanged): 8 of the 11 new tests fail. The four that pass pin behaviour the base has:
+- upfront AC-10 state: a change that holds a place, or has no queue entry and no waitsFor, gets no held reason (negative);
+- upfront AC-10 state: a change waiting for the owner, blocked or waiting on GitHub keeps its state and title over a queue entry or a waitsFor (negative);
+- upfront AC-10 state: outside a run with a session per change a queue entry or a waitsFor gives no held reason (negative);
+- upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again (phase 2's test, not new; task 5.3 changes it, T-16).
+Command: env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^upfront AC-10" plugins/openspec/hooks/guard.test.mjs
+
+✖ upfront AC-10 facts: runFactsOf reads the change's queue entry, its place and its waitsFor, and no other change's
+✖ upfront AC-10 state: a running change queued for a place reads held-place with its board words and the title ⏳ <id>
+✖ upfront AC-10 state: a running change queued by the load reads held-load
+✖ upfront AC-10 state: a plan stage whose dependency is not archived reads held-after naming it
+✔ upfront AC-10 state: a change that holds a place, or has no queue entry and no waitsFor, gets no held reason
+✔ upfront AC-10 state: a change waiting for the owner, blocked or waiting on GitHub keeps its state and title over a queue entry or a waitsFor
+✔ upfront AC-10 state: outside a run with a session per change a queue entry or a waitsFor gives no held reason
+✖ upfront AC-10 state: a held title of a 70-character id is cut to 59 code points
+✔ upfront AC-10 session-next: a held change is titled ⏳ <id> and a claimed one its stage icon again
+✖ upfront AC-10 session-next: every held action carries the state changeState derives, and its title and icon come from it
+✖ upfront AC-10 status: a held row is placed by the state's reason, in the queue with its words
+✖ upfront AC-10 command: the state command, session-next and the board agree on a change held for a place and one held for a dependency
+ℹ tests 12
+ℹ suites 0
+ℹ pass 4
+ℹ fail 8
