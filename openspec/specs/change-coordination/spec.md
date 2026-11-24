@@ -109,8 +109,12 @@ into the requirements file, and reply with the id, the script, the reason and wh
 - **THEN** the command exits 3, the worktree, its folder and the branch it created are gone, each removed on its own so that one failed removal does not skip the next, and opening the same id again once the cause is fixed creates the change
 
 #### Scenario: An id already in use
-- **WHEN** a change folder, archived change, branch, archive branch, remote branch or worktree already has the proposed id
+- **WHEN** a change folder, archived change, branch, archive branch or worktree already has the proposed id, or a branch of that name on `origin` holds no change folder of that id
 - **THEN** nothing is created and the reply says the name is taken
+
+#### Scenario: An id open on another machine
+- **WHEN** a branch of the proposed id exists on `origin` and holds that change's folder
+- **THEN** the opening is refused as the requirement "An id open on another machine is refused" says, not as a taken name
 
 ### Requirement: The script follows the grill until the plan is written
 A change on the short script SHALL move to the full script, before any plan file exists, when the
@@ -188,8 +192,8 @@ role the script's stage declaration names; it SHALL NOT choose the order itself.
 
 ### Requirement: From the implementation on, the step inside the stage goes to its role
 From the implementation to the archive, the loop SHALL take the stage from the stage checker and the
-step inside it from the delivery checker, with the two overrides the retired `/conduct` applied and `/devkit change` keeps (a release-file
-conflict, a branch the loop rebased), and hand each step to the role declared for its stage; the stage
+step inside it from the delivery checker, with the override the retired `/conduct` applied and `/devkit change` keeps (a release-file
+conflict), and hand each step to the role declared for its stage; the stage
 checker's blocked ends SHALL win. The unit tests and the E2E tests, which the delivery checker does
 not know, SHALL be taken from the stage checker alone.
 
@@ -207,18 +211,26 @@ not know, SHALL be taken from the stage checker alone.
 
 #### Scenario: A conflict only in release files
 - **WHEN** the change's or the archive's pull request conflicts with its base only in release files (versions, changelog, catalog, the CI pin)
-- **THEN** the next action hands `resolve-release-conflict` to the implementer's agent with the release rebase command and the conflicting paths
+- **THEN** the next action hands `resolve-release-conflict` to the implementer's agent with the release merge command and the conflicting paths
+
+#### Scenario: A release merge that is not pushed yet
+- **WHEN** GitHub still reports the pull request in conflict, the local head already holds the base and the pull request's head is an ancestor of the local head and differs from it
+- **THEN** the next action hands `push` (for the change's pull request) or `open-archive-pr` (for the archive's) to the commit-and-pr agent with the command `git push origin <branch>`, which holds neither `--force` nor `--force-with-lease`
 
 #### Scenario: A branch the loop's own rebase rewrote
-- **WHEN** the pull request's head is no longer an ancestor of the local head but the branch held it before a rebase
-- **THEN** the next action hands `push-rebased` to the commit-and-pr agent with the old head for a force-with-lease push
+- **WHEN** the pull request's head is no longer an ancestor of the local head because the branch was rewritten by a rebase, as an earlier version's release step did
+- **THEN** the loop hands no push for it: the run ends blocked, saying the pull request's head is not in the local history, for the owner to push by hand
+
+#### Scenario: No step pushes by force
+- **WHEN** the loop's rows and every step the delivery checker and the override can return are listed
+- **THEN** none of them is `push-rebased` and no command they carry holds `--force` or `--force-with-lease`
 
 #### Scenario: A conflict in any other file
 - **WHEN** the pull request conflicts with its base in a file that is not a release file
 - **THEN** the run ends blocked, saying the pull request has a problem the session cannot fix alone
 
 #### Scenario: GitHub reports a conflict the base merges cleanly
-- **WHEN** GitHub reports a conflict, the base merges cleanly with the local head, and the project merges automatically
+- **WHEN** GitHub reports a conflict, the base merges cleanly with the local head, the local head is the pull request's head, and the project merges automatically
 - **THEN** the next action is the session step `update-branch`
 
 #### Scenario: The demonstration
@@ -246,7 +258,7 @@ not know, SHALL be taken from the stage checker alone.
 - **THEN** the run ends blocked, saying the next step is unknown
 
 #### Scenario: The loop's rows match what the checkers return
-- **WHEN** the loop's rows are compared with every step the delivery checker and the two overrides can return
+- **WHEN** the loop's rows are compared with every step the delivery checker and the override can return
 - **THEN** every returnable step has a row and no row names a step that no checker returns
 
 #### Scenario: The loop and the checker name the same agent for each step
@@ -829,3 +841,262 @@ brief, in place of the task branch's.
 #### Scenario: The conflict resolution
 - **WHEN** the next step is the resolution of a conflict on `feat-develop`
 - **THEN** the hand-off goes to the implementer and its brief says to work only in the worktree of `feat-develop`, on that branch
+
+### Requirement: A release-only conflict is resolved by a merge of the base
+The release-conflict step's command SHALL merge `origin/<base>` into the branch, never rebase it,
+resolve the release files by the renumbering rule and commit the merge, so that the branch's old
+head and its pull request's head stay ancestors of the new head. It SHALL never push. A merge it
+cannot resolve SHALL be aborted, leaving the branch at its old head, no merge in progress and the
+working tree as it was.
+
+#### Scenario: A base that released after the branch forked
+- **WHEN** the base bumped a pack and added a changelog entry after the branch forked, and the branch bumped the same pack with its own entry
+- **THEN** the command exits 0, the new head is a merge commit whose first parent is the old head and whose second parent is `origin/<base>`, and the working tree has nothing uncommitted
+
+#### Scenario: The release is renumbered above the base's
+- **WHEN** the merge is resolved
+- **THEN** each pack the branch bumped carries the base's version plus the branch's own bump kind in its manifest and in the marketplace, the branch's changelog entry sits above the base's newest with that number, every CI pin names the resolved devkit-openspec version, and the catalog is regenerated when a manifest changed
+
+#### Scenario: The result goes up with a plain push
+- **WHEN** the pull request's head was pushed before the command ran
+- **THEN** a plain `git push` of the new head to the same remote is accepted, with no force
+
+#### Scenario: A conflict outside the release files
+- **WHEN** the merge conflicts in a file that is not a release file, or in the CI-pin file beyond its pins
+- **THEN** the command exits 2 naming the paths, the branch is at its old head, no merge is in progress, and the tracked and untracked files are as they were
+
+#### Scenario: A release file the rule cannot resolve
+- **WHEN** a manifest was edited beyond its version, the changelog does not hold exactly one new entry, the catalog conflicts without its generator, the generator fails, or the base has no devkit-openspec version for a conflicting pin
+- **THEN** the command exits 2 with the reason, the branch is at its old head and no merge is in progress
+
+#### Scenario: Uncommitted tracked changes or a rebase in progress
+- **WHEN** the command starts with a tracked file changed and not committed, or with a rebase in progress
+- **THEN** it exits 3 naming the cause, and the branch, the index and the working tree are not touched
+
+#### Scenario: A merge left in progress by an earlier run
+- **WHEN** the command starts while a merge is in progress
+- **THEN** it aborts that merge and runs again from the branch's head
+
+#### Scenario: The branch already holds the base
+- **WHEN** `origin/<base>` is already an ancestor of the branch's head
+- **THEN** the command exits 0, says there is nothing to do and makes no commit
+
+### Requirement: A release tag setting that cannot be used stops the command
+`/devkit change` SHALL refuse with the settings reply, before anything is created or run, when the
+`devkit:` block sets `release_tag` to a value that is not a path from the repository root to a
+`.json` file. A project with the key absent or empty SHALL read the same settings as before.
+
+#### Scenario: An absolute path
+- **WHEN** `openspec/config.yaml` has `devkit:` with `release_tag: /etc/plugin.json` and the person types `/devkit change add an export`
+- **THEN** nothing is created, the command exits 3 and the reply is the unknown-setting reply naming the release file, the value and the accepted form
+
+#### Scenario: A valid path
+- **WHEN** `release_tag: plugins/openspec/.claude-plugin/plugin.json` is set
+- **THEN** the command runs as before, and the settings it reads name that path
+
+#### Scenario: No key
+- **WHEN** the `devkit:` block has no `release_tag`
+- **THEN** the settings read are exactly those read before this change
+
+### Requirement: The release tag step is a session step of the delivery
+When the delivery checker answers `tag-release`, the loop SHALL give a session step of the delivery
+stage whose detail carries the tag, the merge commit sha, the pull request number and the base
+branch, done as the shipping skill's row for that step says; on the archive branch it SHALL do so
+before ending the run archived.
+
+#### Scenario: After the change's merge
+- **WHEN** the change's pull request merged with a release bump and the delivery checker answers `tag-release`
+- **THEN** `change-loop.mjs next` gives an action of kind `session`, stage `delivery`, step `tag-release`, with `detail.tag`, `detail.sha`, `detail.number` and `detail.base`, and exits 0
+
+#### Scenario: After the archive merge, on the archive branch
+- **WHEN** the change is archived in the worktree of `chore/archive-<id>`, the archive pull request merged with a release bump and its tag is missing
+- **THEN** the next action is the same session step, not the archived end
+
+#### Scenario: The same step back with nothing changed
+- **WHEN** the step `tag-release` comes back with the same progress key after the session ran it
+- **THEN** the run ends blocked as a step that made no progress, as for every session step
+
+### Requirement: A tag at another commit ends the run blocked with its own reason
+When the delivery checker stops because the tag already points at another commit, the loop SHALL
+end the run blocked with a reason that names the tag, the commit it points at and the merge commit,
+in the person's language, and that says the run never moves a tag.
+
+#### Scenario: The tag points elsewhere
+- **WHEN** the delivery checker answers `stop-archive` with `archiveStep` `tag-release`, `tag` `v1.3.0`, `at` `d4…` and `sha` `a1…`
+- **THEN** the run ends blocked with the reason code `tag-elsewhere`, its reply names `v1.3.0` and the first 7 characters of both shas, and it exits 2
+
+#### Scenario: GitHub could not answer
+- **WHEN** the delivery checker answers `stop-archive` with `archiveStep` `tag-release` and no `at`
+- **THEN** the run ends blocked with the reason code `archive-failed`, as every other archive stop does
+
+### Requirement: Opening a change records the versions it opened with
+Opening a change, through `/devkit change`, `/devkit roadmap` or `/devkit project`, SHALL write to its
+`.openspec.yaml` the devkit-openspec version that opened it and the version of its script's installed
+flow, under keys that OpenSpec reads without a warning. A script with no installed flow SHALL get no
+flow version.
+
+#### Scenario: A change opened on the full or the short script
+- **WHEN** a change is opened on `devkit` or on `devkit-lite`
+- **THEN** its `.openspec.yaml` holds the version of the pack that opened it and flow version 1, and `openspec status --change <id>` prints no unrecognized-key warning
+
+#### Scenario: A slice opened by the project entry
+- **WHEN** a slice is opened with `/devkit project`
+- **THEN** its `.openspec.yaml` holds the pack's version and the flow version of `devkit-project`
+
+#### Scenario: A script with no installed flow
+- **WHEN** a change is opened on a script whose schema folder holds no `flow.json`
+- **THEN** its `.openspec.yaml` holds the pack's version and no flow version
+
+### Requirement: A change moves to the installed flow only on request
+A command of the loop SHALL move one change to the installed flow of its script and record the new
+flow and pack versions, only when run for that change. Resuming, waiting on GitHub, opening another
+change, re-running the setup and updating the pack SHALL leave a change's recorded versions as they
+were. When the command cannot run (no active change of that name, no installed flow for the change's
+script, a malformed recorded flow version) it SHALL stop with a usage error and write nothing.
+
+#### Scenario: Moving a change
+- **WHEN** the owner asks to move a change that follows flow version 1 while version 2 is installed, and the command runs
+- **THEN** the change records flow version 2 and the pack's version, the reply says so, and the readout then lists version 2's stages
+
+#### Scenario: Nothing to move
+- **WHEN** the command runs for a change that already follows the installed flow version
+- **THEN** nothing changes and no reply is given
+
+#### Scenario: A change newer than the installed flow
+- **WHEN** the command runs for a change that follows flow version 3 while version 2 is installed
+- **THEN** nothing changes, the command exits 2 and the reply says to update devkit first
+
+#### Scenario: The command cannot run
+- **WHEN** the command runs for a change that is unknown or archived, for a change whose script has no installed `flow.json`, or for a change whose recorded `x-devkit-flow` is not a whole number from 1
+- **THEN** it exits 3, its error names the cause (the change, the script or the recorded value), and the change's `.openspec.yaml`, when there is one, is byte for byte the same
+
+#### Scenario: Other commands leave the version
+- **WHEN** a change follows flow version 1, version 2 is installed, and the loop's next step, a wait, the opening of another change, a setup re-run and a pack update run
+- **THEN** the change's `.openspec.yaml` is byte for byte the same
+
+### Requirement: A script switch records the installed flow of the new script
+Switching a change's script before its proposal exists SHALL record the installed flow version of the
+new script and the pack's version, and SHALL keep its other lines. A switch that changes nothing SHALL
+write nothing.
+
+#### Scenario: The short script becomes the full one
+- **WHEN** a change on `devkit-lite` is switched to `devkit` before any proposal
+- **THEN** its `.openspec.yaml` names `devkit`, holds the flow version of the installed `devkit` flow and keeps its `created` line
+
+#### Scenario: A switch to the same script
+- **WHEN** a switch names the script the change already uses
+- **THEN** its `.openspec.yaml` is byte for byte the same
+
+### Requirement: The resume reply names a newer installed flow
+When `/devkit change` resumes a change whose script's installed flow is newer than the one it
+follows, the first reply SHALL carry one more line naming both versions and saying the change moves
+only if the owner asks, in the person's language. When the versions are equal the reply SHALL be as
+before this change.
+
+#### Scenario: Resuming a change with a newer flow installed
+- **WHEN** `/devkit change <id>` resumes a change that follows flow version 1 while version 2 is installed, in `en` and in `pt-BR`
+- **THEN** the reply says it is continuing the change and where it stopped, then one line naming version 1 and version 2 and that it moves only if the owner asks
+
+#### Scenario: Resuming a change on the installed flow
+- **WHEN** `/devkit change <id>` resumes a change that follows the installed flow version
+- **THEN** the reply is the continuing reply alone, as before this change
+
+### Requirement: Opening a change claims it on the remote
+In a repository with an `origin` remote, opening a change SHALL commit the new change folder, holding
+the requirements file and the name of the machine that opened it, and push the new branch to `origin`
+before it replies. The push SHALL only create the branch: it never overwrites one. With no `origin`
+remote, opening SHALL commit and push nothing, as before.
+
+#### Scenario: The claim is on the remote
+- **WHEN** change `a` is opened in a repository with an `origin` remote, with or without the person's machines setting
+- **THEN** `origin` has the branch `a`, its last commit holds `openspec/changes/a/requirements.md` and the change's metadata file naming the machine, and the local branch `a` is that same commit
+
+#### Scenario: The machine's name
+- **WHEN** a change is opened by `/devkit change`, or by a roadmap run for this machine
+- **THEN** the machine named in the claim is this machine's hostname, up to its first dot
+
+#### Scenario: A change opened for another machine
+- **WHEN** a roadmap run opens a change for the machine listed as `avel` in the person's machines setting
+- **THEN** the claim names `avel`, and no worktree or local branch of the change is left on the machine that opened it
+
+#### Scenario: A machine name or a places value that is not valid
+- **WHEN** the opening is given a machine name that is not 1 to 64 letters, digits, dots, underscores or dashes starting with a letter or a digit, a number of places that is not a whole number from 1 to 99 or `run`, or the remote opening without a machine name
+- **THEN** the command exits 3 with the reply of a request it could not read, and nothing is created, committed or pushed
+
+#### Scenario: No remote
+- **WHEN** a change is opened in a repository with no `origin` remote
+- **THEN** no commit is made, nothing is pushed, and the change is created as before
+
+#### Scenario: A push that fails for another reason
+- **WHEN** the push of the claim fails because the remote cannot be reached
+- **THEN** the command exits 3, and the worktree, its folder and the local branch are removed as for any opening that fails half-way
+
+### Requirement: An id open on another machine is refused
+Opening a change whose branch already exists on `origin` with that change's folder SHALL be refused
+with a reply naming the change and the machine its claim names, or saying another machine when the
+claim names none. Nothing SHALL be created: no worktree, no folder and no local branch.
+
+#### Scenario: Claimed by another machine
+- **WHEN** `a` is opened on the Mac while `origin` holds the branch `a` whose claim names `avel`
+- **THEN** the command exits 3, the reply names `a` and `avel` and says to continue it there or pick another name, and the Mac has no worktree, folder or branch `a`
+
+#### Scenario: A branch from before the claim
+- **WHEN** `a` is opened while `origin` holds the branch `a` with `a`'s folder but no machine's name in it
+- **THEN** the command exits 3 and the reply names `a` and says it is open on another machine
+
+### Requirement: Of two machines opening one id, one wins
+When two clones of one repository open the same id at once against one `origin`, exactly one SHALL
+end with its claim on `origin`. The other SHALL be refused as an id open on another machine, naming
+the winner's machine, and SHALL leave no worktree, folder or local branch behind.
+
+#### Scenario: The other clone pushed first
+- **WHEN** clone A has checked that `origin` has no branch `a`, and clone B opens `a` and pushes its claim before clone A pushes
+- **THEN** clone A's push is refused by the remote, clone A exits 3 naming `a` and B's machine, clone A has no worktree, folder or branch `a`, and `origin`'s branch `a` is B's claim
+
+#### Scenario: Both at the same moment
+- **WHEN** clones A and B start opening `a` at the same moment
+- **THEN** exactly one of them exits 0, the other exits 3 with the reply of an id open on another machine, and `origin`'s branch `a` is the claim of the one that exited 0
+
+### Requirement: The implementation waits for a free place on its machine
+A change whose claim records its machine's places SHALL take a place before its first step from the
+implementation on. With no free place on its machine, the loop SHALL end as blocked, waiting for a
+place, naming the machine and how many places are taken. The grill and the plan SHALL never wait for
+a place. A change whose claim records no places SHALL never wait.
+
+#### Scenario: No free place
+- **WHEN** change `c` on `avel`, whose claim records 1 place, has its plan approved while change `b` on `avel` holds that place
+- **THEN** `c`'s next action is a blocked end waiting for a place, its reply says `c` waits for a free place on `avel` with 1 of 1 taken, its icon is ⏳, and no implementation step is handed
+
+#### Scenario: A free place
+- **WHEN** change `c` on `avel`, whose claim records 2 places, has its plan approved while one place on `avel` is held
+- **THEN** `c`'s next action is the step that takes the place; once it ran, `origin`'s branch `c` holds `c`'s approved plan and the next action is the first implementation step
+
+#### Scenario: The grill and the plan
+- **WHEN** change `c` on a machine whose every place is held is at its grill or its plan
+- **THEN** its next action is that stage, as for any change
+
+#### Scenario: A change that records no places
+- **WHEN** a change opened by `/devkit change`, or with the person's machines setting unset, reaches its implementation
+- **THEN** its implementation starts as before, with no place taken or checked
+
+#### Scenario: A place already taken
+- **WHEN** change `c` took its place and comes back to an implementation step after its review
+- **THEN** no place is checked again and the step is handed
+
+### Requirement: Taking a place is checked again and serialized per machine
+The step that takes a place SHALL count the places held on its machine from `origin` again, under a
+lock shared by every checkout of the clone, and take the place only when one is free. A place SHALL be
+held by a change whose branch on `origin` names that machine and holds its approved plan, until the
+change is archived on the default branch or its branch leaves `origin`.
+
+#### Scenario: Two changes of one machine at once
+- **WHEN** changes `c` and `d` on `avel`, whose claims record 1 place, run the step that takes a place at the same moment with no place held
+- **THEN** exactly one of them takes the place, and the other's next action is the blocked end waiting for a place
+
+#### Scenario: A message that comes too early
+- **WHEN** change `c` is told a place is free but every place on its machine is held when it runs its next action
+- **THEN** its next action is the blocked end waiting for a place, and no implementation step is handed
+
+#### Scenario: A change archived frees its place
+- **WHEN** change `b`, holding `avel`'s only place, is archived on the default branch
+- **THEN** a change of `avel` waiting for a place finds the place free at its next action

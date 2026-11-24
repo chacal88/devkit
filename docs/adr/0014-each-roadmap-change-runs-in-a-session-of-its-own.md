@@ -2,7 +2,8 @@
 
 - Status: accepted
 - Amended by ADR 0017 (0017-a-change-state-is-derived-in-one-place.md)
-- Amended by ADR 0020 (0020-the-model-is-chosen-by-stage.md)
+- Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
+- Amended by ADR 0021 (0021-the-model-is-chosen-by-stage.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator-followups
 - Supersedes: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 1 where
@@ -17,7 +18,11 @@ Note (change-state, 2026-11-22): [ADR 0017](0017-a-change-state-is-derived-in-on
 decision 3: while the change is stopped, the title carries the state icon (🙋, ⏳ or ⛔) before the
 stage icon, and 📦 alone once archived. Decisions 1, 2 and 4 to 6 are unchanged.
 
-Note (stage-models, 2026-11-23): [ADR 0020](0020-the-model-is-chosen-by-stage.md) amends decision 1:
+Note (remote-worker, 2026-11-22): a change of a run may run on another machine; its session is
+started on that machine's SSH connection, in its worktree there
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Decisions 2 to 6 are otherwise unchanged.
+
+Note (stage-models, 2026-11-23): [ADR 0021](0021-the-model-is-chosen-by-stage.md) amends decision 1:
 the coordinating session starts a change session on the model of the change's first stage and
 switches it only down, to the strongest model among the new stage and the session-run stages still
 ahead of it, never up; a start is still on a typed turn only (decision 2), a switch is not a start.

@@ -3,7 +3,7 @@
 
 Change: `stage-models` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a (sources:
 `requirements.md`, with the answers the coordinating session gave on the owner's instruction;
-`decisions.md` and ADR 0020; the `stage-models` line of `openspec/roadmap.md`, round 25f).
+`decisions.md` and ADR 0021; the `stage-models` line of `openspec/roadmap.md`, round 25f).
 
 ## Why
 
@@ -11,7 +11,7 @@ The first two-machine roadmap run spent the owner's credits: every session, each
 the coordinating one, ran on the host's default `opus[1m]`, although 16 of the 18 devkit agents
 declare Sonnet. The spend was the sessions themselves. Nothing in devkit chooses a model today: the
 loop's hand-offs carry none, a change session starts on the host's default, and a stage that fails
-ends the run. The owner asked that the model be chosen by stage, never by the owner (ADR 0020).
+ends the run. The owner asked that the model be chosen by stage, never by the owner (ADR 0021).
 
 ## What Changes
 
@@ -62,7 +62,7 @@ Checked live by the conducting session on 2026-11-23 (`design.md` Context, A-1 a
   default, and the first stage whose floor is cheaper switches it down (`design.md` D-6). The cap
   stays: a coordinating session on Sonnet cannot open a change session on Opus for its grill; the
   fix is to open the coordinating session on the stronger model, the owner's choice in the app and
-  out of this change's scope (ADR 0020 Consequences).
+  out of this change's scope (ADR 0021 Consequences).
 - `mcp__ccd_session_mgmt__set_session_model` takes `session_id` and `model`, is refused for the
   calling session, and asks the user before a switch to a more expensive model. The loop only
   returns cheaper switches, so it asks nothing.
@@ -73,14 +73,14 @@ Checked live by the conducting session on 2026-11-23 (`design.md` Context, A-1 a
 ## The step-down floor
 
 Decided by the owner on 2026-11-23, answering the escalation raised with this plan, and recorded
-in ADR 0020 decision 4 and its Consequences by the adr-author: a change session in a roadmap run
+in ADR 0021 decision 4 and its Consequences by the adr-author: a change session in a roadmap run
 never steps below the strongest model among the session-run stages still ahead of it. The
 session-run stages are the ones the change session performs itself: the grill (`requirements`), the
 owner's approval (`approval`), the review round (`review`), the delivery steps (`delivery`) and the
 retro (`retro`); every other stage runs as a stage subagent. So the table's Haiku rows apply only to
 stage subagents (the unit-test run, the commit and pull-request hand-off), and a stage whose model is
 above the session's current one runs as a stage subagent on that model, never as an upward switch
-(a session-run stage above it is performed on the session's model, the case ADR 0020's
+(a session-run stage above it is performed on the session's model, the case ADR 0021's
 Consequences accept). The rule lives in one function, `stepDownOf` (`design.md` D-6).
 
 ## Acceptance criteria
@@ -103,7 +103,7 @@ the owner accepts at plan approval with the other resolved readings listed after
 - AC-12 `spend-readout`: `flow-check` and `/devkit status` print tokens per stage and per model, the retries and the total against the `budget` cap, and write no file.
 - AC-13 `real-run-proof`: the change's real-run proof covers a lone change and a roadmap run on at least two stages with different models, each shown in the transcripts' model fields, plus one retry; the guard test suite passes.
 
-Four criteria and two readings of ADR 0020 are resolved by the design, and the evidence is checked
+Four criteria and two readings of ADR 0021 are resolved by the design, and the evidence is checked
 against the resolved wording below; the owner accepts each at plan approval or names another
 reading:
 
@@ -136,13 +136,13 @@ reading:
   the implementer's fix, not to a Sonnet rerun. AC-10 is checked as its line above says (`design.md`
   D-5 "The retry's reach"; spec `stage-models`, "Only a stage subagent that could not finish is
   retried"; the real run 3 of `design.md` D-13).
-- ADR 0020 decision 5, read. "A stage subagent that returns `Outcome: failure` on Haiku or Sonnet is
+- ADR 0021 decision 5, read. "A stage subagent that returns `Outcome: failure` on Haiku or Sonnet is
   handed again once on the next family up" is read as AC-10 above: only an agent that stopped
   without writing its stage file. The ADR's Consequences mitigation "one retry a model up" therefore
   reaches only an agent that cannot finish; a stage that records `result=failed` is mitigated by its
   fix path and its ceiling instead. The ADR's Note states this reading and changes no decision
   (`design.md` D-10, task 5.3).
-- ADR 0020 decision 2, read. The `[1m]` opt-in reaches a session's own model (a change session's
+- ADR 0021 decision 2, read. The `[1m]` opt-in reaches a session's own model (a change session's
   start model or a step-down to that value) and the retry's mapping on the action, never a stage
   subagent: the Agent call drops the suffix (built in task 1.5), so a stage agent whose row is
   `opus[1m]` runs with the plain family's context window. The ADR's Note states this reading too
@@ -188,12 +188,12 @@ Exit criteria: every phase gate of `tasks.md` green, then
   `flow-check.test.mjs`.
 - Docs and release: `docs/openspec-flow.md`, `docs/coordination-design.md`,
   `docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md` (header and Note),
-  `docs/adr/0020-the-model-is-chosen-by-stage.md` (the clarifying Note of task 5.3; its number moves
+  `docs/adr/0021-the-model-is-chosen-by-stage.md` (the clarifying Note of task 5.3; its number moves
   to the next free one at the delivery merge, `design.md` D-10),
   `openspec/config.yaml` (comment and ADR list), `CHANGELOG.md`, devkit-openspec's `plugin.json` and
   `.claude-plugin/marketplace.json`.
 - Dependencies: `change-budget` (archived 2026-11-23; its count and transcript lookup are reused).
-  Decisions cited: ADR 0020 (this change's, proposed), ADR 0010, ADR 0011, ADR 0013, ADR 0014.
+  Decisions cited: ADR 0021 (this change's, proposed), ADR 0010, ADR 0011, ADR 0013, ADR 0014.
   Open decisions inherited: none (this repository keeps no open-decisions log;
   `docs/coordination-design.md` "Open points" holds none on models). Open in this change: none (the
   step-down floor was decided by the owner on 2026-11-23, "The step-down floor" above).

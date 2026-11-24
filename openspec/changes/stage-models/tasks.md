@@ -28,7 +28,7 @@ the file loads on the code before the task. An existing test changes only where 
 names it, in the task that changes its rule, with its invariant named in the commit message. Leave no
 backup or scratch file in the tree, and end every task with `git status --short`.
 
-The step-down rule is the owner's floor of 2026-11-23 (`proposal.md` "The step-down floor", ADR 0020
+The step-down rule is the owner's floor of 2026-11-23 (`proposal.md` "The step-down floor", ADR 0021
 decision 4): a change session never steps below the strongest model among its stage and the
 session-run stages still ahead of it. Task 1.3 adds the list of session-run stages
 (`SESSION_RUN_STAGES`) and `strongest`; tasks 3.1 and 3.2 build the rule in `stepDownOf` alone (D-6).
@@ -208,13 +208,16 @@ session-run stages still ahead of it. Task 1.3 adds the list of session-run stag
 ## 4. Documents, the real-run proof and the release (AC-1 to AC-13)
 
 - [x] 4.1 ADR number: read `origin/main` as the last merge of `main` into this branch left the ref
-  (a stage brief allows no fetch); when a `docs/adr/0019-*` file exists there, renumber
-  `docs/adr/0019-the-model-is-chosen-by-stage.md` to the next free number on `origin/main` at the
-  last merge before review and change every reference to it in this change's files. Check:
-  `git diff --quiet 4b825dc642cb6eb9a060e54bf8d69288fbee4904 origin/main -- 'docs/adr/0019-*'`
-  exits 0 (no `0019` file on `origin/main`; the hash is Git's empty tree), or the renumbered file
-  exists and `grep -rn "0019" openspec/changes/stage-models docs openspec/config.yaml` names no
-  other ADR.
+  (a stage brief allows no fetch); when a `docs/adr/0020-*` file exists there, renumber
+  `docs/adr/0020-the-model-is-chosen-by-stage.md` to the next free number on `origin/main` at the
+  last merge before review and change every reference to it in this change's files. At the
+  delivery merge (tip `4631376`) `origin/main` holds `0019` and `0020`, so the ADR is
+  `docs/adr/0021-the-model-is-chosen-by-stage.md`. Check:
+  `git diff --quiet 4b825dc642cb6eb9a060e54bf8d69288fbee4904 origin/main -- 'docs/adr/0020-*'`
+  exits 0 (no `0020` file on `origin/main`; the hash is Git's empty tree), or the renumbered file
+  exists (`docs/adr/0021-the-model-is-chosen-by-stage.md`) and
+  `grep -rn "0020-the-model-is-chosen-by-stage" openspec/changes/stage-models docs openspec/config.yaml`
+  names no file.
 - [x] 4.2 Write the D-10 documents: the ADR 0014 header line and Note
   (`docs/adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md`), the `openspec/config.yaml`
   comment and `ADRs:` line, the **The model of each stage.** paragraph, the four Troubleshooting
@@ -238,8 +241,10 @@ session-run stages still ahead of it. Task 1.3 adds the list of session-run stag
   attempt meets the same limit and ends the same way, which is accepted (D-13).
 - [x] 4.5 Release as D-14 says: the next minor of devkit-openspec in
   `plugins/openspec/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, the next minor
-  of the marketplace, both read from `origin/main` at the last merge before review, a `CHANGELOG.md`
-  section, and the CI pins of `docs/openspec-flow.md` moved to the new tag. Check:
+  of the marketplace, both read from `origin/main` at the last merge before review (at the
+  delivery merge, tip `4631376`: devkit-openspec 0.33.0 above 0.32.0, marketplace 0.37.0 above
+  0.36.1), a `CHANGELOG.md` section, and the CI pins of `docs/openspec-flow.md` moved to the new
+  tag (`v0.33.0`). Check:
   `python3 scripts/gen-catalog.py --check` passes and
   `node --test --test-name-pattern="change-loop docs: the design records the answers" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
@@ -278,16 +283,16 @@ current names first.
   passes, the new test and every earlier `AC-10` test included.
 - [x] 5.2 Red half. Add to `plugins/openspec/hooks/stage-models.test.mjs`, beside the flow-document
   tests and with their helpers (`modelParagraph`, `textOf`, `ADR_FILE`), the two D-12 "Skill and
-  docs" tests of review round 1: `stage-models AC-10 the flow document and ADR 0020 say the retry
+  docs" tests of review round 1: `stage-models AC-10 the flow document and ADR 0021 say the retry
   reaches only an agent that writes no stage file` (each text, whitespace collapsed, holds `without
-  writing its stage file` and `result=failed`) and `stage-models AC-4 the flow document and ADR 0020
+  writing its stage file` and `result=failed`) and `stage-models AC-4 the flow document and ADR 0021
   say the 1M opt-in never reaches a stage subagent` (the paragraph holds `never reaches a stage
   agent`, the ADR `never a stage subagent`). Run
-  `mkdir -p /var/tmp/devkit-stage-models && env TMPDIR=/var/tmp/devkit-stage-models GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^stage-models AC-(4|10) the flow document and ADR 0020" plugins/openspec/hooks/stage-models.test.mjs`
+  `mkdir -p /var/tmp/devkit-stage-models && env TMPDIR=/var/tmp/devkit-stage-models GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^stage-models AC-(4|10) the flow document and ADR 0021" plugins/openspec/hooks/stage-models.test.mjs`
   on the documents before task 5.3. Check: both new tests fail there, and no other test changes.
 - [x] 5.3 Word the three documents with the sentences of D-10 "The retry's reach and the 1M reach in
   words": the **The model of each stage.** paragraph of `docs/openspec-flow.md` (the retry sentence
-  replaced, the 1M sentence added), the Note of `docs/adr/0020-the-model-is-chosen-by-stage.md`
+  replaced, the 1M sentence added), the Note of `docs/adr/0021-the-model-is-chosen-by-stage.md`
   after decision 7 (no decision's text changes), and this change's section of `CHANGELOG.md` (the
   opt-in parenthesis and the retry sentence), each anchor on one line. Check: the two tests of task
   5.2 pass with the command of 5.2,

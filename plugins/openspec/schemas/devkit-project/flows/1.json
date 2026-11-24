@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "script": "devkit-project",
+  "ceilings": { "default": 3 },
+  "stages": [
+    {"id": "open", "source": "folder", "role": "project-coordinator", "skills": [], "part": "open", "title": {"en": "Open the slice", "pt-BR": "Abrir a fatia"}},
+    {"id": "business", "source": "artifact", "file": "business.md", "role": "project-coordinator", "skills": ["design-business-discovery"], "owner": true, "part": "plan", "title": {"en": "Business", "pt-BR": "Negócio"}},
+    {"id": "domain-model", "source": "artifact", "file": "domain-model.md", "role": "project-coordinator", "skills": ["design-domain-model", "ddd-strategic-design"], "owner": true, "part": "plan", "title": {"en": "Domain model", "pt-BR": "Modelo de domínio"}},
+    {"id": "architecture", "source": "artifact", "file": "architecture.md", "role": "project-coordinator", "skills": ["design-architecture"], "owner": true, "part": "plan", "title": {"en": "Architecture", "pt-BR": "Arquitetura"}},
+    {"id": "implementation-plan", "source": "artifact", "file": "implementation-plan.md", "role": "project-coordinator", "skills": ["design-implementation-plan"], "owner": true, "part": "plan", "title": {"en": "Implementation plan", "pt-BR": "Plano de implementação"}},
+    {"id": "roadmap", "source": "artifact", "file": "roadmap.md", "role": "project-coordinator", "skills": [], "owner": true, "part": "plan", "title": {"en": "Roadmap", "pt-BR": "Roadmap"}},
+    {"id": "review", "source": "artifact", "file": "review.md", "role": "adr-reviewer", "skills": [], "codeBound": true, "ceiling": 2, "onFail": "architecture", "staleAfter": ["business", "domain-model", "architecture", "implementation-plan", "roadmap"], "part": "after", "title": {"en": "ADR review", "pt-BR": "Revisão dos ADRs"}},
+    {"id": "delivery", "source": "github", "role": "commit-and-pr", "skills": ["commit-message-guidelines"], "part": "delivery", "title": {"en": "Pull request", "pt-BR": "Pull request"}}
+  ]
+}

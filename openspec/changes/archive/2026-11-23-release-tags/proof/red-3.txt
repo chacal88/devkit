@@ -1,0 +1,127 @@
+$ env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^release-tags 3" plugins/openspec/hooks/release-tags.test.mjs
+✔ release-tags 3: tag-release after the change's merge is a session step of the delivery stage (662.213861ms)
+✔ release-tags 3: on the archive branch tag-release comes before the archived end (1593.342017ms)
+✔ release-tags 3: the same tag-release back with nothing changed ends the run blocked no-progress (714.969239ms)
+✖ release-tags 3: a tag at another commit ends the run blocked tag-elsewhere, naming both commits (663.285391ms)
+✔ release-tags 3: a tag-release stop that GitHub could not answer stays archive-failed (neg) (657.651845ms)
+✖ release-tags 3: ship-change has the tag-release row, its report line and its never line (0.74642ms)
+✖ release-tags 3: the devkit skill declares a stopped tag-release as an archive-failed end (0.351142ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 4
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4437.875122
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-tags.test.mjs:458:1
+✖ release-tags 3: a tag at another commit ends the run blocked tag-elsewhere, naming both commits (663.285391ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'end',
+      'blocked',
+  +   'archive-failed',
+  -   'tag-elsewhere',
+      2
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:461:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'end', 'blocked', 'archive-failed', 2 ],
+    expected: [ 'end', 'blocked', 'tag-elsewhere', 2 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:477:1
+✖ release-tags 3: ship-change has the tag-release row, its report line and its never line (0.74642ms)
+  AssertionError [ERR_ASSERTION]: the Report sentence
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:484:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:489:1
+✖ release-tags 3: the devkit skill declares a stopped tag-release as an archive-failed end (0.351142ms)
+  AssertionError [ERR_ASSERTION]: it names tag-release
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:493:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+$ env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^change-state AC-3 state: each blocked" --test-name-pattern="^change-loop replies" plugins/openspec/hooks/change-loop.test.mjs
+✔ change-loop replies: no internal term in either language (128.033459ms)
+✔ change-loop replies: an unset or unknown language is Brazilian Portuguese, en stays English (0.496964ms)
+✔ change-loop replies: a stage reads as a noun phrase in each language (0.329106ms)
+✔ change-loop replies: the owner's settings, English files and replies in Portuguese (1.081732ms)
+▶ change-state AC-3 state: each blocked reason decide gives is the reason, with its phrase and details
+  ✔ ceiling (0.663249ms)
+  ✔ no-progress (0.189549ms)
+  ✔ not-delivered (0.19661ms)
+  ✔ pr-closed (0.25118ms)
+  ✔ previous-script (0.185674ms)
+  ✔ not-opened (0.172096ms)
+  ✔ wrong-branch (0.131247ms)
+  ✔ merge-setup (0.118195ms)
+  ✔ archive-failed (0.148735ms)
+  ✖ tag-elsewhere (1.375551ms)
+  ✔ plan-not-approved (0.176127ms)
+  ✔ pr-problem (0.130844ms)
+  ✔ unknown-step (0.11007ms)
+  ✔ unreadable (0.119908ms)
+✖ change-state AC-3 state: each blocked reason decide gives is the reason, with its phrase and details (7.626089ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 17
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 331.418297
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:4519:13
+✖ tag-elsewhere (1.375551ms)
+  AssertionError [ERR_ASSERTION]: the fixture is the end decide gives
+  + actual - expected
+  
+  + 'archive-failed'
+  - 'tag-elsewhere'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/change-loop.test.mjs:4520:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/change-loop.test.mjs:4519:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'archive-failed',
+    expected: 'tag-elsewhere',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

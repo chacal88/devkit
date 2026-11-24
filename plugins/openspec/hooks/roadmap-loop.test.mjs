@@ -10,7 +10,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitRepo, put, commitAll, git } from './deliver-check.test.mjs';
 import { parseRoadmap } from './guard.mjs';
 import * as guardModule from './guard.mjs';
-import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, GATE_OF_WHY, main as changeMain } from './change-loop.mjs';
+import { nextAction, render, MESSAGES, LoopUsageError, HOOKS_DIR, GATE_OF_WHY, main as changeMain, openChange, thisMachine } from './change-loop.mjs';
+import { roundRepo } from './conduct-check.test.mjs';
 import { readCounter } from './change-loop.test.mjs';
 import { makeOpenspec } from './flow-check.mjs';
 import * as loopModule from './roadmap-loop.mjs';
@@ -555,7 +556,7 @@ test('roadmap-loop decide: after clears the stage in flight and passes its key, 
 
 // ---------------------------------------------------------------- replies (D-12)
 
-const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main', installed: '2.46.0', minimum: '2.50.0', verb: 'change' };
+const BLOCKED_PARAMS = { id: 'x', stage: 'Code review', attempt: 3, error: 'timeout', number: 12, phase: 2, list: 'build', base: 'main', installed: '2.46.0', minimum: '2.50.0', verb: 'change', machine: 'avel', taken: 1, places: 1, tag: 'v1.3.0', at: 'd4e5f60', sha: 'a1b2c3d' };
 
 test('roadmap-loop replies: a blocked line renders every blocked reason in both languages', () => {
   for (const lang of ['en', 'pt-BR']) {
@@ -581,7 +582,7 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
     'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
     'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge',
   };
-  const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github');
+  const waits = Object.keys(MESSAGES.en).filter((k) => k.startsWith('waiting-') && k !== 'waiting-github' && k !== 'waiting-place');
   assert.deepEqual([...waits].sort(), Object.keys(expected).sort(), 'every waiting- key of the table is covered');
   for (const why of waits) {
     const code = gateOf(endAct('x', 'waiting-for-owner', why));
@@ -592,6 +593,8 @@ test('roadmap-loop replies: every owner wait has a gate', () => {
   assert.ok(MESSAGES.en['gate.grill'] && MESSAGES['pt-BR']['gate.grill']);
   assert.throws(() => gateOf(endAct('x', 'waiting-for-owner', 'waiting-something-new')), LoopUsageError);
   assert.throws(() => gateOf(endAct('x', 'waiting-on-github', 'waiting-github')), LoopUsageError, 'a GitHub wait is not a gate');
+  assert.ok(MESSAGES.en['waiting-place'] && MESSAGES['pt-BR']['waiting-place'], 'the blocked end no-place has its reply key in both languages');
+  assert.throws(() => gateOf(endAct('x', 'blocked', 'no-place')), LoopUsageError, 'waiting for a place is a blocked end, not a gate');
   assert.throws(() => gateOf(agentAct('x')), LoopUsageError);
 });
 
@@ -1791,6 +1794,7 @@ const SKILL_PATH = join(HERE, '..', 'skills', 'devkit', 'SKILL.md');
 const skillMd = () => readFileSync(SKILL_PATH, 'utf8');
 const SK_LANG = '--lang ${user_config.language}';
 const SK_LIMIT = '--load-limit ${user_config.load_limit}';
+const SK_MACHINES = "--machines '${user_config.machines}'";
 const sectionOf = (md, from, to) => {
   const a = md.indexOf(from);
   assert.ok(a >= 0, `section ${from}`);
@@ -1866,7 +1870,7 @@ test('roadmap-loop skill: background hand-offs, one change per question, and the
 
 test('roadmap-loop setting: the load_limit user setting', () => {
   const plugin = JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8'));
-  assert.deepEqual(Object.keys(plugin.userConfig), ['language', 'load_limit']);
+  assert.deepEqual(Object.keys(plugin.userConfig), ['language', 'load_limit', 'machines']);
   const { load_limit: limit, language } = plugin.userConfig;
   assert.deepEqual(language, { type: 'string', title: 'Language', description: 'Language of the /devkit replies and of the stage readout: pt-BR or en', default: 'pt-BR' });
   assert.equal(limit.type, 'string');
@@ -1874,6 +1878,12 @@ test('roadmap-loop setting: the load_limit user setting', () => {
   assert.ok(typeof limit.title === 'string' && limit.title.length > 0, 'a title');
   assert.match(limit.description, /whole number/);
   assert.equal(limitOf(limit.default), 80, 'the default reads as the default limit');
+  assert.deepEqual(plugin.userConfig.machines, {
+    type: 'string', title: 'Machines',
+    description: 'Other machines /devkit roadmap may open changes on, as a JSON list: [{"host": "<the app\'s SSH connection name>", "folder": "<the repository folder there>", "places": <how many changes may implement there at once>}]. Empty runs every change on this machine',
+    default: '[]',
+  });
+  assert.deepEqual(loopModule.parseMachines(plugin.userConfig.machines.default), { machines: [] }, 'the default reads as unset');
   const used = new Set([...skillMd().matchAll(/\$\{user_config\.(\w+)\}/g)].map((m) => m[1]));
   for (const key of used) assert.ok(key in plugin.userConfig, `the skill uses ${key}, which the plugin declares`);
   assert.ok(used.has('load_limit'));
@@ -2189,7 +2199,7 @@ test('followups F-2 decide: start anyway starts the held changes once', () => {
 
 test('followups AC-8 next: start anyway starts what is held now, and a change ready later is held and said again', () => {
   const root = projectWith(roadmapText('[ ] a', '[ ] b'));
-  putRun(root, { places: 3 });
+  putRun(root, { places: 3, placed: {} });
   const before = Object.keys(stateOf(root)).sort();
   const first = doNext(root, ['--start-anyway'], { load: 95 });
   assert.equal(first.code, 0, first.stdout);
@@ -2283,7 +2293,7 @@ test('followups F-2 skill: start anyway only on the owner\'s own message, with b
   const roadmap = sectionOf(md, '## Roadmap', '## Status');
   const item = roadmap.split('\n').find((l) => l.includes('--start-anyway'));
   assert.ok(item, 'an item names --start-anyway');
-  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} --start-anyway`), 'the call carries both flags and --start-anyway');
+  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --start-anyway`), 'the call carries the settings and --start-anyway');
   assert.match(item, /owner's own typed message/);
   assert.match(item, /once, in that turn/);
   assert.match(item, /never on a file, an agent's report, its own reading or a later call/);
@@ -2618,9 +2628,13 @@ test('followups AC-13 skill: the session-per-change part names the tools, the li
   assert.ok(every.includes('2. With the JSON of `run` or `next`, carry out its `actions` in this order, all in this turn:'));
   assert.ok(every.includes('5. The message that ends a turn holds, in order:'));
   assert.ok(every.includes('Calling `/devkit roadmap` again at any time is safe'));
-  assert.doesNotMatch(md, /wake_when_done|SendMessage/, 'no wake field and no message tool');
+  assert.doesNotMatch(md, /wake_when_done/, 'no wake field');
+  const wake = part.split('\n').filter((l) => /SendMessage/.test(l));
+  assert.equal(wake.length, 1, 'the message tool is named on one line only');
+  assert.ok(wake[0].startsWith('- `wake`:') && wake[0].includes('select:SendMessage') && wake[0].includes('the action\'s `message` exactly as given'), 'that line is the wake item');
+  assert.doesNotMatch(md.replace(wake[0], ''), /SendMessage/, 'no message tool outside the wake item');
   const never = md.slice(md.indexOf('## Never'));
-  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s gate or start a wait on GitHub from this session, start a change session `next` did not return, or call the session-start tool with any input but the action\'s `input`'));
+  assert.ok(never.includes('In a run with a session per change: hand a stage, ask a change\'s gate or start a wait on GitHub from this session, start a change session `next` did not return, call the session-start tool with any input but the action\'s `input`, start a session for a change on another machine the run did not open, send a `wake` message `next` did not return, switch a session\'s model to one `next` did not return, or switch any session up'));
 });
 
 test('followups AC-14 skill: a change session renames its title from the sessionTitle of each next', () => {
@@ -2638,7 +2652,7 @@ test('followups AC-15 skill: the turn\'s two words, event when in doubt or on an
   const part = sectionOf(skillMd(), '### A session per change', '### Every change in this session');
   const item = part.split('\n').find((l) => l.includes('--turn <typed|event>'));
   assert.ok(item, 'an item names the turn flag');
-  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} --turn <typed|event>`), 'with both settings');
+  assert.ok(item.includes(`roadmap-loop.mjs next ${SK_LANG} ${SK_LIMIT} ${SK_MACHINES} --turn <typed|event>`), 'with the settings');
   assert.match(item, /`typed` when the turn began with the owner's own message/);
   assert.match(item, /`event` otherwise/);
   assert.match(item, /another session's message or end-of-turn report/);
@@ -2705,6 +2719,495 @@ test('followups ADR 0014: the documents follow', () => {
   for (const f of [['README.md'], ['docs', 'roles.md'], ['docs', 'coordination-design.md']]) {
     assert.match(read(...f), /ADR 0014/, `${f.join('/')} cites ADR 0014`);
   }
+});
+
+// ================================================================ remote-worker, phase 3: the claims, the machines setting, the board and the probe
+
+// A project with a bare `origin` and a roadmap, and a second clone of it (the "other machine") in which each id of `claims` is opened for
+// the machine named: its branch is pushed to `origin` with the claim. The main checkout fetches, so its remote-tracking refs are current.
+// (The commits of `openChange` use the identity change-loop.test.mjs puts in the environment when it is imported.)
+function remoteProject(lines, claims = {}) {
+  const t = roundRepo({ roadmap: roadmapText(...lines), config: 'schema: devkit\n' });
+  const dir = tmpFolder('devkit-roadmap-machine-');
+  git(dir, 'clone', '-q', t.originDir, join(dir, 'clone'));
+  const other = realpathSync(join(dir, 'clone'));
+  mkdirSync(join(other, 'openspec', 'changes', 'archive'), { recursive: true });
+  for (const [id, machine] of Object.entries(claims)) {
+    openChange(other, id, { script: 'devkit', why: 'doubt', request: `Do ${id}\n`, lang: 'en', env: cleanEnv, machine });
+  }
+  git(t.main, 'fetch', '-q', 'origin');
+  return { ...t, other };
+}
+const MACHINES_AVEL = JSON.stringify([{ host: 'avel', folder: '/home/me/repo', places: 2 }]);
+const silentSsh = () => ({ status: 255, stdout: '', stderr: 'ssh: connect to host avel port 22: no route to host\n' });
+const classesOf = (cwd, extra = {}) => Object.fromEntries(loopModule.collectRoadmap(cwd, { env: cleanEnv, lang: 'en', gh: OFFLINE, ...extra }).lines.map((l) => [l.id, l.cls]));
+
+test('remote AC-5 status: a line open only on another machine is listed under way with its machine, never in the queue', () => {
+  const t = remoteProject(['[ ] aaa', '[ ] bbb'], { aaa: 'avel' });
+  const r = doStatus(t.main);
+  assert.equal(r.code, 0, r.stderr);
+  const row = rowAt('aaa'.length + 3);
+  assert.equal(r.stdout, [
+    render('en', 'status-count', { open: 0, places: 1, queue: 1, archived: 0 }),
+    '',
+    render('en', 'status-running'),
+    row('aaa', `${render('en', 'remote.open', { machine: 'avel' })} · avel`),
+    render('en', 'status-queue'),
+    row('bbb', render('en', 'queue.ready')),
+    '',
+  ].join('\n'));
+  assert.equal(classesOf(t.main).aaa, 'elsewhere');
+});
+
+test('remote AC-5 status: GitHub unreadable prints the board with its line', () => {
+  const t = remoteProject(['[ ] aaa'], {});
+  git(t.main, 'remote', 'set-url', 'origin', join(t.originDir, 'missing'));
+  const r = doStatus(t.main);
+  assert.equal(r.code, 0, r.stderr);
+  assert.deepEqual(r.stdout.split('\n').slice(0, 2), [render('en', 'status-count', { open: 0, places: 1, queue: 1, archived: 0 }), render('en', 'status-claims-unreadable')]);
+  assert.equal(doStatus(remoteProject(['[ ] aaa'], {}).main).stdout.includes(render('en', 'status-claims-unreadable')), false, 'a readable origin prints no such line');
+});
+
+test('remote AC-5 status: the machines block and the machine of each row', () => {
+  const claim = (machine, placed) => ({ id: 'xxx', machine, places: null, placed });
+  const lines = classifyLines(ROUND('[ ] aaa', '[ ] bbb', '[ ] ccc', '[ ] ddd'), {
+    archived: new Set(), open: new Set(['aaa']), previous: new Set(), declared: {},
+    elsewhere: new Map([['bbb', claim('avel', true)], ['ccc', claim('avel', false)], ['ddd', claim('avel', false)]]),
+  });
+  const answered = (id, where) => ({ id, where, icon: '📝', waitsForPlace: false });
+  const f = {
+    ...world({ places: 1, actions: { aaa: agentAct('aaa') }, lines: ['[ ] aaa'] }), lines, thisMachine: 'mac', claimsReadable: true,
+    claims: { aaa: claim('mac', false), bbb: claim('avel', true), ccc: claim('avel', false), ddd: claim('avel', false) },
+    machines: [{ name: 'avel', host: 'avel', folder: '/r', places: 2, answered: true, changes: [answered('bbb', 'Code review'), answered('ccc', 'Requirements'), answered('ddd', 'Proposal')] }],
+  };
+  const row = rowAt('mac (this one)'.length + 3);
+  assert.equal(boardOf(f), [
+    render('en', 'status-count-machines', { open: 4, queue: 0, archived: 0 }),
+    '',
+    render('en', 'status-machines'),
+    row(render('en', 'machine.this', { name: 'mac' }), render('en', 'machine.row', { taken: 0, places: 1, open: 1 })),
+    row('avel', render('en', 'machine.row', { taken: 1, places: 2, open: 3 })),
+    render('en', 'status-running'),
+    row('aaa', 'Proposal · mac'),
+    row('bbb', 'Code review · avel'),
+    row('ccc', 'Requirements · avel'),
+    row('ddd', 'Proposal · avel'),
+  ].join('\n'));
+  const silent = { ...f, machines: [{ ...f.machines[0], answered: false, changes: [] }] };
+  assert.match(boardOf(silent), new RegExp(`avel +${render('en', 'machine.no-answer')}\\n`));
+  assert.match(boardOf({ ...f, lang: 'pt-BR' }), /Máquinas\n/);
+});
+
+test('remote AC-6 next: a line claimed on origin is never started, and its dependent waits', () => {
+  const t = remoteProject(['[ ] aaa', '[ ] bbb', '[ ] ccc (after: aaa)'], { aaa: 'avel' });
+  const r = doRun(t.main, '3');
+  assert.equal(r.code, 0, r.stderr);
+  const d = jsonOf(r.stdout);
+  assert.deepEqual(d.actions.map((a) => [a.change, a.kind]), [['bbb', 'start']]);
+  assert.deepEqual(d.open, [], 'the claimed line fills no place');
+  assert.deepEqual(classesOf(t.main), { aaa: 'elsewhere', bbb: 'ready', ccc: 'waiting' });
+  assert.equal(loopModule.collectRoadmap(t.main, { env: cleanEnv, lang: 'en', gh: OFFLINE }).lines.find((l) => l.id === 'ccc').waitsFor, 'aaa');
+  assert.equal(events(r.stdout).some((e) => /\baaa\b/.test(e)), false, 'no line says a started');
+});
+
+test('remote AC-6 next: a declared cannot-open of a line claimed elsewhere is dropped', () => {
+  const t = remoteProject(['[ ] aaa'], { aaa: 'avel' });
+  putRun(t.main, { declared: { aaa: { state: 'blocked', why: 'cannot-open', params: { error: 'taken' } } } });
+  const r = doNext(t.main);
+  assert.equal(r.code, 0, r.stderr);
+  assert.deepEqual(stateOf(t.main).declared, {}, 'the declared end left the run file');
+  assert.equal(classesOf(t.main).aaa, 'elsewhere');
+  assert.equal(events(r.stdout).some((e) => /could not be opened|blocked/i.test(e)), false);
+});
+
+test('remote AC-7 machines: unset, empty, [] and a placeholder read as unset', () => {
+  for (const unset of [undefined, null, '', '  ', '[]', ' [ ] ', '${user_config.machines}']) assert.deepEqual(loopModule.parseMachines(unset), { machines: [] }, String(unset));
+  const entry = { host: 'avel', folder: '/home/kaue/repos/devkit', places: 2 };
+  assert.deepEqual(loopModule.parseMachines(JSON.stringify([entry, { host: 'a.b-c_1', folder: '/x y/z', places: 99 }])), { machines: [entry, { host: 'a.b-c_1', folder: '/x y/z', places: 99 }] });
+});
+
+test('remote AC-7 machines: an entry without a field is refused naming it, and nothing is written', () => {
+  const bad = (text) => loopModule.parseMachines(text).error;
+  assert.deepEqual(bad('avel:/home/kaue/repos/devkit:2'), { key: 'machines-unreadable', params: {} });
+  assert.deepEqual(bad('{"host":"avel"}'), { key: 'machines-unreadable', params: {} });
+  assert.deepEqual(bad('[{"host":"avel","folder":"/r"}]'), { key: 'machine-incomplete', params: { entry: 'avel', field: 'places' } });
+  assert.deepEqual(bad('[{"host":"avel","places":2}]'), { key: 'machine-incomplete', params: { entry: 'avel', field: 'folder' } });
+  assert.deepEqual(bad('[{"host":"avel","folder":"repo","places":2}]'), { key: 'machine-incomplete', params: { entry: 'avel', field: 'folder' } });
+  assert.deepEqual(bad('[{"folder":"/r","places":2}]'), { key: 'machine-incomplete', params: { entry: '#1', field: 'host' } });
+  assert.deepEqual(bad('[{"host":"-avel","folder":"/r","places":2}]'), { key: 'machine-incomplete', params: { entry: '-avel', field: 'host' } });
+  assert.deepEqual(bad('["avel"]'), { key: 'machine-incomplete', params: { entry: '#1', field: 'host' } });
+  for (const places of [0, 100, 1.5, '2']) assert.equal(bad(JSON.stringify([{ host: 'avel', folder: '/r', places }])).params.field, 'places', String(places));
+  assert.deepEqual(bad('[{"host":"avel","folder":"/r","places":1},{"host":"avel","folder":"/s","places":1}]'), { key: 'machine-duplicate', params: { entry: 'avel' } });
+  // The commands print the reply, exit 0 and read and write nothing else.
+  const t = remoteProject(['[ ] aaa'], {});
+  const before = picture(t.main);
+  const calls = [];
+  const ssh = (...a) => { calls.push(a); return silentSsh(); };
+  const incomplete = '[{"host":"avel","folder":"/home/kaue/repos/devkit"}]';
+  for (const [text, key, params] of [[incomplete, 'machine-incomplete', { entry: 'avel', field: 'places' }], ['avel:/r:2', 'machines-unreadable', {}]]) {
+    for (const r of [doRun(t.main, '', { extra: ['--machines', text], ssh }), doNext(t.main, ['--machines', text], { ssh }), cmd(t.main, ['status', ...FLAGS, '--machines', text], { ssh })]) {
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(r.stdout, `${render('en', key, params)}\n`);
+    }
+  }
+  assert.equal(existsSync(runFileOf(t.main)), false, 'no run file');
+  assert.equal(picture(t.main), before);
+  assert.deepEqual(calls, [], 'no machine was reached');
+});
+
+test('remote AC-7 next: with machines unset the decision is today\'s', () => {
+  const outputs = [[], ['--machines', ''], ['--machines', '[]'], ['--machines', '${user_config.machines}']].map((extra) => {
+    const t = remoteProject(['[ ] aaa', '[ ] bbb'], {});
+    return doNext(t.main, extra, { ssh: () => assert.fail('no machine is reached') });
+  });
+  assert.equal(outputs[0].code, 0, outputs[0].stderr);
+  for (const o of outputs) assert.equal(o.stdout, outputs[0].stdout);
+  assert.deepEqual(jsonOf(outputs[0].stdout).actions.map((a) => [a.change, a.kind]), [['aaa', 'start']]);
+});
+
+test('remote AC-12 status: a silent machine and its changes read no answer', () => {
+  const t = remoteProject(['[ ] aaa', '[ ] bbb', '[ ] eee'], { aaa: 'avel', bbb: 'avel' });
+  const calls = [];
+  const r = cmd(t.main, ['status', ...FLAGS, '--machines', MACHINES_AVEL], { ssh: (host, argv, o) => { calls.push([host, argv[3]]); return silentSsh(host, argv, o); } });
+  assert.equal(r.code, 0, r.stderr);
+  const name = thisMachine();
+  const noAnswer = render('en', 'machine.no-answer');
+  const row = rowAt(Math.max(`${name} (this one)`.length, 'avel'.length) + 3);
+  assert.equal(r.stdout, [
+    render('en', 'status-count-machines', { open: 2, queue: 1, archived: 0 }),
+    '',
+    render('en', 'status-machines'),
+    row(render('en', 'machine.this', { name }), render('en', 'machine.row', { taken: 0, places: 1, open: 0 })),
+    row('avel', noAnswer),
+    render('en', 'status-running'),
+    row('aaa', `${noAnswer} · avel`),
+    row('bbb', `${noAnswer} · avel`),
+    render('en', 'status-queue'),
+    row('eee', render('en', 'queue.ready')),
+    '',
+  ].join('\n'));
+  assert.deepEqual(calls, [['avel', 'state']], 'avel was asked once, for its state');
+});
+
+// The "other machine" is this machine: the injected ssh runs what ssh would run there, with the pack installed by a fixture file.
+function localSsh(calls = []) {
+  const home = tmpFolder('devkit-roadmap-home-');
+  mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
+  writeFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({
+    version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user', installPath: join(HERE, '..'), version: '0.0.0' }] },
+  }));
+  return (host, argv, { input, timeout } = {}) => {
+    calls.push({ host, argv, timeout });
+    const r = spawnSync(process.execPath, argv.slice(1), { input, encoding: 'utf8', env: { ...cleanEnv, HOME: home }, cwd: HERE });
+    return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  };
+}
+
+test('remote AC-12 probe: state through the injected ssh returns the other clone\'s changes, and a failing ssh is no answer', () => {
+  const t = remoteProject(['[ ] aaa'], {});
+  openChange(t.other, 'xxx', { script: 'devkit', why: 'doubt', request: 'Do x\n', lang: 'en', env: cleanEnv, machine: 'avel' });
+  const calls = [];
+  const ssh = localSsh(calls);
+  const machine = { host: 'avel', folder: t.other, places: 2 };
+  const ok = loopModule.askMachine(machine, 'state', [t.other, 'en'], { ssh });
+  assert.equal(ok.ok, true, JSON.stringify(ok));
+  assert.equal(ok.data.version, 1);
+  assert.equal(ok.data.machine, thisMachine());
+  assert.deepEqual(ok.data.changes.map((c) => [c.id, c.icon, c.waitsForPlace]), [['xxx', '❓', false]]);
+  assert.ok(typeof ok.data.changes[0].where === 'string' && ok.data.changes[0].where.length > 0, 'where is a phrase');
+  assert.deepEqual([calls[0].host, calls[0].argv.slice(0, 4), calls[0].timeout], ['avel', ['node', '--input-type=module', '-', 'state'], 20_000]);
+  // A machine that fails, answers in another form or reports an error is no answer.
+  for (const bad of [silentSsh, () => ({ status: 0, stdout: 'not json', stderr: '' }), () => ({ status: 0, stdout: '{"version":2}', stderr: '' }),
+    () => ({ status: 3, stdout: '{"version":1,"error":"no pack"}', stderr: '' }), () => ({ status: 0, stdout: '{"version":1,"error":"no pack"}', stderr: '' })]) {
+    assert.equal(loopModule.askMachine(machine, 'state', [t.other, 'en'], { ssh: bad }).ok, false);
+  }
+  // The roadmap's facts carry the answer, and none when the probe is off.
+  const facts = loopModule.collectRoadmap(t.main, { env: cleanEnv, lang: 'en', gh: OFFLINE, machines: [machine], ssh });
+  assert.deepEqual(facts.machines.map((m) => [m.name, m.host, m.folder, m.places, m.answered, m.changes.map((c) => c.id)]), [['avel', 'avel', t.other, 2, true, ['xxx']]]);
+  const asked = calls.length;
+  const off = loopModule.collectRoadmap(t.main, { env: cleanEnv, lang: 'en', gh: OFFLINE, machines: [machine], ssh, probe: false });
+  assert.deepEqual(off.machines.map((m) => [m.answered, m.changes]), [[false, []]]);
+  assert.equal(calls.length, asked, 'no ssh with the probe off');
+  // `status --json` is what the probe runs: one object, with this clone's changes.
+  const j = cmd(t.other, ['status', '--json', '--lang', 'en']);
+  assert.equal(j.code, 0, j.stderr);
+  assert.deepEqual(JSON.parse(j.stdout).changes.map((c) => c.id), ['xxx']);
+});
+
+// The probe run by itself, as ssh would run it: `installed` is the content of the other machine's installed_plugins.json (null: no
+// file); a pack is a folder whose roadmap-loop.mjs is `script`. Returns the exit status and the parsed stdout.
+function probeState({ installed, folder }) {
+  const home = tmpFolder('devkit-probe-home-');
+  mkdirSync(join(home, '.claude', 'plugins'), { recursive: true });
+  if (installed !== null) writeFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), typeof installed === 'string' ? installed : JSON.stringify(installed));
+  const r = spawnSync(process.execPath, [join(HERE, 'machine-probe.mjs'), 'state', folder, 'en'], { encoding: 'utf8', env: { ...cleanEnv, HOME: home }, cwd: HERE });
+  return { status: r.status, out: JSON.parse(r.stdout) };
+}
+function fakePack(script) {
+  const dir = tmpFolder('devkit-probe-pack-');
+  mkdirSync(join(dir, 'hooks'), { recursive: true });
+  writeFileSync(join(dir, 'hooks', 'roadmap-loop.mjs'), script);
+  return dir;
+}
+const sayPack = (name) => fakePack(`process.stdout.write(JSON.stringify({ version: 1, pack: ${JSON.stringify(name)} }) + '\\n');\n`);
+
+test('remote AC-12 probe: the installation is the project-scoped one at or above the folder, else the user-scoped one', () => {
+  const folder = tmpFolder('devkit-probe-folder-');
+  const user = sayPack('user');
+  const project = sayPack('project');
+  const elsewhere = sayPack('elsewhere');
+  const entry = (scope, installPath, projectPath) => ({ scope, installPath, version: '0.0.0', ...(projectPath ? { projectPath } : {}) });
+  const run = (list) => probeState({ installed: { version: 2, plugins: { 'devkit-openspec@devkit': list } }, folder });
+  const packOf = (list) => { const r = run(list); assert.equal(r.status, 0, JSON.stringify(r.out)); return r.out.pack; };
+  assert.equal(packOf([entry('user', user), entry('project', project, folder)]), 'project', 'project scope wins over user scope, whatever the order');
+  assert.equal(packOf([entry('project', project, folder), entry('user', user)]), 'project');
+  assert.equal(packOf([entry('user', user), entry('project', project, dirname(folder))]), 'project', 'a project path above the folder serves it');
+  assert.equal(packOf([entry('user', user), entry('project', project, `${dirname(folder)}/`)]), 'project', 'a trailing slash still matches');
+  assert.equal(packOf([entry('user', user), entry('project', elsewhere, `${folder}-other`)]), 'user', 'a sibling that shares the prefix does not serve it');
+  assert.equal(packOf([entry('user', user), entry('project', elsewhere, join(folder, 'deeper'))]), 'user', 'a project path below the folder does not serve it');
+});
+
+test('remote AC-12 probe: the probe itself answers with an error and exit 3 when the pack is missing, the file unreadable or the status fails', () => {
+  const folder = tmpFolder('devkit-probe-folder-');
+  const failing = fakePack("process.stderr.write('boom happened\\nsecond line\\n'); process.exit(1);\n");
+  const cases = [
+    ['not installed', { version: 2, plugins: { 'other@x': [{ scope: 'user', installPath: '/x' }] } }, /pack is not installed/],
+    ['no installPath', { version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user' }] } }, /pack is not installed/],
+    ['no file', null, /installed_plugins\.json cannot be read/],
+    ['not json', 'not json', /installed_plugins\.json cannot be read/],
+    ['status fails', { version: 2, plugins: { 'devkit-openspec@devkit': [{ scope: 'user', installPath: failing }] } }, /^status failed in .*: boom happened$/],
+  ];
+  for (const [name, installed, why] of cases) {
+    const r = probeState({ installed, folder });
+    assert.equal(r.status, 3, name);
+    assert.equal(r.out.version, 1, name);
+    assert.match(r.out.error, why, name);
+  }
+});
+
+// ================================================================ remote-worker, phase 4: placement, the session on another machine, the wake
+
+const claimOf = (machine, over = {}) => ({ id: 'x', machine, places: 2, placed: false, ...over });
+const avelAnswers = (changes = [], over = {}) => ({ name: 'avel', host: 'avel', folder: '/home/me/repo', places: 2, answered: true, changes, ...over });
+const avelSilent = () => avelAnswers([], { answered: false });
+const waitingOnAvel = (id) => ({ id, where: 'Waiting for a place', icon: '⏳', waitsForPlace: true });
+// The facts of a decision with the machines setting set: `local` are this machine's open changes ({ id: action }), `claims` the claims on
+// `origin` ({ id: claim }); a claimed id that is not local is open elsewhere.
+function machinesWorld({ lines, local = {}, claims = {}, machines = [avelAnswers()], changeSessions = true, ...over }) {
+  const elsewhere = new Map(Object.entries(claims).filter(([id]) => !(id in local)));
+  const classified = classifyLines(ROUND(...lines), { archived: new Set(), open: new Set(Object.keys(local)), previous: new Set(), declared: {}, elsewhere });
+  return {
+    ...world({ places: 3, actions: local }), lines: classified, thisMachine: 'mac', claims, claimsReadable: true, machines, machinesText: MACHINES_AVEL,
+    changeSessions, coordinator: 'S-main', turn: 'typed', startedSessions: Object.fromEntries(Object.keys(local).map((id) => [id, { at: AT }])), placed: {}, ...over,
+  };
+}
+const startsOf = (r) => r.actions.filter((a) => a.kind === 'start').map((a) => [a.change, a.machine, a.remote, a.places]);
+
+test('remote AC-8 next: each ready line goes to the answering machine with the fewest open changes', () => {
+  const f = machinesWorld({ lines: ['[ ] aaa', '[ ] r1', '[ ] r2', '[ ] r3'], local: { aaa: agentAct('aaa') } });
+  assert.deepEqual(startsOf(decideRoadmap(f)), [['r1', 'avel', true, 2], ['r2', 'mac', false, 'run'], ['r3', 'avel', true, 2]],
+    'this machine holds one, avel none: avel first, then the tie goes to this machine, then avel again');
+  // Changes open on a machine, local or claimed, count; a machine with more open changes gets the next one last.
+  const loadedAvel = machinesWorld({ lines: ['[ ] x', '[ ] y', '[ ] z'], claims: { x: claimOf('avel'), y: claimOf('avel') } });
+  assert.deepEqual(startsOf(decideRoadmap(loadedAvel)), [['z', 'mac', false, 'run']], 'avel holds two claimed changes');
+  const here = machinesWorld({ lines: ['[ ] x', '[ ] z'], claims: { x: claimOf('mac') } });
+  assert.deepEqual(startsOf(decideRoadmap(here)), [['z', 'avel', true, 2]], 'a change claimed by this machine counts here');
+  // Each start carries the fields the skill passes to open.
+  const first = decideRoadmap(f).actions.find((a) => a.change === 'r1');
+  assert.deepEqual([first.kind, first.request, first.progressKey], ['start', 'r1', 'start']);
+});
+
+test('remote AC-8 next: this machine is skipped while loaded, and a start is held only when nothing can take it', () => {
+  const loaded = { load: 90, limit: 80 };
+  const toAvel = decideRoadmap(machinesWorld({ lines: ['[ ] r1', '[ ] r2'], ...loaded }));
+  assert.deepEqual(startsOf(toAvel), [['r1', 'avel', true, 2], ['r2', 'avel', true, 2]], 'the loaded machine takes none');
+  assert.equal(toAvel.actions.some((a) => a.kind === 'hold'), false);
+  const none = decideRoadmap(machinesWorld({ lines: ['[ ] r1', '[ ] r2'], machines: [avelSilent()], ...loaded }));
+  assert.deepEqual(changesOf(none).filter(([, kind]) => kind !== 'wake'), [['r1', 'hold']], 'no machine can take the first ready line');
+  assert.ok(none.lines.includes(say('roadmap-held', { id: 'r1', load: 90, limit: 80 })), none.lines.join('|'));
+  const anyway = decideRoadmap(machinesWorld({ lines: ['[ ] r1'], machines: [avelSilent()], startAnyway: true, ...loaded }));
+  assert.deepEqual(startsOf(anyway), [['r1', 'mac', false, 'run']], 'start anyway puts this machine back');
+  // A host that cannot start sessions uses no other machine: a change there could run only in a session of its own (D-8).
+  const alone = decideRoadmap(machinesWorld({ lines: ['[ ] r1', '[ ] r2'], changeSessions: false }));
+  assert.deepEqual(startsOf(alone), [['r1', 'mac', false, 'run'], ['r2', 'mac', false, 'run']]);
+  assert.deepEqual(changesOf(decideRoadmap(machinesWorld({ lines: ['[ ] r1'], changeSessions: false, ...loaded }))), [['r1', 'hold']]);
+  // The board says it when nothing can take a ready line.
+  const board = (f) => boardOf(f);
+  assert.ok(board(machinesWorld({ lines: ['[ ] r1'], machines: [avelSilent()], ...loaded })).includes(render('en', 'queue.no-machine')));
+  assert.ok(board(machinesWorld({ lines: ['[ ] r1'], changeSessions: false, ...loaded })).includes(render('en', 'queue.no-machine')), 'avel answers but cannot start sessions');
+  assert.equal(board(machinesWorld({ lines: ['[ ] r1'], ...loaded })).includes(render('en', 'queue.no-machine')), false);
+});
+
+const RRR_CWD = '/home/me/repo/.claude/worktrees/rrr';
+test('remote AC-9 next: a placed change gets a session-start with its checkout, target ssh, host and the remote cwd, only on a typed turn', () => {
+  const claims = { rrr: claimOf('avel') };
+  const placed = { rrr: { machine: 'avel', at: AT } };
+  const r = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed }));
+  assert.deepEqual(r.actions, [{
+    change: 'rrr', kind: 'session-start', machine: 'avel', cwd: RRR_CWD, title: '❓ rrr', progressKey: 'session-start',
+    checkout: ['node', join(HOOKS_DIR, 'roadmap-loop.mjs'), 'checkout', '--change', 'rrr', '--machines', MACHINES_AVEL, '--lang', 'en'],
+    input: {
+      initiation: 'user_asked', context: 'fresh', title: '❓ rrr', name: 'rrr', cwd: RRR_CWD, use_worktree: false, prompt: '/devkit-openspec:devkit change rrr',
+      background: loopModule.sessionBackground({ id: 'rrr', root: RRR_CWD, branch: 'rrr', coordinator: 'S-main', lang: 'en' }), target: 'ssh', host: 'avel',
+    },
+  }]);
+  // A change placed on another machine has no action read here, so its start carries no `model` (stage-models D-6: a session recorded with no model is never switched).
+  assert.deepEqual(Object.keys(r.actions[0].input).sort(), [...START_FIELDS.filter((k) => k !== 'model'), 'host', 'target'].sort());
+  // Not recorded as placed by this run, a session already started, or a machine that does not list it: none.
+  assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims })).actions, []);
+  assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, startedSessions: { rrr: { at: AT } } })).actions, []);
+  assert.deepEqual(decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims: { rrr: claimOf('other') }, placed })).actions, []);
+  // The start the previous call handed, found claimed now, is placed at once and recorded.
+  const handed = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, starting: ['rrr'] }));
+  assert.deepEqual(changesOf(handed), [['rrr', 'session-start']]);
+  assert.deepEqual(handed.state.placed, { rrr: 'avel' });
+  // On a turn nobody typed it waits, and says so.
+  const event = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, turn: 'event' }));
+  assert.deepEqual(event.actions, []);
+  assert.ok(event.lines.includes(say('roadmap-waits-turn-on', { id: 'rrr', machine: 'avel' })), event.lines.join('|'));
+  // The host reported it started: a line, the change recorded, and no second action.
+  const started = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, placed, after: { rrr: 'session-start' } }));
+  assert.deepEqual(started.actions, []);
+  assert.ok(started.lines.includes(say('roadmap-session-started-on', { id: 'rrr', machine: 'avel' })), started.lines.join('|'));
+  assert.deepEqual(started.state.sessionsStarted.map((e) => e.id), ['rrr']); // each entry is { id, model } (stage-models D-6); a change placed on another machine carries no model
+  assert.ok(started.state.openLines.includes('rrr'), 'the record of a started session is kept while the line is open elsewhere');
+});
+
+test('remote AC-9 next: the run file keeps placed, which another session keeps and --fresh clears', () => {
+  const t = remoteProject(['[ ] rrr'], { rrr: 'avel' });
+  const machines = JSON.stringify([{ host: 'avel', folder: t.other, places: 2 }]);
+  const ssh = localSsh();
+  putRun(t.main, { changeSessions: true, turn: 'typed', starting: ['rrr'] });
+  const first = doNext(t.main, ['--turn', 'typed', '--machines', machines], { ssh });
+  assert.equal(first.code, 0, first.stderr);
+  const action = jsonOf(first.stdout).actions[0];
+  assert.deepEqual([action.change, action.kind, action.machine, action.input.host, action.input.cwd], ['rrr', 'session-start', 'avel', 'avel', join(t.other, '.claude', 'worktrees', 'rrr')]);
+  assert.equal(stateOf(t.main).placed.rrr.machine, 'avel');
+  const after = doNext(t.main, ['--turn', 'typed', '--after', 'rrr=session-start', '--machines', machines], { ssh });
+  assert.equal(after.code, 0, after.stderr);
+  assert.deepEqual(Object.keys(stateOf(t.main).startedSessions), ['rrr']);
+  assert.equal(stateOf(t.main).placed.rrr.machine, 'avel', 'kept while its line is open elsewhere');
+  const other = doRun(t.main, '', { session: 'S2', extra: ['--change-sessions', '--machines', machines], ssh });
+  assert.equal(other.code, 0, other.stderr);
+  assert.equal(stateOf(t.main).placed.rrr?.machine, 'avel', 'a run from another session keeps it');
+  const fresh = doRun(t.main, '', { session: 'S3', extra: ['--fresh', '--change-sessions', '--machines', machines], ssh });
+  assert.equal(fresh.code, 0, fresh.stderr);
+  assert.deepEqual(stateOf(t.main).placed, {}, '--fresh clears it');
+  // A file of the earlier form, or a damaged field, reads as nothing placed.
+  putRun(t.main, { placed: { rrr: 'avel', 'not an id!': { machine: 'avel' }, ok: { machine: 'avel', at: AT }, bad: { machine: 3 } } });
+  assert.deepEqual(Object.keys(loopModule.readRun(runFileOf(t.main)).placed), ['ok']);
+  putRun(t.main, {});
+  assert.deepEqual(loopModule.readRun(runFileOf(t.main)).placed, {});
+});
+
+test('remote AC-9 checkout: the worktree is made on the other clone from its branch', () => {
+  const t = remoteProject(['[ ] rrr'], {});
+  openChange(t.main, 'rrr', { script: 'devkit', why: 'doubt', request: 'Do rrr\n', lang: 'en', env: cleanEnv, machine: 'avel', places: '2', remote: true });
+  assert.equal(git(t.main, 'branch', '--list', 'rrr'), '', 'the open left no local branch');
+  assert.equal(git(t.other, 'branch', '--list', 'rrr'), '', 'the other clone has none either');
+  const machines = JSON.stringify([{ host: 'avel', folder: t.other, places: 2 }]);
+  const calls = [];
+  const run = (extra = [], opts = {}) => cmd(t.main, ['checkout', '--change', 'rrr', '--lang', 'en', '--machines', machines, ...extra], { ssh: localSsh(calls), ...opts });
+  const worktree = join(t.other, '.claude', 'worktrees', 'rrr');
+  const r = run();
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), { version: 1, change: 'rrr', machine: 'avel', worktree });
+  assert.equal(git(worktree, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rrr');
+  assert.equal(git(worktree, 'rev-parse', 'HEAD'), git(t.main, 'ls-remote', 'origin', 'refs/heads/rrr').split('\t')[0], 'from the claim\'s branch');
+  assert.equal(existsSync(join(worktree, 'openspec', 'changes', 'rrr', '.openspec.yaml')), true);
+  assert.deepEqual([calls[0].host, calls[0].argv.slice(0, 4), calls[0].argv.slice(4), calls[0].timeout], ['avel', ['node', '--input-type=module', '-', 'checkout'], [t.other, 'rrr'], 120_000]);
+  assert.deepEqual(JSON.parse(run().stdout), { version: 1, change: 'rrr', machine: 'avel', worktree }, 'asked again, it is the same worktree');
+  // Refusals: no claim, a machine that is not listed, a machine that fails. Exit 3, the reply names the change, and nothing is written locally.
+  const refusals = [
+    ['no claim', cmd(t.main, ['checkout', '--change', 'nothing', '--lang', 'en', '--machines', machines], { ssh: localSsh() })],
+    ['not listed', cmd(t.main, ['checkout', '--change', 'rrr', '--lang', 'en', '--machines', JSON.stringify([{ host: 'other', folder: '/x', places: 1 }])], { ssh: localSsh() })],
+    ['ssh fails', run([], { ssh: silentSsh })],
+  ];
+  for (const [name, r] of refusals) {
+    assert.equal(r.code, 3, name);
+    const reply = JSON.parse(r.stdout).reply;
+    assert.match(reply, /I could not make the folder of (nothing|rrr) on /, name);
+  }
+  assert.match(JSON.parse(refusals[2][1].stdout).reply, /no route to host/);
+  assert.equal(existsSync(runFileOf(t.main)), false, 'nothing is written locally');
+  assert.equal(cmd(t.main, ['checkout', '--change', 'rrr', '--lang', 'en', '--machines', 'avel:/r:2'], { ssh: localSsh() }).stdout, `${render('en', 'machines-unreadable')}\n`);
+});
+
+test('remote AC-11 next: a freed place gives one wake per state for the first waiting change', () => {
+  const waiting = [waitingOnAvel('w1'), waitingOnAvel('w2')];
+  const claims = { w1: claimOf('avel', { places: 1 }), w2: claimOf('avel', { places: 1 }) };
+  const holder = { h: claimOf('avel', { places: 1, placed: true }) };
+  const build = ({ claims: extra = {}, ...over } = {}) => machinesWorld({ lines: ['[ ] w1', '[ ] w2'], machines: [avelAnswers(waiting)], claims: { ...claims, ...extra }, ...over });
+  const wakesOf = (r) => r.actions.filter((a) => a.kind === 'wake');
+  const held = decideRoadmap(build({ claims: holder }));
+  assert.deepEqual(wakesOf(held), [], 'the place is held by h');
+  const freed = decideRoadmap(build());
+  assert.deepEqual(wakesOf(freed), [{ change: 'w1', kind: 'wake', machine: 'avel', message: '/devkit-openspec:devkit change w1', progressKey: 'wake' }], 'one, for the first in file order');
+  assert.ok(freed.lines.includes(say('roadmap-woken', { id: 'w1', machine: 'avel' })), freed.lines.join('|'));
+  assert.equal(freed.state.announced.w1, 'woken:0');
+  assert.deepEqual(wakesOf(decideRoadmap(build({ announced: freed.state.announced }))), [], 'never two for one state');
+  // Another change takes the place: the record of the wake is dropped, so the next freeing wakes again.
+  const taken = decideRoadmap(build({ claims: holder, announced: freed.state.announced }));
+  assert.equal(taken.state.announced.w1, undefined);
+  assert.deepEqual(wakesOf(decideRoadmap(build({ announced: taken.state.announced }))).map((a) => a.change), ['w1']);
+  // A wake starts no session: it is not held back on a turn nobody typed.
+  assert.deepEqual(wakesOf(decideRoadmap(build({ turn: 'event' }))).map((a) => a.change), ['w1']);
+  // A change waiting on this machine is woken too, with this machine's places from the run.
+  const local = machinesWorld({
+    lines: ['[ ] w0'], local: { w0: endAct('w0', 'blocked', 'no-place', { machine: 'mac', taken: 1, places: 1 }) }, claims: { w0: claimOf('mac', { places: 'run' }) }, machines: [avelAnswers()], places: 1,
+  });
+  assert.deepEqual(wakesOf(decideRoadmap(local)), [{ change: 'w0', kind: 'wake', machine: 'mac', message: '/devkit-openspec:devkit change w0', progressKey: 'wake' }]);
+  assert.deepEqual(wakesOf(decideRoadmap({ ...local, claims: { w0: claimOf('mac', { places: 'run' }), h: claimOf('mac', { placed: true }) } })), []);
+  // A machine that does not answer shows no waiting change.
+  assert.deepEqual(wakesOf(decideRoadmap(build({ machines: [avelSilent()] }))), []);
+});
+
+test('remote AC-11 next: no wake without session mode', () => {
+  const f = machinesWorld({
+    lines: ['[ ] w0', '[ ] w1'], local: { w0: endAct('w0', 'blocked', 'no-place', { machine: 'mac', taken: 0, places: 1 }) },
+    claims: { w0: claimOf('mac', { places: 'run' }), w1: claimOf('avel', { places: 1 }) }, machines: [avelAnswers([waitingOnAvel('w1')])], places: 1,
+  });
+  assert.deepEqual(decideRoadmap({ ...f, changeSessions: true }).actions.filter((a) => a.kind === 'wake').map((a) => [a.change, a.machine]), [['w0', 'mac'], ['w1', 'avel']], 'one per machine in session mode');
+  const plain = decideRoadmap({ ...f, changeSessions: false });
+  assert.deepEqual(plain.actions.filter((a) => a.kind === 'wake'), []);
+  assert.equal(plain.lines.some((l) => l.includes(render('en', 'roadmap-woken', { id: 'w0', machine: 'mac' }))), false);
+});
+
+test('remote AC-12 next: a silent machine gets no change, and its placed change no session', () => {
+  const claims = { rrr: claimOf('avel') };
+  const f = machinesWorld({ lines: ['[ ] rrr', '[ ] bbb'], claims, machines: [avelSilent()], placed: { rrr: { machine: 'avel', at: AT } } });
+  const r = decideRoadmap(f);
+  assert.deepEqual(changesOf(r), [['bbb', 'start']], 'no session for rrr');
+  assert.deepEqual(startsOf(r), [['bbb', 'mac', false, 'run']], 'the new change stays on this machine');
+  assert.ok(r.lines.includes(say('roadmap-machine-silent', { machine: 'avel' })), r.lines.join('|'));
+  assert.equal(r.state.announced['machine:avel'], 'silent');
+  assert.equal(r.lines.some((l) => /rrr/.test(l) && /started/i.test(l)), false);
+  const again = decideRoadmap({ ...f, announced: r.state.announced });
+  assert.equal(again.lines.includes(say('roadmap-machine-silent', { machine: 'avel' })), false, 'once per silence');
+  // It answers again: the record goes, so a later silence is said again, and its placed change gets its session.
+  const back = decideRoadmap({ ...f, machines: [avelAnswers()], announced: r.state.announced });
+  assert.equal(back.state.announced['machine:avel'], undefined);
+  assert.deepEqual(changesOf(back).filter(([id]) => id === 'rrr'), [['rrr', 'session-start']]);
+  // The run does not end while the changes of a listed machine are only out of reach.
+  const quiet = decideRoadmap(machinesWorld({ lines: ['[ ] rrr'], claims, machines: [avelSilent()], placed: { rrr: { machine: 'avel', at: AT } }, startedSessions: { rrr: { at: AT } } }));
+  assert.equal(quiet.end, null);
+});
+
+test('remote locks stop: no ssh from the stop hook, and a start only another machine could take does not refuse the stop', () => {
+  const t = remoteProject(['[ ] rr'], {});
+  openChange(t.other, 'rr', { script: 'devkit', why: 'doubt', request: 'Do rr\n', lang: 'en', env: cleanEnv, machine: 'avel' }); // pushed after this clone's fetch
+  putRun(t.main, { places: 1, changeSessions: true, turn: 'typed', placed: { rr: { machine: 'avel', at: AT } } });
+  const transcript = lkRun(1);
+  const routes = [];
+  const gh = (args) => { routes.push(args[1] ?? ''); return OFFLINE(); };
+  const ssh = () => assert.fail('the stop hook never reaches another machine');
+  withTmp((tmp) => {
+    const d = loopModule.roadmapStopDecision(lkStopInput(t.main, transcript), lkOpts({ env: { ...LK_ENV, CLAUDE_PLUGIN_OPTION_MACHINES: MACHINES_AVEL }, gh, ssh }));
+    assert.deepEqual([d.decision, d.why], ['allow', 'nothing-ready'], 'the placed change of a machine nobody asked has no session to start here');
+    nothingRecorded(tmp);
+  });
+  assert.deepEqual(routes.filter((r) => /changes\/rr/.test(r)), [], 'the claims are read with one ls-remote and no gh call');
+  assert.match(loopModule.readyText({ change: 'w1', kind: 'wake' }), /w1[^.]*place[^.]*free/);
 });
 
 // ---------------------------------------------------------------- change-state: phase 2, the board and the start title (design D-5, D-6, D-9)

@@ -1104,7 +1104,7 @@ test('flow-check readout: --json carries the same facts', () => {
   const r = cli(root, ['feat', '--json']);
   assert.equal(r.code, 0);
   const json = JSON.parse(r.stdout);
-  assert.deepEqual(Object.keys(json), ['version', 'change', 'schema', 'script', 'head', 'stages', 'next', 'end', 'previous']);
+  assert.deepEqual(Object.keys(json), ['version', 'change', 'schema', 'script', 'head', 'stages', 'next', 'end', 'previous', 'flow']);
   assert.equal(json.version, 1);
   assert.equal(Boolean(json.next) !== Boolean(json.end), true);
   assert.deepEqual(json, JSON.parse(JSON.stringify(liveReport(root))));

@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0014 (0014-each-roadmap-change-runs-in-a-session-of-its-own.md)
+- Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator
 - Amends: ADR 0010 (0010-openspec-as-the-harness.md), the bullet of decision 8 that answers ADR 0005's "One subagent per whole change"; ADR 0011 (0011-the-change-coordinator-is-the-owners-session.md), decisions 1 and 2, which name only /devkit change
@@ -15,6 +16,11 @@ only. [ADR 0014](0014-each-roadmap-change-runs-in-a-session-of-its-own.md) super
 there and takes up the option "App child sessions, one per change" this ADR rejected. Decision 1
 still holds where the host cannot start sessions. Decision 4 now names each field of the run file.
 Decisions 2, 3 and 5 are otherwise unchanged.
+
+Note (remote-worker, 2026-11-22): with the person's machines setting set, a start is held only when
+no machine can take it, and the run file also holds the changes opened for another machine
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Decisions 1 to 3 and 5 are otherwise
+unchanged.
 
 ADR 0010 decision 2 asks for a roadmap coordinator that starts every change whose after:
 dependencies are archived, several at once up to a number the owner sets per run. Its decision 8
@@ -69,6 +75,7 @@ background, to be settled by a probe before anything is built on it.
    - the session that runs the run (`session`);
    - whether each change runs in a session of its own (`changeSessions`), which change sessions were
      started (`startedSessions`) and what started the last turn (`turn`), as ADR 0014 decides;
+   - which changes the run opened for another machine (`placed`), as ADR 0020 decides;
    - the form of the file and its last write (`version`, `updatedAt`).
 
    A hand-off the hook lets through marks its stage as under way, and that subagent's stop clears
