@@ -1,0 +1,183 @@
+archive-release-pin: amended real-run proof (design D-10 amended, ADR 0030, AC-9), cases A1 to A6
+Run on 2026-11-24 with TMPDIR=/var/tmp/devkit-archive-release-pin, on the worktree's own
+plugins/openspec/hooks/deliver-check.mjs (branch archive-release-pin, after tasks 4.2 and 4.3).
+The scratch repository lived in /var/tmp/devkit-archive-release-pin/proof-repo-amended (never in the
+worktree) and was removed afterwards. Reading git history (c561553^, c561553 and 34e3500) is proof,
+not a test. proof/real-run.txt stays as the record of phase 3.
+
+Its `main` holds docs/openspec-flow.md as at c561553^ and the file
+plugins/openspec/hooks/change-loop-compozy.test.mjs holding the text of
+c561553^:plugins/openspec/hooks/change-loop.test.mjs (the pin block of that time, at today's path).
+Each case A1 to A5 is its own fresh clone of the scratch origin, on a branch chore/archive-demo: the
+archive move of the change `demo`, a retro.md with one approved and applied proposal naming
+CONTRIBUTING.md, CONTRIBUTING.md edited, the roadmap ticked, then the case's edit, committed.
+
+== 1. The build and run script, verbatim (bash; WT is the worktree, P the scratch repository)
+
+set -u
+WT=/home/kaue/repos/devkit/.claude/worktrees/archive-release-pin
+P=/var/tmp/devkit-archive-release-pin/proof-repo-amended
+export TMPDIR=/var/tmp/devkit-archive-release-pin
+export GIT_AUTHOR_NAME=proof GIT_AUTHOR_EMAIL=proof@example.invalid GIT_COMMITTER_NAME=proof GIT_COMMITTER_EMAIL=proof@example.invalid
+H=$WT/plugins/openspec/hooks
+LOOP=plugins/openspec/hooks/change-loop-compozy.test.mjs
+
+echo '## Build'
+set -x
+mkdir -p $P
+git init -q --bare -b main $P/origin.git
+git clone -q $P/origin.git $P/seed
+cd $P/seed
+git checkout -q -b main
+mkdir -p docs openspec/changes/demo plugins/openspec/hooks
+git -C $WT show c561553^:docs/openspec-flow.md > docs/openspec-flow.md
+git -C $WT show c561553^:plugins/openspec/hooks/change-loop.test.mjs > $LOOP
+printf 'schema: devkit-lite\n' > openspec/config.yaml
+printf 'schema: devkit-lite\ncreated: 2026-11-23\n' > openspec/changes/demo/.openspec.yaml
+printf '# Demo\n' > openspec/changes/demo/proposal.md
+printf '# Roadmap\n\n- [ ] demo\n' > openspec/roadmap.md
+printf '# Contributing\n\nOriginal line.\n' > CONTRIBUTING.md
+git add -A
+git commit -q -m 'chore: scratch main'
+git push -q origin main
+set +x
+
+# one fresh clone per case; the archive commit, then the case edit
+mkcase() { # $1 = case id
+  git clone -q $P/origin.git $P/$1
+  cd $P/$1
+  git checkout -q -b chore/archive-demo
+  mkdir -p openspec/changes/archive
+  git mv openspec/changes/demo openspec/changes/archive/2026-11-23-demo
+  cat > openspec/changes/archive/2026-11-23-demo/retro.md <<'EOF'
+# Retro
+
+## Proposed updates
+
+### `CONTRIBUTING.md` (docs)
+- Answer: approved
+- Applied: yes
+EOF
+  printf '# Contributing\n\nOriginal line.\nApplied proposal line.\n' > CONTRIBUTING.md
+  printf '# Roadmap\n\n- [x] demo\n' > openspec/roadmap.md
+}
+after_doc()  { git -C $WT show c561553:docs/openspec-flow.md > docs/openspec-flow.md; }
+after_test() { git -C $WT show c561553:plugins/openspec/hooks/change-loop.test.mjs > $LOOP; }
+run() { # $1 = case id, $2 = hooks dir
+  git add -A
+  git commit -q -m "archive demo: $1"
+  echo "--- $1"
+  echo "cwd: $P/$1"
+  echo "command: env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node $2/deliver-check.mjs --ci --json"
+  out=$(env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node $2/deliver-check.mjs --ci --json 2>$P/$1.stderr)
+  code=$?
+  echo "exit code: $code"
+  echo "archive.unnamed: $(printf '%s' "$out" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);console.log(JSON.stringify(r.archive?.unnamed))})')"
+  echo "stderr: $(cat $P/$1.stderr)"
+}
+
+echo; echo '## Runs'
+mkcase A1; after_doc; run A1 $H
+mkcase A2; after_doc; sed -i '1s/$/ (one sentence edited)/' docs/openspec-flow.md; run A2 $H
+mkcase A3; after_test; git diff --stat -- $LOOP | cat; run A3 $H
+mkcase A4; git rm -q docs/openspec-flow.md; run A4 $H
+mkdir -p $P/consumer-hooks
+cp $H/guard.mjs $H/deliver-check.mjs $H/merge-setup.mjs $P/consumer-hooks/
+echo "consumer folder: $(ls $P/consumer-hooks | tr '\n' ' ')"
+mkcase A5; after_doc; run A5 $P/consumer-hooks
+
+echo; echo '## A6 (in the worktree)'
+cd $WT
+PAT='[0-9]+\\?\.[0-9]+\\?\.[0-9]+'
+echo "command: env TMPDIR=$TMPDIR GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern=\"^change-loop docs: the design records the answers\$\" $LOOP"
+env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern="^change-loop docs: the design records the answers$" $LOOP 2>&1 | grep "^✔\|^✖\|^ℹ \(tests\|pass\|fail\)"
+echo "test-suite exit code: ${PIPESTATUS[0]}"
+now=$(git grep -c -E "$PAT" -- $LOOP | cut -d: -f2)
+was=$(git grep -c -E "$PAT" 34e3500 -- $LOOP | cut -d: -f3)
+echo "command: git grep -c -E '$PAT' -- $LOOP   -> $now"
+echo "command: git grep -c -E '$PAT' 34e3500 -- $LOOP   -> $was"
+echo "drop: $((was - now))"
+
+== 2. Its output, verbatim
+(the `git diff --stat` block printed after "--- A2"'s lines belongs to A3: it is printed while the case
+is built, before its "--- <case>" header)
+
+## Build
++ mkdir -p /var/tmp/devkit-archive-release-pin/proof-repo-amended
++ git init -q --bare -b main /var/tmp/devkit-archive-release-pin/proof-repo-amended/origin.git
++ git clone -q /var/tmp/devkit-archive-release-pin/proof-repo-amended/origin.git /var/tmp/devkit-archive-release-pin/proof-repo-amended/seed
+warning: You appear to have cloned an empty repository.
++ cd /var/tmp/devkit-archive-release-pin/proof-repo-amended/seed
++ git checkout -q -b main
++ mkdir -p docs openspec/changes/demo plugins/openspec/hooks
++ git -C /home/kaue/repos/devkit/.claude/worktrees/archive-release-pin show 'c561553^:docs/openspec-flow.md'
++ git -C /home/kaue/repos/devkit/.claude/worktrees/archive-release-pin show 'c561553^:plugins/openspec/hooks/change-loop.test.mjs'
++ printf 'schema: devkit-lite\n'
++ printf 'schema: devkit-lite\ncreated: 2026-11-23\n'
++ printf '# Demo\n'
++ printf '# Roadmap\n\n- [ ] demo\n'
++ printf '# Contributing\n\nOriginal line.\n'
++ git add -A
++ git commit -q -m 'chore: scratch main'
++ git push -q origin main
++ set +x
+
+## Runs
+--- A1
+cwd: /var/tmp/devkit-archive-release-pin/proof-repo-amended/A1
+command: env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node /home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.mjs --ci --json
+exit code: 0
+archive.unnamed: []
+stderr: 
+--- A2
+cwd: /var/tmp/devkit-archive-release-pin/proof-repo-amended/A2
+command: env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node /home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.mjs --ci --json
+exit code: 1
+archive.unnamed: ["docs/openspec-flow.md"]
+stderr: 
+ plugins/openspec/hooks/change-loop-compozy.test.mjs | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+--- A3
+cwd: /var/tmp/devkit-archive-release-pin/proof-repo-amended/A3
+command: env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node /home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.mjs --ci --json
+exit code: 1
+archive.unnamed: ["plugins/openspec/hooks/change-loop-compozy.test.mjs"]
+stderr: 
+--- A4
+cwd: /var/tmp/devkit-archive-release-pin/proof-repo-amended/A4
+command: env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node /home/kaue/repos/devkit/.claude/worktrees/archive-release-pin/plugins/openspec/hooks/deliver-check.mjs --ci --json
+exit code: 1
+archive.unnamed: ["docs/openspec-flow.md"]
+stderr: 
+consumer folder: deliver-check.mjs guard.mjs merge-setup.mjs 
+--- A5
+cwd: /var/tmp/devkit-archive-release-pin/proof-repo-amended/A5
+command: env GITHUB_BASE_REF=main GITHUB_HEAD_REF=chore/archive-demo node /var/tmp/devkit-archive-release-pin/proof-repo-amended/consumer-hooks/deliver-check.mjs --ci --json
+exit code: 0
+archive.unnamed: []
+stderr: 
+
+## A6 (in the worktree)
+command: env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --test-name-pattern="^change-loop docs: the design records the answers$" plugins/openspec/hooks/change-loop-compozy.test.mjs
+✔ change-loop docs: the design records the answers (11.057045ms)
+ℹ tests 1
+ℹ pass 1
+ℹ fail 0
+test-suite exit code: 0
+command: git grep -c -E '[0-9]+\\?\.[0-9]+\\?\.[0-9]+' -- plugins/openspec/hooks/change-loop-compozy.test.mjs   -> 11
+command: git grep -c -E '[0-9]+\\?\.[0-9]+\\?\.[0-9]+' 34e3500 -- plugins/openspec/hooks/change-loop-compozy.test.mjs   -> 40
+drop: 29
+
+== 3. Result against the Expected column of D-10 amended
+
+| Case | Edit or run | exit code | archive.unnamed | Expected | Equal |
+|---|---|---|---|---|---|
+| A1 | docs/openspec-flow.md as at c561553 (a pin-only doc change) | 0 | [] | exit 0, [] | yes |
+| A2 | A1 plus one sentence of the doc changed | 1 | ["docs/openspec-flow.md"] | exit 1, ["docs/openspec-flow.md"] | yes |
+| A3 | change-loop-compozy.test.mjs set to c561553's change-loop.test.mjs (only its pin assertion lines differ from main) | 1 | ["plugins/openspec/hooks/change-loop-compozy.test.mjs"] | exit 1, ["plugins/openspec/hooks/change-loop-compozy.test.mjs"] | yes |
+| A4 | git rm docs/openspec-flow.md | 1 | ["docs/openspec-flow.md"] | exit 1, ["docs/openspec-flow.md"] | yes |
+| A5 | A1 from a folder holding only guard.mjs, deliver-check.mjs, merge-setup.mjs | 0 | [] | exit 0, [] | yes |
+| A6 | the pin test in the worktree, and the count of version literals against 34e3500 | test passes (exit 0, tests 1, pass 1, fail 0) | counts: 11 now, 40 at 34e3500, a drop of 29 | the test passes (exit 0, one test run); the count drops by 29 | yes |
+
+The local stop (filesStop) needs GitHub's answers (gh), so its real path is not run here: it is proved
+by test 7 (`archive-release-pin 7`) through collectState with the fake gh.

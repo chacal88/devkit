@@ -1,6 +1,6 @@
-// node --test --test-name-pattern="^project-loop" plugins/openspec/hooks/guard.test.mjs
+// node scripts/test-suite.mjs --test-name-pattern="^project-loop" plugins/openspec/hooks/project-loop.test.mjs
 // project-phases: the `devkit-project` schema, the slice's records, the checker's reading of them (phase 1).
-// Imported by guard.test.mjs, so the whole suite runs this file too. Phase 3 adds the tests of the loop (`project-loop.mjs`).
+// Run by `node scripts/test-suite.mjs`, in a process of its own. Phase 3 adds the tests of the loop (`project-loop.mjs`).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync, cpSync, mkdirSync, realpathSync, writeFileSync, renameSync, rmSync } from 'node:fs';

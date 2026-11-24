@@ -1,6 +1,6 @@
 // node --test plugins/openspec/hooks/test-tmp.test.mjs
 // test-fixture-cleanup: the temporary-folder helper (`test-tmp.mjs`) removes what a test makes, and its copies stay identical.
-// Imported by guard.test.mjs, so the whole suite runs this file too.
+// Run by `node scripts/test-suite.mjs`, in a process of its own.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -131,14 +131,14 @@ test('test-fixture-cleanup AC-4 a copy with one byte changed is named', () => {
   assert.deepEqual(differingCopies([HELPER_COPIES[0], changed]), [changed]);
 });
 
-// `<path relative to root>:<line>` of every raw temporary-folder call in a *.test.mjs under <root>/plugins.
+// `<path relative to root>:<line>` of every raw temporary-folder call in a *.test.mjs or a fixtures module (test-fixtures.mjs, *-fixtures.mjs) under <root>/plugins.
 const RAW_TEMP_CALL = /\bmkdtempSync\s*\(|\btmpdir\s*\(/;
 function rawTempCalls(root) {
   const found = [];
   const files = readdirSync(join(root, 'plugins'), { recursive: true });
   for (const file of files) {
     const parts = String(file).split(/[\\/]/);
-    if (parts.includes('node_modules') || !String(file).endsWith('.test.mjs')) continue;
+    if (parts.includes('node_modules') || !(String(file).endsWith('.test.mjs') || String(file).endsWith('-fixtures.mjs'))) continue;
     const lines = readFileSync(join(root, 'plugins', String(file)), 'utf8').split('\n');
     lines.forEach((line, at) => {
       if (RAW_TEMP_CALL.test(line)) found.push(`${join('plugins', String(file))}:${at + 1}`);
@@ -159,6 +159,23 @@ test('test-fixture-cleanup AC-3 a raw mkdtemp or tmpdir call in a test file is f
   assert.deepEqual(rawTempCalls(root), ['plugins/x/fake.test.mjs:2', 'plugins/x/fake.test.mjs:3']);
 });
 
+test('suite-speed AC-3 the raw-temp scan reads test-fixtures.mjs and every *-fixtures.mjs', () => {
+  const root = tmpFolder('devkit-tmp-raw-fixtures-');
+  mkdirSync(join(root, 'plugins', 'x'), { recursive: true });
+  writeFileSync(join(root, 'plugins', 'x', 'test-fixtures.mjs'), [
+    "import { tmpFolder } from './test-tmp.mjs';",
+    'const a = ' + 'mkdtemp' + "Sync('x');",
+    'const c = tmpFolder(\'devkit-ok-\');',
+  ].join('\n'));
+  writeFileSync(join(root, 'plugins', 'x', 'x-fixtures.mjs'), [
+    "import { tmpFolder } from './test-tmp.mjs';",
+    'const c = tmpFolder(\'devkit-ok-\');',
+    'const a = os.' + 'tmp' + 'dir();',
+  ].join('\n'));
+  writeFileSync(join(root, 'plugins', 'x', 'notes.mjs'), 'const b = os.' + 'tmp' + 'dir();\n');
+  assert.deepEqual(rawTempCalls(root), ['plugins/x/test-fixtures.mjs:2', 'plugins/x/x-fixtures.mjs:3']);
+});
+
 test('test-fixture-cleanup AC-3 no test file under plugins makes a temporary folder or reads the root by hand', () => {
   assert.deepEqual(rawTempCalls(REPO_ROOT), [], 'raw calls: use tmpFolder or tmpRoot from test-tmp.mjs');
 });
@@ -176,17 +193,21 @@ function ciSteps(text) {
   return steps;
 }
 
+// Invariant: CI runs the one suite command in one step, and that command owns each file's empty TMPDIR.
+// Layer: the CI workflow text. Suite: test-tmp.test.mjs.
 test('test-fixture-cleanup AC-5 the hook tests run on an empty TMPDIR and a step fails when it is not empty after', () => {
   const steps = ciSteps(readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8'));
-  const at = steps.findIndex((s) => s.name === 'Hook tests');
-  assert.notEqual(at, -1, 'ci.yml has no step named Hook tests');
-  for (const part of ['TMPDIR: ${{ runner.temp }}/hook-tests-tmp', 'mkdir "$TMPDIR"', 'node --test plugins/openspec/hooks/guard.test.mjs']) {
-    assert.ok(steps[at].text.includes(part), `step Hook tests lacks: ${part}`);
+  const install = steps.findIndex((s) => s.name.startsWith('Install OpenSpec'));
+  assert.notEqual(install, -1, 'ci.yml has no Install OpenSpec step');
+  const at = steps.findIndex((s) => s.name === 'Test suite');
+  assert.ok(at > install, 'ci.yml has no step named Test suite after the Install OpenSpec step');
+  assert.ok(steps[at].text.includes('node scripts/test-suite.mjs'), 'step Test suite lacks: node scripts/test-suite.mjs');
+  for (const old of ['Hook tests', 'Hook tests left nothing in TMPDIR']) {
+    assert.equal(steps.some((s) => s.name === old), false, `ci.yml still has a step named ${old}`);
   }
-  const next = steps[at + 1];
-  assert.ok(next, 'ci.yml has no step after Hook tests');
-  assert.equal(next.name, 'Hook tests left nothing in TMPDIR');
-  for (const part of ['${{ runner.temp }}/hook-tests-tmp', 'ls -A', 'exit 1']) {
-    assert.ok(next.text.includes(part), `step Hook tests left nothing in TMPDIR lacks: ${part}`);
+  for (const s of steps) {
+    for (const part of ['hook-tests-tmp', 'guard.test.mjs']) {
+      assert.ok(!s.text.includes(part), `step ${s.name || '(unnamed)'} still holds: ${part}`);
+    }
   }
 });
