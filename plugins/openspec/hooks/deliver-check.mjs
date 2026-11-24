@@ -6,7 +6,7 @@
 
 import { readFileSync, existsSync, readdirSync, statSync, realpathSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, basename } from 'node:path';
+import { join, basename, dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -197,6 +197,24 @@ export function releaseTagOf(root) {
   const { file: path, problem } = releaseTagSetting(parseDevkitBlock(existsSync(file) ? readFileSync(file, 'utf8') : ''));
   if (problem) throw new ShipConfigError(`devkit.release_tag: "${problem.value}" is not a path from the repository root to a .json file`);
   return path;
+}
+
+// Whether the project at `root` names `devkit.release_tag` (release-at-merge D-9, D-22; moved here from change-loop.mjs). A value the
+// setting reader refuses names nothing here, as in releaseFacts; a null root (a folder outside a project's layout) names nothing.
+export function namesReleaseTag(root) {
+  if (root === null) return false;
+  try { return releaseTagOf(root) !== null; } catch (e) {
+    if (e instanceof ShipConfigError) return false;
+    throw e;
+  }
+}
+
+// The project folder of a change folder: the folder above `openspec/changes/<id>` or `openspec/changes/archive/<id>`, or null for a folder
+// outside that layout (release-at-merge D-22).
+export function changeRoot(dir) {
+  let up = dirname(resolve(dir));
+  if (basename(up) === 'archive' && basename(dirname(up)) === 'changes') up = dirname(up);
+  return basename(up) === 'changes' && basename(dirname(up)) === 'openspec' ? dirname(dirname(up)) : null;
 }
 
 // ---------------------------------------------------------------- git facts and staleness
@@ -2350,8 +2368,10 @@ function archiveNext(state) {
 // the sha256 of the current readiness.md>. A new readiness round changes the
 // hash, so the owner is asked again. With `release` (the project names devkit.release_tag) the approval also covers the release note
 // (release-at-merge D-9): `release` is the hash of release.md and `recordedRelease` the value of the "- Release note:" line, both present
-// only when either is not null, and `ok` needs them equal; a change with no note keeps the four keys.
-export function approvalState(dir, { release: withNote = false } = {}) {
+// only when either is not null, and `ok` needs them equal; a change with no note keeps the four keys. A caller that does not say `release`
+// gets the project's own setting (D-22): every reader of the approval checks the note.
+export function approvalState(dir, { release } = {}) {
+  const withNote = release ?? namesReleaseTag(changeRoot(dir));
   const readinessFile = join(dir, 'readiness.md');
   const readiness = existsSync(readinessFile)
     ? `sha256:${createHash('sha256').update(readFileSync(readinessFile)).digest('hex').slice(0, 12)}`
@@ -2368,6 +2388,10 @@ export function approvalState(dir, { release: withNote = false } = {}) {
     ok: status === 'APPROVED' && readiness !== null && recorded === readiness && covered,
   };
 }
+
+// An approval of the current readiness whose recorded release note is not the current one (row A1, release-at-merge D-8; D-22: the
+// conductor's approve row and accept-decisions give the same reason).
+export const noteMoved = (a) => a.status === 'APPROVED' && a.recorded === a.readiness && (a.release ?? null) !== (a.recordedRelease ?? null);
 
 // The one step to take now, computed from facts only (see design D4, first
 // match wins; evidence-before-review design D2 puts fix-defect and verify ahead
@@ -2411,10 +2435,10 @@ export function nextStep(state) {
   if (state.needsReadiness && state.readiness === 'APPROVED' && state.approval && !state.approval.ok) {
     const a = state.approval;
     // A1 (release-at-merge D-8): the readiness is the approved one and the release note is not the recorded one, whether or not a task is ticked.
-    const noteMoved = a.status === 'APPROVED' && a.recorded === a.readiness && (a.release ?? null) !== (a.recordedRelease ?? null);
-    if (noteMoved || !state.started) {
+    const moved = noteMoved(a);
+    if (moved || !state.started) {
       const earlier = a.status === 'APPROVED' && a.recorded;
-      return step('stop-plan-approval', noteMoved ? 'release note changed after approval' : earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval', {
+      return step('stop-plan-approval', moved ? 'release note changed after approval' : earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval', {
         readiness: a.readiness,
         ...(a.release != null ? { release: a.release } : {}),
         file: `openspec/changes/${state.id}/approval.md`,

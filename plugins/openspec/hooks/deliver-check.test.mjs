@@ -2,7 +2,7 @@
 // Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, rmSync as fsRm, symlinkSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, rmSync as fsRm, symlinkSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
@@ -2869,6 +2869,27 @@ test('release-note AC-12 row A1: a change with no note keeps its approval object
   const keyed = approvedNote('## 1. First\n- [ ] 1.1 code\n');
   const keys = Object.keys(keyed.state().approval);
   assert.deepEqual(keys, ['status', 'recorded', 'readiness', 'release', 'recordedRelease', 'ok']);
+});
+
+// Invariant (architecture F2, D-22; checker, deliver-check.test.mjs): approvalState reads the project's devkit.release_tag itself when its
+// caller says nothing, from the folder above openspec/changes/<id> or openspec/changes/archive/<id>; a folder outside that layout names no
+// setting, and a caller that passes `release` keeps what it passes.
+test('release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys', () => {
+  const t = approvedNote('## 1. First\n- [ ] 1.1 code\n');
+  const dir = join(t.root, 'openspec', 'changes', 'feat');
+  const hash = readinessHash(t.root);
+  const note = DC.releaseNoteHash(dir);
+  assert.deepEqual(approvalState(dir), { status: 'APPROVED', recorded: hash, readiness: hash, release: note, recordedRelease: note, ok: true });
+  put(t.root, { 'openspec/changes/feat/release.md': CHANGED_NOTE });
+  assert.equal(approvalState(dir).ok, false, 'a note changed after the approval, with no option given');
+  assert.deepEqual(Object.keys(approvalState(dir, { release: false })), ['status', 'recorded', 'readiness', 'ok'], 'a caller that passes release keeps it');
+  const archived = join(t.root, 'openspec', 'changes', 'archive', '2026-11-24-feat');
+  cpSync(dir, archived, { recursive: true });
+  assert.equal(approvalState(archived).release, DC.releaseNoteHash(archived), 'an archived change reads the same setting');
+  assert.equal(approvalState(archived).ok, false);
+  const outside = join(tmpFolder('devkit-approval-outside-'), 'feat');
+  cpSync(dir, outside, { recursive: true });
+  assert.deepEqual(approvalState(outside), { status: 'APPROVED', recorded: hash, readiness: hash, ok: true }, 'outside a project: no setting, no note keys');
 });
 
 // ---- the step's commit leaves the records current (D-5)

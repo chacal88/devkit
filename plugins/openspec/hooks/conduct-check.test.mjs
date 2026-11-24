@@ -1687,3 +1687,55 @@ test('release-note AC-10 conduct: an old-rule change, and a numbered ADR a noted
     assert.deepEqual(c.next.files, [{ from: 'docs/adr/0016-a.md', to: 'docs/adr/0017-a.md', number: '0017' }]);
   }
 });
+
+// ---- release-at-merge D-21 and D-22: the conductor's planning rows read the release note as the loop does
+// Invariant (B1, architecture F2; conductor, conduct-check.test.mjs): in a project that names devkit.release_tag, a release.md newer than
+// readiness.md hands the readiness review again (the dependency audit, which judges the order of changes, is not staled by it), and a
+// note whose hash is not the one approval.md recorded hands approve with the reason the delivery checker gives.
+
+// The note `text` written at `seconds` and an approval of the current readiness.md that records the note's hash, written after it.
+function notedApproval(wt, id, { text = NOTE_TEXT, seconds = T0 } = {}) {
+  writeChange(wt, id, { 'release.md': text });
+  at(cf(wt, id, 'release.md'), seconds);
+  writeChange(wt, id, { 'approval.md': `# Plan approval: ${id}\n\n- Status: APPROVED\n- Readiness: ${hashOf(cf(wt, id, 'readiness.md'))}\n- Release note: ${hashOf(cf(wt, id, 'release.md'))}\n- Date: 2026-11-09\n- Owner's words: "ok"\n` });
+  at(cf(wt, id, 'approval.md'), Math.max(seconds, T0 + 5) + 1);
+}
+const REVISED_NOTE = NOTE_TEXT.replace('devkit-core: patch', 'devkit-core: minor');
+
+test('release-note AC-16 conduct: a note newer than readiness.md hands readiness', () => {
+  const t = roundRepo({ roadmap: DEPS, config: NOTED_ROUND });
+  const b = t.addWt('b');
+  planFiles(b, 'b', { schema: 'devkit', readiness: 'APPROVED' });
+  notedApproval(b, 'b');
+  t.commitOrigin({ 'openspec/roadmap.md': TICKED_A }, 'tick a');
+  git(b, 'rebase', '--autostash', 'origin/main');
+  auditMd(t, b, 'ACCURATE');
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['implement', 'subagent'], 'the plan, its note and the audit are current');
+  // the planner revises release.md and no other plan file
+  writeChange(b, 'b', { 'release.md': REVISED_NOTE });
+  at(cf(b, 'b', 'release.md'), T0 + 200);
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['readiness', 'subagent']);
+  assert.equal(c.next.agent, 'devkit-core:plan-readiness-reviewer');
+  // the reviewer passes it and the owner approves the new note: the audit, older than the note, is not asked again
+  writeFileSync(cf(b, 'b', 'readiness.md'), '# Readiness\n\n- Status: APPROVED\n- Round: 2\n');
+  at(cf(b, 'b', 'readiness.md'), T0 + 205);
+  notedApproval(b, 'b', { text: REVISED_NOTE, seconds: T0 + 200 });
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['implement', 'subagent'], 'audit.md stays fresh beside a newer note');
+});
+
+test('release-note AC-12 conduct: a note changed after the approval answers approve with that reason', () => {
+  const t = oneChange('', NOTED_ROUND);
+  const b = t.addWt('b');
+  planFiles(b, 'b', { schema: 'devkit', readiness: 'APPROVED' });
+  notedApproval(b, 'b');
+  assert.deepEqual(planStep(byId(t.state(), 'b')), ['implement', 'subagent'], 'the approval covers the note it recorded');
+  writeChange(b, 'b', { 'release.md': REVISED_NOTE });
+  at(cf(b, 'b', 'release.md'), T0); // older than readiness.md: only the approval is out of date
+  const c = byId(t.state(), 'b');
+  assert.deepEqual(planStep(c), ['approve', 'owner']);
+  assert.equal(c.next.reason, 'release note changed after approval');
+  assert.equal(c.next.readiness, hashOf(cf(b, 'b', 'readiness.md')));
+  assert.equal(c.next.release, hashOf(cf(b, 'b', 'release.md')));
+  assert.match(c.next.file, /openspec\/changes\/b\/approval\.md$/);
+});

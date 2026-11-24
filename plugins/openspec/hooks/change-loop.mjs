@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { findRoot, optedIn, schemaFile, runOf, changeFlow, changeSchemaAt, readFlow, readPin, sessionTranscript, spentOf, handOffKey, handOffsOf, typedSince, isChangeId, readRoadmap, readValue, isDecisionRecord, parseStageHeader, parseDevkitBlock, deliverySettings, budgetValue, releaseTagSetting, trainSetting, SPEND_MESSAGES } from './guard.mjs';
 import { collectFlow, computeFlow, fingerprint, inSentence, makeOpenspec, classificationFlags, readTestSettings } from './flow-check.mjs';
-import { collectState, buildReport, locateChange, approvalState, makeGh, ADR_LINES, releaseTagOf, parseReleaseNote, RELEASE_NOTE, ShipConfigError } from './deliver-check.mjs';
+import { collectState, buildReport, locateChange, approvalState, makeGh, ADR_LINES, releaseTagOf, parseReleaseNote, RELEASE_NOTE, namesReleaseTag, noteMoved } from './deliver-check.mjs';
 import { deliveryRow, listWorktrees } from './conduct-check.mjs';
 import { emptyRun, readRun, runFilePath } from './run-file.mjs';
 import { readiness, liveRuns, startRun, CHANGE_LOOP } from './compozy-driver.mjs';
@@ -1425,15 +1425,6 @@ export function cleanOf(env) {
   return clean;
 }
 
-// Whether the project names `devkit.release_tag`, the `release` option of approvalState (release-at-merge D-9): the change folder
-// alone cannot say it. A value the setting reader refuses names nothing here, as in the delivery checker's releaseFacts.
-function namesReleaseTag(root) {
-  try { return releaseTagOf(root) !== null; } catch (e) {
-    if (e instanceof ShipConfigError) return false;
-    throw e;
-  }
-}
-
 function git(root, args) {
   return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
 }
@@ -1847,7 +1838,7 @@ export function acceptDecisions(cwd, id, { lang = 'pt-BR' } = {}) {
   if (!located) throw new LoopUsageError(`unknown change ${id}`);
   const refuse = (error) => new LoopRefusal(error, render(l, 'blocked', { id, why: 'cannot-accept', error }));
   const approval = approvalState(located.dir);
-  if (!approval.ok) throw refuse(approval.status === 'APPROVED' && approval.recorded ? 'approval.md is for an earlier readiness.md' : 'the plan has no current recorded approval (approval.md)');
+  if (!approval.ok) throw refuse(noteMoved(approval) ? 'release note changed after approval' : approval.status === 'APPROVED' && approval.recorded ? 'approval.md is for an earlier readiness.md' : 'the plan has no current recorded approval (approval.md)');
   const approvalFile = join(located.dir, 'approval.md');
   const date = readValue(approvalFile, 'Date');
   if (!date) throw refuse('approval.md has no Date line');

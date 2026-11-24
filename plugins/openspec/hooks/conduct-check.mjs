@@ -15,6 +15,7 @@ import { readRepoSettings } from './merge-setup.mjs';
 import { FlowUsageError } from './flow-check.mjs';
 import {
   UsageError, gitFacts, makeGh, listWorktrees, collectState, buildReport, detectHost, locateChange, parseTasks, approvalState, watchMinutes, ADR_DIRS, changeAdrs,
+  namesReleaseTag, noteMoved, RELEASE_NOTE,
 } from './deliver-check.mjs';
 import { PIN_FILE, classifyConflict, resolveRoadmapTicks } from './release-merge.mjs';
 
@@ -193,6 +194,9 @@ function planFacts(ctx, item, entry) {
   const started = Boolean(located?.archived) || (existsSync(tasksFile) && parseTasks(readFileSync(tasksFile, 'utf8')).some((t) => t.done));
   const planned = artifacts.map((a) => mtime(join(dir, a))).filter((m) => m !== null);
   const newestPlan = planned.length ? Math.max(...planned) : null;
+  // The release note counts in the readiness only (release-at-merge D-21): never in planArtifacts, so no plan step asks for it, and never in
+  // newestPlan, so the dependency audit is not staled by it.
+  const newestNote = located && namesReleaseTag(root) ? mtime(join(dir, RELEASE_NOTE)) : null;
   const readinessFile = join(dir, 'readiness.md');
   const needsReadiness = Boolean(located) && changeDeclaresOrInstalled(root, dir, 'readiness');
   const needsRequirements = Boolean(located) && changeDeclaresOrInstalled(root, dir, 'requirements');
@@ -222,7 +226,7 @@ function planFacts(ctx, item, entry) {
     readiness: needsReadiness ? {
       exists: readinessAt !== null,
       status: readValue(readinessFile, 'Status'),
-      fresh: readinessAt !== null && (newestPlan === null || readinessAt >= newestPlan - FRESH_MS),
+      fresh: readinessAt !== null && [newestPlan, newestNote].every((m) => m === null || readinessAt >= m - FRESH_MS),
     } : null,
     readinessFile,
     approval: needsReadiness ? approvalState(dir) : null,
@@ -268,8 +272,10 @@ export function planningStep(f) {
     if (r.status === 'NEEDS-REVISION') return step('revise-plan', 'readiness is NEEDS-REVISION', { findings: f.readinessFile });
     if (r.status === 'BLOCKED') return step('stop-readiness-blocked', 'readiness is BLOCKED; the owner decides');
     if (!f.approval.ok) {
-      const earlier = f.approval.status === 'APPROVED' && f.approval.recorded;
-      return step('approve', earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval', { readiness: f.approval.readiness, file: f.approvalFile });
+      const a = f.approval;
+      const earlier = a.status === 'APPROVED' && a.recorded;
+      const reason = noteMoved(a) ? 'release note changed after approval' : earlier ? 'approval.md is for an earlier readiness.md' : 'no recorded owner approval';
+      return step('approve', reason, { readiness: a.readiness, ...(a.release != null ? { release: a.release } : {}), file: f.approvalFile });
     }
   }
   return null;

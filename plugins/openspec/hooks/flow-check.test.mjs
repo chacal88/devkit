@@ -1085,6 +1085,59 @@ test('release-note AC-4 stages: the evidence and review headers stay passed afte
   assert.equal(stageOf(releaseStagesReadout({ noted: false }), 'evidence').state, 'stale', 'a change with no release note reads the same commit as before');
 });
 
+// ---- release-at-merge D-21: the release note counts with tasks.md when the readiness is judged stale, until the work starts
+// Invariant (B1, checker, flow-check.test.mjs): in a project that names devkit.release_tag, a release.md newer than readiness.md by more
+// than the tolerance makes the readiness stale (a failed one is offered again), as a newer tasks.md does; without the setting, or once a
+// task is ticked, the note stales nothing.
+
+// liveChange() with tasks.md `ticked` or not, readiness.md of result `readiness`, and the note release.md `ahead` seconds newer than every
+// stage file; `key: false` names no devkit.release_tag.
+function noteStages({ key = true, readiness = 'passed', ticked = false, ahead = 10 } = {}) {
+  const root = liveChange({ config: `schema: devkit\n${key ? REL_CONFIG : ''}`, tasks: `# Tasks\n\n- [${ticked ? 'x' : ' '}] 1.1 a\n- [ ] 1.2 b\n` });
+  const c0 = git(root, 'rev-list', '--max-parents=0', 'HEAD');
+  if (readiness !== 'passed') put(root, { 'openspec/changes/feat/readiness.md': `<!-- devkit-stage readiness result=${readiness} attempt=1 commit=${c0} -->\n# Readiness\n\n- Status: NEEDS-REVISION\n- F1: release.md bumps devkit-core for a text-only change\n` });
+  put(root, { 'openspec/changes/feat/release.md': NOTE_TEXT });
+  noteAt(root, ahead);
+  return root;
+}
+const noteAt = (root, ahead) => {
+  const when = new Date(Date.now() + ahead * 1000);
+  utimesSync(join(root, 'openspec', 'changes', 'feat', 'release.md'), when, when);
+};
+
+test('release-note AC-16 stages: a note newer than readiness.md makes it stale', () => {
+  const r = liveReport(noteStages());
+  assert.equal(stageOf(r, 'readiness').state, 'stale');
+  assert.equal(stageOf(r, 'readiness').reasonCode, 'stale-plan');
+  assert.equal(stageOf(r, 'readiness').params.by, 'tasks', 'the note counts with the files of the tasks stage');
+  assert.equal(stageOf(r, 'tasks').state, 'passed', 'release.md is not read as a file of the tasks stage');
+  assert.equal(r.next.stage, 'readiness');
+  assert.equal(stageOf(liveReport(noteStages({ ahead: 1 })), 'readiness').state, 'passed', 'within the 2 s tolerance');
+});
+
+test('release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision', () => {
+  const root = noteStages({ readiness: 'failed', ahead: 0 });
+  const before = liveReport(root);
+  assert.deepEqual(outcome(before), { next: 'proposal', reasonCode: 'fix-after-failure' }, 'the revision of the plan first');
+  put(root, { 'openspec/changes/feat/release.md': NOTE_TEXT.replace('devkit-core: patch', 'devkit-core: minor') }); // the planner revises release.md and no other plan file
+  noteAt(root, 10);
+  const after = liveReport(root, before.next.progressKey);
+  assert.equal(stageOf(after, 'readiness').state, 'failed');
+  assert.deepEqual(outcome(after), { next: 'readiness', reasonCode: 'rerun-after-fix' }, 'the review again, not the same revision');
+});
+
+test('release-note AC-16 stages: without devkit.release_tag the note stales nothing', () => {
+  const r = liveReport(noteStages({ key: false }));
+  assert.equal(stageOf(r, 'readiness').state, 'passed');
+  assert.equal(r.next.stage, 'implementation');
+});
+
+test('release-note AC-16 stages: once a task is ticked the note stales nothing', () => {
+  const r = liveReport(noteStages({ ticked: true }));
+  assert.equal(stageOf(r, 'readiness').state, 'passed');
+  assert.equal(r.next.stage, 'implementation');
+});
+
 // ---- field-fixes 4: a merged pull request delivers only when it is the change's own and every task is ticked
 
 const MERGED_OWN = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'MERGED', headRefOid: 'f'.repeat(40), baseRefName: 'main', mergeable: 'UNKNOWN', autoMergeRequest: null, mergeStateStatus: 'UNKNOWN', headRefName: 'feat', mergedAt: '2026-11-19T10:00:00Z', body: 'evidence: openspec/changes/feat/evidence.md' };

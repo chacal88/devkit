@@ -2173,6 +2173,52 @@ test('release-note AC-12 approval: approvalText writes the release note line onl
   assert.doesNotMatch(readFileSync(join(plain, 'openspec', 'changes', 'feat', 'approval.md'), 'utf8'), /Release note/);
 });
 
+// ---- release-at-merge D-21 and D-22: the loop reads the release note in the readiness and in the acceptance of the records
+// Invariant (B1, architecture F2; loop, change-loop.test.mjs): after a readiness failed on the note, a revision of release.md alone hands
+// the readiness review, not the same revision; accept-decisions refuses an approval whose recorded note is not the current one.
+
+const REVISED_NOTE = '# Release note\n\npacks:\n- devkit-openspec: patch\n\n## a revised note\n\n- **devkit-openspec**: it does a thing\n';
+const writeNoteAt = (root, text, ahead) => {
+  const file = join(root, 'openspec', 'changes', 'feat', 'release.md');
+  writeFileSync(file, text);
+  const when = new Date(Date.now() + ahead * 1000);
+  utimesSync(file, when, when);
+};
+
+test('release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review', () => {
+  const root = notedPlan({ have: [...PLAN_UP_TO_TASKS, 'readiness'] });
+  put(root, { 'openspec/changes/feat/readiness.md': `${head('readiness', git(root, 'rev-parse', 'HEAD'), 'failed')}# Readiness\n\n- Status: NEEDS-REVISION\n- F1: release.md bumps a pack the change does not touch\n` });
+  writeNoteAt(root, NOTE_OK, 0);
+  const revision = parsed(next(root)).action;
+  assert.deepEqual([revision.kind, revision.agent, revision.stage], ['agent', PLANNER, 'proposal'], 'the revision of the plan first');
+  writeNoteAt(root, REVISED_NOTE, 10); // the planner changes release.md and no other plan file
+  const r = next(root);
+  assert.equal(r.code, 0, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.agent, action.stage], ['agent', READINESS, 'readiness'], 'the readiness review again');
+});
+
+test('release-note AC-12 accept: accept-decisions refuses a note changed after the approval', () => {
+  const root = notedPlan({ have: [...PLAN_UP_TO_TASKS, 'readiness'], note: NOTE_OK });
+  const dir = join(root, 'openspec', 'changes', 'feat');
+  put(root, {
+    'openspec/changes/feat/decisions.md': '<!-- devkit-stage decisions result=passed attempt=1 commit=none -->\n# Decisions\n\n- ADR: `docs/adr/feat.md`\n',
+    'docs/adr/feat.md': '# ADR [feat]: the rule\n\n- Status: proposed\n- Change: `feat`\n',
+  });
+  put(root, { 'openspec/changes/feat/approval.md': `# Plan approval: feat\n\n- Status: APPROVED\n- Readiness: ${approvalState(dir, { release: false }).readiness}\n- Release note: ${noteHash(root)}\n- Date: 2026-11-24\n- Owner's words: "go"\n` });
+  put(root, { 'openspec/changes/feat/release.md': REVISED_NOTE });
+  const r = main(['accept-decisions', 'feat', '--lang', 'en'], { cwd: root, env: cleanEnv });
+  assert.equal(r.code, 3, r.stdout);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.error, 'release note changed after approval');
+  assert.equal(out.reply, render('en', 'blocked', { id: 'feat', why: 'cannot-accept', error: out.error }));
+  assert.match(readFileSync(join(root, 'docs', 'adr', 'feat.md'), 'utf8'), /- Status: proposed\n/, 'the refusal changes no record');
+  put(root, { 'openspec/changes/feat/release.md': NOTE_OK });
+  const again = main(['accept-decisions', 'feat', '--lang', 'en'], { cwd: root, env: cleanEnv });
+  assert.equal(again.code, 0, again.stdout);
+  assert.deepEqual(JSON.parse(again.stdout).accepted, ['docs/adr/feat.md'], 'the note the owner approved: accepted');
+});
+
 // ================================================================ fresh-base-check: the loop fetches the base before it judges
 
 const refsOf = (root) => git(root, 'for-each-ref', '--format=%(refname) %(objectname)');

@@ -945,3 +945,313 @@ pass 49.5s plugins/openspec/hooks/release-merge.test.mjs
 pass 53.7s plugins/openspec/hooks/release-note.test.mjs
 suite: 3 files, 410 tests, 410 pass, 0 fail, 311.2s, concurrency 3
 exit: 0
+
+Task 9.8: the D-26 tests of D-21 and D-22, run on the code as phase 9 finds it after 9.7 (the red ones fail; the guards pass)
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-16 (stages|conduct|loop)|AC-12 (approval: approvalState reads|conduct|accept))' plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/flow-check.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✖ release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys (247.099221ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 779.919165
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:2877:1
+✖ release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys (247.099221ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      ok: true,
+      readiness: 'sha256:464c1ea56b08',
+      recorded: 'sha256:464c1ea56b08',
+  -   recordedRelease: 'sha256:faa605ee9d2f',
+  -   release: 'sha256:faa605ee9d2f',
+      status: 'APPROVED'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/deliver-check.test.mjs:2882:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { status: 'APPROVED', recorded: 'sha256:464c1ea56b08', readiness: 'sha256:464c1ea56b08', ok: true },
+    expected: { status: 'APPROVED', recorded: 'sha256:464c1ea56b08', readiness: 'sha256:464c1ea56b08', release: 'sha256:faa605ee9d2f', recordedRelease: 'sha256:faa605ee9d2f', ok: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/deliver-check.test.mjs: FAIL 0.9s
+start plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/conduct-check.test.mjs
+✖ release-note AC-16 conduct: a note newer than readiness.md hands readiness (2233.820134ms)
+✖ release-note AC-12 conduct: a note changed after the approval answers approve with that reason (1928.478101ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4793.493168
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1705:1
+✖ release-note AC-16 conduct: a note newer than readiness.md hands readiness (2233.820134ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'stop-plan-approval',
+  +   'owner'
+  -   'readiness',
+  -   'subagent'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1718:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stop-plan-approval', 'owner' ],
+    expected: [ 'readiness', 'subagent' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/conduct-check.test.mjs:1727:1
+✖ release-note AC-12 conduct: a note changed after the approval answers approve with that reason (1928.478101ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'stop-plan-approval',
+  -   'approve',
+      'owner'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/conduct-check.test.mjs:1736:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'stop-plan-approval', 'owner' ],
+    expected: [ 'approve', 'owner' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/conduct-check.test.mjs: FAIL 5.0s
+=== plugins/openspec/hooks/change-loop.test.mjs
+✖ release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review (6176.453138ms)
+✖ release-note AC-12 accept: accept-decisions refuses a note changed after the approval (313.202233ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6929.409544
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2188:1
+✖ release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review (6176.453138ms)
+  AssertionError [ERR_ASSERTION]: the readiness review again
+  + actual - expected
+  
+    [
+      'agent',
+  +   'devkit-core:change-planner',
+  +   'proposal'
+  -   'devkit-core:plan-readiness-reviewer',
+  -   'readiness'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2198:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'agent', 'devkit-core:change-planner', 'proposal' ],
+    expected: [ 'agent', 'devkit-core:plan-readiness-reviewer', 'readiness' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:2201:1
+✖ release-note AC-12 accept: accept-decisions refuses a note changed after the approval (313.202233ms)
+  AssertionError [ERR_ASSERTION]: {
+    "version": 1,
+    "change": "feat",
+    "accepted": [
+      "docs/adr/feat.md"
+    ],
+    "already": []
+  }
+  
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/change-loop.test.mjs:2211:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/change-loop.test.mjs: FAIL 7.1s
+=== plugins/openspec/hooks/flow-check.test.mjs
+✖ release-note AC-16 stages: a note newer than readiness.md makes it stale (377.593066ms)
+✖ release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision (584.428205ms)
+✔ release-note AC-16 stages: without devkit.release_tag the note stales nothing (328.006528ms)
+✔ release-note AC-16 stages: once a task is ticked the note stales nothing (264.970387ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20192.072289
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1108:1
+✖ release-note AC-16 stages: a note newer than readiness.md makes it stale (377.593066ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'passed' !== 'stale'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/flow-check.test.mjs:1110:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'passed',
+    expected: 'stale',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/flow-check.test.mjs:1118:1
+✖ release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision (584.428205ms)
+  AssertionError [ERR_ASSERTION]: the review again, not the same revision
+  + actual - expected
+  
+    {
+  +   next: 'proposal',
+  +   reasonCode: 'fix-after-failure'
+  -   next: 'readiness',
+  -   reasonCode: 'rerun-after-fix'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-at-merge/plugins/openspec/hooks/flow-check.test.mjs:1126:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { next: 'proposal', reasonCode: 'fix-after-failure' },
+    expected: { next: 'readiness', reasonCode: 'rerun-after-fix' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== plugins/openspec/hooks/flow-check.test.mjs: FAIL 20.3s
+FAIL 7.1s plugins/openspec/hooks/change-loop.test.mjs
+FAIL 5.0s plugins/openspec/hooks/conduct-check.test.mjs
+FAIL 0.9s plugins/openspec/hooks/deliver-check.test.mjs
+FAIL 20.3s plugins/openspec/hooks/flow-check.test.mjs
+suite: 4 files, 9 tests, 2 pass, 7 fail, 20.4s, concurrency 3
+exit: 1
+
+Task 9.8, reading of the run: the seven red tests fail for the missing behaviour. "a note newer than readiness.md makes it stale" reads the readiness passed beside a release.md 10 s newer; "a readiness failed on the note is offered again after a note-only revision" hands the same revision (proposal, fix-after-failure) after the planner changed only release.md, the stall of B1. On the conductor, "a note newer than readiness.md hands readiness" finds the planning rows done (readiness.fresh ignores the note) and falls through to the delivery checker's stop-plan-approval, and "a note changed after the approval answers approve with that reason" gets the same delivery row in place of the planning row's approve: the planning row reads approvalState(dir) with no note. On the loop, "after a note-only revision of a failed readiness the next action is the readiness review" is handed the planner again, and "accept-decisions refuses a note changed after the approval" accepts (exit 0). "approvalState reads devkit.release_tag itself ..." gets the four keys with no option given. The two guards, "without devkit.release_tag the note stales nothing" and "once a task is ticked the note stales nothing", pass on this code.
+
+Task 9.9: the same tests after D-21 and D-22 are applied (flow-check.mjs collectFlow noteFiles and the staleAfter loop of artifactState; conduct-check.mjs planFacts newestNote in readiness.fresh and the approve reason; deliver-check.mjs approvalState's default, namesReleaseTag moved from change-loop.mjs, changeRoot and noteMoved; change-loop.mjs acceptDecisions' refusal; the sentence of "The release note" in docs/openspec-flow.md)
+Waited: before this run a train's whole suite (node scripts/test-suite.mjs with no file arguments, pid 2061050) was running on the machine; no test run started until it ended at 23:37:10Z.
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 --test-name-pattern='^release-note (AC-16 (stages|conduct|loop)|AC-12 (approval: approvalState reads|conduct|accept))' plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/change-loop.test.mjs
+start plugins/openspec/hooks/deliver-check.test.mjs
+start plugins/openspec/hooks/flow-check.test.mjs
+=== plugins/openspec/hooks/deliver-check.test.mjs
+✔ release-note AC-12 approval: approvalState reads devkit.release_tag itself, and a folder outside a project gets no note keys (109.343673ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 311.606505
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 0.4s
+start plugins/openspec/hooks/conduct-check.test.mjs
+=== plugins/openspec/hooks/conduct-check.test.mjs
+✔ release-note AC-16 conduct: a note newer than readiness.md hands readiness (983.488545ms)
+✔ release-note AC-12 conduct: a note changed after the approval answers approve with that reason (583.756502ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1764.444184
+=== plugins/openspec/hooks/conduct-check.test.mjs: pass 1.8s
+=== plugins/openspec/hooks/change-loop.test.mjs
+✔ release-note AC-16 loop: after a note-only revision of a failed readiness the next action is the readiness review (3931.815871ms)
+✔ release-note AC-12 accept: accept-decisions refuses a note changed after the approval (123.556619ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4266.263941
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 4.3s
+=== plugins/openspec/hooks/flow-check.test.mjs
+✔ release-note AC-16 stages: a note newer than readiness.md makes it stale (266.341749ms)
+✔ release-note AC-16 stages: a readiness failed on the note is offered again after a note-only revision (187.057557ms)
+✔ release-note AC-16 stages: without devkit.release_tag the note stales nothing (128.958108ms)
+✔ release-note AC-16 stages: once a task is ticked the note stales nothing (117.051283ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12503.406875
+=== plugins/openspec/hooks/flow-check.test.mjs: pass 12.6s
+pass 4.3s plugins/openspec/hooks/change-loop.test.mjs
+pass 1.8s plugins/openspec/hooks/conduct-check.test.mjs
+pass 0.4s plugins/openspec/hooks/deliver-check.test.mjs
+pass 12.6s plugins/openspec/hooks/flow-check.test.mjs
+suite: 4 files, 9 tests, 9 pass, 0 fail, 12.6s, concurrency 3
+exit: 0
+
+$ env TMPDIR=/var/tmp/devkit-release-at-merge GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=3 plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs   (the files that hold T-4, T-13, T-19 and T-29, whole; python3 scripts/check.py: all checks passed)
+=== plugins/openspec/hooks/change-loop-compozy.test.mjs: pass 371.7s
+=== plugins/openspec/hooks/flow-check.test.mjs: pass 119.4s
+=== plugins/openspec/hooks/deliver-check.test.mjs: pass 528.6s
+=== plugins/openspec/hooks/change-loop.test.mjs: pass 600.4s
+=== plugins/openspec/hooks/conduct-check.test.mjs: pass 176.1s
+suite: 5 files, 932 tests, 932 pass, 0 fail, 667.2s, concurrency 3
+exit: 0
