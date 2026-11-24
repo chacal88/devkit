@@ -178,7 +178,7 @@ test('change-loop replies: a stage reads as a noun phrase in each language', () 
   assert.equal(render('en', 'where.next', { stage: 'E2E tests' }), 'next is the E2E tests');
   assert.equal(render('pt-BR', 'where.next', { stage: 'Revisão do plano' }), 'a próxima é a etapa Revisão do plano');
   assert.equal(render('en', 'waiting-unrun-stage', { id: 'x', stage: 'Screen mock-up' }), 'The screen mock-up of x has an unfinished file that no role of this version can finish: tell me its result, or remove it.');
-  assert.equal(render('pt-BR', 'blocked', { id: 'x', why: 'ceiling', stage: 'Revisão do plano', attempt: 3 }), 'A change x parou: a etapa Revisão do plano falhou 3 vezes, que é o limite. Nada mais roda até isso ser resolvido.');
+  assert.equal(render('pt-BR', 'blocked', { id: 'x', why: 'ceiling', stage: 'Revisão do plano', attempt: 3 }), 'A change x parou: a etapa Revisão do plano chegou ao limite de falhas seguidas (3). Nada mais roda até isso ser resolvido.');
 });
 
 // ---------------------------------------------------------------- the decision, synthetic (D-5)
@@ -237,10 +237,10 @@ test('change-loop decide: P4 a plan stage with a missing, unjudged or stale file
 });
 
 test('change-loop decide: P5 a stage offered because the readiness failed goes to the planner, naming the failure', () => {
-  const next = nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 1, ceiling: 3 });
+  const next = nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 1, failures: 1, ceiling: 3 });
   const a = run({ rep: { next, stages: { readiness: { state: 'failed', reasonCode: 'header-failed' } } } });
   assert.deepEqual([a.kind, a.agent, a.stage], ['agent', PLANNER, 'proposal']);
-  assert.match(a.brief, /readiness failed at attempt 1 of 3: revise the plan from its findings/);
+  assert.match(a.brief, /readiness failed at attempt 1 \(failures in a row: 1 of 3\): revise the plan from its findings/);
 });
 
 test('change-loop decide: P6 the approval awaited ends waiting for the owner with the readiness hash', () => {
@@ -2046,6 +2046,21 @@ test('change-loop lock: bypass and a project not opted in refuse nothing', () =>
   for (const out of calls(plain, {})) assert.equal(out.code, 0, out.err);
   assert.equal(existsSync(log), false, 'nothing logged for either');
   assert.equal(existsSync(join(tmp, 'devkit-stop')), false);
+});
+
+// stage-ceiling-consecutive (AC-6, the loops): the ceiling and the fix briefs say the failures in a row.
+test('stage-ceiling-consecutive AC-6 loop: a report with no failures falls back to the attempt in the plan brief', () => {
+  const plan = run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 2, ceiling: 3 }) } });
+  assert.ok(plan.brief.includes('readiness failed at attempt 2 (failures in a row: 2 of 3): revise the plan from its findings'), plan.brief);
+});
+test('stage-ceiling-consecutive AC-6 loop: the ceiling reply says the failures in a row, in both languages', () => {
+  const ended = (lang, params) => run({ ctx: { lang }, rep: { end: endOf('blocked', 'evidence', 'ceiling-reached', { stage: 'evidence', ceiling: 3, ...params }) } });
+  const full = { attempt: 5, failures: 3 };
+  assert.equal(ended('en', full).reply, 'The change feat stopped: the demonstration reached its limit of failures in a row (3). Nothing more runs until this is sorted out.');
+  assert.equal(ended('pt-BR', full).reply, 'A change feat parou: a etapa Demonstração chegou ao limite de falhas seguidas (3). Nada mais roda até isso ser resolvido.');
+  // Params that carry no `failures` (an end recorded before this release) render the attempt.
+  assert.equal(ended('en', { attempt: 4 }).reply, 'The change feat stopped: the demonstration reached its limit of failures in a row (4). Nothing more runs until this is sorted out.');
+  assert.equal(ended('pt-BR', { attempt: 4 }).reply, 'A change feat parou: a etapa Demonstração chegou ao limite de falhas seguidas (4). Nada mais roda até isso ser resolvido.');
 });
 
 // ---------------------------------------------------------------- post-merge-validate, phase 1 (D-1 to D-3)

@@ -49,7 +49,7 @@ import { OFFLINE_GH } from './merge-setup.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
   HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
-  loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection, remoteClaims, thisMachine, MACHINE_NAME, READINESS_KEY,
+  loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection, remoteClaims, thisMachine, MACHINE_NAME, READINESS_KEY, unplacedAction,
   modelsOf, MODEL_STAGES, MODEL_VALUES, SESSION_RUN_STAGES, cheaper, strongest,
 } from './change-loop.mjs';
 import { readiness, liveRuns, startRun, pauseRun, resumeRun, cancelRun, pendingRequests, CHANGE_LOOP } from './compozy-driver.mjs';
@@ -805,7 +805,7 @@ export function collectRoadmap(cwd, {
       }
     } else if (run.inflight[line.id] && !(line.id in after) && !readFlying) continue;
     const progress = SESSION_KEYS.includes(after[line.id]) ? null : (after[line.id] ?? null); // the session keys are no progress key of a stage
-    const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh, ...(handOffs ? { handOffs } : {}) });
+    const action = unplacedAction(start, line.id) ?? nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh, ...(handOffs ? { handOffs } : {}) });
     if (isPrevious(action)) previous.add(line.id); else actions[line.id] = action;
   }
   const lines = classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere });

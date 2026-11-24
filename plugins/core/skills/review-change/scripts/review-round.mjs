@@ -2,8 +2,9 @@
 // The rules live once, in review-round.workflow.js (between the rules markers);
 // this module reads that section and exports what it defines.
 import { readFileSync, existsSync, realpathSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const SCRIPT_FILE = join(here, 'review-round.workflow.js');
@@ -38,10 +39,12 @@ export const {
 } = loadRules();
 
 // ---- the CLI --------------------------------------------------------------
-// node review-round.mjs <stage1|verify|outcomes|consolidate|check-file> --input <json file>
+// node review-round.mjs <stage1|verify|outcomes|consolidate|check-file|tree> --input <json file>
 // JSON on stdout; exit 0 ok, 2 check-file mismatch, 3 usage or input error.
+// tree: { root } -> { head, dirty }, the worktree's head sha and the uncommitted paths that mark a verdict's
+// Commit: line (args.head and args.dirty of a round).
 
-const SUBCOMMANDS = ['stage1', 'verify', 'outcomes', 'consolidate', 'check-file'];
+const SUBCOMMANDS = ['stage1', 'verify', 'outcomes', 'consolidate', 'check-file', 'tree'];
 const VERIFIER = 'devkit-core:finding-verifier';
 
 const usage = (what) => new Error(`review usage: ${what}`);
@@ -141,9 +144,43 @@ function checkFileCommand({ file, outcome }) {
   return { ok: true };
 }
 
+// The uncommitted paths that count, as plugins/openspec/hooks/deliver-check.mjs#dirtyPaths counts them (devkit-core
+// installs alone, so this is a copy; deliver-check.test.mjs holds the two to the same trees): a tracked path outside
+// openspec/ (both paths of a rename or copy), an untracked path outside openspec/ and .claude/.
+function dirtyPaths(root) {
+  const entries = execFileSync('git', ['-C', root, 'status', '--porcelain', '-z', '-uall'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean);
+  const dirty = [];
+  for (let i = 0; i < entries.length; i++) {
+    const xy = entries[i].slice(0, 2);
+    const path = entries[i].slice(3);
+    const moved = /[RC]/.test(xy) ? entries[++i] : null;
+    if (xy === '??') {
+      if (!path.startsWith('openspec/') && !path.startsWith('.claude/')) dirty.push(path);
+      continue;
+    }
+    for (const p of [path, moved]) if (p && !p.startsWith('openspec/')) dirty.push(p);
+  }
+  return dirty;
+}
+
+// The head sha and the uncommitted paths that count of the worktree at `root`.
+export function treeState(root) {
+  if (typeof root !== 'string' || !root) throw invalid('root must be a path');
+  const at = resolve(root);
+  let head;
+  try {
+    head = execFileSync('git', ['-C', at, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch {
+    throw invalid(`${at} is not a git worktree with a commit`);
+  }
+  return { head, dirty: dirtyPaths(at) };
+}
+
+const treeCommand = ({ root }) => treeState(root);
+
 const COMMANDS = {
   stage1: stage1Command, verify: verifyCommand, outcomes: outcomesCommand,
-  consolidate: consolidateCommand, 'check-file': checkFileCommand,
+  consolidate: consolidateCommand, 'check-file': checkFileCommand, tree: treeCommand,
 };
 
 function readInput(file) {
