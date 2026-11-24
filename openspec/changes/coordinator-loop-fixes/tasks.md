@@ -208,7 +208,7 @@ every task with `git status --short`.
 
 ## 3. The conducting session's tasks, the revised plan, the `archive-` id and the advanced branch (AC-9, AC-8, AC-17, AC-18)
 
-- [ ] 3.0 D-17, the merge that opens the phase: the conducting session fetched `origin/main` and said so in the hand-off. Before
+- [x] 3.0 D-17, the merge that opens the phase: the conducting session fetched `origin/main` and said so in the hand-off. Before
   merging, list the tests the base added since the last merge (`git diff $(git merge-base HEAD origin/main) origin/main --stat -- '*.test.mjs'`);
   merge it by D-17 (`release-merge.mjs --base main --roadmap-ticks`, then `git merge origin/main` on its exit 2, never a rebase) and resolve each conflict by D-17; run each added test with `node scripts/test-suite.mjs --concurrency=2 <file>...`; then
   `grep -n` each of the names this phase edits (`parseTasks`, `readPhases`, `nextStep`, `MAIN`, `planDigest` and `approvalState`, `collectFlow`, `artifactState`, `PLAN_REASONS`, `planPart`, `buildPart`, `approvalText`, `recordApproval`, `isArchiveHead`, `isOwnPr`, `findChangePr`, `mergedOnBranch`, `ownFiles`, `prItem`, `offOwnBranch`, `collectFlow`'s `postMerge`, `baseMergeOf`, `readMergeCheck` and the `merge-check` block of `buildPart`) and read it as it is now, before the phase edits it: a function whose shape
