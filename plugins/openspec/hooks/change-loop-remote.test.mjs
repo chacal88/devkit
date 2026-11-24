@@ -539,6 +539,15 @@ const FAKE_TASK = {
 };
 const taskOpen = (cwd, id, task = FAKE_TASK, { key = 'PROJ-482', raw } = {}) => main(
   ['open', id, '--script', 'devkit', '--why', 'doubt', '--task', key, '--lang', 'en'], { cwd, env: cleanEnv, stdin: raw ?? JSON.stringify(task) });
+// `openChild` of change-loop.test.mjs with `--task PROJ-482` and the task as JSON on standard input.
+const openTaskChild = (cwd, id) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [LOOP, 'open', id, '--script', 'devkit', '--why', 'doubt', '--task', 'PROJ-482', '--lang', 'en'], { cwd, env: { ...cleanEnv, ...IDENT }, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.on('error', reject);
+  child.on('exit', (code) => resolve({ code, stdout }));
+  child.stdin.end(JSON.stringify(FAKE_TASK));
+});
 const requestSection = (t, id) => /## Request\n([\s\S]*?)\n## /.exec(readFileSync(join(wtOf(t, id), 'openspec', 'changes', id, 'requirements.md'), 'utf8'))[1];
 
 test('jira-entry AC-1 open --task writes the key line and the three quoted parts under Request, and nothing else of the task', () => {
@@ -613,6 +622,38 @@ test('jira-entry AC-5 open --task refuses a second change for a key whose change
   assert.equal(snapshot(t.main), before);
 });
 
+test('jira-entry-followups AC-9 two open --task calls for one key at once create one change', async () => {
+  const t = freshProject();
+  const lock = join(t.main, '.git', 'devkit-open.lock');
+  writeFileSync(lock, `${JSON.stringify({ pid: 1, at: new Date().toISOString() })}\n`);
+  // Both calls start while a third holds the lock, so both are waiting for it when it is released.
+  const both = [openTaskChild(t.main, 'proj-482-a'), openTaskChild(t.main, 'proj-482-b')];
+  await new Promise((resolve) => { setTimeout(resolve, 1500); });
+  rmSync(lock);
+  const results = await Promise.all(both);
+  const out = results.map((r) => r.stdout).join('\n');
+  assert.deepEqual(results.map((r) => r.code).sort(), [0, 3], out);
+  const created = ['proj-482-a', 'proj-482-b'][results.findIndex((r) => r.code === 0)];
+  const refused = results.find((r) => r.code === 3);
+  assert.equal(JSON.parse(refused.stdout).reply, render('en', 'task-taken', { key: 'PROJ-482', id: created }), 'the loser is told which change holds the task');
+  assert.equal(git(t.main, 'worktree', 'list').split('\n').length, 2, 'one worktree besides the project\'s own');
+  assert.equal(existsSync(join(wtOf(t, created), 'openspec', 'changes', created, 'requirements.md')), true);
+  assert.equal(existsSync(join(wtOf(t, created === 'proj-482-a' ? 'proj-482-b' : 'proj-482-a'), 'openspec')), false, 'the refused call created nothing');
+  assert.equal(existsSync(lock), false, 'the lock is removed');
+});
+
+test("jira-entry-followups AC-9 open --task on the id of the key's own unfinished change answers task-taken", () => {
+  const t = freshProject();
+  assert.equal(taskOpen(t.main, 'proj-482-login-timeout').code, 0);
+  const before = snapshot(t.main);
+  const r = taskOpen(t.main, 'proj-482-login-timeout');
+  assert.equal(r.code, 3, r.stdout + r.stderr);
+  assert.equal(body(r).reply, render('en', 'task-taken', { key: 'PROJ-482', id: 'proj-482-login-timeout' }), 'task-taken, not name-taken');
+  assert.notEqual(body(r).reply, render('en', 'name-taken', { id: 'proj-482-login-timeout' }));
+  assert.equal(r.stdout.startsWith('devkit-run:'), false);
+  assert.equal(snapshot(t.main), before, 'nothing was created');
+});
+
 test('jira-entry AC-8 open without --task writes the request byte for byte as before', () => {
   const t = freshProject();
   assert.equal(openRun(t.main, 'plain-request', { request: 'Add a CSV export\nwith two lines\n' }).code, 0);
@@ -673,6 +714,16 @@ test('jira-entry AC-6 next carries the task but no writeBack on a budget end hel
   assert.equal(stopped.end?.why, 'waiting-budget', 'the cap holds the step');
   assert.deepEqual(stopped.task, { key: 'PROJ-482', link: TASK_LINK }, 'the task still attaches');
   assert.equal('writeBack' in stopped, false, 'a budget-stopped end asks nothing');
+});
+
+test('jira-entry-followups AC-10 next carries no writeBack on a blocked end held at the pull request', () => {
+  const { t, env } = deliveredChange({ conflicts: ['CHANGELOG.md', 'README.md'], mergeable: 'CONFLICTING', checks: [check('build', 'pass')], requirements: TASK_REQUIREMENTS });
+  const r = next(t.main, [], env);
+  assert.equal(r.code, 2, r.stdout + r.stderr);
+  const action = parsed(r).action;
+  assert.deepEqual([action.end.state, action.end.why], ['blocked', 'pr-problem']);
+  assert.deepEqual(action.task, { key: 'PROJ-482', link: TASK_LINK }, 'the task still attaches');
+  assert.equal('writeBack' in action, false, 'a blocked end asks nothing');
 });
 
 test('jira-entry AC-6 a pending question changes no decision', async () => {

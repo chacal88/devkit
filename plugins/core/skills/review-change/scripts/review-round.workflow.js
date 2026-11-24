@@ -8,11 +8,10 @@ const SEVERITIES = ['blocking', 'important', 'nit', 'praise'];
 
 const STAGE1_SCHEMA = {
   type: 'object',
-  required: ['declined', 'commit', 'uncommitted', 'heading', 'read', 'notRead', 'findings', 'sections'],
+  required: ['declined', 'commit', 'heading', 'read', 'notRead', 'findings', 'sections'],
   properties: {
     declined: { type: 'boolean' },
     commit: { type: 'string', description: 'the full 40 hex sha git rev-parse HEAD prints' },
-    uncommitted: { type: 'boolean' },
     heading: { type: 'string', description: 'the "## ..." title line of your review' },
     read: { type: 'array', items: { type: 'string' }, description: 'every repo-relative path you opened' },
     notRead: { type: 'array', items: { type: 'string' }, description: 'every path of your remit you did not open; empty when you opened them all' },
@@ -68,6 +67,7 @@ function validateArgs(args) {
     if (typeof args[k] !== 'string' || !args[k].trim()) invalid('args.' + k + ' must be a non-empty string');
   }
   if (typeof args.head !== 'string' || !/^[0-9a-f]{40}$/.test(args.head)) invalid('args.head must be the full 40 hex sha git rev-parse HEAD prints');
+  if (!isPathList(args.dirty)) invalid('args.dirty must be a list of paths');
   if (args.round !== 1 && args.round !== 2) invalid('args.round must be 1 or 2');
   if (args.path !== 'workflow' && args.path !== 'agents') invalid("args.path must be 'workflow' or 'agents'");
   if (args.structural !== 'PASS') invalid("args.structural must be 'PASS'");
@@ -107,7 +107,6 @@ function validateStage1(reviewer, value, head) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid(reviewer + ': the stage 1 return must be an object');
   if (typeof value.declined !== 'boolean') invalid(reviewer + ': declined must be a boolean');
   if (typeof value.commit !== 'string' || !/^[0-9a-f]{40}$/.test(value.commit)) invalid(reviewer + ': commit must be a full 40 hex sha');
-  if (typeof value.uncommitted !== 'boolean') invalid(reviewer + ': uncommitted must be a boolean');
   if (typeof value.heading !== 'string' || !value.heading.trim()) invalid(reviewer + ': heading must be a non-empty string');
   if (!Array.isArray(value.findings)) invalid(reviewer + ': findings must be a list');
   if (typeof value.sections !== 'string') invalid(reviewer + ': sections must be a string');
@@ -136,7 +135,6 @@ function validateStage1(reviewer, value, head) {
     reviewer,
     declined: value.declined,
     commit: value.commit,
-    uncommitted: value.uncommitted,
     heading: oneLine(value.heading, 300),
     findings,
     sections: withoutHeaderLines(value.sections),
@@ -228,7 +226,7 @@ function outcomeOf(args, stage1, votesById) {
     reviewer: stage1.reviewer,
     declined: stage1.declined,
     commit: stage1.commit,
-    uncommitted: stage1.uncommitted,
+    uncommitted: Array.isArray(args.dirty) && args.dirty.length > 0,
     heading: stage1.heading,
     sections: stage1.sections,
     findings,
@@ -265,11 +263,12 @@ function reviewerPrompt(args, entry) {
     + previous
     + 'Review as your own instructions say, but write no file: a later stage writes your verdict file. Run every test in the foreground and give your answer when it ends: start no background command and leave none running.\n'
     + 'Run git rev-parse HEAD in the worktree and put the full sha it prints in commit; the round refuses any other value, a short sha padded with zeros included.\n'
+    + 'The round writes your Commit line itself, from git: it adds (uncommitted changes) only when a path outside openspec/ is uncommitted (an untracked path under .claude/ does not count); report nothing about it.\n'
     + 'List in read every repo-relative path you opened, and in notRead every path of your remit you did not open (an empty list when you opened them all); the round refuses an answer with a path in notRead, or with an empty read unless you declined.\n'
     + 'A disposition is either fixed in <sha>, naming exactly one sha, the commit that holds the fix, or refuted: <evidence>; never name two shas.\n'
     + 'sections holds neither a Verdict: line nor a Commit: line: stage 3 writes both.\n'
     + 'End your reply with one fenced json block holding one object: '
-    + '{ declined: boolean, commit: "<the full sha git rev-parse HEAD printed>", uncommitted: boolean, heading: "<your ## title line>", '
+    + '{ declined: boolean, commit: "<the full sha git rev-parse HEAD printed>", heading: "<your ## title line>", '
     + 'read: ["<repo-relative path you opened>"], notRead: ["<path of your remit you did not open>"], '
     + 'findings: [ { id: "F1", severity: "blocking|important|nit|praise", location: "<file:line or section>", text: "<one line>", disposition: null or "fixed in <one sha>" or "refuted: <evidence>" } ], '
     + 'sections: "<the rest of your output as Markdown, without the findings list and without a Verdict: or Commit: line>" }.\n'

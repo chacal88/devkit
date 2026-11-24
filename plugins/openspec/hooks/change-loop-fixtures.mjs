@@ -53,14 +53,17 @@ export const RELEASE = { 'CHANGELOG.md': '# c\n', '.claude-plugin/marketplace.js
 // A `devkit-lite` change `feat` in a worktree (a bare origin, a clone), every stage up to the code review passed at the
 // code commit, the reviews and the evidence current, its pull request open with `checks`. `conflicts` are the files both
 // the branch and origin/main edit (the same shape as conflictRepo in conduct-check.test.mjs, which is private to that file).
-export function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n' } = {}) {
-  const t = roundRepo({ roadmap: '# Roadmap\n\n## Round 1: x\n- [ ] feat\n', config: PR_CONFIG, files: RELEASE });
+// `files` are added to the main checkout before the worktree (the canonical specs a delta modifies); `delta` is the text of the change's
+// `specs/s/spec.md` and of its proposal (post-merge-validate D-9). Both default to the text every earlier caller builds.
+export function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n', files = {}, delta = {} } = {}) {
+  const { spec = '# Spec\n', proposal = PROPOSAL } = delta;
+  const t = roundRepo({ roadmap: '# Roadmap\n\n## Round 1: x\n- [ ] feat\n', config: PR_CONFIG, files: { ...RELEASE, ...files } });
   const wt = t.addWt('feat');
   const dir = (f) => `openspec/changes/feat/${f}`;
   const own = Object.fromEntries(conflicts.map((f) => [f, `feat edits ${f}\n`]));
   put(wt, {
     [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
-    [dir('proposal.md')]: PROPOSAL, [dir('requirements.md')]: requirements, [dir('specs/s/spec.md')]: '# Spec\n',
+    [dir('proposal.md')]: proposal, [dir('requirements.md')]: requirements, [dir('specs/s/spec.md')]: spec,
     [dir('tasks.md')]: '# Tasks\n\n## 1. First\n- [x] 1.1 code\n',
     'src/feat.ts': 'code\n', ...own,
   });
@@ -71,8 +74,8 @@ export function deliveredChange({ checks = [check('build', 'pending')], conflict
     [dir('reviews/code-quality-reviewer.md')]: review, [dir('reviews/test-coverage-reviewer.md')]: review,
     [dir('evidence.md')]: withHead('evidence', `Commit: ${sha}\n\n# Evidence\n\n### Acceptance\n| AC | proof | result |\n|---|---|---|\n| AC-1 | proof | pass: t |\n`),
     [dir('review.md')]: withHead('review', 'Consensus: PASS (round 1/2)\n\n# Review\n'),
-    [dir('proposal.md')]: withHead('proposal', PROPOSAL), [dir('requirements.md')]: withHead('requirements', requirements),
-    [dir('specs/s/spec.md')]: withHead('specs', '# Spec\n'), [dir('tasks.md')]: withHead('tasks', '# Tasks\n\n## 1. First\n- [x] 1.1 code\n'),
+    [dir('proposal.md')]: withHead('proposal', proposal), [dir('requirements.md')]: withHead('requirements', requirements),
+    [dir('specs/s/spec.md')]: withHead('specs', spec), [dir('tasks.md')]: withHead('tasks', '# Tasks\n\n## 1. First\n- [x] 1.1 code\n'),
   });
   commitAll(wt, 'reviews, evidence and stage headers');
   if (conflicts.length) t.commitOrigin(Object.fromEntries(conflicts.map((f) => [f, `origin edits ${f}\n`])), 'origin edits');
@@ -82,6 +85,16 @@ export function deliveredChange({ checks = [check('build', 'pending')], conflict
   gh.set('api-graphql', { stdout: NO_TALK });
   return { t, wt, gh, env: { ...gh.env, ...SET } };
 }
+
+// post-merge-validate: the merge sha, the validate errors, a merge-check record and the `mergeCheck` facts that `decide` reads, shared by
+// the loop's decision tests and the change-state test of the blocked reasons (T-7 to T-15).
+export const PMV_SHA = 'abcdef0123'.repeat(4);
+export const PMV_ERRORS = '- ERROR specs/cap/spec.md: MODIFIED "Thing works" omits scenario(s) the current spec still has: "Second added on main"';
+// The record of a check of the merge PMV_SHA with the fingerprint `decide`'s facts carry in `run` (abc123).
+export const pmvRec = (over = {}) => ({
+  version: 1, change: 'feat', merge: PMV_SHA, result: 'red', reds: 1, fingerprint: 'abc123', errors: PMV_ERRORS, error: null, at: '2026-11-23T10:00:00.000Z', ...over,
+});
+export const pmvFacts = (record = null, over = {}) => ({ mergeCheck: { base: 'main', merge: PMV_SHA, record }, ...over });
 
 export const startRun = (cwd, text, { lang = 'en', args = [], env = cleanEnv } = {}) => main(['start', '--lang', lang, ...args], { cwd, env, stdin: text });
 export const body = (r) => JSON.parse(r.stdout);
@@ -178,3 +191,24 @@ export const section = (md, from, to) => {
 
 // The claim commits, so the tests carry an identity of their own, as deliver-check.test.mjs does for its helpers.
 export const IDENT = { GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid', GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid' };
+
+// ---- a change archived on the default branch (field-fixes 1; state-skips-unlocated): what the field-fixes tests and the state tests both use
+
+// A gh that lists `names` as the archived folders of the default branch, or fails (`fail`), and nothing else.
+export const archiveGh = (names, { fail = false } = {}) => (args) => (
+  !fail && args[0] === 'api' && /contents\/openspec\/changes\/archive\?ref=/.test(args[1])
+    ? { status: 0, stdout: JSON.stringify(names.map((name) => ({ name }))), stderr: '', missing: false, timedOut: false }
+    : { status: 1, stdout: '', stderr: 'gh: not reachable', missing: false, timedOut: false });
+export const archivedFolder = (date, id, flow = null) => ({ [`openspec/changes/archive/${date}-${id}/.openspec.yaml`]: `schema: devkit\n${flow === null ? '' : `x-devkit-flow: ${flow}\n`}` });
+
+// The default branch on origin gains the archived folder of `id` while the main checkout stays where it was.
+export function archiveOnOrigin(t, id) {
+  const pusher = t.addWt('pusher');
+  put(pusher, archivedFolder('2026-11-20', id));
+  commitAll(pusher, `archive ${id}`);
+  git(pusher, 'push', '-q', 'origin', 'HEAD:main');
+  git(t.main, 'fetch', '-q', 'origin');
+}
+
+// An active folder whose `.openspec.yaml` records the day it was created, as `openspec new change` writes it.
+export const withCreated = (wt, id, created) => put(wt, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\ncreated: ${created}\n` });
