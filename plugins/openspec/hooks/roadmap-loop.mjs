@@ -47,7 +47,7 @@ import { collectFlow, computeFlow, makeOpenspec, spendBlock } from './flow-check
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, baseFetches, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf, PLAN_NOT_HELD, partOfStage, isPlanStage,
-  HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
+  HOOKS_DIR, PACKS, locate, cleanOf, runFilePath, readRun, emptyRun, OUTLIVES, isObject, GATE_OF_WHY, DECLARED, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, HELD_TEXT,
   loopOutput, exitCodeOf, mainRoot, defaultBase, tryGit, stopDecision, hasTriageSection, remoteClaims, thisMachine, MACHINE_NAME, READINESS_KEY, unplacedAction,
   modelsOf, MODEL_STAGES, MODEL_VALUES, SESSION_RUN_STAGES, cheaper, strongest,
 } from './change-loop.mjs';
@@ -1716,9 +1716,6 @@ function draftCmd(args, ctx) {
   return plain(out.join('\n'));
 }
 
-// The keys the session renders itself that end a change of the run, and the state each one declares.
-const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-owner' };
-
 function replyCmd(args, ctx) {
   const opts = parseOpts(args, { values: ['--lang', '--load-limit'], multi: ['--param'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
@@ -1729,13 +1726,17 @@ function replyCmd(args, ctx) {
     params[p.slice(0, eq)] = p.slice(eq + 1);
   }
   const key = opts.positional[0];
+  // The ends a change of the run declares are the `reply` rows of change-loop.mjs's DECLARED; a `declare` row is recorded by
+  // `change-loop.mjs declare` only (coordinator-loop-fixes D-1).
+  const row = DECLARED[key];
+  if (row?.via === 'declare') throw new LoopUsageError(`${key} is recorded with change-loop.mjs declare, never with reply`);
   const text = render(opts.value['--lang'], key, params);
-  const state = END_OF_KEY[key];
-  if (!state) return plain(text);
+  if (!row) return plain(text);
+  const state = row.end;
   if (!params.id) throw new LoopUsageError(`${key} needs --param id=<change>`);
   changeIdOf('--param id', params.id);
   const { id, why, ...rest } = params;
-  const declared = state === 'blocked' ? { state, why, params: rest } : { state, why: key, params: { ...rest, gate: 'decision' } };
+  const declared = state === 'blocked' ? { state, why, params: rest } : { state, why: key, params: { ...rest, gate: row.gate } };
   updateRun(runFilePath(ctx.cwd), (run) => { run.declared[id] = declared; delete run.inflight[id]; return run; }, { sleep: ctx.lockSleep });
   return { code: 0, stdout: `devkit-end: ${id} ${state}\n${text}\n`, stderr: '' };
 }

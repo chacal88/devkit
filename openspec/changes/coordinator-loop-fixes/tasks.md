@@ -108,7 +108,7 @@ every task with `git status --short`.
   `declareViolation` and its call in `guardBash`, the header comment). Check: T3 to T5, T18 to T23 and T98 to T104
   pass, and every "change-loop lock stop: T3a" test, "sanitize drops heredoc bodies and quoted text" and the three
   approval-message tests of D-15 (`guard.test.mjs`) still pass, and `node scripts/test-suite.mjs --concurrency=2 plugins/openspec/hooks/guard.test.mjs` passes.
-- [ ] 1.4 D-1 in `plugins/openspec/hooks/roadmap-loop.mjs` (`replyCmd` reads `DECLARED`; its `END_OF_KEY` removed).
+- [x] 1.4 D-1 in `plugins/openspec/hooks/roadmap-loop.mjs` (`replyCmd` reads `DECLARED`; its `END_OF_KEY` removed).
   Check: T7, T8 and the updated "roadmap-loop replies: every owner wait has a gate" pass; the D-15 tests of the
   reply's end line and record still pass by name, "roadmap-loop reply: an end key records declared and prints the end
   line first; the draft-declined key prints the reply alone" (`roadmap-loop.test.mjs`) and "followups AC-4 reply: an
