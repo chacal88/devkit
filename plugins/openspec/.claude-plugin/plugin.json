@@ -28,6 +28,12 @@
       "title": "Load limit",
       "description": "Processor load, in percent, above which /devkit roadmap starts no new change: a whole number from 1 up (default 80)",
       "default": "80"
+    },
+    "machines": {
+      "type": "string",
+      "title": "Machines",
+      "description": "Other machines /devkit roadmap may open changes on, as a JSON list: [{\"host\": \"<the app's SSH connection name>\", \"folder\": \"<the repository folder there>\", \"places\": <how many changes may implement there at once>}]. Empty runs every change on this machine",
+      "default": "[]"
     }
   }
 }

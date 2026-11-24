@@ -1,0 +1,48 @@
+$ env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^release-tags 4" plugins/openspec/hooks/release-tags.test.mjs
+✖ release-tags 4: CONTRIBUTING and the flow page describe the key and the step (5.39029ms)
+✖ release-tags 4: this repository names devkit-openspec's plugin.json as its release file (2.086724ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.403951
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/release-tags.test.mjs:507:1
+✖ release-tags 4: CONTRIBUTING and the flow page describe the key and the step (5.39029ms)
+  AssertionError [ERR_ASSERTION]: step 5 names release_tag
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:511:132)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/release-tags.test.mjs:535:1
+✖ release-tags 4: this repository names devkit-openspec's plugin.json as its release file (2.086724ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'plugins/openspec/.claude-plugin/plugin.json'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/release-tags-07d953/plugins/openspec/hooks/release-tags.test.mjs:536:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'plugins/openspec/.claude-plugin/plugin.json',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

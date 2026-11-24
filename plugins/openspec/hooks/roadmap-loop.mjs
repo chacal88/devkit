@@ -7,9 +7,9 @@
 // pack's hook modules.
 //
 // Subcommands: `run` (the owner's arguments on standard input), `next [--after <id>=<key>]... [--turn typed|event] [--start-anyway]`, `status`, `draft`,
-// `reply <key>`, `wait --change <id> [--interval <s>]` and `hold [--interval <s>]`; each takes `--lang <l>` and
-// `--load-limit <p>`, and `run` also `--session <id> [--fresh] [--change-sessions]`. `run` and `next` print `devkit-roadmap: <places>` (or `stop`)
-// and then the decision as JSON; exit 0, or 3 with `{ version, error, reply }`. `status` writes nothing.
+// `reply <key>`, `wait --change <id> [--interval <s>]`, `hold [--interval <s>]` and `checkout --change <id> --machines <json>` (the worktree of a change placed on another machine, D-8); each takes `--lang <l>` and
+// `--load-limit <p>`; `run`, `next` and `status` also `--machines <json>` (the person's machines, design remote-worker D-4), and `run` also `--session <id> [--fresh] [--change-sessions]`. `run` and `next` print `devkit-roadmap: <places>` (or `stop`)
+// and then the decision as JSON; exit 0, or 3 with `{ version, error, reply }`. `status` writes nothing; `status --json` is what another machine's probe runs (D-6).
 //
 // The facts of one decision (`decideRoadmap`, `boardOf`):
 //   lang, places, stopping, holding, load, limit, hasRoadmap,
@@ -29,13 +29,14 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadavg as osLoadavg, cpus as osCpus } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { findRoot, readRoadmap, changeSchemaAt, roadmapRunOf, isChangeId } from './guard.mjs';
-import { readFlow, collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
+import { findRoot, readRoadmap, changeFlow, roadmapRunOf, isChangeId } from './guard.mjs';
+import { collectFlow, computeFlow, makeOpenspec } from './flow-check.mjs';
 import { locateChange, readPhases } from './deliver-check.mjs';
 import {
   render, LoopUsageError, LoopRefusal, normalizeLang, nextAction, unfinished, archivedOnDefault, whereOf, waitLoop, readDevkitSettings, sessionTitle, changeState, runFactsOf,
-  HOOKS_DIR, locate, cleanOf, runFilePath, readRun, emptyRun, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile,
+  HOOKS_DIR, locate, cleanOf, runFilePath, readRun, emptyRun, isObject, GATE_OF_WHY, gateOf, allow, refuseOnce, subagentStopFor, handOffFor, readStdin, withLockFile, remoteClaims, thisMachine, MACHINE_NAME,
 } from './change-loop.mjs';
 
 // The run file's reader and the gate of an owner wait live in change-loop.mjs (change-state D-2); the callers of this module keep importing them from here.
@@ -78,6 +79,56 @@ export function parseRunInput(text) {
   return parseWord(String(text ?? '').trim().replace(/^roadmap(?=\s|$)/i, ''));
 }
 
+// ---------------------------------------------------------------- the person's machines (remote-worker D-4)
+
+// The `machines` setting, a JSON list of { host, folder, places }: { machines } or { error: { key, params } }. Unset, empty, `[]` and a
+// placeholder never substituted are no machines. The first problem of an entry wins; a host named twice is refused.
+export function parseMachines(text) {
+  const raw = text === undefined || text === null ? '' : String(text).trim();
+  if (raw === '' || raw.startsWith('${')) return { machines: [] };
+  let list;
+  try { list = JSON.parse(raw); } catch { return { error: { key: 'machines-unreadable', params: {} } }; }
+  if (!Array.isArray(list)) return { error: { key: 'machines-unreadable', params: {} } };
+  const machines = [];
+  for (const [index, entry] of list.entries()) {
+    const host = isObject(entry) && typeof entry.host === 'string' ? entry.host : null;
+    const named = host ?? `#${index + 1}`;
+    const problem = (field) => ({ error: { key: 'machine-incomplete', params: { entry: named, field } } });
+    if (host === null || !MACHINE_NAME.test(host)) return problem('host');
+    if (typeof entry.folder !== 'string' || !entry.folder.startsWith('/')) return problem('folder');
+    if (!Number.isInteger(entry.places) || entry.places < 1 || entry.places > 99) return problem('places');
+    if (machines.some((m) => m.host === host)) return { error: { key: 'machine-duplicate', params: { entry: host } } };
+    machines.push({ host, folder: entry.folder, places: entry.places });
+  }
+  return { machines };
+}
+
+// ---------------------------------------------------------------- asking another machine (remote-worker D-6)
+
+const PROBE_FILE = join(HOOKS_DIR, 'machine-probe.mjs');
+const ASK_TIMEOUT_MS = { state: 20_000, checkout: 120_000 };
+const shellWord = (word) => (/^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`);
+
+// The real `ssh`: no prompt, five seconds to connect; the words go through the other machine's shell, so each is quoted.
+function realSsh(host, argv, { input, timeout }) {
+  const r = spawnSync('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', host, ...argv.map(shellWord)], { input, timeout, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr || (r.error ? r.error.message : '') };
+}
+
+// Sends the probe to `machine` and runs `verb` there: { ok: true, data } for one JSON object with `version` 1 and no `error`, else
+// { ok: false, error } (the reason). `ssh(host, argv, { input, timeout })` returns { status, stdout, stderr }; tests inject it.
+export function askMachine(machine, verb, args, { ssh = realSsh } = {}) {
+  let r;
+  try { r = ssh(machine.host, ['node', '--input-type=module', '-', verb, ...args], { input: readFileSync(PROBE_FILE, 'utf8'), timeout: ASK_TIMEOUT_MS[verb] ?? 20_000 }); } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  let data = null;
+  try { data = JSON.parse(r.stdout); } catch { /* not JSON: the exit status and standard error say why */ }
+  const valid = isObject(data) && data.version === 1;
+  if (r.status === 0 && valid && data.error === undefined) return { ok: true, data };
+  return { ok: false, error: valid && typeof data.error === 'string' ? data.error : (String(r.stderr ?? '').split('\n')[0] || `exit ${r.status}`) };
+}
+
 // ---------------------------------------------------------------- gates and the previous script (D-12, D-4)
 
 // True when the action says the change began under the previous script (the end blocked, why previous-script).
@@ -88,8 +139,9 @@ export const isPrevious = (action) => action?.kind === 'end' && action.end?.stat
 // Each line of the roadmap in its class, in file order (an id counts at its first line). `rounds` is guard.mjs#parseRoadmap's
 // result; `archived` the ids archived on the default branch; `open` the ids that are open in some checkout; `previous` the open
 // ones on the previous script; `declared` the ends the session declared. First match wins:
-//   archived, archived-unticked, ticked, previous, open, blocked, ready, waiting (with `waitsFor`, the first dependency not archived).
-export function classifyLines(rounds, { archived, open, previous, declared }) {
+//   archived, archived-unticked, ticked, previous, open, elsewhere (a claim on `origin`, its change open on another machine: `elsewhere` is
+//   a Map of id to claim, and the line carries the claim's `machine`), blocked, ready, waiting (with `waitsFor`, the first dependency not archived).
+export function classifyLines(rounds, { archived, open, previous, declared, elsewhere }) {
   const seen = new Set();
   const out = [];
   for (const round of rounds ?? []) {
@@ -100,6 +152,7 @@ export function classifyLines(rounds, { archived, open, previous, declared }) {
       if (archived.has(item.id)) line.cls = item.done ? 'archived' : 'archived-unticked';
       else if (item.done) line.cls = 'ticked';
       else if (open.has(item.id)) line.cls = previous.has(item.id) ? 'previous' : 'open';
+      else if (elsewhere?.has(item.id)) { line.cls = 'elsewhere'; line.machine = elsewhere.get(item.id).machine ?? null; }
       else if (declared?.[item.id]) line.cls = 'blocked';
       else {
         const missing = item.after.find((d) => !archived.has(d));
@@ -117,7 +170,8 @@ const ARCHIVED_CLASSES = ['archived', 'archived-unticked'];
 
 // One entry per line that fills a place (class open or blocked): { id, state, ... } with the state `running` (N1), `agent`,
 // `session`, `wait` (N3 to N5), `owner` (N6, with `gate`), `blocked` (N2 and N7, with `why` and `params`), `archived` (N8) or, in a run with
-// a session per change, `own` (the change runs in a session of its own; its action only when it was read).
+// a session per change, `own` (the change runs in a session of its own; its action only when it was read). A line open on another
+// machine is `remote` (with its `machine` and, when that machine answered, its `where` and `waitsForPlace`): it fills no place of this run.
 function entriesOf(f) {
   const inflight = { ...(f.inflight ?? {}) };
   for (const id of Object.keys(f.after ?? {})) delete inflight[id];
@@ -127,6 +181,11 @@ function entriesOf(f) {
     if (line.cls === 'blocked') {
       const d = f.declared[id];
       entries.push({ id, state: 'blocked', why: d.why, params: { ...d.params, id, why: d.why }, declared: true, line });
+      continue;
+    }
+    if (line.cls === 'elsewhere') {
+      const known = f.machines?.find((m) => m.host === line.machine)?.changes?.find((c) => c.id === id);
+      entries.push({ id, state: 'remote', machine: line.machine ?? null, where: known?.where || null, waitsForPlace: Boolean(known?.waitsForPlace), line });
       continue;
     }
     if (line.cls !== 'open') continue;
@@ -192,6 +251,23 @@ function sessionStartOf(e, f, lang) {
     },
   };
 }
+
+// The `session-start` action of a change placed on another machine: the exact input of the start tool (on that machine's SSH connection, in the
+// worktree `checkout` makes there), and the command that makes the worktree first (remote-worker D-8).
+function remoteSessionStartOf(e, machine, f, lang) {
+  const cwd = `${machine.folder.replace(/\/+$/, '')}/.claude/worktrees/${e.id}`;
+  const title = sessionTitle('❓', e.id);
+  return {
+    change: e.id, kind: 'session-start', machine: machine.host, cwd, title, progressKey: 'session-start',
+    checkout: ['node', join(HOOKS_DIR, 'roadmap-loop.mjs'), 'checkout', '--change', e.id, '--machines', f.machinesText ?? '', '--lang', lang],
+    input: {
+      initiation: 'user_asked', context: 'fresh', title, name: sessionName(e.id), cwd, use_worktree: false,
+      prompt: `/devkit-openspec:devkit change ${e.id}`,
+      background: sessionBackground({ id: e.id, root: cwd, branch: e.id, coordinator: f.coordinator, lang }),
+      target: 'ssh', host: machine.host,
+    },
+  };
+}
 const requestOf = (line) => [line.text, line.notes].filter(Boolean).join('\n') || line.id;
 
 // What the run does next. Pure: the caller writes `state` (the run file's fields) and carries the actions out.
@@ -207,17 +283,27 @@ export function decideRoadmap(f) {
   const withhold = sessionMode && !mayStart;
   const stopping = Boolean(f.stopping);
   const places = f.places;
-  const placed = entries.filter((e) => e.state !== 'archived');
+  const placed = entries.filter((e) => e.state !== 'archived' && e.state !== 'remote'); // a change open on another machine fills no place here
   const open = placed.map((e) => e.id);
   const free = places - open.length;
   const lineOf = (id) => f.lines.find((l) => l.id === id);
+  const machinesOn = (f.machines?.length ?? 0) > 0;
+  const machineOf = (host) => f.machines?.find((m) => m.host === host);
+  const remote = entries.filter((e) => e.state === 'remote');
+  // The changes this run opened for another machine: the record of the run file, and the start the previous call handed that is claimed by a
+  // listed machine now (D-8).
+  const handed = machinesOn ? remote.filter((e) => (f.starting ?? []).includes(e.id) && machineOf(e.machine) && !f.placed?.[e.id]) : [];
+  const placedIds = new Set([...Object.keys(f.placed ?? {}), ...handed.map((e) => e.id)]);
 
   // The actions of the changes that are open, then the starts or the hold.
   let actions = [];
   if (!stopping) {
     for (const e of entries) {
       if (sessionMode) { // a change's own session hands its stages, carries out its steps and waits on GitHub (D-3)
-        if (e.state !== 'own' && e.state !== 'archived' && !e.declared) actions.push(sessionStartOf(e, f, lang));
+        const machine = e.state === 'remote' ? machineOf(e.machine) : null;
+        if (machine) {
+          if (machine.answered && placedIds.has(e.id) && !f.startedSessions?.[e.id] && f.after?.[e.id] !== 'session-start') actions.push(remoteSessionStartOf(e, machine, f, lang));
+        } else if (e.state !== 'own' && e.state !== 'archived' && e.state !== 'remote' && !e.declared) actions.push(sessionStartOf(e, f, lang));
       } else if (e.state === 'agent' || e.state === 'session') actions.push({ ...e.action, change: e.id });
       else if (e.state === 'wait') actions.push({ ...e.action, change: e.id, kind: 'wait', progressKey: waitKey(e.action) });
     }
@@ -225,13 +311,33 @@ export function decideRoadmap(f) {
   const ready = f.lines.filter((l) => l.cls === 'ready');
   const loaded = f.load >= f.limit && !f.startAnyway;
   const startable = !stopping && free > 0 && ready.length > 0;
-  const holdNow = startable && loaded;
-  const wanted = startable && !loaded ? ready.slice(0, free) : [];
+  let holdNow = startable && loaded;
+  let wanted = startable && !loaded ? ready.slice(0, free) : [];
+  // With the machines setting set a ready line goes to the machine with the fewest open changes, this one first on a tie; this machine is
+  // not a candidate while loaded, a listed one only when it answered and the host starts a session there; a start is held only when
+  // no machine is a candidate (D-7).
+  const placement = new Map();
+  if (machinesOn) {
+    const openOn = (name) => remote.filter((e) => e.machine === name).length;
+    const counts = new Map([[f.thisMachine, placed.length + openOn(f.thisMachine)]]);
+    const candidates = loaded ? [] : [{ machine: f.thisMachine, remote: false, places: 'run' }];
+    for (const m of f.machines) {
+      counts.set(m.host, openOn(m.host));
+      if (sessionMode && m.answered) candidates.push({ machine: m.host, remote: true, places: m.places });
+    }
+    holdNow = !stopping && ready.length > 0 && candidates.length === 0;
+    wanted = !stopping && candidates.length > 0 ? ready : [];
+    for (const l of wanted) {
+      const target = candidates.reduce((best, c) => (counts.get(c.machine) < counts.get(best.machine) ? c : best));
+      counts.set(target.machine, counts.get(target.machine) + 1);
+      placement.set(l.id, target);
+    }
+  }
   // On a turn nobody typed every start and session start is taken out: a line says it starts at the owner's next message (D-6).
   const withheld = withhold ? [...actions.map((a) => a.change), ...wanted.map((l) => l.id)] : [];
   if (withhold) actions = [];
   const starts = withhold ? [] : wanted;
-  for (const l of starts) actions.push({ change: l.id, kind: 'start', request: requestOf(l), progressKey: 'start' });
+  for (const l of starts) actions.push({ change: l.id, kind: 'start', request: requestOf(l), progressKey: 'start', ...placement.get(l.id) });
   if (holdNow && !f.holding) actions.push({ change: ready[0].id, kind: 'hold', load: f.load, limit: f.limit, progressKey: 'hold' });
 
   // The starts handed and not yet open stay in `starting`; a change that is open now was started.
@@ -263,6 +369,8 @@ export function decideRoadmap(f) {
   for (const e of begun) emit(e.id, 'started', 'roadmap-started', { id: e.id, open: ++counted, places });
   for (const e of resumes) emit(e.id, 'resumed', 'roadmap-resumed', { id: e.id, where: f.wheres?.[e.id] ?? '', open: ++counted, places });
   for (const e of sessionsNew) emit(e.id, 'session', 'roadmap-session-started', { id: e.id, open: ++counted, places });
+  const remoteStarted = sessionMode ? remote.filter((e) => f.after?.[e.id] === 'session-start') : [];
+  for (const e of remoteStarted) emit(e.id, 'session', 'roadmap-session-started-on', { id: e.id, machine: e.machine });
   // The others go on only when another change is under way: one that runs, or has a stage, step, wait or start in this decision.
   const othersGoOn = (id) => entries.some((e) => e.id !== id && e.state === 'running')
     || actions.some((a) => a.change !== id && ['agent', 'session', 'wait', 'start'].includes(a.kind));
@@ -276,15 +384,41 @@ export function decideRoadmap(f) {
   }
   for (const l of f.lines) if (l.cls === 'previous') emit(l.id, 'skipped', 'roadmap-skipped', { id: l.id });
   for (const id of withheld) { // a refused change keeps its line until it starts: a later turn nobody typed does not say another
+    const far = remote.find((e) => e.id === id);
     if (refused.has(id) || announced[id] === 'waits-refused') emit(id, 'waits-refused', 'roadmap-waits-refused', { id });
+    else if (far) emit(id, 'waits-turn', 'roadmap-waits-turn-on', { id, machine: far.machine });
     else emit(id, 'waits-turn', 'roadmap-waits-turn', { id });
+  }
+  // A listed machine that does not answer is said once while it stays silent; the record goes when it answers (D-10).
+  for (const m of f.machines ?? []) {
+    if (m.answered) delete announced[`machine:${m.host}`];
+    else emit(`machine:${m.host}`, 'silent', 'roadmap-machine-silent', { machine: m.host });
+  }
+  // A freed place tells the first change waiting for one on each machine to go on, once per state of that machine's places (D-10). Only in
+  // a run with a session per change: the message goes to that change's session, and it starts no session, so no turn rule holds it back.
+  if (sessionMode && machinesOn && !stopping) {
+    const waitingOn = (name) => entries.filter((e) => (name === f.thisMachine
+      ? e.state === 'own' && e.action?.kind === 'end' && e.action.end?.why === 'no-place'
+      : e.state === 'remote' && e.machine === name && e.waitsForPlace));
+    for (const name of [f.thisMachine, ...f.machines.map((m) => m.host)]) {
+      const c = waitingOn(name)[0];
+      if (!c) continue;
+      const claimed = f.claims?.[c.id]?.places;
+      const total = claimed === 'run' ? places : claimed;
+      if (!Number.isInteger(total)) continue;
+      const held = Object.values(f.claims ?? {}).filter((x) => x.machine === name && x.placed === true).length;
+      if (total - held <= 0) { if (String(announced[c.id]).startsWith('woken:')) delete announced[c.id]; continue; }
+      if (announced[c.id] === `woken:${held}`) continue;
+      actions.push({ change: c.id, kind: 'wake', machine: name, message: `/devkit-openspec:devkit change ${c.id}`, progressKey: 'wake' });
+      emit(c.id, `woken:${held}`, 'roadmap-woken', { id: c.id, machine: name });
+    }
   }
   if (holdNow && !f.held) lines.push(`▸ ${say('roadmap-held', { id: ready[0].id, load: f.load, limit: f.limit })}`);
 
   // The end of the run (D-7 E1 to E3): nothing in flight (while stopping a wait does not count), no action, no hold watched.
   // A change in a session of its own counts as under way, except while stopping; a start waiting for the owner's next message is no end.
   const flying = sessionMode ? 0 : Object.values(inflight).filter((e) => !(stopping && e.kind === 'wait')).length;
-  const underWay = sessionMode && !stopping ? entries.filter((e) => e.state === 'own').length : 0;
+  const underWay = sessionMode && !stopping ? entries.filter((e) => e.state === 'own' || (e.state === 'remote' && machineOf(e.machine))).length : 0;
   const idle = flying === 0 && underWay === 0 && withheld.length === 0 && actions.length === 0 && !f.holding && !entries.some((e) => e.state === 'archived');
   let end = null;
   if (idle && stopping) {
@@ -307,7 +441,10 @@ export function decideRoadmap(f) {
     version: 1, places, open, stopping, lines, actions, ask, end,
     state: {
       asking: head?.id ?? null, announced, starting, held: holdNow, clearInflight: Object.keys(f.after ?? {}).filter((id) => f.inflight?.[id]),
-      sessionsStarted: sessionsStarted.map((e) => e.id), turn: mayStart ? 'typed' : 'event', openLines: f.lines.filter((l) => l.cls === 'open').map((l) => l.id),
+      clearDeclared: f.lines.filter((l) => l.cls === 'elsewhere' && f.declared?.[l.id]).map((l) => l.id),
+      sessionsStarted: [...sessionsStarted, ...remoteStarted].map((e) => e.id), turn: mayStart ? 'typed' : 'event',
+      openLines: f.lines.filter((l) => l.cls === 'open' || l.cls === 'elsewhere').map((l) => l.id), elsewhere: remote.map((e) => e.id),
+      placed: Object.fromEntries(handed.map((e) => [e.id, e.machine])),
     },
     entries: entries.map(({ line, ...entry }) => entry),
   };
@@ -330,20 +467,32 @@ export function boardOf(f) {
     return table(unfinished.map((u) => ({ id: u.id, text: u.where })), [say('status-no-roadmap')]);
   }
   const { entries } = entriesOf(f);
-  const placed = entries.filter((e) => e.state !== 'archived');
+  const placed = entries.filter((e) => e.state !== 'archived' && e.state !== 'remote');
+  const remote = entries.filter((e) => e.state === 'remote');
+  const machinesOn = (f.machines?.length ?? 0) > 0;
+  const showMachine = machinesOn || remote.length > 0;
   const free = f.places - placed.length;
   const ready = f.lines.filter((l) => l.cls === 'ready');
-  const held = free > 0 && ready.length > 0 && f.load >= f.limit;
+  // With machines set a ready line is held only when no machine can take it: this one is loaded and none of the others answers (D-5, D-7).
+  const noMachine = machinesOn && ready.length > 0 && f.load >= f.limit && !(f.changeSessions && f.machines.some((m) => m.answered));
+  const held = machinesOn ? noMachine : free > 0 && ready.length > 0 && f.load >= f.limit;
   const takes = new Set(ready.slice(0, Math.max(free, 0)).map((l) => l.id));
   // In a run with a session per change, a line left for the owner's next message says so (D-6, D-11).
   const sessionMode = Boolean(f.changeSessions);
   const waitsTurn = (id) => sessionMode && ['waits-turn', 'waits-refused'].includes(f.announced?.[id]);
-  const readyKey = (id) => (!takes.has(id) ? 'queue.place' : held ? 'queue.load' : waitsTurn(id) ? 'queue.turn' : 'queue.ready');
+  const readyKey = (id) => {
+    if (machinesOn) return noMachine ? 'queue.no-machine' : waitsTurn(id) ? 'queue.turn' : 'queue.ready';
+    return !takes.has(id) ? 'queue.place' : held ? 'queue.load' : waitsTurn(id) ? 'queue.turn' : 'queue.ready';
+  };
   const entryOf = (id) => placed.find((e) => e.id === id);
+  // The row of an open change names its machine whenever another machine is listed or holds a change (D-5).
+  const tagged = (e, text) => (showMachine ? `${text} · ${e.state === 'remote' ? (e.machine ?? say('machine.unknown')) : f.thisMachine}` : text);
   const rows = { owner: [], running: [], blocked: [], queue: [], outside: [] };
   for (const l of f.lines) {
     const e = entryOf(l.id);
-    if (e) { const [block, text] = stateRow(e, f, say, lang); rows[block].push({ id: l.id, text }); }
+    const far = remote.find((r) => r.id === l.id);
+    if (far) rows.running.push({ id: l.id, text: tagged(far, remoteText(far, f, say)) });
+    else if (e) { const [block, text] = stateRow(e, f, say, lang); rows[block].push({ id: l.id, text: tagged(e, text) }); }
     else if (l.cls === 'ready') rows.queue.push({ id: l.id, text: say(readyKey(l.id)) });
     else if (l.cls === 'waiting') rows.queue.push({ id: l.id, text: say('queue.after', { after: l.waitsFor }) });
     else if (l.cls === 'archived-unticked') rows.outside.push({ id: l.id, text: say('outside.unticked') });
@@ -353,18 +502,35 @@ export function boardOf(f) {
   const onRoadmap = new Set(f.lines.map((l) => l.id));
   for (const u of unfinished) if (!onRoadmap.has(u.id)) rows.outside.push({ id: u.id, text: say('outside.other', { where: u.where }) });
 
-  const count = say('status-count', {
-    open: placed.length, places: f.places, queue: f.lines.filter((l) => l.cls === 'ready' || l.cls === 'waiting').length,
-    archived: f.lines.filter((l) => ARCHIVED_CLASSES.includes(l.cls)).length,
-  });
-  const intro = [count, ...(held ? [say('status-held', { load: f.load, limit: f.limit })] : [])];
-  const blocks = [['status-owner', rows.owner], ['status-running', rows.running], ['status-blocked', rows.blocked], ['status-queue', rows.queue], ['status-outside', rows.outside]]
+  const queued = f.lines.filter((l) => l.cls === 'ready' || l.cls === 'waiting').length;
+  const archivedCount = f.lines.filter((l) => ARCHIVED_CLASSES.includes(l.cls)).length;
+  const count = machinesOn
+    ? say('status-count-machines', { open: placed.length + remote.length, queue: queued, archived: archivedCount })
+    : say('status-count', { open: placed.length, places: f.places, queue: queued, archived: archivedCount });
+  const intro = [count, ...(f.claimsReadable === false ? [say('status-claims-unreadable')] : []), ...(held ? [say('status-held', { load: f.load, limit: f.limit })] : [])];
+  // This machine first, then each listed one: the places its changes took (a claim whose branch holds the approved plan) and its open changes.
+  const takenBy = (name) => Object.values(f.claims ?? {}).filter((c) => c.machine === name && c.placed === true).length;
+  const openOn = (name) => remote.filter((e) => e.machine === name).length;
+  const machineRows = machinesOn ? [
+    { id: say('machine.this', { name: f.thisMachine }), text: say('machine.row', { taken: takenBy(f.thisMachine), places: f.places, open: placed.length + openOn(f.thisMachine) }) },
+    ...f.machines.map((m) => ({ id: m.name, text: m.answered ? say('machine.row', { taken: takenBy(m.host), places: m.places, open: openOn(m.host) }) : say('machine.no-answer') })),
+  ] : [];
+  const blocks = [['status-machines', machineRows], ['status-owner', rows.owner], ['status-running', rows.running], ['status-blocked', rows.blocked], ['status-queue', rows.queue], ['status-outside', rows.outside]]
     .filter(([, list]) => list.length > 0);
   const width = Math.max(0, ...blocks.flatMap(([, list]) => list.map((r) => r.id.length))) + 3;
   const out = [...intro];
   if (blocks.length) out.push('');
   for (const [key, list] of blocks) out.push(say(key), ...list.map((r) => `  ${r.id.padEnd(width)}${r.text}`));
   return out.join('\n');
+}
+
+// The row of a change open on another machine: its stage there when that machine answered, "no answer" when a listed machine did not,
+// else that it is open there.
+function remoteText(e, f, say) {
+  const listed = f.machines?.find((m) => m.host === e.machine);
+  if (listed && !listed.answered) return say('machine.no-answer');
+  if (listed && e.where) return e.where;
+  return say('remote.open', { machine: e.machine ?? say('machine.unknown') });
 }
 
 // The block and the words of a placed change's row, from its state (change-state D-6): the owner and blocked rows say the state's
@@ -437,17 +603,20 @@ export function updateRun(file, change, { sleep } = {}) {
 const SESSION_KEYS = ['session-start', 'session-refused'];
 
 // The title of `stage` in the language of the person, from the change's own script; the id when it cannot be read.
-function stageTitleOf(found, stage, lang) {
+export function stageTitleOf(found, stage, lang) {
   try {
     const dir = locateChange(found.root, found.id)?.dir ?? join(found.root, 'openspec', 'changes', found.id);
-    return readFlow(found.root, changeSchemaAt(found.root, dir))?.stages.find((s) => s.id === stage)?.title[lang] ?? stage;
+    return changeFlow(found.root, dir).flow?.stages.find((s) => s.id === stage)?.title[lang] ?? stage;
   } catch { return stage; }
 }
 
 // Every fact `decideRoadmap` and `boardOf` need, read from the roadmap, the checkouts, the run file and the load. `after` is
 // { <id>: <progress key> }; `wheres` is `new` (the open changes never announced), `open` (every open change) or `board` (the
 // unfinished changes that are not on the roadmap); `readFlying` also reads the action of a change in flight (the board shows it).
-export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 0, limit = DEFAULT_LIMIT, openspec, gh, after = {}, wheres = 'new', readFlying = false, turn } = {}) {
+export function collectRoadmap(cwd, {
+  env = process.env, lang = 'pt-BR', load = 0, limit = DEFAULT_LIMIT, openspec, gh, after = {}, wheres = 'new', readFlying = false, turn,
+  machines = [], machinesText = '', probe = true, ssh, claimsGh,
+} = {}) {
   const l = normalizeLang(lang);
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -470,21 +639,29 @@ export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 
   const onRoadmap = new Set(rounds.flatMap((r) => r.items.map((i) => i.id)));
   const open = new Set(list.map((u) => u.id));
   const byId = new Map(list.map((u) => [u.id, u]));
+  // The branches on `origin` that hold a roadmap line's change: a change not open in this clone is open on another machine (D-5).
+  const read = remoteClaims(start, { env, gh: claimsGh ?? gh, ids: [...onRoadmap] });
+  const elsewhere = new Map([...read.claims].filter(([id]) => !open.has(id) && !archived.has(id)));
+  const asked = machines.map((m) => {
+    const answer = probe ? askMachine(m, 'state', [m.folder, l], { ssh }) : { ok: false };
+    return { name: m.host, host: m.host, folder: m.folder, places: m.places, answered: answer.ok, changes: answer.ok && Array.isArray(answer.data.changes) ? answer.data.changes : [] };
+  });
   // First every open line, to read each one's action (a change in flight or declared is not read: N1 and N2 come first), then
   // the classes again with the changes on the previous script known.
   const actions = {};
   const previous = new Set();
-  for (const line of classifyLines(rounds, { archived, open, previous, declared: run.declared })) {
+  for (const line of classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere })) {
     if (line.cls !== 'open' || run.declared[line.id]) continue;
     if (run.changeSessions) {
       // A change in a session of its own is not read (its own session knows where it is); every other open change is, in flight or not.
-      if ((run.startedSessions[line.id] || after[line.id] === 'session-start') && !readFlying) continue;
+      // With the machines setting set they are read, to tell the ones waiting for a place (D-10).
+      if ((run.startedSessions[line.id] || after[line.id] === 'session-start') && !readFlying && machines.length === 0) continue;
     } else if (run.inflight[line.id] && !(line.id in after) && !readFlying) continue;
     const progress = SESSION_KEYS.includes(after[line.id]) ? null : (after[line.id] ?? null); // the session keys are no progress key of a stage
     const action = nextAction(start, line.id, { env, lang: l, after: progress, openspec, gh });
     if (isPrevious(action)) previous.add(line.id); else actions[line.id] = action;
   }
-  const lines = classifyLines(rounds, { archived, open, previous, declared: run.declared });
+  const lines = classifyLines(rounds, { archived, open, previous, declared: run.declared, elsewhere });
   const openLines = new Set(lines.filter((x) => x.cls === 'open').map((x) => x.id));
   const wanted = (u) => wheres !== 'none' && (wheres === 'board' ? !onRoadmap.has(u.id) : openLines.has(u.id) && (wheres === 'open' || run.announced[u.id] === undefined));
   const wheresMap = Object.fromEntries(list.filter(wanted).map((u) => [u.id, whereFor(u)]));
@@ -499,7 +676,8 @@ export function collectRoadmap(cwd, { env = process.env, lang = 'pt-BR', load = 
     }
   }
   return {
-    ...common, hasRoadmap: true, lines, actions, inflight: run.inflight, declared: run.declared, announced: run.announced, starting: run.starting,
+    ...common, hasRoadmap: true, lines, actions, machines: asked, thisMachine: thisMachine(), machinesText, placed: run.placed, claims: Object.fromEntries(read.claims), claimsReadable: !read.origin || read.readable,
+    inflight: run.inflight, declared: run.declared, announced: run.announced, starting: run.starting,
     held: run.held, asking: run.asking, after, wheres: wheresMap, phaseTotals, unfinished: list.map((u) => ({ id: u.id, where: wheresMap[u.id] ?? '' })),
   };
 }
@@ -525,18 +703,19 @@ function strictRunFile(cwd) {
 }
 
 // One ready action in words: the stage and who runs it, or what the session must start.
-function readyText(action) {
+export function readyText(action) {
   const c = action.change;
   if (action.kind === 'agent') return `the change ${c} has the stage ${action.stage} ready (${action.agent})`;
   if (action.kind === 'session') return `the change ${c} has the stage ${action.stage ?? action.step} ready (${action.step})`;
   if (action.kind === 'wait') return `the change ${c} waits on GitHub: start its wait`;
   if (action.kind === 'session-start') return `the change ${c} has no session of its own yet: start it`;
   if (action.kind === 'start') return `the change ${c} is ready to start: open it`;
+  if (action.kind === 'wake') return `the change ${c} waits for a place that is free now: tell it to go on`;
   return `the start of ${c} is held by the load: watch it with hold`;
 }
 
 // `guard.mjs stop` (RS1 to RS5).
-export function roadmapStopDecision(input, { env = process.env, run, gh, openspec, load = () => readLoad() } = {}) {
+export function roadmapStopDecision(input, { env = process.env, run, gh, openspec, load = () => readLoad(), ssh } = {}) {
   try {
     const current = run ?? roadmapRunOf(input);
     if (!current) return allow('no-run');
@@ -546,7 +725,10 @@ export function roadmapStopDecision(input, { env = process.env, run, gh, openspe
     if (readRun(file).stopping) return allow('stopping');
     const lang = normalizeLang(env.CLAUDE_PLUGIN_OPTION_LANGUAGE);
     const limit = limitOf(env.CLAUDE_PLUGIN_OPTION_LOAD_LIMIT);
-    const facts = collectRoadmap(start, { env, lang, load: load(), limit, openspec, gh, wheres: 'none' });
+    // The machines setting is read, but no machine is asked and no claim is read through gh: every listed machine is out of reach here, so
+    // nothing only another machine could take refuses the stop (D-11). An unreadable setting is no setting.
+    const machines = parseMachines(env.CLAUDE_PLUGIN_OPTION_MACHINES).machines ?? [];
+    const facts = collectRoadmap(start, { env, lang, load: load(), limit, openspec, gh, wheres: 'none', machines, probe: false, ssh, claimsGh: OFFLINE_GH });
     if (facts.hasRoadmap === false) return allow('no-roadmap');
     const { actions } = decideRoadmap(facts); // read-only: nothing is written
     if (actions.length === 0) return allow('nothing-ready'); // RS2
@@ -566,7 +748,7 @@ function openOnRoadmap(start, env, gh) {
   return classifyLines(rounds, { archived, open, previous: new Set(), declared: {} }).filter((l) => l.cls === 'open').map((l) => l.id);
 }
 
-const isPreviousScript = (start, id, env) => {
+export const isPreviousScript = (start, id, env) => {
   const found = locate(start, id);
   const clean = cleanOf(env);
   const { facts, flow } = collectFlow(found.root, id, { env: clean, openspec: makeOpenspec(found.root, clean) });
@@ -635,9 +817,9 @@ export function roadmapSubagentStopDecision(input, { env = process.env, run } = 
 
 // ---------------------------------------------------------------- the command line
 
-const USAGE = 'usage: roadmap-loop.mjs run --lang <l> --load-limit <p> --session <id> [--fresh] [--change-sessions] (the owner\'s arguments on standard input) | next --lang <l> --load-limit <p> [--after <id>=<key>]... [--turn typed|event] [--start-anyway] '
-  + '| status --lang <l> --load-limit <p> | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] '
-  + '| hold --lang <l> --load-limit <p> [--interval <seconds>]';
+const USAGE = 'usage: roadmap-loop.mjs run --lang <l> --load-limit <p> [--machines <json>] --session <id> [--fresh] [--change-sessions] (the owner\'s arguments on standard input) | next --lang <l> --load-limit <p> [--machines <json>] [--after <id>=<key>]... [--turn typed|event] [--start-anyway] '
+  + '| status --lang <l> --load-limit <p> [--machines <json>] [--json] | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] '
+  + '| hold --lang <l> --load-limit <p> [--interval <seconds>] | checkout --change <id> --machines <json> --lang <l>';
 
 function parseOpts(argv, { values = [], multi = [], flags = [] } = {}) {
   const out = { positional: [], value: {}, many: {}, flag: {} };
@@ -693,12 +875,24 @@ function decide(start, facts, ctx) {
     run.held = decision.state.held;
     run.turn = decision.state.turn;
     for (const id of decision.state.clearInflight) delete run.inflight[id];
+    for (const id of decision.state.clearDeclared) delete run.declared[id]; // a line open on another machine is no cannot-open end (D-5)
     // The change sessions reported started are recorded; a change that is no longer an open line leaves the record (D-3).
     for (const id of decision.state.sessionsStarted) run.startedSessions[id] = { at: new Date().toISOString() };
-    for (const id of Object.keys(run.startedSessions)) if (!decision.state.openLines.includes(id)) delete run.startedSessions[id];
+    // The changes opened for another machine are recorded; both records leave with the line, unless the claims could not be read (then
+    // no line reads as open elsewhere, and nothing is forgotten).
+    for (const [id, machine] of Object.entries(decision.state.placed)) run.placed[id] = { machine, at: new Date().toISOString() };
+    const kept = (id) => decision.state.openLines.includes(id) || (facts.claimsReadable === false && id in run.placed);
+    for (const id of Object.keys(run.startedSessions)) if (!kept(id)) delete run.startedSessions[id];
+    for (const id of Object.keys(run.placed)) if (!kept(id)) delete run.placed[id];
     return run;
   }, { sleep: ctx.lockSleep });
   return decision;
+}
+
+// The machines setting of a command, or the reply that refuses it (nothing is read or written then, D-4).
+function machinesOf(opts, lang) {
+  const parsed = parseMachines(opts.value['--machines']);
+  return parsed.error ? { reply: plain(render(lang, parsed.error.key, parsed.error.params)) } : { machines: parsed.machines, text: opts.value['--machines'] ?? '' };
 }
 
 const settingsOf = (ctx, opts) => ({ lang: normalizeLang(opts.value['--lang']), limit: limitOf(opts.value['--load-limit']), load: ctx.load() });
@@ -706,9 +900,11 @@ const settingsOf = (ctx, opts) => ({ lang: normalizeLang(opts.value['--lang']), 
 function hasRoadmapFile(start) { return readRoadmap(start) !== null; }
 
 function runCmd(args, ctx) {
-  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--session'], flags: ['--fresh', '--change-sessions'] });
+  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--session', '--machines'], flags: ['--fresh', '--change-sessions'] });
   if (opts.positional.length) throw new LoopUsageError(USAGE);
   const lang = normalizeLang(opts.value['--lang']);
+  const listed = machinesOf(opts, lang);
+  if (listed.reply) return listed.reply;
   const word = parseRunInput(ctx.stdin);
   if (word.kind === 'invalid') return plain(render(lang, 'roadmap-invalid', { word: word.word })); // U1
   const start = rootOf(ctx.cwd);
@@ -721,7 +917,7 @@ function runCmd(args, ctx) {
     if (word.kind === 'stop') { run.stopping = true; return run; } // U3: nothing is reset
     const same = run.session === session && !opts.flag['--fresh'];
     if (same) placesBefore = run.places; // U4
-    else Object.assign(run, emptyRun(), { session, startedSessions: opts.flag['--fresh'] ? {} : run.startedSessions }); // U5: the change sessions outlive the session that started them
+    else Object.assign(run, emptyRun(), { session, startedSessions: opts.flag['--fresh'] ? {} : run.startedSessions, placed: opts.flag['--fresh'] ? {} : run.placed }); // U5: the change sessions and the changes placed on other machines outlive the session that started them
     run.changeSessions = Boolean(opts.flag['--change-sessions']);
     run.places = word.places;
     run.stopping = false;
@@ -729,7 +925,7 @@ function runCmd(args, ctx) {
     run.declared = {};
     return run;
   }, { sleep: ctx.lockSleep });
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed' }); // `run` is a message the owner typed
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: word.kind === 'stop' ? 'open' : 'new', turn: 'typed', machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh }); // `run` is a message the owner typed
   const decision = decide(start, facts, ctx);
   const say = (key, params) => render(lang, key, params);
   let preface = '';
@@ -741,8 +937,10 @@ function runCmd(args, ctx) {
 }
 
 function nextCmd(args, ctx) {
-  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--turn'], multi: ['--after'], flags: ['--start-anyway'] });
+  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--turn', '--machines'], multi: ['--after'], flags: ['--start-anyway'] });
   if (opts.positional.length) throw new LoopUsageError(USAGE);
+  const listed = machinesOf(opts, normalizeLang(opts.value['--lang']));
+  if (listed.reply) return listed.reply;
   // The turn the session names: one the owner typed or not; no word is a turn nobody typed (D-6).
   const turn = opts.value['--turn'] ?? 'event';
   if (turn !== 'typed' && turn !== 'event') throw new LoopUsageError(`--turn takes typed or event: got ${turn}`);
@@ -756,17 +954,58 @@ function nextCmd(args, ctx) {
   const start = rootOf(ctx.cwd);
   if (!hasRoadmapFile(start)) return plain(render(lang, 'roadmap-none'));
   const stopping = readRun(runFilePath(start)).stopping;
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn });
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, after, wheres: stopping ? 'open' : 'new', turn, machines: listed.machines, machinesText: listed.text, ssh: ctx.ssh });
   facts.startAnyway = Boolean(opts.flag['--start-anyway']);
   const decision = decide(start, facts, ctx);
   return { code: 0, stdout: `${decisionText(decision)}${decisionJson(decision)}`, stderr: '' };
 }
 
+// `status --json` (D-6): what another machine's probe prints, one object with every unfinished change of this clone, its place in words, its
+// icon and whether it waits for a place. It reads no roadmap and no run file, probes nothing and writes nothing; the claims are read once.
+function statusJson(ctx, opts) {
+  const lang = normalizeLang(opts.value['--lang']);
+  const start = rootOf(ctx.cwd);
+  const claims = remoteClaims(start, { env: ctx.env, gh: ctx.gh });
+  const changes = unfinished(start, { env: ctx.env, gh: ctx.gh }).map((u) => {
+    const entry = { id: u.id, where: '', icon: null, waitsForPlace: false };
+    try { entry.where = whereOf(u, u.id, { lang, env: ctx.env, openspec: ctx.openspec, gh: ctx.gh }); } catch { /* a change that cannot be read has no place in words */ }
+    try {
+      const action = nextAction(start, u.id, { env: ctx.env, lang, openspec: ctx.openspec, gh: ctx.gh, claims });
+      entry.icon = action.icon ?? null;
+      entry.waitsForPlace = action.kind === 'end' && action.end?.why === 'no-place';
+    } catch { /* nor an icon */ }
+    return entry;
+  });
+  return { code: 0, stdout: json({ version: 1, machine: thisMachine(), changes }), stderr: '' };
+}
+
+// `checkout` (D-8): makes the worktree of a change placed on another machine, there, from its branch. It names the machine by the claim on
+// `origin`, asks nothing else and writes nothing here; a refusal is exit 3 with the `checkout-failed` reply.
+function checkoutCmd(args, ctx) {
+  const opts = parseOpts(args, { values: ['--change', '--lang', '--machines'] });
+  if (!opts.value['--change'] || opts.positional.length) throw new LoopUsageError(USAGE);
+  const id = changeIdOf('--change', opts.value['--change']);
+  const lang = normalizeLang(opts.value['--lang']);
+  const listed = machinesOf(opts, lang);
+  if (listed.reply) return listed.reply;
+  const refuse = (machine, error) => new LoopRefusal('checkout-failed', render(lang, 'checkout-failed', { id, machine: machine ?? '?', error }));
+  const claim = remoteClaims(rootOf(ctx.cwd), { env: ctx.env, gh: ctx.gh, ids: [id] }).claims.get(id);
+  if (!claim) throw refuse(null, 'no claim of this change is on the remote');
+  const machine = listed.machines.find((m) => m.host === claim.machine);
+  if (!machine) throw refuse(claim.machine, 'the machines setting does not list it');
+  const answer = askMachine(machine, 'checkout', [machine.folder, id], { ssh: ctx.ssh });
+  if (!answer.ok) throw refuse(machine.host, answer.error);
+  return { code: 0, stdout: json({ version: 1, change: id, machine: machine.host, worktree: answer.data.worktree }), stderr: '' };
+}
+
 function statusCmd(args, ctx) {
-  const opts = parseOpts(args, { values: ['--lang', '--load-limit'] });
+  const opts = parseOpts(args, { values: ['--lang', '--load-limit', '--machines'], flags: ['--json'] });
   if (opts.positional.length) throw new LoopUsageError(USAGE);
+  if (opts.flag['--json']) return statusJson(ctx, opts);
+  const listed = machinesOf(opts, normalizeLang(opts.value['--lang']));
+  if (listed.reply) return listed.reply;
   const { lang, limit, load } = settingsOf(ctx, opts);
-  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: 'board', readFlying: true });
+  const facts = collectRoadmap(ctx.cwd, { env: ctx.env, lang, load, limit, openspec: ctx.openspec, gh: ctx.gh, wheres: 'board', readFlying: true, machines: listed.machines, ssh: ctx.ssh });
   return plain(boardOf(facts));
 }
 
@@ -864,7 +1103,7 @@ function failure(argv, e) {
   return { code: 3, stdout: `${JSON.stringify({ version: 1, error: message, reply })}\n`, stderr: `roadmap-loop: ${message}\n` };
 }
 
-const contextOf = ({ env = process.env, cwd = process.cwd(), stdin = '', openspec, gh, load, sleep, lockSleep } = {}) => ({ env, cwd, stdin, openspec, gh, sleep, lockSleep, load: load ?? (() => readLoad()) });
+const contextOf = ({ env = process.env, cwd = process.cwd(), stdin = '', openspec, gh, load, sleep, lockSleep, ssh } = {}) => ({ env, cwd, stdin, openspec, gh, sleep, lockSleep, ssh, load: load ?? (() => readLoad()) });
 
 // Runs the command: { code, stdout, stderr }. `wait` and `hold` sleep, so they run through `runCommand`.
 export function main(argv, opts = {}) {
@@ -874,6 +1113,7 @@ export function main(argv, opts = {}) {
     if (sub === 'run') return runCmd(rest, ctx);
     if (sub === 'next') return nextCmd(rest, ctx);
     if (sub === 'status') return statusCmd(rest, ctx);
+    if (sub === 'checkout') return checkoutCmd(rest, ctx);
     if (sub === 'draft') return draftCmd(rest, ctx);
     if (sub === 'reply') return replyCmd(rest, ctx);
     throw new LoopUsageError(USAGE);

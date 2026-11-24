@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Amended by ADR 0017 (0017-a-change-state-is-derived-in-one-place.md)
+- Amended by ADR 0020 (0020-a-change-can-run-on-another-machine.md)
 - Date: 2026-11-21
 - Change: roadmap-coordinator-followups
 - Supersedes: ADR 0013 (0013-the-roadmap-coordinator-is-the-owners-session.md), decision 1 where
@@ -15,6 +16,10 @@
 Note (change-state, 2026-11-22): [ADR 0017](0017-a-change-state-is-derived-in-one-place.md) amends
 decision 3: while the change is stopped, the title carries the state icon (🙋, ⏳ or ⛔) before the
 stage icon, and 📦 alone once archived. Decisions 1, 2 and 4 to 6 are unchanged.
+
+Note (remote-worker, 2026-11-22): a change of a run may run on another machine; its session is
+started on that machine's SSH connection, in its worktree there
+([ADR 0020](0020-a-change-can-run-on-another-machine.md)). Decisions 2 to 6 are otherwise unchanged.
 
 The first real `/devkit roadmap` on this repository (2026-11-21) ran two changes inside the session
 the owner typed it in, as ADR 0013 decision 1 says. Only one background task showed in the app, and

@@ -21,7 +21,7 @@ import { collectFlow, reasonText } from './flow-check.mjs';
 const SET = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
 const cleanEnv = { ...process.env, ...SET };
 
-const TWO_PRS = 'devkit:\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
+export const TWO_PRS = 'devkit:\n  delivery:\n    model: two-prs\n    base: main\n    test_branch: develop\n';
 
 function configRepo(text) {
   const root = tmpFolder('devkit-delivery-models-cfg-');
@@ -188,7 +188,8 @@ test('delivery-models open: a two-prs change starts from origin/<base>', () => {
   assert.equal(r.code, 0, r.stdout + r.stderr);
   const b = JSON.parse(r.stdout.split('\n').slice(1).join('\n'));
   assert.deepEqual([b.branch, b.base], ['add-export', 'origin/main']);
-  assert.equal(git(worktreeOf(t, 'add-export'), 'rev-parse', 'HEAD'), git(t.main, 'rev-parse', 'origin/main'));
+  assert.equal(git(worktreeOf(t, 'add-export'), 'rev-parse', 'HEAD^'), git(t.main, 'rev-parse', 'origin/main'), 'the new HEAD\'s parent is origin/main: the claim commit sits on the base tip');
+  assert.equal(spawnSync('git', ['-C', worktreeOf(t, 'add-export'), 'merge-base', '--is-ancestor', 'origin/main', 'HEAD']).status, 0, 'origin/main is an ancestor of HEAD');
 });
 
 test('delivery-models open: a missing test branch on the remote creates nothing', () => {
@@ -422,7 +423,7 @@ function prove(wt) {
   return commitAll(wt, 'evidence and reviews');
 }
 
-function scenario({ config = `schema: devkit-lite\n${TWO_PRS}` } = {}) {
+export function scenario({ config = `schema: devkit-lite\n${TWO_PRS}` } = {}) {
   const t = roundRepo({ roadmap: '# Roadmap\n', config });
   git(t.main, 'push', '-q', 'origin', 'HEAD:refs/heads/develop');
   const wt = t.addWt('feat');
@@ -1888,8 +1889,8 @@ const TEST_ARCHIVE = 'chore/archive-feat-develop';
 
 // Both change pull requests merged, then the archive of `feat` committed on its own branch in the task worktree, pushed, with its
 // pull request to main open. `testArchive` does what the commit-and-pr agent does for open-test-archive-pr.
-function archiving() {
-  const s = scenario();
+export function archiving(options) {
+  const s = scenario(options);
   const { base, test } = s.openBoth();
   s.sim.merge(test);
   s.sim.merge(base);

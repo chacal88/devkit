@@ -1,0 +1,310 @@
+✖ remote AC-8 next: each ready line goes to the answering machine with the fewest open changes (30.950287ms)
+✖ remote AC-8 next: this machine is skipped while loaded, and a start is held only when nothing can take it (1.668204ms)
+✖ remote AC-9 next: a placed change gets a session-start with its checkout, target ssh, host and the remote cwd, only on a typed turn (2.559219ms)
+✖ remote AC-9 next: the run file keeps placed, which another session keeps and --fresh clears (5424.512112ms)
+✖ remote AC-9 checkout: the worktree is made on the other clone from its branch (1789.161766ms)
+✖ remote AC-11 next: a freed place gives one wake per state for the first waiting change (4.288412ms)
+✖ remote AC-11 next: no wake without session mode (4.894652ms)
+✖ remote AC-12 next: a silent machine gets no change, and its placed change no session (1.735915ms)
+✖ remote locks stop: no ssh from the stop hook, and a start only another machine could take does not refuse the stop (1841.754018ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 0
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9572.872456
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2938:1
+✖ remote AC-8 next: each ready line goes to the answering machine with the fewest open changes (30.950287ms)
+  AssertionError [ERR_ASSERTION]: this machine holds one, avel none: avel first, then the tie goes to this machine, then avel again
+  + actual - expected
+  
+    [
+      [
+        'r1',
+  +     undefined,
+  +     undefined,
+  +     undefined
+  -     'avel',
+  -     true,
+  -     2
+      ],
+      [
+        'r2',
+  +     undefined,
+  +     undefined,
+  +     undefined
+  -     'mac',
+  -     false,
+  -     'run'
+      ],
+  -   [
+  -     'r3',
+  -     'avel',
+  -     true,
+  -     2
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2940:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'r1', undefined, undefined, undefined ], [ 'r2', undefined, undefined, undefined ] ],
+    expected: [ [ 'r1', 'avel', true, 2 ], [ 'r2', 'mac', false, 'run' ], [ 'r3', 'avel', true, 2 ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2952:1
+✖ remote AC-8 next: this machine is skipped while loaded, and a start is held only when nothing can take it (1.668204ms)
+  AssertionError [ERR_ASSERTION]: the loaded machine takes none
+  + actual - expected
+  
+  + []
+  - [
+  -   [
+  -     'r1',
+  -     'avel',
+  -     true,
+  -     2
+  -   ],
+  -   [
+  -     'r2',
+  -     'avel',
+  -     true,
+  -     2
+  -   ]
+  - ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2955:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ [ 'r1', 'avel', true, 2 ], [ 'r2', 'avel', true, 2 ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:2974:1
+✖ remote AC-9 next: a placed change gets a session-start with its checkout, target ssh, host and the remote cwd, only on a typed turn (2.559219ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   {
+  -     change: 'rrr',
+  -     checkout: [
+  -       'node',
+  -       '<worktree>/plugins/openspec/hooks/roadmap-loop.mjs',
+  -       'checkout',
+  -       '--change',
+  -       'rrr',
+  -       '--machines',
+  -       '[{"host":"avel","folder":"/home/me/repo","places":2}]',
+  -       '--lang',
+  -       'en'
+  -     ],
+  -     cwd: '/home/me/repo/.claude/worktrees/rrr',
+  -     input: {
+  -       background: "This session runs the devkit change `rrr` for a `/devkit roadmap` run. The owner typed that command in the session `S-main`, which started this one: in the desktop app every change of a roadmap run has a session of its own (ADR 0014). Work only in `/home/me/repo/.claude/worktrees/rrr`, the change's worktree, on branch `rrr`. Before your first question to the owner, say in two or three plain sentences, in the owner's language (en), who started this session, why and what it will do. Run the change with the task below and the devkit skill's Loop: its stages, questions and approvals happen here. Keep this session's title as the `sessionTitle` of each `next`, renaming it yourself as the Loop says. The report that ends each of your turns returns to the session that started this one: when the change is archived, end that turn with the line `devkit roadmap: rrr archived`.",
+  -       context: 'fresh',
+  -       cwd: '/home/me/repo/.claude/worktrees/rrr',
+  -       host: 'avel',
+  -       initiation: 'user_asked',
+  -       name: 'rrr',
+  -       prompt: '/devkit-openspec:devkit change rrr',
+  -       target: 'ssh',
+  -       title: '❓ rrr',
+  -       use_worktree: false
+  -     },
+  -     kind: 'session-start',
+  -     machine: 'avel',
+  -     progressKey: 'session-start',
+  -     title: '❓ rrr'
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:2978:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ { change: 'rrr', kind: 'session-start', machine: 'avel', cwd: '/home/me/repo/.claude/worktrees/rrr', title: '❓ rrr', progressKey: 'session-start', checkout: [Array], input: [Object] } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3007:1
+✖ remote AC-9 next: the run file keeps placed, which another session keeps and --fresh clears (5424.512112ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'change')
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:3015:28)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3034:1
+✖ remote AC-9 checkout: the worktree is made on the other clone from its branch (1789.161766ms)
+  AssertionError [ERR_ASSERTION]: {"version":1,"error":"usage: roadmap-loop.mjs run --lang <l> --load-limit <p> [--machines <json>] --session <id> [--fresh] [--change-sessions] (the owner's arguments on standard input) | next --lang <l> --load-limit <p> [--machines <json>] [--after <id>=<key>]... [--turn typed|event] [--start-anyway] | status --lang <l> --load-limit <p> [--machines <json>] [--json] | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+  roadmap-loop: usage: roadmap-loop.mjs run --lang <l> --load-limit <p> [--machines <json>] --session <id> [--fresh] [--change-sessions] (the owner's arguments on standard input) | next --lang <l> --load-limit <p> [--machines <json>] [--after <id>=<key>]... [--turn typed|event] [--start-anyway] | status --lang <l> --load-limit <p> [--machines <json>] [--json] | draft --lang <l> | reply <key> --lang <l> [--param name=value]... | wait --change <id> --lang <l> [--interval <seconds>] | hold --lang <l> --load-limit <p> [--interval <seconds>]
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:3044:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3067:1
+✖ remote AC-11 next: a freed place gives one wake per state for the first waiting change (4.288412ms)
+  AssertionError [ERR_ASSERTION]: one, for the first in file order
+  + actual - expected
+  
+  + []
+  - [
+  -   {
+  -     change: 'w1',
+  -     kind: 'wake',
+  -     machine: 'avel',
+  -     message: '/devkit-openspec:devkit change w1',
+  -     progressKey: 'wake'
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:3076:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ { change: 'w1', kind: 'wake', machine: 'avel', message: '/devkit-openspec:devkit change w1', progressKey: 'wake' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3096:1
+✖ remote AC-11 next: no wake without session mode (4.894652ms)
+  AssertionError [ERR_ASSERTION]: one per machine in session mode
+  + actual - expected
+  
+  + []
+  - [
+  -   [
+  -     'w0',
+  -     'mac'
+  -   ],
+  -   [
+  -     'w1',
+  -     'avel'
+  -   ]
+  - ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:3101:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ [ 'w0', 'mac' ], [ 'w1', 'avel' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3107:1
+✖ remote AC-12 next: a silent machine gets no change, and its placed change no session (1.735915ms)
+  AssertionError [ERR_ASSERTION]: the new change stays on this machine
+  + actual - expected
+  
+    [
+      [
+        'bbb',
+  +     undefined,
+  +     undefined,
+  +     undefined
+  -     'mac',
+  -     false,
+  -     'run'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:3112:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'bbb', undefined, undefined, undefined ] ],
+    expected: [ [ 'bbb', 'mac', false, 'run' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3127:1
+✖ remote locks stop: no ssh from the stop hook, and a start only another machine could take does not refuse the stop (1841.754018ms)
+  AssertionError [ERR_ASSERTION]: the claims are read with one ls-remote and no gh call
+  + actual - expected
+  
+  + [
+  +   'repos/{owner}/{repo}/contents/openspec/changes/rr?ref=367fc99e409a9e58cb384a2d41675e8ad2dc3bf5'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file://<worktree>/plugins/openspec/hooks/roadmap-loop.test.mjs:3140:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'repos/{owner}/{repo}/contents/openspec/changes/rr?ref=367fc99e409a9e58cb384a2d41675e8ad2dc3bf5' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+exit 1
