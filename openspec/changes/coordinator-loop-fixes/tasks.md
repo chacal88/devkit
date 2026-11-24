@@ -254,7 +254,7 @@ every task with `git status --short`.
   plan review does not make the plan stale" (`flow-check.test.mjs`) still passes, and so does "post-merge-validate 2: a plan edit made as a
   merge-defect fix leaves the plan gate where an ordinary design edit does" (`change-loop.test.mjs`, its approval with no
   `- Plan:` line, D-7), with every other `post-merge-validate 2` test: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^post-merge-validate 2" plugins/openspec/hooks/change-loop.test.mjs` passes.
-- [ ] 3.6 D-7's texts: the `stop-plan-approval` row and the opening section's sentence "A change whose tasks are already ticked
+- [x] 3.6 D-7's texts: the `stop-plan-approval` row and the opening section's sentence "A change whose tasks are already ticked
   is resumed without it" of `plugins/openspec/skills/ship-change/SKILL.md`,
   and `ask.action.detail.plan` in `### A session per change` of `plugins/openspec/skills/devkit/SKILL.md`. Before the edit,
   `grep -ln "stop-plan-approval\|resumed without it" plugins/*/hooks/*.test.mjs plugins/*/skills/*/scripts/*.test.mjs`
