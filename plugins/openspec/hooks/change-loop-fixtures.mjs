@@ -1,7 +1,7 @@
 // What the three parts of change-loop.test.mjs share (suite-speed D-11): paths, builders and helpers more than one part uses. No test lives here and nothing is made when the module is
 // imported: a folder, a spawn or a git call happens only when one of its functions runs. A test file never imports another test file; what two test files share is moved to a module like this one.
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
@@ -50,22 +50,26 @@ export const NO_TALK = { data: { viewer: { login: 'me' }, repository: { pullRequ
 export const PR_CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n  devkit: pr\n';
 export const RELEASE = { 'CHANGELOG.md': '# c\n', '.claude-plugin/marketplace.json': '{"v":1}\n', 'README.md': 'r\n' };
 
-// A `devkit-lite` change `feat` in a worktree (a bare origin, a clone), every stage up to the code review passed at the
-// code commit, the reviews and the evidence current, its pull request open with `checks`. `conflicts` are the files both
-// the branch and origin/main edit (the same shape as conflictRepo in conduct-check.test.mjs, which is private to that file).
-// `files` are added to the main checkout before the worktree (the canonical specs a delta modifies); `delta` is the text of the change's
-// `specs/s/spec.md` and of its proposal (post-merge-validate D-9). Both default to the text every earlier caller builds.
-export function deliveredChange({ checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n', files = {}, delta = {} } = {}) {
+// A `devkit-lite` change `id` (`feat`) in a worktree (a bare origin, a clone, or the `roundRepo` `t` a caller passes), every
+// stage up to the code review passed at the code commit, the reviews and the evidence current, its pull request open with
+// `checks`. `conflicts` are the files both the branch and origin/main edit (the same shape as conflictRepo in
+// conduct-check.test.mjs, which is private to that file). `config` and `files` are the project's settings and files; `files` are
+// added to the main checkout before the worktree, over the release files (the canonical specs a delta modifies); `delta` is the text
+// of the change's `specs/s/spec.md` and of its proposal (post-merge-validate D-9). Both default to the text every earlier caller builds.
+export function deliveredChange({
+  checks = [check('build', 'pending')], conflicts = [], mergeable = 'MERGEABLE', requirements = '# Requirements\n',
+  config = PR_CONFIG, files = {}, delta = {}, id = 'feat', t = null, roadmap = `# Roadmap\n\n## Round 1: x\n- [ ] ${id}\n`,
+} = {}) {
   const { spec = '# Spec\n', proposal = PROPOSAL } = delta;
-  const t = roundRepo({ roadmap: '# Roadmap\n\n## Round 1: x\n- [ ] feat\n', config: PR_CONFIG, files: { ...RELEASE, ...files } });
-  const wt = t.addWt('feat');
-  const dir = (f) => `openspec/changes/feat/${f}`;
-  const own = Object.fromEntries(conflicts.map((f) => [f, `feat edits ${f}\n`]));
+  t ??= roundRepo({ roadmap, config, files: { ...RELEASE, ...files } });
+  const wt = t.addWt(id);
+  const dir = (f) => `openspec/changes/${id}/${f}`;
+  const own = Object.fromEntries(conflicts.map((f) => [f, `${id} edits ${f}\n`]));
   put(wt, {
     [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
     [dir('proposal.md')]: proposal, [dir('requirements.md')]: requirements, [dir('specs/s/spec.md')]: spec,
     [dir('tasks.md')]: '# Tasks\n\n## 1. First\n- [x] 1.1 code\n',
-    'src/feat.ts': 'code\n', ...own,
+    [`src/${id}.ts`]: 'code\n', ...own,
   });
   const sha = commitAll(wt, 'code');
   const review = `Verdict: approved\nCommit: ${sha}\n\n# Review\n`;
@@ -80,10 +84,65 @@ export function deliveredChange({ checks = [check('build', 'pending')], conflict
   commitAll(wt, 'reviews, evidence and stage headers');
   if (conflicts.length) t.commitOrigin(Object.fromEntries(conflicts.map((f) => [f, `origin edits ${f}\n`])), 'origin edits');
   const gh = t.ghAt(wt);
-  gh.set('pr-view', { stdout: prJson('feat', { headRefOid: git(wt, 'rev-parse', 'HEAD'), mergeable }) });
+  gh.set('pr-view', { stdout: prJson(id, { headRefOid: git(wt, 'rev-parse', 'HEAD'), mergeable }) });
   gh.set('pr-checks', { stdout: checks });
   gh.set('api-graphql', { stdout: NO_TALK });
   return { t, wt, gh, env: { ...gh.env, ...SET } };
+}
+
+// A folder holding a `git` that logs every call with a `fetch` argument in $GIT_SHIM_LOG, sleeps for $GIT_SHIM_SLEEP seconds
+// in its place when that is set, and runs the real git for every other call. `env(base, { sleep })` puts it first on the PATH.
+export function gitShim() {
+  const dir = tmpFolder('devkit-git-shim-');
+  const log = join(dir, 'fetches.log');
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const real = spawnSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  writeFileSync(join(bin, 'git'), [
+    '#!/bin/sh',
+    'for a in "$@"; do',
+    '  if [ "$a" = fetch ]; then',
+    '    [ -n "$GIT_SHIM_LOG" ] && printf \'%s\\n\' "$*" >> "$GIT_SHIM_LOG"',
+    '    if [ -n "$GIT_SHIM_SLEEP" ]; then exec sleep "$GIT_SHIM_SLEEP"; fi',
+    '    break',
+    '  fi',
+    'done',
+    `exec '${real}' "$@"`,
+    '',
+  ].join('\n'));
+  chmodSync(join(bin, 'git'), 0o755);
+  writeFileSync(log, '');
+  return {
+    env: (base, { sleep } = {}) => ({ ...base, PATH: `${bin}:${base.PATH}`, GIT_SHIM_LOG: log, GIT_SHIM_SLEEP: sleep === undefined ? '' : String(sleep) }),
+    fetches: () => readFileSync(log, 'utf8').split('\n').filter(Boolean),
+    clear: () => writeFileSync(log, ''),
+  };
+}
+
+// After the fixture's `commitOrigin`, the clone's `origin/main` is put one commit behind the remote's `main`
+// (`commitOrigin` pushes from the clone, which moves its `origin/main` with it): { remote, stale } are the two shas.
+export function staleBase(t) {
+  const remote = git(t.originDir, 'rev-parse', 'main');
+  const stale = git(t.originDir, 'rev-parse', `${remote}^`);
+  git(t.main, 'update-ref', 'refs/remotes/origin/main', stale);
+  return { remote, stale };
+}
+
+// A `devkit-lite` change `id` in a worktree of `t`, at the implementation stage (the build part): requirements, proposal, specs
+// and tasks passed at the commit it was cut from, the one task not ticked, committed.
+export function implementingChange(t, id) {
+  const wt = t.addWt(id);
+  const c0 = git(wt, 'rev-parse', 'HEAD');
+  const dir = (f) => `openspec/changes/${id}/${f}`;
+  put(wt, {
+    [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
+    [dir('requirements.md')]: `${head('requirements', c0)}# Requirements\n`,
+    [dir('proposal.md')]: `${head('proposal', c0)}${PROPOSAL}`,
+    [dir('specs/s/spec.md')]: `${head('specs', c0)}# Spec\n`,
+    [dir('tasks.md')]: `${head('tasks', c0)}# Tasks\n\n## 1. First\n- [ ] 1.1 code\n`,
+  });
+  commitAll(wt, 'plan');
+  return wt;
 }
 
 // post-merge-validate: the merge sha, the validate errors, a merge-check record and the `mergeCheck` facts that `decide` reads, shared by

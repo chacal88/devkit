@@ -1,0 +1,179 @@
+✖ fresh-base-check 1: next fetches the base before it judges, and a call with no record judges from the stale copy (6014.475853ms)
+✖ fresh-base-check 2: a fetch that fails decides from the local copy, records it and says it in one line, in both languages (6191.425589ms)
+✖ fresh-base-check 3: a fetch that outlives its timeout fails with a plain line and writes nothing (276.410321ms)
+✖ fresh-base-check 4: a ref that is locked fails the fetch, and the action is the local copy's (6268.93165ms)
+✖ fresh-base-check 5: the fetch writes the one ref and nothing else (3180.043952ms)
+✖ fresh-base-check 6: a wait fetches the base at every poll (8424.271398ms)
+✔ fresh-base-check 7: state, the stop lock and a call with no record never fetch (8917.99077ms)
+✖ fresh-base-check 8: a record of fetched bases lets one call fetch a base once, and each next call fetches again (268.62988ms)
+✖ fresh-base-check 9: the two checkers never fetch, and their headers say so (1991.698416ms)
+✖ fresh-base-check 10: a wait that only gains the failed-fetch line goes on waiting (1.925855ms)
+✖ fresh-base-check 16: a repository with no remote fetches nothing and decides as it did (5483.652248ms)
+✖ fresh-base-check 17: a change before its delivery fetches nothing (4665.822066ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 1
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 52032.636248
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5735:1
+✖ fresh-base-check 1: next fetches the base before it judges, and a call with no record judges from the stale copy (6014.475853ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'session',
+  +   undefined,
+  +   'update-branch'
+  -   'agent',
+  -   'devkit-core:tdd-implementer',
+  -   'resolve-release-conflict'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5744:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'session', undefined, 'update-branch' ],
+    expected: [ 'agent', 'devkit-core:tdd-implementer', 'resolve-release-conflict' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5750:1
+✖ fresh-base-check 2: a fetch that fails decides from the local copy, records it and says it in one line, in both languages (6191.425589ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'ok')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5758:33)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5768:1
+✖ fresh-base-check 3: a fetch that outlives its timeout fails with a plain line and writes nothing (276.410321ms)
+  TypeError [Error]: changeLoopModule.baseFetches is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5773:125)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5779:1
+✖ fresh-base-check 4: a ref that is locked fails the fetch, and the action is the local copy's (6268.93165ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'ok')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5786:35)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5793:1
+✖ fresh-base-check 5: the fetch writes the one ref and nothing else (3180.043952ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'ok')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5809:42)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5821:1
+✖ fresh-base-check 6: a wait fetches the base at every poll (8424.271398ms)
+  AssertionError [ERR_ASSERTION]: three polls, three fetches
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5832:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5849:1
+✖ fresh-base-check 8: a record of fetched bases lets one call fetch a base once, and each next call fetches again (268.62988ms)
+  TypeError [Error]: changeLoopModule.baseFetches is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5853:33)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5863:1
+✖ fresh-base-check 9: the two checkers never fetch, and their headers say so (1991.698416ms)
+  AssertionError [ERR_ASSERTION]: deliver-check.mjs says it does not fetch
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5872:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '// deliver-check: is a change a ready PR? (ship-modes, design D2 and D4)\n//\n// Reads files and git; never writes, pushes or posts. No dependencies.\n// Imports its helpers from guard.mjs, which runs a mode only when executed\n// directly, so importing it here has no side effects.\n',
+    expected: /never fetches|or fetches/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5878:1
+✖ fresh-base-check 10: a wait that only gains the failed-fetch line goes on waiting (1.925855ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be reference-equal to "expected":
+  + actual - expected
+  
+    {
+  +   baseFetch: {
+  +     base: 'main',
+  +     error: 'x',
+  +     ok: false
+  +   },
+  +   end: {
+  +     state: 'waiting-on-github',
+  +     why: 'waiting-github'
+  +   },
+  +   kind: 'end',
+  +   reply: 'it waits\nthe base was not fetched'
+  -   kind: 'session',
+  -   reply: null,
+  -   step: 'update-branch'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5885:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { kind: 'end', end: { state: 'waiting-on-github', why: 'waiting-github' }, reply: 'it waits\nthe base was not fetched', baseFetch: { ok: false, base: 'main', error: 'x' } },
+    expected: { kind: 'session', step: 'update-branch', reply: null },
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5889:1
+✖ fresh-base-check 16: a repository with no remote fetches nothing and decides as it did (5483.652248ms)
+  TypeError [Error]: changeLoopModule.baseFetches is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5900:33)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5906:1
+✖ fresh-base-check 17: a change before its delivery fetches nothing (4665.822066ms)
+  AssertionError [ERR_ASSERTION]: self-check: a change in its delivery part does fetch
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5924:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

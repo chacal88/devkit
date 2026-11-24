@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.50.0 — a status line for the session of a change or a roadmap run
+## 0.51.0 — a status line for the session of a change or a roadmap run
 
-- **devkit-openspec** 0.45.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
+- **devkit-openspec** 0.46.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
   box of Claude Code. A session that conducts one change shows the change's name, its stage, a strip of
   marks, `<n> of <N>` and, while the change is stopped, the reason in words; the session that coordinates
   a roadmap run shows the counts (in play, working, waiting on the owner, blocked); a session that
@@ -12,8 +12,21 @@
   `git` (`state` keeps its own reads), with a bound on each; at the bound, or when Claude Code stops it,
   it ends the `state` call and everything that call started. `state` gains a `stages` field (the stages
   that apply to the change, in order) and an `--offline` option (a listing with no GitHub call), and the
-  offline stub that listing uses lives in one place. The CI snippet now pins `v0.45.0`, the release's
+  offline stub that listing uses lives in one place. The CI snippet now pins `v0.46.0`, the release's
   tag.
+
+## 0.50.0 — the loop fetches the base before it judges
+
+- **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its
+  remote-tracking ref (`origin/<base>`, nothing else) before they judge a delivery, once per command
+  call and at each poll of a wait, so a stale local copy of the base no longer decides whether a
+  change is merged. When the fetch fails or times out, the reply says the step was decided from this
+  machine's copy. The checkers (`conduct-check`, `deliver-check`) stay offline. The skills and the
+  flow page state the rule. The CI snippet now pins `v0.45.0`, the release's tag.
+
+## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
+
+- **devkit-openspec** 0.44.2: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.
 
 ## 0.49.1 — a stage's ceiling counts failures in a row
 
