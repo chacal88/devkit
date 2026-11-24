@@ -484,6 +484,22 @@ test('change-loop decide: B14 the stops of the delivery checker end blocked with
   }
 });
 
+// Invariant (run-status-bar D-4, the offline read of the merge setup): with GitHub offline only the merge-setup stop reads as GitHub
+// silent, carrying the checker's reason; every other stop of the delivery checker still ends blocked with its own reason.
+test('change-loop decide: B14b offline, only the merge-setup stop reads as GitHub silent; the other stops stay blocked', () => {
+  const rows = [['stop-branch', 'wrong-branch'], ['stop-archive', 'archive-failed'], ['stop-not-approved', 'plan-not-approved'], ['blocked', 'pr-problem']];
+  for (const [step, why] of rows) {
+    const a = build(rowOf(step), { offline: true });
+    assert.deepEqual(shape(a), ['end', 'blocked', why, 2], step);
+    assert.equal(a.reply, says('blocked', { why }), step);
+  }
+  const reason = 'gh api repos/o/r: HTTP 403';
+  const setup = build(rowOf('stop-merge-setup', { reason }), { offline: true });
+  assert.deepEqual(shape(setup), ['end', 'waiting-on-github', 'waiting-github', 1]);
+  assert.equal(setup.params.what, 'silent');
+  assert.equal(setup.detail.error, reason);
+});
+
 test('change-loop decide: B15 an archived change at the delivery checker ends archived', () => {
   const rep = { ...reportOf(FLOWS.devkit, { end: endOf('archived', null, 'archived') }), stages: [] };
   const a = run({ report: rep, facts: { archiving: true, row: rowOf('archived') } });

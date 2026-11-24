@@ -1176,7 +1176,8 @@ function triageUnsourcedOf(dir) {
 // taken, held }, null when the change records no places), budget ({ cap, file, spent } with `spent`
 // null when it could not be read; null or absent when no cap applies), models (the model of each stage, `modelsOf`'s result: every
 // action at a stage with a row carries its `model`; absent, none does), handOffs (the session's stage subagents of the current run,
-// `handOffsOf`'s result: a hand-off whose newest run failed is handed once more a model up; null or absent when none was read) }.
+// `handOffsOf`'s result: a hand-off whose newest run failed is handed once more a model up; null or absent when none was read),
+// offline (true when gh is OFFLINE_GH: an unreadable merge setup reads as GitHub silent) }.
 // Returns the action of the design's JSON; pure.
 export function decide(facts) {
   const { ctx, flow, report } = facts;
