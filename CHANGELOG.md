@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.51.1 — fresh-base-check retro
+
+- **devkit-core** 0.16.2: the pr-verifier reads a suite summary by each file's status; a `LEFT` file
+  fails the run even with 0 failing tests, and a run that exits non-zero is never recorded as a pass.
+- **devkit-openspec** 0.46.1: `nextAction` no longer reads the default branch twice. The CI snippet
+  now pins `v0.46.1`, the release's tag.
+
 ## 0.51.0 — a status line for the session of a change or a roadmap run
 
 - **devkit-openspec** 0.46.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
