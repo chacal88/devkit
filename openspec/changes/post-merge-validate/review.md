@@ -52,3 +52,30 @@ None.
 
 ## Next
 Consensus deadlock after round 2: the owner decides.
+
+# Review: post-merge-validate, round 2
+
+Path: agents · range `9dff5735a04c18ec3190965d7fca32087e7f5331..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 7f9624e |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 7f9624e |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 7f9624e |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 7f9624e |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Third pass on the agents path, allowed by the owner's own typed word "terceira rodada ok" after the round-2 deadlock (the round field stays 2 because the review script knows no round 3).
+- The fix for the one open important finding (the planner brief and plan texts name the check with --type change) is 1c283d6; the code-quality reviewer re-checked it and approved. The ADR, spec and coverage verdicts were refreshed at the new head because the fix commit touched code and docs, and are approved.
+- Open nits left on purpose: the ADR 0017 Note wording, the bare command in plan prose, and the bare command in agent texts outside this change (backlog).
+
+## Next
+Ready to ship.
