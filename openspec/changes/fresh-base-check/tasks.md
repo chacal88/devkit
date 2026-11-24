@@ -121,7 +121,7 @@ the tree, and end every task with `git status --short`.
   lists every pin line of the CI example; and
   `node --test --test-concurrency=1 --test-name-pattern="design records the answers" plugins/openspec/hooks/change-loop.test.mjs`
   passes.
-- [ ] 3.2 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate fresh-base-check --strict` green (the guard suite as a background command of the tool); covers AC-1 to AC-7 and every other suite at once.
+- [x] 3.2 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate fresh-base-check --strict` green (the guard suite as a background command of the tool); covers AC-1 to AC-7 and every other suite at once.
 
 ## Workflow follow-up
 
