@@ -4,12 +4,13 @@
 // synthetic tree and reads that run's output; the probe's own output never reaches this file's output.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, copyFileSync, existsSync, readFileSync, readdirSync, symlinkSync, realpathSync } from 'node:fs';
+import { mkdirSync, writeFileSync, copyFileSync, existsSync, readFileSync, readdirSync, symlinkSync, realpathSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
 import { suiteFiles, testImports } from '../../../scripts/test-suite.mjs';
+import * as suiteScript from '../../../scripts/test-suite.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..');
@@ -50,9 +51,17 @@ function tree(files) {
   return root;
 }
 
+// Where a run root lands for a TMPDIR `base` that holds `fileCount` files: under the base when it fits, else under the real /tmp.
+function runParent(base, fileCount) {
+  return suiteScript.runRootFits(realpathSync(base), fileCount) ? realpathSync(base) : realpathSync(suiteScript.SHORT_TMP);
+}
+
+const runRootLines = (out) => out.stdout.split('\n').filter((line) => line.startsWith('run root: '));
+
 // Starts the copy of the script in `root`; `done` settles when it has ended. `base` is the TMPDIR the script gets, so the
-// run root it makes lives in a folder this test owns. NODE_TEST_CONTEXT is left in the environment on purpose.
-function start(root, args = [], { env = {}, base = tmpFolder('devkit-suite-base-') } = {}) {
+// run root it makes lives in a folder this test owns. The default prefix is short (devkit-b-) so that the inner run root
+// fits under the suite's own TMPDIR (suite-socket-path). NODE_TEST_CONTEXT is left in the environment on purpose.
+function start(root, args = [], { env = {}, base = tmpFolder('devkit-b-') } = {}) {
   const child = spawn(process.execPath, [join(root, 'scripts', 'test-suite.mjs'), ...args], {
     cwd: root,
     env: { ...process.env, TMPDIR: base, ...env },
@@ -274,13 +283,14 @@ test('suite-speed AC-4 each file runs in its own empty TMPDIR under one run root
   assert.equal(dirname(a.tmp), dirname(b.tmp), 'the two folders have different run roots');
   assert.match(dirname(a.tmp).split('/').pop(), /^devkit-suite-/);
   assert.match(a.tmp.split('/').pop(), /^\d\d$/, 'the folder of a file is its place only: a socket path under it must stay short');
-  assert.equal(dirname(dirname(a.tmp)), realpathSync(out.base));
+  assert.equal(dirname(dirname(a.tmp)), runParent(out.base, 2));
+  assert.ok(runRootLines(out).length <= 1, 'at most one run root line');
   assert.equal(existsSync(dirname(a.tmp)), false, 'the run root is still there after the run');
   assert.deepEqual(readdirSync(out.base), []);
 });
 
 test('suite-speed AC-4 a symlinked TMPDIR gives each file a real path', async () => {
-  const target = tmpFolder('devkit-suite-target-');
+  const target = tmpFolder('devkit-t-');
   const link = join(tmpFolder('devkit-suite-links-'), 'link');
   symlinkSync(target, link);
   const marks = tmpFolder('devkit-suite-marks-');
@@ -294,7 +304,7 @@ test('suite-speed AC-4 a symlinked TMPDIR gives each file a real path', async ()
   assert.equal(out.code, 0, either(out));
   const seen = JSON.parse(readFileSync(join(marks, 'a.json'), 'utf8'));
   assert.equal(seen.tmp, seen.real, 'the child saw a path with a symlink in it');
-  assert.equal(dirname(dirname(seen.tmp)), realpathSync(target), 'the run root is under the real path of the target');
+  assert.equal(dirname(dirname(seen.tmp)), runParent(target, 1), 'the run root is under the real path of the target');
   assert.deepEqual(readdirSync(target), []);
 });
 
@@ -483,4 +493,171 @@ test('suite-speed AC-8 CLAUDE.md and CONTRIBUTING.md state the measured time', (
   const after = contributing.slice(contributing.indexOf(ONE_COMMAND));
   const paragraph = after.split(/\n[ \t]*\n/)[1] ?? '';
   assert.match(paragraph, MEASURED_AT, 'the CONTRIBUTING.md paragraph after the command block does not state the measured time');
+});
+
+// suite-socket-path: the run root fits a Unix socket path (macOS holds 104 bytes in sun_path, the terminator included).
+
+// A folder whose real path is at least 60 bytes: nested folders under a tmpFolder until it is.
+function longTmp() {
+  let folder = tmpFolder('devkit-long-');
+  while (Buffer.byteLength(realpathSync(folder)) < 60) {
+    folder = join(folder, 'nested');
+    mkdirSync(folder);
+  }
+  return folder;
+}
+
+// A path whose parent is a regular file: realpath and mkdir fail with ENOTDIR on every platform.
+function belowAFile() {
+  const file = join(tmpFolder('devkit-file-'), 'plain');
+  writeFileSync(file, 'x');
+  return join(file, 'below');
+}
+
+// The child binds a Unix socket where fakeCompozy(...).daemon does: <TMPDIR>/devkit-ch-xxxxxx/daemon.sock.
+const BIND_PROBE_BODY = [
+  "const { createServer } = await import('node:net');",
+  "const { rmSync } = await import('node:fs');",
+  "const folder = join(process.env.TMPDIR, 'devkit-ch-xxxxxx');",
+  'mkdirSync(folder);',
+  'const server = createServer();',
+  'let bound = true;',
+  "try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(join(folder, 'daemon.sock'), resolve); }); } catch (error) { bound = error.code || String(error); }",
+  "writeFileSync(join(process.env.PROBE_MARKS, 'a.json'), JSON.stringify({ tmp: process.env.TMPDIR, bound }));",
+  'if (bound === true) await new Promise((resolve) => server.close(resolve));',
+  'rmSync(folder, { recursive: true, force: true });',
+].join('\n');
+
+test('suite-socket-path AC-4 under a TMPDIR of 60 bytes or more a child binds <TMPDIR>/devkit-ch-xxxxxx/daemon.sock and its TMPDIR is at most 71 bytes', async () => {
+  const base = longTmp();
+  assert.ok(Buffer.byteLength(realpathSync(base)) >= 60);
+  const marks = tmpFolder('devkit-marks-');
+  const root = tree({ [`${HOOKS}/a${TEST_EXT}`]: probe({ name: 'suite-socket-path probe binds a socket', body: BIND_PROBE_BODY }) });
+  const out = await run(root, [], { base, env: { PROBE_MARKS: marks } });
+  assert.equal(out.code, 0, either(out));
+  const seen = JSON.parse(readFileSync(join(marks, 'a.json'), 'utf8'));
+  assert.equal(seen.bound, true, `the socket did not bind (${seen.bound}) under ${seen.tmp}`);
+  assert.ok(Buffer.byteLength(seen.tmp) <= suiteScript.runRootLimit(1), `the child TMPDIR is ${Buffer.byteLength(seen.tmp)} bytes: ${seen.tmp}`);
+  assert.equal(runRootLines(out).length, 1, out.stdout);
+  assert.equal(dirname(dirname(seen.tmp)), realpathSync(suiteScript.SHORT_TMP));
+  assert.equal(existsSync(dirname(seen.tmp)), false, 'the run root is still there after the run');
+  assert.deepEqual(readdirSync(base), []);
+});
+
+test('suite-socket-path AC-3 under the short run root a file that leaves something still fails the run with its name, and the root is removed', async () => {
+  const base = longTmp();
+  const leaver = probe({ name: 'suite-socket-path probe leaves a folder', body: "mkdirSync(join(process.env.TMPDIR, 'left-behind'));" });
+  const root = tree({ [`${HOOKS}/leaver${TEST_EXT}`]: leaver, [`${HOOKS}/clean${TEST_EXT}`]: probe() });
+  const out = await run(root, [], { base });
+  assert.equal(out.code, 1, either(out));
+  assert.match(out.stdout, new RegExp(`^LEFT .*${HOOKS}/leaver\\.test\\.mjs.*left-behind`, 'm'));
+  assert.match(out.stdout, new RegExp(`^pass .*${HOOKS}/clean\\.test\\.mjs`, 'm'));
+  const lines = runRootLines(out);
+  assert.equal(lines.length, 1, out.stdout);
+  const named = /^run root: (\S+) /.exec(lines[0]);
+  assert.ok(named, lines[0]);
+  assert.equal(existsSync(named[1]), false, 'the run root is still there after the run');
+});
+
+test('suite-socket-path AC-2 a TMPDIR whose run root fits exactly holds it and gives no line', () => {
+  const tmp = tmpFolder('devkit-fit-');
+  const short = tmpFolder('devkit-short-');
+  const limit = Buffer.byteLength(realpathSync(tmp)) + suiteScript.RUN_ROOT_NAME_BYTES;
+  const made = suiteScript.makeRunRoot({ tmp, short, limit });
+  rmSync(made.runRoot, { recursive: true, force: true });
+  assert.equal(dirname(made.runRoot), realpathSync(tmp));
+  assert.match(made.runRoot.split('/').pop(), /^devkit-suite-/);
+  assert.equal(made.line, null);
+  assert.deepEqual(readdirSync(short), []);
+});
+
+test('suite-socket-path AC-3 a TMPDIR one byte over the limit puts the run root under the short folder with one line naming where and why', () => {
+  const tmp = tmpFolder('devkit-over-');
+  const short = tmpFolder('devkit-sh-'); // two bytes shorter than tmp, so it fits under the limit that tmp misses by one
+  const limit = Buffer.byteLength(realpathSync(tmp)) + suiteScript.RUN_ROOT_NAME_BYTES - 1;
+  const made = suiteScript.makeRunRoot({ tmp, short, limit });
+  rmSync(made.runRoot, { recursive: true, force: true });
+  assert.equal(dirname(made.runRoot), realpathSync(short));
+  assert.deepEqual(readdirSync(tmp), [], 'something was written under the TMPDIR that does not fit');
+  assert.ok(made.line.startsWith(`run root: ${made.runRoot} (TMPDIR ${realpathSync(tmp)}: its run root would take `), made.line);
+  assert.ok(made.line.includes(`over ${limit}`), made.line);
+  assert.ok(made.line.includes(`${suiteScript.SOCKET_PATH_MAX_BYTES} bytes`), made.line);
+  assert.ok(!made.line.includes('\n'), 'the line is one line');
+});
+
+test('suite-socket-path AC-3 a TMPDIR that cannot be used puts the run root under the short folder and the line says why', () => {
+  const short = tmpFolder('devkit-short-');
+  const made = suiteScript.makeRunRoot({ tmp: belowAFile(), short, limit: 1000 });
+  rmSync(made.runRoot, { recursive: true, force: true });
+  assert.equal(dirname(made.runRoot), realpathSync(short));
+  assert.ok(made.line.includes('cannot be used: ENOTDIR'), made.line);
+  assert.ok(!made.line.includes('\n'), 'the line is one line');
+});
+
+test('suite-socket-path AC-3 when the short folder is too long as well, a usage error names both folders and nothing is made', () => {
+  const tmp = tmpFolder('devkit-fit-');
+  const short = tmpFolder('devkit-short-');
+  assert.throws(
+    () => suiteScript.makeRunRoot({ tmp, short, limit: 10 }),
+    (error) => error.name === 'UsageError'
+      && error.message.startsWith('no folder can hold the run root: ')
+      && error.message.includes(realpathSync(tmp))
+      && error.message.includes(realpathSync(short)),
+  );
+  assert.deepEqual(readdirSync(tmp), []);
+  assert.deepEqual(readdirSync(short), []);
+});
+
+test('suite-socket-path AC-3 when the short folder cannot be used either, a usage error names both folders', () => {
+  const tmp = tmpFolder('devkit-fit-');
+  const short = belowAFile();
+  assert.throws(
+    () => suiteScript.makeRunRoot({ tmp, short, limit: 10 }),
+    (error) => error.name === 'UsageError'
+      && error.message.startsWith('no folder can hold the run root: ')
+      && error.message.includes(realpathSync(tmp))
+      && error.message.includes(short)
+      && error.message.includes('cannot be used: ENOTDIR'),
+  );
+  assert.deepEqual(readdirSync(tmp), []);
+});
+
+test('suite-socket-path AC-3 when no folder can hold the run root, the script exits 2 with the usage before any file runs', async () => {
+  assert.equal(typeof suiteScript.makeRunRoot, 'function', 'the script has no makeRunRoot');
+  const base = longTmp();
+  const root = tree({ [`${HOOKS}/a${TEST_EXT}`]: probe() });
+  const short = belowAFile();
+  const was = { tmpdir: process.env.TMPDIR, out: process.stdout.write, err: process.stderr.write };
+  let stdout = '';
+  let stderr = '';
+  let pending;
+  process.env.TMPDIR = base;
+  process.stdout.write = (chunk) => { stdout += chunk; return true; };
+  process.stderr.write = (chunk) => { stderr += chunk; return true; };
+  try {
+    pending = suiteScript.main([], root, short); // returns 2 before its first await, so the swap covers it
+  } finally {
+    process.stdout.write = was.out;
+    process.stderr.write = was.err;
+    process.env.TMPDIR = was.tmpdir;
+  }
+  assert.equal(await pending, 2);
+  assert.ok(stderr.includes('no folder can hold the run root'), stderr);
+  assert.ok(stderr.includes('usage: node scripts/test-suite.mjs'), stderr);
+  assert.ok(!stdout.includes('start '), stdout);
+  assert.deepEqual(readdirSync(base), []);
+});
+
+test('suite-socket-path AC-4 the run root fits by bytes: 51 fits, 52 does not, a non-ASCII byte counts', () => {
+  const room = suiteScript.runRootLimit(1) - suiteScript.RUN_ROOT_NAME_BYTES; // the longest base, in bytes
+  assert.equal(suiteScript.runRootFits('/' + 'a'.repeat(room - 1), 1), true);
+  assert.equal(suiteScript.runRootFits('/' + 'a'.repeat(room), 1), false);
+  assert.equal(suiteScript.runRootFits('/' + 'é' + 'a'.repeat(room - 3), 1), true); // room bytes, room - 1 characters
+  assert.equal(suiteScript.runRootFits('/' + 'é' + 'a'.repeat(room - 2), 1), false);
+});
+
+test('suite-socket-path AC-4 the run-root limit leaves room for a wider place: 71 up to 100 files, one less from 101', () => {
+  assert.equal(suiteScript.runRootLimit(1), suiteScript.runRootLimit(100));
+  assert.equal(suiteScript.runRootLimit(101), suiteScript.runRootLimit(100) - 1);
+  assert.equal(suiteScript.runRootLimit(100) + 3 + suiteScript.SOCKET_TAIL_BYTES, suiteScript.SOCKET_PATH_MAX_BYTES);
 });

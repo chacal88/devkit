@@ -28,40 +28,40 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
 
 ## 1. The run root (phase 1)
 
-- [ ] 1.1 Baseline, before any edit. Run `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`
+- [x] 1.1 Baseline, before any edit. Run `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`
   and keep its sorted test names in the session's scratch folder, outside the tree (used in 3.4). Repeat the
   assumption grep of `design.md`: `grep -rn "\.listen(" plugins scripts --include='*.mjs'` finds only
   `plugins/openspec/hooks/test-fixtures.mjs:622`. Check: both outputs are as stated. Any other hit means stop and report it to the
   conducting session.
-- [ ] 1.2 Write the ten tests of `design.md` D-2 in `plugins/openspec/hooks/test-suite.test.mjs`, with
+- [x] 1.2 Write the ten tests of `design.md` D-2 in `plugins/openspec/hooks/test-suite.test.mjs`, with
   the namespace import `import * as suiteScript from '../../../scripts/test-suite.mjs';` beside the
   existing named import. Do not touch `scripts/test-suite.mjs` yet. Check (red, not a gate): the
   command of 1.1 exits 1. The ten new tests fail, and test 1 fails on its `bound` assertion with
   `EINVAL` (AC-4: red on the script before this change), not on a load or link error. The 18 existing tests pass.
-- [ ] 1.3 Implement `design.md` D-1 in `scripts/test-suite.mjs`: the exports `SOCKET_PATH_MAX_BYTES`,
+- [x] 1.3 Implement `design.md` D-1 in `scripts/test-suite.mjs`: the exports `SOCKET_PATH_MAX_BYTES`,
   `SOCKET_TAIL_BYTES`, `RUN_ROOT_NAME_BYTES`, `SHORT_TMP`, `runRootLimit`, `runRootFits` and
   `makeRunRoot`; the `makeRunRoot` call last inside `main`'s `try`, with the third parameter `short`;
   the `run root:` line before the first `start` line; the header comment and the line-141 comment.
   Check: the command of 1.1 shows the ten new tests passing (AC-2, AC-3, AC-4). The only failures
   are the two that D-3 predicts (`suite-speed AC-4 each file runs in its own empty TMPDIR ...` and
   `suite-speed AC-4 a symlinked TMPDIR gives each file a real path`), each on its run-root parent assertion.
-- [ ] 1.4 Apply `design.md` D-3 to the existing tests: the default base `tmpFolder('devkit-b-')` in
+- [x] 1.4 Apply `design.md` D-3 to the existing tests: the default base `tmpFolder('devkit-b-')` in
   `start` with its comment, the local helper `runParent(base, fileCount)`, line 276 and its line count
   check, and in the symlinked test `tmpFolder('devkit-t-')` and line 297. No other existing test changes.
   Check: the command of 1.1 exits 0 with every test passing (AC-2, AC-4: the existing leftover and
   symlinked-TMPDIR tests keep passing).
-- [ ] 1.5 Gate: `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs` green (AC-2, AC-3, AC-4).
+- [x] 1.5 Gate: `node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs` green (AC-2, AC-3, AC-4).
 
 ## 2. Docs and release (phase 2)
 
-- [ ] 2.1 `CONTRIBUTING.md` line 42: add the sentences of `design.md` D-4 after `(a real path, under
+- [x] 2.1 `CONTRIBUTING.md` line 42: add the sentences of `design.md` D-4 after `(a real path, under
   one run root the script removes at the end)`. Leave the measured-time sentence of that paragraph as
   it is: the test `suite-speed AC-8 CLAUDE.md and CONTRIBUTING.md state the measured time` in
   `plugins/openspec/hooks/test-suite.test.mjs` reads it there. Check: the paragraph says that a Unix
   socket path holds 104 bytes on macOS, that the environment's `TMPDIR` is used when it fits, that the run root
   otherwise goes under the real `/tmp` with one `run root:` line, and that a test that binds a socket does so under its
   `TMPDIR` (AC-6); `python3 scripts/check.py` passes.
-- [ ] 2.2 Release, in one task: bump devkit-openspec by a patch in
+- [x] 2.2 Release, in one task: bump devkit-openspec by a patch in
   `plugins/openspec/.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json`, and bump the marketplace
   version by a patch. Take the next free numbers on `origin/main` at the last merge before review,
   never a literal written now. Add the `CHANGELOG.md` section for that marketplace version: one
@@ -70,7 +70,7 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
   tooling only. Move the CI pin lines of `docs/openspec-flow.md` (733, 734 and 747 at the base) to the
   new devkit-openspec version (CONTRIBUTING.md step 5; ADR 0030: the pin test reads the manifest, so no
   test changes). Check: `python3 scripts/check.py` passes; `claude plugin validate .` passes.
-- [ ] 2.3 Gate: `python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate . && node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs` green (AC-6).
+- [x] 2.3 Gate: `python3 scripts/check.py && python3 scripts/gen-catalog.py --check && claude plugin validate . && node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs` green (AC-6).
 
 ## 3. Validation (phase 3)
 
