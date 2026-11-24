@@ -15,7 +15,7 @@ Every gate is one backticked command, run as written; each `&&` part runs on its
 background command of the tool, never with a shell `&`. Test first: each phase's test task comes
 before its code tasks and its new tests fail on the phase's base (the check says how; a test file that
 imports an export or a module not written yet fails as a whole at load, before any of its tests runs). An existing
-test changes only where D-11 names it: E-1 (in 1.2) and E-3 (in 3.1, with the bump); any other existing
+test changes only where D-11 names it: E-1 (in 1.2), E-4 (in 1.6) and E-3 (in 3.1, with the bump); any other existing
 test that fails is a stop: report it and change nothing. The two release-pin tests of
 `deliver-check-cli.test.mjs` (D-13) and the real-doc pin test of `release-merge.test.mjs` do not change:
 3.1 moves the doc's pins with the version, so they keep passing. End every task with `git status --short` and leave no scratch file in the tree.
@@ -32,11 +32,11 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
 
 ## 1. The stages that apply and the offline read in `state` (AC-1, AC-3, AC-5)
 
-- [ ] 1.1 Merge `origin/main` (at least `3af3655`, the plan's base) into the branch, with no conflict left in
+- [x] 1.1 Merge `origin/main` (at least `3af3655`, the plan's base) into the branch, with no conflict left in
   a file of this change's folder. Check: `git merge-base --is-ancestor 3af3655 HEAD` exits 0, and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs`
   passes before any code changes.
-- [ ] 1.2 Write the tests H-1 to H-8 in `plugins/openspec/hooks/flow-check.test.mjs` and S-1 to S-12 in
+- [x] 1.2 Write the tests H-1 to H-8 in `plugins/openspec/hooks/flow-check.test.mjs` and S-1 to S-12 in
   the new `plugins/openspec/hooks/change-state-stages.test.mjs` (D-11; fixtures from `test-fixtures.mjs`
   and `change-loop-fixtures.mjs`, folders through `tmpFolder`), and update E-1 in
   `plugins/openspec/hooks/change-loop-remote-state.test.mjs` (invariant: the exact contract of one
@@ -48,22 +48,27 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
   `stages` field, `--offline` flag or shared stub, none for a fixture or syntax error. S-6 and S-10
   pass on the base: they are negatives that already hold there (`next` prints no `stages` key today,
   and `--offline` is an unknown option, so `--offline yes` already exits 3 with the plain reply).
-- [ ] 1.3 Add `notApplicableOf` and `appliedStages` to `plugins/openspec/hooks/flow-check.mjs` and make
+- [x] 1.3 Add `notApplicableOf` and `appliedStages` to `plugins/openspec/hooks/flow-check.mjs` and make
   `artifactState` call `notApplicableOf` (D-4), with no behaviour change to the walk. Check: H-1 to
   H-8 pass and every other test of `plugins/openspec/hooks/flow-check.test.mjs` passes unchanged.
-- [ ] 1.4 Add the `stages` option of `nextAction`, the `stages` field of `stateEntries` and the `null`
+- [x] 1.4 Add the `stages` option of `nextAction`, the `stages` field of `stateEntries` and the `null`
   of the entries it builds itself, in `plugins/openspec/hooks/change-loop.mjs` (D-4). Check: S-1 to S-6,
   S-12 and E-1 pass; `next` output carries no `stages` (S-6).
-- [ ] 1.5 Move the offline stub to `plugins/openspec/hooks/merge-setup.mjs` as the exported
+- [x] 1.5 Move the offline stub to `plugins/openspec/hooks/merge-setup.mjs` as the exported
   `OFFLINE_GH`, import it in `plugins/openspec/hooks/roadmap-loop.mjs` (its own copy removed) and in
   `change-loop.mjs`, and add `--offline` to `runState` and to `USAGE` (D-4). Check: S-7 to S-11 pass,
   and `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs`
   passes unchanged.
-- [ ] 1.6 Update the "A change's state" paragraph of `docs/openspec-flow.md` (D-13): `[--offline]` in
+- [x] 1.6 Update the "A change's state" paragraph of `docs/openspec-flow.md` (D-13): `[--offline]` in
   the command and `stages` in the list of fields, the paragraph still after "**Waiting on GitHub.**" and
   still citing ADR 0017 (E-2, in `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, asserts
-  both). Check: E-2 passes and `python3 scripts/check.py` exits 0.
-- [ ] 1.7 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-state-stages.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs && python3 scripts/check.py`
+  both). In the same task edit E-4 (D-11), the third allowed edit beside E-1 and E-3: add `'stages'`
+  to the `NEXT_ONLY` list of the helper `lessIdentity` in
+  `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, and change no other line of the file
+  (invariant: `state` and `next` agree on a change's identity apart from the next-only fields; layer:
+  the change loop's state; suite: change-loop-remote-state). Check: E-2 passes, `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs`
+  passes (the three tests of E-4 among them), and `python3 scripts/check.py` exits 0.
+- [x] 1.7 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/change-state-stages.test.mjs plugins/openspec/hooks/change-loop-remote-state.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/roadmap-loop-followups.test.mjs && python3 scripts/check.py`
   green (AC-1, AC-3, AC-5: the data the bar reads).
 
 ## 2. The status line command (AC-1 to AC-7)

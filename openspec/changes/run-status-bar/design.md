@@ -383,6 +383,9 @@ usage line and the offline stub):
 | E-1 | `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, `change-state AC-1 command: one change prints its state, reason, stage and title in the person's language` | it compares the whole standard output of `state --change feat` as a string | the expected entry gains `stages` with the fixture's list at its end; invariant (the exact contract of one entry), layer (the `state` command), suite (the change loop's) unchanged |
 | E-2 | same file, `change-state ADR 0017: the documents follow` | reads the "A change's state" paragraph of `docs/openspec-flow.md` | nothing: the edit keeps the paragraph after "Waiting on GitHub" and citing ADR 0017 |
 | E-3 | `plugins/openspec/hooks/change-loop-compozy.test.mjs`, `change-loop docs: the design records the answers` (line 325 on `origin/main` at `3af3655`) | line 360 asserts `assert.match(flow, /v0\.39\.0/, 'the CI snippet pins the current release (stale-only-on-own-files: 0.39.0)')` on `docs/openspec-flow.md`, and line 361 `assert.doesNotMatch(flow, /v0\.38\.0/, ...)` for the release before it; after the bump of D-13 the doc holds no `v0.39.0` (its only three occurrences, lines 733, 734 and 747, are the pins the bump moves), so line 360 fails | done in the same task as the bump (3.1), as every earlier release did with its own: the regex and the message of line 360 name the new devkit-openspec version (`run-status-bar: <new>`); one `assert.doesNotMatch` line for `v0.39.0` (`'no pin left on the release before it (stale-only-on-own-files)'`) goes right after it, and no other line of the test changes; the comment of line 359 gains this change's release in front of the list (`run-status-bar moves it to <new> (release <marketplace>), above stale-only-on-own-files' 0.39.0 (release 0.43.0), which moved it above ...`). Invariant (the CI snippet pins the current release, and no earlier one), layer (the documents), suite (the change loop's) unchanged |
+| E-4 | `plugins/openspec/hooks/change-loop-remote-state.test.mjs`, the helper `lessIdentity` (its constant `NEXT_ONLY = ['change', 'script', 'root', 'branch']`, line 1269), used by `change-state AC-3 cli: next and state give the same state for the same files and GitHub answers` (line 1296), `change-state AC-5 plan: with GitHub silent the grill, a plan stage and the approval keep their state` (line 1324) and `change-state AC-5 build: with GitHub silent the implementation and the code review keep the loop's action` (line 1342) | the helper strips the fields only `state` carries from a `state` entry and compares the rest with `next`'s `action.state` through `assert.deepEqual`; the new `stages` field of the entry (D-4) is a field `next` does not carry (S-6), so the three tests fail; found by the phase 1 gate (1.7), not by the plan's search | `'stages'` is added to `NEXT_ONLY`, and no other line of the file changes. Invariant (`state` and `next` agree on a change's identity apart from the next-only fields), layer (the change loop's state), suite (change-loop-remote-state) unchanged |
+
+E-4 is the third allowed edit of an existing test, beside E-1 and E-3; no other existing test changes.
 
 Searched with `git grep` on `origin/main` at `3af3655` for a test that pins a release version of a
 document (`v0\.`, `0.39.0`, `0.43.0`, `PIN_MARKER`, `commit sha of v` in every `*.test.mjs`, the
@@ -397,7 +400,10 @@ version)`) reads the manifest too. The `v0.20.0` assertions (`change-loop-compoz
 floor, which the bump does not touch; `change-loop-compozy.test.mjs:308` and the `release-merge.test.mjs`
 literals use synthetic versions.
 
-No other test pins the exact `state` output or its usage line; `roadmap-loop-upfront.test.mjs` compares
+Beside E-1 and E-4, no other test pins the exact `state` output or its usage line. The plan's first
+search missed E-4: it looked for the `state` output as a literal (an expected string or object), and
+`lessIdentity` compares a `state` entry with `next`'s state through a helper and a list of field names,
+with no literal of the entry. `roadmap-loop-upfront.test.mjs` compares
 named fields of an entry (unchanged) and the remote `machine-probe` `state` (another command).
 The tests that use `OFFLINE_GH` through `roadmap-loop.mjs` keep passing unchanged (the stub's body is
 the same).
@@ -467,7 +473,7 @@ Release: `plugin.json`, `marketplace.json`, `CHANGELOG.md`. No frontend, no work
 | Modify | `plugins/openspec/hooks/flow-check.mjs`, `plugins/openspec/hooks/flow-check.test.mjs` |
 | Modify | `plugins/openspec/hooks/change-loop.mjs` |
 | Modify | `plugins/openspec/hooks/merge-setup.mjs`, `plugins/openspec/hooks/roadmap-loop.mjs` |
-| Modify | `plugins/openspec/hooks/change-loop-remote-state.test.mjs` (E-1), `plugins/openspec/hooks/change-loop-compozy.test.mjs` (E-3) |
+| Modify | `plugins/openspec/hooks/change-loop-remote-state.test.mjs` (E-1, E-4), `plugins/openspec/hooks/change-loop-compozy.test.mjs` (E-3) |
 | Modify | `docs/openspec-flow.md` (the state paragraph, the status line paragraph, the release pins), `plugins/openspec/README.md`, `CHANGELOG.md` |
 | Modify | `plugins/openspec/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` |
 | Delete | none |
@@ -480,7 +486,7 @@ asks; a merge of `main` between phases costs a rerun).
 |---|---|---|---|
 | Merge `origin/main`, baseline gates | 1 | Integration | LOW |
 | `notApplicableOf`, `appliedStages` and H-1 to H-8 | 2 | Core | LOW |
-| `stages` field, `--offline`, `OFFLINE_GH` move, S-1 to S-11, E-1 | 3 | Core | MEDIUM |
+| `stages` field, `--offline`, `OFFLINE_GH` move, S-1 to S-11, E-1, E-4 | 3 | Core | MEDIUM |
 | `status-line.mjs`: input, choice, calls, bounds | 4 | Core | MEDIUM |
 | Line drawing, cut rule, counts, words | 2 | Core | LOW |
 | B-1 to B-46 | 4 | Testing | MEDIUM |
