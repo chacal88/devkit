@@ -1,25 +1,28 @@
 Verdict: approved
-Commit: 54bcca2306612a0c7499dbb1b8416a65af14ec5a
+Commit: 5117e23136d70aaa17be7a991351f17c8a82fc9c
 
-## Coverage analysis: project-slice-claim, round 3 (dfa7128..54bcca2)
+## Coverage analysis: project-slice-claim, round 1 of 2 (54bcca2..5117e23)
 
 ### Findings
-- [nit] plugins/openspec/hooks/project-loop.test.mjs:2155-2163 (AC-9) — implementation-coupled: AC-9 greps project-loop.mjs source for literal strings, so a harmless reformat turns it red and a renamed copy of the claim step stays green; AC-1/AC-2 protect the behaviour.
-- [nit] plugins/openspec/hooks/project-loop.mjs:673-675 (open argument parsing) — No test asserts that `open <slice> --machine/--places/--remote` is refused; it holds only because parseArgs rejects unknown flags.
-- [nit] plugins/openspec/hooks/project-loop.test.mjs:2154 (AC-8) — The delivery push is the test's own plain git push (the real push is an agent step), so AC-8 proves a fast-forward is possible, not that the delivery step pushes without force; delivery code is unchanged.
-- [praise] plugins/openspec/hooks/project-loop.test.mjs AC-4 tests — The race is covered twice (deterministic beforePush hook and a real two-process run) with distinct authors, both asserting nothing is left locally.
-- [praise] plugins/openspec/hooks/project-loop.test.mjs AC-1 refused push — The remote-refuses-the-push case asserts exit 3, the project-unreadable reply, git's message, an unchanged state() and no branch on origin.
-- [praise] plugins/openspec/hooks/change-loop-compozy.test.mjs:362-364 — The CI-pin test now reads the version from plugin.json and asserts every pin of the flow page equals it, so the 0.41.0 bump cannot leave a stale pin; it passes at HEAD.
+- [nit] plugins/openspec/hooks/project-loop.test.mjs:2155-2163 (AC-9) — Implementation-coupled: AC-9 greps project-loop.mjs source for literal strings. AC-1 and AC-2 protect the behaviour. The file is byte-identical to the approved version.
+- [nit] plugins/openspec/hooks/project-loop.mjs:673-675 — No test asserts that `open <slice> --machine/--places/--remote` is refused. It holds only because parseArgs rejects unknown flags. The file is unchanged.
+- [nit] plugins/openspec/hooks/project-loop.test.mjs:2154 (AC-8) — The delivery push is the test's own plain git push, so AC-8 proves a fast-forward is possible, not that the real push step avoids force. The file is unchanged.
+- [praise] plugins/openspec/hooks/change-loop-compozy.test.mjs:362-364 — The CI-pin test reads the version from plugin.json and asserts every pin of the flow page equals it. It catches a stale pin after the 0.43.0 bump and passes at HEAD.
 
-In-scope surfaces: plugins/openspec/hooks (project-loop, change-loop), the release pin in docs/openspec-flow.md and its test in change-loop-compozy.test.mjs.
+In-scope surfaces: release files (plugin.json, marketplace.json, README row), the two resolved docs (docs/openspec-flow.md CI pin lines, plugins/openspec/README.md change-loop row), evidence.md.
 
 Blocking gaps (8-10 without a plan): 0
 
-Seams checked (mutation runs: 0): claim at open, refusal, race, push failure, no-origin, status readout, board unchanged and delivery unchanged are caught by the 13 slice-claim tests; project-loop.mjs, change-loop.mjs and project-loop.test.mjs are byte-identical to dfa7128 (empty diff). The CI pin (plugin.json 0.41.0; docs/openspec-flow.md pins v0.41.0 at lines 733, 734 and 747) is caught by `change-loop docs: the design records the answers`, run in the foreground: 1 of 1 pass. The fourth merge (c663f21) replaced the per-release doesNotMatch lines with a manifest-driven equality assertion (ADR 0030), which still catches any stale pin. The other files the merge brought (deliver-check, release-merge, release-merge-leftovers, trains, specs) belong to the changes that brought them and are not part of this verdict. CHANGELOG, marketplace.json, config.yaml and evidence.md carry no behaviour; scripts/check.py and the catalog check cover their format.
+Seams checked (mutation runs: 0):
+- The CI pin (plugin.json 0.43.0 against flow page lines 733, 734 and 747) is caught by `change-loop docs: the design records the answers`. I ran it in the foreground: 1 of 1 pass.
+- The claim seams (open, refusal, race, push failure, no-origin, status, board, delivery) are unchanged. project-loop.mjs and project-loop.test.mjs are byte-identical, and the claim functions in change-loop.mjs are identical. The 13 slice-claim tests that protected them still do.
+- Main's merge-check code, the README change-loop row's merge-check wording and the new troubleshooting rows belong to post-merge-validate and are out of scope.
+- marketplace.json (0.48.0), CHANGELOG and evidence.md carry no behaviour. scripts/check.py and the catalog check cover their format.
+
+All three earlier nits stand unchanged and none reaches important.
 
 ### Well covered
-- Claim race: deterministic beforePush hook plus a real two-process run.
-- Remote refusal of the claim push: exit code, reply, git message, unchanged state and no branch on origin.
-- Release pin: the manifest-driven assertion closes the stale-pin gap for the 0.41.0 bump.
+- Release pin: the manifest-driven equality assertion follows the bump to 0.43.0 with no test edit.
+- Claim race, remote refusal and the other claim seams: unchanged code and tests, still protected.
 
-Verdict basis: no seam lost protection in the fourth merge or the release bump; the three round 2 nits stand as they were and none reaches important.
+Verdict basis: the fifth merge and the release bump removed no protection from any seam of this change.
