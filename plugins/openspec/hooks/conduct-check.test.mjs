@@ -1647,7 +1647,9 @@ test('coordinator-loop-fixes AC-13 T47 a conflict in release files only is still
 });
 
 test('coordinator-loop-fixes AC-13 T48 an archive pull request that never left a train, conflicting outside the release files, is resolve-base-conflict', () => {
-  const { t, wt } = archiveRepo({ files: { 'README.md': 'r\n' }, archiveFiles: { 'README.md': 'archive\n' } });
+  // The archive edits README.md as an applied retro proposal names it (else deliver-check stops it at apply-proposals first).
+  const retro = '# Retro: b\n\n## Proposed updates\n\n### `README.md` (process-friction)\nSummary of README.md.\n- before: old\n+ after: new\n- Answer: approved\n- Applied: yes\n';
+  const { t, wt } = archiveRepo({ files: { 'README.md': 'r\n' }, archiveFiles: { 'README.md': 'archive\n', 'openspec/changes/archive/2026-11-09-b/retro.md': retro } });
   t.commitOrigin({ 'README.md': 'origin\n' }, 'origin edits the readme');
   archiveGh(t, wt, 'b', [ARCHIVE_PR({ headRefOid: headOf(wt), mergeable: 'CONFLICTING' })]);
   const c = byId(t.state(), 'b');

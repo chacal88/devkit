@@ -49,6 +49,7 @@ const COMMIT = 'devkit-core:commit-and-pr';
 const PLANNER = 'devkit-core:change-planner';
 const SUBAGENT = {
   implement: TDD, 'fix-review': TDD, 'fix-defect': TDD, 'fix-checks': TDD, 'apply-proposals': TDD, 'resolve-release-conflict': TDD, 'rejoin-train': TDD,
+  'resolve-base-conflict': TDD,
   commit: COMMIT, 'open-pr': COMMIT, push: COMMIT, 'open-archive-pr': COMMIT,
   'open-prs': COMMIT, 'open-test-pr': COMMIT, 'push-support': COMMIT, 'move-test-pr': COMMIT, 'open-test-archive-pr': COMMIT,
   'resolve-support-conflict': TDD, 'fix-resolution': TDD,
@@ -402,7 +403,8 @@ function adrClash(ctx, row) {
   } catch { return null; }
 }
 
-// Override 1: a PR in conflict. Release files only: resolve-release-conflict; anything else stays blocked.
+// Override 1: a PR in conflict. Release files only: resolve-release-conflict; anything else: resolve-base-conflict
+// (coordinator-loop-fixes D-5). A conflict git cannot classify, and a head that is not in local history, stay blocked.
 function releaseConflict(ctx, row, state, report) {
   const n = report.next;
   const onChange = n.step === 'blocked' && n.item === 5 && n.conflict === true;
@@ -429,7 +431,11 @@ function releaseConflict(ctx, row, state, report) {
     return state.ship === 'merge' && pr ? step('update-branch', `GitHub reports a conflict but ${ctx.ref} merges cleanly; update the branch`, { number: pr.number }) : null;
   }
   const others = classifyConflict(found.paths, (p) => threeVersions(row.worktree, ctx.ref, p)).blocking;
-  if (others.length) return stop(onChange ? `item 5 (conflict in ${others.join(', ')})` : `archive (archive-pr): conflict in ${others.join(', ')}`);
+  if (others.length) {
+    return step('resolve-base-conflict', `the PR conflicts with ${ctx.base} outside the release files: ${others.join(', ')}`, {
+      number: pr?.number ?? null, paths: [...found.paths].sort(), others: [...others].sort(), base: ctx.base, archive: onArchive,
+    });
+  }
   return step('resolve-release-conflict', `the PR conflicts only in release files${found.paths.includes(PIN_FILE) ? ' and the CI pin' : ''}: ${found.paths.join(', ')}`, {
     number: pr?.number ?? null, paths: [...found.paths].sort(), base: ctx.base,
     command: ['node', RELEASE_MERGE, '--base', ctx.base, '--json'],

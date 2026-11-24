@@ -1049,6 +1049,7 @@ const ROWS = {
   'fix-checks': handOff('implementation', 'tdd-implementer'),
   'apply-proposals': handOff('implementation', 'tdd-implementer'),
   'resolve-release-conflict': handOff('implementation', 'tdd-implementer'),
+  'resolve-base-conflict': handOff('implementation', 'tdd-implementer'),
   'rejoin-train': handOff('implementation', 'tdd-implementer'),
   'renumber-adr': handOff('implementation', 'tdd-implementer'),
   commit: handOff('delivery', 'commit-and-pr'),
