@@ -378,22 +378,22 @@ worktree's `plugins/core`, `plugins/openspec` and `plugins/compozy`. Each saves 
 `openspec/changes/project-setup/proof/`, and the six files are committed before the evidence stage,
 so `evidence.md` cites them before the first review round (`CLAUDE.md`; D-14).
 
-- [ ] 7.1 R-1, first install with the kit declined. Check: `proof/r1-first-install.txt` shows the
+- [x] 7.1 R-1, first install with the kit declined. Check: `proof/r1-first-install.txt` shows the
   questions in order; the schemas, the settings and the block of AC-3 with `release_tag:
   package.json`; no `.compozy/`; `find . -name guard.mjs` empty; the version named.
-- [ ] 7.2 R-2, re-run on R-1's project. Check: `proof/r2-rerun.txt` shows two equal
+- [x] 7.2 R-2, re-run on R-1's project. Check: `proof/r2-rerun.txt` shows two equal
   `shasum -a 256 openspec/config.yaml` lines and no question about the block.
 - [ ] 7.3 R-3, `merge` mode in a scratch clone of a GitHub repository the owner administers, every
   item declined. Check: `proof/r3-merge-mode.txt` shows one question per item and the plan run again
   unchanged.
-- [ ] 7.4 R-4, kit yes. Check: `proof/r4-kit-yes.txt` shows `.compozy/kit-manifest.json`, the
+- [x] 7.4 R-4, kit yes. Check: `proof/r4-kit-yes.txt` shows `.compozy/kit-manifest.json`, the
   installer's per-file lines and `devkit-compozy@devkit` enabled.
-- [ ] 7.5 R-5, driver `compozy`, then `/devkit setup` typed again in that project. Check:
+- [x] 7.5 R-5, driver `compozy`, then `/devkit setup` typed again in that project. Check:
   `proof/r5-driver-compozy.txt` shows `claude` and `compozy` offered, `script` absent, the kit
   installed with no kit question, and the re-run on the `compozy` driver running the Setup section
   with no CompozyOS start, no block or kit question and two equal `shasum -a 256 openspec/config.yaml`
   lines.
-- [ ] 7.6 R-6, the typed-only part. Check: `proof/r6-typed-only.txt` shows a plain-words request
+- [x] 7.6 R-6, the typed-only part. Check: `proof/r6-typed-only.txt` shows a plain-words request
   that ran no setup and an empty `git status --short`.
 - [ ] 7.7 A run that could not happen is recorded in its file with the reason (D-14). Commit the six
   files before the evidence stage. Check: each of the six files exists and is not empty, and
