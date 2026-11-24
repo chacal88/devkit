@@ -1616,8 +1616,9 @@ test('change-loop compozy view: every hand-off step of the delivery rows carries
   const kindOfStep = (step) => { try { return build(rowOf(step, { phase: 2 })).kind; } catch (e) { if (e instanceof LoopUsageError) return 'end'; throw e; } };
   const handOffs = ROW_STEPS.filter((step) => kindOfStep(step) === 'agent');
   const expected = ['implement', 'fix-review', 'fix-defect', 'fix-checks', 'apply-proposals', 'resolve-release-conflict', 'commit', 'open-pr', 'push', 'open-archive-pr', 'verify',
-    'open-prs', 'open-test-pr', 'push-support', 'move-test-pr', 'open-test-archive-pr', 'resolve-support-conflict', 'fix-resolution', 'renumber-adr', 'rejoin-train'];
-  assert.deepEqual([...handOffs].sort(), [...expected].sort(), 'the table\'s hand-offs are the old ones, the seven new delivery steps, renumber-adr and rejoin-train');
+    'open-prs', 'open-test-pr', 'push-support', 'move-test-pr', 'open-test-archive-pr', 'resolve-support-conflict', 'fix-resolution', 'renumber-adr', 'rejoin-train',
+    'resolve-base-conflict'];
+  assert.deepEqual([...handOffs].sort(), [...expected].sort(), 'the table\'s hand-offs are the old ones, the seven new delivery steps, renumber-adr, rejoin-train and resolve-base-conflict');
   for (const step of handOffs) {
     const v = cview(build(rowOf(step, { phase: 2 })));
     const bullet = `add the dispatch sentence of the \`devkit\` skill's Loop bullet \`${step}\``;

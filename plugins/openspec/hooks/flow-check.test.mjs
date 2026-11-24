@@ -2277,3 +2277,89 @@ test('stage-ceiling-consecutive AC-6: the readout says the failures in a row in 
   assert.match(renderText(blocked, blockedFlow, 'en'), /\nEnd: blocked\. The code review failed at attempt 2; its failures in a row \(2\) reached its ceiling of 2\.\n$/);
   assert.match(renderText(blocked, blockedFlow, 'pt-BR'), /\nFim: bloqueada\. A etapa revisão de código falhou na tentativa 2; as falhas seguidas \(2\) chegaram ao limite de 2\.\n$/);
 });
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: one more review round on the owner's word (D-4)
+// Invariant: the ceiling of the `review` stage of role `review-bench` is its flow ceiling plus the review rounds the owner
+// authorized (`authorizedReviewRounds`, read from declared.json by collectFlow); no other stage and no other role's review is
+// lifted, and with no record every walk reads as before. The failures in a row (stage-ceiling-consecutive) stay the left side.
+// Layer: flow-check's computeFlow on synthetic facts, and collectFlow on a git fixture. Suite: flow-check.
+
+const failedReview = (attempt, commit = 'c000000') => ({ review: { result: 'failed', attempt, commit } });
+const ceilingEnd = (r) => [r.end?.state, r.end?.reasonCode, r.end?.params];
+
+test('coordinator-loop-fixes AC-7 T105 computeFlow: with no record a review failed at attempt 2 ends blocked at its ceiling 2', () => {
+  const blockedAt2 = ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }];
+  assert.deepEqual(ceilingEnd(walk(failedReview(2))), blockedAt2, 'no authorizedReviewRounds fact');
+  assert.deepEqual(ceilingEnd(walk(failedReview(2), { authorizedReviewRounds: 0 })), blockedAt2, 'the fact 0');
+});
+
+test('coordinator-loop-fixes AC-7 T106 computeFlow: one authorized round lets a review failed at attempt 2 be fixed and run again', () => {
+  const r = walk(failedReview(2), { authorizedReviewRounds: 1 });
+  assert.equal(r.end, null);
+  assert.deepEqual([r.next.stage, r.next.reasonCode, r.next.params], ['implementation', 'fix-after-failure', { failed: 'review', attempt: 2, failures: 2, ceiling: 3 }]);
+  assert.deepEqual([stageOf(r, 'review').reasonCode, stageOf(r, 'review').params], ['header-failed', { attempt: 2, failures: 2, ceiling: 3 }]);
+  const after = walk(failedReview(2, 'c111111'), { authorizedReviewRounds: 1, staleness: (sha) => (sha === 'c111111' ? 'c111111 is behind c222222' : null) });
+  assert.equal(after.end, null);
+  assert.deepEqual([after.next.stage, after.next.reasonCode], ['review', 'rerun-after-fix']);
+});
+
+test('coordinator-loop-fixes AC-7 T107 computeFlow: one authorized round, the authorized round failed: blocked at the ceiling 3', () => {
+  assert.deepEqual(ceilingEnd(walk(failedReview(3), { authorizedReviewRounds: 1 })), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 3, failures: 3, ceiling: 3 }]);
+});
+
+test('coordinator-loop-fixes AC-7 T108 computeFlow: each authorization adds one round, whichever ceiling the flow sets', () => {
+  const three = walk(failedReview(3), { authorizedReviewRounds: 2 });
+  assert.deepEqual([three.end, three.next.reasonCode, three.next.params.ceiling], [null, 'fix-after-failure', 4]);
+  assert.deepEqual(ceilingEnd(walk(failedReview(4), { authorizedReviewRounds: 2 })), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 4, failures: 4, ceiling: 4 }]);
+  const one = { ...FLOW_DEVKIT, stages: FLOW_DEVKIT.stages.map((s) => (s.id === 'review' ? { ...s, ceiling: 1 } : s)) };
+  const first = computeFlow(synth(failedReview(1), { authorizedReviewRounds: 1 }), one, {});
+  assert.deepEqual([first.end, first.next.reasonCode, first.next.params], [null, 'fix-after-failure', { failed: 'review', attempt: 1, failures: 1, ceiling: 2 }]);
+  assert.deepEqual(ceilingEnd(computeFlow(synth(failedReview(2), { authorizedReviewRounds: 1 }), one, {})), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }]);
+});
+
+test('coordinator-loop-fixes AC-7 T109 computeFlow: an authorized round lifts no other stage and no review of another role', () => {
+  for (const id of ['evidence', 'readiness']) {
+    const r = walk({ [id]: { result: 'failed', attempt: 3 } }, { authorizedReviewRounds: 1 });
+    assert.deepEqual(ceilingEnd(r), ['blocked', 'ceiling-reached', { stage: id, attempt: 3, failures: 3, ceiling: 3 }], id);
+  }
+  const project = JSON.parse(readFileSync(join(PLUGIN_SCHEMAS, 'devkit-project', 'flow.json'), 'utf8'));
+  const files = {};
+  for (const s of project.stages.filter((x) => x.source === 'artifact')) {
+    files[s.id] = [{ path: s.file, header: { stage: s.id, result: s.id === 'review' ? 'failed' : 'passed', attempt: s.id === 'review' ? 2 : 1, commit: 'c000000' }, mtimeMs: T0 }];
+  }
+  const facts = { ...synth(), schema: 'devkit-project', files, authorizedReviewRounds: 1 };
+  assert.deepEqual(ceilingEnd(computeFlow(facts, project, {})), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }]);
+});
+
+test('coordinator-loop-fixes AC-7 T110 collectFlow: authorizedReviewRounds counts the review-scope rounds of declared.json', () => {
+  const root = liveChange();
+  const record = join(root, 'openspec', 'changes', 'feat', 'declared.json');
+  const rounds = () => collectFlow(root, 'feat', { openspec: fakeOpenspec(root) }).facts.authorizedReviewRounds;
+  const entry = (scope) => ({ key: 'review-round', ...(scope === undefined ? {} : { scope }), round: 3, words: 'one more', at: '2026-11-24T10:00:00.000Z' });
+  const write = (...steps) => writeFileSync(record, JSON.stringify({ version: 1, steps }));
+  assert.equal(rounds(), 0, 'no declared.json');
+  write(entry('review'));
+  assert.equal(rounds(), 1, 'one review entry');
+  write(entry());
+  assert.equal(rounds(), 1, 'one entry with no scope');
+  write(entry('review'), entry('resolution'));
+  assert.equal(rounds(), 1, 'one review and one resolution entry');
+  write(entry('resolution'));
+  assert.equal(rounds(), 0, 'only a resolution entry');
+  write(entry('review'), entry('review'));
+  assert.equal(rounds(), 2, 'two review entries');
+  writeFileSync(record, 'not json');
+  assert.equal(rounds(), 0, 'an unreadable record');
+});
+
+test('coordinator-loop-fixes AC-7 T132 computeFlow: the failures in a row since the last pass meet the lifted ceiling', () => {
+  const history = (...headers) => () => headers;
+  const earlier = [failedHeader(1, 'c111111', 'review'), passedHeader(1, 'c000000', 'review')];
+  const two = walk(failedReview(2, 'c222222'), { authorizedReviewRounds: 1, history: history(...earlier) });
+  assert.equal(two.end, null);
+  assert.deepEqual([two.next.reasonCode, two.next.params], ['fix-after-failure', { failed: 'review', attempt: 2, failures: 2, ceiling: 3 }]);
+  const three = walk(failedReview(3, 'c333333'), { authorizedReviewRounds: 1, history: history(failedHeader(2, 'c222222', 'review'), ...earlier) });
+  assert.deepEqual(ceilingEnd(three), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 3, failures: 3, ceiling: 3 }]);
+  const none = walk(failedReview(2, 'c222222'), { history: history(...earlier) });
+  assert.deepEqual(ceilingEnd(none), ['blocked', 'ceiling-reached', { stage: 'review', attempt: 2, failures: 2, ceiling: 2 }]);
+});

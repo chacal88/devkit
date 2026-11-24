@@ -787,11 +787,14 @@ test('change-loop next: a pull request conflicting only in release files hands r
   assert.ok(action.brief.includes('resolve-release-conflict'));
 });
 
-test('change-loop next: a pull request conflicting in another file ends blocked as a pull request problem', () => {
+test('change-loop next: a pull request conflicting in another file hands resolve-base-conflict to the implementer', () => {
   const { t, env } = deliveredChange({ conflicts: ['CHANGELOG.md', 'README.md'], mergeable: 'CONFLICTING', checks: [check('build', 'pass')] });
   const r = next(t.main, [], env);
-  assert.equal(r.code, 2, r.stdout + r.stderr);
-  assert.deepEqual([parsed(r).action.end.state, parsed(r).action.end.why], ['blocked', 'pr-problem']);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const { first, action } = parsed(r);
+  assert.equal(first, 'devkit-run: feat');
+  assert.deepEqual([action.kind, action.agent, action.step, action.stage], ['agent', TDD, 'resolve-base-conflict', 'implementation']);
+  assert.deepEqual([action.detail.paths, action.detail.others, action.detail.base], [['CHANGELOG.md', 'README.md'], ['README.md'], 'main']);
 });
 
 test('change-loop next: the change is found in its worktree whatever the working directory, and the brief points at it', () => {

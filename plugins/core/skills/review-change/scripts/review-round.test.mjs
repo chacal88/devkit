@@ -1314,3 +1314,41 @@ test('jira-entry-followups docs: the review skill and the ship-change review row
   assert.match(flow, /`review-round\.mjs tree`[^.]*`args`/);
   assert.match(flow, /\(uncommitted changes\)` only when `dirty` is not empty/);
 });
+
+// ---- coordinator-loop-fixes: one more round on the owner's word (D-4) ----
+// Invariant: `args.limit` (optional, a whole number of 2 or more, 2 when absent) bounds `args.round`, and every text that counts
+// rounds counts to it. Layer: the round's rules (validateArgs, the prompts, consolidate). Suite: review-round.
+
+test('coordinator-loop-fixes AC-7 T41 validateArgs: round 3 under a limit of 3 is accepted', () => {
+  const args = baseArgs({ round: 3, limit: 3 });
+  assert.equal(validateArgs(args), args);
+});
+
+test('coordinator-loop-fixes AC-7 T42 validateArgs: a round past the limit and a limit that is not a whole number of 2 or more are refused', () => {
+  const cases = [
+    [baseArgs({ round: 4, limit: 3 }), /args\.round must be from 1 to 3/],
+    [baseArgs({ round: 1, limit: 1 }), /args\.limit must be a whole number of 2 or more/],
+    [baseArgs({ round: 1, limit: 2.5 }), /args\.limit must be a whole number of 2 or more/],
+    [baseArgs({ round: 1, limit: '3' }), /args\.limit must be a whole number of 2 or more/],
+  ];
+  for (const [args, why] of cases) {
+    assert.throws(() => validateArgs(args), (e) => /^review input invalid: /.test(e.message) && why.test(e.message), JSON.stringify({ round: args.round, limit: args.limit }));
+  }
+  assert.throws(() => validateArgs(baseArgs({ round: 3 })), /args\.round must be from 1 to 2/, 'no limit is 2');
+});
+
+test('coordinator-loop-fixes AC-7 T43 the texts count to the limit: the consensus line, the deadlock sentence and both stage prompts', () => {
+  const args = baseArgs({ round: 3, limit: 3 });
+  const entry = args.bench[0];
+  const s = validateStage1(entry.reviewer, stage1Of(entry.reviewer, [finding()]), SHA);
+  const o = outcomeOf(args, s, { F1: [keep(), keep(), keep()] });
+  const { consensus, text } = consolidate({ args, outcomes: [o], failed: [], notes: [] });
+  assert.equal(consensus, 'FAIL');
+  assert.match(text, /^Consensus: FAIL \(round 3\/3\)$/m);
+  assert.match(text, /^Consensus deadlock after round 3: the owner decides\.$/m);
+  assert.match(reviewerPrompt(args, entry), /\(round 3 of 3\)/);
+  assert.match(writerPrompt(args, o), /\(round 3 of 3\)/);
+  const two = consolidate({ args: baseArgs({ round: 2, limit: 3 }), outcomes: [outcomeOf(baseArgs({ round: 2, limit: 3 }), s, { F1: [keep(), keep(), keep()] })], failed: [], notes: [] });
+  assert.match(two.text, /^Consensus: FAIL \(round 2\/3\)$/m);
+  assert.match(two.text, /run review-change again \(round 3\)\.$/m, 'round 2 of 3 is no deadlock');
+});

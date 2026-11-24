@@ -131,7 +131,7 @@ every task with `git status --short`.
   contradicts the plan stops the phase, reported, without a guess. A failing test the base added is reported as a row for
   D-15 and one plan revision. Check: `git merge-base --is-ancestor origin/main HEAD` exits 0 and gate 1.6 passes as written.
 
-- [ ] 2.1 Write T10, T17, T25 to T50, T95 to T97, T105 to T113, T117, T118, T132 and T141 of D-16 in the files D-16 names
+- [x] 2.1 Write T10, T17, T25 to T50, T95 to T97, T105 to T113, T117, T118, T132 and T141 of D-16 in the files D-16 names
   (`change-loop-declared.test.mjs`, `deliver-check.test.mjs`, `delivery-models.test.mjs`, `conduct-check.test.mjs`,
   `flow-check.test.mjs` and `plugins/core/skills/review-change/scripts/review-round.test.mjs`), and make the D-15
   updates for D-5: the compozy view's hand-off test (`change-loop compozy view: every hand-off step of the delivery

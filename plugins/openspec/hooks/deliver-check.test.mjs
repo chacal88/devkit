@@ -2,7 +2,7 @@
 // Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, rmSync as fsRm, symlinkSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, rmSync as fsRm, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
 import { spawnSync } from 'node:child_process';
@@ -2644,4 +2644,82 @@ test('coordinator-loop-fixes AC-1 T16 readDeclared: an entry with an unknown key
   const body = JSON.stringify({ version: 1, steps: [red, { key: 'later-key', at: 'x' }, 'not an object', null, round] });
   assert.deepEqual(DC.readDeclared?.(declaredDir(body)), { steps: [red, round], error: null });
   assert.deepEqual(DC.RECORDED_KEYS, ['gate-red', 'review-round']);
+});
+
+// ---------------------------------------------------------------- coordinator-loop-fixes: one more review round on the owner's word (D-4)
+// Invariant: the code review's round limit is REVIEW_ROUNDS (2) plus the review-scope rounds the owner authorized in declared.json;
+// with no record every row reads as before (deadlock after round 2, round 2 after round 1, no `limit` key). Layer: deliver-check's
+// nextStep on a built state, and collectState on a git fixture. Suite: deliver-check.
+
+const deadlockRows = (over = {}) => rejectedState({ reviewMd: { consensus: 'FAIL', round: 2 }, ...over });
+const staleAfterFix = (over = {}) => state({
+  reviewMd: { consensus: 'FAIL', round: 2 },
+  reviews: [{ name: 'code-quality-reviewer', verdict: 'REJECTED', current: false }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: false }],
+  items: { 2: open({ stale: BOTH, rejected: ['code-quality-reviewer'] }) },
+  ...over,
+});
+
+test('coordinator-loop-fixes AC-7 T32 nextStep: FAIL (round 2/2) with a current rejection and a limit of 3 is fixed, not a deadlock', () => {
+  const n = nextStep(deadlockRows({ roundLimit: 3 }));
+  assert.equal(n.step, 'fix-review');
+  assert.deepEqual(n.reviewers, ['code-quality-reviewer']);
+});
+
+test('coordinator-loop-fixes AC-7 T33 nextStep: with a limit of 3 the rejected review, stale after the fix, runs as round 3 with its limit', () => {
+  const n = nextStep(staleAfterFix({ roundLimit: 3 }));
+  assert.deepEqual([n.step, n.round, n.limit], ['review', 3, 3]);
+  assert.deepEqual(n.reviewers, BOTH);
+});
+
+test('coordinator-loop-fixes AC-7 T34 nextStep: FAIL (round 3/3) with a current rejection is the deadlock, after round 3', () => {
+  const n = nextStep(rejectedState({ reviewMd: { consensus: 'FAIL', round: 3 }, roundLimit: 3 }));
+  assert.equal(n.step, 'stop-review-deadlock');
+  assert.match(n.reason, /after round 3/);
+  assert.deepEqual(n.reviewers, ['code-quality-reviewer']);
+});
+
+test('coordinator-loop-fixes AC-7 T35 nextStep: with no roundLimit a review after round 1 carries no limit key, and the deadlock says round 2', () => {
+  const n = nextStep(staleAfterFix({ reviewMd: { consensus: 'FAIL', round: 1 } }));
+  assert.deepEqual([n.step, n.round], ['review', 2]);
+  assert.equal(Object.hasOwn(n, 'limit'), false);
+  const limitTwo = nextStep(staleAfterFix({ reviewMd: { consensus: 'FAIL', round: 1 }, roundLimit: 2 }));
+  assert.equal(Object.hasOwn(limitTwo, 'limit'), false, 'a limit of 2 is not written either');
+  assert.match(nextStep(deadlockRows()).reason, /after round 2/);
+});
+
+const declaredAt = (root, steps) => writeFileSync(join(root, 'openspec', 'changes', 'feat', 'declared.json'), typeof steps === 'string' ? steps : JSON.stringify({ version: 1, steps }));
+const roundEntry = (scope) => ({ key: 'review-round', ...(scope === undefined ? {} : { scope }), round: 3, words: 'one more round', at: '2026-11-24T10:00:00.000Z' });
+
+test('coordinator-loop-fixes AC-7 T37 collectState: the round limit counts only the review-scope rounds the owner authorized', () => {
+  const t = shipRepo();
+  const limit = () => collectState(t.root, 'feat', { env: t.env }).roundLimit;
+  assert.equal(limit(), 2, 'no record');
+  declaredAt(t.root, [roundEntry('review')]);
+  assert.equal(limit(), 3, 'one review entry');
+  declaredAt(t.root, [roundEntry()]);
+  assert.equal(limit(), 3, 'one entry with no scope reads as review');
+  declaredAt(t.root, [roundEntry('resolution')]);
+  assert.equal(limit(), 2, 'only a resolution entry');
+  declaredAt(t.root, '{"version": 1, "steps": [');
+  assert.equal(limit(), 2, 'an unreadable record');
+});
+
+test('coordinator-loop-fixes AC-7 T113 REVIEW_ROUNDS is the review ceiling of both shipped flows', () => {
+  for (const schema of ['devkit', 'devkit-lite']) {
+    const flow = JSON.parse(readFileSync(join(here, '..', 'schemas', schema, 'flow.json'), 'utf8'));
+    assert.equal(DC.REVIEW_ROUNDS, flow.stages.find((s) => s.id === 'review').ceiling, schema);
+  }
+});
+
+test('coordinator-loop-fixes AC-7 T141 collectState: an uncommitted declared.json is no plan fix but still a dirty change folder', () => {
+  const t = shipRepo();
+  declaredAt(t.root, [roundEntry('review')]);
+  const record = 'openspec/changes/feat/declared.json';
+  let s = collectState(t.root, 'feat', { env: t.env });
+  assert.deepEqual(s.planDirty, []);
+  assert.deepEqual(s.folderDirty, [record]);
+  put(t.root, { 'openspec/changes/feat/design.md': '# Design\n' });
+  s = collectState(t.root, 'feat', { env: t.env });
+  assert.deepEqual(s.planDirty, ['openspec/changes/feat/design.md']);
+  assert.deepEqual([...s.folderDirty].sort(), [record, 'openspec/changes/feat/design.md'].sort());
 });
