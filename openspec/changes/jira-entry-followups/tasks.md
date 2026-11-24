@@ -210,13 +210,13 @@ scratch file in the tree, and end every task with `git status --short`.
 
 ## 5. Release and the whole suite (every AC)
 
-- [ ] 5.1 Release, at the last merge of main before review (CONTRIBUTING.md step 5): bump
+- [x] 5.1 Release, at the last merge of main before review (CONTRIBUTING.md step 5): bump
   devkit-openspec and devkit-core, each to the next free minor after its version on origin/main at
   that merge, in `plugins/openspec/.claude-plugin/plugin.json`,
   `plugins/core/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, and the
   marketplace to the next free minor there too; add the `CHANGELOG.md` section (D-9; no
   `Projects:` re-run line: no flow file changes). Check: `python3 scripts/check.py` passes.
-- [ ] 5.2 Docs of D-9 in `docs/openspec-flow.md`: the CI pin `v0.33.0` (three places) moved to
+- [x] 5.2 Docs of D-9 in `docs/openspec-flow.md`: the CI pin `v0.33.0` (three places) moved to
   `v<the devkit-openspec version 5.1 set>`, with the CI-pin test of `change-loop.test.mjs` (line
   2578) moved to it in the same task. Run `python3 scripts/gen-catalog.py`. Check:
   `python3 scripts/gen-catalog.py --check` and `python3 scripts/check.py` pass, and

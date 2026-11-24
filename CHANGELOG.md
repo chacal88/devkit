@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.44.0 — the jira-entry retro's fixes
+
+- **devkit-openspec** 0.40.0:
+  - `deliver-check` hands `commit` for a plan fix that touches only the change folder, then `review` at round 2:
+    `next` no longer answers `fix-review` again after such a fix. A rejected verdict, or an approved one that
+    still lists an undisposed `[blocking]` or `[important]` finding, goes stale after a commit of the plan files
+    (outside its review record), as the rejected one already did.
+  - `readFlowFile` compares a `flow.json`'s `version` with the newest the script reads before it checks the
+    stage keys: a newer file is refused with the file's version, the newest the script reads and the update to
+    make (and the release, when the file carries `readerRelease`), not as "malformed: unknown key". The shipped
+    flow files are unchanged.
+  - `write-back ask` compares the pull request number as `next` does; `change-loop.mjs reply` reads a
+    parameter from standard input with `--stdin <name>`, and the devkit skill passes the connector's error
+    through the quoted heredoc and not `--param error=`; the `task-taken` check of `open --task` runs inside the
+    open lock. The CI snippet now pins `v0.40.0`, the release's tag.
+- **devkit-core** 0.16.0: the review round takes the `Commit:` line's marker from git (`review-round.mjs tree`,
+  `args.dirty`), not from the reviewer: `(uncommitted changes)` appears only when a path outside `openspec/` is
+  uncommitted, the delivery check's own rule, so a tree dirty only in the change folder records plain verdicts.
+- Docs: the flow doc and `CONTRIBUTING.md` state the reader's refusal and the `readerRelease` step of a new flow
+  version; the review-change skill and the ship-change `review` row fill `args.dirty` from `review-round.mjs tree`.
+
 ## 0.43.0 — a merge of the base stales only the change's own files
 
 - **devkit-openspec** 0.39.0: the delivery checker, the stage checker and `deliver-check --ci` judge a
