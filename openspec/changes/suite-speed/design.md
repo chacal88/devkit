@@ -417,8 +417,8 @@ run on each side.
   in `/var/tmp/devkit-suite-speed-proof/red.log` for the evidence.
 - **AC-4, symlink** (task 2.4). `mkdir /var/tmp/devkit-suite-speed-link-target`, then
   `ln -s /var/tmp/devkit-suite-speed-link-target /var/tmp/devkit-suite-speed-link`, then
-  `env TMPDIR=/var/tmp/devkit-suite-speed-link node scripts/test-suite.mjs --test-name-pattern="^change-budget " plugins/openspec/hooks/change-loop.test.mjs`
-  passes; the tests named `change-budget ...` of `change-loop.test.mjs` (from line 4882, among them
+  `env TMPDIR=/var/tmp/devkit-suite-speed-link node scripts/test-suite.mjs --test-name-pattern="^change-budget " plugins/openspec/hooks/change-loop-remote.test.mjs`
+  passes; the tests named `change-budget ...` of `change-loop-remote.test.mjs` (`change-loop.test.mjs` from line 4882 before the split of task 4.2, among them
   `change-budget AC-9 sessionTranscript finds the session file under CLAUDE_CONFIG_DIR`, which
   compares a path built from a temporary folder with the path the guard returns) are the
   change-budget tests that compare paths. T-8 proves the real path for any file.
@@ -696,3 +696,30 @@ None.
     `as cleanEnv`; `simGitHub` is the stack's version (it has `pr comment`, `pr merge`, `setPr` and `setAutoMerge`).
 - **The ADR's number (task 5.1).** The stack took 0022, 0023 and 0024, and a sibling change (`stale-only-on-own-files`) takes 0025
   right before this one, so the ADR is `0026` and every text of this change names it.
+- **D-11, task 4.2 reopened (2026-11-24).** The measure on the merged branch (`cbd47bc` plus the 5.3 tick; idle 8-core
+  Avell; 30 files, 2915 tests) is 816.6 s, not the 558.7 s of the first decision ("no split"): `change-loop.test.mjs`
+  (816.6 s) and `roadmap-loop.test.mjs` (685.9 s) are above 600 s and set the wall clock, and the next files are
+  `deliver-check` 495 s, `delivery-train` 373 s, `stage-models` 373 s and `project-loop` 285 s. The seconds of all files add
+  to 3827 s, so about 480 s is the best packing on 8 cores, and only a split of the two files meets the target. D-11's rule
+  applies as written, with three parts each, cut at `// ----` headings and balanced by the cost of each test in a TAP run of
+  the head (about 300, 269 and 263 s for `change-loop`; 254, 226 and 229 s for `roadmap-loop`):
+  - `change-loop.test.mjs` keeps the history of the original (`git log --follow`) and the loop, its commands and its locks;
+    `change-loop-compozy.test.mjs` takes the command and the wiring, the skill and the documents, stage-roles and the
+    compozy driver; `change-loop-remote.test.mjs` takes the remote worker, the Jira entry, the budget, change-state and the
+    held state of the upfront sessions. `roadmap-loop.test.mjs` keeps the pure core, the commands and the locks;
+    `roadmap-loop-followups.test.mjs` takes the skill, the documents, the followups and the roadmap on CompozyOS (with the
+    first half of the upfront sessions); `roadmap-loop-upfront.test.mjs` takes the check, the second half of the upfront
+    sessions, the remote worker and change-state.
+  - What a part shares with another is in `change-loop-fixtures.mjs` and `roadmap-loop-fixtures.mjs` (D-4's rules: no test, no
+    folder, spawn or git call at import; the two hold only builders, paths and constants, and import what they use). A helper
+    only one part uses lives in that part. The fixtures that the tests make are made by each test or part as before: none is
+    made at module level. The git identity that `change-loop.test.mjs` put in the environment for the whole file
+    (`IDENT`) is set by each of its three parts, so every test runs with the environment it had.
+  - The suite goes from 30 to 34 files. T-1 and T-2 count the 29 files the old command ran, which still exist (the two
+    names are the first parts), so they do not change. No test is renamed and no assertion changes; the only edit inside a
+    test is the exemption of the test that scans the repository for `/conduct` (`change-loop retire: ...`), whose `records`
+    list names the file that holds the test (now `change-loop-compozy.test.mjs`).
+  - The proof is D-10's, per split file (4.2): the sorted titles of the original's `test(` and `t.test(` calls, with the titles
+    of the tests that enclose them, against the same list over the three parts, and the owner's measure again (4.1's command).
+    The checks that named a split file for a test (the AC-4 symlink run of D-11, tasks 2.4, 5.1, 5.2 and 5.3) name the part that
+    holds it now.

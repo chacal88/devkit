@@ -101,7 +101,7 @@ and end every task with `git status --short`.
   `node --test plugins/openspec/hooks/test-suite.test.mjs` passes, T-6 included.
 - [x] 2.4 Prove AC-4 with a symlinked `TMPDIR` (D-11): `mkdir /var/tmp/devkit-suite-speed-link-target`,
   `ln -s /var/tmp/devkit-suite-speed-link-target /var/tmp/devkit-suite-speed-link`, then
-  `env TMPDIR=/var/tmp/devkit-suite-speed-link node scripts/test-suite.mjs --test-name-pattern="^change-budget " plugins/openspec/hooks/change-loop.test.mjs`;
+  `env TMPDIR=/var/tmp/devkit-suite-speed-link node scripts/test-suite.mjs --test-name-pattern="^change-budget " plugins/openspec/hooks/change-loop-remote.test.mjs`;
   keep its output in `/var/tmp/devkit-suite-speed-proof/symlink.log` for the evidence, then remove
   the link and its target. Check: the run exits 0 and its summary line counts the `change-budget`
   tests as passed.
@@ -134,7 +134,7 @@ and end every task with `git status --short`.
   follow` (`roadmap-loop.test.mjs:5132-5133`, stays green). Check:
   `node scripts/test-suite.mjs --test-name-pattern="^suite-speed AC-7 " plugins/openspec/hooks/test-suite.test.mjs`
   passes,
-  `node scripts/test-suite.mjs --test-name-pattern="^upfront ADR 0021: the documents follow$" plugins/openspec/hooks/roadmap-loop.test.mjs`
+  `node scripts/test-suite.mjs --test-name-pattern="^upfront ADR 0021: the documents follow$" plugins/openspec/hooks/roadmap-loop-upfront.test.mjs`
   passes, and `python3 scripts/check.py` passes.
 - [x] 3.4 Mark ADR 0026 accepted (D-9: `- Status: accepted` and the `- Accepted by:` line, the date
   and the owner's words read from `openspec/changes/suite-speed/approval.md`). Its number is the
@@ -154,7 +154,7 @@ and end every task with `git status --short`.
   load averages, every file's seconds, the `suite:` line, `real`, the commit) in
   `/var/tmp/devkit-suite-speed-proof/measure.md` for the evidence. Check: the file holds all of them
   and the run exited 0.
-- [x] 4.2 Decide the split (D-11). No file above 600 seconds: record "no split" with the largest
+- [ ] 4.2 Decide the split (D-11). No file above 600 seconds: record "no split" with the largest
   file's seconds in `measure.md`. A file above 600 seconds: split it by its section headings as
   D-11 says, prove its test names unchanged with D-10's one-file form (a TAP run of the original
   file at the commit before the split against `node scripts/test-suite.mjs --reporter=tap <its parts>`,
@@ -162,6 +162,32 @@ and end every task with `git status --short`.
   measure again (4.1's command), recorded in `measure.md`. The whole run above 600 seconds with no
   file above it: stop and ask the owner. Check: `measure.md` names the decision, and the last
   measured `real` is at most 600 seconds.
+  Reopened (2026-11-24). The first decision was "no split" (558.7 s, 22 files, before the merge of
+  the stack). The measure on the merged branch (`cbd47bc` plus the 5.3 tick, idle 8-core Avell,
+  30 files, 2915 tests) is 816.6 s: `change-loop.test.mjs` 816.6 s and `roadmap-loop.test.mjs`
+  685.9 s are above 600 s and set the wall clock; the next are `deliver-check` 495 s,
+  `delivery-train` 373 s, `stage-models` 373 s and `project-loop` 285 s. The seconds of all files
+  add to 3827 s, so about 480 s is the best packing on 8 cores. Decision: split both files in
+  three at their `// ----` headings, balanced by the cost of each test in
+  `/var/tmp/devkit-suite-speed-proof/head.tap` (a run of the head before the split; seconds below
+  are the sum of `duration_ms` of the part's tests there):
+  `change-loop.test.mjs` (the loop, its commands and its locks, lines 1 to 2181 of the original; 300 s),
+  `change-loop-compozy.test.mjs` (the wiring, the skill and the documents, stage-roles, the compozy
+  driver, 2182 to 4844; 269 s) and `change-loop-remote.test.mjs` (remote-worker, Jira entry,
+  budget, change-state, upfront held state, 4845 to the end; 263 s), with their shared helpers in
+  `change-loop-fixtures.mjs`; `roadmap-loop.test.mjs` (the pure core, the commands and the locks,
+  1 to 1750; 254 s), `roadmap-loop-followups.test.mjs` (the skill, the documents, followups,
+  the roadmap on CompozyOS, 1751 to 3919; 226 s) and `roadmap-loop-upfront.test.mjs` (the check, the
+  rest of the upfront sessions, remote and change-state, 3920 to the end; 229 s), with
+  `roadmap-loop-fixtures.mjs`. The suite goes from 30 to 34 test files; the names of the tests do
+  not change (a sorted list of every `test(` and `t.test(` title, with the titles of the tests
+  that enclose it, of the head's file against the three parts, is empty in its diff); the one
+  edit inside a test is the file name in the `records` list of
+  `change-loop retire: /conduct is not shipped and nothing points at it`, which exempts the file
+  that holds the test and so now names `change-loop-compozy.test.mjs`. A check that names a test
+  by its file names the part that holds the test (5.1, 5.2 and 5.3 below follow). Check: the names
+  diff is empty; `node --test --test-name-pattern='^no such test$' <part>` exits 0 for each part;
+  the owner measures again (4.1's command) and the last measured `real` is at most 600 s.
 - [x] 4.3 Add T-15 to `plugins/openspec/hooks/test-suite.test.mjs` and see it fail; then write the
   measured time into the `CLAUDE.md` row ("about <m> minutes on an idle 8-core machine", D-9) and
   the `CONTRIBUTING.md` paragraph ("about <m> minutes on an idle 8-core machine; <m:ss> observed on
@@ -187,7 +213,7 @@ merge of `origin/main` repeats them.
   `git ls-tree --name-only origin/main docs/adr/` other than it starts with its four-digit number,
   `openspec/config.yaml` holds `<N> the devkit test suite runs by file in parallel` with that
   number, and, when renumbered, `git grep -n "0026-the-devkit-test-suite"` prints nothing; and
-  `node scripts/test-suite.mjs --test-name-pattern="^upfront ADR 0021: the documents follow$" plugins/openspec/hooks/roadmap-loop.test.mjs`
+  `node scripts/test-suite.mjs --test-name-pattern="^upfront ADR 0021: the documents follow$" plugins/openspec/hooks/roadmap-loop-upfront.test.mjs`
   passes.
 - [x] 5.2 The release, in one task (the two pin tests below are red from the bump until the doc
   pin and the assertion move, so no Check runs in between). Bump devkit-openspec and devkit-core by
@@ -198,26 +224,26 @@ merge of `origin/main` repeats them.
   `# pinned to the commit of v<version>` comment, the `(v<version> above)` text and the
   `gh api repos/chacal88/devkit/git/ref/tags/v<version>` command) to the new devkit-openspec
   version; move the assertion of `change-loop docs: the design records the answers`
-  (`plugins/openspec/hooks/change-loop.test.mjs:2578`, `v0\.33\.0` at the base) to the new version
+  (`plugins/openspec/hooks/change-loop-compozy.test.mjs` since the split of 4.2; line 2578 of `change-loop.test.mjs`, `v0\.33\.0`, at the base) to the new version
   and add the old pin to its `doesNotMatch` list, with its invariant comment (line 2577) extended;
   add the `CHANGELOG.md` section for that marketplace version (one bullet each: the suite script and
   `CLAUDE.md`/`CONTRIBUTING.md`; devkit-openspec's `test-fixtures.mjs`, the import refusal and the
   per-file `TMPDIR`; devkit-core's header comment; CI's one step; the skip check of
   `scripts/check.py`); run `python3 scripts/gen-catalog.py`. The commit names the invariant "the CI
   snippet pins the current release", the layer documentation test, the suite
-  `change-loop.test.mjs`. Pinned texts this task touches and their tests:
+  `change-loop-compozy.test.mjs`. Pinned texts this task touches and their tests:
   `deliver-check.test.mjs:3795` (`the pin in docs/openspec-flow.md is the commit sha of v + ...`),
-  `deliver-check.test.mjs:3806` (`AC-8 release-ready: ...`) and `change-loop.test.mjs:2543`. Check:
+  `deliver-check.test.mjs:3806` (`AC-8 release-ready: ...`) and `change-loop-compozy.test.mjs` (`change-loop docs: ...`, line 2543 of `change-loop.test.mjs` at the base). Check:
   `python3 scripts/gen-catalog.py --check` passes,
   `node scripts/test-suite.mjs --test-name-pattern="^the pin in docs/openspec-flow[.]md is the commit sha|^AC-8 release-ready" plugins/openspec/hooks/deliver-check.test.mjs`
   passes (two tests), and
-  `node scripts/test-suite.mjs --test-name-pattern="^change-loop docs: the design records the answers$" plugins/openspec/hooks/change-loop.test.mjs`
+  `node scripts/test-suite.mjs --test-name-pattern="^change-loop docs: the design records the answers$" plugins/openspec/hooks/change-loop-compozy.test.mjs`
   passes.
 - [x] 5.3 Run the AC-2 procedure of D-10 and the AC-6 procedure of D-11, keeping their outputs in
   `/var/tmp/devkit-suite-speed-proof/` (`base.tap`, `head.tap`, `base.names`, `head.names`, the
   diff, `red.log`) for the evidence. The base copy gets its own repository before its run, as D-10
   step 1 says (`git -C /var/tmp/devkit-suite-speed-proof/base init -q && git -C /var/tmp/devkit-suite-speed-proof/base add -A -f`,
-  no commit), so that `deliver-check.test.mjs:3199` and `change-loop.test.mjs:2492` can run
+  no commit), so that `deliver-check.test.mjs:3199` and `change-loop-compozy.test.mjs` (`repoFiles`, line 2492 of `change-loop.test.mjs` at the base) can run
   `git ls-files` there; no `git worktree add`. The AC-6 copy needs none (its two files read no
   repository by git). The two AC-2 runs are full runs (the base one is the old
   command, 13 to 45 minutes on the worker): the conducting session runs them, each as a background
