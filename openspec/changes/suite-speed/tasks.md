@@ -154,7 +154,7 @@ and end every task with `git status --short`.
   load averages, every file's seconds, the `suite:` line, `real`, the commit) in
   `/var/tmp/devkit-suite-speed-proof/measure.md` for the evidence. Check: the file holds all of them
   and the run exited 0.
-- [ ] 4.2 Decide the split (D-11). No file above 600 seconds: record "no split" with the largest
+- [x] 4.2 Decide the split (D-11). No file above 600 seconds: record "no split" with the largest
   file's seconds in `measure.md`. A file above 600 seconds: split it by its section headings as
   D-11 says, prove its test names unchanged with D-10's one-file form (a TAP run of the original
   file at the commit before the split against `node scripts/test-suite.mjs --reporter=tap <its parts>`,
@@ -218,6 +218,12 @@ and end every task with `git status --short`.
   `deliver-check-cli.test.mjs`. Check: the names diff is empty for each of the three files;
   `node --test --test-name-pattern='^no such test$' <part>` exits 0 for each part; the owner measures
   again (4.1's command) and the last measured `real` is at most 600 s.
+  Final decision (2026-11-24, after the second round and a measure alone on the machine: no other
+  suite running, load average 0.40 at the start): 38 files, 2915 tests, all green, 575.7 s (9:36)
+  on `a9babd2`, the largest file `stage-models.test.mjs` 331 s; the sorted test names of the new
+  command equal the old command's at the stack head `38953b6` (2897 = 2897, less this change's 18
+  tests, empty diff). Two earlier runs of the same tree, 659.5 s (34 files) and 600.5 s (38 files),
+  overlapped another session's full suite and are not measures. `measure.md` holds it.
 - [x] 4.3 Add T-15 to `plugins/openspec/hooks/test-suite.test.mjs` and see it fail; then write the
   measured time into the `CLAUDE.md` row ("about <m> minutes on an idle 8-core machine", D-9) and
   the `CONTRIBUTING.md` paragraph ("about <m> minutes on an idle 8-core machine; <m:ss> observed on
