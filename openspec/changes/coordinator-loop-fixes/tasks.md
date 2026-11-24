@@ -280,7 +280,7 @@ every task with `git status --short`.
   is not the change's own" among them, D-15) (`delivery-train-after.test.mjs`) still pass:
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^delivery-train P3 isOwnPr" --test-name-pattern="^delivery-train P3 delivered" plugins/openspec/hooks/delivery-train-after.test.mjs`
   passes.
-- [ ] 3.8 D-21: the exported `headInBase(root, facts)` in `plugins/openspec/hooks/deliver-check.mjs`, read by `ownFiles`
+- [x] 3.8 D-21: the exported `headInBase(root, facts)` in `plugins/openspec/hooks/deliver-check.mjs`, read by `ownFiles`
   (its result unchanged) and by `prItem`'s merged arm, and `collectFlow`'s `postMerge` in `plugins/openspec/hooks/flow-check.mjs` (`offOwnBranch` or
   `headInBase`, and delivered). With it, the two D-15 updates of the plan revision of task 3.8 (the field of 3.2 and the
   code of 3.5 left them red): the row `'plan-revised': {}` in the table `P` of "flow-check readout: both languages cover

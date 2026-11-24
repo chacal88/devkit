@@ -202,7 +202,7 @@ test('CLI --json carries the items, phases and next, with version 1', () => {
   assert.equal(j.met + j.items.filter((i) => i.status !== 'met').length, 8);
   assert.equal(j.summary, 'in progress: item 1');
   assert.equal(j.next.step, 'implement');
-  assert.deepEqual(j.phases[0], { n: 1, title: 'First', open: ['1.1'], gate: { id: '1.2', done: false, command: 'node -e 0' } });
+  assert.deepEqual(j.phases[0], { n: 1, title: 'First', open: ['1.1'], conductor: [], gate: { id: '1.2', done: false, command: 'node -e 0' } });
 });
 
 test('CLI: exit 0 only at 8/8, with the PR in the JSON', () => {

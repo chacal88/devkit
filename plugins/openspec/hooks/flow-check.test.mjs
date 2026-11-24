@@ -1317,6 +1317,7 @@ test('flow-check readout: both languages cover every reason code', () => {
     'stale-reviewers': { names: ['spec-reviewer'] },
     // The delivery train (delivery-train D-2): a change that boards, rides a train or was taken off one.
     boarded: {}, 'on-train': { number: 40 }, 'left-train': { train: 4, number: 40 }, 'disable-auto-merge': { number: 12 },
+    'plan-revised': {},
   };
   assert.deepEqual(Object.keys(P).sort(), en, 'the table below names every code');
   for (const code of en) {
