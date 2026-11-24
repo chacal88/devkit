@@ -1,15 +1,33 @@
-Verdict: rejected
-Commit: 0de71c21dbbf05b099cb402387237df4cac9a622
+Verdict: approved
+Commit: d0a2b37eb677790cbbb1422d2ecf4b5143da5d89
 
 ## Spec review — forced-merge-path
 
 ### Findings
-- [important] specs/change-delivery/spec.md, requirement "A merged pull request is found from any checkout"; evidence.md Observations 1 — Spec ambiguity resolved silently: when several merged pull requests pass isOwnPr (stacked delivery-train PRs 91, 93, 94), the number found depends on the checkout (#91 from main, #93 from the change's own branch), and no scenario says which one is the change's. The retro text and tag-release name that number. The evidence records it as inherited and left to the owner. Decide the rule in the spec or record it as a follow-up change.
-- [nit] specs/change-delivery/spec.md, "The work left after a merge is named", scenario "A further pull request is open"; deliver-check-archive.test.mjs:1198 — The only test of this scenario has no red required check and does not assert that the merged pull request is not read as forced (no forced fact, no statusCheckRollup call). The code path is right (mergedOwn is null when an open pull request wins), but the scenario's check-red condition is not pinned.
-- [nit] deliver-check.mjs findByCommits (per_page=10) and gatesAtHead (files.length >= 300); specs/change-delivery/spec.md, "A merged pull request is found from any checkout" and "The open items of a forced… — The spec says 'newest first' with no limit, and says nothing about a compare too large to read. Design D-1 and D-3 choose 10 commits and a 300-file cap (a 'too far behind' gate item). These bounds are in the code and design but in no requirement or scenario; add them to the spec or confirm they are intended.
-- [nit] docs/openspec-flow.md (delivered paragraph); branch base — (a) The delivered paragraph keeps 'A checkout that is not the change's branch then stops with the stop-branch step' right after the forced-merge sentences, so it reads as the forced case. It should say it applies to the partial merge (every required check green). (b) origin/main (946e3e8, own-pr-archive-paths, train 1) has moved past the last merge (9dff573) and changed isOwnPr and deliver-check.mjs, which the new commit arm calls. Merge it before the final verify and review, as the plan's own rule says.
+- [important] specs/change-delivery/spec.md, requirement "A merged pull request is found from any checkout"; evidence.md Observation 1 — Stacked merged pull requests (91, 93, 94): the number found depends on the checkout and no scenario says which is the change's. Recorded as a known limit and follow-up in design.md Risks and proposal.md out-of-scope, which satisfies 'record it as a follow-up change'. · fixed in 8058ecf67985073eea1bffe55730dd33479c17f0
+- [nit] plugins/openspec/hooks/deliver-check-archive.test.mjs:1198, scenario "A further pull request is open" — The test had no red required check and did not assert the merged pull request is not read as forced. It now has devkit-reviews FAILURE and asserts no forced fact and no pr view 12 call. · fixed in 8058ecf67985073eea1bffe55730dd33479c17f0
+- [nit] specs/change-delivery/spec.md, "A merged pull request is found from any checkout" and "The open items of a forced merge are named" — The bounds of 10 commits and 300 files were in no requirement. The spec now states the 10 commits and has the scenario 'A verdict recorded too far behind to read'. · fixed in 8058ecf67985073eea1bffe55730dd33479c17f0
+- [nit] docs/openspec-flow.md delivered paragraph; branch base — (a) the stop-branch sentence is now scoped to a partial merge (fixed in 8058ecf). (b) origin/main (a347ac0 locally; merge-base still 9dff573) has moved on with own-pr-archive-paths changes to isOwnPr and deliver-check.mjs and is not merged; merge it before the final verify and review.
 
-Verdict context: no blocking finding; Spec review — pass with follow-ups. Full coverage of the in-scope requirements; scope creep limited to the two unspecified bounds in F3.
+In-scope specs: openspec/changes/forced-merge-path/specs/change-delivery/spec.md, specs/change-coordination/spec.md, specs/reviews-check/spec.md
+
+### Coverage
+| Requirement | Status |
+|---|---|
+| Delivered means its own pull request merged and every task ticked | covered |
+| The work left after a merge is named | covered |
+| A task done after the merge is ticked before the archive | covered |
+| An owner's forced merge is told by the required checks | covered |
+| An owner's forced merge leads to the archive steps | covered |
+| The open items of a forced merge are named | covered |
+| A merged pull request is found from any checkout | covered (stacked-PR rule recorded as limit and follow-up) |
+| The loop leads an owner's forced merge to the retro (change-coordination) | covered |
+| An archive pull request is not judged on the archived change's tasks (reviews-check) | covered |
+
+### Notes
+F1: the caller recorded a follow-up (design.md Risks row, proposal.md out-of-scope) rather than deciding a rule; that satisfies 'decide the rule in the spec or record it as a follow-up change'. The spec still has no scenario for the stack case; the follow-up should add one when it picks the rule.
+F4(b) stays open as a nit: HEAD is not a descendant of origin/main (local ref a347ac0, merge-base 9dff573), and origin/main changed isOwnPr and deliver-check.mjs, which the commit arm calls. I did not fetch, so the ref may be older than the remote. The project rule is to merge main before the last verify and review.
+Focused run: deliver-check-archive.test.mjs L4 to L7 and the further-open-pull-request test, 5 pass, 0 fail.
 
 ### Summary
-- 4 findings (0 blocking, 1 important, 3 nit; 1 scope creep in nit F3, 0 gaps)
+- 1 finding open (0 blocking, 0 important, 1 nit), 0 scope creep, 0 gaps. Spec review passes with this follow-up.

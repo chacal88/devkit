@@ -1,15 +1,15 @@
-Verdict: rejected
-Commit: 0de71c21dbbf05b099cb402387237df4cac9a622
+Verdict: approved
+Commit: d0a2b37eb677790cbbb1422d2ecf4b5143da5d89
 
-## ADR review — forced-merge-path
+## ADR review — forced-merge-path (round 2)
 
 ### Findings
-- [important] docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md Decision 1 vs plugins/openspec/hooks/deliver-check.mjs:823-848 and specs/change-delivery/spec.md (An owner's forced merge is to… — ADR 0028 decision 1 says a merge is forced when `check` or `devkit-reviews` is not SUCCESS or is absent. The code, spec and docs/openspec-flow.md instead use the checks the default branch requires, plus `devkit-reviews` only when it reported. A project whose ruleset names other checks, or does not require `devkit-reviews`, is judged by a different rule than the one the accepted ADR states. Fix: align the ADR's decision 1 wording with the specced rule (the owner re-accepts the edit), or note the difference in the ADR.
-- [nit] docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md header, Number line — The Number line says 0028 is the next free number on origin/main, but local origin/main ends at 0026. 0027 is held by the remote branch origin/archive-release-pin. Say in the Number line that 0027 is taken by that sibling, or confirm the number again at the last merge of main.
+- [important] docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md Decision 1 vs specs/change-delivery/spec.md and plugins/openspec/hooks/deliver-check.mjs:819 — ADR 0028 decision 1 named check and devkit-reviews, while the checker and spec use the checks the default branch requires plus devkit-reviews when it reported; the ADR now carries a dated Note stating the specced rule. · fixed in 8058ecf67985073eea1bffe55730dd33479c17f0
+- [nit] docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md Number line — The Number line did not say that 0027 is held by the sibling archive-release-pin; it now names 0025/0026 on origin/main and 0027 on the sibling. · fixed in 8058ecf67985073eea1bffe55730dd33479c17f0
 
-ADRs reviewed: ADR 0002, 0003, 0012 (as cited), 0016, 0017 and 0019 (as cited), and 0028 (the change's own record).
+ADRs reviewed: ADR 0028 (`docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md`), ADR 0003 (`docs/adr/0003-auto-merge-the-archive-pr.md`, amendment note), and ADR 0002, 0012, 0016, 0017, 0019 as cited by 0028.
 
-No open decisions log exists in the project. The change does not contradict any locked ADR and needs no superseder. It amends ADR 0003 through ADR 0028, and ADR 0003 is annotated accordingly.
+Both round-1 findings are fixed at 8058ecf. The Note in ADR 0028 matches the spec scenarios for the checks the default branch requires and for devkit-reviews when it reported; the Number line matches origin/main (ends at 0026) and origin/archive-release-pin (holds 0027). The ADR 0003 annotation stays consistent. The proposal and design additions (stacked pull request limit, follow-up change) and the spec delta stay inside the approved scope and write no gate file (ADR 0016); derivation stays in one place (ADR 0017). The project keeps no open-decisions log. The ADR number is to be confirmed again at the last merge of main, as ADR 0028 and openspec/config.yaml already say.
 
 ### Summary
-- 2 findings (0 blocking, 1 important, 1 nit)
+- 2 findings, both fixed (0 blocking, 1 important, 1 nit); 0 open.

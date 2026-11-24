@@ -1,15 +1,16 @@
 Verdict: approved
-Commit: 0de71c21dbbf05b099cb402387237df4cac9a622
+Commit: d0a2b37eb677790cbbb1422d2ecf4b5143da5d89
 
-## Quality review — forced-merge-path (round 1)
+## Quality review — forced-merge-path (round 2)
 
 ### Findings
-- [praise] plugins/openspec/hooks/deliver-check.mjs:forcedMerge — One function combines checks and gate files, reads gate files only when a check is not green, and every unexpected read shape ends as an error that becomes the blocked unreadMerge row, never implement.
-- [praise] plugins/openspec/hooks/guard.mjs:valueIn — readValue is split into a text-based valueIn with no behaviour change, reused for GitHub-read verdicts instead of a second regex.
-- [nit] openspec/changes/forced-merge-path/tasks.md:1.1 — Tasks 1.1, 1.5 and 1.7 name deliver-check.test.mjs, but most phase-1 tests live in deliver-check-archive.test.mjs (evidence.md acknowledges it); correct the task text.
-- [nit] plugins/openspec/hooks/deliver-check.mjs:findChangePr (files rule) / forcedMerge — With stacked PRs the picked PR can be the wrong one (delivery-train names #91 not #93 from main), so the forced classification reads another PR's checks and gate files; inherited and disclosed as Observation 1, worth a follow-up change.
-- [nit] plugins/openspec/hooks/deliver-check.mjs:notGreen — SKIPPED and NEUTRAL required checks count as not green (design F9) although GitHub treats a skipped required check as passing, so an ordinary merge with tasks left and a skipped required check reads as forced; deliberate, but unmentioned in the docs.
+- [nit] openspec/changes/forced-merge-path/tasks.md:1.1, 1.5 — Round 1 nit: tasks named deliver-check.test.mjs for tests that live in deliver-check-archive.test.mjs; now corrected. · fixed in 8058ecf67985073eea1bffe55730dd33479c17f0
+- [nit] openspec/changes/forced-merge-path/tasks.md:34 — Task 1.9 gate lists deliver-check.test.mjs but not deliver-check-archive.test.mjs, where most phase-1 tests live; add it to the gate command.
+- [nit] plugins/openspec/hooks/deliver-check.mjs:findChangePr — Round 1 nit: stacked PRs can pick another PR; now recorded in design risk table and proposal out-of-scope with a follow-up named. · fixed in 8058ecf67985073eea1bffe55730dd33479c17f0
+- [nit] plugins/openspec/hooks/deliver-check.mjs:notGreen — Round 1 nit still open: SKIPPED/NEUTRAL required checks count as not green and no doc mentions it; add one line to docs/openspec-flow.md.
+- [praise] plugins/openspec/hooks/deliver-check-archive.test.mjs L5-L7 — Commit-arm success path composed with deliveryOf/collectState/nextStep, with negatives pinned by the gh call log and a shared commitArmPm helper.
+- [praise] docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md — A dated Note states the applied rule without rewriting the accepted decision 1.
 
 ### Summary
-- 5 findings (0 blocking, 0 important, 3 nit) + 2 praise
-- No blocking or important issue found; only nits. Unreadable or unexpected GitHub answers fail closed; partial merges with all required checks green are unchanged; each AC has real output in evidence.md.
+- 6 findings (0 blocking, 0 important, 4 nit of which 1 new, 2 fixed from round 1 and 1 still open) + 2 praise
+- Justification: the range holds one code change, 85 lines of tests, plus document edits. Focused run of L1 to L7 in deliver-check-archive.test.mjs: 9 of 9 pass. The L5, L6 and L7 tests close the test-coverage gap with exact assertions. The stacked-PR limit is now disclosed in design.md and proposal.md consistently with the code. The ADR Note matches the rule the checker applies. No blocking or important issue remains. The 197/197 whole-file run is taken from the job file, not re-run.
