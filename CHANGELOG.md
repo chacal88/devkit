@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.44.0 — a status line for the session of a change or a roadmap run
+
+- **devkit-openspec** 0.40.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
+  box of Claude Code. A session that conducts one change shows the change's name, its stage, a strip of
+  marks, `<n> of <N>` and, while the change is stopped, the reason in words; the session that coordinates
+  a roadmap run shows the counts (in play, working, waiting on the owner, blocked); a session that
+  conducts nothing shows nothing. The owner turns it on once with the `statusLine` entry in
+  `docs/openspec-flow.md` (the newest installed copy, so a plugin update needs no edit); the plugin
+  writes no settings file. The bar reads only `state`, writes nothing and starts no process but `node`
+  and `git`, with a bound on each. `state` gains a `stages` field (the stages that apply to the change, in
+  order) and an `--offline` option (a listing with no GitHub call), and the offline stub that listing
+  uses lives in one place. The CI snippet now pins `v0.40.0`, the release's tag.
+
 ## 0.43.1 — a change's own pull request may edit another change's archive
 
 - **devkit-openspec** 0.39.1: `deliver-check` counts a merged pull request as the change's own when it

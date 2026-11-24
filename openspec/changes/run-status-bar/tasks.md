@@ -107,7 +107,7 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
 
 ## 3. Release and validation
 
-- [ ] 3.1 Bump devkit-openspec's `version` in `plugins/openspec/.claude-plugin/plugin.json` and in
+- [x] 3.1 Bump devkit-openspec's `version` in `plugins/openspec/.claude-plugin/plugin.json` and in
   `.claude-plugin/marketplace.json` to the next minor after `origin/main`'s at the last merge before
   review, and the marketplace's own version to the next after `origin/main`'s at that merge; in the same
   task add the `CHANGELOG.md` entry headed `## <that marketplace version>` (the status line command, the
@@ -131,9 +131,9 @@ test that fails is a stop: report it and change nothing. The two release-pin tes
   exits 0, the two devkit-openspec versions are equal, and
   `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/release-merge.test.mjs`
   passes, those four tests included.
-- [ ] 3.2 Check the generated catalog and the marketplace. Check: `python3 scripts/gen-catalog.py --check`
+- [x] 3.2 Check the generated catalog and the marketplace. Check: `python3 scripts/gen-catalog.py --check`
   exits 0 and `claude plugin validate .` passes.
-- [ ] 3.3 Make the real runs of D-12, for the pr-verifier to record in
+- [x] 3.3 Make the real runs of D-12, for the pr-verifier to record in
   `openspec/changes/run-status-bar/evidence.md` (D-12: the real runs are recorded there; the implementer
   does not write that file): in this worktree, at its real stage, with
   `--lang en` and `--lang pt-BR` (AC-1, AC-6, AC-7); from the main checkout with an unrecorded session
