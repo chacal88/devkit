@@ -2429,7 +2429,7 @@ export function moveFlow(cwd, id, { lang = 'pt-BR' } = {}) {
 // ---------------------------------------------------------------- wait (D-7)
 
 const isWait = (a) => a.kind === 'end' && a.end.state === 'waiting-on-github';
-// The reply without the line of a failed base fetch (fresh-base-check D-4): that line alone is no new decision.
+// The reply without the line of a failed base-fetch, fresh-base-check D-4: that line alone is no new decision.
 const ownReply = (a) => {
   if (a.baseFetch?.ok !== false || typeof a.reply !== 'string') return a.reply ?? null;
   const cut = a.reply.lastIndexOf('\n');
