@@ -319,7 +319,7 @@ ls-files` check needs (readiness attempt 5, O4).
   release-at-merge --strict` pass, the latter no longer printing `Archive would refuse this delta`
   (before this merge the canonical `change-coordination` spec lacks train 15's requirement, which the
   delta modifies; D-25).
-- [ ] 9.1a (readiness attempt 5, O3; D-20, "The `Amended by` line"; F-8) The coordinating session
+- [x] 9.1a (readiness attempt 5, O3; D-20, "The `Amended by` line"; F-8) The coordinating session
   has the adr-author add to `docs/adr/release-at-merge.md` (unnumbered by 9.1), as the last line of
   its header bullets (after `- Builds on:`, where ADR 0027 places its line), the one line `- Amended
   by ADR [release-at-merge-step-record] (release-at-merge-step-record.md)`, in the unnumbered form
