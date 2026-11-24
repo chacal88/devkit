@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.50.0 — the loop fetches the base before it judges
+
+- **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its
+  remote-tracking ref (`origin/<base>`, nothing else) before they judge a delivery, once per command
+  call and at each poll of a wait, so a stale local copy of the base no longer decides whether a
+  change is merged. When the fetch fails or times out, the reply says the step was decided from this
+  machine's copy. The checkers (`conduct-check`, `deliver-check`) stay offline. The skills and the
+  flow page state the rule. The CI snippet now pins `v0.45.0`, the release's tag.
+
 ## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
 
 - **devkit-openspec** 0.44.2: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.

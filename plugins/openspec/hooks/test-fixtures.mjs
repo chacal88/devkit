@@ -753,3 +753,12 @@ export const events = (stdout) => [...stdout.split('\n').filter((l) => l.startsW
 // `flow` is the version the change records as `x-devkit-flow`; null records none (a change opened before devkit-openspec 0.31.0).
 export const pinLine = (flow) => (flow === null ? '' : `x-devkit-flow: ${flow}\n`);
 export const addOpen = (root, id, flow = null) => { put(root, { [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pinLine(flow)}` }); commitAll(root, `open ${id}`); };
+
+// The merge-mode project of the delivery tests: its settings, its required workflow file and the gh answers of a repository whose
+// branch rules require `check` and `devkit-reviews` (shared by conduct-check.test.mjs and the change loop's tests).
+export const MERGE_CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: merge\n  devkit: merge\nmerge_method: squash\n';
+export const MERGE_FILES = { '.github/workflows/devkit-reviews.yml': 'name: devkit-reviews\n' };
+export function presetMerge(g) {
+  g.set('api-GET-repos__owner___repo__rules_branches_main', { stdout: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }, { context: 'devkit-reviews' }] } }] });
+  g.set('api-GET-repos__owner___repo__branches_main_protection_required_status_checks', { exit: 1, stderr: 'gh: Branch not protected (HTTP 404)\n' });
+}
