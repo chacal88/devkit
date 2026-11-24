@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.47.1 — post-merge-validate's roadmap test accepts the ticked line
+
+- **devkit-openspec** 0.42.1: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.
+
 ## 0.47.0 — the change folder is committed before the review round
 
 - **devkit-openspec** 0.41.0: `deliver-check` hands the `commit` step before a review round while anything under the

@@ -45,3 +45,12 @@ The Note of post-merge-validate keeps a status clause that nothing will flip, an
 When a review fix changes a literal command or sentence, grep for every copy (code, agent brief, plan, docs, tests) and change them all in the same commit.
 - Answer: approved
 - Applied: yes
+
+### `plugins/openspec/hooks/change-loop.test.mjs` (bug-class)
+The test `post-merge-validate 3` reads the live roadmap and asserts the change's line stays unticked, so the archive, which ticks it, fails the change's own test (train 8, archive PR 125). The test stops asserting the box; the archive ticks it; its three assertions on the line's text stay. The test name drops "and stays unticked". A pack file changes, so devkit-openspec takes a patch release with its CHANGELOG line.
+- before: test('post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts, and stays unticked', () => {
++ after: test('post-merge-validate 3: the roadmap line names the merge check and the sibling that counts evidence attempts', () => {
+- before:   assert.match(line, /^- \[ \] post-merge-validate/);
++ after:   assert.match(line, /^- \[[ x]\] post-merge-validate/);
+- Answer: approved
+- Applied: yes
