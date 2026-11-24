@@ -691,12 +691,25 @@ export function prFiles(gh, number) {
   return { files: String(r.stdout).split(/\r?\n/).filter(Boolean) };
 }
 
-// The change's own pull request (field-fixes D-4): not an archive head, not a train's (`train/<n>`), no archive folder among its
-// files, and some file under the change's active folder. A body or a head name that names the change is never proof.
+// Whether `file` sits in the archive folder of change `id` (openspec/changes/archive/<date>-<id>/): a dated
+// first folder whose name after the date is `id` exactly (no pattern is built from `id`).
+function inOwnArchiveFolder(id, file) {
+  const prefix = 'openspec/changes/archive/';
+  if (!file.startsWith(prefix)) return false;
+  const rest = file.slice(prefix.length);
+  const slash = rest.indexOf('/');
+  if (slash <= 0) return false;
+  return ARCHIVED.exec(rest.slice(0, slash))?.[2] === id;
+}
+
+// The change's own pull request (field-fixes D-4, own-pr-archive-paths): not an archive head, not a train's
+// (`train/<n>`), no file in the change's own archive folder (openspec/changes/archive/<date>-<id>/, the exact id;
+// another change's archived files do not count), and some file under the change's active folder. A body or a
+// head name that names the change is never proof.
 export function isOwnPr(id, pr, files) {
   if (isArchiveHead(pr?.headRefName)) return false;
   if (TRAIN_BRANCH.test(String(pr?.headRefName ?? ''))) return false;
-  if (files.some((f) => f.startsWith('openspec/changes/archive/'))) return false;
+  if (files.some((f) => inOwnArchiveFolder(id, f))) return false;
   return files.some((f) => f.startsWith(`openspec/changes/${id}/`));
 }
 
