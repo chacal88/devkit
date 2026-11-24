@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=207e06ee220bdc9c97e44df74549c80f061e4fd9 -->
+<!-- devkit-stage review result=passed attempt=1 commit=c4df82e6540e9124d8278304a948ddac922d7d39 -->
 # Review: archive-release-pin, round 1
 
 Path: agents · range `44ca321bd5d54d1abd4fdda48a18ca0a6ab97933..HEAD` · structural: PASS
@@ -128,6 +128,33 @@ None.
 ## Notes
 - This round was needed only because the Commit lines of the earlier verdicts went stale: the branch merged origin/main (trains 1 to 3), renumbered the release above it (devkit-openspec 0.40.0, marketplace 0.45.0) and fixed one CONTRIBUTING.md sentence; the pin code and tests of the change did not change.
 - The whole suite was not run in this worktree: the delivery train runs it at the joined head.
+
+## Next
+Ready to ship.
+
+# Review: archive-release-pin, round 1
+
+Path: agents · range `a347ac0..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | c4df82e |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | c4df82e |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | c4df82e |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | c4df82e |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | c4df82e |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- This round was asked by the flow check only because the delivery train's merge commits (c663f21, 039f648), judged against their first parent (main), name .claude-plugin/marketplace.json: against the reviewed head 207e06e nothing outside openspec/ changed (git diff --stat 207e06e..HEAD -- . ':!openspec' is empty).
+- The whole suite was not run in this worktree: train 4 ran it (openspec/trains/4.md).
 
 ## Next
 Ready to ship.
