@@ -1,3 +1,4 @@
+<!-- devkit-stage review result=passed attempt=1 commit=7f9624e3d9f70fe680520528fd76ab79fd8cdf95 -->
 # Review: post-merge-validate, round 1
 
 Path: agents · range `9dff5735a04c18ec3190965d7fca32087e7f5331..HEAD` · structural: PASS
