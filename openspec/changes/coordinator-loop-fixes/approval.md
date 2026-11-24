@@ -1,7 +1,7 @@
-<!-- devkit-stage approval result=passed attempt=2 commit=75ce9f082fb15651aba581a467428084c781f028 -->
+<!-- devkit-stage approval result=passed attempt=3 commit=0484ec3e8257718d03d8eb9abaab1a7307e02ce3 -->
 # Plan approval: coordinator-loop-fixes
 
 - Status: APPROVED
-- Readiness: sha256:d6eb02c816e6
+- Readiness: sha256:5245d2417ad7
 - Date: 2026-11-24
 - Owner's words: "`Aprovo`"
