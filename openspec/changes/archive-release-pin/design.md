@@ -4,7 +4,7 @@
 Change: `archive-release-pin` · Date: 2026-11-23 · Owner: Kaue (chacal88) · Base: `d2010ca` ·
 PRD / tech spec: n/a · Proposal: [proposal.md](proposal.md) · Spec delta:
 [specs/reviews-check/spec.md](specs/reviews-check/spec.md) · Decision:
-[ADR 0023](../../../docs/adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)
+[ADR 0027](../../../docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)
 (amends ADR 0003; builds on ADR 0002, 0012, 0018, 0019)
 
 ## Context
@@ -50,21 +50,21 @@ See proposal.md for why. The current state, at `d2010ca`:
 **Non-Goals:**
 
 - A diff algorithm or a parser of `git diff` output: D-2 compares two whole texts.
-- Moving `PIN_FILE`, `PIN_PACK`, `PIN_PACK_NAME`, `MASK`, `mergePins` or `classifyConflict` (ADR 0023
+- Moving `PIN_FILE`, `PIN_PACK`, `PIN_PACK_NAME`, `MASK`, `mergePins` or `classifyConflict` (ADR 0027
   decision 6 moves only the four names of the pin definition).
 - Any change to `RELEASE_FILE`, `isArchiveRecord`, `canonicalSpecs` or the staleness rule.
 
 ## Decisions
 
-### D-1 The pin definition moves into deliver-check.mjs (ADR 0023 decision 6)
+### D-1 The pin definition moves into deliver-check.mjs (ADR 0027 decision 6)
 
-In `deliver-check.mjs`, a new section `// ---- the CI pin lines (archive-release-pin, ADR 0023)`
+In `deliver-check.mjs`, a new section `// ---- the CI pin lines (archive-release-pin, ADR 0027)`
 directly above `RELEASE_FILE` holds, byte for byte as today in `release-merge.mjs:129-141`, the
 comment lines, `const PIN_MARKER`, `const PIN_TOKEN` (both still module-private), `export function
 pinsIn` and `export function setPins`. In `release-merge.mjs`:
 
 - line 16 becomes `import { RELEASE_FILE, pinsIn, setPins } from './deliver-check.mjs';`, and right
-  under it goes `export { pinsIn, setPins }; // the pin definition lives in deliver-check.mjs (ADR 0023)`;
+  under it goes `export { pinsIn, setPins }; // the pin definition lives in deliver-check.mjs (ADR 0027)`;
 - lines 129-141 (the marker comment, `PIN_MARKER`, `PIN_TOKEN`, `pinsIn`, its comment, `setPins`,
   its comment) are deleted; `PIN_FILE`, `PIN_PACK`, `PIN_PACK_NAME`, `MASK`, `mergePins` and the
   section header stay.
@@ -72,16 +72,16 @@ pinsIn` and `export function setPins`. In `release-merge.mjs`:
 Why: `deliver-check.mjs` cannot import `release-merge.mjs`. The consumer CI does not download it,
 and `release-merge.mjs` already imports `deliver-check.mjs`. Rejected: a copy of the regular
 expressions in `deliver-check.mjs`, because the conflict resolution and the archive check would then
-be free to disagree on what a pin is (ADR 0023, Consequences).
+be free to disagree on what a pin is (ADR 0027, Consequences).
 
 Wording: no text of `deliver-check.mjs`, comment included, may hold the string `release-merge`, or
 test 10 (whose source must not match `/release-merge/`) fails. The section header, the comment
-moved with the definition, and the comments of D-4 name ADR 0023 and "the conflict resolution"
+moved with the definition, and the comments of D-4 name ADR 0027 and "the conflict resolution"
 instead of the file; the moved comment lines of `release-merge.mjs:129-141` hold no such string
 today. The one comment that names the other module is the re-export line, which lives in
 `release-merge.mjs`.
 
-### D-2 The rule: pinLinesOnly (ADR 0023 decisions 1 and 2)
+### D-2 The rule: pinLinesOnly (ADR 0027 decisions 1 and 2)
 
 In the same section of `deliver-check.mjs`:
 
@@ -118,7 +118,7 @@ export function pinLinesOnly(path, pair)
   empty `after` is `true` for either pin file (nothing changed), and an empty `before` with a
   non-empty `after` holding a non-form line is `false` (for the doc, any non-empty `after` is
   `false`, because the masked texts differ).
-- Accepted looseness, recorded in ADR 0023's review trigger: a form line may move into another test
+- Accepted looseness, recorded in ADR 0027's review trigger: a form line may move into another test
   of the same file, and the message is free text. The subject must be `flow` and the regular
   expression must be a plain version.
 
@@ -138,7 +138,7 @@ export function pinLinesOnly(path, pair)
 - A small local helper `textAt(root, rev, path)` holds the first read; the second is inline. No other
   path is read, so an archive that touches neither file costs nothing new.
 
-### D-4 unnamedFiles takes the texts (ADR 0023 decision 4)
+### D-4 unnamedFiles takes the texts (ADR 0027 decision 4)
 
 `export function unnamedFiles(paths, proposals, texts = {})`: the filter gains `&& !pinLinesOnly(p,
 texts[p])` before `!named.has(p)`. The two callers pass the texts:
@@ -147,8 +147,8 @@ texts[p])` before `!named.has(p)`. The two callers pass the texts:
 - `archivePrCheck` (line 2202): `unnamedFiles(changes.paths, proposals, changes.texts)`.
 
 A caller that passes no texts gets today's answer, so every existing two-argument call and test
-keeps its result. The comment above `unnamedFiles` names ADR 0023 and the pin rule. The comment
-above `RELEASE_FILE` adds: `The CI pin files are not release files; see PIN_LINE_FILES (ADR 0023).`
+keeps its result. The comment above `unnamedFiles` names ADR 0027 and the pin rule. The comment
+above `RELEASE_FILE` adds: `The CI pin files are not release files; see PIN_LINE_FILES (ADR 0027).`
 
 ### D-5 Fixtures from the real diff of c561553 (AC-10; config rule "Test history")
 
@@ -190,7 +190,7 @@ file still loads. One test per condition and label; negatives included.
 | 8 | `--ci on an archive branch applies the same pin rule` | `archivePrRepo` with `base` holding both pin files: pin-only edits pass (exit 0, `archive.unnamed` `[]`); a doc changed beyond its pin fails with `archive.unnamed` `['docs/openspec-flow.md']`; another test line fails naming the test file; the test file added only on the branch fails naming it | AC-7, AC-1 to AC-5 |
 | 9 | `--ci from only the three downloaded files passes a pin-only archive and fails one beyond the pin` | copies `guard.mjs`, `deliver-check.mjs` and `merge-setup.mjs` into a `tmpFolder` and runs `node <copy>/deliver-check.mjs --ci --json` on test 8's repositories: the pin-only one exits 0, the beyond-pin one exits 1 naming the doc | AC-7 |
 | 10 | `release-merge.mjs re-exports the one pin definition of deliver-check.mjs, which never imports release-merge.mjs` | `R.pinsIn === D.pinsIn` and `R.setPins === D.setPins` (namespace imports of both modules); the source of `deliver-check.mjs` does not match `/release-merge/`; `D.PIN_LINE_FILES` includes `R.PIN_FILE` | AC-6, AC-7 |
-| 11 | `the flow page, ADR 0003 and the config state the pin-line rule` | the P13 row of `docs/openspec-flow.md` names both files; the paragraph starting `**The file check (P13, AC-3).**` holds `adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`, both form texts and `// Invariant: the CI snippet pins the current release`; the `**Classification.**` bullet no longer holds `and the ADR 0003 exemption, do not change`; ADR 0003's first eight lines hold `- Amended by ADR 0023 (0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)`, and its Context holds a Note starting `Note (archive-release-pin, ` that ends with `The Decision is otherwise unchanged.`; the ADRs line of `openspec/config.yaml` holds `0023 the archive check lets the release pin lines pass unnamed, amends 0003` | AC-8 |
+| 11 | `the flow page, ADR 0003 and the config state the pin-line rule` | the P13 row of `docs/openspec-flow.md` names both files; the paragraph starting `**The file check (P13, AC-3).**` holds `adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`, both form texts and `// Invariant: the CI snippet pins the current release`; the `**Classification.**` bullet no longer holds `and the ADR 0003 exemption, do not change`; ADR 0003's first eight lines hold `- Amended by ADR 0027 (0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)`, and its Context holds a Note starting `Note (archive-release-pin, ` that ends with `The Decision is otherwise unchanged.`; the ADRs line of `openspec/config.yaml` holds `0027 the archive check lets the release pin lines pass unnamed, amends 0003` | AC-8 |
 
 AC-6's conflict half is held by existing tests that this change leaves untouched and runs in its
 gates: `release-merge pin: classifyConflict resolves a pin-only docs/openspec-flow.md and blocks one
@@ -218,10 +218,10 @@ matched no test. The layer is the code the test exercises.
 
 - The `**Classification.**` bullet (line 311). Its last sentence `The release list itself, and the
   ADR 0003 exemption, do not change.` is replaced by the text below. The old sentence would be false
-  once ADR 0023 amends the exemption.
+  once ADR 0027 amends the exemption.
 
   ```text
-  The release list itself does not change; the archive check's own rule for the CI pin lines (see "The file check" below, [ADR 0023](adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)) is separate and resolves no conflict.
+  The release list itself does not change; the archive check's own rule for the CI pin lines (see "The file check" below, [ADR 0027](adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)) is separate and resolves no conflict.
   ```
 
 - The P13 row (line 527). In its first cell, the words between `` `openspec/roadmap.md`, `` and
@@ -235,7 +235,7 @@ matched no test. The layer is the code the test exercises.
   `` `docs/catalog.md`. ``, insert:
 
   ```text
-  Two files pass by their content instead ([ADR 0023](adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)): `docs/openspec-flow.md` when its text, with every CI pin masked (the pin lines `release-merge.mjs` resolves), equals its text at the merge base masked the same way; and `plugins/openspec/hooks/change-loop.test.mjs` when every line added or removed against the merge base is an `assert.match(flow, /v<X>\.<Y>\.<Z>/, '<message>');` or `assert.doesNotMatch(flow, /v<X>\.<Y>\.<Z>/, '<message>');` line, with any message, or a comment line starting `// Invariant: the CI snippet pins the current release`. Any other edit of either file, or a file missing or unreadable on either side, needs a named proposal; neither is a release file, so a merge conflict in it is classified as above.
+  Two files pass by their content instead ([ADR 0027](adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)): `docs/openspec-flow.md` when its text, with every CI pin masked (the pin lines `release-merge.mjs` resolves), equals its text at the merge base masked the same way; and `plugins/openspec/hooks/change-loop.test.mjs` when every line added or removed against the merge base is an `assert.match(flow, /v<X>\.<Y>\.<Z>/, '<message>');` or `assert.doesNotMatch(flow, /v<X>\.<Y>\.<Z>/, '<message>');` line, with any message, or a comment line starting `// Invariant: the CI snippet pins the current release`. Any other edit of either file, or a file missing or unreadable on either side, needs a named proposal; neither is a release file, so a merge conflict in it is classified as above.
   ```
 
 The CI section's sentence "runs the same exact-path file check as P13" (line 639) already covers
@@ -245,21 +245,21 @@ The CI section's sentence "runs the same exact-path file check as P13" (line 639
 text is edited):
 
 - after the header line `- Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)`,
-  the line `- Amended by ADR 0023 (0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)`;
+  the line `- Amended by ADR 0027 (0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)`;
 - after the paragraph starting `Note (delivery-models, 2026-11-22)`, a blank line and the paragraph
-  below, with `<date>` the date in ADR 0023's `- Accepted by:` line. The Note holds neither `gates
+  below, with `<date>` the date in ADR 0027's `- Accepted by:` line. The Note holds neither `gates
   nothing` nor ``outside `openspec/` ``, which `ADR 0003 exists with Status: accepted, ...`
   (`guard.test.mjs`) refuses.
 
   ```text
-  Note (archive-release-pin, <date>): ADR 0023 amends the exemption list of the Decision: `docs/openspec-flow.md` also passes when only its CI pins moved, and `plugins/openspec/hooks/change-loop.test.mjs` when only its pin assertion lines changed, both checked by their content against the merge base; neither file is exempt as a whole. The Decision is otherwise unchanged.
+  Note (archive-release-pin, <date>): ADR 0027 amends the exemption list of the Decision: `docs/openspec-flow.md` also passes when only its CI pins moved, and `plugins/openspec/hooks/change-loop.test.mjs` when only its pin assertion lines changed, both checked by their content against the merge base; neither file is exempt as a whole. The Decision is otherwise unchanged.
   ```
 
-`openspec/config.yaml`, the `ADRs:` line: before its closing `)`, append `; 0023 the archive check
+`openspec/config.yaml`, the `ADRs:` line: before its closing `)`, append `; 0027 the archive check
 lets the release pin lines pass unnamed, amends 0003` (after the 0022 entry if a sibling's has
 landed).
 
-ADR 0023 itself is set to accepted by the loop's `accept-decisions` step after the owner approves
+ADR 0027 itself is set to accepted by the loop's `accept-decisions` step after the owner approves
 the plan. No task edits its text.
 
 ### D-9 Release
@@ -271,9 +271,9 @@ entry; marketplace `metadata.version` `0.37.0` to `0.38.0`. The numbers are take
 
 - `CHANGELOG.md`, above `## 0.37.0`: `## 0.38.0 — the archive check lets the release pin lines pass
   unnamed`, with a `**devkit-openspec** 0.34.0` bullet. The bullet says what changed for an archive
-  and for `devkit-reviews --ci`, names ADR 0023 as a link, says the pin definition now lives in
+  and for `devkit-reviews --ci`, names ADR 0027 as a link, says the pin definition now lives in
   `deliver-check.mjs` and `release-merge.mjs` re-exports it, and ends with the sentence ``The CI
-  snippet now pins `v0.34.0`, the release's tag.``. A `Docs:` bullet names ADR 0023, the Note in ADR
+  snippet now pins `v0.34.0`, the release's tag.``. A `Docs:` bullet names ADR 0027, the Note in ADR
   0003 and the flow doc's file check.
 - `docs/openspec-flow.md`: every `v0.33.0` (lines 661, 662 and 675, four pins) becomes `v0.34.0`.
 - `plugins/openspec/hooks/change-loop.test.mjs`, in the pin block only, three lines. The diff is
@@ -325,9 +325,9 @@ The local stop (`filesStop`) needs GitHub's answers, so its real path is proved 
 
 | Risk | Probability × impact | Mitigation |
 |---|---|---|
-| A sibling release takes `0.34.0`/`0.38.0` or ADR number 0023 before this merges | MEDIUM × LOW | numbers re-taken from `origin/main` before each push (CONTRIBUTING step 5); an ADR rename moves the file, its title and every reference (decisions.md) |
+| A sibling release takes `0.34.0`/`0.38.0` or ADR number 0027 before this merges | MEDIUM × LOW | numbers re-taken from `origin/main` before each push (CONTRIBUTING step 5); an ADR rename moves the file, its title and every reference (decisions.md) |
 | A merge of `main` conflicts in `openspec/config.yaml` (a sibling's ADR entry), which is not a release file | MEDIUM × LOW | resolved by hand at the merge of `main`, keeping both entries in number order; the gates of phase 2 run again |
-| The rule is looser than intended: a form line moves into another test, or a message hides an unapproved claim | LOW × MEDIUM | only `flow` and a plain version are accepted; the review trigger of ADR 0023 names it; the owner can still require a named proposal |
+| The rule is looser than intended: a form line moves into another test, or a message hides an unapproved claim | LOW × MEDIUM | only `flow` and a plain version are accepted; the review trigger of ADR 0027 names it; the owner can still require a named proposal |
 | The content read fails on CI (shallow clone) | LOW × MEDIUM | a failed read is `null`, so the file stays unnamed and the archive stops (fail closed); both workflows already fetch with `fetch-depth: 0` |
 | A roadmap run opens `release-pin-is-a-release-file` as a change of its own while this one is in flight | LOW × MEDIUM | the coordinating session is told the line is covered here; both lines are ticked at this change's archive |
 | The installed devkit-openspec (0.33.0) drives this change's own archive with the old rule | MEDIUM × LOW | this archive needs the old rule only if its retro bumps the pack; then the proposal names the two files, as before |
@@ -378,15 +378,15 @@ release, plus the whole suite again).
 
 **Assumptions** (each from requirements.md unless noted):
 
-- ADR 0023 is accepted before phase 1; the plan breaks if the owner changes its rule.
+- ADR 0027 is accepted before phase 1; the plan breaks if the owner changes its rule.
 - The consumer CI keeps downloading exactly three files (`merge-setup.test.mjs:184`).
-- The pin markers keep their shape (ADR 0023 review trigger).
+- The pin markers keep their shape (ADR 0027 review trigger).
 - A pin-only change needs no bump in the same diff. The guard against a pin that differs from the
   manifest is the `pinMismatches` assertion of `change-loop docs: the design records the answers`
-  and test `release-merge-conflict 15`, which ADR 0023's Consequences also cite. requirements.md
+  and test `release-merge-conflict 15`, which ADR 0027's Consequences also cite. requirements.md
   cites it as `release-merge-conflict 16`, which is the release-step docs test; requirements.md
   stays as the grill recorded it, and the plan cites the right test.
 
-**Dependencies:** ADR 0023 (decisions stage, accepted by `accept-decisions`); the pin definition of
+**Dependencies:** ADR 0027 (decisions stage, accepted by `accept-decisions`); the pin definition of
 the archived change `release-merge-conflict`; the archive check of ADR 0003 and ADR 0012. No open
 decision.

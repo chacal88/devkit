@@ -1,15 +1,16 @@
-// Tests for release-merge.mjs (conduct-rounds design D11). Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for release-merge.mjs (conduct-rounds design D11). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/release-merge.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpFolder, tmpRoot } from './test-tmp.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
 import * as D from './deliver-check.mjs';
 import * as R from './release-merge.mjs';
+import { pinDoc, underOwnTmp } from './test-fixtures.mjs';
 
 const script = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
 const ENV = {
@@ -327,25 +328,7 @@ test('release-merge: a missing origin/<base> and an unknown option are setup err
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const here = dirname(fileURLToPath(import.meta.url));
-const pinTmp = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
-// A doc shaped like docs/openspec-flow.md around its CI pin: a top slot, a body, the `## CI` block with
-// the three pin lines of the real file, and a bottom slot. Each slot is 3+ unchanged lines from the pin lines.
-export function pinDoc(version, { top = null, bottom = null } = {}) {
-  const v = `v${version}`;
-  return [
-    '# Flow', '', ...(top === null ? [] : [top, '']),
-    'intro 1', 'intro 2', 'intro 3', 'intro 4', '',
-    '## Body', 'body 1', 'body 2', 'body 3', 'body 4', '',
-    '## CI', '',
-    `          # pinned to the commit of ${v} (a tag can move; a commit cannot)`,
-    `          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of ${v}>/plugins/openspec/hooks`,
-    '', 'ci 1', 'ci 2', 'ci 3', '',
-    `Pin the commit sha of the release tag (\`${v}\` above), not the tag; by hand, run \`gh api repos/chacal88/devkit/git/ref/tags/${v}\`. Bump it on purpose.`,
-    '', 'ci 4', 'ci 5', 'ci 6', '',
-    '## Notes', 'note 1', 'note 2', 'note 3', 'note 4', ...(bottom === null ? [] : ['', bottom]), '',
-  ].join('\n');
-}
 const pinPack = (version) => ({ [PIN_PACK]: json({ name: PIN_PACK_NAME, version, description: 'pack devkit-openspec' }) });
 const pinMarket = (metadata, version) => marketplace(metadata, { a: '0.6.0', b: '0.5.0', [PIN_PACK_NAME]: version });
 const pinSide = (metadata, version) => ({ packs: {}, metadata, packsAll: { a: '0.6.0', b: '0.5.0', [PIN_PACK_NAME]: version }, title: `at ${version}`, body: `- at ${version}` });
@@ -376,27 +359,27 @@ test('release-merge pin: setPins keeps CRLF endings, leaves a marker line withou
 });
 
 test('release-merge pin: mergePins keeps both edits with every pin masked, and leaves no temporary folder', () => {
-  const before = pinTmp();
   const base = pinDoc('0.10.0');
   const ours = pinDoc('0.11.0', { top: 'TOP A' });
   const theirs = pinDoc('0.10.1', { bottom: 'BOTTOM B' });
-  const merged = mergePins({ base, ours, theirs });
+  const { value: merged, left } = underOwnTmp(() => mergePins({ base, ours, theirs }));
   assert.equal(typeof merged, 'string');
   assert.match(merged, /TOP A/);
   assert.match(merged, /BOTTOM B/);
   assert.deepEqual([...new Set(pinsOf(merged))], ['v0.0.0']);
-  assert.deepEqual(pinTmp(), before);
+  assert.deepEqual(left, [], 'no temporary folder is left behind');
 });
 
 test('release-merge pin: mergePins is null when both sides edit one paragraph or any side is null, and leaves no temporary folder', () => {
-  const before = pinTmp();
   const base = pinDoc('0.10.0');
-  assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
-  for (const side of ['base', 'ours', 'theirs']) {
-    const sides = { base, ours: base, theirs: base, [side]: null };
-    assert.equal(mergePins(sides), null, side);
-  }
-  assert.deepEqual(pinTmp(), before);
+  const { left } = underOwnTmp(() => {
+    assert.equal(mergePins({ base, ours: pinDoc('0.11.0', { top: 'TOP A' }), theirs: pinDoc('0.10.1', { top: 'TOP B' }) }), null);
+    for (const side of ['base', 'ours', 'theirs']) {
+      const sides = { base, ours: base, theirs: base, [side]: null };
+      assert.equal(mergePins(sides), null, side);
+    }
+  });
+  assert.deepEqual(left, [], 'no temporary folder is left behind');
 });
 
 test('release-merge pin: classifyConflict lets release files through without reading any stage', () => {
@@ -664,12 +647,13 @@ test('release-merge-conflict 7: a branch that already holds origin/<base> is lef
   assert.equal(sha(root), before);
 });
 
-// Invariant (archive-release-pin, ADR 0023): the pin definition lives in deliver-check.mjs, which the consumer CI downloads and which never imports release-merge.mjs; release-merge.mjs re-exports it.
+// Invariant (archive-release-pin, ADR 0027): the pin definition lives in deliver-check.mjs, which the consumer CI downloads and which never imports release-merge.mjs; release-merge.mjs re-exports it.
 test('archive-release-pin 10: release-merge.mjs re-exports the one pin definition of deliver-check.mjs, which never imports release-merge.mjs', () => {
   assert.equal(typeof D.pinsIn, 'function', 'deliver-check.mjs exports pinsIn');
   assert.equal(typeof D.setPins, 'function', 'deliver-check.mjs exports setPins');
   assert.equal(R.pinsIn, D.pinsIn, 'the same pinsIn');
   assert.equal(R.setPins, D.setPins, 'the same setPins');
-  assert.doesNotMatch(readFileSync(join(dirname(script), 'deliver-check.mjs'), 'utf8'), /release-merge/, 'deliver-check.mjs never names release-merge');
+  // An import, not a mention: delivery-train's comment on TRAIN_PIN_FILE names release-merge.mjs's PIN_FILE, and the consumer CI downloads only the three files, so it is an import that must never exist.
+  assert.doesNotMatch(readFileSync(join(dirname(script), 'deliver-check.mjs'), 'utf8'), /(?:\bfrom\s*|^\s*import\s*|\bimport\s*\(\s*)['"][^'"]*release-merge/m, 'deliver-check.mjs never imports release-merge');
   assert.ok(D.PIN_LINE_FILES.includes(R.PIN_FILE), 'the doc pin file is one of the files the archive check reads by content');
 });

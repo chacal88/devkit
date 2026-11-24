@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // release-merge: merge origin/<base> into the current branch and resolve the release-file conflicts
 // by rule; commit the merge, never push (conduct-rounds design D11, release-merge-conflict D-1).
-// No dependencies.
+// With --merge <rev> it joins a change's head into a delivery train's branch with the roles swapped: the
+// change's release is renumbered above the train's (delivery-train D-6). No dependencies.
 //
-//   node release-merge.mjs --base <base> [--json]
+//   node release-merge.mjs --base <base> [--roadmap-ticks] [--json]
+//   node release-merge.mjs --merge <rev> [--json]
 //
 // Exit 0 resolved (the merge is committed) or nothing to do, 2 not resolvable (the merge is undone and
 // the branch is at its old head), 3 setup or usage error.
@@ -14,7 +16,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { RELEASE_FILE, pinsIn, setPins } from './deliver-check.mjs';
-export { pinsIn, setPins }; // the pin definition lives in deliver-check.mjs (ADR 0023)
+export { pinsIn, setPins }; // the pin definition lives in deliver-check.mjs (ADR 0027)
 
 export class ReleaseError extends Error {
   constructor(message) { super(message); this.name = 'ReleaseError'; }
@@ -145,17 +147,58 @@ export function mergePins({ base, ours, theirs }) {
   }
 }
 
-// Which conflicted paths stop the caller. `stagesOf(PIN_FILE)` gives { base, ours, theirs } (a missing blob is
-// null); it is called at most once, and only for PIN_FILE.
-export function classifyConflict(paths, stagesOf) {
+// ---------------------------------------------------------------- the roadmap ticks
+
+export const ROADMAP_FILE = 'openspec/roadmap.md';
+const UNTICKED = /^(\s*)- \[ \](.*)$/;
+
+// The roadmap text `base` writes once the change's ticks are in (delivery-train D-6): every line that differs between
+// `mergeBase` and `change` differs only by `- [ ]` becoming `- [x]` with the same rest of the line, and each such line
+// exists unticked or ticked in `base`. Anything else (a line added, removed, reworded or unticked, a text that is missing,
+// a tick `base` lacks) throws ReleaseError. The texts are split on \n, so a missing final newline stays as `base` has it.
+export function resolveRoadmapTicks({ mergeBase, change, base }) {
+  const fail = (why) => new ReleaseError(`cannot merge the roadmap ticks: ${why}`);
+  if ([mergeBase, change, base].some((t) => typeof t !== 'string')) throw fail('a side of the roadmap is missing');
+  const before = mergeBase.split('\n');
+  const after = change.split('\n');
+  if (before.length !== after.length) throw fail('a line was added or removed');
+  const merged = base.split('\n');
+  before.forEach((line, i) => {
+    if (line === after[i]) return;
+    const m = UNTICKED.exec(line);
+    if (!m || after[i] !== `${m[1]}- [x]${m[2]}`) throw fail(`line ${i + 1} changed by more than a tick: ${JSON.stringify(line)}`);
+    const unticked = merged.indexOf(line);
+    if (unticked !== -1) merged[unticked] = after[i];
+    else if (!merged.includes(after[i])) throw fail(`line ${i + 1} is not in the base: ${JSON.stringify(line)}`);
+  });
+  return merged.join('\n');
+}
+
+// Which conflicted paths stop the caller. `stagesOf(path)` gives { base, ours, theirs } (a missing blob is null), `ours`
+// being the side numbered above and `theirs` the side whose release and ticks are kept; it is called at most once, and only
+// for PIN_FILE and, with a `{ roadmap }` resolver, ROADMAP_FILE. `roadmapMerged` is the text the resolver wrote for
+// ROADMAP_FILE, or null (a path it refused stays blocking); it is not enumerable while it is null, so a caller that
+// compares the result without a resolver sees `{ blocking, pinMerged }` as before.
+export function classifyConflict(paths, stagesOf, { roadmap = null } = {}) {
   let pinMerged = null;
+  let roadmapMerged = null;
   const blocking = paths.filter((p) => {
     if (RELEASE_FILE.test(p)) return false;
+    if (p === ROADMAP_FILE && roadmap) {
+      const stages = stagesOf(p);
+      try { roadmapMerged = roadmap({ mergeBase: stages.base, change: stages.theirs, base: stages.ours }); } catch (e) {
+        if (!(e instanceof ReleaseError)) throw e;
+        return true;
+      }
+      return false;
+    }
     if (p !== PIN_FILE) return true;
     pinMerged = mergePins(stagesOf(p));
     return pinMerged === null;
   });
-  return { blocking, pinMerged };
+  const result = { blocking, pinMerged };
+  Object.defineProperty(result, 'roadmapMerged', { value: roadmapMerged, enumerable: roadmapMerged !== null });
+  return result;
 }
 
 // ---------------------------------------------------------------- the CLI
@@ -176,9 +219,12 @@ function show(root, rev, path) {
   const r = spawnSync('git', ['-C', root, 'show', `${rev}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
   return r.status === 0 ? r.stdout : null;
 }
-// The index stages of a conflicted path during a merge: :1 the common base, :2 the branch (HEAD), :3 the merged
-// origin/<base>. `ours` is the base's side, the orientation conduct-check's threeVersions gives.
-const mergeStages = (root) => (path) => ({ base: show(root, ':1', path), ours: show(root, ':3', path), theirs: show(root, ':2', path) });
+// The index stages of a conflicted path during a merge: :1 the common base, :2 the branch (HEAD), :3 the merged revision.
+// `ours` is the side numbered above, the orientation conduct-check's threeVersions gives: origin/<base> (:3) in --base mode,
+// the train's HEAD (:2) in --merge mode, where the roles are swapped.
+const mergeStages = (root, merging = false) => (path) => (merging
+  ? { base: show(root, ':1', path), ours: show(root, ':2', path), theirs: show(root, ':3', path) }
+  : { base: show(root, ':1', path), ours: show(root, ':3', path), theirs: show(root, ':2', path) });
 const mergeInProgress = (root) => sh(root, ['rev-parse', '-q', '--verify', 'MERGE_HEAD']).ok;
 // Tracked files outside openspec/ with uncommitted changes (porcelain -z; a rename names two paths).
 function dirtyOutsideOpenspec(root) {
@@ -203,14 +249,18 @@ function rebaseInProgress(root) {
 }
 const listPaths = (root, args) => gitOut(root, args).split('\n').filter(Boolean);
 
+const USAGE = 'release-merge.mjs --base <base> [--roadmap-ticks] [--json] | --merge <rev> [--json]';
+
 function parseArgs(argv) {
-  const opts = { base: null, json: false };
+  const opts = { base: null, merge: null, roadmapTicks: false, json: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base' && argv[i + 1]) opts.base = argv[++i];
+    else if (argv[i] === '--merge' && argv[i + 1]) opts.merge = argv[++i];
+    else if (argv[i] === '--roadmap-ticks') opts.roadmapTicks = true;
     else if (argv[i] === '--json') opts.json = true;
-    else throw new ReleaseError(`unknown option ${argv[i]} (usage: release-merge.mjs --base <base> [--json])`);
+    else throw new ReleaseError(`unknown option ${argv[i]} (usage: ${USAGE})`);
   }
-  if (!opts.base) throw new ReleaseError('usage: release-merge.mjs --base <base> [--json]');
+  if (!opts.base === !opts.merge) throw new ReleaseError(`usage: ${USAGE}`);
   return opts;
 }
 
@@ -263,9 +313,14 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
     opts = parseArgs(argv);
     root = gitOut(cwd, ['rev-parse', '--show-toplevel']);
   } catch (e) { stderr(`release-merge: ${e.message}\n`); return 3; }
-  const ref = `origin/${opts.base}`;
-  const report = (code, obj, text) => { stdout(opts.json ? `${JSON.stringify(obj, null, 2)}\n` : `${text}\n`); return code; };
-  if (!sh(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) { stderr(`release-merge: ${ref} is missing; run: git fetch origin ${opts.base}\n`); return 3; }
+  const merging = opts.merge !== null;
+  // `ref` is what is merged into HEAD: origin/<base>, or in --merge mode the revision joined into the train (as a sha).
+  let ref = merging ? opts.merge : `origin/${opts.base}`;
+  const tag = merging ? { mode: 'merge' } : {};
+  const report = (code, obj, text) => { stdout(opts.json ? `${JSON.stringify({ ...obj, ...tag }, null, 2)}\n` : `${text}\n`); return code; };
+  const found = sh(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+  if (!found.ok) { stderr(merging ? `release-merge: ${ref} is not a commit of this repository\n` : `release-merge: ${ref} is missing; run: git fetch origin ${opts.base}\n`); return 3; }
+  if (merging) ref = found.out;
 
   if (mergeInProgress(root)) sh(root, ['merge', '--abort']);
   if (rebaseInProgress(root)) { stderr(`release-merge: a rebase is in progress in ${root}; finish or abort it first\n`); return 3; }
@@ -274,46 +329,53 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
   const oldHead = gitOut(root, ['rev-parse', 'HEAD']);
   const mergeBase = gitOut(root, ['merge-base', oldHead, ref]);
   if (sh(root, ['merge-base', '--is-ancestor', ref, oldHead]).ok) {
-    return report(0, { resolved: true, oldHead, newHead: oldHead, versions: { packs: {} }, files: [] }, `already on ${ref}: nothing to do`);
+    return report(0, { resolved: true, oldHead, newHead: oldHead, versions: { packs: {} }, files: [], ...(merging ? { conflicts: [] } : {}) }, merging ? `${ref.slice(0, 7)} is already in the train: nothing to do` : `already on ${ref}: nothing to do`);
   }
+  // The two sides of the release computation: `change`'s bumps are kept by kind and numbered above `base`'s numbers. --base
+  // keeps the branch's and numbers above origin/<base>; --merge swaps them (the train's tip is the side numbered above).
+  const side = merging ? { change: ref, base: oldHead } : { change: oldHead, base: ref };
   const touched = [];
   const unresolved = (extra) => { restore(root, touched); return report(2, { resolved: false, oldHead, ...extra }, `not resolved: ${extra.error ?? `conflicts in ${extra.conflicts.join(', ')}`}`); };
 
-  const packAtBase = (() => { try { return JSON.parse(show(root, ref, PIN_PACK) ?? 'null'); } catch { return null; } })();
+  const packAtBase = (() => { try { return JSON.parse(show(root, side.base, PIN_PACK) ?? 'null'); } catch { return null; } })();
   const baseVersion = packAtBase?.name === PIN_PACK_NAME && typeof packAtBase.version === 'string' ? packAtBase.version : null;
   const hasGen = existsSync(join(root, 'scripts', 'gen-catalog.py'));
   const started = sh(root, ['-c', 'rerere.enabled=false', 'merge', '--no-ff', '--no-commit', ref]);
   if (!started.ok && !mergeInProgress(root)) { stderr(`release-merge: git merge failed: ${started.err}\n`); return 3; }
 
   const conflicts = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
-  const { blocking, pinMerged } = classifyConflict(conflicts, mergeStages(root));
+  const ticks = merging || opts.roadmapTicks;
+  const { blocking, pinMerged, roadmapMerged } = classifyConflict(conflicts, mergeStages(root, merging), ticks ? { roadmap: resolveRoadmapTicks } : {});
   if (blocking.length || (conflicts.includes('docs/catalog.md') && !hasGen)) return unresolved({ conflicts });
-  // During a merge --theirs is origin/<base>; the change's side is read from oldHead below.
-  for (const p of conflicts.filter((c) => c !== PIN_FILE)) {
+  // During a merge the base's side is --theirs (origin/<base>) in --base mode and --ours (the train) in --merge mode; the
+  // change's side is read from `side.change` below.
+  const keep = merging ? '--ours' : '--theirs';
+  for (const p of conflicts.filter((c) => c !== PIN_FILE && c !== ROADMAP_FILE)) {
     touched.push(p);
-    if (!sh(root, ['checkout', '--theirs', '--', p]).ok || !sh(root, ['add', '--', p]).ok) return unresolved({ conflicts, error: `cannot keep the base's side of ${p}` });
+    if (!sh(root, ['checkout', keep, '--', p]).ok || !sh(root, ['add', '--', p]).ok) return unresolved({ conflicts, error: `cannot keep the base's side of ${p}` });
   }
 
   try {
+    if (roadmapMerged !== null) writeStaged(root, touched, ROADMAP_FILE, roadmapMerged);
     if (conflicts.includes(PIN_FILE)) {
       if (baseVersion === null) return unresolved({ conflicts, error: `cannot set the pin: ${ref} has no ${PIN_PACK_NAME} version in ${PIN_PACK}` });
       writeStaged(root, touched, PIN_FILE, setPins(pinMerged, baseVersion));
     }
-    const { changed, versions, beyond } = resolveVersions(root, { mergeBase, oldHead, ref });
+    const { changed, versions, beyond } = resolveVersions(root, { mergeBase, oldHead: side.change, ref: side.base });
     if (beyond.length) return unresolved({ conflicts: changed, error: `a manifest was edited beyond its version: ${beyond.join('; ')}` });
     const files = [];
     for (const path of changed) {
-      const baseText = show(root, ref, path);
+      const baseText = show(root, side.base, path);
       if (baseText === null) continue;
       writeStaged(root, touched, path, resolveManifest(baseText, versions));
       files.push(path);
     }
-    const clChange = show(root, oldHead, 'CHANGELOG.md');
+    const clChange = show(root, side.change, 'CHANGELOG.md');
     const clMerge = show(root, mergeBase, 'CHANGELOG.md');
     if (clChange !== null && clChange !== clMerge) {
-      const version = versions.metadata ?? JSON.parse(show(root, ref, '.claude-plugin/marketplace.json') ?? '{}').metadata?.version;
+      const version = versions.metadata ?? JSON.parse(show(root, side.base, '.claude-plugin/marketplace.json') ?? '{}').metadata?.version;
       if (!version) throw new ReleaseError('cannot place the CHANGELOG entry: no metadata.version to number it with');
-      writeStaged(root, touched, 'CHANGELOG.md', resolveChangelog({ mergeBase: clMerge, change: clChange, base: show(root, ref, 'CHANGELOG.md') ?? '', version }));
+      writeStaged(root, touched, 'CHANGELOG.md', resolveChangelog({ mergeBase: clMerge, change: clChange, base: show(root, side.base, 'CHANGELOG.md') ?? '', version }));
       files.push('CHANGELOG.md');
     }
     const pinVersion = versions.packs[PIN_PACK_NAME] ?? baseVersion;
@@ -330,10 +392,11 @@ export function main(argv, { cwd = process.cwd(), stdout = (s) => process.stdout
     }
     const left = listPaths(root, ['diff', '--name-only', '--diff-filter=U']);
     if (left.length) return unresolved({ conflicts: left });
-    const committed = sh(root, ['commit', '-q', '-m', `chore(release): merge ${ref} and renumber the release above it`]);
+    const message = merging ? `chore(train): join ${ref.slice(0, 7)} and renumber its release above the train` : `chore(release): merge ${ref} and renumber the release above it`;
+    const committed = sh(root, ['commit', '-q', '-m', message]);
     if (!committed.ok) return unresolved({ conflicts: [], error: `git commit failed: ${committed.err}` });
     const newHead = gitOut(root, ['rev-parse', 'HEAD']);
-    return report(0, { resolved: true, oldHead, newHead, versions, files }, `resolved: merged ${ref} at ${newHead.slice(0, 7)}; ${files.length ? `renumbered ${files.join(', ')} (${Object.entries(versions.packs).map(([n, v]) => `${n} ${v}`).join(', ')})` : 'no release file changed'}`);
+    return report(0, { resolved: true, oldHead, newHead, versions, files, ...(merging ? { conflicts } : {}) }, `resolved: merged ${ref} at ${newHead.slice(0, 7)}; ${files.length ? `renumbered ${files.join(', ')} (${Object.entries(versions.packs).map(([n, v]) => `${n} ${v}`).join(', ')})` : 'no release file changed'}`);
   } catch (e) {
     // Any failure after the merge started (a malformed manifest, a write error) must leave the tree as it was found.
     return unresolved({ conflicts: [], error: e instanceof Error ? e.message : String(e) });

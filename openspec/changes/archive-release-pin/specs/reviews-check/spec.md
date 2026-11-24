@@ -26,7 +26,7 @@ markers. Any other edit SHALL keep the file in that list unless an approved prop
 - **THEN** the file check does not name it
 
 ### Requirement: The archive file check passes the pin assertions of the loop's test unnamed
-The archive's file check SHALL leave `plugins/openspec/hooks/change-loop.test.mjs` out of the files
+The archive's file check SHALL leave `plugins/openspec/hooks/change-loop-compozy.test.mjs` out of the files
 no approved proposal names when every line added or removed against the merge base is an
 `assert.match(flow, /v<X>\.<Y>\.<Z>/, '<message>');` or `assert.doesNotMatch(flow,
 /v<X>\.<Y>\.<Z>/, '<message>');` line, with any message, or a comment line starting `// Invariant:
@@ -34,11 +34,11 @@ the CI snippet pins the current release`.
 
 #### Scenario: The current pin moves and the previous one is refused
 - **WHEN** the archive branch replaces the `assert.match(flow, /v0\.21\.0/, ...)` line with an `assert.match(flow, /v0\.21\.1/, ...)` line with another message, adds `assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');`, rewrites the Invariant comment, and changes nothing else in the file
-- **THEN** the file check does not name `plugins/openspec/hooks/change-loop.test.mjs`
+- **THEN** the file check does not name `plugins/openspec/hooks/change-loop-compozy.test.mjs`
 
 #### Scenario: Another line changed
 - **WHEN** the archive branch also adds or removes another line of the file: another assertion, an assertion on a subject other than `flow`, a regular expression that is not a plain version, another comment, a blank line, or a changed line of an unrelated test
-- **THEN** the file check names `plugins/openspec/hooks/change-loop.test.mjs`
+- **THEN** the file check names `plugins/openspec/hooks/change-loop-compozy.test.mjs`
 
 #### Scenario: The real archive of review-writer-prompt
 - **WHEN** the test file changes exactly as commit c561553 changed it
@@ -46,7 +46,7 @@ the CI snippet pins the current release`.
 
 ### Requirement: A pin file the check cannot compare stays unnamed
 The archive's file check SHALL name `docs/openspec-flow.md` or
-`plugins/openspec/hooks/change-loop.test.mjs` when the file is missing at the merge base or on the
+`plugins/openspec/hooks/change-loop-compozy.test.mjs` when the file is missing at the merge base or on the
 archive branch, or when either text cannot be read, unless an approved proposal names it. A change
 of the final newline alone SHALL count as a change beyond the pins. An empty file is a text, not a
 missing file, and SHALL be compared like any other text.
@@ -56,15 +56,15 @@ missing file, and SHALL be compared like any other text.
 - **THEN** the file check names `docs/openspec-flow.md`
 
 #### Scenario: The file is deleted on the archive branch
-- **WHEN** the archive branch deletes `plugins/openspec/hooks/change-loop.test.mjs`, committed or only in the working tree
-- **THEN** the file check names `plugins/openspec/hooks/change-loop.test.mjs`
+- **WHEN** the archive branch deletes `plugins/openspec/hooks/change-loop-compozy.test.mjs`, committed or only in the working tree
+- **THEN** the file check names `plugins/openspec/hooks/change-loop-compozy.test.mjs`
 
 #### Scenario: The file is present but cannot be read
 - **WHEN** `docs/openspec-flow.md` exists at the merge base and on the archive branch, but either text cannot be read, and no approved proposal names it
 - **THEN** the file check names `docs/openspec-flow.md`
 
 #### Scenario: Only the final newline changed
-- **WHEN** the archive branch removes or adds the final newline of `docs/openspec-flow.md` or `plugins/openspec/hooks/change-loop.test.mjs` and changes nothing else in it
+- **WHEN** the archive branch removes or adds the final newline of `docs/openspec-flow.md` or `plugins/openspec/hooks/change-loop-compozy.test.mjs` and changes nothing else in it
 - **THEN** the file check names that file
 
 #### Scenario: The file is empty at the merge base

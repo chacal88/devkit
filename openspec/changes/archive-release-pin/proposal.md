@@ -3,7 +3,7 @@
 
 Change: `archive-release-pin` · Date: 2026-11-23 · Owner: Kaue (chacal88) · Base: `d2010ca` ·
 PRD / tech spec: n/a · Requirements: [requirements.md](requirements.md) · Decisions:
-[decisions.md](decisions.md), [ADR 0023](../../../docs/adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)
+[decisions.md](decisions.md), [ADR 0027](../../../docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md)
 
 ## Why
 
@@ -80,7 +80,7 @@ None.
   only), `openspec/config.yaml` (ADRs line).
 - Release: `plugins/openspec/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
   `CHANGELOG.md`, the CI pin lines; `docs/catalog.md` is checked, not regenerated.
-- Dependencies: ADR 0023 is accepted by the loop's `accept-decisions` step after the plan's
+- Dependencies: ADR 0027 is accepted by the loop's `accept-decisions` step after the plan's
   approval. Its number is checked against `origin/main` before each push. Open decisions
   inherited: none.
 - Exit criteria: the phase gates of tasks.md, `openspec validate archive-release-pin --strict`, and

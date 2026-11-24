@@ -1,0 +1,26 @@
+Change proof-lone (devkit-lite script)
+
+ 1  Open the change         passed
+ 2  Requirements (grill)    passed
+ 3  Proposal                passed
+ 4  Specs                   passed
+ 5  Tasks                   passed
+ 6  Implementation          passed: 1 of 1 tasks done
+ 7  Unit tests              passed
+ 8  E2E tests               pending: e2e-tests.md does not exist yet
+ 9  Demonstration           blocked: waits for stage 8
+10  Code review             blocked: waits for stage 9
+11  Delivery                blocked: waits for stage 10
+12  Retro and archive       blocked: waits for stage 11
+
+Next stage: 8 E2E tests
+Who runs it: e2e-tester
+Why: e2e-tests.md does not exist yet.
+
+Spend of proof-lone, in tokens:
+Stage Unit tests: haiku 65459, sonnet 26277
+Stage E2E tests: sonnet 16213, opus 6298
+Stage Implementation: sonnet 28631
+Stage Unit tests, a retry from haiku to sonnet: 18391
+Stage E2E tests, a retry from sonnet to opus: 6298
+Total: 142878 tokens; no budget is set

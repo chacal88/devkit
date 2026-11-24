@@ -45,7 +45,7 @@ every task with `git status --short`.
 
 ## 1. The pin-line rule in the archive check (AC-1 to AC-7, AC-10)
 
-- [x] 1.1 Setup. Confirm `docs/adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`
+- [x] 1.1 Setup. Confirm `docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`
   holds `- Status: accepted` (set by the loop's `accept-decisions` step; stop and report if not).
   Write the four fixture files of D-5 under `plugins/openspec/hooks/fixtures/c561553/`, each with
   one command of this form (reading the commit here is allowed; the tests never do):
@@ -133,7 +133,7 @@ every task with `git status --short`.
 
 ## Workflow follow-up
 
-- Before each push and before `enable-auto-merge`: compare the release numbers and ADR number 0023
+- Before each push and before `enable-auto-merge`: compare the release numbers and ADR number 0027
   with `origin/main` after a fresh fetch (CONTRIBUTING.md step 5). On a collision, renumber the
   release (every place of D-9) or the ADR (file, title, every reference: decisions.md, proposal.md,
   design.md, ADR 0003's line and Note, the config line, the flow doc, CHANGELOG, test 11).

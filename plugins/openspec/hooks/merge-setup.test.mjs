@@ -1,5 +1,5 @@
-// Tests for merge-setup.mjs. Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for merge-setup.mjs. Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/merge-setup.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, copyFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { DEVKIT_REVIEWS_CHECK, WORKFLOW_PATH, RULESET_NAME, MERGE_METHODS, mergeSetup, requiredChecks } from './merge-setup.mjs';
 import * as M from './merge-setup.mjs';
 import { makeGh } from './deliver-check.mjs';
-import { fakeGh, gitRepo, put, commitAll } from './deliver-check.test.mjs';
+import { fakeGh, gitRepo, put, commitAll } from './test-fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..', '..');
