@@ -39,6 +39,23 @@ test('jira-entry AC-1 taskIdPrefix lower-cases the key and turns underscores int
   assert.equal(JT.taskIdPrefix('A__B-1'), 'a-b-1');
 });
 
+test('jira-entry-followups AC-11 taskIdPrefix lower case: the key in lower case', () => {
+  assert.equal(JT.taskIdPrefix('PROJ-482'), 'proj-482');
+});
+
+test('jira-entry-followups AC-11 taskIdPrefix underscores: each underscore becomes a dash', () => {
+  assert.equal(JT.taskIdPrefix('PROJ_X-12'), 'proj-x-12');
+});
+
+test('jira-entry-followups AC-11 taskIdPrefix runs collapsed: a run of dashes becomes one dash', () => {
+  assert.equal(JT.taskIdPrefix('PROJ_-12'), 'proj-12');
+  assert.equal(JT.taskIdPrefix('A__B-1'), 'a-b-1');
+});
+
+test('jira-entry-followups AC-11 taskIdPrefix a trailing dash removed: a text ending in an underscore has no dash at its end', () => {
+  assert.equal(JT.taskIdPrefix('PROJ_'), 'proj');
+});
+
 test('jira-entry AC-1 taskFromJson keeps the five fields only', () => {
   const raw = JSON.stringify({ ...TASK, comments: ['secret'], subtasks: [1], issuelinks: [2], description: 'a\r\nb' });
   const r = JT.taskFromJson(raw, 'PROJ-482');

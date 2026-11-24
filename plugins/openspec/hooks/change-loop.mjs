@@ -7,7 +7,7 @@
 //
 // Subcommands: `next --change <id> --lang <l> [--after <progressKey>]` (prints `devkit-run: <id>`, then the JSON
 // action; exit 0 an action or archived, 1 waiting, 2 blocked, 3 a usage or preflight error),
-// `reply <key> --lang <l> [--param name=value]...` (renders one message of the table),
+// `reply <key> --lang <l> [--param name=value]... [--stdin <name>]` (renders one message of the table; with `--stdin` the parameter <name> is the standard input, one final line break removed),
 // `start --lang <l>` (the request on standard input: what `/devkit` does with it, D-3), `open <id> --script <s>
 // --why <code> [--task <KEY>] --lang <l>` (creates the worktree, the change and its requirements file, D-4; with `--task` the
 // standard input is the Jira task the session read, as JSON, and the request section records its key), `script <id> <s>
@@ -462,6 +462,7 @@ export const MESSAGES = {
     'project-delivered': 'The slice {id} is delivered and its rounds are on the roadmap: /devkit roadmap runs them.',
     'project-delivered-no-rounds': 'The slice {id} is delivered. It added no change to the roadmap.',
     'slice-title': 'Slice {id}',
+    'slice-machine': 'Machine: {machine}',
     'slice-passed': 'passed',
     'slice-na': 'not applicable',
     'slice-ready': 'ready',
@@ -749,6 +750,7 @@ export const MESSAGES = {
     'project-delivered': 'A fatia {id} foi entregue e as rodadas dela estão no roadmap: /devkit roadmap as executa.',
     'project-delivered-no-rounds': 'A fatia {id} foi entregue. Ela não acrescentou nenhuma change ao roadmap.',
     'slice-title': 'Fatia {id}',
+    'slice-machine': 'Máquina: {machine}',
     'slice-passed': 'passou',
     'slice-na': 'não se aplica',
     'slice-ready': 'pronta',
@@ -1440,12 +1442,18 @@ export function baseMergeOf(root, ref) {
   return tryGit(root, ['rev-list', '--first-parent', '--merges', '-n', '1', 'HEAD', `^${ref}`]) || null;
 }
 
-// The checkout of change `id`: a worktree on its archive branch, else one on its own branch, else the main checkout.
+// The checkout of change `id`: a worktree on its archive branch, else one on its own branch, else the checkout the loop is
+// called from when that checkout holds the change's active folder and the main checkout holds no folder of it (state-skips-unlocated
+// D-5), else the main checkout.
 export function locate(start, id) {
   const worktrees = listWorktrees(start);
   const own = worktrees.find((w) => w.branch === `chore/archive-${id}`) ?? worktrees.find((w) => w.branch === id);
   if (own) return { root: realpathSync(own.path), branch: own.branch };
   const root = mainRoot(start);
+  const here = realpathSync(start);
+  if (here !== realpathSync(root) && locateChange(here, id)?.archived === false && !locateChange(root, id)) {
+    return { root: here, branch: tryGit(here, ['symbolic-ref', '--short', '-q', 'HEAD']) };
+  }
   return { root, branch: tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) };
 }
 
@@ -1688,7 +1696,7 @@ function taskChangeOf(cwd, id, env) {
 }
 
 // `write-back ask <id>`: whether to ask the developer about writing the pull request's link on the task, and the question.
-// Records that it asked, so it asks once per task and pull request. Writes only that record.
+// Records that it asked, so it asks once per task and pull request number (a recreated pull request asks again). Writes only that record.
 export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env, gh } = {}) {
   const l = normalizeLang(lang);
   const { start, found, task, archived } = taskChangeOf(cwd, id, env);
@@ -1697,7 +1705,7 @@ export function writeBackAsk(cwd, id, { input, lang = 'pt-BR', env = process.env
   const out = (extra) => ({ version: 1, change: id, key: task.key, ...extra });
   if (archived || archivedOnDefault(start, { env, gh }).has(id)) return out({ ask: false, why: 'archived' });
   const file = writeBackFile(found.root, id);
-  if (readWriteBack(file)) return out({ ask: false, why: 'asked' });
+  if (writeBackAsked(readWriteBack(file), task.key, read.number)) return out({ ask: false, why: 'asked' });
   saveWriteBack(file, { version: 1, change: id, key: task.key, number: read.number, url: read.url, askedAt: new Date().toISOString(), transitions: read.transitions, answer: null });
   const choices = writeBackChoices(read.transitions).map((c) => ({ choice: c.choice, label: render(l, `choice.${c.kind}`, { name: c.name }) }));
   return out({ ask: true, question: render(l, 'write-back-ask', { id, key: task.key, number: read.number, choices: choices.map((c) => c.label).join('; ') }), choices });
@@ -1896,6 +1904,17 @@ export function knownChange(start, id) {
   return archive ?? null;
 }
 
+// The blocked stand-in of change `id` when some checkout holds its folder but the checkout `locate` reads it in does not
+// (state-skips-unlocated D-2); null when the loop can place it, or when no checkout holds it.
+export function unplacedAction(start, id) {
+  const found = locate(start, id);
+  if (found.branch === `chore/archive-${id}` || locateChange(found.root, id)) return null;
+  const holder = knownChange(start, id);
+  if (!holder) return null;
+  return { kind: 'end', change: id, script: null, root: holder.root, branch: holder.branch, stage: null, stageTitle: null,
+    end: { state: 'blocked', why: 'wrong-branch' }, params: { id } };
+}
+
 // Where the change stopped, in one phrase of the person's language, from the stage checker's report in its checkout
 // (the next stage's title, or the end state with its stage's title). Throws LoopUsageError when it cannot be read.
 export function whereOf(found, id, { lang = 'pt-BR', env = process.env, openspec, gh } = {}) {
@@ -1940,15 +1959,19 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
   const named = namedByRun(run);
   const ids = id !== null ? [id] : [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...named])].sort((a, b) => a.localeCompare(b));
   let archived = null;
+  let days = null; // archivedDates(start, ...), read at most once per command, only when an id is unplaced
+  const archivedStandIn = (cid) => ({ kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } });
   const openTitle = () => {
     try { return readFlow(start, 'devkit')?.stages.find((s) => s.id === 'open')?.title[l] ?? 'open'; } catch { return 'open'; }
   };
   return ids.map((cid) => {
     let action;
-    if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
-    else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) {
-      action = { kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } };
-    } else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
+    const unplaced = unplacedAction(start, cid);
+    if (unplaced && (days ??= archivedDates(start, { env, gh })).has(cid) && !createdAfter(unplaced.root, cid, days.get(cid))) action = archivedStandIn(cid);
+    else if (unplaced) action = unplaced;
+    else if (knownChange(start, cid)) action = nextAction(start, cid, { env, lang: l, openspec, gh });
+    else if ((archived ??= archivedOnDefault(start, { env, gh })).has(cid)) action = archivedStandIn(cid);
+    else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
     else throw new LoopUsageError(`no change named ${cid}`);
     const line = changeSessions && roadmapIds.has(cid) ? (readRoadmap(mainRoot(start)) ?? []).flatMap((round) => round.items).find((item) => item.id === cid) : null;
     const dependency = line && line.after.length > 0 && isPlanStage(start, cid, action) ? line.after.find((d) => !(archived ??= archivedOnDefault(start, { env, gh })).has(d)) ?? null : null;
@@ -2269,10 +2292,11 @@ export function openChange(cwd, id, { script, why, request, task: taskKey, lang 
   const settings = start ? readDevkitSettings(start) : { driver: 'claude', language: 'en', unknown: [] };
   const gate = projectGate(start, settings, 'change');
   if (gate) throw refuse(gate.key, gate.params);
-  if (task) {
+  // The key's own unfinished change is looked for inside the open lock, so two openings for one key at once open one change.
+  const check = task ? () => {
     const taken = unfinished(start, { env, gh }).find((u) => recordedTask(readRequirements(u))?.key === taskKey);
     if (taken) throw refuse('task-taken', { key: taskKey, id: taken.id });
-  }
+  } : undefined;
   const requestBody = task ? taskRequest(task) : quoteLines(text);
 
   // The change's own first file: its request, as a quote in the schema's requirements template.
@@ -2284,22 +2308,23 @@ export function openChange(cwd, id, { script, why, request, task: taskKey, lang 
     writeFileSync(join(folder, 'requirements.md'), withRequest(readFileSync(template, 'utf8'), requestBody));
   };
   const claim = { machine: machine ?? thisMachine(), places: places === undefined ? null : String(places) };
-  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep, claim, remote, beforePush });
+  const { worktree, base } = openCheckout(cwd, id, { script, lang: l, env, openspec, prepare, lockSleep, claim, remote, beforePush, check });
   const reply = remote ? render(l, 'opened-on', { id, machine: claim.machine, script, why }) : render(l, task ? 'opened-task' : 'opened', { id, script, other: otherScript(script), why, key: taskKey });
   return { version: 1, change: id, script, worktree, branch: id, base, ...(task ? { task: { key: task.key, link: task.url } } : {}), reply };
 }
 
 // The open steps every script shares (project-phases D-5): the open lock, the fetch, the id check, the worktree from the default
 // branch, `openspec new change <id> --schema <script>`, `prepare(folder, worktree)` for the script's own first file, and the
-// clean-up of a half-made open. The caller has checked the name and the project gate. Returns { worktree, base }; a refusal
+// clean-up of a half-made open. The caller has checked the name and the project gate; its optional `check()` runs under the
+// lock, right after the fetch, and a refusal it throws creates nothing. Returns { worktree, base }; a refusal
 // is a LoopRefusal (exit 3, nothing created).
-export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare, lockSleep, claim = null, remote = false, beforePush } = {}) {
+export function openCheckout(cwd, id, { script, lang = 'pt-BR', env = process.env, openspec, prepare, lockSleep, claim = null, remote = false, beforePush, check } = {}) {
   const l = normalizeLang(lang);
   const refuse = (key, params = {}) => new LoopRefusal(key, render(l, key, params));
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const main = mainRoot(start);
-  return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env, claim, remote, beforePush }), lockSleep);
+  return withOpenLock(main, () => openUnderLock({ start, main, id, script, prepare, refuse, openspec, env, claim, remote, beforePush, check }), lockSleep);
 }
 
 // The ref a new change `id` starts from in a repository with an `origin`: `origin/<default branch>`, and with the two-prs model
@@ -2317,9 +2342,10 @@ function deliveryBase(main, id, refuse) {
 
 // What `open` does while it holds the lock (D-1): the fetch, the local reasons and the remote claim, the worktree, the change
 // and the script's first file, then, with an `origin` and a claim, the commit and the push that only creates the branch.
-function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env, claim, remote, beforePush }) {
+function openUnderLock({ start, main, id, script, prepare, refuse, openspec, env, claim, remote, beforePush, check }) {
   const hasOrigin = gitRun(main, ['remote']).split('\n').includes('origin');
   if (hasOrigin) gitRun(main, ['fetch', 'origin', '--prune', '--quiet']);
+  check?.(); // the caller's own refusal, before the name checks, with the lock held and the origin as the fetch left it
   if (nameTaken(start, main, id)) throw refuse('name-taken', { id });
   if (hasOrigin && tryGit(main, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${id}`])) throw refuseRemote(main, id, refuse);
 
@@ -3035,7 +3061,7 @@ export function compozyRetry(cwd, id) {
 
 // ---------------------------------------------------------------- the command line (D-5)
 
-const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... '
+const USAGE = 'usage: change-loop.mjs next --change <id> --lang <pt-BR|en> [--after <progress-key>] | reply <key> --lang <l> [--param name=value]... [--stdin <name>] '
   + '| start --lang <l> (the request on standard input) | open <id> --script <devkit|devkit-lite> --why <code> [--task <KEY>] --lang <l> [--machine <name>] [--places <n|run>] [--remote] (the request on standard input, or with --task the task as JSON) '
   + '| write-back ask <id> --lang <l> (the pull request as JSON on standard input) | write-back answer <id> --choice <comment|no|transition:<id>> --lang <l> | script <id> <devkit|devkit-lite> --why <code> --lang <l> | place <id> --lang <l> | accept-decisions <id> --lang <l> | merge-check <id> --lang <l> | flow <id> --lang <l> | wait --change <id> --lang <l> [--interval <seconds>] | state [--change <id>] --lang <l> '
   + '| next --change <id> --lang <l> --view compozy | compozy-start <id> --lang <l> (the request on standard input) | confirm --change <id> --lang <l> --view <json> '
@@ -3086,14 +3112,26 @@ function runState(args, { env, cwd, openspec, gh }) {
   return { code: 0, stdout: json({ version: 1, changes }), stderr: '' };
 }
 
-function runReply(args) {
-  const opts = parseArgs(args, { values: ['--lang'], multi: ['--param'] });
+// The text a heredoc hands over: the input without its one final line break, `\r\n` or else `\n`.
+const withoutFinalBreak = (text) => (text.endsWith('\r\n') ? text.slice(0, -2) : text.endsWith('\n') ? text.slice(0, -1) : text);
+
+// `--stdin <name>`: the parameter `name` is read from standard input, so a text with quotes, `$` or line breaks never
+// goes through the command line (jira-entry-followups D-5).
+function runReply(args, { stdin = '' } = {}) {
+  const opts = parseArgs(args, { values: ['--lang', '--stdin'], multi: ['--param'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
   const params = {};
   for (const p of opts.params) {
     const eq = p.indexOf('=');
     if (eq < 1) throw new LoopUsageError(`--param needs name=value, got ${p}`);
     params[p.slice(0, eq)] = p.slice(eq + 1);
+  }
+  if (opts.stdin !== undefined) {
+    if (!/^[a-z][a-zA-Z]*$/.test(opts.stdin)) throw new LoopUsageError('--stdin needs a parameter name of letters, starting with a lower-case one');
+    if (Object.hasOwn(params, opts.stdin)) throw new LoopUsageError(`--param ${opts.stdin} and --stdin ${opts.stdin} name the same parameter`);
+    const value = withoutFinalBreak(stdin);
+    if (value === '') throw new LoopUsageError(`reply --stdin ${opts.stdin} needs the text on standard input`);
+    params[opts.stdin] = value;
   }
   const text = `${render(opts.lang, opts.positional[0], params)}\n`;
   const state = END_OF_KEY[opts.positional[0]];
@@ -3274,7 +3312,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
   try {
     const [sub, ...rest] = argv;
     if (sub === 'next') return runNext(rest, { env, cwd, openspec, gh });
-    if (sub === 'reply') return runReply(rest);
+    if (sub === 'reply') return runReply(rest, { stdin });
     if (sub === 'state') return runState(rest, { env, cwd, openspec, gh });
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec, gh });
@@ -3334,7 +3372,7 @@ function isMain() {
 
 if (isMain()) {
   const argv = process.argv.slice(2);
-  runCommand(argv, { stdin: ['start', 'open', 'write-back', 'compozy-start'].includes(argv[0]) ? readStdin() : '' }).then((r) => {
+  runCommand(argv, { stdin: ['start', 'open', 'write-back', 'compozy-start'].includes(argv[0]) || (argv[0] === 'reply' && argv.includes('--stdin')) ? readStdin() : '' }).then((r) => {
     process.stdout.write(r.stdout);
     process.stderr.write(r.stderr);
     process.exitCode = r.code;
