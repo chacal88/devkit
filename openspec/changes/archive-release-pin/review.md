@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=b906df57ecf925bffc6075204d054a14e70a4359 -->
+<!-- devkit-stage review result=passed attempt=1 commit=207e06ee220bdc9c97e44df74549c80f061e4fd9 -->
 # Review: archive-release-pin, round 1
 
 Path: agents · range `44ca321bd5d54d1abd4fdda48a18ca0a6ab97933..HEAD` · structural: PASS
@@ -100,6 +100,33 @@ None.
 
 ## Notes
 - This round reviewed the plan amendment of ADR 0030 (the pin test reads the manifest; the test-file half of the archive rule removed) and re-checked each reviewer's previous findings.
+- The whole suite was not run in this worktree: the delivery train runs it at the joined head.
+
+## Next
+Ready to ship.
+
+# Review: archive-release-pin, round 1
+
+Path: agents · range `a347ac0..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 207e06e |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 207e06e |
+| security-reviewer | approved | 0 | 0 | 0 | 0 | 207e06e |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 207e06e |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 207e06e |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- This round was needed only because the Commit lines of the earlier verdicts went stale: the branch merged origin/main (trains 1 to 3), renumbered the release above it (devkit-openspec 0.40.0, marketplace 0.45.0) and fixed one CONTRIBUTING.md sentence; the pin code and tests of the change did not change.
 - The whole suite was not run in this worktree: the delivery train runs it at the joined head.
 
 ## Next
