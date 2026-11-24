@@ -1,14 +1,33 @@
 # Changelog
 
-## 0.45.1 — a stage's ceiling counts failures in a row
+## 0.47.1 — a stage's ceiling counts failures in a row
 
-- **devkit-openspec** 0.40.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
+- **devkit-openspec** 0.42.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach
   the stage's ceiling. They are counted from the stage file's history in git since the file last carried `passed`;
   `attempt` is unchanged, there is no new header field and the flow version does not change. A stage that passed between
   failures starts again from zero. The readout and the replies of `change-loop` and `project-loop` say "failures in a row"
   (`failures` joins the reason params). It also delivers the roadmap line `evidence-attempts-by-failure` (fused).
 - **Docs**: `docs/openspec-flow.md`, `plugins/openspec/README.md` and `docs/coordination-design.md` describe the count;
-  the CI snippet pins `v0.40.1`.
+  the CI snippet pins `v0.42.1`.
+
+## 0.47.0 — the change folder is committed before the review round
+
+- **devkit-openspec** 0.41.0: `deliver-check` hands the `commit` step before a review round while anything under the
+  change folder is uncommitted, the `ship-change` rows `commit` and `review` say so, and the CI snippet now pins
+  `v0.41.0`.
+
+## 0.46.0 — post-merge validate
+
+- **devkit-openspec** 0.41.0: after a merge of the base the delivery loop checks the plan before it hands the evidence. A new
+  `merge-check` session step runs `change-loop.mjs merge-check <id>`, which runs `openspec validate <id> --type change --strict` and records
+  the answer in `<git common dir>/devkit/merge-check/<id>.json`; a red check goes to `devkit-core:change-planner` as a merge
+  defect (its brief quotes validate's errors) and spends no stage attempt, a green one lets the loop go on, and three reds in
+  a row on the same merge, or a check that could not run (CLI missing, timed out, refused by the pin), end the run `blocked`
+  with the new reasons `merge-defect` and `merge-check-failed`. No merge, no check. The roadmap line `evidence-attempts-by-failure`
+  keeps the counting of attempts by real failures.
+- Docs: the `devkit` skill, `docs/openspec-flow.md` ("The loop", the merge paragraph and two Troubleshooting rows) and the
+  README of the pack describe the step; a Note on ADR 0017 (status proposed, accepted with the plan) names the merge-check record
+  as one more input of its decision 1; the CI snippet now pins `v0.41.0`, the release's tag.
 
 ## 0.45.0 — the archive check lets the release pin lines pass unnamed
 

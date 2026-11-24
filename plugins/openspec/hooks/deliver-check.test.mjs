@@ -18,6 +18,7 @@ import {
   here, review, reviews, withReviews, base, head, mergeHistory, mergeMain, onlyOpenspec, s7, gateRow, ev, acRow, changeFiles, callGh, PR_FIELDS,
   prJson, OLD_FLAG, versionsOf, conversation, tick, devkitRepo, readinessHash, approvalMd, planRepo, reviewAt, fullEvidence, PR_BODY, driveToReady,
   readyRepo, committedChange, itemsOf, bothEvidenceCurrent, MERGE_FIELDS, noMergeCall, mergeReady, presetArchiveReads,
+  state, open, blocked, rejectedState, BOTH,
   ciGate, changeFilesOf, CI_ENV, OWN_REVIEWERS, ownLines, ownReviews, ownEvidence, ownUnrelated, ownFilesRepo, ownBrings,
 } from './deliver-check-fixtures.mjs';
 
@@ -1203,34 +1204,6 @@ test('item 8: no PR is open and a gh error is blocked', () => {
 
 // ---------------------------------------------------------------- nextStep and summary (D4)
 
-const BASE_DETAILS = {
-  1: { unticked: [], missingGates: [], evidence: 'current' },
-  2: { stale: [], rejected: [], missing: [] },
-  3: { fixed: 0, refuted: 0, undisposed: [] },
-  4: { ids: ['AC-1'], proven: ['AC-1'], missing: [], defects: [], noProof: [], evidence: 'current' },
-  5: { pr: { number: 12, url: 'u' }, ahead: false, uncommitted: [] },
-  6: { required: true, failing: [], pending: [] },
-  7: { threads: [], comments: [], changesRequested: [], waiting: [] },
-  8: { missing: [] },
-};
-// A state where all eight items are met; `over.items[n]` = { status, details } merges into item n.
-function state(over = {}) {
-  const items = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-    id: n, name: `item${n}`, status: 'met', reason: `item ${n} reason`,
-    ...over.items?.[n], details: { ...BASE_DETAILS[n], ...over.items?.[n]?.details },
-  }));
-  const { items: _ignored, ...rest } = over;
-  return {
-    id: 'feat', schema: 'devkit-lite', ship: 'pr', branchOk: true, needsReadiness: false, readiness: null,
-    phases: [{ n: 1, title: 'One', open: [], gate: { id: '1.2', done: true, command: 'npm test' } }],
-    dirty: [], reviewMd: null,
-    reviews: [{ name: 'code-quality-reviewer', verdict: 'APPROVED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
-    pr: { number: 12, url: 'u' },
-    ...rest, items,
-  };
-}
-const open = (details = {}) => ({ status: 'open', details });
-const blocked = (details = {}) => ({ status: 'blocked', details });
 
 test('nextStep: all eight met is ready (row 21)', () => {
   assert.equal(nextStep(state()).step, 'ready');
@@ -1284,12 +1257,6 @@ test('nextStep row 6: uncommitted changes outside openspec/ are committed first'
   assert.equal(n.step, 'commit');
 });
 
-const rejectedState = (over = {}) => state({
-  reviewMd: { consensus: 'FAIL', round: 1 },
-  reviews: [{ name: 'code-quality-reviewer', verdict: 'REJECTED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
-  items: { 2: open({ rejected: ['code-quality-reviewer'] }), 3: open({ undisposed: [{ reviewer: 'code-quality-reviewer', excerpt: '[blocking] x' }] }) },
-  ...over,
-});
 
 test('nextStep row 8: a rejected review at a current commit goes to fix-review with its findings', () => {
   const n = nextStep(rejectedState());
@@ -1438,7 +1405,6 @@ test('nextStep row 11 before row 10: a defect row on stale evidence is verified 
   assert.equal(nextStep(state({ items: { 4: open({ defects: ['AC-1'], evidence: 'stale' }) } })).step, 'verify');
 });
 
-const BOTH = ['code-quality-reviewer', 'test-coverage-reviewer'];
 const noReviews = (kind) => (kind === 'stale'
   ? { reviews: BOTH.map((name) => ({ name, verdict: 'APPROVED', current: false })), 2: open({ stale: BOTH }) }
   : { reviews: [], 2: open({ missing: BOTH }) });
@@ -1724,6 +1690,7 @@ test('resume: code committed with one review current runs only the other reviewe
   commitAll(t.root, 'all code');
   reviewAt(t.root, ['code-quality-reviewer']);
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   let n = t.next();
   assert.deepEqual([n.step, n.reviewers, n.round], ['review', ['test-coverage-reviewer'], 1]);
 
@@ -1735,6 +1702,7 @@ test('resume: code committed with one review current runs only the other reviewe
   commitAll(t.root, 'fix after review');
   reviewAt(t.root, ['code-quality-reviewer']);
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', ['test-coverage-reviewer']]);
 });
@@ -1750,7 +1718,7 @@ test('resume: reviews and evidence current and no PR opens the PR (AC-5)', () =>
 });
 
 test('walkthrough: a devkit-lite change goes from no ticked task to ready without a stop step (AC-2)', () => {
-  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'review', 'open-pr', 'ready']);
+  assert.deepEqual(driveToReady(shipRepo()), ['implement', 'gate', 'implement', 'gate', 'commit', 'verify', 'commit', 'review', 'open-pr', 'ready']);
 });
 
 test('resume: a round-2 deadlock on disk stops while current and re-reviews as round 1 after the owner\'s product commit (AC-4, AC-5)', () => {
@@ -1765,6 +1733,7 @@ test('resume: a round-2 deadlock on disk stops while current and re-reviews as r
   commitAll(t.root, 'owner fix');
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.round], ['review', 1]);
   assert.deepEqual(n.reviewers, ['code-quality-reviewer', 'test-coverage-reviewer']);
@@ -1779,6 +1748,7 @@ test('AC-3 fix-restales-both (a): after a rejected review and its fix commit, ve
   productCommit(t);
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   const n = t.next();
   assert.deepEqual([n.step, n.round, n.reviewers], ['review', 2, ['code-quality-reviewer', 'test-coverage-reviewer']]);
 });
@@ -1790,6 +1760,7 @@ test('AC-3 fix-restales-both (b): after a fail row and its fix commit, verify co
   productCommit(t);
   assert.equal(t.next().step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   assert.deepEqual([t.next().step], ['review']);
 });
 
@@ -1801,6 +1772,7 @@ test('AC-3 fix-restales-both (c): after a failing check and its fix commit, veri
   let n = t.next();
   assert.equal(n.step, 'verify');
   fullEvidence(t.root, t.env);
+  commitAll(t.root, 'evidence');
   n = t.next();
   assert.deepEqual([n.step, n.reviewers], ['review', ['code-quality-reviewer', 'test-coverage-reviewer']]);
   reviewAt(t.root, n.reviewers);
