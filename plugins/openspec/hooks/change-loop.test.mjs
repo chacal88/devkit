@@ -6202,6 +6202,16 @@ test('change-state ADR 0017: the documents follow', () => {
   assert.doesNotMatch(flow, /\(ready, waits for a place\)/);
 });
 
+test('unlocated 3: the state paragraph of docs/openspec-flow.md names the unplaced change and the locate order', () => {
+  const flow = readRepo('docs', 'openspec-flow.md');
+  const a = flow.indexOf("**A change's state.**");
+  assert.ok(a >= 0, 'the state paragraph exists');
+  const part = flow.slice(a, flow.indexOf('\n\n', a)).replace(/\s+/g, ' ');
+  for (const phrase of ['wrong-branch', 'chore/archive-<id>', 'the checkout it is called from']) {
+    assert.ok(part.includes(phrase), `the state paragraph names ${phrase}`);
+  }
+});
+
 // ================================================================ commit-attribution (D-7, T1 to T20)
 
 const ASK = () => changeLoopModule.ATTRIBUTION_ASK;

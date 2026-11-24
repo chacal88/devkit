@@ -83,14 +83,14 @@ every task with `git status --short`.
 
 ## 3. Documents, release, the real run and the whole suite
 
-- [ ] 3.1 Add to `plugins/openspec/hooks/change-loop.test.mjs`, right after "change-state ADR 0017:
+- [x] 3.1 Add to `plugins/openspec/hooks/change-loop.test.mjs`, right after "change-state ADR 0017:
   the documents follow", the test 3.1 of `design.md` D-7 (`unlocated 3: the state paragraph of
   docs/openspec-flow.md names the unplaced change and the locate order`, reading the file with
   `readRepo`). Run `env TMPDIR=/private/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node
   --test --test-name-pattern="^unlocated 3" plugins/openspec/hooks/change-loop.test.mjs` on the
   docs as they are. Check: `proof/red-3.txt` holds that run, with 3.1 failing (none of
   `wrong-branch`, `chore/archive-<id>` and "the checkout it is called from" is in the paragraph yet).
-- [ ] 3.2 In `docs/openspec-flow.md`, the paragraph "**A change's state.**", insert the sentences of
+- [x] 3.2 In `docs/openspec-flow.md`, the paragraph "**A change's state.**", insert the sentences of
   `design.md` D-6 after the sentence ending "`archived` has none.", in the same paragraph. Check:
   `unlocated 3:` 3.1 and "change-state ADR 0017: the documents follow" (change-loop.test.mjs) pass
   with `--test-name-pattern="^(unlocated 3|change-state ADR 0017)"`, and `python3 scripts/check.py`
@@ -104,7 +104,7 @@ every task with `git status --short`.
   docs/openspec-flow.md: setPins changes exactly its CI pin lines" (release-merge.test.mjs) passes
   with `--test-name-pattern="^release-merge pin: the real"`, `python3 scripts/check.py` is green,
   and `command claude plugin validate .` passes.
-- [ ] 3.4 Real-run proof (D-8), with `TMPDIR=/private/tmp/devkit-state-skips-unlocated`: build the
+- [x] 3.4 Real-run proof (D-8; the changes are `aa` and `xx` because `open` refuses one-letter ids, and only `xx` is blocked since `aa` stays in its own worktree), with `TMPDIR=/private/tmp/devkit-state-skips-unlocated`: build the
   scratch repository, open `a` and `x` with this worktree's `change-loop.mjs open`, rename `x`'s
   worktree branch to `side`, and from the main checkout run `state` in `en` and `pt-BR`, `state
   --change x`, `state --change nope` and `roadmap-loop.mjs status` in `en` and `pt-BR`, then `next

@@ -1,0 +1,225 @@
+Real-run proof of state-skips-unlocated (design D-8)
+
+Setup: a scratch repository (<scratch>) with `schema: devkit`, the devkit schemas installed, and a roadmap
+with one round holding `- [ ] aa` and `- [ ] xx`. `aa` and `xx` were opened with this worktree's
+`change-loop.mjs open <id> --script devkit --why doubt --lang en`; then the branch of xx's worktree was
+renamed: `git -C <scratch>/.claude/worktrees/xx branch -m xx side`. The folder of `xx` is now only in a
+worktree on branch `side`; `aa` stays in its own worktree on branch `aa`.
+Deviation from the plan's ids: the plan names the changes `a` and `x`, but `change-loop.mjs open` refuses
+a one-letter id (`name-invalid`: NAME needs 2 to 48 characters), so the proof uses `aa` and `xx`.
+
+The "base" section runs origin/main's hooks (`git archive origin/main plugins/openspec`, extracted to <base>);
+the "after" section runs this worktree's hooks. Both ran on the same scratch repository, with DEVKIT_* and
+GITHUB_* unset. Paths: <worktree> is this change's worktree, <scratch> the scratch repository, <base> the
+extracted origin/main plugin.
+
+=== base: hooks of base ===
+
+--- (cwd <scratch>) $ node <base>/plugins/openspec/hooks/change-loop.mjs state --lang en
+exit 3
+{"version":1,"error":"no change named xx, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+change-loop: no change named xx, active or archived
+
+--- (cwd <scratch>) $ node <base>/plugins/openspec/hooks/change-loop.mjs state --lang pt-BR
+exit 3
+{"version":1,"error":"no change named xx, active or archived","reply":"Não consegui ler esse pedido. Digite /devkit change e o que você quer fazer, ou só /devkit change para continuar."}
+change-loop: no change named xx, active or archived
+
+--- (cwd <scratch>) $ node <base>/plugins/openspec/hooks/change-loop.mjs state --change xx --lang en
+exit 3
+{"version":1,"error":"no change named xx, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+change-loop: no change named xx, active or archived
+
+--- (cwd <scratch>) $ node <base>/plugins/openspec/hooks/change-loop.mjs state --change nope --lang en
+exit 3
+{"version":1,"error":"no change named nope","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+change-loop: no change named nope
+
+--- (cwd <scratch>) $ node <base>/plugins/openspec/hooks/roadmap-loop.mjs status --lang en --load-limit 80
+exit 3
+{"version":1,"error":"no change named xx, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+roadmap-loop: no change named xx, active or archived
+
+--- (cwd <scratch>) $ node <base>/plugins/openspec/hooks/roadmap-loop.mjs status --lang pt-BR --load-limit 80
+exit 3
+{"version":1,"error":"no change named xx, active or archived","reply":"Não consegui ler esse pedido. Digite /devkit change e o que você quer fazer, ou só /devkit change para continuar."}
+roadmap-loop: no change named xx, active or archived
+
+--- (cwd <scratch>/.claude/worktrees/xx) $ node <base>/plugins/openspec/hooks/change-loop.mjs next --change xx --lang en
+exit 3
+{"version":1,"error":"no change named xx, active or archived","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+change-loop: no change named xx, active or archived
+
+
+=== after: hooks of after ===
+
+--- (cwd <scratch>) $ node <worktree>/plugins/openspec/hooks/change-loop.mjs state --lang en
+exit 0
+{
+  "version": 1,
+  "changes": [
+    {
+      "change": "aa",
+      "state": "waiting-for-owner",
+      "reason": {
+        "code": "grill",
+        "text": "your answers about its request"
+      },
+      "stage": "requirements",
+      "stageTitle": "Requirements (grill)",
+      "phase": null,
+      "stageIcon": "❓",
+      "stateIcon": "🙋",
+      "title": "🙋 ❓ aa",
+      "script": "devkit",
+      "root": "<scratch>/.claude/worktrees/aa",
+      "branch": "aa"
+    },
+    {
+      "change": "xx",
+      "state": "blocked",
+      "reason": {
+        "code": "wrong-branch",
+        "text": "its folder is on a branch with another name"
+      },
+      "stage": null,
+      "stageTitle": null,
+      "phase": null,
+      "stageIcon": null,
+      "stateIcon": "⛔",
+      "title": "⛔ xx",
+      "script": null,
+      "root": "<scratch>/.claude/worktrees/xx",
+      "branch": "side"
+    }
+  ]
+}
+
+--- (cwd <scratch>) $ node <worktree>/plugins/openspec/hooks/change-loop.mjs state --lang pt-BR
+exit 0
+{
+  "version": 1,
+  "changes": [
+    {
+      "change": "aa",
+      "state": "waiting-for-owner",
+      "reason": {
+        "code": "grill",
+        "text": "as suas respostas sobre o pedido"
+      },
+      "stage": "requirements",
+      "stageTitle": "Requisitos (grill)",
+      "phase": null,
+      "stageIcon": "❓",
+      "stateIcon": "🙋",
+      "title": "🙋 ❓ aa",
+      "script": "devkit",
+      "root": "<scratch>/.claude/worktrees/aa",
+      "branch": "aa"
+    },
+    {
+      "change": "xx",
+      "state": "blocked",
+      "reason": {
+        "code": "wrong-branch",
+        "text": "a pasta dela está num branch com outro nome"
+      },
+      "stage": null,
+      "stageTitle": null,
+      "phase": null,
+      "stageIcon": null,
+      "stateIcon": "⛔",
+      "title": "⛔ xx",
+      "script": null,
+      "root": "<scratch>/.claude/worktrees/xx",
+      "branch": "side"
+    }
+  ]
+}
+
+--- (cwd <scratch>) $ node <worktree>/plugins/openspec/hooks/change-loop.mjs state --change xx --lang en
+exit 0
+{
+  "version": 1,
+  "changes": [
+    {
+      "change": "xx",
+      "state": "blocked",
+      "reason": {
+        "code": "wrong-branch",
+        "text": "its folder is on a branch with another name"
+      },
+      "stage": null,
+      "stageTitle": null,
+      "phase": null,
+      "stageIcon": null,
+      "stateIcon": "⛔",
+      "title": "⛔ xx",
+      "script": null,
+      "root": "<scratch>/.claude/worktrees/xx",
+      "branch": "side"
+    }
+  ]
+}
+
+--- (cwd <scratch>) $ node <worktree>/plugins/openspec/hooks/change-loop.mjs state --change nope --lang en
+exit 3
+{"version":1,"error":"no change named nope","reply":"I could not read that request. Type /devkit change and what you want done, or /devkit change alone to continue."}
+change-loop: no change named nope
+
+--- (cwd <scratch>) $ node <worktree>/plugins/openspec/hooks/roadmap-loop.mjs status --lang en --load-limit 80
+exit 0
+Roadmap: 2 open of 1 · 0 in the queue · 0 archived
+
+Waiting for you
+  aa   your answers about its request
+Blocked
+  xx   its folder is on a branch with another name
+
+--- (cwd <scratch>) $ node <worktree>/plugins/openspec/hooks/roadmap-loop.mjs status --lang pt-BR --load-limit 80
+exit 0
+Roadmap: 2 abertas de 1 · 0 na fila · 0 arquivadas
+
+Esperando você
+  aa   as suas respostas sobre o pedido
+Travadas
+  xx   a pasta dela está num branch com outro nome
+
+--- (cwd <scratch>/.claude/worktrees/xx) $ node <worktree>/plugins/openspec/hooks/change-loop.mjs next --change xx --lang en
+exit 0
+devkit-run: xx
+{
+  "version": 1,
+  "change": "xx",
+  "script": "devkit",
+  "root": "<scratch>/.claude/worktrees/xx",
+  "branch": "side",
+  "filesLanguage": "en",
+  "kind": "grill",
+  "stage": "requirements",
+  "stageTitle": "Requirements (grill)",
+  "role": "change-coordinator",
+  "skills": [
+    "requirements-grill"
+  ],
+  "helpers": [
+    "codebase-researcher",
+    "requirements-triage"
+  ],
+  "progressKey": "requirements/requirements@d87ded74c336",
+  "icon": "❓",
+  "state": {
+    "state": "waiting-for-owner",
+    "reason": {
+      "code": "grill",
+      "text": "your answers about its request"
+    },
+    "stage": "requirements",
+    "stageTitle": "Requirements (grill)",
+    "phase": null,
+    "stageIcon": "❓",
+    "stateIcon": "🙋",
+    "title": "🙋 ❓ xx"
+  },
+  "sessionTitle": "🙋 ❓ xx"
+}
