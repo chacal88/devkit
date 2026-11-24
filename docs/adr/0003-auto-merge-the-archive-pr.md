@@ -2,9 +2,10 @@
 
 - Status: accepted
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
-- Amended by ADR 0022 (0022-an-owners-forced-merge-leads-the-change-to-the-archive.md)
+- Amended by ADR 0028 (0028-an-owners-forced-merge-leads-the-change-to-the-archive.md)
 - Date: 2026-11-09
 - Change: archive-after-merge
+- Amended by ADR 0022 (0022-reviewed-changes-leave-on-a-delivery-train.md)
 
 ## Context
 
@@ -12,7 +13,7 @@ Note (coordinator-field-fixes, 2026-11-20): ADR 0012 judges an archive PR per ar
 
 Note (delivery-models, 2026-11-22): ADR 0018 amends the sentence on who merges the archive PR in `pr` mode: in the `two-prs` model the owner merges both archive pull requests, and devkit enables auto-merge on neither. The Decision is otherwise unchanged.
 
-Note (forced-merge-path, 2026-11-24): ADR 0022 amends the sentence on when the archive starts: besides a delivered change, an owner's forced merge (its own pull request merged with a task unticked and a required check not green on its head) leads to the archive steps, with its open items named in the retro. The Decision is unchanged.
+Note (forced-merge-path, 2026-11-24): ADR 0028 amends the sentence on when the archive starts: besides a delivered change, an owner's forced merge (its own pull request merged with a task unticked and a required check not green on its head) leads to the archive steps, with its open items named in the retro. The Decision is unchanged.
 
 This ADR builds on ADR 0001 and ADR 0002 and leaves both decisions unchanged. Under ADR 0002,
 `ship-change` enables auto-merge on a change PR only when `deliver-check` reports 8/8, and
@@ -24,6 +25,8 @@ branch for everyone, and the owner ruled out a bypass. An archive PR has no deli
 no tasks, no reviews, no acceptance criteria. `devkit-reviews` selects no change on it and runs
 only the archive check described under Consequences. Yet it can change product files, because
 approved proposals edit docs, agents and tests.
+
+Note (delivery-train, 2026-11-23): ADR 0022 amends the sentence of the Decision on how an archive pull request reaches the base branch in `merge` mode: in a project that sets `devkit.delivery.train`, a ready archive boards the train like a change and the archive queue that updates each archive branch after every merge goes away. The Decision is otherwise unchanged.
 
 ## Decision
 

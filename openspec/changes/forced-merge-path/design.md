@@ -2,7 +2,7 @@
 # Design
 
 Change: `forced-merge-path` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
-Decision: ADR 0022 (`proposed`, [decisions.md](decisions.md)) · Specs: [change-delivery](specs/change-delivery/spec.md),
+Decision: ADR 0028 (`proposed`, [decisions.md](decisions.md)) · Specs: [change-delivery](specs/change-delivery/spec.md),
 [change-coordination](specs/change-coordination/spec.md), [reviews-check](specs/reviews-check/spec.md)
 
 ## Context
@@ -79,7 +79,7 @@ merge has no such subject, and `origin/<base>` is the local copy `deliver-check`
 the merged pull request without a second lookup. The open further pull request still wins
 (spec scenario "A further pull request is open").
 
-## D-2 The forced signal (AC-1, AC-2; ADR 0022 decision 1)
+## D-2 The forced signal (AC-1, AC-2; ADR 0028 decision 1)
 
 New helper in `deliver-check.mjs`, exported for the tests:
 
@@ -99,7 +99,7 @@ The merge is forced when `checks` is not empty. `forcedChecks` runs only for a m
 request, change not archived, with at least one unticked task on the default branch (spec "An
 owner's forced merge is told by the required checks").
 
-## D-3 The open items (AC-1, AC-5; ADR 0022 decision 3)
+## D-3 The open items (AC-1, AC-5; ADR 0028 decision 3)
 
 `gatesAtHead(gh, id, head)` reads the gate files at the merged head through GitHub, so the count is
 the same from every checkout and after a squash merge:
@@ -244,7 +244,7 @@ Resolution of the third point: nothing changes. The `ship-change` `archive` row 
 `openspec archive <id> --yes`; the pinned CLI warns about incomplete tasks and continues (Context).
 The evidence re-runs it on a scratch copy of PR 88's head with stdin closed.
 
-## D-9 The archive pull request's check (ADR 0022 risk; spec `reviews-check`)
+## D-9 The archive pull request's check (ADR 0028 risk; spec `reviews-check`)
 
 No code changes: `archivePrCheck` never reads the archived `tasks.md`, evidence or reviews (PR 92
 passed with 9.6 unticked). A new test pins it (D-12, R1).
@@ -254,11 +254,11 @@ passed with 9.6 unticked). A new test pins it (D-12, R1).
 - `docs/openspec-flow.md`: the delivery paragraph ("A change is delivered when ..."), "The
   post-merge phase" (a forced merge enters it; items 1 and 6 open), and "Finding the change PR" (the
   commit arm replaces "The 100 is the cap ...").
-- After the owner approves the plan: ADR 0022 in the `ADRs:` list of `openspec/config.yaml` `context:`
-  ("0022 an owner's forced merge leads the change to the archive, amends 0003"), and in ADR 0003 an
+- After the owner approves the plan: ADR 0028 in the `ADRs:` list of `openspec/config.yaml` `context:`
+  ("0028 an owner's forced merge leads the change to the archive, amends 0003"), and in ADR 0003 an
   `- Amended by ADR <n> (<file>)` header line plus a Context note in the style of its 2026-11-20
   note. `<n>` is the next free number on `origin/main` at the last merge before review; the file
-  and every reference are renamed if a sibling took 0022. The loop's `accept-decisions` step sets
+  and every reference are renamed if a sibling took 0028. The loop's `accept-decisions` step sets
   the ADR's status after the approval.
 - Release: devkit-openspec's `plugin.json` and its `marketplace.json` entry, plus the marketplace
   version, each to the next free version after `origin/main`'s at the last merge before review; the
@@ -428,14 +428,14 @@ the skills, then documents and release.
 
 | Risk | P × I | Mitigation |
 |---|---|---|
-| A partial pull request merged while a check was red (or before a required check reported) reads as final | LOW × MEDIUM | ADR 0022 accepts it; the retro names the checks; F3/F4/F9 pin exactly what counts |
+| A partial pull request merged while a check was red (or before a required check reported) reads as final | LOW × MEDIUM | ADR 0028 accepts it; the retro names the checks; F3/F4/F9 pin exactly what counts |
 | The compare net diff misses a product file added and removed within the range, so a gate counts as current | LOW × LOW | Only the count shifts, never the step; documented in D-3 and `docs/openspec-flow.md` |
 | Existing tests reach the new `pr view <n>` read and fail at the fake's missing fixture | HIGH × LOW | The D-12 table names each one; a missing field is an error, never "absent", so a forgotten fixture fails loudly |
 | The rules route is unreadable for the caller's token | LOW × MEDIUM | Fail closed (`blocked`, quoting `gh`), as `mergeSetup` does; classic protection 403/404 stays "none" |
 | A stage of the walk ended blocked at its attempt ceiling on the change's branch: the loop never reads the row (`inDelivery` is false) | LOW × MEDIUM | Out of scope; the end names the failed stage; from the default branch the walk stops at the pending implementation and the row decides; noted in the retro |
 | The replayed default branch today holds the archive (PR 92) | HIGH × HIGH | The shim answers `ref=main` at the merge commit; the reproduction above proved it |
 | A real `claude -p` run pushes or writes on GitHub | LOW × HIGH | The clone's push URL is `no-push`; the shim refuses every write |
-| Sibling changes take ADR 0022 or the version | MEDIUM × LOW | Tasks name "the next free number/version on `origin/main` at the last merge before review"; `renumber-adr` handles a clash |
+| Sibling changes take ADR 0028 or the version | MEDIUM × LOW | Tasks name "the next free number/version on `origin/main` at the last merge before review"; `renumber-adr` handles a clash |
 
 ## Assumptions
 
@@ -446,13 +446,13 @@ the skills, then documents and release.
   evidence).
 - `openspec archive --yes` continues past incomplete tasks in CLI 2.x (checked with 2.0.0).
 - The required checks are read when the loop runs, not as they were at the merge (rules rarely
-  change between the two; ADR 0022 decision 1 names the merged head's checks).
+  change between the two; ADR 0028 decision 1 names the merged head's checks).
 
 ## Dependencies
 
 - ADR 0019 and the release rows (`release-tags`, on `main`); the post-merge rows of
   `archive-after-merge` and field-fixes D-4 (on `main`); `merge-setup.mjs#requiredChecks` (on `main`).
-- ADR 0022 accepted at the plan approval (owner); no open-decisions log exists.
+- ADR 0028 accepted at the plan approval (owner); no open-decisions log exists.
 
 ## Migration Plan
 

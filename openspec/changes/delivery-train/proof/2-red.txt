@@ -1,0 +1,873 @@
+✖ delivery-train record: a full record parses into its facts, its tables and the failure of a red change (8.581082ms)
+✖ delivery-train record: a record with no left entries has an empty left list (0.605363ms)
+✖ delivery-train record: an empty file, a missing header and a wrong header are errors (0.552046ms)
+✖ delivery-train record: a fence that opens and never closes is an error (0.607906ms)
+✖ delivery-train record: no Boarded table, or an empty one, is an error (0.382014ms)
+✖ delivery-train record: a bad head, kind, order or why is an error naming it (0.475918ms)
+✖ delivery-train P3 T9: a change with all its items met boards, in trunk-auto and in trunk (832.065424ms)
+✖ delivery-train P3 T1: auto-merge found on a change of a train project is disabled first, in trunk-auto and in trunk (729.298455ms)
+✔ delivery-train P3 T1: auto-merge on disables even before the contract is met (865.187547ms)
+✖ delivery-train P3 T9: a change of a train project is never told to enable auto-merge, update its branch or wait for a merge (2345.47797ms)
+✔ delivery-train P3 T4: a change with no pull request opens one, as before the train (576.591217ms)
+✖ delivery-train P3 T5: pending checks board (822.307603ms)
+✔ delivery-train P3 T5: a failing check does not board, and the next step fixes it (762.070318ms)
+✖ delivery-train P3 T5: a pull request behind the base boards, and one in conflict with it boards too (778.755518ms)
+✖ delivery-train P3 T5: in trunk a conflict boards too and a project without the train still stops on it (572.438124ms)
+✔ delivery-train P3 T6: local commits not pushed, and uncommitted files of the change folder, push (1360.294309ms)
+✔ delivery-train P3 T6: a closed pull request is blocked, as before the train (752.163064ms)
+✔ delivery-train P3 T7: an incomplete body, a failing check and a conversation to answer come before boarding (1286.880951ms)
+✖ delivery-train P3 T9: a push after boarding unboards, and the next step records the evidence again (719.876939ms)
+✖ delivery-train P3 T2: a change left by an open train waits on GitHub naming that pull request (905.056026ms)
+✖ delivery-train P3 T3: a change left by a train that merged or closed goes back to the implementer with the record's facts (999.338295ms)
+✖ delivery-train P3 T3: a red leaver carries the failure to the implementer (974.158231ms)
+✖ delivery-train P3 T8: a change on an open train ends on GitHub naming the train's pull request (1158.561329ms)
+✖ delivery-train P3 T9: a train that left the change at an older head does not apply, and it boards again (876.075617ms)
+✖ delivery-train P3 T9: a closed train that carried the change is not under way, so the change boards again (922.498083ms)
+✖ delivery-train P3 T2: GitHub silent on a train record is a blocked read, never a boarding (887.589426ms)
+✖ delivery-train P3 fields: with the key a trunk project asks the merge fields and can see auto-merge on; without it, today's (603.896015ms)
+✔ delivery-train P3 fields: trunk-auto asks the merge fields with and without the key (1508.848837ms)
+✔ delivery-train P3 fields: a trunk project without the key makes exactly the gh calls it made before the train (597.797423ms)
+✖ delivery-train P4 trainFacts: on an open train, carried by a merged one, left on an open one and left on a closed one (344.070008ms)
+✖ delivery-train P4 trainFacts: a record at another head, another kind or another change lists nobody (356.391975ms)
+✖ delivery-train P4 trainFacts: the newest train wins, only train heads are read and only five of them (1292.741539ms)
+✖ delivery-train P4 trainFacts: a pull request that is not a train, and no pull request head, make no train reads (255.284769ms)
+✖ delivery-train P4 trainFacts: GitHub silent is an error, and a train with no record or a bad one lists nobody (215.157928ms)
+✖ delivery-train AC-2: a change approved at its head is boarded behind main, with pending checks, and waits for the owner (775.614048ms)
+✖ delivery-train AC-3: a sibling's merge into main leaves the boarded change's evidence, reviews and action as they were (894.979968ms)
+✖ delivery-train AC-5: the tasks item skips the parts of the train and says how many the train proves (135.881555ms)
+✖ delivery-train AC-5: a part the train does not run still needs its row, and a train row ending in train: is no pass (135.779434ms)
+✖ delivery-train AC-5: collectState passes the train parts to the tasks item, and a project without the key does not (739.565536ms)
+✖ delivery-train P3 A5: an open archive pull request that passes its checks boards, in trunk-auto and in trunk (1.177898ms)
+✖ delivery-train P3 A5: pending checks board an archive, and a failing check does not (0.29942ms)
+✖ delivery-train P3 A4: an archive on an open train ends on GitHub naming it (0.357264ms)
+✖ delivery-train P3 A1: an archive left while its train is open waits on GitHub and is never boarded (0.344804ms)
+✖ delivery-train P3 A2: an archive left on a red train stops for the owner naming the train and the failure (0.318452ms)
+✖ delivery-train P3 A3: an archive left for a conflict on a train that ended rejoins with the paths (0.270041ms)
+✖ delivery-train P3 A rows: a conflicting or behind archive pull request boards, and is never told to update its branch (0.293366ms)
+✖ delivery-train P3 A rows: auto-merge on an archive pull request is disabled, and the archive boards after it (0.301184ms)
+✔ delivery-train P3 A rows: the retro answers and the file check still hold an archive back, and an unpushed one is pushed first (0.413426ms)
+✖ delivery-train P3b: a clean merge with the base gives rejoin-archive with the roadmap-ticks command (150.335268ms)
+✖ delivery-train P3b: release files and a roadmap tick in the way give the same step (186.184653ms)
+✖ delivery-train P3b: a canonical spec edited on both sides stops for the owner with the path, and nothing is merged (196.652127ms)
+✖ delivery-train P3b: a merge made here and not pushed yet is pushed, never with force, and not merged again (198.76742ms)
+✔ delivery-train P3b: a change row, and any other step of an archive, is left alone (165.664952ms)
+✖ delivery-train P3b: the actors of the six new steps (0.6569ms)
+✖ delivery-train AC-9: two archives at the archive step both go on in a train project, and one waits for the other without the key (1836.450803ms)
+✔ delivery-train AC-1: without the key the delivery rows give the JSON and the exit code they gave, whatever the model and the ship map (8966.202451ms)
+ℹ tests 56
+ℹ suites 0
+ℹ pass 11
+ℹ fail 45
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39193.571908
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:517:1
+✖ delivery-train record: a full record parses into its facts, its tables and the failure of a red change (8.581082ms)
+  TypeError [Error]: deliver.parseTrainRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:524:28)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:537:1
+✖ delivery-train record: a record with no left entries has an empty left list (0.605363ms)
+  TypeError [Error]: deliver.parseTrainRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:538:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:543:1
+✖ delivery-train record: an empty file, a missing header and a wrong header are errors (0.552046ms)
+  TypeError [Error]: deliver.parseTrainRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:544:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:550:1
+✖ delivery-train record: a fence that opens and never closes is an error (0.607906ms)
+  TypeError [Error]: deliver.parseTrainRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:552:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:555:1
+✖ delivery-train record: no Boarded table, or an empty one, is an error (0.382014ms)
+  TypeError [Error]: deliver.parseTrainRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:556:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:560:1
+✖ delivery-train record: a bad head, kind, order or why is an error naming it (0.475918ms)
+  TypeError [Error]: deliver.parseTrainRecord is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:562:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:636:1
+✖ delivery-train P3 T9: a change with all its items met boards, in trunk-auto and in trunk (832.065424ms)
+  AssertionError [ERR_ASSERTION]: trunk-auto
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:642:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:650:1
+✖ delivery-train P3 T1: auto-merge found on a change of a train project is disabled first, in trunk-auto and in trunk (729.298455ms)
+  AssertionError [ERR_ASSERTION]: trunk-auto
+  + actual - expected
+  
+    [
+  +   'wait-merge',
+  -   'disable-auto-merge',
+      11
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:656:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'wait-merge', 11 ],
+    expected: [ 'disable-auto-merge', 11 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:671:1
+✖ delivery-train P3 T9: a change of a train project is never told to enable auto-merge, update its branch or wait for a merge (2345.47797ms)
+  AssertionError [ERR_ASSERTION]: trunk-auto
+  + actual - expected
+  
+    [
+  +   'enable-auto-merge',
+  +   'wait-checks',
+  +   'update-branch',
+  +   'blocked'
+  -   'boarded',
+  -   'boarded',
+  -   'boarded',
+  -   'boarded'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:680:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'enable-auto-merge', 'wait-checks', 'update-branch', 'blocked' ],
+    expected: [ 'boarded', 'boarded', 'boarded', 'boarded' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:690:1
+✖ delivery-train P3 T5: pending checks board (822.307603ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'wait-checks'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:694:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'wait-checks',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:706:1
+✖ delivery-train P3 T5: a pull request behind the base boards, and one in conflict with it boards too (778.755518ms)
+  AssertionError [ERR_ASSERTION]: behind
+  + actual - expected
+  
+  + 'update-branch'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:710:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'update-branch',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:717:1
+✖ delivery-train P3 T5: in trunk a conflict boards too and a project without the train still stops on it (572.438124ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'blocked'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:721:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'blocked',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:758:1
+✖ delivery-train P3 T9: a push after boarding unboards, and the next step records the evidence again (719.876939ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:761:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:767:1
+✖ delivery-train P3 T2: a change left by an open train waits on GitHub naming that pull request (905.056026ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'enable-auto-merge',
+  +   11,
+  +   undefined
+  -   'wait-train',
+  -   12,
+  -   4
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:773:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'enable-auto-merge', 11, undefined ],
+    expected: [ 'wait-train', 12, 4 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:777:1
+✖ delivery-train P3 T3: a change left by a train that merged or closed goes back to the implementer with the record's facts (999.338295ms)
+  AssertionError [ERR_ASSERTION]: {"merged":true}
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'rejoin-train'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:783:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'rejoin-train',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:788:1
+✖ delivery-train P3 T3: a red leaver carries the failure to the implementer (974.158231ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'enable-auto-merge',
+  +   undefined,
+  +   undefined
+  -   'rejoin-train',
+  -   'red',
+  -   'not ok 7 - feat'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:793:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'enable-auto-merge', undefined, undefined ],
+    expected: [ 'rejoin-train', 'red', 'not ok 7 - feat' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:796:1
+✖ delivery-train P3 T8: a change on an open train ends on GitHub naming the train's pull request (1158.561329ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'enable-auto-merge',
+  +   11,
+  +   undefined
+  -   'on-train',
+  -   12,
+  -   4
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:802:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'enable-auto-merge', 11, undefined ],
+    expected: [ 'on-train', 12, 4 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:806:1
+✖ delivery-train P3 T9: a train that left the change at an older head does not apply, and it boards again (876.075617ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:810:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:814:1
+✖ delivery-train P3 T9: a closed train that carried the change is not under way, so the change boards again (922.498083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:818:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:821:1
+✖ delivery-train P3 T2: GitHub silent on a train record is a blocked read, never a boarding (887.589426ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'error')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:827:28)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:833:1
+✖ delivery-train P3 fields: with the key a trunk project asks the merge fields and can see auto-merge on; without it, today's (603.896015ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'number,url,state,headRefOid,baseRefName,mergeable,body'
+  -   'number,url,state,headRefOid,baseRefName,mergeable,body,autoMergeRequest,mergeStateStatus'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:841:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'number,url,state,headRefOid,baseRefName,mergeable,body' ],
+    expected: [ 'number,url,state,headRefOid,baseRefName,mergeable,body,autoMergeRequest,mergeStateStatus' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:879:1
+✖ delivery-train P4 trainFacts: on an open train, carried by a merged one, left on an open one and left on a closed one (344.070008ms)
+  TypeError [Error]: deliver.trainFacts is not a function
+      at factsOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:877:57)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:883:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:905:1
+✖ delivery-train P4 trainFacts: a record at another head, another kind or another change lists nobody (356.391975ms)
+  TypeError [Error]: deliver.trainFacts is not a function
+      at factsOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:877:57)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:909:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:914:1
+✖ delivery-train P4 trainFacts: the newest train wins, only train heads are read and only five of them (1292.741539ms)
+  TypeError [Error]: deliver.trainFacts is not a function
+      at factsOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:877:57)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:918:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:924:1
+✖ delivery-train P4 trainFacts: a pull request that is not a train, and no pull request head, make no train reads (255.284769ms)
+  TypeError [Error]: deliver.trainFacts is not a function
+      at factsOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:877:57)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:927:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:937:1
+✖ delivery-train P4 trainFacts: GitHub silent is an error, and a train with no record or a bad one lists nobody (215.157928ms)
+  TypeError [Error]: deliver.trainFacts is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:941:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:963:1
+✖ delivery-train AC-2: a change approved at its head is boarded behind main, with pending checks, and waits for the owner (775.614048ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'update-branch'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:970:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'update-branch',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:980:1
+✖ delivery-train AC-3: a sibling's merge into main leaves the boarded change's evidence, reviews and action as they were (894.979968ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:985:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1003:1
+✖ delivery-train AC-5: the tasks item skips the parts of the train and says how many the train proves (135.881555ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'open' !== 'met'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1012:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'open',
+    expected: 'met',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1018:1
+✖ delivery-train AC-5: a part the train does not run still needs its row, and a train row ending in train: is no pass (135.779434ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  
+  undefined !== []
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1026:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1032:1
+✖ delivery-train AC-5: collectState passes the train parts to the tasks item, and a project without the key does not (739.565536ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'open' !== 'met'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1036:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'open',
+    expected: 'met',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1068:1
+✖ delivery-train P3 A5: an open archive pull request that passes its checks boards, in trunk-auto and in trunk (1.177898ms)
+  AssertionError [ERR_ASSERTION]: merge
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1071:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1075:1
+✖ delivery-train P3 A5: pending checks board an archive, and a failing check does not (0.29942ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1076:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1081:1
+✖ delivery-train P3 A4: an archive on an open train ends on GitHub naming it (0.357264ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'enable-auto-merge',
+  +   30,
+  +   undefined
+  -   'on-train',
+  -   40,
+  -   4
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1083:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'enable-auto-merge', 30, undefined ],
+    expected: [ 'on-train', 40, 4 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1086:1
+✖ delivery-train P3 A1: an archive left while its train is open waits on GitHub and is never boarded (0.344804ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'enable-auto-merge',
+  +   30,
+  +   undefined
+  -   'wait-train',
+  -   40,
+  -   4
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1088:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'enable-auto-merge', 30, undefined ],
+    expected: [ 'wait-train', 40, 4 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1091:1
+✖ delivery-train P3 A2: an archive left on a red train stops for the owner naming the train and the failure (0.318452ms)
+  AssertionError [ERR_ASSERTION]: MERGED
+  + actual - expected
+  
+    [
+  +   'enable-auto-merge',
+  +   undefined
+  -   'stop-archive',
+  -   'train-left'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1094:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'enable-auto-merge', undefined ],
+    expected: [ 'stop-archive', 'train-left' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1100:1
+✖ delivery-train P3 A3: an archive left for a conflict on a train that ended rejoins with the paths (0.270041ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'enable-auto-merge'
+  - 'rejoin-archive'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1102:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'enable-auto-merge',
+    expected: 'rejoin-archive',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1107:1
+✖ delivery-train P3 A rows: a conflicting or behind archive pull request boards, and is never told to update its branch (0.293366ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'stop-archive'
+  - 'boarded'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1108:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'stop-archive',
+    expected: 'boarded',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1118:1
+✖ delivery-train P3 A rows: auto-merge on an archive pull request is disabled, and the archive boards after it (0.301184ms)
+  AssertionError [ERR_ASSERTION]: merge
+  + actual - expected
+  
+    [
+  +   'wait-merge',
+  -   'disable-auto-merge',
+      30
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1122:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'wait-merge', 30 ],
+    expected: [ 'disable-auto-merge', 30 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1157:1
+✖ delivery-train P3b: a clean merge with the base gives rejoin-archive with the roadmap-ticks command (150.335268ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'rejoin-archive',
+  +   'stop'
+  -   'main'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1160:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rejoin-archive', 'stop' ],
+    expected: [ 'rejoin-archive', 'main' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1167:1
+✖ delivery-train P3b: release files and a roadmap tick in the way give the same step (186.184653ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'slice')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1175:37)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1178:1
+✖ delivery-train P3b: a canonical spec edited on both sides stops for the owner with the path, and nothing is merged (196.652127ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'rejoin-archive',
+  +   undefined,
+  -   'stop-archive',
+  -   'train-left',
+      'stop'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1184:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rejoin-archive', undefined, 'stop' ],
+    expected: [ 'stop-archive', 'train-left', 'stop' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1190:1
+✖ delivery-train P3b: a merge made here and not pushed yet is pushed, never with force, and not merged again (198.76742ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'rejoin-archive'
+  - 'open-archive-pr'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1194:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'rejoin-archive',
+    expected: 'open-archive-pr',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1206:1
+✖ delivery-train P3b: the actors of the six new steps (0.6569ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   actor: 'stop',
+  +   reason: 'unknown step boarded'
+  -   actor: 'owner',
+  -   askable: false
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1207:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { actor: 'stop', reason: 'unknown step boarded' },
+    expected: { actor: 'owner', askable: false },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:1243:1
+✖ delivery-train AC-9: two archives at the archive step both go on in a train project, and one waits for the other without the key (1836.450803ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      a: 'archive',
+  +   b: 'wait-dependencies'
+  -   b: 'archive'
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:1244:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { a: 'archive', b: 'wait-dependencies' },
+    expected: { a: 'archive', b: 'archive' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

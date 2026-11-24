@@ -16,8 +16,7 @@ import * as deliver from './deliver-check.mjs';
 import { readDevkitSettings, decide, exitCodeOf, render } from './change-loop.mjs';
 import { deliveryStep } from './conduct-check.mjs';
 import { pinsIn } from './release-merge.mjs';
-import { pm, retroMd, writeRetro, mergedPr, archivePrJson, ARCHIVE_PRS, ARCHIVE_LISTING, fakeGh } from './deliver-check.test.mjs';
-import { scenario, archiving, TWO_PRS } from './delivery-models.test.mjs';
+import { pm, retroMd, writeRetro, mergedPr, archivePrJson, ARCHIVE_PRS, ARCHIVE_LISTING, fakeGh, scenario, archiving, TWO_PRS } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
 
 const PLUGIN_JSON = 'plugins/openspec/.claude-plugin/plugin.json';

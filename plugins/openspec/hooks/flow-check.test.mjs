@@ -11,9 +11,8 @@ import { spawnSync } from 'node:child_process';
 import * as FC from './flow-check.mjs';
 import { parseStageHeader, readFlow, pendingTasks, FlowUsageError, collectFlow, computeFlow, renderText, TEXT, reasonText } from './flow-check.mjs';
 import { makeGh } from './deliver-check.mjs';
-import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, openspecStub, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, roundRepo } from './test-fixtures.mjs';
 import { collectState, nextStep, approvalState } from './deliver-check.mjs';
-import { roundRepo } from './conduct-check.test.mjs';
 import { conductState } from './conduct-check.mjs';
 
 const SHA7 = 'a1b2c3d';
@@ -286,7 +285,7 @@ test('flow-check AC-2: the session hook names the checker and the roles', () => 
 
 const HEADER = (stage, result = 'passed') => `<!-- devkit-stage ${stage} result=${result} attempt=1 commit=none -->\n`;
 const headed = (on, stage, text) => (on ? HEADER(stage) + text : text);
-const SHIP_ENV = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const SHIP_ENV = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', CLAUDE_CODE_SESSION_ID: '' };
 const CHANGE = 'openspec/changes/feat';
 const PLAN_PROPOSAL = '# Proposal\n\n## Why\n\nx\n\n## Acceptance criteria\n\n- AC-1: a thing\n';
 const hashOfFile = (file) => `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 12)}`;
@@ -1206,7 +1205,7 @@ let sampleCache = null;
 // demonstration passed, the plan readiness at attempt 2, the code review failed at attempt 1. Invariant (T-22, D-13): the readout of the approved
 // sample change reads as the owner approved it; layer: the readout; suite: flow-check. The change records `x-devkit-flow: 2`, as a change opened with
 // this release does: with no pin it follows flow 1 under the installed flow 2 and its readout gains the newer-flow line (D-17).
-export function sampleChange() {
+function sampleChange() {
   if (sampleCache) return sampleCache;
   const root = tmpFolder('devkit-flow-check-sample-');
   git(root, 'init', '-q', '-b', 'main');
@@ -1278,6 +1277,8 @@ test('flow-check readout: both languages cover every reason code', () => {
     'auto-merge-on': { number: 12, waiting: 'GitHub to merge' }, 'enable-auto-merge': { number: 12 }, 'pr-closed': { number: 12 }, 'tasks-left-after-merge': { number: 12, tasks: '3.1, 3.2' },
     'no-test-pr': {}, 'owner-merges-test-branch': { number: 13, branch: 'develop', base: 'main' }, 'owner-merges-base': { number: 12, base: 'main' },
     'stale-reviewers': { names: ['spec-reviewer'] },
+    // The delivery train (delivery-train D-2): a change that boards, rides a train or was taken off one.
+    boarded: {}, 'on-train': { number: 40 }, 'left-train': { train: 4, number: 40 }, 'disable-auto-merge': { number: 12 },
   };
   assert.deepEqual(Object.keys(P).sort(), en, 'the table below names every code');
   for (const code of en) {

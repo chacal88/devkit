@@ -1,0 +1,5 @@
+tool_use id=toolu_01LQvH2qt8ZxiMetAuaEwFcE name=Agent input_keys=description,subagent_type,model,prompt subagent_type=devkit-core:codebase-researcher model=haiku
+parent assistant message.model=claude-sonnet-5-5
+subagent assistant parent_tool_use_id=toolu_01LQvH2qt8ZxiMetAuaEwFcE message.model=claude-haiku-5-5
+parent assistant message.model=claude-sonnet-5-5
+parent assistant message.model=claude-sonnet-5-5

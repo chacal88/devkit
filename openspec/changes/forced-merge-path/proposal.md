@@ -2,8 +2,8 @@
 # Proposal
 
 Change: `forced-merge-path` · Date: 2026-11-24 · Owner: Kaue (chacal88) · PRD / tech spec: n/a ·
-Requirements: [requirements.md](requirements.md) · Decision: [decisions.md](decisions.md), ADR 0022
-(drafted `proposed`, [docs/adr/0022-an-owners-forced-merge-leads-the-change-to-the-archive.md](../../../docs/adr/0022-an-owners-forced-merge-leads-the-change-to-the-archive.md))
+Requirements: [requirements.md](requirements.md) · Decision: [decisions.md](decisions.md), ADR 0028
+(drafted `proposed`, [docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md](../../../docs/adr/0028-an-owners-forced-merge-leads-the-change-to-the-archive.md))
 
 ## Why
 
@@ -25,7 +25,7 @@ those changes were driven by hand.
 ## What Changes
 
 - `deliver-check` tells an owner's forced, final merge from a deliberate partial one by the required
-  checks of the merged head (ADR 0022 decision 1): a merged own pull request with unticked tasks
+  checks of the merged head (ADR 0028 decision 1): a merged own pull request with unticked tasks
   whose required checks were not all `SUCCESS` (or absent) is forced; with every required check
   green it stays the partial pull request of today.
 - A forced merge enters the same post-merge rows a delivered change gets (`tag-release`, `retro`,
@@ -39,7 +39,7 @@ those changes were driven by hand.
   pull request and the count, and a forced step is never replaced by a test stage.
 - The `ship-change` retro row writes the open items into the retro's "Went wrong" answer; nothing
   ticks a task or writes a gate file.
-- Docs, the devkit-openspec release, and ADR 0022's records (the ADR list of `openspec/config.yaml`,
+- Docs, the devkit-openspec release, and ADR 0028's records (the ADR list of `openspec/config.yaml`,
   the "Amended by" line of ADR 0003), the last two only after the owner approves the plan.
 
 Non-goals: the stage readout (`flow-check.mjs`) keeps its text for a merged pull request with tasks
@@ -74,7 +74,7 @@ None.
 - `change-coordination`: the change loop leads a forced merge to the retro session step with its
   own reply, ahead of any test stage.
 - `reviews-check`: an archive pull request is not judged on the archived change's unticked tasks
-  (the behaviour PR 92 already showed, now pinned, because ADR 0022 relies on it).
+  (the behaviour PR 92 already showed, now pinned, because ADR 0028 relies on it).
 
 ## Impact
 
@@ -86,7 +86,7 @@ None.
 - `plugins/openspec/skills/ship-change/SKILL.md`, `plugins/openspec/skills/devkit/SKILL.md`,
   `docs/openspec-flow.md`: the retro row, the session's reply, the delivery paragraphs.
 - Tests: `deliver-check.test.mjs`, `change-loop.test.mjs`, `flow-check.test.mjs` (fixtures only).
-- Release: devkit-openspec and the marketplace bump, CHANGELOG, the CI pin lines; ADR 0022's list
+- Release: devkit-openspec and the marketplace bump, CHANGELOG, the CI pin lines; ADR 0028's list
   line in `openspec/config.yaml` and its line in ADR 0003.
 - GitHub: new read-only routes after a merge (`pr view <n> --json statusCheckRollup`,
   `commits?sha=&path=`, `commits/<sha>/pulls`, `compare/<a>...<b>`, contents at a commit).

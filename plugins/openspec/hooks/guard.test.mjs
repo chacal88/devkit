@@ -1,4 +1,4 @@
-// node --test plugins/openspec/hooks/guard.test.mjs
+// The guard's own tests. Run by `node scripts/test-suite.mjs`, in a process of its own; alone: `node scripts/test-suite.mjs plugins/openspec/hooks/guard.test.mjs`
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, cpSync, symlinkSync, readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
@@ -9,26 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gitViolation, readValue, resolveChange, sanitize, bashWrites, reviewConsensus, readRoadmap, findRoot, changeSchema, changeDir, archiveBranchChange, commandSegments, classify, DEVKIT_SCHEMAS, projectSchema, optedIn } from './guard.mjs';
 
 import * as GUARD from './guard.mjs';
-import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './deliver-check.test.mjs'; // ship-modes tests ride on the same command
-import './merge-setup.test.mjs'; // auto-merge: the GitHub facts and the workflow files
-import './conduct-check.test.mjs'; // conduct-rounds: the round computation
-import './flow-check.test.mjs'; // flow-script-checker: the stage header and the checker
-import './release-merge.test.mjs'; // conduct-rounds: release-file conflicts
-import './change-loop.test.mjs'; // change-coordinator: the loop, its commands and its locks
-import './jira-task.test.mjs'; // jira-entry: the Jira key, the task and the write-back
-import './roadmap-loop.test.mjs'; // roadmap-coordinator: the roadmap loop, its commands and its locks
-import './delivery-models.test.mjs'; // delivery-models: the delivery model per project, its settings and opening
-import './release-tags.test.mjs'; // release-tags: the release_tag setting and the tag-release step
-import './project-loop.test.mjs'; // project-phases: the devkit-project schema, the slice loop, the slice contract
-import './version-pin.test.mjs'; // change-version-pin: the flow a change opened with
-import './test-tmp.test.mjs'; // test-fixture-cleanup: the temporary-folder helper
-import '../skills/openspec-setup/scripts/github-setup.test.mjs'; // auto-merge: the GitHub setup script
-import '../skills/openspec-setup/scripts/install-schemas.test.mjs'; // devkit per project: install-schemas.sh forms
-import '../skills/openspec-setup/scripts/changes-under-way.test.mjs'; // field-fixes 7: the schema upgrade over changes under way
-import '../skills/openspec-setup/scripts/project-settings.test.mjs'; // devkit per project: the settings writer
-import '../skills/openspec-setup/scripts/ship-entry.test.mjs'; // project-phases: the ship entry of devkit-project
-import '../skills/openspec-setup/scripts/gh-version.test.mjs'; // gh-version-check: the setup's gh version line
-import '../../core/skills/review-change/scripts/review-round.test.mjs'; // review-workflow: the round's rules, script and CLI
+import { gitRepo, put, commitAll, git as gitIn, openspecStub } from './test-fixtures.mjs'; // ship-modes tests ride on the same command
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guard = join(here, 'guard.mjs');
@@ -53,7 +34,7 @@ function repo({ changes = {}, branch = 'main', roadmap, archived = [] } = {}) {
   return root;
 }
 
-const clean = { DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
+const clean = { DEVKIT_BYPASS: '', DEVKIT_CHANGE: '', DEVKIT_BRANCH: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', COMPOZY_SESSION_ID: '' };
 function run(mode, input, env = {}, cwd) {
   const r = spawnSync('node', [guard, mode], { cwd, input: JSON.stringify(input), encoding: 'utf8', env: { ...process.env, ...clean, ...env } });
   return { code: r.status, err: r.stderr, out: r.stdout };
@@ -1066,6 +1047,47 @@ test('approval.md: main-session only even with several active changes or in anot
   }
 });
 
+// Invariant: in a CompozyOS session approval.md is written only by the kit's record step (compozy-driver D-11, coordination-locks).
+// Layer: guard's writeViolation, through `guard edit` and `guard bash`. Suite: guard. The variable is the one a CompozyOS seat sees (probe P-1).
+const COMPOZY_ENV = { COMPOZY_SESSION_ID: 'sess_probe' };
+const COMPOZY_REASON = /in a CompozyOS session approval\.md is written only by the kit's record step, from the owner's answer/;
+
+test('guard compozy approval: the Write tool of the main session is refused in a CompozyOS session', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = run('edit', { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'openspec/changes/feat/approval.md') } }, COMPOZY_ENV);
+  assert.equal(r.code, 2);
+  assert.match(r.err, COMPOZY_REASON);
+});
+
+test('guard compozy approval: a Bash redirect of the main session is refused in a CompozyOS session', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = bash(root, "echo '- Status: APPROVED' > openspec/changes/feat/approval.md", undefined, COMPOZY_ENV);
+  assert.equal(r.code, 2);
+  assert.match(r.err, COMPOZY_REASON);
+});
+
+test('guard compozy approval: a subagent is refused in a CompozyOS session with the same reason', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = run('edit', { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'openspec/changes/feat/approval.md') }, ...agent('tdd-implementer') }, COMPOZY_ENV);
+  assert.equal(r.code, 2);
+  assert.match(r.err, COMPOZY_REASON);
+});
+
+test('guard compozy approval: the main session outside a CompozyOS session still writes it', () => {
+  const root = repo({ changes: { feat: approved } });
+  assert.equal(edit(root, 'openspec/changes/feat/approval.md').code, 0);
+  const blank = run('edit', { cwd: root, tool_name: 'Write', tool_input: { file_path: join(root, 'openspec/changes/feat/approval.md') } }, { COMPOZY_SESSION_ID: '' });
+  assert.equal(blank.code, 0, 'an empty variable is no CompozyOS session');
+});
+
+test('guard compozy approval: a subagent outside a CompozyOS session is refused with the reason of the main-session rule', () => {
+  const root = repo({ changes: { feat: approved } });
+  const r = edit(root, 'openspec/changes/feat/approval.md', 'tdd-implementer');
+  assert.equal(r.code, 2);
+  assert.match(r.err, /approval\.md is written only by the main session, from the owner's own message; not by tdd-implementer/);
+  assert.doesNotMatch(r.err, /CompozyOS/);
+});
+
 test('gh pr create after cd to a directory with no project still meets the session root gate (D5)', () => {
   const root = repo({ changes: { feat: approved }, branch: 'feat' });
   const r = bash(root, 'cd /tmp && gh pr create --title t --body b');
@@ -1235,7 +1257,7 @@ function testFilesUnder(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     if (e.name === 'node_modules') return [];
     const p = join(dir, e.name);
-    return e.isDirectory() ? testFilesUnder(p) : e.name.endsWith('.test.mjs') ? [p] : [];
+    return e.isDirectory() ? testFilesUnder(p) : e.name.endsWith('.test.mjs') || e.name.endsWith('-fixtures.mjs') ? [p] : [];
   });
 }
 
@@ -1249,6 +1271,20 @@ test('no test env blanks DEVKIT_BRANCH without also blanking GITHUB_HEAD_REF', (
   const plugins = join(here, '..', '..');
   const offenders = testFilesUnder(plugins).flatMap((f) => branchBlankedAlone(readFileSync(f, 'utf8')).map((n) => `${f.slice(plugins.length + 1)}:${n}`));
   assert.deepEqual(offenders, [], 'blank GITHUB_HEAD_REF next to DEVKIT_BRANCH (CONTRIBUTING.md, testing rules)');
+});
+
+test('suite-speed AC-3 the branch-blank scan reads test-fixtures.mjs and every *-fixtures.mjs', () => {
+  const root = tmpFolder('devkit-branch-scan-');
+  mkdirSync(join(root, 'x'), { recursive: true });
+  const fixtures = join(root, 'x', 'test-fixtures.mjs');
+  const split = join(root, 'x', 'x-fixtures.mjs');
+  writeFileSync(fixtures, ['export const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
+  writeFileSync(split, ['export const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
+  writeFileSync(join(root, 'x', 'notes.mjs'), ['const env = { ...base, DEVKIT_BRANCH', ": '' };\n"].join(''));
+  const found = testFilesUnder(root).sort();
+  assert.deepEqual(found, [fixtures, split].sort(), 'both fixtures modules are scanned, another .mjs file is not');
+  assert.deepEqual(branchBlankedAlone(readFileSync(fixtures, 'utf8')), [1], 'its offending line is found');
+  assert.deepEqual(branchBlankedAlone(readFileSync(split, 'utf8')), [1], 'the offending line of the split module is found');
 });
 
 // ---------------------------------------------------------------- field-fixes 6: the project's OpenSpec CLI (D-1)

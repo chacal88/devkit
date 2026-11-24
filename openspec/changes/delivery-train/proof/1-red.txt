@@ -1,0 +1,454 @@
+✖ delivery-train config: no key and an empty value are no train and no problem (2.736181ms)
+✖ delivery-train config: a value with trunk or trunk-auto is the whole-suite command (0.844255ms)
+✖ delivery-train config: a value with two-prs is a train-model problem naming the model (0.509768ms)
+✖ delivery-train config: a value with no model, or an unknown one, is a train-model problem with no model (0.576802ms)
+✖ delivery-train config: an unclosed double or single quote is refused, never read as the rest of the line (0.526593ms)
+✖ delivery-train config: a quoted command keeps its && and #, an unquoted one ends at a # comment (0.519103ms)
+✖ delivery-train config: a train key nested under another key is not the setting (0.522552ms)
+✖ delivery-train config: readTrainSetting reads the file, and no file is no train (1.10919ms)
+✔ delivery-train config: deliverySettings keeps its shape with a train set (1.16761ms)
+✖ delivery-train config: deliveryConfig adds the suite, null without the key (2.81071ms)
+✖ delivery-train config: deliveryConfig refuses the three train problems with their messages (1.095717ms)
+✖ delivery-train config: a refused train setting stops change, roadmap, status and project in both languages (141.161725ms)
+✔ delivery-train config: an unknown driver is reported before a refused train (1.427577ms)
+✔ delivery-train config: a valid train does not stop the verbs (1.105244ms)
+✖ delivery-train config: readDevkitSettings holds the train only when the key is set (1.411606ms)
+✖ delivery-train join: a change with no release file merges into the train as one commit with the train message (136.573283ms)
+✖ delivery-train join: two identical minor bumps become 0.8.0 above 0.7.0, with the CHANGELOG in order (123.978751ms)
+✖ delivery-train join: a patch of the change above a minor of the train is renumbered above it (121.954409ms)
+✖ delivery-train join: a product conflict exits 2 with the path and leaves the train as it was (127.56708ms)
+✖ delivery-train join: the CI pin of both sides is merged and set to the renumbered devkit-openspec version (125.686809ms)
+✖ delivery-train join: a revision already in the train is nothing to do (118.782077ms)
+✖ delivery-train join: a missing revision, both modes together and a lone --roadmap-ticks are setup errors (111.104672ms)
+✖ delivery-train roadmap: two neighbouring ticks of the change are written onto the base (0.319297ms)
+✖ delivery-train roadmap: a tick of a line the base already ticked changes nothing (0.244203ms)
+✖ delivery-train roadmap: a reworded, added, removed, unticked or unknown line throws (0.852256ms)
+✖ delivery-train roadmap: a missing final newline is kept as the base has it (0.216416ms)
+✖ delivery-train roadmap: classifyConflict resolves a tick conflict only with the resolver, and returns roadmapMerged (0.568475ms)
+✖ delivery-train roadmap: --merge resolves a tick conflict by rule and a reworded line is blocking (124.340659ms)
+✖ delivery-train roadmap: --base resolves a tick conflict only under --roadmap-ticks, and exits 2 without it (324.043783ms)
+✖ delivery-train roadmap: --base keeps its resolved JSON keys as they are (140.980599ms)
+✖ delivery-train config: both languages carry the same train keys (0.403397ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 3
+ℹ fail 28
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1764.742266
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:43:1
+✖ delivery-train config: no key and an empty value are no train and no problem (2.736181ms)
+  TypeError [Error]: guard.trainSetting is not a function
+      at trainOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:39:33)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:45:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:49:1
+✖ delivery-train config: a value with trunk or trunk-auto is the whole-suite command (0.844255ms)
+  TypeError [Error]: guard.trainSetting is not a function
+      at trainOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:39:33)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:51:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:55:1
+✖ delivery-train config: a value with two-prs is a train-model problem naming the model (0.509768ms)
+  TypeError [Error]: guard.trainSetting is not a function
+      at trainOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:39:33)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:57:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:60:1
+✖ delivery-train config: a value with no model, or an unknown one, is a train-model problem with no model (0.576802ms)
+  TypeError [Error]: guard.trainSetting is not a function
+      at trainOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:39:33)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:61:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:65:1
+✖ delivery-train config: an unclosed double or single quote is refused, never read as the rest of the line (0.526593ms)
+  TypeError [Error]: guard.trainSetting is not a function
+      at trainOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:39:33)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:67:15)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:74:1
+✖ delivery-train config: a quoted command keeps its && and #, an unquoted one ends at a # comment (0.519103ms)
+  TypeError [Error]: guard.trainSetting is not a function
+      at trainOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:39:33)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:76:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:81:1
+✖ delivery-train config: a train key nested under another key is not the setting (0.522552ms)
+  TypeError [Error]: guard.trainSetting is not a function
+      at trainOf (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:39:33)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:83:20)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:88:1
+✖ delivery-train config: readTrainSetting reads the file, and no file is no train (1.10919ms)
+  TypeError [Error]: guard.readTrainSetting is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:89:26)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:103:1
+✖ delivery-train config: deliveryConfig adds the suite, null without the key (2.81071ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:104:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:111:1
+✖ delivery-train config: deliveryConfig refuses the three train problems with their messages (1.095717ms)
+  AssertionError [ERR_ASSERTION]: the setting was accepted
+      at refusal (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:114:19)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:117:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:128:1
+✖ delivery-train config: a refused train setting stops change, roadmap, status and project in both languages (141.161725ms)
+  AssertionError [ERR_ASSERTION]: train-model en change
+  + actual - expected
+  
+  + 'new'
+  - 'setting-unknown'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:142:16)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'new',
+    expected: 'setting-unknown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:169:1
+✖ delivery-train config: readDevkitSettings holds the train only when the key is set (1.411606ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   problem: null,
+  -   suite: 'node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py'
+  - }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:171:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { suite: 'node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py', problem: null },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:252:1
+✖ delivery-train join: a change with no release file merges into the train as one commit with the train message (136.573283ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:255:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:270:1
+✖ delivery-train join: two identical minor bumps become 0.8.0 above 0.7.0, with the CHANGELOG in order (123.978751ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:276:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:289:1
+✖ delivery-train join: a patch of the change above a minor of the train is renumbered above it (121.954409ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:295:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:302:1
+✖ delivery-train join: a product conflict exits 2 with the path and leaves the train as it was (127.56708ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])
+  
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:308:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:327:1
+✖ delivery-train join: the CI pin of both sides is merged and set to the renumbered devkit-openspec version (125.686809ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:337:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:347:1
+✖ delivery-train join: a revision already in the train is nothing to do (118.782077ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:349:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:361:1
+✖ delivery-train join: a missing revision, both modes together and a lone --roadmap-ticks are setup errors (111.104672ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /no-such-rev/. Input:
+  
+  'release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])\n'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:365:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])\n',
+    expected: /no-such-rev/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:373:1
+✖ delivery-train roadmap: two neighbouring ticks of the change are written onto the base (0.319297ms)
+  TypeError [Error]: release.resolveRoadmapTicks is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:377:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:380:1
+✖ delivery-train roadmap: a tick of a line the base already ticked changes nothing (0.244203ms)
+  TypeError [Error]: release.resolveRoadmapTicks is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:384:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:387:1
+✖ delivery-train roadmap: a reworded, added, removed, unticked or unknown line throws (0.852256ms)
+  AssertionError [ERR_ASSERTION]: - [x] a renamed
+  - [ ] b
+  
+      at throws (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:390:54)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:391:3)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: release.resolveRoadmapTicks is not a function
+        at assert.throws.name (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:390:75)
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at throws (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:390:54)
+        at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:391:3)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: { name: 'ReleaseError' },
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:399:1
+✖ delivery-train roadmap: a missing final newline is kept as the base has it (0.216416ms)
+  TypeError [Error]: release.resolveRoadmapTicks is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:402:24)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:408:1
+✖ delivery-train roadmap: classifyConflict resolves a tick conflict only with the resolver, and returns roadmapMerged (0.568475ms)
+  AssertionError [ERR_ASSERTION]: without a resolver the field is null
+  + actual - expected
+  
+  + undefined
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:413:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:424:1
+✖ delivery-train roadmap: --merge resolves a tick conflict by rule and a reworded line is blocking (124.340659ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --merge (usage: release-merge.mjs --base <base> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:427:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:449:1
+✖ delivery-train roadmap: --base resolves a tick conflict only under --roadmap-ticks, and exits 2 without it (324.043783ms)
+  AssertionError [ERR_ASSERTION]: release-merge: unknown option --roadmap-ticks (usage: release-merge.mjs --base <base> [--json])
+  
+  
+  3 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:460:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:467:1
+✖ delivery-train roadmap: --base keeps its resolved JSON keys as they are (140.980599ms)
+  TypeError [Error]: Cannot convert undefined or null to object
+      at Object.keys (<anonymous>)
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:470:27)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/delivery-train.test.mjs:474:1
+✖ delivery-train config: both languages carry the same train keys (0.403397ms)
+  AssertionError [ERR_ASSERTION]: train-model
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/delivery-train/plugins/openspec/hooks/delivery-train.test.mjs:476:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
