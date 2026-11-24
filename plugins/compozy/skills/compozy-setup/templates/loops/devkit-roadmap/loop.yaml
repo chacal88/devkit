@@ -1,0 +1,113 @@
+# Start the changes of openspec/roadmap.md in roadmap order, run by CompozyOS, with Claude Code closed.
+#
+# Each minute-long round `tick` starts the roadmap lines that are ready (a free place, the machine not too
+# loaded, every dependency archived on the default branch) as `devkit-change` runs, and `state` reads where the
+# roadmap stands: every line archived, or nothing left that can start and no change run live. The loop ends in
+# either case. The facts and the starting are the checker's own (roadmap-loop compozy-tick and compozy-state,
+# through .compozy/bin/devkit-kit); this file only repeats them.
+#
+# The end states are read through gates, one for each, because a registry terminal tool cannot run as a loop
+# node: `state_all` passes on exit 10 of `compozy-state` (every line archived), `state_stuck` passes on exit 11
+# (nothing can start), and both lead to `ended`, whose success ends the run. Any other exit starts the next round.
+apiVersion: compozy.loop/v1
+kind: Loop
+meta:
+  name: devkit-roadmap
+  description: Start the changes of the roadmap in order on CompozyOS while there are free places and the machine is not loaded, and end when every line is archived or nothing can start.
+  catalog:
+    use_when: "The roadmap of the project should run on its own, a few changes at a time, with Claude Code closed."
+    keywords: [devkit, roadmap, openspec]
+    category: Engineering
+
+concurrency: allow
+
+inputs:
+  places:
+    type: number
+    required: true
+    description: How many changes may be under way at once.
+  load_limit:
+    type: number
+    default: 80
+    description: The machine load, in percent, above which no change is started.
+  lang:
+    type: string
+    enum: [en, pt-BR]
+    default: pt-BR
+    description: The language the person is addressed in.
+
+contract:
+  goal: "Run the roadmap, {{ .inputs.places }} changes at a time."
+  definition_of_done: >
+    Every line of the roadmap is archived, or nothing is left that can start and no change run is live.
+  iteration_cap: 0
+  no_progress: { window: 0 }
+  stop_when: 'nodes.ended.status == "succeeded"'
+
+graph:
+  nodes:
+    # Start what is ready. A failed tick (CompozyOS cannot be reached, a start refused) escalates to the owner.
+    - id: tick
+      class: control
+      kind: gate
+      criteria:
+        - id: tick_ran
+          type: command
+          check: ".compozy/bin/devkit-kit roadmap-loop compozy-tick --places {{ .inputs.places | shellQuote }} --load-limit {{ .inputs.load_limit | shellQuote }} --lang {{ .inputs.lang | shellQuote }}"
+          expect: exit_zero
+      on_result:
+        fail: escalate
+
+    # A held start is checked again each minute, as on the Claude driver.
+    - id: pause
+      class: control
+      kind: wait
+      params:
+        for: 1m
+
+    # Every line archived (exit 10 of compozy-state)?
+    - id: state_all
+      class: control
+      kind: gate
+      criteria:
+        - id: all_archived
+          type: command
+          check: ".compozy/bin/devkit-kit roadmap-loop compozy-state --lang {{ .inputs.lang | shellQuote }}; test $? -eq 10"
+          expect: exit_zero
+      on_result:
+        pass: { route: ended }
+        fail: { route: state_stuck }
+
+    # Nothing can start and no change run is live (exit 11)? Any other exit starts the next round.
+    - id: state_stuck
+      class: control
+      kind: gate
+      criteria:
+        - id: nothing_can_start
+          type: command
+          check: ".compozy/bin/devkit-kit roadmap-loop compozy-state --lang {{ .inputs.lang | shellQuote }}; test $? -eq 11"
+          expect: exit_zero
+      on_result:
+        pass: { route: ended }
+        fail: next_generation
+
+    # The run ends when this succeeds.
+    - id: ended
+      class: control
+      kind: gate
+      criteria:
+        - id: ended
+          type: command
+          check: "true"
+          expect: exit_zero
+
+  edges:
+    - { from: tick, to: pause }
+    - { from: pause, to: state_all }
+    - { from: state_all, to: state_stuck }
+    - { from: state_all, to: ended }
+    - { from: state_stuck, to: ended }
+
+start:
+  - kind: cli
+  - kind: uds

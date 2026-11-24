@@ -1,34 +1,6 @@
 {
-  "syntax": "Every template under templates/ carries these tokens literally, as __NAME__ (upper-case, snake-case, between double underscores). compozy-setup replaces each token with the project's value, or the default below when the project gives none; this is the one source both the installer and the adoption test (task 6.4) read, so neither can drift from the other.",
+  "syntax": "Every template under templates/ carries these tokens literally, as __NAME__ (upper-case, snake-case, between double underscores). compozy-setup replaces each token with the project's value, or the default below when the project gives none; this is the one source both the installer and the adoption test read, so neither can drift from the other.",
   "placeholders": {
-    "__PLANNER__": {
-      "meaning": "The CompozyOS agent id the loop's `planner` input defaults to: the role that drafts and refines the plan (`propose`, `approve_plan`).",
-      "default": "tech-lead"
-    },
-    "__IMPLEMENTER__": {
-      "meaning": "The CompozyOS agent id the loop's `implementer` input defaults to: the role that writes code, waits on the pull request's checks and runs the archive steps (`implement`, `ci_fix`, `await_merge`, `archive`).",
-      "default": "dev"
-    },
-    "__REVIEWER__": {
-      "meaning": "The CompozyOS agent id the loop's `reviewer` input defaults to: the role that reviews the delivered change (`review`).",
-      "default": "qa"
-    },
-    "__DESIGNER__": {
-      "meaning": "The CompozyOS agent id the loop's `designer` input defaults to: the role that proposes screens and a mockup version and files the demo evidence (`design`, `demo`).",
-      "default": "design"
-    },
-    "__VERIFY_COMMAND__": {
-      "meaning": "The shell command the `verify` gate runs inside the worktree to decide a change is ready for a pull request: the project's own test and lint command.",
-      "default": ""
-    },
-    "__DEMO_COMMAND__": {
-      "meaning": "The shell command that captures the demo evidence (screenshots and a video) for a change with screens. Empty means the project has no demo, and the demo branch is skipped.",
-      "default": ""
-    },
-    "__DEMO_URL__": {
-      "meaning": "The base URL __DEMO_COMMAND__ runs the demo against. Empty when there is no demo.",
-      "default": ""
-    },
     "__TIMEZONE__": {
       "meaning": "The IANA timezone `.compozy/config.toml` records for the workspace.",
       "default": "UTC"
