@@ -40,14 +40,14 @@ scratch file in the tree, and end every task with `git status --short`.
 
 ## 1. The delivery check hands a plan fix to commit (AC-3, AC-4)
 
-- [ ] 1.1 Reproduce the loop. In `plugins/openspec/hooks/deliver-check.test.mjs`, beside the
+- [x] 1.1 Reproduce the loop. In `plugins/openspec/hooks/deliver-check.test.mjs`, beside the
   `review-openspec-fix` tests, write `jira-entry-followups AC-3 a plan fix edited after a rejecting
   round is handed to commit, not fix-review` (D-10): `readyRepo`, `rejectedLoop`, committed, then
   `openspec/changes/feat/design.md` edited and not committed; `t.next()` must be `commit` with
   `paths` `['openspec/changes/feat/design.md']`. Check: `env TMPDIR=/var/tmp node --test
   --test-name-pattern="jira-entry-followups AC-3 a plan fix edited" plugins/openspec/hooks/deliver-check.test.mjs`
   fails on the code before 1.2, its assertion showing the step `fix-review`.
-- [ ] 1.2 Add `planDirty` to `collectState` and the `commit` row to `nextStep` in
+- [x] 1.2 Add `planDirty` to `collectState` and the `commit` row to `nextStep` in
   `plugins/openspec/hooks/deliver-check.mjs` (D-2). Write the other AC-3 tests of D-10 in
   `deliver-check.test.mjs`: the approved verdict with an undisposed `[important]` finding, only the
   review record uncommitted (one case per record path), the round-2 stop with a plan edit, nothing
@@ -55,7 +55,7 @@ scratch file in the tree, and end every task with `git status --short`.
   fix written and not committed leaves a rejected verdict current` as D-10 says (spec
   `verdict-files`, "A plan fix not committed yet"). Check: 1.1's test and these pass, and every
   other `nextStep` and `review-openspec-fix` test of the file passes unchanged.
-- [ ] 1.3 Extract `undisposedIn` from `findingsIn` and give `verdictAllowed` and `readReviews` the
+- [x] 1.3 Extract `undisposedIn` from `findingsIn` and give `verdictAllowed` and `readReviews` the
   undisposed-finding rule (D-2). Write the AC-4 tests of D-10 in `deliver-check.test.mjs` (the
   committed plan fix gets `review` at round 2 and never `fix-review` again; the approved verdict
   with an undisposed finding stale after a plan commit and current after a record-only commit; a
@@ -63,7 +63,7 @@ scratch file in the tree, and end every task with `git status --short`.
   test-only commit) and `jira-entry-followups AC-4 the stage readout offers the review again after
   an approved verdict's finding is fixed in the plan` in `plugins/openspec/hooks/flow-check.test.mjs`.
   Check: those pass, and `findingsItem`'s tests and `review-openspec-fix 10` and `11` pass unchanged.
-- [ ] 1.4 Docs of D-2: the `commit` and `fix-review` rows of
+- [x] 1.4 Docs of D-2: the `commit` and `fix-review` rows of
   `plugins/openspec/skills/ship-change/SKILL.md` (the `fix-review` row keeps "approved review",
   which `review round: text the ship-change review row and the devkit skill review sentence ...` in
   `plugins/core/skills/review-change/scripts/review-round.test.mjs` pins); the stale bullet of
@@ -72,7 +72,7 @@ scratch file in the tree, and end every task with `git status --short`.
   `deliver-check.test.mjs` pins it). Write `jira-entry-followups docs: the ship-change commit row and
   the flow document name the commit of a plan fix` in `deliver-check.test.mjs`. Check: it passes, and
   `python3 scripts/check.py` passes.
-- [ ] 1.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/core/skills/review-change/scripts/review-round.test.mjs && python3 scripts/check.py` green; covers AC-3 and AC-4.
+- [x] 1.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/flow-check.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/core/skills/review-change/scripts/review-round.test.mjs && python3 scripts/check.py` green; covers AC-3 and AC-4.
 
 ## 2. The review round marks the Commit line from git (AC-1, AC-2)
 

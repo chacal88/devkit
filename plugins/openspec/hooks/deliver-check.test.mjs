@@ -1296,6 +1296,18 @@ test('nextStep row 8: a rejected review at a current commit goes to fix-review w
   assert.deepEqual(n.findings, [{ reviewer: 'code-quality-reviewer', excerpt: '[blocking] x' }]);
 });
 
+test('jira-entry-followups AC-3 nextStep: planDirty with a fix gives commit, without a fix or without planDirty it does not', () => {
+  const planDirty = ['openspec/changes/feat/design.md'];
+  const withFix = nextStep(rejectedState({ planDirty }));
+  assert.equal(withFix.step, 'commit');
+  assert.deepEqual(withFix.paths, planDirty);
+  assert.match(withFix.reason, /the fix for code-quality-reviewer is not committed: openspec\/changes\/feat\/design\.md/);
+  assert.equal(nextStep(state({ planDirty })).step, 'ready', 'nothing to fix: planDirty is no step of its own');
+  assert.equal(nextStep(rejectedState({ planDirty: [] })).step, 'fix-review', 'an empty planDirty');
+  assert.equal(nextStep(rejectedState()).step, 'fix-review', 'a state with no planDirty key');
+  assert.equal(nextStep(rejectedState({ planDirty, reviewMd: { consensus: 'FAIL', round: 2 } })).step, 'stop-review-deadlock', 'the round-2 stop keeps its place');
+});
+
 test('nextStep row 7: FAIL (round 2/2) with a current rejected review stops (AC-4)', () => {
   const n = nextStep(rejectedState({ reviewMd: { consensus: 'FAIL', round: 2 } }));
   assert.equal(n.step, 'stop-review-deadlock');

@@ -1612,10 +1612,17 @@ test('review-openspec-fix 11: a test-spared reviewer\'s approved verdict stays c
   assert.deepEqual(staleOf(root), [...TEST_READERS].sort());
 });
 
-test('review-openspec-fix 12: a plan fix written and not committed leaves a rejected verdict current', () => {
+test('review-openspec-fix 12: a plan fix written and not committed leaves a rejected verdict current and hands it to commit', () => {
   const { root } = rejectedRepo();
   put(root, { 'openspec/changes/feat/design.md': 'fixed\n' });
   assert.deepEqual(itemTwo(root).details.stale, []);
+  const t = readyRepo();
+  rejectedLoop(t);
+  commitAll(t.root, 'review round');
+  put(t.root, { 'openspec/changes/feat/design.md': 'fixed\n' });
+  assert.deepEqual(reviewsItem(t.root, 'feat', gitFacts(t.root)).details.stale, []);
+  const n = t.next();
+  assert.deepEqual([n.step, n.paths], ['commit', ['openspec/changes/feat/design.md']]);
 });
 
 test('review-openspec-fix 13: a merge of main that brings only openspec/ makes a rejected verdict stale and names the merge', () => {
@@ -1706,6 +1713,144 @@ test('review-openspec-fix 18: the devkit-reviews check fails a rejected review a
     assert.match(r.out, /not approved: test-coverage-reviewer \(rejected\)/);
     assert.match(r.out, /stale test-coverage-reviewer \(/);
   }
+});
+
+// ================================================================ jira-entry-followups D-2: a plan fix reaches commit (AC-3, AC-4)
+
+const PLAN_FILE = 'openspec/changes/feat/design.md';
+
+test('jira-entry-followups AC-3 a plan fix edited after a rejecting round is handed to commit, not fix-review', () => {
+  const t = readyRepo();
+  rejectedLoop(t);
+  commitAll(t.root, 'review round');
+  assert.equal(t.next().step, 'fix-review', 'control: the rejecting round is committed');
+  put(t.root, { [PLAN_FILE]: 'fixed\n' });
+  const n = t.next();
+  assert.equal(n.step, 'commit', n.reason);
+  assert.deepEqual(n.paths, [PLAN_FILE]);
+});
+
+// A readyRepo whose code-quality-reviewer rejected at A with the record committed, round 1 of 2.
+function roundOneRejected(reviewMd) {
+  const t = readyRepo();
+  rejectedLoop(t, reviewMd);
+  commitAll(t.root, 'review round');
+  return t;
+}
+// A readyRepo whose test-coverage-reviewer approved at A and lists `line` as a finding, the record committed.
+function approvedWithFinding(line = '- [important] x\n') {
+  const t = readyRepo();
+  const A = head(t.root);
+  put(t.root, withReviews({ 'code-quality-reviewer': review('approved', A), 'test-coverage-reviewer': `${review('approved', A)}${line}` }));
+  commitAll(t.root, 'review round');
+  return t;
+}
+
+test('jira-entry-followups AC-3 an approved verdict\'s undisposed finding fixed in the plan is handed to commit', () => {
+  const t = approvedWithFinding();
+  const control = t.next();
+  assert.deepEqual([control.step, control.reviewers], ['fix-review', ['test-coverage-reviewer']]);
+  put(t.root, { [PLAN_FILE]: 'fixed\n' });
+  const n = t.next();
+  assert.equal(n.step, 'commit', n.reason);
+  assert.deepEqual(n.paths, [PLAN_FILE]);
+});
+
+const RECORD_EDITS = {
+  'reviews/code-quality-reviewer.md': (A) => `${review('rejected', A)}- [nit] noted\n`,
+  'review.md': () => '# Review: feat\n\nConsensus: FAIL (round 1/2)\n\nNext: fix.\n',
+  'evidence.md': (A, t) => `${readFileSync(join(t.root, 'openspec/changes/feat/evidence.md'), 'utf8')}\nnote\n`,
+};
+for (const [file, content] of Object.entries(RECORD_EDITS)) {
+  test(`jira-entry-followups AC-3 only the review record uncommitted keeps fix-review: ${file}`, () => {
+    const t = roundOneRejected();
+    const A = git(t.root, 'rev-parse', 'HEAD~1');
+    put(t.root, { [`openspec/changes/feat/${file}`]: content(A, t) });
+    const n = t.next();
+    assert.deepEqual([n.step, n.reviewers], ['fix-review', ['code-quality-reviewer']]);
+  });
+}
+
+test('jira-entry-followups AC-3 a plan edit after the round-2 stop still stops', () => {
+  const t = roundOneRejected(FAIL_TWICE);
+  assert.equal(t.next().step, 'stop-review-deadlock', 'control');
+  put(t.root, { [PLAN_FILE]: 'fixed\n' });
+  const n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['stop-review-deadlock', ['code-quality-reviewer']]);
+});
+
+test('jira-entry-followups AC-3 a plan edit with nothing to fix is not a commit step', () => {
+  const t = readyRepo();
+  assert.equal(t.next().step, 'ready', 'control');
+  put(t.root, { [PLAN_FILE]: 'edited\n' });
+  // The step is the one item 5 already gave for uncommitted files in the change folder (push), not the new commit row.
+  const n = t.next();
+  assert.equal(n.step, 'push', n.reason);
+  assert.equal(n.paths, undefined);
+});
+
+test('jira-entry-followups AC-4 the committed plan fix gets review at round 2, never fix-review again', () => {
+  const t = roundOneRejected();
+  assert.equal(t.next().step, 'fix-review', 'control');
+  put(t.root, { [PLAN_FILE]: 'fixed\n' });
+  assert.equal(t.next().step, 'commit');
+  commitAll(t.root, 'plan fix');
+  const n = t.next();
+  assert.deepEqual([n.step, n.round, n.reviewers], ['review', 2, ['code-quality-reviewer']]);
+});
+
+test('jira-entry-followups AC-4 an approved verdict with an undisposed finding goes stale after a plan commit, and its record alone keeps it', () => {
+  const t = approvedWithFinding();
+  const A = git(t.root, 'rev-parse', 'HEAD~1');
+  const recordOnly = approvedWithFinding();
+  put(recordOnly.root, withReviews({ 'test-coverage-reviewer': `${review('approved', git(recordOnly.root, 'rev-parse', 'HEAD~1'))}- [important] x\n- [nit] noted\n` }));
+  commitAll(recordOnly.root, 'record again');
+  const kept = DC.readReviews(recordOnly.root, 'feat').find((r) => r.name === 'test-coverage-reviewer');
+  assert.equal(kept.why, null, 'a commit of the record alone keeps it current');
+  assert.deepEqual([recordOnly.next().step, recordOnly.next().reviewers], ['fix-review', ['test-coverage-reviewer']]);
+  const D = planFix(t.root);
+  const stale = DC.readReviews(t.root, 'feat').find((r) => r.name === 'test-coverage-reviewer');
+  assert.ok(stale.why.includes(`${s7(A)} is behind ${s7(D)}, which touches ${PLAN_FILE}`), stale.why);
+  assert.equal(DC.readReviews(t.root, 'feat').find((r) => r.name === 'code-quality-reviewer').why, null, 'the reviewer with no finding keeps the approved rule');
+  const n = t.next();
+  assert.deepEqual([n.step, n.reviewers], ['review', ['test-coverage-reviewer']]);
+});
+
+for (const [kind, line] of [['fixed in a commit of the history', (A) => `- [important] x · fixed in ${A}\n`], ['refuted', () => '- [important] x · refuted: the test shows it\n']]) {
+  test(`jira-entry-followups AC-4 a disposed finding keeps the approved rule: ${kind}`, () => {
+    const root = base();
+    const A = head(root);
+    put(root, withReviews({ 'code-quality-reviewer': review('approved', A), 'test-coverage-reviewer': `${review('approved', A)}${line(A)}` }));
+    commitAll(root, 'review round');
+    planFix(root);
+    assert.deepEqual(itemTwo(root).details.stale, []);
+  });
+}
+
+test('jira-entry-followups AC-4 a test-spared reviewer\'s approved verdict with an undisposed finding goes stale after a test-only commit', () => {
+  const root = base();
+  const A = head(root);
+  put(root, withReviews({ 'spec-reviewer': `${review('approved', A)}- [important] x\n`, 'adr-reviewer': review('approved', A) }));
+  commitAll(root, 'review round');
+  testOnlyCommit(root);
+  assert.deepEqual(staleOf(root), ['spec-reviewer']);
+});
+
+test('jira-entry-followups docs: the ship-change commit row and the flow document name the commit of a plan fix', () => {
+  const md = shipSkill();
+  assert.match(skillRow(md, 'commit'), /`next\.paths` lists the paths outside `openspec\/`, or, after a review asked for a fix, the change folder's own files the fix left uncommitted; the rest of the change folder and `openspec\/config\.yaml` are staged from `git status`/);
+  assert.doesNotMatch(skillRow(md, 'commit'), /lists only the paths outside/);
+  const fix = skillRow(md, 'fix-review');
+  assert.match(fix, /Then run the loop again: it hands `commit` for what the fix left uncommitted \(or `push` once a PR exists\)/);
+  assert.match(fix, /approved review/, 'the words the review-round test pins');
+  const flow = readFileSync(join(repoRoot, 'docs', 'openspec-flow.md'), 'utf8');
+  const rule = flow.split('\n').find((l) => l.startsWith('**The `Commit:` staleness rule.**')) ?? '';
+  assert.match(rule, /an approved or declined verdict that lists an undisposed `blocking` or `important` finding \(no `fixed in <sha>` of a commit in the history of the head, no `refuted:`\), follows the same narrower rule/);
+  assert.match(rule, /and `next` stays on `fix-review` while only the record is uncommitted; a plan file edited and not committed is handed to `commit` first/);
+  const order = flow.split('\n').find((l) => l.startsWith('**Order of the delivery steps.**')) ?? '';
+  assert.match(order, /`commit` for a plan fix before `fix-review`/);
+  const review = readFileSync(join(repoRoot, 'plugins', 'core', 'skills', 'review-change', 'SKILL.md'), 'utf8');
+  assert.match(review, /for a rejected verdict, or an approved one that still lists an undisposed finding, anything outside the change's own review record/);
 });
 
 // ================================================================ commit-attribution (D-7, T26 to T36)
