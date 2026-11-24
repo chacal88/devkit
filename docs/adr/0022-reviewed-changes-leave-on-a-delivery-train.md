@@ -1,10 +1,10 @@
-# ADR 0021: Reviewed changes leave on a delivery train, and the whole suite runs once per train
+# ADR 0022: Reviewed changes leave on a delivery train, and the whole suite runs once per train
 
 - Status: accepted
 - Date: 2026-11-23
 - Change: delivery-train
 - Amends: ADR 0002 (0002-merge-without-the-owner-opt-in.md), the Negative consequence "Strict up-to-date re-runs stale reviews after each base update (Accepted: cost, scoped re-review)" and the "Merge queue" row of its alternatives; ADR 0003 (0003-auto-merge-the-archive-pr.md), the Decision on how an archive pull request reaches the base branch in `merge` mode; ADR 0012 (0012-the-reviews-check-follows-the-change-script.md), decision 4, on what `devkit-reviews` recomputes at the pull request's head; ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md), decision 1, on what the models `trunk` and `trunk-auto` deliver through
-- Accepted by: the owner, on 2026-11-23, in the message that approved the plan of the change: `1` (option 1, "Aprovo"), the answer to the question "approve the plan and ADR 0019 to start the implementation?" (the number was 0019 until the base took it; the ADR is now 0021); recorded in `openspec/changes/delivery-train/approval.md`
+- Accepted by: the owner, on 2026-11-23, in the message that approved the plan of the change: `1` (option 1, "Aprovo"), the answer to the question "approve the plan and ADR 0019 to start the implementation?" (the number was 0019 until the base took it, then 0021 until the base took that too; the ADR is now 0022); recorded in `openspec/changes/delivery-train/approval.md`
 
 ## Context
 

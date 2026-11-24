@@ -4,7 +4,7 @@
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
 - Date: 2026-11-08
 - Change: auto-merge
-- Amended by ADR 0021 (0021-reviewed-changes-leave-on-a-delivery-train.md)
+- Amended by ADR 0022 (0022-reviewed-changes-leave-on-a-delivery-train.md)
 
 ## Context
 
@@ -17,7 +17,7 @@ as ready (8/8), and the owner merges it. Owners of some repositories want that m
 on its own. An agent saying "ready" is not enough to merge on: until this change, CI checked
 review verdicts without checking that they were current at the PR head.
 
-Note (delivery-train, 2026-11-23): ADR 0021 amends the Negative consequence "Strict up-to-date re-runs stale reviews after each base update" and the "Merge queue" row of the alternatives: a project that sets `devkit.delivery.train` sends its reviewed changes to the base branch together on one train, so a boarded change is not sent to `update-branch` or re-reviewed when the base moves, and the `devkit` ruleset and its strict rule stay as they are. The Decision is otherwise unchanged.
+Note (delivery-train, 2026-11-23): ADR 0022 amends the Negative consequence "Strict up-to-date re-runs stale reviews after each base update" and the "Merge queue" row of the alternatives: a project that sets `devkit.delivery.train` sends its reviewed changes to the base branch together on one train, so a boarded change is not sent to `update-branch` or re-reviewed when the base moves, and the `devkit` ruleset and its strict rule stay as they are. The Decision is otherwise unchanged.
 
 ## Decision
 

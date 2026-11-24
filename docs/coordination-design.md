@@ -251,7 +251,7 @@ by bisection and the change at its end leaves with the failure; a join conflict 
 takes the change off with the path. The pull request is merged with a merge commit: GitHub merges it in
 `trunk-auto` once `check`, `devkit-reviews` and the record are green, the owner in `trunk`. The `devkit`
 ruleset and its strict rule stay as they are, and a project without the key sees no change
-([ADR 0021](adr/0021-reviewed-changes-leave-on-a-delivery-train.md)).
+([ADR 0022](adr/0022-reviewed-changes-leave-on-a-delivery-train.md)).
 
 ## 6. Panels (D-6)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// train-loop: the departure of a delivery train and its next action (ADR 0021, delivery-train D-3, D-5, D-7, D-8).
+// train-loop: the departure of a delivery train and its next action (ADR 0022, delivery-train D-3, D-5, D-7, D-8).
 //
 //   node train-loop.mjs next   --lang <l> [--after <progressKey>]
 //   node train-loop.mjs depart --lang <l> [--update]

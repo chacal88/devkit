@@ -3,7 +3,7 @@
 
 Change: `delivery-train` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a (source:
 `requirements.md`, answers 1 to 9 given under the owner's delegation of 2026-11-23; decision record
-ADR 0021, `docs/adr/0021-reviewed-changes-leave-on-a-delivery-train.md`, listed in `decisions.md`).
+ADR 0022, `docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md`, listed in `decisions.md`).
 
 ## Why
 
@@ -44,7 +44,7 @@ merge queue is not offered to a repository owned by a user account, so devkit bu
   in `devkit-reviews` on the change's own pull request, which reads the command from the default branch.
 - After the train merges, each boarded pull request is merged by GitHub or closed by the train with a
   comment, and the change is delivered either way; a train head is never a change's own pull request.
-- ADR 0021 (written at the decisions stage, `proposed`) is accepted with the plan and amends ADRs
+- ADR 0022 (written at the decisions stage, `proposed`) is accepted with the plan and amends ADRs
   0002, 0003, 0012 and 0018 through dated notes; docs, skills, the pr-verifier agent and the release.
 
 Non-goals: GitHub's merge queue; the train under `two-prs`; any timer, cron or periodic departure by
@@ -103,7 +103,7 @@ Copied from `requirements.md`, with their ids.
   The `devkit-reviews` job still downloads the same three files and its workflow does not change; a
   project allows merge commits with the existing `github-setup.mjs --method merge`.
 - devkit-core (patch): `agents/pr-verifier.md` (the train parts of a gate).
-- Docs: ADR 0021 accepted and the notes in ADRs 0002, 0003, 0012 and 0018; `docs/openspec-flow.md`,
+- Docs: ADR 0022 accepted and the notes in ADRs 0002, 0003, 0012 and 0018; `docs/openspec-flow.md`,
   `docs/coordination-design.md`, `docs/roles.md`, `CONTRIBUTING.md` (the tag of a train release),
   the `ADRs:` line of `openspec/config.yaml`, `plugins/openspec/README.md`, `CHANGELOG.md`,
   `.claude-plugin/marketplace.json`, `docs/catalog.md`.
@@ -112,13 +112,13 @@ Copied from `requirements.md`, with their ids.
 `78b6cd7`; its folder is not archived yet, which this plan does not need); `delivery-models`
 (archived: `devkit.delivery`). `roadmap-sessions-upfront` will call the command this change ships.
 
-**Decisions cited.** ADR 0002, ADR 0003, ADR 0010 (decision 6), ADR 0012, ADR 0017, ADR 0018; ADR 0021
+**Decisions cited.** ADR 0002, ADR 0003, ADR 0010 (decision 6), ADR 0012, ADR 0017, ADR 0018; ADR 0022
 proposed (`decisions.md`).
 
-**Open decisions inherited.** The three points ADR 0021 leaves to the plan are settled in `design.md`:
+**Open decisions inherited.** The three points ADR 0022 leaves to the plan are settled in `design.md`:
 the command `/devkit train` and the key `devkit.delivery.train` (D-1, D-5), the roadmap tick resolved
 by rule on the train (D-6), and both endings of a boarded pull request handled, merged by GitHub or
 closed with a comment (D-9); the first train of this repository records which one GitHub gives. One
-reading the owner confirms with the plan: the culprit's "own cycle against the train's tip" (ADR 0021
+reading the owner confirms with the plan: the culprit's "own cycle against the train's tip" (ADR 0022
 decision 7) runs against the base branch once the train it left has landed, waiting on GitHub until then
-(D-7). ADR 0021's acceptance is the owner's, at plan approval.
+(D-7). ADR 0022's acceptance is the owner's, at plan approval.

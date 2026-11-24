@@ -4,7 +4,7 @@
 - Amended by ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md)
 - Date: 2026-11-09
 - Change: archive-after-merge
-- Amended by ADR 0021 (0021-reviewed-changes-leave-on-a-delivery-train.md)
+- Amended by ADR 0022 (0022-reviewed-changes-leave-on-a-delivery-train.md)
 
 ## Context
 
@@ -23,7 +23,7 @@ no tasks, no reviews, no acceptance criteria. `devkit-reviews` selects no change
 only the archive check described under Consequences. Yet it can change product files, because
 approved proposals edit docs, agents and tests.
 
-Note (delivery-train, 2026-11-23): ADR 0021 amends the sentence of the Decision on how an archive pull request reaches the base branch in `merge` mode: in a project that sets `devkit.delivery.train`, a ready archive boards the train like a change and the archive queue that updates each archive branch after every merge goes away. The Decision is otherwise unchanged.
+Note (delivery-train, 2026-11-23): ADR 0022 amends the sentence of the Decision on how an archive pull request reaches the base branch in `merge` mode: in a project that sets `devkit.delivery.train`, a ready archive boards the train like a change and the archive queue that updates each archive branch after every merge goes away. The Decision is otherwise unchanged.
 
 ## Decision
 

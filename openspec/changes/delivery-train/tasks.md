@@ -198,12 +198,12 @@ existing suite staying green, and only 6.9 runs them all.
   review, the release step, the tag). Check: `python3 scripts/check.py` passes.
 - [x] 5.5 Gate: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/delivery-train.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/change-loop.test.mjs && python3 scripts/check.py` green; covers AC-10, AC-9 (no archive branch updated after a merge).
 
-## 6. ADR 0021, documents, release, the real run and the whole suite (AC-1 to AC-12)
+## 6. ADR 0022, documents, release, the real run and the whole suite (AC-1 to AC-12)
 
-- [x] 6.1 Only when `approval.md`'s owner's words accept ADR 0021: renumber it to the next free number on
+- [x] 6.1 Only when `approval.md`'s owner's words accept ADR 0022: renumber it to the next free number on
   `origin/main` at the last merge before review when a sibling took 0019 (the file name, its title and
   every reference in this change); set its status `accepted` with an `Accepted by:` line in ADR 0012's
-  form; add the `- Amended by ADR 0021 (...)` header line and the dated Note of D-12 to
+  form; add the `- Amended by ADR 0022 (...)` header line and the dated Note of D-12 to
   `docs/adr/0002-merge-without-the-owner-opt-in.md`, `docs/adr/0003-auto-merge-the-archive-pr.md`,
   `docs/adr/0012-the-reviews-check-follows-the-change-script.md` and
   `docs/adr/0018-the-delivery-model-is-chosen-per-project.md`; otherwise stop and report. Check: the five

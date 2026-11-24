@@ -752,7 +752,7 @@ export function deliveryOf(gh, root, id, { ship = 'plan', branch = '', env = pro
   };
 }
 
-// ---------------------------------------------------------------- the delivery train (ADR 0021, delivery-train D-2, D-4)
+// ---------------------------------------------------------------- the delivery train (ADR 0022, delivery-train D-2, D-4)
 
 // The train branch's name, and the whole-suite command split into its `&&` parts, trimmed.
 export const TRAIN_BRANCH = /^train\/(\d+)$/;
@@ -1845,7 +1845,7 @@ export function nextStep(state) {
   }
   const waiting = [6, 7].find((n) => it(n).status === 'blocked');
   if (waiting) return step('blocked', it(waiting).reason, { item: waiting });
-  // Pending checks board (ADR 0021 decision 2): they are never the wait of a train project.
+  // Pending checks board (ADR 0022 decision 2): they are never the wait of a train project.
   if (it(6).details.pending.length && !train) return step('wait-checks', it(6).reason, { pending: it(6).details.pending });
   const left = state.items.find((i) => i.status !== 'met' && !(train && ((i.id === 5 && trainGoOn) || (i.id === 6 && i.status === 'open' && !i.details.failing.length))));
   if (left) return step('blocked', left.reason, { item: left.id });

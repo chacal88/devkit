@@ -2,7 +2,7 @@
 # Design
 
 Change: `delivery-train` · Date: 2026-11-23 · Owner: Kaue (chacal88) · PRD / tech spec: n/a (sources:
-`requirements.md`, `proposal.md`, the five spec deltas under `specs/`, ADR 0021 listed in
+`requirements.md`, `proposal.md`, the five spec deltas under `specs/`, ADR 0022 listed in
 `decisions.md`).
 
 ## Context
@@ -130,7 +130,7 @@ runs and `state` has no `train` key, so the JSON of every other project keeps it
 
 `collectState` also computes `setup`, as today only when `ship` is `merge` (`trunk-auto`), with the
 merge method `merge` in place of `merge_method` when the train is on (the train's pull request merges
-with a merge commit, ADR 0021 decision 10).
+with a merge commit, ADR 0022 decision 10).
 
 **The pull request fields in `trunk`.** In `trunk` `ship` is `pr`, so today `findChangePr`, `fetchPr`,
 `mergedOnBranch` and the open-PR lookup ask `PR_FIELDS`, which lacks `autoMergeRequest` and
@@ -159,7 +159,7 @@ a change is never boarded before its tasks, gates, evidence, findings and review
 | T8 | otherwise, `train.onTrain` | | `on-train` (end on GitHub, `number`) |
 | T9 | otherwise | | `boarded` (end waiting for the owner) |
 
-Pending checks never reach `wait-checks` in a train project (they are the CI wait ADR 0021 decision 2
+Pending checks never reach `wait-checks` in a train project (they are the CI wait ADR 0022 decision 2
 excludes); `ready`, `update-branch`, `enable-auto-merge` and `wait-merge` are never returned for a change
 of a train project. Because items 1-4 are read at the change's own head and the base's moves do not move
 that head, a merge of a sibling changes none of the rows above (AC-3).
@@ -262,7 +262,7 @@ The departure (D-5) computes the boarded set from GitHub and Git, never from a s
    lower PR number.
 
 A change whose head moved after boarding is judged at its new head, so it boards again only once its
-evidence and reviews are current there (ADR 0021 Consequences, "A change pushed after boarding").
+evidence and reviews are current there (ADR 0022 Consequences, "A change pushed after boarding").
 
 ## D-4 The train record (AC-5, AC-6, AC-7, AC-8; specs `delivery-train`, `reviews-check`)
 
@@ -475,7 +475,7 @@ output of the smallest red prefix), and the train is rebuilt without it and run 
 (AC-7). The loop ends green or with an empty train (`train-nothing`, every boarded change listed as
 left in the reply). Runs per red train: `ceil(log2 m)` plus one, plus one when the culprit is first.
 
-The culprit's "own cycle against the train's tip" (ADR 0021 decision 7) is read as: against the base
+The culprit's "own cycle against the train's tip" (ADR 0022 decision 7) is read as: against the base
 branch once the train it left has landed, which is that train's tip. While the train is open the change
 waits on GitHub (T2); then `rejoin-train` hands `tdd-implementer` the brief "merge `origin/<base>` into
 the branch with `node release-merge.mjs --base <base>` when only release files conflict, else `git merge
@@ -489,7 +489,7 @@ rebuilt or closed would leave commits of an abandoned branch in the change.
 - Opened by the session (N3) from `train/<n>`, its body the record, so the owner reads which changes
   ride, which left and why.
 - `trunk-auto`: auto-merge with `--merge`, pinned to the head `next` checked (N8), whatever the
-  project's `merge_method`; GitHub merges once `check` and `devkit-reviews` pass (ADR 0021 decision 9).
+  project's `merge_method`; GitHub merges once `check` and `devkit-reviews` pass (ADR 0022 decision 9).
   `trunk`: the owner merges (N11), and the reply asks for a merge commit.
 - The ruleset is unchanged: the train is up to date when it departs (cut from a fresh `origin/<base>`);
   when an unboarded PR merges meanwhile, N4 brings the base in and runs the suite once more.
@@ -574,10 +574,10 @@ a folder that holds only the three downloaded files.
   56 at `19c0196`) gain the train case (a boarded change takes its numbers on the train and never merges
   `main` for a sibling); the tag paragraph (line 58) gains the train's tag (D-9).
 
-## D-12 ADR 0021, documents, skills and release (AC-11)
+## D-12 ADR 0022, documents, skills and release (AC-11)
 
-- ADR 0021 is the adr-author's (`decisions.md`). After the owner's approval names it: status `accepted`,
-  an `Accepted by:` line in ADR 0012's form, and `- Amended by ADR 0021 (...)` header lines plus a dated
+- ADR 0022 is the adr-author's (`decisions.md`). After the owner's approval names it: status `accepted`,
+  an `Accepted by:` line in ADR 0012's form, and `- Amended by ADR 0022 (...)` header lines plus a dated
   Note (`Note (delivery-train, <date>): ...`, one sentence on what is amended, "The Decision is otherwise
   unchanged.") in ADRs 0002, 0003, 0012 and 0018; the `ADRs:` line of `openspec/config.yaml` gains
   `0019 reviewed changes leave on a delivery train, amends 0002, 0003, 0012 and 0018`. When a sibling
@@ -773,7 +773,7 @@ archives (phase 5) → ADR, documents, release, the real run and the whole suite
   `openspec/changes/delivery-train/proof/real-run.md` (evidence), `openspec/changes/delivery-train/proof/ac-map.md`.
 - Modify: the hooks, skills and agent above; `plugins/openspec/hooks/guard.test.mjs` (one import),
   `plugins/openspec/hooks/delivery-models.test.mjs` (export `simGitHub`), `plugins/openspec/hooks/roadmap-loop.test.mjs`
-  (`expected`, the `verb-unknown` regex); `docs/adr/0021-reviewed-changes-leave-on-a-delivery-train.md`,
+  (`expected`, the `verb-unknown` regex); `docs/adr/0022-reviewed-changes-leave-on-a-delivery-train.md`,
   `docs/adr/0002-…`, `0003-…`, `0012-…`, `0018-…`, `docs/openspec-flow.md`, `docs/coordination-design.md`,
   `docs/roles.md`, `CONTRIBUTING.md`, `openspec/config.yaml` (the `ADRs:` line only),
   `plugins/openspec/README.md`, `plugins/openspec/.claude-plugin/plugin.json`,
@@ -802,7 +802,7 @@ archives (phase 5) → ADR, documents, release, the real run and the whole suite
 
 | Risk | Probability × impact | Mitigation |
 |---|---|---|
-| A flaky test makes a red train and the bisection names a change that did nothing wrong | MEDIUM × MEDIUM | The record keeps every run (head, result) and the culprit's output; the culprit's own cycle runs its tests again before it boards; ADR 0021's review trigger names a wrong culprit |
+| A flaky test makes a red train and the bisection names a change that did nothing wrong | MEDIUM × MEDIUM | The record keeps every run (head, result) and the culprit's output; the culprit's own cycle runs its tests again before it boards; ADR 0022's review trigger names a wrong culprit |
 | Two departures race on two machines | LOW × MEDIUM | The lock covers one clone; on two clones the second `git push origin train/<n>` of the same `n` is refused by the remote (no force push), and its `next` reads the first train as under way |
 | GitHub does not mark a boarded PR merged | MEDIUM × LOW | Delivered by the train record either way, and the PR is closed with a comment (D-9) |
 | `deliver-check.mjs` grows further (2,264 lines at `19c0196`) | HIGH × LOW | The train code sits in one section with its own header; the CI constraint forbids a new module |

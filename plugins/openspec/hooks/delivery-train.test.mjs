@@ -1,4 +1,4 @@
-// delivery-train: reviewed changes leave together on a delivery train (ADR 0021).
+// delivery-train: reviewed changes leave together on a delivery train (ADR 0022).
 // Tests of the setting, the join (`release-merge.mjs --merge`), the roadmap tick, the train record, the train facts and boarding. Imported by guard.test.mjs so that
 // `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too. Every scenario runs on real Git in a temporary
 // folder; the env blanks every variable a pull-request run on CI sets. Every test name starts `delivery-train `.
