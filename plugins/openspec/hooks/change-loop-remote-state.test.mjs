@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   gitRepo, put, commitAll, git, sandbox, readCounter, roundRepo, cleanEnvLoop as cleanEnv, FLOWS, stageOf, nextOf, endOf, reportOf, rowOf, run,
   planChange, actionOf, SESSION, stored, typedLine, toolResultLine, runLine, transcriptOf, stopInput,
@@ -86,6 +86,33 @@ test('jira-entry AC-6 write-back ask on an archived change asks nothing', () => 
   const d = taskDelivery();
   git(d.wt, 'branch', '-m', 'chore/archive-feat');
   assert.equal(body(askBack(d)).why, 'archived', 'on the archive branch');
+});
+
+test('jira-entry-followups AC-7 write-back ask by key and number', () => {
+  const recordText = (c) => readFileSync(recordFile(c.t), 'utf8');
+  const recordOf = (c) => JSON.parse(recordText(c));
+  const c = taskDelivery();
+  assert.equal(body(askBack(c)).ask, true, 'the first ask for pull request 12');
+  const first = recordText(c);
+  // The same key and number: asked, the record as it was.
+  assert.deepEqual(body(askBack(c)), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'asked' });
+  assert.equal(recordText(c), first, 'the record is unchanged');
+  // The same key, a recreated pull request: asked again, and the record holds the new number.
+  const again = body(askBack(c, { number: 15, url: 'https://github.com/o/r/pull/15', transitions: TRANSITIONS }));
+  assert.equal(again.ask, true, 'number 15 is a new question');
+  assert.equal(again.question, render('en', 'write-back-ask', { id: 'feat', key: 'PROJ-482', number: 15, choices: again.choices.map((x) => x.label).join('; ') }));
+  assert.deepEqual([recordOf(c).key, recordOf(c).number, recordOf(c).url, recordOf(c).answer], ['PROJ-482', 15, 'https://github.com/o/r/pull/15', null]);
+  assert.deepEqual(body(askBack(c, { number: 15, url: 'https://github.com/o/r/pull/15', transitions: TRANSITIONS })).why, 'asked', 'and asked once more for 15');
+  // A record of another key, the same number: asked, and the record holds the change's key.
+  writeFileSync(recordFile(c.t), `${JSON.stringify({ ...recordOf(c), key: 'PROJ-1', number: 12 })}\n`);
+  assert.equal(body(askBack(c)).ask, true, 'another key asks');
+  assert.deepEqual([recordOf(c).key, recordOf(c).number], ['PROJ-482', 12]);
+  // A damaged record, or one of another version: asked, nothing written.
+  for (const damaged of ['{ not json', JSON.stringify({ version: 2, key: 'PROJ-482', number: 99 })]) {
+    writeFileSync(recordFile(c.t), damaged);
+    assert.deepEqual(body(askBack(c, { number: 15, url: PR_URL, transitions: TRANSITIONS })), { version: 1, change: 'feat', key: 'PROJ-482', ask: false, why: 'asked' }, damaged);
+    assert.equal(recordText(c), damaged, 'a damaged record is left as it was');
+  }
 });
 
 // ---- write-back answer
@@ -226,13 +253,85 @@ test("jira-entry AC-7 skill: Jira is written only through write-back answer on t
   assert.match(wb, /change-loop\.mjs write-back answer <id> --choice <choice> --lang \$\{user_config\.language\}/);
   assert.match(wb, /`write: true`/);
   assert.match(wb, /`write: false`/);
-  assert.match(wb, /reply write-back-failed --param key=<KEY> --param error="<message>"/);
-  assert.match(wb, /not retried/);
+  assert.match(wb, /On a connector failure, run the call below with the connector's error message on standard input, through the quoted heredoc and its terminator rule, and say what it prints; the write is not retried\./);
+  assert.ok(wb.includes([
+    '```',
+    "node <skill-dir>/../../hooks/change-loop.mjs reply write-back-failed --param key=<KEY> --stdin error --lang ${user_config.language} <<'DEVKIT_ARGS'",
+    "<the connector's error message>",
+    'DEVKIT_ARGS',
+    '```',
+  ].join('\n')), 'the failed-write call passes the error through the quoted heredoc');
+  assert.doesNotMatch(wb, /--param error=/, 'no error on the command line');
   const never = md.slice(md.indexOf('## Never'));
   assert.match(never, /Write to Jira except from `write-back answer` on the owner's own message/);
   assert.match(never, /Ask the write-back question with AskUserQuestion/);
   assert.match(never, /Copy a comment, subtask, linked task or attachment of a task into the change/);
   assert.match(never, /Keep a Jira token or a Jira setting in the project/);
+});
+
+// ---- reply --stdin: the connector's error reaches the reply as it is (jira-entry-followups D-5)
+
+const FAILED_CALL = ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--stdin', 'error', '--lang', 'en'];
+const failedReply = (error) => `${render('en', 'write-back-failed', { key: 'PROJ-482', error })}\n`;
+
+test('jira-entry-followups AC-8 reply --stdin passes the error byte for byte', () => {
+  const error = 'it said "no" and \'never\'\n$(rm -rf x) and `touch y` and $HOME and ${x} and $& and $1';
+  const r = main(FAILED_CALL, { stdin: `${error}\n` });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout, failedReply(error));
+  assert.ok(r.stdout.includes(error), 'the error is in the reply, the inner line break included');
+  assert.ok(r.stdout.includes('PROJ-482'), 'the reply names the task');
+});
+
+test('jira-entry-followups AC-8 reply --stdin refuses an empty input, a duplicate name, a bad name and no name', () => {
+  const cases = [
+    { name: 'empty', args: FAILED_CALL, stdin: '', message: 'reply --stdin error needs the text on standard input' },
+    { name: 'a line break only', args: FAILED_CALL, stdin: '\n', message: 'reply --stdin error needs the text on standard input' },
+    { name: 'a CRLF only', args: FAILED_CALL, stdin: '\r\n', message: 'reply --stdin error needs the text on standard input' },
+    { name: 'the same parameter twice', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--param', 'error=x', '--stdin', 'error', '--lang', 'en'], stdin: 'text', message: '--param error and --stdin error name the same parameter' },
+    { name: 'the same parameter twice, with an empty input', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--param', 'error=x', '--stdin', 'error', '--lang', 'en'], stdin: '', message: '--param error and --stdin error name the same parameter' },
+    { name: 'a capital letter', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--stdin', 'Error', '--lang', 'en'], stdin: 'text', message: '--stdin needs a parameter name of letters, starting with a lower-case one' },
+    { name: 'a digit first, with an empty input', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--stdin', '1x', '--lang', 'en'], stdin: '', message: '--stdin needs a parameter name of letters, starting with a lower-case one' },
+    { name: 'no name', args: ['reply', 'write-back-failed', '--param', 'key=PROJ-482', '--lang', 'en', '--stdin'], stdin: 'text', message: '--stdin needs a value' },
+  ];
+  for (const c of cases) {
+    const r = main(c.args, { stdin: c.stdin });
+    assert.equal(r.code, 3, `${c.name}: ${r.stdout}${r.stderr}`);
+    assert.ok(r.stderr.includes(c.message), `${c.name}: stderr names the refusal, got ${r.stderr}`);
+    assert.equal(r.stdout.includes('Jira did not accept'), false, `${c.name}: no reply is printed`);
+    assert.equal(r.stdout.startsWith('devkit-'), false, c.name);
+  }
+});
+
+test('jira-entry-followups AC-8 reply --stdin removes one final line break, \\r\\n or \\n', () => {
+  for (const [stdin, error] of [['a\r\nb\r\n', 'a\r\nb'], ['a\n\n', 'a\n'], ['a\nb\n', 'a\nb'], ['a', 'a'], ['a\r', 'a\r'], ['a\r\n\r\n', 'a\r\n']]) {
+    const r = main(FAILED_CALL, { stdin });
+    assert.equal(r.code, 0, JSON.stringify(stdin));
+    assert.equal(r.stdout, failedReply(error), JSON.stringify(stdin));
+  }
+});
+
+test('jira-entry-followups AC-8 reply without --stdin reads no standard input', async () => {
+  const child = spawn(process.execPath, [LOOP, 'reply', 'write-back-failed', '--param', 'key=PROJ-482', '--param', 'error=x', '--lang', 'en'], { stdio: ['pipe', 'pipe', 'pipe'], env: cleanEnv });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d; });
+  // The input is left open and empty: a read of it would wait up to 10 s. The guard is 4 s.
+  const result = await new Promise((resolve) => {
+    const timer = setTimeout(() => { child.kill(); resolve('waited'); }, 4000);
+    child.on('close', (code) => { clearTimeout(timer); resolve(code); });
+  });
+  assert.equal(result, 0, 'it exits at once, it does not wait on standard input');
+  assert.equal(out, failedReply('x'));
+});
+
+test('jira-entry-followups AC-8 a spawned reply --stdin reads the error from a heredoc', () => {
+  const dir = tmpFolder('devkit-reply-stdin-');
+  const error = 'it said "no" and \'never\'\n$(rm -rf x) $(touch x) and `touch y` and $HOME';
+  const script = `node '${LOOP}' reply write-back-failed --param key=PROJ-482 --stdin error --lang en <<'DEVKIT_ARGS'\n${error}\nDEVKIT_ARGS\n`;
+  const r = spawnSync('bash', ['-c', script], { cwd: dir, encoding: 'utf8', env: cleanEnv });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout, failedReply(error));
+  assert.deepEqual(readdirSync(dir), [], 'no command of the error ran: no file x or y appeared');
 });
 
 test('jira-entry AC-4 grill skill: a request copied from a task is asked only what it leaves open', () => {

@@ -167,12 +167,12 @@ scratch file in the tree, and end every task with `git status --short`.
 
 ## 4. The review's open nits (AC-7 to AC-11)
 
-- [ ] 4.1 Change `writeBackAsk` in `plugins/openspec/hooks/change-loop.mjs` (D-4). Write
+- [x] 4.1 Change `writeBackAsk` in `plugins/openspec/hooks/change-loop.mjs` (D-4). Write
   `jira-entry-followups AC-7 write-back ask by key and number` in
   `plugins/openspec/hooks/change-loop.test.mjs` with every case of D-10, the record read back after
   each call. Check: it passes (the "number 15" and "another key" cases fail before the change), and
   every `jira-entry AC-6 write-back ask` test passes unchanged.
-- [ ] 4.2 Add `--stdin <name>` to `runReply`, `main`, `isMain`, `USAGE` and the module header of
+- [x] 4.2 Add `--stdin <name>` to `runReply`, `main`, `isMain`, `USAGE` and the module header of
   `change-loop.mjs`, and change the failed-write sentence and call of `### Writing back to the task`
   in `plugins/openspec/skills/devkit/SKILL.md` (D-5). In the same task change `jira-entry AC-7 skill:
   Jira is written only through write-back answer on the owner's own message, and a failed write is
@@ -183,7 +183,7 @@ scratch file in the tree, and end every task with `git status --short`.
   Check: they pass; `guard.test.mjs`'s `--param why=cannot-accept --param error=` line and
   `roadmap-loop.test.mjs`'s `--param why=base-conflict --param error=` line still match their skill
   text.
-- [ ] 4.3 Move the `task-taken` check into the open lock (D-6): `openChange`, `openCheckout` and
+- [x] 4.3 Move the `task-taken` check into the open lock (D-6): `openChange`, `openCheckout` and
   `openUnderLock` in `change-loop.mjs`. Write `jira-entry-followups AC-9 two open --task calls for one
   key at once create one change` and `jira-entry-followups AC-9 open --task on the id of the key's
   own unfinished change answers task-taken` in `change-loop.test.mjs` (D-10, the lock written by the
@@ -192,7 +192,7 @@ scratch file in the tree, and end every task with `git status --short`.
   the task with both codes 0, and `jira-entry AC-5 open
   --task refuses a second change for a key whose change is unfinished` and every `change-loop open:`
   test pass unchanged.
-- [ ] 4.4 Write `jira-entry-followups AC-10 next carries no writeBack on a blocked end held at the
+- [x] 4.4 Write `jira-entry-followups AC-10 next carries no writeBack on a blocked end held at the
   pull request` in `change-loop.test.mjs` with the fixture of `change-loop next: a pull request
   conflicting in another file ends blocked as a pull request problem` (line 887) plus
   `requirements: TASK_REQUIREMENTS` (D-7); no behaviour changes. Check: it passes; with
@@ -200,13 +200,13 @@ scratch file in the tree, and end every task with `git status --short`.
   the line put back by hand it passes (`git diff -- plugins/openspec/hooks/change-loop.mjs` shows no
   change from this task); `jira-entry AC-6 next carries the task but no writeBack on a budget end
   held at the pull request` passes unchanged.
-- [ ] 4.5 Write the four `jira-entry-followups AC-11 taskIdPrefix ...` tests of D-10 in
+- [x] 4.5 Write the four `jira-entry-followups AC-11 taskIdPrefix ...` tests of D-10 in
   `plugins/openspec/hooks/jira-task.test.mjs`, one per scenario of "The change id's prefix comes
   from the key" in `specs/jira-tasks/spec.md`, each with that scenario's inputs (`PROJ-482`,
   `PROJ_X-12`, `PROJ_-12` and `A__B-1`, `PROJ_`); no behaviour changes. Check: they pass, and
   `jira-entry AC-1 taskIdPrefix lower-cases the key and turns underscores into dashes` passes
   unchanged.
-- [ ] 4.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/jira-task.test.mjs && python3 scripts/check.py` green; covers AC-7, AC-8, AC-9, AC-10 and AC-11.
+- [x] 4.9 Gate: `env TMPDIR=/var/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/jira-task.test.mjs && python3 scripts/check.py` green; covers AC-7, AC-8, AC-9, AC-10 and AC-11.
 
 ## 5. Release and the whole suite (every AC)
 
