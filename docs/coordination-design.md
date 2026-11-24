@@ -100,6 +100,8 @@ finishes first. **Decided by
 the last minute per logical core against the per-person `load_limit` (80 by default); memory is not
 measured; a held start is announced once and checked every minute. The owner may tell the session to start the held changes anyway, once; the next start is held again. In the desktop app a change session is started only on a turn the owner typed: on any other turn the change waits for the owner's next message, with a line that says so ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)). When the person's `machines` setting lists another machine, a loaded machine sends the start there, and the start is held only when no machine can take it ([ADR 0020](adr/0020-a-change-can-run-on-another-machine.md)).
 
+**Opening every change at the start (decided by the owner on 2026-11-22, `roadmap-sessions-upfront`; [ADR 0021](adr/0021-a-roadmap-run-opens-every-change-at-its-start.md)).** Where the host can start sessions, the first decision on the owner's typed turn opens every unticked, unarchived line and starts its session, each with a one-use ticket in its task. A model-invocable entry skill (`devkit-session`), let through by a hook on the Skill tool only with the run's unclaimed ticket, runs the change's loop with no typed command. The places count only the changes in the implementation, a test stage, the evidence or the review; a change waits for a place, the load or its dependencies in its own session, titled `⏳` and the id, and plans only after its dependencies are archived. The grill, the plan approval and the retro answers of every change are asked in the coordinating session, one change at a time, with the triage agent `requirements-triage` answering what the files settle. While the run lasts it holds one session cron, about every 30 minutes, which hands a freed place on, stops stale wait loops and archives the sessions of archived changes, and which the run's end deletes. With the `machines` setting set, a change session of this machine on the run's ticket takes its place from the run's own count, and its plan on `origin` is no place taken; a change counted from `origin` (another machine's, or one of this machine whose session claimed no ticket) keeps ADR 0020's places, so with both kinds at once this machine can hold more places than the run's number, and the board's row of this machine then reads above it.
+
 **The change coordinator, `tech-lead` (decided; the name decided by the assistant on the owner's delegation, 2026-11-19).** Built in round 15
 (`change-coordinator`). It takes one change from its opening to its archive. It asks the script which
 stage comes next, hands that stage to its subagent, checks the gate and asks again. It writes no code
@@ -381,6 +383,7 @@ one to be built.
 | A subagent does not stop without delivering | refused when it tries to stop and its stage file is missing (exists) | the program checks the file before going on |
 | The change coordinator calls only the listed roles and edits no code | refused when it edits product code or hands work to a role the script does not list: the coordinator is the owner's session, held by a hook (ADR 0011) (exists) | the role's definition in the driver |
 | The task branch never receives `develop` | the command is refused (exists) | a GitHub check on the pull request to `master` |
+| A change session starts running on its own only with the run's ticket | the Skill call is refused unless the session's first message is a started form carrying a ticket the run recorded for that change and no other session claimed; it refuses when it cannot read (exists, ADR 0021) | not applicable |
 | Approval only from the owner's message | the file is writable only by the main session (exists; the weakest lock) | the driver's human-review step |
 
 **What the hooks can do (checked on 2026-11-19 in the Claude Code hooks reference).** `Stop` and
@@ -447,7 +450,7 @@ All proposed. The three drivers are to be built in rounds 15, 21 and 22.
   run has an app session of its own, started by the roadmap coordinator in the change's worktree
   and nested under it, which is that change's coordinator
   ([ADR 0014](adr/0014-each-roadmap-change-runs-in-a-session-of-its-own.md)); where the host
-  cannot start sessions, the session is also the coordinator of every open change. Either way
+  cannot start sessions, the session is also the coordinator of every open change. Where it can, a run opens every change at its start, runs each change session on the run's ticket and keeps one periodic check ([ADR 0021](adr/0021-a-roadmap-run-opens-every-change-at-its-start.md)). Either way
   each stage runs as a subagent in the
   background ([ADR 0013](adr/0013-the-roadmap-coordinator-is-the-owners-session.md)). When a change
   needs the owner, its coordinator asks it, one change at a time.

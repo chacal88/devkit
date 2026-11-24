@@ -222,11 +222,22 @@ export const MESSAGES = {
     'roadmap-resumed': 'Resumed {id}, which was already open: {where} ({open} of {places} under way).',
     'roadmap-session-started': 'Started {id} in a session of its own ({open} of {places} under way).',
     'roadmap-waits-turn': '{id} is ready and starts in a session of its own at your next message: the app starts a session only on a turn you typed.',
+    'roadmap-session-opened': '{id} is open in a session of its own; its grill is asked here.',
+    'roadmap-check-refused': 'The app refused the periodic check of this run: it goes on without one.',
+    'roadmap-check-idle': '{id} has a place but its session is not watching: type any message in it.',
+    'roadmap-check-stopped-waits': '{n} wait loops of the run were stopped: their changes no longer need them.',
+    'roadmap-check-session-archived': 'The session of {id} was archived.',
+    'roadmap-check-archive-later': 'The session of {id} is not archived yet: it is still working or waits for your approval; I try again later.',
+    'push-failed': 'The branch of {id} could not be pushed: {error}. I try again at a later decision.',
     'roadmap-session-started-on': 'Started {id} on {machine}, in a session of its own.',
     'roadmap-waits-turn-on': '{id} is open for {machine} and starts in a session of its own there at your next message: the app starts a session only on a turn you typed.',
     'roadmap-woken': 'A place freed on {machine}: I told {id} to go on.',
     'roadmap-machine-silent': '{machine} does not answer: no new change goes there, and its changes keep their places.',
     'roadmap-waits-refused': '{id} could not start in a session of its own: the app refused it. It starts at your next message.',
+    'session-held-owner': '{id}: {gate} is asked in the roadmap session; this session goes on as soon as it is answered.',
+    'session-held-place': '{id} waits for a place: {places} changes are building.',
+    'session-held-load': '{id} waits: the processor is at {load}% (limit {limit}%).',
+    'session-held-after': '{id} waits for {after} to be archived before its plan.',
     'roadmap-held': '{id} is ready to start, but the machine is loaded (processor at {load}%, limit {limit}%): I hold the start until it eases. Tell me to start anyway and it starts now.',
     'roadmap-gate': '{id} waits for {gate}.',
     'roadmap-gate-others': '{id} waits for {gate}. The others go on.',
@@ -265,6 +276,9 @@ export const MESSAGES = {
     'queue.load': 'ready, held by the load',
     'queue.after': 'waits for {after}',
     'queue.turn': 'ready: starts in a session of its own at your next message',
+    'queue.held-place': 'open, waits for a place',
+    'queue.held-load': 'open, held by the load',
+    'queue.held-after': 'open, waits for {after}',
     'queue.no-machine': 'ready, no machine can take it now (this one is loaded, the others do not answer)',
     'machines-unreadable': 'The machines setting is not a list I can read. Write it as [{"host": "avel", "folder": "/home/me/repo", "places": 2}]. Nothing was started.',
     'machine-incomplete': 'The machine {entry} in the machines setting has no valid {field}. Nothing was started.',
@@ -321,6 +335,7 @@ export const MESSAGES = {
     'blocked-why.cannot-check-out': 'its folder could not be made on {machine} ({error})',
     'gh-version-unknown': 'unknown version',
     'blocked-why.cannot-accept': 'the decision records could not be marked accepted ({error})',
+    'blocked-why.base-conflict': 'the default branch could not be merged into it: {error}',
     'what.checks': 'the checks of the pull request',
     'what.merge': 'the merge of the pull request',
     'what.archive-merge': 'the merge of the archive pull request',
@@ -478,11 +493,22 @@ export const MESSAGES = {
     'roadmap-resumed': 'Retomei {id}, que já estava aberta: {where} ({open} de {places} em andamento).',
     'roadmap-session-started': 'Comecei {id} numa sessão própria ({open} de {places} em andamento).',
     'roadmap-waits-turn': '{id} está pronta e começa numa sessão própria na sua próxima mensagem: o app só abre sessão num turno que você digitou.',
+    'roadmap-session-opened': '{id} está aberta numa sessão própria; o grill dela é feito aqui.',
+    'roadmap-check-refused': 'O app recusou a verificação periódica desta rodada: ela segue sem uma.',
+    'roadmap-check-idle': '{id} tem uma vaga, mas a sessão dela não está vigiando: escreva qualquer mensagem nela.',
+    'roadmap-check-stopped-waits': '{n} esperas da rodada foram paradas: as changes delas não precisam mais delas.',
+    'roadmap-check-session-archived': 'A sessão de {id} foi arquivada.',
+    'roadmap-check-archive-later': 'A sessão de {id} ainda não foi arquivada: ela ainda trabalha ou espera a sua aprovação; tento de novo depois.',
+    'push-failed': 'Não foi possível enviar o branch de {id}: {error}. Tento de novo numa próxima decisão.',
     'roadmap-session-started-on': 'Comecei {id} em {machine}, numa sessão própria.',
     'roadmap-waits-turn-on': '{id} está aberta para {machine} e começa numa sessão própria lá na sua próxima mensagem: o app só abre sessão num turno que você digitou.',
     'roadmap-woken': 'Liberou um lugar em {machine}: avisei {id} para seguir.',
     'roadmap-machine-silent': '{machine} não responde: nenhuma change nova vai para lá, e as changes dela mantêm os lugares.',
     'roadmap-waits-refused': '{id} não pôde começar numa sessão própria: o app recusou. Ela começa na sua próxima mensagem.',
+    'session-held-owner': '{id}: {gate} é perguntada na sessão do roadmap; esta sessão segue assim que for respondida.',
+    'session-held-place': '{id} espera uma vaga: {places} changes estão em construção.',
+    'session-held-load': '{id} espera: o processador está em {load}% (limite {limit}%).',
+    'session-held-after': '{id} espera {after} ser arquivada antes do plano.',
     'roadmap-held': '{id} está pronta para começar, mas a máquina está carregada (processador em {load}%, limite {limit}%): seguro o começo até aliviar. Se quiser começar mesmo assim, é só dizer.',
     'roadmap-gate': '{id} espera {gate}.',
     'roadmap-gate-others': '{id} espera {gate}. As outras seguem.',
@@ -521,6 +547,9 @@ export const MESSAGES = {
     'queue.load': 'pronta, segurada pela carga',
     'queue.after': 'espera {after}',
     'queue.turn': 'pronta: começa numa sessão própria na sua próxima mensagem',
+    'queue.held-place': 'aberta, espera uma vaga',
+    'queue.held-load': 'aberta, segurada pela carga',
+    'queue.held-after': 'aberta, espera {after}',
     'queue.no-machine': 'pronta, nenhuma máquina pode recebê-la agora (esta está carregada, as outras não respondem)',
     'machines-unreadable': 'A configuração de máquinas não é uma lista que eu consiga ler. Escreva assim: [{"host": "avel", "folder": "/home/eu/repo", "places": 2}]. Nada foi iniciado.',
     'machine-incomplete': 'A máquina {entry} na configuração de máquinas não tem {field} válido. Nada foi iniciado.',
@@ -577,6 +606,7 @@ export const MESSAGES = {
     'blocked-why.cannot-check-out': 'a pasta dela não pôde ser criada em {machine} ({error})',
     'gh-version-unknown': 'versão desconhecida',
     'blocked-why.cannot-accept': 'não foi possível marcar os registros de decisão como aceitos ({error})',
+    'blocked-why.base-conflict': 'não foi possível mesclar o branch padrão nela: {error}',
     'what.checks': 'os checks do pull request',
     'what.merge': 'o merge do pull request',
     'what.archive-merge': 'o merge do pull request de arquivo',
@@ -706,6 +736,9 @@ export function gateOf(action) {
   return code;
 }
 
+// What a new coordinating session keeps of the run file: what outlives the session that started it (D-1, D-9; `placed` is the changes opened for another machine, remote-worker D-8).
+export const OUTLIVES = ['startedSessions', 'tickets', 'occupied', 'placed', 'queued', 'waits'];
+
 // The run file's shape and its reading live in run-file.mjs (remote-worker D-9); this module and its callers read them from here.
 export { emptyRun, readRun, runFilePath };
 
@@ -713,6 +746,8 @@ export { emptyRun, readRun, runFilePath };
 
 // The icon of the stage an action is in, for the title of a change session: ❓ requirements, 📝 plan, 🛠️ code, 🔍 review, 🚀 delivery,
 // 📦 retro and archive, ⏳ a change waiting for a free place. An archived end is the archive's; a stage the table does not name, or none, has no icon.
+// The icon of a change session that waits (for a place, the load or a dependency), in place of its stage's (roadmap-sessions-upfront D-11).
+export const WAIT_ICON = '⏳';
 const STAGE_ICON = {
   open: '❓', requirements: '❓',
   mockup: '📝', decisions: '📝', proposal: '📝', specs: '📝', design: '📝', tasks: '📝', readiness: '📝', approval: '📝',
@@ -739,6 +774,9 @@ export function sessionTitle(icon, id, stateIcon = null) {
 
 export const STATE_ICON = { 'waiting-for-owner': '🙋', 'waiting-on-github': '⏳', blocked: '⛔', archived: '📦' };
 
+// The reasons of a change session that is held (a state `running`): the message key of each one's phrase (roadmap-sessions-upfront D-11).
+export const HELD_TEXT = { 'held-place': 'queue.held-place', 'held-load': 'queue.held-load', 'held-after': 'queue.held-after' };
+
 // What the run file says about one change, for `changeState`: `run` is `readRun`'s result or the facts of the board (the same
 // fields and an `after`); `onRoadmap` says the id is a line of the roadmap.
 export function runFactsOf(run, id, { onRoadmap = false } = {}) {
@@ -750,6 +788,9 @@ export function runFactsOf(run, id, { onRoadmap = false } = {}) {
     inflight: Object.hasOwn(after, id) ? null : run.inflight?.[id] ?? null,
     declared: run.declared?.[id] ?? null,
     waits: Boolean(run.starting?.includes(id)) || announced === 'waits-turn' || announced === 'waits-refused',
+    queued: run.queued?.[id] ?? null,
+    occupied: Boolean(run.occupied?.[id]),
+    waitsFor: run.waitsFor?.[id] ?? null,
   };
 }
 
@@ -776,6 +817,13 @@ function declaredEnd(declared, lang, id) {
   return { state: 'blocked', reason: blockedReason(lang, declared.why, declared.params, id) };
 }
 
+// S9: the reason a running change session is held for, from the facts: the queue entry (the load, else a place) of a change with no place, else a
+// dependency not archived; null when it is not held.
+function heldReason(facts) {
+  if (facts.queued && !facts.occupied) return facts.queued.why === 'load' ? 'held-load' : 'held-place';
+  return facts.waitsFor ? 'held-after' : null;
+}
+
 // The one place a change's state is derived (D-1). `action` is what `decide` gave (or null, or the stand-in of a change the run
 // file lists with no folder); `facts` is `runFactsOf`'s result, or null outside a roadmap run; `id` names the change when there is
 // no action. Pure.
@@ -800,13 +848,19 @@ export function changeState(action, facts = null, { lang, id: given = null } = {
       stageTitle = action?.stageTitle ?? inflight.stage ?? null;
     } else if (declared) done = declaredEnd(declared, l, id);
     else if (facts.waits || !action || action.kind === 'none') done = { state: 'running', reason: READY(l) };
+    if (sessionMode && done.state === 'running' && (!done.reason || done.reason.code === 'ready')) { // S9: held for a place, the load or a dependency
+      const held = heldReason(facts);
+      if (held) done = { state: 'running', reason: { code: held, text: render(l, HELD_TEXT[held], { after: facts.waitsFor }) } };
+    }
   }
   const { state, reason } = done;
   const icon = stage === (action?.stage ?? null) ? stageIcon(action) : stageIcon({ stage });
-  // A change waiting for a free place (remote-worker AC-10) is not stopped: its stage icon is the ⏳, and no ⛔ goes before it.
-  const stateIcon = reason?.code === 'no-place' ? null : STATE_ICON[state] ?? null;
+  const held = state === 'running' && Object.hasOwn(HELD_TEXT, reason?.code ?? '');
+  // A change waiting for a free place on its machine (remote-worker AC-10) is not stopped: its stage icon is the ⏳, and no ⛔ goes before it.
+  const stateIcon = held ? WAIT_ICON : reason?.code === 'no-place' ? null : STATE_ICON[state] ?? null;
   let title;
   if (state === 'archived') title = sessionTitle('📦', id);
+  else if (held) title = sessionTitle(WAIT_ICON, id);
   else if (state === 'running') title = icon ? sessionTitle(icon, id) : null;
   else title = icon ? sessionTitle(icon, id, stateIcon) : sessionTitle(stateIcon, id);
   const phase = typeof action?.detail?.phase === 'number' ? action.detail.phase : null;
@@ -881,6 +935,7 @@ const ROWS = {
   'apply-proposals': handOff('implementation', 'tdd-implementer'),
   'resolve-release-conflict': handOff('implementation', 'tdd-implementer'),
   'rejoin-train': handOff('implementation', 'tdd-implementer'),
+  'renumber-adr': handOff('implementation', 'tdd-implementer'),
   commit: handOff('delivery', 'commit-and-pr'),
   'open-pr': handOff('delivery', 'commit-and-pr'),
   push: handOff('delivery', 'commit-and-pr'),
@@ -947,6 +1002,58 @@ export function exitCodeOf(action) {
   if (state === 'archived') return 0;
   if (state === 'blocked') return why === 'unreadable' ? 3 : 2;
   return 1;
+}
+
+// ---------------------------------------------------------------- the triage's source check (roadmap-sessions-upfront D-4)
+
+const TRIAGE_HEADING = /^### Answered by triage[ \t]*$/;
+const SECTION_END = /^#{1,3}[ \t]/;
+const FENCE = /^(`{3,}|~{3,})/;
+const ITEM = /^(?:[-*+]|\d+[.)])[ \t]+(.*)$/;
+
+// The one reader of the section `### Answered by triage` of a requirements file (D-4, review round 1 architecture F2): null when no line outside a fenced
+// block is that heading (a heading with words after it, or at another level or indentation, is none), else the section's items, each as its text with the
+// marker removed and its indented lines joined by a space; an empty section gives []. The section runs to the next heading of level 1 to 3 or to the end of
+// the file; a line inside a fenced block (three or more backticks or tildes) is no heading and no item, an unclosed fence running to the end; an item
+// continues over its indented lines up to a blank or an unindented one (precedent: `classificationFlags` reads the grill's classification line the same way).
+export function triageSection(text) {
+  const items = [];
+  let inSection = false;
+  let fence = null;
+  let open = null;
+  const close = () => { if (open) items.push(open); open = null; };
+  for (const line of String(text).split('\n')) {
+    const mark = FENCE.exec(line.trimStart())?.[1];
+    if (fence) {
+      if (mark && mark[0] === fence[0] && mark.length >= fence.length && line.trim() === mark) fence = null;
+      continue;
+    }
+    if (mark) { close(); fence = mark; continue; }
+    if (!inSection) {
+      inSection = TRIAGE_HEADING.test(line);
+      continue;
+    }
+    if (SECTION_END.test(line)) break;
+    const item = ITEM.exec(line);
+    if (item) { close(); open = item[1].trim(); continue; }
+    if (open !== null && /^[ \t]+\S/.test(line)) { open = `${open} ${line.trim()}`; continue; }
+    close();
+  }
+  close();
+  return inSection ? items : null;
+}
+
+// True when the text holds the triage section (`triageSection` is not null): the loop and the periodic check ask the same reader.
+export const hasTriageSection = (text) => triageSection(text) !== null;
+
+// The items of the triage section that name no `(source: `; [] when there is no section or it is empty.
+export function triageUnsourced(text) {
+  return (triageSection(text) ?? []).filter((i) => !i.includes('(source: '));
+}
+
+// `triageUnsourced` over the change's requirements.md; [] when there is none or it cannot be read.
+function triageUnsourcedOf(dir) {
+  try { return triageUnsourced(readFileSync(join(dir, 'requirements.md'), 'utf8')); } catch { return []; }
 }
 
 // facts: { ctx: { id, script, root, branch, lang, filesLanguage }, flow, report (flow-check's), after, fingerprint,
@@ -1037,8 +1144,15 @@ export function decide(facts) {
     const n = report.next;
     const e = report.end;
     if (n?.stage === 'open') return blocked('not-opened', {}, 'open');
+    // The grill names the helpers of the requirements stage of the flow the change follows: the triage is offered only to a change whose flow lists it (design D-17).
+    const helpers = stageById('requirements')?.helpers ?? [];
     if (n?.stage === 'requirements' || (e?.state === 'waiting-for-owner' && e.stage === 'requirements')) {
-      return { ...base, kind: 'grill', ...stageFields('requirements'), progressKey: key('requirements') };
+      return { ...base, kind: 'grill', ...stageFields('requirements'), helpers, progressKey: key('requirements') };
+    }
+    // A triage answer with no source goes back to the grill, which asks the owner that question (design D-4).
+    const unsourced = facts.unsourced ?? [];
+    if (unsourced.length && report.stages.find((x) => x.id === 'requirements')?.state === 'passed') {
+      return { ...base, kind: 'grill', ...stageFields('requirements'), helpers, progressKey: key('requirements'), detail: { unsourced } };
     }
     if (n) {
       const s = stageById(n.stage);
@@ -1188,6 +1302,24 @@ export function locate(start, id) {
   return { root, branch: tryGit(root, ['symbolic-ref', '--short', '-q', 'HEAD']) };
 }
 
+// The stages of the plan part a change does not write before its dependencies are archived: the others are the owner's or come after.
+export const PLAN_NOT_HELD = ['requirements', 'approval'];
+
+// The part of `stage` in the flow the change at `found` follows (its pin); null when the flow cannot be read or does not hold it.
+export function partOfStage(found, id, stage) {
+  if (typeof stage !== 'string') return null;
+  try {
+    const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
+    return changeFlow(found.root, dir).flow?.stages.find((s) => s.id === stage)?.part ?? null;
+  } catch { return null; }
+}
+
+// Whether the action is a stage of the plan part that waits for the change's dependencies (the one reader of `sessionFacts`, the board and the state command).
+export function isPlanStage(start, id, action) {
+  if (!(action?.kind === 'agent' || action?.kind === 'session') || PLAN_NOT_HELD.includes(action.stage)) return false;
+  try { return partOfStage(locate(start, id), id, action.stage) === 'plan'; } catch { return false; }
+}
+
 // The next action of change `id`, read from the files, git and GitHub of its checkout. Errors (an unknown change, an
 // unreadable setting, no openspec CLI) are thrown; a delivery checker that throws becomes the `unreadable` end.
 export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after = null, openspec, gh, claims, budget = false } = {}) {
@@ -1198,7 +1330,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
   const settings = readDevkitSettings(found.root);
   const filesLanguage = settings.unknown.some((u) => u.setting === 'language') ? 'en' : settings.language;
   const dir = locateChange(found.root, id)?.dir ?? join(found.root, 'openspec', 'changes', id);
-  // The token budget is read only when the caller asks (`next`): the locks, `wait` and the roadmap never count (change-budget D-4).
+  // The token budget is read only when the caller asks (`next`, and `session-next` of a change session): the locks, `wait` and the roadmap never count (change-budget D-4).
   let budgetFact = null;
   if (budget) {
     const cap = budgetOf(found.root, dir, normalizeLang(lang));
@@ -1238,6 +1370,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     decisions: decisionRecords(found.root, dir),
     hasProposal: existsSync(join(dir, 'proposal.md')),
     flags: classificationFlags(dir),
+    unsourced: triageUnsourcedOf(dir),
     archiving,
     row,
     place,
@@ -1262,13 +1395,17 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
 
 // The place facts of change `id` (D-9): its machine and places from its claim (`run` is the run file's number), whether it holds
 // its place (its branch on `origin` holds approval.md) and, when it does not, how many other changes of its machine do.
-// null when the claim records no places. `claims` is a `remoteClaims` result a caller already read.
+// null when the claim records no places, and for a `run` claim of a change session on the run's ticket (a run with a session per change whose
+// ticket for `id` a session claimed): that change's one gate is `sessionNext`'s, over the run file's `occupied` (roadmap-sessions-upfront D-18), so
+// the two gates never both apply. `claims` is a `remoteClaims` result a caller already read.
 function placeFacts(found, id, dir, { env, gh, claims }) {
   const file = join(dir, '.openspec.yaml');
   if (!existsSync(file)) return null;
   const { machine, places } = parseClaim(readFileSync(file, 'utf8'));
   if (!machine || places === null) return null;
-  const total = places === 'run' ? readRun(runFilePath(found.root)).places : places;
+  const run = places === 'run' ? readRun(runFilePath(found.root)) : null;
+  if (run?.changeSessions && run.tickets[id]?.claimedBy) return null;
+  const total = run ? run.places : places;
   if (gitPasses(found.root, ['cat-file', '-e', `refs/remotes/origin/${id}:openspec/changes/${id}/approval.md`])) return { machine, places: total, taken: true, held: null };
   const read = claims ?? remoteClaims(found.root, { env, gh });
   const held = [...read.claims.values()].filter((c) => c.id !== id && c.machine === machine && c.placed === true).length;
@@ -1563,6 +1700,7 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
   const run = readRun(runFilePath(start));
   const roadmapIds = new Set((readRoadmap(start) ?? []).flatMap((round) => round.items.map((item) => item.id)));
+  const changeSessions = run.changeSessions === true;
   const named = namedByRun(run);
   const ids = id !== null ? [id] : [...new Set([...unfinished(start, { env, gh }).map((u) => u.id), ...named])].sort((a, b) => a.localeCompare(b));
   let archived = null;
@@ -1576,7 +1714,9 @@ export function stateEntries(cwd, { id = null, lang, env = process.env, openspec
       action = { kind: 'end', change: cid, script: null, root: null, branch: null, stage: null, stageTitle: null, end: { state: 'archived', why: 'archived' }, params: { id: cid } };
     } else if (named.has(cid)) action = { kind: 'none', change: cid, script: null, root: null, branch: null, stage: 'open', stageTitle: openTitle() };
     else throw new LoopUsageError(`no change named ${cid}`);
-    const facts = runFactsOf(run, cid, { onRoadmap: roadmapIds.has(cid) });
+    const line = changeSessions && roadmapIds.has(cid) ? (readRoadmap(mainRoot(start)) ?? []).flatMap((round) => round.items).find((item) => item.id === cid) : null;
+    const dependency = line && line.after.length > 0 && isPlanStage(start, cid, action) ? line.after.find((d) => !(archived ??= archivedOnDefault(start, { env, gh })).has(d)) ?? null : null;
+    const facts = runFactsOf(dependency ? { ...run, waitsFor: { [cid]: dependency } } : run, cid, { onRoadmap: roadmapIds.has(cid) });
     return { change: cid, ...changeState(action, facts, { lang: l }), script: action.script, root: action.root, branch: action.branch };
   });
 }
@@ -2124,16 +2264,19 @@ export function moveFlow(cwd, id, { lang = 'pt-BR' } = {}) {
 // ---------------------------------------------------------------- wait (D-7)
 
 const isWait = (a) => a.kind === 'end' && a.end.state === 'waiting-on-github';
-const decisionKey = (a) => JSON.stringify([a.kind, a.end?.state ?? null, a.end?.why ?? null, a.agent ?? null, a.step ?? null, a.reply ?? null]);
+// What makes two decisions the same wait. A held decision (a change session waiting for a place, the load, a dependency or the owner) is the same
+// while its reason is: its words carry numbers (the load) that move at every poll.
+const decisionKey = (a) => JSON.stringify([a.kind, a.end?.state ?? null, a.end?.why ?? null, a.agent ?? null, a.step ?? null,
+  a.kind === 'held' ? [a.held?.why ?? null, a.held?.gate ?? null, a.held?.after ?? null] : (a.reply ?? null)]);
 const isUnreadable = (a) => a.kind === 'end' && (a.end.why === 'github-unreadable' || (a.end.state === 'waiting-on-github' && a.params?.what === 'silent'));
 
 // Polls `poll()` (the decision `next` gives) every `interval` seconds while it stays the same wait on GitHub, with no
 // limit of its own, and returns the first decision that is anything else (the first decision itself when it is not a
 // wait). A poll that throws, that says GitHub cannot be read or that is a wait on GitHub with no answer (`what` silent) is a failed read, retried; `maxFailures` in a row return blocked,
 // `github-unreadable`. Holds no state but the first decision.
-export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 3 }) {
+export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 3, waiting = isWait, failWhy = 'github-unreadable' }) {
   const first = await poll();
-  if (!isWait(first)) return first;
+  if (!waiting(first)) return first;
   const wanted = decisionKey(first);
   let failures = 0;
   for (;;) {
@@ -2149,7 +2292,7 @@ export async function waitLoop({ poll, sleep, interval, id, lang, maxFailures = 
       const message = error ? (error instanceof Error ? error.message : String(error)) : action.detail?.error ?? '';
       return {
         version, change: change ?? id, script, root, branch, filesLanguage, kind: 'end', stage, stageTitle, role, skills,
-        end: { state: 'blocked', why: 'github-unreadable' }, reply: render(lang, 'blocked', { id, why: 'github-unreadable', error: message }),
+        end: { state: 'blocked', why: failWhy }, reply: render(lang, 'blocked', { id, why: failWhy, error: message }),
       };
     }
     failures = 0;
@@ -2255,7 +2398,7 @@ export function scriptAgents(flow) {
 export const PACKS = {
   ...Object.fromEntries(['change-planner', 'plan-readiness-reviewer', 'tdd-implementer', 'pr-verifier', 'commit-and-pr', 'codebase-researcher',
     'plan-reality-auditor', 'adr-reviewer', 'code-quality-reviewer', 'test-coverage-reviewer', 'architecture-reviewer', 'security-reviewer',
-    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester'].map((r) => [r, 'devkit-core'])),
+    'spec-reviewer', 'finding-verifier', 'screen-designer', 'adr-author', 'test-runner', 'e2e-tester', 'requirements-triage'].map((r) => [r, 'devkit-core'])),
   'openspec-validator': 'devkit-openspec',
 };
 
@@ -2316,7 +2459,7 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 // What `next` and `wait` print: `devkit-run: <id>`, then `devkit-end: <id> <state>` when the action is an end (the record
 // the stop lock reads, D-2), then the JSON action.
-const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ? `devkit-end: ${id} ${action.end.state}\n` : ''}${json(action)}`;
+export const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ? `devkit-end: ${id} ${action.end.state}\n` : ''}${json(action)}`;
 
 // The keys the session renders itself that end the run, and the state each one records.
 const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-owner' };
