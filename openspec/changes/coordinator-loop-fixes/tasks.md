@@ -89,7 +89,7 @@ every task with `git status --short`.
   Check: `env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^coordinator-loop-fixes AC-1 " --test-name-pattern="^coordinator-loop-fixes AC-2 " plugins/openspec/hooks/change-loop-declared.test.mjs plugins/openspec/hooks/deliver-check.test.mjs plugins/openspec/hooks/guard.test.mjs`
   exits 1, its summary names no import error (every file loaded), and each of these tests fails on its own
   assertion except the negatives T5, T11, T23 and T100 to T103, which may already pass.
-- [ ] 1.2 D-1 in `plugins/openspec/hooks/change-loop.mjs` (`DECLARED`, `declaredStep`, `runReply` through it with its
+- [x] 1.2 D-1 in `plugins/openspec/hooks/change-loop.mjs` (`DECLARED`, `declaredStep`, `runReply` through it with its
   `END_OF_KEY` removed, the messages of the D-1 table in both languages, `GATE_OF_WHY`; `declaredStep` keeps every option
   `runReply` has after the merge, `--stdin <name>` among them) and `readDeclared` in
   `plugins/openspec/hooks/deliver-check.mjs` (with its exported `RECORDED_KEYS`). Check: T1, T2, T6, T9, T11, T13 to T16 and T114 pass, and the

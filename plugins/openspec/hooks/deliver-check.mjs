@@ -1798,6 +1798,29 @@ export function approvalState(dir) {
   return { status, recorded, readiness, ok: status === 'APPROVED' && readiness !== null && recorded === readiness };
 }
 
+// The keys of the steps the main session records with `change-loop.mjs declare` (coordinator-loop-fixes D-1): the `declare`
+// rows of change-loop.mjs's DECLARED, which this module cannot import (change-loop.mjs imports it); a test ties the two.
+export const RECORDED_KEYS = ['gate-red', 'review-round'];
+
+// The record of the declared steps, `<dir>/declared.json` (D-1): { steps, error }. A missing file is no step and no error; an
+// empty or unparsable file, a value that is not an object, a version other than 1 or a `steps` that is not a list is no step and
+// the error; an entry that is not an object, or whose key is not in RECORDED_KEYS, is skipped (a later version may add keys).
+export function readDeclared(dir) {
+  const file = join(dir, 'declared.json');
+  if (!existsSync(file)) return { steps: [], error: null };
+  const refused = (error) => ({ steps: [], error });
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch (e) { return refused(`cannot read declared.json: ${e.code ?? e.message}`); }
+  if (text.trim() === '') return refused('declared.json is empty');
+  let value;
+  try { value = JSON.parse(text); } catch { return refused('declared.json is not JSON'); }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return refused('declared.json holds no object');
+  if (value.version !== 1) return refused(`declared.json has version ${JSON.stringify(value.version)}, not 1`);
+  if (!Array.isArray(value.steps)) return refused('declared.json has no list of steps');
+  const steps = value.steps.filter((s) => s !== null && typeof s === 'object' && !Array.isArray(s) && RECORDED_KEYS.includes(s.key));
+  return { steps, error: null };
+}
+
 // The one step to take now, computed from facts only (see design D4, first
 // match wins; evidence-before-review design D2 puts fix-defect and verify ahead
 // of review). `state` is what collectState builds.

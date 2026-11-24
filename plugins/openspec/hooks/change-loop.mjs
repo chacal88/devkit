@@ -272,10 +272,17 @@ export const MESSAGES = {
     'train-ready': 'Pull request #{number} of train {n} is ready: in this project, merging it is up to you, with a merge commit.',
     'train-delivered': 'Train {n} merged in pull request #{number}: its changes are delivered, and what it left behind is tidied now.',
     'train-args': '/devkit train takes nothing after it: type /devkit train alone. Nothing was started.',
-    'waiting-review-dispute': 'The code review of {id} still disagrees after its second round: the disputed points need your decision.',
+    'waiting-review-dispute': 'The code review of {id} still disagrees after its last round: the disputed points need your decision, or your word for one more round.',
     'waiting-by-hand': 'This project delivers each change by hand: {id} stops here, and the session writes no code for it.',
     'waiting-unrun-stage': '{Stage} of {id} has an unfinished file that no role of this version can finish: tell me its result, or remove it.',
     'waiting-pr-decision': 'A comment on the pull request of {id} asks for a decision only you can take: {url}.',
+    'waiting-pause': 'The change {id} is paused, as you asked. Calling /devkit change again takes it up where it stopped.',
+    'waiting-owner-decision': 'The change {id} needs a decision only you can take: {decision}. Your answer here lets it go on.',
+    'review-round-authorized': 'One more review round of {id} is authorized, as you asked: round {round} runs next.',
+    'declare-not-at-gate': 'The gate of phase {phase} of {id} is not the next step, so nothing was recorded.',
+    'declare-not-at-deadlock': 'The review of {id} is not waiting for your decision, so no round was authorized.',
+    'declare-no-words': 'One more review round of {id} needs your own words, so nothing was recorded.',
+    'declare-unreadable': 'The record of the steps declared for {id} cannot be read ({error}), so nothing was recorded.',
     'waiting-place': '{id} waits for a free place on {machine} ({taken} of {places} taken): it goes on when one frees, and the roadmap session tells it.',
     'waiting-budget': 'The change {id} reached its token budget: {spent} tokens spent, and the cap is {cap}. To go on, raise budget in the devkit block of {file}, then type /devkit change again.',
     'waiting-github': '{id} is waiting on GitHub ({what}). I keep waiting with no time limit and go on by myself when GitHub answers; calling /devkit change again is safe.',
@@ -332,6 +339,7 @@ export const MESSAGES = {
     'gate.merge': 'your merge of its pull request',
     'gate.train': 'the departure of the next train',
     'gate.decision': 'a decision only you can take',
+    'gate.pause': 'your word to go on',
     'gate.dispute': 'your decision on the disputed review points',
     'gate.stage': 'your result for an unfinished file',
     'gate.by-hand': 'your delivery by hand',
@@ -561,10 +569,17 @@ export const MESSAGES = {
     'train-ready': 'O pull request #{number} do trem {n} está pronto: neste projeto, fazer o merge é com você, com um commit de merge.',
     'train-delivered': 'O trem {n} entrou no pull request #{number}: as changes dele estão entregues, e o que ele deixou para trás está sendo arrumado agora.',
     'train-args': '/devkit train não aceita nada depois dele: digite /devkit train sozinho. Nada foi iniciado.',
-    'waiting-review-dispute': 'A revisão de código de {id} ainda discorda depois da segunda rodada: os pontos em disputa precisam da sua decisão.',
+    'waiting-review-dispute': 'A revisão de código de {id} ainda discorda depois da última rodada: os pontos em disputa precisam da sua decisão, ou da sua palavra para mais uma rodada.',
     'waiting-by-hand': 'Este projeto entrega cada change à mão: {id} para aqui, e a sessão não escreve código para ela.',
     'waiting-unrun-stage': '{Stage} de {id} tem um arquivo inacabado que nenhum papel desta versão consegue terminar: diga o resultado ou remova o arquivo.',
     'waiting-pr-decision': 'Um comentário no pull request de {id} pede uma decisão que só você pode tomar: {url}.',
+    'waiting-pause': 'A change {id} está pausada, como você pediu. Chamar /devkit change de novo a retoma de onde parou.',
+    'waiting-owner-decision': 'A change {id} precisa de uma decisão que só você pode tomar: {decision}. A sua resposta aqui a deixa seguir.',
+    'review-round-authorized': 'Mais uma rodada de revisão de {id} está autorizada, como você pediu: a rodada {round} vem a seguir.',
+    'declare-not-at-gate': 'A verificação da fase {phase} de {id} não é o próximo passo, então nada foi registrado.',
+    'declare-not-at-deadlock': 'A revisão de {id} não está esperando a sua decisão, então nenhuma rodada foi autorizada.',
+    'declare-no-words': 'Mais uma rodada de revisão de {id} precisa das suas próprias palavras, então nada foi registrado.',
+    'declare-unreadable': 'O registro dos passos declarados de {id} não pode ser lido ({error}), então nada foi registrado.',
     'waiting-place': '{id} espera um lugar livre em {machine} ({taken} de {places} ocupados): segue quando um liberar, e a sessão do roadmap avisa.',
     'waiting-budget': 'A change {id} atingiu o orçamento de tokens: {spent} tokens gastos, e o limite é {cap}. Para seguir, aumente budget no bloco devkit de {file} e digite /devkit change de novo.',
     'waiting-github': '{id} está esperando o GitHub ({what}). Eu continuo esperando, sem limite de tempo, e sigo sozinho quando o GitHub responder; chamar /devkit change de novo é seguro.',
@@ -621,6 +636,7 @@ export const MESSAGES = {
     'gate.merge': 'o seu merge do pull request',
     'gate.train': 'a saída do próximo trem',
     'gate.decision': 'uma decisão que só você pode tomar',
+    'gate.pause': 'a sua palavra para continuar',
     'gate.dispute': 'a sua decisão sobre os pontos em disputa da revisão',
     'gate.stage': 'o resultado de um arquivo inacabado',
     'gate.by-hand': 'a sua entrega à mão',
@@ -822,6 +838,7 @@ export const GATE_OF_WHY = {
   'waiting-archive-merge': 'merge', 'waiting-pr-decision': 'decision', 'waiting-review-dispute': 'dispute',
   'waiting-unrun-stage': 'stage', 'waiting-by-hand': 'by-hand', 'waiting-mockup': 'mockup', 'waiting-budget': 'budget',
   'waiting-merge-test-branch': 'merge', 'waiting-merge-base': 'merge', 'waiting-archive-merges': 'merge', 'waiting-train': 'train',
+  'waiting-pause': 'pause', 'waiting-owner-decision': 'decision',
 };
 
 // The gate the owner is asked for by an action: the grill, or an end waiting for the owner. Any other action, or a wait
@@ -3139,8 +3156,26 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 // the stop lock reads, D-2), then the JSON action.
 export const loopOutput = (id, action) => `devkit-run: ${id}\n${action.kind === 'end' ? `devkit-end: ${id} ${action.end.state}\n` : ''}${json(action)}`;
 
-// The keys the session renders itself that end the run, and the state each one records.
-const END_OF_KEY = { blocked: 'blocked', 'waiting-pr-decision': 'waiting-for-owner' };
+// Every step or end the session declares outside the stage gates (coordinator-loop-fixes D-1). A `reply` row ends the run in
+// the state `end` (a wait for the owner at the gate `gate`); a `declare` row is recorded by `change-loop.mjs declare`, which the
+// main session alone runs, when the loop's current action is at `at`. roadmap-loop.mjs reads the same table.
+export const DECLARED = {
+  blocked: { via: 'reply', end: 'blocked' },
+  'waiting-pr-decision': { via: 'reply', end: 'waiting-for-owner', gate: 'decision' },
+  'waiting-pause': { via: 'reply', end: 'waiting-for-owner', gate: 'pause' },
+  'waiting-owner-decision': { via: 'reply', end: 'waiting-for-owner', gate: 'decision' },
+  'gate-red': { via: 'declare', at: 'gate' },
+  'review-round': { via: 'declare', at: 'review-deadlock' },
+};
+
+// The one function that prints a declared marker: { code, stdout, stderr }. A `reply` row renders the key and prints
+// `devkit-end: <id> <end>` before it.
+export function declaredStep(cwd, key, { params, lang, env, openspec, gh }) {
+  const row = DECLARED[key];
+  if (!row) throw new LoopUsageError(`${key} is not a declared step`);
+  if (row.via !== 'reply') throw new LoopUsageError(`${key} has no declare step in this version`);
+  return { code: 0, stdout: `devkit-end: ${params.id} ${row.end}\n${render(lang, key, params)}\n`, stderr: '' };
+}
 
 function runNext(args, { env, cwd, openspec, gh }) {
   const opts = parseArgs(args, { values: ['--change', '--lang', '--after', '--view'] });
@@ -3166,7 +3201,7 @@ const withoutFinalBreak = (text) => (text.endsWith('\r\n') ? text.slice(0, -2) :
 
 // `--stdin <name>`: the parameter `name` is read from standard input, so a text with quotes, `$` or line breaks never
 // goes through the command line (jira-entry-followups D-5).
-function runReply(args, { stdin = '' } = {}) {
+function runReply(args, { stdin = '', env, cwd, openspec, gh } = {}) {
   const opts = parseArgs(args, { values: ['--lang', '--stdin'], multi: ['--param'] });
   if (opts.positional.length !== 1) throw new LoopUsageError(USAGE);
   const params = {};
@@ -3182,9 +3217,11 @@ function runReply(args, { stdin = '' } = {}) {
     if (value === '') throw new LoopUsageError(`reply --stdin ${opts.stdin} needs the text on standard input`);
     params[opts.stdin] = value;
   }
-  const text = `${render(opts.lang, opts.positional[0], params)}\n`;
-  const state = END_OF_KEY[opts.positional[0]];
-  return { code: 0, stdout: state ? `devkit-end: ${params.id} ${state}\n${text}` : text, stderr: '' };
+  const key = opts.positional[0];
+  const row = DECLARED[key];
+  if (row?.via === 'declare') throw new LoopUsageError(`${key} is recorded with change-loop.mjs declare, never with reply`);
+  if (row) return declaredStep(cwd, key, { params, lang: opts.lang, env, openspec, gh });
+  return { code: 0, stdout: `${render(opts.lang, key, params)}\n`, stderr: '' };
 }
 
 function runStart(args, { env, cwd, stdin, openspec, gh }) {
@@ -3361,7 +3398,7 @@ export function main(argv, { env = process.env, cwd = process.cwd(), openspec, g
   try {
     const [sub, ...rest] = argv;
     if (sub === 'next') return runNext(rest, { env, cwd, openspec, gh });
-    if (sub === 'reply') return runReply(rest, { stdin });
+    if (sub === 'reply') return runReply(rest, { stdin, env, cwd, openspec, gh });
     if (sub === 'state') return runState(rest, { env, cwd, openspec, gh });
     if (sub === 'start') return runStart(rest, { env, cwd, stdin, openspec, gh });
     if (sub === 'open') return runOpen(rest, { env, cwd, stdin, openspec, gh });
