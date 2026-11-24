@@ -1,0 +1,253 @@
+# Red run on the plan base 5d255b1 (code unchanged, tests added)
+# env GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-name-pattern="^own-files" plugins/openspec/hooks/deliver-check.test.mjs
+✖ own-files AC-1 rule: a merge of origin/main that brings only unrelated files leaves the evidence and every approved review current (276.988048ms)
+✖ own-files AC-1 rule: the base commits a merge brings in are exempt unless they touch an own file (299.995487ms)
+✖ own-files AC-1 next: collectState hands neither verify nor review after an unrelated merge (643.701222ms)
+✔ own-files AC-2 rule: a merge that brings a product file the branch changed is stale and names the merge and the file (513.681329ms)
+✔ own-files AC-2 rule: a merge that brings a test file the branch changed stales the evidence (410.921815ms)
+✖ own-files AC-3 rule: one own file among unrelated ones is enough and is the one named (222.116914ms)
+✖ own-files AC-4 rule: a merge that brings only release files, the bumped CHANGELOG.md resolved in the merge included, leaves the records current (268.154306ms)
+✖ own-files AC-5 rule: a plain product commit after an exempt merge is stale (258.725244ms)
+✖ own-files AC-6 rule: a rejected verdict is stale after an exempt merge; the approved ones are current (378.84735ms)
+✖ own-files AC-6 rule: a test-only commit after an exempt merge keeps the four test-spared reviewers current (357.265539ms)
+✔ own-files AC-7 rule: no origin/<base>, an unfetched base, a merge of another branch and a head inside the base each give today's verdict (2183.423546ms)
+✖ own-files AC-7 rule: a file the branch changed then restored is not own (298.96916ms)
+✖ own-files AC-7 base: stalenessBase reads GITHUB_BASE_REF, then the configured base, then origin/HEAD, then main or master, else null (59.047323ms)
+✖ own-files AC-7 own: ownFiles leaves out release files, keeps the change folder and both sides of a move (300.75793ms)
+✖ own-files AC-8 ci: the check passes after an unrelated merge and fails naming the merge after an own-file merge, from both entries (909.772934ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 3
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7629.963452
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5675:1
+✖ own-files AC-1 rule: a merge of origin/main that brings only unrelated files leaves the evidence and every approved review current (276.988048ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'f390bda is behind d680cc9, which touches src/other.ts'
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5678:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'f390bda is behind d680cc9, which touches src/other.ts',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5687:1
+✖ own-files AC-1 rule: the base commits a merge brings in are exempt unless they touch an own file (299.995487ms)
+  AssertionError [ERR_ASSERTION]: a product file the base added and removed is not an own file
+  + actual - expected
+  
+  + 'f3a90a6 is behind d5cbd2b, which touches src/other.ts'
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5696:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'f3a90a6 is behind d5cbd2b, which touches src/other.ts',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5710:1
+✖ own-files AC-1 next: collectState hands neither verify nor review after an unrelated merge (643.701222ms)
+  AssertionError [ERR_ASSERTION]: unrelated merge
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5720:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5743:1
+✖ own-files AC-3 rule: one own file among unrelated ones is enough and is the one named (222.116914ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '8ff8754 is behind dfb9e63, which touches docs/unrelated.md'
+  - '8ff8754 is behind dfb9e63, which touches src/a.ts'
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5746:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '8ff8754 is behind dfb9e63, which touches docs/unrelated.md',
+    expected: '8ff8754 is behind dfb9e63, which touches src/a.ts',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5750:1
+✖ own-files AC-4 rule: a merge that brings only release files, the bumped CHANGELOG.md resolved in the merge included, leaves the records current (268.154306ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '8ff8754 is behind 4e8eb87, which touches .claude-plugin/marketplace.json'
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5765:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '8ff8754 is behind 4e8eb87, which touches .claude-plugin/marketplace.json',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5769:1
+✖ own-files AC-5 rule: a plain product commit after an exempt merge is stale (258.725244ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '8ff8754 is behind ee448d3, which touches src/other.ts'
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5771:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '8ff8754 is behind ee448d3, which touches src/other.ts',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5779:1
+✖ own-files AC-6 rule: a rejected verdict is stale after an exempt merge; the approved ones are current (378.84735ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   'adr-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts',
+  +   'architecture-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts',
+  +   'code-quality-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts',
+  +   'spec-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts',
+  +   'test-coverage-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts'
+  -   'adr-reviewer': null,
+  -   'architecture-reviewer': null,
+  -   'code-quality-reviewer': null,
+  -   'spec-reviewer': null,
+  -   'test-coverage-reviewer': null
+    }
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5783:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { 'adr-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts', 'architecture-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts', 'code-quality-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts', 'spec-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts', 'test-coverage-reviewer': '8ff8754 is behind 8eecdcf, which touches src/other.ts' },
+    expected: { 'code-quality-reviewer': null, 'test-coverage-reviewer': null, 'spec-reviewer': null, 'adr-reviewer': null, 'architecture-reviewer': null },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5786:1
+✖ own-files AC-6 rule: a test-only commit after an exempt merge keeps the four test-spared reviewers current (357.265539ms)
+  AssertionError [ERR_ASSERTION]: spec-reviewer
+  + actual - expected
+  
+  + '9aec674 is behind 2124d38, which touches src/other.ts'
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5791:38)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '9aec674 is behind 2124d38, which touches src/other.ts',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5819:1
+✖ own-files AC-7 rule: a file the branch changed then restored is not own (298.96916ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'db8ac33 is behind 4ab678c, which touches src/b.ts'
+  - null
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5830:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'db8ac33 is behind 4ab678c, which touches src/b.ts',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5834:1
+✖ own-files AC-7 base: stalenessBase reads GITHUB_BASE_REF, then the configured base, then origin/HEAD, then main or master, else null (59.047323ms)
+  TypeError [Error]: DC.stalenessBase is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5841:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5851:1
+✖ own-files AC-7 own: ownFiles leaves out release files, keeps the change folder and both sides of a move (300.75793ms)
+  TypeError [Error]: DC.ownFiles is not a function
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5856:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at plugins/openspec/hooks/deliver-check.test.mjs:5867:1
+✖ own-files AC-8 ci: the check passes after an unrelated merge and fails naming the merge after an own-file merge, from both entries (909.772934ms)
+  AssertionError [ERR_ASSERTION]: deliver: devkit-reviews: feat (schema devkit-lite, head 77d7d5e)
+    1 open     tasks and gates: evidence.md is stale (bf7e74c is behind 77d7d5e, which touches src/other.ts)
+    2 open     reviews at head: stale adr-reviewer (bf7e74c is behind 77d7d5e, which touches src/other.ts); stale architecture-reviewer (bf7e74c is behind 77d7d5e, which touches src/other.ts); stale code-quality-reviewer (bf7e74c is behind 77d7d5e, which touches src/other.ts); stale security-reviewer (bf7e74c is behind 77d7d5e, which touches src/other.ts); stale spec-reviewer (bf7e74c is behind 77d7d5e, which touches src/other.ts); stale test-coverage-reviewer (bf7e74c is behind 77d7d5e, which touches src/other.ts)
+    3 met      findings disposed: 0 fixed, 0 refuted
+    4 open     acceptance criteria proven: evidence.md is stale (bf7e74c is behind 77d7d5e, which touches src/other.ts)
+  fail: item 1, item 2, item 4
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/stale-only-on-own-files/plugins/openspec/hooks/deliver-check.test.mjs:5878:55)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+# exit code 1

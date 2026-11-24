@@ -1,12 +1,34 @@
 # Changelog
 
-## 0.43.0 — release-merge leftovers
+## 0.44.0 — release-merge leftovers
 
-- **devkit-openspec** 0.38.1: a conduct-check test runs the release-merge override under the two-PR delivery model, with
-  the base and the test branch apart; the CI snippet now pins `v0.38.1`, the release's tag.
+- **devkit-openspec** 0.39.1: a conduct-check test runs the release-merge override under the two-PR delivery model, with
+  the base and the test branch apart; the CI snippet now pins `v0.39.1`, the release's tag.
 - **devkit-panel** 0.3.1: the step table and the label table drop `push-rebased`, which no checker has returned since
   devkit-openspec 0.29.0.
 - **Spec** (`commit-attribution`): drops the scenario and the mention of `push-rebased`.
+
+## 0.43.0 — a merge of the base stales only the change's own files
+
+- **devkit-openspec** 0.39.0: the delivery checker, the stage checker and `deliver-check --ci` judge a
+  merge of the base by the change's own files. A merge of `origin/<base>`, and the base commits it
+  brings in, leave `evidence.md` and the approved or declined reviews current unless they touch a path
+  the change changed against the base (a moved file counts on both sides; the release files are never
+  own); the reason of a stale record names the merge and the own file. A rejected review keeps the
+  strict rule. The rule fails safe to today's verdict when there is no `origin/<base>`, the base the
+  merge brought in is not fetched, the merge is of another branch or the head is already in the base;
+  the base is `GITHUB_BASE_REF`, else the configured `two-prs` base, else `origin/HEAD`, else `main` or
+  `master`. A release merge that brings only release files no longer sends the loop back to `verify`
+  and `review`: it hands the plain push. The delivery train judges each boarded change by the same
+  rule, against the base of the train's pull request. The pull request's required `check` CI is the
+  backstop for a base change the change depends on without touching its files
+  ([ADR 0025](docs/adr/0025-a-base-merge-stales-only-on-the-changes-own-files.md), which amends
+  [ADR 0002](docs/adr/0002-merge-without-the-owner-opt-in.md)). The CI snippet now pins `v0.39.0`, the
+  release's tag.
+- **devkit-core** 0.15.0: the `review-change` skill says that a merge of the base that brings none of
+  the change's own files leaves an approved or declined review current.
+- Docs: ADR 0025, with a Note in ADR 0002; the flow doc and `CONTRIBUTING.md` state the own-files rule.
+- Projects: nothing to re-run; a change under way reads the new rule at once.
 
 ## 0.42.0 — the test suite runs by file, in parallel
 
