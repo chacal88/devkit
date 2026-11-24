@@ -95,7 +95,7 @@ every task with `git status --short`.
   `unlocated 3:` 3.1 and "change-state ADR 0017: the documents follow" (change-loop.test.mjs) pass
   with `--test-name-pattern="^(unlocated 3|change-state ADR 0017)"`, and `python3 scripts/check.py`
   is green; covers AC-7 with the spec delta `specs/change-state/spec.md`.
-- [ ] 3.3 Release, as one task: merge `origin/main` into the branch first; set devkit-openspec to the
+- [x] 3.3 Release, as one task (done at the merge of `origin/main` at `cf34ff2`: devkit-openspec 0.38.1, marketplace 0.42.1): merge `origin/main` into the branch first; set devkit-openspec to the
   next patch version after `origin/main`'s at the last merge before review, in
   `plugins/openspec/.claude-plugin/plugin.json` and in its entry of `.claude-plugin/marketplace.json`;
   set the marketplace `metadata.version` to the next patch after `origin/main`'s; add the
@@ -115,7 +115,7 @@ every task with `git status --short`.
   `wrong-branch` and its phrase in each language, `--change x` gives the same entry, `nope` exits 3
   with `no change named nope`, the board shows `x` under the blocked block in each language and `a`
   as before, and `next --change x` exits 0 with `x`'s action; covers AC-1 to AC-5 for real.
-- [ ] 3.5 Gate: `env TMPDIR=/private/tmp GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test plugins/openspec/hooks/guard.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate state-skips-unlocated --strict` green (the guard suite as a background command); covers AC-1 to AC-7 and every other suite at once (AC-6).
+- [ ] 3.5 Gate (the suite's command is `node scripts/test-suite.mjs` since suite-speed replaced `node --test plugins/openspec/hooks/guard.test.mjs`; the tests of this change moved with the split into `change-loop-remote-state.test.mjs` and `roadmap-loop-upfront.test.mjs`, names unchanged): `env TMPDIR=/private/tmp/devkit-state-skips-unlocated GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate state-skips-unlocated --strict` green (the guard suite as a background command); covers AC-1 to AC-7 and every other suite at once (AC-6).
 
 ## Workflow follow-up
 

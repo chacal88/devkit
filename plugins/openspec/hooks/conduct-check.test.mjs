@@ -1,64 +1,17 @@
-// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Imported by guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for conduct-check.mjs (conduct-rounds design D2-D12). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/hooks/conduct-check.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, utimesSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpFolder, tmpRoot } from './test-tmp.mjs';
+import { tmpFolder } from './test-tmp.mjs';
 import { createHash } from 'node:crypto';
-import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText } from './deliver-check.test.mjs';
+import { gitRepo, put, commitAll, git, fakeGh, PR_FILES_KEY, TASKS_ON_KEY, filesFixture, tasksFixture, tasksText, CONFIG, cleanEnv, real, roundRepo, pinDoc, underOwnTmp } from './test-fixtures.mjs';
 import { makeGh } from './merge-setup.mjs';
-import { pinDoc } from './release-merge.test.mjs';
 import { parseRoadmap, readRoadmap } from './guard.mjs';
 import { conductState, planningStep, dependencyStep, deliveryStep, deliveryRow, actorOf, selectDispatch, sessionPrefixes, main as conductMain } from './conduct-check.mjs';
 
 // ---------------------------------------------------------------- fixture harness (task 2.1)
-
-const CONFIG = 'schema: devkit-lite\nship:\n  devkit-lite: pr\n  devkit: pr\n';
-const cleanEnv = { ...process.env, DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '', DEVKIT_BYPASS: '', DEVKIT_HOST: 'cli' };
-const real = (p) => realpathSync(p);
-
-// A bare origin with main, a clone (the "main checkout") and, per path, its own fake gh.
-export function roundRepo({ roadmap, config = CONFIG, files = {}, changes = {} } = {}) {
-  const clone = gitRepo({ config, changes, files: { 'openspec/roadmap.md': roadmap, ...files } });
-  const originDir = tmpFolder('devkit-origin-');
-  git(originDir, 'init', '-q', '--bare', '-b', 'main');
-  git(clone, 'remote', 'add', 'origin', originDir);
-  git(clone, 'push', '-q', 'origin', 'main');
-  git(clone, 'fetch', '-q', 'origin');
-  const main = real(clone);
-  const ghs = new Map();
-  const ghAt = (path) => {
-    const key = real(path);
-    if (!ghs.has(key)) {
-      const g = fakeGh();
-      g.set('api-GET-repos__owner___repo_', { stdout: { default_branch: 'main', allow_auto_merge: true, allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true } });
-      g.set('pr-view', { exit: 1, stderr: 'no pull requests found for branch "x"\n' });
-      g.set('pr-list', { stdout: [] });
-      ghs.set(key, g);
-    }
-    return ghs.get(key);
-  };
-  const t = {
-    main, originDir, ghAt,
-    ghFor: (r) => makeGh(r, ghAt(r).env),
-    wtPath: (id) => join(main, '.claude', 'worktrees', id),
-    addWt(id, { path = t.wtPath(id), from = 'origin/main', branch = id } = {}) {
-      git(main, 'worktree', 'add', '-q', '-b', branch, path, from);
-      return real(path);
-    },
-    // Put files on origin/main (committed in the main checkout, then pushed).
-    commitOrigin(files, message = 'origin change') {
-      put(main, files);
-      const sha = commitAll(main, message);
-      git(main, 'push', '-q', 'origin', 'main');
-      return sha;
-    },
-    originSha: () => git(main, 'rev-parse', 'origin/main'),
-    state: (opts = {}, root = main) => conductState(root, { env: cleanEnv, ghFor: t.ghFor, ...opts }),
-  };
-  return t;
-}
 
 const roadmapOf = (...rounds) => `# Roadmap\n\n${rounds.map(([title, ...lines]) => `## ${title}\n${lines.join('\n')}\n`).join('\n')}`;
 const byId = (res, id) => res.changes.find((c) => c.id === id);
@@ -1442,7 +1395,6 @@ test('conduct: unfinished names the dirty paths and the half-done phase together
 // ---------------------------------------------------------------- the CI pin (release-rebase-pin)
 
 const PIN_DOC = 'docs/openspec-flow.md';
-const pinTmpFolders = () => readdirSync(tmpRoot()).filter((f) => f.startsWith('devkit-pin-'));
 
 // A round whose change and origin both edit CHANGELOG.md and docs/openspec-flow.md.
 function pinConflictRepo({ change, origin }) {
@@ -1461,14 +1413,14 @@ test('conduct pin: a change PR whose only conflicts are release files and the CI
   const { t, b } = pinConflictRepo({ change: pinDoc('0.10.1', { bottom: 'BOTTOM B' }), origin: pinDoc('0.11.0', { top: 'TOP A' }) });
   const head = headOf(b);
   const status = git(b, 'status', '--porcelain');
-  const before = pinTmpFolders();
-  const c = byId(t.state(), 'b');
+  const { value: c, left } = underOwnTmp(() => byId(t.state(), 'b'));
   assert.deepEqual(planStep(c), ['resolve-release-conflict', 'subagent']);
   assert.deepEqual(c.next.paths, ['CHANGELOG.md', PIN_DOC]);
   assert.match(c.next.reason, /and the CI pin/);
   assert.equal(headOf(b), head);
   assert.equal(git(b, 'status', '--porcelain'), status);
-  assert.deepEqual(pinTmpFolders(), before);
+  // The state read also makes the folder of its fake gh (devkit-gh-*, the harness's own); the invariant is the pin folder.
+  assert.deepEqual(left.filter((f) => f.startsWith('devkit-pin-')), [], 'the state read leaves no devkit-pin-* folder');
 });
 
 test('conduct pin: both sides editing one paragraph of docs/openspec-flow.md is blocked (AC-2)', () => {

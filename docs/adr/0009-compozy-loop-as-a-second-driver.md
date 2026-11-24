@@ -14,6 +14,16 @@ the short generic loop, the twelve-stage loop of devkit-compozy, its gates that 
 deliver-check, conduct-check and screens-check, and its opt-in per project hold as decided here;
 round 24 (coordination-cleanup) removes the old loop.
 
+Note (compozy-driver, 2026-11-23): [ADR 0024](0024-compozy-runs-the-short-loop.md) (proposed)
+amends this record. The twelve-stage loop and its four role shells leave with round 21, and
+CompozyOS runs one short loop that asks the change loop each turn, so the Decision's first bullet now
+reads: every gate of a CompozyOS run is decided by `change-loop.mjs`, reading `flow-check` and,
+through `conduct-check`, `deliver-check`, the checkers the Claude driver reads; no loop node shells
+out to `screens-check`. Its third bullet reads: `/devkit change` is the in-session driver and
+`/devkit` starts a CompozyOS run for a project that chose the driver; the opt-in per project stays.
+The review trigger's first clause is read the same way: a CompozyOS gate that stops being decided by
+those scripts. Everything else here is unchanged.
+
 ADR 0001 forbids coordination through a harness and names its own review trigger: "a coordinator
 needs state that cannot be derived from the repository or GitHub". A CompozyOS run holds exactly
 that state — `iteration_cap`, `no_progress.window`, `budget.wall_clock_sec`, an armed
