@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=passed attempt=1 commit=470a8ca1785f800a8d4ee4d5858be00edc9e6d61 -->
+<!-- devkit-stage review result=failed attempt=1 commit=c30bfb8d0761b3f7f73f1f8ceaf94b8736f2ea53 -->
 # Review: forced-merge-path, round 1
 
 Path: agents · range `origin/main...HEAD` · structural: PASS
@@ -78,3 +78,29 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: forced-merge-path, round 1
+
+Path: agents · range `470a8ca1785f800a8d4ee4d5858be00edc9e6d61..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | c30bfb8 |
+| architecture-reviewer | rejected | 0 | 1 | 1 | 0 | c30bfb8 |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | c30bfb8 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | c30bfb8 |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | c30bfb8 |
+
+Consensus: FAIL (round 1/2)
+
+## Open findings
+- architecture-reviewer — [important] plugins/openspec/hooks/deliver-check.mjs:946 — gatesAtHead calls verdictAllowed without the open flag main added (jira-entry-followups D-2), so a forced merge reads an approved verdict with an undisposed finding as passing while readReviews reads it as stale; the retro under-reports a gate. Reuse one currency rule or test and record the divergence.
+
+## Refuted by verification
+None.
+
+## Notes
+- Stale-only re-review after the merge of main at eb0477c (trains 7-8) and evidence attempt 5; it consumes no round. One new important finding (architecture-reviewer F1: gatesAtHead does not pass main's new open flag to verdictAllowed) was confirmed by three verifiers.
+
+## Next
+Fix the open findings, then run review-change again (round 2).
