@@ -1,12 +1,12 @@
 Verdict: approved
-Commit: faddf80f7035fb873748b734bd3515341ab62456
+Commit: 535524cac1bb7936280169bb3aec4f5082dbc716
 
 ## Spec review — state-skips-unlocated
 
 ### Findings
-- [nit] openspec/changes/state-skips-unlocated/design.md D-7; proposal.md Impact; tasks.md 1.1, 2.1, 3.1 — Plan metadata still names change-loop.test.mjs and roadmap-loop.test.mjs for tests now in change-loop-remote-state.test.mjs and roadmap-loop-upfront.test.mjs (only task 3.5 says so); no requirement affected, plan files unchanged since cb79a38.
+- [nit] openspec/changes/state-skips-unlocated/tasks.md 1.1, 2.1, 3.1; design.md D-7; proposal.md Impact — Plan metadata still names change-loop.test.mjs and roadmap-loop.test.mjs for tests that live in change-loop-remote-state.test.mjs and roadmap-loop-upfront.test.mjs (only task 3.5 says so); no requirement is affected, and the plan files are unchanged since the last round.
 
-In-scope specs: openspec/changes/state-skips-unlocated/specs/change-state/spec.md, openspec/changes/state-skips-unlocated/specs/roadmap-coordination/spec.md, with the canonical baselines openspec/specs/change-state/spec.md, openspec/specs/roadmap-coordination/spec.md and openspec/specs/coordination-locks/spec.md; ADR 0017 (decisions 1, 2 and its Note) and ADR 0010 (decision 3) are respected.
+In-scope specs: openspec/changes/state-skips-unlocated/specs/change-state/spec.md and openspec/changes/state-skips-unlocated/specs/roadmap-coordination/spec.md. The baselines openspec/specs/change-state, roadmap-coordination and coordination-locks are unchanged against main (git diff d917ae0..HEAD -- openspec/specs is empty). ADR 0017 (decisions 1 and 2 and its Note) and ADR 0010 (decision 3) are respected.
 
 ### Coverage
 | Requirement | Status |
@@ -16,7 +16,7 @@ In-scope specs: openspec/changes/state-skips-unlocated/specs/change-state/spec.m
 | change-state: The checkout a change is read in (6 scenarios) | covered |
 | roadmap-coordination: A roadmap line the loop cannot place is shown blocked (5 scenarios) | covered |
 
-Re-review of cb79a38..HEAD: the plan, spec deltas and the product and test files of this change are unchanged. The release renumbering is intact (plugin 0.40.1, marketplace 0.45.1, CHANGELOG 0.45.1, CI snippet pins v0.40.1). The ADR 0017 dated Note and the docs/openspec-flow.md state paragraph (exception for next, wait and session-next keeping exit 3; wrong-branch; archived; unknown id exit 3) are intact after the merge of main. No canonical spec under openspec/specs/change-state, roadmap-coordination or coordination-locks differs from main. python3 scripts/check.py passes. No test was run: the train proves the whole suite.
+Re-review of faddf80..HEAD. The plan files and both spec deltas are unchanged since the last round. The diff against main shows the change's own product code intact after the merge of train 6: unplacedAction is imported and used in roadmap-loop.mjs, and change-loop.mjs holds both main's baseMergeOf and this change's locate. The ADR 0017 Note of this change sits as its own paragraph after post-merge-validate's. The docs/openspec-flow.md state paragraph and the CI snippet pins are v0.42.1. The release is consistent at devkit-openspec 0.42.1, marketplace 0.47.1 and CHANGELOG 0.47.1. python3 scripts/check.py: all checks passed. I ran no test; the pr-verifier evidence and the train cover the suites. Code brought in by main was not reviewed.
 
 ### Summary
-- 1 finding (0 scope creep, 0 gaps), the round-1 nit, still open
+- 1 finding (0 scope creep, 0 gaps): the earlier nit F1, still open.

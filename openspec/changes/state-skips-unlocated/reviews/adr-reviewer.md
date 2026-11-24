@@ -1,5 +1,5 @@
 Verdict: approved
-Commit: faddf80f7035fb873748b734bd3515341ab62456
+Commit: 535524cac1bb7936280169bb3aec4f5082dbc716
 
 ## ADR review — state-skips-unlocated
 
@@ -9,14 +9,12 @@ Commit: faddf80f7035fb873748b734bd3515341ab62456
 
 ADRs reviewed: ADR 0017 (`docs/adr/0017-a-change-state-is-derived-in-one-place.md`), ADR 0030 (`docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md`), ADR 0027 (`docs/adr/0027-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`, amended by 0030).
 
-Re-review scope: the previous findings and cb79a38..HEAD. Both previous findings stay closed after the merge of origin/main (train 4) and the renumbering to devkit-openspec 0.40.1 / marketplace 0.45.1.
+Re-review scope: the previous findings and faddf80..HEAD, with this change's own diff against main (d917ae0..HEAD) after the merge of train 6.
 
-- The ADR 0017 Note and the state-paragraph sentence of docs/openspec-flow.md (line 240) are intact. unplacedAction is still exported at change-loop.mjs:1790 and called at change-loop.mjs:1850 and roadmap-loop.mjs:807.
-- The five product and test files of this change are unchanged since cb79a38 (empty git diff --stat).
-- The release files agree: plugin.json 0.40.1, marketplace.json 0.45.1 with devkit-openspec 0.40.1, a CHANGELOG 0.45.1 entry, and the CI pins in docs/openspec-flow.md say v0.40.1. ADR 0030 (pin test reads the manifest) does not conflict, since this change does not edit change-loop-compozy.test.mjs.
-- decisions.md is unchanged; no open-decisions log exists, so no open decision is touched.
-
-No test run, as instructed. No new finding.
+- The ADR 0017 file holds post-merge-validate's Note and then this change's Note, each its own paragraph, with nothing lost or doubled. The state-paragraph sentence of docs/openspec-flow.md is intact.
+- unplacedAction is defined at change-loop.mjs:1907 and called at change-loop.mjs:1967 and roadmap-loop.mjs:807, beside nextAction and not in it, which keeps ADR 0017 decision 1 respected.
+- The release files agree: plugin.json 0.42.1, marketplace.json 0.47.1 with devkit-openspec 0.42.1, a CHANGELOG 0.47.1 entry, and the CI pins in docs/openspec-flow.md say v0.42.1.
+- No open decision is touched. No test run, as instructed. No new finding.
 
 ### Summary
 - 2 findings carried from the previous round (0 blocking, 0 important open, 0 nit open), both closed by f636733.

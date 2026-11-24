@@ -138,3 +138,31 @@ None.
 
 ## Next
 Ready to ship.
+
+# Review: state-skips-unlocated, round 1
+
+Path: agents · range `d917ae0..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| adr-reviewer | approved | 0 | 0 | 0 | 0 | 535524c |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | 535524c |
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 535524c |
+| test-coverage-reviewer | approved | 0 | 0 | 0 | 0 | 535524c |
+
+Consensus: PASS (round 1/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Scoped call after the merge of origin/main d917ae0 (train 6, which had left this change behind on real conflicts in four files). The conflicts were resolved by keeping both sides; the tdd-implementer checked the hand resolution of change-loop.mjs and change-loop-remote-state.test.mjs (both sides kept, nothing lost or doubled, 50/50 filtered).
+- The loop merge-check answered green; evidence attempt 7 holds gates 1.4 (182/182) and 2.3 (110/110) whole, run one at a time at low priority; the whole suite is proven by the delivery train.
+- The release of this change is devkit-openspec 0.42.1 / marketplace 0.47.1; ADR 0017 holds the post-merge-validate Note and then this change's Note, each its own paragraph.
+- The writers read their stage-3 prompts from files in the scratch folder, with the text the script gave.
+
+## Next
+Ready to ship.
