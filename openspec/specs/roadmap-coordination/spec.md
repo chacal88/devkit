@@ -33,15 +33,20 @@ nothing SHALL be started or written.
 ### Requirement: The run and the status command run only where the change command runs
 `/devkit roadmap` and `/devkit status` SHALL answer as `/devkit change` does, and run nothing, in a
 folder without `openspec/`, in a project whose schema is not `devkit` or `devkit-lite`, with an
-unknown setting, and with a driver other than `claude`.
+unknown setting, and with the `script` driver. With the `compozy` driver they SHALL run as the
+requirement on the CompozyOS roadmap says.
 
 #### Scenario: A project not set up
 - **WHEN** `/devkit roadmap` or `/devkit status` is typed in a project whose schema is another one
 - **THEN** the reply says the project is not set up for devkit, and nothing is started or written
 
 #### Scenario: Another driver
-- **WHEN** `devkit.driver` is `compozy` and `/devkit roadmap` is typed
-- **THEN** the reply says that driver is not built yet and names round 21, and nothing is started
+- **WHEN** `devkit.driver` is `script` and `/devkit roadmap` is typed
+- **THEN** the reply says that driver is not built yet and names round 22, and nothing is started
+
+#### Scenario: The CompozyOS driver
+- **WHEN** `devkit.driver` is `compozy` and `/devkit roadmap 2` is typed
+- **THEN** the roadmap runs in CompozyOS, and the session starts no change itself
 
 ### Requirement: A roadmap line is started only when its dependencies are archived
 A line of `openspec/roadmap.md` SHALL be a candidate when it is unticked and its change is not
@@ -238,7 +243,7 @@ A blocked change SHALL keep its place; the session SHALL say so once with the re
 changes SHALL go on, and the changes whose `after:` names it SHALL wait.
 
 #### Scenario: A stage fails
-- **WHEN** a change's stage agent reports a failure in a run with two places
+- **WHEN** a change's stage agent reports a failure on Opus, or its retry on the next model up fails too, in a run with two places
 - **THEN** one line says the change stopped and why, the other open change goes on, and no new change takes its place
 
 #### Scenario: A change that cannot be opened
@@ -1013,3 +1018,118 @@ in the state command, the change session's action and the board.
 #### Scenario: A stopped change is not held
 - **WHEN** a change with a place request left in the run's queue waits for the owner, is blocked, or waits on GitHub
 - **THEN** its state, its reason and its title are the ones it has with no queue entry
+
+### Requirement: A change session starts on its stage's model
+In a run with a session per change, the start of a change session SHALL carry, in the host start
+tool's input, the model of the stage the change is at, and the run SHALL record that model as the
+session's. A session found already running SHALL be recorded with no known model.
+
+#### Scenario: A new change starts at its grill
+- **WHEN** on a typed turn ready change `a` is opened and its session is started, with no `models:` table set
+- **THEN** the start's input holds the model `opus`, and the run records `opus` for `a`'s session
+
+#### Scenario: A change resumed at its implementation
+- **WHEN** on a typed turn open change `b`, at its implementation, has no session of its own
+- **THEN** the start's input holds the model `sonnet`
+
+#### Scenario: A session the app already lists
+- **WHEN** the app's list holds a session in `a`'s worktree and the coordinating session reports it found instead of started
+- **THEN** the run records `a`'s session with no known model and never switches it, counts it as `a`'s own session as it counts a started one (no second start, no stage of `a` handed by the coordinating session), and announces it once as started
+
+### Requirement: A change session only steps down
+When a change session's floor is cheaper than the session's recorded model (Haiku below Sonnet
+below `sonnet[1m]` below Opus below `opus[1m]`), the run SHALL return one action switching the
+session to the floor, on any turn, and record it once reported done. It SHALL NOT return a switch
+below the floor, to an equal or more expensive model, or again after that switch was refused.
+
+#### Scenario: From the plan to the approval
+- **WHEN** `a`'s session is recorded on `opus` and `a`'s end-of-turn report arrives while `a` waits at the plan approval, whose model is `sonnet`, with no `models:` table set
+- **THEN** the decision holds one action switching `a`'s session to `sonnet`, and after it is reported done the run records `sonnet`
+
+#### Scenario: A Haiku stage with a session-run stage ahead
+- **WHEN** `a`'s session is recorded on `sonnet`, `a` is at its unit tests or at its delivery, whose model is `haiku`, and no `models:` table is set
+- **THEN** no switch is returned, because the retro still ahead runs on `sonnet`, and `a`'s own loop hands the Haiku stage to its agent on `haiku`
+
+#### Scenario: A floor above the stage's model
+- **WHEN** `a`'s session is recorded on `opus`, `a` is at its unit tests, whose model is `haiku`, and the project's table holds `review: opus`
+- **THEN** no switch is returned, because the floor is `opus`
+
+#### Scenario: Haiku once no session-run stage needs more
+- **WHEN** `a`'s session is recorded on `sonnet`, `a` is at its delivery, whose model is `haiku`, and the project's table holds `retro: haiku`
+- **THEN** the decision holds one action switching `a`'s session to `haiku`
+
+#### Scenario: A refused switch
+- **WHEN** the switch of `a`'s session to `sonnet` was reported refused
+- **THEN** no later decision returns that switch again while `a`'s session is recorded on the same model
+
+#### Scenario: A stopping run
+- **WHEN** the run is stopping
+- **THEN** no switch is returned
+
+### Requirement: A change session's floor is set by the session-run stages ahead
+A change session's floor SHALL be the strongest model among its change's current stage and the
+session-run stages of its script still ahead, that stage included. The session-run stages SHALL be
+the grill, the owner's approval, the review, the delivery and the retro, the stages a change
+session performs itself; every other stage runs as a stage subagent, so the table's Haiku rows
+reach a change session only when no session-run stage ahead needs more.
+
+#### Scenario: The default table never steps a session to Haiku
+- **WHEN** no `models:` table is set and a change session goes through every stage of its change
+- **THEN** no switch to `haiku` is ever returned for it, and its unit tests and delivery hand-offs carry `haiku`
+
+### Requirement: A stage above the session's model never switches it
+A stage whose model is above the change session's recorded model SHALL NOT switch the session: a
+stage that runs as a stage subagent SHALL be handed on its own model, and a session-run stage SHALL
+be performed on the session's model.
+
+#### Scenario: A stage above the session's model
+- **WHEN** `a`'s session is recorded on `sonnet` and `a` is at the design stage, whose model is `opus`
+- **THEN** no switch is returned; `a`'s own loop hands the design stage to its agent on `opus`
+
+#### Scenario: A session-run stage above the session's model
+- **WHEN** `a` was resumed at its implementation, its session is recorded on `sonnet`, the project's table holds `retro: opus`, and `a` reaches its retro
+- **THEN** no switch is returned, and the session performs the retro on `sonnet`
+
+### Requirement: On the CompozyOS driver the roadmap runs in CompozyOS
+With the `compozy` driver, `/devkit roadmap [<n>]` SHALL start one CompozyOS roadmap run and reply
+with where to follow it. The run SHALL start, on its own, every ready line up to `<n>` open at once,
+each as one CompozyOS change run, SHALL hold new starts while the machine's load is above the
+person's `load_limit`, and SHALL go on with Claude Code closed.
+
+#### Scenario: Two places and three ready lines
+- **WHEN** the roadmap has three ready lines, none open, and the owner types `/devkit roadmap 2`
+- **THEN** two change runs start in CompozyOS and the third line waits for a free place
+
+#### Scenario: A loaded machine
+- **WHEN** a place is free and the load is above `load_limit`
+- **THEN** no change run starts until the load falls below it
+
+#### Scenario: An archive frees the next line
+- **WHEN** a change of the run is archived and a line whose `after:` names it becomes ready
+- **THEN** the roadmap run starts that line's change run, with no Claude Code session open
+
+#### Scenario: A new number
+- **WHEN** a roadmap run is under way with two places and the owner types `/devkit roadmap 3`
+- **THEN** the run goes on with three places, and no change under way is interrupted
+
+#### Scenario: The run ends
+- **WHEN** every line of the roadmap is archived, or nothing can start and no change run is under way
+- **THEN** the roadmap run ends
+
+### Requirement: On the CompozyOS driver stop and status keep their meaning
+With the `compozy` driver, `/devkit roadmap stop` SHALL start nothing new, let each change run under
+way finish the step it is in and pause there, and reply where each open change stays; a later
+`/devkit roadmap` SHALL resume the paused runs. `/devkit status` SHALL show the same board and add
+how many requests wait for the owner in CompozyOS.
+
+#### Scenario: Stop with two change runs under way
+- **WHEN** the owner types `/devkit roadmap stop` while two change runs are under way
+- **THEN** the roadmap run ends, each change run pauses after its current step, and the reply says where each change stays
+
+#### Scenario: Status on the CompozyOS driver
+- **WHEN** the owner types `/devkit status` and two CompozyOS requests wait for the owner
+- **THEN** the board is shown as on the Claude driver, with one line saying two questions wait in CompozyOS
+
+#### Scenario: CompozyOS not running
+- **WHEN** the owner types `/devkit roadmap` on the CompozyOS driver and the daemon does not answer
+- **THEN** the reply says CompozyOS is not running and names `compozy daemon start`, and nothing is started

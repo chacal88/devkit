@@ -15,16 +15,16 @@
 
 ### `openspec/roadmap.md` (followup)
 Add the live check of the train: the evidence, demonstration and review of this change did not run, so one real train of two small changes and one archive proves it once the repository turns it on.
-- before: ## Round 28g: the owner's forced merge
-+ after: ## Round 28h: the first live train
+- before: ## Round 28h: live checks of a model per stage
++ after: ## Round 28i: the first live train
 + after: - [ ] train-live-check (after: delivery-train) — delivery-train merged without its evidence, demonstration and review round (the owner's admin merge of PR 93; gate 6.9 never ticked, GitHub's `check` green on eca590e). In one pull request set `devkit.delivery.model: trunk-auto` and `devkit.delivery.train` in `openspec/config.yaml` after `github-setup.mjs --method merge` allows merge commits (design D-12), then run one real train of two small changes and one ready archive and record in `openspec/changes/train-live-check/evidence.md`: the departure through `/devkit train`, the join order and the renumbered release files, the train record, `devkit-reviews` in train mode on the train's pull request, whether GitHub marks each boarded pull request merged or the `close-boarded-pr` step closes it, the post-merge tag `v<train version>`, and one red case if it can be made safely. Also record the independent review the change never had.
 - Answer: approved
 - Applied: yes
 
 ### `openspec/roadmap.md` (followup)
 Add a change that gives every test comparing a shared temporary folder, and every helper spawning a child process, a private `TMPDIR` by construction (the suite-speed change already merged, so this is a new item, not an edit of its line).
-- before: ## Round 28h: the first live train
-+ after: ## Round 28i: private temp folders in tests
+- before: ## Round 28i: the first live train
++ after: ## Round 28j: private temp folders in tests
 + after: - [ ] test-private-tmpdir (after: delivery-train) — two whole-suite gates of delivery-train failed because tests that compare the whole shared temporary folder ("leaves no temporary folder") ran in several processes, and a helper spawned `release-merge.mjs` with the shared `TMPDIR`. List every test file and helper that still uses the shared folder, and give each a private `TMPDIR` by construction (`underOwnTmp` in `release-merge.test.mjs` and `runEnv` in `delivery-train.test.mjs` are the pattern), so running the test files in parallel cannot make one compare another's folder; add a scanner or a test that refuses a new one.
 - Answer: approved
 - Applied: yes
