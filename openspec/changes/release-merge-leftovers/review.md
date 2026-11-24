@@ -66,3 +66,25 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: release-merge-leftovers, round 2
+
+Path: agents · range `origin/main...HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | 1556c9c |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Path: agents (the turn was not owner-typed). Scoped round 2: only code-quality-reviewer was re-summoned, for its F1 (fixed in 1556c9c, a documentation fix in the change folder). test-coverage-reviewer approved at 0f2c5fa and stays current: 1556c9c touches only openspec/. F2 (task 3.2 and the comment at change-loop-compozy.test.mjs:359 still name change-loop.test.mjs) and the two round-1 nits are left as they are.
+
+## Next
+Ready to ship.
