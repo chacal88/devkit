@@ -1,4 +1,4 @@
-<!-- devkit-stage review result=failed attempt=1 commit=ec2730f3c7bf8211fcaade34636b61516bc544ac -->
+<!-- devkit-stage review result=passed attempt=2 commit=c63ad636c132aea846789d84492811373dabf487 -->
 # Review: archive-release-pin, round 1
 
 Path: agents · range `44ca321bd5d54d1abd4fdda48a18ca0a6ab97933..HEAD` · structural: PASS
@@ -27,3 +27,26 @@ None.
 
 ## Next
 Fix the open findings, then run review-change again (round 2).
+
+# Review: archive-release-pin, round 2
+
+Path: agents · range `ec2730f3c7bf8211fcaade34636b61516bc544ac..HEAD` · structural: PASS
+
+| Reviewer | Verdict | Blocking open | Important open | Verified | Refuted | Commit |
+|---|---|---|---|---|---|---|
+| code-quality-reviewer | approved | 0 | 0 | 0 | 0 | c63ad63 |
+| spec-reviewer | approved | 0 | 0 | 0 | 0 | c63ad63 |
+
+Consensus: PASS (round 2/2)
+
+## Open findings
+None.
+
+## Refuted by verification
+None.
+
+## Notes
+- Round 2 re-summoned only code-quality-reviewer and spec-reviewer; adr-reviewer, test-coverage-reviewer and security-reviewer approved in round 1 at ec2730f and the commits since touch only openspec/.
+
+## Next
+Ready to ship.
