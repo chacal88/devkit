@@ -1,7 +1,7 @@
 Verdict: approved
-Commit: 7f9624e3d9f70fe680520528fd76ab79fd8cdf95
+Commit: c2bbad6284c3b7deaae46cf61359ffed97264558
 
-## Quality review — post-merge-validate (round 2, third pass)
+## Quality review — post-merge-validate (round 3, stale-review refresh after the merge of origin/main)
 
 ### Findings
 - [blocking] plugins/openspec/hooks/change-loop.mjs:1672 — validate ran without --type change, so a change named like a canonical spec ended cannot-run (ambiguous_item) and blocked · fixed in 86c928f864ffa621bcfec985231e19be67288d8a
@@ -15,6 +15,10 @@ Commit: 7f9624e3d9f70fe680520528fd76ab79fd8cdf95
 - [nit] openspec/changes/post-merge-validate/proposal.md:49,55; requirements.md:6,17,33,49; design.md:241; docs/adr/0017-a-change-state-is-derived-in-one-place.md:26 — Plan prose, AC-2 and the ADR 0017 Note still write the bare openspec validate <id> --strict; design.md:241 differs from the delivered Troubleshooting row, and design.md:371 says the Note names --type change but the ADR text does not
 - [praise] plugins/openspec/hooks/change-loop.test.mjs:2419,2509,2518 — The fix is pinned in three places (the brief names --type change exactly twice, the flow sentence and the roadmap line), so a regression to the bare form fails a test
 
+### Re-check after the merge
+- Code unchanged: `git diff 7f9624e..HEAD` for change-loop.mjs, change-loop.test.mjs and change-loop-fixtures.mjs is empty.
+- Conflict resolutions hold: CHANGELOG.md has 0.46.0 above 0.45.0; marketplace.json reads 0.46.0 / devkit-openspec 0.41.0 and plugin.json 0.41.0 (main 0.40.0 / 0.45.0); change-loop-compozy.test.mjs is main's form plus the pmvFacts import and the merge-check command-step test; docs/openspec-flow.md differs from main only in the pin lines, the merge paragraph and two Troubleshooting rows; ADR 0017 holds the two Notes in order.
+- Tests (foreground): 21/21 post-merge-validate; 18/18 filtered over the compozy and remote-state files; check.py and gen-catalog --check pass.
+
 ### Summary
-- 10 findings: 0 blocking, 0 important, 2 nit (F2 refuted, F9 open) and 1 more nit (F5) fixed, 4 praise, plus F1 and F4 fixed.
-- Re-review of the third pass: F4 is closed (`--type change --strict` in the planner brief, the header comment, the command, the spec delta, design.md, the flow document, the roadmap line and the CHANGELOG; the tests pin it); 21 post-merge-validate tests pass. The only open item is F9, a nit of shorthand in plan prose and the ADR Note that nothing runs.
+- 10 findings carried: 0 blocking, 0 important; F2 refuted, F5 fixed, F9 open nit left on purpose; F1 and F4 fixed; 4 praise.
