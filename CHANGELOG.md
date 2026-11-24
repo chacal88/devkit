@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.52.2 — the suite script keeps its run root short enough for a Unix socket
+
+- **devkit-openspec** 0.45.1: `scripts/test-suite.mjs` makes its run root under the real `/tmp` (`/private/tmp` on macOS), with one `run root:` line saying why, when the environment's `TMPDIR` would push a Unix socket path past 104 bytes; it exits 2 when neither folder fits. Test tooling only.
+
 ## 0.52.1 — forced-merge-path retro
 
 - **devkit-core** 0.16.3: the review-change skill says how a further round the owner approves after a round-2
