@@ -489,10 +489,18 @@ test('coordinator-loop-fixes AC-7 T96 declare review-round answers the deadlock 
   assert.deepEqual([stuck.kind, stuck.end?.why, stuck.detail], ['end', 'waiting-review-dispute', { resolution: true }], JSON.stringify(stuck));
   const r = declare(s.wt, s.env, 'review-round', [`words=${WORDS}`]);
   assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.equal(parsed(r).action.step, 'fix-resolution');
+  // D-1 (plan revision of 2026-11-24): the uncommitted record is a change-folder file the pull request lacks, so the
+  // delivery checker's item 5 gives `push` first; the push is the resolution path's commit of the owner's words.
+  const pushed = parsed(r).action;
+  assert.equal(pushed.step, 'push', JSON.stringify(pushed));
+  assert.match(pushed.brief, /uncommitted files in the change folder: [^"]*openspec\/changes\/feat\/declared\.json/, 'the push names the record');
   const steps = stepsOf(s.wt);
   assert.deepEqual(steps.map((x) => [x.key, x.scope, x.round]), [['review-round', 'resolution', 3]]);
-  assert.equal(parsed(loopNext(s.wt, [], s.env)).action.step, 'fix-resolution');
+  assert.equal(parsed(loopNext(s.wt, [], s.env)).action.step, 'push', 'push while the record is uncommitted');
+  git(s.wt, 'add', 'openspec/changes/feat/declared.json');
+  git(s.wt, 'commit', '-q', '-m', 'the owner\'s words', '--', 'openspec/changes/feat/declared.json');
+  git(s.wt, 'push', '-q', 'origin', 'feat');
+  assert.equal(parsed(loopNext(s.wt, [], s.env)).action.step, 'fix-resolution', 'fix-resolution once the record is committed and pushed');
   const code = deadlocked();
   assert.equal(declare(code.t.main, code.env, 'review-round', [`words=${WORDS}`]).code, 0);
   assert.deepEqual(stepsOf(code.wt).map((x) => [x.scope, x.round]), [['review', 3]]);

@@ -156,7 +156,7 @@ every task with `git status --short`.
   in this session`). Check: T10, T17 and T25 to T31 pass, and the F1 test (`change-loop-compozy.test.mjs`) still
   passes (the `tests-red` key stays in the Loop as the exit-3 fallback). The roadmap tests that read `tests-red` are
   left to the whole suite of gate 2.5 and of the delivery train (D-17): this phase changes no roadmap code and no `tests-red` text.
-- [ ] 2.3 D-4: `REVIEW_ROUNDS`, the exported `authorizedRounds(dir, scope)`, `collectState`'s `roundLimit`, the
+- [x] 2.3 D-4: `REVIEW_ROUNDS`, the exported `authorizedRounds(dir, scope)`, `collectState`'s `roundLimit`, the
   resolution's `limit` and `planDirty` without `openspec/changes/<id>/declared.json` (D-1), and `nextStep`'s four rows in
   `plugins/openspec/hooks/deliver-check.mjs`; the exported `ceilingOf(stage, flow, facts)` on the right of
   `computeFlow`'s `raw.failures >= ...` and in `artifactState`'s `header-failed` (the failures in a row of
