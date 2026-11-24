@@ -8,6 +8,8 @@ import { tmpFolder, tmpRoot } from './test-tmp.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { bumpKind, applyBump, resolveVersion, resolveManifest, manifestEditsBeyondVersion, resolveChangelog, PIN_FILE, PIN_PACK, PIN_PACK_NAME, setPins, mergePins, classifyConflict, pinsIn } from './release-merge.mjs';
+import * as D from './deliver-check.mjs';
+import * as R from './release-merge.mjs';
 
 const script = join(dirname(fileURLToPath(import.meta.url)), 'release-merge.mjs');
 const ENV = {
@@ -660,4 +662,14 @@ test('release-merge-conflict 7: a branch that already holds origin/<base> is lef
   assert.deepEqual(r.out.files, []);
   assert.equal(r.out.newHead, before);
   assert.equal(sha(root), before);
+});
+
+// Invariant (archive-release-pin, ADR 0023): the pin definition lives in deliver-check.mjs, which the consumer CI downloads and which never imports release-merge.mjs; release-merge.mjs re-exports it.
+test('archive-release-pin 10: release-merge.mjs re-exports the one pin definition of deliver-check.mjs, which never imports release-merge.mjs', () => {
+  assert.equal(typeof D.pinsIn, 'function', 'deliver-check.mjs exports pinsIn');
+  assert.equal(typeof D.setPins, 'function', 'deliver-check.mjs exports setPins');
+  assert.equal(R.pinsIn, D.pinsIn, 'the same pinsIn');
+  assert.equal(R.setPins, D.setPins, 'the same setPins');
+  assert.doesNotMatch(readFileSync(join(dirname(script), 'deliver-check.mjs'), 'utf8'), /release-merge/, 'deliver-check.mjs never names release-merge');
+  assert.ok(D.PIN_LINE_FILES.includes(R.PIN_FILE), 'the doc pin file is one of the files the archive check reads by content');
 });

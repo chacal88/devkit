@@ -3473,8 +3473,8 @@ test('--ci selection 3: a squash-merged change still active on the base and unto
 // A base where `x` was squash-merged (still active, unproven) next to the `others`, and a PR branch that archives it.
 // The retro approves `src/a.ts` by default; `retro` and `files` override what the PR carries.
 const X_RETRO = '## Proposed updates\n\n### `src/a.ts` (process-friction)\nSummary.\n- Answer: approved\n- Applied: yes\n';
-function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {}, schema = 'devkit-lite' } = {}) {
-  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, { ...changeFilesOf(), ...(n === 'x' ? { '.openspec.yaml': `schema: ${schema}\n` } : {}) }])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n' } });
+function archivePrRepo({ branch = 'chore/archive-x', others = [], retro = X_RETRO, files = {}, schema = 'devkit-lite', base = {} } = {}) {
+  const root = gitRepo({ branch: 'main', changes: Object.fromEntries(['x', ...others].map((n) => [n, { ...changeFilesOf(), ...(n === 'x' ? { '.openspec.yaml': `schema: ${schema}\n` } : {}) }])), files: { 'src/a.ts': 'a\n', 'openspec/roadmap.md': '## R\n- [ ] x\n', ...base } });
   git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
   git(root, 'switch', '-q', '-c', branch);
   git(root, 'mv', 'openspec/changes/x', 'openspec/changes/archive/2026-11-09-x');
@@ -4482,6 +4482,20 @@ test('plan mode with a merged PR still stops at stop-plan-mode and reads nothing
 
 const approvedBy = (targets, files) => onArchiveBranch({ proposals: [proposal(targets, { answer: 'approved', applied: true })], files });
 
+// The archive branch over a base that already holds `base` (the pin files): the base is committed on main and
+// origin/main, the branch holds the archived folder, one approved proposal naming CONTRIBUTING.md, and `files`.
+function pinArchive({ base, files, commit = true }) {
+  const t = pm({ branch: 'main' });
+  put(t.root, base);
+  commitAll(t.root, 'pin files');
+  git(t.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  git(t.root, 'switch', '-q', '-c', 'chore/archive-feat');
+  archiveFolder(t);
+  put(t.root, { [retroPath(true)]: retroMd(proposal(['CONTRIBUTING.md'], { answer: 'approved', applied: true })), 'openspec/roadmap.md': ticked, ...files });
+  if (commit) commitAll(t.root, 'archive feat');
+  return t;
+}
+
 test('P13 passes to open-archive-pr: an exact path, ./path normalised, a regression gate with both files, the release files, and openspec/changes/** and openspec/roadmap.md (AC-3)', () => {
   const ok = [
     ['an approved proposal\'s path', ['CONTRIBUTING.md'], { 'CONTRIBUTING.md': 'n\n' }],
@@ -4878,6 +4892,201 @@ test('release list: RELEASE_FILE is unchanged and unnamedFiles still reports doc
   assert.equal(RELEASE_FILE.test('docs/openspec-flow.md'), false);
   assert.deepEqual(unnamedFiles(['docs/openspec-flow.md', 'CHANGELOG.md', 'openspec/roadmap.md'], []), ['docs/openspec-flow.md']);
   assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [{ answer: 'approved', targets: ['docs/openspec-flow.md'] }]), []);
+  // ADR 0023: the doc passes by its content when only its CI pins moved, never as a whole file (AC-6).
+  const pinOnly = { 'docs/openspec-flow.md': { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0') } };
+  assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [], pinOnly), []);
+  const beyond = { 'docs/openspec-flow.md': { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0').replace('A paragraph about the check.', 'Another paragraph.') } };
+  assert.deepEqual(unnamedFiles(['docs/openspec-flow.md'], [], beyond), ['docs/openspec-flow.md']);
+});
+
+// ================================================================ archive-release-pin: the CI pin lines pass the archive check unnamed (ADR 0023)
+
+const FLOW_PATH = 'docs/openspec-flow.md';
+const LOOP_PATH = 'plugins/openspec/hooks/change-loop.test.mjs';
+const fixtureText = (name) => readFileSync(join(here, 'fixtures', 'c561553', name), 'utf8');
+const dotted = (v) => v.replaceAll('.', '\\.');
+
+// A flow page with the three pin line shapes of the real doc (two snippet lines, one prose line).
+const PIN_DOC = (v) => [
+  '# Flow', '',
+  'A paragraph about the check.', '',
+  `          # pinned to the commit of v${v} (a tag can move; a commit cannot)`,
+  `          base=https://raw.githubusercontent.com/chacal88/devkit/<commit sha of v${v}>/plugins/openspec/hooks`,
+  '',
+  `Pin the commit sha of the release tag (\`v${v}\` above), not the tag; by hand, run \`gh api repos/chacal88/devkit/git/ref/tags/v${v}\`.`,
+  '',
+].join('\n');
+
+// The lines of a test file with the pin block of change-loop.test.mjs, one line per element (the last is the empty one after the final newline).
+const loopLines = (v, prev) => [
+  "test('change-loop docs: the design records the answers', () => {",
+  "  const flow = readRepo('docs', 'openspec-flow.md');",
+  "  assert.match(adrs, /0011/, 'the ADRs line names 0011');",
+  `  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); x moves it to ${v}, above y's ${prev}`,
+  `  assert.match(flow, /v${dotted(v)}/, 'the CI snippet pins the current release (x: ${v})');`,
+  `  assert.doesNotMatch(flow, /v${dotted(prev)}/, 'no pin left on the previous release (y)');`,
+  '});',
+  '',
+];
+const loopText = (v, prev) => loopLines(v, prev).join('\n');
+const PIN_LOOP_BEFORE = loopText('0.33.0', '0.32.0');
+const PIN_LOOP_AFTER = loopText('0.34.0', '0.33.0');
+const pinHas = (path, before, after) => DC.pinLinesOnly(path, { before, after });
+
+test('archive-release-pin 1: pinLinesOnly passes a flow page whose only change is its CI pins, and the real c561553 hunks', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  assert.equal(pinHas(FLOW_PATH, PIN_DOC('0.33.0'), PIN_DOC('0.34.0')), true, 'the three pin line shapes moved from v0.33.0 to v0.34.0');
+  assert.equal(pinHas(FLOW_PATH, fixtureText('openspec-flow.before.txt'), fixtureText('openspec-flow.after.txt')), true, 'the hunks of c561553');
+});
+
+test('archive-release-pin 2: pinLinesOnly names a flow page changed beyond its pins', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  const before = PIN_DOC('0.33.0');
+  const after = PIN_DOC('0.34.0');
+  const afterFixture = fixtureText('openspec-flow.after.txt');
+  const cases = {
+    'a changed sentence': after.replace('A paragraph about the check.', 'A different paragraph about the check.'),
+    'an added paragraph': `${after}\nA new paragraph.\n`,
+    'a marker line with other words changed': after.replace('(a tag can move; a commit cannot)', '(a tag can drift; a commit cannot)'),
+    'an added pin line': after.replace('\n\nPin the commit', '\n          # pinned to the commit of v0.34.0 again\n\nPin the commit'),
+    'a pin removed from a marker line': after.replace('pinned to the commit of v0.34.0 (a tag', 'pinned to the commit of v (a tag'),
+  };
+  for (const [label, text] of Object.entries(cases)) assert.equal(pinHas(FLOW_PATH, before, text), false, label);
+  assert.equal(pinHas(FLOW_PATH, fixtureText('openspec-flow.before.txt'), afterFixture.replace('older releases pass a slice', 'older releases wave a slice')), false, 'the fixture with one non-pin word changed');
+});
+
+test('archive-release-pin 3: pinLinesOnly passes a test file whose only changed lines are the pin forms', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  assert.equal(pinHas(LOOP_PATH, fixtureText('change-loop.test.before.txt'), fixtureText('change-loop.test.after.txt')), true, 'the hunks of c561553');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, PIN_LOOP_AFTER), true, 'the pin block moved to the next release');
+  const without = (lines, i) => lines.filter((_, k) => k !== i).join('\n');
+  const lines = loopLines('0.33.0', '0.32.0');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, without(lines, 5)), true, 'a removed assert.doesNotMatch line');
+  const withEscaped = [...lines.slice(0, 6), "  assert.doesNotMatch(flow, /v0\\.31\\.0/, 'no pin left on main\\'s release before it (z)');", ...lines.slice(6)].join('\n');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, withEscaped), true, 'an added line whose message holds an escaped quote');
+  const comment = lines.map((l) => (l.startsWith('  // Invariant:') ? l.replace('x moves it to 0.33.0', 'z moves it to 0.35.0') : l)).join('\n');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, comment), true, 'a changed Invariant comment');
+  const indented = lines.map((l) => (l.startsWith('  assert.match(flow,') ? `    ${l.trimStart()}` : l)).join('\n');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, indented), true, 'a form line at another indentation');
+});
+
+test('archive-release-pin 4: pinLinesOnly names a test file with any other changed line', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  const lines = loopLines('0.34.0', '0.33.0');
+  const added = (line) => [...lines.slice(0, 6), line, ...lines.slice(6)].join('\n');
+  const swapped = lines.slice();
+  [swapped[1], swapped[2]] = [swapped[2], swapped[1]];
+  const cases = {
+    'an added assert.ok on flow': added("  assert.ok(flow.includes('x'), 'x');"),
+    'an added assert.match on another subject': added("  assert.match(other, /v0\\.34\\.0/, 'm');"),
+    'an added assert.match with a regular expression that is not a plain version': added("  assert.match(flow, /v0\\.34\\.\\d/, 'm');"),
+    'a changed line of another test': PIN_LOOP_AFTER.replace('/0011/', '/0012/'),
+    'an added comment': added('  // note'),
+    'an added blank line': added(''),
+    'two non-form lines swapped': swapped.join('\n'),
+  };
+  for (const [label, text] of Object.entries(cases)) assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, text), false, label);
+});
+
+test('archive-release-pin 5: a pin file missing or unreadable on either side, another path, a CRLF form line or a changed final newline is never pin-only, and an empty base is a text', () => {
+  assert.equal(typeof DC.pinLinesOnly, 'function', 'deliver-check.mjs exports pinLinesOnly');
+  const doc = PIN_DOC('0.34.0');
+  assert.equal(DC.pinLinesOnly(FLOW_PATH, undefined), false, 'pair undefined');
+  assert.equal(pinHas(FLOW_PATH, null, doc), false, 'before null');
+  assert.equal(pinHas(FLOW_PATH, doc, null), false, 'after null');
+  assert.equal(pinHas(FLOW_PATH, null, null), false, 'both null');
+  assert.equal(pinHas(FLOW_PATH, 7, doc), false, 'before not a string');
+  assert.equal(pinHas('docs/other.md', doc, doc), false, 'equal texts under another path');
+  const crlf = PIN_LOOP_AFTER.split('\n').map((l) => (l.startsWith('  assert.match(flow,') ? `${l}\r` : l)).join('\n');
+  assert.equal(pinHas(LOOP_PATH, PIN_LOOP_BEFORE, crlf), false, 'a form line ending in a carriage return');
+  for (const path of [FLOW_PATH, LOOP_PATH]) {
+    assert.equal(pinHas(path, 'a\nb\n', 'a\nb'), false, `${path}: a lost final newline`);
+    assert.equal(pinHas(path, 'a\nb', 'a\nb\n'), false, `${path}: a gained final newline`);
+  }
+  assert.equal(pinHas(FLOW_PATH, '', 'a\n'), false, 'an empty base against a text (doc)');
+  assert.equal(pinHas(LOOP_PATH, '', 'x\n'), false, 'an empty base against a text (test file)');
+  assert.equal(pinHas(FLOW_PATH, '', ''), true, 'an empty base against an empty file (doc) is not missing');
+  assert.equal(pinHas(LOOP_PATH, '', ''), true, 'an empty base against an empty file (test file) is not missing');
+});
+
+test('archive-release-pin 6: unnamedFiles takes the pin rule from the texts, and c561553\'s file list passes with proposals naming neither pin file', () => {
+  const paths = [FLOW_PATH, LOOP_PATH];
+  const pinOnly = { [FLOW_PATH]: { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0') }, [LOOP_PATH]: { before: PIN_LOOP_BEFORE, after: PIN_LOOP_AFTER } };
+  assert.deepEqual(unnamedFiles(paths, [], pinOnly), [], 'pin-only texts');
+  assert.deepEqual(unnamedFiles(paths, []), paths, 'no texts');
+  assert.deepEqual(unnamedFiles(paths, [], {}), paths, 'empty texts');
+  const beyond = { [FLOW_PATH]: { before: PIN_DOC('0.33.0'), after: PIN_DOC('0.34.0').replace('A paragraph', 'Another paragraph') }, [LOOP_PATH]: { before: PIN_LOOP_BEFORE, after: `${PIN_LOOP_AFTER}// note\n` } };
+  assert.deepEqual(unnamedFiles(paths, [], beyond), paths, 'each file whose text goes beyond');
+  assert.deepEqual(unnamedFiles(paths, [], { ...pinOnly, [LOOP_PATH]: beyond[LOOP_PATH] }), [LOOP_PATH], 'only the file beyond the pin');
+  const archived = 'openspec/changes/archive/2026-11-22-review-writer-prompt';
+  const c561553 = [
+    '.claude-plugin/marketplace.json', 'CHANGELOG.md', FLOW_PATH, 'openspec/config.yaml', 'openspec/roadmap.md',
+    'openspec/specs/change-delivery/spec.md', 'openspec/specs/change-stages/spec.md', 'openspec/specs/review-round/spec.md', 'openspec/specs/verdict-files/spec.md',
+    'plugins/openspec/.claude-plugin/plugin.json', LOOP_PATH, 'plugins/openspec/skills/ship-change/SKILL.md',
+    ...['change-delivery', 'change-stages', 'review-round', 'verdict-files'].map((c) => `${archived}/specs/${c}/spec.md`),
+  ];
+  const proposals = [
+    { answer: 'approved', targets: ['plugins/openspec/skills/ship-change/SKILL.md'] },
+    { answer: 'approved', targets: ['openspec/roadmap.md'] },
+    { answer: 'approved', targets: ['openspec/config.yaml'] },
+  ];
+  const texts = {
+    [FLOW_PATH]: { before: fixtureText('openspec-flow.before.txt'), after: fixtureText('openspec-flow.after.txt') },
+    [LOOP_PATH]: { before: fixtureText('change-loop.test.before.txt'), after: fixtureText('change-loop.test.after.txt') },
+  };
+  assert.equal(c561553.length, 16);
+  assert.deepEqual(unnamedFiles(c561553, proposals, texts), [], 'the file list of c561553 with its pin texts');
+  assert.deepEqual(unnamedFiles(c561553, proposals), [FLOW_PATH, LOOP_PATH], 'the same list without texts names both pin files');
+});
+
+// The pin files as at a base on `main`, then `files` on the archive branch.
+const PIN_BASE = { [FLOW_PATH]: PIN_DOC('0.33.0'), [LOOP_PATH]: PIN_LOOP_BEFORE };
+const PIN_EDITS = { [FLOW_PATH]: PIN_DOC('0.34.0'), [LOOP_PATH]: PIN_LOOP_AFTER };
+const PIN_BEYOND_DOC = PIN_DOC('0.34.0').replace('A paragraph about the check.', 'A different paragraph about the check.');
+
+test('archive-release-pin 7: the local archive stop: pin-only edits open the archive PR, an edit beyond the pin stops on apply-proposals, committed or in the tree, and a deleted pin file stops', () => {
+  for (const commit of [true, false]) {
+    const label = commit ? 'committed' : 'in the tree';
+    const ok = pinArchive({ base: PIN_BASE, files: PIN_EDITS, commit }).next();
+    assert.equal(ok.step, 'open-archive-pr', `pin-only ${label}: ${ok.reason}`);
+    const bad = pinArchive({ base: PIN_BASE, files: { ...PIN_EDITS, [FLOW_PATH]: PIN_BEYOND_DOC }, commit }).next();
+    assert.deepEqual([bad.step, bad.archiveStep, bad.reason], ['stop-archive', 'apply-proposals', `files no approved proposal names: ${FLOW_PATH}`], `beyond the pin ${label}`);
+  }
+  const gone = pinArchive({ base: PIN_BASE, files: PIN_EDITS, commit: false });
+  git(gone.root, 'rm', '-q', '-f', LOOP_PATH);
+  const n = gone.next();
+  assert.deepEqual([n.step, n.archiveStep, n.reason], ['stop-archive', 'apply-proposals', `files no approved proposal names: ${LOOP_PATH}`], 'a deleted pin file');
+});
+
+test('archive-release-pin 8: --ci on an archive branch applies the same pin rule', () => {
+  const env = { GITHUB_BASE_REF: 'main' };
+  const run = (opts) => runCi(archivePrRepo(opts), ['--json'], env);
+  const ok = run({ base: PIN_BASE, files: PIN_EDITS });
+  assert.equal(ok.code, 0, ok.out + ok.err);
+  assert.deepEqual([ok.json().pass, ok.json().archive.unnamed], [true, []], 'pin-only edits');
+  const doc = run({ base: PIN_BASE, files: { ...PIN_EDITS, [FLOW_PATH]: PIN_BEYOND_DOC } });
+  assert.equal(doc.code, 1, doc.out + doc.err);
+  assert.deepEqual(doc.json().archive.unnamed, [FLOW_PATH], 'a doc changed beyond its pin');
+  const other = run({ base: PIN_BASE, files: { ...PIN_EDITS, [LOOP_PATH]: `${PIN_LOOP_AFTER}// note\n` } });
+  assert.equal(other.code, 1, other.out + other.err);
+  assert.deepEqual(other.json().archive.unnamed, [LOOP_PATH], 'another test line');
+  const added = run({ base: { [FLOW_PATH]: PIN_BASE[FLOW_PATH] }, files: PIN_EDITS });
+  assert.equal(added.code, 1, added.out + added.err);
+  assert.deepEqual(added.json().archive.unnamed, [LOOP_PATH], 'the test file added only on the branch');
+});
+
+test('archive-release-pin 9: --ci from only the three downloaded files passes a pin-only archive and fails one beyond the pin', () => {
+  const dir = tmpFolder('devkit-downloaded-');
+  for (const n of ['guard.mjs', 'deliver-check.mjs', 'merge-setup.mjs']) cpSync(join(here, n), join(dir, n));
+  const env = { ...process.env, ...CI_ENV, GITHUB_BASE_REF: 'main' };
+  const from = (root) => spawnSync(process.execPath, [join(dir, 'deliver-check.mjs'), '--ci', '--json'], { cwd: root, encoding: 'utf8', env });
+  const ok = from(archivePrRepo({ base: PIN_BASE, files: PIN_EDITS }));
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.deepEqual(JSON.parse(ok.stdout).archive.unnamed, [], 'pin-only');
+  const bad = from(archivePrRepo({ base: PIN_BASE, files: { ...PIN_EDITS, [FLOW_PATH]: PIN_BEYOND_DOC } }));
+  assert.equal(bad.status, 1, bad.stdout + bad.stderr);
+  assert.deepEqual(JSON.parse(bad.stdout).archive.unnamed, [FLOW_PATH], 'beyond the pin');
+  assert.doesNotMatch(bad.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/);
 });
 
 // ================================================================ field-fixes 4: delivered is its own pull request and every task

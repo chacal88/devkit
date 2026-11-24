@@ -45,7 +45,7 @@ every task with `git status --short`.
 
 ## 1. The pin-line rule in the archive check (AC-1 to AC-7, AC-10)
 
-- [ ] 1.1 Setup. Confirm `docs/adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`
+- [x] 1.1 Setup. Confirm `docs/adr/0023-the-archive-check-lets-the-release-pin-lines-pass-unnamed.md`
   holds `- Status: accepted` (set by the loop's `accept-decisions` step; stop and report if not).
   Write the four fixture files of D-5 under `plugins/openspec/hooks/fixtures/c561553/`, each with
   one command of this form (reading the commit here is allowed; the tests never do):
@@ -57,7 +57,7 @@ every task with `git status --short`.
   four files (15, 15, 7 and 8 lines); and
   `env TMPDIR=/var/tmp/devkit-archive-release-pin node --test --test-concurrency=1 --test-name-pattern="^change-loop retire: /conduct" --test-name-pattern="^AC-6 instructions-follow" plugins/openspec/hooks/change-loop.test.mjs`
   passes, so the fixtures add nothing the repository-wide scans refuse.
-- [ ] 1.2 Write tests `archive-release-pin 1` to `archive-release-pin 9` in
+- [x] 1.2 Write tests `archive-release-pin 1` to `archive-release-pin 9` in
   `plugins/openspec/hooks/deliver-check.test.mjs` and `archive-release-pin 10` in
   `plugins/openspec/hooks/release-merge.test.mjs`, exactly as the table of D-6 says, with the
   namespace import `import * as DC from './deliver-check.mjs';` in `deliver-check.test.mjs`. In
@@ -75,7 +75,7 @@ every task with `git status --short`.
   `DC.pinLinesOnly` not being a function or on texts being ignored, 7 to 9 on a pin-only edit still
   named, 10 on `D.pinsIn` being undefined), and `release list: ...` fails only on its new pin-only
   assertion. A different result is settled in this task, before 1.3.
-- [ ] 1.3 Move the pin definition as D-1 says. In `plugins/openspec/hooks/deliver-check.mjs`, add
+- [x] 1.3 Move the pin definition as D-1 says. In `plugins/openspec/hooks/deliver-check.mjs`, add
   the section above `RELEASE_FILE` with `PIN_MARKER`, `PIN_TOKEN`, `pinsIn` and `setPins`, byte for
   byte. In `plugins/openspec/hooks/release-merge.mjs`, put the new import and the
   `export { pinsIn, setPins };` line and delete lines 129-141. Check: test 10 passes;
@@ -83,14 +83,14 @@ every task with `git status --short`.
   `git grep -n "release-merge" -- plugins/openspec/hooks/deliver-check.mjs` prints nothing; and
   `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/release-merge.test.mjs`
   passes (every release-merge test, the conflict classification of AC-6 included).
-- [ ] 1.4 Add the rule and its read as D-2, D-3 and D-4 say, in
+- [x] 1.4 Add the rule and its read as D-2, D-3 and D-4 say, in
   `plugins/openspec/hooks/deliver-check.mjs`: `PIN_LINE_FILES`, `PIN_TEST_LINES`, `pinLinesOnly`,
   `textAt`, `texts` in `archiveChanges`, the third parameter of `unnamedFiles`, the two callers
   (`filesStop`, `archivePrCheck`), and the comments above `unnamedFiles` and `RELEASE_FILE`. Check:
   tests `archive-release-pin 1` to `archive-release-pin 10` and `release list: ...` pass; and
   `git grep -n "unnamedFiles(" -- plugins/openspec/hooks/deliver-check.mjs` prints the definition and
   exactly two calls, each passing texts.
-- [ ] 1.5 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^unnamedFiles" --test-name-pattern="^P13" --test-name-pattern="^P3j" --test-name-pattern="^--ci on an archive branch" --test-name-pattern="^release-merge" --test-name-pattern="^conduct pin" plugins/openspec/hooks/conduct-check.test.mjs && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/merge-setup.test.mjs && python3 scripts/check.py` green; covers AC-1 to AC-7 and AC-10.
+- [x] 1.5 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^unnamedFiles" --test-name-pattern="^P13" --test-name-pattern="^P3j" --test-name-pattern="^--ci on an archive branch" --test-name-pattern="^release-merge" --test-name-pattern="^conduct pin" plugins/openspec/hooks/conduct-check.test.mjs && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 plugins/openspec/hooks/merge-setup.test.mjs && python3 scripts/check.py` green; covers AC-1 to AC-7 and AC-10.
 
 ## 2. Documents and the release (AC-6, AC-8)
 
