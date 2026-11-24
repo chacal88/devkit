@@ -17,20 +17,11 @@ jobs:
         run: python3 scripts/check.py
       - name: Install OpenSpec (the hook tests and the schema step need it)
         run: npm i -g @fission-ai/openspec@2.0.0
-      - name: Hook tests
-        env:
-          TMPDIR: ${{ runner.temp }}/hook-tests-tmp
+      - name: Test suite
         run: |
-          mkdir "$TMPDIR"
           git config --global user.email ci@example.com
           git config --global user.name ci
-          node --test plugins/openspec/hooks/guard.test.mjs
-      - name: Hook tests left nothing in TMPDIR
-        env:
-          HOOK_TMP: ${{ runner.temp }}/hook-tests-tmp
-        run: |
-          left="$(ls -A "$HOOK_TMP")"
-          if [ -n "$left" ]; then printf 'left in %s:\n%s\n' "$HOOK_TMP" "$left"; exit 1; fi
+          node scripts/test-suite.mjs
       - name: Schemas validate against the OpenSpec CLI
         run: |
           tmp="$(mktemp -d)" && cd "$tmp" && git init -q

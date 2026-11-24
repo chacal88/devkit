@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, copyFileSync, existsSync, readFileSync, readdirSync, symlinkSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpFolder } from './test-tmp.mjs';
 import { suiteFiles, testImports } from '../../../scripts/test-suite.mjs';
@@ -337,4 +337,76 @@ test('suite-speed AC-4 SIGTERM stops every running file, removes the run root an
   assert.ok(gone, 'the probe process is still running');
   assert.equal(existsSync(dirname(probeRun.tmp)), false, 'the run root is still there');
   assert.deepEqual(readdirSync(out.base), []);
+});
+
+// Invariant: scripts/check.py refuses a skipped, only or todo test in the suite's files and leaves compozy's alone.
+// Layer: scripts/check.py. Suite: test-suite.test.mjs.
+// The skip forms are joined from pieces, so the check does not find them in this file.
+const SKIPPED_TEST_FORMS = [
+  "test." + "skip('a skipped test', () => {});",
+  "test('an only test', { on" + "ly: true }, () => {});",
+  "test." + "todo('a todo test');",
+];
+const NOT_A_TEST_CALL = "const options = { sk" + "ip: true, on" + "ly: false };";
+
+test('suite-speed AC-5c check.py refuses skip, only and todo in the suite test files, not in compozy', () => {
+  const checkPy = join(REPO_ROOT, 'scripts', 'check.py');
+  const check = (files) => {
+    const root = tmpFolder('devkit-suite-check-');
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    const r = spawnSync('python3', [checkPy, '--root', root], { encoding: 'utf8' });
+    return { code: r.status, out: r.stdout + r.stderr };
+  };
+  const body = [NOT_A_TEST_CALL, ...SKIPPED_TEST_FORMS, ''].join('\n');
+  const refused = check({ [`${HOOKS}/a${TEST_EXT}`]: body });
+  assert.equal(refused.code, 1, refused.out);
+  const lines = refused.out.split('\n').filter((line) => line.includes('a test is skipped'));
+  assert.deepEqual(
+    lines.map((line) => line.split(' ')[0]),
+    [`${HOOKS}/a${TEST_EXT}:2:`, `${HOOKS}/a${TEST_EXT}:3:`, `${HOOKS}/a${TEST_EXT}:4:`],
+    refused.out,
+  );
+  assert.ok(lines[0].includes('(skip, only or todo); the suite runs every test'), lines[0]);
+  const compozy = check({ [`plugins/compozy/skills/x/b${TEST_EXT}`]: body });
+  assert.equal(compozy.code, 0, compozy.out);
+  assert.equal(compozy.out.trim(), 'all checks passed');
+  const clean = check({ [`${HOOKS}/c${TEST_EXT}`]: [NOT_A_TEST_CALL, "test('fine', () => {});", ''].join('\n') });
+  assert.equal(clean.code, 0, clean.out);
+  assert.equal(clean.out.trim(), 'all checks passed');
+});
+
+// Invariant: the documents and the agents' context name the one suite command, and no file outside the records names the
+// old one (the guard file as the command, or as the file the other test files are imported by).
+// Layer: the documents. Suite: test-suite.test.mjs.
+// Both expressions are joined from pieces, so this file does not match them itself.
+const GUARD = 'guard' + '\\.test\\.mjs';
+const OLD_COMMAND = new RegExp('node --test(?: [^ `\\n]+)* plugins/openspec/hooks/' + GUARD);
+const OLD_HEADER = new RegExp('Imported by (?:hooks/|plugins/openspec/hooks/)?' + GUARD);
+// Records that quote the old command as the state they replace or as history.
+const OLD_COMMAND_EXEMPT = ['openspec/' + 'changes/', 'CHANGE' + 'LOG.md', 'plugins/' + 'panel/', 'docs/' + 'adr/'];
+const ONE_COMMAND = 'node scripts/' + 'test-suite.mjs';
+
+test('suite-speed AC-7 the docs and the agents context name the one command, and no file outside the records names the old one', () => {
+  for (const doc of ['CLAUDE.md', 'CONTRIBUTING.md', 'plugins/openspec/README.md', 'openspec/config.yaml']) {
+    assert.ok(readFileSync(join(REPO_ROOT, doc), 'utf8').includes(ONE_COMMAND), `${doc} does not hold ${ONE_COMMAND}`);
+  }
+  const listed = spawnSync('git', ['ls-files', '-z'], { cwd: REPO_ROOT, encoding: 'utf8' });
+  assert.equal(listed.status, 0, listed.stderr);
+  const names = [];
+  for (const path of listed.stdout.split('\0').filter(Boolean)) {
+    if (OLD_COMMAND_EXEMPT.some((prefix) => path.startsWith(prefix))) continue;
+    let text;
+    try {
+      text = readFileSync(join(REPO_ROOT, path), 'utf8');
+    } catch {
+      continue; // deleted in the working tree, a dangling link or a folder (a submodule)
+    }
+    text.split('\n').forEach((line, index) => {
+      if (OLD_COMMAND.test(line) || OLD_HEADER.test(line)) names.push(`${path}:${index + 1}: ${line.trim()}`);
+    });
+  }
+  assert.deepEqual(names, [], 'these lines still name the old command or the guard as the importer of the test files');
 });
