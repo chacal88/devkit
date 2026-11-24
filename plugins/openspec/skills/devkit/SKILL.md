@@ -119,6 +119,8 @@ Repeat until an action of kind `end`. From the implementation on, the order is t
 
 An end the session declares itself (a red gate, a pull-request decision left to the owner) goes through `reply`, never through a sentence of your own: its first output line, `devkit-end: <id> <state>`, is what lets the turn end without a refusal, and only the lines after it are shown to the owner.
 
+An action whose `baseFetch.ok` is false ends its `reply` with one line saying the step was decided from this machine's copy of the base: keep that line for the message that ends the turn, whatever the action's kind.
+
 Then run `next` again. The session never chooses the order, never runs two stages at once and never dispatches a subagent for a whole change.
 
 ### Writing back to the task

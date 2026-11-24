@@ -92,7 +92,7 @@ Normative language (`SHALL`/`MUST`) where appropriate; every requirement has tes
 
 ### 7. Review the tasks
 
-Executable and ordered by dependency; `- [ ]` checkboxes; small enough to map to issues; dependencies explicit or obvious; acceptance criteria specific and testable; no decision hidden behind "define", "handle", "support" without an expected output; every task path falls under a real directory of the repo; every phase gate command that already exists on the base is run there once (a command the tasks mark as long is run by the caller and its result handed over), and a gate that is red on the base is a Mandatory finding.
+Executable and ordered by dependency; `- [ ]` checkboxes; small enough to map to issues; dependencies explicit or obvious; acceptance criteria specific and testable before the change's pull request merges (a criterion that only the archive or a later step can prove reads `no proof` in the evidence and blocks the delivery contract, so it is a Mandatory finding: the work moves to the `## Workflow follow-up` of tasks.md); no decision hidden behind "define", "handle", "support" without an expected output; every task path falls under a real directory of the repo; every phase gate command that already exists on the base is run there once (a command the tasks mark as long is run by the caller and its result handed over), and a gate that is red on the base is a Mandatory finding.
 
 If the workflow fills issue references into `tasks.md` (e.g. an `**Issue:**` line with a placeholder until sync), a placeholder is not a failure by itself; it is one only when the package claims sync already happened or execution depends on it.
 

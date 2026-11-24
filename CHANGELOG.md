@@ -23,6 +23,38 @@
 - Projects: no step is needed; a project the removed skills set up keeps working as it is. The next
   re-run of the setup is `/devkit setup`.
 
+## 0.51.0 — a status line for the session of a change or a roadmap run
+
+- **devkit-openspec** 0.46.0: a new command, `hooks/status-line.mjs`, draws the one line under the message
+  box of Claude Code. A session that conducts one change shows the change's name, its stage, a strip of
+  marks, `<n> of <N>` and, while the change is stopped, the reason in words; the session that coordinates
+  a roadmap run shows the counts (in play, working, waiting on the owner, blocked); a session that
+  conducts nothing shows nothing. The owner turns it on once with the `statusLine` entry in
+  `docs/openspec-flow.md` (the newest installed copy, so a plugin update needs no edit); the plugin
+  writes no settings file. The bar reads only `state`, writes nothing and itself starts only `node` and
+  `git` (`state` keeps its own reads), with a bound on each; at the bound, or when Claude Code stops it,
+  it ends the `state` call and everything that call started. `state` gains a `stages` field (the stages
+  that apply to the change, in order) and an `--offline` option (a listing with no GitHub call), and the
+  offline stub that listing uses lives in one place. The CI snippet now pins `v0.46.0`, the release's
+  tag.
+
+## 0.50.1 — the grill and the readiness review refuse a criterion only the archive can prove
+
+- **devkit-core** 0.16.1: `requirements-grill` never writes an acceptance criterion that only the archive or a later step can prove, and `plan-readiness-review` flags one as a Mandatory finding; the work goes in the plan's `## Workflow follow-up` (stage-ceiling-consecutive retro, proposal 1). Skill text only.
+
+## 0.50.0 — the loop fetches the base before it judges
+
+- **devkit-openspec** 0.45.0: `/devkit change` and `/devkit roadmap` fetch the base branch into its
+  remote-tracking ref (`origin/<base>`, nothing else) before they judge a delivery, once per command
+  call and at each poll of a wait, so a stale local copy of the base no longer decides whether a
+  change is merged. When the fetch fails or times out, the reply says the step was decided from this
+  machine's copy. The checkers (`conduct-check`, `deliver-check`) stay offline. The skills and the
+  flow page state the rule. The CI snippet now pins `v0.45.0`, the release's tag.
+
+## 0.49.2 — post-merge-validate's roadmap test accepts the ticked line
+
+- **devkit-openspec** 0.44.2: the test `post-merge-validate 3` no longer asserts that the change's roadmap line stays unticked, so the archive, which ticks it, passes it (post-merge-validate retro, proposal 5). Test only.
+
 ## 0.49.1 — a stage's ceiling counts failures in a row
 
 - **devkit-openspec** 0.42.1: `flow-check` blocks a stage with `ceiling-reached` only after its failures in a row reach

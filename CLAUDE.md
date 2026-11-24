@@ -46,6 +46,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 - When the installed devkit-openspec cannot read `main`'s `flow.json` (`unknown key ...`), drive the change with the worktree's own `plugins/openspec/hooks/change-loop.mjs` until the plugin is updated.
 - When a change alters what an agent writes, its real-run proof covers every case the plan declares (each input variant, and the conducting session's own part), not one case plus prose tests, and is in `evidence.md` before the first review round; only a line the round itself produces is added after it.
 - When a merge of the base supersedes a decision the plan states (a moved file, a renamed helper), the same commit edits `proposal.md` and `tasks.md`: the review reads those files as claims about the code.
+- When a merge of the base joins a rule of the branch and a rule of the base into one condition (a guard one side adds to a rule the other brought), a test for each side of that condition lands before the next review round: the review reads the joined condition as new behaviour.
 - A plan rule that reacts to a stage agent's failure names the hook that sees the failure (the stop hook refuses a first stop without a stage file) and the files the agent leaves, and its real run proves the failure path as well as the success path.
 
 ## Gates

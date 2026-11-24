@@ -1,0 +1,104 @@
+✔ fresh-base-check 1: next fetches the base before it judges, and a call with no record judges from the stale copy (13164.716944ms)
+✔ fresh-base-check 2: a fetch that fails decides from the local copy, records it and says it in one line, in both languages (19366.947938ms)
+✔ fresh-base-check 3: a fetch that outlives its timeout fails with a plain line and writes nothing (1852.750481ms)
+✔ fresh-base-check 4: a ref that is locked fails the fetch, and the action is the local copy's (14013.820401ms)
+✔ fresh-base-check 5: the fetch writes the one ref and nothing else (7600.504083ms)
+✔ fresh-base-check 6: a wait fetches the base at every poll (17626.737385ms)
+✔ fresh-base-check 7: state, the stop lock and a call with no record never fetch (20954.867858ms)
+✔ fresh-base-check 8: a record of fetched bases lets one call fetch a base once, and each next call fetches again (23229.217239ms)
+✔ fresh-base-check 9: the two checkers never fetch, and their headers say so (5892.426161ms)
+✔ fresh-base-check 10: a wait that only gains the failed-fetch line goes on waiting (1.742801ms)
+✔ fresh-base-check 16: a repository with no remote fetches nothing and decides as it did (12059.308368ms)
+✔ fresh-base-check 17: a change before its delivery fetches nothing (9691.277638ms)
+✖ fresh-base-check 11: the docs and the skills state the rule of the fetch (8.33753ms)
+✖ fresh-base-check 12: roadmap next fetches the base once for the changes it reads (25322.260062ms)
+✖ fresh-base-check 13: the roadmap wait fetches the base at every poll (17155.091291ms)
+✔ fresh-base-check 14: status, status --json and the stop lock never fetch (51184.865353ms)
+✖ fresh-base-check 15: roadmap run fetches the base once (24879.480075ms)
+✖ fresh-base-check 18: a remote that cannot be reached leaves every change decided from the local copy, and the failure is read once (30808.969324ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 13
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 296148.062276
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:5929:1
+✖ fresh-base-check 11: the docs and the skills state the rule of the fetch (8.33753ms)
+  AssertionError [ERR_ASSERTION]: docs/openspec-flow.md: Before it asks the delivery checker, `next` fetches the defa
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/change-loop.test.mjs:5938:36)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3316:1
+✖ fresh-base-check 12: roadmap next fetches the base once for the changes it reads (25322.260062ms)
+  AssertionError [ERR_ASSERTION]: three changes, one fetch
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/roadmap-loop.test.mjs:3321:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3325:1
+✖ fresh-base-check 13: the roadmap wait fetches the base at every poll (17155.091291ms)
+  AssertionError [ERR_ASSERTION]: three polls, three fetches
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/roadmap-loop.test.mjs:3335:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3351:1
+✖ fresh-base-check 15: roadmap run fetches the base once (24879.480075ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/roadmap-loop.test.mjs:3356:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at plugins/openspec/hooks/roadmap-loop.test.mjs:3359:1
+✖ fresh-base-check 18: a remote that cannot be reached leaves every change decided from the local copy, and the failure is read once (30808.969324ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'ok')
+      at TestContext.<anonymous> (file:///home/kaue/repos/devkit/.claude/worktrees/fresh-base-check/plugins/openspec/hooks/roadmap-loop.test.mjs:3368:35)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
