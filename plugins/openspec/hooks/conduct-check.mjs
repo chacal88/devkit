@@ -53,6 +53,7 @@ const SUBAGENT = {
   'open-prs': COMMIT, 'open-test-pr': COMMIT, 'push-support': COMMIT, 'move-test-pr': COMMIT, 'open-test-archive-pr': COMMIT,
   'resolve-support-conflict': TDD, 'fix-resolution': TDD,
   verify: 'devkit-core:pr-verifier',
+  'renumber-adr': TDD,
   retro: 'general-purpose',
   plan: PLANNER, 'revise-plan': PLANNER,
   readiness: 'devkit-core:plan-readiness-reviewer',
@@ -368,6 +369,39 @@ function threeVersions(root, ref, path) {
   return { base: at(mb), ours: at(ref), theirs: at('HEAD') };
 }
 
+// Override 3: an ADR number the default branch took (roadmap-sessions-upfront D-10). The ADR files the branch added since it left
+// `ctx.ref` whose four-digit number another file of the same folder has on `ctx.ref` are each renumbered to the next free number of
+// the folder, in the order of their numbers: the implementer does it and rewrites the references, and the owner is not asked. The
+// same path on both sides is no clash (the branch was merged); a `ctx.ref` that does not resolve gives no override.
+export const ADR_DIRS = ['docs/adr', 'docs/decisions'];
+const ADR_FILE = /^(\d{4})-(.+\.md)$/;
+function adrClash(ctx, row) {
+  const root = row.worktree;
+  if (!root || !resolves(root, ctx.ref)) return null;
+  try {
+    const mergeBase = git(root, ['merge-base', ctx.ref, 'HEAD']).trim();
+    const added = new Set(git(root, ['diff', '--name-only', '--diff-filter=A', mergeBase, 'HEAD']).split('\n').filter(Boolean));
+    const listing = (rev, dir) => git(root, ['ls-tree', '--name-only', rev, `${dir}/`]).split('\n').filter(Boolean);
+    const numberOf = (path) => ADR_FILE.exec(path.slice(path.lastIndexOf('/') + 1));
+    const files = [];
+    for (const dir of ADR_DIRS) {
+      const onBase = listing(ctx.ref, dir);
+      const onBranch = listing('HEAD', dir);
+      let top = Math.max(0, ...[...onBase, ...onBranch].map((p) => Number(numberOf(p)?.[1] ?? 0)));
+      const clashes = onBranch
+        .filter((p) => added.has(p) && numberOf(p) && !onBase.includes(p) && onBase.some((b) => numberOf(b)?.[1] === numberOf(p)[1]))
+        .sort((a, b) => numberOf(a)[1].localeCompare(numberOf(b)[1]) || a.localeCompare(b));
+      for (const from of clashes) {
+        top += 1;
+        const number = String(top).padStart(4, '0');
+        files.push({ from, to: `${dir}/${number}-${numberOf(from)[2]}`, number });
+      }
+    }
+    if (!files.length) return null;
+    return step('renumber-adr', `an ADR number the base took: ${files.map((f) => `renumber ${f.from} to ${f.to} and every reference`).join('; ')}`, { files });
+  } catch { return null; }
+}
+
 // Override 1: a PR in conflict. Release files only: resolve-release-conflict; anything else stays blocked.
 function releaseConflict(ctx, row, state, report) {
   const n = report.next;
@@ -408,7 +442,7 @@ export function deliveryRow(ctx, row, d) {
   const plain = deliveryStep(row, d.report);
   const info = { delivered: { summary: d.report.summary, met: d.report.met, next: d.report.next } };
   if (d.report.next.step === 'disable-auto-merge') return { ...plain, ...info };
-  const override = releaseConflict(ctx, row, d.state, d.report);
+  const override = adrClash(ctx, row) ?? releaseConflict(ctx, row, d.state, d.report);
   if (!override) return { ...plain, ...info };
   const next = { ...override, ...actorOf(override.step) };
   return { next, state: stateOf(next, { summary: d.report.summary }), ...info };

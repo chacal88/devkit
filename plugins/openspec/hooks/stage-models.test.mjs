@@ -1,5 +1,5 @@
 // stage-models: the model of each stage, one table with a built-in default that a project and a change override
-// (design D-1 to D-5, D-9, D-12; ADR 0021). Tests of the table, of reading it, of the model every action carries, of reading a
+// (design D-1 to D-5, D-9, D-12; ADR 0022). Tests of the table, of reading it, of the model every action carries, of reading a
 // subagent's run and of the retry a model up.
 // Every scenario runs on real files and Git in a temporary folder; the env of each test blanks every branch variable, as a
 // pull-request run on CI sets them. Tests marked (kept) pass on the code before the change too.
@@ -1017,17 +1017,17 @@ test('stage-models AC-6 a session found running is the change own: no second sta
   const r = roadmap.decideRoadmap(facts);
   assert.deepEqual(r.actions, [], 'no second session start and no stage');
   assert.deepEqual(r.state.sessionsStarted.map((e) => [e.id, e.model]), [['a', undefined]]);
-  assert.deepEqual(r.lines, [sayAs('roadmap-session-started', { id: 'a', open: 1, places: 3 })]);
-  // collectRoadmap (the skip of a started change's action), on files.
+  assert.deepEqual(r.lines, [sayAs('roadmap-session-opened', { id: 'a' })]);
+  // collectRoadmap (the skip of a started change's action, where the caller reads no own change: the Stop hook, roadmap-sessions-upfront D-3), on files.
   const root = projectWith(roadmapText('[ ] a'));
   addOpen(root, 'a');
   putRun(root, { places: 1, changeSessions: true, turn: 'typed' });
-  const collected = roadmap.collectRoadmap(root, { env: cleanEnv, lang: 'en', gh: OFFLINE, after: { a: 'session-found' }, turn: 'typed' });
+  const collected = roadmap.collectRoadmap(root, { env: cleanEnv, lang: 'en', gh: OFFLINE, after: { a: 'session-found' }, turn: 'typed', readOwn: false });
   assert.equal(collected.actions.a, undefined, 'the change of a found session is not read for a stage');
   // and the whole call.
   const first = doNext(root, ['--turn', 'typed', '--after', 'a=session-found']);
   assert.equal(first.code, 0, first.stdout);
-  assert.deepEqual(events(first.stdout), [sayAs('roadmap-session-started', { id: 'a', open: 1, places: 1 })]);
+  assert.deepEqual(events(first.stdout), [sayAs('roadmap-session-opened', { id: 'a' }), sayAs('roadmap-gate', { id: 'a', gate: 'grill' })], 'one opened line, then the grill asked here (roadmap-sessions-upfront)');
   assert.ok(!jsonOf(first.stdout).actions.some((a) => a.change === 'a'));
   const again = doNext(root, ['--turn', 'typed']);
   assert.deepEqual(events(again.stdout), [], 'said once');
@@ -1362,7 +1362,7 @@ test('stage-models AC-12 with no transcript, or one that counts no token for the
 
 const REPO = join(HERE, '..', '..', '..');
 const textOf = (...path) => readFileSync(join(REPO, ...path), 'utf8');
-const ADR_FILE = '0021-the-model-is-chosen-by-stage.md';
+const ADR_FILE = '0022-the-model-is-chosen-by-stage.md';
 // The paragraph of the flow document that starts with `**The model of each stage.**`, up to the next blank line.
 const modelParagraph = () => textOf('docs', 'openspec-flow.md').split('\n\n').find((p) => p.startsWith('**The model of each stage.**')) ?? '';
 
@@ -1371,27 +1371,27 @@ test('stage-models AC-7 the session-per-change part of the skill names session-m
   for (const word of ['session-model', 'session-found', 'session-model-refused', 'set_session_model']) assert.ok(part.includes(word), word);
 });
 
-test('stage-models AC-1 the ADR the change adds is numbered 0021 and no other file of docs/adr takes that number', () => {
-  const files = readdirSync(join(REPO, 'docs', 'adr')).filter((f) => f.startsWith('0021-'));
+test('stage-models AC-1 the ADR the change adds is numbered 0022 and no other file of docs/adr takes that number', () => {
+  const files = readdirSync(join(REPO, 'docs', 'adr')).filter((f) => f.startsWith('0022-'));
   assert.deepEqual(files, [ADR_FILE]);
-  assert.match(textOf('docs', 'adr', ADR_FILE), /^# ADR 0021: The model is chosen by stage/);
+  assert.match(textOf('docs', 'adr', ADR_FILE), /^# ADR 0022: The model is chosen by stage/);
 });
 
-test('stage-models AC-7 the ADR 0014 header says it is amended by ADR 0021 and a Note gives the amendment', () => {
+test('stage-models AC-7 the ADR 0014 header says it is amended by ADR 0022 and a Note gives the amendment', () => {
   const adr = textOf('docs', 'adr', '0014-each-roadmap-change-runs-in-a-session-of-its-own.md');
   const header = adr.slice(0, adr.indexOf('\n## Context'));
-  assert.ok(header.includes(`- Amended by ADR 0021 (${ADR_FILE})`), 'the header line');
-  assert.match(adr, /Note \(stage-models, 2026-11-23\): \[ADR 0021\]\(0021-the-model-is-chosen-by-stage\.md\) amends\s+decision 1/);
+  assert.ok(header.includes(`- Amended by ADR 0022 (${ADR_FILE})`), 'the header line');
+  assert.match(adr, /Note \(stage-models, 2026-11-23\): \[ADR 0022\]\(0022-the-model-is-chosen-by-stage\.md\) amends\s+decision 1/);
   assert.ok(header.includes('- Amended by ADR 0017'), 'the earlier amendment stays');
 });
 
-test('stage-models AC-2 the settings comment names the optional models table and the ADRs line names 0021', () => {
+test('stage-models AC-2 the settings comment names the optional models table and the ADRs line names 0022', () => {
   const config = textOf('openspec', 'config.yaml');
   const comment = config.slice(0, config.indexOf('\ndevkit:\n')).split('\n').filter((l) => l.startsWith('#')).join('\n');
   assert.match(comment, /models:/);
   assert.match(comment, /\.openspec\.yaml/);
   const adrs = config.split('\n').find((l) => l.trimStart().startsWith('ADRs:'));
-  assert.match(adrs, /0021 the model chosen by stage, sessions only step down and never below the stages they still run, a failed stage retried once a model up, amends 0014/);
+  assert.match(adrs, /0022 the model chosen by stage, sessions only step down and never below the stages they still run, a failed stage retried once a model up, amends 0014/);
 });
 
 test('stage-models AC-1 the flow document says what the model of each stage is: the key, the values, [1m], the retry, the step-down and its floor, the readout', () => {
@@ -1420,17 +1420,17 @@ test('stage-models AC-1 the flow document Cost section states the table, not the
 // A text with every run of whitespace as one space, so a wrapped sentence reads as one line.
 const flat = (text) => text.replace(/\s+/g, ' ');
 
-test('stage-models AC-10 the flow document and ADR 0021 say the retry reaches only an agent that writes no stage file', () => {
-  for (const [name, text] of [['the flow document paragraph', modelParagraph()], ['ADR 0021', textOf('docs', 'adr', ADR_FILE)]]) {
+test('stage-models AC-10 the flow document and ADR 0022 say the retry reaches only an agent that writes no stage file', () => {
+  for (const [name, text] of [['the flow document paragraph', modelParagraph()], ['ADR 0022', textOf('docs', 'adr', ADR_FILE)]]) {
     assert.ok(text, `${name} exists`);
     assert.ok(flat(text).includes('without writing its stage file'), `${name} names the agent that writes no stage file`);
     assert.ok(flat(text).includes('result=failed'), `${name} names the stage file that records a failed stage`);
   }
 });
 
-test('stage-models AC-4 the flow document and ADR 0021 say the 1M opt-in never reaches a stage subagent', () => {
+test('stage-models AC-4 the flow document and ADR 0022 say the 1M opt-in never reaches a stage subagent', () => {
   assert.ok(flat(modelParagraph()).includes('never reaches a stage agent'), 'the flow document paragraph');
-  assert.ok(flat(textOf('docs', 'adr', ADR_FILE)).includes('never a stage subagent'), 'ADR 0021');
+  assert.ok(flat(textOf('docs', 'adr', ADR_FILE)).includes('never a stage subagent'), 'ADR 0022');
 });
 
 test('stage-models AC-2 the coordination design names devkit.models as final, decided by stage-models', () => {

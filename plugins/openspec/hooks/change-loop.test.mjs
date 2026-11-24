@@ -923,10 +923,12 @@ function snapshot(root) {
   });
 }
 
-// A committed change `id` of the plan stages in `have`, written as passed, in a checkout (no GitHub involved).
-function addChange(root, id, have = ['requirements', 'decisions'], { commit = true } = {}) {
+// A committed change `id` of the plan stages in `have`, written as passed, in a checkout (no GitHub involved). With `flow` it records
+// `x-devkit-flow: <flow>`, as a change opened with that flow does (the tests of D-13 T-23 to T-25 give 2, the installed version); with none it
+// follows flow 1.
+function addChange(root, id, have = ['requirements', 'decisions'], { commit = true, flow = null } = {}) {
   const c0 = git(root, 'rev-parse', 'HEAD');
-  const files = { '.openspec.yaml': 'schema: devkit\n' };
+  const files = { '.openspec.yaml': `schema: devkit\n${flow === null ? '' : `x-devkit-flow: ${flow}\n`}` };
   for (const stage of have) files[PLAN_FILES[stage]] = `${head(stage, c0)}# ${stage}\n`;
   put(root, Object.fromEntries(Object.entries(files).map(([f, b]) => [`openspec/changes/${id}/${f}`, b])));
   if (commit) commitAll(root, `change ${id}`);
@@ -1023,11 +1025,13 @@ test('change-loop start: S5 the compozy and script drivers are not built and run
   assert.equal(body(startRun(devkitRepo(), 'change add an export')).mode, 'new', 'no block runs as claude');
 });
 
+// Invariant (T-23, D-13): the resume reply names the change and says where it stopped, and nothing else; layer: startMode (the resume); suite: change-loop.
+// The change records flow 2, as an open with this release does: with no pin it follows flow 1 under the installed flow 2 and the reply gains the newer-flow line.
 test('change-loop start: S6 one token naming a change resumes it and says where it stopped', () => {
   const root = devkitRepo();
-  addChange(root, 'feat');
+  addChange(root, 'feat', undefined, { flow: 2 });
   addChange(root, 'other', ['requirements', 'proposal']);
-  put(root, { 'openspec/changes/archive/2026-11-19-old/.openspec.yaml': 'schema: devkit\n' });
+  put(root, { 'openspec/changes/archive/2026-11-19-old/.openspec.yaml': 'schema: devkit\nx-devkit-flow: 2\n' });
   commitAll(root, 'archived old');
   const r = startRun(root, 'change feat');
   assert.equal(r.code, 0);
@@ -1048,19 +1052,21 @@ test('change-loop start: S6 one token naming a change resumes it and says where 
   assert.deepEqual([JSON.parse(viaSkill.stdout).mode, JSON.parse(viaSkill.stdout).change], ['resume', 'feat']);
 });
 
+// (T-23, D-13: the change records flow 2.)
 test('change-loop start: S6 a change that lives only in a worktree resumes there', () => {
   const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
   const wt = t.addWt('wt-change');
-  addChange(wt, 'wt-change', ['requirements', 'decisions'], { commit: false });
+  addChange(wt, 'wt-change', ['requirements', 'decisions'], { commit: false, flow: 2 });
   const b = body(startRun(t.main, 'change wt-change'));
   assert.deepEqual([b.mode, b.change], ['resume', 'wt-change']);
   assert.equal(b.unfinished[0].root, wt);
   assert.equal(b.reply, render('en', 'resumed', { id: 'wt-change', where: whereNext('proposal') }));
 });
 
+// (T-23, D-13: the change records flow 2.)
 test('change-loop start: S7 no text and one unfinished change resumes it', () => {
   const root = devkitRepo();
-  addChange(root, 'feat', ['requirements', 'proposal', 'specs', 'design', 'tasks', 'readiness']);
+  addChange(root, 'feat', ['requirements', 'proposal', 'specs', 'design', 'tasks', 'readiness'], { flow: 2 });
   put(root, { 'openspec/changes/archive/2026-11-19-old/.openspec.yaml': 'schema: devkit\n' });
   const b = body(startRun(root, 'change'));
   assert.deepEqual([b.mode, b.change, b.text], ['resume', 'feat', '']);
@@ -2210,17 +2216,18 @@ test('change-loop lock: the module header names the lock decisions and their ref
   assert.ok(banners.some(([l]) => l.includes('the command line')), 'the command line banner exists');
 });
 
-test('change-loop lock hooks.json: Stop, SubagentStop without a matcher and PreToolUse Agent call guard.mjs', () => {
+test('change-loop lock hooks.json: Stop, SubagentStop without a matcher and PreToolUse Agent and Skill call guard.mjs', () => {
   const hooks = JSON.parse(read('hooks.json'));
   const cmd = (mode) => `node "\${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs" ${mode}`;
   assert.deepEqual(hooks.hooks.Stop, [{ hooks: [{ type: 'command', command: cmd('stop'), timeout: 60 }] }]);
   assert.deepEqual(hooks.hooks.SubagentStop, [{ hooks: [{ type: 'command', command: cmd('subagent-stop'), timeout: 60 }] }]);
   assert.equal(hooks.hooks.SubagentStop[0].matcher, undefined);
-  assert.deepEqual(hooks.hooks.PreToolUse.map((e) => e.matcher), ['Edit|Write|MultiEdit|NotebookEdit', 'Bash', 'Agent']);
+  assert.deepEqual(hooks.hooks.PreToolUse.map((e) => e.matcher), ['Edit|Write|MultiEdit|NotebookEdit', 'Bash', 'Agent', 'Skill']);
   assert.deepEqual(hooks.hooks.PreToolUse[2].hooks, [{ type: 'command', command: cmd('agent'), timeout: 10 }]);
+  assert.deepEqual(hooks.hooks.PreToolUse[3].hooks, [{ type: 'command', command: cmd('skill'), timeout: 10 }]);
   assert.deepEqual(hooks.hooks.SessionStart[0].hooks.map((h) => h.command), [cmd('session')]);
   assert.match(hooks.description, /stop/i);
-  assert.match(read('guard.mjs').split('\n').slice(0, 12).join('\n'), /guard\.mjs stop[\s\S]*guard\.mjs subagent-stop[\s\S]*guard\.mjs agent/, 'the header comment lists the three modes');
+  assert.match(read('guard.mjs').split('\n').slice(0, 13).join('\n'), /guard\.mjs stop[\s\S]*guard\.mjs subagent-stop[\s\S]*guard\.mjs agent[\s\S]*guard\.mjs skill/, 'the header comment lists the four modes');
 });
 
 test('change-loop lock: bypass and a project not opted in refuse nothing', () => {
@@ -2447,9 +2454,11 @@ test('change-loop skill: the sections of D-3 to D-9 and the modes of start', () 
     assert.ok(md.includes(`\`${mode}\``), `mode ${mode}`);
   }
   assert.match(md, /AskUserQuestion/);
-  // Invariant: the skill keeps its sections and start modes and names no retired machinery. Layer: skill text. Suite: change-loop.
-  // The session-start tool is named by the Roadmap section now (ADR 0014); ADR 0006's wake-up stays retired.
-  assert.doesNotMatch(md, /conduct-check|CronCreate|wake_when_done/);
+  // Invariant: the change part of the skill names no retired machinery and no schedule. Layer: skill text. Suite: change-loop.
+  // The session-start tool is named by the Roadmap section now (ADR 0014), and so is the roadmap run's one periodic check (ADR 0021); ADR 0006's wake-up stays retired.
+  const roadmapAt = md.indexOf('## Roadmap');
+  assert.doesNotMatch(md.slice(0, roadmapAt), /conduct-check|CronCreate|wake_when_done/);
+  assert.doesNotMatch(md.slice(roadmapAt), /conduct-check|wake_when_done/);
 });
 
 test('change-loop skill: every reply not yet shown ends the turn, in order, before anything else (AC-1)', () => {
@@ -2566,6 +2575,29 @@ test('change-loop docs: the design records the answers', () => {
   assert.match(adrs, /0011/, 'the ADRs line names 0011');
   const flow = readRepo('docs', 'openspec-flow.md');
   assert.ok(flow.split('\n').includes('## The change coordinator: `/devkit change`'), 'the flow doc has the section');
+  // Invariant: the CI snippet pins the current release (docs, change-loop.test.mjs); stage-models moves it to 0.34.0 (release 0.38.0), above roadmap-sessions-upfront's 0.33.0 (release 0.37.0), which moved it above remote-worker's 0.32.0 (release 0.36.0); 0.31.0 went to change-version-pin (release 0.35.0), 0.30.1 went to the retro of release-tags (release 0.34.1), 0.30.0 to release-tags (release 0.34.0), 0.29.0 went to release-merge-conflict (release 0.33.0), 0.28.2 to change-state-retro-fixes (release 0.32.2), 0.28.1 to the retro of change-budget, 0.28.0 to delivery-models, 0.27.1 to the earlier retro fixes, 0.27.0 to gh-version-check, 0.26.1 to review-openspec-fix, 0.26.0 to jira-entry, 0.25.0 to change-budget, 0.24.0 to change-state, 0.23.0 to commit-attribution, 0.22.1 to test-fixture-cleanup and 0.22.0 to stage-roles.
+  assert.match(flow, /v0\.34\.0/, 'the CI snippet pins the current release (stage-models: 0.34.0)');
+  assert.doesNotMatch(flow, /v0\.33\.0/, 'no pin left on main\'s release before it (roadmap-sessions-upfront)');
+  assert.doesNotMatch(flow, /v0\.32\.0/, 'no pin left on main\'s release before it (remote-worker)');
+  assert.doesNotMatch(flow, /v0\.31\.0/, 'no pin left on the release before that (change-version-pin)');
+  assert.doesNotMatch(flow, /v0\.30\.1/, 'no pin left on main\'s release before it (retro of release-tags)');
+  assert.doesNotMatch(flow, /v0\.30\.0/, 'no pin left on the release before that (release-tags)');
+  assert.doesNotMatch(flow, /v0\.29\.0/, 'no pin left on main\'s release before it (release-merge-conflict)');
+  assert.doesNotMatch(flow, /v0\.28\.2/, 'no pin left on main\'s release before it (change-state-retro-fixes)');
+  assert.doesNotMatch(flow, /v0\.28\.1/, 'no pin left on the release before that (retro of change-budget)');
+  assert.doesNotMatch(flow, /v0\.28\.0/, 'no pin left on the release before that (delivery-models)');
+  assert.doesNotMatch(flow, /v0\.27\.1/, 'no pin left on the release before that (earlier retro fixes)');
+  assert.doesNotMatch(flow, /v0\.27\.0/, 'no pin left on the previous release (gh-version-check)');
+  assert.doesNotMatch(flow, /v0\.26\.1/, 'no pin left on the previous release (review-openspec-fix)');
+  assert.doesNotMatch(flow, /v0\.26\.0/, 'no pin left on the previous release (jira-entry)');
+  assert.doesNotMatch(flow, /v0\.25\.0/, 'no pin left on the previous release (change-budget)');
+  assert.doesNotMatch(flow, /v0\.24\.0/, 'no pin left on the previous release (change-state)');
+  assert.doesNotMatch(flow, /v0\.23\.0/, 'no pin left on the previous release (commit-attribution)');
+  assert.doesNotMatch(flow, /v0\.22\.1/, 'no pin left on the previous release (test-fixture-cleanup)');
+  assert.doesNotMatch(flow, /v0\.22\.0/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.21\.2/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.21\.1/, 'no pin left on the previous release');
+  assert.doesNotMatch(flow, /v0\.21\.0/, 'no pin left on the previous release');
   const staleV20 = flow.split('\n').filter((l) => /v0\.20\.0/.test(l) && !/v0\.20\.0` or later/.test(l));
   assert.deepEqual(staleV20, [], 'no pin left on the previous release; only the slice-merge floor ("v0.20.0 or later") names it');
   assert.match(flow, /moves this pin to `v0\.20\.0` or later first/, 'the slice-merge floor (project-phases) is kept');
@@ -2619,7 +2651,7 @@ const archiveGh = (names, { fail = false } = {}) => (args) => (
     ? { status: 0, stdout: JSON.stringify(names.map((name) => ({ name }))), stderr: '', missing: false, timedOut: false }
     : { status: 1, stdout: '', stderr: 'gh: not reachable', missing: false, timedOut: false });
 const listedBy = (cwd, gh) => body(main(['start', '--lang', 'en'], { cwd, env: cleanEnv, stdin: 'change add a thing', gh })).unfinished.map((u) => u.id);
-const archivedFolder = (date, id) => ({ [`openspec/changes/archive/${date}-${id}/.openspec.yaml`]: 'schema: devkit\n' });
+const archivedFolder = (date, id, flow = null) => ({ [`openspec/changes/archive/${date}-${id}/.openspec.yaml`]: `schema: devkit\n${flow === null ? '' : `x-devkit-flow: ${flow}\n`}` });
 
 // The default branch on origin gains the archived folder of `id` while the main checkout stays where it was.
 function archiveOnOrigin(t, id) {
@@ -2688,10 +2720,12 @@ test('field-fixes 1 archived: a failing gh falls back to the remote-tracking def
   assert.deepEqual(listedBy(t.main, archiveGh([], { fail: true })), []);
 });
 
+// Invariant (T-24, D-13): resuming an archived change by its id ends archived; layer: startMode (the resume); suite: change-loop. The archived change records
+// flow 2, as one opened with this release does (with no pin its reply gains the newer-flow line).
 test('field-fixes 1 archived: resuming an archived change by its id still ends archived', () => {
   const t = roundRepo({ roadmap: '# Roadmap\n', config: 'schema: devkit\n' });
-  addChange(t.addWt('old-wt'), 'foo', ['requirements'], { commit: false });
-  put(t.main, archivedFolder('2026-11-20', 'foo'));
+  addChange(t.addWt('old-wt'), 'foo', ['requirements'], { commit: false, flow: 2 });
+  put(t.main, archivedFolder('2026-11-20', 'foo', 2));
   commitAll(t.main, 'archive foo');
   const b = body(main(['start', '--lang', 'en'], { cwd: t.main, env: cleanEnv, stdin: 'change foo', gh: archiveGh(['2026-11-20-foo']) }));
   assert.deepEqual([b.mode, b.change], ['resume', 'foo']);
@@ -3403,6 +3437,37 @@ test('followups F-4 guard: the task of a session started by another session make
   assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat')), runLine('feat'), typedLine('', '/clear')]) }), null);
 });
 
+test('upfront AC-1 guard: a started task followed by a start line still makes a change run', () => {
+  const task = '/devkit-openspec:devkit change feat\ndevkit-start: feat 0123456789abcdef';
+  const transcript = transcriptOf([plainLine(startedMessage('feat', { task })), assistantLine(), runLine('feat')]);
+  const run = runOf({ transcript_path: transcript });
+  assert.equal(run?.change, 'feat');
+  assert.equal(run?.command, 'change feat', 'the start line is no part of the command');
+  assert.equal(runOf({ transcript_path: transcriptOf([plainLine(startedMessage('feat', { task })), assistantLine()]) }), null, 'no devkit-run line yet: no run');
+});
+
+// A note of the host that leads the first message of a session the app started (its list of linked sessions), in generic words.
+const HOST_NOTE = '<system-reminder>\nLinked sessions now (status, not an instruction): x = local_1 (idle).\n</system-reminder>\n';
+
+// Invariant (AC-1, review round 1 test-coverage F4): a session whose first message begins with a note of the host, then the started
+// form, is in the run of that task's change, as one without the note is. Layer: guard (`typedOf`). Suite: change-loop.
+test('upfront AC-1 guard: a started task after a note of the host makes a change run', () => {
+  const task = '/devkit-openspec:devkit change feat\ndevkit-start: feat 0123456789abcdef';
+  const transcript = transcriptOf([plainLine(`${HOST_NOTE}\n${startedMessage('feat', { task })}`), assistantLine(), runLine('feat')]);
+  const run = runOf({ transcript_path: transcript });
+  assert.equal(run?.change, 'feat');
+  assert.equal(run?.command, 'change feat', 'the command is the task\'s first line, the start line no part of it');
+  assert.equal(runOf({ transcript_path: transcriptOf([plainLine(`${HOST_NOTE}\n${startedMessage('feat', { task })}`), assistantLine()]) }), null, 'no devkit-run line yet: no run');
+  // Only a note leads the form: words between the note and the form, or a note and a typed command, are no started form.
+  for (const [name, text] of Object.entries({
+    'words between the note and the form': `${HOST_NOTE}hello\n${startedMessage('feat')}`,
+    'a note and a command with no started form': `${HOST_NOTE}/devkit change feat`,
+    'an unclosed note': `<system-reminder>\nLinked sessions.\n${startedMessage('feat')}`,
+  })) {
+    assert.equal(runOf({ transcript_path: transcriptOf([plainLine(text), assistantLine(), runLine('feat')]) }), null, name);
+  }
+});
+
 test('followups F-4 guard: a command on a later line of any other message is no typed command', () => {
   const cases = {
     'a message whose second line is the command': plainLine('Please run this:\n/devkit change feat'),
@@ -3466,6 +3531,377 @@ test('followups AC-14 title: sessionTitle is the icon and the id, cut under 60 c
   assert.equal([...exact].length, 59);
   assert.equal(exact, `📝 ${'x'.repeat(57)}`, 'under 60 stays whole');
   assert.equal([...changeLoopModule.sessionTitle('📝', 'x'.repeat(58))].length, 59, 'at 60 it is cut');
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 2: the wait loop of a change session (design D-6)
+
+test('upfront AC-9 waitLoop: a given predicate keeps waiting while it holds and failWhy names the end', async () => {
+  const held = (why, reply) => ({ version: 1, change: 'feat', script: 'devkit', root: '/w', branch: 'feat', filesLanguage: 'en', kind: 'held', held: { why }, stage: 'implementation', reply, progressKey: `held/${why}` });
+  const done = { version: 1, change: 'feat', kind: 'agent', stage: 'implementation', progressKey: 'implementation/implement@abc' };
+  const waiting = (a) => a.kind === 'held';
+  // A held decision that only changes its words (the load moves every poll) keeps the wait; a new reason or a new action ends it.
+  const sleeps = [];
+  let polls = 0;
+  const script = [held('load', 'load 91%'), held('load', 'load 88%'), held('load', 'load 85%'), done];
+  const kept = await waitLoop({ poll: async () => script[polls++], sleep: async (s) => { sleeps.push(s); }, interval: 60, id: 'feat', lang: 'en', waiting });
+  assert.deepEqual(kept, done);
+  assert.equal(polls, 4);
+  assert.deepEqual(sleeps, [60, 60, 60]);
+  const changed = [held('place', 'a'), held('place', 'b'), held('load', 'c')];
+  let n = 0;
+  const reason = await waitLoop({ poll: async () => changed[n++], sleep: async () => {}, interval: 60, id: 'feat', lang: 'en', waiting });
+  assert.equal(reason.held.why, 'load', 'a new reason to wait ends the wait');
+  // A first decision that is not a wait comes back at once.
+  assert.deepEqual(await waitLoop({ poll: async () => done, sleep: async () => { throw new Error('slept'); }, interval: 60, id: 'feat', lang: 'en', waiting }), done);
+  // Three failed polls in a row end it blocked with the reason the caller names; the default stays the GitHub one.
+  const failing = async () => { throw new Error('boom'); };
+  const calls = [];
+  const first = async () => { calls.push('first'); return held('place', 'a'); };
+  let k = 0;
+  const poll = async () => (k++ === 0 ? first() : failing());
+  const blocked = await waitLoop({ poll, sleep: async () => {}, interval: 60, id: 'feat', lang: 'en', waiting, failWhy: 'unreadable' });
+  assert.deepEqual([blocked.kind, blocked.end.state, blocked.end.why], ['end', 'blocked', 'unreadable']);
+  assert.match(blocked.reply, /boom/);
+  let j = 0;
+  const gh = await waitLoop({ poll: async () => (j++ === 0 ? WAIT : failing()), sleep: async () => {}, interval: 60, id: 'feat', lang: 'en' });
+  assert.equal(gh.end.why, 'github-unreadable', 'the default end is the GitHub one');
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 3: a lone change schedules nothing (design D-9, AC-16)
+
+test('upfront AC-16 next: no action of a change run asks for a schedule', () => {
+  const actions = [
+    run({ rep: { next: nextOf(FLOWS.devkit, 'requirements', 'no-file') } }),
+    run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } } }),
+    run({ rep: { end: endOf('waiting-for-owner', 'requirements', 'owner-pending') } }),
+    build(rowOf('implement', { phase: 1 })),
+    build(rowOf('review', { reviewers: ['code-quality-reviewer'], round: 1 })),
+    build(rowOf('retro')),
+    build(rowOf('wait-checks', { pending: ['build'] })),
+    build(rowOf('wait-merge', { number: 12 })),
+    run({ report: { ...reportOf(FLOWS.devkit, { end: endOf('archived', null, 'archived') }), stages: [] } }),
+    run({ rep: { end: endOf('blocked', 'delivery', 'pr-closed', { number: 12 }) }, facts: { row: rowOf('implement', { phase: 1 }) } }),
+  ];
+  assert.ok(new Set(actions.map((a) => a.kind)).size >= 4, 'the fixtures cover every kind of action');
+  for (const a of actions) {
+    assert.ok(!['schedule-check', 'delete-check', 'push', 'triage', 'archive-session', 'stop-own-tasks'].includes(a.kind), a.kind);
+    assert.doesNotMatch(JSON.stringify(a), /schedule-check|CronCreate|CronDelete|wake_when_done|"cron"|"recurring"/, a.kind);
+  }
+});
+
+// ================================================================ roadmap-sessions-upfront, phase 4: the triage and the drift (design D-4, D-10, AC-5, AC-6, AC-11)
+
+const triageUnsourced = (text) => changeLoopModule.triageUnsourced(text);
+const TRIAGE_HEAD = '### Answered by triage';
+const SRC = '(source: `docs/adr/0013-x.md:12`)';
+
+// Invariant (AC-6, change-loop, change-loop): the requirements stage passed with a triage answer that names no source goes
+// back to its grill, which names the question; a file whose triage answers all name theirs leaves the plan going.
+test('upfront AC-6 triage: an answer under the triage heading with no source sends the change back to its grill naming it', () => {
+  const root = planChange({ have: ['requirements', 'decisions'] });
+  const file = join(root, 'openspec', 'changes', 'feat', 'requirements.md');
+  const header = readFileSync(file, 'utf8').split('\n')[0];
+  const write = (body) => { put(root, { 'openspec/changes/feat/requirements.md': `${header}\n# requirements\n\n${body}\n` }); commitAll(root, 'triage answers'); };
+  write(`${TRIAGE_HEAD}\n\n1. [scope] May it use a cron? → yes\n2. [edges] Is it atomic? → yes ${SRC}\n`);
+  const r = next(root);
+  assert.equal(r.code, 0, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.stage, action.role], ['grill', 'requirements', 'change-coordinator']);
+  assert.deepEqual(action.detail, { unsourced: ['[scope] May it use a cron? → yes'] }, 'only the question with no source, named');
+  write(`${TRIAGE_HEAD}\n\n1. [edges] Is it atomic? → yes ${SRC}\n`);
+  const sourced = parsed(next(root)).action;
+  assert.deepEqual([sourced.kind, sourced.agent], ['agent', PLANNER], 'every answer names its source: the plan goes on');
+});
+
+test('upfront AC-6 triage: decide gives the grill only in the plan part, only when the requirements stage passed and only for a non-empty list', () => {
+  const rep = { next: nextOf(FLOWS.devkit, 'proposal', 'no-file'), stages: { proposal: { state: 'pending', reasonCode: 'no-file' } } };
+  const grill = run({ rep, facts: { unsourced: ['q'] } });
+  assert.deepEqual([grill.kind, grill.stage, grill.detail, exitCodeOf(grill)], ['grill', 'requirements', { unsourced: ['q'] }, 0]);
+  assert.equal(grill.progressKey, `requirements/requirements@abc123`);
+  assert.equal(run({ rep, facts: { unsourced: [] } }).kind, 'agent', 'an empty list');
+  assert.equal(run({ rep, facts: {} }).kind, 'agent', 'no list');
+  const inBuild = build(rowOf('implement', { phase: 1 }), { unsourced: ['q'] });
+  assert.deepEqual([inBuild.kind, inBuild.step], ['agent', 'implement'], 'from the implementation on the list is not read');
+  const notPassed = run({ rep: { next: nextOf(FLOWS.devkit, 'requirements', 'no-file'), stages: { requirements: { state: 'pending', reasonCode: 'no-file' } } }, facts: { unsourced: ['q'] } });
+  assert.deepEqual([notPassed.kind, notPassed.detail], ['grill', undefined], 'a grill that was already due carries no list');
+});
+
+test('upfront AC-6 triage: the heading\'s end, an unclosed fence, an item over indented lines, no heading and an empty section', () => {
+  // the section runs to the next heading of level 1 to 3, or to the end of the file
+  assert.deepEqual(triageUnsourced(`# R\n\n${TRIAGE_HEAD}\n\n1. a\n2. b ${SRC}\n\n## Next\n\n3. c\n`), ['a'], 'a level 2 heading ends it');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n- a\n\n# Top\n- b\n`), ['a'], 'a level 1 heading ends it');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n- a\n\n### Other\n- b\n`), ['a'], 'a level 3 heading ends it');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n- a\n\n#### Detail\n- b\n`), ['a', 'b'], 'a level 4 heading does not');
+  assert.deepEqual(triageUnsourced(`## Before\n- x\n\n${TRIAGE_HEAD}\n- a`), ['a'], 'the heading last in the file, with no newline: read to the end; items before it are not read');
+  // bullets and numbers both are items
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n* a\n+ b\n3) c\n4. d\n`), ['a', 'b', 'c', 'd']);
+  // fenced lines are not answers, with backticks or tildes, three or more
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\`\`\`\n1. in fence\n\`\`\`\n2. out\n`), ['out']);
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n~~~~\n1. in fence\n~~~~\n2. out\n`), ['out']);
+  // an unclosed fence skips to the end
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n1. before\n\`\`\`\n2. in fence\n## Next\n3. still in fence\n`), ['before']);
+  // an item continues over its indented lines: a source there counts, and the item is named whole
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n1. a question\n   answered here ${SRC}\n2. other\n   and more\n3. last ${SRC}\n`), ['other and more']);
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n1. a\n\n   after a blank line\n`), ['a'], 'a blank line ends the item');
+  // text that is no item is no answer
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\nplain prose with no marker\n`), []);
+  // no heading, another heading, a heading of another level, an empty section
+  assert.deepEqual(triageUnsourced('# R\n\n1. a\n- b\n'), [], 'no heading');
+  assert.deepEqual(triageUnsourced('### Answered by the owner\n\n1. a\n'), [], 'another heading');
+  assert.deepEqual(triageUnsourced('## Answered by triage\n\n1. a\n'), [], 'the heading is level 3');
+  assert.deepEqual(triageUnsourced(`${TRIAGE_HEAD}\n\n## Next\n1. a\n`), [], 'an empty section');
+  assert.deepEqual(triageUnsourced(''), []);
+  assert.deepEqual(triageUnsourced(`    ${TRIAGE_HEAD}\n1. a\n`), [], 'an indented heading is no heading');
+});
+
+// Invariant (AC-6, review round 1 architecture F2): one reader decides whether a requirements file holds the triage section and what its items are,
+// for the loop and for the periodic check alike. Layer: triageSection and hasTriageSection. Suite: change-loop.
+test('upfront AC-6 triage: triageSection and hasTriageSection read the one section, a fenced or suffixed heading being none', () => {
+  const { triageSection, hasTriageSection } = changeLoopModule;
+  assert.deepEqual(triageSection(`# R\n\n${TRIAGE_HEAD}\n\n1. a\n2. b ${SRC}\n\n## Next\n\n3. c\n`), ['a', `b ${SRC}`], 'every item of the section, sourced or not');
+  assert.deepEqual(triageSection(`${TRIAGE_HEAD}\n\n## Next\n1. a\n`), [], 'an empty section is a section');
+  assert.deepEqual(triageSection(`${TRIAGE_HEAD}\n1. a question\n   answered ${SRC}\n`), [`a question answered ${SRC}`], 'an item over its indented lines');
+  assert.deepEqual(triageSection(`\`\`\`\nfenced\n\`\`\`\n${TRIAGE_HEAD}\n1. a\n`), ['a'], 'a heading after a closed fence is found');
+  for (const [name, text] of Object.entries({
+    'no heading': '# R\n\n1. a\n',
+    'a heading inside a backtick fence': `\`\`\`md\n${TRIAGE_HEAD}\n1. a ${SRC}\n\`\`\`\n`,
+    'a heading inside a tilde fence': `~~~\n${TRIAGE_HEAD}\n1. a\n~~~\n`,
+    'a heading inside an unclosed fence': `\`\`\`\n${TRIAGE_HEAD}\n1. a\n`,
+    'a heading with words after it': `${TRIAGE_HEAD} (draft)\n\n1. a ${SRC}\n`,
+    'a heading of level 2': '## Answered by triage\n\n1. a\n',
+    'an indented heading': `    ${TRIAGE_HEAD}\n1. a\n`,
+    'another heading': '### Answered by the owner\n\n1. a\n',
+    'an empty file': '',
+  })) {
+    assert.equal(triageSection(text), null, name);
+    assert.equal(hasTriageSection(text), false, name);
+    assert.deepEqual(triageUnsourced(text), [], `${name}: nothing unsourced either`);
+  }
+  assert.equal(hasTriageSection(`${TRIAGE_HEAD}\n`), true, 'the plain heading alone');
+  assert.equal(hasTriageSection(`${TRIAGE_HEAD}  \t\n`), true, 'trailing blanks are allowed');
+  const text = `${TRIAGE_HEAD}\n1. a\n2. b ${SRC}\n`;
+  assert.deepEqual(triageUnsourced(text), triageSection(text).filter((item) => !item.includes('(source: ')), 'the loop\'s list is the section\'s items with no source');
+});
+
+test('upfront AC-5 triage: the agent file has the name, a description that says when, the tools Read, Glob and Grep only, and the Never rules', () => {
+  const a = assetOf('plugins/core/agents/requirements-triage.md');
+  assert.equal(a.name, 'requirements-triage');
+  assert.match(a.description, /\bUse when\b/);
+  assert.match(a.description, /requirements-grill/);
+  assert.deepEqual(a.tools, ['Read', 'Glob', 'Grep']);
+  assert.equal(a.model, 'sonnet');
+  for (const h of ['## Receives', '## Method', '## Returns', '## Never']) assert.ok(a.text.includes(h), h);
+  assert.ok(a.text.includes('answered: <answer> (source: `<path>[:<line>]`)'), 'the answered form');
+  assert.ok(a.text.includes('owner: <why nothing written settles it>'), 'the owner form');
+  const never = neverOf(a.text);
+  for (const re of [/write or edit any file/i, /own judgement/i, /plan approval/i, /retro answer/i]) assert.match(never, re, String(re));
+});
+
+test('upfront AC-5 triage: requirements-triage is a helper of the requirements stage of both scripts, in both schema copies, and PACKS ships it in devkit-core', () => {
+  for (const dir of ['plugins/openspec/schemas', 'openspec/schemas']) {
+    for (const script of ['devkit', 'devkit-lite']) {
+      const flow = JSON.parse(readRepo(...dir.split('/'), script, 'flow.json'));
+      const stage = flow.stages.find((s) => s.id === 'requirements');
+      assert.deepEqual(stage.helpers, ['codebase-researcher', 'requirements-triage'], `${dir}/${script}`);
+    }
+  }
+  for (const script of ['devkit', 'devkit-lite']) assert.ok(scriptAgentsOf(FLOWS[script]).includes('requirements-triage'), script);
+  assert.equal(PACKS['requirements-triage'], 'devkit-core');
+  assert.match(readRepo('docs', 'roles.md'), /## requirements-triage\n[\s\S]*?- Played today by: The agent `devkit-core:requirements-triage`/);
+});
+const scriptAgentsOf = (flow) => changeLoopModule.scriptAgents(flow);
+
+// The change `feat` of `root` records `x-devkit-flow: <pin>` (none for null), as a change opened with that flow does; committed.
+function pinFeat(root, pin) {
+  const file = join(root, 'openspec', 'changes', 'feat', '.openspec.yaml');
+  put(root, { 'openspec/changes/feat/.openspec.yaml': `${readFileSync(file, 'utf8')}${pin === null ? '' : `x-devkit-flow: ${pin}\n`}` });
+  commitAll(root, `feat follows flow ${pin}`);
+  return root;
+}
+
+// Invariant (T-18, D-13: a change run may hand the triage to a change whose flow lists it, with no prefix or devkit-core's). Layer: the `agent` lock, H3.
+// Suite: change-loop. Its scratch changes record flow 2, as an open with this release does; with no pin they follow flow 1, which does not list the triage (D-17).
+test('upfront AC-5 triage: a change run may hand devkit-core:requirements-triage', () => {
+  const transcript = runTranscript();
+  for (const root of [pinFeat(liteChange(), 2), pinFeat(approvedChange(), 2)]) {
+    for (const type of ['devkit-core:requirements-triage', 'requirements-triage']) {
+      const r = hook('agent', agentInput(root, transcript, type));
+      assert.equal(r.code, 0, `${type}: ${r.err}`);
+    }
+    assert.equal(hook('agent', agentInput(root, transcript, 'devkit-openspec:requirements-triage')).code, 2, 'another pack\'s prefix is refused');
+  }
+});
+
+// ---- phase 8: the triage ships as flow version 2 of devkit and devkit-lite (design D-17, AC-5)
+
+const FLOW_DIRS = [['plugins', 'openspec', 'schemas'], ['openspec', 'schemas']];
+const TRIAGE_SCRIPTS = ['devkit', 'devkit-lite'];
+const digestOfFile = (...p) => `sha256:${createHash('sha256').update(readFileSync(join(REPO_ROOT, ...p))).digest('hex')}`;
+const helpersOf = (flow) => flow.stages.find((s) => s.id === 'requirements').helpers;
+
+// Invariant (AC-5, D-17): the triage is a helper of the grill from flow version 2 of both scripts, in both schema copies, and the kept
+// flows/2.json is the installed flow.json byte for byte. Layer: the flow files. Suite: change-loop.
+test('upfront AC-5 flow: version 2 of devkit and devkit-lite names requirements-triage among the grill\'s helpers in both copies, and flows/2.json is flow.json', () => {
+  for (const dir of FLOW_DIRS) {
+    for (const script of TRIAGE_SCRIPTS) {
+      const where = `${dir[0]}/${script}`;
+      const text = readRepo(...dir, script, 'flow.json');
+      const flow = JSON.parse(text);
+      assert.equal(flow.version, 2, `${where}: flow.json is version 2`);
+      assert.deepEqual(helpersOf(flow), ['codebase-researcher', 'requirements-triage'], `${where}: the grill's helpers`);
+      assert.ok(existsSync(join(REPO_ROOT, ...dir, script, 'flows', '2.json')), `${where}: flows/2.json exists`);
+      assert.equal(readRepo(...dir, script, 'flows', '2.json'), text, `${where}: flows/2.json is flow.json`);
+    }
+  }
+});
+
+// Invariant (AC-5, D-17 x change-version-pin D-2): a released version never changes: flows/1.json of both scripts is version 1 as released,
+// with no triage, and devkit-project, whose content did not change, stays at version 1. Layer: the flow files and the released digests. Suite: change-loop.
+test('upfront AC-5 flow: flows/1.json of devkit and devkit-lite is released version 1, without requirements-triage, and devkit-project stays at version 1', () => {
+  const released = JSON.parse(readRepo('scripts', 'released-flows.json'));
+  for (const dir of FLOW_DIRS) {
+    for (const script of TRIAGE_SCRIPTS) {
+      const where = `${dir[0]}/${script}`;
+      const one = JSON.parse(readRepo(...dir, script, 'flows', '1.json'));
+      assert.equal(one.version, 1, `${where}: flows/1.json is version 1`);
+      assert.deepEqual(helpersOf(one), ['codebase-researcher'], `${where}: version 1 has no triage`);
+      assert.equal(digestOfFile(...dir, script, 'flows', '1.json'), released[script]['1'], `${where}: the digest of version 1 is the released one`);
+    }
+    const project = JSON.parse(readRepo(...dir, 'devkit-project', 'flow.json'));
+    assert.equal(project.version, 1, `${dir[0]}/devkit-project: flow.json stays at version 1`);
+    assert.equal(existsSync(join(REPO_ROOT, ...dir, 'devkit-project', 'flows', '2.json')), false, `${dir[0]}/devkit-project: no flows/2.json`);
+  }
+  assert.deepEqual(Object.keys(released['devkit-project']), ['1'], 'devkit-project records version 1 only');
+});
+
+// Invariant (AC-5, D-17 x change-version-pin D-8): scripts/released-flows.json records the digest of each released version, the one
+// scripts/check.py#flow_digest computes. Layer: the released digests. Suite: change-loop.
+test('upfront AC-5 flow: released-flows.json records the digest of flows/2.json of devkit and devkit-lite', () => {
+  const released = JSON.parse(readRepo('scripts', 'released-flows.json'));
+  for (const script of TRIAGE_SCRIPTS) {
+    assert.ok(existsSync(join(REPO_ROOT, 'plugins', 'openspec', 'schemas', script, 'flows', '2.json')), `${script}: flows/2.json exists`);
+    const digest = digestOfFile('plugins', 'openspec', 'schemas', script, 'flows', '2.json');
+    assert.match(digest, /^sha256:[0-9a-f]{64}$/);
+    assert.equal(released[script]['2'], digest, `${script}: the recorded digest of version 2`);
+    assert.equal(digestOfFile('openspec', 'schemas', script, 'flows', '2.json'), digest, `${script}: the openspec/schemas copy is the same bytes`);
+  }
+});
+
+// A project with the tree's schemas and one `devkit` change per pin of `pins` ({ id: flow | null }); `files` of `(id, c0)` are written
+// into each change's folder before the one commit. Returns the root.
+function pinnedProject(pins, files = () => ({})) {
+  const root = gitRepo({ config: 'schema: devkit\n' });
+  const c0 = git(root, 'rev-parse', 'HEAD');
+  for (const [id, pin] of Object.entries(pins)) {
+    put(root, {
+      [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${pin === null ? '' : `x-devkit-flow: ${pin}\n`}`,
+      ...Object.fromEntries(Object.entries(files(id, c0)).map(([f, b]) => [`openspec/changes/${id}/${f}`, b])),
+    });
+  }
+  commitAll(root, 'changes');
+  return root;
+}
+const actionOfChange = (root, id) => {
+  const r = main(['next', '--change', id, '--lang', 'en'], { cwd: root, env: cleanEnv });
+  assert.equal(r.code, 0, `${id}: ${r.stdout}${r.stderr}`);
+  return actionOf(r.stdout);
+};
+const PINS = { none: null, one: 1, two: 2 };
+const WITH_TRIAGE = ['codebase-researcher', 'requirements-triage'];
+const WITHOUT_TRIAGE = ['codebase-researcher'];
+
+// Invariant (AC-5, D-17): the grill action names the helpers of the requirements stage of the flow the change follows, so the triage is
+// offered to a change on flow 2 only: none with no pin or on flow 1, until `flow <id>` moves it. The grill sent back by an unsourced triage
+// answer says the same, and no other action carries `helpers`. Layer: decide (planPart) through next. Suite: change-loop.
+test('upfront AC-5 triage: the grill of a change on flow 1 names no triage helper and that of a change on flow 2 names it', () => {
+  const root = pinnedProject(PINS);
+  for (const [id, expected] of [['none', WITHOUT_TRIAGE], ['one', WITHOUT_TRIAGE], ['two', WITH_TRIAGE]]) {
+    const action = actionOfChange(root, id);
+    assert.deepEqual([action.kind, action.stage], ['grill', 'requirements'], id);
+    assert.deepEqual(action.helpers, expected, `${id}: the helpers of its flow's grill`);
+  }
+  // a change on flow 1 moved by the owner's command follows flow 2 and gets the triage
+  const moved = main(['flow', 'one', '--lang', 'en'], { cwd: root, env: cleanEnv });
+  assert.equal(moved.code, 0, moved.stdout + moved.stderr);
+  assert.deepEqual(actionOfChange(root, 'one').helpers, WITH_TRIAGE, 'the moved change');
+  assert.deepEqual(actionOfChange(root, 'none').helpers, WITHOUT_TRIAGE, 'a change nobody moved');
+  // the grill sent back by a triage answer with no source carries the helpers of its flow too, and only grill actions carry them
+  const unsourced = pinnedProject(PINS, (id, c0) => ({
+    'requirements.md': `${head('requirements', c0)}# Requirements\n\n${TRIAGE_HEAD}\n\n1. [scope] May it use a cron? → yes\n`,
+  }));
+  for (const [id, expected] of [['none', WITHOUT_TRIAGE], ['one', WITHOUT_TRIAGE], ['two', WITH_TRIAGE]]) {
+    const action = actionOfChange(unsourced, id);
+    assert.deepEqual([action.kind, action.detail], ['grill', { unsourced: ['[scope] May it use a cron? → yes'] }], id);
+    assert.deepEqual(action.helpers, expected, `${id}: the grill sent back`);
+  }
+  const sourced = pinnedProject({ two: 2 }, (id, c0) => ({ 'requirements.md': `${head('requirements', c0)}# Requirements\n` }));
+  const agentAction = actionOfChange(sourced, 'two');
+  assert.deepEqual([agentAction.kind, 'helpers' in agentAction], ['agent', false], 'an agent action has no helpers key');
+});
+
+// Invariant (AC-5, D-17): the change run's hand-off lock reads the roles of the flow the change follows: the triage is a role of a change on
+// flow 2 and not of one on flow 1 (or with no pin), which gets the label not-a-role; the grill's other helper stays one. Layer: the agent lock, H3,
+// through a real guard.mjs agent process. Suite: change-loop.
+test('upfront AC-5 lock agent: a change run on flow 1 refuses devkit-core:requirements-triage as not-a-role, and one on flow 2 allows it', () => {
+  const transcript = runTranscript();
+  const tmp = sandbox();
+  const log = join(sandbox(), 'hooks.jsonl');
+  const call = (root, type) => hook('agent', agentInput(root, transcript, type), { TMPDIR: tmp, DEVKIT_HOOK_LOG: log });
+  for (const make of [liteChange, approvedChange]) {
+    for (const pin of [null, 1]) {
+      const root = pinFeat(make(), pin);
+      for (const type of ['devkit-core:requirements-triage', 'requirements-triage']) {
+        const r = call(root, type);
+        assert.equal(r.code, 2, `${type} on flow ${pin ?? 'none'}: ${r.err}`);
+        assert.match(r.err, /is not one of them/);
+        assert.doesNotMatch(r.err.split(';')[0], /requirements-triage/, 'the roles the refusal lists do not include the triage');
+      }
+      assert.equal(call(root, 'devkit-core:codebase-researcher').code, 0, `the grill's other helper stays allowed on flow ${pin ?? 'none'}`);
+    }
+    const two = pinFeat(make(), 2);
+    for (const type of ['devkit-core:requirements-triage', 'requirements-triage']) {
+      const r = call(two, type);
+      assert.equal(r.code, 0, `${type} on flow 2: ${r.err}`);
+    }
+  }
+  const records = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  assert.deepEqual([...new Set(records.filter((r) => r.decision === 'refuse').map((r) => r.why))], ['not-a-role'], 'every refusal is labelled not-a-role');
+  assert.equal(records.filter((r) => r.decision === 'refuse').length, 8);
+});
+
+// Invariant (AC-5, D-17): the skills hand the drafted questions to the triage only when the loop's grill action names it in `helpers`, each
+// naming where it reads the permission, and ask the owner every question otherwise. Layer: skill text. Suite: change-loop.
+test('upfront AC-5 skill: the grill skill and the devkit skill hand the triage only when the grill action\'s helpers name it', () => {
+  const grill = readRepo('plugins', 'core', 'skills', 'requirements-grill', 'SKILL.md');
+  const step = grill.slice(grill.indexOf('### 2b. Triage first'), grill.indexOf('### 3. Grill on the four axes')).replace(/\s+/g, ' ');
+  const devkit = readRepo('plugins', 'openspec', 'skills', 'devkit', 'SKILL.md');
+  const item = devkit.split('\n').find((l) => l.startsWith('- `grill`:')).replace(/\s+/g, ' ');
+  const triageItem = devkit.split('\n').find((l) => l.startsWith('- `triage`:')).replace(/\s+/g, ' ');
+  for (const [name, text] of [['step 2b of the grill skill', step], ['the grill item of the devkit skill', item]]) {
+    assert.match(text, /`helpers`[^.]*`requirements-triage`/, `${name}: the helpers name the triage`);
+    assert.ok(text.includes('every question goes to the owner, one at a time'), `${name}: with no permission the owner is asked every question`);
+    assert.ok(text.includes('`ask.action`'), `${name}: the coordinating session reads ask.action`);
+    assert.match(text, /`next` \(or `session-next`\)/, `${name}: the action a lone change or a change session reads`);
+  }
+  assert.match(step, /`triage` action[^.]*only for a grill whose `helpers` name/, 'step 2b: the check\'s triage action carries no helpers and is given only for a grill that names them');
+  assert.match(triageItem, /`helpers`/, 'the triage item says the check gives it only for a grill whose helpers name the triage');
+});
+
+test('upfront AC-11 next: a requirements file set back to pending after the proposal gives the grill', () => {
+  const root = planChange({ have: ['requirements', 'decisions', 'proposal'], results: { requirements: 'pending' }, attempts: { requirements: 2 } });
+  const r = next(root);
+  assert.equal(r.code, 0, r.stderr);
+  const { action } = parsed(r);
+  assert.deepEqual([action.kind, action.stage, action.role], ['grill', 'requirements', 'change-coordinator']);
+});
+
+test('upfront AC-11 delivery: renumber-adr is a hand-off of the implementer, with the files in its detail', () => {
+  assert.ok(ROW_STEPS.includes('renumber-adr'));
+  const files = [{ from: 'docs/adr/0016-a.md', to: 'docs/adr/0018-a.md', number: '0018' }];
+  const a = build(rowOf('renumber-adr', { files, agent: TDD }));
+  assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', TDD, 'renumber-adr', 'implementation', 'tdd-implementer', 0]);
+  assert.deepEqual(a.detail.files, files);
+  assert.equal(a.progressKey, 'implementation/renumber-adr@abc123');
 });
 
 // ---------------------------------------------------------------- remote-worker: the claim at open (phase 1)
@@ -3909,10 +4345,10 @@ const BOARD_LINK = 'https://acme.atlassian.net/jira/software/projects/PROJ/board
 const TASK_OF_482 = { key: 'PROJ-482', link: null, idPrefix: 'proj-482' };
 
 // A committed change `id` whose requirements record the Jira key on the first line of its request section.
-function addTaskChange(root, id, line = `Jira: PROJ-482 ${TASK_LINK}`) {
+function addTaskChange(root, id, line = `Jira: PROJ-482 ${TASK_LINK}`, { flow = null } = {}) {
   const c0 = git(root, 'rev-parse', 'HEAD');
   put(root, {
-    [`openspec/changes/${id}/.openspec.yaml`]: 'schema: devkit\n',
+    [`openspec/changes/${id}/.openspec.yaml`]: `schema: devkit\n${flow === null ? '' : `x-devkit-flow: ${flow}\n`}`,
     [`openspec/changes/${id}/requirements.md`]: `${head('requirements', c0)}# Requirements\n\n## Request\n\n${line}\n\nTitle:\n\n> Login times out after 30 seconds\n\n## Assumptions\n\n- \n`,
     [`openspec/changes/${id}/${PLAN_FILES.decisions}`]: `${head('decisions', c0)}# decisions\n`, // the stage-roles decisions stage comes before the proposal
   });
@@ -3937,9 +4373,11 @@ test('jira-entry AC-2 start answers the same task for a browse link and a board 
   }
 });
 
+// Invariant (T-25, D-13): a Jira key or its link resumes the unfinished change that records it and says where it stopped; layer: startMode; suite: change-loop.
+// The change records flow 2, as an open with this release does.
 test('jira-entry AC-5 start resumes the unfinished change that records the key, for the key and for its link', () => {
   const t = freshProject();
-  addTaskChange(t.main, 'proj-482-login-timeout');
+  addTaskChange(t.main, 'proj-482-login-timeout', undefined, { flow: 2 });
   addChange(t.main, 'other');
   for (const typed of ['PROJ-482', TASK_LINK, BOARD_LINK]) {
     const b = body(startRun(t.main, `change ${typed}`));
@@ -5653,5 +6091,101 @@ test('commit-attribution AC-1 T20 the request, the ship-change skill and the age
     assert.ok(ASK().includes(part), `the request: ${part}`);
     assert.ok(shipSection.includes(part), `the ship-change section: ${part}`);
     assert.ok(receives.includes(part), `the agent's Receives: ${part}`);
+  }
+});
+
+// ---------------------------------------------------------------- roadmap-sessions-upfront, phase 5: the held state through changeState (design D-6, D-11)
+
+const heldFacts = (over = {}) => ({ sessionMode: true, started: true, inflight: null, declared: null, waits: false, queued: null, occupied: false, waitsFor: null, ...over });
+const AT_HELD = '2026-11-21T10:00:00.000Z';
+
+test('upfront AC-10 facts: runFactsOf reads the change\'s queue entry, its place and its waitsFor, and no other change\'s', () => {
+  const file = (over = {}) => ({
+    changeSessions: true, startedSessions: {}, inflight: {}, declared: {}, announced: {}, starting: [],
+    queued: { a: { at: AT_HELD, why: 'load' }, b: { at: AT_HELD, why: 'place' } }, occupied: { c: { at: AT_HELD } }, waitsFor: { a: 'x', b: 'y' }, ...over,
+  });
+  const a = runFactsOf(file(), 'a', { onRoadmap: true });
+  assert.deepEqual([a.queued, a.occupied, a.waitsFor], [{ at: AT_HELD, why: 'load' }, false, 'x']);
+  const c = runFactsOf(file(), 'c', { onRoadmap: true });
+  assert.deepEqual([c.queued, c.occupied, c.waitsFor], [null, true, null]);
+  const none = runFactsOf(file(), 'd', { onRoadmap: true });
+  assert.deepEqual([none.queued, none.occupied, none.waitsFor], [null, false, null], 'another change\'s entries are not this one\'s');
+  const bare = runFactsOf({ changeSessions: true }, 'a', { onRoadmap: true });
+  assert.deepEqual([bare.queued, bare.occupied, bare.waitsFor], [null, false, null], 'a run file with none of the three fields');
+});
+
+test('upfront AC-10 state: a running change queued for a place reads held-place with its board words and the title ⏳ <id>', () => {
+  const action = build(rowOf('implement', { phase: 1 }), {}, {});
+  assert.deepEqual([action.kind, action.stage], ['agent', 'implementation']);
+  for (const lang of ['en', 'pt-BR']) {
+    const s = changeState(action, heldFacts({ queued: { at: AT_HELD, why: 'place' } }), { lang });
+    assert.deepEqual([s.state, s.reason.code, s.reason.text], ['running', 'held-place', MESSAGES[lang]['queue.held-place']], lang);
+    assert.deepEqual([s.stateIcon, s.stageIcon, s.title], ['⏳', '🛠️', '⏳ feat'], lang);
+  }
+  assert.equal(MESSAGES.en['queue.held-place'], 'open, waits for a place');
+  assert.equal(MESSAGES['pt-BR']['queue.held-place'], 'aberta, espera uma vaga');
+  assert.deepEqual(changeLoopModule.HELD_TEXT, { 'held-place': 'queue.held-place', 'held-load': 'queue.held-load', 'held-after': 'queue.held-after' });
+  assert.equal(changeLoopModule.WAIT_ICON, '⏳');
+});
+
+test('upfront AC-10 state: a running change queued by the load reads held-load', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const s = changeState(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'load' } }), { lang });
+    assert.deepEqual([s.state, s.reason.code, s.reason.text, s.title, s.stageIcon], ['running', 'held-load', MESSAGES[lang]['queue.held-load'], '⏳ feat', '📝'], lang);
+  }
+  assert.equal(MESSAGES.en['queue.held-load'], 'open, held by the load');
+});
+
+test('upfront AC-10 state: a plan stage whose dependency is not archived reads held-after naming it', () => {
+  for (const lang of ['en', 'pt-BR']) {
+    const s = changeState(planStage(), heldFacts({ waitsFor: 'dep' }), { lang });
+    assert.deepEqual([s.state, s.reason.code, s.reason.text, s.title], ['running', 'held-after', render(lang, 'queue.held-after', { after: 'dep' }), '⏳ feat'], lang);
+  }
+  assert.equal(stateOf(planStage(), heldFacts({ waitsFor: 'dep' })).reason.text, 'open, waits for dep');
+  const ready = stateOf(planStage(), heldFacts({ started: false, waitsFor: 'dep' }));
+  assert.equal(ready.reason.code, 'held-after', 'a held reason replaces ready, as the board placed those rows');
+  const queuedFirst = stateOf(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'place' }, waitsFor: 'dep' }));
+  assert.equal(queuedFirst.reason.code, 'held-place', 'the queue entry is read before the dependency');
+});
+
+test('upfront AC-10 state: a change that holds a place, or has no queue entry and no waitsFor, gets no held reason', () => {
+  const occupied = stateOf(planStage(), heldFacts({ queued: { at: AT_HELD, why: 'place' }, occupied: true }));
+  assert.deepEqual([occupied.state, occupied.reason, occupied.stateIcon, occupied.title], ['running', null, null, '📝 feat'], 'a place held');
+  const plain = stateOf(planStage(), heldFacts());
+  assert.deepEqual([plain.state, plain.reason, plain.title], ['running', null, '📝 feat']);
+  const ready = stateOf(planStage(), heldFacts({ started: false }));
+  assert.equal(ready.reason.code, 'ready', 'no entry: ready stays');
+});
+
+test('upfront AC-10 state: a change waiting for the owner, blocked or waiting on GitHub keeps its state and title over a queue entry or a waitsFor', () => {
+  const held = { queued: { at: AT_HELD, why: 'place' }, waitsFor: 'dep' };
+  const owner = stateOf(approvalEnd(), heldFacts(held));
+  assert.deepEqual([owner.state, owner.reason.code, owner.title], ['waiting-for-owner', 'waiting-approval', '🙋 📝 feat']);
+  const blocked = stateOf(ceilingEnd(), heldFacts(held));
+  assert.deepEqual([blocked.state, blocked.reason.code, blocked.title], ['blocked', 'ceiling', '⛔ 📝 feat']);
+  const github = stateOf(build(rowOf('wait-checks', { pending: ['build'] })), heldFacts(held));
+  assert.deepEqual([github.state, github.title], ['waiting-on-github', '⏳ 🚀 feat'], 'the GitHub wait keeps its stage icon beside ⏳');
+  const grill = stateOf(grillOf(), heldFacts(held));
+  assert.deepEqual([grill.state, grill.title], ['waiting-for-owner', '🙋 ❓ feat']);
+});
+
+test('upfront AC-10 state: outside a run with a session per change a queue entry or a waitsFor gives no held reason', () => {
+  const entries = { queued: { at: AT_HELD, why: 'place' }, waitsFor: 'dep' };
+  const noSessions = stateOf(planStage(), heldFacts({ ...entries, sessionMode: false, started: false }));
+  assert.deepEqual([noSessions.state, noSessions.reason, noSessions.title], ['running', null, '📝 feat']);
+  assert.deepEqual(stateOf(planStage(), null).reason, null, 'no facts at all');
+  const file = { changeSessions: false, startedSessions: {}, inflight: {}, declared: {}, announced: {}, starting: [], ...entries, queued: { feat: entries.queued }, waitsFor: { feat: 'dep' } };
+  const facts = runFactsOf(file, 'feat', { onRoadmap: true });
+  assert.equal(stateOf(planStage(), facts).reason, null, 'a run file without the mode');
+});
+
+test('upfront AC-10 state: a held title of a 70-character id is cut to 59 code points', () => {
+  const ctx = { id: 'x'.repeat(70) };
+  for (const facts of [heldFacts({ queued: { at: AT_HELD, why: 'place' } }), heldFacts({ queued: { at: AT_HELD, why: 'load' } }), heldFacts({ waitsFor: 'dep' })]) {
+    const s = stateOf(planStage({ ctx }), facts);
+    assert.equal(s.reason?.code?.startsWith('held-'), true, 'a held reason');
+    const title = s.title;
+    assert.ok(title.startsWith('⏳ xxx'), title);
+    assert.equal([...title].length, 59);
   }
 });

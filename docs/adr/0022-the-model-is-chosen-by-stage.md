@@ -1,4 +1,4 @@
-# ADR 0021: The model is chosen by stage, sessions only step down and never below the stages they still run, and a failed stage is retried once a model up
+# ADR 0022: The model is chosen by stage, sessions only step down and never below the stages they still run, and a failed stage is retried once a model up
 
 - Status: accepted
 - Status: Accepted by: the owner, on 2026-11-23, in the approval of the plan of change stage-models (openspec/changes/stage-models/approval.md)
