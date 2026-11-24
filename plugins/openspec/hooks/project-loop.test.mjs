@@ -1062,7 +1062,7 @@ test('project-loop next: S12 a review at its ceiling ends blocked', () => {
   assert.equal(r.code, 2);
   const a = body(r);
   assert.deepEqual([a.kind, a.end.state, a.end.why, a.stage], ['end', 'blocked', 'ceiling', 'review']);
-  assert.match(a.reply, /failed 2 times, which is its limit/);
+  assert.match(a.reply, /reached its limit of failures in a row \(2\)/);
 });
 
 // The archived-on-its-branch rows: the slice reviewed and archived in its worktree.

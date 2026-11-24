@@ -192,7 +192,7 @@ test('change-loop replies: a stage reads as a noun phrase in each language', () 
   assert.equal(render('en', 'where.next', { stage: 'E2E tests' }), 'next is the E2E tests');
   assert.equal(render('pt-BR', 'where.next', { stage: 'Revisão do plano' }), 'a próxima é a etapa Revisão do plano');
   assert.equal(render('en', 'waiting-unrun-stage', { id: 'x', stage: 'Screen mock-up' }), 'The screen mock-up of x has an unfinished file that no role of this version can finish: tell me its result, or remove it.');
-  assert.equal(render('pt-BR', 'blocked', { id: 'x', why: 'ceiling', stage: 'Revisão do plano', attempt: 3 }), 'A change x parou: a etapa Revisão do plano falhou 3 vezes, que é o limite. Nada mais roda até isso ser resolvido.');
+  assert.equal(render('pt-BR', 'blocked', { id: 'x', why: 'ceiling', stage: 'Revisão do plano', attempt: 3 }), 'A change x parou: a etapa Revisão do plano chegou ao limite de falhas seguidas (3). Nada mais roda até isso ser resolvido.');
 });
 
 // ---------------------------------------------------------------- the decision, synthetic (D-5)
@@ -274,10 +274,10 @@ test('change-loop decide: P4 a plan stage with a missing, unjudged or stale file
 });
 
 test('change-loop decide: P5 a stage offered because the readiness failed goes to the planner, naming the failure', () => {
-  const next = nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 1, ceiling: 3 });
+  const next = nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 1, failures: 1, ceiling: 3 });
   const a = run({ rep: { next, stages: { readiness: { state: 'failed', reasonCode: 'header-failed' } } } });
   assert.deepEqual([a.kind, a.agent, a.stage], ['agent', PLANNER, 'proposal']);
-  assert.match(a.brief, /readiness failed at attempt 1 of 3: revise the plan from its findings/);
+  assert.match(a.brief, /readiness failed at attempt 1 \(failures in a row: 1 of 3\): revise the plan from its findings/);
 });
 
 test('change-loop decide: P6 the approval awaited ends waiting for the owner with the readiness hash', () => {
@@ -3026,10 +3026,10 @@ test('stage-roles loop: the E2E tests are handed to the E2E tester with the decl
 
 test('stage-roles loop: fix-tests a red test stage goes back to the implementer, naming the failed stage and its file', () => {
   for (const [failed, file] of [['unit-tests', 'unit-tests.md'], ['e2e-tests', 'e2e-tests.md']]) {
-    const a = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed, attempt: 2, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: TESTS } });
+    const a = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed, attempt: 2, failures: 2, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: TESTS } });
     assert.deepEqual([a.kind, a.agent, a.step, a.stage, a.role, exitCodeOf(a)], ['agent', TDD, 'fix-tests', 'implementation', 'tdd-implementer', 0], failed);
     assert.deepEqual(a.detail, { failed, file });
-    assert.match(a.brief, new RegExp(`${failed} failed at attempt 2 of 3: fix the code from ${file}, test first, within the approved tasks`));
+    assert.match(a.brief, new RegExp(`${failed} failed at attempt 2 \\(failures in a row: 2 of 3\\): fix the code from ${file}, test first, within the approved tasks`));
     assert.equal(a.progressKey, 'implementation/fix-tests@abc123');
   }
 });
@@ -5407,7 +5407,7 @@ test('change-state AC-3 state: each blocked reason decide gives is the reason, w
       assert.equal(s.stateIcon, '⛔');
     });
   }
-  assert.equal(stateOf(cases.ceiling).reason.text, 'the plan readiness failed 3 times, which is its limit');
+  assert.equal(stateOf(cases.ceiling).reason.text, 'the plan readiness reached its limit of failures in a row (3)');
   assert.equal(stateOf(cases['pr-closed']).reason.text, 'pull request #12 was closed without merging');
   assert.equal(stateOf(cases.unreadable).reason.text, 'the change cannot be read (boom)');
 });
@@ -5516,7 +5516,7 @@ test('change-state AC-4 state: S1 to S8 each give their state', async (t) => {
   await t.test('S1 a session per change and a declared end: the declared end', () => {
     const blockedEnd = { state: 'blocked', why: 'ceiling', params: { stage: 'Plan readiness', attempt: 3 } };
     const s = stateOf(plan, F({ sessionMode: true, started: true, declared: blockedEnd, inflight: { kind: 'agent', stage: 'design' } }));
-    assert.deepEqual([s.state, reasonOf(s), s.reason.text, s.stage], ['blocked', 'ceiling', 'the plan readiness failed 3 times, which is its limit', 'proposal']);
+    assert.deepEqual([s.state, reasonOf(s), s.reason.text, s.stage], ['blocked', 'ceiling', 'the plan readiness reached its limit of failures in a row (3)', 'proposal']);
     const waits = stateOf(null, F({ sessionMode: true, declared: { state: 'waiting-for-owner', why: 'waiting-pr-decision', params: {} } }), { id: 'x' });
     assert.deepEqual([waits.state, reasonOf(waits), waits.reason.text, waits.stage], ['waiting-for-owner', 'waiting-pr-decision', 'a decision only you can take', null]);
     const named = stateOf(null, F({ sessionMode: true, declared: { state: 'waiting-for-owner', why: 'waiting-pr-decision', params: { gate: 'merge' } } }), { id: 'x' });
@@ -6186,4 +6186,22 @@ test('upfront AC-10 state: a held title of a 70-character id is cut to 59 code p
     assert.ok(title.startsWith('⏳ xxx'), title);
     assert.equal([...title].length, 59);
   }
+});
+
+// stage-ceiling-consecutive (AC-6, the loops): the ceiling and the fix briefs say the failures in a row.
+test('stage-ceiling-consecutive AC-6 loop: the ceiling reply says the failures in a row, in both languages', () => {
+  const ended = (lang, params) => run({ ctx: { lang }, rep: { end: endOf('blocked', 'evidence', 'ceiling-reached', { stage: 'evidence', ceiling: 3, ...params }) } });
+  const full = { attempt: 5, failures: 3 };
+  assert.equal(ended('en', full).reply, 'The change feat stopped: the demonstration reached its limit of failures in a row (3). Nothing more runs until this is sorted out.');
+  assert.equal(ended('pt-BR', full).reply, 'A change feat parou: a etapa Demonstração chegou ao limite de falhas seguidas (3). Nada mais roda até isso ser resolvido.');
+  // Params that carry no `failures` (an end recorded before this release) render the attempt.
+  assert.equal(ended('en', { attempt: 4 }).reply, 'The change feat stopped: the demonstration reached its limit of failures in a row (4). Nothing more runs until this is sorted out.');
+  assert.equal(ended('pt-BR', { attempt: 4 }).reply, 'A change feat parou: a etapa Demonstração chegou ao limite de falhas seguidas (4). Nada mais roda até isso ser resolvido.');
+});
+
+test('stage-ceiling-consecutive AC-6 loop: the fix briefs name the failures in a row', () => {
+  const plan = run({ rep: { next: nextOf(FLOWS.devkit, 'proposal', 'fix-after-failure', { failed: 'readiness', attempt: 3, failures: 1, ceiling: 3 }) } });
+  assert.ok(plan.brief.includes('readiness failed at attempt 3 (failures in a row: 1 of 3): revise the plan from its findings'), plan.brief);
+  const tests = run({ rep: { next: nextOf(FLOWS.devkit, 'implementation', 'fix-after-failure', { failed: 'unit-tests', attempt: 3, failures: 1, ceiling: 3 }) }, facts: { row: rowOf('commit'), tests: { unit: 'npm test', e2e: null } } });
+  assert.ok(tests.brief.includes('unit-tests failed at attempt 3 (failures in a row: 1 of 3): fix the code from unit-tests.md, test first, within the approved tasks'), tests.brief);
 });

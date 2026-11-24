@@ -68,21 +68,21 @@ task with `git status --short`.
 
 ## 2. The loops say the failures in a row
 
-- [ ] 2.1 Write the two new tests of D-9 in `plugins/openspec/hooks/change-loop.test.mjs`
+- [x] 2.1 Write the two new tests of D-9 in `plugins/openspec/hooks/change-loop.test.mjs`
   (`stage-ceiling-consecutive AC-6 loop: …`). Run them on the code before this phase's fix with
   `env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^stage-ceiling-consecutive AC-6 loop" plugins/openspec/hooks/change-loop.test.mjs`
   and save the output as `proof/red-change-loop.txt`. Check: both fail there.
-- [ ] 2.2 In `plugins/openspec/hooks/change-loop.mjs` (D-6): the `{failures}` special name in
+- [x] 2.2 In `plugins/openspec/hooks/change-loop.mjs` (D-6): the `{failures}` special name in
   `render`, the en and pt-BR `blocked-why.ceiling` messages, `failures: e.params?.failures` in
   `blockedEnd`, and the two `fix-after-failure` briefs (lines 1119-1121 and 1157-1160). Edit the
   existing `change-loop.test.mjs` tests of D-9's table (`change-loop replies: a stage reads as a noun
   phrase in each language`, `change-loop decide: P5 …`, `stage-roles loop: fix-tests …`,
   `change-state AC-3 state: …`, `change-state AC-4 state: …` S1). Check: the two
   `stage-ceiling-consecutive AC-6 loop` tests and the five edited tests pass.
-- [ ] 2.3 In `plugins/openspec/hooks/project-loop.mjs#blockedEnd`, pass `failures: e.params?.failures`
+- [x] 2.3 In `plugins/openspec/hooks/project-loop.mjs#blockedEnd`, pass `failures: e.params?.failures`
   beside `attempt` (D-6), and edit `project-loop next: S12 a review at its ceiling ends blocked` in
   `plugins/openspec/hooks/project-loop.test.mjs` as D-9's table says. Check: that test passes.
-- [ ] 2.4 Gate: `mkdir -p /var/tmp/devkit-stage-ceiling-consecutive && env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^change-loop" --test-name-pattern="^change-state" --test-name-pattern="^stage-roles" --test-name-pattern="^stage-ceiling-consecutive" --test-name-pattern="^project-loop" --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py`
+- [x] 2.4 Gate: `mkdir -p /var/tmp/devkit-stage-ceiling-consecutive && env TMPDIR=/var/tmp/devkit-stage-ceiling-consecutive GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^change-loop" --test-name-pattern="^change-state" --test-name-pattern="^stage-roles" --test-name-pattern="^stage-ceiling-consecutive" --test-name-pattern="^project-loop" --test-name-pattern="^roadmap-loop" plugins/openspec/hooks/change-loop.test.mjs plugins/openspec/hooks/project-loop.test.mjs plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py`
   green; covers AC-6 (the loops).
 
 ## 3. Release, proof and the whole suite
