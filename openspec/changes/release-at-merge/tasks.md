@@ -233,33 +233,33 @@ K0 and N of D-16 (under `$TMPDIR/devkit-proof-release-at-merge`), each change op
 worktree's `node plugins/openspec/hooks/change-loop.mjs open`; each case appends its commands, the
 seeded files it names and the outputs to `proof/agents-run.md` under `## S-<n> `.
 
-- [ ] 7.1 In K run the `adr-author` on the decisions stage (S-1). Done when the record is
+- [x] 7.1 In K run the `adr-author` on the decisions stage (S-1). Done when the record is
   `docs/adr/<slug>.md` titled `# ADR [<slug>]` and `decisions.md` lists it (AC-5, AC-6).
-- [ ] 7.2 In K run the `change-planner` on its plan stages (S-2). Done when `release.md` exists,
+- [x] 7.2 In K run the `change-planner` on its plan stages (S-2). Done when `release.md` exists,
   `parseReleaseNote` reads it, and `guard.mjs subagent-stop` with the planner's input lets the stop
   through (AC-1).
-- [ ] 7.3 Remove that `release.md` and run `guard.mjs subagent-stop` twice with the planner's input
+- [x] 7.3 Remove that `release.md` and run `guard.mjs subagent-stop` twice with the planner's input
   and the files it left (S-3), then restore it and run it once more. Done when the first stop is
   refused naming the file, the second goes through, and the restored one goes through (AC-1).
-- [ ] 7.4 Run the `adr-author` in K0 (S-4) and in N (S-5). Done when K0 holds a new `docs/adr/` with
+- [x] 7.4 Run the `adr-author` in K0 (S-4) and in N (S-5). Done when K0 holds a new `docs/adr/` with
   the unnumbered `docs/adr/<slug>.md` listed in `decisions.md`, and N holds `docs/adr/0002-<slug>.md`
   and no unnumbered record (AC-5, AC-9, AC-10).
-- [ ] 7.5 In K seed the planner's files with a `release.md` whose bump is `big`, run
+- [x] 7.5 In K seed the planner's files with a `release.md` whose bump is `big`, run
   `guard.mjs subagent-stop` twice with the planner's input, then run the real `change-planner` on the
   revision brief (S-6); in N run the `change-planner` on its plan stages (S-7). Done when the first
   S-6 stop is refused with `release.md:` and the field and the second goes through, the revised
   `release.md` reads and its stop goes through; and in S-7 no `release.md` is written, the stop goes
   through with no refusal and `deliver-check feat --json` shows no row N1 to N7 (AC-1, AC-9).
-- [ ] 7.6 In K run the `plan-readiness-reviewer` on three seeded plans, one defect each: no
+- [x] 7.6 In K run the `plan-readiness-reviewer` on three seeded plans, one defect each: no
   `release.md` (S-8), a noted plan whose `decisions.md` lists a numbered ADR (S-9), a noted plan with
   a task that sets `package.json`'s version (S-10). Done when each `readiness.md` has `result=failed`
   and a finding naming, in turn, `release.md`, the numbered ADR path and the task (AC-1, AC-2, AC-5,
   AC-14).
-- [ ] 7.7 In K run the `tdd-implementer` on phase 1 of a seeded, approved noted plan whose task 1.1
+- [x] 7.7 In K run the `tdd-implementer` on phase 1 of a seeded, approved noted plan whose task 1.1
   asks it to set `package.json`'s version (S-11). Done when it returns `Outcome: failure` naming the
   release line, `git diff` shows `package.json` unchanged and `deliver-check feat --json` shows no row
   N3 (AC-2).
-- [ ] 7.8 Gate: `python3 scripts/check.py && grep -q "^## S-1 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-2 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-3 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-4 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-5 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-6 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-7 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-8 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-9 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-10 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-11 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch projects removed; covers AC-15 for the conducting session's part and every agent variant.
+- [x] 7.8 Gate: `python3 scripts/check.py && grep -q "^## S-1 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-2 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-3 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-4 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-5 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-6 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-7 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-8 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-9 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-10 " openspec/changes/release-at-merge/proof/agents-run.md && grep -q "^## S-11 " openspec/changes/release-at-merge/proof/agents-run.md` green, the scratch projects removed; covers AC-15 for the conducting session's part and every agent variant.
 
 ## 8. Bootstrap and the whole suite
 

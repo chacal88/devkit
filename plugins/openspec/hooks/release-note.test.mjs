@@ -632,6 +632,17 @@ const FILED = `(?:\\d{4}-)?${SLUG}\\.md`;
 const repoText = (...parts) => readFileSync(join(here, '..', '..', '..', ...parts), 'utf8');
 const sectionOf = (text, heading) => (text.split(`\n${heading}\n`)[1] ?? '').split('\n## ')[0];
 
+// The real planner of task 7.2 (proof/agents-run.md, S-2) wrote `packs:` / `- app: minor` in a project whose release file is package.json:
+// the reader takes it, and computeRelease refuses it at the delivery (`packs: app is not a pack of this project`). Its text must say what a
+// pack is and where the release file's own bump goes.
+test('release-note AC-1 texts: the planner says a pack is a plugin manifest of the project and that the release file\'s bump goes under release:', () => {
+  const planner = repoText('plugins', 'core', 'agents', 'change-planner.md');
+  const bullet = planner.split('\n').find((l) => l.includes('**The release note**')) ?? '';
+  assert.ok(bullet.includes('`plugins/<dir>/.claude-plugin/plugin.json`'), 'the note bullet says a pack is a plugins/<dir>/.claude-plugin/plugin.json of the project');
+  assert.match(bullet, /`release:` [^.]*the file `devkit\.release_tag` names/, 'the note bullet puts the release file\'s bump under release:');
+  assert.match(bullet, /no such pack[^.]*`packs: \[\]`/, 'a project with no pack writes packs: []');
+});
+
 test('release-note AC-14 texts: the agents, the documents and the records follow the release note and the unnumbered ADR', async (t) => {
   await t.test('agents: the planner, the ADR author and reviewer, the implementer and the readiness review', () => {
     const planner = repoText('plugins', 'core', 'agents', 'change-planner.md');
