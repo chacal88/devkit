@@ -1637,7 +1637,7 @@ const redsAfter = (previous, merge, result) => {
 
 const MERGE_CHECK_ERRORS_MAX = 4000;
 
-// What `openspec validate <id> --strict --json` answered, as { result, errors, error }: green only when the CLI says the change is
+// What `openspec validate <id> --type change --strict --json` answered, as { result, errors, error }: green only when the CLI says the change is
 // valid and exits 0; red when it says it is not, with one line per issue; anything else could not be run (post-merge-validate D-3).
 function mergeCheckResult(r, id) {
   const cannot = (error) => ({ result: 'cannot-run', errors: null, error });
@@ -1657,8 +1657,8 @@ function mergeCheckResult(r, id) {
   return cannot(body?.status?.[0]?.message ?? (firstLine(r.stderr) || firstLine(r.stdout) || `exit ${r.status}`));
 }
 
-// `merge-check <id>`: runs `openspec validate <id> --strict` once for the merge of the base the branch holds and records the result in the
-// git common directory. Writes nothing in the worktree and no stage header. A red or a failed check still exits 0: the session runs `next`.
+// `merge-check <id>`: runs `openspec validate <id> --type change --strict` once for the merge of the base the branch holds and records the result in the
+// git common directory (`--type change`, so a canonical spec of the same name is no ambiguity). Writes nothing in the worktree and no stage header. A red or a failed check still exits 0: the session runs `next`.
 export function mergeCheck(cwd, id, { env = process.env, openspec } = {}) {
   const start = findRoot(cwd);
   if (!start) throw new LoopUsageError(`no openspec/ folder found from ${cwd}`);
@@ -1669,7 +1669,7 @@ export function mergeCheck(cwd, id, { env = process.env, openspec } = {}) {
   if (!merge) return { version: 1, change: id, base, merge: null, result: 'none' };
   const taken = fingerprint(root, tryGit(root, ['rev-parse', 'HEAD']));
   const run = openspec ?? makeOpenspec(root, cleanOf(env));
-  const { result, errors, error } = mergeCheckResult(run(['validate', id, '--strict', '--json']), id);
+  const { result, errors, error } = mergeCheckResult(run(['validate', id, '--type', 'change', '--strict', '--json']), id);
   const file = mergeCheckFile(root, id);
   const reds = redsAfter(readMergeCheck(file, id), merge, result);
   saveWriteBack(file, { version: 1, change: id, merge, result, reds, fingerprint: taken, errors, error, at: new Date().toISOString() });
@@ -2736,7 +2736,7 @@ export function applyAnswer(record, gate, { answer, question = '', at }) {
 // the steps the `devkit` skill's Loop describes instead (`SKILL_LOOP_STEPS`).
 const SKILL_LOOP_STEPS = ['resolve-release-conflict', 'renumber-adr'];
 const SHIP_ROW_STEPS = AGENT_STEPS.filter((step) => !SKILL_LOOP_STEPS.includes(step));
-const COMMAND_STEPS = ['switch-script', 'accept-decisions', 'take-place'];
+const COMMAND_STEPS = ['switch-script', 'accept-decisions', 'take-place', 'merge-check'];
 // The kinds whose progress key a confirmed view records as handed; any other kind clears it.
 export const HANDED_KINDS = ['agent', 'coordinator', 'review', 'gate', 'command', 'open'];
 const VIEW_FIELDS = ['version', 'kind', 'change', 'root', 'stage', 'stage_title', 'agent', 'step', 'brief', 'progress_key', 'question', 'reply'];

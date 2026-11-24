@@ -2060,15 +2060,15 @@ const pmvHeader = (stage, commit) => `<!-- devkit-stage ${stage} result=passed a
 
 // A bare origin, a clone and a worktree `feat` whose change modifies the requirement of `openspec/specs/cap/spec.md` and keeps its
 // one scenario, every plan file with a passed stage header, all committed on the branch `feat`.
-function pmvRepo() {
-  const t = roundRepo({ roadmap: PMV_ROADMAP, config: 'schema: devkit-lite\n', files: { 'openspec/specs/cap/spec.md': pmvSpec('First') } });
+function pmvRepo({ spec = 'cap' } = {}) {
+  const t = roundRepo({ roadmap: PMV_ROADMAP, config: 'schema: devkit-lite\n', files: { [`openspec/specs/${spec}/spec.md`]: pmvSpec('First') } });
   const wt = t.addWt('feat');
   const base = git(wt, 'rev-parse', 'HEAD');
   const dir = (f) => `openspec/changes/feat/${f}`;
   put(wt, {
     [dir('.openspec.yaml')]: 'schema: devkit-lite\n',
     [dir('proposal.md')]: `${pmvHeader('proposal', base)}${PMV_PROPOSAL}`,
-    [dir('specs/cap/spec.md')]: `${pmvHeader('specs', base)}${pmvDelta('First')}`,
+    [dir(`specs/${spec}/spec.md`)]: `${pmvHeader('specs', base)}${pmvDelta('First')}`,
     [dir('tasks.md')]: `${pmvHeader('tasks', base)}# Tasks\n\n## 1. First\n- [x] 1.1 code\n`,
     'src/feat.txt': 'code\n',
   });
@@ -2190,6 +2190,19 @@ test('post-merge-validate 1: a merge that brings a scenario the delta drops is r
   assert.deepEqual([pmvRecord(r.wt).result, pmvRecord(r.wt).reds], ['green', 0]);
 });
 
+test('post-merge-validate 1: a change that shares its name with a canonical spec is checked as the change: green, or red on a bad delta, never cannot-run', () => {
+  const r = pmvRepo({ spec: 'feat' });
+  pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  const green = pmvCheck(r.wt);
+  assert.equal(green.r.code, 0, green.r.stdout + green.r.stderr);
+  assert.deepEqual([green.body.result, green.body.error], ['green', null], 'the CLI is told the id names a change');
+
+  pmvMerge(r, { 'openspec/specs/feat/spec.md': pmvSpec('First', 'Second added on main') }, 'main adds a scenario');
+  const red = pmvCheck(r.wt);
+  assert.deepEqual([red.body.result, red.body.error], ['red', null]);
+  assert.match(red.body.errors, /Second added on main/);
+});
+
 // An `openspec` program that prints `body` and exits with `status`, in a folder of its own to put first on PATH.
 function pmvOpenspecStub(body, status = 1) {
   const dir = tmpFolder('devkit-pmv-stub-');
@@ -2198,6 +2211,20 @@ function pmvOpenspecStub(body, status = 1) {
   chmodSync(file, 0o755);
   return dir;
 }
+
+test('post-merge-validate 1: a red with more issues than fit is cut at 4000 characters of errors, ending in an ellipsis', () => {
+  const r = pmvRepo();
+  const merge = pmvMerge(r, { 'docs/a.txt': 'a\n' });
+  const issues = Array.from({ length: 200 }, (_, i) => ({ level: 'ERROR', path: `specs/cap/spec.md#${i}`, message: `issue number ${i} is described at some length` }));
+  const stdout = JSON.stringify({ items: [{ id: 'feat', type: 'change', valid: false, issues }] });
+  const { r: out, body } = pmvCheck(r.wt, { openspec: () => ({ status: 1, stdout, stderr: '', missing: false, timedOut: false }) });
+  assert.equal(out.code, 0, out.stdout + out.stderr);
+  assert.deepEqual([body.merge, body.result], [merge, 'red']);
+  assert.equal(body.errors.length, 4000);
+  assert.ok(body.errors.endsWith('…'));
+  assert.ok(body.errors.startsWith('- ERROR specs/cap/spec.md#0: issue number 0'));
+  assert.equal(pmvRecord(r.wt).errors, body.errors, 'the record holds the cut text');
+});
 
 test('post-merge-validate 1: a check that cannot run is cannot-run with its cause, never green, and keeps the count of reds', () => {
   const r = pmvRepo();
@@ -2318,6 +2345,8 @@ test('post-merge-validate 2: three reds in a row on one merge end blocked, the c
   assert.deepEqual([stopped.kind, stopped.end.state, stopped.end.why, stopped.stage, exitCodeOf(stopped)], ['end', 'blocked', 'merge-defect', 'evidence', 2]);
   assert.ok(stopped.reply.includes(PMV_SHA7) && stopped.reply.includes('3'), stopped.reply);
   assert.equal(stopped.reply, says('blocked', { why: 'merge-defect', sha: PMV_SHA7, attempt: 3 }));
+  const moved = build(rowOf('verify'), pmvFacts(pmvRec({ reds: 3, fingerprint: 'fff999' })));
+  assert.deepEqual([moved.kind, moved.step], ['session', 'merge-check'], 'at the ceiling, files that changed since the red offer the check again');
 
   const two = { ...FLOWS.devkit, ceilings: { ...FLOWS.devkit.ceilings, default: 2 } };
   assert.equal(run({ flow: two, rep: buildRep(), facts: { row: rowOf('verify'), ...pmvFacts(pmvRec({ reds: 1 })) } }).agent, PLANNER);

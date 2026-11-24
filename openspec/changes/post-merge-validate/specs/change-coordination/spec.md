@@ -4,11 +4,12 @@
 ## ADDED Requirements
 
 ### Requirement: A merge of the base is checked before the evidence
-On a script with an evidence stage, from the implementation on, when the change's branch holds a
-merge commit that is not on `origin/<base>` and no green check is recorded for the newest such merge,
-the loop SHALL give the session step `merge-check` of the evidence stage, whose command runs
-`openspec validate <id> --strict` in the change's root and records the result for that merge, before
-the evidence and before every delivery step that pushes or waits on the change's pull request.
+On a flow with an evidence stage, while the branch's newest merge not on `origin/<base>` has no
+green check, the loop SHALL give the evidence stage's session step `merge-check`, running `openspec
+validate <id> --strict` and recording the result for that merge, before any step that verifies,
+reviews, pushes or waits on the pull request; "From the implementation on, the step inside the stage
+goes to its role" and the waiting and owner-gate ones apply once that merge is green or there is no
+merge.
 
 #### Scenario: A merge with no check yet
 - **WHEN** the branch's newest merge commit not on `origin/<base>` has no recorded check and the delivery checker's step is `verify`
@@ -28,7 +29,7 @@ the evidence and before every delivery step that pushes or waits on the change's
 
 #### Scenario: The command with no merge
 - **WHEN** the session runs `change-loop.mjs merge-check <id>` on a branch with no merge commit outside `origin/<base>`
-- **THEN** the command prints `result: none`, writes no record, runs no `openspec validate` and exits 0
+- **THEN** the command prints its JSON answer with `"result": "none"`, writes no record, runs no `openspec validate` and exits 0
 
 #### Scenario: The command on an unknown change
 - **WHEN** `change-loop.mjs merge-check` is given an id that names no change of the project, or no id
@@ -74,7 +75,7 @@ header and task checkbox as it is. No stage header SHALL change because of the c
 - **THEN** the check is red and its recorded errors, and the planner's brief, name that requirement
 
 #### Scenario: The planner's fix is checked again
-- **WHEN** a red check is recorded and the change's files have changed since the command ran
+- **WHEN** a red check is recorded and the worktree has changed since the command ran
 - **THEN** the next action is `merge-check` again for the same merge
 
 #### Scenario: A planner that changed nothing

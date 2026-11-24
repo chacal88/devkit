@@ -86,7 +86,9 @@ read as green.
 
 `reds` counts the red checks of that merge since its last green: on red it is the previous record's
 `reds` plus one when the previous record is for the same merge, else 1; on green it is 0; on
-cannot-run it keeps the previous record's `reds` for the same merge, else 0.
+cannot-run it keeps the previous record's `reds` for the same merge, else 0. ADR 0010 decision 3
+has attempt ceilings counted by the checker; this count of reds is not an attempt (no stage header
+is spent), so it is the loop's own fact in the record, bounded by `flow.ceilings.default`.
 
 The record is a check's result, kept beside the run file and the write-back record. It is not the
 change's state: the state is still derived on every read by `decide` (ADR 0017 decision 1); the
@@ -155,8 +157,13 @@ with K1's `no-progress`; called again without that `--after` (a new `/devkit cha
 fixed the CLI), the step is offered again. A red record whose fingerprint differs (the planner changed
 files) offers the check again; a red record whose fingerprint is the same hands the planner, and a
 planner that changed nothing comes back with the same key and ends `no-progress` through `guard`
-(unchanged). The planner's hand-off carries the stage `specs` (the role `change-planner` in both
-flows; the subagent-stop lock lets it stop because the stage checker's current stage is not a plan
+(unchanged). The check is offered again after any change of the worktree, not only of the change's
+files: the `fingerprint` of flow-check covers HEAD, the status, the diff and the untracked files,
+and that width is on purpose, because a record can never read green for a tree it did not check.
+`merge-check` is a command-only session step: the CompozyOS view (`buildView` and its
+`COMMAND_STEPS` list in `change-loop.mjs`) runs it as a command step, like `take-place` and
+`accept-decisions`, with no agent (ADR 0024 decision 4). The planner's hand-off carries the stage `specs` (the role
+`change-planner` in both flows; the subagent-stop lock lets it stop because the stage checker's current stage is not a plan
 stage). Its brief (the `what` that `brief()` wraps; `<reds>` and `<ceiling>` are numbers, `<sha7>`
 the first 7 characters):
 
