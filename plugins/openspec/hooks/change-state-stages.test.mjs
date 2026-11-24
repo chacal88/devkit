@@ -153,6 +153,25 @@ test('run-status-bar AC-5 offline: at the delivery checks --offline reads waitin
   assert.deepEqual([offline.state, offline.reason.code], ['waiting-on-github', 'silent']);
 });
 
+// Invariant (S-9b, the merge-setup read is a GitHub read): in merge mode, at the code review, --offline reads the unreadable repository
+// settings as GitHub silent and makes no gh call; online, a failed read of the settings still stops the change as blocked, merge-setup.
+test('run-status-bar AC-3 offline: at the code review of a merge-mode change --offline reads waiting-on-github, silent; online a failed setup read stays blocked', () => {
+  const d = deliveredChange();
+  git(d.wt, 'rm', '-q', 'openspec/changes/feat/review.md');
+  put(d.wt, { 'openspec/config.yaml': 'schema: devkit-lite\nship:\n  devkit-lite: merge\n  devkit: merge\n' });
+  commitAll(d.wt, 'merge mode, the code review not yet run');
+  const online = realState(d.t.main, d.env, ['--change', 'feat']);
+  assert.equal(online.status, 0, online.stdout + online.stderr);
+  const on = JSON.parse(online.stdout).changes[0];
+  assert.deepEqual([on.state, on.reason.code, on.stage], ['blocked', 'merge-setup', 'review'], 'the guard: an unreadable setup read by gh blocks');
+  const before = d.gh.calls().length;
+  const offline = realState(d.t.main, d.env, ['--change', 'feat', '--offline']);
+  assert.equal(offline.status, 0, offline.stdout + offline.stderr);
+  const off = JSON.parse(offline.stdout).changes[0];
+  assert.deepEqual([off.state, off.reason.code, off.stage], ['waiting-on-github', 'silent', 'review']);
+  assert.equal(d.gh.calls().length, before, 'no gh call recorded offline');
+});
+
 // Invariant (S-10): --offline is a flag, not an option with a value.
 test('run-status-bar AC-5 offline: --offline yes exits 3 with the plain reply and prints no state', () => {
   const r = stateCmd(approvedChange(), ['--change', 'feat', '--offline', 'yes']);

@@ -44,7 +44,8 @@ export function makeGh(cwd, env = process.env, timeoutMs = GH_TIMEOUT_MS) {
 }
 
 // The `gh` that is never there: every call fails at once, so a read that needs GitHub reads it as silent and makes no call
-// (the roadmap's agent decision, and `state --offline`).
+// (the roadmap's agent decision, and `state --offline`). The loop knows it by identity (`gh === OFFLINE_GH`): its fail-closed merge setup
+// then reads as GitHub silent, not as a stop.
 export const OFFLINE_GH = () => ({ status: 1, stdout: '', stderr: 'offline' });
 
 // The first stderr line of a failed gh call, or why there is none.

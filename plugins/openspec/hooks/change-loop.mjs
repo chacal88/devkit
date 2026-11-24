@@ -1192,6 +1192,8 @@ export function decide(facts) {
   });
   const blocked = (why, params = {}, stageId = null, detail) => finish('blocked', why, 'blocked', { why, ...params }, stageId, detail);
   const waiting = (state, key, stageId, params = {}, detail) => finish(state, key, key, params, stageId, detail);
+  // GitHub did not answer: a wait on GitHub, never a stop (`what` silent).
+  const silent = (stageId, error) => waiting('waiting-on-github', 'waiting-github', stageId, { what: 'silent' }, { error: error ?? '' });
 
   const key = (stage, step) => `${stage}/${step ?? stage}@${facts.fingerprint}`;
   // A hand-off whose detail names a worktree and a branch (the support branch's) works there, not in the task worktree.
@@ -1343,7 +1345,7 @@ export function decide(facts) {
 
   // P9 and B0: a blocked end of the stage checker, in plain words.
   function blockedEnd(e) {
-    if (githubSilent(e)) return waiting('waiting-on-github', 'waiting-github', e.stage, { what: 'silent' }, { error: e.params?.error ?? '' });
+    if (githubSilent(e)) return silent(e.stage, e.params?.error);
     const why = BLOCKED_OF[e.reasonCode] ?? 'role-failed';
     const stageId = e.params?.stage ?? e.stage;
     const params = { stage: titleOf(stageId), attempt: e.params?.attempt, error: e.params?.error ?? '', number: e.params?.number };
@@ -1397,7 +1399,8 @@ export function decide(facts) {
     }
     switch (spec.end) {
       case 'github': return waiting('waiting-on-github', 'waiting-github', currentId, { what: step === 'wait-checks' ? 'checks' : TRAIN_WAITS.includes(step) ? 'train' : facts.archiving ? 'archive-merge' : 'merge' });
-      case 'blocked': return blocked(BLOCKED_STEP[step], {}, currentId);
+      // With GitHub offline (`state --offline`) the merge setup could not be read: GitHub silent, as every other offline read (run-status-bar D-4).
+      case 'blocked': return step === 'stop-merge-setup' && facts.offline ? silent(currentId, row.next.reason) : blocked(BLOCKED_STEP[step], {}, currentId);
       case 'archived': return finish('archived', 'archived', 'archived', {}, currentId);
       default: break;
     }
@@ -1544,6 +1547,7 @@ export function nextAction(cwd, id, { env = process.env, lang = 'pt-BR', after =
     unsourced: triageUnsourcedOf(dir),
     archiving,
     row,
+    offline: gh === OFFLINE_GH,
     mergeCheck,
     place,
     budget: budgetFact,
