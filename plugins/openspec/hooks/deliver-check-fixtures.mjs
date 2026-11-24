@@ -238,6 +238,43 @@ export function bothEntries(root, args = [], env = {}) {
   return [viaDeliver, { code: r.status, out: r.stdout, err: r.stderr, json: () => JSON.parse(r.stdout) }];
 }
 
+// ---- the nextStep states (moved from deliver-check.test.mjs: part 1 and the loop-evidence tests of the archive part both build them)
+export const BASE_DETAILS = {
+  1: { unticked: [], missingGates: [], evidence: 'current' },
+  2: { stale: [], rejected: [], missing: [] },
+  3: { fixed: 0, refuted: 0, undisposed: [] },
+  4: { ids: ['AC-1'], proven: ['AC-1'], missing: [], defects: [], noProof: [], evidence: 'current' },
+  5: { pr: { number: 12, url: 'u' }, ahead: false, uncommitted: [] },
+  6: { required: true, failing: [], pending: [] },
+  7: { threads: [], comments: [], changesRequested: [], waiting: [] },
+  8: { missing: [] },
+};
+// A state where all eight items are met; `over.items[n]` = { status, details } merges into item n.
+export function state(over = {}) {
+  const items = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+    id: n, name: `item${n}`, status: 'met', reason: `item ${n} reason`,
+    ...over.items?.[n], details: { ...BASE_DETAILS[n], ...over.items?.[n]?.details },
+  }));
+  const { items: _ignored, ...rest } = over;
+  return {
+    id: 'feat', schema: 'devkit-lite', ship: 'pr', branchOk: true, needsReadiness: false, readiness: null,
+    phases: [{ n: 1, title: 'One', open: [], gate: { id: '1.2', done: true, command: 'npm test' } }],
+    dirty: [], reviewMd: null,
+    reviews: [{ name: 'code-quality-reviewer', verdict: 'APPROVED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
+    pr: { number: 12, url: 'u' },
+    ...rest, items,
+  };
+}
+export const open = (details = {}) => ({ status: 'open', details });
+export const blocked = (details = {}) => ({ status: 'blocked', details });
+export const rejectedState = (over = {}) => state({
+  reviewMd: { consensus: 'FAIL', round: 1 },
+  reviews: [{ name: 'code-quality-reviewer', verdict: 'REJECTED', current: true }, { name: 'test-coverage-reviewer', verdict: 'APPROVED', current: true }],
+  items: { 2: open({ rejected: ['code-quality-reviewer'] }), 3: open({ undisposed: [{ reviewer: 'code-quality-reviewer', excerpt: '[blocking] x' }] }) },
+  ...over,
+});
+export const BOTH = ['code-quality-reviewer', 'test-coverage-reviewer'];
+
 // ---- own-files (stale-only-on-own-files D-8): the repository the rule tests and the --ci test build
 export const OWN_REVIEWERS = ['code-quality-reviewer', 'test-coverage-reviewer', 'spec-reviewer', 'adr-reviewer', 'architecture-reviewer', 'security-reviewer'];
 // Twelve lines whose first and last differ, so the branch and the base edit one file without a conflict.

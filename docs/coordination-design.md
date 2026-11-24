@@ -291,7 +291,9 @@ opens the slice as an OpenSpec change in its own worktree, and the script `proje
 next. The phases are conversations with the owner, so they run in the owner's session. Each slice's
 documents live in `docs/design/<slice>/`, its ADRs in `docs/adr/`, and it reaches the default branch in one
 pull request that the ADR reviewer clears
-([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)).
+([ADR 0015](adr/0015-a-project-slice-is-a-change-delivered-in-one-pull-request.md)). Since
+`project-slice-claim`, a slice's open claims it on origin as a change's open does
+([ADR 0029](adr/0029-a-project-slice-is-claimed-on-github-when-it-opens.md)).
 
 **Decided by `project-phases` on 2026-11-21 (the grill's nine answers).**
 
@@ -366,7 +368,7 @@ OpenSpec prints that its `schema` commands are experimental and may change.
 - Stale work: when the code changed after a stage, the commit in its header no longer matches and
   only that stage runs again.
 - Attempt ceilings, counted by the checker, move from skill prose to configuration: a plan rejected
-  at readiness three times; two review rounds; three fixes of the same item; the same stage coming
+  at readiness three times in a row (counted since it last passed); two review rounds; three fixes of the same item; the same stage coming
   back twice with nothing changed stops.
 - The loop ends in exactly one of four states, each with its reason: archived, waiting for the owner,
   waiting on GitHub, blocked.

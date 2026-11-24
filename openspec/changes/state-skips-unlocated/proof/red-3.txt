@@ -1,0 +1,26 @@
+✖ unlocated 3: the state paragraph of docs/openspec-flow.md names the unplaced change and the locate order (2.296416ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79.5765
+
+✖ failing tests:
+
+test at plugins/openspec/hooks/change-loop.test.mjs:6205:1
+✖ unlocated 3: the state paragraph of docs/openspec-flow.md names the unplaced change and the locate order (2.296416ms)
+  AssertionError [ERR_ASSERTION]: the state paragraph names wrong-branch
+      at TestContext.<anonymous> (<worktree>/plugins/openspec/hooks/change-loop.test.mjs:6211:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -44,7 +44,7 @@ code closed until the plan is ready, reviewer agents, checkers and a side panel.
 - Commits: conventional (`<type>(<scope>): <description>`), as `docs/conventions.md` states.
 - Before changing a test, name its invariant, the layer that owns it and the suite it lives in. A time or a count the documents state (the suite's minutes, its tests) is measured again after the last merge of the base, with no other suite running on the machine.
 - When the installed devkit-openspec cannot read `main`'s `flow.json` (`unknown key ...`), drive the change with the worktree's own `plugins/openspec/hooks/change-loop.mjs` until the plugin is updated.
-- When a change alters what an agent writes, its real-run proof covers every case the plan declares (each input variant, and the conducting session's own part), not one case plus prose tests.
+- When a change alters what an agent writes, its real-run proof covers every case the plan declares (each input variant, and the conducting session's own part), not one case plus prose tests, and is in `evidence.md` before the first review round; only a line the round itself produces is added after it.
 - When a merge of the base supersedes a decision the plan states (a moved file, a renamed helper), the same commit edits `proposal.md` and `tasks.md`: the review reads those files as claims about the code.
 - A plan rule that reacts to a stage agent's failure names the hook that sees the failure (the stop hook refuses a first stop without a stage file) and the files the agent leaves, and its real run proves the failure path as well as the success path.
 

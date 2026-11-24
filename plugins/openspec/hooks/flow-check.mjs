@@ -3,7 +3,7 @@
 // and GitHub, the readout and the command line; it runs nothing when imported. It calls no AI: its imports
 // are node built-ins and the pack's hook modules, and the only programs it starts are git, openspec and gh.
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
-import { dirname, join, delimiter } from 'node:path';
+import { dirname, join, relative, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -178,6 +178,52 @@ export function fingerprint(root, head) {
   return h.digest('hex').slice(0, 12);
 }
 
+// The line-1 headers the stage file `rel` (a path relative to `root`) carried in the commits of the checked-out
+// history, newest first (design D-2). Two git processes: the log of the commits that touched the file, then one
+// `cat-file --batch` over `<sha>:./<rel>`. Every header is kept as parseStageHeader gives it (a missing line is null,
+// a malformed one `{ malformed: true }`); a commit where the file is absent is skipped. Any failure (git missing, not
+// a repository, no commit yet, an output that cannot be walked) is `[]`, never a throw.
+export function stageHistory(root, rel, env = process.env) {
+  const git = (args, input) => execFileSync('git', ['-C', root, ...args], { env, input, maxBuffer: MAX_BUFFER, stdio: ['pipe', 'pipe', 'ignore'] });
+  let out;
+  try {
+    const shas = git(['log', '--topo-order', '--format=%H', '--', rel]).toString('utf8').split('\n').filter(Boolean);
+    if (shas.length === 0) return [];
+    out = git(['cat-file', '--batch'], shas.map((sha) => `${sha}:./${rel}\n`).join(''));
+  } catch { return []; }
+  const headers = [];
+  let at = 0;
+  while (at < out.length) {
+    const eol = out.indexOf(0x0a, at);
+    if (eol === -1) break;
+    const line = out.toString('latin1', at, eol);
+    at = eol + 1;
+    if (/ missing$/.test(line)) continue;
+    const answer = /^\S+ blob (\d+)$/.exec(line);
+    if (!answer) break;
+    const end = at + Number(answer[1]);
+    if (end > out.length) break;
+    headers.push(parseStageHeader(out.toString('utf8', at, end)));
+    at = end + 1;
+  }
+  return headers;
+}
+
+// The failures in a row of a failed stage (design D-3): the distinct `attempt commit` keys of the failed headers, the
+// current one included, from `current` back through `earlier` (newest first) up to the first passed header of the
+// stage. A null, malformed or other-stage header, and a not-applicable or pending one, neither stops nor counts.
+// With no passed header seen the count is at least `attempt`: today's rule.
+export function failuresInARow(current, earlier) {
+  const failed = new Set();
+  let reached = false;
+  for (const h of [current, ...earlier]) {
+    if (!h || h.malformed || h.stage !== current.stage || h.result === 'not-applicable' || h.result === 'pending') continue;
+    if (h.result === 'passed') { reached = true; break; }
+    if (h.result === 'failed') failed.add(`${h.attempt} ${h.commit}`);
+  }
+  return reached ? failed.size : Math.max(current.attempt, failed.size);
+}
+
 // The schema an archived folder's own .openspec.yaml names, or null when it cannot be read: an archived
 // change shows its script name only when its folder says which one it was.
 function archivedSchema(dir) {
@@ -280,12 +326,17 @@ export function collectFlow(root, id, { env = process.env, openspec = makeOpensp
   const delivery = () => (lookup ??= deliveryOf(gh, root, id, { ship: config.ship, branch, env, located, mergeFields: config.ship === 'merge' || trainOn, ...(trainOn ? { trainSuite: config.train } : {}), ...(two ? { base: config.base } : {}) }));
   let testLookup = null;
   const twoPrs = two ? { base: config.base, testBranch: config.testBranch, testPr: () => (testLookup ??= findTestPr(gh, { id, testBranch: config.testBranch })) } : null;
+  const histories = new Map(); // the earlier headers of a stage file, read once and only for a failed stage (design D-1)
   const postMerge = config.ship !== 'plan' && offOwnBranch(root, id, branch) && delivery().delivered;
   Object.assign(facts, {
     head: gf.head, dirty: gf.dirty, fingerprint: fingerprint(root, gf.head), postMerge,
     staleness: (sha) => (postMerge ? null : sha === 'none' ? 'the header records no commit' : staleness(root, { sha, uncommitted: false }, gf, { own: ownFiles(root, id, gf), release: releaseEditOf(root, id, gf) })),
     staleReviewers: () => (postMerge ? [] : readReviews(root, id, gf).filter((r) => r.why).map((r) => r.name)),
     delivery: () => readDelivery({ ship: config.ship, gh, head: gf.head, delivery, twoPrs, train: trainOn ? (prHead) => trainFacts(gh, root, id, { suite: config.train, prHead, kind: 'change' }) : null }),
+    history: (path) => {
+      if (!histories.has(path)) histories.set(path, stageHistory(root, join(relative(root, located.dir), path), env));
+      return histories.get(path);
+    },
   });
   const status = openspecJson(openspec, ['status', '--change', id, '--json'], 'artifacts');
   facts.skipped = status.artifacts.filter((a) => a.status === 'skipped').map((a) => a.id);
@@ -321,7 +372,7 @@ export const TEXT = {
     'bad-header': (p) => `${p.file} has a malformed stage header`,
     'header-other-stage': (p) => `${p.file} carries the header of stage ${p.found}`,
     'not-judged': (p) => `${p.file} is written and not judged yet`,
-    'header-failed': (p) => `failed at attempt ${p.attempt} of ${p.ceiling}`,
+    'header-failed': (p) => `failed at attempt ${p.attempt}; failures in a row: ${p.failures} of ${p.ceiling}`,
     'stale-code': (p) => `the code changed since it ran (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} changed after it`,
     'stale-reviewers': (p) => `the reviews of ${p.names.join(', ')} are stale`,
@@ -329,9 +380,9 @@ export const TEXT = {
     uncommitted: (p) => `code changed and is not committed (${p.paths.join(', ')})`,
     'tasks-done': (p) => `${p.done} of ${p.total} tasks done`,
     'waits-for': (p) => `waits for stage ${p.n}`,
-    'fix-after-failure': (p, n) => `the ${nameOf(n, p.failed)} failed at attempt ${p.attempt} of ${p.ceiling} and the code has not changed since; the fix comes before another review`,
+    'fix-after-failure': (p, n) => `the ${nameOf(n, p.failed)} failed at attempt ${p.attempt} (failures in a row: ${p.failures} of ${p.ceiling}) and the code has not changed since; the fix comes before another review`,
     'rerun-after-fix': (p, n) => `the ${nameOf(n, p.stage)} failed and the work changed since; it runs again`,
-    'ceiling-reached': (p, n) => `the ${nameOf(n, p.stage)} failed at attempt ${p.attempt} and its ceiling is ${p.ceiling}`,
+    'ceiling-reached': (p, n) => `the ${nameOf(n, p.stage)} failed at attempt ${p.attempt}; its failures in a row (${p.failures}) reached its ceiling of ${p.ceiling}`,
     'no-progress': (p, n) => `the ${nameOf(n, p.stage)} came back with nothing changed since the last run`,
     'past-point': (p, n) => `the change was already past the ${nameOf(n, p.after)} when this stage arrived`,
     'flag-absent': (p) => `the requirements' classification has no ${p.flag} flag`,
@@ -378,7 +429,7 @@ export const TEXT = {
     'bad-header': (p) => `${p.file} tem um cabeçalho de etapa malformado`,
     'header-other-stage': (p) => `${p.file} traz o cabeçalho da etapa ${p.found}`,
     'not-judged': (p) => `${p.file} está escrito e ainda não foi julgado`,
-    'header-failed': (p) => `falhou na tentativa ${p.attempt} de ${p.ceiling}`,
+    'header-failed': (p) => `falhou na tentativa ${p.attempt}; falhas seguidas: ${p.failures} de ${p.ceiling}`,
     'stale-code': (p) => `o código mudou desde que ela rodou (${p.why})`,
     'stale-plan': (p, n) => `${nameOf(n, p.by)} mudou depois dela`,
     'stale-reviewers': (p) => `as revisões de ${p.names.join(', ')} estão desatualizadas`,
@@ -386,9 +437,9 @@ export const TEXT = {
     uncommitted: (p) => `há código alterado e não commitado (${p.paths.join(', ')})`,
     'tasks-done': (p) => `${p.done} de ${p.total} tarefas feitas`,
     'waits-for': (p) => `espera a etapa ${p.n}`,
-    'fix-after-failure': (p, n) => `a ${nameOf(n, p.failed)} falhou na tentativa ${p.attempt} de ${p.ceiling} e nada mudou no código desde então; a correção vem antes de uma nova revisão`,
+    'fix-after-failure': (p, n) => `a ${nameOf(n, p.failed)} falhou na tentativa ${p.attempt} (falhas seguidas: ${p.failures} de ${p.ceiling}) e nada mudou no código desde então; a correção vem antes de uma nova revisão`,
     'rerun-after-fix': (p, n) => `a etapa ${nameOf(n, p.stage)} falhou e o trabalho mudou desde então; ela roda de novo`,
-    'ceiling-reached': (p, n) => `a etapa ${nameOf(n, p.stage)} falhou na tentativa ${p.attempt} e o limite é ${p.ceiling}`,
+    'ceiling-reached': (p, n) => `a etapa ${nameOf(n, p.stage)} falhou na tentativa ${p.attempt}; as falhas seguidas (${p.failures}) chegaram ao limite de ${p.ceiling}`,
     'no-progress': (p, n) => `a etapa ${nameOf(n, p.stage)} voltou sem nada ter mudado desde a última execução`,
     'past-point': (p, n) => `a change já tinha passado da etapa ${nameOf(n, p.after)} quando esta etapa chegou`,
     'flag-absent': (p) => `a classificação dos requisitos não tem a marca ${p.flag}`,
@@ -480,7 +531,12 @@ function artifactState(stage, files, facts, flow, started) {
   }
   const ceiling = stage.ceiling === 'owner' ? null : stage.ceiling ?? flow.ceilings.default;
   if (result === 'failed' && stage.ceiling === 'owner') return out('failed', 'changes-asked', { attempt: h.attempt }, info);
-  if (result === 'failed') return out('failed', 'header-failed', { attempt: h.attempt, ceiling }, { ...info, fixed: stale !== null });
+  if (result === 'failed') {
+    // The failures in a row since the stage file last passed, from git (design D-1, D-3); a facts with no history counts none earlier.
+    const f = files.find((x) => x.header.result === 'failed');
+    const failures = failuresInARow(h, facts.history?.(f.path) ?? []);
+    return out('failed', 'header-failed', { attempt: h.attempt, failures, ceiling }, { ...info, failures, fixed: stale !== null });
+  }
   if (stale) return out('stale', stale.code, stale.params, info);
   return out('passed', 'passed', { attempt: h.attempt }, info);
 }
@@ -598,9 +654,9 @@ export function computeFlow(facts, flow, { after = null } = {}) {
     // The owner ends the attempts of a stage declared `ceiling: "owner"`: it is drawn again, never blocked by a number.
     if (s.ceiling === 'owner') return offer(s.id, 'owner-changes', { stage: s.id, attempt: raw.attempt });
     const ceiling = ceilingOf(s);
-    if (raw.attempt >= ceiling) return finishEnd('blocked', s.id, 'ceiling-reached', { stage: s.id, attempt: raw.attempt, ceiling });
+    if (raw.failures >= ceiling) return finishEnd('blocked', s.id, 'ceiling-reached', { stage: s.id, attempt: raw.attempt, failures: raw.failures, ceiling });
     if (raw.fixed) return offer(s.id, 'rerun-after-fix', { stage: s.id });
-    return offer(s.onFail ?? s.id, 'fix-after-failure', { failed: s.id, attempt: raw.attempt, ceiling });
+    return offer(s.onFail ?? s.id, 'fix-after-failure', { failed: s.id, attempt: raw.attempt, failures: raw.failures, ceiling });
   }
   const ownerFile = (s.owner || s.role === 'owner') && raw.reasonCode === 'not-judged';
   if (ownerFile) {

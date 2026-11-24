@@ -4,9 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync, cpSync, mkdirSync, realpathSync, writeFileSync, renameSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { tmpFolder } from './test-tmp.mjs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import * as GUARD from './guard.mjs';
 import * as FC from './flow-check.mjs';
@@ -19,6 +19,10 @@ const PLUGIN_SCHEMAS = join(HERE, '..', 'schemas');
 const REPO_ROOT = join(HERE, '..', '..', '..');
 const REPO_SCHEMAS = join(REPO_ROOT, 'openspec', 'schemas');
 const CORE_AGENTS = join(HERE, '..', '..', 'core', 'agents');
+
+// The claim commits, so the tests carry an identity of their own, as the change-loop test files do (IDENT of change-loop-fixtures.mjs): a run of this file alone has one.
+const IDENT = { GIT_AUTHOR_NAME: 'devkit test', GIT_AUTHOR_EMAIL: 'test@devkit.invalid', GIT_COMMITTER_NAME: 'devkit test', GIT_COMMITTER_EMAIL: 'test@devkit.invalid' };
+for (const [k, v] of Object.entries(IDENT)) process.env[k] ??= v;
 
 const BLANKS = { DEVKIT_BYPASS: '', DEVKIT_BRANCH: '', DEVKIT_CHANGE: '', GITHUB_HEAD_REF: '', GITHUB_BASE_REF: '', GITHUB_EVENT_PATH: '' };
 const ENV = { ...process.env, ...BLANKS };
@@ -648,6 +652,14 @@ const openIn = (t, id = 'billing') => {
   assert.equal(r.code, 0, r.stdout + r.stderr);
   return body(r).worktree;
 };
+// The "other machine" of the claim tests: a second clone of the same bare remote (as `otherClone` of change-loop.test.mjs).
+function otherClone(t) {
+  const dir = realpathSync(tmpFolder('devkit-loop-clone-'));
+  const clone = join(dir, 'clone');
+  gitq(dir, 'clone', '-q', t.origin, clone);
+  mkdirSync(join(clone, 'openspec', 'changes', 'archive'), { recursive: true }); // git keeps no empty folder: the project's change folder
+  return realpathSync(clone);
+}
 const rec = (wt, slice, stage, result = 'passed', text) => put(wt, { [`openspec/changes/${slice}/${stage}.md`]: text ?? header(stage, result) });
 const roadmapRecord = (result = 'passed', block = ROUNDS_BLOCK) => `${header('roadmap', result)}\n## Source\nplan\n\n## Rounds to append\n<!-- devkit-rounds:begin -->\n${block}<!-- devkit-rounds:end -->\n\n## Owner's approval\n- "ok"\n`;
 const settle = (wt, slice, stages = FIVE, { result = 'passed', notApplicable = [] } = {}) => {
@@ -1084,7 +1096,25 @@ test('project-loop next: S12 a review at its ceiling ends blocked', () => {
   assert.equal(r.code, 2);
   const a = body(r);
   assert.deepEqual([a.kind, a.end.state, a.end.why, a.stage], ['end', 'blocked', 'ceiling', 'review']);
-  assert.match(a.reply, /failed 2 times, which is its limit/);
+  assert.match(a.reply, /reached its limit of failures in a row \(2\)/);
+});
+
+test('stage-ceiling-consecutive AC-6 project-loop: the ceiling reply says the failures in a row, not the attempt', () => {
+  const t = loopProject();
+  const wt = readySlice(t);
+  const at = (attempt, result, commit) => header('review', result).replace('attempt=1', `attempt=${attempt}`).replace('commit=none', `commit=${commit}`);
+  // Committed history: passed (attempt 1), then failed at attempt 2; the file in the tree fails at attempt 3 for HEAD.
+  put(wt, { 'openspec/changes/billing/review.md': at(1, 'passed', 'none') });
+  commitAll(wt, 'review passed');
+  put(wt, { 'openspec/changes/billing/review.md': at(2, 'failed', headOf2(wt)) });
+  commitAll(wt, 'review failed once');
+  put(wt, { 'openspec/changes/billing/review.md': at(3, 'failed', headOf2(wt)) });
+  const r = nextP(t.main, 'billing');
+  assert.equal(r.code, 2);
+  const a = body(r);
+  assert.deepEqual([a.kind, a.end.state, a.end.why, a.stage], ['end', 'blocked', 'ceiling', 'review']);
+  assert.match(a.reply, /reached its limit of failures in a row \(2\)/);
+  assert.doesNotMatch(a.reply, /\(3\)/, 'the attempt is 3 but the failures in a row are 2');
 });
 
 // The archived-on-its-branch rows: the slice reviewed and archived in its worktree.
@@ -1492,6 +1522,7 @@ test('project-loop archive: with every stage settled it archives the folder on t
 
 // ---------------------------------------------------------------- status (D-10)
 
+// Invariant: the readout lists its title, then the machine of its claim when it has one, then one line per stage, and nothing after the five while a stage is open.
 test('project-loop status: one line per stage with passed, not applicable, ready and blocked, and nothing after the five', () => {
   const t = loopProject();
   const wt = openIn(t, 'billing');
@@ -1500,12 +1531,12 @@ test('project-loop status: one line per stage with passed, not applicable, ready
   const r = lp(t.main, ['status', 'billing']);
   assert.equal(r.code, 0, r.stdout);
   assert.deepEqual(r.stdout.trimEnd().split('\n'), [
-    'Slice billing', 'Business: passed', 'Domain model: not applicable', `Architecture: ready (${FC.reasonText('en', 'no-file', { file: 'architecture.md' })})`,
+    'Slice billing', `Machine: ${CL.thisMachine()}`, 'Business: passed', 'Domain model: not applicable', `Architecture: ready (${FC.reasonText('en', 'no-file', { file: 'architecture.md' })})`,
     'Implementation plan: blocked', 'Roadmap: blocked',
   ]);
   const pt = lp(t.main, ['status', 'billing'], { lang: 'pt-BR' }).stdout.split('\n');
-  assert.deepEqual([pt[0], pt[1], pt[2], pt[4], pt[5]], ['Fatia billing', 'Negócio: passou', 'Modelo de domínio: não se aplica', 'Plano de implementação: bloqueada', 'Roadmap: bloqueada']);
-  assert.match(pt[3], /^Arquitetura: pronta \(/);
+  assert.deepEqual([pt[0], pt[1], pt[2], pt[3], pt[5], pt[6]], ['Fatia billing', `Máquina: ${CL.thisMachine()}`, 'Negócio: passou', 'Modelo de domínio: não se aplica', 'Plano de implementação: bloqueada', 'Roadmap: bloqueada']);
+  assert.match(pt[4], /^Arquitetura: pronta \(/);
 });
 
 test('project-loop status: the line after the five names the ADR review, the pull request or delivered', () => {
@@ -1945,4 +1976,210 @@ test('commit-attribution AC-1 T25 the S10 ADR reviewer hand-off does not carry t
   const a = act(t.main, 'billing');
   assert.equal(a.agent, 'devkit-core:adr-reviewer');
   assert.ok(!a.brief.includes(CL.ATTRIBUTION_ASK ?? '\u0000'), a.brief);
+});
+
+// ---------------------------------------------------------------- project-slice-claim: the claim at a slice's open (phase 1)
+
+const claimSha = (t, id) => gitq(t.main, 'ls-remote', t.origin, `refs/heads/${id}`).split('\t')[0].trim();
+const sliceYaml = (wt, id) => readFileSync(join(wt, 'openspec', 'changes', id, '.openspec.yaml'), 'utf8');
+const wtOfSlice = (t, id) => join(t.main, '.claude', 'worktrees', id);
+// What a refused or failed open leaves here: nothing local.
+const nothingLocal = (t, id) => [existsSync(wtOfSlice(t, id)), existsSync(join(t.main, 'openspec', 'changes', id)), gitq(t.main, 'branch', '--list', id).trim()];
+// A branch another machine pushed by hand, holding `files` (or none).
+function pushBranch(clone, id, files) {
+  gitq(clone, 'checkout', '-q', '-b', id, 'origin/main');
+  put(clone, files);
+  commitAll(clone, `a branch of ${id}`);
+  gitq(clone, 'push', '-q', 'origin', id);
+  gitq(clone, 'checkout', '-q', 'main');
+}
+const MACHINE_LINE = (m) => `x-devkit-machine: ${m}`;
+// The readout of `billing` as the status test of D-6 T-1 settles it (the first two stages recorded), without the machine line.
+const READOUT_NO_MACHINE = ['Slice billing', 'Business: passed', 'Domain model: not applicable', `Architecture: ready (${FC.reasonText('en', 'no-file', { file: 'architecture.md' })})`,
+  'Implementation plan: blocked', 'Roadmap: blocked'];
+const settleTwo = (wt) => { rec(wt, 'billing', 'business', 'passed'); rec(wt, 'billing', 'domain-model', 'not-applicable'); };
+// Two clones on one host claim with the same machine name, so their open commits (same tree, parent, message, second) would be the
+// same commit, and pushing the commit that is already there is not a refusal. Each clone commits as its own author, as two machines do.
+const openChildSlice = (cwd, id, author) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [join(HERE, 'project-loop.mjs'), 'open', id, '--lang', 'en'], { cwd, env: { ...ENV, GIT_AUTHOR_NAME: author }, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.on('error', reject);
+  child.on('exit', (code) => resolve({ code, stdout }));
+});
+
+test('slice-claim AC-1 open: the claim on origin holds the slice\'s metadata with this machine, in the open commit, and the worktree stays', () => {
+  const t = loopProject();
+  const wt = openIn(t, 'billing');
+  const sha = claimSha(t, 'billing');
+  assert.match(sha, /^[0-9a-f]{40}$/, 'origin has the branch');
+  assert.equal(headOf2(wt), sha, 'the local branch is the claim');
+  assert.equal(gitq(wt, 'log', '-1', '--format=%s').trim(), 'chore(openspec): open billing');
+  const claimed = gitq(t.main, 'show', `${sha}:openspec/changes/billing/.openspec.yaml`).split('\n');
+  assert.ok(claimed.includes(MACHINE_LINE(CL.thisMachine())), claimed.join('|'));
+  assert.equal(claimed.some((l) => l.startsWith('x-devkit-places')), false, 'no places for a slice');
+  assert.ok(existsSync(wt), 'the worktree stays');
+  assert.equal(gitq(wt, 'status', '--porcelain'), '', 'the claim left nothing uncommitted');
+});
+
+test('slice-claim AC-2 open: the machine line comes before the pin, which ends the file', () => {
+  const t = loopProject();
+  const wt = openIn(t, 'billing');
+  const text = sliceYaml(wt, 'billing');
+  const lines = text.split('\n');
+  const machineAt = lines.findIndex((l) => l.startsWith('x-devkit-machine:'));
+  const pinAt = lines.findIndex((l) => l.startsWith('x-devkit-version:'));
+  assert.ok(machineAt >= 0, `a machine line: ${JSON.stringify(text)}`);
+  assert.ok(machineAt < pinAt, `the machine line (${machineAt}) is before the pin (${pinAt})`);
+  const version = JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version;
+  assert.ok(text.endsWith(`x-devkit-version: ${version}\nx-devkit-flow: 1\n`), JSON.stringify(text));
+});
+
+test('slice-claim AC-3 open: a slice claimed on origin is refused naming its machine, and creates nothing', () => {
+  const t = loopProject();
+  const clone = otherClone(t);
+  pushBranch(clone, 'billing', { 'openspec/changes/billing/.openspec.yaml': 'schema: devkit-project\nx-devkit-machine: avel\n' });
+  gitq(t.main, 'fetch', '-q', 'origin');
+  const before = state(t.main);
+  const r = lp(t.main, ['open', 'billing']);
+  assert.equal(r.code, 3, r.stdout + r.stderr);
+  assert.equal(body(r).reply, CL.render('en', 'claimed', { id: 'billing', machine: 'avel' }));
+  assert.equal(body(lp(t.main, ['open', 'billing'], { lang: 'pt-BR' })).reply, CL.render('pt-BR', 'claimed', { id: 'billing', machine: 'avel' }));
+  assert.equal(state(t.main), before, 'branches, worktrees and folders are as they were');
+  assert.deepEqual(nothingLocal(t, 'billing'), [false, false, '']);
+});
+
+test('slice-claim AC-3 open: a slice branch with no machine says another machine, and one with no folder is a taken name', () => {
+  const t = loopProject();
+  const clone = otherClone(t);
+  pushBranch(clone, 'billing', { 'openspec/changes/billing/.openspec.yaml': 'schema: devkit-project\n' });
+  pushBranch(clone, 'invoices', { 'NOTES.md': 'a branch with no change folder\n' });
+  gitq(t.main, 'fetch', '-q', 'origin');
+  const before = state(t.main);
+  const none = lp(t.main, ['open', 'billing']);
+  assert.equal(none.code, 3, none.stdout + none.stderr);
+  assert.equal(body(none).reply, CL.render('en', 'claimed-elsewhere', { id: 'billing' }));
+  const taken = lp(t.main, ['open', 'invoices']);
+  assert.equal(taken.code, 3, taken.stdout + taken.stderr);
+  assert.equal(body(taken).reply, CL.render('en', 'name-taken', { id: 'invoices' }));
+  assert.equal(state(t.main), before);
+  assert.deepEqual([nothingLocal(t, 'billing'), nothingLocal(t, 'invoices')], [[false, false, ''], [false, false, '']]);
+});
+
+test('slice-claim AC-4 open: the clone that pushes second is refused and leaves nothing', () => {
+  const t = loopProject();
+  const clone = otherClone(t);
+  let winner;
+  let refused = null;
+  const asOtherAuthor = (fn) => { // the winner commits as another author, so its commit is not the loser's (see openChildSlice)
+    const was = process.env.GIT_AUTHOR_NAME;
+    process.env.GIT_AUTHOR_NAME = 'machine two';
+    try { return fn(); } finally { process.env.GIT_AUTHOR_NAME = was; }
+  };
+  try { PL.openSlice(t.main, 'billing', { lang: 'en', env: ENV, beforePush: () => { winner = asOtherAuthor(() => PL.openSlice(clone, 'billing', { lang: 'en', env: ENV })); } }); } catch (e) { refused = e; }
+  assert.ok(winner, 'the other clone opened between the check and the push');
+  assert.equal(refused?.name, 'LoopRefusal', `the second push is refused: ${refused}`);
+  assert.equal(refused.reply, CL.render('en', 'claimed', { id: 'billing', machine: CL.thisMachine() }));
+  assert.equal(claimSha(t, 'billing'), headOf2(winner.worktree), 'origin holds the winner\'s claim');
+  assert.deepEqual(nothingLocal(t, 'billing'), [false, false, ''], 'nothing is left here');
+  assert.equal(gitq(t.main, 'worktree', 'list', '--porcelain').includes('billing'), false);
+});
+
+test('slice-claim AC-4 open: two clones opening one slice at once, exactly one wins', async () => {
+  const t = loopProject();
+  const clone = otherClone(t);
+  const [a, b] = await Promise.all([openChildSlice(t.main, 'billing', 'machine one'), openChildSlice(clone, 'billing', 'machine two')]);
+  assert.deepEqual([a.code, b.code].sort(), [0, 3], `${a.stdout}\n${b.stdout}`);
+  const [win, lose, winRoot, loseRoot] = a.code === 0 ? [a, b, t.main, clone] : [b, a, clone, t.main];
+  assert.equal(JSON.parse(lose.stdout).reply, CL.render('en', 'claimed', { id: 'billing', machine: CL.thisMachine() }));
+  assert.equal(win.code, 0);
+  assert.equal(claimSha(t, 'billing'), headOf2(join(winRoot, '.claude', 'worktrees', 'billing')), 'origin holds the winner\'s commit');
+  assert.equal(existsSync(join(loseRoot, '.claude', 'worktrees', 'billing')), false);
+  assert.equal(existsSync(join(loseRoot, 'openspec', 'changes', 'billing')), false);
+  assert.equal(gitq(loseRoot, 'branch', '--list', 'billing').trim(), '');
+});
+
+test('slice-claim AC-1 open: a push the remote refuses fails the open with the unreadable reply and leaves nothing', () => {
+  const t = loopProject();
+  gitq(t.main, 'remote', 'set-url', '--push', 'origin', join(t.origin, 'no-such-remote.git'));
+  gitq(t.main, 'fetch', '-q', 'origin');
+  const before = state(t.main);
+  const r = lp(t.main, ['open', 'billing']);
+  assert.equal(r.code, 3, r.stdout + r.stderr);
+  assert.equal(body(r).reply, CL.render('en', 'project-unreadable'));
+  assert.ok(String(body(r).error).length > 0, 'git\'s message is in the error field');
+  assert.equal(state(t.main), before);
+  assert.deepEqual(nothingLocal(t, 'billing'), [false, false, '']);
+  assert.equal(claimSha(t, 'billing'), '', 'no branch on origin');
+});
+
+test('slice-claim AC-5 open: with no origin nothing is committed or pushed and no claim key is written', () => {
+  const t = loopProject();
+  gitq(t.main, 'remote', 'remove', 'origin');
+  const wt = openIn(t, 'billing');
+  assert.equal(headOf2(wt), headOf2(t.main), 'no commit was made');
+  assert.match(gitq(wt, 'status', '--porcelain'), /openspec\/changes\/billing/, 'the folder is left untracked');
+  assert.equal(/x-devkit-machine/.test(sliceYaml(wt, 'billing')), false);
+});
+
+test('slice-claim AC-6 status: the readout names the machine of the claim after its title, in both languages', () => {
+  const t = loopProject();
+  openIn(t, 'billing');
+  const m = CL.thisMachine();
+  assert.deepEqual(lp(t.main, ['status', 'billing']).stdout.split('\n').slice(0, 2), ['Slice billing', `Machine: ${m}`]);
+  assert.deepEqual(lp(t.main, ['status', 'billing'], { lang: 'pt-BR' }).stdout.split('\n').slice(0, 2), ['Fatia billing', `Máquina: ${m}`]);
+  const done = loopProject();
+  const wt = archivedSlice(done, 'billing', { commit: true });
+  const gh = scriptedGh({ pr: prOf(wt), checks: GREEN });
+  assert.deepEqual(lp(done.main, ['status', 'billing'], { gh }).stdout.split('\n').slice(0, 2), ['Slice billing', `Machine: ${m}`], 'archived on its branch');
+});
+
+test('slice-claim AC-6 status: a slice with no machine key, or one that is not a name, has no machine line', () => {
+  const bare = loopProject();
+  gitq(bare.main, 'remote', 'remove', 'origin');
+  settleTwo(openIn(bare, 'billing'));
+  assert.deepEqual(lp(bare.main, ['status', 'billing']).stdout.trimEnd().split('\n'), READOUT_NO_MACHINE);
+  const odd = loopProject();
+  const wt = openIn(odd, 'billing');
+  const file = join(wt, 'openspec', 'changes', 'billing', '.openspec.yaml');
+  writeFileSync(file, `${readFileSync(file, 'utf8').replace(/^x-devkit-machine:.*\n/m, '')}x-devkit-machine: -bad\n`);
+  settleTwo(wt);
+  assert.deepEqual(lp(odd.main, ['status', 'billing']).stdout.trimEnd().split('\n'), READOUT_NO_MACHINE);
+});
+
+test('slice-claim AC-7 board: a slice claimed on origin, here or on another clone, is on no row of the status board or its JSON', () => {
+  const t = loopProject();
+  const clone = otherClone(t);
+  openIn(t, 'alpha');
+  PL.openSlice(clone, 'beta', { lang: 'en', env: ENV });
+  gitq(t.main, 'fetch', '-q', 'origin');
+  const opts = { cwd: t.main, env: ENV, stdin: '', gh: OFFLINE, load: () => 10 };
+  const board = RL.main(['status', '--lang', 'en', '--load-limit', '80'], opts);
+  assert.equal(board.code, 0, board.stdout + board.stderr);
+  assert.doesNotMatch(board.stdout, /alpha|beta/);
+  const json = RL.main(['status', '--json', '--lang', 'en', '--load-limit', '80'], opts);
+  assert.equal(json.code, 0, json.stdout + json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout).changes.map((c) => c.id).filter((id) => id === 'alpha' || id === 'beta'), []);
+  assert.ok(readFileSync(join(REPO_ROOT, 'openspec', 'specs', 'project-definition', 'spec.md'), 'utf8').includes('### Requirement: A slice is not a change of the other commands'));
+});
+
+test('slice-claim AC-8 delivery: the claimed slice reaches its pull request by a fast-forward push and passes the slice contract', () => {
+  const t = loopProject();
+  const wt = archivedSlice(t, 'billing', { commit: true });
+  const claim = claimSha(t, 'billing');
+  assert.match(claim, /^[0-9a-f]{40}$/, 'the open commit is on origin');
+  gitq(wt, 'merge-base', '--is-ancestor', claim, 'HEAD');
+  gitq(wt, 'push', '-q', 'origin', 'billing');
+  assert.equal(claimSha(t, 'billing'), headOf2(wt), 'a plain push moved the branch forward');
+  const hooked = prCreate(wt);
+  assert.deepEqual([hooked.code, hooked.err], [0, '']);
+  assert.deepEqual(GUARD.sliceProblems(wt, relative(wt, archivedDirOf(wt)), { base: 'origin/main' }), []);
+});
+
+test('slice-claim AC-9 code: project-loop.mjs takes the claim from openCheckout and holds no claim step of its own', () => {
+  const source = readFileSync(join(HERE, 'project-loop.mjs'), 'utf8');
+  assert.ok(source.includes('claim: { machine: thisMachine(), places: null }'));
+  for (const own of ['force-with-lease', 'x-devkit-machine', 'chore(openspec): open', 'writeClaimKeys', 'claimOnOrigin']) {
+    assert.equal(source.includes(own), false, `project-loop.mjs names ${own}`);
+  }
 });
