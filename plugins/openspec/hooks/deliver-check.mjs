@@ -1356,34 +1356,26 @@ export function setPins(text, version) {
   return text.split('\n').map((line) => (PIN_MARKER.test(line) ? line.replace(PIN_TOKEN, `v${version}`) : line)).join('\n');
 }
 
-// The two files whose CI pin lines an archive may change without a proposal naming them (ADR 0027).
-// The test file is the one that holds the pin block: change-loop-compozy.test.mjs since suite-speed split change-loop.test.mjs.
-export const PIN_LINE_FILES = ['docs/openspec-flow.md', 'plugins/openspec/hooks/change-loop-compozy.test.mjs'];
-const PIN_TEST_LINES = [
-  /^\s*assert\.(?:match|doesNotMatch)\(flow, \/v\d+\\\.\d+\\\.\d+\/, '(?:[^'\\]|\\.)*'\);$/,
-  /^\s*\/\/ Invariant: the CI snippet pins the current release/,
-];
-// true only when `path` is a pin file, both texts are strings, and they differ only in pins (the doc)
-// or only in pin assertion lines (the test). Anything else, missing or unreadable included, is false.
+// The one file whose CI pin lines an archive may change without a proposal naming it (ADR 0027 as amended by ADR 0030).
+export const PIN_LINE_FILES = ['docs/openspec-flow.md'];
+// true only when `path` is the pin file, both texts are strings, and they differ only in pins.
+// Anything else, missing or unreadable included, is false.
 export function pinLinesOnly(path, pair) {
   if (!PIN_LINE_FILES.includes(path)) return false;
   const { before, after } = pair ?? {};
   if (typeof before !== 'string' || typeof after !== 'string') return false;
-  if (path === PIN_LINE_FILES[0]) return setPins(before, '0.0.0') === setPins(after, '0.0.0');
-  const kept = (text) => text.split('\n').filter((line) => !PIN_TEST_LINES.some((form) => form.test(line)));
-  const [was, is] = [kept(before), kept(after)];
-  return was.length === is.length && was.every((line, i) => line === is[i]);
+  return setPins(before, '0.0.0') === setPins(after, '0.0.0');
 }
 
 // Files a version bump or a regenerated catalog changes without a proposal naming them (design D8).
-// The CI pin files are not release files; see PIN_LINE_FILES (ADR 0027).
+// The CI pin file is not a release file; see PIN_LINE_FILES (ADR 0027, ADR 0030).
 export const RELEASE_FILE = /^(plugins\/[^/]+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/marketplace\.json|CHANGELOG\.md|docs\/catalog\.md)$/;
 // The file whose CI pins a release renumbers (delivery-train D-10). The same path as release-merge.mjs's PIN_FILE, written here
 // because release-merge.mjs imports this file and the CI job downloads neither; a test holds the two equal.
 export const TRAIN_PIN_FILE = 'docs/openspec-flow.md';
 
 // The changed paths that no approved proposal names exactly (AC-3):
-// no directory, prefix or glob matching. The one exception by content (ADR 0027): a pin file passes
+// no directory, prefix or glob matching. The one exception by content (ADR 0027, ADR 0030): the pin file passes
 // when `texts[path]` ({ before, after }) shows only its CI pin lines changed (pinLinesOnly).
 export function unnamedFiles(paths, proposals, texts = {}) {
   const named = new Set(proposals.filter((p) => p.answer === 'approved').flatMap((p) => p.targets.map(normalizePath)));

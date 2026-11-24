@@ -6,8 +6,11 @@
 - Change: archive-release-pin
 - Amends: ADR 0003 (0003-auto-merge-the-archive-pr.md), the exemption list in its Decision (the files an archive PR may change without an owner-approved retro proposal naming them)
 - Builds on: ADR 0002 (0002-merge-without-the-owner-opt-in.md), ADR 0012 (0012-the-reviews-check-follows-the-change-script.md), ADR 0018 (0018-the-delivery-model-is-chosen-per-project.md), ADR 0019 (0019-the-delivery-loop-tags-the-release-it-merged.md); changes none of them
+- Amended by ADR 0030 (0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md)
 
 ## Context
+
+Note (archive-release-pin, 2026-11-24): ADR 0030 amends Decision 1 and Decision 2 for `plugins/openspec/hooks/change-loop-compozy.test.mjs`: the test that held the pin block reads the version from the manifest, no release edits the file, and only `docs/openspec-flow.md` passes the archive check by its content. The rest of the Decision is unchanged.
 
 ADR 0003 lets GitHub auto-merge an archive PR with no code review, under one file rule: every
 changed file must be named by a retro proposal the owner approved, except `openspec/changes/**`,

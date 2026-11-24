@@ -145,7 +145,7 @@ step re-takes the next number on `origin/main`. ADR 0030 is not edited by any ta
 is the delivery train's run, not a local one: phase 4's gate is filtered runs only. Every command
 runs from the worktree with `TMPDIR=/var/tmp/devkit-archive-release-pin`.
 
-- [ ] 4.1 Tests first (AC-1 to AC-8, AC-10). Confirm
+- [x] 4.1 Tests first (AC-1 to AC-8, AC-10). Confirm
   `docs/adr/0030-the-pin-test-reads-the-manifest-so-only-the-flow-page-pins-pass-unnamed.md` holds
   `- Status: accepted` (set by `accept-decisions`; stop and report if not). In
   `plugins/openspec/hooks/deliver-check-archive.test.mjs`, flip tests `archive-release-pin 3` to `8`
@@ -161,7 +161,7 @@ runs from the worktree with `TMPDIR=/var/tmp/devkit-archive-release-pin`.
   column names (11 on the first missing document text, 12 on the first version literal of the pin
   block), and tests 1, 2, 4 and 9 pass. A different result is settled in this task, before 4.2.
   `git status --short` lists only the two test files and `proof/red-4.txt`.
-- [ ] 4.2 Code and fixtures (AC-3, AC-5, AC-6, AC-10). In `plugins/openspec/hooks/deliver-check.mjs`,
+- [x] 4.2 Code and fixtures (AC-3, AC-5, AC-6, AC-10). In `plugins/openspec/hooks/deliver-check.mjs`,
   apply D-2 amended: `PIN_LINE_FILES` holds only `docs/openspec-flow.md`, `PIN_TEST_LINES` and the
   test-file branch of `pinLinesOnly` are deleted, and the three comments change as written there.
   Run `git rm -q plugins/openspec/hooks/fixtures/c561553/change-loop.test.before.txt plugins/openspec/hooks/fixtures/c561553/change-loop.test.after.txt`.
@@ -169,14 +169,14 @@ runs from the worktree with `TMPDIR=/var/tmp/devkit-archive-release-pin`.
   prints nothing; `git ls-files plugins/openspec/hooks/fixtures/c561553` lists only
   `openspec-flow.after.txt` and `openspec-flow.before.txt`; and the run of 4.1 now passes tests 1 to
   10, with tests 11 (the documents, task 4.4) and 12 (the pin block, task 4.3) still failing.
-- [ ] 4.3 The pin block (AC-4). In `plugins/openspec/hooks/change-loop-compozy.test.mjs`, delete the 29
+- [x] 4.3 The pin block (AC-4). In `plugins/openspec/hooks/change-loop-compozy.test.mjs`, delete the 29
   lines D-12 names (from `  // Invariant: the CI snippet pins the current release` through the
   `assert.doesNotMatch(flow, /v0\.21\.0/, ...)` line) and nothing else. Check:
   `git diff -U0 34e3500 -- plugins/openspec/hooks/change-loop-compozy.test.mjs` shows 29 removed
   lines and no added line; and
   `env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^archive-release-pin 12:" --test-name-pattern="^change-loop docs: the design records the answers$" --test-name-pattern="^release-merge-conflict 15:" plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs`
   passes.
-- [ ] 4.4 Documents, ADR lines, config and CHANGELOG (AC-8). Apply D-8 amended: the Classification
+- [x] 4.4 Documents, ADR lines, config and CHANGELOG (AC-8). Apply D-8 amended: the Classification
   bullet, the P13 row and the file-check paragraph of `docs/openspec-flow.md`; the `- Amended by ADR
   0030 (...)` line and the replaced archive-release-pin Note of
   `docs/adr/0003-auto-merge-the-archive-pr.md`; the `- Amended by ADR 0030 (...)` line and the dated
@@ -190,7 +190,7 @@ runs from the worktree with `TMPDIR=/var/tmp/devkit-archive-release-pin`.
   `git grep -n "change-loop-compozy.test.mjs" -- docs/openspec-flow.md docs/adr/0003-auto-merge-the-archive-pr.md`
   prints nothing;
   and `python3 scripts/check.py` passes (language and links).
-- [ ] 4.5 Real-run proof (AC-9). Run cases A1 to A6 of D-10 amended in
+- [x] 4.5 Real-run proof (AC-9). Run cases A1 to A6 of D-10 amended in
   `/var/tmp/devkit-archive-release-pin/proof-repo-amended` (never in the worktree; A6 in the
   worktree). Record the build commands, each run's command, exit code and `archive.unnamed` (A6: the
   test result and the two counts) in `openspec/changes/archive-release-pin/proof/real-run-amended.txt`,
@@ -199,7 +199,7 @@ runs from the worktree with `TMPDIR=/var/tmp/devkit-archive-release-pin`.
   "Expected" column of D-10 amended; `git status --short` shows
   `openspec/changes/archive-release-pin/proof/real-run-amended.txt` as the only new file of this
   task.
-- [ ] 4.6 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^unnamedFiles" --test-name-pattern="^P13" --test-name-pattern="^--ci on an archive branch" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^release-merge" --test-name-pattern="^conduct pin" --test-name-pattern="^change-loop docs: the design records the answers$" --test-name-pattern="^version-pin " --test-name-pattern="^ADR 0003 exists" --test-name-pattern="^delivery-models docs: the documents follow" --test-name-pattern="^upfront ADR 0021" --test-name-pattern="^release-tags 4:" plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/release-tags.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate archive-release-pin --strict` green; covers AC-1 to AC-8 and AC-10 on the amended code, documents and pin test. The whole suite runs on the delivery train's joined head, not here.
+- [x] 4.6 Gate: `mkdir -p /var/tmp/devkit-archive-release-pin && env TMPDIR=/var/tmp/devkit-archive-release-pin GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node scripts/test-suite.mjs --concurrency=2 --test-name-pattern="^archive-release-pin " --test-name-pattern="^release list" --test-name-pattern="^unnamedFiles" --test-name-pattern="^P13" --test-name-pattern="^--ci on an archive branch" --test-name-pattern="^the pin in docs/openspec-flow.md" --test-name-pattern="^release-merge" --test-name-pattern="^conduct pin" --test-name-pattern="^change-loop docs: the design records the answers$" --test-name-pattern="^version-pin " --test-name-pattern="^ADR 0003 exists" --test-name-pattern="^delivery-models docs: the documents follow" --test-name-pattern="^upfront ADR 0021" --test-name-pattern="^release-tags 4:" plugins/openspec/hooks/deliver-check-archive.test.mjs plugins/openspec/hooks/deliver-check-cli.test.mjs plugins/openspec/hooks/release-merge.test.mjs plugins/openspec/hooks/conduct-check.test.mjs plugins/openspec/hooks/change-loop-compozy.test.mjs plugins/openspec/hooks/version-pin.test.mjs plugins/openspec/hooks/guard.test.mjs plugins/openspec/hooks/delivery-models.test.mjs plugins/openspec/hooks/roadmap-loop-upfront.test.mjs plugins/openspec/hooks/release-tags.test.mjs && python3 scripts/check.py && python3 scripts/gen-catalog.py --check && command claude plugin validate . && openspec validate archive-release-pin --strict` green; covers AC-1 to AC-8 and AC-10 on the amended code, documents and pin test. The whole suite runs on the delivery train's joined head, not here.
 
 ## Workflow follow-up
 
