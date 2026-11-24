@@ -23,7 +23,6 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
 | AC-2 | `tmpdir-honoured-when-it-fits` | 1.2, 1.3, 1.4, 3.2 |
 | AC-3 | `short-root-when-it-does-not-fit` | 1.2, 1.3, 3.1 |
 | AC-4 | `regression-test-pins-the-limit` | 1.2, 1.3, 1.4, 3.3, 3.4 |
-| AC-5 | `ci-stays-green` | 3.2 |
 | AC-6 | `contributing-states-the-rule` | 2.1 |
 
 ## 1. The run root (phase 1)
@@ -81,7 +80,7 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
   line, which names `TMPDIR` and the byte reason; the three files that call `fakeCompozy(...).daemon(t)`
   (`compozy-driver.test.mjs`, `change-loop-compozy.test.mjs`, `roadmap-loop-followups.test.mjs`) are `pass`;
   `/private/tmp` holds no `devkit-suite-*` folder from this run afterwards.
-- [x] 3.2 AC-2 and AC-5 with a `TMPDIR` that fits. First, `mkdir -p /var/tmp/devkit-socket-path`, then
+- [x] 3.2 AC-2, and the CI proxy of the Workflow follow-up, with a `TMPDIR` that fits. First, `mkdir -p /var/tmp/devkit-socket-path`, then
   `env TMPDIR=/var/tmp/devkit-socket-path node scripts/test-suite.mjs plugins/openspec/hooks/test-suite.test.mjs`.
   Check: exit 0; no `run root:` line. The other branch of `runParent` is exercised and passes there, because the file's own `TMPDIR` is
   58 bytes. Then the CI-like run of the whole suite:
@@ -102,7 +101,7 @@ suite running. Check the free disk space (`df -h /`) before each whole-suite run
 
 ## Workflow follow-up
 
-- CI's `check` job (its `Test suite` step) passes on the pull request, the AC-5 observation on Linux;
+- CI's `check` job (its `Test suite` step) passes on the pull request, the CI observation on Linux (a Workflow follow-up, not a criterion);
   the evidence cites the run.
 - After the merge, `deliver-check` answers `tag-release` and the session tags the new devkit-openspec
   version on the merge commit (CONTRIBUTING.md, ADR 0019).

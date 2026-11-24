@@ -29,8 +29,9 @@ Observed on main 6373424 with the default macOS TMPDIR (`/var/folders/b1/<30 cha
 - AC-2 `tmpdir-honoured-when-it-fits`: with `env TMPDIR=<path>` whose run root fits (at most 71 bytes as a real path), the run root is made under that path, as today, and no fallback line is printed.
 - AC-3 `short-root-when-it-does-not-fit`: under a TMPDIR whose run root would not fit (the default macOS one), the run root is made under the short real path, the script prints one line naming where and why, each file's TMPDIR is still an empty real path under that root, a file that leaves anything there still fails the run with the file's name, and the run root is removed at the end.
 - AC-4 `regression-test-pins-the-limit`: a test in `plugins/openspec/hooks/test-suite.test.mjs` runs the script with a TMPDIR whose real path is at least 56 bytes (the default macOS one) and asserts that the per-file TMPDIR a child sees is at most 71 bytes; the test fails on the script as it is before this change and passes after it. The existing tests of the leftover check and of the symlinked TMPDIR keep passing.
-- AC-5 `ci-stays-green`: CI's `Test suite` step passes on the pull request (Linux, `/tmp`), where TMPDIR fits and the fallback is never taken.
 - AC-6 `contributing-states-the-rule`: the testing paragraph of `CONTRIBUTING.md` states that the run root is a short real path because a Unix socket path holds 104 bytes on macOS, that the environment's TMPDIR is used when it fits, and that a test that binds a socket does so under its TMPDIR.
+
+CI's `Test suite` step passing on the pull request (Linux, `/tmp`, where TMPDIR fits and the fallback is never taken) is the plan's Workflow follow-up in `tasks.md`, not a criterion: nothing before the pull request exists can prove it (it was the fifth criterion until the delivery check held the change on it; the CI-like local run of AC-2 is its proxy).
 
 ## Answered by triage
 
