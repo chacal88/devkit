@@ -106,7 +106,7 @@ the tree, and end every task with `git status --short`.
   `git grep -n "never fetches (run" -- docs/openspec-flow.md` prints nothing; and
   `node --test --test-concurrency=1 --test-name-pattern="^format: ship-change" --test-name-pattern="^change-loop skill" --test-name-pattern="^change-loop docs" plugins/openspec/hooks/change-loop.test.mjs`
   passes (D-9).
-- [ ] 2.4 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^fresh-base-check " --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" --test-name-pattern="^format: ship-change" plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py` green; covers AC-2 (roadmap), AC-6 and AC-7.
+- [x] 2.4 Gate: `mkdir -p /var/tmp/devkit-fbc && env TMPDIR=/var/tmp/devkit-fbc GITHUB_HEAD_REF=probe-branch GITHUB_BASE_REF=main node --test --test-concurrency=1 --test-name-pattern="^fresh-base-check " --test-name-pattern="^roadmap-loop" --test-name-pattern="^change-loop" --test-name-pattern="^format: ship-change" plugins/openspec/hooks/roadmap-loop.test.mjs && python3 scripts/check.py` green; covers AC-2 (roadmap), AC-6 and AC-7.
 
 ## 3. Release and the whole suite (AC-1 to AC-7)
 
