@@ -1,12 +1,12 @@
-// Tests for gh-version.mjs (gh-version-check, H-6). Imported by hooks/guard.test.mjs so that
-// `node --test plugins/openspec/hooks/guard.test.mjs` runs this file too.
+// Tests for gh-version.mjs (gh-version-check, H-6). Run by `node scripts/test-suite.mjs`, in a process of its own; alone:
+// `node scripts/test-suite.mjs plugins/openspec/skills/openspec-setup/scripts/gh-version.test.mjs`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { fakeGh } from '../../../hooks/deliver-check.test.mjs';
+import { fakeGh } from '../../../hooks/test-fixtures.mjs';
 import { tmpFolder } from '../../../hooks/test-tmp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
