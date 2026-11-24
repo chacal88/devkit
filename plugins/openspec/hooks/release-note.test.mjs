@@ -437,6 +437,48 @@ test('release-note AC-7 citation: once the cited ADR landed on the base, the ste
   assert.ok(r.out.citations.includes('docs/y.md'));
 });
 
+// Found by the dogfood (task 8.1): the change's own tests write `ADR [x]` fixtures as string literals, and the step refused them as
+// unlanded citations. A citation is read only in a Markdown or YAML file (and the note's changelog title and body); a source file never
+// holds one, so the scan, the "still cited" check and the rewrite all leave it alone.
+const FIXTURE_SRC = "const a = 'Amends ADR [other].';\nconst b = 'ADR [feat] in docs/adr/feat.md';\n";
+
+test('release-note AC-7 citation: an ADR [x] literal in a changed .mjs file is neither cited nor rewritten', () => {
+  const root = noteRepo({ extra: { 'plugins/openspec/hooks/x.test.mjs': FIXTURE_SRC } });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'plugins/openspec/hooks/x.test.mjs'), FIXTURE_SRC);
+  assert.ok(!r.out.citations.includes('plugins/openspec/hooks/x.test.mjs'));
+  assert.equal(readIn(root, 'docs/x.md'), 'See ADR 0002 for the rule.\n', 'the Markdown citation is still rewritten');
+  assert.deepEqual([stateOf(root).kind, stateOf(root).paths], ['assigned', []], 'the literal left in the source file is not a citation still standing');
+});
+
+test('release-note AC-7 citation: the same token in a changed .md file is refused while unlanded and rewritten once landed, the .mjs literal never', () => {
+  const extra = { 'plugins/openspec/hooks/x.test.mjs': FIXTURE_SRC, 'docs/y.md': 'Amends ADR [other].\n' };
+  const root = noteRepo({ extra });
+  const refused = assignIn(root);
+  assert.equal(refused.code, 2, refused.text);
+  assert.match(refused.out.error, /^ADR \[other\] is cited but has not landed on main/);
+  baseReleases(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+  const r = assignIn(root);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(readIn(root, 'docs/y.md'), 'Amends ADR 0002.\n');
+  assert.equal(readIn(root, 'plugins/openspec/hooks/x.test.mjs'), FIXTURE_SRC);
+});
+
+for (const path of ['config/x.yaml', 'config/x.yml']) {
+  test(`release-note AC-7 citation: a citation in a changed ${path.slice(path.lastIndexOf('.'))} file is cited, refused while unlanded and rewritten once landed`, () => {
+    const root = noteRepo({ extra: { [path]: 'rule: ADR [other]\n' } });
+    const refused = assignIn(root);
+    assert.equal(refused.code, 2, refused.text);
+    assert.match(refused.out.error, /^ADR \[other\] is cited but has not landed on main/);
+    baseReleases(root, { 'docs/adr/0002-other.md': '# ADR 0002: other\n' });
+    const r = assignIn(root);
+    assert.equal(r.code, 0, r.text);
+    assert.equal(readIn(root, path), 'rule: ADR 0002\n');
+    assert.ok(r.out.citations.includes(path));
+  });
+}
+
 // Found by the real-run proof (task 6.2, P-1): the step rewrites the citations in every tracked text outside openspec/changes/, CHANGELOG.md
 // included, so a changelog body that cites an ADR is written numbered and the state must read it so.
 test('release-note AC-2 state: a changelog body that cites the change\'s own ADR is assigned after the step, and the step runs again after the base moved', () => {

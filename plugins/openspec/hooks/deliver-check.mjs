@@ -27,6 +27,12 @@ const CONFIG = 'openspec/config.yaml';
 // and change-loop.mjs, release-at-merge D-2).
 export const ADR_DIRS = ['docs/adr', 'docs/decisions'];
 export const ADR_LINES = /^[ \t]*(?:[-*][ \t]+)?ADR:[ \t]*`([^`\n]+)`/gm;
+// The files that hold an ADR citation (`ADR [<slug>]`, `<slug>.md` and their numbered forms): the tracked Markdown and YAML files outside
+// openspec/changes/. A source or test file never holds one, so its literals are not cited, not "still cited" and never rewritten; the scan
+// (citationsOf), the "still cited" check (citedAt) and the rewrite of the step and the join all read this one rule.
+const CITATION_EXTENSIONS = ['md', 'yaml', 'yml'];
+export const CITATION_PATHSPEC = [...CITATION_EXTENSIONS.map((ext) => `*.${ext}`), ':(exclude)openspec/changes'];
+export const holdsCitations = (path) => !path.startsWith('openspec/changes/') && CITATION_EXTENSIONS.some((ext) => path.endsWith(`.${ext}`));
 
 export class ShipConfigError extends Error {
   constructor(message) {
@@ -2001,9 +2007,9 @@ function linesOf(read, packPaths, file) {
   return out;
 }
 
-// Whether `ADR [<slug>]` remains in a tracked text outside openspec/changes/ at `rev`.
+// Whether `ADR [<slug>]` remains in a file that holds citations (CITATION_PATHSPEC) at `rev`.
 function citedAt(root, rev, slug) {
-  const r = spawnSync('git', ['-C', root, 'grep', '-I', '-q', '-F', '-e', `ADR [${slug}]`, rev, '--', '.', ':(exclude)openspec/changes'], { stdio: 'ignore' });
+  const r = spawnSync('git', ['-C', root, 'grep', '-I', '-q', '-F', '-e', `ADR [${slug}]`, rev, '--', ...CITATION_PATHSPEC], { stdio: 'ignore' });
   return r.status === 0;
 }
 
@@ -2016,10 +2022,11 @@ function adrValue(root, reader, head, adr) {
   return `other:${unnumbered ? adr.from : ''}${numbered.join(',')}`;
 }
 
-// The `ADR [<x>]` citations of the branch's changed files and of the note's changelog title and body (the step writes them into
-// CHANGELOG.md) for a slug `x` that is not `own`: { cited, unlanded }; a citation is unlanded when no `<dir>/<NNNN>-<x>.md` is on `tip`.
+// The `ADR [<x>]` citations of the branch's changed files that hold citations (holdsCitations) and of the note's changelog title and body
+// (the step writes them into CHANGELOG.md) for a slug `x` that is not `own`: { cited, unlanded }; a citation is unlanded when no
+// `<dir>/<NNNN>-<x>.md` is on `tip`.
 function citationsOf(root, reader, { mergeBase, head, tip, own, noteText = '' }) {
-  const changed = spawnSync('git', ['-C', root, 'diff', '--name-only', '-z', '--no-renames', mergeBase, head], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout.split('\0').filter((p) => p && !p.startsWith('openspec/changes/'));
+  const changed = spawnSync('git', ['-C', root, 'diff', '--name-only', '-z', '--no-renames', mergeBase, head], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout.split('\0').filter((p) => p && holdsCitations(p));
   const cited = [];
   const texts = [...changed.map((path) => reader.file(head, path) ?? ''), noteText];
   for (const text of texts) for (const m of text.matchAll(/ADR \[([A-Za-z0-9][A-Za-z0-9._-]*)\]/g)) if (!own.has(m[1]) && !cited.includes(m[1])) cited.push(m[1]);

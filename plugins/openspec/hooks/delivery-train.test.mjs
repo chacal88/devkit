@@ -487,6 +487,29 @@ test('release-note AC-7 join: a citation of an ADR an earlier join of the train 
   assert.equal(read(root, 'docs/beta.md'), 'Amends ADR 0001.\n');
 });
 
+// Found by the dogfood (task 8.1): a citation lives only in a Markdown or YAML file, so the join neither gives back nor renumbers an
+// `ADR <NNNN>` or `ADR [<x>]` literal in a source file.
+test('release-note AC-7 join: a head numbered before the train is renumbered in its Markdown citations, and its source literals stay as written', () => {
+  const src = "const a = 'ADR 0001';\nconst b = 'ADR [beta] in docs/adr/beta.md';\n";
+  const { root, heads } = notedJoinRepo({
+    alpha: { 'openspec/changes/alpha/release.md': 'packs: []\n', ...unnumberedAdr('alpha') },
+    beta: {
+      'openspec/changes/beta/release.md': 'packs: []\n',
+      'openspec/changes/beta/decisions.md': '# Decisions\n\n- ADR: `docs/adr/beta.md`\n',
+      'docs/adr/0001-beta.md': '# ADR 0001: beta\n',
+      'docs/beta.md': 'See ADR 0001 (adr/0001-beta.md).\n',
+      'src/beta.test.mjs': src,
+    },
+  });
+  for (const id of ['alpha', 'beta']) {
+    const r = run(root, '--merge', heads[id], '--json');
+    assert.equal(r.code, 0, `${id}: ${r.stderr}${r.stdout}`);
+  }
+  assert.equal(read(root, 'docs/adr/0002-beta.md'), '# ADR 0002: beta\n');
+  assert.equal(read(root, 'docs/beta.md'), 'See ADR 0002 (adr/0002-beta.md).\n');
+  assert.equal(read(root, 'src/beta.test.mjs'), src);
+});
+
 // ---------------------------------------------------------------- the roadmap tick (P7)
 
 test('delivery-train roadmap: two neighbouring ticks of the change are written onto the base', () => {

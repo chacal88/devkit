@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, maskRelease, releaseStateAt, releaseTagOf, withReleaseVersion } from './deliver-check.mjs';
+import { RELEASE_FILE, pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, withoutVersions, PIN_FILE, PIN_PACK, PIN_PACK_NAME, ADR_DIRS, RELEASE_NOTE, ShipConfigError, parseReleaseNote, repoReader, computeRelease, changeAdrs, maskRelease, releaseStateAt, releaseTagOf, withReleaseVersion, CITATION_PATHSPEC, holdsCitations } from './deliver-check.mjs';
 // The pin definition (ADR 0027) and the helpers every consumer CI needs live in deliver-check.mjs, which it downloads alone (release-at-merge D-3a);
 // each name stays importable from here as the same object.
 export { pinsIn, setPins, ReleaseError, bumpKind, applyBump, resolveManifest, PIN_FILE, PIN_PACK, PIN_PACK_NAME };
@@ -361,8 +361,9 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
       const numbered = reader.dir(side, a.folder).filter((n) => new RegExp(`^\\d{4}-${escapeRe(a.slug)}\\.md$`).test(n));
       return numbered.length === 1 ? [{ ...a, number: numbered[0].slice(0, 4), path: `${a.folder}/${numbered[0]}` }] : [];
     });
-    // D-5's mask on a path that is neither a manifest nor the pin file: the side's ADR numbers back to their citations, nothing else.
-    const unassign = (text) => maskRelease(text, '', { adrs: own, file: null });
+    // D-5's mask on a path that is neither a manifest nor the pin file: the side's ADR numbers back to their citations, nothing else, and only
+    // in a file that holds citations (holdsCitations): the step never numbered a source file's literal, so the join does not give it back.
+    const unassign = (path, text) => (holdsCitations(path) ? maskRelease(text, '', { adrs: own, file: null }) : text);
     const masked = new Map();
     const blocking = [];
     if (needsMerge) {
@@ -371,8 +372,8 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
       for (const path of listPaths(root, ['diff', '--name-only', '--no-renames', mergeBase, side])) {
         if (path.startsWith('openspec/changes/') || RELEASE_FILE.test(path) || path === file || ownPaths.has(path)) continue;
         const mine = show(root, side, path);
-        if (mine === null || (unassign(mine) === mine && !(path === PIN_FILE && targetPin !== null && conflicts.includes(path)))) continue;
-        const merged = mergeTexts(pinMask(path, show(root, mergeBase, path) ?? ''), pinMask(path, unassign(mine)), pinMask(path, show(root, target, path) ?? ''), 'devkit-release-');
+        if (mine === null || (unassign(path, mine) === mine && !(path === PIN_FILE && targetPin !== null && conflicts.includes(path)))) continue;
+        const merged = mergeTexts(pinMask(path, show(root, mergeBase, path) ?? ''), pinMask(path, unassign(path, mine)), pinMask(path, show(root, target, path) ?? ''), 'devkit-release-');
         if (merged === null) blocking.push(path);
         else masked.set(path, merged);
       }
@@ -409,7 +410,7 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
       for (const [path, text] of masked) writeStaged(root, touched, path, text);
       if (roadmapMerged !== null) writeStaged(root, touched, ROADMAP_FILE, roadmapMerged);
       for (const a of own) {
-        const text = unassign(readFileSync(join(root, a.path), 'utf8'));
+        const text = unassign(a.path, readFileSync(join(root, a.path), 'utf8'));
         touched.push(a.path, a.from);
         gitOut(root, ['mv', '-f', a.path, a.from]);
         writeStaged(root, touched, a.from, text);
@@ -451,7 +452,8 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
       gitOut(root, ['mv', a.from, a.to]);
       writeStaged(root, touched, a.to, rewriteCitations(readFileSync(join(root, a.to), 'utf8'), a.slug, a.number));
     }
-    // The citations, in every tracked text file outside openspec/changes/: the change's own ADRs and those it cites that the target numbered.
+    // The citations, in every tracked file that holds citations (CITATION_PATHSPEC): the change's own ADRs and those it cites that the target
+    // numbered.
     const numbers = new Map(computed.adrs.map((a) => [a.slug, a.number]));
     for (const slug of state.citations.cited) {
       const n = landedNumber(reader, target, slug);
@@ -460,7 +462,7 @@ export function numberRelease(root, { side, target, id, file, merging = false, l
     const citations = [];
     if (numbers.size) {
       const patterns = [...numbers.keys()].flatMap((slug) => ['-e', `ADR [${slug}]`, '-e', `${slug}.md`]);
-      const hits = spawnSync('git', ['-C', root, 'grep', '-I', '-l', '-z', '-F', ...patterns, '--', '.', ':(exclude)openspec/changes'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      const hits = spawnSync('git', ['-C', root, 'grep', '-I', '-l', '-z', '-F', ...patterns, '--', ...CITATION_PATHSPEC], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
       if (hits.status !== 0 && hits.status !== 1) throw new ReleaseError(`git grep failed: ${(hits.stderr ?? '').trim()}`);
       const renamed = new Set(computed.adrs.map((a) => a.to));
       for (const path of (hits.stdout ?? '').split('\0').filter(Boolean)) {
