@@ -13,6 +13,14 @@
 - Docs: ADR 0029, with Notes in ADRs 0015 and 0020; the flow doc, the coordination design and the
   pack's README say it.
 
+## 0.43.1 — a change's own pull request may edit another change's archive
+
+- **devkit-openspec** 0.39.1: `deliver-check` counts a merged pull request as the change's own when it
+  also edits another change's archived files; only a file in the change's own archive folder
+  (`openspec/changes/archive/<date>-<id>/`) refuses it, so `/devkit change` finds such a pull request
+  after its merge instead of asking to open it again. The CI snippet now pins `v0.39.1`, the
+  release's tag.
+
 ## 0.43.0 — a merge of the base stales only the change's own files
 
 - **devkit-openspec** 0.39.0: the delivery checker, the stage checker and `deliver-check --ci` judge a
